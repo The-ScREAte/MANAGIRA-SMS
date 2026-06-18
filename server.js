@@ -53,6 +53,12 @@ const {
 } = require("./utils/activityLog");
 const { ensureNicknameDisplaySchema } = require("./utils/nicknameDisplaySchema");
 const { hydrateOrganizationSession } = require("./utils/sessionContext");
+const {
+  ensureOrganizationDisplayPreferencesSchema,
+  getSessionDisplayPreferences,
+  formatDisplayName,
+  formatDisplayDate,
+} = require("./utils/organizationDisplayPreferences");
 
 // **Dynamic BASE_URL Logic**
 const BASE_URL =
@@ -69,6 +75,10 @@ ensureOrganizationActivityLogSchema(db).catch((error) => {
 
 ensureNicknameDisplaySchema(db).catch((error) => {
   console.error("[NicknameDisplay] Failed to initialize schema:", error.message || error);
+});
+
+ensureOrganizationDisplayPreferencesSchema(db).catch((error) => {
+  console.error("[DisplayPreferences] Failed to initialize schema:", error.message || error);
 });
 
 const SUBDOMAIN_CACHE_TTL_MS = Number(process.env.SUBDOMAIN_CACHE_TTL_MS) || 2 * 60 * 1000;
@@ -551,6 +561,13 @@ app.use((req, res, next) => {
   res.locals.compactUi = !isExcluded;
   res.locals.compactTables = !isExcluded;
 
+  const displayPreferences = getSessionDisplayPreferences(req.session || {});
+  res.locals.displayPreferences = displayPreferences;
+  res.locals.formatDisplayName = (person = {}) =>
+    formatDisplayName(person, displayPreferences.nameDisplayFormat);
+  res.locals.formatDisplayDate = (value) =>
+    formatDisplayDate(value, displayPreferences.dateDisplayFormat);
+
   next();
 });
 
@@ -564,6 +581,16 @@ app.use(async (req, res, next) => {
   } catch (error) {
     console.error("[sessionContext] Failed to hydrate organization session:", error.message || error);
   }
+  next();
+});
+
+app.use((req, res, next) => {
+  const displayPreferences = getSessionDisplayPreferences(req.session || {});
+  res.locals.displayPreferences = displayPreferences;
+  res.locals.formatDisplayName = (person = {}) =>
+    formatDisplayName(person, displayPreferences.nameDisplayFormat);
+  res.locals.formatDisplayDate = (value) =>
+    formatDisplayDate(value, displayPreferences.dateDisplayFormat);
   next();
 });
 

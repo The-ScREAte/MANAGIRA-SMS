@@ -1,4 +1,8 @@
 const db = require("../config/db");
+const {
+  ensureOrganizationDisplayPreferencesSchema,
+  applyDisplayPreferencesToSession,
+} = require("./organizationDisplayPreferences");
 
 async function hydrateOrganizationSession(req) {
   if (!req || !req.session) {
@@ -14,9 +18,12 @@ async function hydrateOrganizationSession(req) {
     return false;
   }
 
+  await ensureOrganizationDisplayPreferencesSchema(db);
+
   const result = await db.query(
     `SELECT u.user_id, u.organization_id, u.account_type, u.first_name, u.last_name, u.profile_image_url,
-            o.organization_name, o.logo, o.font_style, o.theme_color
+            o.organization_name, o.logo, o.font_style, o.theme_color,
+            o.name_display_format, o.date_display_format
        FROM users u
        LEFT JOIN organizations o ON o.organization_id = u.organization_id
       WHERE u.user_id = $1
@@ -44,6 +51,7 @@ async function hydrateOrganizationSession(req) {
   req.session.logo = user.logo || req.session.logo || null;
   req.session.fontStyle = user.font_style || req.session.fontStyle || null;
   req.session.themeColor = user.theme_color || req.session.themeColor || "teal";
+  applyDisplayPreferencesToSession(req.session, user);
 
   return true;
 }

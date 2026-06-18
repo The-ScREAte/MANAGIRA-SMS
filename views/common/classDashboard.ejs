@@ -13,7 +13,9 @@
   const currentTheme = themeColors[themeColor] || themeColors.teal;
   const workspaceStudents = (students || []).map((student) => ({
     id: student.student_id,
-    name: `${student.first_name} ${student.last_name}`,
+    name: (typeof formatDisplayName === 'function'
+      ? formatDisplayName(student)
+      : `${student.first_name} ${student.last_name}`),
     firstName: student.first_name,
     lastName: student.last_name,
   }));
@@ -3032,8 +3034,8 @@ main {
                 <div class="overview-split">
                   <div class="section-card students-overview-section">
                     <% const sortedOverviewStudents = (students || []).slice().sort(function(a, b) {
-                      const nameA = [a.first_name, a.last_name].filter(Boolean).join(' ').trim();
-                      const nameB = [b.first_name, b.last_name].filter(Boolean).join(' ').trim();
+                      const nameA = (typeof formatDisplayName === 'function' ? formatDisplayName(a) : [a.first_name, a.last_name].filter(Boolean).join(' ').trim());
+                      const nameB = (typeof formatDisplayName === 'function' ? formatDisplayName(b) : [b.first_name, b.last_name].filter(Boolean).join(' ').trim());
                       return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' });
                     }); %>
                     <div class="section-header-row">
@@ -3047,7 +3049,7 @@ main {
                     <ul class="students-numbered-list" id="classDashboardStudentsList">
                       <% if (students.length > 0) { %>
                         <% sortedOverviewStudents.forEach(function(student, i) { %>
-                          <% const studentFullName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim(); %>
+                          <% const studentFullName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
                           <li data-student-name="<%= studentFullName.toLowerCase() %>">
                             <button class="student-row" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
                               <span class="student-index"><%= i + 1 %></span>
@@ -3142,9 +3144,10 @@ main {
               <div class="workspace-resource-grid">
                 <% if (students.length > 0) { %>
                   <% students.forEach(function(student) { %>
+                    <% const workspaceStudentName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
                     <button class="workspace-resource-button" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
                       <span class="workspace-resource-text">
-                        <strong><%= student.first_name %> <%= student.last_name %></strong>
+                        <strong><%= workspaceStudentName %></strong>
                         <span>Open student record</span>
                       </span>
                       <span class="workspace-resource-arrow">›</span>

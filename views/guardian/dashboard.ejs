@@ -675,17 +675,18 @@
       <h1 class="guardian-name">Hello, <%= guardian.first_name %> <%= guardian.last_name || '' %>!</h1>
       <p class="guardian-subtitle">Welcome to your Parent Portal Dashboard</p>
       
+      <% const guardianDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
       <div class="guardian-info-grid">
         <div class="guardian-info-item">
           <div class="guardian-info-label">Email</div>
           <div class="guardian-info-value"><%= guardian.email || guardian.login_email || 'Not provided' %></div>
         </div>
-        <div class="guardian-info-item">
+            alt="<%= guardianDisplayName %>"
           <div class="guardian-info-label">Phone</div>
           <div class="guardian-info-value"><%= guardian.phone || 'Not provided' %></div>
         </div>
         <div class="guardian-info-item">
-          <div class="guardian-info-label">Address</div>
+          <h1 class="guardian-name">Hello, <%= guardianDisplayName %>!</h1>
           <div class="guardian-info-value"><%= guardian.address || 'Not provided' %></div>
         </div>
         <div class="guardian-info-item">
@@ -743,15 +744,16 @@
                   <p class="child-student-id">ID: <%= child.display_student_id %></p>
                 <% } %>
                 <div>
+              <% const childDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(child) : [child.first_name, child.last_name].filter(Boolean).join(' ').trim()); %>
                   <span class="class-badge"><%= child.class_name || 'No class assigned' %></span>
                   <% if (child.status === 'pending') { %>
                     <span class="pending-badge">⏳ Pending Approval</span>
                   <% } %>
-                </div>
+                    alt="<%= childDisplayName %>"
               </div>
             </div>
 
-            <% if (child.status === 'pending') { %>
+                    <h3><%= childDisplayName %></h3>
               <div class="view-progress-btn disabled">
                 🔒 Awaiting School Approval
               </div>
@@ -763,7 +765,7 @@
                   ❌ Withdraw
                 </button>
               </div>
-            <% } else { %>
+                    <button onclick="withdrawApplication(<%= child.pending_id %>, '<%= childDisplayName.replace(/'/g, "\\'") %>')" class="withdraw-btn">
               <a 
                 class="view-progress-btn"
                 href="/guardian/academic-details?studentId=<%= child.student_id || child.pending_id %>&termId=<%= currentTermId || '' %>">

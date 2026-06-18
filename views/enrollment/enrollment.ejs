@@ -486,17 +486,14 @@
         (data.results || [])
           .filter((user) => user.type === "student")
           .forEach((student) => {
+            const studentDisplayName = escapeHtml(student.display_name || [student.first_name, student.last_name].filter(Boolean).join(' ').trim());
             const studentElement = document.createElement("div");
             studentElement.classList.add("search-result-container");
             studentElement.innerHTML = `
-            <span>${escapeHtml(student.first_name)} ${escapeHtml(
-              student.last_name
-            )} (Will be added to ${escapeHtml(student.class_name)})</span>
+            <span>${studentDisplayName} (Will be added to ${escapeHtml(student.class_name)})</span>
             <button type="button" onclick="addStudentToClass('${classId}', ${
               student.id
-            }, '${escapeHtml(student.first_name)} ${escapeHtml(
-              student.last_name
-            )} (${escapeHtml(student.class_name)})')">
+            }, '${studentDisplayName} (${escapeHtml(student.class_name)})')">
               ➕ Add
             </button>`;
             resultsContainer.appendChild(studentElement);

@@ -460,7 +460,7 @@
             }
           %>
           <div class="student-heading-row">
-            <h2><%= student.first_name %> <%= student.last_name %></h2>
+            <h2><%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) %></h2>
             <% if (_studentDisplayId) { %>
             <span class="student-id-chip">ID: <%= _studentDisplayId %></span>
             <% } %>
@@ -472,8 +472,7 @@
           <p><strong>Class for Term:</strong> <%= enrolledClassForTerm %></p>
           <p><strong>Graduation Class:</strong> <%= gradYearGroupName %></p>
           <p>
-            <strong>Date of Birth:</strong> <%= new
-            Date(student.date_of_birth).toLocaleDateString() %>
+            <strong>Date of Birth:</strong> <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) %>
           </p>
           <p><strong>Hometown:</strong> <%= student.hometown %></p>
           </div>

@@ -32,6 +32,7 @@ const { getOrgChargeCards } = require("../utils/orgChargeCards");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
 const { getActiveStripePublicKey, getStripeSettings, getStripePlatformClient, getStripePlatformCredentials, getStripeConnectAccountId, ensureStripeConnectAccountSchema } = require("../utils/stripeConfig");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
+const { formatDisplayName } = require("../utils/organizationDisplayPreferences");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const { resolveSchoolPayoutDestination } = require("../utils/payoutDestination");
 const { settleFromPaystackTransaction } = require("../utils/paystackPayout");
@@ -6359,6 +6360,7 @@ module.exports = {
           ]);
 
           const children = kidsR.rows;
+          const orgNameDisplayFormat = String(req.session?.nameDisplayFormat || "first_last");
           const studentIds = children.map(c => c.student_id);
 
           const [studentCreditMap, assignmentRowsR, paymentsR] = await Promise.all([
@@ -6399,10 +6401,16 @@ module.exports = {
 
           const hydratedChildren = children.map((child) => ({
             ...child,
+            display_name: formatDisplayName(child, orgNameDisplayFormat) || [child.first_name, child.last_name].filter(Boolean).join(" ").trim(),
             student_credit: Number(studentCreditMap.get(String(child.student_id)) || 0),
           }));
 
-          const payments = paymentsR.rows;
+          const payments = paymentsR.rows.map((payment) => ({
+            ...payment,
+            display_student_name:
+              formatDisplayName(payment, orgNameDisplayFormat) ||
+              [payment.first_name, payment.last_name].filter(Boolean).join(" ").trim(),
+          }));
 
           let assignments = [];
           if (assignmentRowsR.rows.length) {
@@ -6427,6 +6435,9 @@ module.exports = {
             }, {});
             assignments = assignments.map((assignment) => ({
               ...assignment,
+              display_student_name:
+                formatDisplayName(assignment, orgNameDisplayFormat) ||
+                [assignment.first_name, assignment.last_name].filter(Boolean).join(" ").trim(),
               occurrence_payments: occurrencePaymentsByAssignment[String(assignment.assignment_id)] || {},
               student_credit: Number(studentCreditMap.get(String(assignment.student_id)) || 0),
             }));

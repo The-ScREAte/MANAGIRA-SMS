@@ -398,6 +398,14 @@ const {
   FEEDBACK_AREA_OPTIONS,
   FEEDBACK_PRIORITY_OPTIONS,
 } = require("../utils/userFeedback");
+const {
+  DEFAULT_NAME_DISPLAY_FORMAT,
+  DEFAULT_DATE_DISPLAY_FORMAT,
+  ensureOrganizationDisplayPreferencesSchema,
+  normalizeNameDisplayFormat,
+  normalizeDateDisplayFormat,
+  applyDisplayPreferencesToSession,
+} = require("../utils/organizationDisplayPreferences");
 // Invalidate the /admin dashboard organizations cache so newly-registered
 // organizations become visible immediately (mirrors adminController’s behavior
 // on edit/approve actions; registration previously never busted this cache).
@@ -6060,6 +6068,43 @@ const accountController = {
     }
   },
 
+  updateDisplayPreferencesPost: async (req, res, db) => {
+    try {
+      const orgId = req.session.organizationId;
+      const redirectTo = req.body.redirectTo || "/account/settings?section=customize";
+
+      if (!orgId) {
+        req.flash("error", "Unauthorized.");
+        return res.redirect("/account/login");
+      }
+
+      const nameDisplayFormat = normalizeNameDisplayFormat(req.body.nameDisplayFormat);
+      const dateDisplayFormat = normalizeDateDisplayFormat(req.body.dateDisplayFormat);
+
+      const updateResult = await db.query(
+        `UPDATE organizations
+            SET name_display_format = $1,
+                date_display_format = $2
+          WHERE organization_id = $3
+          RETURNING name_display_format, date_display_format`,
+        [nameDisplayFormat, dateDisplayFormat, orgId]
+      );
+
+      if (updateResult.rows.length > 0) {
+        applyDisplayPreferencesToSession(req.session, updateResult.rows[0]);
+      } else {
+        req.session.nameDisplayFormat = nameDisplayFormat;
+        req.session.dateDisplayFormat = dateDisplayFormat;
+      }
+
+      req.flash("success", "Name and date display settings updated.");
+      return res.redirect(redirectTo);
+    } catch (error) {
+      req.flash("error", "Failed to update display settings.");
+      return res.redirect(req.body.redirectTo || "/account/settings?section=customize");
+    }
+  },
+
   updateStudentIdSettingsPost: async (req, res, db) => {
     try {
       const orgId = req.session.organizationId;
@@ -7212,6 +7257,7 @@ const accountController = {
     try {
       await ensureProfileImageColumns(db);
       await ensureAttendanceCalendarSchema(db);
+      await ensureOrganizationDisplayPreferencesSchema(db);
 
       const sessionUserId = req.session.user?.user_id || req.session.userId;
       const userId = req.query.userId || sessionUserId;
@@ -7233,7 +7279,7 @@ const accountController = {
 
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, platform_fee_bearer
+            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, platform_fee_bearer, name_display_format, date_display_format
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
@@ -7242,6 +7288,7 @@ const accountController = {
 
       if (req.session && orgResult.rows.length > 0) {
         req.session.orgNickNameDisplay = (orgResult.rows[0].nickname_display && String(orgResult.rows[0].nickname_display).trim()) || orgResult.rows[0].nickname;
+        applyDisplayPreferencesToSession(req.session, orgResult.rows[0]);
       }
 
       const planDetailsResult = orgId
@@ -7375,6 +7422,12 @@ const accountController = {
       }
 
       const orgRow = orgResult.rows[0] || {};
+      orgRow.name_display_format = normalizeNameDisplayFormat(
+        orgRow.name_display_format || req.session?.nameDisplayFormat || DEFAULT_NAME_DISPLAY_FORMAT
+      );
+      orgRow.date_display_format = normalizeDateDisplayFormat(
+        orgRow.date_display_format || req.session?.dateDisplayFormat || DEFAULT_DATE_DISPLAY_FORMAT
+      );
       const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
 
       // Fetch student ID settings for the Student ID Settings card

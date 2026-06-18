@@ -18,6 +18,7 @@ const {
   setGuardianPreferences,
 } = require("../utils/emailPreferences");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
+const { buildNameSortExpression, formatDisplayName } = require("../utils/organizationDisplayPreferences");
 
 async function ensureGuardianReportReadSchema(db) {
   await db.query(
@@ -76,7 +77,8 @@ async function getGuardianUnreadReportSummary(db, guardianId, organizationId) {
   };
 }
 
-async function getGuardianApprovedStudents(db, guardianId, organizationId) {
+async function getGuardianApprovedStudents(db, guardianId, organizationId, nameDisplayFormat) {
+  const nameSortExpression = buildNameSortExpression(nameDisplayFormat, "s");
   return db.query(
     `
     SELECT DISTINCT s.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url,
@@ -97,13 +99,14 @@ async function getGuardianApprovedStudents(db, guardianId, organizationId) {
             AND gs.guardian_id = $1
         )
       )
-    ORDER BY s.first_name ASC
+    ORDER BY ${nameSortExpression}
     `,
     [guardianId, organizationId]
   );
 }
 
-async function getGuardianPendingStudents(db, guardianId, organizationId) {
+async function getGuardianPendingStudents(db, guardianId, organizationId, nameDisplayFormat) {
+  const nameSortExpression = buildNameSortExpression(nameDisplayFormat, "ps");
   try {
     return await db.query(
       `
@@ -117,7 +120,7 @@ async function getGuardianPendingStudents(db, guardianId, organizationId) {
           WHERE psg.pending_student_id = ps.pending_id
             AND psg.guardian_id = $1
         )
-      ORDER BY ps.first_name ASC
+      ORDER BY ${nameSortExpression}
       `,
       [guardianId, organizationId]
     );
@@ -178,8 +181,9 @@ module.exports = {
       const guardian = guardianProfile.rows[0];
 
       const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
-      const kids = await getGuardianApprovedStudents(db, guardianId, organizationId);
-      const pendingKids = await getGuardianPendingStudents(db, guardianId, organizationId);
+      const orgNameDisplayFormat = String(req.session?.nameDisplayFormat || "first_last");
+      const kids = await getGuardianApprovedStudents(db, guardianId, organizationId, orgNameDisplayFormat);
+      const pendingKids = await getGuardianPendingStudents(db, guardianId, organizationId, orgNameDisplayFormat);
       const inboxSummary = await getGuardianUnreadReportSummary(db, guardianId, organizationId);
 
       // Combine approved and pending students
@@ -680,6 +684,7 @@ module.exports = {
   settingsGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const guardianId = req.session.guardianId;
+    const orgNameDisplayFormat = String(req.session?.nameDisplayFormat || "first_last");
 
     try {
       // Get guardian profile info
@@ -699,7 +704,7 @@ module.exports = {
       const guardian = guardianProfile.rows[0];
 
       // Get guardian's students
-      const students = await getGuardianApprovedStudents(db, guardianId, organizationId);
+      const students = await getGuardianApprovedStudents(db, guardianId, organizationId, orgNameDisplayFormat);
 
       // Email notification preferences for this guardian
       let notificationPrefs = [];
@@ -731,6 +736,7 @@ module.exports = {
       // List of children (for the "attach card to child" dropdown)
       let children = [];
       try {
+        const childNameSortExpression = buildNameSortExpression(orgNameDisplayFormat, "s");
         const k = await db.query(
           `SELECT DISTINCT s.student_id, s.first_name, s.last_name
              FROM students s
@@ -741,16 +747,28 @@ module.exports = {
                 OR EXISTS (SELECT 1 FROM guardian_students gs
                          WHERE gs.student_id=s.student_id AND gs.guardian_id=$2)
               )
-            ORDER BY s.first_name`,
+            ORDER BY ${childNameSortExpression}`,
           [organizationId, guardianId]
         );
-        children = k.rows;
+        children = k.rows.map((child) => ({
+          ...child,
+          display_name:
+            formatDisplayName(child, orgNameDisplayFormat) ||
+            [child.first_name, child.last_name].filter(Boolean).join(" ").trim(),
+        }));
       } catch (_) { children = []; }
+
+      const studentsWithDisplayName = students.rows.map((student) => ({
+        ...student,
+        display_name:
+          formatDisplayName(student, orgNameDisplayFormat) ||
+          [student.first_name, student.last_name].filter(Boolean).join(" ").trim(),
+      }));
 
       return res.render("guardian/settings", {
         title: "Settings",
         guardian: guardian,
-        students: students.rows,
+        students: studentsWithDisplayName,
         notificationPrefs,
         savedNotificationPrefs,
         cards,
@@ -905,33 +923,50 @@ module.exports = {
   reportGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const guardianId = req.session.guardianId;
+    const orgNameDisplayFormat = String(req.session?.nameDisplayFormat || "first_last");
 
     try {
       // Get guardian's children by guardian_id to ensure only their children are shown
+      const reportChildSortExpression = buildNameSortExpression(orgNameDisplayFormat, "s");
       const children = await db.query(
         `SELECT s.student_id, s.first_name, s.last_name
          FROM guardians g
          JOIN students s ON g.student_id = s.student_id
          WHERE g.guardian_id = $1 AND g.organization_id = $2
-         ORDER BY s.first_name ASC`,
+         ORDER BY ${reportChildSortExpression}`,
         [guardianId, organizationId]
       );
 
       // Get staff members for CC (teachers, managers, supervisors)
+      const staffNameSortExpression = buildNameSortExpression(orgNameDisplayFormat, "users");
       const staffQuery = await db.query(
         `SELECT user_id, first_name, last_name, account_type AS role
          FROM users
          WHERE organization_id = $1
            AND account_type IN ('Teacher', 'Manager', 'Supervisor', 'Admin')
            AND on_hold = FALSE
-         ORDER BY account_type, first_name ASC`,
+         ORDER BY account_type, ${staffNameSortExpression}`,
         [organizationId]
       );
 
+      const childrenWithDisplayName = children.rows.map((child) => ({
+        ...child,
+        display_name:
+          formatDisplayName(child, orgNameDisplayFormat) ||
+          [child.first_name, child.last_name].filter(Boolean).join(" ").trim(),
+      }));
+
+      const staffWithDisplayName = staffQuery.rows.map((staffMember) => ({
+        ...staffMember,
+        display_name:
+          formatDisplayName(staffMember, orgNameDisplayFormat) ||
+          [staffMember.first_name, staffMember.last_name].filter(Boolean).join(" ").trim(),
+      }));
+
       return res.render("guardian/report", {
         title: "Submit Report",
-        children: children.rows,
-        staff: staffQuery.rows,
+        children: childrenWithDisplayName,
+        staff: staffWithDisplayName,
         messages: req.flash(),
         req,
       });
@@ -1352,7 +1387,12 @@ module.exports = {
 
       let students = [];
       if (gp) {
-        const studentsQuery = await getGuardianApprovedStudents(db, guardianId, organizationId);
+        const studentsQuery = await getGuardianApprovedStudents(
+          db,
+          guardianId,
+          organizationId,
+          req.session?.nameDisplayFormat
+        );
         students = studentsQuery.rows;
       }
 

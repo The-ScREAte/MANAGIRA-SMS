@@ -111,6 +111,9 @@ router.post("/personalization/name", checkFeatureAccess, isAuthenticated, requir
 router.post("/personalization/font", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.updateFontPost(req, res, db)
 );
+router.post("/personalization/display-preferences", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+  accountController.updateDisplayPreferencesPost(req, res, db)
+);
 router.post("/personalization/theme", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   themeController.updateThemePost(req, res)
 );

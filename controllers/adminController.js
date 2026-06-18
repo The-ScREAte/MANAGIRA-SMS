@@ -37,6 +37,7 @@ const {
   upsertPlatformFeeSettings,
   normalizePlatformFeePercentage,
 } = require("../utils/platformFee");
+const { formatDisplayName } = require("../utils/organizationDisplayPreferences");
 const { ensurePaymentProviderSchema } = require("../utils/paymentProviderSchema");
 const {
   invalidateOrganizationAccessCache,
@@ -4616,16 +4617,22 @@ const adminController = {
 
   searchAdminEmailRecipients: async (req, res) => {
     try {
+      const organizationId = req.session?.organizationId;
+      if (!organizationId) {
+        return res.status(400).json({ success: false, message: "Organization context is required." });
+      }
+
       const query = String(req.query.q || "").trim();
-      const params = [];
-      let whereClause = "WHERE email IS NOT NULL";
+      const params = [organizationId];
+      let whereClause = "WHERE organization_id = $1 AND email IS NOT NULL";
 
       if (query) {
         params.push(`%${query}%`);
         whereClause += ` AND (
-          CONCAT_WS(' ', first_name, last_name) ILIKE $1
-          OR email ILIKE $1
-          OR account_type::text ILIKE $1
+          CONCAT_WS(' ', first_name, last_name) ILIKE $2
+          OR CONCAT_WS(', ', last_name, first_name) ILIKE $2
+          OR email ILIKE $2
+          OR account_type::text ILIKE $2
         )`;
       }
 
@@ -4642,7 +4649,7 @@ const adminController = {
         success: true,
         users: result.rows.map((user) => ({
           userId: user.user_id,
-          name: buildUserFullName(user),
+          name: formatDisplayName(user, req.session?.nameDisplayFormat) || buildUserFullName(user),
           email: user.email,
           accountType: user.account_type,
           organizationId: user.organization_id,

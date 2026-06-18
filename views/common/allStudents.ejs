@@ -1302,7 +1302,7 @@
         %>
         <tr
           data-id="<%= s.student_id %>"
-          data-name="<%= (s.first_name + ' ' + s.last_name).toLowerCase() %>"
+          data-name="<%= String((s.display_name || (s.first_name + ' ' + s.last_name)) || '').toLowerCase() %>"
           data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
           data-class-id="<%= s.class_id || '' %>"
           data-class-name="<%= String(s.class_name || '').toLowerCase() %>"
@@ -1323,7 +1323,7 @@
               <% } else { %>
               <div class="as-avatar-placeholder"><%= initials %></div>
               <% } %>
-              <a href="<%= detailsHref %>" class="as-name-link"><%= s.first_name %> <%= s.last_name %></a>
+              <a href="<%= detailsHref %>" class="as-name-link"><%= s.display_name || (s.first_name + ' ' + s.last_name) %></a>
             </div>
           </td>
 

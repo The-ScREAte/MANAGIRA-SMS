@@ -2,7 +2,18 @@
   function bal(a){ return Math.max(Number(a.amount||0) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
   function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
   function recurStepDays(r){ return ({daily:1,weekly:7,monthly:30,term:90,year:365})[String(r||'').toLowerCase()] || 0; }
-  function fmtDate(d){ try{ return d ? new Date(d).toLocaleDateString() : '—'; }catch(e){ return '—'; } }
+  const _displayPrefs = (displayPreferences || {});
+  const _nameDisplayFormat = _displayPrefs.nameDisplayFormat || 'first_last';
+  const _dateDisplayFormat = _displayPrefs.dateDisplayFormat || 'dd_mm_yyyy';
+  function fmtDate(d){
+    try {
+      if (!d) return '—';
+      if (typeof formatDisplayDate === 'function') return formatDisplayDate(d);
+      return new Date(d).toLocaleDateString();
+    } catch (e) {
+      return '—';
+    }
+  }
   const currencyCode = (financeCurrency && financeCurrency.code) ? financeCurrency.code : 'USD';
   const currencyLocale = (financeCurrency && financeCurrency.locale) ? financeCurrency.locale : 'en-US';
   const moneyFmt = typeof formatMoney === 'function'
@@ -509,6 +520,11 @@
 
 <script>
   (function(){
+    var clientDisplayPreferences = <%- JSON.stringify(displayPreferences || {}) %>;
+    var _nameDisplayFormat = clientDisplayPreferences.nameDisplayFormat === 'last_first' ? 'last_first' : 'first_last';
+    var _dateDisplayFormat = ['dd_mm_yyyy', 'mm_dd_yyyy', 'yyyy_mm_dd'].includes(clientDisplayPreferences.dateDisplayFormat)
+      ? clientDisplayPreferences.dateDisplayFormat
+      : 'dd_mm_yyyy';
     var financeCurrencyCode = <%- JSON.stringify(currencyCode) %>;
     var financeCurrencyLocale = <%- JSON.stringify(currencyLocale) %>;
     var scopedClassId = <%- JSON.stringify(typeof viewClassId !== 'undefined' ? viewClassId : null) %>;
@@ -703,11 +719,33 @@
     }
 
     function fmt(dateValue) {
-      try { return dateValue ? new Date(dateValue).toLocaleDateString() : '—'; } catch (_) { return '—'; }
+      try {
+        if (!dateValue) return '—';
+        var parsed = new Date(dateValue);
+        if (Number.isNaN(parsed.getTime())) return '—';
+
+        var day = String(parsed.getDate()).padStart(2, '0');
+        var month = String(parsed.getMonth() + 1).padStart(2, '0');
+        var year = parsed.getFullYear();
+
+        if (_dateDisplayFormat === 'mm_dd_yyyy') return month + '/' + day + '/' + year;
+        if (_dateDisplayFormat === 'yyyy_mm_dd') return year + '/' + month + '/' + day;
+        return day + '/' + month + '/' + year;
+      } catch (_) {
+        return '—';
+      }
     }
 
     function studentFullName(student) {
-      return [student && student.first_name, student && student.last_name].filter(Boolean).join(' ').trim() || 'Student';
+      var first = String((student && student.first_name) || '').trim();
+      var last = String((student && student.last_name) || '').trim();
+
+      if (_nameDisplayFormat === 'last_first') {
+        if (last && first) return last + ', ' + first;
+        return last || first || 'Student';
+      }
+
+      return [first, last].filter(Boolean).join(' ').trim() || 'Student';
     }
 
     function compareStudentNames(left, right) {
@@ -1097,7 +1135,7 @@
       var status = studentDisplayStatus(bill, student) || 'pending';
       var billedAmount = occurrenceReady ? studentDisplayBilled(bill, student) : 0;
       var paidAmount = occurrenceReady ? studentDisplayPaid(bill, student) : 0;
-      var fullName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim() || 'Student';
+      var fullName = studentFullName(student);
       var selected = !!state.bulkSelection[String(student.assignment_id)];
       var rowClass = 'mp-student-row';
       if (state.bulkMode) rowClass += ' bulk-enabled';
@@ -1478,7 +1516,7 @@
     function buildBulkReviewRow(student) {
       var bill = currentBill();
       var balance = studentCollectBalance(bill, student);
-      var fullName = [student.first_name, student.last_name].filter(Boolean).join(' ').trim() || 'Student';
+      var fullName = studentFullName(student);
       return '' +
         '<div class="mp-bulk-row" data-assignment-id="' + student.assignment_id + '">' +
           '<label class="mp-bulk-student">' +

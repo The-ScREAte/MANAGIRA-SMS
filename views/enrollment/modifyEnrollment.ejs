@@ -467,8 +467,8 @@
                   .filter(u => u.type === 'student')
                   .map(s => `
                     <div class="checkbox-container search-result">
-                      <span>${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)} (${escapeHtml(s.class_name)})</span>
-                      <button type="button" onclick="addStudent('${cid}', ${s.id}, '${escapeHtml(s.first_name)} ${escapeHtml(s.last_name)}')">Add</button>
+                      <span>${escapeHtml(s.display_name || [s.first_name, s.last_name].filter(Boolean).join(' ').trim())} (${escapeHtml(s.class_name)})</span>
+                      <button type="button" onclick="addStudent('${cid}', ${s.id}, '${escapeHtml(s.display_name || [s.first_name, s.last_name].filter(Boolean).join(' ').trim())}')">Add</button>
                     </div>
                   `).join('')
               }

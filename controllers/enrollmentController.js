@@ -1,5 +1,6 @@
 const notifSvc = require("../utils/notificationService");
 const { userHasPermission, PERMISSIONS } = require('../middleware/permissionMiddleware');
+const { formatDisplayName } = require("../utils/organizationDisplayPreferences");
 const enrollmentController = {
     // Enrollment page
     enrollmentGet: async (req, res, db) => {
@@ -644,6 +645,7 @@ const enrollmentController = {
                               AND (
                                 s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
                                 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
+                                OR CONCAT(s.last_name, ', ', s.first_name) ILIKE $1 ESCAPE '\\'
                               )
                             LIMIT 20
                           `,
@@ -659,6 +661,7 @@ const enrollmentController = {
                               AND (
                                 s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
                                 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
+                                OR CONCAT(s.last_name, ', ', s.first_name) ILIKE $1 ESCAPE '\\'
                               )
                             LIMIT 20
                           `,
@@ -680,6 +683,7 @@ const enrollmentController = {
                       AND (
                         u.first_name ILIKE $1 ESCAPE '\\' OR u.last_name ILIKE $1 ESCAPE '\\'
                         OR CONCAT(u.first_name, ' ', u.last_name) ILIKE $1 ESCAPE '\\'
+                        OR CONCAT(u.last_name, ', ', u.first_name) ILIKE $1 ESCAPE '\\'
                       )
                       LIMIT 20
                     `,
@@ -707,6 +711,7 @@ const enrollmentController = {
                           AND (
                             g.first_name ILIKE $1 ESCAPE '\\' OR g.last_name ILIKE $1 ESCAPE '\\'
                             OR CONCAT(g.first_name, ' ', g.last_name) ILIKE $1 ESCAPE '\\'
+                            OR CONCAT(g.last_name, ', ', g.first_name) ILIKE $1 ESCAPE '\\'
                           )
                         ORDER BY
                           LOWER(TRIM(COALESCE(g.first_name, ''))),
@@ -731,6 +736,7 @@ const enrollmentController = {
                           AND (
                             g.first_name ILIKE $1 ESCAPE '\\' OR g.last_name ILIKE $1 ESCAPE '\\'
                             OR CONCAT(g.first_name, ' ', g.last_name) ILIKE $1 ESCAPE '\\'
+                            OR CONCAT(g.last_name, ', ', g.first_name) ILIKE $1 ESCAPE '\\'
                           )
                         ORDER BY
                           LOWER(TRIM(COALESCE(g.first_name, ''))),
@@ -798,12 +804,15 @@ const enrollmentController = {
                     o.first_name ILIKE $1 ESCAPE '\\'
                     OR o.last_name ILIKE $1 ESCAPE '\\'
                     OR CONCAT(o.first_name, ' ', o.last_name) ILIKE $1 ESCAPE '\\'
+                    OR CONCAT(o.last_name, ', ', o.first_name) ILIKE $1 ESCAPE '\\'
                     OR o.organization_name ILIKE $1 ESCAPE '\\'
                   )
                 `,
                 [likeQuery, orgId]
               ),
             ]);
+
+            const orgNameDisplayFormat = String(req.session?.nameDisplayFormat || "first_last");
 
             const results = [
               ...studentsRes.rows,
@@ -812,7 +821,14 @@ const enrollmentController = {
               ...guardiansRes.rows,
               ...classesRes.rows,
               ...subjectsRes.rows,
-            ];
+            ].map((item) => ({
+              ...item,
+              display_name:
+                formatDisplayName(item, orgNameDisplayFormat) ||
+                item.subject_name ||
+                item.class_name ||
+                "",
+            }));
 
             res.status(200).json({ results });
           } catch (error) {

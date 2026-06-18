@@ -1890,11 +1890,11 @@
       .form-header .sid-id-widget {
         display: inline-flex !important;
         align-items: center !important;
-        gap: 6px !important;
+        gap: 3px !important;
         position: static !important;
         top: auto !important;
         margin-top: 0 !important;
-        padding: 4px 8px !important;
+        padding: 2px 5px !important;
         border: 1px solid color-mix(in srgb, var(--brand) 14%, var(--line)) !important;
         border-radius: 999px !important;
         background: linear-gradient(180deg, #ffffff 0%, var(--surface-muted) 100%) !important;
@@ -1913,21 +1913,36 @@
         margin-top: 0 !important;
         line-height: 1 !important;
         color: var(--brand-strong) !important;
+        font-size: 0.62rem !important;
+        font-weight: 600 !important;
       }
       .form-header .sid-id-input {
-        width: 6.8ch !important;
-        min-width: 6.8ch !important;
-        max-width: 10ch !important;
+        width: 5.1ch !important;
+        min-width: 5.1ch !important;
+        max-width: 6.8ch !important;
         position: static !important;
         top: auto !important;
-        height: 1.45rem !important;
-        line-height: 1.1 !important;
+        height: 1rem !important;
+        line-height: 1.05 !important;
         padding: 0 !important;
         margin: 0 !important;
         margin-top: 0 !important;
-        border-bottom: 1.5px solid color-mix(in srgb, var(--brand) 42%, var(--line-strong)) !important;
+        border-bottom: 1px solid color-mix(in srgb, var(--brand) 42%, var(--line-strong)) !important;
         background: transparent !important;
         transform: none !important;
+        font-size: 0.68rem !important;
+        font-weight: 600 !important;
+        font-family: inherit !important;
+        color: var(--ink-700) !important;
+      }
+      .form-header .sid-id-input::placeholder {
+        color: var(--ink-400) !important;
+        font-size: 0.68rem !important;
+        letter-spacing: 0.01em !important;
+      }
+      .form-header .sid-id-taken-msg {
+        font-size: 0.54rem !important;
+        font-weight: 700 !important;
       }
       .form-header .sid-id-widget.sid-has-conflict .sid-id-label,
       .form-header .sid-id-widget.sid-has-conflict .sid-id-taken-msg,
@@ -1988,8 +2003,60 @@
         margin-top: 0 !important;
       }
 
+      @media (max-width: 1024px), (hover: none) and (pointer: coarse) {
+        .form-header .sid-id-widget {
+          gap: 3px !important;
+          padding: 2px 4px !important;
+        }
+
+        .form-header .sid-id-label {
+          font-size: 0.58rem !important;
+        }
+
+        .form-header .sid-id-input {
+          width: 4.8ch !important;
+          min-width: 4.8ch !important;
+          max-width: 6ch !important;
+          height: 0.96rem !important;
+          font-size: 0.64rem !important;
+        }
+
+        .form-header .sid-id-input::placeholder {
+          font-size: 0.64rem !important;
+        }
+
+        .form-header .sid-id-taken-msg {
+          font-size: 0.5rem !important;
+        }
+      }
+
       /* Final small-screen compaction (must come last to override premium layer defaults) */
       @media (max-width: 768px) {
+        .form-header .sid-id-widget {
+          gap: 2px !important;
+          padding: 2px 4px !important;
+        }
+
+        .form-header .sid-id-label {
+          font-size: 0.54rem !important;
+        }
+
+        .form-header .sid-id-input {
+          width: 4.4ch !important;
+          min-width: 4.4ch !important;
+          max-width: 5.4ch !important;
+          height: 0.92rem !important;
+          font-size: 0.6rem !important;
+        }
+
+        .form-header .sid-id-input::placeholder {
+          font-size: 0.6rem !important;
+        }
+
+        .form-header .sid-id-taken-msg {
+          font-size: 0.46rem !important;
+        }
+
         .student-form-card-body {
           padding: 10px !important;
           gap: 8px !important;
@@ -2553,12 +2620,13 @@
             }
 
             suggestions.innerHTML = items.map(g => {
-              const fullName = `${escapeHtml(g.first_name)} ${escapeHtml(g.last_name)}`.trim();
+              const fullName = escapeHtml(g.display_name || `${g.first_name || ''} ${g.last_name || ''}`.trim());
               const meta = `${escapeHtml(g.phone || "")}${g.email ? " • " + escapeHtml(g.email) : ""}`;
               const img = g.image_url ? escapeHtml(g.image_url) : "/images/profilePlaceholder.png";
               return `
                 <div class="guardian-suggestion-item"
                      data-id="${g.guardian_id}"
+                   data-display="${fullName}"
                      data-first="${escapeHtml(g.first_name)}"
                      data-last="${escapeHtml(g.last_name)}"
                      data-phone="${escapeHtml(g.phone || "")}"
@@ -2582,6 +2650,7 @@
                 const guardianId = el.dataset.id || "";
                 const firstName = el.dataset.first || "";
                 const lastName = el.dataset.last || "";
+                const displayName = el.dataset.display || `${firstName} ${lastName}`.trim();
                 
                 hiddenId.value = guardianId;
 
@@ -2597,10 +2666,10 @@
                 if (emailInput) emailInput.value = el.dataset.email || "";
 
                 // Update search input to show selected name
-                searchInput.value = `${firstName} ${lastName}`.trim();
+                searchInput.value = displayName;
                 
                 // Visual feedback
-                markAsSelected(`${firstName} ${lastName}`.trim());
+                markAsSelected(displayName);
 
                 closeSuggestions();
               });

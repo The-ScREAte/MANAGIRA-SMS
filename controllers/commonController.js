@@ -73,6 +73,10 @@ const {
   normalizeFeedbackPriority,
 } = require("../utils/userFeedback");
 const { buildStudentDisplayId } = require("../utils/studentIdDisplay");
+const {
+  buildNameSortExpression,
+  formatDisplayName,
+} = require("../utils/organizationDisplayPreferences");
 
 async function getActivePaystackConfig(dbClient) {
   const settings = await getPaystackSettings(dbClient);
@@ -14169,6 +14173,7 @@ const commonController = {
   allStudents: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
+      const nameSortClause = buildNameSortExpression(req.session?.nameDisplayFormat, "s");
       if (!organizationId) {
         req.flash("error", "Organization not found.");
         return res.redirect("/common/orgDashboard");
@@ -14206,7 +14211,7 @@ const commonController = {
               LIMIT 1
             ) last_sy ON true
             WHERE s.organization_id = $1
-            ORDER BY s.last_name ASC, s.first_name ASC`,
+            ORDER BY ${nameSortClause}`,
           [organizationId]
         ),
         db.query(
@@ -14237,6 +14242,7 @@ const commonController = {
         : null;
       const students = studentsResult.rows.map((student) => ({
         ...student,
+        display_name: formatDisplayName(student, req.session?.nameDisplayFormat) || "Student",
         display_student_id: buildStudentDisplayId(student, studentIdSettings),
         editable_student_id: getStudentIdEditorValue(student, studentIdSettings),
       }));
@@ -14915,6 +14921,7 @@ const commonController = {
   searchGuardiansApi: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
+      const orgNameDisplayFormat = String(req.session?.nameDisplayFormat || "first_last");
       const q = (req.query.q || "").trim();
 
       if (!organizationId) return res.status(400).json({ guardians: [] });
@@ -14929,6 +14936,7 @@ const commonController = {
         WHERE organization_id = $1
           AND (
             CONCAT_WS(' ', first_name, last_name) ILIKE $2
+            OR CONCAT_WS(', ', last_name, first_name) ILIKE $2
             OR phone ILIKE $2
             OR email ILIKE $2
           )
@@ -14938,7 +14946,14 @@ const commonController = {
         [organizationId, like]
       );
 
-      return res.json({ guardians: result.rows });
+      return res.json({
+        guardians: result.rows.map((guardian) => ({
+          ...guardian,
+          display_name:
+            formatDisplayName(guardian, orgNameDisplayFormat) ||
+            [guardian.first_name, guardian.last_name].filter(Boolean).join(" ").trim(),
+        })),
+      });
     } catch (e) {
       return res.status(500).json({ guardians: [] });
     }
@@ -14975,6 +14990,7 @@ const commonController = {
               OR ($3::text IS NOT NULL AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9+]', '', 'g') = $3)
               OR ($4::text IS NOT NULL AND (
                 LOWER(CONCAT(first_name, ' ', last_name)) LIKE $4
+                OR LOWER(CONCAT(last_name, ', ', first_name)) LIKE $4
                 OR LOWER(first_name) LIKE $4
                 OR LOWER(last_name) LIKE $4
               ))
@@ -14989,7 +15005,25 @@ const commonController = {
         [organizationId, looksLikeEmail ? q : null, normalizedPhone, namePattern]
       );
 
-      return res.json({ guardians: result.rows });
+      let orgNameDisplayFormat = "first_last";
+      try {
+        const orgSettings = await db.query(
+          `SELECT name_display_format FROM organizations WHERE organization_id = $1 LIMIT 1`,
+          [organizationId]
+        );
+        if (orgSettings.rows.length > 0) {
+          orgNameDisplayFormat = String(orgSettings.rows[0].name_display_format || "first_last");
+        }
+      } catch (_) {}
+
+      return res.json({
+        guardians: result.rows.map((guardian) => ({
+          ...guardian,
+          display_name:
+            formatDisplayName(guardian, orgNameDisplayFormat) ||
+            [guardian.first_name, guardian.last_name].filter(Boolean).join(" ").trim(),
+        })),
+      });
     } catch (e) {
       return res.status(500).json({ guardians: [] });
     }

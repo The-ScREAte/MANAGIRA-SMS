@@ -1308,7 +1308,7 @@
             item.innerHTML = `
               <img src="${imgUrl}" alt="Guardian" onerror="this.src='/images/profilePlaceholder.png'">
               <div class="guardian-suggestion-info">
-                <div class="guardian-suggestion-name">${escapeHtml(g.first_name||'')} ${escapeHtml(g.last_name||'')}</div>
+                <div class="guardian-suggestion-name">${escapeHtml(g.display_name || `${g.first_name||''} ${g.last_name||''}`.trim())}</div>
                 <div class="guardian-suggestion-details">${escapeHtml(buildGuardianContactPreview(g.phone, g.email))}</div>
               </div>`;
             item.onclick = (e) => { e.stopPropagation(); selectGuardian(g); };
@@ -1331,7 +1331,7 @@
       img.src = (guardian.image_url && guardian.image_url !== 'profilePlaceholder.png')
         ? guardian.image_url : '/images/profilePlaceholder.png';
       img.onerror = () => { img.src = '/images/profilePlaceholder.png'; };
-      document.getElementById('selectedGuardianName').textContent    = `${guardian.first_name||''} ${guardian.last_name||''}`.trim();
+      document.getElementById('selectedGuardianName').textContent    = (guardian.display_name || `${guardian.first_name||''} ${guardian.last_name||''}`.trim());
       document.getElementById('selectedGuardianDetails').textContent = buildGuardianContactPreview(guardian.phone, guardian.email);
       document.getElementById('selectedGuardianDisplay').classList.add('show');
       document.getElementById('existingGuardianId').value = guardian.guardian_id;

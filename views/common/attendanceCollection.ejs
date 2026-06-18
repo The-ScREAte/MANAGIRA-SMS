@@ -1193,11 +1193,12 @@
                 </thead>
                 <tbody>
                     <% students.forEach((student, rowIndex) => { %>
+                        <% const attendanceStudentName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
                         <tr 
-                        data-name="<%= (student.first_name + ' ' + student.last_name).toLowerCase() %>" 
+                        data-name="<%= String(attendanceStudentName || '').toLowerCase() %>" 
                         data-gender="<%= student.gender ? student.gender.toLowerCase() : '' %>">
                                 <td class="student-name" data-student-id="<%= student.student_id %>">
-                                <%= student.first_name %> <%= student.last_name %>
+                                <%= attendanceStudentName %>
                             </td>
                             <% let presentCount = 0; %>
                             <% let totalCount = 0; %>

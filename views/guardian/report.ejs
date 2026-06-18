@@ -194,7 +194,7 @@
         <select name="studentId" class="form-select" required>
           <option value="">-- Select a student --</option>
           <% children.forEach(child => { %>
-              <option value="<%= child.student_id %>"><%= child.first_name %> <%= child.last_name %></option>
+              <option value="<%= child.student_id %>"><%= child.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(child) : [child.first_name, child.last_name].filter(Boolean).join(' ').trim()) %></option>
           <% }); %>
           <option value="general">General (Not about a specific child)</option>
         </select>
@@ -253,7 +253,7 @@
             <% staff.forEach(person => { %>
               <div style="display:flex;align-items:center;margin-bottom:8px;">
                 <input type="checkbox" name="cc_recipients" value="<%= person.user_id %>" id="staff_<%= person.user_id %>" style="margin-right:8px;" />
-                <label for="staff_<%= person.user_id %>"><%= person.first_name %> <%= person.last_name %> <span style="color:#7f8c8d;font-size:13px;margin-left:6px;">(<%= person.role %>)</span></label>
+                <label for="staff_<%= person.user_id %>"><%= person.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(person) : [person.first_name, person.last_name].filter(Boolean).join(' ').trim()) %> <span style="color:#7f8c8d;font-size:13px;margin-left:6px;">(<%= person.role %>)</span></label>
               </div>
             <% }); %>
           <% } else { %>

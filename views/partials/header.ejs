@@ -1775,6 +1775,21 @@
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
     }
+
+    const headerDisplayPrefs = <%- JSON.stringify(displayPreferences || {}) %>;
+    const headerNameDisplayFormat = headerDisplayPrefs && headerDisplayPrefs.nameDisplayFormat === "last_first"
+      ? "last_first"
+      : "first_last";
+
+    function formatHeaderSearchName(item) {
+      const first = String((item && item.first_name) || "").trim();
+      const last = String((item && item.last_name) || "").trim();
+      if (headerNameDisplayFormat === "last_first") {
+        if (last && first) return `${escapeHtml(last)}, ${escapeHtml(first)}`;
+        return escapeHtml(last || first || "");
+      }
+      return [first, last].filter(Boolean).map(escapeHtml).join(" ").trim();
+    }
     // 🔍 Global Search
     if (searchForm) {
       searchForm.addEventListener("submit", (event) => {
@@ -1861,9 +1876,7 @@
                       ? item.image_url
                       : "/images/profilePlaceholder.png";
 
-                  const title = `${escapeHtml(item.first_name || "")}${
-                    item.last_name ? " " + escapeHtml(item.last_name) : ""
-                  }` || escapeHtml(item.subject_name || item.class_name || "");
+                  const title = escapeHtml(item.display_name || "") || formatHeaderSearchName(item) || escapeHtml(item.subject_name || item.class_name || "");
 
                   let subtitle = "";
                   let href = "#";

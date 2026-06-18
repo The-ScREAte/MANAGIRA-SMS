@@ -475,6 +475,19 @@ function formatCurrency(value, currency) {
   }
 }
 
+function humanizeNameDisplayFormat(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "last_first") return "Last, First";
+  return "First Last";
+}
+
+function humanizeDateDisplayFormat(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "mm_dd_yyyy") return "MM/DD/YYYY";
+  if (normalized === "yyyy_mm_dd") return "YYYY/MM/DD";
+  return "DD/MM/YYYY";
+}
+
 /**
  * Route-aware enrichment. Runs AFTER basic ID->name resolution so we can
  * override/augment description, record label, and changed fields for high-value
@@ -548,6 +561,70 @@ async function enrichPayloadForRoute(database, req, payload) {
     if (!payload.recordLabel) payload.recordLabel = planName || "Billing action";
     if (extras.length > 0) {
       payload.description = `${payload.actionType} billing — ${extras.map((e) => `${e.field}: ${e.value}`).join(" · ")}.`;
+    }
+  }
+
+  // ---- Organization display preferences --------------------------------------
+  if (path.includes("display-preferences")) {
+    const nameFormat = humanizeNameDisplayFormat(body.nameDisplayFormat);
+    const dateFormat = humanizeDateDisplayFormat(body.dateDisplayFormat);
+
+    payload.actionType = "Updated";
+    payload.moduleName = "Settings";
+    payload.recordType = "Organization Settings";
+    payload.recordLabel = "Display Preferences";
+    payload.changedFields = [
+      { field: "Name format", value: nameFormat },
+      { field: "Date format", value: dateFormat },
+      ...payload.changedFields.filter((entry) => {
+        const key = String(entry.field || "").toLowerCase();
+        return key !== "namedisplayformat" && key !== "datedisplayformat";
+      }),
+    ].slice(0, 8);
+    payload.description = `Updated display preferences — Name format: ${nameFormat} · Date format: ${dateFormat}.`;
+  }
+
+  // ---- PayGira collection/sign-off operations --------------------------------
+  if (/my-paygira|\/guardian\/paygira/.test(path)) {
+    const amount = formatCurrency(body.amount || body.totalAmount || body.total_amount, body.currency || "NGN");
+    const method = body.method || body.paymentMethod || body.channel;
+    const assignmentId = body.assignment_id || body.assignmentId;
+    const occurrenceDate = body.occurrence_date || body.occurrenceDate;
+    const selectedDates = Array.isArray(body.occurrence_dates) ? body.occurrence_dates.length : null;
+    const bulkItems = Array.isArray(body.items) ? body.items.length : null;
+
+    payload.moduleName = "Billing";
+
+    if (path.includes("signoff")) {
+      payload.actionType = "Status Change";
+      payload.recordLabel = "PayGira Sign-off";
+      payload.description = `Signed off PayGira collection${occurrenceDate ? ` for ${occurrenceDate}` : ""}.`;
+      payload.changedFields = [
+        ...(occurrenceDate ? [{ field: "Occurrence", value: String(occurrenceDate) }] : []),
+        ...payload.changedFields,
+      ].slice(0, 8);
+    } else if (path.includes("collect/bulk")) {
+      payload.actionType = "Payment Action";
+      payload.recordLabel = "PayGira Bulk Collection";
+      payload.description = `Recorded bulk PayGira collection${amount ? ` — Amount: ${amount}` : ""}${method ? ` · Method: ${method}` : ""}.`;
+      payload.changedFields = [
+        ...(bulkItems ? [{ field: "Items", value: String(bulkItems) }] : []),
+        ...(amount ? [{ field: "Amount", value: amount }] : []),
+        ...(method ? [{ field: "Method", value: String(method) }] : []),
+        ...payload.changedFields,
+      ].slice(0, 8);
+    } else if (path.includes("collect") || path.includes("/pay")) {
+      payload.actionType = "Payment Action";
+      payload.recordLabel = "PayGira Payment";
+      payload.description = `Recorded PayGira payment${amount ? ` — Amount: ${amount}` : ""}${method ? ` · Method: ${method}` : ""}.`;
+      payload.changedFields = [
+        ...(assignmentId ? [{ field: "Assignment", value: String(assignmentId) }] : []),
+        ...(occurrenceDate ? [{ field: "Occurrence", value: String(occurrenceDate) }] : []),
+        ...(selectedDates ? [{ field: "Dates", value: String(selectedDates) }] : []),
+        ...(amount ? [{ field: "Amount", value: amount }] : []),
+        ...(method ? [{ field: "Method", value: String(method) }] : []),
+        ...payload.changedFields,
+      ].slice(0, 8);
     }
   }
 

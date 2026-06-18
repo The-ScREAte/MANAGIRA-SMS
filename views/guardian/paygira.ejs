@@ -3,6 +3,12 @@
   const money = typeof formatMoney === 'function'
     ? formatMoney
     : function(v){ return Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  const _guardianDateFormat = (typeof formatDisplayDate === 'function')
+    ? function(v){ return formatDisplayDate(v); }
+    : function(v){ try { return v ? new Date(v).toLocaleDateString() : '—'; } catch (_) { return '—'; } };
+  const _guardianNameFormat = (typeof formatDisplayName === 'function')
+    ? function(person){ return formatDisplayName(person); }
+    : function(person){ return [person && person.first_name, person && person.last_name].filter(Boolean).join(' ').trim(); };
   function billedTotal(a){ return Math.max(Number(a.scheduled_billed_total ?? a.amount ?? 0), 0); }
   function balance(a){ return Math.max(billedTotal(a) + Number(a.late_fee_applied||0) - Number(a.amount_paid||0), 0); }
   function statusClass(s){ return ({paid:'paid',partial:'partial',overdue:'overdue',pending:'pending'})[s||'pending']; }
@@ -836,7 +842,7 @@
     <div class="pg-head">
       <div>
         <h1>Pay<span class="accent">Gira</span></h1>
-        <p>Welcome <%= guardian.first_name || 'Parent' %>. Manage and pay your children's school bills from one clean payment space.</p>
+        <p>Welcome <%= (_guardianNameFormat(guardian) || guardian.first_name || 'Parent') %>. Manage and pay your children's school bills from one clean payment space.</p>
       </div>
       <span class="paygira-secure-badge" title="Bank-grade encrypted payments">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -889,14 +895,15 @@
     <% } else { %>
       <% children.forEach(child => {
            const kidAssignments = assignments.filter(a => a.student_id === child.student_id);
+         const childDisplayName = child.display_name || _guardianNameFormat(child);
       %>
         <div class="pg-child-card">
           <div class="pg-child-head">
             <img class="pg-child-avatar"
                  src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>"
-                 alt="<%= child.first_name %>">
+                 alt="<%= childDisplayName || child.first_name %>">
             <div class="pg-child-copy">
-              <div class="pg-child-name"><%= child.first_name %> <%= child.last_name %></div>
+              <div class="pg-child-name"><%= childDisplayName %></div>
               <div class="pg-child-meta"><%= child.class_name || 'Unassigned class' %> · <%= kidAssignments.length %> bill<%= kidAssignments.length !== 1 ? 's' : '' %> due<% if (Number(child.student_credit || 0) > 0) { %> · Balance available <%= money(child.student_credit) %><% } %></div>
             </div>
           </div>
@@ -915,9 +922,9 @@
               <div>
                 <div class="pg-bill-title"><%= a.bill_title %></div>
                 <div class="pg-bill-sub">
-                  Due <%= a.due_date ? new Date(a.due_date).toLocaleDateString() : '—' %>
+                  Due <%= _guardianDateFormat(a.due_date) %>
                   <% if (recurring && a.recurrence) { %> · Recurs <%= a.recurrence %><% } %>
-                  <% if (recurring && a.recurrence_end_date) { %> · Through <%= new Date(a.recurrence_end_date).toLocaleDateString() %><% } %>
+                  <% if (recurring && a.recurrence_end_date) { %> · Through <%= _guardianDateFormat(a.recurrence_end_date) %><% } %>
                   <% if (a.bill_description) { %> · <%= a.bill_description %><% } %>
                 </div>
               </div>
@@ -963,8 +970,8 @@
         <div class="pg-history-row"><div style="grid-column:1/-1;text-align:center;color:var(--pg-muted);padding:18px;">No payments yet.</div></div>
       <% } else { payments.forEach(p => { %>
         <div class="pg-history-row">
-          <div data-label="Date"><%= new Date(p.received_at).toLocaleDateString() %></div>
-          <div data-label="Student"><%= p.first_name %> <%= p.last_name %></div>
+          <div data-label="Date"><%= _guardianDateFormat(p.received_at) %></div>
+          <div data-label="Student"><%= p.display_student_name || _guardianNameFormat(p) %></div>
           <div data-label="Bill"><%= p.bill_title %> · <span style="color:var(--pg-muted);"><%= p.method %></span></div>
           <div data-label="Amount" class="pg-amount" style="color:var(--pg-teal);display:flex;align-items:center;justify-content:space-between;gap:6px;">
             <%= money(p.amount) %>
@@ -980,7 +987,7 @@
 <script id="pgAssignmentsData" type="application/json"><%- JSON.stringify(assignments.map(a => ({
   assignment_id: a.assignment_id,
   bill_title: a.bill_title,
-  student_name: `${a.first_name || ''} ${a.last_name || ''}`.trim(),
+  student_name: a.display_student_name || _guardianNameFormat(a),
   balance: balance(a),
   amount: Number(a.amount || 0),
   scheduled_billed_total: Number(a.scheduled_billed_total || 0),
@@ -1297,7 +1304,20 @@
     }
 
     function fmtDate(dateValue) {
-      try { return dateValue ? new Date(dateValue).toLocaleDateString() : '—'; } catch (_) { return '—'; }
+      try {
+        if (!dateValue) return '—';
+        var parsedDate = new Date(dateValue);
+        if (Number.isNaN(parsedDate.getTime())) return '—';
+        var day = String(parsedDate.getDate()).padStart(2, '0');
+        var month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+        var year = parsedDate.getFullYear();
+        var dateFormat = (window.displayPreferences && window.displayPreferences.dateDisplayFormat) || '<%= (displayPreferences && displayPreferences.dateDisplayFormat) ? displayPreferences.dateDisplayFormat : "dd_mm_yyyy" %>';
+        if (dateFormat === 'mm_dd_yyyy') return month + '/' + day + '/' + year;
+        if (dateFormat === 'yyyy_mm_dd') return year + '/' + month + '/' + day;
+        return day + '/' + month + '/' + year;
+      } catch (_) {
+        return '—';
+      }
     }
 
     function isoDate(dateValue) {

@@ -1858,6 +1858,42 @@
           </div>
 
           <div class="card">
+            <h4>Name And Date Display</h4>
+            <small>Control how names and dates appear across your school portal, including PayGira and student pages.</small>
+            <% const nameDisplayFormat = (org && org.name_display_format) ? org.name_display_format : 'first_last'; %>
+            <% const dateDisplayFormat = (org && org.date_display_format) ? org.date_display_format : 'dd_mm_yyyy'; %>
+            <form action="/account/personalization/display-preferences" method="POST">
+              <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
+              <div class="content-row" style="display:block;">
+                <div style="margin-bottom:14px;">
+                  <label style="display:block; font-weight:600; margin-bottom:6px;">Student/Staff Name Format</label>
+                  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                    <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                      <input type="radio" name="nameDisplayFormat" value="first_last" <%= nameDisplayFormat === 'first_last' ? 'checked' : '' %> />
+                      <span>First Name Last Name (Ada Lovelace)</span>
+                    </label>
+                    <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                      <input type="radio" name="nameDisplayFormat" value="last_first" <%= nameDisplayFormat === 'last_first' ? 'checked' : '' %> />
+                      <span>Last Name, First Name (Lovelace, Ada)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div style="margin-bottom:16px;">
+                  <label for="dateDisplayFormat" style="display:block; font-weight:600; margin-bottom:6px;">Date Format</label>
+                  <select id="dateDisplayFormat" name="dateDisplayFormat" class="form-select" style="max-width:280px;">
+                    <option value="dd_mm_yyyy" <%= dateDisplayFormat === 'dd_mm_yyyy' ? 'selected' : '' %>>DD/MM/YYYY (31/12/2026)</option>
+                    <option value="mm_dd_yyyy" <%= dateDisplayFormat === 'mm_dd_yyyy' ? 'selected' : '' %>>MM/DD/YYYY (12/31/2026)</option>
+                    <option value="yyyy_mm_dd" <%= dateDisplayFormat === 'yyyy_mm_dd' ? 'selected' : '' %>>YYYY/MM/DD (2026/12/31)</option>
+                  </select>
+                </div>
+
+                <button class="btn-primary btn-link" type="submit">Save Display Preferences</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card">
             <h4>School Theme</h4>
             <small>Pick theme for your school.</small>
             <form action="/account/updatePublicDashboardTheme" method="POST">

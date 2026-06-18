@@ -164,13 +164,12 @@
 
         <!-- Student Details -->
         <div class="student-details">
-          <h2><%= student.first_name %> <%= student.last_name %></h2>
+          <h2><%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) %></h2>
           <p><strong>Gender:</strong> <%= student.gender %></p>
           <p><strong>Class:</strong> <%= student.class_name %></p>
           <p><strong>Graduation Group:</strong> <%= gradYearGroupName %></p>
           <p>
-            <strong>Date of Birth:</strong> <%= new
-            Date(student.date_of_birth).toLocaleDateString() %>
+            <strong>Date of Birth:</strong> <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) %>
           </p>
           <p><strong>Height:</strong> <%= student.height %> cm</p>
           <p><strong>Hometown:</strong> <%= student.hometown %></p>
