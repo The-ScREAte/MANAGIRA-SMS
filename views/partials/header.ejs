@@ -687,28 +687,61 @@
     margin-left: 20px;
   }
 
+  .hamburger {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  .hamburger .bar {
+    display: block;
+    width: 20px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--org-primary-color, #01535b);
+    transition: transform 0.22s ease, opacity 0.2s ease;
+  }
+
+  .hamburger.active .bar:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .hamburger.active .bar:nth-child(2) {
+    opacity: 0;
+  }
+
+  .hamburger.active .bar:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
   /* 🔹 Main Header */
-    header#top-header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: #ededed;
-      /* Remove any blur or transparency for a solid, professional look */
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      width: 100vw;
-      min-height: 68px;
-      padding: 2px 5px;
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0;
-      z-index: 9999;
-      display: flex;
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      background-color: #ededed !important;
-    }
+  header#top-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #ededed;
+    /* Remove any blur or transparency for a solid, professional look */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    width: 100%;
+    min-height: 68px;
+    padding: 2px 8px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0;
+    z-index: 9999;
+    display: flex;
+    box-sizing: border-box;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: #ededed !important;
+  }
 
   header#top-header .siteName {
     display: flex;
@@ -830,7 +863,13 @@
     }
 
     header#top-header {
-    padding: 10px 10px;    }
+      width: 100%;
+      left: 0;
+      right: 0;
+      padding: 8px 10px;
+      box-sizing: border-box;
+      overflow: visible;
+    }
 
     header#top-header .siteName .logo {
       width: 45px;
@@ -1004,6 +1043,11 @@
 
     .hamburger-container {
       flex-shrink: 0;
+      margin-left: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 11030;
     }
 
     .sticky-nav {
