@@ -1962,6 +1962,22 @@
           <span style="font-size:13px;line-height:1;">${icon}</span> ${lbl}
         </label>`).join('');
 
+      const turnOffAutoAttendanceOn = ds.sections.turnOffAutoAttendance === true;
+      const manualAttendanceOutOfValue = Number.isFinite(Number(ds.sections.manualAttendanceOutOf)) && Number(ds.sections.manualAttendanceOutOf) > 0
+        ? Number(ds.sections.manualAttendanceOutOf)
+        : '';
+      const attendanceManualRow = `
+        <div class="ds-adv-flat-lbl" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;flex:1;min-width:220px;">
+            <input type="checkbox" id="ds-adv-turnOffAutoAttendance" style="accent-color:var(--primary);" ${turnOffAutoAttendanceOn ? 'checked' : ''}>
+            <span style="font-size:13px;line-height:1;">🛑</span> Turn off auto attendance
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);font-size:0.82rem;">
+            Out of
+            <input type="number" id="ds-adv-manualAttendanceOutOf" min="0" value="${manualAttendanceOutOfValue}" placeholder="e.g. 30" style="width:84px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;" ${turnOffAutoAttendanceOn ? '' : 'disabled'}>
+          </label>
+        </div>`;
+
       // Activate Promotion — stored in status_settings, synced to the hidden form checkbox
       const statusData = (typeof statusSettingsMap !== 'undefined') ? statusSettingsMap[String(classId)] : null;
       const activationOn = statusData ? !!statusData.activate_promotion : false;
@@ -1982,7 +1998,7 @@
           </div>
           <div>
             <p class="ds-adv-section-label">Report Sections</p>
-            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${secHtml}</div>
+            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${attendanceManualRow}${secHtml}</div>
           </div>
         </div>
         <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
@@ -2004,6 +2020,16 @@
       const hiddenActProm = document.getElementById('activatePromotion');
       if (advActProm && hiddenActProm) {
         advActProm.addEventListener('change', function() { hiddenActProm.checked = this.checked; });
+      }
+
+      const turnOffAutoAttendanceCb = document.getElementById('ds-adv-turnOffAutoAttendance');
+      const manualAttendanceOutOfInput = document.getElementById('ds-adv-manualAttendanceOutOf');
+      if (turnOffAutoAttendanceCb && manualAttendanceOutOfInput) {
+        const syncManualAttendanceOutOfState = () => {
+          manualAttendanceOutOfInput.disabled = !turnOffAutoAttendanceCb.checked;
+        };
+        syncManualAttendanceOutOfState();
+        turnOffAutoAttendanceCb.addEventListener('change', syncManualAttendanceOutOfState);
       }
 
       // Wire save button
@@ -2095,6 +2121,14 @@
       panel.querySelectorAll('.ds-adv-col').forEach(cb => { columns[cb.dataset.key] = cb.checked; });
       const sections = {};
       panel.querySelectorAll('.ds-adv-sec').forEach(cb => { sections[cb.dataset.key] = cb.checked; });
+      const turnOffAutoAttendanceCb = document.getElementById('ds-adv-turnOffAutoAttendance');
+      sections.turnOffAutoAttendance = turnOffAutoAttendanceCb ? turnOffAutoAttendanceCb.checked : false;
+      const manualAttendanceOutOfInput = document.getElementById('ds-adv-manualAttendanceOutOf');
+      const manualAttendanceOutOfRaw = manualAttendanceOutOfInput ? manualAttendanceOutOfInput.value.trim() : '';
+      const manualAttendanceOutOfParsed = parseInt(manualAttendanceOutOfRaw, 10);
+      sections.manualAttendanceOutOf = manualAttendanceOutOfRaw !== '' && Number.isFinite(manualAttendanceOutOfParsed) && manualAttendanceOutOfParsed > 0
+        ? manualAttendanceOutOfParsed
+        : null;
       const advActProm = document.getElementById('ds-adv-activatePromotion');
       const activatePromValue = advActProm ? advActProm.checked : null;
       try {

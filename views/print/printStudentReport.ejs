@@ -412,6 +412,24 @@
             padding: 4px 5px;
         }
 
+        .attendance-manual-input {
+            width: 52px;
+            min-width: 52px;
+            max-width: 100%;
+            padding: 2px 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-right: 4px;
+            box-sizing: border-box;
+        }
+
+        .attendance-manual-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--org-primary-light);
+        }
+
         .grade-interpretation {
             border: 2px solid var(--primary);
             font-size: 11px;
@@ -741,6 +759,19 @@
             }
             .promotion-chevron {
                 display: none;
+            }
+
+            .attendance-manual-input {
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0;
+                margin-right: 2px;
+                width: 44px;
+                min-width: 44px;
+                background: transparent !important;
+                outline: none !important;
+                appearance: textfield;
+                -webkit-appearance: none;
             }
 
             /* Grade interpretation */
@@ -1657,14 +1688,30 @@
                         </table>
                     </div>
 
-                    <% if (displaySettings.sections.attendance) { %>
+                                        <% if (displaySettings.sections.attendance) { %>
                     <div class="attendance-info">
                         <table class="promotion-table">
                             <tr>
                                 <td>Overall Percentage:</td>
                                 <td><%= student.overallPercentage %> %</td>
                                 <td>Attendance:</td>
-                                <td><%= student.attendance.presentDays %>/<%= student.attendance.totalDays %></td>
+                                                                <td>
+                                                                    <% if (displaySettings.sections.turnOffAutoAttendance) { %>
+                                                                        <% const manualAttendanceOutOf = Number.isFinite(Number(displaySettings.sections.manualAttendanceOutOf)) && Number(displaySettings.sections.manualAttendanceOutOf) > 0 ? Number(displaySettings.sections.manualAttendanceOutOf) : null; %>
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0"
+                                                                            class="attendance-manual-input"
+                                                                            id="manualAttendance-<%= student.student_id %>"
+                                                                            value="<%= student.manualAttendancePresentDays !== null && student.manualAttendancePresentDays !== undefined ? student.manualAttendancePresentDays : '' %>"
+                                                                        />
+                                                                        <% if (manualAttendanceOutOf !== null) { %>
+                                                                          /<%= manualAttendanceOutOf %>
+                                                                        <% } %>
+                                                                    <% } else { %>
+                                                                        <%= student.attendance.presentDays %>/<%= student.attendance.totalDays %>
+                                                                    <% } %>
+                                                                </td>
                                 <td>Vacation Date:</td>
                                 <td><%= termEndDate %></td>
                                 <td>School Reopens:</td>
@@ -2145,6 +2192,8 @@ function updateClass(studentId) {
 }
 
 
+        const isManualAttendanceMode = <%- JSON.stringify(displaySettings.sections.turnOffAutoAttendance === true) %>;
+
         // Save changes
         document.getElementById('saveChangesLink').addEventListener('click', async (e) => {
             e.preventDefault(); // prevent link navigation
@@ -2163,16 +2212,26 @@ function updateClass(studentId) {
               // ✅ Get class name element (which also holds the class ID if you add data-class-id there)
               const promotionClassCell = document.getElementById(`promotionClass-${studentId}`);
               const promotionClassId = promotionClassCell ? promotionClassCell.getAttribute('data-class-id') : null;
+
+                            const reportPayload = {
+                                studentId: parseInt(studentId, 10),
+                                conductRemarks: document.getElementById(`conductRemarks-${studentId}`).value.trim(),
+                                attitudeRemarks: document.getElementById(`attitudeRemarks-${studentId}`).value.trim(),
+                                interestRemarks: document.getElementById(`interestRemarks-${studentId}`).value.trim(),
+                                teacherRemarks: document.getElementById(`teacherRemarks-${studentId}`).value.trim(),
+                                promotionStatus,
+                                promotionClassId,
+                            };
+
+                            if (isManualAttendanceMode) {
+                                const manualAttendanceInput = document.getElementById(`manualAttendance-${studentId}`);
+                                if (manualAttendanceInput) {
+                                    const trimmedValue = manualAttendanceInput.value.trim();
+                                    reportPayload.manualAttendancePresentDays = trimmedValue === '' ? null : parseInt(trimmedValue, 10);
+                                }
+                            }
         
-              return {
-                studentId: parseInt(studentId, 10),
-                conductRemarks: document.getElementById(`conductRemarks-${studentId}`).value.trim(),
-                attitudeRemarks: document.getElementById(`attitudeRemarks-${studentId}`).value.trim(),
-                interestRemarks: document.getElementById(`interestRemarks-${studentId}`).value.trim(),
-                teacherRemarks: document.getElementById(`teacherRemarks-${studentId}`).value.trim(),
-                promotionStatus,   // ✅ added
-                promotionClassId,  // ✅ added (may be null)
-              };
+                            return reportPayload;
             }).filter(Boolean);
         
             if (studentReports.length === 0) {

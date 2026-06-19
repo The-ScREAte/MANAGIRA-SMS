@@ -121,6 +121,22 @@ async function ensureScoreRemarkDefaultStateTable(dbClient) {
   ensuredScoreRemarkDefaultStateTable = true;
 }
 
+let ensuredStudentReportManualAttendanceColumn = false;
+async function ensureStudentReportManualAttendanceColumn(dbClient) {
+  if (ensuredStudentReportManualAttendanceColumn) return;
+  try {
+    await dbClient.query(
+      "ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS manual_attendance_present_days INTEGER"
+    );
+    await dbClient.query(
+      "ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS manual_attendance_total_days INTEGER"
+    );
+    ensuredStudentReportManualAttendanceColumn = true;
+  } catch (err) {
+    console.error("[ensureStudentReportManualAttendanceColumn] Failed to add column", err);
+  }
+}
+
 function getDefaultGradeLabel(percentage) {
   const value = Number(percentage);
   if (!Number.isFinite(value)) return "-";
@@ -358,6 +374,7 @@ const printController = (db) => ({
     const organizationId = req.session.organizationId;
     await ensureSignatureMetaColumns(db);
     await ensureScoreRemarkGradeColumn(db);
+    await ensureStudentReportManualAttendanceColumn(db);
     // Validate inputs
     if (!organizationId) {
       return res.status(400).send("Organization ID is not set in session.");
@@ -465,10 +482,10 @@ const printController = (db) => ({
 
       // Fetch saved reports (filtered by studentId if provided)
       const savedReportsQuery = parsedStudentId
-        ? `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks
+        ? `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, manual_attendance_present_days, manual_attendance_total_days
          FROM student_reports
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id = $4`
-        : `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks
+        : `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, manual_attendance_present_days, manual_attendance_total_days
          FROM student_reports
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`;
 
@@ -615,6 +632,10 @@ const printController = (db) => ({
           interestRemarks: secVis.interestRemarks !== false,
           gradeKey:        secVis.gradeKey        !== false,
           attendance:      secVis.attendance      !== false,
+          turnOffAutoAttendance: secVis.turnOffAutoAttendance === true,
+          manualAttendanceOutOf: Number.isFinite(Number(secVis.manualAttendanceOutOf)) && Number(secVis.manualAttendanceOutOf) > 0
+            ? Number(secVis.manualAttendanceOutOf)
+            : null,
           promotion:       secVis.promotion       !== false,
         },
       };
@@ -713,6 +734,12 @@ const printController = (db) => ({
         student.attitudeRemarks = savedReport.attitude_remarks || "";
         student.interestRemarks = savedReport.interest_remarks || "";
         student.teacherRemarks = savedReport.teacher_remarks || "";
+        student.manualAttendancePresentDays = Number.isFinite(Number(savedReport.manual_attendance_present_days))
+          ? Number(savedReport.manual_attendance_present_days)
+          : null;
+        student.manualAttendanceTotalDays = Number.isFinite(Number(savedReport.manual_attendance_total_days))
+          ? Number(savedReport.manual_attendance_total_days)
+          : null;
 
         let totalScoreSum = 0;
         let totalPercentageSum = 0;
@@ -1110,6 +1137,10 @@ students
             interestRemarks: sec.interestRemarks !== false,
             gradeKey:        sec.gradeKey        !== false,
             attendance:      sec.attendance      !== false,
+            turnOffAutoAttendance: sec.turnOffAutoAttendance === true,
+            manualAttendanceOutOf: Number.isFinite(Number(sec.manualAttendanceOutOf)) && Number(sec.manualAttendanceOutOf) > 0
+              ? Number(sec.manualAttendanceOutOf)
+              : null,
             promotion:       sec.promotion       !== false,
           },
         };
@@ -1275,6 +1306,10 @@ students
           interestRemarks: secVis2.interestRemarks !== false,
           gradeKey:        secVis2.gradeKey        !== false,
           attendance:      secVis2.attendance      !== false,
+          turnOffAutoAttendance: secVis2.turnOffAutoAttendance === true,
+          manualAttendanceOutOf: Number.isFinite(Number(secVis2.manualAttendanceOutOf)) && Number(secVis2.manualAttendanceOutOf) > 0
+            ? Number(secVis2.manualAttendanceOutOf)
+            : null,
           promotion:       secVis2.promotion       !== false,
         },
       };
@@ -3044,6 +3079,7 @@ students
     }
   
     try {
+      await ensureStudentReportManualAttendanceColumn(db);
       const parsedClassId = parseInt(classId, 10);
       const parsedTermId = parseInt(termId, 10);
   
@@ -3056,19 +3092,39 @@ students
           teacherRemarks,
           promotionStatus,       // ✅ from frontend
           promotionClassId,      // ✅ from frontend
+          manualAttendancePresentDays,
+          manualAttendanceTotalDays,
         } = studentReport;
   
         if (!studentId || isNaN(studentId) || studentId <= 0) {
                     continue; // skip invalid rows
         }
   
+        const manualAttendanceProvided = Object.prototype.hasOwnProperty.call(studentReport, "manualAttendancePresentDays");
+        let manualAttendanceValue = null;
+        if (manualAttendanceProvided && manualAttendancePresentDays !== "" && manualAttendancePresentDays !== null && manualAttendancePresentDays !== undefined) {
+          const parsedManualAttendance = parseInt(manualAttendancePresentDays, 10);
+          manualAttendanceValue = Number.isFinite(parsedManualAttendance) && parsedManualAttendance >= 0
+            ? parsedManualAttendance
+            : null;
+        }
+
+        const manualAttendanceTotalProvided = Object.prototype.hasOwnProperty.call(studentReport, "manualAttendanceTotalDays");
+        let manualAttendanceTotalValue = null;
+        if (manualAttendanceTotalProvided && manualAttendanceTotalDays !== "" && manualAttendanceTotalDays !== null && manualAttendanceTotalDays !== undefined) {
+          const parsedManualAttendanceTotal = parseInt(manualAttendanceTotalDays, 10);
+          manualAttendanceTotalValue = Number.isFinite(parsedManualAttendanceTotal) && parsedManualAttendanceTotal >= 0
+            ? parsedManualAttendanceTotal
+            : null;
+        }
+
         await db.query(
           `
             INSERT INTO student_reports (
               organization_id, class_id, term_id, student_id, 
               conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks,
-              promotion_status, promotion_class_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+              promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             ON CONFLICT (organization_id, class_id, term_id, student_id)
             DO UPDATE SET
               conduct_remarks = EXCLUDED.conduct_remarks,
@@ -3077,6 +3133,14 @@ students
               teacher_remarks = EXCLUDED.teacher_remarks,
               promotion_status = EXCLUDED.promotion_status,
               promotion_class_id = EXCLUDED.promotion_class_id,
+              manual_attendance_present_days = CASE
+                WHEN $13 THEN EXCLUDED.manual_attendance_present_days
+                ELSE student_reports.manual_attendance_present_days
+              END,
+              manual_attendance_total_days = CASE
+                WHEN $14 THEN EXCLUDED.manual_attendance_total_days
+                ELSE student_reports.manual_attendance_total_days
+              END,
               updated_at = CURRENT_TIMESTAMP
           `,
           [
@@ -3090,6 +3154,10 @@ students
             teacherRemarks,
             promotionStatus,
             promotionClassId ? parseInt(promotionClassId, 10) : null, // ensure numeric or null
+            manualAttendanceValue,
+            manualAttendanceTotalValue,
+            manualAttendanceProvided,
+            manualAttendanceTotalProvided,
           ]
         );
       }
