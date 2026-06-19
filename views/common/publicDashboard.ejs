@@ -393,8 +393,26 @@ object-fit:contain;
   background:rgba(0,0,0,0.35);
   color:#fff;
   cursor:pointer;
+  border:0;
+  appearance:none;
 
   transition:transform .12s ease, background .12s ease;
+}
+
+.carousel-control::before{
+  content:none !important;
+}
+
+.carousel-control .carousel-arrow{
+  width:22px;
+  height:22px;
+  display:block;
+  stroke:#ffffff;
+  stroke-width:3.2;
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  pointer-events:none;
 }
 
 .carousel-control:hover{
@@ -2594,7 +2612,7 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
 
 .wf2-gallery-masonry {
   --wf2-gallery-card-height: 190px;
-  --wf2-gallery-caption-height: 44px;
+  --wf2-gallery-caption-height: 66px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -2628,16 +2646,17 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
 }
 
 .wf2-gallery-masonry .gallery-card .caption {
-  display: block !important;
+  display: -webkit-box !important;
+  height: var(--wf2-gallery-caption-height);
   min-height: var(--wf2-gallery-caption-height);
   margin-top: 0 !important;
   padding: 9px 11px !important;
   font-size: 0.78rem !important;
   font-weight: 400 !important;
   line-height: 1.32 !important;
+  box-sizing: border-box;
   white-space: normal !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 2 !important;
+  -webkit-line-clamp: 4 !important;
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -2838,7 +2857,7 @@ body[data-pd-theme] .wf2-gallery-masonry .gallery-card .caption {
   }
   .wf2-gallery-masonry {
     --wf2-gallery-card-height: 135px;
-    --wf2-gallery-caption-height: 40px;
+    --wf2-gallery-caption-height: 58px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     max-height: calc((var(--wf2-gallery-card-height) + var(--wf2-gallery-caption-height) + 12px) * 3);
   }
@@ -3574,7 +3593,7 @@ body[data-pd-theme="bold"] #modalCaption{
     font-size: 0.74rem !important;
     line-height: 1.3 !important;
     padding: 8px 10px !important;
-    -webkit-line-clamp: 2 !important;
+    -webkit-line-clamp: 4 !important;
   }
 
   .wf2-event-badge,
@@ -3636,6 +3655,24 @@ body[data-pd-theme="bold"] #modalCaption{
 body[data-pd-theme] .gallery-card .caption{
   font-size:0.86rem !important;
   line-height:1.3 !important;
+}
+
+/* WF2 gallery caption: always show exactly three full lines */
+body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card .caption{
+  display:block !important;
+  line-clamp:unset !important;
+  -webkit-line-clamp:unset !important;
+  -webkit-box-orient:unset !important;
+  white-space:normal !important;
+  overflow:hidden !important;
+  overflow:clip !important;
+  text-overflow:clip !important;
+  padding:8px 10px !important;
+  line-height:1.26 !important;
+  box-sizing:border-box !important;
+  height:calc((1.26em * 4) + 16px) !important;
+  min-height:calc((1.26em * 4) + 16px) !important;
+  max-height:calc((1.26em * 4) + 16px) !important;
 }
 
 /* Small screens (mobile) */
@@ -3811,25 +3848,25 @@ body[data-pd-theme] .gallery-card .caption{
 
   #carouselPrevBtn::before,
   #carouselNextBtn::before{
-    content: "";
-    display: inline-block;
+    font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "Arial Unicode MS", sans-serif;
+    font-weight: 900;
+    font-size: 0.95rem;
+    line-height: 1;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    display: inline-flex;
     align-items:center;
     justify-content:center;
-    width:0.62rem;
-    height:0.62rem;
-    border: 0 solid transparent;
+    width:1.3rem;
+    height:1.3rem;
+    border-radius:999px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.10));
+    border:1px solid rgba(255,255,255,0.35);
+    box-shadow:0 2px 6px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.28);
   }
 
-  #carouselPrevBtn::before{
-    border-left: 0.16rem solid #ffffff;
-    border-bottom: 0.16rem solid #ffffff;
-    transform: rotate(45deg);
-  }
-  #carouselNextBtn::before{
-    border-right: 0.16rem solid #ffffff;
-    border-top: 0.16rem solid #ffffff;
-    transform: rotate(45deg);
-  }
+  #carouselPrevBtn::before{ content: '\25C0'; }
+  #carouselNextBtn::before{ content: '\25B6'; }
 
   .slide-image{ padding:0px; }
   .slide-image img{
@@ -3902,9 +3939,9 @@ body[data-pd-theme] .gallery-card .caption{
 
   #carouselPrevBtn::before,
   #carouselNextBtn::before{
-    width:0.52rem !important;
-    height:0.52rem !important;
-    border-width:0.14rem !important;
+    width:1.12rem !important;
+    height:1.12rem !important;
+    font-size:0.72rem !important;
   }
 
   #carouselPrevBtn{ left:8px !important; }
@@ -4398,10 +4435,20 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
 
   body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card .caption{
     font-size:0.72rem !important;
-    line-height:1.28 !important;
+    line-height:1.24 !important;
     padding:7px 9px !important;
     font-weight:400 !important;
-    -webkit-line-clamp:2 !important;
+    display:-webkit-box !important;
+    line-clamp:4 !important;
+    -webkit-line-clamp:4 !important;
+    -webkit-box-orient:vertical !important;
+    white-space:normal !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    box-sizing:border-box !important;
+    height:calc((1.24em * 4) + 14px) !important;
+    min-height:calc((1.24em * 4) + 14px) !important;
+    max-height:calc((1.24em * 4) + 14px) !important;
     border-top:1px solid rgba(148, 163, 184, 0.25);
   }
 
@@ -4432,6 +4479,17 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
   body[data-page="publicDashboard"] .wf2-announcements-list{
     padding:4px 0 10px !important;
     scroll-padding-inline:6px;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-x:contain;
+    touch-action:pan-x;
+    scroll-snap-type:x proximity;
+  }
+
+  body[data-page="publicDashboard"] .wf2-articles-scroll{
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-x:contain;
+    touch-action:pan-x;
+    scroll-snap-type:x proximity;
   }
 
   body[data-page="publicDashboard"] .event-card.wf2-event-badge,
@@ -4441,9 +4499,9 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
     max-width:calc(100% - 8px) !important;
     flex:0 0 calc(100% - 8px) !important;
     margin-inline:auto !important;
-    min-height:146px !important;
-    height:146px !important;
-    max-height:146px !important;
+    min-height:156px !important;
+    height:156px !important;
+    max-height:156px !important;
     padding:8px 10px !important;
     gap:8px !important;
     border-radius:11px !important;
@@ -4456,9 +4514,9 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
     max-width:calc(100% - 8px) !important;
     flex:0 0 calc(100% - 8px) !important;
     margin-inline:auto !important;
-    min-height:204px !important;
-    height:204px !important;
-    max-height:204px !important;
+    min-height:222px !important;
+    height:222px !important;
+    max-height:222px !important;
     padding:9px 10px !important;
     border-radius:11px !important;
     display:flex !important;
@@ -4467,8 +4525,8 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
   }
 
   body[data-page="publicDashboard"] .wf2-articles-scroll .draggable-item.wf2-article-card h3{
-    font-size:0.84rem !important;
-    line-height:1.34 !important;
+    font-size:0.92rem !important;
+    line-height:1.36 !important;
     margin:0 0 6px 0 !important;
     padding-bottom:2px;
     text-align:left !important;
@@ -4487,8 +4545,9 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
-    font-size:0.76rem !important;
-    line-height:1.32 !important;
+    touch-action:pan-y;
+    font-size:0.82rem !important;
+    line-height:1.38 !important;
     scrollbar-width:thin;
   }
 
@@ -4501,7 +4560,7 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
-    touch-action:pan-y pan-x;
+    touch-action:pan-y;
     scrollbar-width:thin;
   }
 
@@ -4521,34 +4580,35 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
 
   body[data-page="publicDashboard"] .event-card.wf2-event-badge .wf2-event-content h3,
   body[data-page="publicDashboard"] .announcement-card.wf2-announcement-badge h3{
-    font-size:0.86rem !important;
-    line-height:1.22 !important;
+    font-size:0.92rem !important;
+    line-height:1.28 !important;
     margin:0 !important;
   }
 
   body[data-page="publicDashboard"] .event-card.wf2-event-badge .wf2-event-date-badge{
-    font-size:0.66rem !important;
+    font-size:0.72rem !important;
     padding:4px 7px !important;
     border-radius:8px !important;
     line-height:1.05 !important;
   }
 
   body[data-page="publicDashboard"] .announcement-card.wf2-announcement-badge .wf2-announcement-icon{
-    font-size:0.95rem !important;
+    font-size:1.05rem !important;
     margin-top:2px !important;
     grid-column:1;
   }
 
   body[data-page="publicDashboard"] .event-card.wf2-event-badge .wf2-event-content p,
   body[data-page="publicDashboard"] .announcement-card.wf2-announcement-badge p{
-    font-size:0.76rem !important;
-    line-height:1.3 !important;
+    font-size:0.82rem !important;
+    line-height:1.36 !important;
     margin-top:6px !important;
     display:block !important;
     overflow-y:auto !important;
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
+    touch-action:pan-y;
     min-height:0 !important;
     flex:1 1 auto !important;
     max-height:100% !important;
@@ -4557,9 +4617,10 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
   }
 
   body[data-page="publicDashboard"] .announcement-card.wf2-announcement-badge p{
-    overflow:visible !important;
-    flex:0 0 auto !important;
-    max-height:none !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    flex:1 1 auto !important;
+    max-height:100% !important;
     margin-top:4px !important;
     grid-column:2;
     min-width:0 !important;
@@ -4580,6 +4641,37 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
   body[data-page="publicDashboard"] .announcement-card.wf2-announcement-badge p::-webkit-scrollbar-thumb{
     background:rgba(71, 85, 105, 0.45);
     border-radius:999px;
+  }
+}
+
+/* Final WF2 caption guard: never render more than two visible lines */
+body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery-item .caption{
+  font-size:0.78rem !important;
+  line-height:1.24 !important;
+  padding:8px 10px !important;
+  box-sizing:border-box !important;
+  display:-webkit-box !important;
+  -webkit-box-orient:vertical !important;
+  -webkit-line-clamp:4 !important;
+  white-space:normal !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  height:calc((4 * 1.24em) + 16px) !important;
+  min-height:calc((4 * 1.24em) + 16px) !important;
+  max-height:calc((4 * 1.24em) + 16px) !important;
+}
+
+@media (max-width: 480px){
+  body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery-item .caption{
+    font-size:0.72rem !important;
+    line-height:1.2 !important;
+    padding:7px 9px !important;
+    display:-webkit-box !important;
+    -webkit-box-orient:vertical !important;
+    -webkit-line-clamp:4 !important;
+    height:calc((4 * 1.2em) + 14px) !important;
+    min-height:calc((4 * 1.2em) + 14px) !important;
+    max-height:calc((4 * 1.2em) + 14px) !important;
   }
 }
 
@@ -4633,14 +4725,26 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
           </div>
         </div>
         <% }); %>
-        <i
-          class="fa-solid fa-circle-arrow-left carousel-control prev"
+        <button
+          type="button"
+          class="carousel-control prev"
           id="carouselPrevBtn"
-        ></i>
-        <i
-          class="fa-solid fa-circle-arrow-right carousel-control next"
+          aria-label="Previous slide"
+        >
+          <svg class="carousel-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          class="carousel-control next"
           id="carouselNextBtn"
-        ></i>
+          aria-label="Next slide"
+        >
+          <svg class="carousel-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
       </div>
       <% } %>
       <%
