@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     account_type user_role NOT NULL,
+    date_of_birth DATE,
     organization_id INT REFERENCES organizations(organization_id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -145,6 +146,7 @@ CREATE TABLE IF NOT EXISTS guardians (
     last_name VARCHAR(255) NOT NULL,
     address VARCHAR(255),
     phone VARCHAR(15),
+    date_of_birth DATE,
     hometown VARCHAR(255),
     image_url VARCHAR(255),
     student_id INT REFERENCES students(student_id) ON DELETE CASCADE,
@@ -723,6 +725,8 @@ ALTER TABLE organizations ADD COLUMN role VARCHAR(50) DEFAULT 'Manager';
 ALTER TABLE users
 ADD COLUMN reset_password_token VARCHAR(255),
 ADD COLUMN reset_password_expires TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE guardians ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 
 
 ALTER TABLE organizations

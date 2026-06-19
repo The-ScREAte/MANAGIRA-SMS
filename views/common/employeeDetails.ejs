@@ -139,6 +139,9 @@
         <h2><%= (typeof formatDisplayName === 'function' ? formatDisplayName(employee) : [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim()) %></h2>
         <p><strong>Email:</strong> <%= employee.email %></p>
         <p><strong>Role:</strong> <%= employee.account_type %></p>
+        <% if (employee.date_of_birth) { %>
+          <p><strong>Date of Birth:</strong> <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(employee.date_of_birth) : new Date(employee.date_of_birth).toLocaleDateString()) %></p>
+        <% } %>
       
         <% if (isManager) { %>
           <p>

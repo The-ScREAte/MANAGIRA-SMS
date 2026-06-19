@@ -155,6 +155,10 @@
         <input type="email" name="email" value="<%= user.email %>">
     </div>
     <div>
+      <label for="dateOfBirth">Date of Birth:</label>
+      <input type="date" name="dateOfBirth" value="<%= user.date_of_birth ? new Date(user.date_of_birth).toISOString().slice(0, 10) : '' %>">
+    </div>
+    <div>
         <label for="accountType">Role:</label>
         <select name="accountType">
             <option value="">-- Select Role --</option>

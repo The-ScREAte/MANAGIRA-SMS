@@ -320,6 +320,12 @@ module.exports = (db) => {
     isAuthenticated,
     (req, res) => commonController.classDashboard(req, res, db)
   );
+  router.get(
+    "/birthdays",
+    checkFeatureAccess,
+    isAuthenticated,
+    (req, res) => commonController.birthdaysPageGet(req, res, db)
+  );
   router.get("/classSchedule", isAuthenticated, (req, res) =>
     commonController.getClassSchedule(req, res, db)
   );

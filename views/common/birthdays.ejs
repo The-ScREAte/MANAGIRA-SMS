@@ -1,0 +1,456 @@
+<%
+  const birthdayPageMessages = [
+    'To everyone celebrating today: may your heart be light, your smiles be endless, and your new year be filled with grace. With love from Managira.',
+    'Happy birthday to all today\'s celebrants. May laughter find you easily, may kindness surround you, and may this year unfold beautifully. Much love from Managira.',
+    'For every birthday star today, we pray for sweet joy, good health, and bright progress all year long. Warm wishes from Managira, with love.',
+    'Wishing each celebrant a gentle, joyful birthday and a new chapter full of favor, confidence, and happy memories. Love from Managira.',
+  ];
+  const todayCount = (birthdayStudents || []).filter((item) => item.isToday).length;
+  const spotlightMessage = birthdayPageMessages[todayCount % birthdayPageMessages.length];
+%>
+<style>
+  .birthdays-page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 16px 14px 28px;
+  }
+
+  .birthdays-shell {
+    display: grid;
+    gap: 12px;
+  }
+
+  .birthday-celebration-overlay {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    z-index: 12000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .birthday-celebration-overlay.is-visible {
+    opacity: 1;
+    pointer-events: none;
+  }
+
+  .birthday-confetti-layer {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .birthday-confetti {
+    position: absolute;
+    top: -8vh;
+    width: 10px;
+    height: 20px;
+    border-radius: 2px;
+    opacity: 0;
+    animation-name: confettiDrop;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+    will-change: transform, opacity;
+  }
+
+  .birthday-confetti.square {
+    border-radius: 1px;
+  }
+
+  .birthday-confetti.circle {
+    border-radius: 50%;
+    width: 8px;
+    height: 8px;
+  }
+
+  .birthday-confetti.ribbon {
+    width: 6px;
+    height: 24px;
+    border-radius: 999px;
+  }
+
+  @keyframes confettiDrop {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, -8vh, 0) rotate(0deg);
+    }
+    8% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0.95;
+      transform: translate3d(var(--drift, 0px), 118vh, 0) rotate(var(--spin, 720deg));
+    }
+  }
+
+  .birthdays-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    padding: 12px 12px 11px;
+    color: #fff;
+    background:
+      radial-gradient(circle at top right, rgba(255,255,255,0.72), transparent 28%),
+      linear-gradient(135deg, var(--org-primary-color, #01535b), color-mix(in srgb, var(--org-primary-color, #01535b) 64%, #f59e0b));
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+  }
+
+  .birthdays-burst {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .birthdays-burst span {
+    position: absolute;
+    width: 86px;
+    height: 86px;
+    border-radius: 50%;
+    opacity: 0;
+    background:
+      radial-gradient(circle, rgba(255,255,255,0.92) 0 8%, transparent 9% 100%),
+      conic-gradient(from 0deg, rgba(255,255,255,0) 0 8%, rgba(255,255,255,0.72) 8% 12%, rgba(255,255,255,0) 12% 20%, rgba(255,255,255,0.72) 20% 24%, rgba(255,255,255,0) 24% 32%, rgba(255,255,255,0.72) 32% 36%, rgba(255,255,255,0) 36% 44%, rgba(255,255,255,0.72) 44% 48%, rgba(255,255,255,0) 48% 56%, rgba(255,255,255,0.72) 56% 60%, rgba(255,255,255,0) 60% 68%, rgba(255,255,255,0.72) 68% 72%, rgba(255,255,255,0) 72% 80%, rgba(255,255,255,0.72) 80% 84%, rgba(255,255,255,0) 84% 100%);
+    animation: birthdaysBurst 4.6s ease-in-out infinite;
+  }
+
+  .birthdays-burst span:nth-child(1) { top: -12px; right: 20px; animation-delay: 0s; }
+  .birthdays-burst span:nth-child(2) { top: 24px; left: 56%; animation-delay: 1.4s; transform: scale(0.84); }
+  .birthdays-burst span:nth-child(3) { bottom: -12px; left: 22px; animation-delay: 2.7s; transform: scale(0.7); }
+
+  @keyframes birthdaysBurst {
+    0%, 100% { opacity: 0; transform: scale(0.5) translateY(10px); }
+    18% { opacity: 0.9; transform: scale(1) translateY(0); }
+    34% { opacity: 0.24; transform: scale(1.18) translateY(-8px); }
+    52% { opacity: 0; transform: scale(1.35) translateY(-18px); }
+  }
+
+  .birthdays-hero-content {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 8px;
+  }
+
+  .birthdays-kicker {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.82);
+  }
+
+  .birthdays-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 10px;
+    padding-right: 58px;
+  }
+
+  .birthdays-title-row h1 {
+    margin: 0;
+    font-size: clamp(1.2rem, 2.2vw, 1.65rem);
+    line-height: 1.05;
+    color: inherit;
+  }
+
+  .birthdays-stat {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 7px 9px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.24);
+    backdrop-filter: blur(14px);
+    font-size: 1rem;
+    font-weight: 800;
+  }
+
+  .birthdays-subtitle {
+    margin: 0;
+    max-width: 70ch;
+    color: rgba(255,255,255,0.92);
+    line-height: 1.6;
+  }
+
+  .birthdays-spotlight {
+    margin: 0;
+    max-width: 74ch;
+    padding: 9px 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.24);
+    color: rgba(255,255,255,0.95);
+    line-height: 1.45;
+    font-size: 0.84rem;
+  }
+
+  .birthdays-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .birthday-person-card {
+    position: relative;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+    padding: 10px 10px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .birthday-person-card.is-today {
+    border-color: color-mix(in srgb, var(--org-primary-color, #01535b) 28%, #f59e0b);
+    box-shadow: 0 10px 22px rgba(234, 88, 12, 0.1);
+    background:
+      radial-gradient(circle at top right, rgba(255, 247, 237, 0.95), transparent 24%),
+      linear-gradient(135deg, #fff8ef 0%, #ffffff 48%, #fff7ed 100%);
+  }
+
+  .birthday-person-card.is-celebrating {
+    animation: birthdayCardShake 0.6s ease-in-out infinite;
+    transform-origin: center center;
+  }
+
+  @keyframes birthdayCardShake {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    20% { transform: translateX(-2px) rotate(-0.8deg); }
+    40% { transform: translateX(2px) rotate(0.9deg); }
+    60% { transform: translateX(-1px) rotate(-0.5deg); }
+    80% { transform: translateX(1px) rotate(0.5deg); }
+  }
+
+  .birthday-person-nameblock h2 {
+    margin: 0;
+    font-size: 0.86rem;
+    color: #0f172a;
+    line-height: 1.14;
+  }
+
+  .birthday-state-pill {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    padding: 4px 7px;
+    border-radius: 999px;
+    font-size: 0.64rem;
+    font-weight: 700;
+    background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, white);
+    color: var(--org-primary-color, #01535b);
+  }
+
+  .birthday-state-pill.is-today {
+    background: #fff7ed;
+    color: #c2410c;
+  }
+
+  .birthday-person-meta {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 10px;
+    row-gap: 3px;
+  }
+
+  .birthday-person-meta p {
+    margin: 0;
+    color: #475569;
+    line-height: 1.35;
+    font-size: 0.74rem;
+  }
+
+  .birthday-person-meta strong {
+    color: #0f172a;
+  }
+
+  .birthday-person-note {
+    margin: 0;
+    padding-top: 5px;
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+    color: #334155;
+    line-height: 1.4;
+    font-size: 0.74rem;
+  }
+
+  .birthday-person-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-right: 96px;
+  }
+
+  .birthday-person-nameblock {
+    display: grid;
+    gap: 1px;
+  }
+
+  .birthdays-empty {
+    border-radius: 14px;
+    border: 1px dashed rgba(148, 163, 184, 0.42);
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
+    padding: 18px 14px;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+
+  .birthdays-empty h2 {
+    margin: 0 0 6px;
+    color: #0f172a;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 720px) {
+    .birthdays-page { padding: 12px 10px 22px; }
+    .birthdays-title-row { flex-direction: column; }
+    .birthdays-stat { min-width: 38px; min-height: 38px; font-size: 0.95rem; }
+    .birthday-person-row { gap: 6px; padding-right: 88px; }
+    .birthday-person-card { padding: 10px; }
+    .birthday-person-meta p,
+    .birthday-person-note { font-size: 0.74rem; }
+    .birthdays-spotlight { font-size: 0.78rem; }
+    .birthdays-burst { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .birthdays-burst { display: none; }
+    .birthday-person-card.is-celebrating { animation: none; }
+  }
+</style>
+
+<body>
+  <div class="birthday-celebration-overlay" id="birthdayCelebrationOverlay" aria-hidden="true">
+    <div class="birthday-confetti-layer" id="birthdayConfettiLayer"></div>
+  </div>
+
+  <div class="birthdays-page">
+    <%- include('../partials/flash') %>
+
+    <section class="birthdays-shell">
+      <div class="birthdays-hero">
+        <% if (todayCount > 0) { %>
+          <div class="birthdays-burst" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        <% } %>
+        <div class="birthdays-hero-content">
+          <span class="birthdays-kicker"><%= isTeacherScope ? 'Your classes this week' : 'School birthdays this week' %></span>
+          <div class="birthdays-title-row">
+            <h1>Birthdays 🎂</h1>
+          </div>
+          <span class="birthdays-stat"><%= (birthdayStudents || []).length %></span>
+          <% if ((birthdayStudents || []).some(function(item){ return item.isToday; })) { %>
+            <p class="birthdays-spotlight"><%= spotlightMessage %></p>
+          <% } %>
+        </div>
+      </div>
+
+      <% if (Array.isArray(birthdayStudents) && birthdayStudents.length > 0) { %>
+        <div class="birthdays-list">
+          <% birthdayStudents.forEach(function(item) { %>
+            <article class="birthday-person-card <%= item.isToday ? 'is-today is-celebrating' : '' %>">
+              <div class="birthday-person-row">
+                <div class="birthday-person-nameblock">
+                  <h2><%= item.name %></h2>
+                </div>
+                <span class="birthday-state-pill <%= item.isToday ? 'is-today' : '' %>"><%= item.isToday ? 'Birthday today' : 'Upcoming' %></span>
+                <div class="birthday-person-meta">
+                  <% if (item.className && item.turningAge) { %>
+                    <p><strong><%= item.classLabel || 'Class' %>:</strong> <%= item.className %> <strong>Turning:</strong> <%= item.turningAge %> <%= Number(item.turningAge) === 1 ? 'year' : 'years' %> old</p>
+                  <% } else if (item.className) { %>
+                    <p><strong><%= item.classLabel || 'Class' %>:</strong> <%= item.className %></p>
+                  <% } else if (item.turningAge) { %>
+                    <p><strong>Turning:</strong> <%= item.turningAge %> <%= Number(item.turningAge) === 1 ? 'year' : 'years' %> old</p>
+                  <% } %>
+                  <% if (!item.isToday) { %>
+                    <p><strong>Date:</strong> <%= item.nextBirthdayLabel %></p>
+                  <% } %>
+                </div>
+              </div>
+              <p class="birthday-person-note"><%= item.isToday ? item.wishMessage : 'Upcoming this week' %></p>
+            </article>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <div class="birthdays-empty">
+          <h2>No birthdays this week</h2>
+          <p>When a student in your visible classes is celebrating within the next 7 days, they will appear here.</p>
+        </div>
+      <% } %>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      const todayBirthdayCards = Array.from(document.querySelectorAll('.birthday-person-card.is-celebrating'));
+      const celebrationOverlay = document.getElementById('birthdayCelebrationOverlay');
+      const confettiLayer = document.getElementById('birthdayConfettiLayer');
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const viewerCelebrationKey = <%- JSON.stringify(String(viewerCelebrationKey || 'guest')) %>;
+      const storageKey = `managira:birthdays:celebration-seen:v6:${todayKey}:${viewerCelebrationKey}`;
+
+      if (!celebrationOverlay || !confettiLayer) return;
+      if (todayBirthdayCards.length === 0) return;
+
+      window.setTimeout(() => {
+        todayBirthdayCards.forEach((card) => card.classList.remove('is-celebrating'));
+      }, 4000);
+
+      if (window.sessionStorage && sessionStorage.getItem(storageKey) === '1') {
+        return;
+      }
+
+      const reduceMotion = typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduceMotion) {
+        return;
+      }
+
+      celebrationOverlay.classList.add('is-visible');
+      if (window.sessionStorage) {
+        sessionStorage.setItem(storageKey, '1');
+      }
+
+      const confettiColors = ['#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#06b6d4', '#22c55e', '#fde047'];
+      const confettiShapes = ['square', 'circle', 'ribbon'];
+      const isCompactScreen = window.matchMedia('(max-width: 720px)').matches;
+      const lowMemoryDevice = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+      const totalParticles = (isCompactScreen || lowMemoryDevice) ? 110 : 170;
+      const fragment = document.createDocumentFragment();
+
+      for (let i = 0; i < totalParticles; i += 1) {
+        const particle = document.createElement('span');
+        const shape = confettiShapes[Math.floor(Math.random() * confettiShapes.length)];
+        particle.className = `birthday-confetti ${shape}`;
+        particle.style.left = `${Math.random() * 100}%`;
+        particle.style.background = confettiColors[Math.floor(Math.random() * confettiColors.length)];
+        particle.style.animationDuration = `${4.8 + Math.random() * 2.2}s`;
+        particle.style.animationDelay = `${Math.random() * 5.0}s`;
+        particle.style.setProperty('--drift', `${-120 + Math.random() * 240}px`);
+        particle.style.setProperty('--spin', `${360 + Math.random() * 1080}deg`);
+        fragment.appendChild(particle);
+      }
+      confettiLayer.appendChild(fragment);
+
+      window.setTimeout(() => {
+        celebrationOverlay.classList.remove('is-visible');
+        confettiLayer.innerHTML = '';
+      }, 12200);
+    })();
+  </script>
+</body>

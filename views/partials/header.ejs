@@ -1468,6 +1468,18 @@
           </a>
         </li>
         <% } %>
+        <li class="nav-item">
+          <a href="/common/birthdays" class="nav-item-link management-link">
+            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 7h20v5H2z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 22V7"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"></path>
+            </svg>
+            Birthdays 🎂
+          </a>
+        </li>
         <% if (req.session && req.session.userRole !== 'Teacher' && Array.isArray(allowedFeatures) && (allowedFeatures.includes('Student and Guadian Profile') || allowedFeatures.includes('Student and Guardian Profile'))) { %>
         <li class="nav-item">
           <a href="/common/admissions" class="nav-item-link management-link">
@@ -2300,6 +2312,9 @@
     admission_rejected:         { bg: '#fef2f2', stroke: '#dc2626', icon: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' },
     event_created:              { bg: '#f5f3ff', stroke: '#7c3aed', icon: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
     announcement_created:       { bg: '#f5f3ff', stroke: '#7c3aed', icon: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>' },
+    birthday_student:           { bg: '#fff7ed', stroke: '#ea580c', icon: '<path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"/>' },
+    birthday_staff:             { bg: '#fdf2f8', stroke: '#db2777', icon: '<path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"/>' },
+    birthday_guardian:          { bg: '#eef2ff', stroke: '#4f46e5', icon: '<path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"/>' },
     term_changed:               { bg: '#eff6ff', stroke: '#2563eb', icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
     enrollment_added:           { bg: '#f0fdf4', stroke: '#16a34a', icon: '<path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM3 20a6 6 0 0 1 12 0v1H3v-1z"/>' },
   };
@@ -2454,7 +2469,7 @@
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notifId: Number(id) }),
+        body: JSON.stringify({ notifId: id }),
       }).then(() => refreshCount()).catch(() => {});
       return;
     }
@@ -2476,7 +2491,7 @@
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notifId: Number(id) }),
+      body: JSON.stringify({ notifId: id }),
     }).then(() => refreshCount()).catch(() => {});
 
     // Navigate

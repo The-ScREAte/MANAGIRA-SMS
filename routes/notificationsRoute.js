@@ -63,7 +63,20 @@ router.get('/feed', requireAuth, async (req, res) => {
 // ── POST /notifications/mark-read ─────────────────────────────────────────────
 router.post('/mark-read', requireAuth, express.json(), async (req, res) => {
   try {
-    const notifId = Number.parseInt(req.body.notifId, 10);
+    const rawNotifId = String(req.body.notifId || '').trim();
+    if (!rawNotifId) {
+      return res.status(400).json({ success: false, error: 'Invalid notifId' });
+    }
+    if (rawNotifId.startsWith('birthday:')) {
+      await ns.markRead(db, {
+        notifId: rawNotifId,
+        readerId: req._notifCtx.recipientId,
+        recipientType: req._notifCtx.recipientType,
+        orgId: req._notifCtx.orgId,
+      });
+      return res.json({ success: true });
+    }
+    const notifId = Number.parseInt(rawNotifId, 10);
     if (!Number.isInteger(notifId) || notifId <= 0) {
       return res.status(400).json({ success: false, error: 'Invalid notifId' });
     }
@@ -95,7 +108,20 @@ router.post('/mark-all-read', requireAuth, async (req, res) => {
 // ── POST /notifications/dismiss ───────────────────────────────────────────────
 router.post('/dismiss', requireAuth, express.json(), async (req, res) => {
   try {
-    const notifId = Number.parseInt(req.body.notifId, 10);
+    const rawNotifId = String(req.body.notifId || '').trim();
+    if (!rawNotifId) {
+      return res.status(400).json({ success: false, error: 'Invalid notifId' });
+    }
+    if (rawNotifId.startsWith('birthday:')) {
+      await ns.dismissNotification(db, {
+        notifId: rawNotifId,
+        dismisserId: req._notifCtx.recipientId,
+        recipientType: req._notifCtx.recipientType,
+        orgId: req._notifCtx.orgId,
+      });
+      return res.json({ success: true });
+    }
+    const notifId = Number.parseInt(rawNotifId, 10);
     if (!Number.isInteger(notifId) || notifId <= 0) {
       return res.status(400).json({ success: false, error: 'Invalid notifId' });
     }

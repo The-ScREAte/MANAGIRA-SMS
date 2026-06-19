@@ -1183,6 +1183,18 @@
         color: #0f172a;
       }
 
+      .current-plan-pricing-note-points {
+        margin-top: 4px;
+        display: grid;
+        gap: 3px;
+      }
+
+      .current-plan-pricing-note-point {
+        font-size: 11.5px;
+        color: #334155;
+        line-height: 1.5;
+      }
+
       .current-plan-pricing-note-sub {
         margin-top: 2px;
         font-size: 11px;
@@ -1420,7 +1432,7 @@
         font-size: 15px;
         font-weight: 700;
         color: #0f172a;
-        margin-bottom: 4px;
+        margin-bottom: 8px;
       }
 
       .plan-modal-summary-body,
@@ -1433,6 +1445,21 @@
       .plan-modal-summary-body {
         font-size: 13px;
         color: #1f2937;
+      }
+
+      .plan-modal-summary-points {
+        display: grid;
+        gap: 6px;
+      }
+
+      .plan-modal-summary-point {
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: #1f2937;
+      }
+
+      .plan-modal-summary-point strong {
+        color: #0f172a;
       }
 
       .plan-modal-summary-standout {
@@ -2517,6 +2544,7 @@
                 <% const billingPerMonthEquivalent = billingMonths > 0 ? (billingCycleTotal / billingMonths) : currentMonthlyBase; %>
                 <% const billingChargeLabel = hasBillingInfo ? (billingInfo.period_label || 'Monthly') : 'Monthly'; %>
                 <% const nextPaymentDate = hasBillingInfo && billingInfo.next_payment_end_date ? new Date(billingInfo.next_payment_end_date) : null; %>
+                <% const currentStudentCount = currentPlanPricing ? Number(currentPlanPricing.organizationStudentCount || 0) : 0; %>
                 <% if (pendingPlan) { %>
                   <div class="current-plan-summary is-pending">
                     <div class="current-plan-summary-standout">
@@ -2528,49 +2556,37 @@
                   </div>
                 <% } %>
                 <% if (currentPlanPricing && currentPlanPricing.pricingMode === 'dynamic') { %>
+                  <% const freeThreshold = Number(currentPlanPricing.freeStudentThreshold || 0); %>
                   <div class="current-plan-pricing-note">
                     <div class="current-plan-pricing-note-title">
-                      Region: <%= currentPlanPricing.pricingRegionName %> • First <%= Number(currentPlanPricing.freeStudentThreshold || 0) %> students are free.
+                      <%= planName || 'Selected plan' %> pricing at your current size
                     </div>
-                    <div class="current-plan-pricing-note-sub">
-                      <% if (Number(currentPlanPricing.extraStudents || 0) > 0) { %>
-                        Additional charges are currently active because your student count is above <%= Number(currentPlanPricing.freeStudentThreshold || 0) %>.
-                      <% } else { %>
-                        Additional charges apply after <%= Number(currentPlanPricing.freeStudentThreshold || 0) %> students.
-                      <% } %>
-                    </div>
-                    <div class="current-plan-pricing-note-sub">
-                      Monthly price at your current student count: $<%= currentMonthlyBase.toFixed(2) %>/mo.
-                    </div>
-                    <div class="current-plan-pricing-note-sub">
-                      <% if (billingMonths > 1) { %>
-                        Next payment will be $<%= billingCycleTotal.toFixed(2) %> for <%= billingChargeLabel %><%= billingDiscount > 0 ? ' (' + billingDiscount + '% off)' : '' %><%= nextPaymentDate ? ' on ' + nextPaymentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '' %>. (~$<%= billingPerMonthEquivalent.toFixed(2) %>/mo)
-                      <% } else if (nextPaymentDate) { %>
-                        Next payment will be $<%= currentMonthlyBase.toFixed(2) %> on <%= nextPaymentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>.
-                      <% } else if (hasTrial && trialEnd) { %>
-                        Next payment will be $<%= billingMonths > 1 ? billingCycleTotal.toFixed(2) : currentMonthlyBase.toFixed(2) %><%= billingMonths > 1 ? ' for ' + billingChargeLabel : '' %> after trial ends on <%= trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>.
-                      <% } %>
+                    <div class="current-plan-pricing-note-points">
+                      <div class="current-plan-pricing-note-point"><strong>You have <%= currentStudentCount %> students.</strong></div>
+                      <div class="current-plan-pricing-note-point"><strong>Region: <%= currentPlanPricing.pricingRegionName %> • First <%= freeThreshold %> students are free.</strong></div>
+                      <div class="current-plan-pricing-note-point">
+                        <% if (Number(currentPlanPricing.extraStudents || 0) > 0) { %>
+                          Additional charges are currently active because your student count is above <%= freeThreshold %>.
+                        <% } else { %>
+                          Additional charges are not active because your student count is within the free <%= freeThreshold %>.
+                        <% } %>
+                      </div>
+                      <div class="current-plan-pricing-note-point">Monthly price at your current student count: $<%= currentMonthlyBase.toFixed(2) %>/mo.</div>
+                      <div class="current-plan-pricing-note-sub">Billing cycle name: <%= billingChargeLabel %> • Discount: <%= billingDiscount %>% • Selected cycle total: $<%= billingCycleTotal.toFixed(2) %> (~$<%= billingPerMonthEquivalent.toFixed(2) %>/mo).</div>
                     </div>
                   </div>
                 <% } else if (currentPlanPricing) { %>
+                  <% const fallbackThreshold = Number(currentPlanPricing.freeStudentThreshold || 50); %>
                   <div class="current-plan-pricing-note">
                     <div class="current-plan-pricing-note-title">
-                      Region: <%= currentPlanPricing.pricingRegionName %>
+                      <%= planName || 'Selected plan' %> pricing at your current size
                     </div>
-                    <div class="current-plan-pricing-note-sub">
-                      Dynamic free-limit pricing is not configured for this region yet.
-                    </div>
-                    <div class="current-plan-pricing-note-sub">
-                      Monthly price at your current student count: $<%= currentMonthlyBase.toFixed(2) %>/mo.
-                    </div>
-                    <div class="current-plan-pricing-note-sub">
-                      <% if (billingMonths > 1) { %>
-                        Next payment will be $<%= billingCycleTotal.toFixed(2) %> for <%= billingChargeLabel %><%= billingDiscount > 0 ? ' (' + billingDiscount + '% off)' : '' %><%= nextPaymentDate ? ' on ' + nextPaymentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '' %>. (~$<%= billingPerMonthEquivalent.toFixed(2) %>/mo)
-                      <% } else if (nextPaymentDate) { %>
-                        Next payment will be $<%= currentMonthlyBase.toFixed(2) %> on <%= nextPaymentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>.
-                      <% } else if (hasTrial && trialEnd) { %>
-                        Next payment will be $<%= billingMonths > 1 ? billingCycleTotal.toFixed(2) : currentMonthlyBase.toFixed(2) %><%= billingMonths > 1 ? ' for ' + billingChargeLabel : '' %> after trial ends on <%= trialEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>.
-                      <% } %>
+                    <div class="current-plan-pricing-note-points">
+                      <div class="current-plan-pricing-note-point"><strong>You have <%= currentStudentCount %> students.</strong></div>
+                      <div class="current-plan-pricing-note-point"><strong>Region: <%= currentPlanPricing.pricingRegionName %> • First <%= fallbackThreshold %> students are free.</strong></div>
+                      <div class="current-plan-pricing-note-point">Additional charges are currently active because your student count is above <%= fallbackThreshold %>.</div>
+                      <div class="current-plan-pricing-note-point">Monthly price at your current student count: $<%= currentMonthlyBase.toFixed(2) %>/mo.</div>
+                      <div class="current-plan-pricing-note-sub">Billing cycle name: <%= billingChargeLabel %> • Discount: <%= billingDiscount %>% • Selected cycle total: $<%= billingCycleTotal.toFixed(2) %> (~$<%= billingPerMonthEquivalent.toFixed(2) %>/mo).</div>
                     </div>
                   </div>
                 <% } %>
@@ -4761,26 +4777,29 @@
             const studentCount = parseInt(selected.dataset.studentCount || '0', 10) || 0;
             const threshold = parseInt(selected.dataset.threshold || '0', 10);
             const extraStudents = parseInt(selected.dataset.extraStudents || '0', 10) || 0;
-            const termMonths = parseInt(selected.dataset.monthsPerTerm || '1', 10) || 1;
-            const perStudentRateUsd = parseFloat(selected.dataset.perStudentRateUsd || '0') || 0;
-            const termStudentCostUsd = parseFloat(selected.dataset.termStudentCostUsd || '0') || 0;
-            const studentMonthlyCostUsd = parseFloat(selected.dataset.studentMonthlyCostUsd || '0') || 0;
             const summaryStateClass = pricingMode === 'dynamic'
               ? (extraStudents > 0 ? 'is-warn' : 'is-ok')
               : 'is-flat';
 
-            const summaryLine = pricingMode === 'dynamic'
+            const freeThreshold = threshold > 0 ? threshold : 50;
+            const regionLine = `Region: ${regionName} • First ${freeThreshold} students are free.`;
+            const additionalLine = pricingMode === 'dynamic'
               ? (extraStudents > 0
-                  ? `You have ${studentCount} students — ${extraStudents} above the free ${threshold}. Extra students are billed ${formatUsd(perStudentRateUsd)} per term, split across the term/semester. Region: ${regionName}.`
-                  : `You have ${studentCount} students. First ${threshold} students are free on this plan. Region: ${regionName}.`)
-              : `Region: ${regionName}. This plan is using flat monthly pricing because dynamic student pricing is not configured for your region yet.`;
+                  ? `Additional charges are currently active because your student count is above ${freeThreshold}.`
+                  : `Additional charges are not active because your student count is within the free ${freeThreshold}.`)
+              : 'Additional charges follow flat pricing for your region.';
+            const monthlyLine = `Monthly price at your current student count: ${formatUsd(monthlyUsd)}/mo.`;
 
             planPricingSummary.classList.remove('is-ok', 'is-warn', 'is-flat');
             planPricingSummary.classList.add(summaryStateClass);
 
             planPricingSummary.innerHTML =
               '<div class="plan-modal-summary-title">' + (selected.dataset.planName || 'Selected plan') + ' pricing at your current size</div>'
-              + '<div class="plan-modal-summary-body">' + summaryLine + '</div>'
+              + '<div class="plan-modal-summary-points">'
+              + '<div class="plan-modal-summary-point"><strong>' + regionLine + '</strong></div>'
+              + '<div class="plan-modal-summary-point">' + additionalLine + '</div>'
+              + '<div class="plan-modal-summary-point">' + monthlyLine + '</div>'
+              + '</div>'
               + '<div class="plan-modal-summary-sub">Billing cycle name: ' + cycleName + ' • Discount: ' + discount + '% • Selected cycle total: ' + formatUsd(cycleTotal) + ' (~' + formatUsd(perMonth) + '/mo)</div>';
           }
 

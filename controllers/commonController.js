@@ -165,6 +165,15 @@ async function ensurePublicRegistrationSchema(dbClient) {
   publicRegistrationSchemaReady = true;
 }
 
+async function ensureUserBirthdaySchema(dbClient) {
+  await dbClient.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE`);
+}
+
+async function ensureGuardianBirthdaySchema(dbClient) {
+  await dbClient.query(`ALTER TABLE guardians ADD COLUMN IF NOT EXISTS date_of_birth DATE`);
+  await dbClient.query(`ALTER TABLE guardian_profiles ADD COLUMN IF NOT EXISTS date_of_birth DATE`).catch(() => {});
+}
+
 async function ensureGuardianPaymentMethodsSchema(dbClient) {
   if (!guardianPaymentMethodSchemaReady) {
     await dbClient.query(`
@@ -1092,6 +1101,126 @@ function joinNonEmptySegments(parts = []) {
     .filter(Boolean)
     .join(" ")
     .trim();
+}
+
+function normalizeRoleKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function startOfUtcDay(dateValue) {
+  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function getUpcomingBirthdayInfo(dateValue, referenceDate = new Date(), options = {}) {
+  const { includeWeekendCarryover = false } = options;
+  if (!dateValue) return null;
+  const birthDate = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  if (Number.isNaN(birthDate.getTime())) return null;
+
+  const today = startOfUtcDay(referenceDate);
+
+  if (includeWeekendCarryover && today.getUTCDay() === 1) {
+    const sunday = new Date(today);
+    sunday.setUTCDate(today.getUTCDate() - 1);
+    const saturday = new Date(today);
+    saturday.setUTCDate(today.getUTCDate() - 2);
+
+    const isSundayBirthday = birthDate.getUTCMonth() === sunday.getUTCMonth()
+      && birthDate.getUTCDate() === sunday.getUTCDate();
+    const isSaturdayBirthday = birthDate.getUTCMonth() === saturday.getUTCMonth()
+      && birthDate.getUTCDate() === saturday.getUTCDate();
+
+    if (isSundayBirthday || isSaturdayBirthday) {
+      const carryoverDate = isSundayBirthday ? sunday : saturday;
+      const turningAge = today.getUTCFullYear() - birthDate.getUTCFullYear();
+      return {
+        daysUntil: 0,
+        nextBirthday: carryoverDate,
+        turningAge: Number.isFinite(turningAge) ? turningAge : null,
+        label: new Intl.DateTimeFormat('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          timeZone: 'UTC',
+        }).format(carryoverDate),
+      };
+    }
+  }
+
+  let nextBirthday = new Date(Date.UTC(
+    today.getUTCFullYear(),
+    birthDate.getUTCMonth(),
+    birthDate.getUTCDate()
+  ));
+  if (nextBirthday < today) {
+    nextBirthday = new Date(Date.UTC(
+      today.getUTCFullYear() + 1,
+      birthDate.getUTCMonth(),
+      birthDate.getUTCDate()
+    ));
+  }
+
+  const daysUntil = Math.round((nextBirthday.getTime() - today.getTime()) / 86400000);
+  const turningAge = nextBirthday.getUTCFullYear() - birthDate.getUTCFullYear();
+  return {
+    daysUntil,
+    nextBirthday,
+    turningAge: Number.isFinite(turningAge) ? turningAge : null,
+    label: new Intl.DateTimeFormat('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }).format(nextBirthday),
+  };
+}
+
+function getStudentBirthdayWish(seedValue) {
+  const wishes = [
+    'May today bring bright smiles, calm confidence, and sweet moments worth remembering.',
+    'Wishing you a joyful birthday filled with laughter, kindness, and beautiful surprises.',
+    'May this birthday open a fresh chapter of confidence, growth, and happy memories.',
+    'Sending warm wishes for a day full of joy, celebration, and shining hope for the year ahead.',
+  ];
+  const seed = Number(seedValue || 0);
+  return wishes[Math.abs(seed) % wishes.length];
+}
+
+function getStaffBirthdayWish(seedValue) {
+  const wishes = [
+    'Wishing you a joyful birthday filled with peace, laughter, and beautiful moments.',
+    'May this new year bring you strength, favor, and meaningful progress.',
+    'Happy birthday. We appreciate your contribution and wish you a bright year ahead.',
+    'Sending warm birthday wishes for joy today and success in the months to come.',
+  ];
+  const seed = Number(seedValue || 0);
+  return wishes[Math.abs(seed) % wishes.length];
+}
+
+function buildUpcomingBirthdayCards(students = [], windowDays = 0, options = {}) {
+  const { includeWeekendCarryover = false } = options;
+  return students
+    .map((student) => {
+      const info = getUpcomingBirthdayInfo(student.date_of_birth, new Date(), { includeWeekendCarryover });
+      if (!info || info.daysUntil > windowDays) return null;
+      const name = typeof formatDisplayName === 'function'
+        ? formatDisplayName(student)
+        : [student.first_name, student.last_name].filter(Boolean).join(' ').trim();
+      return {
+        studentId: student.student_id,
+        name,
+        className: student.class_name || '',
+        daysUntil: info.daysUntil,
+        isToday: info.daysUntil === 0,
+        nextBirthdayLabel: info.label,
+        turningAge: info.turningAge,
+        timingLabel: info.daysUntil === 0 ? 'Today' : (info.daysUntil === 1 ? 'Tomorrow' : `In ${info.daysUntil} days`),
+        wishMessage: info.daysUntil === 0 ? getStudentBirthdayWish(student.student_id) : 'Upcoming this week',
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.daysUntil - right.daysUntil || left.name.localeCompare(right.name));
 }
 
 async function resolveFeedbackSessionContext(dbClient, req) {
@@ -7150,7 +7279,7 @@ const commonController = {
       rawSubjects: req.body.subjects,
     });
 
-    const { firstName, lastName, email, account_type } = req.body;
+    const { firstName, lastName, email, account_type, dateOfBirth } = req.body;
 
     let classes = req.body.classes || [];
     let subjects = req.body.subjects || [];
@@ -7211,6 +7340,7 @@ const commonController = {
     //             avoid locking issues that cause the request to hang. ────────
     console.info(`[CreateEmployee:POST][${postId}] step1_ensure_schema_start`, { elapsed: elapsed() });
     try {
+      await ensureUserBirthdaySchema(db);
       await ensurePermissionsSchema(db);
       console.info(`[CreateEmployee:POST][${postId}] step1_ensure_schema_done`, { elapsed: elapsed() });
     } catch (schemaErr) {
@@ -7238,6 +7368,7 @@ const commonController = {
     }
 
     try {
+      await ensureUserBirthdaySchema(client);
       // ─── Step 3: Check for duplicate email ────────────────────────────────
       console.info(`[CreateEmployee:POST][${postId}] step3_begin_transaction`, { elapsed: elapsed() });
       await client.query("BEGIN");
@@ -7270,12 +7401,12 @@ const commonController = {
       console.info(`[CreateEmployee:POST][${postId}] step5_insert_user_start`, { elapsed: elapsed() });
       const result = await client.query(
         `INSERT INTO users (
-           first_name, last_name, email, account_type, organization_id,
+           first_name, last_name, email, account_type, date_of_birth, organization_id,
            created_at, updated_at, reset_password_token, reset_password_expires
          )
-         VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), $6, $7)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW(), $7, $8)
          RETURNING user_id`,
-        [firstName, lastName, email, account_type, req.session.organizationId, hashedToken, tokenExpiration]
+        [firstName, lastName, email, account_type, dateOfBirth || null, req.session.organizationId, hashedToken, tokenExpiration]
       );
       const userId = result.rows[0].user_id;
       console.info(`[CreateEmployee:POST][${postId}] step5_insert_user_done`, { userId, elapsed: elapsed() });
@@ -7963,6 +8094,7 @@ const commonController = {
     }
 
     try {
+      await ensureUserBirthdaySchema(db);
       await ensurePermissionsSchema(db);
       const userResult = await db.query(
         "SELECT * FROM users WHERE user_id = $1 AND organization_id = $2",
@@ -8079,6 +8211,7 @@ const commonController = {
       lastName,
       email,
       accountType,
+      dateOfBirth,
       classIds = [],
       subjects = [],
     } = req.body;
@@ -8147,6 +8280,7 @@ const commonController = {
     console.info(`[ModifyEmployee:POST][${modId2}] db_client_acquired`, { elapsed: elapsed() });
 
     try {
+      await ensureUserBirthdaySchema(client);
       // BEGIN immediately — every exit path below reaches the catch which ROLLBACKs
       await client.query("BEGIN");
       console.info(`[ModifyEmployee:POST][${modId2}] transaction_begun`, { elapsed: elapsed() });
@@ -8189,9 +8323,9 @@ const commonController = {
 
       await client.query(
         `UPDATE users
-         SET first_name = $1, last_name = $2, email = $3, account_type = $4, updated_at = NOW()
-         WHERE user_id = $5 AND organization_id = $6`,
-        [firstName, lastName, email, accountType, userId, organizationId]
+         SET first_name = $1, last_name = $2, email = $3, account_type = $4, date_of_birth = $5, updated_at = NOW()
+         WHERE user_id = $6 AND organization_id = $7`,
+        [firstName, lastName, email, accountType, dateOfBirth || null, userId, organizationId]
       );
       console.info(`[ModifyEmployee:POST][${modId}] user_updated`, { elapsed: elapsed() });
 
@@ -10288,6 +10422,7 @@ const commonController = {
       const organizationId = req.session.organizationId;
       const currentUserRole = req.session.userRole;
       const currentUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
+      const normalizedRole = normalizeRoleKey(currentUserRole || req.session.accountType);
 
       // Fetch the current school year and term
       const schoolYearResult = await db.query(
@@ -10354,10 +10489,24 @@ const commonController = {
       const graduationYearGroupName =
         classResult.rows[0].graduation_year_group_name;
 
+      if (normalizedRole === 'teacher' && currentUserId) {
+        const teacherAccessResult = await db.query(
+          `SELECT 1
+           FROM user_classes
+           WHERE user_id = $1 AND class_id = $2
+           LIMIT 1`,
+          [currentUserId, classId]
+        );
+        if (!teacherAccessResult.rows.length) {
+          req.flash('error', 'You can only access classes assigned to you.');
+          return res.redirect('/common/orgDashboard');
+        }
+      }
+
       // Fetch students enrolled in the current term for this class
       const studentsResult = await db.query(
         `
-            SELECT s.student_id, s.first_name, s.last_name
+            SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth
             FROM enrolled_students es
             INNER JOIN students s ON es.student_id = s.student_id
             INNER JOIN enrollments e ON es.enrollment_id = e.enrollment_id
@@ -10372,6 +10521,7 @@ const commonController = {
       );
 
       const students = studentsResult.rows;
+      const upcomingClassBirthdays = buildUpcomingBirthdayCards(students, 7);
 
       // **Fetch subjects for this class**
       let subjectsResult;
@@ -10518,11 +10668,98 @@ const commonController = {
         initialClassScheduleData,
         assignedFilesCount,
         classReportsCount,
+        upcomingClassBirthdays,
         initialWorkspaceRoute,
         classWorkspaceBasePath: `/common/classDashboard/${classId}`,
       });
     } catch (err) {
             res.status(500).send("Error loading class dashboard");
+    }
+  },
+
+  birthdaysPageGet: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const userRole = req.session.userRole || req.session.accountType || '';
+      const normalizedRole = normalizeRoleKey(userRole);
+      const userId = req.session.user?.user_id || req.session.userId || null;
+
+      if (!organizationId) {
+        req.flash('error', 'Organization not found in session.');
+        return res.redirect('/account/login');
+      }
+
+      let classFilterSql = '';
+      const params = [organizationId];
+
+      if (normalizedRole === 'teacher' && userId) {
+        classFilterSql = `
+          AND s.class_id IN (
+            SELECT uc.class_id
+            FROM user_classes uc
+            WHERE uc.user_id = $2
+          )`;
+        params.push(userId);
+      }
+
+      const studentsResult = await db.query(
+        `SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.class_id, c.class_name
+         FROM students s
+         JOIN classes c ON c.class_id = s.class_id
+         WHERE s.organization_id = $1
+           AND s.class_id IS NOT NULL
+           AND s.date_of_birth IS NOT NULL
+           AND COALESCE(s.graduated, FALSE) = FALSE
+           ${classFilterSql}
+         ORDER BY c.class_name, s.last_name, s.first_name`,
+        params
+      );
+
+      const birthdayStudents = buildUpcomingBirthdayCards(studentsResult.rows, 7, { includeWeekendCarryover: true });
+
+      const staffResult = await db.query(
+        `SELECT user_id, first_name, last_name, date_of_birth, account_type
+         FROM users
+         WHERE organization_id = $1
+           AND COALESCE(on_hold, FALSE) = FALSE
+           AND date_of_birth IS NOT NULL
+         ORDER BY first_name, last_name`,
+        [organizationId]
+      );
+
+      const birthdayStaff = staffResult.rows
+        .map((staff) => {
+          const info = getUpcomingBirthdayInfo(staff.date_of_birth, new Date(), { includeWeekendCarryover: true });
+          if (!info || info.daysUntil > 7) return null;
+          const name = [staff.first_name, staff.last_name].filter(Boolean).join(' ').trim();
+          return {
+            studentId: `staff-${staff.user_id}`,
+            name,
+            className: staff.account_type || 'Staff',
+            classLabel: 'Role',
+            daysUntil: info.daysUntil,
+            isToday: info.daysUntil === 0,
+            nextBirthdayLabel: info.label,
+            turningAge: info.turningAge,
+            timingLabel: info.daysUntil === 0 ? 'Today' : (info.daysUntil === 1 ? 'Tomorrow' : `In ${info.daysUntil} days`),
+            wishMessage: info.daysUntil === 0 ? getStaffBirthdayWish(staff.user_id) : 'Upcoming this week',
+          };
+        })
+        .filter(Boolean);
+
+      const birthdaysPageItems = [...birthdayStudents, ...birthdayStaff]
+        .sort((left, right) => left.daysUntil - right.daysUntil || left.name.localeCompare(right.name));
+
+      res.render('common/birthdays', {
+        title: 'Birthdays 🎂',
+        birthdayStudents: birthdaysPageItems,
+        isTeacherScope: normalizedRole === 'teacher',
+        viewerCelebrationKey: `${organizationId}:${userId || 'guest'}`,
+        messages: req.flash(),
+      });
+    } catch (error) {
+      req.flash('error', 'Could not load birthdays page.');
+      return res.redirect('/common/orgDashboard');
     }
   },
 
@@ -13254,6 +13491,7 @@ const commonController = {
 
   guardianDetailsGet: async (req, res, db) => {
     try {
+      await ensureGuardianBirthdaySchema(db);
       const organizationId = req.session.organizationId;
       const guardianId = req.query.guardianId;
       const guardianSource = req.query.source === 'profile' ? 'profile' : 'legacy';
@@ -13461,10 +13699,11 @@ const commonController = {
 
   guardianEditPost: async (req, res, db) => {
     try {
+      await ensureGuardianBirthdaySchema(db);
       const organizationId = req.session.organizationId;
       const guardianId = req.params.guardianId;
       const guardianSource = req.query.source === 'profile' ? 'profile' : 'legacy';
-      const { firstName, lastName, email, phone, address, hometown } = req.body;
+      const { firstName, lastName, email, phone, address, hometown, dateOfBirth } = req.body;
       const cleanedPhone = phone ? String(phone).replace(/[^\d+]/g, '') : null;
 
       let imageUrl = null;
@@ -13483,16 +13722,16 @@ const commonController = {
         const updateProfileQuery = imageUrl
           ? `UPDATE guardian_profiles
              SET first_name = $1, last_name = $2, email = $3, phone = $4,
-                 address = $5, hometown = $6, image_url = $7, updated_at = NOW()
-             WHERE guardian_id = $8 AND organization_id = $9`
+             address = $5, hometown = $6, date_of_birth = $7, image_url = $8, updated_at = NOW()
+           WHERE guardian_id = $9 AND organization_id = $10`
           : `UPDATE guardian_profiles
              SET first_name = $1, last_name = $2, email = $3, phone = $4,
-                 address = $5, hometown = $6, updated_at = NOW()
-             WHERE guardian_id = $7 AND organization_id = $8`;
+             address = $5, hometown = $6, date_of_birth = $7, updated_at = NOW()
+           WHERE guardian_id = $8 AND organization_id = $9`;
 
         const profileParams = imageUrl
-          ? [firstName, lastName, email || null, phone || null, address, hometown, imageUrl, guardianId, organizationId]
-          : [firstName, lastName, email || null, phone || null, address, hometown, guardianId, organizationId];
+          ? [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null, imageUrl, guardianId, organizationId]
+          : [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null, guardianId, organizationId];
 
         await db.query(updateProfileQuery, profileParams);
         await db.query(
@@ -13506,11 +13745,11 @@ const commonController = {
         if (oldProfileRow) {
           await db.query(
             `UPDATE guardians
-               SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6
-             WHERE organization_id = $7
-               AND LOWER(first_name) = LOWER($8)
-               AND LOWER(last_name)  = LOWER($9)`,
-            [firstName, lastName, email || null, phone || null, address, hometown,
+               SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6, date_of_birth = $7
+             WHERE organization_id = $8
+               AND LOWER(first_name) = LOWER($9)
+               AND LOWER(last_name)  = LOWER($10)`,
+            [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null,
              organizationId, oldProfileRow.first_name, oldProfileRow.last_name]
           );
         }
@@ -13524,16 +13763,16 @@ const commonController = {
         const updateQuery = imageUrl
           ? `UPDATE guardians
              SET first_name = $1, last_name = $2, email = $3, phone = $4,
-                 address = $5, hometown = $6, image_url = $7
-             WHERE guardian_id = $8 AND organization_id = $9`
+             address = $5, hometown = $6, date_of_birth = $7, image_url = $8
+           WHERE guardian_id = $9 AND organization_id = $10`
           : `UPDATE guardians
              SET first_name = $1, last_name = $2, email = $3, phone = $4,
-                 address = $5, hometown = $6
-             WHERE guardian_id = $7 AND organization_id = $8`;
+             address = $5, hometown = $6, date_of_birth = $7
+           WHERE guardian_id = $8 AND organization_id = $9`;
 
         const params = imageUrl
-          ? [firstName, lastName, email || null, phone, address, hometown, imageUrl, guardianId, organizationId]
-          : [firstName, lastName, email || null, phone, address, hometown, guardianId, organizationId];
+          ? [firstName, lastName, email || null, phone, address, hometown, dateOfBirth || null, imageUrl, guardianId, organizationId]
+          : [firstName, lastName, email || null, phone, address, hometown, dateOfBirth || null, guardianId, organizationId];
 
         await db.query(updateQuery, params);
 
@@ -13541,11 +13780,11 @@ const commonController = {
         if (oldGuardianRow) {
           await db.query(
             `UPDATE guardian_profiles
-               SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6, updated_at = NOW()
-             WHERE organization_id = $7
-               AND LOWER(first_name) = LOWER($8)
-               AND LOWER(last_name)  = LOWER($9)`,
-            [firstName, lastName, email || null, phone || null, address, hometown,
+               SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6, date_of_birth = $7, updated_at = NOW()
+             WHERE organization_id = $8
+               AND LOWER(first_name) = LOWER($9)
+               AND LOWER(last_name)  = LOWER($10)`,
+            [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null,
              organizationId, oldGuardianRow.first_name, oldGuardianRow.last_name]
           );
           await db.query(
