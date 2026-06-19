@@ -370,11 +370,13 @@
                 </div>
                 <span class="birthday-state-pill <%= item.isToday ? 'is-today' : '' %>"><%= item.isToday ? 'Birthday today' : 'Upcoming' %></span>
                 <div class="birthday-person-meta">
-                  <% if (item.className && item.turningAge) { %>
+                  <% if (item.isStaff && item.className) { %>
+                    <p><strong><%= item.classLabel || 'Class' %>:</strong> <%= item.className %></p>
+                  <% } else if (item.className && item.turningAge) { %>
                     <p><strong><%= item.classLabel || 'Class' %>:</strong> <%= item.className %> <strong>Turning:</strong> <%= item.turningAge %> <%= Number(item.turningAge) === 1 ? 'year' : 'years' %> old</p>
                   <% } else if (item.className) { %>
                     <p><strong><%= item.classLabel || 'Class' %>:</strong> <%= item.className %></p>
-                  <% } else if (item.turningAge) { %>
+                  <% } else if (!item.isStaff && item.turningAge) { %>
                     <p><strong>Turning:</strong> <%= item.turningAge %> <%= Number(item.turningAge) === 1 ? 'year' : 'years' %> old</p>
                   <% } %>
                   <% if (!item.isToday) { %>

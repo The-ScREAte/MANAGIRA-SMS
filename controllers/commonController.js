@@ -10683,6 +10683,7 @@ const commonController = {
       const userRole = req.session.userRole || req.session.accountType || '';
       const normalizedRole = normalizeRoleKey(userRole);
       const userId = req.session.user?.user_id || req.session.userId || null;
+      const isElevated = ['manager', 'supervisor', 'admin', 'mini admin', 'organization'].includes(normalizedRole);
 
       if (!organizationId) {
         req.flash('error', 'Organization not found in session.');
@@ -10692,14 +10693,18 @@ const commonController = {
       let classFilterSql = '';
       const params = [organizationId];
 
-      if (normalizedRole === 'teacher' && userId) {
-        classFilterSql = `
-          AND s.class_id IN (
-            SELECT uc.class_id
-            FROM user_classes uc
-            WHERE uc.user_id = $2
-          )`;
-        params.push(userId);
+      if (!isElevated) {
+        if (userId) {
+          classFilterSql = `
+            AND s.class_id IN (
+              SELECT uc.class_id
+              FROM user_classes uc
+              WHERE uc.user_id = $2
+            )`;
+          params.push(userId);
+        } else {
+          classFilterSql = ' AND 1 = 0';
+        }
       }
 
       const studentsResult = await db.query(
@@ -10734,6 +10739,7 @@ const commonController = {
           const name = [staff.first_name, staff.last_name].filter(Boolean).join(' ').trim();
           return {
             studentId: `staff-${staff.user_id}`,
+            isStaff: true,
             name,
             className: staff.account_type || 'Staff',
             classLabel: 'Role',
@@ -10753,7 +10759,7 @@ const commonController = {
       res.render('common/birthdays', {
         title: 'Birthdays 🎂',
         birthdayStudents: birthdaysPageItems,
-        isTeacherScope: normalizedRole === 'teacher',
+        isTeacherScope: !isElevated,
         viewerCelebrationKey: `${organizationId}:${userId || 'guest'}`,
         messages: req.flash(),
       });
