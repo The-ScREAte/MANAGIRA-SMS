@@ -981,6 +981,22 @@
             </div>
           </div>
 
+          <div class="udoc-mpick" id="udocLinkPick">
+            <div class="udoc-mpick__head">
+              <span>Insert Link</span>
+              <button type="button" class="udoc-mpick__close" data-close="udocLinkPick">&times;</button>
+            </div>
+            <div class="udoc-mpick__panel active" style="display:flex">
+              <input type="url" class="udoc-mpick__inp" id="udocLinkUrl" placeholder="https://... or /account/login">
+              <input type="text" class="udoc-mpick__inp" id="udocLinkText" placeholder="Link text (uses selected text if left empty)">
+              <p class="udoc-mpick__hint">Select text like Login first, then add the destination URL.</p>
+              <div class="udoc-mpick__foot">
+                <span class="udoc-mpick__err" id="udocLinkErr"></span>
+                <button type="button" class="udoc-mpick__btn" id="udocLinkInsertBtn">Insert Link</button>
+              </div>
+            </div>
+          </div>
+
           <div class="udoc-editor" id="docEditorArea" contenteditable="true" data-placeholder="Write your article content here…"></div>
         </div>
       </div>
@@ -1009,6 +1025,7 @@
   const editor    = document.getElementById('docEditorArea');
   const saveBtn   = document.getElementById('savePanelBtn');
   const errEl     = document.getElementById('panelError');
+  let _udocSavedRange = null;
 
   function openPanel() {
     fTitle.value = fTopic.value = fSubtopic.value = fTags.value = fSeo.value = '';
@@ -1035,15 +1052,7 @@
     editor.focus();
   });
 
-  document.getElementById('btnInsertLink').addEventListener('mousedown', function(e) {
-    e.preventDefault();
-    const url = prompt('Enter URL:');
-    if (url) document.execCommand('createLink', false, url);
-    editor.focus();
-  });
-
   // ── Create-panel media picker helpers ─────────────────────────────
-  let _udocSavedRange = null;
 
   editor.addEventListener('blur', function() {
     const sel = window.getSelection();
@@ -1070,12 +1079,38 @@
   }
 
   function udocTogglePicker(id) {
-    ['udocImgPick', 'udocVidPick'].forEach(function(pid) {
+    ['udocImgPick', 'udocVidPick', 'udocLinkPick'].forEach(function(pid) {
       const el = document.getElementById(pid);
       if (pid === id) { el.classList.toggle('is-open'); }
       else            { el.classList.remove('is-open'); }
     });
   }
+
+  function udocRestoreSavedRange() {
+    editor.focus();
+    if (_udocSavedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(_udocSavedRange);
+    }
+  }
+
+  function udocSelectedText() {
+    if (!_udocSavedRange) return '';
+    return String(_udocSavedRange.toString() || '').trim();
+  }
+
+  document.getElementById('btnInsertLink').addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+      _udocSavedRange = sel.getRangeAt(0).cloneRange();
+    }
+    document.getElementById('udocLinkUrl').value = '';
+    document.getElementById('udocLinkText').value = udocSelectedText();
+    document.getElementById('udocLinkErr').textContent = '';
+    udocTogglePicker('udocLinkPick');
+  });
 
   document.querySelectorAll('.udoc-mpick__close').forEach(function(btn) {
     btn.addEventListener('click', function() {
@@ -1189,6 +1224,39 @@
     udocMediaInsert(html);
     document.getElementById('udocVidPick').classList.remove('is-open');
     document.getElementById('udocVidUrl').value = '';
+  });
+
+  document.getElementById('udocLinkInsertBtn').addEventListener('click', function() {
+    const url = document.getElementById('udocLinkUrl').value.trim();
+    const textInput = document.getElementById('udocLinkText').value.trim();
+    const linkErr = document.getElementById('udocLinkErr');
+    linkErr.textContent = '';
+
+    if (!url) {
+      linkErr.textContent = 'Please enter a link URL.';
+      return;
+    }
+
+    const linkText = textInput || udocSelectedText() || url;
+    udocRestoreSavedRange();
+    const sel = window.getSelection();
+    const hasSelection = sel && !sel.isCollapsed && String(sel.toString() || '').trim();
+
+    if (hasSelection) {
+      document.execCommand('createLink', false, url);
+      const anchor = sel.anchorNode && sel.anchorNode.parentElement && sel.anchorNode.parentElement.closest('a');
+      if (anchor) {
+        anchor.textContent = linkText;
+        anchor.setAttribute('href', url);
+      }
+    } else {
+      document.execCommand('insertHTML', false, `<a href="${udocEsc(url)}">${udocEsc(linkText)}</a>`);
+    }
+
+    document.getElementById('udocLinkPick').classList.remove('is-open');
+    document.getElementById('udocLinkUrl').value = '';
+    document.getElementById('udocLinkText').value = '';
+    editor.focus();
   });
 
   saveBtn.addEventListener('click', async function() {

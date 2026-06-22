@@ -1419,6 +1419,22 @@
             </div>
           </div>
 
+          <div class="ep-mpick" id="epLinkPick">
+            <div class="ep-mpick__head">
+              <span>Insert Link</span>
+              <button type="button" class="ep-mpick__close" data-close="epLinkPick">&times;</button>
+            </div>
+            <div class="ep-mpick__panel active" style="display:flex">
+              <input type="url" class="ep-mpick__inp" id="epLinkUrl" placeholder="https://... or /account/login">
+              <input type="text" class="ep-mpick__inp" id="epLinkText" placeholder="Link text (uses selected text if left empty)">
+              <p class="ep-mpick__hint">Select text like Login first, then add the destination URL.</p>
+              <div class="ep-mpick__foot">
+                <span class="ep-mpick__err" id="epLinkErr"></span>
+                <button type="button" class="ep-mpick__btn" id="epLinkInsertBtn">Insert Link</button>
+              </div>
+            </div>
+          </div>
+
           <div class="ep-editor" id="epEditor" contenteditable="true"><%- art.contentHtml %></div>
         </div>
       </div>
@@ -1930,13 +1946,6 @@
     epEditor.focus();
   });
 
-  document.getElementById('epInsertLink').addEventListener('mousedown', function (e) {
-    e.preventDefault();
-    const url = prompt('Enter URL:');
-    if (url) document.execCommand('createLink', false, url);
-    epEditor.focus();
-  });
-
   // ── Media picker helpers ─────────────────────────────────────────────────
   let _epSavedRange = null;
 
@@ -2043,12 +2052,38 @@
   }
 
   function epTogglePicker(id) {
-    ['epImgPick', 'epVidPick'].forEach(function(pid) {
+    ['epImgPick', 'epVidPick', 'epLinkPick'].forEach(function(pid) {
       const el = document.getElementById(pid);
       if (pid === id) { el.classList.toggle('is-open'); }
       else            { el.classList.remove('is-open'); }
     });
   }
+
+  function epRestoreSavedRange() {
+    epEditor.focus();
+    if (_epSavedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(_epSavedRange);
+    }
+  }
+
+  function epSelectedText() {
+    if (!_epSavedRange) return '';
+    return String(_epSavedRange.toString() || '').trim();
+  }
+
+  document.getElementById('epInsertLink').addEventListener('mousedown', function (e) {
+    e.preventDefault();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && epEditor.contains(sel.anchorNode)) {
+      _epSavedRange = sel.getRangeAt(0).cloneRange();
+    }
+    document.getElementById('epLinkUrl').value = '';
+    document.getElementById('epLinkText').value = epSelectedText();
+    document.getElementById('epLinkErr').textContent = '';
+    epTogglePicker('epLinkPick');
+  });
 
   // Close buttons
   document.querySelectorAll('.ep-mpick__close').forEach(function(btn) {
@@ -2170,6 +2205,39 @@
     epMediaInsert(html);
     document.getElementById('epVidPick').classList.remove('is-open');
     document.getElementById('epVidUrl').value = '';
+  });
+
+  document.getElementById('epLinkInsertBtn').addEventListener('click', function() {
+    const url = document.getElementById('epLinkUrl').value.trim();
+    const textInput = document.getElementById('epLinkText').value.trim();
+    const linkErr = document.getElementById('epLinkErr');
+    linkErr.textContent = '';
+
+    if (!url) {
+      linkErr.textContent = 'Please enter a link URL.';
+      return;
+    }
+
+    const linkText = textInput || epSelectedText() || url;
+    epRestoreSavedRange();
+    const sel = window.getSelection();
+    const hasSelection = sel && !sel.isCollapsed && String(sel.toString() || '').trim();
+
+    if (hasSelection) {
+      document.execCommand('createLink', false, url);
+      const anchor = sel.anchorNode && sel.anchorNode.parentElement && sel.anchorNode.parentElement.closest('a');
+      if (anchor) {
+        anchor.textContent = linkText;
+        anchor.setAttribute('href', url);
+      }
+    } else {
+      document.execCommand('insertHTML', false, `<a href="${epEsc(url)}">${epEsc(linkText)}</a>`);
+    }
+
+    document.getElementById('epLinkPick').classList.remove('is-open');
+    document.getElementById('epLinkUrl').value = '';
+    document.getElementById('epLinkText').value = '';
+    epEditor.focus();
   });
 
   // Save
