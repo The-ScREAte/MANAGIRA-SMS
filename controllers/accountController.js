@@ -22,21 +22,8 @@ function sanitizeCurrencyProfileSnapshot(profile) {
     usdToUserRate: usdToUserRate > 0 ? usdToUserRate : 1,
     usdToGhsRate: usdToGhsRate > 0 ? usdToGhsRate : null,
     countryCode: /^[A-Z]{2}$/.test(countryCode) ? countryCode : null,
-    source: profile.source || null,
+    source: profile.source || profile.detectionSource || null,
   };
-}
-
-function isLocalhostRequest(req) {
-  const host = String(req?.headers?.host || "").trim().toLowerCase();
-  const hostname = String(req?.hostname || "").trim().toLowerCase();
-  return (
-    host.startsWith("localhost") ||
-    host.startsWith("127.0.0.1") ||
-    host.startsWith("[::1]") ||
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1"
-  );
 }
 
 function startOfDayLocal(date) {
@@ -591,11 +578,10 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
     finalAmount -= finalAmount * (discountAmount / 100);
   }
 
-  const platformFeeSettings = await getPlatformFeeSettings(db);
   let chargeBreakdown = buildPlatformChargeBreakdown(finalAmount, {
-    platformFeePercentage: platformFeeSettings.percentage,
+    platformFeePercentage: 0,
     bearer: "parent",
-    applyPlatformFee: true,
+    applyPlatformFee: false,
   });
   let amountDue = Math.round(chargeBreakdown.totalChargedAmount * 100);
   let billingInterval = "monthly";
@@ -2196,32 +2182,35 @@ const accountController = {
       const sessionCurrencySnapshot = sanitizeCurrencyProfileSnapshot(
         registrationDetails?.currencyProfileSnapshot || req.session?.planSelection?.currencyProfileSnapshot
       );
+      let detectedCurrencySnapshot = null;
+      try {
+        const detectedCurrencyProfile = await getCurrencyProfileForRequest(req);
+        detectedCurrencySnapshot = sanitizeCurrencyProfileSnapshot(detectedCurrencyProfile);
+      } catch (_) {
+      }
 
-      if (sessionCurrencySnapshot) {
+      const highConfidenceSources = new Set(["request-header", "request-ip-geo"]);
+      const useDetectedProfile =
+        detectedCurrencySnapshot &&
+        (highConfidenceSources.has(detectedCurrencySnapshot.source) || !sessionCurrencySnapshot);
+
+      if (useDetectedProfile) {
+        currencyProfile = {
+          ...currencyProfile,
+          ...detectedCurrencySnapshot,
+        };
+        if (registrationDetails) {
+          registrationDetails.currencyProfileSnapshot = detectedCurrencySnapshot;
+        }
+      } else if (sessionCurrencySnapshot) {
         currencyProfile = {
           ...currencyProfile,
           ...sessionCurrencySnapshot,
         };
-      }
-      try {
-        if (!sessionCurrencySnapshot) {
-          const detectedCurrencyProfile = await getCurrencyProfileForRequest(req);
-          currencyProfile = {
-            ...currencyProfile,
-            ...sanitizeCurrencyProfileSnapshot(detectedCurrencyProfile),
-          };
-        }
-      } catch (_) {
-      }
-
-      if (isLocalhostRequest(req)) {
+      } else if (detectedCurrencySnapshot) {
         currencyProfile = {
           ...currencyProfile,
-          userCurrency: "USD",
-          locale: "en-US",
-          usdToUserRate: 1,
-          countryCode: "US",
-          source: "localhost-fallback",
+          ...detectedCurrencySnapshot,
         };
       }
 
@@ -2306,11 +2295,10 @@ const accountController = {
           : planPrice;
       const stripeChargeCurrency = getStripeChargeCurrency().toUpperCase();
       const stripeChargeBase = isTrialCheckout ? 0 : planPrice;
-      const platformFeeSettings = await getPlatformFeeSettings(db);
       const stripeChargeBreakdown = buildPlatformChargeBreakdown(stripeChargeBase, {
-        platformFeePercentage: isTrialCheckout ? 0 : platformFeeSettings.percentage,
+        platformFeePercentage: 0,
         bearer: "parent",
-        applyPlatformFee: !isTrialCheckout,
+        applyPlatformFee: false,
       });
 
       let amountDue = Math.round(ghsChargeBase * 100);
@@ -2390,9 +2378,10 @@ const accountController = {
         currencyProfile.locale
       );
       const ghsChargeDisplay = formatCurrencyAmount(ghsChargeBase, "GHS");
-      postTrialPriceDisplay = localizedPlan.userCurrency && localizedPlan.userCurrency !== "USD"
+      const baseRenewalDisplay = localizedPlan.userCurrency && localizedPlan.userCurrency !== "USD"
         ? `${localizedPriceDisplay} (${usdPriceDisplay}) ${intervalLabel}`
         : `${usdPriceDisplay} ${intervalLabel}`;
+      postTrialPriceDisplay = `${baseRenewalDisplay} (may increase as student count grows)`;
 
       let verificationChargeUsdDisplay = null;
       let verificationChargeLocalDisplay = null;
@@ -3122,15 +3111,7 @@ const accountController = {
       let message = "";
       if (result.discountAmount > 0) {
         const chargeLabel = `${result.chargeCurrency || 'USD'} ${Number(result.totalChargedAmount || result.finalAmount || 0).toFixed(2)}`;
-        message += `Discount applied successfully. Your charge is ${chargeLabel}`;
-        if (Number(result.platformFeeAmount || 0) > 0) {
-          const pctLabel = Number(result.platformFeePercentage || 0).toFixed(2).replace(/\.00$/, '');
-          message += `, including a ${pctLabel}% platform fee`;
-        }
-        message += ". ";
-      } else if (Number(result.platformFeeAmount || 0) > 0) {
-        const pctLabel = Number(result.platformFeePercentage || 0).toFixed(2).replace(/\.00$/, '');
-        message += `This charge includes a ${pctLabel}% platform fee. `;
+        message += `Discount applied successfully. Your charge is ${chargeLabel}. `;
       }
       message += stripeIntentType === "setup"
         ? "Registration successful! Your free trial is now active and your card has been saved for future payments. You may now log in to your account."

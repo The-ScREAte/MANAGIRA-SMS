@@ -385,19 +385,6 @@ function getAcceptLanguageCountry(req) {
   return /^[A-Z]{2}$/.test(region) ? region : null;
 }
 
-function isLocalhostRequest(req) {
-  const host = String(req?.headers?.host || "").trim().toLowerCase();
-  const hostname = String(req?.hostname || "").trim().toLowerCase();
-  return (
-    host.startsWith("localhost") ||
-    host.startsWith("127.0.0.1") ||
-    host.startsWith("[::1]") ||
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1"
-  );
-}
-
 async function detectCurrencyForRequest(req, options = {}) {
   const organizationId =
     Number(options.organizationId || 0) ||
@@ -411,14 +398,6 @@ async function detectCurrencyForRequest(req, options = {}) {
       countryCode: headerCountry,
       currencyCode: headerCurrency,
       source: "request-header",
-    };
-  }
-
-  if (isLocalhostRequest(req)) {
-    return {
-      countryCode: "US",
-      currencyCode: FALLBACK_CURRENCY,
-      source: "localhost-fallback",
     };
   }
 
