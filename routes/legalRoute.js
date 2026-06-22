@@ -49,7 +49,10 @@ router.post('/employment/:id/apply', (req, res, next) => {
 	});
 }, legalController.submitEmploymentApplication);
 router.get('/donations', legalController.donationsPage);
-router.get('/app-demo', legalController.appDemo);
+router.get('/app-demo', (req, res, next) => {
+	res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+	return legalController.appDemo(req, res, next);
+});
 router.get('/request-demo', legalController.requestDemoPage);
 router.post('/request-demo', legalController.submitDemoRequest);
 router.get('/user-documentation/api/search', documentationController.documentationSearchJson);
