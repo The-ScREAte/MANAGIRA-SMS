@@ -66,6 +66,136 @@
             overflow: visible;
         }
 
+        .paygira-print-block {
+            display: block;
+            margin-top: 18px;
+            page-break-inside: avoid;
+            border: 1px solid #dbe5f0;
+            border-radius: 8px;
+            background: #f8fbff;
+            padding: 8px;
+        }
+
+        .paygira-print-block h5 {
+            margin: 0 0 6px;
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .paygira-print-block table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            background: #fff;
+        }
+
+        .paygira-print-block th,
+        .paygira-print-block td {
+            border: 1px solid #d9e1ea;
+            padding: 5px 4px;
+            font-size: 10px;
+            vertical-align: top;
+        }
+
+        .paygira-print-block input {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 3px 5px;
+            font-size: 10px;
+            box-sizing: border-box;
+            background: #fff;
+        }
+
+        .paygira-block-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .paygira-edit-btn {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #334155;
+            border-radius: 999px;
+            width: 22px;
+            height: 22px;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 0;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .paygira-edit-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .paygira-edit-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .paygira-edit-modal {
+            width: min(680px, 94vw);
+            max-height: 90vh;
+            overflow: auto;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #dbe3ee;
+            box-shadow: 0 20px 48px rgba(15, 23, 42, 0.25);
+            padding: 14px;
+        }
+
+        .paygira-edit-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr auto;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .paygira-edit-grid input {
+            width: 100%;
+            border: 1px solid #d0dae6;
+            border-radius: 7px;
+            padding: 7px 8px;
+            font-size: 13px;
+        }
+
+        .paygira-selector-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px;
+            background: #f8fafc;
+            margin-top: 6px;
+        }
+
+        .paygira-selector-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+
+        .paygira-selector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 5px 10px;
+            max-height: 160px;
+            overflow: auto;
+        }
+
         .student-report:hover {
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
             transform: translateY(-2px);
@@ -533,6 +663,13 @@
                 min-height: auto;
             }
 
+            .paygira-print-block {
+                display: block !important;
+                background: transparent !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+
             .student-report.last-report {
                 page-break-after: avoid !important;
                 break-after: avoid !important;
@@ -619,6 +756,20 @@
                 box-sizing: border-box !important;
                 display: block !important;
                 margin-bottom: 10px !important;
+            }
+
+            .paygira-print-block table {
+                width: 100% !important;
+                border-collapse: collapse;
+                margin-top: 8px;
+            }
+
+            .paygira-print-block th,
+            .paygira-print-block td {
+                border: 1px solid #ddd !important;
+                padding: 5px 4px;
+                font-size: 10px;
+                text-align: left;
             }
 
             .info table,
@@ -1604,6 +1755,7 @@
     <% } else { %>
         <% students.forEach((student) => { %>
             <% const reportStudentDisplayName = student.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
+            <div class="student-report-grid">
             <div class="student-report" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>" data-student-name="<%= reportStudentDisplayName %>">
                 <input type="checkbox" class="student-checkbox" onchange="updateSelectedCount()" data-student-id="<%= student.student_id %>">
             <div class="student-report-background">
@@ -1809,6 +1961,64 @@
                     </div>
                     <% } %>
 
+                    <% if (displaySettings.sections.paygiraBills && displaySettings.sections.paygiraBills.enabled) { %>
+                        <div class="paygira-print-block">
+                            <div class="paygira-block-head">
+                                <h5 style="margin:0;color:var(--primary);font-size:12px;">Billing</h5>
+                                <% if (displaySettings.sections.paygiraBills.mode === 'manual') { %>
+                                    <button type="button" class="paygira-edit-btn" data-student-id="<%= student.student_id %>" aria-label="Edit billing" title="Edit billing">✎</button>
+                                <% } %>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr><th>Item</th><th>Value</th></tr>
+                                </thead>
+                                <tbody>
+                                    <% if (displaySettings.sections.paygiraBills.mode === 'auto') { %>
+                                        <% if (displaySettings.sections.paygiraBills.auto && displaySettings.sections.paygiraBills.auto.scope === 'future') { %>
+                                            <% const futureCfg = displaySettings.sections.paygiraBills.auto.future || {}; %>
+                                            <% if (futureCfg.action === 'custom' && futureCfg.billName) { %>
+                                                <tr>
+                                                    <td>Future Bill</td>
+                                                    <td><%= futureCfg.billName %></td>
+                                                </tr>
+                                            <% } else { %>
+                                                <tr>
+                                                    <td>Future Bill</td>
+                                                    <td>
+                                                        <a href="<%= futureCfg.createLink || '/account/settings/finance' %>" target="_blank" rel="noopener noreferrer" style="color:var(--primary);font-weight:600;text-decoration:underline;">Create Bill</a>
+                                                    </td>
+                                                </tr>
+                                            <% } %>
+                                        <% } else { %>
+                                            <% (student.paygiraAutoRows || []).forEach((row) => { %>
+                                                <tr>
+                                                    <td><%= row.label %></td>
+                                                    <td><%= row.value %></td>
+                                                </tr>
+                                            <% }); %>
+                                            <% if (!student.paygiraAutoRows || student.paygiraAutoRows.length === 0) { %>
+                                                <tr><td colspan="2" style="color:#64748b;">No Paygira metrics selected.</td></tr>
+                                            <% } %>
+                                        <% } %>
+                                    <% } else { %>
+                                        <% const paygiraManualFields = Array.isArray(student.paygiraManualResolvedFields) ? student.paygiraManualResolvedFields : []; %>
+                                        <% paygiraManualFields.forEach((field) => { %>
+                                            <% const displayValue = (field.value === undefined || field.value === null || field.value === '') ? '-' : field.value; %>
+                                            <tr>
+                                                <td><%= field.label %></td>
+                                                <td><%= displayValue %></td>
+                                            </tr>
+                                        <% }); %>
+                                        <% if (paygiraManualFields.length === 0) { %>
+                                            <tr><td colspan="2" style="color:#64748b;">No manual fields configured.</td></tr>
+                                        <% } %>
+                                    <% } %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } %>
+
                     <div class="report-card-footer">
                         <div class="report-card-footer-left">
                             <% if (hasSchoolWebsite && schoolWebsiteHost) { %>
@@ -1821,8 +2031,47 @@
                     </div>
                 </div>
             </div>
+            </div>
         <% }); %>
     <% } %>
+
+    <div id="paygiraEditModal" class="paygira-edit-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="paygiraEditModalTitle">
+        <div class="paygira-edit-modal">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;">
+                <h3 id="paygiraEditModalTitle" style="margin:0;color:var(--primary);font-size:1rem;">Edit Billing</h3>
+                <button type="button" id="paygiraEditCloseBtn" class="btn btn-danger" style="padding:6px 10px;font-size:0.78rem;">Close</button>
+            </div>
+
+            <div id="paygiraEditRowsWrap"></div>
+
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 10px;">
+                <button type="button" id="paygiraEditAddRowBtn" class="btn" style="padding:6px 10px;font-size:0.78rem;">+ Add Row</button>
+            </div>
+
+            <div class="paygira-selector-box">
+                <div class="paygira-selector-title">Students</div>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;margin-bottom:6px;">
+                    <input type="checkbox" id="paygiraApplyAllStudents" style="accent-color:var(--primary);" checked>
+                    All students
+                </label>
+                <div id="paygiraStudentSelector" class="paygira-selector-grid"></div>
+            </div>
+
+            <div class="paygira-selector-box">
+                <div class="paygira-selector-title">Classes</div>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;margin-bottom:6px;">
+                    <input type="checkbox" id="paygiraApplyAllClasses" style="accent-color:var(--primary);">
+                    All classes
+                </label>
+                <div id="paygiraClassSelector" class="paygira-selector-grid"></div>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button type="button" id="paygiraEditSaveBtn" class="btn" style="padding:7px 14px;font-size:0.82rem;">Save Changes</button>
+                <span id="paygiraEditStatus" style="font-size:0.82rem;color:var(--muted);"></span>
+            </div>
+        </div>
+    </div>
 
     <script>
         let isPrintSelectionInProgress = false;
@@ -1832,6 +2081,200 @@
         let lastSearchUserIntentAt = 0;
         let searchAutofillGuardInterval = null;
         let visibilityGuardInterval = null;
+        const isBillingManualMode = <%- JSON.stringify(displaySettings.sections.paygiraBills && displaySettings.sections.paygiraBills.enabled && displaySettings.sections.paygiraBills.mode === 'manual') %>;
+        const billingRowsByStudent = <%- JSON.stringify(paygiraManualResolvedByStudent || {}) %>;
+        const billingStudentOptions = <%- JSON.stringify(reportStudentOptions || []) %>;
+        const billingClassOptions = <%- JSON.stringify(reportClassOptions || []) %>;
+        const currentBillingClassId = <%- JSON.stringify(Number(classId)) %>;
+        let activeBillingEditStudentId = null;
+        let billingDraftDirty = false;
+
+        function getBillingEditElements() {
+            return {
+                modal: document.getElementById('paygiraEditModal'),
+                rowsWrap: document.getElementById('paygiraEditRowsWrap'),
+                status: document.getElementById('paygiraEditStatus'),
+                applyAllStudents: document.getElementById('paygiraApplyAllStudents'),
+                applyAllClasses: document.getElementById('paygiraApplyAllClasses'),
+                studentSelector: document.getElementById('paygiraStudentSelector'),
+                classSelector: document.getElementById('paygiraClassSelector'),
+                saveBtn: document.getElementById('paygiraEditSaveBtn'),
+                closeBtn: document.getElementById('paygiraEditCloseBtn'),
+                addRowBtn: document.getElementById('paygiraEditAddRowBtn'),
+            };
+        }
+
+        function renderBillingStudentSelector(els) {
+            if (!els.studentSelector) return;
+            els.studentSelector.innerHTML = billingStudentOptions.map((student) => {
+                const sid = Number(student.student_id);
+                const checked = String(sid) === String(activeBillingEditStudentId);
+                return `<label style="display:flex;align-items:center;gap:6px;font-size:0.84rem;">
+                    <input type="checkbox" class="paygira-student-check" value="${sid}" style="accent-color:var(--primary);" ${checked ? 'checked' : ''}>
+                    <span>${String(student.name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+                </label>`;
+            }).join('');
+        }
+
+        function renderBillingClassSelector(els) {
+            if (!els.classSelector) return;
+            els.classSelector.innerHTML = billingClassOptions.map((cls) => {
+                const cid = Number(cls.class_id);
+                const checked = cid === Number(currentBillingClassId);
+                return `<label style="display:flex;align-items:center;gap:6px;font-size:0.84rem;">
+                    <input type="checkbox" class="paygira-class-check" value="${cid}" style="accent-color:var(--primary);" ${checked ? 'checked' : ''}>
+                    <span>${String(cls.class_name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}${cid === Number(currentBillingClassId) ? ' (current)' : ''}</span>
+                </label>`;
+            }).join('');
+        }
+
+        function syncBillingSelectorState(els) {
+            if (!els) return;
+            const applyAllStudents = els.applyAllStudents?.checked === true;
+            const studentChecks = Array.from(els.studentSelector?.querySelectorAll('.paygira-student-check') || []);
+            const classChecks = Array.from(els.classSelector?.querySelectorAll('.paygira-class-check') || []);
+
+            studentChecks.forEach((cb) => {
+                cb.checked = applyAllStudents ? true : cb.checked;
+                cb.disabled = applyAllStudents;
+            });
+
+            if (!applyAllStudents && els.applyAllClasses) {
+                els.applyAllClasses.checked = false;
+            }
+
+            const classEnabled = applyAllStudents;
+            classChecks.forEach((cb) => {
+                if (!classEnabled) {
+                    cb.checked = Number(cb.value) === Number(currentBillingClassId);
+                }
+                cb.disabled = !classEnabled;
+            });
+
+            if (classEnabled) {
+                const allChecked = classChecks.length > 0 && classChecks.every((cb) => cb.checked);
+                if (els.applyAllClasses) {
+                    els.applyAllClasses.checked = allChecked;
+                    els.applyAllClasses.disabled = false;
+                }
+            } else if (els.applyAllClasses) {
+                els.applyAllClasses.disabled = true;
+            }
+        }
+
+        function createBillingEditRow(label = '', value = '') {
+            const esc = (input) => String(input || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            const row = document.createElement('div');
+            row.className = 'paygira-edit-grid';
+            row.innerHTML = `
+                <input type="text" class="paygira-edit-label" placeholder="Item name" value="${esc(label)}">
+                <input type="text" class="paygira-edit-value" placeholder="Value" value="${esc(value)}">
+                <button type="button" class="btn btn-danger paygira-edit-remove" style="padding:6px 8px;font-size:0.74rem;">Remove</button>
+            `;
+            row.querySelector('.paygira-edit-label')?.addEventListener('input', () => { billingDraftDirty = true; });
+            row.querySelector('.paygira-edit-value')?.addEventListener('input', () => { billingDraftDirty = true; });
+            row.querySelector('.paygira-edit-remove')?.addEventListener('click', () => {
+                billingDraftDirty = true;
+                row.remove();
+            });
+            return row;
+        }
+
+        function openBillingEditModal(studentId) {
+            if (!isBillingManualMode) return;
+            const els = getBillingEditElements();
+            if (!els.modal || !els.rowsWrap) return;
+            activeBillingEditStudentId = String(studentId);
+            const rows = Array.isArray(billingRowsByStudent[activeBillingEditStudentId]) ? billingRowsByStudent[activeBillingEditStudentId] : [];
+            els.rowsWrap.innerHTML = '';
+            if (rows.length === 0) {
+                els.rowsWrap.appendChild(createBillingEditRow('', ''));
+            } else {
+                rows.forEach((entry) => {
+                    els.rowsWrap.appendChild(createBillingEditRow(entry.label || '', entry.value || ''));
+                });
+            }
+            if (els.status) els.status.textContent = '';
+            if (els.applyAllStudents) els.applyAllStudents.checked = true;
+            if (els.applyAllClasses) els.applyAllClasses.checked = false;
+            renderBillingStudentSelector(els);
+            renderBillingClassSelector(els);
+            syncBillingSelectorState(els);
+            billingDraftDirty = false;
+            els.modal.style.display = 'flex';
+        }
+
+        function closeBillingEditModal() {
+            const els = getBillingEditElements();
+            if (!els.modal) return;
+            els.modal.style.display = 'none';
+        }
+
+        async function saveBillingOverrides(options = {}) {
+            const { reloadOnSuccess = true } = options;
+            const els = getBillingEditElements();
+            if (!els.rowsWrap || !els.saveBtn || !activeBillingEditStudentId) return false;
+            const rows = Array.from(els.rowsWrap.querySelectorAll('.paygira-edit-grid')).map((row, index) => {
+                const label = row.querySelector('.paygira-edit-label')?.value?.trim() || '';
+                const value = row.querySelector('.paygira-edit-value')?.value?.trim() || '';
+                if (!label) return null;
+                const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `field_${index + 1}`;
+                return { key, label, value };
+            }).filter(Boolean);
+
+            if (!rows.length) {
+                if (els.status) els.status.textContent = 'Add at least one row before saving.';
+                return false;
+            }
+
+            const applyToAllStudents = els.applyAllStudents?.checked === true;
+            const applyToAllClasses = els.applyAllClasses?.checked === true;
+            const selectedStudentIds = Array.from(els.studentSelector?.querySelectorAll('.paygira-student-check:checked') || []).map((cb) => parseInt(cb.value, 10)).filter((id) => Number.isFinite(id));
+            const selectedClassIds = Array.from(els.classSelector?.querySelectorAll('.paygira-class-check:checked') || []).map((cb) => parseInt(cb.value, 10)).filter((id) => Number.isFinite(id));
+
+            if (!applyToAllStudents && selectedStudentIds.length === 0) {
+                if (els.status) els.status.textContent = 'Select at least one student.';
+                return false;
+            }
+
+            els.saveBtn.disabled = true;
+            if (els.status) els.status.textContent = 'Saving...';
+
+            try {
+                const response = await fetch(`/print/savePaygiraReportOverrides?classId=<%= classId %>&termId=<%= termId %>`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        studentId: parseInt(activeBillingEditStudentId, 10),
+                        fields: rows,
+                        applyToAllStudents: applyToAllStudents,
+                        applyToAllClasses: applyToAllClasses,
+                        selectedStudentIds: selectedStudentIds,
+                        selectedClassIds: selectedClassIds,
+                    }),
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Failed to save');
+                }
+                billingDraftDirty = false;
+                if (els.status) els.status.textContent = 'Saved. Refreshing...';
+                if (reloadOnSuccess) {
+                    window.location.reload();
+                }
+                return true;
+            } catch (error) {
+                if (els.status) els.status.textContent = error.message || 'Failed to save changes.';
+                return false;
+            } finally {
+                els.saveBtn.disabled = false;
+            }
+        }
 
         function updateReportVisibilityModeFromSearch() {
             const searchInput = document.getElementById('studentSearch');
@@ -2192,11 +2635,30 @@ function updateClass(studentId) {
 }
 
 
+        let hasUnsavedReportChanges = false;
         const isManualAttendanceMode = <%- JSON.stringify(displaySettings.sections.turnOffAutoAttendance === true) %>;
+        function getTrackedReportInputs() {
+            return Array.from(document.querySelectorAll('.student-report textarea, .student-report select, .student-report input[type="number"], .student-report input[type="text"]'));
+        }
+
+        function captureReportInputSnapshot() {
+            getTrackedReportInputs().forEach((input) => {
+                input.dataset.originalValue = input.value;
+            });
+            hasUnsavedReportChanges = false;
+        }
 
         // Save changes
         document.getElementById('saveChangesLink').addEventListener('click', async (e) => {
             e.preventDefault(); // prevent link navigation
+
+            if (isBillingManualMode && billingDraftDirty) {
+                const savedBilling = await saveBillingOverrides({ reloadOnSuccess: false });
+                if (!savedBilling) {
+                    alert('Billing changes were not saved. Please fix and try again.');
+                    return;
+                }
+            }
         
             const studentReports = Array.from(document.querySelectorAll('.student-report')).map((report) => {
               const studentId = report.getAttribute('data-student-id');
@@ -2230,7 +2692,7 @@ function updateClass(studentId) {
                                     reportPayload.manualAttendancePresentDays = trimmedValue === '' ? null : parseInt(trimmedValue, 10);
                                 }
                             }
-        
+
                             return reportPayload;
             }).filter(Boolean);
         
@@ -2247,6 +2709,7 @@ function updateClass(studentId) {
               });
         
               if (response.ok) {
+                                captureReportInputSnapshot();
                 alert('Changes saved successfully.');
               } else {
                 alert('Failed to save changes.');
@@ -2330,6 +2793,51 @@ function updateClass(studentId) {
 
     document.addEventListener('DOMContentLoaded', () => {
         syncActionsMenuState();
+        captureReportInputSnapshot();
+            if (isBillingManualMode) {
+                document.querySelectorAll('.paygira-edit-btn').forEach((btn) => {
+                    btn.addEventListener('click', () => openBillingEditModal(btn.dataset.studentId));
+                });
+                const billingEls = getBillingEditElements();
+                billingEls.closeBtn?.addEventListener('click', closeBillingEditModal);
+                billingEls.saveBtn?.addEventListener('click', saveBillingOverrides);
+                billingEls.addRowBtn?.addEventListener('click', () => {
+                    billingDraftDirty = true;
+                    billingEls.rowsWrap?.appendChild(createBillingEditRow('', ''));
+                });
+                billingEls.applyAllStudents?.addEventListener('change', () => {
+                    billingDraftDirty = true;
+                    syncBillingSelectorState(billingEls);
+                });
+                billingEls.applyAllClasses?.addEventListener('change', () => {
+                    billingDraftDirty = true;
+                    if (!billingEls.classSelector) return;
+                    const classChecks = Array.from(billingEls.classSelector.querySelectorAll('.paygira-class-check'));
+                    classChecks.forEach((cb) => {
+                        cb.checked = billingEls.applyAllClasses.checked;
+                    });
+                });
+                billingEls.studentSelector?.addEventListener('change', () => {
+                    billingDraftDirty = true;
+                    if (!billingEls.applyAllStudents || billingEls.applyAllStudents.checked) return;
+                    const selected = Array.from(billingEls.studentSelector.querySelectorAll('.paygira-student-check:checked')).length;
+                    if (selected === 0) {
+                        const currentStudentCb = billingEls.studentSelector.querySelector(`.paygira-student-check[value="${activeBillingEditStudentId}"]`);
+                        if (currentStudentCb) currentStudentCb.checked = true;
+                    }
+                });
+                billingEls.classSelector?.addEventListener('change', () => {
+                    billingDraftDirty = true;
+                    if (!billingEls.classSelector || !billingEls.applyAllClasses) return;
+                    const classChecks = Array.from(billingEls.classSelector.querySelectorAll('.paygira-class-check'));
+                    billingEls.applyAllClasses.checked = classChecks.length > 0 && classChecks.every((cb) => cb.checked);
+                });
+                billingEls.modal?.addEventListener('click', (event) => {
+                    if (event.target === billingEls.modal) {
+                        closeBillingEditModal();
+                    }
+                });
+            }
         const studentSearchInput = document.getElementById('studentSearch');
         if (studentSearchInput) {
             const forceClearSearchField = () => {
@@ -2419,22 +2927,30 @@ function updateClass(studentId) {
         }
     });
 
-    // Check for unsaved changes (this is a simple heuristic - can be improved)
+    document.addEventListener('input', (e) => {
+        if (e.target && e.target.closest && e.target.closest('.student-report')) {
+            hasUnsavedReportChanges = checkForUnsavedChanges();
+        }
+    });
+
+    document.addEventListener('change', (e) => {
+        if (e.target && e.target.closest && e.target.closest('.student-report')) {
+            hasUnsavedReportChanges = checkForUnsavedChanges();
+        }
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+        if (!hasUnsavedReportChanges) return;
+        e.preventDefault();
+        e.returnValue = '';
+    });
+
     function checkForUnsavedChanges() {
-        // Check if any input fields have been modified but not saved
-        // You can customize this based on your save mechanism
-        const inputs = document.querySelectorAll('input[type="number"], textarea, select');
-        let hasModified = false;
-        
-        inputs.forEach(input => {
-            if (input.dataset && input.dataset.originalValue !== undefined) {
-                if (input.value !== input.dataset.originalValue) {
-                    hasModified = true;
-                }
-            }
-        });
-        
-        return hasModified;
+        return getTrackedReportInputs().some((input) => (
+            input.dataset
+            && input.dataset.originalValue !== undefined
+            && input.value !== input.dataset.originalValue
+        ));
     }
 
     // Save email inputs to localStorage

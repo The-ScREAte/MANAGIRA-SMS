@@ -137,6 +137,107 @@ async function ensureStudentReportManualAttendanceColumn(dbClient) {
   }
 }
 
+let ensuredStudentReportPaygiraManualDataColumn = false;
+async function ensureStudentReportPaygiraManualDataColumn(dbClient) {
+  if (ensuredStudentReportPaygiraManualDataColumn) return;
+  try {
+    await dbClient.query(
+      "ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS paygira_manual_data JSONB"
+    );
+    ensuredStudentReportPaygiraManualDataColumn = true;
+  } catch (err) {
+    console.error("[ensureStudentReportPaygiraManualDataColumn] Failed to add column", err);
+  }
+}
+
+let ensuredReportPaygiraManualOverridesTable = false;
+async function ensureReportPaygiraManualOverridesTable(dbClient) {
+  if (ensuredReportPaygiraManualOverridesTable) return;
+  try {
+    await dbClient.query(`
+      CREATE TABLE IF NOT EXISTS report_paygira_manual_overrides (
+        id SERIAL PRIMARY KEY,
+        organization_id INT NOT NULL,
+        class_id INT NOT NULL,
+        term_id INT NOT NULL,
+        student_id INT NULL,
+        fields JSONB NOT NULL DEFAULT '[]'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await dbClient.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS report_paygira_manual_overrides_class_unique
+      ON report_paygira_manual_overrides (organization_id, class_id, term_id)
+      WHERE student_id IS NULL
+    `);
+    await dbClient.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS report_paygira_manual_overrides_student_unique
+      ON report_paygira_manual_overrides (organization_id, class_id, term_id, student_id)
+      WHERE student_id IS NOT NULL
+    `);
+    ensuredReportPaygiraManualOverridesTable = true;
+  } catch (err) {
+    console.error("[ensureReportPaygiraManualOverridesTable] Failed to ensure table", err);
+  }
+}
+
+function parsePositiveIntArray(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .map((entry) => parseInt(entry, 10))
+    .filter((entry) => Number.isFinite(entry) && entry > 0))];
+}
+
+function normalizePaygiraManualField(field, index, sourceClassId) {
+  if (!field || typeof field !== "object") return null;
+
+  const label = String(field.label || "").trim();
+  if (!label) return null;
+
+  const keyCandidate = String(field.key || "").trim();
+  const key = keyCandidate || label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || `field_${index + 1}`;
+  const defaultValueRaw = field.defaultValue;
+  const defaultValue = defaultValueRaw === undefined || defaultValueRaw === null ? "" : String(defaultValueRaw).trim();
+
+  const applyToClasses = parsePositiveIntArray(field.applyToClasses);
+  if (Number.isFinite(sourceClassId) && sourceClassId > 0 && !applyToClasses.includes(sourceClassId)) {
+    applyToClasses.unshift(sourceClassId);
+  }
+
+  return {
+    key,
+    label,
+    defaultValue,
+    applyToClasses,
+  };
+}
+
+function normalizePaygiraManualFields(fields, sourceClassId) {
+  if (!Array.isArray(fields)) return [];
+  return fields
+    .map((field, index) => normalizePaygiraManualField(field, index, sourceClassId))
+    .filter(Boolean);
+}
+
+function normalizeReportPaygiraManualField(field, index) {
+  if (!field || typeof field !== "object") return null;
+  const label = String(field.label || "").trim();
+  if (!label) return null;
+  const keyCandidate = String(field.key || "").trim();
+  const key = keyCandidate || label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || `field_${index + 1}`;
+  const valueRaw = field.value;
+  const value = valueRaw === undefined || valueRaw === null ? "" : String(valueRaw);
+  return { key, label, value };
+}
+
+function normalizeReportPaygiraManualFields(fields) {
+  if (!Array.isArray(fields)) return [];
+  return fields
+    .map((field, index) => normalizeReportPaygiraManualField(field, index))
+    .filter(Boolean);
+}
+
 function getDefaultGradeLabel(percentage) {
   const value = Number(percentage);
   if (!Number.isFinite(value)) return "-";
@@ -375,6 +476,7 @@ const printController = (db) => ({
     await ensureSignatureMetaColumns(db);
     await ensureScoreRemarkGradeColumn(db);
     await ensureStudentReportManualAttendanceColumn(db);
+    await ensureStudentReportPaygiraManualDataColumn(db);
     // Validate inputs
     if (!organizationId) {
       return res.status(400).send("Organization ID is not set in session.");
@@ -410,7 +512,7 @@ const printController = (db) => ({
         : null;
 
       // Fetch class and term details
-      const [classResult, termResult] = await Promise.all([
+      const [classResult, termResult, allClassesResult] = await Promise.all([
         db.query(
           "SELECT * FROM classes WHERE class_id = $1 AND organization_id = $2",
           [parsedClassId, organizationId]
@@ -422,10 +524,15 @@ const printController = (db) => ({
                      WHERE t.term_id = $1 AND t.organization_id = $2`,
           [parsedTermId, organizationId]
         ),
+        db.query(
+          "SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_id ASC",
+          [organizationId]
+        ),
       ]);
 
       const classData = classResult.rows[0];
       const term = termResult.rows[0];
+      const allClasses = allClassesResult.rows || [];
 
       if (!classData) {
         return res
@@ -482,10 +589,10 @@ const printController = (db) => ({
 
       // Fetch saved reports (filtered by studentId if provided)
       const savedReportsQuery = parsedStudentId
-        ? `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, manual_attendance_present_days, manual_attendance_total_days
+        ? `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
          FROM student_reports
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id = $4`
-        : `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, manual_attendance_present_days, manual_attendance_total_days
+        : `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
          FROM student_reports
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`;
 
@@ -613,6 +720,13 @@ const printController = (db) => ({
       const rawDS = reportSettingsResult.rows[0]?.display_settings || {};
       const colVis = rawDS.columns || {};
       const secVis = rawDS.sections || {};
+      const paygiraBillsRaw = secVis.paygiraBills || {};
+      const paygiraAutoRaw = paygiraBillsRaw.auto || {};
+      const paygiraMetricsRaw = paygiraAutoRaw.metrics || {};
+      const paygiraFutureRaw = paygiraAutoRaw.future || {};
+      const paygiraManualRaw = paygiraBillsRaw.manual || {};
+      const paygiraManualFieldsRaw = Array.isArray(paygiraManualRaw.fields) ? paygiraManualRaw.fields : [];
+      const paygiraManualFields = normalizePaygiraManualFields(paygiraManualFieldsRaw, parsedClassId);
       const displaySettings = {
         columns: {
           classScore:      colVis.classScore      !== false,
@@ -636,6 +750,31 @@ const printController = (db) => ({
           manualAttendanceOutOf: Number.isFinite(Number(secVis.manualAttendanceOutOf)) && Number(secVis.manualAttendanceOutOf) > 0
             ? Number(secVis.manualAttendanceOutOf)
             : null,
+          paygiraBills: {
+            enabled: paygiraBillsRaw.enabled === true,
+            mode: paygiraBillsRaw.mode === 'manual' ? 'manual' : 'auto',
+            auto: {
+              scope: paygiraAutoRaw.scope === 'future' ? 'future' : 'past',
+              dateFrom: paygiraAutoRaw.dateFrom || '',
+              dateTo: paygiraAutoRaw.dateTo || '',
+              future: {
+                action: paygiraFutureRaw.action === 'custom' ? 'custom' : 'create',
+                billName: String(paygiraFutureRaw.billName || '').trim(),
+                createLink: '/account/settings/finance',
+              },
+              metrics: {
+                totalPaid: paygiraMetricsRaw.totalPaid !== false,
+                defaultArrears: paygiraMetricsRaw.defaultArrears !== false,
+                latePayments: paygiraMetricsRaw.latePayments !== false,
+                totalBilled: paygiraMetricsRaw.totalBilled !== false,
+                totalOutstanding: paygiraMetricsRaw.totalOutstanding !== false,
+                lastPaymentDate: paygiraMetricsRaw.lastPaymentDate !== false,
+              },
+            },
+            manual: {
+              fields: paygiraManualFields,
+            },
+          },
           promotion:       secVis.promotion       !== false,
         },
       };
@@ -718,6 +857,34 @@ const printController = (db) => ({
         ])
       );
 
+      await ensureReportPaygiraManualOverridesTable(db);
+      const studentIds = students.map((student) => Number(student.student_id)).filter((id) => Number.isFinite(id) && id > 0);
+      const paygiraOverrideRowsResult = studentIds.length
+        ? await db.query(
+            `SELECT student_id, fields
+             FROM report_paygira_manual_overrides
+             WHERE organization_id = $1
+               AND class_id = $2
+               AND term_id = $3
+               AND (student_id IS NULL OR student_id = ANY($4::int[]))`,
+            [organizationId, parsedClassId, parsedTermId, studentIds]
+          )
+        : { rows: [] };
+      const classLevelOverrideRow = paygiraOverrideRowsResult.rows.find((row) => row.student_id === null);
+      const classLevelOverrideFields = normalizeReportPaygiraManualFields(classLevelOverrideRow?.fields || []);
+      const studentLevelOverrideMap = new Map(
+        paygiraOverrideRowsResult.rows
+          .filter((row) => row.student_id !== null)
+          .map((row) => [Number(row.student_id), normalizeReportPaygiraManualFields(row.fields || [])])
+      );
+      const templatePaygiraRows = (displaySettings.sections.paygiraBills?.manual?.fields || [])
+        .map((field, index) => normalizeReportPaygiraManualField({
+          key: field.key,
+          label: field.label,
+          value: field.defaultValue,
+        }, index))
+        .filter(Boolean);
+
       // Process students
       const getCategoryScore = (studentId, subjectId, categories) =>
         categories.reduce(
@@ -740,6 +907,17 @@ const printController = (db) => ({
         student.manualAttendanceTotalDays = Number.isFinite(Number(savedReport.manual_attendance_total_days))
           ? Number(savedReport.manual_attendance_total_days)
           : null;
+        student.paygiraManualData = (savedReport.paygira_manual_data && typeof savedReport.paygira_manual_data === 'object')
+          ? savedReport.paygira_manual_data
+          : {};
+        const studentSpecificOverride = studentLevelOverrideMap.get(Number(student.student_id));
+        if (Array.isArray(studentSpecificOverride) && studentSpecificOverride.length > 0) {
+          student.paygiraManualResolvedFields = studentSpecificOverride;
+        } else if (classLevelOverrideFields.length > 0) {
+          student.paygiraManualResolvedFields = classLevelOverrideFields;
+        } else {
+          student.paygiraManualResolvedFields = templatePaygiraRows;
+        }
 
         let totalScoreSum = 0;
         let totalPercentageSum = 0;
@@ -830,6 +1008,167 @@ const printController = (db) => ({
         student.promotionStatus =
           student.overallPercentage >= cutOffPoint ? "Promoted" : "Repeated";
       });
+
+      if (displaySettings.sections.paygiraBills.enabled && displaySettings.sections.paygiraBills.mode === 'auto' && students.length) {
+        const paygiraCfg = displaySettings.sections.paygiraBills;
+        const metrics = paygiraCfg.auto?.metrics || {};
+        const dateFrom = paygiraCfg.auto?.dateFrom || null;
+        const dateTo = paygiraCfg.auto?.dateTo || null;
+        const studentIds = students.map((s) => Number(s.student_id)).filter((id) => Number.isFinite(id));
+
+        try {
+          const paymentsFilterClauses = ["p.organization_id = $1", "p.student_id = ANY($2::int[])"];
+          const assignmentsFilterClauses = ["a.organization_id = $1", "a.student_id = ANY($2::int[])", "a.status <> 'cancelled'", "COALESCE(b.status, 'active') <> 'cancelled'"];
+          const paymentsParams = [organizationId, studentIds];
+          const assignmentsParams = [organizationId, studentIds];
+
+          if (dateFrom) {
+            paymentsParams.push(dateFrom);
+            paymentsFilterClauses.push(`p.received_at::date >= $${paymentsParams.length}::date`);
+            assignmentsParams.push(dateFrom);
+            assignmentsFilterClauses.push(`b.due_date >= $${assignmentsParams.length}::date`);
+          }
+          if (dateTo) {
+            paymentsParams.push(dateTo);
+            paymentsFilterClauses.push(`p.received_at::date <= $${paymentsParams.length}::date`);
+            assignmentsParams.push(dateTo);
+            assignmentsFilterClauses.push(`b.due_date <= $${assignmentsParams.length}::date`);
+          }
+
+          const [paymentsAggResult, assignmentsAggResult, assignmentLifetimeAggResult, creditsAggResult] = await Promise.all([
+            db.query(
+              `SELECT
+                 p.student_id,
+                 COALESCE(SUM(CASE WHEN p.is_refund = TRUE THEN -ABS(p.amount) ELSE p.amount END), 0) AS total_paid,
+                 COUNT(*) FILTER (WHERE b.due_date IS NOT NULL AND p.received_at::date > b.due_date) AS payment_events_after_due,
+                 MAX(p.received_at) AS last_payment_at
+               FROM finance_payments p
+               LEFT JOIN finance_bills b ON b.bill_id = p.bill_id
+               WHERE ${paymentsFilterClauses.join(' AND ')}
+               GROUP BY p.student_id`,
+              paymentsParams,
+            ),
+            db.query(
+              `SELECT
+                 a.student_id,
+                 COALESCE(SUM(a.amount + COALESCE(a.late_fee_applied, 0)), 0) AS total_billed_in_range,
+                 COALESCE(SUM(a.amount_paid), 0) AS total_paid_assignments_in_range,
+                 COALESCE(SUM(GREATEST((a.amount + COALESCE(a.late_fee_applied, 0)) - COALESCE(a.amount_paid, 0), 0)), 0) AS outstanding_in_range,
+                 COALESCE(SUM(CASE WHEN a.status = 'defaulted' THEN GREATEST((a.amount + COALESCE(a.late_fee_applied, 0)) - COALESCE(a.amount_paid, 0), 0) ELSE 0 END), 0) AS default_arrears,
+                 COUNT(*) FILTER (WHERE a.status IN ('overdue', 'defaulted')) AS late_assignments,
+                 COUNT(*) FILTER (WHERE GREATEST((a.amount + COALESCE(a.late_fee_applied, 0)) - COALESCE(a.amount_paid, 0), 0) > 0) AS open_bill_count
+               FROM finance_bill_assignments a
+               JOIN finance_bills b ON b.bill_id = a.bill_id
+               WHERE ${assignmentsFilterClauses.join(' AND ')}
+               GROUP BY a.student_id`,
+              assignmentsParams,
+            ),
+            db.query(
+              `SELECT
+                 a.student_id,
+                 COALESCE(SUM(a.amount + COALESCE(a.late_fee_applied, 0)), 0) AS total_billed_lifetime,
+                 COALESCE(SUM(a.amount_paid), 0) AS total_paid_lifetime,
+                 COALESCE(SUM(GREATEST((a.amount + COALESCE(a.late_fee_applied, 0)) - COALESCE(a.amount_paid, 0), 0)), 0) AS outstanding_lifetime,
+                 COUNT(*) FILTER (WHERE a.status = 'defaulted') AS defaulted_bill_count,
+                 COUNT(*) FILTER (WHERE a.status = 'never_paid') AS never_paid_bill_count,
+                 COUNT(*) FILTER (WHERE a.status = 'partial') AS partial_bill_count,
+                 COUNT(*) FILTER (WHERE a.status = 'overdue') AS overdue_bill_count
+               FROM finance_bill_assignments a
+               JOIN finance_bills b ON b.bill_id = a.bill_id
+               WHERE a.organization_id = $1
+                 AND a.student_id = ANY($2::int[])
+                 AND a.status <> 'cancelled'
+                 AND COALESCE(b.status, 'active') <> 'cancelled'
+               GROUP BY a.student_id`,
+              [organizationId, studentIds],
+            ),
+            db.query(
+              `SELECT student_id, COALESCE(amount, 0) AS credit_amount
+               FROM finance_student_credits
+               WHERE organization_id = $1 AND student_id = ANY($2::int[])`,
+              [organizationId, studentIds],
+            ),
+          ]);
+
+          const paymentsByStudent = Object.fromEntries(
+            paymentsAggResult.rows.map((row) => [String(row.student_id), row])
+          );
+          const assignmentsByStudent = Object.fromEntries(
+            assignmentsAggResult.rows.map((row) => [String(row.student_id), row])
+          );
+          const assignmentLifetimeByStudent = Object.fromEntries(
+            assignmentLifetimeAggResult.rows.map((row) => [String(row.student_id), row])
+          );
+          const creditsByStudent = Object.fromEntries(
+            creditsAggResult.rows.map((row) => [String(row.student_id), Number(row.credit_amount || 0)])
+          );
+
+          students.forEach((student) => {
+            const paymentRow = paymentsByStudent[String(student.student_id)] || {};
+            const assignmentRow = assignmentsByStudent[String(student.student_id)] || {};
+            const lifetimeRow = assignmentLifetimeByStudent[String(student.student_id)] || {};
+            const studentCredit = Number(creditsByStudent[String(student.student_id)] || 0);
+            const totalPaidValue = (dateFrom || dateTo)
+              ? Number(paymentRow.total_paid || 0)
+              : Number(lifetimeRow.total_paid_lifetime || assignmentRow.total_paid_assignments_in_range || 0);
+            const totalBilledValue = (dateFrom || dateTo)
+              ? Number(assignmentRow.total_billed_in_range || 0)
+              : Number(lifetimeRow.total_billed_lifetime || assignmentRow.total_billed_in_range || 0);
+            const grossOutstandingValue = (dateFrom || dateTo)
+              ? Number(assignmentRow.outstanding_in_range || 0)
+              : Number(lifetimeRow.outstanding_lifetime || assignmentRow.outstanding_in_range || 0);
+            const outstandingValue = Math.max(grossOutstandingValue - studentCredit, 0);
+            const latePaymentsValue = Number(assignmentRow.late_assignments || 0);
+            const defaultedBillCount = Number(lifetimeRow.defaulted_bill_count || 0);
+            const neverPaidBillCount = Number(lifetimeRow.never_paid_bill_count || 0);
+            const partialBillCount = Number(lifetimeRow.partial_bill_count || 0);
+            const overdueBillCount = Number(lifetimeRow.overdue_bill_count || 0);
+            let primaryStatus = 'Clear';
+            if (outstandingValue > 0) {
+              if (defaultedBillCount > 0) primaryStatus = 'Defaulted';
+              else if (neverPaidBillCount > 0 && totalPaidValue <= 0) primaryStatus = 'Never Paid';
+              else if (partialBillCount > 0 || totalPaidValue > 0) primaryStatus = 'Partial';
+              else if (overdueBillCount > 0) primaryStatus = 'Overdue';
+              else primaryStatus = 'Owing';
+            }
+            const autoRows = [];
+            if (metrics.totalPaid) {
+              autoRows.push({ label: 'Total Paid', value: totalPaidValue.toFixed(2) });
+            }
+            if (metrics.defaultArrears) {
+              autoRows.push({ label: 'Default Arrears', value: Number(assignmentRow.default_arrears || 0).toFixed(2) });
+            }
+            if (metrics.latePayments) {
+              autoRows.push({ label: 'Late / Overdue Bills', value: String(latePaymentsValue) });
+            }
+            if (metrics.totalBilled) {
+              autoRows.push({ label: 'Total Billed', value: totalBilledValue.toFixed(2) });
+            }
+            if (metrics.totalOutstanding) {
+              autoRows.push({ label: 'Outstanding', value: outstandingValue.toFixed(2) });
+            }
+            if (metrics.lastPaymentDate) {
+              autoRows.push({ label: 'Last Payment Date', value: paymentRow.last_payment_at ? formatDisplayDate(paymentRow.last_payment_at, orgDateDisplayFormat) : '-' });
+            }
+            if (outstandingValue > 0) {
+              autoRows.push({ label: 'Paygira Status', value: primaryStatus });
+            }
+            if (studentCredit > 0) {
+              autoRows.push({ label: 'Credit Balance', value: studentCredit.toFixed(2) });
+            }
+            student.paygiraAutoRows = autoRows;
+          });
+        } catch (paygiraErr) {
+          console.error('[printStudentReport] Failed to load paygira auto data', paygiraErr);
+          students.forEach((student) => {
+            student.paygiraAutoRows = [];
+          });
+        }
+      } else {
+        students.forEach((student) => {
+          student.paygiraAutoRows = [];
+        });
+      }
 
 
 
@@ -937,6 +1276,20 @@ students
         promotedClassId,
         repeatedClassId,
         displaySettings,
+        paygiraManualResolvedByStudent: Object.fromEntries(
+          students.map((student) => [
+            student.student_id,
+            Array.isArray(student.paygiraManualResolvedFields) ? student.paygiraManualResolvedFields : [],
+          ])
+        ),
+        reportStudentOptions: students.map((student) => ({
+          student_id: Number(student.student_id),
+          name: student.display_name,
+        })),
+        reportClassOptions: allClasses.map((cls) => ({
+          class_id: Number(cls.class_id),
+          class_name: cls.class_name,
+        })),
         hasSchoolWebsite: websiteInfo.hasWebsite,
         schoolWebsiteHost: websiteInfo.websiteHost,
         reportYear: new Date().getFullYear(),
@@ -1115,6 +1468,13 @@ students
         const raw = row?.display_settings || {};
         const col = raw.columns || {};
         const sec = raw.sections || {};
+        const paygiraBillsRaw = sec.paygiraBills || {};
+        const paygiraAutoRaw = paygiraBillsRaw.auto || {};
+        const paygiraMetricsRaw = paygiraAutoRaw.metrics || {};
+        const paygiraFutureRaw = paygiraAutoRaw.future || {};
+        const paygiraManualRaw = paygiraBillsRaw.manual || {};
+        const paygiraManualFieldsRaw = Array.isArray(paygiraManualRaw.fields) ? paygiraManualRaw.fields : [];
+        const paygiraManualFields = normalizePaygiraManualFields(paygiraManualFieldsRaw, cls.class_id);
         allDisplaySettingsMap[cls.class_id] = {
           columns: {
             classScore:       col.classScore       !== false,
@@ -1141,6 +1501,31 @@ students
             manualAttendanceOutOf: Number.isFinite(Number(sec.manualAttendanceOutOf)) && Number(sec.manualAttendanceOutOf) > 0
               ? Number(sec.manualAttendanceOutOf)
               : null,
+            paygiraBills: {
+              enabled: paygiraBillsRaw.enabled === true,
+              mode: paygiraBillsRaw.mode === 'manual' ? 'manual' : 'auto',
+              auto: {
+                scope: paygiraAutoRaw.scope === 'future' ? 'future' : 'past',
+                dateFrom: paygiraAutoRaw.dateFrom || '',
+                dateTo: paygiraAutoRaw.dateTo || '',
+                future: {
+                  action: paygiraFutureRaw.action === 'custom' ? 'custom' : 'create',
+                  billName: String(paygiraFutureRaw.billName || '').trim(),
+                  createLink: '/account/settings/finance',
+                },
+                metrics: {
+                  totalPaid: paygiraMetricsRaw.totalPaid !== false,
+                  defaultArrears: paygiraMetricsRaw.defaultArrears !== false,
+                  latePayments: paygiraMetricsRaw.latePayments !== false,
+                  totalBilled: paygiraMetricsRaw.totalBilled !== false,
+                  totalOutstanding: paygiraMetricsRaw.totalOutstanding !== false,
+                  lastPaymentDate: paygiraMetricsRaw.lastPaymentDate !== false,
+                },
+              },
+              manual: {
+                fields: paygiraManualFields,
+              },
+            },
             promotion:       sec.promotion       !== false,
           },
         };
@@ -1284,6 +1669,13 @@ students
       const rawDS2 = reportSettings?.display_settings || {};
       const colVis2 = rawDS2.columns || {};
       const secVis2 = rawDS2.sections || {};
+      const paygiraBillsRaw2 = secVis2.paygiraBills || {};
+      const paygiraAutoRaw2 = paygiraBillsRaw2.auto || {};
+      const paygiraMetricsRaw2 = paygiraAutoRaw2.metrics || {};
+      const paygiraFutureRaw2 = paygiraAutoRaw2.future || {};
+      const paygiraManualRaw2 = paygiraBillsRaw2.manual || {};
+      const paygiraManualFieldsRaw2 = Array.isArray(paygiraManualRaw2.fields) ? paygiraManualRaw2.fields : [];
+      const paygiraManualFields2 = normalizePaygiraManualFields(paygiraManualFieldsRaw2, parsedClassId);
       const currentDisplaySettings = {
         columns: {
           classScore:      colVis2.classScore      !== false,
@@ -1310,6 +1702,31 @@ students
           manualAttendanceOutOf: Number.isFinite(Number(secVis2.manualAttendanceOutOf)) && Number(secVis2.manualAttendanceOutOf) > 0
             ? Number(secVis2.manualAttendanceOutOf)
             : null,
+          paygiraBills: {
+            enabled: paygiraBillsRaw2.enabled === true,
+            mode: paygiraBillsRaw2.mode === 'manual' ? 'manual' : 'auto',
+            auto: {
+              scope: paygiraAutoRaw2.scope === 'future' ? 'future' : 'past',
+              dateFrom: paygiraAutoRaw2.dateFrom || '',
+              dateTo: paygiraAutoRaw2.dateTo || '',
+              future: {
+                action: paygiraFutureRaw2.action === 'custom' ? 'custom' : 'create',
+                billName: String(paygiraFutureRaw2.billName || '').trim(),
+                createLink: '/account/settings/finance',
+              },
+              metrics: {
+                totalPaid: paygiraMetricsRaw2.totalPaid !== false,
+                defaultArrears: paygiraMetricsRaw2.defaultArrears !== false,
+                latePayments: paygiraMetricsRaw2.latePayments !== false,
+                totalBilled: paygiraMetricsRaw2.totalBilled !== false,
+                totalOutstanding: paygiraMetricsRaw2.totalOutstanding !== false,
+                lastPaymentDate: paygiraMetricsRaw2.lastPaymentDate !== false,
+              },
+            },
+            manual: {
+              fields: paygiraManualFields2,
+            },
+          },
           promotion:       secVis2.promotion       !== false,
         },
       };
@@ -1351,14 +1768,112 @@ students
     if (!organizationId || !classId || !termId)
       return res.status(400).json({ error: 'Missing parameters' });
     try {
-      const displaySettings = req.body;
+      const parsedClassId = parseInt(classId, 10);
+      const parsedTermId = parseInt(termId, 10);
+      if (!Number.isFinite(parsedClassId) || !Number.isFinite(parsedTermId)) {
+        return res.status(400).json({ error: 'Invalid classId or termId' });
+      }
+      const displaySettings = req.body && typeof req.body === 'object' ? req.body : {};
+
+      // Normalize manual Paygira fields and keep class apply metadata consistent.
+      const sections = displaySettings.sections && typeof displaySettings.sections === 'object'
+        ? displaySettings.sections
+        : {};
+      const paygiraBills = sections.paygiraBills && typeof sections.paygiraBills === 'object'
+        ? sections.paygiraBills
+        : {};
+      const paygiraManual = paygiraBills.manual && typeof paygiraBills.manual === 'object'
+        ? paygiraBills.manual
+        : {};
+      const normalizedManualFields = normalizePaygiraManualFields(paygiraManual.fields, parsedClassId);
+
+      const normalizedDisplaySettings = {
+        ...displaySettings,
+        sections: {
+          ...sections,
+          paygiraBills: {
+            ...paygiraBills,
+            manual: {
+              ...paygiraManual,
+              fields: normalizedManualFields,
+            },
+          },
+        },
+      };
+
       await db.query(
         `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (organization_id, class_id, term_id)
          DO UPDATE SET display_settings = $4`,
-        [organizationId, parseInt(classId), parseInt(termId), JSON.stringify(displaySettings)]
+        [organizationId, parsedClassId, parsedTermId, JSON.stringify(normalizedDisplaySettings)]
       );
+
+      // Apply manual field definitions to selected classes per field.
+      const fieldCopiesByClass = new Map();
+      normalizedManualFields.forEach((field) => {
+        const applyTargets = parsePositiveIntArray(field.applyToClasses).filter((cid) => cid !== parsedClassId);
+        applyTargets.forEach((targetClassId) => {
+          if (!fieldCopiesByClass.has(targetClassId)) fieldCopiesByClass.set(targetClassId, []);
+          fieldCopiesByClass.get(targetClassId).push({
+            ...field,
+            applyToClasses: [targetClassId],
+          });
+        });
+      });
+
+      for (const [targetClassId, incomingFields] of fieldCopiesByClass.entries()) {
+        if (!incomingFields.length) continue;
+
+        const existingResult = await db.query(
+          `SELECT display_settings
+           FROM report_settings
+           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+           LIMIT 1`,
+          [organizationId, targetClassId, parsedTermId]
+        );
+
+        const existingDisplaySettings = existingResult.rows[0]?.display_settings || {};
+        const existingSections = existingDisplaySettings.sections && typeof existingDisplaySettings.sections === 'object'
+          ? existingDisplaySettings.sections
+          : {};
+        const existingPaygiraBills = existingSections.paygiraBills && typeof existingSections.paygiraBills === 'object'
+          ? existingSections.paygiraBills
+          : {};
+        const existingPaygiraManual = existingPaygiraBills.manual && typeof existingPaygiraBills.manual === 'object'
+          ? existingPaygiraBills.manual
+          : {};
+        const existingFieldsRaw = Array.isArray(existingPaygiraManual.fields) ? existingPaygiraManual.fields : [];
+        const existingFields = normalizePaygiraManualFields(existingFieldsRaw, targetClassId);
+
+        const mergedByKey = new Map(existingFields.map((field) => [field.key, field]));
+        incomingFields.forEach((field) => {
+          mergedByKey.set(field.key, field);
+        });
+
+        const mergedDisplaySettings = {
+          ...existingDisplaySettings,
+          sections: {
+            ...existingSections,
+            paygiraBills: {
+              ...existingPaygiraBills,
+              manual: {
+                ...existingPaygiraManual,
+                fields: Array.from(mergedByKey.values()),
+              },
+            },
+          },
+        };
+
+        await db.query(
+          `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (organization_id, class_id, term_id)
+           DO UPDATE SET display_settings = $4`,
+          [organizationId, targetClassId, parsedTermId, JSON.stringify(mergedDisplaySettings)]
+        );
+      }
+
       // Also persist activate_promotion to status_settings if provided
       if (activatePromotion !== undefined) {
         const apBool = activatePromotion === 'true';
@@ -1367,7 +1882,7 @@ students
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (organization_id, class_id)
            DO UPDATE SET activate_promotion = $4`,
-          [organizationId, parseInt(classId), parseInt(termId), apBool]
+          [organizationId, parsedClassId, parsedTermId, apBool]
         );
       }
       res.json({ success: true });
@@ -3080,6 +3595,7 @@ students
   
     try {
       await ensureStudentReportManualAttendanceColumn(db);
+      await ensureStudentReportPaygiraManualDataColumn(db);
       const parsedClassId = parseInt(classId, 10);
       const parsedTermId = parseInt(termId, 10);
   
@@ -3094,6 +3610,7 @@ students
           promotionClassId,      // ✅ from frontend
           manualAttendancePresentDays,
           manualAttendanceTotalDays,
+          paygiraManualData,
         } = studentReport;
   
         if (!studentId || isNaN(studentId) || studentId <= 0) {
@@ -3118,13 +3635,18 @@ students
             : null;
         }
 
+        const paygiraManualDataProvided = Object.prototype.hasOwnProperty.call(studentReport, "paygiraManualData");
+        const paygiraManualDataValue = paygiraManualDataProvided && paygiraManualData && typeof paygiraManualData === 'object' && !Array.isArray(paygiraManualData)
+          ? paygiraManualData
+          : null;
+
         await db.query(
           `
             INSERT INTO student_reports (
               organization_id, class_id, term_id, student_id, 
               conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks,
-              promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+              promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             ON CONFLICT (organization_id, class_id, term_id, student_id)
             DO UPDATE SET
               conduct_remarks = EXCLUDED.conduct_remarks,
@@ -3134,12 +3656,16 @@ students
               promotion_status = EXCLUDED.promotion_status,
               promotion_class_id = EXCLUDED.promotion_class_id,
               manual_attendance_present_days = CASE
-                WHEN $13 THEN EXCLUDED.manual_attendance_present_days
+                WHEN $14 THEN EXCLUDED.manual_attendance_present_days
                 ELSE student_reports.manual_attendance_present_days
               END,
               manual_attendance_total_days = CASE
-                WHEN $14 THEN EXCLUDED.manual_attendance_total_days
+                WHEN $15 THEN EXCLUDED.manual_attendance_total_days
                 ELSE student_reports.manual_attendance_total_days
+              END,
+              paygira_manual_data = CASE
+                WHEN $16 THEN EXCLUDED.paygira_manual_data
+                ELSE student_reports.paygira_manual_data
               END,
               updated_at = CURRENT_TIMESTAMP
           `,
@@ -3156,8 +3682,10 @@ students
             promotionClassId ? parseInt(promotionClassId, 10) : null, // ensure numeric or null
             manualAttendanceValue,
             manualAttendanceTotalValue,
+            paygiraManualDataValue,
             manualAttendanceProvided,
             manualAttendanceTotalProvided,
+            paygiraManualDataProvided,
           ]
         );
       }
@@ -3165,6 +3693,96 @@ students
       res.status(200).send("Changes saved successfully.");
     } catch (error) {
             res.status(500).send("Failed to save report changes.");
+    }
+  },
+
+  savePaygiraReportOverrides: async (req, res) => {
+    const { classId, termId } = req.query;
+    const organizationId = req.session.organizationId;
+    const { studentId, fields, applyToAllStudents, applyToAllClasses, selectedStudentIds, selectedClassIds } = req.body || {};
+
+    if (!organizationId || !classId || !termId) {
+      return res.status(400).json({ success: false, error: "Missing required fields." });
+    }
+
+    try {
+      await ensureReportPaygiraManualOverridesTable(db);
+      const parsedClassId = parseInt(classId, 10);
+      const parsedTermId = parseInt(termId, 10);
+      const parsedStudentId = parseInt(studentId, 10);
+      const shouldApplyAllStudents = applyToAllStudents === true;
+      const shouldApplyAllClasses = applyToAllClasses === true;
+      const normalizedSelectedStudents = parsePositiveIntArray(selectedStudentIds);
+      const normalizedSelectedClasses = parsePositiveIntArray(selectedClassIds);
+
+      if (!Number.isFinite(parsedClassId) || !Number.isFinite(parsedTermId)) {
+        return res.status(400).json({ success: false, error: "Invalid class or term." });
+      }
+
+      if (!shouldApplyAllStudents && !Number.isFinite(parsedStudentId) && normalizedSelectedStudents.length === 0) {
+        return res.status(400).json({ success: false, error: "Student is required when not applying to all students." });
+      }
+
+      const normalizedFields = normalizeReportPaygiraManualFields(fields);
+      if (!normalizedFields.length) {
+        return res.status(400).json({ success: false, error: "No valid fields to save." });
+      }
+
+      let targetClassIds = [parsedClassId];
+      if (shouldApplyAllStudents) {
+        if (shouldApplyAllClasses) {
+          targetClassIds = (await db.query(
+            `SELECT class_id FROM classes WHERE organization_id = $1 ORDER BY class_id ASC`,
+            [organizationId]
+          )).rows.map((row) => Number(row.class_id)).filter((id) => Number.isFinite(id) && id > 0);
+        } else if (normalizedSelectedClasses.length > 0) {
+          targetClassIds = normalizedSelectedClasses;
+        }
+      }
+
+      const targetStudentIds = shouldApplyAllStudents
+        ? []
+        : (normalizedSelectedStudents.length > 0 ? normalizedSelectedStudents : [parsedStudentId]);
+
+      const writeAsClassLevel = shouldApplyAllStudents;
+
+      for (const targetClassId of targetClassIds) {
+        if (writeAsClassLevel) {
+          await db.query(
+            `INSERT INTO report_paygira_manual_overrides (organization_id, class_id, term_id, student_id, fields, updated_at)
+             VALUES ($1, $2, $3, NULL, $4, CURRENT_TIMESTAMP)
+             ON CONFLICT (organization_id, class_id, term_id) WHERE student_id IS NULL
+             DO UPDATE SET fields = EXCLUDED.fields, updated_at = CURRENT_TIMESTAMP`,
+            [organizationId, targetClassId, parsedTermId, JSON.stringify(normalizedFields)]
+          );
+
+          // Ensure class-level truly applies to every student by removing student-specific overrides.
+          await db.query(
+            `DELETE FROM report_paygira_manual_overrides
+             WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id IS NOT NULL`,
+            [organizationId, targetClassId, parsedTermId]
+          );
+        } else {
+          for (const targetStudentId of targetStudentIds) {
+            await db.query(
+              `INSERT INTO report_paygira_manual_overrides (organization_id, class_id, term_id, student_id, fields, updated_at)
+               VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+               ON CONFLICT (organization_id, class_id, term_id, student_id) WHERE student_id IS NOT NULL
+               DO UPDATE SET fields = EXCLUDED.fields, updated_at = CURRENT_TIMESTAMP`,
+              [organizationId, parsedClassId, parsedTermId, targetStudentId, JSON.stringify(normalizedFields)]
+            );
+          }
+        }
+      }
+
+      return res.json({
+        success: true,
+        targetClassCount: targetClassIds.length,
+        appliedToAllStudents: writeAsClassLevel,
+      });
+    } catch (error) {
+      console.error("[savePaygiraReportOverrides]", error);
+      return res.status(500).json({ success: false, error: "Failed to save Paygira overrides." });
     }
   },
   
@@ -3193,13 +3811,12 @@ students
       res.render("print/migration", {
         title: "Data Migration",
         uploadedFiles,
-        fileUrl: null,
-        query: "",
         results: [],
-        messages: req.flash(),
+        query: "",
+        fileUrl: null,
       });
     } catch (error) {
-            req.flash("error", "Failed to load migration page.");
+      req.flash("error", "Failed to load migration page.");
       res.redirect("/dashboard");
     }
   },

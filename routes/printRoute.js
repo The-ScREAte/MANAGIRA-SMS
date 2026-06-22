@@ -51,6 +51,7 @@ module.exports = (db) => {
     router.get('/deleteRemark/:id', isAuthenticated, printController.deleteRemark);
     router.get('/deleteScoreRemark/:id', isAuthenticated, printController.deleteScoreRemark);
     router.post('/saveReportChanges', isAuthenticated, printController.saveReportChanges);
+    router.post('/savePaygiraReportOverrides', isAuthenticated, express.json(), printController.savePaygiraReportOverrides);
     router.post('/saveDisplaySettings', isAuthenticated, express.json(), printController.saveDisplaySettings);
 
    // Migration Page (Upload + Search)

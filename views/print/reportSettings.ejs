@@ -110,6 +110,115 @@
     .ds-adv-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
     @media (max-width:640px) { .ds-adv-grid { grid-template-columns:1fr; } }
 
+    .paygira-adv-box {
+      margin-top: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #f8fafc;
+      padding: 10px;
+      display: none;
+    }
+
+    .paygira-adv-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .paygira-field-card {
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      padding: 8px;
+      background: #fff;
+      margin-bottom: 8px;
+    }
+
+    .paygira-field-row {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr auto;
+      gap: 6px;
+      margin-bottom: 6px;
+      align-items: center;
+    }
+
+    .paygira-field-apply {
+      border-top: 1px dashed #e2e8f0;
+      padding-top: 6px;
+      margin-top: 4px;
+    }
+
+    .paygira-preview-box {
+      margin-top: 10px;
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 8px;
+    }
+
+    .paygira-preview-title {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .paygira-preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .paygira-preview-table th,
+    .paygira-preview-table td {
+      border: 1px solid #e2e8f0;
+      padding: 5px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .paygira-preview-table th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 700;
+    }
+
+    .paygira-field-apply-title {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .paygira-apply-classes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 4px 8px;
+    }
+
+    .paygira-apply-class {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: #334155;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .paygira-field-row input,
+    .paygira-field-row select,
+    .paygira-adv-row input[type="date"] {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 7px;
+      background: #fff;
+      font-size: 12px;
+    }
+
     @media (max-width: 960px) { .class-layout { grid-template-columns: 1fr; } .class-button { display: inline-flex; width: auto; } }
     @media (max-width: 640px) {
       main { padding: 70px 12px 0; margin-top: 16px; }
@@ -1902,6 +2011,40 @@
     function dsEsc(str) {
       return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
+
+    function buildPaygiraApplyClassesHtml(rowId, selectedClassIds, currentClassId) {
+      const selected = new Set((Array.isArray(selectedClassIds) ? selectedClassIds : [])
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isFinite(id) && id > 0));
+      if (Number.isFinite(parseInt(currentClassId, 10))) {
+        selected.add(parseInt(currentClassId, 10));
+      }
+
+      const nonCurrentClasses = enrolledClassesForScore.filter((cls) => String(cls.class_id) !== String(currentClassId));
+      const allClassesChecked = nonCurrentClasses.length > 0
+        && nonCurrentClasses.every((cls) => selected.has(Number(cls.class_id)));
+
+      const selectAllHtml = `<label class="paygira-apply-class" for="paygira-apply-all-${rowId}" style="font-weight:700;color:#0f172a;">
+            <input type="checkbox" class="ds-paygira-apply-all" id="paygira-apply-all-${rowId}" style="accent-color:var(--primary);" ${allClassesChecked ? 'checked' : ''}>
+            <span>All classes</span>
+          </label>`;
+
+      return selectAllHtml + enrolledClassesForScore
+        .slice()
+        .sort((a, b) => a.class_id - b.class_id)
+        .map((cls) => {
+          const classIdNum = Number(cls.class_id);
+          const checked = selected.has(classIdNum);
+          const isCurrent = String(classIdNum) === String(currentClassId);
+          const inputId = `paygira-apply-${rowId}-${classIdNum}`;
+          return `<label class="paygira-apply-class" for="${inputId}">
+            <input type="checkbox" class="ds-paygira-apply-class" id="${inputId}" value="${classIdNum}" style="accent-color:var(--primary);" ${checked ? 'checked' : ''} ${isCurrent ? 'disabled' : ''}>
+            <span>${dsEsc(cls.class_name)}${isCurrent ? ' (current)' : ''}</span>
+          </label>`;
+        })
+        .join('');
+    }
+
     const _dsXIcon = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
 
     function buildMasterGroupHtml(cat, label, items, masterOn, itemsState) {
@@ -1978,6 +2121,118 @@
           </label>
         </div>`;
 
+      const paygiraBills = ds.sections.paygiraBills || {};
+      const paygiraEnabled = paygiraBills.enabled === true;
+      const paygiraMode = paygiraBills.mode === 'manual' ? 'manual' : 'auto';
+      const paygiraAuto = paygiraBills.auto || {};
+      const paygiraMetrics = paygiraAuto.metrics || {};
+      const paygiraScope = paygiraAuto.scope === 'future' ? 'future' : 'past';
+      const paygiraFuture = paygiraAuto.future || {};
+      const paygiraFutureAction = paygiraFuture.action === 'custom' ? 'custom' : 'create';
+      const paygiraFutureBillName = dsEsc(paygiraFuture.billName || '');
+      const paygiraManual = paygiraBills.manual || {};
+      const paygiraManualFields = Array.isArray(paygiraManual.fields) ? paygiraManual.fields : [];
+      const paygiraAutoMetrics = [
+        ['totalPaid', 'Total Paid'],
+        ['defaultArrears', 'Default Arrears'],
+        ['latePayments', 'Late Payments'],
+        ['totalBilled', 'Total Billed'],
+        ['totalOutstanding', 'Outstanding'],
+        ['lastPaymentDate', 'Last Payment Date'],
+      ];
+      const paygiraAutoMetricsHtml = paygiraAutoMetrics.map(([key, label]) => `
+        <label class="ds-adv-sub-lbl" style="padding:2px 0;">
+          <input type="checkbox" class="ds-paygira-auto-metric" data-key="${key}" style="accent-color:var(--primary);" ${(paygiraMetrics[key] !== false) ? 'checked' : ''}>
+          ${label}
+        </label>
+      `).join('');
+      const paygiraManualFieldsHtml = paygiraManualFields.map((field, index) => {
+        const label = dsEsc(String(field.label || ''));
+        const defaultValueRaw = field.defaultValue;
+        const defaultValue = defaultValueRaw === undefined || defaultValueRaw === null ? '' : dsEsc(String(defaultValueRaw));
+        const rowId = `existing-${classId}-${index}`;
+        const applyClassesHtml = buildPaygiraApplyClassesHtml(rowId, field.applyToClasses, classId);
+        return `<div class="paygira-field-card ds-paygira-manual-field">
+          <div class="paygira-field-row">
+            <input type="text" class="ds-paygira-manual-label" placeholder="Column name" value="${label}">
+            <input type="text" class="ds-paygira-manual-default" placeholder="Value for all students (text or number)" value="${defaultValue}">
+            <button type="button" class="btn btn-danger ds-paygira-remove-field" style="padding:4px 8px;font-size:0.75rem;">Remove</button>
+          </div>
+          <div class="paygira-field-apply">
+            <div class="paygira-field-apply-title">Apply to other classes</div>
+            <div class="paygira-apply-classes-grid">${applyClassesHtml}</div>
+          </div>
+        </div>`;
+      }).join('');
+      const paygiraHtml = `
+        <div class="ds-adv-flat-lbl" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;flex:1;min-width:220px;">
+            <input type="checkbox" id="ds-adv-paygira-enabled" style="accent-color:var(--primary);" ${paygiraEnabled ? 'checked' : ''}>
+            <span style="font-size:13px;line-height:1;">💳</span> Show Billing Table
+          </label>
+        </div>
+        <div id="ds-adv-paygira-box" class="paygira-adv-box" style="display:${paygiraEnabled ? 'block' : 'none'};">
+          <div class="paygira-adv-row">
+            <label class="ds-adv-sub-lbl" style="padding:0;">
+              <input type="radio" name="ds-paygira-mode" value="auto" ${paygiraMode === 'auto' ? 'checked' : ''}>
+              Auto fill by Paygira
+            </label>
+            <label class="ds-adv-sub-lbl" style="padding:0;">
+              <input type="radio" name="ds-paygira-mode" value="manual" ${paygiraMode === 'manual' ? 'checked' : ''}>
+              Manual fill
+            </label>
+          </div>
+
+          <div id="ds-paygira-auto-box" style="display:${paygiraMode === 'auto' ? 'block' : 'none'};">
+            <div class="paygira-adv-row">
+              <span style="font-size:0.8rem;color:var(--muted);">Show:</span>
+              <label class="ds-adv-sub-lbl" style="padding:0;">
+                <input type="radio" name="ds-paygira-scope" value="past" ${paygiraScope === 'past' ? 'checked' : ''}>
+                Past Bills
+              </label>
+              <label class="ds-adv-sub-lbl" style="padding:0;">
+                <input type="radio" name="ds-paygira-scope" value="future" ${paygiraScope === 'future' ? 'checked' : ''}>
+                Future Bills
+              </label>
+            </div>
+            <div id="ds-paygira-past-box" style="display:${paygiraScope === 'past' ? 'block' : 'none'};">
+              <div class="paygira-adv-row">
+                <span style="font-size:0.8rem;color:var(--muted);">Date range:</span>
+                <input type="date" id="ds-paygira-date-from" value="${dsEsc(paygiraAuto.dateFrom || '')}">
+                <input type="date" id="ds-paygira-date-to" value="${dsEsc(paygiraAuto.dateTo || '')}">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                ${paygiraAutoMetricsHtml}
+              </div>
+            </div>
+            <div id="ds-paygira-future-box" style="display:${paygiraScope === 'future' ? 'block' : 'none'};">
+              <div class="paygira-adv-row">
+                <label class="ds-adv-sub-lbl" style="padding:0;">
+                  <input type="radio" name="ds-paygira-future-action" value="create" ${paygiraFutureAction === 'create' ? 'checked' : ''}>
+                  Create Bill Link
+                </label>
+                <label class="ds-adv-sub-lbl" style="padding:0;">
+                  <input type="radio" name="ds-paygira-future-action" value="custom" ${paygiraFutureAction === 'custom' ? 'checked' : ''}>
+                  Enter Bill Name
+                </label>
+              </div>
+              <div class="paygira-adv-row" id="ds-paygira-future-name-wrap" style="display:${paygiraFutureAction === 'custom' ? 'flex' : 'none'};">
+                <span style="font-size:0.8rem;color:var(--muted);">Bill name:</span>
+                <input type="text" id="ds-paygira-future-bill-name" value="${paygiraFutureBillName}" placeholder="e.g. Next Term Tuition" style="min-width:220px;">
+              </div>
+            </div>
+          </div>
+
+          <div id="ds-paygira-manual-box" style="display:${paygiraMode === 'manual' ? 'block' : 'none'};">
+            <div id="ds-paygira-manual-fields-wrap">${paygiraManualFieldsHtml}</div>
+            <button type="button" id="ds-paygira-add-field" class="btn" style="padding:5px 10px;font-size:0.78rem;">+ Add Field</button>
+            <div class="paygira-preview-box">
+              <div class="paygira-preview-title">Preview on Report</div>
+              <div id="ds-paygira-manual-preview"></div>
+            </div>
+          </div>
+        </div>`;
+
       // Activate Promotion — stored in status_settings, synced to the hidden form checkbox
       const statusData = (typeof statusSettingsMap !== 'undefined') ? statusSettingsMap[String(classId)] : null;
       const activationOn = statusData ? !!statusData.activate_promotion : false;
@@ -1998,7 +2253,7 @@
           </div>
           <div>
             <p class="ds-adv-section-label">Report Sections</p>
-            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${attendanceManualRow}${secHtml}</div>
+            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${attendanceManualRow}${paygiraHtml}${secHtml}</div>
           </div>
         </div>
         <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
@@ -2031,6 +2286,142 @@
         syncManualAttendanceOutOfState();
         turnOffAutoAttendanceCb.addEventListener('change', syncManualAttendanceOutOfState);
       }
+
+      const paygiraEnabledCb = document.getElementById('ds-adv-paygira-enabled');
+      const paygiraBox = document.getElementById('ds-adv-paygira-box');
+      const paygiraAutoBox = document.getElementById('ds-paygira-auto-box');
+      const paygiraPastBox = document.getElementById('ds-paygira-past-box');
+      const paygiraFutureBox = document.getElementById('ds-paygira-future-box');
+      const paygiraManualBox = document.getElementById('ds-paygira-manual-box');
+      const paygiraModeRadios = panel.querySelectorAll('input[name="ds-paygira-mode"]');
+      const paygiraScopeRadios = panel.querySelectorAll('input[name="ds-paygira-scope"]');
+      const paygiraFutureActionRadios = panel.querySelectorAll('input[name="ds-paygira-future-action"]');
+      const paygiraFutureNameWrap = document.getElementById('ds-paygira-future-name-wrap');
+      const paygiraFieldsWrap = document.getElementById('ds-paygira-manual-fields-wrap');
+      const paygiraAddFieldBtn = document.getElementById('ds-paygira-add-field');
+      const paygiraManualPreview = document.getElementById('ds-paygira-manual-preview');
+
+      function renderPaygiraManualPreview() {
+        if (!paygiraManualPreview) return;
+        const rows = Array.from(panel.querySelectorAll('.ds-paygira-manual-field')).map((row) => {
+          const label = row.querySelector('.ds-paygira-manual-label')?.value?.trim() || '';
+          const defaultValueRaw = row.querySelector('.ds-paygira-manual-default')?.value?.trim() || '';
+          if (!label) return null;
+          const value = defaultValueRaw === '' ? '-' : defaultValueRaw;
+          return { label, value };
+        }).filter(Boolean);
+
+        if (!rows.length) {
+          paygiraManualPreview.innerHTML = '<div style="font-size:11px;color:var(--muted);">No manual fields configured yet.</div>';
+          return;
+        }
+
+        paygiraManualPreview.innerHTML = `
+          <table class="paygira-preview-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Value (all students)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((entry) => `
+                <tr>
+                  <td>${dsEsc(entry.label)}</td>
+                  <td>${dsEsc(String(entry.value))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      }
+
+      function wirePaygiraManualFieldRow(row) {
+        if (!row) return;
+        const allClassesToggle = row.querySelector('.ds-paygira-apply-all');
+        const classCheckboxes = Array.from(row.querySelectorAll('.ds-paygira-apply-class')).filter((cb) => !cb.disabled);
+        const syncAllClassesToggle = () => {
+          if (!allClassesToggle) return;
+          allClassesToggle.checked = classCheckboxes.length > 0 && classCheckboxes.every((cb) => cb.checked);
+        };
+        allClassesToggle?.addEventListener('change', () => {
+          classCheckboxes.forEach((cb) => {
+            cb.checked = allClassesToggle.checked;
+          });
+        });
+        classCheckboxes.forEach((cb) => {
+          cb.addEventListener('change', syncAllClassesToggle);
+        });
+        syncAllClassesToggle();
+
+        row.querySelector('.ds-paygira-remove-field')?.addEventListener('click', () => {
+          row.remove();
+          renderPaygiraManualPreview();
+        });
+        row.querySelector('.ds-paygira-manual-label')?.addEventListener('input', renderPaygiraManualPreview);
+        row.querySelector('.ds-paygira-manual-default')?.addEventListener('input', renderPaygiraManualPreview);
+        renderPaygiraManualPreview();
+      }
+
+      function renderPaygiraMode() {
+        const selectedMode = Array.from(paygiraModeRadios).find((r) => r.checked)?.value || 'auto';
+        if (paygiraAutoBox) paygiraAutoBox.style.display = selectedMode === 'auto' ? 'block' : 'none';
+        if (paygiraManualBox) paygiraManualBox.style.display = selectedMode === 'manual' ? 'block' : 'none';
+      }
+
+      function renderPaygiraScope() {
+        const selectedScope = Array.from(paygiraScopeRadios).find((r) => r.checked)?.value || 'past';
+        if (paygiraPastBox) paygiraPastBox.style.display = selectedScope === 'past' ? 'block' : 'none';
+        if (paygiraFutureBox) paygiraFutureBox.style.display = selectedScope === 'future' ? 'block' : 'none';
+      }
+
+      function renderPaygiraFutureAction() {
+        const selectedAction = Array.from(paygiraFutureActionRadios).find((r) => r.checked)?.value || 'create';
+        if (paygiraFutureNameWrap) paygiraFutureNameWrap.style.display = selectedAction === 'custom' ? 'flex' : 'none';
+      }
+
+      function addPaygiraManualFieldRow(label = '', defaultValue = '', applyToClasses = []) {
+        if (!paygiraFieldsWrap) return;
+        const rowId = `new-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        const currentClassIdValue = parseInt(classIdField.value, 10);
+        const selectedApplyClasses = Array.isArray(applyToClasses) && applyToClasses.length
+          ? applyToClasses
+          : [currentClassIdValue];
+        const row = document.createElement('div');
+        row.className = 'paygira-field-card ds-paygira-manual-field';
+        row.innerHTML = `
+          <div class="paygira-field-row">
+            <input type="text" class="ds-paygira-manual-label" placeholder="Column name" value="${dsEsc(label)}">
+            <input type="text" class="ds-paygira-manual-default" placeholder="Value for all students (text or number)" value="${dsEsc(defaultValue)}">
+            <button type="button" class="btn btn-danger ds-paygira-remove-field" style="padding:4px 8px;font-size:0.75rem;">Remove</button>
+          </div>
+          <div class="paygira-field-apply">
+            <div class="paygira-field-apply-title">Apply to other classes</div>
+            <div class="paygira-apply-classes-grid">${buildPaygiraApplyClassesHtml(rowId, selectedApplyClasses, classIdField.value)}</div>
+          </div>
+        `;
+        wirePaygiraManualFieldRow(row);
+        paygiraFieldsWrap.appendChild(row);
+      }
+
+      if (paygiraEnabledCb && paygiraBox) {
+        const syncPaygiraEnabledState = () => {
+          paygiraBox.style.display = paygiraEnabledCb.checked ? 'block' : 'none';
+        };
+        syncPaygiraEnabledState();
+        paygiraEnabledCb.addEventListener('change', syncPaygiraEnabledState);
+      }
+      paygiraModeRadios.forEach((radio) => radio.addEventListener('change', renderPaygiraMode));
+      paygiraScopeRadios.forEach((radio) => radio.addEventListener('change', renderPaygiraScope));
+      paygiraFutureActionRadios.forEach((radio) => radio.addEventListener('change', renderPaygiraFutureAction));
+      renderPaygiraMode();
+      renderPaygiraScope();
+      renderPaygiraFutureAction();
+      paygiraFieldsWrap?.querySelectorAll('.ds-paygira-manual-field').forEach((row) => {
+        wirePaygiraManualFieldRow(row);
+      });
+      paygiraAddFieldBtn?.addEventListener('click', () => addPaygiraManualFieldRow('', ''));
+      renderPaygiraManualPreview();
 
       // Wire save button
       document.getElementById('advDsSaveBtn')?.addEventListener('click', async () => {
@@ -2129,6 +2520,59 @@
       sections.manualAttendanceOutOf = manualAttendanceOutOfRaw !== '' && Number.isFinite(manualAttendanceOutOfParsed) && manualAttendanceOutOfParsed > 0
         ? manualAttendanceOutOfParsed
         : null;
+
+      const paygiraEnabledCb = document.getElementById('ds-adv-paygira-enabled');
+      const paygiraMode = panel.querySelector('input[name="ds-paygira-mode"]:checked')?.value === 'manual' ? 'manual' : 'auto';
+      const paygiraScope = panel.querySelector('input[name="ds-paygira-scope"]:checked')?.value === 'future' ? 'future' : 'past';
+      const paygiraFutureAction = panel.querySelector('input[name="ds-paygira-future-action"]:checked')?.value === 'custom' ? 'custom' : 'create';
+      const paygiraFutureBillName = document.getElementById('ds-paygira-future-bill-name')?.value?.trim() || '';
+      const paygiraAutoMetrics = {};
+      panel.querySelectorAll('.ds-paygira-auto-metric').forEach((cb) => {
+        paygiraAutoMetrics[cb.dataset.key] = cb.checked;
+      });
+      const paygiraDateFrom = document.getElementById('ds-paygira-date-from')?.value || '';
+      const paygiraDateTo = document.getElementById('ds-paygira-date-to')?.value || '';
+      const paygiraManualFields = [];
+      panel.querySelectorAll('.ds-paygira-manual-field').forEach((row, index) => {
+        const label = row.querySelector('.ds-paygira-manual-label')?.value?.trim() || '';
+        const defaultInputValue = row.querySelector('.ds-paygira-manual-default')?.value?.trim() || '';
+        const defaultValue = defaultInputValue;
+        if (!label) return;
+        const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `field_${index + 1}`;
+        const applyToClasses = Array.from(row.querySelectorAll('.ds-paygira-apply-class:checked'))
+          .map((cb) => parseInt(cb.value, 10))
+          .filter((id) => Number.isFinite(id) && id > 0);
+        const currentClassNum = parseInt(classId, 10);
+        if (Number.isFinite(currentClassNum) && !applyToClasses.includes(currentClassNum)) {
+          applyToClasses.unshift(currentClassNum);
+        }
+        paygiraManualFields.push({ key, label, defaultValue, applyToClasses });
+      });
+
+      sections.paygiraBills = {
+        enabled: paygiraEnabledCb ? paygiraEnabledCb.checked : false,
+        mode: paygiraMode,
+        auto: {
+          scope: paygiraScope,
+          dateFrom: paygiraDateFrom,
+          dateTo: paygiraDateTo,
+          future: {
+            action: paygiraFutureAction,
+            billName: paygiraFutureBillName,
+          },
+          metrics: {
+            totalPaid: paygiraAutoMetrics.totalPaid !== false,
+            defaultArrears: paygiraAutoMetrics.defaultArrears !== false,
+            latePayments: paygiraAutoMetrics.latePayments !== false,
+            totalBilled: paygiraAutoMetrics.totalBilled === true,
+            totalOutstanding: paygiraAutoMetrics.totalOutstanding === true,
+            lastPaymentDate: paygiraAutoMetrics.lastPaymentDate === true,
+          },
+        },
+        manual: {
+          fields: paygiraManualFields,
+        },
+      };
       const advActProm = document.getElementById('ds-adv-activatePromotion');
       const activatePromValue = advActProm ? advActProm.checked : null;
       try {
