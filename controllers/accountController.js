@@ -8,6 +8,37 @@ function parseTruthyFlag(val) {
   return false;
 }
 
+function sanitizeCurrencyProfileSnapshot(profile) {
+  if (!profile || typeof profile !== "object") return null;
+  const userCurrency = String(profile.userCurrency || "").trim().toUpperCase();
+  const locale = String(profile.locale || "").trim() || "en-US";
+  const usdToUserRate = Number(profile.usdToUserRate || 0);
+  const usdToGhsRate = Number(profile.usdToGhsRate || 0);
+  const countryCode = String(profile.countryCode || "").trim().toUpperCase();
+
+  return {
+    userCurrency: /^[A-Z]{3}$/.test(userCurrency) ? userCurrency : "USD",
+    locale,
+    usdToUserRate: usdToUserRate > 0 ? usdToUserRate : 1,
+    usdToGhsRate: usdToGhsRate > 0 ? usdToGhsRate : null,
+    countryCode: /^[A-Z]{2}$/.test(countryCode) ? countryCode : null,
+    source: profile.source || null,
+  };
+}
+
+function isLocalhostRequest(req) {
+  const host = String(req?.headers?.host || "").trim().toLowerCase();
+  const hostname = String(req?.hostname || "").trim().toLowerCase();
+  return (
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.startsWith("[::1]") ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1"
+  );
+}
+
 function startOfDayLocal(date) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -1711,6 +1742,7 @@ const accountController = {
     let dynamicPricingApplied = false;
     let dynamicRegionId = null;
     let dynamicRegionName = null;
+    let selectedCurrencyProfileSnapshot = null;
 
     const requestedCount = parseInt(approx_student_count, 10);
     approxCount = Number.isInteger(requestedCount) && requestedCount >= 0 ? requestedCount : null;
@@ -1718,6 +1750,7 @@ const accountController = {
     // Dynamic pricing first: region + plan-region row + student count.
     try {
       const currencyProfile = await getCurrencyProfileForRequest(req);
+      selectedCurrencyProfileSnapshot = sanitizeCurrencyProfileSnapshot(currencyProfile);
       const dynamicTermDivider = await getDynamicTermDivider(db);
       const region = await getRegionForCountry(db, currencyProfile?.countryCode || null);
       if (region) {
@@ -1780,6 +1813,7 @@ const accountController = {
       dynamicPricingApplied,
       dynamicRegionId,
       dynamicRegionName,
+      currencyProfileSnapshot: selectedCurrencyProfileSnapshot,
     };
 
     req.flash("success", "Plan selected. Please complete registration.");
@@ -1863,6 +1897,7 @@ const accountController = {
       let orgNickName = req.body.orgNickName;
 
       const { trialRequested = false, plan, planId, totalCost, billingPeriodKey, billingPeriodLabel, billingPeriodMonths, billingPeriodDiscount, monthlyPrice, selectedTierId, approxStudentCount } = planSelection;
+      const currencyProfileSnapshot = sanitizeCurrencyProfileSnapshot(planSelection.currencyProfileSnapshot);
 
       const proof1 = req.files?.proof1?.[0] || null;
 
@@ -2077,6 +2112,8 @@ const accountController = {
         selectedTierId: selectedTierId || null,
 
         approxStudentCount: approxStudentCount || null,
+
+        currencyProfileSnapshot,
       };
 
       delete req.session.planSelection;
@@ -2156,9 +2193,36 @@ const accountController = {
         usdToUserRate: 1,
         usdToGhsRate: null,
       };
+      const sessionCurrencySnapshot = sanitizeCurrencyProfileSnapshot(
+        registrationDetails?.currencyProfileSnapshot || req.session?.planSelection?.currencyProfileSnapshot
+      );
+
+      if (sessionCurrencySnapshot) {
+        currencyProfile = {
+          ...currencyProfile,
+          ...sessionCurrencySnapshot,
+        };
+      }
       try {
-        currencyProfile = await getCurrencyProfileForRequest(req);
+        if (!sessionCurrencySnapshot) {
+          const detectedCurrencyProfile = await getCurrencyProfileForRequest(req);
+          currencyProfile = {
+            ...currencyProfile,
+            ...sanitizeCurrencyProfileSnapshot(detectedCurrencyProfile),
+          };
+        }
       } catch (_) {
+      }
+
+      if (isLocalhostRequest(req)) {
+        currencyProfile = {
+          ...currencyProfile,
+          userCurrency: "USD",
+          locale: "en-US",
+          usdToUserRate: 1,
+          countryCode: "US",
+          source: "localhost-fallback",
+        };
       }
 
       const planResult = await db.query(
@@ -2326,7 +2390,9 @@ const accountController = {
         currencyProfile.locale
       );
       const ghsChargeDisplay = formatCurrencyAmount(ghsChargeBase, "GHS");
-      postTrialPriceDisplay = `${usdPriceDisplay} (≈ ${localizedPriceDisplay}) ${intervalLabel}`;
+      postTrialPriceDisplay = localizedPlan.userCurrency && localizedPlan.userCurrency !== "USD"
+        ? `${localizedPriceDisplay} (${usdPriceDisplay}) ${intervalLabel}`
+        : `${usdPriceDisplay} ${intervalLabel}`;
 
       let verificationChargeUsdDisplay = null;
       let verificationChargeLocalDisplay = null;
@@ -2413,7 +2479,8 @@ const accountController = {
         stripeConfigError,
         stripeMode: stripeSettings.mode,
         paymentProvider,
-        supportsPaystack: providerSupportsPaystack(paymentProvider),
+        // Stripe-only org billing checkout: keep Paystack rail hidden.
+        supportsPaystack: false,
         supportsStripe: providerSupportsStripe(paymentProvider),
 
         orgEmail: registrationDetails.email || "",
@@ -2470,7 +2537,7 @@ const accountController = {
   paymentPost: async (req, res) => {
     const { registrationDetails } = req.session;
 
-    const { paymentReference, promoCode, trialStartDate, selectedGateway } = req.body;
+    const { paymentReference } = req.body;
 
     if (!paymentReference) {
       req.flash("error", "Payment reference is missing. Please try again.");
@@ -2488,515 +2555,12 @@ const accountController = {
       return res.redirect("/account/login");
     }
 
-    try {
-      await ensurePaymentProviderSchema(db);
-      const configuredProvider = await getActivePaymentProvider();
-      const gateway = configuredProvider === "smart"
-        ? (selectedGateway === "stripe" ? "stripe" : "paystack")
-        : configuredProvider;
-
-      if (gateway !== "paystack") {
-        req.flash("error", "Paystack is not selected for this checkout.");
-        return res.redirect("/account/payment");
-      }
-
-      // Verify payment with Paystack
-
-      const verificationResponse = await axios.get(
-        `https://api.paystack.co/transaction/verify/${paymentReference}`,
-
-        {
-          headers: {
-            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
-          },
-        }
-      );
-
-      const { data } = verificationResponse.data;
-
-      if (!data || data.status !== "success") {
-        req.flash("error", "Payment verification failed. Please try again.");
-
-        return res.redirect("/account/payment");
-      }
-
-      const {
-        email,
-
-        orgName,
-
-        orgNickName,
-
-        totalCost,
-
-        planId,
-
-        passwordHash,
-
-        firstName,
-
-        lastName,
-
-        orgAddress,
-
-        orgCountry,
-
-        orgProvince,
-
-        orgPhone,
-
-        proof1Url,
-
-        proof2Url,
-      } = registrationDetails;
-
-      let discountAmount = 0;
-
-      let applyDiscountOnce = false;
-
-      // ✅ Check Promo Code Validity (only if a code is entered)
-      const promoCodeStr =
-        typeof promoCode === "string" ? promoCode.trim() : "";
-      if (promoCodeStr !== "") {
-        const promoResult = await db.query(
-          `SELECT discount_percentage, applies_once FROM promo_codes 
-
-                     WHERE UPPER(code) = UPPER($1) AND is_active = TRUE AND expiration_date > NOW()`,
-
-          [promoCodeStr]
-        );
-
-        if (promoResult.rows.length === 0) {
-          req.flash("error", "Invalid or expired promo code.");
-
-          return res.redirect("/account/payment");
-        }
-
-        discountAmount = promoResult.rows[0].discount_percentage;
-
-        applyDiscountOnce = promoResult.rows[0].applies_once;
-      }
-
-      // ✅ Apply Discount to First Payment Only
-
-      let finalAmount = Number(totalCost) || 0;
-
-      if (discountAmount > 0) {
-        finalAmount = finalAmount - finalAmount * (discountAmount / 100);
-      }
-
-      let amountDue = Math.round(finalAmount * 100); // Convert to pesewas
-
-      // ✅ Create Paystack Customer
-
-      const customerResponse = await axios.post(
-        "https://api.paystack.co/customer",
-
-        {
-          email: email,
-
-          first_name: firstName,
-
-          last_name: lastName,
-
-          phone: orgPhone,
-        },
-
-        {
-          headers: {
-            Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
-
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const customerCode = customerResponse.data.data.customer_code;
-
-      // Fetch global billing interval and free trial settings
-
-      let billingInterval = "monthly";
-
-      let freeTrialDays = null;
-
-      let freeTrialEnabled = false;
-
-      try {
-        const intervalResult = await db.query(
-          "SELECT value FROM app_settings WHERE key = 'billing_interval'"
-        );
-        if (intervalResult.rows.length > 0)
-          billingInterval = intervalResult.rows[0].value;
-        const enabledResult = await db.query(
-          "SELECT value FROM app_settings WHERE key = 'free_trial_enabled'"
-        );
-        if (enabledResult.rows.length > 0)
-          freeTrialEnabled = enabledResult.rows[0].value;
-        const daysResult = await db.query(
-          "SELECT value FROM app_settings WHERE key = 'free_trial_days'"
-        );
-        if (daysResult.rows.length > 0)
-          freeTrialDays = daysResult.rows[0].value;
-      } catch (err) {
-              }
-
-      const isTrialCheckout =
-        freeTrialEnabled === "true" && !!freeTrialDays;
-
-      if (isTrialCheckout) {
-        amountDue = 100; // Minimal validation charge for trial
-      }
-
-      // Calculate trial end date if free trial is enabled
-
-      let trialActiveUntil = null;
-      let trialStartAt = null;
-      if (isTrialCheckout) {
-        const minDate = startOfDayLocal(new Date());
-        const maxDate = startOfDayLocal(new Date());
-        maxDate.setMonth(maxDate.getMonth() + 3);
-
-        trialStartAt = parseDateInput(trialStartDate);
-        if (!trialStartAt || trialStartAt < minDate || trialStartAt > maxDate) {
-          req.flash(
-            "error",
-            "Please choose a valid trial start date between today and the next 3 months."
-          );
-          return res.redirect("/account/payment");
-        }
-
-        registrationDetails.trialStartDate = formatDateForInput(trialStartAt);
-        trialActiveUntil = new Date(trialStartAt);
-        if (freeTrialDays === "5_minutes") {
-          trialActiveUntil.setMinutes(trialActiveUntil.getMinutes() + 5);
-                  } else {
-          const days = parseInt(freeTrialDays);
-          if (days > 0) {
-            trialActiveUntil.setDate(trialActiveUntil.getDate() + days);
-                      }
-        }
-      } else {
-              }
-
-      // Only create Paystack plan/subscription if not on free trial
-
-      let paystackPlanCode = null;
-
-      let subscriptionCode = null;
-
-      // Get billing period from registration details
-      const billingPeriodKey = registrationDetails.billingPeriodKey || 'monthly';
-      const billingPeriodMonths = Number(registrationDetails.billingPeriodMonths) || 1;
-
-      // Map billing period to Paystack interval
-      const paystackInterval = billingPeriodMonths <= 1 ? billingInterval
-        : billingPeriodMonths <= 6 ? 'biannually'
-        : billingPeriodMonths <= 12 ? 'annually'
-        : 'biannually'; // Paystack doesn't support 2yr natively, we handle via recurring billing
-
-      if (!isTrialCheckout) {
-        // ✅ Create Paystack Plan for subscription using billing period
-
-        const planResponse = await axios.post(
-          "https://api.paystack.co/plan",
-
-          {
-            name: `${orgName} - ${registrationDetails.plan} (${registrationDetails.billingPeriodLabel || 'Monthly'})`,
-
-            amount: amountDue,
-
-            interval: paystackInterval,
-
-            currency: "GHS",
-          },
-
-          {
-            headers: {
-              Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
-
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        paystackPlanCode = planResponse.data.data.plan_code;
-
-        // ✅ Create Subscription
-
-        const subscriptionResponse = await axios.post(
-          "https://api.paystack.co/subscription",
-
-          {
-            customer: customerCode,
-
-            plan: paystackPlanCode,
-
-            authorization: data.authorization.authorization_code,
-          },
-
-          {
-            headers: {
-              Authorization: `Bearer ${await getActivePaystackSecretKey()}`,
-
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        subscriptionCode = subscriptionResponse.data.data.subscription_code;
-      }
-
-      // ✅ Store Organization and Payment in Database
-
-      const client = await db.connect();
-
-      await client.query("BEGIN");
-
-      const orgResult = await client.query(
-        `INSERT INTO organizations (organization_name, nickname, nickname_display, organization_address, organization_country, organization_province, organization_phone, email, password, first_name, last_name, proof_of_existence_1, proof_of_existence_2, plan_id, paystack_customer_code, billing_provider, trial_start_at, trial_active_until, selected_student_tier_id, approx_student_count)
-
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING organization_id`,
-
-        [
-          orgName,
-
-          orgNickName,
-
-          orgNickNameDisplay,
-
-          orgAddress,
-
-          orgCountry,
-
-          orgProvince,
-
-          orgPhone,
-
-          email,
-
-          passwordHash,
-
-          firstName,
-
-          lastName,
-
-          proof1Url,
-
-          proof2Url,
-
-          planId,
-
-          customerCode,
-
-          "paystack",
-
-          trialStartAt,
-
-          trialActiveUntil,
-
-          registrationDetails.selectedTierId || null,
-
-          registrationDetails.approxStudentCount || null,
-        ]
-      );
-
-      const organization_id = orgResult.rows[0].organization_id;
-      invalidateAdminOrganizationsCache();
-
-      // ✅ Store payment record
-
-      const nextPaymentEndDate = (() => {
-        // If we have a trial period AND we're charging the $1 validation amount, use trial end date
-
-        if (trialActiveUntil && data.amount <= 100) {
-                    return new Date(trialActiveUntil);
-        }
-
-        // If we have trial period but charging full amount, still respect trial (shouldn't happen but safety check)
-
-        if (trialActiveUntil) {
-                    return new Date(trialActiveUntil);
-        }
-
-        // No trial - use billing period months
-        const d = new Date();
-        if (billingPeriodMonths > 1) {
-          d.setMonth(d.getMonth() + billingPeriodMonths);
-          return d;
-        }
-
-        // Fallback to global billing interval for monthly
-        switch (billingInterval) {
-          case "5_minutes":
-            d.setMinutes(d.getMinutes() + 5);
-
-            break;
-          case "daily":
-            d.setDate(d.getDate() + 1);
-
-            break;
-          case "weekly":
-            d.setDate(d.getDate() + 7);
-
-            break;
-          case "monthly":
-            d.setMonth(d.getMonth() + 1);
-
-            break;
-          case "yearly":
-            d.setFullYear(d.getFullYear() + 1);
-
-            break;
-          case "2_years":
-            d.setFullYear(d.getFullYear() + 2);
-
-            break;
-          case "3_years":
-            d.setFullYear(d.getFullYear() + 3);
-
-            break;
-
-          default:
-            d.setMonth(d.getMonth() + 1);
-        }
-
-        return d;
-      })();
-
-                                    await client.query(
-        `INSERT INTO payments (organization_id, paystack_subscription_code, paystack_reference, amount_paid, status, discount_applied, applies_once, is_trial, trial_starts_at, trial_ends_at, next_payment_end_date, billing_period_key)
-
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-
-        [
-          organization_id,
-
-          subscriptionCode,
-
-          paymentReference,
-
-          data.amount / 100, // Convert from pesewas to GHS
-
-          "active",
-
-          discountAmount > 0 ? `${discountAmount}%` : null,
-
-          applyDiscountOnce,
-
-          trialActiveUntil ? true : false,
-
-          trialStartAt || null,
-
-          trialActiveUntil || null,
-
-          nextPaymentEndDate,
-
-          billingPeriodKey,
-        ]
-      );
-
-      // ✅ Store the card authorization for future use
-
-      const authCode = data.authorization.authorization_code;
-
-      const cardData = data.authorization;
-
-      await client.query(
-        `INSERT INTO stored_cards (organization_id, authorization_code, card_type, last4, exp_month, exp_year, bin, bank, channel, signature, reusable, country_code, is_primary, is_active)
-
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-
-        [
-          organization_id,
-
-          authCode,
-
-          cardData.card_type,
-
-          cardData.last4,
-
-          cardData.exp_month,
-
-          cardData.exp_year,
-
-          cardData.bin,
-
-          cardData.bank,
-
-          cardData.channel,
-
-          cardData.signature,
-
-          cardData.reusable,
-
-          cardData.country_code,
-
-          true, // First card is primary
-          true, // Card is active
-        ]
-      );
-
-      await client.query("COMMIT");
-
-      // Notify search engines about the new school page
-      pingSearchEngines();
-      pingSchoolUrl(orgNickName);
-
-      // Auto-geocode the org's address for local SEO (fire-and-forget)
-      autoGeocodeOrg(db, organization_id, orgAddress, orgProvince, orgCountry);
-
-      // Send registration success email (bypass error)
-
-      try {
-        await sendRegistrationSuccessEmail(
-          email,
-
-          firstName,
-
-          lastName
-        );
-      } catch (emailErr) {
-              }
-
-      // Send receipt email (bypass error)
-
-      try {
-        await sendReceiptEmail(
-          email,
-          {
-            amount: data.amount,
-            paymentReference: paymentReference,
-          },
-          orgName
-        );
-      } catch (receiptErr) {
-              }
-
-      req.session.registrationDetails = null;
-
-      req.session.paymentReference = null;
-
-      let message = "";
-
-      if (discountAmount > 0) {
-        message += `Discount applied successfully. You will be charged ₵${finalAmount} per month. `;
-      }
-      message +=
-        "Registration and payment successful! Your subscription is now active and your card has been saved for future payments. You may now log in to your account.";
-      req.flash("success", message);
-
-      req.session.save(() => {
-        res.redirect("/account/login?clearRegisterDraft=1");
-      });
-    } catch (error) {
-            if (error.response) {
-              }
-      req.flash(
-        "error",
-        "An error occurred processing your payment. Please try again."
-      );
-      return res.redirect("/account/payment");
-    }
+    // Retired path: organization registration checkout is Stripe-only.
+    req.flash(
+      "error",
+      "Paystack registration checkout has been retired. Use Stripe card checkout."
+    );
+    return res.redirect("/account/payment");
   },
 
   createStripePaymentIntentPost: async (req, res) => {
@@ -3187,12 +2751,27 @@ const accountController = {
           ? 400
           : 500;
 
+      const rawMessage = String(error?.raw?.message || error?.message || "");
+      const tlsDetailMessage = String(error?.raw?.detail?.message || error?.detail?.message || "");
+      const isStripeTlsChainIssue =
+        rawMessage.toLowerCase().includes("connection to stripe") &&
+        (tlsDetailMessage.toLowerCase().includes("unable to get local issuer certificate") ||
+          tlsDetailMessage.toLowerCase().includes("unable to verify the first certificate") ||
+          tlsDetailMessage.toLowerCase().includes("self signed certificate"));
+
+      const fallbackMessage = isStripeTlsChainIssue
+        ? "Stripe TLS certificate validation failed in this environment. If this is local/dev, set STRIPE_ALLOW_INSECURE_TLS=true and restart the server, or install the missing CA certificate chain."
+        : "Unable to initialize Stripe payment. Please try again.";
+
       return res.status(statusCode).json({
         success: false,
         message:
           error.code === "INVALID_PROMO_CODE" || error.code === "INVALID_TRIAL_START_DATE"
             ? error.message
-            : error?.raw?.message || error.message || "Unable to initialize Stripe payment. Please try again.",
+            : isStripeTlsChainIssue
+              ? fallbackMessage
+              : error?.raw?.message || error.message || fallbackMessage,
+        detail: isStripeTlsChainIssue ? fallbackMessage : undefined,
       });
     }
   },

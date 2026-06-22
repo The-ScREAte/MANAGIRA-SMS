@@ -189,6 +189,59 @@ function parsePositiveIntArray(value) {
     .filter((entry) => Number.isFinite(entry) && entry > 0))];
 }
 
+async function getScopedTermRecord(dbClient, organizationId, termId) {
+  if (!Number.isFinite(Number(termId))) return null;
+
+  const termResult = await dbClient.query(
+    `SELECT t.term_id, t.school_year_id, t.term_name, sy.year_label
+     FROM terms t
+     JOIN school_years sy ON sy.id = t.school_year_id
+     WHERE t.term_id = $1 AND t.organization_id = $2 AND sy.organization_id = $2
+     LIMIT 1`,
+    [termId, organizationId]
+  );
+
+  return termResult.rows[0] || null;
+}
+
+async function getScopedClassIds(dbClient, organizationId, classIds) {
+  const normalizedClassIds = parsePositiveIntArray(classIds);
+  if (!normalizedClassIds.length) return [];
+
+  const result = await dbClient.query(
+    `SELECT class_id
+     FROM classes
+     WHERE organization_id = $1 AND class_id = ANY($2::int[])
+     ORDER BY class_id ASC`,
+    [organizationId, normalizedClassIds]
+  );
+
+  return result.rows
+    .map((row) => Number(row.class_id))
+    .filter((classId) => Number.isFinite(classId) && classId > 0);
+}
+
+async function getScopedStudentIdsForClassTerm(dbClient, organizationId, classId, termId, studentIds) {
+  const normalizedStudentIds = parsePositiveIntArray(studentIds);
+  if (!normalizedStudentIds.length) return [];
+
+  const result = await dbClient.query(
+    `SELECT DISTINCT es.student_id
+     FROM enrolled_students es
+     JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+     WHERE es.class_id = $1
+       AND e.term_id = $2
+       AND e.organization_id = $3
+       AND es.student_id = ANY($4::int[])
+     ORDER BY es.student_id ASC`,
+    [classId, termId, organizationId, normalizedStudentIds]
+  );
+
+  return result.rows
+    .map((row) => Number(row.student_id))
+    .filter((studentId) => Number.isFinite(studentId) && studentId > 0);
+}
+
 function normalizePaygiraManualField(field, index, sourceClassId) {
   if (!field || typeof field !== "object") return null;
 
@@ -548,9 +601,9 @@ const printController = (db) => ({
       const statusSettingsResult = await db.query(
         `SELECT cut_off_point, promoted_class, repeated_class, school_reopen_date, activate_promotion, term_end_date
          FROM status_settings
-         WHERE organization_id = $1 AND class_id = $2
+         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
          LIMIT 1`,
-        [organizationId, parsedClassId]
+        [organizationId, parsedClassId, parsedTermId]
       );
 
       const statusSettings = statusSettingsResult.rows[0] || {};
@@ -1773,6 +1826,23 @@ students
       if (!Number.isFinite(parsedClassId) || !Number.isFinite(parsedTermId)) {
         return res.status(400).json({ error: 'Invalid classId or termId' });
       }
+
+      const [scopedClassIds, scopedTerm, organizationClassesResult] = await Promise.all([
+        getScopedClassIds(db, organizationId, [parsedClassId]),
+        getScopedTermRecord(db, organizationId, parsedTermId),
+        db.query(`SELECT class_id FROM classes WHERE organization_id = $1 ORDER BY class_id ASC`, [organizationId]),
+      ]);
+
+      if (!scopedClassIds.length || !scopedTerm) {
+        return res.status(404).json({ error: 'Class or term not found for this organization' });
+      }
+
+      const organizationClassIdSet = new Set(
+        organizationClassesResult.rows
+          .map((row) => Number(row.class_id))
+          .filter((classIdValue) => Number.isFinite(classIdValue) && classIdValue > 0)
+      );
+
       const displaySettings = req.body && typeof req.body === 'object' ? req.body : {};
 
       // Normalize manual Paygira fields and keep class apply metadata consistent.
@@ -1785,7 +1855,11 @@ students
       const paygiraManual = paygiraBills.manual && typeof paygiraBills.manual === 'object'
         ? paygiraBills.manual
         : {};
-      const normalizedManualFields = normalizePaygiraManualFields(paygiraManual.fields, parsedClassId);
+      const normalizedManualFields = normalizePaygiraManualFields(paygiraManual.fields, parsedClassId)
+        .map((field) => ({
+          ...field,
+          applyToClasses: parsePositiveIntArray(field.applyToClasses).filter((targetClassId) => organizationClassIdSet.has(targetClassId)),
+        }));
 
       const normalizedDisplaySettings = {
         ...displaySettings,
@@ -1877,13 +1951,20 @@ students
       // Also persist activate_promotion to status_settings if provided
       if (activatePromotion !== undefined) {
         const apBool = activatePromotion === 'true';
-        await db.query(
-          `INSERT INTO status_settings (organization_id, class_id, term_id, activate_promotion)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (organization_id, class_id)
-           DO UPDATE SET activate_promotion = $4`,
+        const updateResult = await db.query(
+          `UPDATE status_settings
+           SET activate_promotion = $4
+           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
           [organizationId, parsedClassId, parsedTermId, apBool]
         );
+
+        if (updateResult.rowCount === 0) {
+          await db.query(
+            `INSERT INTO status_settings (organization_id, class_id, term_id, activate_promotion)
+             VALUES ($1, $2, $3, $4)`,
+            [organizationId, parsedClassId, parsedTermId, apBool]
+          );
+        }
       }
       res.json({ success: true });
     } catch (err) {
@@ -1898,8 +1979,8 @@ students
 
     try {
       await db.query(
-        `DELETE FROM status_settings WHERE organization_id = $1 AND class_id = $2`,
-        [organizationId, classId]
+        `DELETE FROM status_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
+        [organizationId, classId, termId]
       );
       req.flash("success_msg", "Status settings deleted.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
@@ -1910,7 +1991,7 @@ students
   },
   
   updateReportSettings: async (req, res) => {
-    const { classId } = req.query;
+    const { classId, termId } = req.query;
     const organizationId = req.session.organizationId;
     const { schoolReopenDate, activatePromotion } = req.body;
 
@@ -1921,16 +2002,16 @@ students
         `
                 UPDATE status_settings 
                 SET school_reopen_date = $1, activate_promotion = $2 
-                WHERE organization_id = $3 AND class_id = $4
+                WHERE organization_id = $3 AND class_id = $4 AND term_id = $5
             `,
-        [schoolReopenDate, activatePromotionStatus, organizationId, classId]
+        [schoolReopenDate, activatePromotionStatus, organizationId, classId, termId]
       );
 
       req.flash("success", "Settings updated successfully");
-      res.redirect(`/print/reportSettings?classId=${classId}`);
+      res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     } catch (error) {
             req.flash("error", "Failed to update settings.");
-      res.redirect(`/print/reportSettings?classId=${classId}`);
+      res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     }
   },
 
@@ -2005,44 +2086,46 @@ students
         );
       }
   
-      for (const classIdToSave of classesToApply) {
-        // Check if setting exists for this org + class (constraint is on org + class only)
-        const existing = await db.query(
-          `SELECT id, term_id FROM status_settings 
-           WHERE organization_id = $1 AND class_id = $2`,
-          [organizationId, classIdToSave]
+      const validClassIds = await getScopedClassIds(db, organizationId, classesToApply);
+      if (validClassIds.length !== classesToApply.length) {
+        req.flash("error", "One or more selected classes are outside this organization.");
+        return res.redirect(
+          `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
         );
-  
-        if (existing.rows.length > 0) {
-          const existingTermId = existing.rows[0].term_id;
-          
-          // Update existing record with new values
-          await db.query(
-            `UPDATE status_settings SET
-              term_id = $1,
-              cut_off_point = $2,
-              promoted_class = $3,
-              repeated_class = $4,
-              school_reopen_date = $5,
-              term_end_date = $6,
-              activate_promotion = $7
-            WHERE organization_id = $8 AND class_id = $9`,
-            [
-              parsedTermId,
-              parseInt(cutOffPoint, 10) || null,
-              promotedClass || null,
-              repeatedClass || null,
-              schoolReopenDate || null,
-              termEndDate || null,
-              activatePromotion === "on",
-              organizationId,
-              classIdToSave,
-            ]
-          );
-          
-          console.log(`[savePromotionSettings] Updated existing setting for class ${classIdToSave} from term ${existingTermId} to ${parsedTermId}`);
-        } else {
-          // Insert new record
+      }
+
+      const scopedTerm = await getScopedTermRecord(db, organizationId, parsedTermId);
+      if (!scopedTerm) {
+        req.flash("error", "Selected term is outside this organization.");
+        return res.redirect(
+          `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
+        );
+      }
+
+      for (const classIdToSave of validClassIds) {
+        const updateResult = await db.query(
+          `UPDATE status_settings SET
+            cut_off_point = $1,
+            promoted_class = $2,
+            repeated_class = $3,
+            school_reopen_date = $4,
+            term_end_date = $5,
+            activate_promotion = $6
+          WHERE organization_id = $7 AND class_id = $8 AND term_id = $9`,
+          [
+            parseInt(cutOffPoint, 10) || null,
+            promotedClass || null,
+            repeatedClass || null,
+            schoolReopenDate || null,
+            termEndDate || null,
+            activatePromotion === "on",
+            organizationId,
+            classIdToSave,
+            parsedTermId,
+          ]
+        );
+
+        if (updateResult.rowCount === 0) {
           await db.query(
             `INSERT INTO status_settings (
               organization_id, class_id, term_id, cut_off_point, promoted_class,
@@ -2060,8 +2143,6 @@ students
               activatePromotion === "on",
             ]
           );
-          
-          console.log(`[savePromotionSettings] Inserted new setting for class ${classIdToSave}, term ${parsedTermId}`);
         }
       }
   
@@ -3598,6 +3679,33 @@ students
       await ensureStudentReportPaygiraManualDataColumn(db);
       const parsedClassId = parseInt(classId, 10);
       const parsedTermId = parseInt(termId, 10);
+
+      if (!Number.isFinite(parsedClassId) || !Number.isFinite(parsedTermId)) {
+        return res.status(400).send("Invalid class or term.");
+      }
+
+      const [scopedClassIds, scopedTerm] = await Promise.all([
+        getScopedClassIds(db, organizationId, [parsedClassId]),
+        getScopedTermRecord(db, organizationId, parsedTermId),
+      ]);
+
+      if (!scopedClassIds.length || !scopedTerm) {
+        return res.status(404).send("Class or term not found for this organization.");
+      }
+
+      const requestedStudentIds = parsePositiveIntArray(studentReports.map((studentReport) => studentReport?.studentId));
+      const validStudentIds = await getScopedStudentIdsForClassTerm(
+        db,
+        organizationId,
+        parsedClassId,
+        parsedTermId,
+        requestedStudentIds,
+      );
+      const validStudentIdSet = new Set(validStudentIds);
+
+      if (requestedStudentIds.length !== validStudentIds.length) {
+        return res.status(400).send("One or more students do not belong to the selected class and term.");
+      }
   
       for (const studentReport of studentReports) {
         const {
@@ -3615,6 +3723,10 @@ students
   
         if (!studentId || isNaN(studentId) || studentId <= 0) {
                     continue; // skip invalid rows
+        }
+
+        if (!validStudentIdSet.has(Number(studentId))) {
+          continue;
         }
   
         const manualAttendanceProvided = Object.prototype.hasOwnProperty.call(studentReport, "manualAttendancePresentDays");
@@ -3719,6 +3831,15 @@ students
         return res.status(400).json({ success: false, error: "Invalid class or term." });
       }
 
+      const [scopedClassIds, scopedTerm] = await Promise.all([
+        getScopedClassIds(db, organizationId, [parsedClassId]),
+        getScopedTermRecord(db, organizationId, parsedTermId),
+      ]);
+
+      if (!scopedClassIds.length || !scopedTerm) {
+        return res.status(404).json({ success: false, error: "Class or term not found for this organization." });
+      }
+
       if (!shouldApplyAllStudents && !Number.isFinite(parsedStudentId) && normalizedSelectedStudents.length === 0) {
         return res.status(400).json({ success: false, error: "Student is required when not applying to all students." });
       }
@@ -3736,13 +3857,30 @@ students
             [organizationId]
           )).rows.map((row) => Number(row.class_id)).filter((id) => Number.isFinite(id) && id > 0);
         } else if (normalizedSelectedClasses.length > 0) {
-          targetClassIds = normalizedSelectedClasses;
+          targetClassIds = await getScopedClassIds(db, organizationId, normalizedSelectedClasses);
+          if (targetClassIds.length !== normalizedSelectedClasses.length) {
+            return res.status(400).json({ success: false, error: "One or more selected classes are outside this organization." });
+          }
         }
       }
 
       const targetStudentIds = shouldApplyAllStudents
         ? []
         : (normalizedSelectedStudents.length > 0 ? normalizedSelectedStudents : [parsedStudentId]);
+
+      if (!shouldApplyAllStudents) {
+        const validStudentIds = await getScopedStudentIdsForClassTerm(
+          db,
+          organizationId,
+          parsedClassId,
+          parsedTermId,
+          targetStudentIds,
+        );
+
+        if (validStudentIds.length !== targetStudentIds.length) {
+          return res.status(400).json({ success: false, error: "One or more selected students are outside the active class or term." });
+        }
+      }
 
       const writeAsClassLevel = shouldApplyAllStudents;
 

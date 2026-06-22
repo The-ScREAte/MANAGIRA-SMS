@@ -2537,6 +2537,13 @@
                 <% const trialEnd = hasTrial ? new Date(billingInfo.trial_ends_at) : null; %>
                 <% const trialDaysLeft = hasTrial ? Math.ceil((trialEnd - new Date()) / (1000 * 60 * 60 * 24)) : 0; %>
                 <% const currentPlanPricing = Array.isArray(plans) && currentPlan ? plans.find((p) => Number(p.plan_id) === Number(currentPlan.plan_id)) : null; %>
+                <% const selectedCurrency = (currencyProfile && currencyProfile.userCurrency) ? String(currencyProfile.userCurrency).toUpperCase() : 'USD'; %>
+                <% const selectedLocale = (currencyProfile && currencyProfile.locale) ? currencyProfile.locale : 'en-US'; %>
+                <% const usdToUserRate = (currencyProfile && Number(currencyProfile.usdToUserRate) > 0) ? Number(currencyProfile.usdToUserRate) : 1; %>
+                <% const showLocalizedCurrency = selectedCurrency !== 'USD' && usdToUserRate > 0; %>
+                <% const formatUsdCurrency = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0)); %>
+                <% const formatSelectedCurrency = (value) => new Intl.NumberFormat(selectedLocale, { style: 'currency', currency: selectedCurrency }).format(Number(value || 0)); %>
+                <% const formatCurrentPlanAmount = (usdAmount) => { const baseUsd = Number(usdAmount || 0); const usdDisplay = formatUsdCurrency(baseUsd); if (!showLocalizedCurrency) return usdDisplay; return `${formatSelectedCurrency(baseUsd * usdToUserRate)} (${usdDisplay})`; }; %>
                 <% const currentMonthlyBase = currentPlanPricing ? Number(currentPlanPricing.modalBaseUsd || 0) : 0; %>
                 <% const billingMonths = hasBillingInfo ? Math.max(1, Number(billingInfo.period_months || 1)) : 1; %>
                 <% const billingDiscount = hasBillingInfo ? Math.max(0, Number(billingInfo.discount_percentage || 0)) : 0; %>
@@ -2571,8 +2578,8 @@
                           Additional charges are not active because your student count is within the free <%= freeThreshold %>.
                         <% } %>
                       </div>
-                      <div class="current-plan-pricing-note-point">Monthly price at your current student count: $<%= currentMonthlyBase.toFixed(2) %>/mo.</div>
-                      <div class="current-plan-pricing-note-sub">Billing cycle name: <%= billingChargeLabel %> • Discount: <%= billingDiscount %>% • Selected cycle total: $<%= billingCycleTotal.toFixed(2) %> (~$<%= billingPerMonthEquivalent.toFixed(2) %>/mo).</div>
+                      <div class="current-plan-pricing-note-point">Monthly price at your current student count: <%= formatCurrentPlanAmount(currentMonthlyBase) %>/mo.</div>
+                      <div class="current-plan-pricing-note-sub">Billing cycle name: <%= billingChargeLabel %> • Discount: <%= billingDiscount %>% • Selected cycle total: <%= formatCurrentPlanAmount(billingCycleTotal) %> (~<%= formatCurrentPlanAmount(billingPerMonthEquivalent) %>/mo).</div>
                     </div>
                   </div>
                 <% } else if (currentPlanPricing) { %>
@@ -2585,8 +2592,8 @@
                       <div class="current-plan-pricing-note-point"><strong>You have <%= currentStudentCount %> students.</strong></div>
                       <div class="current-plan-pricing-note-point"><strong>Region: <%= currentPlanPricing.pricingRegionName %> • First <%= fallbackThreshold %> students are free.</strong></div>
                       <div class="current-plan-pricing-note-point">Additional charges are currently active because your student count is above <%= fallbackThreshold %>.</div>
-                      <div class="current-plan-pricing-note-point">Monthly price at your current student count: $<%= currentMonthlyBase.toFixed(2) %>/mo.</div>
-                      <div class="current-plan-pricing-note-sub">Billing cycle name: <%= billingChargeLabel %> • Discount: <%= billingDiscount %>% • Selected cycle total: $<%= billingCycleTotal.toFixed(2) %> (~$<%= billingPerMonthEquivalent.toFixed(2) %>/mo).</div>
+                      <div class="current-plan-pricing-note-point">Monthly price at your current student count: <%= formatCurrentPlanAmount(currentMonthlyBase) %>/mo.</div>
+                      <div class="current-plan-pricing-note-sub">Billing cycle name: <%= billingChargeLabel %> • Discount: <%= billingDiscount %>% • Selected cycle total: <%= formatCurrentPlanAmount(billingCycleTotal) %> (~<%= formatCurrentPlanAmount(billingPerMonthEquivalent) %>/mo).</div>
                     </div>
                   </div>
                 <% } %>
@@ -2617,14 +2624,14 @@
                       </div>
                       <% if (!billingInfo.is_trial || parseFloat(billingInfo.amount_paid || 0) > 1) { %>
                         <div class="current-plan-summary-sub">
-                          Last payment: $<%= parseFloat(billingInfo.amount_paid || 0).toFixed(2) %> on <%= new Date(billingInfo.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
+                          Last payment: <%= formatCurrentPlanAmount(parseFloat(billingInfo.amount_paid || 0)) %> on <%= new Date(billingInfo.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
                         </div>
                       <% } %>
                     </div>
                   <% } else if (!billingInfo.is_trial || parseFloat(billingInfo.amount_paid || 0) > 1) { %>
                     <div class="current-plan-summary">
                       <div class="current-plan-summary-standout">
-                        Last payment: $<%= parseFloat(billingInfo.amount_paid || 0).toFixed(2) %>
+                        Last payment: <%= formatCurrentPlanAmount(parseFloat(billingInfo.amount_paid || 0)) %>
                       </div>
                       <div class="current-plan-summary-sub">
                         Paid on <%= new Date(billingInfo.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>

@@ -778,9 +778,6 @@
             <p class="summary-row" id="platform-fee-row" style="display:<%= stripePaymentDetails && Number(stripePaymentDetails.platformFeeAmount || 0) > 0 ? '' : 'none' %>;"><strong id="platform-fee-label">Platform Fee (<%= Number(stripePaymentDetails?.platformFeePercentage || 0).toFixed(2).replace(/\.00$/, '') %>%)</strong>: <span id="platform-fee-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="platform-fee-amount"><%= stripePaymentDetails ? Number(stripePaymentDetails.platformFeeAmount || 0).toFixed(2) : '0.00' %></span></p>
             <p class="summary-row" id="amount-due-row"><strong>Total Due:</strong> <span id="amount-due-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="amount-due"><%= stripePaymentDetails ? (stripePaymentDetails.amount / 100).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
           <% } %>
-          <% if (currencyProfile && currencyProfile.userCurrency && currencyProfile.userCurrency !== 'USD') { %>
-            <p class="summary-row"><strong>Local Estimate (<%= currencyProfile.userCurrency %>):</strong> <%= localizedPriceDisplay || 'N/A' %></p>
-          <% } %>
           <% if (isTrialCheckout && freeTrialLengthLabel) { %>
             <p class="summary-row"><strong>Renewal Price:</strong> <span class="price-old-inline"><%= postTrialPriceDisplay || ("USD 0.00") %></span><span class="price-free-inline">FREE for <%= freeTrialLengthLabel %></span></p>
           <% } else { %>

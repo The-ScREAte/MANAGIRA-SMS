@@ -1567,9 +1567,21 @@ const hubController = {
 
       const organization = orgResult.rows[0];
 
-      // Mark as deleted
+      // Mark as deleted and hold to stop any billing activity while temporarily removed.
       await db.query(
-        'UPDATE organizations SET deleted = true, deleted_at = CURRENT_TIMESTAMP WHERE organization_id = $1',
+        `UPDATE organizations
+         SET deleted = true,
+             deleted_at = CURRENT_TIMESTAMP,
+             on_hold = true,
+             hold_by = 'Hub',
+             scheduled_hold_date = NOW(),
+             updated_at = NOW()
+         WHERE organization_id = $1`,
+        [organizationId]
+      );
+
+      await db.query(
+        'UPDATE stored_cards SET is_active = false, updated_at = NOW() WHERE organization_id = $1',
         [organizationId]
       );
 

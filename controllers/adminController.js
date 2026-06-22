@@ -1515,11 +1515,32 @@ const adminController = {
   deleteOrganization: async (req, res) => {
     const { orgId } = req.body;
     try {
+      await db.query("BEGIN");
       const result = await db.query(
-        "UPDATE organizations SET deleted = true WHERE organization_id = $1 RETURNING email, first_name, last_name",
+        `UPDATE organizations
+         SET deleted = true,
+             on_hold = true,
+             hold_by = 'Admin',
+             scheduled_hold_date = NOW(),
+             updated_at = NOW()
+         WHERE organization_id = $1
+         RETURNING email, first_name, last_name`,
         [orgId]
       );
       const organization = result.rows[0];
+
+      if (!organization) {
+        await db.query("ROLLBACK");
+        req.flash("error", "Organization not found.");
+        return res.redirect("/admin");
+      }
+
+      await db.query(
+        "UPDATE stored_cards SET is_active = false, updated_at = NOW() WHERE organization_id = $1",
+        [orgId]
+      );
+
+      await db.query("COMMIT");
 
       // Invalidate cache after update
       cacheManager.invalidate('admin', 'organizations:list');
@@ -1534,6 +1555,7 @@ const adminController = {
 
       res.redirect("/admin");
     } catch (error) {
+      try { await db.query("ROLLBACK"); } catch (_) {}
             req.flash("error", "Failed to delete organization.");
       res.redirect("/admin");
     }
@@ -2168,11 +2190,32 @@ const adminController = {
   restoreOrganization: async (req, res) => {
     const { orgId } = req.body;
     try {
+      await db.query("BEGIN");
       const result = await db.query(
-        "UPDATE organizations SET deleted = false WHERE organization_id = $1 RETURNING email, first_name, last_name",
+        `UPDATE organizations
+         SET deleted = false,
+             on_hold = false,
+             hold_by = NULL,
+             scheduled_hold_date = NULL,
+             updated_at = NOW()
+         WHERE organization_id = $1
+         RETURNING email, first_name, last_name`,
         [orgId]
       );
       const organization = result.rows[0];
+
+      if (!organization) {
+        await db.query("ROLLBACK");
+        req.flash("error", "Organization not found.");
+        return res.redirect("/admin/superDashboard");
+      }
+
+      await db.query(
+        "UPDATE stored_cards SET is_active = true, updated_at = NOW() WHERE organization_id = $1",
+        [orgId]
+      );
+
+      await db.query("COMMIT");
 
       req.flash("success", "Organization restored successfully.");
 
@@ -2184,6 +2227,7 @@ const adminController = {
 
       res.redirect("/admin/superDashboard");
     } catch (error) {
+      try { await db.query("ROLLBACK"); } catch (_) {}
             req.flash("error", "Failed to restore organization.");
       res.redirect("/admin/superDashboard");
     }

@@ -1,4 +1,5 @@
 const axios = require("axios");
+const https = require("https");
 const db = require("../config/db");
 
 const FX_TTL_MS = 30 * 60 * 1000;
@@ -33,6 +34,9 @@ const COUNTRY_CURRENCY_MAP = {
   US: "USD",
   CA: "CAD",
   GB: "GBP",
+  IM: "GBP",
+  GG: "GBP",
+  JE: "GBP",
   IE: "EUR",
   FR: "EUR",
   DE: "EUR",
@@ -58,6 +62,35 @@ const COUNTRY_CURRENCY_MAP = {
   GH: "GHS",
   NG: "NGN",
   KE: "KES",
+  UG: "UGX",
+  TZ: "TZS",
+  RW: "RWF",
+  ET: "ETB",
+  CM: "XAF",
+  CI: "XOF",
+  SN: "XOF",
+  BJ: "XOF",
+  TG: "XOF",
+  BF: "XOF",
+  ML: "XOF",
+  NE: "XOF",
+  GA: "XAF",
+  CG: "XAF",
+  CD: "CDF",
+  MZ: "MZN",
+  ZM: "ZMW",
+  ZW: "USD",
+  BW: "BWP",
+  NA: "NAD",
+  MW: "MWK",
+  SL: "SLE",
+  LR: "LRD",
+  GM: "GMD",
+  MR: "MRU",
+  MA: "MAD",
+  DZ: "DZD",
+  TN: "TND",
+  LY: "LYD",
   ZA: "ZAR",
   IN: "INR",
   AU: "AUD",
@@ -67,6 +100,12 @@ const COUNTRY_CURRENCY_MAP = {
   SA: "SAR",
   QA: "QAR",
   PK: "PKR",
+  LK: "LKR",
+  NP: "NPR",
+  MM: "MMK",
+  KH: "KHR",
+  LA: "LAK",
+  TW: "TWD",
   BD: "BDT",
   ID: "IDR",
   PH: "PHP",
@@ -78,29 +117,77 @@ const COUNTRY_CURRENCY_MAP = {
   JP: "JPY",
   KR: "KRW",
   CN: "CNY",
+  KZ: "KZT",
+  UZ: "UZS",
   BR: "BRL",
   AR: "ARS",
   CL: "CLP",
   CO: "COP",
   PE: "PEN",
   MX: "MXN",
+  CR: "CRC",
+  GT: "GTQ",
+  PA: "PAB",
+  DO: "DOP",
+  JM: "JMD",
+  TT: "TTD",
 };
 
 function roundTo2(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
 
-function getClientIp(req) {
-  const forwardedFor = req.headers["x-forwarded-for"];
-  const directIp = req.ip || req.connection?.remoteAddress || "";
-
-  const rawIp = String(forwardedFor || directIp)
-    .split(",")[0]
+function normalizeIpCandidate(value) {
+  return String(value || "")
     .trim()
-    .replace(/^::ffff:/, "");
+    .replace(/^::ffff:/, "")
+    .replace(/^\[(.*)\]$/, "$1");
+}
 
-  if (!rawIp || rawIp === "::1" || rawIp === "127.0.0.1") return null;
-  return rawIp;
+function isPrivateOrLoopbackIp(ip) {
+  const normalized = normalizeIpCandidate(ip).toLowerCase();
+  if (!normalized) return true;
+  if (normalized === "::1" || normalized === "127.0.0.1" || normalized === "localhost") return true;
+  if (normalized.startsWith("10.")) return true;
+  if (normalized.startsWith("192.168.")) return true;
+  if (normalized.startsWith("169.254.")) return true;
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(normalized)) return true;
+  if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(normalized)) return true;
+  if (normalized.startsWith("fc") || normalized.startsWith("fd") || normalized.startsWith("fe80:")) return true;
+  return false;
+}
+
+function getClientIp(req) {
+  const headerCandidates = [
+    req.headers["cf-connecting-ip"],
+    req.headers["true-client-ip"],
+    req.headers["fastly-client-ip"],
+    req.headers["fly-client-ip"],
+    req.headers["x-real-ip"],
+    req.headers["x-client-ip"],
+    req.headers["x-cluster-client-ip"],
+    req.headers["x-forwarded-for"],
+    req.ip,
+    req.connection?.remoteAddress,
+    req.socket?.remoteAddress,
+  ];
+
+  const allCandidates = [];
+  for (const value of headerCandidates) {
+    if (!value) continue;
+    for (const part of String(value).split(",")) {
+      const candidate = normalizeIpCandidate(part);
+      if (candidate) allCandidates.push(candidate);
+    }
+  }
+
+  const publicCandidate = allCandidates.find((candidate) => !isPrivateOrLoopbackIp(candidate));
+  if (publicCandidate) return publicCandidate;
+
+  const fallbackCandidate = allCandidates.find(
+    (candidate) => !["::1", "127.0.0.1", "localhost"].includes(candidate)
+  );
+  return fallbackCandidate || null;
 }
 
 function normalizeCurrencyCode(raw) {
@@ -120,6 +207,25 @@ function getCurrencyForCountry(countryCode) {
   return COUNTRY_CURRENCY_MAP[code] || null;
 }
 
+async function fetchPublicJson(url, options = {}) {
+  try {
+    return await axios.get(url, options);
+  } catch (error) {
+    const message = String(error?.message || "").toLowerCase();
+    const isTlsChainIssue =
+      message.includes("unable to get local issuer certificate") ||
+      message.includes("self signed certificate") ||
+      message.includes("unable to verify the first certificate");
+
+    if (!isTlsChainIssue) throw error;
+
+    return axios.get(url, {
+      ...options,
+      httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+    });
+  }
+}
+
 async function fetchGeoFromIp(ip) {
   const now = Date.now();
   if (geoCache.has(ip)) {
@@ -130,7 +236,7 @@ async function fetchGeoFromIp(ip) {
     geoCache.delete(ip);
   }
 
-  const response = await axios.get(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
+  const response = await fetchPublicJson(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, {
     timeout: 5000,
     validateStatus: () => true,
   });
@@ -252,11 +358,44 @@ async function getDominantOrganizationGeo(organizationId) {
 function getHeaderCountry(req) {
   const candidate =
     req.headers["cf-ipcountry"] ||
+    req.headers["cloudfront-viewer-country"] ||
     req.headers["x-vercel-ip-country"] ||
-    req.headers["x-country-code"];
+    req.headers["x-country-code"] ||
+    req.headers["x-geo-country"] ||
+    req.headers["x-appengine-country"] ||
+    req.headers["x-real-country"];
 
   const code = String(candidate || "").trim().toUpperCase();
   return /^[A-Z]{2}$/.test(code) ? code : null;
+}
+
+function getAcceptLanguageCountry(req) {
+  const raw = String(req?.headers?.["accept-language"] || "").trim();
+  if (!raw) return null;
+
+  const firstTag = raw
+    .split(",")
+    .map((part) => part.split(";")[0].trim())
+    .find(Boolean);
+
+  if (!firstTag) return null;
+
+  const parts = firstTag.replace(/_/g, "-").split("-");
+  const region = String(parts[1] || "").trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(region) ? region : null;
+}
+
+function isLocalhostRequest(req) {
+  const host = String(req?.headers?.host || "").trim().toLowerCase();
+  const hostname = String(req?.hostname || "").trim().toLowerCase();
+  return (
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1") ||
+    host.startsWith("[::1]") ||
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1"
+  );
 }
 
 async function detectCurrencyForRequest(req, options = {}) {
@@ -264,6 +403,24 @@ async function detectCurrencyForRequest(req, options = {}) {
     Number(options.organizationId || 0) ||
     Number(req?.session?.organizationId || 0) ||
     null;
+
+  const headerCountry = getHeaderCountry(req);
+  const headerCurrency = normalizeCurrencyCode(getCurrencyForCountry(headerCountry));
+  if (headerCurrency) {
+    return {
+      countryCode: headerCountry,
+      currencyCode: headerCurrency,
+      source: "request-header",
+    };
+  }
+
+  if (isLocalhostRequest(req)) {
+    return {
+      countryCode: "US",
+      currencyCode: FALLBACK_CURRENCY,
+      source: "localhost-fallback",
+    };
+  }
 
   const ip = getClientIp(req);
 
@@ -287,16 +444,6 @@ async function detectCurrencyForRequest(req, options = {}) {
     }
   }
 
-  const countryCode = getHeaderCountry(req);
-  const currencyFromCountry = normalizeCurrencyCode(getCurrencyForCountry(countryCode));
-  if (currencyFromCountry) {
-    return {
-      countryCode,
-      currencyCode: currencyFromCountry,
-      source: "request-header",
-    };
-  }
-
   if (organizationId) {
     const orgCountryCode = await getOrganizationCountryFallback(organizationId);
     const orgCurrency = normalizeCurrencyCode(getCurrencyForCountry(orgCountryCode));
@@ -309,8 +456,18 @@ async function detectCurrencyForRequest(req, options = {}) {
     }
   }
 
+  const acceptLanguageCountry = getAcceptLanguageCountry(req);
+  const acceptLanguageCurrency = normalizeCurrencyCode(getCurrencyForCountry(acceptLanguageCountry));
+  if (acceptLanguageCurrency) {
+    return {
+      countryCode: acceptLanguageCountry,
+      currencyCode: acceptLanguageCurrency,
+      source: "accept-language-fallback",
+    };
+  }
+
   return {
-    countryCode,
+    countryCode: headerCountry || acceptLanguageCountry || null,
     currencyCode: FALLBACK_CURRENCY,
     source: "fallback",
   };
@@ -326,7 +483,7 @@ async function fetchUsdRates() {
   let source = null;
 
   try {
-    const primary = await axios.get("https://open.er-api.com/v6/latest/USD", {
+    const primary = await fetchPublicJson("https://open.er-api.com/v6/latest/USD", {
       timeout: 6000,
       validateStatus: () => true,
     });
@@ -340,7 +497,7 @@ async function fetchUsdRates() {
 
   if (!rates) {
     try {
-      const fallback = await axios.get("https://api.exchangerate.host/latest?base=USD", {
+      const fallback = await fetchPublicJson("https://api.exchangerate.host/latest?base=USD", {
         timeout: 6000,
         validateStatus: () => true,
       });
@@ -348,6 +505,21 @@ async function fetchUsdRates() {
       if (fallback?.data?.rates) {
         rates = fallback.data.rates;
         source = "exchangerate.host";
+      }
+    } catch (_) {
+    }
+  }
+
+  if (!rates) {
+    try {
+      const tertiary = await fetchPublicJson("https://api.frankfurter.app/latest?from=USD", {
+        timeout: 6000,
+        validateStatus: () => true,
+      });
+
+      if (tertiary?.data?.rates) {
+        rates = tertiary.data.rates;
+        source = "frankfurter.app";
       }
     } catch (_) {
     }

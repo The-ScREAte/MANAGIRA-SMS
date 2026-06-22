@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
-const recurringModulePath = path.resolve(__dirname, '../jobs/recurringPaystackBilling.js');
+const recurringModulePath = path.resolve(__dirname, '../jobs/recurringStripeBilling.js');
 const dbModulePath = path.resolve(__dirname, '../config/db.js');
 const stripeConfigModulePath = path.resolve(__dirname, '../utils/stripeConfig.js');
 const orgChargeCardsModulePath = path.resolve(__dirname, '../utils/orgChargeCards.js');
@@ -289,6 +289,7 @@ test('recurring billing charges via stripe and resets failure tracking on succes
   );
   assert.ok(dueQuery.sql.includes("COALESCE(p.failed_attempts, 0) < 4"));
   assert.ok(dueQuery.sql.includes("interval '4 days'"));
+  assert.ok(dueQuery.sql.includes('COALESCE(o.deleted, false) = false'));
 
   assert.equal(harness.charges.length, 1);
   assert.equal(harness.charges[0].payload.amount, 15000);
@@ -488,6 +489,10 @@ test('recurring billing creates upcoming precharge invoice and sends invoice ema
 
   const invoiceInsert = harness.queries.find((entry) => entry.sql.includes('INSERT INTO billing_invoices'));
   assert.ok(invoiceInsert);
+  const upcomingQuery = harness.queries.find((entry) =>
+    entry.sql.includes("p.next_payment_end_date > NOW() + interval '23 hours'")
+  );
+  assert.ok(upcomingQuery.sql.includes('COALESCE(o.deleted, false) = false'));
   assert.equal(harness.emails.length, 1);
   assert.equal(harness.emails[0].tag, 'RecurringSubscriptionInvoice');
   assert.equal(harness.emails[0].payload.to, 'finance@example.com');

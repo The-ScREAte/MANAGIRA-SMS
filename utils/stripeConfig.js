@@ -1,4 +1,5 @@
 const Stripe = require("stripe");
+const https = require("https");
 const defaultDb = require("../config/db");
 
 const STRIPE_MODE_KEY = "stripe_mode";
@@ -8,6 +9,29 @@ const STRIPE_CONNECT_ACCOUNT_ID_TEST_COLUMN = "stripe_connect_account_id_test";
 const STRIPE_CONNECT_ACCOUNT_ID_LIVE_COLUMN = "stripe_connect_account_id_live";
 
 let stripeConnectAccountSchemaReady = false;
+
+function shouldAllowInsecureStripeTls() {
+  const toggle = String(process.env.STRIPE_ALLOW_INSECURE_TLS || "").trim().toLowerCase();
+  const enabled = toggle === "1" || toggle === "true" || toggle === "yes";
+  if (!enabled) return false;
+  return String(process.env.NODE_ENV || "").trim().toLowerCase() !== "production";
+}
+
+function createStripeClient(secretKey) {
+  const baseConfig = {
+    maxNetworkRetries: 2,
+  };
+
+  if (shouldAllowInsecureStripeTls()) {
+    const insecureAgent = new https.Agent({
+      keepAlive: true,
+      rejectUnauthorized: false,
+    });
+    baseConfig.httpClient = Stripe.createNodeHttpClient(insecureAgent);
+  }
+
+  return new Stripe(secretKey, baseConfig);
+}
 
 function normalizeMode(value) {
   const mode = String(value || "test").trim().toLowerCase();
@@ -235,7 +259,7 @@ async function getStripeClient(dbClient = defaultDb) {
   if (!secretKey) {
     throw new Error("Stripe secret key is not configured.");
   }
-  return new Stripe(secretKey);
+  return createStripeClient(secretKey);
 }
 
 // Platform-level client for Stripe Connect operations (account creation, account links).
@@ -251,7 +275,7 @@ async function getStripePlatformClient(dbClient = defaultDb) {
   if (!secretKey) {
     throw new Error(platform.issue || `Stripe ${platform.mode || "active"} platform secret key is not configured.`);
   }
-  return new Stripe(secretKey);
+  return createStripeClient(secretKey);
 }
 
 module.exports = {

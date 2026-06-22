@@ -1,8 +1,8 @@
 // jobs/scheduler.js
-// Schedules the recurring Paystack billing job to run every minute
+// Schedules the recurring Stripe billing job to run every minute
 
 const cron = require('node-cron');
-const runRecurringBilling = require('./recurringPaystackBilling');
+const runRecurringBilling = require('./recurringStripeBilling');
 const {
   ensureNotificationSchema,
   runAbsenceAlertSweep,
