@@ -799,6 +799,90 @@ const CANONICAL_ARTICLE_SYNC = [
     `,
   },
   {
+    slug: 'understand-localized-pricing-currency-and-usd-fallback',
+    title: 'Understand localized pricing, currency detection, and USD fallback',
+    topic: 'Billing & Subscriptions',
+    subtopic: 'Localized Pricing',
+    status: 'active',
+    featured: false,
+    tags: ['localized pricing', 'currency', 'usd fallback', 'billing currency'],
+    seoDescription: 'How Managira chooses the display currency by location and when it falls back to USD.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>Managira can localize subscription pricing by user location. If location signals are weak or unavailable, pricing falls back to USD.</p>
+      <h2>How currency is chosen</h2>
+      <ol>
+        <li>Trusted country headers from your hosting/network edge.</li>
+        <li>IP-based geo detection.</li>
+        <li>Safe fallbacks (including language and account context when available).</li>
+        <li>USD fallback when no reliable signal is available.</li>
+      </ol>
+      <h2>Why users can occasionally see USD</h2>
+      <ul>
+        <li>Geo lookup is blocked or timed out.</li>
+        <li>No reliable country signal is available for the request.</li>
+        <li>The user is on a network that masks location details.</li>
+      </ul>
+      <h2>Important note</h2>
+      <p>Currency display is for clarity during checkout. The actual charged amount and gateway currency are shown in the payment summary before confirmation.</p>
+    `,
+  },
+  {
+    slug: 'how-subscription-renewal-amount-is-calculated',
+    title: 'How subscription renewal amount is calculated',
+    topic: 'Billing & Subscriptions',
+    subtopic: 'Renewal Pricing',
+    status: 'active',
+    featured: false,
+    tags: ['renewal', 'student count', 'billing cycles', 'subscription amount'],
+    seoDescription: 'Understand why renewal can change based on student count and billing cycle choices.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>Renewal is not always a permanently fixed number. It can change as your active student count changes.</p>
+      <h2>Main factors that affect renewal</h2>
+      <ul>
+        <li><strong>Student count:</strong> Higher active student counts can move the school into a different pricing tier.</li>
+        <li><strong>Billing cycle:</strong> Monthly, term, yearly, or other cycle options can change total amount and discount behavior.</li>
+        <li><strong>Plan and region pricing:</strong> The selected plan and location pricing rules are applied at checkout and renewal.</li>
+      </ul>
+      <h2>What schools should do</h2>
+      <ol>
+        <li>Keep student records current before renewal dates.</li>
+        <li>Review billing settings and cycle choice in advance.</li>
+        <li>Check renewal details in the billing area before charge date.</li>
+      </ol>
+      <div class="doc-callout doc-callout--tip"><strong>Tip:</strong> If your school expects a pricing jump, review student archive and graduation updates before renewal to avoid overcounting inactive learners.</div>
+    `,
+  },
+  {
+    slug: 'configure-dynamic-grading-and-remarks',
+    title: 'Configure dynamic grading and remarks',
+    topic: 'Assessments & Grades',
+    subtopic: 'Grading Rules',
+    status: 'active',
+    featured: false,
+    tags: ['dynamic grading', 'remarks', 'grade mapping', 'assessment settings'],
+    seoDescription: 'Set up dynamic grade mappings and remark logic so report outputs match your school policy.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>Dynamic grading lets schools define grade boundaries and remark rules that better match internal academic policy.</p>
+      <h2>What you can configure</h2>
+      <ul>
+        <li>Grade boundaries and labels.</li>
+        <li>Remark messages linked to score ranges.</li>
+        <li>Default mappings used by assessment and report workflows.</li>
+      </ul>
+      <h2>Recommended setup order</h2>
+      <ol>
+        <li>Open grading settings before entering large batches of new assessments.</li>
+        <li>Set boundary ranges and remarks.</li>
+        <li>Save and test with sample scores.</li>
+        <li>Generate a sample report to verify expected output.</li>
+      </ol>
+      <div class="doc-callout doc-callout--warning"><strong>Warning:</strong> Changing boundaries after scores are already entered can change grade labels and remarks in generated reports.</div>
+    `,
+  },
+  {
     slug: 'troubleshooting-common-issues',
     title: 'Troubleshooting common issues in Managira',
     topic: 'Getting Started',

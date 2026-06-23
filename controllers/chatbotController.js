@@ -47,7 +47,7 @@ class ChatbotController {
         .map((item) => ({ item, score: ChatbotController._scoreFAQ(item, nq, terms) }))
         .filter((r) => r.score > 0)
         .sort((a, b) => b.score - a.score)
-        .slice(0, 4)
+        .slice(0, 3)
         .map((r) => ({
           question: r.item.question,
           category: r.item.category,
@@ -57,7 +57,7 @@ class ChatbotController {
       // â”€â”€ Search documentation articles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const docArticles = await searchDocumentationArticles(q, {
         includeDrafts: false,
-        limit: 3,
+        limit: 6,
       });
 
       const docHits = docArticles.map((a) => ({
@@ -73,22 +73,22 @@ class ChatbotController {
         return res.json({
           success: true,
           type: 'no_results',
-          message: "I searched our FAQ and documentation but couldn't find anything specific for that. Try rephrasing, or browse directly:",
+          message: "I searched our documentation and FAQ but couldn't find anything specific for that. Try rephrasing, or browse directly:",
           links: [
-            { label: 'Browse FAQ', url: '/legal/faq' },
             { label: 'View Documentation', url: '/legal/user-documentation' },
+            { label: 'Browse FAQ', url: '/legal/faq' },
             { label: 'Help Centre', url: '/legal/help' },
           ],
         });
       }
 
       let summary;
-      if (faqHits.length > 0 && docHits.length > 0) {
-        summary = `I found ${faqHits.length} FAQ result${faqHits.length !== 1 ? 's' : ''} and ${docHits.length} guide${docHits.length !== 1 ? 's' : ''}. Click any link to read the full answer.`;
-      } else if (faqHits.length > 0) {
-        summary = `I found ${faqHits.length} FAQ result${faqHits.length !== 1 ? 's' : ''}. Click to open the full answer on the FAQ page.`;
-      } else {
+      if (docHits.length > 0 && faqHits.length > 0) {
+        summary = `I found ${docHits.length} documentation guide${docHits.length !== 1 ? 's' : ''} and ${faqHits.length} quick FAQ result${faqHits.length !== 1 ? 's' : ''}. Start with the guides for full steps.`;
+      } else if (docHits.length > 0) {
         summary = `I found ${docHits.length} documentation article${docHits.length !== 1 ? 's' : ''} that should help. Click to read.`;
+      } else {
+        summary = `I found ${faqHits.length} quick FAQ result${faqHits.length !== 1 ? 's' : ''}.`;
       }
 
       return res.json({ success: true, type: 'results', summary, faqHits, docHits });
@@ -107,7 +107,7 @@ class ChatbotController {
   // Return popular FAQ links for the welcome screen
   static getPopularQuestions(req, res) {
     try {
-      const popularIds = [110, 3, 30];
+      const popularIds = [3, 30, 39];
       const popular = popularIds
         .map((id) => managiraFAQ.find((f) => f.id === id))
         .filter(Boolean)
@@ -115,12 +115,18 @@ class ChatbotController {
           question: f.question,
           url: '/legal/faq?q=' + encodeURIComponent(f.question),
         }));
-      // Add one documentation article link
-      popular.push({
-        question: 'Browse the setup guides & articles',
-        url: '/legal/user-documentation',
-      });
-      return res.json({ success: true, questions: popular });
+      const docFirst = [
+        {
+          question: 'Open full setup and onboarding guides',
+          url: '/legal/user-documentation/register-a-school-and-complete-first-time-setup',
+        },
+        {
+          question: 'See all user documentation articles',
+          url: '/legal/user-documentation',
+        },
+      ];
+
+      return res.json({ success: true, questions: docFirst.concat(popular) });
     } catch (error) {
       return res.json({ success: false, message: 'Unable to load popular questions' });
     }
