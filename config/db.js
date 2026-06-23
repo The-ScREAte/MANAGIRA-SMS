@@ -8,6 +8,21 @@ const shouldUseSsl =
   process.env.DB_SSL === 'true' ||
   (dbConnectionString || '').includes('sslmode=require');
 const slowQueryThresholdMs = Number(process.env.DB_SLOW_QUERY_MS || 800);
+const shouldLogIdleClientStack = String(process.env.DB_LOG_IDLE_CLIENT_STACK || '').trim().toLowerCase() === 'true';
+
+function isTransientIdleClientDrop(error) {
+  const message = String(error?.message || '').toLowerCase();
+  const code = String(error?.code || '').toUpperCase();
+
+  return (
+    code === 'ECONNRESET' ||
+    code === 'EPIPE' ||
+    message.includes('connection terminated unexpectedly') ||
+    message.includes('server closed the connection unexpectedly') ||
+    message.includes('terminating connection due to administrator command') ||
+    message.includes('connection reset by peer')
+  );
+}
 
 function warnIfDbConfigLooksWrong() {
   if (!dbConnectionString) {
@@ -80,7 +95,17 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Unexpected error on idle PostgreSQL client', err.message || err);
+  if (isTransientIdleClientDrop(err)) {
+    console.warn(`[DB] Idle PostgreSQL client disconnected (auto-recoverable): ${err.message || err}`);
+    return;
+  }
+
+  if (shouldLogIdleClientStack) {
+    console.error('[DB] Unexpected error on idle PostgreSQL client', err);
+    return;
+  }
+
+  console.error('[DB] Unexpected error on idle PostgreSQL client:', err.message || err);
 });
 
 module.exports = pool;

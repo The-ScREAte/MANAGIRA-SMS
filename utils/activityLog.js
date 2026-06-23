@@ -793,7 +793,7 @@ async function buildLogPayloadFromRequest(req, database = db) {
 }
 
 function createOrganizationActivityLogMiddleware(database = db) {
-  const debug = process.env.ACTIVITY_LOG_DEBUG === "1" || process.env.NODE_ENV !== "production";
+  const debug = process.env.ACTIVITY_LOG_DEBUG === "1" || process.env.ACTIVITY_LOG_DEBUG === "true";
   return (req, res, next) => {
     const path = normalizePath(req.originalUrl || req.path);
     const method = String(req.method || "GET").toUpperCase();

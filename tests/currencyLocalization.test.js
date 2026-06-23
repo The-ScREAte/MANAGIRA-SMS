@@ -131,3 +131,82 @@ test('uses fetched USD rates to localize detected currency', async () => {
     restore();
   }
 });
+
+test('maps admin country codes to expected currency (EG -> EGP)', async () => {
+  const { mod, restore } = loadWithMocks({
+    axiosMock: {
+      get: async (url) => {
+        if (url.includes('latest/USD')) {
+          return { data: { result: 'success', rates: { USD: 1, EGP: 49.7, GHS: 15.2 } } };
+        }
+        throw new Error(`unexpected url: ${url}`);
+      },
+    },
+    dbMock: { query: async () => ({ rows: [] }) },
+  });
+
+  try {
+    const profile = await mod.getCurrencyProfileForRequest({
+      headers: { 'cf-ipcountry': 'EG' },
+      ip: '127.0.0.1',
+    });
+
+    assert.equal(profile.countryCode, 'EG');
+    assert.equal(profile.userCurrency, 'EGP');
+    assert.equal(profile.usdToUserRate, 49.7);
+  } finally {
+    restore();
+  }
+});
+
+test('detects requested countries with correct currencies', async () => {
+  const expectedByCountry = {
+    NP: 'NPR',
+    SL: 'SLE',
+    CI: 'XOF',
+    KE: 'KES',
+    ZA: 'ZAR',
+    GH: 'GHS',
+    US: 'USD',
+  };
+
+  const { mod, restore } = loadWithMocks({
+    axiosMock: {
+      get: async (url) => {
+        if (url.includes('latest/USD')) {
+          return {
+            data: {
+              result: 'success',
+              rates: {
+                USD: 1,
+                NPR: 133,
+                SLE: 22,
+                XOF: 605,
+                KES: 129,
+                ZAR: 16,
+                GHS: 11,
+              },
+            },
+          };
+        }
+        throw new Error(`unexpected url: ${url}`);
+      },
+    },
+    dbMock: { query: async () => ({ rows: [] }) },
+  });
+
+  try {
+    for (const [countryCode, expectedCurrency] of Object.entries(expectedByCountry)) {
+      const profile = await mod.getCurrencyProfileForRequest({
+        headers: { 'cf-ipcountry': countryCode },
+        ip: '127.0.0.1',
+      });
+
+      assert.equal(profile.countryCode, countryCode);
+      assert.equal(profile.userCurrency, expectedCurrency);
+      assert.equal(profile.detectionSource, 'request-header');
+    }
+  } finally {
+    restore();
+  }
+});

@@ -5111,13 +5111,16 @@ const adminController = {
     if (!name) {
       return res.status(400).json({ ok: false, error: 'Region name is required.' });
     }
+    const client = await db.connect();
     try {
+      await client.query('BEGIN');
+
       const sortOrder = Number(req.body.sort_order) || 0;
       let isDefault = req.body.is_default === true || req.body.is_default === 'true';
       let termMonths = parseInt(req.body.term_months, 10);
       if (!Number.isInteger(termMonths) || termMonths < 1) {
         try {
-          const termMonthsResult = await db.query(
+          const termMonthsResult = await client.query(
             "SELECT value FROM app_settings WHERE key = 'dynamic_term_months' LIMIT 1"
           );
           const parsed = parseInt(termMonthsResult.rows?.[0]?.value, 10);
@@ -5127,41 +5130,51 @@ const adminController = {
         }
       }
       if (!isDefault) {
-        const existingDefaultRes = await db.query(
-          'SELECT id FROM pricing_regions WHERE is_default = TRUE LIMIT 1'
+        const existingDefaultRes = await client.query(
+          'SELECT id FROM pricing_regions WHERE is_default = TRUE AND is_active = TRUE LIMIT 1'
         );
         if (!existingDefaultRes.rows[0]) {
           isDefault = true;
         }
       }
 
-      const result = await db.query(
+      // Ensure this request can safely become the single default region.
+      if (isDefault) {
+        await client.query(
+          'UPDATE pricing_regions SET is_default = FALSE, updated_at = NOW() WHERE is_default = TRUE'
+        );
+      }
+
+      const result = await client.query(
         `INSERT INTO pricing_regions (name, sort_order, is_default, is_active)
          VALUES ($1, $2, $3, TRUE) RETURNING *`,
         [name, sortOrder, isDefault]
       );
       const createdRegion = result.rows[0];
 
-      if (isDefault) {
-        await db.query(
-          'UPDATE pricing_regions SET is_default = FALSE, updated_at = NOW() WHERE id <> $1',
-          [createdRegion.id]
-        );
-      }
-
-      await db.query(
+      await client.query(
         `INSERT INTO app_settings(key, value)
          VALUES ($1, $2)
          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
         [`dynamic_region_term_months_${createdRegion.id}`, String(termMonths)]
       );
+
+      await client.query('COMMIT');
       return res.json({ ok: true, region: { ...createdRegion, term_months: termMonths } });
     } catch (error) {
+      await client.query('ROLLBACK');
       if (error.code === '23505') {
-        return res.status(409).json({ ok: false, error: 'A region with that name already exists.' });
+        if (error.constraint === 'pricing_regions_name_key') {
+          return res.status(409).json({ ok: false, error: 'A region with that name already exists.' });
+        }
+        if (error.constraint === 'pricing_regions_single_default') {
+          return res.status(409).json({ ok: false, error: 'Only one default fallback region can exist. Try saving again.' });
+        }
       }
       console.error('createRegion error:', error.message);
       return res.status(500).json({ ok: false, error: 'Failed to create region.' });
+    } finally {
+      client.release();
     }
   },
 
@@ -5213,8 +5226,14 @@ const adminController = {
       const values = [];
       let idx = 1;
       if (req.body.name !== undefined) {
+        const nextName = String(req.body.name).trim();
+        if (!nextName) {
+          const err = new Error('Region name is required.');
+          err.statusCode = 400;
+          throw err;
+        }
         fields.push(`name = $${idx++}`);
-        values.push(String(req.body.name).trim());
+        values.push(nextName);
       }
       if (req.body.sort_order !== undefined) {
         fields.push(`sort_order = $${idx++}`);
@@ -5273,9 +5292,19 @@ const adminController = {
 
       // Atomically re-assign the chosen set of countries to this region.
       if (Array.isArray(req.body.countryCodes)) {
-        const codes = req.body.countryCodes
+        const normalizedCodes = req.body.countryCodes
           .map((c) => String(c || '').trim().toUpperCase())
-          .filter((c) => c.length === 2);
+          .filter((c) => /^[A-Z]{2}$/.test(c));
+        const invalidCodes = Array.from(
+          new Set(normalizedCodes.filter((code) => !COUNTRY_NAME_LOOKUP[code]))
+        );
+        if (invalidCodes.length) {
+          const err = new Error(`Unsupported country code(s): ${invalidCodes.join(', ')}`);
+          err.statusCode = 400;
+          throw err;
+        }
+
+        const codes = Array.from(new Set(normalizedCodes));
 
         // Remove any of these codes from other regions first (a country lives in one region only).
         if (codes.length) {
@@ -5367,6 +5396,21 @@ const adminController = {
       try {
         await client.query('BEGIN');
 
+        const [planCheck, regionCheck] = await Promise.all([
+          client.query('SELECT id FROM plans WHERE id = $1 LIMIT 1', [planId]),
+          client.query('SELECT id FROM pricing_regions WHERE id = $1 LIMIT 1', [regionId]),
+        ]);
+        if (!planCheck.rows[0]) {
+          const err = new Error('Plan not found.');
+          err.statusCode = 404;
+          throw err;
+        }
+        if (!regionCheck.rows[0]) {
+          const err = new Error('Region not found.');
+          err.statusCode = 404;
+          throw err;
+        }
+
         const previousResult = await client.query(
           `SELECT base_price_usd, free_student_threshold, per_student_rate_usd
            FROM plan_region_prices
@@ -5424,6 +5468,9 @@ const adminController = {
         client.release();
       }
     } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ ok: false, error: error.message || 'Failed to save price.' });
+      }
       console.error('upsertPlanRegionPrice error:', error.message);
       return res.status(500).json({ ok: false, error: 'Failed to save price.' });
     }

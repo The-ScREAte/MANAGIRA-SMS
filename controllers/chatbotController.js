@@ -1,7 +1,10 @@
 ﻿// Chatbot controller â€” searches the public FAQ and documentation articles,
 // then returns links so users read the full answer on the source page.
 const managiraFAQ = require('../utils/managiraFAQ');
-const { searchDocumentationArticles } = require('../utils/documentationCenter');
+const {
+  listDocumentationArticles,
+  searchDocumentationArticles,
+} = require('../utils/documentationCenter');
 
 const _normalize = (s) => s.toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
 
@@ -105,28 +108,26 @@ class ChatbotController {
   }
 
   // Return popular FAQ links for the welcome screen
-  static getPopularQuestions(req, res) {
+  static async getPopularQuestions(req, res) {
     try {
-      const popularIds = [3, 30, 39];
-      const popular = popularIds
-        .map((id) => managiraFAQ.find((f) => f.id === id))
-        .filter(Boolean)
-        .map((f) => ({
-          question: f.question,
-          url: '/legal/faq?q=' + encodeURIComponent(f.question),
+      const docs = await listDocumentationArticles({ includeDrafts: false });
+      const topDocs = docs
+        .filter((article) => article && article.slug && article.title)
+        .sort((left, right) => {
+          const leftFeatured = left.featured ? 1 : 0;
+          const rightFeatured = right.featured ? 1 : 0;
+          if (leftFeatured !== rightFeatured) return rightFeatured - leftFeatured;
+          const leftUpdated = new Date(left.updatedAt || 0).getTime();
+          const rightUpdated = new Date(right.updatedAt || 0).getTime();
+          return rightUpdated - leftUpdated;
+        })
+        .slice(0, 3)
+        .map((article) => ({
+          question: article.title,
+          url: '/legal/user-documentation/' + article.slug,
         }));
-      const docFirst = [
-        {
-          question: 'Open full setup and onboarding guides',
-          url: '/legal/user-documentation/register-a-school-and-complete-first-time-setup',
-        },
-        {
-          question: 'See all user documentation articles',
-          url: '/legal/user-documentation',
-        },
-      ];
 
-      return res.json({ success: true, questions: docFirst.concat(popular) });
+      return res.json({ success: true, questions: topDocs });
     } catch (error) {
       return res.json({ success: false, message: 'Unable to load popular questions' });
     }
