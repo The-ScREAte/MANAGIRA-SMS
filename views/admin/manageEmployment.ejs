@@ -2161,27 +2161,39 @@
     modeSelect.addEventListener('change', syncApplicationMode);
     syncApplicationMode();
 
-    const jobPanels = Array.from(document.querySelectorAll('.admin-job'));
-    jobPanels.forEach((panel) => {
-      const hint = panel.querySelector('.expand-hint');
-      const setHint = () => {
-        if (hint) {
-          hint.textContent = panel.open ? 'Click to collapse' : 'Click to expand';
-        }
-      };
+    const employmentContainer = document.querySelector('.employment-container');
+    const topLevelJobPanels = employmentContainer
+      ? Array.from(employmentContainer.querySelectorAll(':scope > details.admin-job'))
+      : [];
+    const nestedJobPanels = Array.from(document.querySelectorAll('.job-wrapper > details.admin-job'));
 
-      setHint();
-      panel.addEventListener('toggle', () => {
-        if (panel.open) {
-          jobPanels.forEach((otherPanel) => {
-            if (otherPanel !== panel && otherPanel.open) {
-              otherPanel.open = false;
-            }
-          });
-        }
+    function bindPanelGroup(panels, keepSingleOpen) {
+      panels.forEach((panel) => {
+        const hint = panel.querySelector('.expand-hint');
+        const setHint = () => {
+          if (hint) {
+            hint.textContent = panel.open ? 'Click to collapse' : 'Click to expand';
+          }
+        };
+
         setHint();
+        panel.addEventListener('toggle', () => {
+          if (keepSingleOpen && panel.open) {
+            panels.forEach((otherPanel) => {
+              if (otherPanel !== panel && otherPanel.open) {
+                otherPanel.open = false;
+              }
+            });
+          }
+          setHint();
+        });
       });
-    });
+    }
+
+    // Keep only one top-level admin card open at a time.
+    bindPanelGroup(topLevelJobPanels, true);
+    // Keep only one job posting open inside the Existing Job Postings card.
+    bindPanelGroup(nestedJobPanels, true);
 
     const editForms = Array.from(document.querySelectorAll('.job-body'));
     editForms.forEach((container) => {
