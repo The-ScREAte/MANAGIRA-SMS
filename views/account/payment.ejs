@@ -64,8 +64,9 @@
       .side-card-title {
         margin: 0 0 10px;
         color: var(--text-primary);
-        font-size: 1rem;
+        font-size: 0.92rem;
         font-weight: 700;
+        line-height: 1.2;
       }
 
       .stripe-card-shell {
@@ -158,14 +159,14 @@
         align-items: center;
         justify-content: center;
         white-space: nowrap;
-        padding: 7px 12px;
+        padding: 4px 8px;
         border-radius: 999px;
         border: 1px solid #cfe3e7;
         background: #ecf8f8;
         color: #0f5e66;
-        font-size: 0.76rem;
+        font-size: 0.62rem;
         font-weight: 800;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.03em;
         text-transform: uppercase;
       }
 
@@ -335,6 +336,19 @@
         line-height: 1.5;
       }
 
+      #subtotal-row,
+      #amount-due-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 8px;
+      }
+
+      #subtotal-row strong,
+      #amount-due-row strong {
+        flex: 0 0 auto;
+      }
+
       .summary-subtext {
         margin: 0;
         font-size: 0.88rem;
@@ -402,16 +416,31 @@
 
       .promo-inline {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 10px;
+        grid-template-columns: minmax(0, 1fr) 40px;
+        gap: 8px;
         align-items: center;
       }
 
-      .promo-inline .btn-primary {
-        width: auto;
-        min-width: 120px;
+      .promo-apply-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        min-width: 40px;
+        height: 36px;
         margin-top: 0;
-        padding-inline: 20px;
+        padding: 0;
+        border-radius: 9px;
+      }
+
+      .promo-apply-label {
+        display: none;
+      }
+
+      .promo-apply-icon {
+        display: inline-block;
+        font-size: 0.95rem;
+        line-height: 1;
       }
 
       .promo-inline #promoCode {
@@ -432,7 +461,7 @@
         border-radius: 10px;
         padding: 11px 12px;
         color: var(--text-primary);
-        font-size: 0.95rem;
+        font-size: 0.86rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -443,7 +472,7 @@
       }
 
       .promo-toggle-icon {
-        font-size: 0.9rem;
+        font-size: 0.76rem;
         color: #64748b;
         transition: transform 0.2s ease;
       }
@@ -588,7 +617,7 @@
         border-radius: 10px;
         padding: 11px 12px;
         color: var(--text-primary);
-        font-size: 0.95rem;
+        font-size: 0.84rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -611,17 +640,41 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         min-width: 0;
-        white-space: nowrap;
+        white-space: normal;
+        font-size: 0.8rem;
+        line-height: 1.2;
       }
 
       .trial-date-current {
-        font-size: 0.83rem;
+        font-size: 0.74rem;
         color: #0f5132;
         font-weight: 700;
         line-height: 1.35;
-        white-space: nowrap;
+        white-space: normal;
+      }
+
+      @media (max-width: 768px) {
+        .side-card-title {
+          font-size: 0.74rem;
+        }
+
+        .promo-toggle-btn,
+        .trial-date-toggle-btn,
+        .trial-date-toggle-label {
+          font-size: 0.7rem;
+          line-height: 1.15;
+        }
+
+        .trial-date-current {
+          font-size: 0.64rem;
+          line-height: 1.15;
+        }
+
+        .promo-toggle-icon {
+          font-size: 0.62rem;
+        }
       }
 
       .trial-date-toggle-btn[aria-expanded="true"] .promo-toggle-icon {
@@ -653,6 +706,17 @@
       }
 
       @media (max-width: 640px) {
+        .payment-side-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 6px;
+        }
+
+        .payment-side-grid .card-block {
+          margin-bottom: 8px;
+          padding: 10px;
+          border-radius: 10px;
+        }
+
         .payment-container {
           margin: 14px auto 24px;
           padding: 12px;
@@ -660,15 +724,58 @@
         }
 
         .payment-header h1 {
-          font-size: 1.55rem;
+          font-size: 1.22rem;
         }
 
         h2 {
-          font-size: 1.32rem;
+          font-size: 1.03rem;
+        }
+
+        .side-card-title,
+        .section-title,
+        .card-entry-title,
+        .express-shell-title {
+          font-size: 0.72rem;
         }
 
         .summary-row {
-          font-size: 0.96rem;
+          font-size: 0.8rem;
+          line-height: 1.35;
+        }
+
+        #subtotal-row,
+        #amount-due-row {
+          font-size: 0.78rem;
+          line-height: 1.35;
+        }
+
+        #subtotal-row strong,
+        #amount-due-row strong {
+          min-width: 86px;
+        }
+
+        .payment-method-note,
+        .card-entry-subtitle,
+        .express-shell-copy,
+        .gateway-flow-note,
+        .stripe-help-note {
+          font-size: 0.74rem;
+          line-height: 1.35;
+        }
+
+        .payment-method-badge,
+        .card-entry-badge,
+        .wallet-divider,
+        .promo-toggle-btn,
+        .trial-date-label,
+        .trial-date-hint,
+        .trial-date-toggle-label,
+        .trial-date-current,
+        .gateway-smart-note,
+        .stripe-card-error,
+        #payment-message {
+          font-size: 0.66rem;
+          line-height: 1.3;
         }
 
         .payment-method-head,
@@ -678,20 +785,56 @@
         }
 
         .trial-date-toggle-btn {
-          gap: 10px;
+          gap: 6px;
+          padding: 8px 9px;
+        }
+
+        .promo-toggle-btn {
+          padding: 8px 9px;
+        }
+
+        #promo-section,
+        #trial-date-section {
+          margin-top: 6px;
+        }
+
+        .trial-date-label {
+          margin-bottom: 4px;
+        }
+
+        .trial-date-hint {
+          margin: 0 0 6px;
         }
 
         .promo-inline {
-          grid-template-columns: minmax(0, 1fr) 120px;
+          grid-template-columns: minmax(0, 1fr) 40px;
+          gap: 6px;
         }
 
         .btn-primary {
-          font-size: 0.98rem;
+          font-size: 0.78rem;
+          padding: 10px 12px;
+        }
+
+        #promoCode,
+        .trial-date-input {
+          font-size: 0.76rem;
+          padding: 9px 10px;
         }
 
         .redirect-overlay-content {
           max-width: 90vw;
           padding: 18px;
+        }
+
+        .redirect-overlay-title {
+          font-size: 0.86rem;
+        }
+
+        .redirect-overlay-subtitle,
+        .redirect-overlay-status,
+        .redirect-overlay-status-secondary {
+          font-size: 0.72rem;
         }
       }
 
@@ -703,31 +846,45 @@
           border-radius: 12px;
         }
 
-        .promo-inline {
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 8px;
+        .payment-side-grid .card-block {
+          padding: 8px;
+          border-radius: 9px;
+          margin-bottom: 6px;
         }
 
-        .promo-inline .btn-primary {
-          width: auto;
-          min-width: 92px;
-          padding-inline: 16px;
-          font-size: 0.94rem;
-          white-space: nowrap;
+        .promo-inline {
+          grid-template-columns: minmax(0, 1fr) 38px;
+          gap: 6px;
+          align-items: center;
+        }
+
+        .promo-inline .promo-apply-btn {
+          width: 38px;
+          min-width: 38px;
+          height: 32px;
+          padding: 0;
+          border-radius: 8px;
+          line-height: 1;
         }
 
         .promo-inline #promoCode {
           min-width: 0;
-          font-size: 0.95rem;
-          padding: 11px 10px;
+          font-size: 0.72rem;
+          padding: 7px 9px;
+          height: 34px;
+        }
+
+        .promo-inline .promo-apply-icon {
+          display: inline-block;
+          font-size: 0.88rem;
         }
 
         .trial-date-toggle-btn {
-          padding: 10px 11px;
+          padding: 7px 8px;
         }
 
         .trial-date-current {
-          font-size: 0.8rem;
+          font-size: 0.68rem;
         }
 
         .redirect-overlay-spinner {
@@ -736,11 +893,40 @@
         }
 
         .redirect-overlay-title {
-          font-size: 1rem;
+          font-size: 0.78rem;
         }
 
         .redirect-overlay-subtitle {
-          font-size: 0.88rem;
+          font-size: 0.68rem;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .payment-header h1 {
+          font-size: 1.08rem;
+        }
+
+        h2 {
+          font-size: 0.94rem;
+        }
+
+        .summary-row,
+        #subtotal-row,
+        #amount-due-row {
+          font-size: 0.72rem;
+        }
+
+        .payment-method-note,
+        .card-entry-subtitle,
+        .express-shell-copy,
+        .gateway-flow-note,
+        .stripe-help-note {
+          font-size: 0.68rem;
+        }
+
+        .btn-primary {
+          font-size: 0.7rem;
+          padding: 9px 10px;
         }
       }
   </style>
@@ -774,8 +960,8 @@
           <p class="summary-row"><strong>Email:</strong> <%= registrationDetails.email || 'N/A' %></p>
           <p class="summary-row"><strong>Plan:</strong> <%= planNameDisplay %></p>
           <% if (!isTrialCheckout) { %>
-            <p class="summary-row" id="subtotal-row"><strong>Plan Subtotal:</strong> <span id="subtotal-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="subtotal-amount"><%= stripePaymentDetails ? Number(stripePaymentDetails.subtotalAmount || 0).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
-            <p class="summary-row" id="amount-due-row"><strong>Total Due:</strong> <span id="amount-due-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="amount-due"><%= stripePaymentDetails ? (stripePaymentDetails.amount / 100).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
+            <p class="summary-row" id="subtotal-row"><strong>Subtotal:</strong> <span id="subtotal-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="subtotal-amount"><%= stripePaymentDetails ? Number(stripePaymentDetails.subtotalAmount || 0).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
+            <p class="summary-row" id="amount-due-row"><strong>Due Now:</strong> <span id="amount-due-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="amount-due"><%= stripePaymentDetails ? (stripePaymentDetails.amount / 100).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
           <% } %>
           <% if (isTrialCheckout && freeTrialLengthLabel) { %>
             <p class="summary-row"><strong>Renewal Price:</strong> <span class="price-old-inline"><%= postTrialPriceDisplay || ("USD 0.00") %></span><span class="price-free-inline">FREE for <%= freeTrialLengthLabel %></span></p>
@@ -787,7 +973,6 @@
 
       <div class="<%= isTrialCheckout ? 'payment-side-grid' : 'payment-single-column' %>">
       <div class="card-block">
-        <h3 class="side-card-title">Promo Code</h3>
         <button type="button" id="promo-toggle" class="promo-toggle-btn" aria-expanded="false" aria-controls="promo-section">
           <span>Have a promo code?</span>
           <span class="promo-toggle-icon">▾</span>
@@ -795,7 +980,10 @@
         <div id="promo-section" hidden>
           <div class="promo-inline">
             <input type="text" id="promoCode" name="promoCode" placeholder="Enter promo code" />
-            <button type="button" id="applyPromoCode" class="btn-primary">Apply</button>
+            <button type="button" id="applyPromoCode" class="btn-primary promo-apply-btn" aria-label="Apply promo code">
+              <span class="promo-apply-label">Apply</span>
+              <span class="promo-apply-icon" aria-hidden="true">✓</span>
+            </button>
           </div>
           <p id="promo-message" style="color: green; display: none">Promo code applied successfully!</p>
           <p id="promo-error" style="color: red; display: none"></p>
@@ -804,7 +992,6 @@
 
       <% if (isTrialCheckout) { %>
         <div class="card-block">
-          <h3 class="side-card-title">Trial Start Date</h3>
           <button type="button" id="trial-date-toggle" class="trial-date-toggle-btn" aria-expanded="false" aria-controls="trial-date-section">
             <span class="trial-date-toggle-left">
               <span id="trial-date-current" class="trial-date-toggle-label"></span>
@@ -812,7 +999,7 @@
             <span class="promo-toggle-icon">▾</span>
           </button>
           <div id="trial-date-section" hidden>
-            <label for="trialStartDate" class="trial-date-label">When does your semester start?</label>
+            <label for="trialStartDate" class="trial-date-label">Your semester start date.</label>
             <input
               type="date"
               id="trialStartDate"
@@ -832,7 +1019,7 @@
         <div class="payment-method-head">
           <div class="payment-method-copy">
             <h3 class="section-title">Payment Method</h3>
-            <p class="payment-method-note">Pay securely with Stripe using your card, or a supported wallet when it is available on your device and browser.</p>
+            <p class="payment-method-note">Pay with Stripe card checkout, or Apple/Google Pay when your device supports it.</p>
           </div>
           <span class="payment-method-badge">Stripe Secure</span>
         </div>
@@ -847,23 +1034,21 @@
             </div>
           </div>
           <% } %>
-          <div class="card-entry-shell">
-            <div class="card-entry-head">
-              <div>
-                <p class="card-entry-title">Card details</p>
-                <p class="card-entry-subtitle">Your card will be encrypted and saved for future billing on this plan.</p>
-              </div>
-              <span class="card-entry-badge">Visa / MasterCard</span>
+          <div class="card-entry-head">
+            <div>
+              <p class="card-entry-title">Card details</p>
+              <p class="card-entry-subtitle">Your card is encrypted and used for your recurring billing.</p>
             </div>
-            <div id="stripe-card-element"></div>
-            <div class="express-shell" id="express-shell">
-              <div class="express-shell-header">
-                <p class="express-shell-title">Express Checkout</p>
-                <p class="express-shell-copy">Show Apple Pay or Google Pay when your browser, device, and Stripe domain setup support them.</p>
-              </div>
-              <div class="wallet-divider">Or use a supported wallet</div>
-              <div id="express-checkout-element"></div>
+            <span class="card-entry-badge">Visa / MasterCard</span>
+          </div>
+          <div id="stripe-card-element"></div>
+          <div class="express-shell" id="express-shell">
+            <div class="express-shell-header">
+              <p class="express-shell-title">Express Checkout</p>
+              <p class="express-shell-copy">Apple Pay or Google Pay appears when supported by your device and browser.</p>
             </div>
+            <div class="wallet-divider">Or use a supported wallet</div>
+            <div id="express-checkout-element"></div>
           </div>
           <p id="stripe-card-error" class="stripe-card-error"></p>
           <% if (stripeMode === 'test') { %>
@@ -1263,7 +1448,7 @@
       function updateTrialDateCurrentLabel() {
         if (!trialDateCurrentEl || !trialStartDateInput) return;
         const prettyDate = formatTrialDateLabel(trialStartDateInput.value);
-        trialDateCurrentEl.textContent = prettyDate ? `Change : (Now: ${prettyDate})` : "Change";
+        trialDateCurrentEl.textContent = prettyDate ? `Free trial start: ${prettyDate}` : "Free trial start";
       }
 
       function setTrialDateExpanded(expanded) {
