@@ -26,6 +26,11 @@ const isAuthenticated = async (req, res, next) => {
 
         await hydrateOrganizationSession(req);
 
+        if (req.session && req.session.userRole === 'Student') {
+            safeFlash(req, 'error', 'You do not have permission to access that page.');
+            return res.redirect('/student/dashboard');
+        }
+
         // Debug log removed for production
         // Allow super admin org switch session
         if (req.session.superAdminOrgSwitch && req.session.userId && req.session.organizationId) {
@@ -150,6 +155,10 @@ const blockGuardians = (req, res, next) => {
         if (req.session.userRole === 'Guardian') {
             req.flash('error', 'You do not have permission to access this page.');
             return res.redirect('/guardian/dashboard');
+        }
+        if (req.session.userRole === 'Student') {
+            req.flash('error', 'You do not have permission to access this page.');
+            return res.redirect('/student/dashboard');
         }
         next();
     } catch (err) {

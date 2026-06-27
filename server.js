@@ -693,6 +693,7 @@ const statsRoutes = require("./routes/statsRoutes");
 const promotionRoute = require("./routes/promotionRoute");
 const chatbotRoute = require("./routes/chatbotRoute");
 const guardianRoute = require("./routes/guardianRoute")(db);
+const studentRoute = require("./routes/studentRoute")(db);
 const documentRoute = require("./routes/documentRoute")(db);
 
 // Debug middleware for admin routes in production
@@ -719,6 +720,7 @@ app.use("/stats", statsRoutes);
 app.use("/promotion", promotionRoute);
 app.use("/api/chatbot", chatbotRoute);
 app.use("/guardian", guardianRoute);
+app.use("/student", studentRoute);
 app.use("/documents", documentRoute);
 app.use("/hub", require("./routes/hubRoute")); // Hub routes
 
@@ -748,6 +750,7 @@ app.get("/school-index.json", async (req, res, next) => {
 // Notification bell: count badge for all authenticated pages
 app.use("/common", fetchNotifCount);
 app.use("/guardian", fetchNotifCount);
+app.use("/student", fetchNotifCount);
 app.use("/enrollment", fetchNotifCount);
 app.use("/documents", fetchNotifCount);
 app.use("/hub", fetchNotifCount);

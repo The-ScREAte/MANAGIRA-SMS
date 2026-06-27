@@ -336,12 +336,19 @@ const fs = require("fs");
 const PDFDocument = require("pdfkit");
 
 const axios = require("axios");
+const { google } = require("googleapis");
 
 const he = require("he");
 
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const {
   getCurrencyProfileForRequest,
+  getCurrencyForCountry,
+  getSupportedCurrencyOptions,
+  inferCountryCodeFromLocationParts,
+  normalizeCurrencyCode,
+  getUsdRate,
+  getLocaleForCurrency,
   localizeUsdAmount,
   formatCurrencyAmount,
 } = require("../utils/currencyLocalization");
@@ -400,11 +407,13 @@ const {
 } = require("../utils/attendanceCalendar");
 const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
+const { ensureStudentPortalSchema, normalizeStudentEmail } = require("../utils/studentPortal");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
 const cacheManager = require("../utils/cacheManager");
 const { pingSearchEngines, pingSchoolUrl } = require("../utils/sitemapPing");
 const { autoGeocodeOrg } = require("../utils/geocode");
+const { COUNTRIES_BY_CONTINENT, COUNTRY_NAME_LOOKUP } = require("../utils/countries");
 const {
   ensureEmailPreferencesSchema,
   getStaffPreferencesForRole,
@@ -424,6 +433,68 @@ const {
   normalizeDateDisplayFormat,
   applyDisplayPreferencesToSession,
 } = require("../utils/organizationDisplayPreferences");
+const {
+  ensureGoogleIntegrationSchema,
+  getGoogleIntegrationStatus,
+  setGoogleIntegrationActivation,
+  storeGoogleOauthTokens,
+  markGoogleSync,
+  disconnectGoogleIntegration,
+  createOauthState,
+  parseOauthState,
+} = require("../utils/googleClassroomIntegration");
+const {
+  syncGoogleClassroomForOrganization,
+  pushPendingAssessmentsForOrganization,
+} = require("../utils/googleClassroomSync");
+
+const GOOGLE_CLASSROOM_SCOPES = [
+  "https://www.googleapis.com/auth/classroom.courses",
+  "https://www.googleapis.com/auth/classroom.rosters",
+  "https://www.googleapis.com/auth/classroom.coursework.students",
+  "https://www.googleapis.com/auth/classroom.coursework.me",
+  "https://www.googleapis.com/auth/classroom.guardianlinks.students",
+  "https://www.googleapis.com/auth/classroom.profile.emails",
+  "https://www.googleapis.com/auth/classroom.profile.photos",
+];
+
+function buildGoogleOauthClient(req) {
+  const clientId = process.env.GOOGLE_CLIENT_ID || "";
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
+  const configuredRedirectUri = process.env.GOOGLE_REDIRECT_URI || "";
+  const redirectUri = configuredRedirectUri || `${req.protocol}://${req.get("host")}/account/google-classroom/callback`;
+
+  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+}
+
+function hasGoogleOauthConfig() {
+  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
+async function verifySessionPassword(password, req) {
+  const rawPassword = String(password || "");
+  const orgId = req.session.organizationId;
+  if (!rawPassword || !orgId) return false;
+
+  const sessionUserId = req.session.user?.user_id || req.session.userId || null;
+  if (sessionUserId) {
+    const userResult = await db.query(
+      `SELECT password FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+      [sessionUserId, orgId]
+    );
+    if (userResult.rows.length && userResult.rows[0].password) {
+      const matchUser = await bcryptjs.compare(rawPassword, userResult.rows[0].password);
+      if (matchUser) return true;
+    }
+  }
+
+  const orgResult = await db.query(
+    `SELECT password FROM organizations WHERE organization_id = $1 LIMIT 1`,
+    [orgId]
+  );
+  if (!orgResult.rows.length || !orgResult.rows[0].password) return false;
+  return bcryptjs.compare(rawPassword, orgResult.rows[0].password);
+}
 // Invalidate the /admin dashboard organizations cache so newly-registered
 // organizations become visible immediately (mirrors adminController’s behavior
 // on edit/approve actions; registration previously never busted this cache).
@@ -433,6 +504,56 @@ function invalidateAdminOrganizationsCache() {
   } catch (err) {
     console.warn("[accountController] failed to invalidate admin organizations cache:", err && err.message);
   }
+}
+
+function getSettingsCountryOptions() {
+  const rows = Object.values(COUNTRIES_BY_CONTINENT || {}).flat();
+  const uniqueByCode = new Map();
+  rows.forEach((country) => {
+    const code = String(country?.code || "").trim().toUpperCase();
+    const name = String(country?.name || "").trim();
+    if (!/^[A-Z]{2}$/.test(code) || !name) return;
+    if (!uniqueByCode.has(code)) {
+      uniqueByCode.set(code, { code, name });
+    }
+  });
+
+  return Array.from(uniqueByCode.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+let organizationCurrencyColumnReady = false;
+let paystackCountriesCache = {
+  expiresAt: 0,
+  data: [],
+};
+
+async function getCachedPaystackCountries() {
+  const now = Date.now();
+  if (paystackCountriesCache.expiresAt > now && Array.isArray(paystackCountriesCache.data)) {
+    return paystackCountriesCache.data;
+  }
+
+  const countries = await require("../utils/payoutDestination")
+    .fetchPaystackCountries()
+    .catch(() => []);
+
+  paystackCountriesCache = {
+    expiresAt: now + 1000 * 60 * 30,
+    data: Array.isArray(countries) ? countries : [],
+  };
+
+  return paystackCountriesCache.data;
+}
+
+async function ensureOrganizationCurrencySchema(dbClient) {
+  if (organizationCurrencyColumnReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE organizations
+    ADD COLUMN IF NOT EXISTS organization_currency VARCHAR(3)
+  `).catch(() => null);
+
+  organizationCurrencyColumnReady = true;
 }
 
 function extractS3KeyFromUrl(url) {
@@ -501,6 +622,51 @@ async function getActivePaymentProvider() {
   return getPaymentProvider(db);
 }
 
+const STRIPE_PREFERRED_CHARGE_CURRENCIES = new Set([
+  "USD",
+  "EUR",
+  "GBP",
+  "GHS",
+  "NGN",
+  "KES",
+  "ZAR",
+  "CAD",
+  "AUD",
+  "INR",
+]);
+
+function resolveStripeChargeCurrencyForCountry(countryCode, organizationCurrency = null) {
+  const overrideCurrency = normalizeCurrencyCode(organizationCurrency);
+  if (overrideCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(overrideCurrency)) {
+    return overrideCurrency;
+  }
+
+  const countryCurrency = normalizeCurrencyCode(getCurrencyForCountry(countryCode));
+  if (countryCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(countryCurrency)) {
+    return countryCurrency;
+  }
+
+  const envCurrency = normalizeCurrencyCode(getStripeChargeCurrency());
+  if (envCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(envCurrency)) {
+    return envCurrency;
+  }
+
+  return "USD";
+}
+
+async function convertUsdAmountToCurrency(usdAmount, targetCurrency) {
+  const amountUsd = Number(usdAmount || 0);
+  const normalizedTarget = normalizeCurrencyCode(targetCurrency) || "USD";
+
+  if (!(amountUsd > 0)) return 0;
+  if (normalizedTarget === "USD") return amountUsd;
+
+  const rate = Number(await getUsdRate(normalizedTarget));
+  if (!(rate > 0)) return amountUsd;
+
+  return amountUsd * rate;
+}
+
 function computeNextPaymentEndDate({
   trialActiveUntil,
   chargedAmountMinor,
@@ -551,7 +717,7 @@ function computeNextPaymentEndDate({
   return nextDate;
 }
 
-async function buildRegistrationChargeContext(registrationDetails, promoCode, trialStartDate) {
+async function buildRegistrationChargeContext(registrationDetails, promoCode, trialStartDate, options = {}) {
   let discountAmount = 0;
   let applyDiscountOnce = false;
 
@@ -579,6 +745,19 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
   }
 
   let chargeBreakdown = buildPlatformChargeBreakdown(finalAmount, {
+    platformFeePercentage: 0,
+    bearer: "parent",
+    applyPlatformFee: false,
+  });
+  const chargeCurrency = resolveStripeChargeCurrencyForCountry(
+    registrationDetails?.orgCountry,
+    options.organizationCurrency
+  );
+  const convertedSubtotal = await convertUsdAmountToCurrency(
+    chargeBreakdown.subtotalAmount,
+    chargeCurrency
+  );
+  chargeBreakdown = buildPlatformChargeBreakdown(convertedSubtotal, {
     platformFeePercentage: 0,
     bearer: "parent",
     applyPlatformFee: false,
@@ -659,6 +838,7 @@ async function buildRegistrationChargeContext(registrationDetails, promoCode, tr
     platformFeeAmount: chargeBreakdown.platformFeeAmount,
     taxAmount: chargeBreakdown.taxAmount,
     totalChargedAmount: chargeBreakdown.totalChargedAmount,
+    chargeCurrency,
     billingInterval,
     isTrialCheckout,
     freeTrialDays,
@@ -1547,7 +1727,8 @@ const accountController = {
       );
 
       const url = req.url;
-      const currencyProfile = await getCurrencyProfileForRequest(req);
+      const orgId = Number(req.session?.organizationId || 0) || null;
+      const currencyProfile = await getCurrencyProfileForRequest(req, { organizationId: orgId });
 
       const plansResult = await db.query(`
             SELECT p.id AS plan_id, p.plan_name, p.description, p.is_active, p.plan_name AS category,
@@ -1836,6 +2017,14 @@ const accountController = {
     const preferredPlanId = req.session.planSelection.planId || '';
     const preferredPlanName = req.session.planSelection.plan || '';
     const trialRequested = !!req.session.planSelection.trialRequested;
+    const detectedCountryCode = String(
+      (await getCurrencyProfileForRequest(req).catch(() => null))?.countryCode || ''
+    ).toUpperCase();
+    const registerCountryOptions = getSettingsCountryOptions();
+    const registerDefaultCountry =
+      (formData?.orgCountry && String(formData.orgCountry).trim().toUpperCase()) ||
+      (COUNTRY_NAME_LOOKUP[detectedCountryCode] ? detectedCountryCode : '') ||
+      'GH';
 
     res.render("account/register", {
       title: "Register Your Organization",
@@ -1845,6 +2034,8 @@ const accountController = {
       preferredPlanId,
       preferredPlanName,
       trialRequested,
+      registerCountryOptions,
+      registerDefaultCountry,
     });
   },
 
@@ -1881,6 +2072,7 @@ const accountController = {
       // `orgNickName` is mutated below (raw display text -> derived slug),
       // so destructure with `let` semantics via a separate binding.
       let orgNickName = req.body.orgNickName;
+      const normalizedOrgCountry = String(orgCountry || '').trim().toUpperCase();
 
       const { trialRequested = false, plan, planId, totalCost, billingPeriodKey, billingPeriodLabel, billingPeriodMonths, billingPeriodDiscount, monthlyPrice, selectedTierId, approxStudentCount } = planSelection;
       const currencyProfileSnapshot = sanitizeCurrencyProfileSnapshot(planSelection.currencyProfileSnapshot);
@@ -1941,6 +2133,10 @@ const accountController = {
         !orgPhone
       ) {
         return stickyError("All fields are required.");
+      }
+
+      if (!/^[A-Z]{2}$/.test(normalizedOrgCountry) || !COUNTRY_NAME_LOOKUP[normalizedOrgCountry]) {
+        return stickyError("Please select a valid country from the list.");
       }
 
       // Passwords match check
@@ -2069,6 +2265,8 @@ const accountController = {
 
         orgCountry,
 
+        organizationCurrency: normalizeCurrencyCode(getCurrencyForCountry(normalizedOrgCountry)),
+
         orgProvince,
 
         orgPhone,
@@ -2101,6 +2299,8 @@ const accountController = {
 
         currencyProfileSnapshot,
       };
+
+      req.session.registrationDetails.orgCountry = normalizedOrgCountry;
 
       delete req.session.planSelection;
 
@@ -2293,8 +2493,13 @@ const accountController = {
         localizedPlan.ghsAmount && localizedPlan.ghsAmount > 0
           ? localizedPlan.ghsAmount
           : planPrice;
-      const stripeChargeCurrency = getStripeChargeCurrency().toUpperCase();
-      const stripeChargeBase = isTrialCheckout ? 0 : planPrice;
+      const stripeChargeCurrency = resolveStripeChargeCurrencyForCountry(
+        registrationDetails.orgCountry,
+        registrationDetails.organizationCurrency || null
+      );
+      const stripeChargeBase = isTrialCheckout
+        ? 0
+        : await convertUsdAmountToCurrency(planPrice, stripeChargeCurrency);
       const stripeChargeBreakdown = buildPlatformChargeBreakdown(stripeChargeBase, {
         platformFeePercentage: 0,
         bearer: "parent",
@@ -2378,8 +2583,13 @@ const accountController = {
         currencyProfile.locale
       );
       const ghsChargeDisplay = formatCurrencyAmount(ghsChargeBase, "GHS");
-      const baseRenewalDisplay = localizedPlan.userCurrency && localizedPlan.userCurrency !== "USD"
-        ? `${localizedPriceDisplay} (${usdPriceDisplay}) ${intervalLabel}`
+      const stripePriceDisplay = formatCurrencyAmount(
+        stripeChargeBase,
+        stripeChargeCurrency,
+        getLocaleForCurrency(stripeChargeCurrency)
+      );
+      const baseRenewalDisplay = stripeChargeCurrency !== "USD"
+        ? `${stripePriceDisplay} (${usdPriceDisplay}) ${intervalLabel}`
         : `${usdPriceDisplay} ${intervalLabel}`;
       postTrialPriceDisplay = `${baseRenewalDisplay} (may increase as student count grows)`;
 
@@ -2591,9 +2801,12 @@ const accountController = {
       const paymentContext = await buildRegistrationChargeContext(
         registrationDetails,
         req.body?.promoCode,
-        req.body?.trialStartDate
+        req.body?.trialStartDate,
+        {
+          organizationCurrency: registrationDetails?.organizationCurrency || null,
+        }
       );
-      const stripeChargeCurrency = getStripeChargeCurrency();
+      const stripeChargeCurrency = String(paymentContext.chargeCurrency || "USD").toLowerCase();
       console.log("[Stripe][intent] charge context", {
         amountDue: paymentContext.amountDue,
         finalAmount: paymentContext.finalAmount,
@@ -4826,6 +5039,126 @@ const accountController = {
     }
   },
 
+  studentLoginGet: (req, res) => {
+    const url = req.url;
+
+    return res.render("account/studentLogin", {
+      title: "Student Portal Login",
+      url,
+      showFooterTopSection: true,
+      messages: req.flash(),
+    });
+  },
+
+  studentLoginPost: async (req, res, db) => {
+    const email = normalizeStudentEmail(req.body.email);
+    const { password } = req.body;
+
+    try {
+      await ensureStudentPortalSchema(db);
+
+      const studentAccountResult = await db.query(
+        `SELECT sa.*, s.first_name, s.last_name, s.student_id,
+                o.organization_id, o.organization_name, o.nickname, o.nickname_display,
+                o.logo, o.font_style, o.theme_color, o.deleted, o.on_hold
+         FROM student_accounts sa
+         JOIN students s ON s.student_id = sa.student_id AND s.organization_id = sa.organization_id
+         JOIN organizations o ON o.organization_id = sa.organization_id
+         WHERE LOWER(sa.login_email) = LOWER($1)
+         ORDER BY sa.updated_at DESC
+         LIMIT 1`,
+        [email]
+      );
+
+      if (!studentAccountResult.rows.length) {
+        req.flash("error", "Invalid student email or password.");
+        return res.redirect("/account/student-login");
+      }
+
+      const studentAccount = studentAccountResult.rows[0];
+
+      if (studentAccount.deleted || studentAccount.on_hold) {
+        req.flash("error", "School account is suspended. Please contact support.");
+        return res.redirect("/account/student-login");
+      }
+
+      if (!studentAccount.password_hash) {
+        req.flash(
+          "error",
+          "Your account password has not been set yet. Ask your school to send you a password setup email."
+        );
+        return res.redirect("/account/student-login");
+      }
+
+      const match = await bcrypt.compare(password, studentAccount.password_hash);
+      if (!match) {
+        req.flash("error", "Invalid student email or password.");
+        return res.redirect("/account/student-login");
+      }
+
+      req.session.regenerate((err) => {
+        if (err) {
+          req.flash("error", "Login failed. Please try again.");
+          return res.redirect("/account/student-login");
+        }
+
+        req.session.user = {
+          user_id: studentAccount.student_id,
+          first_name: studentAccount.first_name,
+          last_name: studentAccount.last_name,
+          email,
+          account_type: "Student",
+        };
+
+        req.session.userRole = "Student";
+        req.session.accountType = "Student";
+        req.session.studentId = studentAccount.student_id;
+        req.session.userId = null;
+        req.session.guardianId = null;
+
+        req.session.organizationId = studentAccount.organization_id;
+        req.session.organizationName = studentAccount.organization_name;
+        req.session.orgNickName = studentAccount.nickname;
+        req.session.orgNickNameDisplay = (studentAccount.nickname_display && String(studentAccount.nickname_display).trim()) || studentAccount.nickname;
+        req.session.logo = studentAccount.logo;
+        req.session.fontStyle = studentAccount.font_style;
+        req.session.themeColor = studentAccount.theme_color || 'teal';
+
+        req.session.firstName = studentAccount.first_name;
+        req.session.lastName = studentAccount.last_name;
+
+        logOrganizationActivity({
+          organizationId: studentAccount.organization_id,
+          userId: studentAccount.student_id,
+          userName: `${studentAccount.first_name || ""} ${studentAccount.last_name || ""}`.trim() || email,
+          userRole: "Student",
+          actionType: "Login",
+          moduleName: "Authentication",
+          pagePath: "/account/student-login",
+          recordType: "Session",
+          recordLabel: `${studentAccount.organization_name} student login`,
+          description: `${studentAccount.first_name || "Student"} signed in to the student portal.`,
+          changedFields: [],
+          ipAddress: req.ip,
+        }).catch((error) => {
+          console.error("[ActivityLog] Failed to log student login:", error.message || error);
+        });
+
+        req.session.save(() => {
+          const redirectUrl =
+            process.env.NODE_ENV === "production"
+              ? `https://${req.session.orgNickName}.managira.com/student/dashboard`
+              : "/student/dashboard";
+
+          return res.redirect(redirectUrl);
+        });
+      });
+    } catch (error) {
+      req.flash("error", "Login failed. Please try again.");
+      return res.redirect("/account/student-login");
+    }
+  },
+
   logoutGet: async (req, res) => {
     const organizationId = req.session?.organizationId;
     const userId = req.session?.user?.user_id || req.session?.userId || null;
@@ -5183,34 +5516,59 @@ const accountController = {
       return res.redirect("/account/login");
     }
 
-    const { firstName, lastName, redirectTo } = req.body;
+    const { firstName, lastName, orgAddress, orgCountry, orgProvince, redirectTo } = req.body;
     const orgId = req.session.organizationId;
     const userId = req.session.user.user_id;
     const isOrgAccount = req.session.accountType === "Organization";
+    const normalizedFirstName = String(firstName || '').trim();
+    const normalizedLastName = String(lastName || '').trim();
+    const normalizedAddress = String(orgAddress || '').trim() || null;
+    const normalizedProvince = String(orgProvince || '').trim() || null;
+    const normalizedCountry = String(orgCountry || '').trim().toUpperCase();
 
-    if (!firstName || !lastName) {
+    if (!normalizedFirstName || !normalizedLastName) {
       req.flash("error", "First name and last name are required.");
+      return res.redirect(redirectTo || "/account/settings");
+    }
+
+    if (isOrgAccount && normalizedCountry && !/^[A-Z]{2}$/.test(normalizedCountry)) {
+      req.flash("error", "Organization country must be a valid 2-letter country code.");
       return res.redirect(redirectTo || "/account/settings");
     }
 
     try {
       if (isOrgAccount) {
         await db.query(
-          "UPDATE organizations SET first_name = $1, last_name = $2 WHERE organization_id = $3",
-          [firstName, lastName, orgId]
+          `UPDATE organizations
+              SET first_name = $1,
+                  last_name = $2,
+                  organization_address = $3,
+                  organization_country = $4,
+                  organization_province = $5
+            WHERE organization_id = $6`,
+          [
+            normalizedFirstName,
+            normalizedLastName,
+            normalizedAddress,
+            normalizedCountry || null,
+            normalizedProvince,
+            orgId,
+          ]
         );
+
+        autoGeocodeOrg(db, orgId, normalizedAddress, normalizedProvince, normalizedCountry || null);
       } else {
         await db.query(
           "UPDATE users SET first_name = $1, last_name = $2 WHERE user_id = $3 AND organization_id = $4",
-          [firstName, lastName, userId, orgId]
+          [normalizedFirstName, normalizedLastName, userId, orgId]
         );
       }
 
-      req.session.firstName = firstName;
-      req.session.lastName = lastName;
+      req.session.firstName = normalizedFirstName;
+      req.session.lastName = normalizedLastName;
       if (req.session.user) {
-        req.session.user.first_name = firstName;
-        req.session.user.last_name = lastName;
+        req.session.user.first_name = normalizedFirstName;
+        req.session.user.last_name = normalizedLastName;
       }
       req.session.save();
 
@@ -5571,18 +5929,55 @@ const accountController = {
 
   updateOrgNamePost: async (req, res, db) => {
     try {
-      const { orgName, redirectTo } = req.body;
+      const { orgName, orgAddress, orgCountry, orgProvince, orgCurrency, redirectTo } = req.body;
       const orgId = req.session.organizationId;
+      const normalizedOrgName = String(orgName || '').trim();
+      const normalizedOrgAddress = String(orgAddress || '').trim() || null;
+      const normalizedOrgProvince = String(orgProvince || '').trim() || null;
+      const normalizedOrgCountry = String(orgCountry || '').trim().toUpperCase();
+      const normalizedOrgCurrency = normalizeCurrencyCode(orgCurrency);
 
-      if (!orgName || !orgId) {
+      if (!normalizedOrgName || !orgId) {
         req.flash("error", "Organization name is required.");
         return res.redirect(redirectTo || "/account/personalization");
       }
 
+      if (!normalizedOrgCountry) {
+        req.flash("error", "Organization country is required.");
+        return res.redirect(redirectTo || "/account/personalization");
+      }
+
+      if (!/^[A-Z]{2}$/.test(normalizedOrgCountry) || !COUNTRY_NAME_LOOKUP[normalizedOrgCountry]) {
+        req.flash("error", "Please select a valid country from the list.");
+        return res.redirect(redirectTo || "/account/personalization");
+      }
+
+      if (orgCurrency && String(orgCurrency).trim() && !normalizedOrgCurrency) {
+        req.flash("error", "Please select a valid currency from the list.");
+        return res.redirect(redirectTo || "/account/personalization");
+      }
+
+      await ensureOrganizationCurrencySchema(db);
+
       await db.query(
-        "UPDATE organizations SET organization_name = $1 WHERE organization_id = $2",
-        [orgName, orgId]
+        `UPDATE organizations
+            SET organization_name = $1,
+                organization_address = $2,
+                organization_country = $3,
+                organization_province = $4,
+                organization_currency = $5
+          WHERE organization_id = $6`,
+        [
+          normalizedOrgName,
+          normalizedOrgAddress,
+          normalizedOrgCountry,
+          normalizedOrgProvince,
+          normalizedOrgCurrency || null,
+          orgId,
+        ]
       );
+
+      autoGeocodeOrg(db, orgId, normalizedOrgAddress, normalizedOrgProvince, normalizedOrgCountry);
 
       // Notify Google/Bing of the updated page content via IndexNow
       try {
@@ -5595,8 +5990,8 @@ const accountController = {
         }
       } catch (_) { /* non-critical — ignore */ }
 
-      req.session.organizationName = orgName;
-      req.flash("success", "Organization name updated successfully.");
+      req.session.organizationName = normalizedOrgName;
+      req.flash("success", "Organization name, location, and currency updated successfully.");
       return res.redirect(redirectTo || "/account/personalization");
     } catch (err) {
             req.flash("error", "Failed to update organization name.");
@@ -6815,9 +7210,14 @@ const accountController = {
 
   settingsGet: async (req, res, db) => {
     try {
-      await ensureProfileImageColumns(db);
-      await ensureAttendanceCalendarSchema(db);
-      await ensureOrganizationDisplayPreferencesSchema(db);
+      await Promise.all([
+        ensureProfileImageColumns(db),
+        ensureAttendanceCalendarSchema(db),
+        ensureOrganizationDisplayPreferencesSchema(db),
+        ensureOrganizationCurrencySchema(db),
+      ]);
+
+      const activeSettingsSection = String(req.query.section || "").trim().toLowerCase();
 
       const sessionUserId = req.session.user?.user_id || req.session.userId;
       const userId = req.query.userId || sessionUserId;
@@ -6839,7 +7239,7 @@ const accountController = {
 
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, is_hub_member, hub_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, platform_fee_bearer, name_display_format, date_display_format
+            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, organization_address, organization_country, organization_province, organization_currency, is_hub_member, hub_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, platform_fee_bearer, name_display_format, date_display_format
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
@@ -6877,7 +7277,32 @@ const accountController = {
           }
         : null;
 
-      const currencyProfile = await getCurrencyProfileForRequest(req);
+      let currencyProfile = null;
+      try {
+        const cachedCurrency = req.session?.settingsCurrencyProfile || null;
+        const cacheAgeMs = cachedCurrency && Number(cachedCurrency.cachedAt || 0)
+          ? Date.now() - Number(cachedCurrency.cachedAt || 0)
+          : Number.POSITIVE_INFINITY;
+
+        if (
+          cachedCurrency &&
+          cacheAgeMs >= 0 &&
+          cacheAgeMs < 1000 * 60 * 15 &&
+          cachedCurrency.profile
+        ) {
+          currencyProfile = cachedCurrency.profile;
+        } else {
+          currencyProfile = await getCurrencyProfileForRequest(req);
+          if (req.session) {
+            req.session.settingsCurrencyProfile = {
+              cachedAt: Date.now(),
+              profile: currencyProfile,
+            };
+          }
+        }
+      } catch (_) {
+        currencyProfile = await getCurrencyProfileForRequest(req);
+      }
 
       const plansResult = orgId
         ? await db.query(`
@@ -7193,7 +7618,8 @@ const accountController = {
         attendanceCalendarProfile = await getAttendanceCalendarProfile(db, orgId, null);
 
         if (attendanceCalendarProfile) {
-          if (attendanceCalendarProfile.include_public_holidays) {
+          const shouldRefreshHolidays = activeSettingsSection === "attendance";
+          if (shouldRefreshHolidays && attendanceCalendarProfile.include_public_holidays) {
             const now = new Date();
             const holidayStartDate = `${now.getUTCFullYear()}-01-01`;
             const holidayEndDate = `${now.getUTCFullYear() + 2}-12-31`;
@@ -7237,6 +7663,19 @@ const accountController = {
       }
 
       const holidayCountries = getHolidayCountryOptions();
+      const settingsCountryOptions = getSettingsCountryOptions();
+      const settingsCurrencyOptions = getSupportedCurrencyOptions();
+      const currencyNameByCode = new Map(
+        (settingsCurrencyOptions || []).map((option) => [String(option.code || '').toUpperCase(), option.name])
+      );
+      const settingsCountryOptionsWithCurrency = (settingsCountryOptions || []).map((country) => {
+        const currencyCode = getCurrencyForCountry(country.code);
+        return {
+          ...country,
+          currencyCode: currencyCode || null,
+          currencyName: currencyCode ? (currencyNameByCode.get(currencyCode) || currencyCode) : null,
+        };
+      });
 
       // Fetch latest payment + billing period info for the current plan card
       let billingInfo = null;
@@ -7295,22 +7734,36 @@ const accountController = {
       let canAccessCustomizeSettings = false;
       let canAccessBillingSettings = false;
       let canAccessPaygiraSettings = false;
+      let googleIntegration = {
+        activated: false,
+        configured: false,
+        connected: false,
+        shouldShowFeatures: false,
+      };
 
       if (!isTeacherSettingsUser) {
-        canAccessCustomizeSettings = await userHasPermission(
-          db,
-          permissionContext,
-          PERMISSIONS.MANAGE_SETTINGS
-        );
-        canAccessBillingSettings = await userHasPermission(
-          db,
-          permissionContext,
-          PERMISSIONS.MANAGE_BILLING
-        );
-        canAccessPaygiraSettings =
-          canAccessBillingSettings ||
-          (await userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_PAYGIRA));
+        const [settingsPermission, billingPermission, paygiraPermission] = await Promise.all([
+          userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_SETTINGS),
+          userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_BILLING),
+          userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_PAYGIRA),
+        ]);
+
+        canAccessCustomizeSettings = settingsPermission;
+        canAccessBillingSettings = billingPermission;
+        canAccessPaygiraSettings = billingPermission || paygiraPermission;
+
+        if (canAccessCustomizeSettings && orgId) {
+          googleIntegration = await getGoogleIntegrationStatus(db, orgId);
+        }
       }
+
+      const payoutDestinationUtils = require("../utils/payoutDestination");
+      const [payoutContext, paystackCountries] = await Promise.all([
+        payoutDestinationUtils
+          .resolveSchoolPayoutDestination(orgId, db, { fresh: true })
+          .catch(() => null),
+        getCachedPaystackCountries(),
+      ]);
 
       res.render("account/settings", {
         title: "Settings",
@@ -7341,24 +7794,24 @@ const accountController = {
         attendanceCalendarDays,
         weekdayOptions: WEEKDAY_OPTIONS,
         holidayCountries,
+        settingsCountryOptions,
+        settingsCountryOptionsWithCurrency,
+        settingsCurrencyOptions,
         publicDashboardTheme,
         notificationPrefs,
         savedNotificationPrefs,
         canAccessCustomizeSettings,
         canAccessBillingSettings,
         canAccessPaygiraSettings,
+        googleIntegration,
         feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
         feedbackAreaOptions: FEEDBACK_AREA_OPTIONS,
         feedbackPriorityOptions: FEEDBACK_PRIORITY_OPTIONS,
         studentIdSettings,
         nextAvailableStudentIdNumber,
-        payoutContext: await require("../utils/payoutDestination")
-          .resolveSchoolPayoutDestination(orgId, db, { fresh: true })
-          .catch(() => null),
+        payoutContext,
         platformFeePercentage: Number(platformFeeSettings.percentage || 0),
-        paystackCountries: await require("../utils/payoutDestination")
-          .fetchPaystackCountries()
-          .catch(() => []),
+        paystackCountries,
         messages: req.flash(),
       });
     } catch (error) {
@@ -8809,10 +9262,21 @@ const accountController = {
       const isPrimary = Number(existingCount) === 0;
 
       // Get org details for dynamic currency
-      const orgRow = (await db.query(`SELECT organization_country, organization_name FROM organizations WHERE organization_id=$1`, [orgId])).rows[0] || {};
-      const countryToCurrency = { GH: 'GHS', NG: 'NGN', KE: 'KES', ZA: 'ZAR', CI: 'XOF', EG: 'EGP', TZ: 'TZS', UG: 'UGX', RW: 'RWF' };
-      const orgCountryCode = String(orgRow.organization_country || 'GH').toUpperCase().slice(0, 2);
-      const currency = countryToCurrency[orgCountryCode] || 'GHS';
+      const orgRow = (await db.query(
+        `SELECT organization_country, organization_name, organization_address, organization_province
+           FROM organizations
+          WHERE organization_id=$1`,
+        [orgId]
+      )).rows[0] || {};
+      const explicitCountryCode = String(orgRow.organization_country || '').trim().toUpperCase();
+      const inferredCountryCode = inferCountryCodeFromLocationParts(
+        orgRow.organization_address,
+        orgRow.organization_province
+      );
+      const orgCountryCode = /^[A-Z]{2}$/.test(explicitCountryCode)
+        ? explicitCountryCode
+        : (inferredCountryCode || 'GH');
+      const currency = getCurrencyForCountry(orgCountryCode) || 'USD';
 
       // Try to get Paystack secret key — if unavailable, save locally
       const secretKey = await getActivePaystackSecretKey().catch(() => null);
@@ -9438,6 +9902,230 @@ const accountController = {
     if (!orgId) return res.redirect('/account/login');
     // Just restart onboarding — creates a fresh Account Link
     return res.redirect('/account/stripe-connect/onboard');
+  },
+
+  googleClassroomActivationPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    try {
+      await ensureGoogleIntegrationSchema(db);
+      const shouldActivate = String(req.body.activate || "").trim() === "1";
+
+      const integrationPassword = String(
+        req.body.integrationPassword || req.body.deactivationPassword || ""
+      );
+      if (!integrationPassword.trim()) {
+        req.flash(
+          "error",
+          shouldActivate
+            ? "Enter your password to activate Google Classroom integration."
+            : "Enter your password to deactivate Google Classroom integration."
+        );
+        return res.redirect("/account/settings?section=integrations");
+      }
+
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      if (!isPasswordValid) {
+        req.flash(
+          "error",
+          shouldActivate
+            ? "Incorrect password. Google Classroom integration was not activated."
+            : "Incorrect password. Google Classroom integration was not deactivated."
+        );
+        return res.redirect("/account/settings?section=integrations");
+      }
+
+      await setGoogleIntegrationActivation(db, orgId, shouldActivate);
+
+      if (shouldActivate) {
+        req.flash("success", "Google Classroom integration is now activated. Connect your Google account to finish setup.");
+      } else {
+        const actorId = req.session.user?.user_id || req.session.userId || orgId;
+        const actorName =
+          `${req.session.firstName || req.session.user?.first_name || ""} ${req.session.lastName || req.session.user?.last_name || ""}`.trim() ||
+          req.session.email ||
+          req.session.user?.email ||
+          "Unknown";
+        const actorRole = req.session.userRole || req.session.accountType || req.session.user?.account_type || "User";
+
+        logOrganizationActivity({
+          organizationId: orgId,
+          userId: actorId,
+          userName: actorName,
+          userRole: actorRole,
+          actionType: "Google Classroom Deactivated",
+          moduleName: "Integrations",
+          pagePath: "/account/settings?section=integrations",
+          recordType: "Integration",
+          recordLabel: "Google Classroom",
+          description: `${actorName} deactivated Google Classroom integration after password confirmation.`,
+          changedFields: [{ field: "google_classroom_activated", oldValue: "true", newValue: "false" }],
+          ipAddress: req.ip,
+        }).catch(() => {});
+
+        req.flash("success", "Google Classroom integration has been deactivated.");
+      }
+      return res.redirect("/account/settings?section=integrations");
+    } catch (error) {
+      req.flash("error", "Unable to update Google Classroom activation right now.");
+      return res.redirect("/account/settings?section=integrations");
+    }
+  },
+
+  googleClassroomConnectGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    try {
+      if (!hasGoogleOauthConfig()) {
+        req.flash("error", "Google OAuth is not configured on this server. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
+        return res.redirect("/account/settings?section=integrations");
+      }
+
+      const integrationStatus = await getGoogleIntegrationStatus(db, orgId);
+      if (!integrationStatus.activated) {
+        req.flash("error", "Activate Google Classroom integration before connecting an account.");
+        return res.redirect("/account/settings?section=integrations");
+      }
+
+      const oauthClient = buildGoogleOauthClient(req);
+      const state = createOauthState({
+        organizationId: Number(orgId),
+        redirectTo: "/account/settings?section=integrations",
+      });
+      req.session.googleOauthState = state;
+
+      const authUrl = oauthClient.generateAuthUrl({
+        access_type: "offline",
+        prompt: "consent",
+        scope: GOOGLE_CLASSROOM_SCOPES,
+        state,
+      });
+
+      return res.redirect(authUrl);
+    } catch (error) {
+      req.flash("error", "Unable to start Google Classroom connection.");
+      return res.redirect("/account/settings?section=integrations");
+    }
+  },
+
+  googleClassroomCallbackGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    try {
+      const expectedState = req.session.googleOauthState || null;
+      const stateFromQuery = String(req.query.state || "").trim();
+      if (!expectedState || !stateFromQuery || expectedState !== stateFromQuery) {
+        req.flash("error", "Google authorization state mismatch. Please try connecting again.");
+        return res.redirect("/account/settings?section=integrations");
+      }
+
+      const parsedState = parseOauthState(stateFromQuery);
+      if (!parsedState || Number(parsedState.organizationId) !== Number(orgId)) {
+        req.flash("error", "Google authorization could not be validated for this organization.");
+        return res.redirect("/account/settings?section=integrations");
+      }
+
+      const authCode = String(req.query.code || "").trim();
+      if (!authCode) {
+        req.flash("error", "Google did not return an authorization code.");
+        return res.redirect("/account/settings?section=integrations");
+      }
+
+      const oauthClient = buildGoogleOauthClient(req);
+      const tokenResponse = await oauthClient.getToken(authCode);
+      oauthClient.setCredentials(tokenResponse.tokens || {});
+
+      let clientEmail = "";
+      let resolvedScopes = [];
+      try {
+        const oauth2Api = google.oauth2({ version: "v2", auth: oauthClient });
+        const profile = await oauth2Api.userinfo.get();
+        clientEmail = String(profile.data?.email || "").trim();
+      } catch (_) {
+        clientEmail = "";
+      }
+
+      try {
+        const tokenInfo = await oauthClient.getTokenInfo(tokenResponse.tokens.access_token);
+        resolvedScopes = Array.isArray(tokenInfo.scopes) ? tokenInfo.scopes : [];
+      } catch (_) {
+        resolvedScopes = GOOGLE_CLASSROOM_SCOPES;
+      }
+
+      await storeGoogleOauthTokens(db, orgId, {
+        clientEmail,
+        scopes: resolvedScopes,
+        accessToken: tokenResponse.tokens.access_token || null,
+        refreshToken: tokenResponse.tokens.refresh_token || null,
+        expiryDate: tokenResponse.tokens.expiry_date ? new Date(tokenResponse.tokens.expiry_date) : null,
+      });
+
+      req.session.googleOauthState = null;
+      req.flash("success", "Google Classroom connected successfully.");
+      return res.redirect("/account/settings?section=integrations");
+    } catch (error) {
+      req.flash("error", "Google Classroom connection failed. Please try again.");
+      return res.redirect("/account/settings?section=integrations");
+    }
+  },
+
+  googleClassroomResyncPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+    const wantsJson = String(req.get("accept") || "").includes("application/json");
+
+    try {
+      const integrationStatus = await getGoogleIntegrationStatus(db, orgId);
+      if (!integrationStatus.shouldShowFeatures) {
+        if (wantsJson) {
+          return res.status(400).json({ success: false, error: "Google Classroom is not fully activated and connected yet." });
+        }
+        req.flash("error", "Google Classroom is not fully activated and connected yet.");
+        return res.redirect("/account/settings?section=integrations");
+      }
+
+      await markGoogleSync(
+        db,
+        orgId,
+        "queued",
+        "Manual sync queued. Course and roster reconciliation will run in the background."
+      );
+
+      try {
+        await syncGoogleClassroomForOrganization(orgId, { dbClient: db });
+        await pushPendingAssessmentsForOrganization(orgId, { dbClient: db, limit: 500, includeExisting: true });
+      } catch (_) {
+      }
+
+      if (wantsJson) {
+        return res.json({ success: true, message: "Google Classroom sync queued successfully." });
+      }
+      req.flash("success", "Google Classroom sync queued successfully.");
+      return res.redirect("/account/settings?section=integrations");
+    } catch (error) {
+      if (wantsJson) {
+        return res.status(500).json({ success: false, error: "Unable to queue Google Classroom sync right now." });
+      }
+      req.flash("error", "Unable to queue Google Classroom sync right now.");
+      return res.redirect("/account/settings?section=integrations");
+    }
+  },
+
+  googleClassroomDisconnectPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    try {
+      await disconnectGoogleIntegration(db, orgId);
+      req.flash("success", "Google Classroom disconnected.");
+      return res.redirect("/account/settings?section=integrations");
+    } catch (error) {
+      req.flash("error", "Unable to disconnect Google Classroom right now.");
+      return res.redirect("/account/settings?section=integrations");
+    }
   },
 
   // GET - Display hub invitation acceptance page

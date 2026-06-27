@@ -2,5 +2,9 @@
   "watch": ["views", "public", "routes", "controllers", "jobs", "utils", "config", "middleware", "models", "validation", "server.js"],
   "ext": "js,ejs,css",
   "ignore": ["node_modules/*", "uploads/*"],
+  "quiet": true,
+  "events": {
+    "start": "echo \"[nodemon] starting \\\"node server.js\\\"\""
+  },
   "exec": "node server.js"
 }

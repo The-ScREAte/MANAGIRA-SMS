@@ -235,6 +235,12 @@
     border: 1px solid #fecaca;
   }
 
+  .notice-warning {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+
   .announcement-stack,
   .campaign-grid {
     display: grid;
@@ -258,24 +264,27 @@
     padding: 0;
     border: none;
     background: transparent;
+    color: var(--automation-ink);
     cursor: pointer;
     text-align: left;
     font: inherit;
   }
 
   .collapsible-card-toggle-main {
+    flex: 1;
     min-width: 0;
   }
 
   .collapsible-card-toggle-main h3,
   .collapsible-card-toggle-main h4 {
     margin: 0;
+    word-break: break-word;
   }
 
   .collapsible-card-summary {
     margin: 8px 0 0;
     color: var(--automation-muted);
-    font-size: 0.92rem;
+    font-size: 0.86rem;
     line-height: 1.5;
   }
 
@@ -309,6 +318,7 @@
   .campaign-card {
     position: relative;
     overflow: hidden;
+    padding: 16px;
   }
 
   .campaign-card::before {
@@ -338,7 +348,9 @@
     margin: 0;
     white-space: pre-line;
     color: var(--automation-muted);
-    line-height: 1.7;
+    line-height: 1.55;
+    font-size: 0.92rem;
+    word-break: break-word;
   }
 
   .card-meta,
@@ -367,8 +379,21 @@
     border-radius: 999px;
     background: var(--automation-surface-soft);
     color: var(--automation-ink);
-    font-size: 0.84rem;
+    font-size: 0.8rem;
     border: 1px solid rgba(16, 37, 66, 0.08);
+    max-width: 100%;
+    word-break: break-word;
+  }
+
+  .campaign-card h3 {
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  .campaign-card .collapsible-card-indicator {
+    min-width: 72px;
+    padding: 7px 10px;
+    font-size: 0.75rem;
   }
 
   .tag-pill.active {
@@ -752,6 +777,21 @@
       width: 100%;
     }
 
+    .collapsible-card-right {
+      width: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .card-meta {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .campaign-card {
+      padding: 14px;
+    }
+
     .modal-shell {
       padding: 12px;
     }
@@ -929,7 +969,7 @@
       <div class="panel-header">
         <div>
           <h2 class="panel-title">Scheduled emails</h2>
-          <p class="panel-subtitle">Create reusable email automations with subject, content, recipient selection, activation control, and recurring daily, weekly, monthly, or one-time delivery.</p>
+          <p class="panel-subtitle">Create reusable email automations with subject, content, recipient selection, activation control, and repeat intervals like every 1, 5, 10 minutes, daily, every 2 days, weekly, monthly, or one-time delivery.</p>
         </div>
         <div class="panel-actions">
           <button type="button" id="open-campaign-modal" class="admin-btn automation-primary">Add automated email</button>
@@ -985,7 +1025,11 @@
           <label class="field-label" for="campaign-frequency">Schedule</label>
           <select id="campaign-frequency" class="automation-select">
             <option value="once">One time</option>
+            <option value="every_1_minute">Every 1 minute</option>
+            <option value="every_5_minutes">Every 5 minutes</option>
+            <option value="every_10_minutes">Every 10 minutes</option>
             <option value="daily">Daily</option>
+            <option value="every_2_days">Every 2 days</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
@@ -1125,7 +1169,15 @@
 
     function showNotice(message, type) {
       notice.textContent = message;
-      notice.className = `notice is-visible ${type === 'error' ? 'notice-error' : 'notice-success'}`;
+      if (type === 'error') {
+        notice.className = 'notice is-visible notice-error';
+        return;
+      }
+      if (type === 'warning') {
+        notice.className = 'notice is-visible notice-warning';
+        return;
+      }
+      notice.className = 'notice is-visible notice-success';
     }
 
     function clearNotice() {
@@ -1133,11 +1185,37 @@
       notice.textContent = '';
     }
 
+    function normalizeFrequencyLabel(value) {
+      const frequency = String(value || '').toLowerCase();
+      if (frequency === 'every_3_minutes') {
+        return 'every_5_minutes';
+      }
+      return frequency;
+    }
+
+    function sanitizeLegacyCopy(value) {
+      return String(value || '')
+        .replace(/every[-\s]?3[-\s]?minutes/gi, 'every 5 minutes')
+        .replace(/every[-\s]?3[-\s]?mins/gi, 'every 5 mins');
+    }
+
     function scheduleDescription(campaign) {
-      const frequency = String(campaign.frequency || '').toLowerCase();
+      const frequency = normalizeFrequencyLabel(campaign.frequency);
       const time = campaign.sendTime || '09:00';
+      if (frequency === 'every_1_minute') {
+        return 'Every 1 minute';
+      }
+      if (frequency === 'every_5_minutes') {
+        return 'Every 5 minutes';
+      }
+      if (frequency === 'every_10_minutes') {
+        return 'Every 10 minutes';
+      }
       if (frequency === 'daily') {
         return `Daily at ${time}`;
+      }
+      if (frequency === 'every_2_days') {
+        return `Every 2 days at ${time}`;
       }
       if (frequency === 'weekly') {
         const day = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][Number(campaign.dayOfWeek) || 0];
@@ -1179,6 +1257,8 @@
         ];
         const recipientCount = recipients.length;
         const isExpanded = expandedCampaigns.has(Number(campaign.id));
+        const isRecoveredScheduleNote = String(campaign.lastError || '') === 'Recovered schedule after missing next run timestamp.';
+        const statusNoticeClass = isRecoveredScheduleNote ? 'notice-warning' : 'notice-error';
         const recipientLines = recipients.map((recipient) => `
           <div class="recipient-line">
             <div>
@@ -1193,7 +1273,7 @@
           <article class="campaign-card" data-campaign-id="${campaign.id}">
             <button type="button" class="collapsible-card-toggle" data-action="toggle-card" data-card-id="campaign-${campaign.id}" aria-expanded="${expandedCards.has(`campaign-${campaign.id}`) ? 'true' : 'false'}">
               <span class="collapsible-card-toggle-main">
-                <h3>${escapeHtml(campaign.subject)}</h3>
+                <h3>${escapeHtml(sanitizeLegacyCopy(campaign.subject))}</h3>
                 <p class="collapsible-card-summary">${escapeHtml(scheduleDescription(campaign))}</p>
               </span>
               <span class="collapsible-card-right">
@@ -1202,14 +1282,14 @@
               </span>
             </button>
             <div class="collapsible-card-body ${expandedCards.has(`campaign-${campaign.id}`) ? 'is-open' : ''}" data-card-body="campaign-${campaign.id}">
-              <p class="card-copy">${escapeHtml(campaign.content)}</p>
+              <p class="card-copy">${escapeHtml(sanitizeLegacyCopy(campaign.content))}</p>
               <div class="card-meta">
                 <span class="meta-pill">Recipients: ${escapeHtml(recipientSummary.join(' + ') || 'None')}</span>
                 <span class="meta-pill">Starts: ${escapeHtml(formatDate(campaign.startDate))}</span>
-                <span class="meta-pill">Next send: ${escapeHtml(campaign.nextRunAt ? formatDateTime(campaign.nextRunAt) : 'Not scheduled')}</span>
+                <span class="meta-pill">Next send: ${escapeHtml(campaign.nextRunAt ? formatDateTime(campaign.nextRunAt) : (campaign.isActive && String(campaign.frequency || '').toLowerCase() !== 'once' ? 'Calculating next run...' : 'Not scheduled'))}</span>
                 <span class="meta-pill">Last sent: ${escapeHtml(campaign.lastSentAt ? formatDateTime(campaign.lastSentAt) : 'Not yet sent')}</span>
               </div>
-              ${(campaign.lastError ? `<div class="notice is-visible notice-error" style="margin-top: 14px;">${escapeHtml(campaign.lastError)}</div>` : '')}
+              ${(campaign.lastError ? `<div class="notice is-visible ${statusNoticeClass}" style="margin-top: 14px;">${escapeHtml(campaign.lastError)}</div>` : '')}
               ${recipientCount > 0 ? `
                 <button
                   type="button"
@@ -1253,6 +1333,7 @@
       campaignIdInput.value = '';
       modalTitle.textContent = 'Add automated email';
       activeInput.checked = true;
+      frequencyInput.value = 'every_5_minutes';
       sendTimeInput.value = '09:00';
       startDateInput.value = getToday();
       endDateInput.value = '';
@@ -1266,11 +1347,12 @@
     function openModal(campaign) {
       resetForm();
       if (campaign) {
+        const normalizedFrequency = normalizeFrequencyLabel(campaign.frequency || 'once') || 'once';
         modalTitle.textContent = 'Edit automated email';
         campaignIdInput.value = campaign.id;
-        subjectInput.value = campaign.subject || '';
-        contentInput.value = campaign.content || '';
-        frequencyInput.value = campaign.frequency || 'once';
+        subjectInput.value = sanitizeLegacyCopy(campaign.subject || '');
+        contentInput.value = sanitizeLegacyCopy(campaign.content || '');
+        frequencyInput.value = normalizedFrequency;
         sendTimeInput.value = campaign.sendTime || '09:00';
         startDateInput.value = campaign.startDate ? String(campaign.startDate).slice(0, 10) : getToday();
         endDateInput.value = campaign.endDate ? String(campaign.endDate).slice(0, 10) : '';
@@ -1344,10 +1426,12 @@
     }
 
     function collectPayload() {
+      const selectedFrequency = frequencyInput.value || 'every_5_minutes';
+      const normalizedFrequency = selectedFrequency === 'every_3_minutes' ? 'every_5_minutes' : selectedFrequency;
       return {
         subject: subjectInput.value.trim(),
         content: contentInput.value.trim(),
-        frequency: frequencyInput.value,
+        frequency: normalizedFrequency,
         sendTime: sendTimeInput.value,
         startDate: startDateInput.value,
         endDate: endDateInput.value,
@@ -1375,6 +1459,18 @@
         throw new Error(payload.message || 'Request failed.');
       }
       return payload;
+    }
+
+    async function refreshCampaigns(silent = true) {
+      try {
+        const result = await fetchJson(campaignsEndpoint, { method: 'GET' });
+        campaigns = result.campaigns || [];
+        renderCampaigns();
+      } catch (error) {
+        if (!silent) {
+          showNotice(error.message || 'Unable to refresh scheduled emails.', 'error');
+        }
+      }
     }
 
     async function saveCampaign(event) {
@@ -1551,6 +1647,18 @@
         body.classList.toggle('is-open', !expanded);
       }
     });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        refreshCampaigns(true);
+      }
+    });
+
+    window.setInterval(() => {
+      if (!document.hidden) {
+        refreshCampaigns(true);
+      }
+    }, 30000);
 
     renderCampaigns();
     resetForm();

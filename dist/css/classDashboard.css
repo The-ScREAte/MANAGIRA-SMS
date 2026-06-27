@@ -67,6 +67,7 @@ body {
 
 .dashboard-buttons button:hover {
   background-color: var(--org-primary-hover);
+  color: #fff;
 }
 
 .subjects-list {
@@ -83,6 +84,7 @@ body {
 
 .subject-link:hover {
   background-color: #e0e0e0;
+  color: #111827;
 }
 
 .student-list-container {

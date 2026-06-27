@@ -2541,6 +2541,14 @@
             <h2>Payment Settings</h2>
             <span style="color:var(--fin-muted);font-size:.8rem;">Configure currency and invoice defaults. Manage payout accounts under <strong>Account Settings → Billing &amp; Plan</strong>.</span>
           </div>
+          <div style="background:#f2fbf9;border:1px solid #d0eee7;border-left:4px solid #00D4AA;border-radius:10px;padding:10px 12px;margin:8px 0 14px;">
+            <small style="color:#0b4d4a;display:block;line-height:1.45;">
+              <strong>Active Billing Context:</strong>
+              Country <strong><%= financeCountry || 'Not set' %></strong>,
+              Effective Currency <strong><%= currentCurrency %></strong>
+              (<%= financeCurrency && financeCurrency.sourceLabel ? financeCurrency.sourceLabel : 'auto-derived from organization settings' %>)
+            </small>
+          </div>
 
           <!-- General -->
           <div class="fin-psp-card fin-accordion" id="acc-psp-general">
@@ -2560,23 +2568,14 @@
             <div class="fin-acc-body">
             <form class="fin-form" method="POST" action="/account/settings/finance/psp/general">
               <div class="fin-row">
-                <div class="fin-field"><label>Country</label>
-                  <select name="organization_country">
-                    <option value="">— Select country —</option>
-                    <% (countryOptions || []).forEach(option => { %>
-                      <option value="<%= option.name %>" <%= (financeCountry || '') === option.name ? 'selected' : '' %>><%= option.name %> (<%= option.code %>)</option>
-                    <% }) %>
-                  </select>
-                  <small style="color:var(--fin-muted);font-size:.72rem;display:block;margin-top:6px;">This country is used as the finance fallback so the organization always has a valid location and matching default currency.</small>
+                <div class="fin-field"><label>Country Source</label>
+                  <input type="text" value="<%= financeCountry || 'Not set' %>" readonly>
+                  <small style="color:var(--fin-muted);font-size:.72rem;display:block;margin-top:6px;">Set this once under <a href="/account/settings?section=customize" style="color:var(--fin-teal);">Account Settings → Customize School</a>. PayGira uses that saved country everywhere.</small>
                 </div>
-                <div class="fin-field"><label>Currency</label>
-                  <select name="currency">
-                    <% (currencyOptions || []).forEach(option => { %>
-                      <option value="<%= option.code %>" <%= currentCurrency === option.code ? 'selected' : '' %>><%= option.code %> — <%= option.name %></option>
-                    <% }) %>
-                  </select>
+                <div class="fin-field"><label>Currency (Auto)</label>
+                  <input type="text" value="<%= currentCurrency %>" readonly>
                   <small style="color:var(--fin-muted);font-size:.72rem;display:block;margin-top:6px;">
-                    <%= financeCurrency && financeCurrency.sourceLabel ? financeCurrency.sourceLabel : 'Choose the default currency for all PayGira bills, receipts, and balances.' %>
+                    <%= financeCurrency && financeCurrency.sourceLabel ? financeCurrency.sourceLabel : 'Currency is automatically derived from your school country.' %>
                   </small>
                   <% if (financeCurrency && financeCurrency.code !== 'USD' && financeCurrency.usdToCurrencyRate) { %>
                     <small style="color:var(--fin-muted);font-size:.72rem;display:block;margin-top:4px;">Reference FX: 1 USD ≈ <%= Number(financeCurrency.usdToCurrencyRate).toFixed(4) %> <%= financeCurrency.code %>. USD equivalents are informational only.</small>
@@ -3184,9 +3183,11 @@ Regards,
     var financeCurrencyLocale = <%- JSON.stringify((financeCurrency && financeCurrency.locale) || 'en-US') %>;
     var profilePlaceholderSrc = <%- JSON.stringify(profilePlaceholder) %>;
     var createBillDraft = <%- JSON.stringify(createBillDraftState || null) %>;
+    window.createBillDraft = createBillDraft;
     var defaultCollectionDestination = <%- JSON.stringify(defaultCollectionDestinationSafe || '') %>;
     var collectionDestinationValues = <%- JSON.stringify(collectionDestinationOptionsSafe.map(function(option) { return option.value; })) %>;
     var shouldOpenCreateBillForm = <%= openCreateBillForm ? 'true' : 'false' %>;
+    window.shouldOpenCreateBillForm = shouldOpenCreateBillForm;
     function getLocalTodayIso() {
       var today = new Date();
       return [
@@ -4250,10 +4251,16 @@ Regards,
   }
   if (billCreateStartDate) billCreateStartDate.addEventListener('change', syncCreateBillDateLimits);
   if (billCreateEndDate) billCreateEndDate.addEventListener('change', syncCreateBillDateLimits);
-  if (createBillDraft) applyCreateBillDraft(createBillDraft);
+  var createBillDraftRuntime = (typeof window !== 'undefined' && typeof window.createBillDraft !== 'undefined')
+    ? window.createBillDraft
+    : null;
+  if (createBillDraftRuntime) applyCreateBillDraft(createBillDraftRuntime);
   syncCreateBillPaymentMethodMaster();
   syncCreateBillDateLimits();
-  if (shouldOpenCreateBillForm) {
+  var shouldOpenCreateBillFormRuntime = (typeof window !== 'undefined' && typeof window.shouldOpenCreateBillForm !== 'undefined')
+    ? window.shouldOpenCreateBillForm
+    : false;
+  if (shouldOpenCreateBillFormRuntime) {
     var createBillAccordion = document.getElementById('acc-create-bill');
     if (createBillAccordion && !createBillAccordion.classList.contains('open')) {
       finToggleAcc('acc-create-bill');

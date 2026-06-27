@@ -36,6 +36,9 @@
   function initializeDataAttributes() {
     // Example: data-confirm attributes
     document.querySelectorAll('[data-confirm]').forEach(element => {
+      if (element.dataset.turboBoundConfirm === '1' || element.hasAttribute('data-spa-bound-confirm')) return;
+      element.dataset.turboBoundConfirm = '1';
+      element.setAttribute('data-spa-bound-confirm', '1');
       element.addEventListener('click', (e) => {
         const message = element.dataset.confirm;
         if (!confirm(message)) {
@@ -47,10 +50,33 @@
 
     // Example: data-toggle attributes
     document.querySelectorAll('[data-toggle]').forEach(element => {
-      const target = element.dataset.toggle;
+      if (element.dataset.turboBoundToggle === '1' || element.hasAttribute('data-spa-bound-toggle')) return;
+      element.dataset.turboBoundToggle = '1';
+      element.setAttribute('data-spa-bound-toggle', '1');
+
       element.addEventListener('click', (e) => {
-        e.preventDefault();
-        const targetElement = document.querySelector(target);
+        const rawTarget = String(element.dataset.toggle || '').trim();
+        if (!rawTarget) return;
+
+        // Password icon toggles are handled by page-specific scripts.
+        if (element.classList.contains('input-icon-btn')) return;
+
+        if (element.tagName === 'A') {
+          e.preventDefault();
+        }
+
+        let targetElement = null;
+        if (/^[A-Za-z][A-Za-z0-9_:\-.]*$/.test(rawTarget)) {
+          targetElement = document.getElementById(rawTarget);
+        }
+        if (!targetElement) {
+          try {
+            targetElement = document.querySelector(rawTarget);
+          } catch (_) {
+            targetElement = null;
+          }
+        }
+
         if (targetElement) {
           targetElement.classList.toggle('hidden');
         }
@@ -61,6 +87,8 @@
   // Initialize form validation
   function initializeFormValidation() {
     document.querySelectorAll('form[data-validate]').forEach(form => {
+      if (form.dataset.turboBoundValidate === '1') return;
+      form.dataset.turboBoundValidate = '1';
       form.addEventListener('submit', (e) => {
         const requiredFields = form.querySelectorAll('[required]');
         let valid = true;

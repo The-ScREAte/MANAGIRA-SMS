@@ -86,7 +86,6 @@
       '/common/modifyAssessment',
       '/common/manageAssessment',
       '/common/manageRecords',
-      '/common/manageSchoolYear',
       '/common/closeSchoolYear',
       '/common/termDetails',
       '/common/closeGraduationYearGroup',
@@ -115,7 +114,6 @@
       '/common/publicRegister',
       '/account/confirm-password',
       '/stats/organization',
-      '/transcript/transcript',
     ],
     guardian: [
       '/',
@@ -260,6 +258,9 @@
           history.replaceState(state, '', state.path);
         }
       }, 200), { passive: true });
+
+      // Guard against duplicated footers after mixed SPA/full navigations.
+      this._dedupeFooters();
 
       // 7. Preload priority pages after idle
       if ('requestIdleCallback' in window) {
@@ -587,18 +588,23 @@
       const newTitle = doc.querySelector('title');
       if (newTitle) document.title = newTitle.textContent;
 
-      // 2. Update page-specific styles
-      this._updateStyles(doc);
-
       const shouldFade = !this._skipFade;
       this._skipFade = false;
 
-      // 3. Fade out current content (skipped for cache hits)
+      // 2. Fade out current content (skipped for cache hits).
+      //    Keep OLD page-specific styles in place during fade-out so the
+      //    outgoing page does not visually break before it disappears.
       if (shouldFade) {
         currentMain.style.transition = `opacity ${CONFIG.TRANSITION_MS}ms ease`;
         currentMain.style.opacity = '0';
         await this._wait(CONFIG.TRANSITION_MS);
       }
+
+      // 3. Attach NEW page-specific styles BEFORE injecting new markup,
+      //    then remove the previous SPA-injected styles. This guarantees
+      //    new content paints with its own CSS already mounted and avoids
+      //    the brief unstyled flash some org pages were showing.
+      this._updateStyles(doc);
 
       // 4. Swap content
       currentMain.innerHTML = newMain.innerHTML;
@@ -819,9 +825,35 @@
         if (!el.hasAttribute('data-spa-bound-toggle')) {
           el.setAttribute('data-spa-bound-toggle', '1');
           el.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.dataset.toggle);
-            if (target) target.classList.toggle('hidden');
+            const rawTarget = String(this.dataset.toggle || '').trim();
+            if (!rawTarget) return;
+
+            // Let page-specific password toggles handle their own UI state.
+            if (this.classList.contains('input-icon-btn')) return;
+
+            // Prevent default only for links; buttons should remain native.
+            if (this.tagName === 'A') {
+              e.preventDefault();
+            }
+
+            let target = null;
+
+            // Common pattern in this app: data-toggle stores an element id.
+            if (/^[A-Za-z][A-Za-z0-9_:\-.]*$/.test(rawTarget)) {
+              target = document.getElementById(rawTarget);
+            }
+
+            // Fallback: treat as selector when valid.
+            if (!target) {
+              try {
+                target = document.querySelector(rawTarget);
+              } catch (_) {
+                target = null;
+              }
+            }
+
+            if (!target) return;
+            target.classList.toggle('hidden');
           });
         }
       });
@@ -844,32 +876,38 @@
     // ── Style Management ──────────────────────────────────────────────
 
     _updateStyles(doc) {
-      // Remove previous page-specific styles
-      document.querySelectorAll('style[data-spa-style]').forEach(s => s.remove());
-
-      // Get styles from the new page's body (page-specific inline styles)
+      // Collect ALL new page-specific styles first (body inline + head page-specific).
+      const newStyleNodes = [];
       const newBody = doc.querySelector('body');
       if (newBody) {
         newBody.querySelectorAll('style').forEach(styleTag => {
-          const newStyle = document.createElement('style');
-          newStyle.textContent = styleTag.textContent;
-          newStyle.setAttribute('data-spa-style', 'true');
-          document.head.appendChild(newStyle);
+          const s = document.createElement('style');
+          s.textContent = styleTag.textContent;
+          s.setAttribute('data-spa-style', 'true');
+          newStyleNodes.push(s);
         });
       }
-
-      // Also check for styles in head that are page-specific
       doc.querySelectorAll('head style').forEach(styleTag => {
-        // Skip only turbo-progress-bar styles (these are global)
         const content = styleTag.textContent;
-        if (content.includes('turbo-progress-bar')) return;
-        
-        const newStyle = document.createElement('style');
-        newStyle.textContent = content;
-        newStyle.setAttribute('data-spa-style', 'true');
-        document.head.appendChild(newStyle);
+        if (content.includes('turbo-progress-bar')) return; // global, skip
+        const s = document.createElement('style');
+        s.textContent = content;
+        s.setAttribute('data-spa-style', 'true');
+        newStyleNodes.push(s);
       });
+
+      // Snapshot of previously-injected SPA styles BEFORE we attach new ones.
+      const previousStyles = Array.from(
+        document.querySelectorAll('style[data-spa-style]')
+      );
+
+      // Attach new styles first so the new content paints with CSS in place.
+      newStyleNodes.forEach(s => document.head.appendChild(s));
+
+      // Then drop the old ones — no unstyled flash, no double-cascade for long.
+      previousStyles.forEach(s => s.remove());
     }
+
 
     // ── Meta Tags ─────────────────────────────────────────────────────
 
@@ -928,6 +966,17 @@
       if (newFooter && currentFooter) {
         currentFooter.innerHTML = newFooter.innerHTML;
       }
+      this._dedupeFooters();
+    }
+
+    _dedupeFooters() {
+      const footers = Array.from(document.querySelectorAll('footer'));
+      if (footers.length <= 1) return;
+
+      const keep = footers.find((el) => el.classList && el.classList.contains('managira-footer')) || footers[0];
+      footers.forEach((footer) => {
+        if (footer !== keep) footer.remove();
+      });
     }
 
     // ── Event Dispatch ────────────────────────────────────────────────
@@ -1051,9 +1100,12 @@
         });
       });
 
-      // And warm EVERY SPA route for this user type, one at a time on idle.
-      // This makes most clicks land on a cache hit and skip the spinner.
-      this._warmAllRoutes();
+      // NOTE: We intentionally do NOT warm *every* route for this user type.
+      // That background sweep fired a full server render for each route on
+      // first load and after every navigation, flooding the server and the
+      // browser's connection pool so the user's actual click had to queue
+      // behind it. Hover/mousedown + the priority + visible-link preloads
+      // already keep the common pages hot without the request storm.
     }
 
     /**

@@ -1,0 +1,868 @@
+<style>
+  .sp-shell {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+
+  .sp-header {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(15,23,42,0.06);
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .sp-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+
+  .sp-header-titleblock {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .sp-title-tag {
+    font-size: .68rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: #64748b;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .sp-title {
+    font-size: 1.62rem;
+    color: #0f172a;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.1;
+    text-align: left;
+  }
+
+  .sp-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .sp-header-brief {
+    border: 1px solid #dbe5ef;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #334155;
+    padding: 5px 12px;
+    font-size: .72rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .sp-header-brief .k {
+    color: #94a3b8;
+    margin-right: 5px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-size: .6rem;
+  }
+
+  .sp-term-popup-btn {
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: .72rem;
+    font-weight: 800;
+    padding: 5px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    min-height: 32px;
+  }
+
+  .sp-term-popup-btn:hover {
+    background: #dbeafe;
+  }
+
+  .sp-body { background: #fff; }
+  .sp-panel { padding: 14px; }
+  .sp-panel[hidden] { display: none; }
+
+  .sp-summary {
+    display: grid;
+    grid-template-columns: 90px minmax(0,1fr) 220px;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .sp-avatar {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #fff;
+    box-shadow: 0 6px 18px rgba(15,23,42,.13);
+    display: block;
+  }
+
+  .sp-name {
+    font-size: 1.18rem;
+    color: #0f172a;
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .sp-sub {
+    margin: 4px 0 0;
+    color: #64748b;
+    font-size: .86rem;
+  }
+
+  .sp-term-countdown {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    font-size: .84rem;
+    color: #334155;
+  }
+
+  .sp-term-countdown .line { margin-top: 4px; }
+  .sp-term-countdown .meta { color: #64748b; font-size: .78rem; }
+
+  .sp-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .sp-tile {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 10px 12px;
+  }
+
+  .sp-tile .l {
+    font-size: .64rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #64748b;
+    font-weight: 800;
+  }
+
+  .sp-tile .v {
+    margin-top: 5px;
+    font-size: 1.1rem;
+    color: #0f172a;
+    font-weight: 800;
+  }
+
+  .sp-action-tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 10px;
+  }
+
+  .sp-action-tile {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 10px 12px;
+    cursor: pointer;
+    text-align: left;
+    text-decoration: none;
+    display: block;
+  }
+
+  .sp-action-tile:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+  }
+
+  .sp-action-tile.sp-testing {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+  }
+
+  .sp-action-title {
+    margin: 0;
+    font-size: .86rem;
+    color: #0f172a;
+    font-weight: 800;
+  }
+
+  .sp-action-copy {
+    margin: 3px 0 0;
+    color: #64748b;
+    font-size: .76rem;
+  }
+
+  .sp-action-tile.sp-testing .sp-action-title,
+  .sp-action-tile.sp-testing .sp-action-copy {
+    color: #1d4ed8;
+  }
+
+  .sp-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+  }
+
+  .sp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .84rem;
+  }
+
+  .sp-table th, .sp-table td {
+    border-bottom: 1px solid #e2e8f0;
+    padding: 9px 12px;
+    text-align: left;
+  }
+
+  .sp-table tr:last-child td { border-bottom: none; }
+
+  .sp-table th {
+    background: #f8fafc;
+    color: #64748b;
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    font-weight: 700;
+  }
+
+  .sp-day-cell { font-weight: 700; color: #0f172a; white-space: nowrap; }
+
+  .sp-period-time {
+    display: block;
+    font-size: .7rem;
+    color: #94a3b8;
+    margin-top: 2px;
+  }
+
+  .sp-mini-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    background: #f1f5f9;
+    color: #334155;
+    padding: 2px 8px;
+    font-size: .68rem;
+    font-weight: 700;
+  }
+
+  .sp-muted { color: #64748b; margin: 0; }
+  .sp-section-title { margin: 0 0 10px; color: #0f172a; font-size: 1rem; font-weight: 700; }
+
+  .sp-term-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 10px;
+  }
+
+  .sp-term-meta-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 10px 12px;
+  }
+
+  .sp-term-meta-card .k {
+    margin: 0;
+    color: #64748b;
+    font-size: .64rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    font-weight: 800;
+  }
+
+  .sp-term-meta-card .v {
+    margin: 4px 0 0;
+    color: #0f172a;
+    font-size: .9rem;
+    font-weight: 800;
+  }
+
+  .sp-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15,23,42,.5);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+  }
+
+  .sp-modal.is-open { display: flex; }
+
+  .sp-modal-card {
+    width: min(96vw, 960px);
+    max-height: 90vh;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 24px 52px rgba(15,23,42,.25);
+    padding: 16px;
+  }
+
+  .sp-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .sp-modal-title { margin: 0; color: #0f172a; font-size: 1rem; font-weight: 700; }
+
+  .sp-modal-close {
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #334155;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  .sp-teacher-subjects { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+
+  .global-table-sort-btn {
+    border: 1px solid #dbe5ef;
+    background: #ffffff;
+    color: #64748b;
+    border-radius: 6px;
+    width: 20px;
+    height: 20px;
+    margin-left: 6px;
+    vertical-align: middle;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .global-table-sort-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .sp-table.sp-grades-table {
+    font-size: .76rem;
+  }
+
+  .sp-table.sp-grades-table th,
+  .sp-table.sp-grades-table td {
+    padding: 6px 8px;
+  }
+
+  .sp-table.sp-grades-table th {
+    font-size: .62rem;
+    line-height: 1.25;
+  }
+
+  @media (max-width: 980px) {
+    .sp-tiles, .sp-action-tiles {
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    .sp-summary {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      text-align: center;
+    }
+    .sp-term-countdown { width: 100%; }
+    .sp-term-meta-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 640px) {
+    .sp-header-top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      padding: 8px 10px;
+      gap: 6px;
+    }
+
+    .sp-header-meta {
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .sp-header-brief,
+    .sp-term-popup-btn {
+      font-size: .56rem;
+      padding: 3px 8px;
+      min-height: 24px;
+    }
+
+    .sp-header { border-radius: 12px; margin-bottom: 10px; }
+    .sp-body { padding: 0; }
+    .sp-summary {
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .sp-avatar {
+      width: 68px;
+      height: 68px;
+      border-width: 2px;
+    }
+    .sp-title { font-size: .72rem; }
+    .sp-title-tag { font-size: .56rem; }
+    .sp-name { font-size: .72rem; }
+    .sp-sub { font-size: .72rem; margin-top: 3px; }
+    .sp-term-countdown { font-size: .68rem; padding: 7px 8px; border-radius: 8px; }
+    .sp-term-countdown .line { margin-top: 3px; }
+    .sp-term-countdown .meta { font-size: .62rem; }
+    .sp-panel { padding: 8px; }
+    .sp-section-title { font-size: .76rem; margin-bottom: 6px; }
+    .sp-tiles,
+    .sp-action-tiles {
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .sp-tile,
+    .sp-action-tile {
+      padding: 8px 9px;
+      border-radius: 8px;
+    }
+    .sp-tile .l { font-size: .54rem; }
+    .sp-tile .v { font-size: .9rem; margin-top: 4px; }
+    .sp-action-title { font-size: .62rem; }
+    .sp-action-copy { font-size: .54rem; margin-top: 1px; }
+    .sp-mini-pill {
+      font-size: .58rem;
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+    .sp-teacher-subjects { gap: 3px; }
+    .sp-table-wrap { border-radius: 8px; }
+    .sp-table { font-size: .66rem; }
+    .sp-table th, .sp-table td { padding: 5px 6px; }
+    .sp-table th { font-size: .56rem; }
+    .sp-period-time { font-size: .56rem; }
+    .sp-table.sp-grades-table { font-size: .58rem; }
+    .sp-table.sp-grades-table th, .sp-table.sp-grades-table td { padding: 4px; }
+    .sp-table.sp-grades-table th { font-size: .48rem; line-height: 1.1; }
+    .sp-term-meta-grid { gap: 8px; }
+    .sp-term-meta-card { padding: 8px 9px; border-radius: 8px; }
+    .sp-term-meta-card .k { font-size: .54rem; }
+    .sp-term-meta-card .v { font-size: .76rem; margin-top: 3px; }
+    .sp-modal { padding: 10px; }
+    .sp-modal-card { padding: 9px; border-radius: 10px; max-height: 88vh; }
+    .sp-modal-head { margin-bottom: 8px; padding-bottom: 8px; }
+    .sp-modal-title { font-size: .8rem; }
+    .sp-modal-close { width: 26px; height: 26px; font-size: .82rem; border-radius: 7px; }
+  }
+
+  @media (max-width: 420px) {
+    .sp-tiles, .sp-action-tiles {
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    .sp-shell { padding: 10px; }
+    .sp-header-top { padding: 7px 8px; }
+    .sp-avatar { width: 58px; height: 58px; }
+    .sp-title { font-size: .62rem; }
+    .sp-title-tag { font-size: .5rem; }
+    .sp-name { font-size: .64rem; }
+    .sp-sub { font-size: .66rem; }
+    .sp-header-brief,
+    .sp-term-popup-btn {
+      font-size: .5rem;
+      padding: 2px 7px;
+      min-height: 22px;
+    }
+    .sp-term-countdown { font-size: .62rem; padding: 6px 7px; }
+    .sp-term-countdown .meta { font-size: .56rem; }
+    .sp-section-title { font-size: .7rem; }
+    .sp-tile,
+    .sp-action-tile { padding: 6px 7px; }
+    .sp-tile .l { font-size: .48rem; }
+    .sp-tile .v { font-size: .8rem; }
+    .sp-action-title { font-size: .56rem; }
+    .sp-action-copy { font-size: .5rem; }
+    .sp-mini-pill { font-size: .52rem; padding: 1px 5px; }
+    .sp-table { font-size: .6rem; }
+    .sp-table th, .sp-table td { padding: 4px 5px; }
+    .sp-table th { font-size: .5rem; }
+    .sp-table.sp-grades-table { font-size: .52rem; }
+    .sp-table.sp-grades-table th, .sp-table.sp-grades-table td { padding: 3px; }
+    .sp-table.sp-grades-table th { font-size: .44rem; }
+    .sp-term-meta-card { padding: 7px 8px; }
+    .sp-term-meta-card .k { font-size: .5rem; }
+    .sp-term-meta-card .v { font-size: .7rem; }
+    .sp-modal { padding: 8px; }
+    .sp-modal-title { font-size: .74rem; }
+    .sp-modal-card { padding: 7px; border-radius: 9px; }
+    .sp-modal-close { width: 24px; height: 24px; font-size: .76rem; }
+  }
+</style>
+
+<div class="sp-shell">
+  <%- include('../partials/flash') %>
+
+  <section class="sp-header">
+    <div class="sp-header-top">
+      <div class="sp-header-titleblock">
+        <p class="sp-title-tag">Student Workspace</p>
+        <h1 class="sp-title">
+          <%= enrolledClassName || student.class_name || 'Student Portal' %>
+        </h1>
+      </div>
+
+      <div class="sp-header-meta">
+        <span class="sp-header-brief">
+          <span class="k">Current</span>
+          <%= selectedTerm ? selectedTerm.term_name : 'Term not set' %>
+        </span>
+        <button type="button" class="sp-term-popup-btn" id="sp-term-popup-btn">
+          Term Info
+        </button>
+      </div>
+    </div>
+
+    <div class="sp-body">
+      <section class="sp-panel" id="panel-overview">
+        <div class="sp-summary">
+          <img
+            class="sp-avatar"
+            src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>"
+            alt="Student photo"
+          />
+
+          <div>
+            <h2 class="sp-name">
+              <%= typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim() %>
+            </h2>
+            <p class="sp-sub">Class: <strong><%= enrolledClassName || student.class_name || 'Not assigned' %></strong></p>
+            <p class="sp-sub">Email: <strong><%= student.email || 'Not available' %></strong></p>
+          </div>
+
+          <div class="sp-term-countdown">
+            <% const today = new Date(); %>
+            <% if (selectedTerm) { %>
+              <% const termStart = new Date(selectedTerm.start_date); %>
+              <% const termEnd   = new Date(selectedTerm.end_date); %>
+              <% const daysUntilStart = Math.ceil((termStart - today) / 86400000); %>
+              <% const daysUntilEnd   = Math.ceil((termEnd   - today) / 86400000); %>
+
+              <div class="line">
+                <% if (daysUntilStart > 0) { %>
+                  <strong><%= selectedTerm.term_name %> starts in <%= daysUntilStart %> day<%= daysUntilStart === 1 ? '' : 's' %>.</strong>
+                <% } else if (daysUntilEnd >= 0) { %>
+                  <strong>Days until <%= selectedTerm.term_name %> ends: <%= daysUntilEnd %>.</strong>
+                <% } else { %>
+                  <strong><%= selectedTerm.term_name %> has ended.</strong>
+                  <span class="meta"><%= Math.abs(daysUntilEnd) %> day<%= Math.abs(daysUntilEnd) === 1 ? '' : 's' %> ago.</span>
+                <% } %>
+              </div>
+
+              <div class="line meta">
+                <%= today.toLocaleDateString(undefined, { weekday: 'long' }) %>
+              </div>
+            <% } else { %>
+              <div class="line">No active term set.</div>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="sp-tiles">
+          <article class="sp-tile">
+            <div class="l">Attendance Rate</div>
+            <div class="v"><%= attendanceSummary.attendanceRate %>%</div>
+          </article>
+          <article class="sp-tile">
+            <div class="l">Present</div>
+            <div class="v"><%= attendanceSummary.present %></div>
+          </article>
+          <article class="sp-tile">
+            <div class="l">Absent</div>
+            <div class="v"><%= attendanceSummary.absent %></div>
+          </article>
+          <article class="sp-tile">
+            <div class="l">Open Testing Room</div>
+            <div class="v"><%= openAssessmentsCount %></div>
+          </article>
+        </div>
+
+        <div class="sp-action-tiles">
+          <button class="sp-action-tile" type="button" data-panel="teachers">
+            <h4 class="sp-action-title">Subject Teachers</h4>
+            <p class="sp-action-copy">Open your teacher list for current term.</p>
+          </button>
+          <button class="sp-action-tile" type="button" data-panel="schedule">
+            <h4 class="sp-action-title">Class Schedule</h4>
+            <p class="sp-action-copy">Open your class timetable workspace.</p>
+          </button>
+          <button class="sp-action-tile" type="button" data-panel="grades">
+            <h4 class="sp-action-title">Grades</h4>
+            <p class="sp-action-copy">Open current-term subject grades.</p>
+          </button>
+          <a class="sp-action-tile sp-testing" href="/student/testing-room">
+            <h4 class="sp-action-title">Testing Room</h4>
+            <p class="sp-action-copy">Open assessments and exam room.</p>
+          </a>
+        </div>
+      </section>
+
+      <section class="sp-panel" id="panel-teachers" hidden>
+        <h3 class="sp-section-title">Teachers (Current Term)</h3>
+        <div class="sp-table-wrap">
+          <table class="sp-table">
+            <thead>
+              <tr><th>Teacher</th><th>Subjects Taught</th></tr>
+            </thead>
+            <tbody>
+              <% if (!subjectTeachers.length) { %>
+                <tr><td colspan="2" class="sp-muted">No teachers found for your class this term.</td></tr>
+              <% } %>
+              <% subjectTeachers.forEach(row => { %>
+                <tr>
+                  <td>
+                    <%= row.first_name || row.last_name
+                      ? (typeof formatDisplayName === 'function' ? formatDisplayName(row) : [row.first_name, row.last_name].filter(Boolean).join(' ').trim())
+                      : 'Not assigned' %>
+                  </td>
+                  <td>
+                    <div class="sp-teacher-subjects">
+                      <% (Array.isArray(row.subject_names) ? row.subject_names : []).forEach(s => { %>
+                        <span class="sp-mini-pill"><%= s %></span>
+                      <% }) %>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="sp-panel" id="panel-schedule" hidden>
+        <h3 class="sp-section-title">Class Schedule</h3>
+        <% if (scheduleTable && scheduleTable.periods && scheduleTable.periods.length) { %>
+          <div class="sp-table-wrap">
+            <table class="sp-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <% scheduleTable.periods.forEach((p, i) => { %>
+                    <th>
+                      Period <%= i + 1 %>
+                      <span class="sp-period-time"><%= p.startTime %> - <%= p.endTime %></span>
+                    </th>
+                  <% }) %>
+                </tr>
+              </thead>
+              <tbody>
+                <% scheduleTable.rows.forEach(row => { %>
+                  <tr>
+                    <td class="sp-day-cell"><%= row.dayLabel %></td>
+                    <% row.cells.forEach(cell => { %>
+                      <td><%= cell %></td>
+                    <% }) %>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <p class="sp-muted">No timetable added for your class this term.</p>
+        <% } %>
+      </section>
+
+      <section class="sp-panel" id="panel-grades" hidden>
+        <h3 class="sp-section-title">Subject Grades (Current Term)</h3>
+        <% if (assessmentGrades.length) { %>
+          <div class="sp-table-wrap">
+            <table class="sp-table sp-grades-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <% (gradeAssessmentHeaders || []).forEach((assessment, index) => { %>
+                    <th>
+                      <%= assessment.title %>
+                    </th>
+                  <% }) %>
+                </tr>
+              </thead>
+              <tbody>
+                <% assessmentGrades.forEach(item => { %>
+                  <tr>
+                    <td><%= item.subject_name %></td>
+                    <% (gradeAssessmentHeaders || []).forEach((assessment) => { %>
+                      <% const scoreValue = item.assessment_scores ? item.assessment_scores[assessment.assessment_key] : null; %>
+                      <td>
+                        <%= scoreValue !== null && scoreValue !== undefined ? Number(scoreValue).toFixed(2) : '-' %>
+                      </td>
+                    <% }) %>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <p class="sp-muted" style="margin-bottom:8px;">No assessments taken yet. Showing your subjects.</p>
+          <div class="sp-table-wrap">
+            <table class="sp-table">
+              <thead><tr><th>Subject</th></tr></thead>
+              <tbody>
+                <% if (!subjects.length) { %>
+                  <tr><td class="sp-muted">No subjects found.</td></tr>
+                <% } %>
+                <% subjects.forEach(s => { %>
+                  <tr><td><%= s.subject_name %></td></tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </section>
+
+      <section class="sp-panel" id="panel-term-info" hidden>
+        <h3 class="sp-section-title">Academic Term Details</h3>
+        <div class="sp-term-meta-grid">
+          <article class="sp-term-meta-card">
+            <p class="k">School Year</p>
+            <p class="v"><%= selectedTerm ? selectedTerm.year_label : '-' %></p>
+          </article>
+          <article class="sp-term-meta-card">
+            <p class="k">Term</p>
+            <p class="v"><%= selectedTerm ? selectedTerm.term_name : '-' %></p>
+          </article>
+          <article class="sp-term-meta-card">
+            <p class="k">Start Date</p>
+            <p class="v"><%= selectedTerm && selectedTerm.start_date ? new Date(selectedTerm.start_date).toISOString().slice(0,10) : '-' %></p>
+          </article>
+          <article class="sp-term-meta-card">
+            <p class="k">End Date</p>
+            <p class="v"><%= selectedTerm && selectedTerm.end_date ? new Date(selectedTerm.end_date).toISOString().slice(0,10) : '-' %></p>
+          </article>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
+
+<div class="sp-modal" id="sp-modal" role="dialog" aria-modal="true">
+  <div class="sp-modal-card">
+    <div class="sp-modal-head">
+      <h3 class="sp-modal-title" id="sp-modal-title">Details</h3>
+      <button class="sp-modal-close" id="sp-modal-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div id="sp-modal-body"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var tiles      = document.querySelectorAll('.sp-action-tile[data-panel]');
+  var modal      = document.getElementById('sp-modal');
+  var modalBody  = document.getElementById('sp-modal-body');
+  var modalTitle = document.getElementById('sp-modal-title');
+  var closeBtn   = document.getElementById('sp-modal-close');
+  var termBtn    = document.getElementById('sp-term-popup-btn');
+
+  function openModal(panelKey, label) {
+    var panel = document.getElementById('panel-' + panelKey);
+    if (!panel || !modal) return;
+    modalBody.innerHTML = panel.innerHTML;
+    var h = modalBody.querySelector('.sp-section-title');
+    if (h) h.remove();
+    modalTitle.textContent = label || 'Details';
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function valueForSort(cellText) {
+    var cleaned = String(cellText || '').trim();
+    if (!cleaned || cleaned === '-') return Number.NEGATIVE_INFINITY;
+    var numeric = parseFloat(cleaned.replace(/[^0-9.\-]/g, ''));
+    if (Number.isFinite(numeric)) return numeric;
+    return cleaned.toLowerCase();
+  }
+
+  function sortTableByColumn(table, columnIndex, direction) {
+    if (!table) return;
+    var tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    rows.sort(function (a, b) {
+      var aText = ((a.children[columnIndex] || {}).textContent || '').trim();
+      var bText = ((b.children[columnIndex] || {}).textContent || '').trim();
+      var aVal = valueForSort(aText);
+      var bVal = valueForSort(bText);
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      return direction === 'asc'
+        ? String(aVal).localeCompare(String(bVal), undefined, { sensitivity: 'base' })
+        : String(bVal).localeCompare(String(aVal), undefined, { sensitivity: 'base' });
+    });
+    rows.forEach(function (row) { tbody.appendChild(row); });
+  }
+
+  if (modalBody) {
+    modalBody.addEventListener('click', function (event) {
+      var button = event.target.closest('.global-table-sort-btn');
+      if (!button) return;
+      var table = button.closest('table');
+      if (!table) return;
+      var index = Number(button.getAttribute('data-sort-index') || 0);
+      var currentDirection = button.getAttribute('data-sort-direction') === 'desc' ? 'desc' : 'asc';
+      var nextDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+      button.setAttribute('data-sort-direction', nextDirection);
+      sortTableByColumn(table, index, nextDirection);
+    });
+  }
+
+  function closeModal() {
+    if (!modal) return;
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+  }
+
+  tiles.forEach(function (tile) {
+    tile.addEventListener('click', function () {
+      var panelKey = tile.getAttribute('data-panel');
+      var label = (tile.querySelector('.sp-action-title') || {}).textContent || 'Details';
+      openModal(panelKey, label.trim());
+    });
+  });
+
+  if (termBtn) {
+    termBtn.addEventListener('click', function () {
+      openModal('term-info', 'Academic Term Details');
+    });
+  }
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (modal) {
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) closeModal();
+    });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeModal();
+  });
+})();
+</script>

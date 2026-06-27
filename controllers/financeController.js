@@ -23,6 +23,7 @@ const {
 const { buildFailureNotification, sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
 const {
   getCurrencyProfileForRequest,
+  getCurrencyForCountry,
   getLocaleForCurrency,
   getUsdRate,
   normalizeCurrencyCode,
@@ -281,32 +282,39 @@ async function withTimeout(promise, timeoutMs, fallbackValue = null) {
   }
 }
 
-async function buildFinanceDisplayContext(req, orgId, pspSettingsInput = null, orgCountryInput = null) {
-  const pspSettings = pspSettingsInput && Object.keys(pspSettingsInput).length
-    ? pspSettingsInput
-    : await loadPspSettings(orgId).catch(() => ({}));
-
-  const savedCurrency = normalizeCurrencyCode(pspSettings?.currency);
-  const requestProfile = (!savedCurrency)
-    ? await withTimeout(getCurrencyProfileForRequest(req).catch(() => null), 250, null)
-    : null;
+async function buildFinanceDisplayContext(req, orgId, pspSettingsInput = null, orgCountryInput = null, orgCurrencyInput = null) {
+  const normalizedOrgCurrencyOverride = normalizeCurrencyCode(orgCurrencyInput);
+  const normalizedOrgCountry = String(orgCountryInput || "").trim().toUpperCase();
+  const orgCurrency = normalizeCurrencyCode(getCurrencyForCountry(normalizedOrgCountry));
+  const requestProfile = await withTimeout(
+    getCurrencyProfileForRequest(req, { organizationId: orgId }).catch(() => null),
+    250,
+    null
+  );
   const requestCurrency = normalizeCurrencyCode(requestProfile?.userCurrency);
+  const requestSource = String(requestProfile?.detectionSource || "").trim();
   const requestCountryCode = String(requestProfile?.countryCode || "").trim().toUpperCase();
 
   let selectedCurrency = "USD";
   let sourceLabel = "Using USD fallback currency.";
 
-  if (savedCurrency && isSupportedFinanceCurrency(savedCurrency)) {
-    selectedCurrency = savedCurrency;
-    sourceLabel = `Using saved school currency (${savedCurrency}).`;
-  } else if (requestCurrency && isSupportedFinanceCurrency(requestCurrency)) {
+  if (normalizedOrgCurrencyOverride) {
+    selectedCurrency = normalizedOrgCurrencyOverride;
+    sourceLabel = `Using school currency override from Account Settings (${selectedCurrency}).`;
+  } else if (requestSource === "organization-currency-override" && requestCurrency) {
     selectedCurrency = requestCurrency;
-    sourceLabel = "Using your detected regional currency. Save settings to lock this currency.";
+    sourceLabel = `Using school currency override from Account Settings (${selectedCurrency}).`;
+  } else if (orgCurrency) {
+    selectedCurrency = orgCurrency;
+    sourceLabel = `Using school country currency from Account Settings (${selectedCurrency}).`;
+  } else if (requestCurrency) {
+    selectedCurrency = requestCurrency;
+    sourceLabel = "Using detected regional currency. Set school country in Account Settings to lock this currency.";
   } else {
-    const fallbackFromCountry = COUNTRY_TO_FINANCE_CURRENCY[requestCountryCode] || null;
-    if (fallbackFromCountry && isSupportedFinanceCurrency(fallbackFromCountry)) {
+    const fallbackFromCountry = normalizeCurrencyCode(getCurrencyForCountry(requestCountryCode));
+    if (fallbackFromCountry) {
       selectedCurrency = fallbackFromCountry;
-      sourceLabel = "Using country-based currency fallback. Save settings to lock this currency.";
+      sourceLabel = "Using country-based currency fallback. Set school country in Account Settings to lock this currency.";
     }
   }
 
@@ -1413,6 +1421,7 @@ async function loadOrganizationProfile(orgId) {
     `SELECT organization_id,
             organization_name,
             organization_country,
+            organization_currency,
             billing_provider,
             stripe_connect_account_id,
             stripe_connect_account_id_test,
@@ -1430,6 +1439,7 @@ async function loadOrganizationProfile(orgId) {
       `SELECT organization_id,
               organization_name,
               organization_country,
+              organization_currency,
               billing_provider,
               stripe_connect_account_id
          FROM organizations
@@ -1445,6 +1455,7 @@ async function loadOrganizationProfile(orgId) {
       organization_id: orgId,
       organization_name: '',
       organization_country: '',
+      organization_currency: null,
       billing_provider: null,
       stripe_connect_account_id: '',
     };
@@ -1454,6 +1465,7 @@ async function loadOrganizationProfile(orgId) {
     organization_id: row.organization_id || orgId,
     organization_name: row.organization_name || '',
     organization_country: row.organization_country || '',
+    organization_currency: normalizeCurrencyCode(row.organization_currency) || null,
     billing_provider: row.billing_provider || null,
     stripe_connect_account_id: getStripeConnectAccountId(row, stripeMode) || String(row.stripe_connect_account_id || '').trim(),
   };
@@ -3583,7 +3595,7 @@ module.exports = {
         cachedLoad(orgId, "orgProfile", null, () => loadOrganizationProfile(orgId)),
       ]);
 
-      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
+      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country, orgProfile.organization_currency);
       return res.render("account/financeOverviewDetailSection", {
         overview,
         bills: Array.isArray(billsResult?.rows) ? billsResult.rows : [],
@@ -3966,7 +3978,7 @@ module.exports = {
       const selectedIds = new Set(parseMultiValue(req.body.selected_student_ids));
       const loaded = await loadArrearsManagementData(orgId, filters);
       const orgProfile = await loadOrganizationProfile(orgId);
-      const display = await buildFinanceDisplayContext(req, orgId, null, orgProfile.organization_country);
+      const display = await buildFinanceDisplayContext(req, orgId, null, orgProfile.organization_country, orgProfile.organization_currency);
       const manualEntries = JSON.parse(String(req.body.manual_guardians_json || "{}").trim() || "{}");
       const students = loaded.students
         .filter((student) => !selectedIds.size || selectedIds.has(String(student.student_id)))
@@ -4059,7 +4071,6 @@ module.exports = {
     }
     try {
       await ensurePspSettingsTable();
-      const orgProfile = await loadOrganizationProfile(orgId);
       const existing = await loadPspSettings(orgId);
       const next = { ...existing };
       // Stripe payment methods come as a multi-checkbox group → normalize to an array
@@ -4074,12 +4085,7 @@ module.exports = {
       // Persist whatever fields the form sent, ignoring blanks for secrets
       Object.keys(req.body || {}).forEach(k => {
         const v = req.body[k];
-        if (k === 'organization_country') return;
-        if (k === 'currency') {
-          const normalized = normalizeCurrencyCode(v);
-          if (normalized && isSupportedFinanceCurrency(normalized)) next[k] = normalized;
-          return;
-        }
+        if (k === 'organization_country' || k === 'currency') return;
         if (k.endsWith('_secret') || k.endsWith('_key')) {
           if (v && String(v).trim() && !/^[•*]+/.test(v)) next[k] = String(v).trim();
         } else if (v !== undefined && v !== null) {
@@ -4092,15 +4098,6 @@ module.exports = {
          ON CONFLICT (organization_id) DO UPDATE SET data = $2::jsonb, updated_at = now()`,
         [orgId, JSON.stringify(next)]
       );
-      if (provider === 'general') {
-        const selectedCountry = resolveCountryName(req.body && req.body.organization_country, null);
-        if (selectedCountry && selectedCountry !== String(orgProfile.organization_country || '').trim()) {
-          await db.query(
-            `UPDATE organizations SET organization_country = $1 WHERE organization_id = $2`,
-            [selectedCountry, orgId]
-          ).catch(() => null);
-        }
-      }
       req.flash && req.flash("success", `${provider.toUpperCase()} settings saved.`);
       await logPaygira(req, {
         actionType: "Saved",
@@ -4238,7 +4235,7 @@ module.exports = {
 
       const platformStripeKey = await getActiveStripePublicKey();
 
-      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
+      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country, orgProfile.organization_currency);
       const financeCountry = resolveCountryName(orgProfile.organization_country, display.financeCurrency.countryHint);
       let arrearsData = null;
       let arrearsReports = [];
@@ -4290,7 +4287,7 @@ module.exports = {
       const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
       const collectionDestinations = await resolveBillCollectionDestinations(db, orgId, orgProfile, pspSettings);
       allowedMethods.currency = display.financeCurrency.code;
-      safePsp.currency = safePsp.currency || display.financeCurrency.code;
+      safePsp.currency = display.financeCurrency.code;
       if (!safePsp.stripe_publishable_key && stripeRuntime.publishableKey) {
         safePsp.stripe_publishable_key = stripeRuntime.publishableKey;
       }
@@ -5840,7 +5837,7 @@ module.exports = {
       ]);
       const [stripeRuntime, display] = await Promise.all([
         resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile),
-        buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country),
+        buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country, orgProfile.organization_currency),
       ]);
       const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
       allowedMethods.currency = display.financeCurrency.code;
@@ -6322,7 +6319,7 @@ module.exports = {
         ]);
         const [stripeRuntime, display] = await Promise.all([
           resolveFinanceStripeRuntime(orgId, pspSettings, orgProfile),
-          buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country),
+          buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country, orgProfile.organization_currency),
         ]);
         return { pspSettings, orgProfile, stripeRuntime, display };
       })();
@@ -6483,7 +6480,7 @@ module.exports = {
       const allowedMethods = computeAllowedMethods(pspSettings, { stripeOn: stripeRuntime.stripeOn });
       const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
       allowedMethods.currency = display.financeCurrency.code;
-      maskedPsp.currency = maskedPsp.currency || display.financeCurrency.code;
+      maskedPsp.currency = display.financeCurrency.code;
       if (!maskedPsp.stripe_publishable_key && stripeRuntime.publishableKey) {
         maskedPsp.stripe_publishable_key = stripeRuntime.publishableKey;
       }
@@ -6673,7 +6670,7 @@ module.exports = {
         bearer: platformFeeBearer,
         applyPlatformFee: isPlatformFeeMethod('stripe'),
       });
-      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country);
+      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, orgProfile.organization_country, orgProfile.organization_currency);
       const currencyCode = String(display.financeCurrency.code || 'USD').toLowerCase();
       const stripeCheckoutConfig = buildGuardianStripeCheckoutConfig(allowedMethods.stripeMethods);
 
@@ -6700,15 +6697,12 @@ module.exports = {
         const paymentReference = `PG-${orgId}-${guardianId}-${plan.row.assignment_id}-${Date.now()}`;
         const useSubaccount = Boolean(subaccountCodeToUse && subaccountCodeToUse.startsWith('ACCT_'));
         const platformFeeMinor = Math.round(chargeBreakdown.platformFeeAmount * 100);
-        const paystackCurrencyMap = {
-          gh: 'GHS',
-          ng: 'NGN',
-          za: 'ZAR',
-          ke: 'KES',
-          eg: 'EGP',
-        };
+        const paystackSupportedCurrencies = new Set(['GHS', 'NGN', 'ZAR', 'KES', 'EGP']);
         const orgCountryIso = String(orgProfile.organization_country || payoutContext?.country || '').trim().toLowerCase().slice(0, 2);
-        const preferredPaystackCurrency = paystackCurrencyMap[orgCountryIso] || 'GHS';
+        const orgCountryCurrency = normalizeCurrencyCode(getCurrencyForCountry(orgCountryIso));
+        const preferredPaystackCurrency = paystackSupportedCurrencies.has(orgCountryCurrency)
+          ? orgCountryCurrency
+          : 'GHS';
         req.session.guardianPaygiraPaystackPending = {
           assignment_id: String(plan.row.assignment_id),
           amount: String(req.body?.amount || ''),
@@ -6759,12 +6753,12 @@ module.exports = {
           );
         } catch (paystackErr) {
           const code = String(paystackErr?.response?.data?.code || '').toLowerCase();
-          if (code === 'unsupported_currency' && preferredPaystackCurrency !== 'GHS') {
+          if (code === 'unsupported_currency' && preferredPaystackCurrency !== 'USD') {
             paystackResponse = await axios.post(
               'https://api.paystack.co/transaction/initialize',
               {
                 ...paystackBasePayload,
-                currency: 'GHS',
+                currency: 'USD',
               },
               { headers: { Authorization: `Bearer ${paystackConfig.secretKey}` } }
             );
@@ -7002,7 +6996,7 @@ module.exports = {
 
       if (result.status === 'completed') {
         const orgProfile = await loadOrganizationProfile(orgId);
-        const display = await buildFinanceDisplayContext(req, orgId, await loadPspSettings(orgId), orgProfile.organization_country);
+        const display = await buildFinanceDisplayContext(req, orgId, await loadPspSettings(orgId), orgProfile.organization_country, orgProfile.organization_currency);
         const messageParts = [];
         if (result.creditApplied > 0) messageParts.push(`${display.formatMoney(result.creditApplied)} applied from available balance`);
         if (result.totalExternalAmount > 0) messageParts.push(`${display.formatMoney(result.totalExternalAmount)} applied to the bill`);
@@ -7580,7 +7574,8 @@ module.exports = {
                 s.first_name, s.last_name, s.image_url,
                  c.class_name,
                  o.organization_name, o.email AS org_email, o.organization_phone AS org_phone, o.organization_address AS org_address, o.logo_path AS org_logo,
-                 o.organization_country
+                 o.organization_country,
+                 o.organization_currency
            FROM finance_bill_assignments a
            JOIN finance_bills b ON b.bill_id = a.bill_id
            JOIN students s ON s.student_id = a.student_id
@@ -7612,7 +7607,7 @@ module.exports = {
       if (!authorized) return res.status(403).send("Not authorized to view this invoice.");
 
       const pspSettings = await loadPspSettings(orgId);
-      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, row.organization_country);
+      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, row.organization_country, row.organization_currency);
       const platformFeeSettings = await getPlatformFeeSettings(database);
 
       // Payment history for this assignment
@@ -7667,6 +7662,7 @@ module.exports = {
                 a.late_fee_applied AS assignment_late_fee,
                 o.organization_name, o.email AS org_email, o.organization_phone AS org_phone, o.organization_address AS org_address, o.logo_path AS org_logo,
                 o.organization_country,
+                o.organization_currency,
                 COALESCE(p.platform_fee_percentage, 0) AS platform_fee_percentage,
                 COALESCE(p.platform_fee_amount, 0) AS platform_fee_amount,
                 COALESCE(p.tax_amount, 0) AS tax_amount
@@ -7701,7 +7697,7 @@ module.exports = {
       if (!authorized) return res.status(403).send("Not authorized to view this receipt.");
 
       const pspSettings = await loadPspSettings(orgId);
-      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, row.organization_country);
+      const display = await buildFinanceDisplayContext(req, orgId, pspSettings, row.organization_country, row.organization_currency);
 
       res.render("finance/receipt", {
         layout: false,

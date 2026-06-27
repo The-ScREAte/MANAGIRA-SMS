@@ -651,6 +651,216 @@
         border: 1px solid #dc2626;
       }
 
+      .integration-actions-inline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .google-integration-description {
+        display: block;
+        margin-top: 6px;
+        max-width: 980px;
+      }
+
+      .google-classroom-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .google-classroom-logo {
+        width: 58px;
+        height: 44px;
+        display: inline-block;
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
+      }
+
+      .google-integration-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .google-integration-toolbar {
+        margin-top: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .google-integration-copy {
+        color: var(--muted);
+      }
+
+      .google-integration-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-left: auto;
+        justify-content: flex-end;
+      }
+
+      .google-actions-menu {
+        position: relative;
+        z-index: 120;
+      }
+
+      .google-actions-toggle {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: #334155;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .google-actions-toggle:hover {
+        background: #f8fafc;
+      }
+
+      .google-actions-toggle::-webkit-details-marker {
+        display: none;
+      }
+
+      .google-actions-menu-list {
+        position: absolute;
+        right: 0;
+        left: auto;
+        transform: none;
+        top: auto;
+        bottom: calc(100% + 8px);
+        min-width: 240px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 20px 34px rgba(15, 23, 42, 0.2);
+        padding: 8px 10px;
+        z-index: 2500;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .google-action-item,
+      .google-actions-menu-list .inline-form {
+        width: 100%;
+      }
+
+      .google-action-item {
+        display: flex;
+        width: 100%;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 0;
+        background: transparent;
+        color: #334155;
+        text-decoration: none;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.92rem;
+        line-height: 1.3;
+      }
+
+      .google-action-item:hover {
+        background: #f8fafc;
+        color: #0f172a;
+      }
+
+      .google-action-item.is-danger {
+        color: #334155;
+      }
+
+      details.google-actions-menu[open] {
+        z-index: 2600;
+      }
+
+      @media (max-width: 780px) {
+        .google-integration-toolbar {
+          align-items: flex-start;
+        }
+
+        .google-integration-actions {
+          width: 100%;
+          margin-left: 0;
+        }
+
+        .google-classroom-logo {
+          width: 44px;
+          height: 34px;
+        }
+
+        .google-classroom-title {
+          gap: 8px;
+        }
+
+        .google-classroom-title span {
+          font-size: 1.02rem;
+        }
+
+        .google-integration-description {
+          font-size: 0.94rem;
+          line-height: 1.5;
+        }
+
+        .google-integration-summary {
+          gap: 6px;
+        }
+
+        .google-integration-copy,
+        .google-integration-summary .text-muted-sm {
+          font-size: 0.95rem;
+        }
+
+        .google-actions-toggle {
+          width: 38px;
+          height: 38px;
+          font-size: 18px;
+        }
+
+        .google-actions-menu-list {
+          min-width: 200px;
+          padding: 7px 8px;
+        }
+
+        .google-action-item {
+          padding: 7px 9px;
+          font-size: 0.86rem;
+        }
+      }
+
+      .inline-form {
+        margin: 0;
+      }
+
+      .integration-actions-inline form {
+        margin: 0;
+      }
+
+      .integration-actions-inline .form-input {
+        min-width: 210px;
+      }
+
+      .integration-password-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
       .font-preview {
         padding: 16px;
         margin-top: 12px;
@@ -1714,19 +1924,52 @@
 
       @media (max-width: 480px) {
         .settings-main h1 {
-          font-size: 17px;
+          font-size: 15px;
         }
 
         .settings-main p.lead {
-          font-size: 12px;
+          font-size: 10.5px;
         }
 
         .card h4 {
-          font-size: 13.5px;
+          font-size: 12px;
         }
 
         .settings-nav-header h3 {
-          font-size: 15px;
+          font-size: 13px;
+        }
+
+        .google-classroom-logo {
+          width: 30px;
+          height: 22px;
+        }
+
+        .google-classroom-title span {
+          font-size: 0.86rem;
+        }
+
+        .google-integration-description,
+        .google-integration-copy,
+        .google-integration-summary .text-muted-sm {
+          font-size: 0.76rem;
+        }
+
+        .google-actions-toggle {
+          width: 34px;
+          height: 34px;
+          font-size: 16px;
+          border-radius: 8px;
+        }
+
+        .google-actions-menu-list {
+          min-width: 176px;
+          padding: 6px 7px;
+          border-radius: 10px;
+        }
+
+        .google-action-item {
+          padding: 6px 8px;
+          font-size: 0.79rem;
         }
       }
     </style>
@@ -1766,6 +2009,12 @@
             <span>Billing &amp; Plan</span>
           </button></li>
           <% } %>
+          <% if (_canCustomizeSettings) { %>
+          <li><button class="nav-link" data-target="integrations">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 12h8"/><path d="M12 8v8"/><circle cx="12" cy="12" r="9"/></svg></span>
+            <span>Integrations</span>
+          </button></li>
+          <% } %>
           <% if (_canPaygiraSettings && Array.isArray(allowedFeatures) && allowedFeatures.includes('PayGira')) { %>
           <li><a class="nav-link" href="/account/settings/finance" data-no-spa>
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8.5 9.5c0-1.381 1.567-2.5 3.5-2.5s3.5 1.119 3.5 2.5-1.567 2.5-3.5 2.5S8.5 13.381 8.5 14.5 10.067 17 12 17s3.5-1.119 3.5-2.5"/></svg></span>
@@ -1796,6 +2045,31 @@
           <p class="lead">
             Manage your school website branding and settings.
           </p>
+
+          <% const activeSettingsCountryCode = (org && org.organization_country ? String(org.organization_country).toUpperCase() : ''); %>
+          <% const activeSettingsCountry = (settingsCountryOptionsWithCurrency || settingsCountryOptions || []).find((country) => String(country.code || '').toUpperCase() === activeSettingsCountryCode) || null; %>
+          <% const activeSettingsCurrencyCode = (org && org.organization_currency ? String(org.organization_currency).toUpperCase() : ((activeSettingsCountry && activeSettingsCountry.currencyCode) ? String(activeSettingsCountry.currencyCode).toUpperCase() : 'USD')); %>
+          <% const activeSettingsCurrencyOption = (settingsCurrencyOptions || []).find((option) => option.code === activeSettingsCurrencyCode) || null; %>
+          <% const activeSettingsCurrencySource = (org && org.organization_currency)
+            ? 'explicit org currency override'
+            : (activeSettingsCountry ? 'country-based' : 'default fallback (set country or currency below)'); %>
+          <% const hasSavedBillingContext = Boolean((org && org.organization_currency) || activeSettingsCountry); %>
+          <div class="card" style="border-left:4px solid #0ea5a4;">
+            <h4>Active Billing Context</h4>
+            <small>
+              Country: <strong><%= activeSettingsCountry ? `${activeSettingsCountry.name} (${activeSettingsCountry.code})` : 'Not set' %></strong>
+              <% if (activeSettingsCountry && activeSettingsCountry.currencyCode) { %>
+                - Country Currency: <strong><%= activeSettingsCountry.currencyCode %> <%= activeSettingsCountry.currencyName || '' %></strong>
+              <% } %>
+              <br>
+              Effective Billing Currency: <strong><%= activeSettingsCurrencyOption ? `${activeSettingsCurrencyOption.code} — ${activeSettingsCurrencyOption.name}` : activeSettingsCurrencyCode %></strong>
+              (<%= activeSettingsCurrencySource %>)
+              <% if (!hasSavedBillingContext) { %>
+                <br>
+                No organization country or currency is saved yet. The system will try majority organization activity location first, but this school currently has only local/private activity IPs, so there is no reliable majority-country signal to use. Until you save country or currency below, the stable fallback is USD.
+              <% } %>
+            </small>
+          </div>
 
           <% 
             const rawLogo = (org && (org.logo || org.logo_path)) ? (org.logo || org.logo_path) : "";
@@ -1828,19 +2102,68 @@
           </div>
 
           <div class="card">
-            <h4>Organization Name</h4>
-            <small>This is your organization's visible name within the application.</small>
+            <h4>Organization Profile</h4>
+            <small>Set school name, location, and default currency for the entire organization.</small>
             <form action="/account/personalization/name" method="POST">
               <input type="hidden" name="redirectTo" value="/account/settings" />
-              <div class="content-row">
+              <div class="content-row" style="display:block;">
                 <input
                   type="text"
                   name="orgName"
                   value="<%= org?.organization_name || '' %>"
                   required
                   class="form-input"
+                  style="margin-bottom: 12px;"
                 />
-                <button class="btn-primary btn-link" type="submit">Save Organization Name</button>
+
+                <input
+                  type="text"
+                  name="orgAddress"
+                  value="<%= org?.organization_address || '' %>"
+                  class="form-input"
+                  placeholder="Organization address"
+                  style="margin-bottom: 12px;"
+                />
+
+                <% const selectedOrgCountryForCustomize = (org && org.organization_country ? String(org.organization_country).toUpperCase() : ''); %>
+                <select
+                  name="orgCountry"
+                  class="form-input"
+                  required
+                  style="margin-bottom: 12px;"
+                >
+                  <option value="">Select country</option>
+                  <% (settingsCountryOptionsWithCurrency || settingsCountryOptions || holidayCountries || []).forEach((country) => { %>
+                    <option value="<%= country.code %>" <%= country.code === selectedOrgCountryForCustomize ? 'selected' : '' %>>
+                      <%= country.name %> (<%= country.code %>)<%= country.currencyCode ? ` — ${country.currencyCode} ${country.currencyName || ''}` : '' %>
+                    </option>
+                  <% }) %>
+                </select>
+
+                <% const selectedOrgCurrencyForCustomize = (org && org.organization_currency ? String(org.organization_currency).toUpperCase() : ''); %>
+                <% const selectedOrgCurrencyOption = (settingsCurrencyOptions || []).find((option) => option.code === selectedOrgCurrencyForCustomize) || null; %>
+                <select
+                  name="orgCurrency"
+                  class="form-input"
+                  style="margin-bottom: 8px;"
+                >
+                  <option value="">Auto from country</option>
+                  <% (settingsCurrencyOptions || []).forEach((option) => { %>
+                    <option value="<%= option.code %>" <%= option.code === selectedOrgCurrencyForCustomize ? 'selected' : '' %>>
+                      <%= option.code %> — <%= option.name %>
+                    </option>
+                  <% }) %>
+                </select>
+
+                <small class="text-muted-sm" style="display:block; margin-bottom: 12px;">
+                  Current saved currency (from DB): <strong><%= selectedOrgCurrencyOption ? `${selectedOrgCurrencyOption.code} — ${selectedOrgCurrencyOption.name}` : 'Auto from country' %></strong>.
+                </small>
+
+                <small class="text-muted-sm" style="display:block; margin-bottom: 12px;">
+                  Currency priority across the app: explicit currency here, otherwise country-based currency.
+                </small>
+
+                <button class="btn-primary btn-link" type="submit">Save Name, Location &amp; Currency</button>
               </div>
             </form>
           </div>
@@ -2441,6 +2764,7 @@
                       class="form-input"
                     />
                   </div>
+
                   <div class="form-actions">
                     <button class="btn-primary btn-link" type="submit">Update Name</button>
                   </div>
@@ -2710,6 +3034,89 @@
           <% } %>
           <% } %>
 
+        </section>
+        <% } %>
+
+        <% if (_canCustomizeSettings) { %>
+        <section id="integrations" class="settings-section">
+          <h1>Integrations</h1>
+          <p class="lead">Activate and connect third-party services used across your academic workspace.</p>
+
+          <% const gi = (typeof googleIntegration !== 'undefined' && googleIntegration) ? googleIntegration : {}; %>
+          <% const giActivated = !!gi.activated; %>
+          <% const giConfigured = !!gi.configured; %>
+          <% const giConnected = !!gi.connected; %>
+          <% const giReady = !!gi.shouldShowFeatures; %>
+
+          <div class="card">
+            <h4>
+              <span class="google-classroom-title">
+                <svg class="google-classroom-logo" viewBox="0 0 64 48" aria-hidden="true" focusable="false">
+                  <rect x="1" y="1" width="62" height="46" rx="8" fill="#1e8e3e" stroke="#137333" stroke-width="2"></rect>
+                  <rect x="10" y="12" width="44" height="24" rx="5" fill="#34a853"></rect>
+                  <circle cx="32" cy="23" r="5" fill="#e8f5e9"></circle>
+                  <circle cx="22" cy="26" r="3.5" fill="#e8f5e9"></circle>
+                  <circle cx="42" cy="26" r="3.5" fill="#e8f5e9"></circle>
+                  <rect x="16" y="31" width="32" height="3" rx="1.5" fill="#e8f5e9"></rect>
+                </svg>
+                <span>Google Classroom</span>
+              </span>
+            </h4>
+            <small class="google-integration-description">
+              Activate and connect Google Classroom to let students access assessments and tests online individually, while teachers can sync classwork directly from Managira.
+              <% if (gi.clientEmail) { %><br>Connected account: <strong><%= gi.clientEmail %></strong><% } %>
+            </small>
+
+            <div class="google-integration-toolbar">
+              <div class="google-integration-summary">
+                <span class="google-integration-copy">Google Classroom status</span>
+                <span class="pill" style="background:<%= giReady ? '#dcfce7' : '#fef3c7' %>;color:<%= giReady ? '#166534' : '#92400e' %>">
+                  <%= giReady ? 'Active & Connected' : (giActivated ? 'Activated (Connection Required)' : 'Inactive') %>
+                </span>
+                <% if (gi.lastSyncStatus) { %>
+                <span class="text-muted-sm">Last sync status: <strong><%= gi.lastSyncStatus %></strong></span>
+                <% } %>
+              </div>
+
+              <div class="google-integration-actions">
+                <details class="google-actions-menu">
+                  <summary class="google-actions-toggle" aria-label="Google Classroom actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <% if (!giActivated) { %>
+                    <a class="google-action-item" href="#" id="open-google-activate-modal">Activate</a>
+                    <% } else { %>
+                    <a class="google-action-item" href="#" id="open-google-deactivate-modal">Deactivate</a>
+                    <% } %>
+
+                    <% if (giActivated && !giConfigured) { %>
+                    <a class="google-action-item" href="/account/google-classroom/connect">Connect</a>
+                    <% } %>
+
+                    <% if (giActivated && giConfigured) { %>
+                    <a class="google-action-item" href="/account/google-classroom/connect">Reconnect</a>
+                    <a class="google-action-item" href="#" id="google-sync-link">Sync</a>
+                    <a class="google-action-item is-danger" href="#" id="google-disconnect-link">Disconnect</a>
+                    <% } %>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="google-resync-form" action="/account/google-classroom/resync" method="POST" style="display:none;"></form>
+            <form id="google-disconnect-form" action="/account/google-classroom/disconnect" method="POST" style="display:none;"></form>
+
+            <form id="google-activation-form" action="/account/google-classroom/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="google-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="google-activation-password" />
+            </form>
+
+            <% if (gi.lastSyncAt) { %>
+            <small style="display:block;margin-top:10px;">Last sync run: <%= new Date(gi.lastSyncAt).toLocaleString() %></small>
+            <% } %>
+            <% if (gi.lastSyncNote) { %>
+            <small style="display:block;margin-top:4px;"><%= gi.lastSyncNote %></small>
+            <% } %>
+          </div>
         </section>
         <% } %>
 
@@ -2999,6 +3406,28 @@
           <p class="error-text" id="billing-password-error"></p>
           <div class="form-actions">
             <button class="btn-primary btn-link" id="billing-password-submit" type="button">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="google-deactivate-modal">
+      <div class="modal-card password-modal">
+        <button class="modal-close" type="button" id="google-deactivate-close">x</button>
+        <h2>Confirm Password</h2>
+        <p id="google-deactivate-copy">Please confirm your password to continue with Google Classroom changes.</p>
+        <div class="content-row">
+          <div class="field-group">
+            <label class="form-label" for="google-deactivate-input">Password</label>
+            <input
+              type="password"
+              id="google-deactivate-input"
+              placeholder="Enter your password"
+              class="form-input"
+            />
+          </div>
+          <p class="error-text" id="google-deactivate-error"></p>
+          <div class="form-actions">
+            <button class="btn-primary btn-link" id="google-deactivate-submit" type="button">Continue</button>
           </div>
         </div>
       </div>
@@ -3482,6 +3911,21 @@
         const passwordModalSubmit = document.getElementById("billing-password-submit");
         const passwordModalInput = document.getElementById("billing-password-input");
         const passwordModalError = document.getElementById("billing-password-error");
+        const googleDeactivateModal = document.getElementById("google-deactivate-modal");
+        const googleActivateOpen = document.getElementById("open-google-activate-modal");
+        const googleDeactivateOpen = document.getElementById("open-google-deactivate-modal");
+        const googleDeactivateClose = document.getElementById("google-deactivate-close");
+        const googleDeactivateSubmit = document.getElementById("google-deactivate-submit");
+        const googleDeactivateInput = document.getElementById("google-deactivate-input");
+        const googleDeactivateError = document.getElementById("google-deactivate-error");
+        const googleDeactivateCopy = document.getElementById("google-deactivate-copy");
+        const googleActivationValue = document.getElementById("google-activation-value");
+        const googleActivationPassword = document.getElementById("google-activation-password");
+        const googleActivationForm = document.getElementById("google-activation-form");
+        const googleSyncLink = document.getElementById("google-sync-link");
+        const googleDisconnectLink = document.getElementById("google-disconnect-link");
+        const googleResyncForm = document.getElementById("google-resync-form");
+        const googleDisconnectForm = document.getElementById("google-disconnect-form");
         const planModal = document.getElementById("plan-modal");
         const planModalOpen = document.getElementById("open-plan-modal");
         const planModalClose = document.getElementById("plan-modal-close");
@@ -3924,6 +4368,90 @@
             }
           });
         }
+
+        function openGooglePasswordModal(mode) {
+          if (!googleDeactivateModal) return;
+          const isActivate = mode === "activate";
+          if (googleDeactivateCopy) {
+            googleDeactivateCopy.textContent = isActivate
+              ? "Please confirm your password to activate Google Classroom."
+              : "Please confirm your password to deactivate Google Classroom.";
+          }
+          if (googleActivationValue) {
+            googleActivationValue.value = isActivate ? "1" : "0";
+          }
+          if (googleDeactivateInput) {
+            googleDeactivateInput.value = "";
+          }
+          if (googleDeactivateError) {
+            googleDeactivateError.textContent = "";
+          }
+          openModal(googleDeactivateModal);
+        }
+
+        if (googleActivateOpen && googleDeactivateModal) {
+          googleActivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openGooglePasswordModal("activate");
+          });
+        }
+
+        if (googleDeactivateOpen && googleDeactivateModal) {
+          googleDeactivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openGooglePasswordModal("deactivate");
+          });
+        }
+
+        if (googleSyncLink && googleResyncForm) {
+          googleSyncLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            googleResyncForm.submit();
+          });
+        }
+
+        if (googleDisconnectLink && googleDisconnectForm) {
+          googleDisconnectLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            googleDisconnectForm.submit();
+          });
+        }
+
+        if (googleDeactivateClose && googleDeactivateModal) {
+          googleDeactivateClose.addEventListener("click", () => closeModal(googleDeactivateModal));
+        }
+
+        if (googleDeactivateModal) {
+          googleDeactivateModal.addEventListener("click", (event) => {
+            if (event.target === googleDeactivateModal) {
+              closeModal(googleDeactivateModal);
+            }
+          });
+        }
+
+        if (googleDeactivateSubmit && googleDeactivateInput && googleActivationForm && googleActivationPassword) {
+          googleDeactivateSubmit.addEventListener("click", () => {
+            const password = googleDeactivateInput.value.trim();
+            if (!password) {
+              if (googleDeactivateError) {
+                googleDeactivateError.textContent = "Password is required.";
+              }
+              return;
+            }
+
+            googleActivationPassword.value = password;
+            googleActivationForm.submit();
+          });
+        }
+
+        document.querySelectorAll(".google-action-item").forEach((item) => {
+          item.addEventListener("click", () => {
+            const menu = item.closest("details.google-actions-menu");
+            if (menu) {
+              menu.removeAttribute("open");
+            }
+          });
+        });
 
         if (passwordModalSubmit && passwordModalInput) {
           passwordModalSubmit.addEventListener("click", async () => {

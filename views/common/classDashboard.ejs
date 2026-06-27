@@ -269,6 +269,7 @@ main {
 .nav-link:hover {
   background: rgba(1, 83, 91, 0.06);
   color: var(--primary);
+  text-decoration: none;
 }
 .nav-link:hover .nav-icon { color: var(--primary); }
 
@@ -1719,7 +1720,7 @@ main {
   font-weight: 500;
   cursor: pointer;
 }
-.nav-sublink:hover { background: rgba(1, 83, 91, 0.06); color: var(--primary); }
+.nav-sublink:hover { background: rgba(1, 83, 91, 0.06); color: var(--primary); text-decoration: none; }
 .nav-sub-empty { padding: 6px 10px; color: var(--muted); font-size: 11px; }
 
 /* Overview counts row (Students, Subjects, Teachers, Reports) */
@@ -1982,6 +1983,10 @@ main {
   border-color: rgba(1, 83, 91, 0.28);
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
   transform: translateY(-1px);
+}
+.subject-card:hover .subject-text strong,
+.subject-card:hover .subject-text span {
+  color: var(--text);
 }
 .subject-icon {
   width: 22px;
@@ -3013,6 +3018,7 @@ main {
   <% const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets')); %>
   <% const hasAttendanceFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Attendance Tracking') || allowedFeatures.includes('Attendance tracking feature')); %>
   <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
+  <% const hasGoogleClassroom = !!(googleIntegration && googleIntegration.shouldShowFeatures); %>
   <div class="workspace-shell">
     <button class="nav-toggle" type="button">
       <span class="hamburger-icon" aria-hidden="true"></span>
@@ -3055,6 +3061,14 @@ main {
                 <span class="nav-link-label">Class Schedule</span>
               </button>
             </li>
+            <% if (canManageAllClassAssessmentExams && hasGoogleClassroom) { %>
+            <li>
+              <button class="nav-link" type="button" data-nav-key="class-exams" onclick="openWorkspaceTabByKey('class-exams')">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg></span>
+                <span class="nav-link-label">All Class Exams</span>
+              </button>
+            </li>
+            <% } %>
             <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('PayGira')) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="paygira" onclick="openWorkspaceTabByKey('paygira')">
@@ -3364,6 +3378,19 @@ main {
               </div>
             </section>
 
+            <section class="workspace-panel" id="panel-class-exams" data-panel-key="class-exams">
+              <div class="workspace-panel-head">
+                <div>
+                  <h2 class="card-title">All Class Assessment Exams</h2>
+                  <p class="card-subtext">Supervisor/Manager workspace for renaming and reviewing exam groups in this class.</p>
+                </div>
+                <button class="nav-link" type="button" onclick="loadClassAssessmentExams()">Refresh</button>
+              </div>
+              <div id="class-exams-content">
+                <p style="color:#6b7280;font-size:13px;">Open this tab to load class assessment exams.</p>
+              </div>
+            </section>
+
             <div id="workspaceDynamicPanels"></div>
             <div id="workspaceIframeCache" hidden></div>
           </div>
@@ -3428,6 +3455,8 @@ main {
         canOpenAttendance: <%= hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher) ? 'true' : 'false' %>,
         canOpenSubjects: <%= hasAssessmentFeature ? 'true' : 'false' %>,
         canOpenDocs: <%= hasFilesFeature ? 'true' : 'false' %>,
+        canManageAllClassAssessmentExams: <%= canManageAllClassAssessmentExams && hasGoogleClassroom ? 'true' : 'false' %>,
+        classExamApiBase: <%- JSON.stringify(`/common/classAssessmentExams?classId=${classId}&termId=${currentTerm.term_id}`) %>,
       };
 
       workspaceState = {
@@ -3764,6 +3793,20 @@ main {
         };
       }
 
+      function getWorkspaceClassExamsTab() {
+        if (!workspaceContext.canManageAllClassAssessmentExams) return getWorkspaceOverviewTab();
+        return {
+          id: 'class-exams',
+          title: 'All Class Exams',
+          panelId: 'panel-class-exams',
+          routePath: workspaceContext.basePath + '/class-exams',
+          sidebarKey: 'class-exams',
+          onActivate: function() {
+            loadClassAssessmentExams();
+          },
+        };
+      }
+
       function getWorkspaceAttendanceTab() {
         if (!workspaceContext.canOpenAttendance) return getWorkspaceOverviewTab();
         return {
@@ -3849,6 +3892,7 @@ main {
         if (tabKey === 'schedule') return openWorkspaceTab(getWorkspaceScheduleTab(), options || {});
         if (tabKey === 'students') return openWorkspaceTab(getWorkspaceStudentsTab(), options || {});
         if (tabKey === 'subjects') return openWorkspaceTab(getWorkspaceSubjectsTab(), options || {});
+        if (tabKey === 'class-exams') return openWorkspaceTab(getWorkspaceClassExamsTab(), options || {});
         if (tabKey === 'attendance') return openWorkspaceTab(getWorkspaceAttendanceTab(), options || {});
         if (tabKey === 'docs') return openWorkspaceTab(getWorkspaceDocsTab(), options || {});
         if (tabKey === 'paygira') return openWorkspaceTab(getWorkspacePaygiraTab(), options || {});
@@ -3866,6 +3910,10 @@ main {
         }
         if (workspaceContext.canOpenSubjects && !getWorkspaceTabById('subjects')) {
           openWorkspaceTabByKey('subjects');
+          return;
+        }
+        if (workspaceContext.canManageAllClassAssessmentExams && !getWorkspaceTabById('class-exams')) {
+          openWorkspaceTabByKey('class-exams');
           return;
         }
         if (!getWorkspaceTabById('students')) {
@@ -3937,6 +3985,7 @@ main {
         if (safeRoute.panel === 'schedule') return openWorkspaceTabByKey('schedule', safeOptions);
         if (safeRoute.panel === 'students') return openWorkspaceTabByKey('students', safeOptions);
         if (safeRoute.panel === 'subjects') return openWorkspaceTabByKey('subjects', safeOptions);
+        if (safeRoute.panel === 'class-exams') return openWorkspaceTabByKey('class-exams', safeOptions);
         if (safeRoute.panel === 'paygira') return openWorkspaceTabByKey('paygira', safeOptions);
         if (safeRoute.panel === 'student' && safeRoute.itemId) return openStudentWorkspaceTab(safeRoute.itemId, safeOptions);
         if (safeRoute.panel === 'subject' && safeRoute.itemId) return openSubjectWorkspaceTab(safeRoute.itemId, safeOptions);
@@ -3950,12 +3999,88 @@ main {
         openWorkspaceRoute(route, { skipHistory: true });
       }
 
+      async function loadClassAssessmentExams() {
+        var target = document.getElementById('class-exams-content');
+        if (!target) return;
+
+        if (!workspaceContext.canManageAllClassAssessmentExams) {
+          target.innerHTML = '<p style="color:#b91c1c;font-size:13px;">Access denied.</p>';
+          return;
+        }
+
+        target.innerHTML = '<p style="color:#6b7280;font-size:13px;">Loading exams...</p>';
+        try {
+          var response = await fetch(workspaceContext.classExamApiBase, { headers: { 'Accept': 'application/json' } });
+          var payload = await response.json();
+          if (!response.ok || !payload.success) {
+            throw new Error(payload.error || 'Could not load class exams.');
+          }
+
+          var exams = Array.isArray(payload.exams) ? payload.exams : [];
+          if (!exams.length) {
+            target.innerHTML = '<p style="color:#6b7280;font-size:13px;">No assessment exam groups were found for this class and term.</p>';
+            return;
+          }
+
+          target.innerHTML = exams.map(function(exam) {
+            var subjects = Array.isArray(exam.subjects) && exam.subjects.length
+              ? esc(exam.subjects.join(', '))
+              : 'No subjects';
+            return '' +
+              '<div class="workspace-resource-button" style="display:flex;justify-content:space-between;align-items:center;cursor:default;">' +
+                '<span class="workspace-resource-text">' +
+                  '<strong>' + esc(exam.exam_title || 'Untitled Exam') + '</strong>' +
+                  '<span>' + subjects + ' • ' + Number(exam.assessment_count || 0) + ' items</span>' +
+                '</span>' +
+                '<button class="nav-link" type="button" onclick="renameClassAssessmentExam(' + Number(exam.group_id || 0) + ', ' + JSON.stringify(exam.exam_title || '') + ')">Rename</button>' +
+              '</div>';
+          }).join('');
+        } catch (error) {
+          target.innerHTML = '<p style="color:#b91c1c;font-size:13px;">' + esc(error.message || 'Could not load class exams.') + '</p>';
+        }
+      }
+
+      async function renameClassAssessmentExam(groupId, currentTitle) {
+        var nextTitle = window.prompt('Rename exam group', String(currentTitle || ''));
+        if (nextTitle === null) return;
+        nextTitle = String(nextTitle || '').trim();
+        if (!nextTitle) {
+          window.alert('Exam title cannot be empty.');
+          return;
+        }
+
+        try {
+          var response = await fetch('/common/classAssessmentExams/rename', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              groupId: Number(groupId),
+              classId: Number(workspaceContext.classId),
+              termId: Number(workspaceContext.termId),
+              newTitle: nextTitle,
+            }),
+          });
+          var payload = await response.json();
+          if (!response.ok || !payload.success) {
+            throw new Error(payload.error || 'Could not rename exam group.');
+          }
+          await loadClassAssessmentExams();
+        } catch (error) {
+          window.alert(error.message || 'Could not rename exam group.');
+        }
+      }
+
       window.openWorkspaceTabByKey = openWorkspaceTabByKey;
       window.openStudentWorkspaceTab = openStudentWorkspaceTab;
       window.openSubjectWorkspaceTab = openSubjectWorkspaceTab;
       window.openWorkspaceQuickAdd = openWorkspaceQuickAdd;
       window.activateWorkspaceTab = activateWorkspaceTab;
       window.closeWorkspaceTab = closeWorkspaceTab;
+      window.loadClassAssessmentExams = loadClassAssessmentExams;
+      window.renameClassAssessmentExam = renameClassAssessmentExam;
 
       window.toggleTeachersMobile = function (btn) {
         var section = btn.closest('.teacher-section');

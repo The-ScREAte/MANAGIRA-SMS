@@ -2428,6 +2428,10 @@
                   <label class="form-label">Hometown</label>
                   <input type="text" class="form-input" name="hometown___INDEX__" placeholder="City or town of origin">
                 </div>
+              <div class="form-field-group">
+                  <label class="form-label">Student Email</label>
+                  <input type="email" class="form-input" name="studentEmail___INDEX__" placeholder="student@example.com">
+                </div>
             </div>
 
             <!-- ── Section: Academic Placement ──────────────────── -->
@@ -3926,6 +3930,18 @@ function addStudentForm() {
             }
           }
         }
+
+        if (studentData.studentEmail) {
+          const studentEmailInput = cardElement.querySelector(`input[name="studentEmail___${currentIndex}"]`);
+          if (studentEmailInput) {
+            studentEmailInput.value = studentData.studentEmail;
+          } else {
+            const altInput = cardElement.querySelector('input[name*="studentEmail"]');
+            if (altInput) {
+              altInput.value = studentData.studentEmail;
+            }
+          }
+        }
         
         // Class selection (find closest match)
         if (studentData.class) {
@@ -4038,21 +4054,225 @@ function addStudentForm() {
         }
       }
 
-      function downloadTemplate() {
-        // Create a CSV template with guardian fields
-        const csvContent = `First Name,Last Name,Date of Birth,Gender,Class,Student Hometown,Subjects,Graduation Year Group,Guardian 1 First Name,Guardian 1 Last Name,Guardian 1 Phone,Guardian 1 Email,Guardian 1 Address,Guardian 1 Hometown
-John,Doe,2010-05-15,Male,JHS 1,"Accra, Ghana","Mathematics, English",2027,Jane,Doe,+233-20-123-4567,jane.doe@example.com,"123 Main St, Accra","Accra, Ghana"
-Mary,Smith,2011-08-22,Female,JHS 2,"Kumasi, Ghana","Biology, Chemistry, English",2028,Peter,Smith,+233-24-987-6543,peter.smith@example.com,"456 Oak Ave, Kumasi","Kumasi, Ghana"`;
-        
-        const blob = new Blob([csvContent], { type: 'text/csv' });
+      function getStudentImportTemplateHeaders() {
+        return [
+          'Student ID',
+          'Enrollment Type',
+          'School Year',
+          'Term',
+          'First Name',
+          'Last Name',
+          'Date of Birth',
+          'Gender',
+          'Hometown',
+          'Student Email',
+          'Class',
+          'Graduation Year Group',
+          'Subjects',
+          'Student Photo',
+          'Guardian 1 First Name',
+          'Guardian 1 Last Name',
+          'Guardian 1 Phone',
+          'Guardian 1 Email',
+          'Guardian 1 Address',
+          'Guardian 1 Hometown',
+          'Guardian Photo (optional)'
+        ];
+      }
+
+      function getStudentImportTemplateSections() {
+        return {
+          current: [
+            [
+              'MIS001',
+              'Current Term',
+              '',
+              '',
+              'Ama',
+              'Mensah',
+              '2010-05-15',
+              'Female',
+              'Accra',
+              'ama.mensah@studentmail.com',
+              'Jss 1',
+              'Graduation Class of 2027 Group',
+              'Mathematics,English,Science',
+              '',
+              'Kwame',
+              'Mensah',
+              '0241234567',
+              'kwame.mensah@example.com',
+              'Dansoman, Accra',
+              'Accra',
+              ''
+            ]
+          ],
+          future: [
+            [
+              'MIS002',
+              'Future Term',
+              '2026/2027',
+              'Term 1',
+              'Kofi',
+              'Owusu',
+              '2011-08-22',
+              'Male',
+              'Kumasi',
+              'kofi.owusu@studentmail.com',
+              'Jss 2',
+              'Graduation Class of 2028 Group',
+              'English,Computing,Social Studies',
+              '',
+              'Efua',
+              'Owusu',
+              '0209876543',
+              'efua.owusu@example.com',
+              'Adum, Kumasi',
+              'Kumasi',
+              ''
+            ]
+          ]
+        };
+      }
+
+      function csvEscape(value) {
+        const raw = String(value == null ? '' : value);
+        if (/[,"\n]/.test(raw)) {
+          return '"' + raw.replace(/"/g, '""') + '"';
+        }
+        return raw;
+      }
+
+      function downloadBlob(filename, content, type) {
+        const blob = new Blob([content], { type });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'student_import_template.csv';
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+      }
+
+      function downloadCsvTemplate() {
+        const headers = getStudentImportTemplateHeaders();
+        const sections = getStudentImportTemplateSections();
+        const csvLines = [
+          'IMPORTANT: REMOVE EXAMPLE ROWS BEFORE IMPORT',
+          '',
+          'Current Term Tab (Section)',
+          headers.map(csvEscape).join(','),
+          ...sections.current.map((row) => row.map(csvEscape).join(',')),
+          '',
+          'Future Term Tab (Section)',
+          headers.map(csvEscape).join(','),
+          ...sections.future.map((row) => row.map(csvEscape).join(','))
+        ];
+        downloadBlob('managira student import template.csv', csvLines.join('\n'), 'text/csv;charset=utf-8');
+      }
+
+      function excelXmlEscape(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&apos;');
+      }
+
+      function buildExcelRow(values, styleId) {
+        const styleAttr = styleId ? ` ss:StyleID="${styleId}"` : '';
+        const cells = values
+          .map((value) => `<Cell${styleAttr}><Data ss:Type="String">${excelXmlEscape(value)}</Data></Cell>`)
+          .join('');
+        return `<Row>${cells}</Row>`;
+      }
+
+      function buildExcelWorksheet(name, headers, rows) {
+        const warningRow = buildExcelRow(['REMOVE EXAMPLE ROWS BEFORE IMPORT'], 'Warn');
+        const emptyRow = '<Row><Cell><Data ss:Type="String"></Data></Cell></Row>';
+        const headerRow = buildExcelRow(headers, 'Header');
+        const dataRows = rows.map((row) => buildExcelRow(row, '')).join('');
+        return `<Worksheet ss:Name="${excelXmlEscape(name)}"><Table>${warningRow}${emptyRow}${headerRow}${dataRows}</Table></Worksheet>`;
+      }
+
+      function downloadExcelTemplate() {
+        const headers = getStudentImportTemplateHeaders();
+        const sections = getStudentImportTemplateSections();
+        const workbook = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Header"><Font ss:Bold="1"/></Style>
+  <Style ss:ID="Warn"><Font ss:Bold="1" ss:Color="#FF0000"/></Style>
+ </Styles>
+ ${buildExcelWorksheet('Current', headers, sections.current)}
+ ${buildExcelWorksheet('Future', headers, sections.future)}
+</Workbook>`;
+        downloadBlob('managira student import template.xls', workbook, 'application/vnd.ms-excel;charset=utf-8');
+      }
+
+      function downloadWordTemplate() {
+        const headers = getStudentImportTemplateHeaders();
+        const sections = getStudentImportTemplateSections();
+        const studentHeaders = headers.slice(0, 14);
+        const guardianHeaders = headers.slice(14);
+        const mapRowsByRange = (rows, start, end) => rows.map((row) => row.slice(start, end));
+
+        function renderWordTable(tableHeaders, tableRows) {
+          const headerCells = tableHeaders
+            .map((h) => `<th style="border:1px solid #d1d5db;padding:6px;background:#f8fafc;text-align:left;font-size:10px;word-break:break-word;">${escapeHtml(h)}</th>`)
+            .join('');
+          const bodyRows = tableRows
+            .map((row) => `<tr>${row.map((v) => `<td style="border:1px solid #e5e7eb;padding:6px;font-size:10px;word-break:break-word;">${escapeHtml(v)}</td>`).join('')}</tr>`)
+            .join('');
+          return `<table style="border-collapse:collapse;width:100%;table-layout:fixed;font-size:10px;margin:0 0 14px;">
+    <thead><tr>${headerCells}</tr></thead>
+    <tbody>${bodyRows}</tbody>
+  </table>`;
+        }
+
+        const currentStudentRows = mapRowsByRange(sections.current, 0, 14);
+        const currentGuardianRows = mapRowsByRange(sections.current, 14);
+        const futureStudentRows = mapRowsByRange(sections.future, 0, 14);
+        const futureGuardianRows = mapRowsByRange(sections.future, 14);
+
+        const docHtml = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Student Import Template</title>
+<style>
+  @page {
+    size: A4 landscape;
+    margin: 0.35in;
+  }
+</style>
+</head>
+<body style="font-family:Arial,sans-serif;color:#0f172a;">
+  <h2 style="margin:0 0 8px;">Managira Student Import Template</h2>
+  <p style="margin:0 0 14px;">Use this template to prepare student data for import on Add Student.</p>
+  <p style="margin:0 0 14px;color:#dc2626;font-weight:700;">REMOVE EXAMPLE ROWS BEFORE IMPORT.</p>
+  <p style="margin:0 0 14px;"><strong>Notes:</strong> Enrollment Type can be Current Term or Future Term. Gender can be Male or Female. Subjects can be comma-separated.</p>
+  <h3 style="margin:0 0 8px;">Current Tab (Section)</h3>
+  <p style="margin:0 0 6px;font-weight:700;font-size:11px;">Current - Student Columns</p>
+  ${renderWordTable(studentHeaders, currentStudentRows)}
+  <p style="margin:0 0 6px;font-weight:700;font-size:11px;">Current - Guardian Columns</p>
+  ${renderWordTable(guardianHeaders, currentGuardianRows)}
+  <h3 style="margin:0 0 8px;">Future Tab (Section)</h3>
+  <p style="margin:0 0 6px;font-weight:700;font-size:11px;">Future - Student Columns</p>
+  ${renderWordTable(studentHeaders, futureStudentRows)}
+  <p style="margin:0 0 6px;font-weight:700;font-size:11px;">Future - Guardian Columns</p>
+  ${renderWordTable(guardianHeaders, futureGuardianRows)}
+</body></html>`;
+
+        downloadBlob('managira student import template.doc', docHtml, 'application/msword;charset=utf-8');
+      }
+
+      function downloadTemplate() {
+        downloadCsvTemplate();
       }
     </script>
 
@@ -4087,7 +4307,15 @@ Mary,Smith,2011-08-22,Female,JHS 2,"Kumasi, Ghana","Biology, Chemistry, English"
 
         <div class="template-download">
           <p>📋 Need a template?</p>
-          <a href="javascript:void(0)" class="template-link" onclick="downloadTemplate()">Download CSV Template</a>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+            <button type="button" class="template-link" style="border:none;background:transparent;padding:0;cursor:pointer;" onclick="downloadCsvTemplate()">Download CSV Template</button>
+            <span style="color:#94a3b8;">|</span>
+            <button type="button" class="template-link" style="border:none;background:transparent;padding:0;cursor:pointer;" onclick="downloadExcelTemplate()">Download Excel Template (.xls)</button>
+            <span style="color:#94a3b8;">|</span>
+            <button type="button" class="template-link" style="border:none;background:transparent;padding:0;cursor:pointer;" onclick="downloadWordTemplate()">Download Word Template (.doc)</button>
+          </div>
+          <div style="margin-top:8px;font-size:0.82rem;color:#64748b;">Template Types: CSV, Excel (.xls), Word (.doc)</div>
+          <div style="margin-top:4px;font-size:0.82rem;color:#dc2626;font-weight:700;">Remove example rows before importing.</div>
         </div>
 
         <div id="parsingProgress" class="parsing-progress">

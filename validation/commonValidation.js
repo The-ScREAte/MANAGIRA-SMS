@@ -31,7 +31,7 @@ const validateStudents = (req, res, next) => {
 
   const body = req.body;
   const indexes = [];
-  const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
+  const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|studentEmail|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
 
   const isMultiple = Object.keys(body).some((key) => key.match(/_\d+$/));
 
@@ -72,6 +72,7 @@ const validateStudents = (req, res, next) => {
     const dateOfBirth = getField("dateOfBirth");
     const gender = getField("gender");
     const classId = getField("classId");
+    const studentEmail = getField("studentEmail");
     const graduationGroup = getField("graduationYearGroupId");
 
     const isCompletelyEmpty = !firstName && !lastName && !dateOfBirth && !gender && !classId;
@@ -105,6 +106,10 @@ const validateStudents = (req, res, next) => {
 
     if (!classId) {
       errors.push(`Student ${+index + 1}: Class selection is required.`);
+    }
+
+    if (studentEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(studentEmail)) {
+      errors.push(`Student ${+index + 1}: Student email must be a valid email address.`);
     }
 
     // Validate guardians if any
@@ -173,6 +178,11 @@ const validatePublicRegister = [
   check("gender").notEmpty().withMessage("Gender is required"),
 
   check("classId").notEmpty().withMessage("Class is required"),
+
+  check("studentEmail")
+    .optional({ checkFalsy: true })
+    .isEmail()
+    .withMessage("Student email must be valid"),
 
   check("studentImage").optional(),
 

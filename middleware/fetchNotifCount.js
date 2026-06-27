@@ -75,6 +75,13 @@ const fetchNotifCount = async (req, res, next) => {
   if (!orgId) return next();
 
   try {
+    // Student portal notifications are handled by /notifications/* student context.
+    // Keep server-rendered badge neutral to avoid leaking staff counts.
+    if (session.userRole === 'Student' || session.accountType === 'Student') {
+      res.locals.notifUnreadCount = 0;
+      return next();
+    }
+
     // Guardian portal
     if (session.userRole === 'Guardian' || session.accountType === 'Guardian') {
       const guardianId = session.guardianId || session.userId || null;

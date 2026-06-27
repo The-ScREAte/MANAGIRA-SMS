@@ -141,7 +141,7 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-nav .nav-link:hover,
 .management-nav .nav-link:hover,
 .settings-nav .nav-link:hover {
-  background: rgba(1, 83, 91, 0.06) !important;
+  background: var(--org-primary-soft, rgba(1, 83, 91, 0.06)) !important;
   color: var(--primary, #01535b) !important;
 }
 .hub-nav .nav-link:hover .nav-link-icon,
@@ -151,7 +151,7 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-nav .nav-link.active,
 .management-nav .nav-link.active,
 .settings-nav .nav-link.active {
-  background: rgba(1, 83, 91, 0.10) !important;
+  background: var(--org-primary-soft-strong, rgba(1, 83, 91, 0.10)) !important;
   color: var(--primary, #01535b) !important;
   font-weight: 600 !important;
   border-color: transparent !important;
@@ -335,10 +335,10 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-main .action-btn:hover,
 .management-main .action-btn:hover,
 .settings-main .action-btn:hover {
-  background: var(--primary-hover, #014a51) !important;
+  background: var(--org-primary-hover-fill, var(--primary-hover, #014a51)) !important;
   color: #fff !important;
   transform: none !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 8px var(--org-primary-soft-shadow, rgba(0, 0, 0, 0.08)) !important;
 }
 
 .hub-main .action-btn svg,
@@ -379,8 +379,8 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-main .feature-item:hover,
 .management-main .feature-item:hover,
 .settings-main .feature-item:hover {
-  border-color: var(--primary, #01535b) !important;
-  background: #fff !important;
+  border-color: var(--org-primary-soft-border, var(--primary, #01535b)) !important;
+  background: var(--org-primary-soft, #fff) !important;
 }
 
 .hub-main .feature-icon,
@@ -580,6 +580,76 @@ main { padding: 0 !important; max-width: none !important; }
 }
 
 @media (max-width: 600px) {
+  .hub-main,
+  .management-main,
+  .settings-main {
+    border-radius: 10px;
+  }
+
+  .hub-main .section-header,
+  .management-main .section-header,
+  .settings-main .section-header {
+    padding: 9px 11px !important;
+  }
+
+  .settings-main .settings-section > h1,
+  .hub-main .section-header h1,
+  .management-main .section-header h1,
+  .settings-main .section-header h1 {
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+  }
+
+  .settings-main .settings-section > h1::before,
+  .hub-main .section-header::before,
+  .management-main .section-header::before,
+  .settings-main .section-header::before {
+    font-size: 9px !important;
+    margin-bottom: 3px !important;
+  }
+
+  .settings-main .settings-section > p.lead,
+  .hub-main .section-header p,
+  .management-main .section-header p,
+  .settings-main .section-header p {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    margin-bottom: 12px !important;
+  }
+
+  .section-card {
+    padding: 11px 12px !important;
+  }
+
+  .section-card h2 {
+    font-size: 13px !important;
+  }
+
+  .section-card > p {
+    font-size: 11px !important;
+    line-height: 1.45 !important;
+  }
+
+  .hub-nav h3,
+  .management-nav h3,
+  .settings-nav h3 {
+    font-size: 12px !important;
+  }
+
+  .hub-nav .nav-link,
+  .management-nav .nav-link,
+  .settings-nav .nav-link {
+    font-size: 12px !important;
+    padding: 6px 9px 6px 10px !important;
+  }
+
+  .hub-main .action-btn,
+  .management-main .action-btn,
+  .settings-main .action-btn {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+  }
+
   .hub-main .features-grid,
   .management-main .features-grid,
   .settings-main .features-grid { grid-template-columns: 1fr !important; }

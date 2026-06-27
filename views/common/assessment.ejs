@@ -94,11 +94,10 @@ body {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s;
 }
 
 .teachers-btn:hover {
-  background: #f1f5f9;
+  background: #f8fafc;
 }
 
 .teachers-popover {
@@ -160,16 +159,745 @@ body {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.2s;
 }
 
 .header-save-btn:hover {
-  background: var(--primary-hover-fill, var(--primary-hover));
+  background: var(--primary);
 }
 
 .header-save-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.header-action-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #334155;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.header-action-btn:hover {
+  background: #fff;
+}
+
+.question-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 30, 0.55);
+  backdrop-filter: blur(3px);
+  display: none;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+.question-modal-overlay.show { display: flex; }
+
+.question-modal {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  max-width: 1120px;
+  height: 100dvh;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 40px rgba(0,0,0,0.18);
+  animation: slideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  max-height: none;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.qm-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 24px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.qm-topbar-left { display: flex; align-items: center; gap: 12px; }
+
+.qm-topbar-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #0f5a66 0%, #1a8fa0 100%);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.qm-topbar-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: #0f2d32; }
+.qm-topbar-sub   { margin: 0; font-size: 0.78rem; color: #64748b; }
+
+.qm-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.qm-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1.5px solid #0f5a66;
+  background: #f0fafb;
+  color: #0f5a66;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.qm-upload-btn:hover { background: #0f5a66; color: #fff; }
+.qm-upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.qm-upload-btn .qm-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(15,90,102,0.3);
+  border-top-color: #0f5a66;
+  border-radius: 50%;
+  animation: qmSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.qm-upload-btn.loading .qm-spinner,
+.qm-upload-btn:hover .qm-spinner {
+  border-color: rgba(255,255,255,0.35);
+  border-top-color: #fff;
+}
+
+@keyframes qmSpin { to { transform: rotate(360deg); } }
+
+.qm-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.qm-close-btn:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+
+.qm-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qm-draft-banner {
+  display: flex;
+  align-items: center;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  color: #92400e;
+  gap: 10px;
+}
+
+.qm-section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.qm-section-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  margin: 0 0 12px;
+}
+
+.qm-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.qm-grid-2 .full { grid-column: 1 / -1; }
+
+.qm-field { display: flex; flex-direction: column; gap: 4px; }
+.qm-field.is-hidden { display: none; }
+
+.qm-field label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #1e3a42;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.qm-field input,
+.qm-field select,
+.qm-field textarea {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.84rem;
+  font-family: inherit;
+  color: #0f172a;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+.qm-field input:focus,
+.qm-field select:focus,
+.qm-field textarea:focus {
+  outline: none;
+  border-color: #0f5a66;
+  box-shadow: 0 0 0 3px rgba(15, 90, 102, 0.1);
+}
+
+.qm-assessment-rules {
+  background: linear-gradient(135deg, #f0fafb 0%, #e6f4f6 100%);
+  border: 1px solid #a5d8dd;
+  border-left: 4px solid #0f5a66;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  color: #0f4a54;
+  line-height: 1.6;
+}
+
+.qm-question-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qm-question-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.qm-preview-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  border-radius: 999px;
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.qm-preview-trigger:hover { border-color: #0f5a66; color: #0f5a66; background: #f0fafb; }
+
+/* GRID TWO for questions */
+#question-items {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.qm-question-card {
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.qm-question-card:focus-within {
+  border-color: #0f5a66;
+  box-shadow: 0 0 0 3px rgba(15, 90, 102, 0.08);
+}
+
+.qm-question-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 0;
+}
+
+.qm-question-header-fields {
+  display: grid;
+  grid-template-columns: 1fr 90px;
+  gap: 8px;
+  flex: 1;
+}
+
+.qm-question-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #0f5a66, #1a8fa0);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.qm-remove-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #ef4444;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.qm-remove-btn:hover { background: #fef2f2; border-color: #ef4444; }
+
+.qm-question-card-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Smaller inputs inside cards */
+.qm-question-card .qm-field label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.qm-question-card .qm-field input,
+.qm-question-card .qm-field select,
+.qm-question-card .qm-field textarea {
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  border-radius: 7px;
+}
+
+.qm-help-text { font-size: 0.75rem; color: #64748b; }
+
+/* Rich text editor */
+.qm-question-text-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.qm-question-text-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qm-text-tool-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qm-text-tool-btn:hover { border-color: #0f5a66; color: #0f5a66; background: #f0fafb; }
+
+.qm-text-color-wrap {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  overflow: hidden;
+  cursor: pointer;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.qm-text-color {
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.qm-text-color::-webkit-color-swatch-wrapper { padding: 0; }
+.qm-text-color::-webkit-color-swatch { border: none; border-radius: 0; }
+.qm-text-color::-moz-color-swatch { border: none; border-radius: 0; }
+
+.question-text-editor {
+  min-height: 52px;
+  max-height: 110px;
+  padding: 7px 9px;
+  font-size: 0.8rem;
+  color: #0f172a;
+  line-height: 1.35;
+  outline: none;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.question-text-editor:empty:before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.question-text-editor:focus { border-color: #0f5a66; box-shadow: 0 0 0 3px rgba(15,90,102,0.08); }
+
+.question-text { display: none; }
+
+/* Options & answers */
+.question-options-list,
+.question-answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.question-option-row,
+.question-answer-row {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.question-option-input,
+.question-answer-input {
+  flex: 1;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  color: #0f172a;
+  background: #fff;
+}
+
+.question-option-input:focus,
+.question-answer-input:focus {
+  outline: none;
+  border-color: #0f5a66;
+  box-shadow: 0 0 0 2px rgba(15,90,102,0.08);
+}
+
+.question-option-input[readonly] { background: #f1f5f9; color: #334155; cursor: not-allowed; }
+
+.question-option-remove {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.question-option-remove:hover { border-color: #fca5a5; color: #dc2626; background: #fff5f5; }
+
+.qm-option-add-btn,
+.qm-answer-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid #94a3b8;
+  background: #fff;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.qm-option-add-btn:hover,
+.qm-answer-add-btn:hover { border-color: #0f5a66; color: #0f5a66; background: #f0fafb; }
+
+/* Footer */
+.qm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+  padding: 12px 24px;
+  flex-shrink: 0;
+}
+
+.qm-footer-right { display: inline-flex; align-items: center; gap: 8px; }
+
+.qm-btn-ghost,
+.qm-btn-clear,
+.qm-btn-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.qm-btn-ghost {
+  border: 1.5px dashed #94a3b8;
+  background: transparent;
+  color: #334155;
+  transition: all 0.15s;
+}
+
+.qm-btn-ghost:hover { border-color: #0f5a66; color: #0f5a66; background: #f0fafb; }
+.qm-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.qm-btn-clear {
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  transition: all 0.15s;
+}
+
+.qm-btn-clear:hover { border-color: #fca5a5; color: #dc2626; background: #fff; }
+
+.qm-btn-save {
+  background: linear-gradient(135deg, #0f5a66 0%, #1a8fa0 100%);
+  color: #fff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(15,90,102,0.28);
+  letter-spacing: 0.01em;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.qm-btn-save:hover { opacity: 0.9; transform: translateY(-1px); }
+.qm-btn-save:active { transform: translateY(0); }
+.qm-btn-save:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+#question-modal-status {
+  margin: 0;
+  padding: 5px 24px 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+  background: #fff;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Preview overlay */
+.qm-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 30, 0.48);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10100;
+  padding: 16px;
+}
+
+.qm-preview-overlay.show { display: flex; }
+
+.qm-preview-panel {
+  width: min(980px, 96vw);
+  max-height: calc(100dvh - 32px);
+  background: #fff;
+  border: 1px solid #dbe4ee;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 44px rgba(15, 23, 42, 0.24);
+}
+
+.qm-preview-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.qm-preview-title { margin: 0; font-size: 0.95rem; color: #0f2d32; font-weight: 800; }
+
+.qm-preview-actions { display: inline-flex; align-items: center; gap: 8px; }
+
+.qm-preview-print {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.qm-preview-print:hover { border-color: #0f5a66; color: #0f5a66; background: #f0fafb; }
+
+.qm-preview-close {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid #d5dde7;
+  background: #fff;
+  color: #475569;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qm-preview-body {
+  overflow-y: auto;
+  padding: 14px 16px 18px;
+  display: grid;
+  gap: 10px;
+  background: #f8fafc;
+}
+
+.qm-preview-context {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.qm-preview-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.qm-preview-qmeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.74rem;
+  color: #475569;
+  font-weight: 700;
+}
+
+.qm-preview-qtext { font-size: 0.88rem; color: #0f172a; line-height: 1.45; }
+
+.qm-preview-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.qm-preview-answer { font-size: 0.76rem; color: #64748b; }
+
+@media (max-width: 980px) { .question-modal { max-width: 100%; } }
+
+@media (max-width: 640px) {
+  #question-items { grid-template-columns: 1fr; }
+  .qm-footer { flex-direction: column; align-items: stretch; }
+  .qm-footer-right { justify-content: flex-end; }
+  .qm-grid-2 { grid-template-columns: 1fr; }
 }
 
 .assessment-status {
@@ -450,6 +1178,12 @@ input[type="number"]:focus {
   outline: none;
 }
 
+input[type="number"].score-input-invalid {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.16);
+}
+
 /* Spinner Styling */
 .spinner {
   display: none;
@@ -618,6 +1352,30 @@ input[type="number"]:focus {
             </div>
           </div>
           <% } %>
+          <button
+            type="button"
+            class="header-action-btn"
+            id="set-questions-button"
+            style="display:<%= canShowQuestionSetControls ? (hasQuestionSets ? 'none' : 'inline-flex') : 'none' %>;"
+          >
+            Set Questions
+          </button>
+          <button
+            type="button"
+            class="header-action-btn"
+            id="view-questions-button"
+            style="display:<%= canShowQuestionSetControls ? (hasQuestionSets ? 'inline-flex' : 'none') : 'none' %>;"
+          >
+            View Questions
+          </button>
+          <button
+            type="button"
+            class="header-action-btn"
+            id="edit-questions-button"
+            style="display:none;"
+          >
+            Edit Questions
+          </button>
           <button type="button" class="header-save-btn" id="header-save-scores-button" <%= hasEditableAssessments ? '' : 'disabled' %>>Save All Scores</button>
         </div>
       </div>
@@ -742,6 +1500,116 @@ input[type="number"]:focus {
         <% } %>
       </form>
 
+      <div class="question-modal-overlay" id="question-modal-overlay" aria-hidden="true">
+        <div class="question-modal">
+
+          <div class="qm-topbar">
+            <div class="qm-topbar-left">
+              <div class="qm-topbar-icon">📋</div>
+              <div>
+                <h2 class="qm-topbar-title" id="question-modal-title">Set Questions</h2>
+                <p class="qm-topbar-sub">Create and manage a structured question set for this assessment.</p>
+              </div>
+            </div>
+            <div class="qm-topbar-right">
+              <button type="button" class="qm-upload-btn" id="qm-upload-pdf-btn" title="Import exam file">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 10V3M5 6l3-3 3 3M3 11v1a1 1 0 001 1h8a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Import Exam File
+              </button>
+              <input id="qm-pdf-file-input" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" style="display:none;" />
+              <button type="button" class="qm-close-btn" id="question-modal-close" title="Close">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="qm-body">
+            <div class="qm-draft-banner" id="qm-draft-banner" style="display:none;">
+              <span>📝 Draft restored from last session.</span>
+            </div>
+
+            <div class="qm-section">
+              <p class="qm-section-label">Assessment Context</p>
+              <div class="qm-grid-2">
+                <div class="qm-field">
+                  <label for="question-assessment">Assessment</label>
+                  <select id="question-assessment" style="width:100%;">
+                    <% assessments.forEach(function(assessment) { %>
+                      <option value="<%= assessment.assessment_id %>"><%= assessment.title %></option>
+                    <% }) %>
+                  </select>
+                </div>
+                <div class="qm-field">
+                  <label for="question-open-book">Exam Mode</label>
+                  <select id="question-open-book" style="width:100%;">
+                    <option value="false">Secure (Closed Book)</option>
+                    <option value="true">Open Book</option>
+                  </select>
+                </div>
+                <div class="qm-field">
+                  <label for="question-time-limit">Time Limit (minutes)</label>
+                  <input id="question-time-limit" type="number" min="1" step="1" placeholder="Leave empty for untimed" />
+                </div>
+                <div class="qm-field">
+                  <label for="question-set-title">Question Set Title</label>
+                  <input id="question-set-title" type="text" placeholder="e.g. Midterm Objectives" />
+                </div>
+                <div class="qm-field full">
+                  <label for="question-set-description">Description <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
+                  <textarea id="question-set-description" rows="2" placeholder="Optional context for this question set."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div id="question-assessment-rules" class="qm-assessment-rules" style="display:none;"></div>
+
+            <div class="qm-section">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                <p class="qm-section-label" style="margin:0;">Questions</p>
+                <div class="qm-question-header-actions">
+                  <span class="qm-question-count" id="qm-question-count">0 questions</span>
+                  <button type="button" class="qm-preview-trigger" id="qm-preview-open">Preview</button>
+                </div>
+              </div>
+              <div id="question-items"></div>
+            </div>
+
+            <p id="question-modal-status" style="margin:0;font-size:0.74rem;color:#64748b;"></p>
+          </div>
+
+          <div class="qm-preview-overlay" id="qm-preview-overlay" aria-hidden="true">
+            <div class="qm-preview-panel" role="dialog" aria-modal="true" aria-labelledby="qm-preview-title">
+              <div class="qm-preview-topbar">
+                <h3 class="qm-preview-title" id="qm-preview-title">Question Preview</h3>
+                <div class="qm-preview-actions">
+                  <button type="button" class="qm-preview-print" id="qm-preview-print">Print</button>
+                  <button type="button" class="qm-preview-close" id="qm-preview-close">×</button>
+                </div>
+              </div>
+              <div class="qm-preview-body" id="qm-preview-body"></div>
+            </div>
+          </div>
+
+          <div class="qm-footer">
+            <button type="button" class="qm-btn-ghost" id="add-question-item">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+              Add Question
+            </button>
+            <div class="qm-footer-right">
+              <button type="button" class="qm-btn-clear" id="qm-clear-draft">Clear Draft</button>
+              <button type="button" class="qm-btn-save" id="save-question-set">Save Question Set</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
       <!-- Loading Spinner -->
       <div class="spinner" id="loading-spinner"></div>
     </main>
@@ -818,6 +1686,1195 @@ input[type="number"]:focus {
         });
       }
 
+      const questionModalOverlay = document.getElementById("question-modal-overlay");
+      const questionModalClose = document.getElementById("question-modal-close");
+      const setQuestionsButton = document.getElementById("set-questions-button");
+      const viewQuestionsButton = document.getElementById("view-questions-button");
+      const editQuestionsButton = document.getElementById("edit-questions-button");
+      const questionItems = document.getElementById("question-items");
+      const addQuestionItemButton = document.getElementById("add-question-item");
+      const saveQuestionSetButton = document.getElementById("save-question-set");
+      const questionSetTitleInput = document.getElementById("question-set-title");
+      const questionSetDescriptionInput = document.getElementById("question-set-description");
+      const questionAssessmentSelect = document.getElementById("question-assessment");
+      const questionOpenBookSelect = document.getElementById("question-open-book");
+      const questionTimeLimitInput = document.getElementById("question-time-limit");
+      const questionAssessmentRules = document.getElementById("question-assessment-rules");
+      const questionModalStatus = document.getElementById("question-modal-status");
+      const questionModalTitle = document.getElementById("question-modal-title");
+      const qmClearDraftButton = document.getElementById("qm-clear-draft");
+      const qmDraftBanner = document.getElementById("qm-draft-banner");
+      const canShowQuestionSetControlsFlag = <%- JSON.stringify(Boolean(canShowQuestionSetControls)) %>;
+      const qmUploadPdfBtn = document.getElementById("qm-upload-pdf-btn");
+      const qmPdfFileInput = document.getElementById("qm-pdf-file-input");
+      const qmPreviewOpenButton = document.getElementById("qm-preview-open");
+      const qmPreviewOverlay = document.getElementById("qm-preview-overlay");
+      const qmPreviewCloseButton = document.getElementById("qm-preview-close");
+      const qmPreviewPrintButton = document.getElementById("qm-preview-print");
+      const qmPreviewBody = document.getElementById("qm-preview-body");
+      const DRAFT_KEY = "assessmentQuestionModalDraft_class" + String("<%= classId %>") + "_subject" + String("<%= subjectId %>") + "_term" + String("<%= currentTerm.term_id %>");
+      const previewSchoolName = <%- JSON.stringify((session && (session.organizationName || session.organization_name || session.schoolName || session.orgName)) || 'School') %>;
+      const previewSchoolLogo = <%- JSON.stringify((session && session.logo) || '') %>;
+
+      const assessmentRuleMap = new Map(
+        (<%- JSON.stringify((assessments || []).map((assessment) => ({
+          assessmentId: Number(assessment.assessment_id),
+          title: assessment.title,
+          weight: Number(assessment.weight || 0),
+          maxScore: Number(assessment.max_score || 0),
+          category: assessment.category || "Assessment",
+          scaleBase: Number(assessment.scale_base || 100),
+          openBook: Boolean(assessment.open_book),
+          timeLimitMinutes: assessment.time_limit_minutes !== null && assessment.time_limit_minutes !== undefined
+            ? Number(assessment.time_limit_minutes)
+            : null,
+          canEditScores: Boolean(assessment.can_edit_scores),
+          accessReason: assessment.access_reason || "",
+        }))) %> || []).map((item) => [Number(item.assessmentId), item])
+      );
+
+      let currentQuestionSetId = null;
+      let questionModalMode = "create";
+      let selectedAssessmentRule = null;
+      let activeLoadedQuestionSet = null;
+
+      function escapeHtml(v) {
+        return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+
+      function toDisplayQType(t) {
+        var n = String(t||'').toLowerCase();
+        if (n==='multiple_choice') return 'Multiple Choice';
+        if (n==='single_choice')   return 'One Choice';
+        if (n==='true_false')      return 'True / False';
+        if (n==='essay')           return 'Essay';
+        return 'Short Text';
+      }
+
+      function normalizeExtractedQuestionType(rawType) {
+        var t = String(rawType || '').trim().toLowerCase().replace(/[\s_-]+/g, '_');
+        if (!t) return 'short_text';
+        if (['multiple_choice','mcq','multiple choice'].includes(t)) return 'multiple_choice';
+        if (['single_choice','one_choice','single choice','one choice'].includes(t)) return 'single_choice';
+        if (['true_false','true/false','true false'].includes(t)) return 'true_false';
+        if (['short_text','short_answer','short answer','short_ans'].includes(t)) return 'short_text';
+        if (['fill_blank','fill_in_the_blank','fill blank'].includes(t)) return 'short_text';
+        if (['matching'].includes(t)) return 'short_text';
+        if (['essay'].includes(t)) return 'essay';
+        return 'short_text';
+      }
+
+      function parseAnswerValues(raw) {
+        if (Array.isArray(raw)) {
+          return raw.map((item) => String(item || "").trim()).filter(Boolean);
+        }
+        const normalized = String(raw || "").trim();
+        if (!normalized) return [];
+        if ((normalized.startsWith("[") && normalized.endsWith("]")) || (normalized.startsWith("{") && normalized.endsWith("}"))) {
+          try {
+            const parsed = JSON.parse(normalized);
+            if (Array.isArray(parsed)) {
+              return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+            }
+          } catch (_) {
+          }
+        }
+        if (normalized.indexOf("||") !== -1) {
+          return normalized.split("||").map((part) => String(part || "").trim()).filter(Boolean);
+        }
+        return [normalized];
+      }
+
+      function serializeAnswerValues(values) {
+        const cleaned = Array.isArray(values)
+          ? values.map((item) => String(item || "").trim()).filter(Boolean)
+          : [];
+        if (!cleaned.length) return "";
+        if (cleaned.length === 1) return cleaned[0];
+        return JSON.stringify(cleaned);
+      }
+
+      function updateQuestionCount() {
+        const count = document.querySelectorAll("#question-items .qm-question-card").length;
+        const counter = document.getElementById("qm-question-count");
+        if (counter) {
+          counter.textContent = count + " question" + (count === 1 ? "" : "s");
+        }
+      }
+
+      function saveDraft() {
+        try {
+          const questions = [];
+          document.querySelectorAll("#question-items .qm-question-card").forEach((card) => {
+            const optionValues = Array.prototype.slice.call(card.querySelectorAll(".question-option-input"))
+              .map((input) => String(input.value || "").trim())
+              .filter(Boolean);
+            const answerValues = Array.prototype.slice.call(card.querySelectorAll(".question-answer-input"))
+              .map((input) => String(input.value || "").trim())
+              .filter(Boolean);
+            questions.push({
+              type: card.querySelector(".question-type") ? card.querySelector(".question-type").value : "",
+              marks: card.querySelector(".question-marks") ? card.querySelector(".question-marks").value : 1,
+              text: card.querySelector(".question-text") ? card.querySelector(".question-text").value : "",
+              options: optionValues,
+              answers: answerValues,
+            });
+          });
+
+          const draft = {
+            assessmentId: questionAssessmentSelect ? questionAssessmentSelect.value : "",
+            setTitle: questionSetTitleInput ? questionSetTitleInput.value : "",
+            description: questionSetDescriptionInput ? questionSetDescriptionInput.value : "",
+            questions,
+            savedAt: Date.now(),
+          };
+
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        } catch (_) {
+        }
+      }
+
+      function loadDraft() {
+        try {
+          const raw = localStorage.getItem(DRAFT_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : null;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function clearDraft() {
+        try {
+          localStorage.removeItem(DRAFT_KEY);
+        } catch (_) {
+        }
+        if (qmDraftBanner) qmDraftBanner.style.display = "none";
+      }
+
+      function restoreDraft(draft) {
+        if (!draft || !questionItems) return;
+        if (questionAssessmentSelect && draft.assessmentId) {
+          questionAssessmentSelect.value = String(draft.assessmentId);
+        }
+        if (questionSetTitleInput) questionSetTitleInput.value = String(draft.setTitle || "");
+        if (questionSetDescriptionInput) questionSetDescriptionInput.value = String(draft.description || "");
+
+        questionItems.innerHTML = "";
+        if (Array.isArray(draft.questions) && draft.questions.length) {
+          draft.questions.forEach((q) => {
+            questionItems.appendChild(buildQuestionItem({
+              questionType: q.type || "short_text",
+              questionText: q.text || "",
+              options: Array.isArray(q.options) ? q.options : [],
+              answerKeys: Array.isArray(q.answers) ? q.answers : [],
+              marks: Number(q.marks || 1),
+            }));
+          });
+        }
+
+        if (!questionItems.children.length) {
+          questionItems.appendChild(buildQuestionItem());
+        }
+
+        renumberQuestionCards();
+        updateQuestionCount();
+        if (qmDraftBanner) qmDraftBanner.style.display = "flex";
+      }
+
+      function renderUploadButtonIdle() {
+        if (!qmUploadPdfBtn) return;
+        qmUploadPdfBtn.classList.remove("loading");
+        qmUploadPdfBtn.innerHTML = [
+          '<svg width="15" height="15" viewBox="0 0 16 16" fill="none">',
+          '<path d="M8 10V3M5 6l3-3 3 3M3 11v1a1 1 0 001 1h8a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
+          '</svg>',
+          'Import Exam File'
+        ].join("");
+      }
+
+      function setUploadButtonLoading(labelText) {
+        if (!qmUploadPdfBtn) return;
+        qmUploadPdfBtn.classList.add("loading");
+        qmUploadPdfBtn.innerHTML = '<span class="qm-spinner"></span>' + String(labelText || "Processing...");
+      }
+
+      function renumberQuestionCards() {
+        document.querySelectorAll("#question-items .qm-question-card").forEach((card, index) => {
+          const numberNode = card.querySelector(".qm-q-number");
+          if (numberNode) numberNode.textContent = String(index + 1);
+        });
+      }
+
+      function updateHeaderQuestionButtons(hasSet) {
+        if (!canShowQuestionSetControlsFlag) {
+          if (setQuestionsButton) setQuestionsButton.style.display = "none";
+          if (viewQuestionsButton) viewQuestionsButton.style.display = "none";
+          if (editQuestionsButton) editQuestionsButton.style.display = "none";
+          return;
+        }
+        if (setQuestionsButton) setQuestionsButton.style.display = hasSet ? "none" : "inline-flex";
+        if (viewQuestionsButton) viewQuestionsButton.style.display = hasSet ? "inline-flex" : "none";
+        if (editQuestionsButton) editQuestionsButton.style.display = "none";
+      }
+
+      function applyQuestionModalMode() {
+        const isViewMode = questionModalMode === "view";
+        [questionSetTitleInput, questionSetDescriptionInput, questionAssessmentSelect].forEach((element) => {
+          if (element) element.disabled = isViewMode;
+        });
+        if (addQuestionItemButton) addQuestionItemButton.style.display = isViewMode ? "none" : "inline-flex";
+        if (saveQuestionSetButton) saveQuestionSetButton.style.display = isViewMode ? "none" : "inline-flex";
+        if (qmUploadPdfBtn) qmUploadPdfBtn.style.display = isViewMode ? "none" : "inline-flex";
+        if (qmClearDraftButton) qmClearDraftButton.style.display = isViewMode ? "none" : "inline-flex";
+
+        document.querySelectorAll("#question-items .qm-question-card").forEach((row) => {
+          row.querySelectorAll("input, textarea, select, button").forEach((input) => {
+            if (input.classList && input.classList.contains("question-remove")) {
+              input.style.display = isViewMode ? "none" : "inline-flex";
+              return;
+            }
+            if (input.classList && (input.classList.contains("qm-option-add-btn") || input.classList.contains("qm-answer-add-btn") || input.classList.contains("question-option-remove") || input.classList.contains("qm-text-tool-btn") || input.classList.contains("qm-text-color"))) {
+              input.style.display = isViewMode ? "none" : "inline-flex";
+              return;
+            }
+            input.disabled = isViewMode;
+          });
+          const editor = row.querySelector(".question-text-editor");
+          if (editor) editor.setAttribute("contenteditable", isViewMode ? "false" : "true");
+        });
+      }
+
+      function updateQuestionModalStatus(message, isError) {
+        if (!questionModalStatus) return;
+        questionModalStatus.textContent = message || "";
+        questionModalStatus.style.color = isError ? "#b91c1c" : "#64748b";
+      }
+
+      function resolveSelectedAssessmentRule() {
+        const assessmentId = Number(questionAssessmentSelect ? questionAssessmentSelect.value : 0);
+        return assessmentRuleMap.get(assessmentId) || null;
+      }
+
+      function applyAssessmentMarksLimit(maxScore) {
+        const numericMaxScore = Number(maxScore || 0);
+        const normalizedMax = Number.isFinite(numericMaxScore) && numericMaxScore > 0 ? numericMaxScore : null;
+        document.querySelectorAll("#question-items .question-marks").forEach((input) => {
+          if (normalizedMax) {
+            input.setAttribute("max", String(normalizedMax));
+          } else {
+            input.removeAttribute("max");
+          }
+        });
+      }
+
+      function renderAssessmentRulesSummary() {
+        selectedAssessmentRule = resolveSelectedAssessmentRule();
+        if (!questionAssessmentRules) return;
+
+        if (!selectedAssessmentRule) {
+          if (questionOpenBookSelect) questionOpenBookSelect.value = "false";
+          if (questionTimeLimitInput) questionTimeLimitInput.value = "";
+          questionAssessmentRules.textContent = "Assessment rules unavailable for this selection.";
+          return;
+        }
+
+        if (questionOpenBookSelect) {
+          questionOpenBookSelect.value = selectedAssessmentRule.openBook ? "true" : "false";
+        }
+        if (questionTimeLimitInput) {
+          questionTimeLimitInput.value = selectedAssessmentRule.timeLimitMinutes && Number(selectedAssessmentRule.timeLimitMinutes) > 0
+            ? String(Number(selectedAssessmentRule.timeLimitMinutes))
+            : "";
+        }
+
+        const statusLabel = selectedAssessmentRule.canEditScores
+          ? "Editable"
+          : `Locked for editing (${selectedAssessmentRule.accessReason || "Not editable"})`;
+
+        questionAssessmentRules.textContent = `Rules: ${selectedAssessmentRule.title} | Category: ${selectedAssessmentRule.category} | Weight: ${selectedAssessmentRule.weight}% | Max score: ${selectedAssessmentRule.maxScore} | Scale: ${selectedAssessmentRule.scaleBase} | Mode: ${selectedAssessmentRule.openBook ? "Open Book" : "Secure"} | Time: ${selectedAssessmentRule.timeLimitMinutes && Number(selectedAssessmentRule.timeLimitMinutes) > 0 ? `${selectedAssessmentRule.timeLimitMinutes} min` : "Untimed"} | Status: ${statusLabel}`;
+        applyAssessmentMarksLimit(selectedAssessmentRule.maxScore);
+      }
+
+      function openQuestionModal(mode, customTitle) {
+        questionModalMode = mode === "view" ? "view" : (mode === "edit" ? "edit" : "create");
+        if (questionModalTitle) {
+          questionModalTitle.textContent = customTitle || (questionModalMode === "view"
+            ? "View Questions"
+            : (questionModalMode === "edit" ? "Edit Questions" : "Set Questions"));
+        }
+        if (questionModalOverlay) {
+          questionModalOverlay.classList.add("show");
+          questionModalOverlay.setAttribute("aria-hidden", "false");
+        }
+      }
+
+      function closeQuestionModal() {
+        if (!questionModalOverlay) return;
+        if (questionModalMode !== "view") {
+          saveDraft();
+        }
+        questionModalOverlay.classList.remove("show");
+        questionModalOverlay.setAttribute("aria-hidden", "true");
+      }
+
+      function buildPreviewCards() {
+        var questions = collectQuestionItems();
+        var titleVal  = questionSetTitleInput ? String(questionSetTitleInput.value||'').trim() : '';
+        var asmtLabel = questionAssessmentSelect && questionAssessmentSelect.options[questionAssessmentSelect.selectedIndex]
+          ? String(questionAssessmentSelect.options[questionAssessmentSelect.selectedIndex].textContent||'').trim() : '';
+
+        var context = [];
+        if (titleVal)  context.push('<strong>Title:</strong> ' + escapeHtml(titleVal));
+        if (asmtLabel) context.push('<strong>Assessment:</strong> ' + escapeHtml(asmtLabel));
+
+        if (!questions.length) {
+          return {
+            context: context,
+            cards: '<div class="qm-preview-card"><div class="qm-preview-answer">No questions yet — add and fill at least one question.</div></div>',
+            questions: questions,
+            asmtLabel: asmtLabel,
+          };
+        }
+
+        var cards = questions.map(function(q, i) {
+          var qHtml   = String(q.questionText||'').trim();
+          var hasHtml = /<\/?[a-z][\s\S]*>/i.test(qHtml);
+          var safeQ   = hasHtml ? qHtml : escapeHtml(qHtml).replace(/\n/g,'<br/>');
+          var marker  = q.questionType === 'multiple_choice' ? '☐' : '◯';
+          var opts    = Array.isArray(q.options) && q.options.length
+            ? '<ul class="qm-preview-options">' + q.options.map(function(o){ return '<li>'+marker+' '+escapeHtml(o)+'</li>'; }).join('') + '</ul>'
+            : '';
+          var avs     = parseAnswerValues(q.answerKey);
+          var ans     = avs.length ? '<div class="qm-preview-answer"><strong>Answer:</strong> '+avs.map(escapeHtml).join(', ')+'</div>' : '';
+          return '<div class="qm-preview-card">' +
+            '<div class="qm-preview-qmeta"><span>Q'+(i+1)+' • '+toDisplayQType(q.questionType)+'</span><span>'+String(q.marks||1)+' mark'+(Number(q.marks||1)===1?'':'s')+'</span></div>' +
+            '<div class="qm-preview-qtext">'+safeQ+'</div>' + opts + ans +
+            '</div>';
+        }).join('');
+
+        return { context: context, cards: cards, questions: questions, asmtLabel: asmtLabel };
+      }
+
+      function appendOptionInput(optionList, optionValue) {
+        if (!optionList) return null;
+        const row = document.createElement("div");
+        row.className = "question-option-row";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "form-input question-option-input";
+        input.placeholder = "Option";
+        input.value = optionValue || "";
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "question-option-remove";
+        removeBtn.textContent = "−";
+        removeBtn.addEventListener("click", () => {
+          row.remove();
+          if (!optionList.querySelector(".question-option-row")) appendOptionInput(optionList, "");
+          saveDraft();
+        });
+        row.appendChild(input);
+        row.appendChild(removeBtn);
+        optionList.appendChild(row);
+        return row;
+      }
+
+      function appendAnswerInput(answerList, answerValue) {
+        if (!answerList) return null;
+        const row = document.createElement("div");
+        row.className = "question-answer-row";
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "form-input question-answer-input";
+        input.placeholder = "Correct answer";
+        input.value = answerValue || "";
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "question-option-remove";
+        removeBtn.textContent = "−";
+        removeBtn.addEventListener("click", () => {
+          row.remove();
+          if (!answerList.querySelector(".question-answer-row")) appendAnswerInput(answerList, "");
+          saveDraft();
+        });
+        row.appendChild(input);
+        row.appendChild(removeBtn);
+        answerList.appendChild(row);
+        return row;
+      }
+
+      function setOptionRows(optionList, values, isReadOnly) {
+        if (!optionList) return;
+        optionList.innerHTML = "";
+        let normalized = Array.isArray(values) ? values : [];
+        if (!normalized.length) normalized = [""];
+        normalized.forEach((value) => {
+          const row = appendOptionInput(optionList, value);
+          if (!row) return;
+          const input = row.querySelector(".question-option-input");
+          const removeBtn = row.querySelector(".question-option-remove");
+          if (input) input.readOnly = Boolean(isReadOnly);
+          if (removeBtn) removeBtn.style.display = isReadOnly ? "none" : "inline-flex";
+        });
+      }
+
+      function setAnswerRows(answerList, values, allowMultiple, placeholderText) {
+        if (!answerList) return;
+        answerList.innerHTML = "";
+        let normalized = Array.isArray(values)
+          ? values.map((value) => String(value || "").trim()).filter(Boolean)
+          : [];
+        if (!normalized.length) normalized = [""];
+        if (!allowMultiple) normalized = [normalized[0] || ""];
+        normalized.forEach((value) => {
+          const row = appendAnswerInput(answerList, value);
+          if (!row) return;
+          const input = row.querySelector(".question-answer-input");
+          const removeBtn = row.querySelector(".question-option-remove");
+          if (input && placeholderText) input.placeholder = placeholderText;
+          if (removeBtn) removeBtn.style.display = allowMultiple ? "inline-flex" : "none";
+        });
+      }
+
+      function applyQuestionTypeBehavior(wrapper) {
+        if (!wrapper) return;
+        const typeSelect = wrapper.querySelector(".question-type");
+        const optionsField = wrapper.querySelector(".qm-options-field");
+        const optionsList = wrapper.querySelector(".question-options-list");
+        const addOptionButton = wrapper.querySelector(".qm-option-add-btn");
+        const answerLabel = wrapper.querySelector(".question-answer-label");
+        const answerList = wrapper.querySelector(".question-answer-list");
+        const addAnswerButton = wrapper.querySelector(".qm-answer-add-btn");
+        if (!typeSelect) return;
+
+        const type = String(typeSelect.value || "short_text");
+        const currentOptions = Array.prototype.slice.call(wrapper.querySelectorAll(".question-option-input"))
+          .map((input) => String(input.value || "").trim())
+          .filter(Boolean);
+        const currentAnswers = Array.prototype.slice.call(wrapper.querySelectorAll(".question-answer-input"))
+          .map((input) => String(input.value || "").trim())
+          .filter(Boolean);
+
+        if (type === "multiple_choice") {
+          if (optionsField) optionsField.classList.remove("is-hidden");
+          if (addOptionButton) addOptionButton.style.display = "inline-flex";
+          if (answerLabel) answerLabel.textContent = "Answer Key";
+          if (addAnswerButton) addAnswerButton.style.display = "inline-flex";
+          setOptionRows(optionsList, currentOptions, false);
+          setAnswerRows(answerList, currentAnswers, true, "Correct answer");
+          return;
+        }
+
+        if (type === "single_choice") {
+          if (optionsField) optionsField.classList.remove("is-hidden");
+          if (addOptionButton) addOptionButton.style.display = "inline-flex";
+          if (answerLabel) answerLabel.textContent = "Correct Answer";
+          if (addAnswerButton) addAnswerButton.style.display = "none";
+          setOptionRows(optionsList, currentOptions, false);
+          setAnswerRows(answerList, currentAnswers, false, "Only one correct answer");
+          return;
+        }
+
+        if (type === "true_false") {
+          if (optionsField) optionsField.classList.remove("is-hidden");
+          if (addOptionButton) addOptionButton.style.display = "none";
+          if (answerLabel) answerLabel.textContent = "Correct Answer";
+          if (addAnswerButton) addAnswerButton.style.display = "none";
+          setOptionRows(optionsList, ["True", "False"], true);
+          setAnswerRows(answerList, currentAnswers, false, "True or False");
+          return;
+        }
+
+        if (optionsField) optionsField.classList.add("is-hidden");
+        if (addOptionButton) addOptionButton.style.display = "none";
+        if (answerLabel) answerLabel.textContent = type === "essay" ? "Marking Guide" : "Correct Answer";
+        if (addAnswerButton) addAnswerButton.style.display = "none";
+        setAnswerRows(answerList, currentAnswers, false, type === "essay" ? "Key points / rubric" : "Expected short answer");
+      }
+
+      function setQuestionEditorContent(editor, value) {
+        if (!editor) return;
+        const raw = String(value || "");
+        if (/<\/?[a-z][\s\S]*>/i.test(raw)) {
+          editor.innerHTML = raw;
+        } else {
+          editor.textContent = raw;
+        }
+      }
+
+      function syncQuestionEditorValue(editor, hiddenInput) {
+        if (!editor || !hiddenInput) return;
+        let html = String(editor.innerHTML || "").trim();
+        if (html === "<br>" || html === "<div><br></div>") html = "";
+        hiddenInput.value = html;
+      }
+
+      function applyEditorCommand(editor, command, value) {
+        if (!editor) return;
+        editor.focus();
+        try {
+          document.execCommand(command, false, value);
+        } catch (_) {
+        }
+      }
+
+      function buildQuestionItem(question) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "qm-question-card";
+        wrapper.innerHTML = [
+          '<div class="qm-question-card-header">',
+          '  <div class="qm-question-badge">Q<span class="qm-q-number"></span></div>',
+          '  <div class="qm-question-header-fields">',
+          '    <div class="qm-field">',
+          '      <label>Type</label>',
+          '      <select class="form-select question-type" style="width:100%;">',
+          '        <option value="multiple_choice">Multiple Choice</option>',
+          '        <option value="single_choice">One Choice</option>',
+          '        <option value="true_false">True / False</option>',
+          '        <option value="short_text">Short Text</option>',
+          '        <option value="essay">Essay</option>',
+          '      </select>',
+          '    </div>',
+          '    <div class="qm-field">',
+          '      <label>Marks</label>',
+          '      <input class="form-input question-marks" type="number" min="1" step="0.5" value="1" />',
+          '    </div>',
+          '  </div>',
+          '  <button type="button" class="qm-remove-btn question-remove" title="Remove question">×</button>',
+          '</div>',
+          '<div class="qm-question-card-body">',
+          '  <div class="qm-field">',
+          '    <div class="qm-question-text-head">',
+          '      <label>Question Text</label>',
+          '      <div class="qm-question-text-toolbar">',
+          '        <button type="button" class="qm-text-tool-btn" data-format-cmd="bold" title="Bold">B</button>',
+          '        <button type="button" class="qm-text-tool-btn" data-format-cmd="italic" title="Italic">I</button>',
+          '        <label class="qm-text-color-wrap" title="Text Color">',
+          '          <input type="color" class="qm-text-color" value="#0f172a" />',
+          '        </label>',
+          '      </div>',
+          '    </div>',
+          '    <div class="question-text-editor" contenteditable="true" data-placeholder="Type the question here..."></div>',
+          '    <textarea class="question-text" rows="2"></textarea>',
+          '  </div>',
+          '  <div class="qm-field qm-options-field">',
+          '    <label>Options</label>',
+          '    <div class="question-options-list"></div>',
+          '    <button type="button" class="qm-option-add-btn" title="Add option">+</button>',
+          '  </div>',
+          '  <div class="qm-field">',
+          '    <label class="question-answer-label">Answer Key</label>',
+          '    <div class="question-answer-list"></div>',
+          '    <button type="button" class="qm-answer-add-btn" title="Add correct answer">+</button>',
+          '  </div>',
+          '</div>'
+        ].join("");
+
+        const typeSelect = wrapper.querySelector(".question-type");
+        const marksInput = wrapper.querySelector(".question-marks");
+        const textInput = wrapper.querySelector(".question-text");
+        const textEditor = wrapper.querySelector(".question-text-editor");
+        const optionsList = wrapper.querySelector(".question-options-list");
+        const addOptionButton = wrapper.querySelector(".qm-option-add-btn");
+        const answerList = wrapper.querySelector(".question-answer-list");
+        const addAnswerButton = wrapper.querySelector(".qm-answer-add-btn");
+        const formatButtons = wrapper.querySelectorAll(".qm-text-tool-btn");
+        const textColorPicker = wrapper.querySelector(".qm-text-color");
+
+        const initialOptions = Array.isArray(question && question.options) ? question.options : [];
+        if (!initialOptions.length) {
+          appendOptionInput(optionsList, "");
+        } else {
+          initialOptions.forEach((optionValue) => appendOptionInput(optionsList, optionValue));
+        }
+
+        if (addOptionButton) {
+          addOptionButton.addEventListener("click", () => {
+            appendOptionInput(optionsList, "");
+            saveDraft();
+          });
+        }
+
+        const initialAnswers = Array.isArray(question && question.answerKeys)
+          ? question.answerKeys
+          : parseAnswerValues(question ? question.answerKey : "");
+        if (!initialAnswers.length) {
+          appendAnswerInput(answerList, "");
+        } else {
+          initialAnswers.forEach((answerValue) => appendAnswerInput(answerList, answerValue));
+        }
+
+        if (addAnswerButton) {
+          addAnswerButton.addEventListener("click", () => {
+            appendAnswerInput(answerList, "");
+            saveDraft();
+          });
+        }
+
+        if (question) {
+          typeSelect.value = question.questionType || "short_text";
+          marksInput.value = Number(question.marks || 1);
+          setQuestionEditorContent(textEditor, question.questionText || "");
+          syncQuestionEditorValue(textEditor, textInput);
+        } else {
+          setQuestionEditorContent(textEditor, "");
+          syncQuestionEditorValue(textEditor, textInput);
+        }
+
+        if (textEditor) {
+          textEditor.addEventListener("input", () => syncQuestionEditorValue(textEditor, textInput));
+          textEditor.addEventListener("blur", () => {
+            syncQuestionEditorValue(textEditor, textInput);
+            saveDraft();
+          });
+        }
+
+        formatButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            const command = button.getAttribute("data-format-cmd");
+            if (!command) return;
+            applyEditorCommand(textEditor, command);
+            syncQuestionEditorValue(textEditor, textInput);
+            saveDraft();
+          });
+        });
+
+        if (textColorPicker) {
+          textColorPicker.addEventListener("input", () => {
+            applyEditorCommand(textEditor, "foreColor", textColorPicker.value);
+            syncQuestionEditorValue(textEditor, textInput);
+            saveDraft();
+          });
+        }
+
+        typeSelect.addEventListener("change", () => {
+          applyQuestionTypeBehavior(wrapper);
+          saveDraft();
+        });
+        applyQuestionTypeBehavior(wrapper);
+
+        wrapper.querySelector(".question-remove").addEventListener("click", () => {
+          wrapper.remove();
+          renumberQuestionCards();
+          updateQuestionCount();
+          saveDraft();
+        });
+
+        setTimeout(() => {
+          renumberQuestionCards();
+          updateQuestionCount();
+        }, 0);
+        return wrapper;
+      }
+
+      function collectQuestionItems() {
+        const items = Array.from(document.querySelectorAll("#question-items .qm-question-card"));
+        return items.map((item, index) => {
+          const questionType = item.querySelector(".question-type") ? item.querySelector(".question-type").value : "short_text";
+          let options = Array.prototype.slice.call(item.querySelectorAll(".question-option-input"))
+            .map((input) => String(input.value || "").trim())
+            .filter(Boolean);
+          let answers = Array.prototype.slice.call(item.querySelectorAll(".question-answer-input"))
+            .map((input) => String(input.value || "").trim())
+            .filter(Boolean);
+
+          if (questionType === "true_false") {
+            options = ["True", "False"];
+            answers = answers.slice(0, 1);
+          } else if (questionType === "single_choice") {
+            answers = answers.slice(0, 1);
+          } else if (questionType !== "multiple_choice") {
+            options = [];
+            answers = answers.slice(0, 1);
+          }
+
+          return {
+            questionType,
+            questionText: String(item.querySelector(".question-text") ? item.querySelector(".question-text").value : "").trim(),
+            options,
+            answerKey: serializeAnswerValues(answers),
+            marks: Number(item.querySelector(".question-marks") ? item.querySelector(".question-marks").value : 1),
+            positionIndex: index,
+          };
+        }).filter((item) => item.questionText);
+      }
+
+      function renderQuestionPreview() {
+        if (!qmPreviewBody) return;
+        var p = buildPreviewCards();
+        var html = '';
+        if (p.context.length) html += '<div class="qm-preview-context">'+p.context.join(' • ')+'</div>';
+        html += p.cards;
+        qmPreviewBody.innerHTML = html;
+      }
+
+      function printQuestionPreview() {
+        var p = buildPreviewCards();
+        var logo   = typeof previewSchoolLogo !== 'undefined' ? previewSchoolLogo : '';
+        var school = typeof previewSchoolName !== 'undefined' ? previewSchoolName : 'School';
+        var now    = new Date().toLocaleString();
+
+        var metaLine = [
+          p.asmtLabel ? ('Assessment: '+p.asmtLabel) : '',
+          'Class: <%= className %>',
+          'Subject: <%= subjectName %>',
+          'Term: <%= currentTerm.term_name %>',
+        ].filter(Boolean).join(' • ');
+
+        var printCards = p.cards
+          .replace(/qm-preview-card/g,'print-card')
+          .replace(/qm-preview-qmeta/g,'print-qmeta')
+          .replace(/qm-preview-qtext/g,'print-qtext')
+          .replace(/qm-preview-options/g,'print-options')
+          .replace(/qm-preview-answer/g,'print-answer');
+
+        var watermark = logo ? '<img src="'+escapeHtml(logo)+'" alt="" class="print-wm" />' : '';
+
+        var html = [
+          '<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Question Print</title>',
+          '<style>',
+          'body{font-family:Arial,sans-serif;color:#0f172a;margin:0;background:#fff;}',
+          '.shell{position:relative;max-width:980px;margin:0 auto;padding:20px 24px 28px;}',
+          '.print-wm{position:fixed;left:50%;top:52%;transform:translate(-50%,-50%);width:340px;opacity:0.06;z-index:0;pointer-events:none;}',
+          '.shell>*{position:relative;z-index:1;}',
+          '.hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:2px solid #0f5a66;padding-bottom:10px;margin-bottom:12px;}',
+          '.hdr-l{display:flex;align-items:flex-start;gap:10px;}',
+          '.hdr-logo{width:52px;height:52px;object-fit:contain;border-radius:6px;}',
+          '.school{font-size:1rem;font-weight:800;color:#0f2d32;margin:0;}',
+          '.sub-title{font-size:0.84rem;font-weight:700;color:#334155;margin:2px 0 0;}',
+          '.hdr-r{font-size:0.72rem;color:#64748b;text-align:right;line-height:1.5;}',
+          '.ctx{font-size:0.78rem;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-bottom:10px;}',
+          '.print-card{border:1px solid #dbe4ee;border-radius:10px;padding:10px;margin-bottom:9px;break-inside:avoid;page-break-inside:avoid;}',
+          '.print-qmeta{display:flex;align-items:center;justify-content:space-between;font-size:0.73rem;font-weight:700;color:#475569;margin-bottom:5px;}',
+          '.print-qtext{font-size:0.86rem;line-height:1.42;color:#0f172a;margin-bottom:6px;}',
+          '.print-options{margin:0;padding:0;list-style:none;display:grid;gap:3px;font-size:0.8rem;color:#334155;}',
+          '.print-answer{margin-top:5px;font-size:0.73rem;color:#475569;}',
+          '@media print{body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}',
+          '</style></head><body>',
+          watermark,
+          '<div class="shell">',
+          '<div class="hdr"><div class="hdr-l">',
+          (logo ? '<img src="'+escapeHtml(logo)+'" alt="Logo" class="hdr-logo"/>' : ''),
+          '<div><p class="school">'+escapeHtml(school)+'</p><p class="sub-title">Assessment Question Preview</p></div>',
+          '</div><div class="hdr-r"><div>'+escapeHtml(now)+'</div><div>Total: '+String(p.questions.length)+' question'+(p.questions.length===1?'':'s')+'</div></div></div>',
+          (metaLine ? '<div class="ctx">'+escapeHtml(metaLine)+'</div>' : ''),
+          printCards,
+          '</div></body></html>'
+        ].join('');
+
+        // Try popup first, fallback to iframe
+        var pw = null;
+        try { pw = window.open('','_blank'); } catch(_) {}
+        if (pw && pw.document) {
+          pw.document.open();
+          pw.document.write(html);
+          pw.document.close();
+          pw.focus();
+          setTimeout(function(){ try{ pw.print(); }catch(_){} }, 280);
+          return;
+        }
+
+        // iframe fallback
+        var fr = document.getElementById('_qm_print_fr');
+        if (!fr) {
+          fr = document.createElement('iframe');
+          fr.id = '_qm_print_fr';
+          fr.setAttribute('aria-hidden','true');
+          fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+          document.body.appendChild(fr);
+        }
+        try {
+          var fd = fr.contentWindow.document;
+          fd.open(); fd.write(html); fd.close();
+          setTimeout(function(){ try{ fr.contentWindow.focus(); fr.contentWindow.print(); }catch(_){} }, 280);
+        } catch(_) {
+          updateQuestionModalStatus('Pop-ups blocked. Please allow pop-ups and try again.', true);
+        }
+      }
+
+      function openQuestionPreview() {
+        if (!qmPreviewOverlay) return;
+        renderQuestionPreview();
+        qmPreviewOverlay.classList.add('show');
+        qmPreviewOverlay.setAttribute('aria-hidden','false');
+      }
+
+      function closeQuestionPreview() {
+        if (!qmPreviewOverlay) return;
+        qmPreviewOverlay.classList.remove('show');
+        qmPreviewOverlay.setAttribute('aria-hidden','true');
+      }
+
+      function populateQuestionsFromExtracted(extractedQuestions, sourceLabel) {
+        if (!questionItems) return;
+        const normalizedQuestions = Array.isArray(extractedQuestions)
+          ? extractedQuestions.map((item, index) => {
+            const type = normalizeExtractedQuestionType(item.questionType);
+            var questionText = String(item.questionText || item.question || '').trim();
+
+            // Skip section headers that slipped through
+            if (/^[A-G]\s+(MULTIPLE|TRUE|FILL|MATCHING|SHORT|ESSAY)/i.test(questionText)) return null;
+            if (/^GENERAL INSTRUCTIONS/i.test(questionText)) return null;
+            if (/End of Paper/i.test(questionText)) return null;
+            if (questionText.length < 4) return null;
+
+            let options = Array.isArray(item.options)
+              ? item.options.map((opt) => String(opt || "").trim()).filter(Boolean)
+              : [];
+            if (type === "true_false" && !options.length) options = ["True", "False"];
+            let extractedAnswers = [];
+            if (Array.isArray(item.answerKeys)) {
+              extractedAnswers = item.answerKeys.map((ans) => String(ans || "").trim()).filter(Boolean);
+            } else if (item.answerKey !== undefined && item.answerKey !== null) {
+              extractedAnswers = parseAnswerValues(item.answerKey);
+            } else if (item.answer !== undefined && item.answer !== null) {
+              extractedAnswers = parseAnswerValues(item.answer);
+            }
+
+            const marks = Number(item.marks || item.mark || item.points || 1);
+            const questionNumber = Number(item.questionNumber);
+            return {
+              questionNumber: Number.isInteger(questionNumber) && questionNumber > 0 ? questionNumber : (index + 1),
+              questionType: ["multiple_choice", "single_choice", "true_false", "short_text", "essay"].includes(type) ? type : "short_text",
+              questionText: questionText,
+              options,
+              answerKeys: extractedAnswers,
+              marks: Number.isFinite(marks) && marks > 0 ? marks : 1,
+            };
+          }).filter((item) => item && item.questionText)
+          : [];
+
+        normalizedQuestions.sort((a, b) => a.questionNumber - b.questionNumber);
+        if (!normalizedQuestions.length) {
+          updateQuestionModalStatus("No questions were detected in this file.", true);
+          return;
+        }
+
+        questionItems.innerHTML = "";
+        normalizedQuestions.forEach((question) => questionItems.appendChild(buildQuestionItem(question)));
+        renumberQuestionCards();
+        updateQuestionCount();
+        saveDraft();
+
+        const sourceText = sourceLabel ? (" from " + sourceLabel) : "";
+        updateQuestionModalStatus(normalizedQuestions.length + " question" + (normalizedQuestions.length === 1 ? "" : "s") + " extracted" + sourceText + ". Review and save.", false);
+      }
+
+      async function loadQuestionSets(options) {
+        const config = options || {};
+        const includeAllAssessments = Boolean(config.includeAllAssessments);
+        const assessmentId = questionAssessmentSelect ? questionAssessmentSelect.value : "";
+        const requestUrl = includeAllAssessments
+          ? `/common/assessment/questions?classId=<%= classId %>&subjectId=<%= subjectId %>&termId=<%= currentTerm.term_id %>`
+          : `/common/assessment/questions?classId=<%= classId %>&subjectId=<%= subjectId %>&termId=<%= currentTerm.term_id %>&assessmentId=${encodeURIComponent(assessmentId || "")}`;
+        const response = await fetch(requestUrl, { headers: { "Accept": "application/json" } });
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || "Failed to load question sets.");
+        }
+        return {
+          sets: Array.isArray(payload.sets) ? payload.sets : [],
+          assessment: payload.assessment || null,
+        };
+      }
+
+      async function hydrateQuestionModalFromServer() {
+        if (!questionItems) return;
+        updateQuestionModalStatus("Loading question sets...", false);
+        let loaded = await loadQuestionSets();
+        let sets = loaded.sets || [];
+
+        // Sync helper: if current assessment has no set in view/edit mode,
+        // find any existing set for this class/subject/term and switch to it.
+        if (!sets.length && (questionModalMode === "view" || questionModalMode === "edit")) {
+          const fallbackLoaded = await loadQuestionSets({ includeAllAssessments: true });
+          const fallbackSets = Array.isArray(fallbackLoaded.sets) ? fallbackLoaded.sets : [];
+          if (fallbackSets.length) {
+            const firstSet = fallbackSets[0];
+            if (questionAssessmentSelect && firstSet && Number(firstSet.assessmentId || 0) > 0) {
+              questionAssessmentSelect.value = String(firstSet.assessmentId);
+            }
+            loaded = await loadQuestionSets();
+            sets = loaded.sets || [];
+          }
+        }
+
+        if (loaded.assessment && Number(loaded.assessment.assessmentId || 0) > 0) {
+          assessmentRuleMap.set(Number(loaded.assessment.assessmentId), loaded.assessment);
+        }
+        questionItems.innerHTML = "";
+        renderAssessmentRulesSummary();
+        updateHeaderQuestionButtons(sets.length > 0);
+
+        if (!sets.length) {
+          currentQuestionSetId = null;
+          activeLoadedQuestionSet = null;
+          if (questionModalMode === "create" || questionModalMode === "edit") {
+            questionItems.appendChild(buildQuestionItem());
+            updateQuestionModalStatus("No question set found for this assessment. Create one now.", false);
+          } else {
+            updateQuestionModalStatus("No questions have been set for this assessment yet.", false);
+          }
+          applyQuestionModalMode();
+          renumberQuestionCards();
+          updateQuestionCount();
+          return;
+        }
+
+        const selectedSet = sets[0];
+        activeLoadedQuestionSet = selectedSet;
+        currentQuestionSetId = selectedSet.questionSetId || null;
+        if (questionSetTitleInput) questionSetTitleInput.value = selectedSet.setTitle || "";
+        if (questionSetDescriptionInput) questionSetDescriptionInput.value = selectedSet.setDescription || "";
+        (selectedSet.questions || []).forEach((question) => questionItems.appendChild(buildQuestionItem(question)));
+
+        if (!selectedSet.questions || !selectedSet.questions.length) {
+          questionItems.appendChild(buildQuestionItem());
+        }
+
+        if (questionModalMode === "create") {
+          updateQuestionModalStatus(`Questions already exist for this assessment (status: ${String(selectedSet.reviewStatus || "pending").toLowerCase()}). Use Edit Questions to update.`, true);
+        } else {
+          updateQuestionModalStatus(`Loaded ${selectedSet.questions ? selectedSet.questions.length : 0} questions.`, false);
+        }
+        applyQuestionModalMode();
+        renumberQuestionCards();
+        updateQuestionCount();
+      }
+
+      if (setQuestionsButton) {
+        setQuestionsButton.addEventListener("click", async () => {
+          const existingDraft = loadDraft();
+          openQuestionModal("create");
+          currentQuestionSetId = null;
+          activeLoadedQuestionSet = null;
+          if (questionSetTitleInput) questionSetTitleInput.value = "";
+          if (questionSetDescriptionInput) questionSetDescriptionInput.value = "";
+          if (questionItems) {
+            questionItems.innerHTML = "";
+            questionItems.appendChild(buildQuestionItem());
+          }
+          updateQuestionModalStatus("Create a question set for this assessment.", false);
+          renderAssessmentRulesSummary();
+          applyQuestionModalMode();
+          renumberQuestionCards();
+          updateQuestionCount();
+
+          try {
+            await hydrateQuestionModalFromServer();
+            // Only restore local draft when no server-backed set exists for selected assessment.
+            if (existingDraft && !currentQuestionSetId) {
+              restoreDraft(existingDraft);
+              updateQuestionModalStatus("Draft restored from last session.", false);
+            }
+          } catch (error) {
+            updateQuestionModalStatus(error.message || "Failed to load question sets.", true);
+            if (existingDraft) {
+              restoreDraft(existingDraft);
+              updateQuestionModalStatus("Draft restored from last session.", false);
+            }
+          }
+        });
+      }
+
+      if (viewQuestionsButton) {
+        viewQuestionsButton.addEventListener("click", async () => {
+          openQuestionModal("edit", "View Questions");
+          applyQuestionModalMode();
+          try {
+            await hydrateQuestionModalFromServer();
+          } catch (error) {
+            updateQuestionModalStatus(error.message || "Failed to load question sets.", true);
+          }
+        });
+      }
+
+      if (editQuestionsButton) {
+        editQuestionsButton.addEventListener("click", async () => {
+          openQuestionModal("edit");
+          applyQuestionModalMode();
+          try {
+            await hydrateQuestionModalFromServer();
+          } catch (error) {
+            updateQuestionModalStatus(error.message || "Failed to load question sets.", true);
+          }
+        });
+      }
+
+      if (questionModalClose) {
+        questionModalClose.addEventListener("click", closeQuestionModal);
+      }
+
+      if (questionModalOverlay) {
+        questionModalOverlay.addEventListener("click", (event) => {
+          if (event.target === questionModalOverlay) {
+            closeQuestionModal();
+          }
+        });
+      }
+
+      // Wire preview buttons
+      if (qmPreviewOpenButton)  qmPreviewOpenButton.addEventListener('click', openQuestionPreview);
+      if (qmPreviewCloseButton) qmPreviewCloseButton.addEventListener('click', closeQuestionPreview);
+      if (qmPreviewPrintButton) qmPreviewPrintButton.addEventListener('click', printQuestionPreview);
+      if (qmPreviewOverlay) {
+        qmPreviewOverlay.addEventListener('click', function(e) {
+          if (e.target === qmPreviewOverlay) closeQuestionPreview();
+        });
+      }
+
+      if (questionAssessmentSelect) {
+        questionAssessmentSelect.addEventListener("change", async () => {
+          renderAssessmentRulesSummary();
+          try {
+            await hydrateQuestionModalFromServer();
+          } catch (error) {
+            updateQuestionModalStatus(error.message || "Failed to load question sets.", true);
+          }
+        });
+      }
+
+      if (addQuestionItemButton) {
+        addQuestionItemButton.addEventListener("click", () => {
+          if (!questionItems) return;
+          questionItems.appendChild(buildQuestionItem());
+          applyAssessmentMarksLimit(selectedAssessmentRule ? selectedAssessmentRule.maxScore : null);
+          renumberQuestionCards();
+          updateQuestionCount();
+          saveDraft();
+        });
+      }
+
+      if (qmClearDraftButton) {
+        qmClearDraftButton.addEventListener("click", () => {
+          clearDraft();
+          if (questionItems) questionItems.innerHTML = "";
+          if (questionSetTitleInput) questionSetTitleInput.value = "";
+          if (questionSetDescriptionInput) questionSetDescriptionInput.value = "";
+          if (questionItems) questionItems.appendChild(buildQuestionItem());
+          renumberQuestionCards();
+          updateQuestionCount();
+        });
+      }
+
+      if (qmUploadPdfBtn && qmPdfFileInput) {
+        renderUploadButtonIdle();
+
+        qmUploadPdfBtn.addEventListener("click", () => {
+          qmPdfFileInput.value = "";
+          qmPdfFileInput.click();
+        });
+
+        qmPdfFileInput.addEventListener("change", async () => {
+          const file = qmPdfFileInput.files && qmPdfFileInput.files[0] ? qmPdfFileInput.files[0] : null;
+          if (!file) return;
+          const formData = new FormData();
+          formData.append("examFile", file);
+
+          qmUploadPdfBtn.disabled = true;
+          setUploadButtonLoading("Extracting questions...");
+          updateQuestionModalStatus("Extracting questions from file...", false);
+          try {
+            const response = await fetch("/common/assessment/questions/extract-file", {
+              method: "POST",
+              body: formData,
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.success) {
+              throw new Error(payload.error || "Failed to extract questions from file.");
+            }
+            populateQuestionsFromExtracted(payload.questions || [], file.name || "file");
+            applyQuestionModalMode();
+          } catch (error) {
+            updateQuestionModalStatus(error.message || "Failed to extract questions from file.", true);
+          } finally {
+            qmUploadPdfBtn.disabled = false;
+            renderUploadButtonIdle();
+          }
+        });
+      }
+
+      if (saveQuestionSetButton) {
+        saveQuestionSetButton.addEventListener("click", async () => {
+          const questions = collectQuestionItems();
+          if (!questions.length) {
+            updateQuestionModalStatus("Add at least one question before saving.", true);
+            return;
+          }
+
+          renderAssessmentRulesSummary();
+          const selectedRule = selectedAssessmentRule;
+          if (!selectedRule) {
+            updateQuestionModalStatus("Select an assessment to apply question rules.", true);
+            return;
+          }
+
+          const totalMarks = questions.reduce((sum, item) => sum + Number(item.marks || 0), 0);
+          if (Number(totalMarks) > Number(selectedRule.maxScore || 0)) {
+            updateQuestionModalStatus(`Total question marks (${totalMarks}) cannot exceed assessment max score (${selectedRule.maxScore}).`, true);
+            return;
+          }
+
+          const hasInvalidMarks = questions.some((item) => Number(item.marks || 0) <= 0 || Number(item.marks || 0) > Number(selectedRule.maxScore || 0));
+          if (hasInvalidMarks) {
+            updateQuestionModalStatus(`Each question mark must be between 1 and ${selectedRule.maxScore}.`, true);
+            return;
+          }
+
+          const payload = {
+            questionSetId: questionModalMode === "edit" ? currentQuestionSetId : null,
+            classId: Number("<%= classId %>"),
+            subjectId: Number("<%= subjectId %>"),
+            termId: Number("<%= currentTerm.term_id %>"),
+            assessmentId: Number(questionAssessmentSelect ? questionAssessmentSelect.value : 0),
+            openBook: questionOpenBookSelect ? String(questionOpenBookSelect.value) === "true" : false,
+            timeLimitMinutes: questionTimeLimitInput ? String(questionTimeLimitInput.value || "").trim() : "",
+            setTitle: String(questionSetTitleInput ? questionSetTitleInput.value : "").trim() || "Question Set",
+            setDescription: String(questionSetDescriptionInput ? questionSetDescriptionInput.value : "").trim(),
+            questions,
+          };
+
+          updateQuestionModalStatus("Saving question set...", false);
+          try {
+            const response = await fetch("/common/assessment/questions/upsert", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+              },
+              body: JSON.stringify(payload),
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || "Failed to save question set.");
+            }
+            currentQuestionSetId = result.questionSetId || currentQuestionSetId;
+            updateHeaderQuestionButtons(true);
+            updateQuestionModalStatus("Question set submitted for review.", false);
+            clearDraft();
+            window.location.reload();
+          } catch (error) {
+            updateQuestionModalStatus(error.message || "Failed to save question set.", true);
+          }
+        });
+      }
+
+      if (questionModalOverlay) {
+        questionModalOverlay.addEventListener("input", saveDraft);
+        questionModalOverlay.addEventListener("change", saveDraft);
+      }
+
+      (async function syncInitialQuestionSetState() {
+        try {
+          const loaded = await loadQuestionSets({ includeAllAssessments: true });
+          const hasAnySet = Array.isArray(loaded.sets) && loaded.sets.length > 0;
+          updateHeaderQuestionButtons(hasAnySet);
+        } catch (_) {
+        }
+      })();
+
       // Handle saving scores functionality
       // Support both header button (embedded) and legacy form button
       const saveButton = document.getElementById("header-save-scores-button") ||
@@ -828,13 +2885,23 @@ input[type="number"]:focus {
           const formElement = document.getElementById("save-scores-form");
           const formData = new FormData(formElement);
           const spinner = document.getElementById("loading-spinner");
+          const scoreInputs = formElement
+            ? Array.prototype.slice.call(formElement.querySelectorAll('input[name^="scores["]'))
+            : [];
 
           // Show loading spinner
           spinner.style.display = "block";
 
+          // Clear any previous invalid markers before validating this save attempt.
+          scoreInputs.forEach((input) => {
+            input.classList.remove("score-input-invalid");
+            input.removeAttribute("title");
+          });
+
           // Transform FormData into a format suitable for sending as JSON
           const scoresData = {};
           let hasInvalidScore = false;
+          let invalidCount = 0;
 
           formData.forEach((value, key) => {
             const matches = key.match(/^scores\[(\d+)\]\[(\d+)\]$/);
@@ -851,9 +2918,17 @@ input[type="number"]:focus {
                 scoresData[studentId] = {};
               }
 
-              // Validate score: should be between 0 and (maxScore + 10)
-              if (!isNaN(score) && (score < 0 || score > maxScore + 10)) {
+              // Validate score: should be between 0 and the per-input max.
+              if (!isNaN(score) && (score < 0 || score > maxScore)) {
                 hasInvalidScore = true;
+                invalidCount += 1;
+                if (inputElement) {
+                  inputElement.classList.add("score-input-invalid");
+                  inputElement.setAttribute(
+                    "title",
+                    `Allowed range is 0 to ${maxScore}`
+                  );
+                }
               }
 
               scoresData[studentId][assessmentId] = value;
@@ -862,8 +2937,13 @@ input[type="number"]:focus {
 
           if (hasInvalidScore) {
             alert(
-              "Some scores exceed the allowed maximum limit (max score + 10). Please correct them before saving."
+              `${invalidCount} score field${invalidCount === 1 ? "" : "s"} highlighted in red. Allowed range is 0 to max score + 10 for each assessment. Please correct before saving.`
             );
+            const firstInvalidInput = formElement.querySelector("input.score-input-invalid");
+            if (firstInvalidInput && typeof firstInvalidInput.focus === "function") {
+              firstInvalidInput.focus();
+              firstInvalidInput.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+            }
             // Hide loading spinner
             spinner.style.display = "none";
             return;
@@ -871,11 +2951,12 @@ input[type="number"]:focus {
 
           const subjectId = "<%= subjectId %>";
           const classId = "<%= classId %>";
+          const termId = "<%= currentTerm.term_id %>";
 
           try {
             // Send scores data as JSON to the server
             const response = await fetch(
-              `/common/saveAllScores?subjectId=${subjectId}&classId=${classId}`,
+              `/common/saveAllScores?subjectId=${subjectId}&classId=${classId}&termId=${termId}`,
               {
                 method: "POST",
                 headers: {

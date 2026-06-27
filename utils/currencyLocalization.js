@@ -1,6 +1,7 @@
 const axios = require("axios");
 const https = require("https");
 const db = require("../config/db");
+const { COUNTRY_NAME_LOOKUP } = require("./countries");
 
 const FX_TTL_MS = 30 * 60 * 1000;
 const GEO_TTL_MS = 24 * 60 * 60 * 1000;
@@ -14,6 +15,7 @@ const fxCache = {
 
 const geoCache = new Map();
 const orgGeoCache = new Map();
+let orgCurrencyColumnReady = false;
 
 const FALLBACK_CURRENCY = "USD";
 
@@ -28,6 +30,23 @@ const CURRENCY_LOCALE_MAP = {
   CAD: "en-CA",
   AUD: "en-AU",
   INR: "en-IN",
+};
+
+const CURRENCY_NAME_MAP = {
+  USD: "US Dollar",
+  EUR: "Euro",
+  GBP: "British Pound",
+  NGN: "Nigerian Naira",
+  GHS: "Ghana Cedi",
+  KES: "Kenyan Shilling",
+  ZAR: "South African Rand",
+  XOF: "West African CFA Franc",
+  EGP: "Egyptian Pound",
+  CAD: "Canadian Dollar",
+  AUD: "Australian Dollar",
+  INR: "Indian Rupee",
+  NPR: "Nepalese Rupee",
+  SLE: "Sierra Leonean Leone",
 };
 
 const COUNTRY_CURRENCY_MAP = {
@@ -326,6 +345,116 @@ function getCurrencyForCountry(countryCode) {
   return COUNTRY_CURRENCY_MAP[code] || null;
 }
 
+function getSupportedCurrencyOptions() {
+  const uniqueCodes = new Set(["USD"]);
+  Object.values(COUNTRY_CURRENCY_MAP).forEach((code) => {
+    const normalized = normalizeCurrencyCode(code);
+    if (normalized) uniqueCodes.add(normalized);
+  });
+
+  return Array.from(uniqueCodes)
+    .sort((left, right) => left.localeCompare(right))
+    .map((code) => ({
+      code,
+      name: CURRENCY_NAME_MAP[code] || code,
+    }));
+}
+
+async function ensureOrganizationCurrencyColumn() {
+  if (orgCurrencyColumnReady) return;
+
+  await db.query(`
+    ALTER TABLE organizations
+    ADD COLUMN IF NOT EXISTS organization_currency VARCHAR(3)
+  `).catch(() => null);
+
+  orgCurrencyColumnReady = true;
+}
+
+async function getOrganizationCurrencyOverride(organizationId) {
+  const normalizedOrgId = Number(organizationId || 0);
+  if (!normalizedOrgId) return null;
+
+  try {
+    await ensureOrganizationCurrencyColumn();
+    const result = await db.query(
+      `SELECT organization_currency FROM organizations WHERE organization_id = $1 LIMIT 1`,
+      [normalizedOrgId]
+    );
+    return normalizeCurrencyCode(result.rows?.[0]?.organization_currency);
+  } catch (_) {
+    return null;
+  }
+}
+
+function normalizeLocationToken(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function buildCountryNameMatchers() {
+  const entries = [];
+  Object.entries(COUNTRY_NAME_LOOKUP || {}).forEach(([code, name]) => {
+    const normalizedCode = String(code || "").trim().toUpperCase();
+    const normalizedName = normalizeLocationToken(name);
+    if (!/^[A-Z]{2}$/.test(normalizedCode) || !normalizedName) return;
+    entries.push([normalizedName, normalizedCode]);
+  });
+
+  const aliases = [
+    ["cote divoire", "CI"],
+    ["ivory coast", "CI"],
+    ["united states of america", "US"],
+    ["usa", "US"],
+    ["uk", "GB"],
+    ["great britain", "GB"],
+    ["uae", "AE"],
+    ["russia", "RU"],
+    ["south korea", "KR"],
+    ["north korea", "KP"],
+    ["congo dr", "CD"],
+    ["dr congo", "CD"],
+  ];
+
+  aliases.forEach(([name, code]) => {
+    entries.push([normalizeLocationToken(name), code]);
+  });
+
+  return entries
+    .filter(([name, code]) => name && /^[A-Z]{2}$/.test(code))
+    .sort((left, right) => right[0].length - left[0].length);
+}
+
+const COUNTRY_NAME_MATCHERS = buildCountryNameMatchers();
+
+function inferCountryCodeFromLocationText(locationText) {
+  const normalizedText = normalizeLocationToken(locationText);
+  if (!normalizedText) return null;
+  const haystack = ` ${normalizedText} `;
+
+  for (const [needle, countryCode] of COUNTRY_NAME_MATCHERS) {
+    if (needle.length < 3) continue;
+    if (haystack.includes(` ${needle} `)) {
+      return countryCode;
+    }
+  }
+
+  return null;
+}
+
+function inferCountryCodeFromLocationParts(...parts) {
+  const joined = parts
+    .map((part) => String(part || "").trim())
+    .filter(Boolean)
+    .join(" ");
+
+  return inferCountryCodeFromLocationText(joined);
+}
+
 async function fetchPublicJson(url, options = {}) {
   try {
     return await axios.get(url, options);
@@ -386,11 +515,17 @@ async function getOrganizationCountryFallback(organizationId) {
 
   try {
     const result = await db.query(
-      `SELECT organization_country FROM organizations WHERE organization_id = $1 LIMIT 1`,
+      `SELECT organization_country, organization_address, organization_province
+         FROM organizations
+        WHERE organization_id = $1
+        LIMIT 1`,
       [normalizedOrgId]
     );
-    const orgCountry = String(result.rows?.[0]?.organization_country || "").trim().toUpperCase();
-    return /^[A-Z]{2}$/.test(orgCountry) ? orgCountry : null;
+    const row = result.rows?.[0] || {};
+    const orgCountry = String(row.organization_country || "").trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(orgCountry)) return orgCountry;
+
+    return inferCountryCodeFromLocationParts(row.organization_address, row.organization_province);
   } catch (_) {
     return null;
   }
@@ -409,6 +544,7 @@ async function getDominantOrganizationGeo(organizationId) {
       `SELECT ip_address, COUNT(*)::int AS hit_count
          FROM organization_activity_logs
         WHERE organization_id = $1
+          AND COALESCE(user_role, '') IN ('Manager', 'Supervisor', 'Teacher')
           AND ip_address IS NOT NULL
           AND ip_address <> ''
           AND ip_address <> '127.0.0.1'
@@ -510,6 +646,42 @@ async function detectCurrencyForRequest(req, options = {}) {
     Number(req?.session?.organizationId || 0) ||
     null;
 
+  if (organizationId) {
+    const orgCurrencyOverride = await getOrganizationCurrencyOverride(organizationId);
+    if (orgCurrencyOverride) {
+      const orgCountryCode = await getOrganizationCountryFallback(organizationId);
+      return {
+        countryCode: orgCountryCode,
+        currencyCode: orgCurrencyOverride,
+        source: "organization-currency-override",
+      };
+    }
+
+    const orgCountryCode = await getOrganizationCountryFallback(organizationId);
+    const orgCurrency = normalizeCurrencyCode(getCurrencyForCountry(orgCountryCode));
+    if (orgCurrency) {
+      return {
+        countryCode: orgCountryCode,
+        currencyCode: orgCurrency,
+        source: "organization-country-fallback",
+      };
+    }
+
+    const orgGeo = await getDominantOrganizationGeo(organizationId);
+    if (orgGeo?.currencyCode) {
+      return orgGeo;
+    }
+
+    // For organization-scoped pages, keep billing stable even when request geo
+    // varies (VPN/proxy/mobility). If org settings are incomplete, use USD until
+    // an explicit country/currency is saved in Settings.
+    return {
+      countryCode: null,
+      currencyCode: FALLBACK_CURRENCY,
+      source: "organization-default-fallback",
+    };
+  }
+
   const headerCountry = getHeaderCountry(req);
   const headerCurrency = normalizeCurrencyCode(getCurrencyForCountry(headerCountry));
   if (headerCurrency) {
@@ -532,25 +704,6 @@ async function detectCurrencyForRequest(req, options = {}) {
         };
       }
     } catch (_) {
-    }
-  }
-
-  if (organizationId) {
-    const orgGeo = await getDominantOrganizationGeo(organizationId);
-    if (orgGeo?.currencyCode) {
-      return orgGeo;
-    }
-  }
-
-  if (organizationId) {
-    const orgCountryCode = await getOrganizationCountryFallback(organizationId);
-    const orgCurrency = normalizeCurrencyCode(getCurrencyForCountry(orgCountryCode));
-    if (orgCurrency) {
-      return {
-        countryCode: orgCountryCode,
-        currencyCode: orgCurrency,
-        source: "organization-country-fallback",
-      };
     }
   }
 
@@ -699,6 +852,9 @@ module.exports = {
   getLocaleForCurrency,
   getUsdRate,
   normalizeCurrencyCode,
+  getCurrencyForCountry,
+  getSupportedCurrencyOptions,
+  inferCountryCodeFromLocationParts,
   localizeUsdAmount,
   formatCurrencyAmount,
 };

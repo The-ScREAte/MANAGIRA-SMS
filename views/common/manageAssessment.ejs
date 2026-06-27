@@ -10,74 +10,174 @@
         --primary: var(--org-primary-color, #0f5a66);
         --primary-hover: var(--org-primary-hover, #0d4f59);
         --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
+        --surface: #f3f6f9;
+        --card-surface: #ffffff;
+        --border-soft: #e4ebf2;
+        --text-main: #15313a;
+        --text-soft: #607380;
       }
       *, *::before, *::after { box-sizing: border-box; }
-      body { font-family: var(--font-family); background: #f4f6f9; margin: 0; color: #1a2e35; }
-      .page-wrap { max-width: 1260px; margin: 0 auto; padding: 28px 24px 48px; }
+      body { font-family: var(--font-family); background: var(--surface); margin: 0; color: var(--text-main); }
+      .page-wrap { max-width: 1260px; margin: 0 auto; padding: 22px 20px 40px; }
       .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
-      .top-bar h1 { font-size: 1.55rem; font-weight: 700; margin: 0; color: #0f2d32; }
+      .top-bar h1 { font-size: 1.38rem; font-weight: 700; margin: 0; color: #0f2d32; }
       .top-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-      .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer; text-decoration: none; border: none; transition: background 0.17s, transform 0.14s; white-space: nowrap; }
+      .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px; font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: none; border: none; transition: background 0.17s, transform 0.14s; white-space: nowrap; }
       .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 3px 10px rgba(15,90,102,0.22); }
       .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); transform: translateY(-1px); }
       .btn-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
       .btn-outline:hover { background: #eef4f7; transform: translateY(-1px); }
-      .card { background: #fff; border-radius: 14px; border: 1px solid #e2e8ef; box-shadow: 0 6px 22px rgba(15,45,50,0.09); overflow: hidden; }
+      .btn-disabled {
+        background: #edf1f4;
+        color: #8a9aa6;
+        border: 2px solid #d9e2e9;
+        cursor: not-allowed;
+        opacity: 0.9;
+      }
+      .card { background: var(--card-surface); border-radius: 14px; border: 1px solid var(--border-soft); box-shadow: 0 6px 22px rgba(15,45,50,0.07); overflow: hidden; }
       .table-scroll { overflow-x: auto; }
-      table { width: 100%; border-collapse: collapse; min-width: 860px; font-size: 0.9rem; }
-      thead th { background: var(--primary); color: #fff; font-weight: 700; padding: 13px 14px; text-align: left; letter-spacing: 0.15px; border-bottom: 2px solid var(--primary-hover); white-space: nowrap; }
-      tbody tr { border-bottom: 1px solid #edf0f4; }
+      table { width: 100%; border-collapse: collapse; min-width: 860px; font-size: 0.86rem; }
+      thead th { background: #f6f9fb; color: #3b5561; font-weight: 700; padding: 12px 12px; text-align: left; letter-spacing: 0.2px; border-bottom: 1px solid var(--border-soft); white-space: nowrap; text-transform: uppercase; font-size: 0.73rem; }
+      tbody tr { border-bottom: 1px solid #eef2f6; }
       tbody tr:last-child { border-bottom: none; }
-      tbody tr:nth-child(even) td { background: #f8fafb; }
-      tbody tr:hover td { background: #eef5f7; }
-      td { padding: 13px 14px; vertical-align: middle; color: #1a2e35; }
-      .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.2px; }
-      .badge-locked { background: #fdecea; color: #c0392b; }
-      .badge-unlocked { background: #e6f9f1; color: #1a7a4a; }
-      .window-info { font-size: 0.78rem; color: #607080; margin-top: 5px; line-height: 1.6; }
+      tbody tr:nth-child(even) td { background: #fbfdff; }
+      tbody tr:hover td { background: #f2f8fb; }
+      td { padding: 11px 12px; vertical-align: middle; color: #1a2e35; }
+      .table-name { font-weight: 700; color: #1b2f3a; }
+      .status-stack { display: flex; flex-wrap: wrap; gap: 6px; }
+      .state-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; line-height: 1; }
+      .state-pill svg { width: 12px; height: 12px; }
+      .state-lock-on { background: #fdecec; color: #c2413b; }
+      .state-lock-off { background: #e7f8ef; color: #1d7b4d; }
+      .state-edit-on { background: #e8f7f1; color: #12744a; }
+      .state-edit-off { background: #f2f4f7; color: #5f6d7a; }
+      .state-q-on { background: #e9f2ff; color: #1f4f8a; }
+      .state-q-off { background: #f2f4f7; color: #5f6d7a; }
+      .window-info { font-size: 0.74rem; color: var(--text-soft); margin-top: 6px; line-height: 1.45; }
       .window-info span { display: block; }
-      .edit-pill { display: inline-block; margin-top: 5px; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
-      .edit-pill-yes { background: #e6f9f1; color: #1a7a4a; }
-      .edit-pill-no  { background: #fdecea; color: #c0392b; }
-      .collapse-btn { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; background: var(--primary); color: #fff; border: none; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.17s; }
+      .collapse-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: #195848; color: #fff; border: none; border-radius: 999px; font-size: 0.76rem; font-weight: 700; cursor: pointer; transition: background 0.17s; }
       .collapse-btn:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
-      .collapse-arrow { font-size: 11px; transition: transform 0.2s; }
+      .collapse-btn svg { width: 12px; height: 12px; }
+      .collapse-arrow { font-size: 10px; transition: transform 0.2s; }
       .collapse-body { margin-top: 8px; background: #f4f8fa; border-radius: 8px; border: 1px solid #dde4ec; padding: 10px 14px; }
       .collapse-body ul { margin: 2px 0 0 14px; padding: 0; font-size: 0.83rem; color: #3a5060; }
       .collapse-body li { margin-bottom: 2px; }
       .collapse-class-name { font-size: 0.85rem; font-weight: 600; color: #1a2e35; margin-bottom: 2px; }
-      .actions-cell { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
-      .action-btn { display: inline-block; padding: 6px 14px; border-radius: 7px; font-size: 0.82rem; font-weight: 600; cursor: pointer; text-decoration: none; border: none; transition: background 0.17s, transform 0.14s; white-space: nowrap; }
-      .action-btn-lock   { background: #fdecea; color: #c0392b; border: 1px solid #f5c6cb; }
-      .action-btn-lock:hover   { background: #f8d7da; transform: translateY(-1px); }
-      .action-btn-unlock { background: #e6f9f1; color: #1a7a4a; border: 1px solid #b8e8d0; }
-      .action-btn-unlock:hover { background: #d0f1e2; transform: translateY(-1px); }
-      .action-btn-modify { background: #eef4f7; color: #0f5a66; border: 1px solid #c9dde5; }
-      .action-btn-modify:hover { background: #ddeef5; transform: translateY(-1px); }
+      .actions-cell { display: flex; gap: 8px; align-items: center; }
+      .action-icon-btn {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        border: 1px solid #d9e3ea;
+        text-decoration: none;
+        cursor: pointer;
+        transition: transform 0.14s, background 0.16s, border-color 0.16s;
+        background: #f8fbfd;
+        color: #1f4d57;
+      }
+      .action-icon-btn:hover { transform: translateY(-1px); background: #eff6fa; }
+      .action-icon-btn svg { width: 16px; height: 16px; }
+      .action-icon-btn-lock { color: #b64037; background: #fff6f5; border-color: #f3d1ce; }
+      .action-icon-btn-lock:hover { background: #feecec; }
+      .action-icon-btn-unlock { color: #1d7b4d; background: #f3fcf7; border-color: #cfead9; }
+      .action-icon-btn-unlock:hover { background: #e9f8ef; }
+      .action-icon-btn-modify { color: #175d72; background: #f2f9fd; border-color: #cddfea; }
+      .action-icon-btn-modify:hover { background: #e7f2f9; }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
       .empty-row td { text-align: center; color: #7a919e; font-style: italic; padding: 32px; }
 
       /* ── Small screen ── */
+      @media (max-width: 760px) {
+        .page-wrap { padding: 14px 12px 28px; }
+        .top-bar { gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+        .top-bar h1 { font-size: 1.12rem; }
+        .top-bar-actions { width: 100%; }
+        .btn { flex: 1 1 calc(50% - 6px); justify-content: center; padding: 8px 10px; font-size: 0.78rem; }
+
+        .card { background: transparent; border: none; box-shadow: none; }
+        .table-scroll { overflow: visible; }
+        table { min-width: 0; border-collapse: separate; border-spacing: 0 10px; }
+        thead { display: none; }
+        tbody tr {
+          display: block;
+          background: #fff;
+          border: 1px solid var(--border-soft);
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(15,45,50,0.06);
+          padding: 2px 0;
+        }
+        tbody tr:nth-child(even) td,
+        tbody tr:hover td { background: transparent; }
+        td {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          width: 100%;
+          border-bottom: 1px dashed #e8eef4;
+          padding: 10px 12px;
+        }
+        td:last-child { border-bottom: none; }
+        td::before {
+          content: attr(data-label);
+          color: #6b7f8d;
+          font-weight: 700;
+          font-size: 0.72rem;
+          letter-spacing: 0.2px;
+          text-transform: uppercase;
+          flex: 0 0 38%;
+        }
+        td > * { max-width: 62%; }
+        .status-stack,
+        .window-info,
+        .actions-cell,
+        .collapse-body { width: 100%; }
+        .window-info { margin-top: 8px; }
+        .actions-cell { justify-content: flex-end; }
+        .collapse-btn { margin-left: auto; }
+
+        .empty-row { padding: 0; }
+        .empty-row td {
+          display: block;
+          border: none;
+          text-align: center;
+          padding: 18px 14px;
+        }
+        .empty-row td::before { display: none; }
+      }
+
       @media (max-width: 640px) {
         .page-wrap { padding: 14px 12px 28px; }
         .top-bar { gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
         .top-bar h1 { font-size: 1.15rem; }
-        .btn { padding: 7px 12px; font-size: 0.8rem; }
-        table { font-size: 0.8rem; min-width: 580px; }
-        thead th { padding: 9px 9px; font-size: 0.78rem; }
-        td { padding: 9px 9px; }
-        .badge { font-size: 0.72rem; padding: 2px 7px; }
+        .btn { padding: 7px 10px; font-size: 0.76rem; }
+        td { padding: 9px 10px; }
         .window-info { font-size: 0.7rem; }
-        .edit-pill { font-size: 0.7rem; padding: 2px 6px; }
-        .action-btn { padding: 5px 10px; font-size: 0.76rem; }
         .collapse-btn { padding: 5px 10px; font-size: 0.76rem; }
         .collapse-body ul { font-size: 0.76rem; }
         .collapse-class-name { font-size: 0.78rem; }
+        .action-icon-btn { width: 30px; height: 30px; }
       }
       @media (max-width: 420px) {
         .top-bar { flex-direction: column; align-items: flex-start; }
         .top-bar h1 { font-size: 1.05rem; }
         .top-bar-actions { gap: 6px; }
-        .btn { font-size: 0.75rem; padding: 6px 9px; }
+        .btn { flex: 1 1 100%; font-size: 0.75rem; padding: 6px 9px; }
+        td::before { flex-basis: 42%; font-size: 0.69rem; }
+        td > * { max-width: 58%; }
       }
     </style>
 </head>
@@ -88,8 +188,21 @@
   <div class="top-bar">
     <h1>Manage Assessments</h1>
     <div class="top-bar-actions">
-      <a href="/common/management" class="btn btn-outline">← Back to Management</a>
-      <a href="/common/createTest?organizationId=<%= organizationId %>&termId=<%= termId %>" class="btn btn-primary">+ Create New Test</a>
+      <% if (canUseGoogleClassroom) { %>
+        <a href="/common/allClassAssessmentExams?organizationId=<%= organizationId %>&termId=<%= termId %>" class="btn btn-outline" title="Open all class assessment questions">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" width="15" height="15"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Assessment Questions
+        </a>
+      <% } else { %>
+        <span class="btn btn-disabled" title="Assessment Questions requires Google integration">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" width="15" height="15"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Assessment Questions
+        </span>
+      <% } %>
+      <a href="/common/createTest?organizationId=<%= organizationId %>&termId=<%= termId %>" class="btn btn-primary" title="Create new test">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" width="15" height="15"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        New Test
+      </a>
     </div>
   </div>
 
@@ -116,16 +229,29 @@
           <% } %>
           <% (assessments || []).forEach(function(assessment, idx) { %>
             <tr>
-              <td><strong><%= assessment.title %></strong></td>
-              <td><%= assessment.weight %>%</td>
-              <td><%= assessment.max_score %></td>
-              <td><%= assessment.category %></td>
+              <td data-label="Test Name"><strong><%= assessment.title %></strong></td>
+              <td data-label="Weight"><%= assessment.weight %>%</td>
+              <td data-label="Max Score"><%= assessment.max_score %></td>
+              <td data-label="Category"><%= assessment.category %></td>
 
               <!-- Status -->
-              <td>
-                <span class="badge <%= assessment.is_locked ? 'badge-locked' : 'badge-unlocked' %>">
-                  <%= assessment.is_locked ? '🔒 Locked' : '🔓 Unlocked' %>
-                </span>
+              <td data-label="Status">
+                <div class="status-stack">
+                  <span class="state-pill <%= assessment.is_locked ? 'state-lock-on' : 'state-lock-off' %>" title="Lock status">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 11V8a4 4 0 118 0v3m-9 0h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <%= assessment.is_locked ? 'Locked' : 'Open' %>
+                  </span>
+                  <span class="state-pill <%= assessment.can_edit_scores ? 'state-edit-on' : 'state-edit-off' %>" title="Score edit status">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <%= assessment.can_edit_scores ? 'Editable' : 'Read only' %>
+                  </span>
+                  <% if (canUseGoogleClassroom) { %>
+                    <span class="state-pill <%= assessment.show_question_set_on_dashboard ? 'state-q-on' : 'state-q-off' %>" title="Teacher question set visibility">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/></svg>
+                      <%= assessment.show_question_set_on_dashboard ? 'Q set on' : 'Q set off' %>
+                    </span>
+                  <% } %>
+                </div>
                 <div class="window-info">
                   <% if (assessment.edit_window_start || assessment.edit_window_end) { %>
                     <% if (assessment.edit_window_start) { %>
@@ -135,18 +261,17 @@
                       <span>End: &nbsp;&nbsp;<%= new Date(assessment.edit_window_end).toLocaleString() %></span>
                     <% } %>
                   <% } else { %>
-                    <span style="color:#aab4bc;">No edit window set</span>
+                    <span style="color:#9aabb6;">No window</span>
                   <% } %>
                 </div>
-                <span class="edit-pill <%= assessment.can_edit_scores ? 'edit-pill-yes' : 'edit-pill-no' %>">
-                  <%= assessment.can_edit_scores ? 'Scores editable' : assessment.access_reason %>
-                </span>
               </td>
 
               <!-- Assigned Classes -->
-              <td>
-                <button type="button" class="collapse-btn" onclick="toggleClasses('<%= idx %>')">
-                  Classes <span class="collapse-arrow" id="arrow-<%= idx %>">▶</span>
+              <td data-label="Assigned">
+                <button type="button" class="collapse-btn" onclick="toggleClasses('<%= idx %>')" title="Show assigned classes and subjects">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  <%= (assessment.assigned_classes || []).length %>
+                  <span class="collapse-arrow" id="arrow-<%= idx %>">▶</span>
                 </button>
                 <div class="collapse-body" id="col-<%= idx %>" style="display:none;">
                   <% Object.values(assessment.assigned_classes).forEach(function(cls) { %>
@@ -159,16 +284,24 @@
               </td>
 
               <!-- Actions -->
-              <td>
+              <td data-label="Actions">
                 <div class="actions-cell">
                   <button
                     type="button"
-                    class="action-btn <%= assessment.is_locked ? 'action-btn-unlock' : 'action-btn-lock' %>"
+                    class="action-icon-btn <%= assessment.is_locked ? 'action-icon-btn-unlock' : 'action-icon-btn-lock' %>"
+                    title="<%= assessment.is_locked ? 'Unlock assessment' : 'Lock assessment' %>"
+                    aria-label="<%= assessment.is_locked ? 'Unlock assessment' : 'Lock assessment' %>"
                     onclick="updateControl('<%= assessment.group_id %>', '<%= organizationId %>', '<%= termId %>', '<%= assessment.is_locked ? 'unlock' : 'lock' %>')">
-                    <%= assessment.is_locked ? '🔓 Unlock' : '🔒 Lock' %>
+                    <% if (assessment.is_locked) { %>
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 11h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1z" stroke="currentColor" stroke-width="2"/><path d="M9 11V8a3 3 0 016 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <% } else { %>
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 11V8a4 4 0 118 0v3m-9 0h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <% } %>
+                    <span class="sr-only"><%= assessment.is_locked ? 'Unlock' : 'Lock' %></span>
                   </button>
-                  <a href="/common/modifyAssessment?groupId=<%= assessment.group_id %>&termId=<%= termId %>&organizationId=<%= organizationId %>" class="action-btn action-btn-modify">
-                    ✏️ Modify
+                  <a href="/common/modifyAssessment?groupId=<%= assessment.group_id %>&termId=<%= termId %>&organizationId=<%= organizationId %>" class="action-icon-btn action-icon-btn-modify" title="Modify assessment" aria-label="Modify assessment">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span class="sr-only">Modify</span>
                   </a>
                 </div>
               </td>

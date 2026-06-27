@@ -563,7 +563,15 @@
 
         <div class="form-group">
           <label class="form-label" for="orgCountry">Country</label>
-          <input type="text" name="orgCountry" id="orgCountry" class="form-input" placeholder="e.g. United States" required value="<%= formData?.orgCountry || '' %>">
+          <% const selectedRegisterCountry = (formData?.orgCountry ? String(formData.orgCountry).toUpperCase() : registerDefaultCountry || 'GH'); %>
+          <select name="orgCountry" id="orgCountry" class="form-input" required>
+            <option value="">Select country</option>
+            <% (registerCountryOptions || []).forEach((country) => { %>
+              <option value="<%= country.code %>" <%= country.code === selectedRegisterCountry ? 'selected' : '' %>>
+                <%= country.name %> (<%= country.code %>)
+              </option>
+            <% }) %>
+          </select>
         </div>
 
         <div class="form-group">

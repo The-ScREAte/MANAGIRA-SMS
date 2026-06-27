@@ -585,6 +585,133 @@ const enrollmentController = {
           const escapedQuery = query.replace(/[\\%_]/g, '\\$&');
           const likeQuery = `%${escapedQuery}%`;
 
+          const isStudent = String(req.session.userRole || req.session.accountType || '').trim().toLowerCase() === 'student';
+          if (isStudent) {
+            const studentId = Number(req.session.studentId || req.session.userId || 0);
+            if (!studentId) {
+              return res.status(401).json({ error: 'Unauthorized student context.' });
+            }
+
+            try {
+              const currentTermResult = await db.query(
+                `SELECT term_id
+                 FROM terms
+                 WHERE organization_id = $1 AND current = TRUE
+                 ORDER BY start_date DESC, term_id DESC
+                 LIMIT 1`,
+                [orgId]
+              );
+              const currentTermId = currentTermResult.rows[0]?.term_id || null;
+
+              const classResult = currentTermId
+                ? await db.query(
+                    `SELECT es.class_id
+                     FROM enrollments e
+                     JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+                     WHERE e.organization_id = $1
+                       AND e.term_id = $2
+                       AND es.student_id = $3
+                     ORDER BY e.created_at DESC
+                     LIMIT 1`,
+                    [orgId, currentTermId, studentId]
+                  )
+                : { rows: [] };
+
+              let classId = classResult.rows[0]?.class_id || null;
+              if (!classId) {
+                const studentClassResult = await db.query(
+                  `SELECT class_id
+                   FROM students
+                   WHERE organization_id = $1 AND student_id = $2
+                   LIMIT 1`,
+                  [orgId, studentId]
+                );
+                classId = studentClassResult.rows[0]?.class_id || null;
+              }
+
+              if (!classId) {
+                return res.status(200).json({ results: [] });
+              }
+
+              const [teacherResult, subjectResult] = await Promise.all([
+                db.query(
+                  `SELECT DISTINCT
+                      'teacher' AS type,
+                      u.user_id AS id,
+                      u.first_name,
+                      u.last_name,
+                      COALESCE(NULLIF(u.image_url, ''), 'profilePlaceholder.png') AS image_url,
+                      c.class_name,
+                      c.class_id,
+                      u.account_type,
+                      subj.subject_name,
+                      FALSE AS student_scope
+                   FROM student_subjects ss
+                   JOIN subjects subj
+                     ON subj.subject_id = ss.subject_id
+                    AND subj.organization_id = ss.organization_id
+                    AND subj.class_id = $3
+                   JOIN user_subjects us ON us.subject_id = subj.subject_id
+                   JOIN users u
+                     ON u.user_id = us.user_id
+                    AND u.organization_id = ss.organization_id
+                   LEFT JOIN classes c ON c.class_id = subj.class_id
+                   WHERE ss.organization_id = $2
+                     AND ss.student_id = $4
+                     AND LOWER(COALESCE(u.account_type::text, '')) = 'teacher'
+                     AND (
+                       u.first_name ILIKE $1 ESCAPE '\\'
+                       OR u.last_name ILIKE $1 ESCAPE '\\'
+                       OR CONCAT(u.first_name, ' ', u.last_name) ILIKE $1 ESCAPE '\\'
+                       OR CONCAT(u.last_name, ', ', u.first_name) ILIKE $1 ESCAPE '\\'
+                     )
+                   ORDER BY u.last_name, u.first_name
+                   LIMIT 20`,
+                  [likeQuery, orgId, classId, studentId]
+                ),
+                db.query(
+                  `SELECT DISTINCT
+                      'subject' AS type,
+                      subj.subject_id AS id,
+                      subj.subject_name AS first_name,
+                      '' AS last_name,
+                      NULL::text AS image_url,
+                      c.class_name,
+                      c.class_id,
+                      NULL::text AS account_type,
+                      subj.subject_name,
+                      TRUE AS student_scope
+                   FROM student_subjects ss
+                   JOIN subjects subj
+                     ON subj.subject_id = ss.subject_id
+                    AND subj.organization_id = ss.organization_id
+                    AND subj.class_id = $3
+                   LEFT JOIN classes c ON c.class_id = subj.class_id
+                   WHERE ss.organization_id = $2
+                     AND ss.student_id = $4
+                     AND subj.subject_name ILIKE $1 ESCAPE '\\'
+                   ORDER BY subj.subject_name
+                   LIMIT 20`,
+                  [likeQuery, orgId, classId, studentId]
+                )
+              ]);
+
+              const orgNameDisplayFormat = String(req.session?.nameDisplayFormat || 'first_last');
+              const results = [...teacherResult.rows, ...subjectResult.rows].map((item) => ({
+                ...item,
+                display_name:
+                  formatDisplayName(item, orgNameDisplayFormat) ||
+                  item.subject_name ||
+                  item.class_name ||
+                  '',
+              }));
+
+              return res.status(200).json({ results });
+            } catch (error) {
+              return res.status(500).json({ error: 'Failed to fetch users.' });
+            }
+          }
+
           try {
             // Resolve which result types the requesting user is permitted to see.
             // We only run DB queries for types the user can actually navigate to,

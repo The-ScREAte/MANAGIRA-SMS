@@ -1,0 +1,658 @@
+<style>
+  html, body { overflow-x: hidden; }
+  .ta-shell { max-width: 980px; margin: 0 auto; padding: 18px 16px 30px; }
+  .ta-shell, .ta-card, .ta-question, .ta-entry-card { box-sizing: border-box; }
+  .ta-shell { overflow-x: hidden; }
+  .ta-page-title { margin: 0 0 12px; font-size: 1.18rem; color: #0f172a; }
+  .ta-security-bar {
+    position: fixed;
+    top: 74px;
+    right: 12px;
+    z-index: 12030;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #dbe5ef;
+    border-radius: 999px;
+    padding: 6px 8px;
+    box-shadow: 0 8px 20px rgba(15,23,42,.14);
+  }
+  .ta-security-bar.is-open-book {
+    border-color: #bfdbfe;
+    background: rgba(239, 246, 255, 0.96);
+  }
+  .ta-sec-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #6b8e23;
+    box-shadow: 0 0 0 0 rgba(107, 142, 35, .55);
+    animation: ta-blink 1.2s infinite;
+    flex: 0 0 auto;
+  }
+  .ta-sec-label {
+    color: #334155;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+  }
+  .ta-lock-icon {
+    width: 14px;
+    height: 14px;
+    color: #0f766e;
+    display: inline-flex;
+    flex: 0 0 auto;
+  }
+  .ta-exit-btn {
+    text-decoration: none;
+    border: 1px solid #fecaca;
+    background: #fff;
+    color: #b91c1c;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: .7rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .ta-exit-btn:hover { background: #fef2f2; }
+  .ta-timer-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #fecaca;
+    background: #fff1f2;
+    color: #9f1239;
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .02em;
+    line-height: 1;
+  }
+  .ta-timer-chip.is-ok {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+  }
+
+  @keyframes ta-blink {
+    0% { opacity: 1; box-shadow: 0 0 0 0 rgba(107, 142, 35, .52); }
+    70% { opacity: .7; box-shadow: 0 0 0 8px rgba(107, 142, 35, 0); }
+    100% { opacity: 1; box-shadow: 0 0 0 0 rgba(107, 142, 35, 0); }
+  }
+  .ta-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 15px; margin-bottom: 12px; box-shadow: 0 4px 14px rgba(15,23,42,0.06); }
+  .ta-card h2 { margin: 0 0 6px; color: #0f172a; }
+  .ta-meta { margin: 0; color: #64748b; font-size: .9rem; }
+  .ta-question { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-top: 10px; }
+  .ta-question h3 { margin: 0 0 8px; font-size: .98rem; color: #0f172a; }
+  .ta-mark { font-size: .78rem; color: #155e75; background: #ecfeff; border-radius: 999px; padding: 4px 8px; font-weight: 700; display: inline-block; }
+  .ta-options { margin-top: 8px; display: grid; gap: 8px; }
+  .ta-option { display: flex; align-items: flex-start; gap: 8px; color: #334155; }
+  .ta-input {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: .9rem;
+  }
+  .ta-textarea {
+    width: 100%;
+    min-height: 100px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: .9rem;
+    resize: vertical;
+    font-family: inherit;
+  }
+  .ta-submit {
+    border: none;
+    background: var(--org-primary-color, #0f5a66);
+    color: #fff;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 11px 14px;
+    cursor: pointer;
+  }
+  .ta-submit[disabled] { opacity: .55; cursor: not-allowed; }
+
+  .ta-entry-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.66);
+    z-index: 12040;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px));
+    overflow: auto;
+    box-sizing: border-box;
+  }
+  .ta-entry-card {
+    width: min(100%, 560px);
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 22px 48px rgba(15,23,42,.28);
+    padding: 18px;
+    margin: auto 0;
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+  .ta-entry-card h3 { margin: 0 0 10px; color: #0f172a; line-height: 1.3; }
+  .ta-entry-card ul {
+    margin: 0 0 12px 16px;
+    padding: 0;
+    color: #334155;
+    font-size: .84rem;
+    line-height: 1.45;
+  }
+  .ta-entry-card li { margin: 6px 0; }
+  .ta-entry-consent {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    color: #334155;
+    margin-bottom: 12px;
+    font-size: .9rem;
+    line-height: 1.4;
+  }
+  .ta-entry-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .ta-btn {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    padding: 7px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: .78rem;
+    line-height: 1.2;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 84px;
+  }
+  .ta-btn-primary {
+    border-color: var(--org-primary-color, #0f5a66);
+    background: var(--org-primary-color, #0f5a66);
+    color: #fff;
+  }
+  .ta-btn-primary:disabled {
+    opacity: .42;
+    cursor: not-allowed;
+    filter: saturate(.7);
+  }
+  .ta-monitor-banner {
+    display: none;
+    margin-bottom: 10px;
+    border: 1px solid #fbbf24;
+    background: #fffbeb;
+    color: #92400e;
+    border-radius: 10px;
+    padding: 9px 10px;
+    font-size: .86rem;
+    font-weight: 700;
+  }
+  .ta-save-status {
+    display: none;
+    margin: 0 0 10px;
+    color: #475569;
+    font-size: .76rem;
+    font-weight: 600;
+  }
+
+  .ta-prestart-hidden { display: none; }
+  body.ta-exam-lock { overflow: hidden !important; }
+
+  @media (max-width: 768px) {
+    .ta-shell { padding: 12px 10px 18px; }
+    .ta-page-title { font-size: .82rem; margin-bottom: 8px; }
+    .ta-card { padding: 10px; border-radius: 11px; }
+    .ta-card h2 { font-size: .78rem; }
+    .ta-meta { font-size: .68rem; line-height: 1.38; }
+    .ta-question { padding: 8px; border-radius: 9px; }
+    .ta-question h3 { font-size: .72rem; line-height: 1.38; }
+    .ta-mark { font-size: .6rem; padding: 3px 7px; }
+    .ta-input, .ta-textarea { font-size: .72rem; }
+    .ta-textarea { min-height: 86px; }
+    .ta-submit { width: 100%; }
+    .ta-entry-card {
+      width: 100%;
+      max-height: calc(100dvh - 20px);
+      padding: 10px;
+      border-radius: 12px;
+    }
+    .ta-entry-card h3 { font-size: .76rem; }
+    .ta-entry-card ul { font-size: .7rem; margin-left: 14px; }
+    .ta-entry-consent { font-size: .68rem; }
+    .ta-entry-actions { justify-content: space-between; gap: 6px; }
+    .ta-btn, .ta-btn-primary { min-width: 0; flex: 1 1 0; }
+    .ta-monitor-banner { font-size: .66rem; padding: 8px 9px; }
+    .ta-save-status { font-size: .64rem; }
+    .ta-entry-card li { margin: 4px 0; }
+    .ta-security-bar {
+      top: 62px;
+      right: 8px;
+      gap: 5px;
+      padding: 4px 6px;
+    }
+    .ta-sec-label { font-size: .58rem; }
+    .ta-exit-btn { font-size: .56rem; padding: 3px 6px; }
+    .ta-timer-chip { font-size: .54rem; padding: 3px 6px; }
+  }
+
+  @media (max-width: 460px) {
+    .ta-shell { padding: 10px 8px 16px; }
+    .ta-page-title { font-size: .74rem; }
+    .ta-card { padding: 8px; border-radius: 10px; }
+    .ta-card h2 { font-size: .7rem; }
+    .ta-question { padding: 7px; }
+    .ta-question h3 { font-size: .64rem; }
+    .ta-option { font-size: .64rem; line-height: 1.3; }
+    .ta-input, .ta-textarea { font-size: .66rem; padding: 8px; }
+    .ta-entry-card ul { font-size: .64rem; margin-left: 12px; }
+    .ta-entry-consent { font-size: .62rem; }
+    .ta-entry-overlay { padding: 8px; }
+    .ta-entry-card { max-height: calc(100dvh - 16px); padding: 8px; }
+    .ta-security-bar { top: 58px; right: 6px; }
+    .ta-sec-label { display: none; }
+    .ta-exit-btn { font-size: .5rem; padding: 3px 5px; }
+    .ta-timer-chip { font-size: .5rem; padding: 2px 5px; }
+    .ta-save-status { font-size: .58rem; }
+  }
+</style>
+
+<div class="ta-shell">
+  <div class="ta-security-bar <%= assessment.open_book ? 'is-open-book' : '' %>" aria-label="Assessment mode status">
+    <span class="ta-sec-dot" aria-hidden="true"></span>
+    <span class="ta-lock-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+      </svg>
+    </span>
+    <span class="ta-sec-label"><%= assessment.open_book ? 'Open Book Mode' : 'Secure Mode' %></span>
+    <% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %>
+      <span class="ta-timer-chip" id="ta-timer-chip" data-minutes="<%= Number(assessment.time_limit_minutes) %>">Time --:--</span>
+    <% } %>
+    <a class="ta-exit-btn js-exam-exit-link" href="/student/testing-room?termId=<%= assessment.term_id %>">Exit</a>
+  </div>
+
+  <h1 class="ta-page-title">Assessment Session</h1>
+
+  <%- include('../partials/flash') %>
+
+  <div class="ta-card ta-prestart-hidden" id="ta-assessment-meta">
+    <h2><%= assessment.title %></h2>
+    <p class="ta-meta"><strong><%= assessment.subject_name %></strong> · <%= assessment.category || 'Assessment' %> · Max <%= assessment.max_score %> · <%= assessment.open_book ? 'Open Book' : 'Secure' %><% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %> · <%= Number(assessment.time_limit_minutes) %> min<% } %></p>
+    <% if (questionSet && questionSet.set_description) { %>
+      <p class="ta-meta" style="margin-top:6px;"><%= questionSet.set_description %></p>
+    <% } %>
+  </div>
+
+  <div class="ta-monitor-banner" id="ta-monitor-banner"></div>
+  <p class="ta-save-status ta-prestart-hidden" id="ta-save-status"></p>
+
+  <form class="ta-card ta-prestart-hidden" id="ta-assessment-form" method="POST" action="/student/testing-room/<%= assessment.assessment_id %>/submit" onsubmit="return confirm('Submit your assessment now? You cannot retake it after submission.');">
+    <input type="hidden" name="attemptId" value="<%= attemptId %>" />
+
+    <% questions.forEach((question, index) => { %>
+      <% const fieldName = `responses[${question.question_id}]`; %>
+      <% const savedValue = responsesByQuestionId[String(question.question_id)]; %>
+      <section class="ta-question">
+        <h3>Q<%= index + 1 %>. <%= question.question_text %></h3>
+        <span class="ta-mark"><%= Number(question.marks || 0).toFixed(2) %> marks</span>
+
+        <% if (['single_choice', 'true_false'].includes(String(question.question_type || '').toLowerCase())) { %>
+          <div class="ta-options">
+            <% (Array.isArray(question.options_json) ? question.options_json : []).forEach(option => { %>
+              <label class="ta-option">
+                <input type="radio" name="<%= fieldName %>" value="<%= option %>" <%= String(savedValue || '') === String(option) ? 'checked' : '' %> />
+                <span><%= option %></span>
+              </label>
+            <% }) %>
+          </div>
+        <% } else if (String(question.question_type || '').toLowerCase() === 'multiple_choice') { %>
+          <div class="ta-options">
+            <% const selectedMultiple = Array.isArray(savedValue) ? savedValue : (savedValue ? String(savedValue).split(',').map(v => v.trim()).filter(Boolean) : []); %>
+            <% (Array.isArray(question.options_json) ? question.options_json : []).forEach(option => { %>
+              <label class="ta-option">
+                <input type="checkbox" name="<%= fieldName %>" value="<%= option %>" <%= selectedMultiple.includes(String(option)) ? 'checked' : '' %> />
+                <span><%= option %></span>
+              </label>
+            <% }) %>
+          </div>
+        <% } else if (String(question.question_type || '').toLowerCase() === 'essay') { %>
+          <textarea class="ta-textarea" name="<%= fieldName %>" placeholder="Write your answer here..."><%= savedValue || '' %></textarea>
+        <% } else { %>
+          <input class="ta-input" type="text" name="<%= fieldName %>" value="<%= savedValue || '' %>" placeholder="Enter your answer" />
+        <% } %>
+      </section>
+    <% }) %>
+
+    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+      <button class="ta-submit" id="ta-submit-btn" type="submit">Submit Assessment</button>
+    </div>
+  </form>
+
+  <div class="ta-entry-overlay" id="ta-entry-overlay" role="dialog" aria-label="Assessment instructions">
+    <div class="ta-entry-card">
+      <h3>Before You Start</h3>
+      <ul>
+        <% if (assessment.open_book) { %>
+          <li>This is an open-book assessment.</li>
+        <% } else { %>
+          <li>This assessment is monitored in secure mode.</li>
+        <% } %>
+        <li>Sit down, stay focused, and complete the exam yourself.</li>
+        <% if (!assessment.open_book) { %>
+          <li>Do not switch tabs, open other pages, or close this page during the exam.</li>
+          <li>If you leave this tab, it is tracked and flagged.</li>
+        <% } %>
+        <% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %>
+          <li>Time limit: <%= Number(assessment.time_limit_minutes) %> minutes. Submission is automatic when time ends.</li>
+        <% } %>
+      </ul>
+      <label class="ta-entry-consent" for="ta-consent">
+        <input type="checkbox" id="ta-consent" />
+        <span>I understand and I am ready to start this assessment now.</span>
+      </label>
+      <div class="ta-entry-actions">
+        <a class="ta-btn js-exam-exit-link" href="/student/testing-room?termId=<%= assessment.term_id %>">Cancel</a>
+        <button class="ta-btn ta-btn-primary" id="ta-start-btn" type="button" disabled>Start</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var overlay = document.getElementById('ta-entry-overlay');
+    var consent = document.getElementById('ta-consent');
+    var startBtn = document.getElementById('ta-start-btn');
+    var form = document.getElementById('ta-assessment-form');
+    var metaCard = document.getElementById('ta-assessment-meta');
+    var monitorBanner = document.getElementById('ta-monitor-banner');
+    var saveStatus = document.getElementById('ta-save-status');
+    var submitBtn = document.getElementById('ta-submit-btn');
+    var exitLinks = document.querySelectorAll('.js-exam-exit-link');
+    var timerChip = document.getElementById('ta-timer-chip');
+
+    var isSecureMode = <%= assessment.open_book ? 'false' : 'true' %>;
+    var timeLimitMinutes = Number(<%= Number(assessment.time_limit_minutes || 0) %>);
+    var attemptStartedAtIso = <%- JSON.stringify(attemptStartedAt ? new Date(attemptStartedAt).toISOString() : '') %>;
+    var timerIntervalId = null;
+
+    var hasStarted = false;
+    var focusViolations = 0;
+    var autosaveTimer = null;
+    var autosaveIntervalId = null;
+    var autosaveDirty = false;
+    var autosaveInFlight = false;
+    var isSubmitting = false;
+
+    function showMonitorMessage(text) {
+      if (!monitorBanner) return;
+      monitorBanner.textContent = text;
+      monitorBanner.style.display = 'block';
+    }
+
+    function setSaveStatus(message, isError) {
+      if (!saveStatus) return;
+      saveStatus.textContent = message || '';
+      saveStatus.style.display = message ? 'block' : 'none';
+      saveStatus.style.color = isError ? '#b91c1c' : '#475569';
+    }
+
+    function collectResponsesForAutosave() {
+      var payload = {};
+      if (!form) return payload;
+      var formData = new FormData(form);
+      formData.forEach(function (value, key) {
+        var match = /^responses\[(\d+)\]$/.exec(String(key || ''));
+        if (!match) return;
+        var questionId = String(match[1]);
+        if (Object.prototype.hasOwnProperty.call(payload, questionId)) {
+          if (!Array.isArray(payload[questionId])) {
+            payload[questionId] = [payload[questionId]];
+          }
+          payload[questionId].push(value);
+          return;
+        }
+        payload[questionId] = value;
+      });
+      return payload;
+    }
+
+    async function performAutosave() {
+      if (!hasStarted || !autosaveDirty || autosaveInFlight || isSubmitting || !form) return;
+      autosaveInFlight = true;
+      try {
+        var response = await fetch('/student/testing-room/<%= assessment.assessment_id %>/autosave', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            attemptId: <%= attemptId %>,
+            responses: collectResponsesForAutosave()
+          })
+        });
+        var result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Draft save failed.');
+        }
+        autosaveDirty = false;
+        var savedAt = result.savedAt ? new Date(result.savedAt) : new Date();
+        setSaveStatus('Draft saved at ' + savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), false);
+      } catch (error) {
+        setSaveStatus(error.message || 'Draft save failed.', true);
+      } finally {
+        autosaveInFlight = false;
+      }
+    }
+
+    function scheduleAutosave() {
+      if (!hasStarted || isSubmitting) return;
+      autosaveDirty = true;
+      if (autosaveTimer) {
+        window.clearTimeout(autosaveTimer);
+      }
+      autosaveTimer = window.setTimeout(function () {
+        performAutosave();
+      }, 1200);
+    }
+
+    function requestFullscreenSafe() {
+      if (!isSecureMode) return;
+      var el = document.documentElement;
+      if (!el) return;
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(function () {});
+      }
+    }
+
+    function formatRemainingTime(totalSeconds) {
+      var safeSeconds = Math.max(0, Number(totalSeconds || 0));
+      var mins = Math.floor(safeSeconds / 60);
+      var secs = safeSeconds % 60;
+      return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
+
+    function getTimerDeadlineMs() {
+      if (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes <= 0) return null;
+      var parsedStartedAt = attemptStartedAtIso ? new Date(attemptStartedAtIso) : null;
+      if (!parsedStartedAt || Number.isNaN(parsedStartedAt.getTime())) {
+        parsedStartedAt = new Date();
+      }
+      return parsedStartedAt.getTime() + (timeLimitMinutes * 60 * 1000);
+    }
+
+    function submitOnTimeout() {
+      if (!form || isSubmitting) return;
+      isSubmitting = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+      }
+      try {
+        form.submit();
+      } catch (_) {
+      }
+    }
+
+    function startTimerIfNeeded() {
+      var deadlineMs = getTimerDeadlineMs();
+      if (!timerChip || !deadlineMs) return;
+
+      function tick() {
+        var remainingMs = deadlineMs - Date.now();
+        var remainingSeconds = Math.ceil(remainingMs / 1000);
+        if (remainingSeconds <= 0) {
+          timerChip.textContent = 'Time 00:00';
+          timerChip.classList.remove('is-ok');
+          if (timerIntervalId) {
+            window.clearInterval(timerIntervalId);
+            timerIntervalId = null;
+          }
+          showMonitorMessage('Time is up. Submitting your assessment...');
+          submitOnTimeout();
+          return;
+        }
+
+        timerChip.textContent = 'Time ' + formatRemainingTime(remainingSeconds);
+        timerChip.classList.toggle('is-ok', remainingSeconds > 60);
+      }
+
+      tick();
+      timerIntervalId = window.setInterval(tick, 1000);
+    }
+
+    function onBeforeUnload(event) {
+      if (!hasStarted) return;
+      event.preventDefault();
+      event.returnValue = 'This assessment is in progress. Leaving now may be flagged.';
+    }
+
+    function confirmExamExit(event) {
+      var shouldLeave = window.confirm('You are exiting your exam. Your savings may not be saved, and your exam may be locked. If you start a new test, you may get different questions. Do you still want to continue?');
+      if (!shouldLeave) {
+        event.preventDefault();
+      }
+    }
+
+    function registerMonitoring() {
+      if (!isSecureMode) return;
+      document.addEventListener('visibilitychange', function () {
+        if (!hasStarted) return;
+        if (document.visibilityState === 'hidden') {
+          performAutosave();
+          focusViolations += 1;
+        } else if (focusViolations > 0) {
+          showMonitorMessage('You left the assessment window ' + focusViolations + ' time' + (focusViolations === 1 ? '' : 's') + '. This has been flagged.');
+        }
+      });
+
+      window.addEventListener('blur', function () {
+        if (!hasStarted) return;
+        focusViolations += 1;
+      });
+
+      window.addEventListener('focus', function () {
+        if (!hasStarted || focusViolations === 0) return;
+        showMonitorMessage('Focus warning: keep this page open and active until you submit.');
+      });
+
+      window.addEventListener('beforeunload', onBeforeUnload);
+
+      document.addEventListener('contextmenu', function (event) {
+        if (!hasStarted) return;
+        event.preventDefault();
+      });
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+    }
+
+    document.body.classList.add('ta-exam-lock');
+
+    if (consent && startBtn) {
+      consent.addEventListener('change', function () {
+        startBtn.disabled = !consent.checked;
+      });
+
+      startBtn.addEventListener('click', function () {
+        if (!consent.checked) return;
+        hasStarted = true;
+        if (overlay) {
+          overlay.style.display = 'none';
+        }
+        document.body.classList.remove('ta-exam-lock');
+        if (metaCard) {
+          metaCard.classList.remove('ta-prestart-hidden');
+        }
+        if (form) {
+          form.classList.remove('ta-prestart-hidden');
+        }
+        if (saveStatus) {
+          saveStatus.classList.remove('ta-prestart-hidden');
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+        }
+        if (autosaveIntervalId) {
+          window.clearInterval(autosaveIntervalId);
+        }
+        startTimerIfNeeded();
+        autosaveIntervalId = window.setInterval(function () {
+          performAutosave();
+        }, 15000);
+        requestFullscreenSafe();
+        if (isSecureMode) {
+          showMonitorMessage('Monitoring active. Keep this tab open until you submit.');
+        } else {
+          showMonitorMessage('Assessment started. Keep track of your remaining time.');
+        }
+      });
+    }
+
+    registerMonitoring();
+
+    if (exitLinks && exitLinks.length) {
+      exitLinks.forEach(function (link) {
+        link.addEventListener('click', confirmExamExit);
+      });
+    }
+
+    if (form) {
+      form.addEventListener('input', scheduleAutosave);
+      form.addEventListener('change', scheduleAutosave);
+    }
+
+    if (form) {
+      form.addEventListener('submit', function () {
+        isSubmitting = true;
+        if (autosaveTimer) {
+          window.clearTimeout(autosaveTimer);
+        }
+        if (autosaveIntervalId) {
+          window.clearInterval(autosaveIntervalId);
+        }
+        if (timerIntervalId) {
+          window.clearInterval(timerIntervalId);
+        }
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Submitting...';
+        }
+        window.removeEventListener('beforeunload', onBeforeUnload);
+      });
+    }
+  })();
+</script>

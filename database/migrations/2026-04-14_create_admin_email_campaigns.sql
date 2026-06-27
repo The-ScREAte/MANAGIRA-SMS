@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS admin_email_campaigns (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT admin_email_campaigns_frequency_check
-        CHECK (frequency IN ('once', 'daily', 'weekly', 'monthly')),
+        CHECK (frequency IN ('once', 'every_1_minute', 'every_3_minutes', 'every_5_minutes', 'every_10_minutes', 'daily', 'every_2_days', 'weekly', 'monthly')),
     CONSTRAINT admin_email_campaigns_send_time_check
         CHECK (send_time ~ '^[0-2][0-9]:[0-5][0-9]$'),
     CONSTRAINT admin_email_campaigns_day_of_week_check

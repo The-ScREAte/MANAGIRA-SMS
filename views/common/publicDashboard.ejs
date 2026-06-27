@@ -247,6 +247,72 @@ p{
   margin-bottom:72px;
 }
 
+.school-identity-card{
+  margin: 0 0 28px;
+  padding: 24px 26px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--org-primary-color) 12%, white), #ffffff 62%);
+  border: 1px solid var(--org-primary-soft-border);
+  box-shadow: 0 12px 26px var(--org-primary-soft-shadow);
+}
+
+.school-identity-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:12px;
+  font-size:0.82rem;
+  font-weight:700;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:var(--org-primary-color);
+}
+
+.school-identity-title{
+  margin:0;
+  color:#0f172a;
+}
+
+.school-identity-subtitle{
+  margin:12px 0 0;
+  max-width:78ch;
+  color:#334155;
+}
+
+.school-identity-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:18px 0 0;
+  padding:0;
+  list-style:none;
+}
+
+.school-identity-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:#fff;
+  border:1px solid var(--org-primary-soft-border);
+  color:#0f172a;
+  font-size:0.9rem;
+  font-weight:600;
+}
+
+.school-identity-chip-label{
+  color:#64748b;
+  font-weight:700;
+}
+
+@media (max-width:768px){
+  .school-identity-card{
+    padding:20px 18px;
+    border-radius:16px;
+  }
+}
+
 
 /* =========================================================
    3. CAROUSEL / HERO (BASE) — UPDATED (PROFESSIONAL + RESPONSIVE)
@@ -4694,6 +4760,31 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery
     
     <div class="public-dashboard-container">
       <div class="public-dashboard-header"></div>
+      <%
+        const identityTerms = Array.isArray(searchIdentityTerms) ? searchIdentityTerms : [];
+        const visibleAliasTerms = identityTerms.filter((value) => value && value !== (orgDetails?.organization_name || ''));
+        const schoolLocationParts = [orgDetails?.organization_address, orgDetails?.organization_country].filter(Boolean);
+      %>
+
+      <section class="school-identity-card" aria-label="School identity">
+        <span class="school-identity-kicker">Official School Website</span>
+        <h1 class="school-identity-title"><%= orgDetails?.organization_name || 'School' %></h1>
+        <p class="school-identity-subtitle">
+          <%= orgDetails?.organization_name || 'This school' %> is the official school website<% if (visibleAliasTerms.length) { %>, also known as <%= visibleAliasTerms.join(', ') %><% } %>.
+          <% if (schoolLocationParts.length) { %>Families can find the school using <%= schoolLocationParts.join(', ') %> as well.<% } %>
+        </p>
+        <ul class="school-identity-meta">
+          <% if (visibleAliasTerms.length) { %>
+            <li class="school-identity-chip"><span class="school-identity-chip-label">Also known as</span> <span><%= visibleAliasTerms.join(', ') %></span></li>
+          <% } %>
+          <% if (orgDetails?.nickname) { %>
+            <li class="school-identity-chip"><span class="school-identity-chip-label">Web name</span> <span><%= orgDetails.nickname %>.managira.com</span></li>
+          <% } %>
+          <% if (schoolLocationParts.length) { %>
+            <li class="school-identity-chip"><span class="school-identity-chip-label">Location</span> <span><%= schoolLocationParts.join(', ') %></span></li>
+          <% } %>
+        </ul>
+      </section>
 
       <!-- 🔹 Image Modal -->
       <div id="imageModal" class="modal">

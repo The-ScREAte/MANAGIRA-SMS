@@ -730,6 +730,12 @@
                   <input type="checkbox" name="notifyTeachers-1" id="notifyTeachers-1">
                   <label for="notifyTeachers-1">Email affected class teachers</label>
                 </div>
+                <% if (canUseGoogleClassroom) { %>
+                <div class="form-group checkbox-group">
+                  <input type="checkbox" name="showQuestionSetOnDashboard-1" id="showQuestionSetOnDashboard-1">
+                  <label for="showQuestionSetOnDashboard-1">Show Set Questions in Class Dashboard</label>
+                </div>
+                <% } %>
               </div>
               <h4 style="text-align:center; margin:12px 0 8px 0; width:100%;">Assign Test to Classes and Subjects</h4>
               <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-1', 'arrow-class-list-1')">
@@ -775,6 +781,7 @@
  
   <script>
     let testFormCount = 1;
+    const canUseGoogleClassroom = <%= canUseGoogleClassroom ? 'true' : 'false' %>;
 
     function addTestForm() {
       testFormCount++;
@@ -840,6 +847,12 @@
           <input type="checkbox" name="notifyTeachers-${testFormCount}" id="notifyTeachers-${testFormCount}">
           <label for="notifyTeachers-${testFormCount}">Email affected class teachers</label>
         </div>
+        ${canUseGoogleClassroom ? `
+        <div class="form-group checkbox-group">
+          <input type="checkbox" name="showQuestionSetOnDashboard-${testFormCount}" id="showQuestionSetOnDashboard-${testFormCount}">
+          <label for="showQuestionSetOnDashboard-${testFormCount}">Show Set Questions in Class Dashboard</label>
+        </div>
+        ` : ''}
         </div>
         <h4 style="text-align:center; margin:12px 0 8px 0; width:100%;">Assign Test to Classes and Subjects</h4>
         <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-${testFormCount}', 'arrow-class-list-${testFormCount}')">
@@ -980,6 +993,7 @@
           isActive: formData.get(`isActive-${i + 1}`) ? "true" : "false",
           editWindowStart: formData.get(`editWindowStart-${i + 1}`) || null,
           editWindowEnd: formData.get(`editWindowEnd-${i + 1}`) || null,
+          showQuestionSetOnDashboard: formData.get(`showQuestionSetOnDashboard-${i + 1}`) ? "true" : "false",
           notifyTeachers: formData.get(`notifyTeachers-${i + 1}`) ? "true" : "false",
           classes,
           subjects
