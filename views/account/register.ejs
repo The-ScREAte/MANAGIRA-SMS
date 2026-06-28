@@ -23,7 +23,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Register Your Organization</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon_io/apple-touch-icon.png" />
@@ -121,6 +121,7 @@
       flex-direction: column;
       padding: 0;
       margin: 0;
+      -webkit-text-size-adjust: 100%;
     }
 
     .page-wrapper {
@@ -498,18 +499,24 @@
       .name-fields-row + .section-title { margin-top: 8px; }
       .name-fields-row .form-input { padding-left: 8px; padding-right: 8px; }
       .form-label { font-size: 0.72rem; margin-bottom: 4px; }
-      .form-input { font-size: 0.78rem; padding: 8px 9px; }
+      .register-form input,
+      .register-form select,
+      .register-form textarea { font-size: 16px !important; }
+      .form-input { font-size: 16px; padding: 8px 9px; }
       .form-input::placeholder { font-size: 0.82em; }
-      select.form-input { height: 34px; font-size: 0.7rem; padding: 6px 24px 6px 8px; }
+      select.form-input { height: 40px; font-size: 16px; padding: 6px 24px 6px 8px; }
+      .form-input:focus {
+        box-shadow: 0 0 0 2px rgba(1, 83, 91, 0.14);
+      }
       .register-header h1 { font-size: 1.04rem; }
       .section-title { font-size: 0.84rem; }
       .notice { font-size: 0.72rem; padding: 8px 9px; }
       .subdomain-preview { font-size: 6px; }
       .password-requirements p { font-size: 0.66rem; }
       .password-requirements li { font-size: 0.64rem; }
-      .register-form input[type="file"].form-input { font-size: 0.62rem; padding: 5px 6px; }
-      .register-form input[type="file"].form-input::file-selector-button { font-size: 0.58rem; padding: 3px 5px; margin-right: 5px; }
-      .register-form input[type="file"].form-input::-webkit-file-upload-button { font-size: 0.58rem; padding: 3px 5px; margin-right: 5px; }
+      .register-form input[type="file"].form-input { font-size: 16px; padding: 5px 6px; }
+      .register-form input[type="file"].form-input::file-selector-button { font-size: 16px; padding: 3px 5px; margin-right: 5px; }
+      .register-form input[type="file"].form-input::-webkit-file-upload-button { font-size: 16px; padding: 3px 5px; margin-right: 5px; }
       .terms-group { padding: 8px 9px; gap: 8px; }
       .terms-group label { font-size: 0.7rem; line-height: 1.35; }
       .terms-group input[type="checkbox"] { width: 16px; height: 16px; }
@@ -529,16 +536,19 @@
       .name-fields-row { gap: 3px; }
       .name-fields-row + .section-title { margin-top: 6px; }
       .name-fields-row .form-input { padding-left: 7px; padding-right: 7px; }
-      .form-input { font-size: 0.74rem; padding: 7px 7px; }
+      .register-form input,
+      .register-form select,
+      .register-form textarea { font-size: 16px !important; }
+      .form-input { font-size: 16px; padding: 7px 7px; }
       .form-label { font-size: 0.68rem; }
       .form-input::placeholder { font-size: 0.76em; }
       .subdomain-preview { font-size: 5px; }
-      select.form-input { height: 30px; font-size: 0.64rem; padding: 5px 22px 5px 6px; }
+      select.form-input { height: 36px; font-size: 16px; padding: 5px 22px 5px 6px; }
       .notice { font-size: 0.68rem; }
       .section-title { font-size: 0.8rem; }
-      .register-form input[type="file"].form-input { font-size: 0.56rem; padding: 4px 5px; }
-      .register-form input[type="file"].form-input::file-selector-button { font-size: 0.54rem; padding: 2px 4px; margin-right: 4px; }
-      .register-form input[type="file"].form-input::-webkit-file-upload-button { font-size: 0.54rem; padding: 2px 4px; margin-right: 4px; }
+      .register-form input[type="file"].form-input { font-size: 16px; padding: 4px 5px; }
+      .register-form input[type="file"].form-input::file-selector-button { font-size: 16px; padding: 2px 4px; margin-right: 4px; }
+      .register-form input[type="file"].form-input::-webkit-file-upload-button { font-size: 16px; padding: 2px 4px; margin-right: 4px; }
       .terms-group { padding: 7px 8px; }
       .terms-group label { font-size: 0.66rem; }
       .verification-notice { font-size: 0.62rem !important; padding: 5px 7px !important; }
