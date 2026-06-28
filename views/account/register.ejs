@@ -1,4 +1,23 @@
-<%- include('../partials/flash') %>
+<%
+  const planSelectedFlashKey = 'plan selected. please complete registration';
+  const normalizeFlashText = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[.!?]+$/g, '');
+
+  const filterPlanSelected = (list) =>
+    Array.isArray(list)
+      ? list.filter((message) => normalizeFlashText(message) !== planSelectedFlashKey)
+      : [];
+
+  const registerFlashMessages = {
+    error: filterPlanSelected(messages?.error),
+    info: filterPlanSelected(messages?.info),
+    success: filterPlanSelected(messages?.success),
+  };
+%>
+<%- include('../partials/flash', { messages: registerFlashMessages }) %>
 
 <!DOCTYPE html>
 <html lang="en">
