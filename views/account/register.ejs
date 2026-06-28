@@ -21,8 +21,8 @@
 
     .password-toggle-btn {
       position: absolute;
-      right: 12px;
-      top: 50%;
+      right: 28px;
+      top: 34%;
       transform: translateY(-50%);
       background: #f8fafc;
       border: 1px solid #e2e8f0;
@@ -36,8 +36,8 @@
       justify-content: center;
       z-index: 1;
       pointer-events: auto;
-      width: 30px;
-      height: 30px;
+      width: 24px;
+      height: 16px;
       border-radius: 999px;
       flex-shrink: 0;
     }
@@ -60,8 +60,8 @@
     }
 
     .password-toggle-btn .eye-icon {
-      width: 16px;
-      height: 16px;
+      width: 12px;
+      height: 12px;
       stroke: currentColor;
       stroke-width: 2;
       fill: none;
@@ -173,10 +173,6 @@
       color: var(--primary);
     }
 
-    .form-group {
-      margin-bottom: 20px;
-    }
-
     .form-label {
       display: block;
       font-weight: 600;
@@ -212,6 +208,7 @@
     .form-input::placeholder {
       color: var(--text-secondary);
       opacity: 0.7;
+      font-size: 0.9em;
     }
 
     .form-row {
@@ -222,6 +219,10 @@
 
     @media (max-width: 520px) {
       .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .password-requirements ul {
         grid-template-columns: 1fr;
       }
     }
@@ -239,26 +240,30 @@
     .password-requirements {
       background: #f8fafc;
       border-radius: 8px;
-      padding: 12px 16px;
-      margin-top: 12px;
+      padding: 8px 10px;
+      margin-top: 6px;
       border: 1px solid var(--border);
     }
 
     .password-requirements p {
-      font-size: 0.8rem;
+      font-size: 0.76rem;
       color: var(--text-secondary);
-      margin-bottom: 6px;
+      margin-bottom: 4px;
+      font-weight: 600;
     }
 
     .password-requirements ul {
       margin: 0;
-      padding-left: 20px;
+      padding: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
     }
 
     .password-requirements li {
-      font-size: 0.8rem;
+      font-size: 0.74rem;
       color: var(--text-secondary);
-      line-height: 1.6;
+      line-height: 1.25;
     }
 
     .password-toggle {
@@ -331,9 +336,24 @@
       margin-top: 28px;
     }
 
+    .btn-primary:disabled,
+    .btn-primary.is-disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+      filter: grayscale(0.1);
+    }
+
     .btn-primary:hover {
       transform: translateY(-2px);
       box-shadow: 0 6px 20px rgba(1, 83, 91, 0.35);
+    }
+
+    .btn-primary:disabled:hover,
+    .btn-primary.is-disabled:hover {
+      transform: none;
+      box-shadow: none;
     }
 
     .login-link {
@@ -415,6 +435,95 @@
         font-size: 0.85rem;
       }
     }
+
+    /* --- spacing tighten + modern arrangement --- */
+    .register-card { padding: 28px 30px; }
+    .register-header { margin-bottom: 16px; }
+    .section-title { margin: 16px 0 12px 0; padding-bottom: 6px; }
+    .register-form .form-group { margin-bottom: 0 !important; }
+    .form-row { gap: 14px; }
+    .form-input { padding: 12px 14px; }
+    .notice { margin-bottom: 14px; padding: 10px 12px; font-size: 0.82rem; line-height: 1.45; }
+    .btn-primary { margin-top: 16px; }
+    .password-requirements { padding: 10px 14px; margin-top: 6px; }
+    .password-strength { margin-top: 5px; }
+    select.form-input { height: 40px; font-size: 0.82rem; padding: 7px 30px 7px 10px; }
+
+    /* --- keep desktop layout on small screens --- */
+    .form-row { grid-template-columns: 1fr 1fr; }
+    .form-input { height: auto; font-size: 0.94rem; padding: 11px 13px; }
+    .password-requirements ul { grid-template-columns: 1fr 1fr; }
+    .register-header h1 { font-size: 1.48rem; }
+    .section-title { font-size: 1rem; }
+    .form-label { font-size: 0.84rem; }
+
+    @media (max-width: 480px) {
+      .register-header h1 { font-size: 1.12rem; }
+      .section-title { font-size: 0.9rem; }
+      .form-label { font-size: 0.78rem; }
+      .form-input { font-size: 0.9rem; }
+      .notice { font-size: 0.8rem; }
+      .password-requirements p { font-size: 0.72rem; }
+      .password-requirements li { font-size: 0.7rem; }
+      .terms-group label { font-size: 0.8rem; }
+      .btn-primary { font-size: 0.9rem; }
+      .login-link { font-size: 0.82rem; }
+    }
+
+    /* --- mobile fit fixes (append last, wins over the rest) --- */
+    @media (max-width: 600px) {
+      .page-wrapper { padding: 14px 8px; }
+      .register-card { padding: 18px 14px; }
+      .form-row { gap: 10px; }
+      .name-fields-row { gap: 5px; }
+      .name-fields-row + .section-title { margin-top: 8px; }
+      .name-fields-row .form-input { padding-left: 8px; padding-right: 8px; }
+      .form-label { font-size: 0.72rem; margin-bottom: 4px; }
+      .form-input { font-size: 0.78rem; padding: 8px 9px; }
+      .form-input::placeholder { font-size: 0.82em; }
+      select.form-input { height: 34px; font-size: 0.7rem; padding: 6px 24px 6px 8px; }
+      .register-header h1 { font-size: 1.04rem; }
+      .section-title { font-size: 0.84rem; }
+      .notice { font-size: 0.72rem; padding: 8px 9px; }
+      .subdomain-preview { font-size: 6px; }
+      .password-requirements p { font-size: 0.66rem; }
+      .password-requirements li { font-size: 0.64rem; }
+      .register-form input[type="file"].form-input { font-size: 0.62rem; padding: 5px 6px; }
+      .register-form input[type="file"].form-input::file-selector-button { font-size: 0.58rem; padding: 3px 5px; margin-right: 5px; }
+      .register-form input[type="file"].form-input::-webkit-file-upload-button { font-size: 0.58rem; padding: 3px 5px; margin-right: 5px; }
+      .terms-group { padding: 8px 9px; gap: 8px; }
+      .terms-group label { font-size: 0.7rem; line-height: 1.35; }
+      .terms-group input[type="checkbox"] { width: 16px; height: 16px; }
+      .btn-primary { font-size: 0.86rem; padding: 11px 16px; }
+      .login-link { font-size: 0.76rem; }
+      .verification-notice { font-size: 0.66rem !important; padding: 6px 8px !important; }
+
+      .password-toggle-btn { right: 28px; top: 34%; width: 24px; height: 16px; }
+      .password-toggle-btn .eye-icon { width: 12px; height: 12px; }
+      .password-input-wrapper .form-input { padding-right: 45px; }
+    }
+
+    /* very narrow phones: stay side by side, just shrink to fit */
+    @media (max-width: 400px) {
+      .register-card { padding: 16px 10px; }
+      .form-row { gap: 8px; }
+      .name-fields-row { gap: 3px; }
+      .name-fields-row + .section-title { margin-top: 6px; }
+      .name-fields-row .form-input { padding-left: 7px; padding-right: 7px; }
+      .form-input { font-size: 0.74rem; padding: 7px 7px; }
+      .form-label { font-size: 0.68rem; }
+      .form-input::placeholder { font-size: 0.76em; }
+      .subdomain-preview { font-size: 5px; }
+      select.form-input { height: 30px; font-size: 0.64rem; padding: 5px 22px 5px 6px; }
+      .notice { font-size: 0.68rem; }
+      .section-title { font-size: 0.8rem; }
+      .register-form input[type="file"].form-input { font-size: 0.56rem; padding: 4px 5px; }
+      .register-form input[type="file"].form-input::file-selector-button { font-size: 0.54rem; padding: 2px 4px; margin-right: 4px; }
+      .register-form input[type="file"].form-input::-webkit-file-upload-button { font-size: 0.54rem; padding: 2px 4px; margin-right: 4px; }
+      .terms-group { padding: 7px 8px; }
+      .terms-group label { font-size: 0.66rem; }
+      .verification-notice { font-size: 0.62rem !important; padding: 5px 7px !important; }
+    }
   </style>
 </head>
 <body>
@@ -423,10 +532,9 @@
     <div class="register-card">
       <div class="register-header">
         <h1>Register Your Organization</h1>
-        <p>Create your account to get started with Managira</p>
       </div>
 
-      <form action="/account/register" method="post" enctype="multipart/form-data">
+      <form class="register-form" action="/account/register" method="post" enctype="multipart/form-data">
         <input type="hidden" name="preferredPlanId" value="<%= preferredPlanId || '' %>">
         <input type="hidden" name="trialRequested" value="<%= trialRequested ? '1' : '' %>">
         <input type="hidden" name="preferredPlanName" value="<%= preferredPlanName || '' %>">
@@ -438,7 +546,7 @@
           </div>
         <% } else if (hasPreselectedPlan) { %>
           <div class="notice">
-            📋 You've chosen the <strong><%= preferredPlanName %></strong> plan. Register your organization below to continue to payment.
+            Plan chosen: <strong><%= preferredPlanName %></strong>. Continue to register.
           </div>
         <% } else if (trialRequested) { %>
           <div class="notice">
@@ -454,13 +562,13 @@
           Personal Details
         </h2>
 
-        <div class="form-row">
+        <div class="form-row name-fields-row">
           <div class="form-group">
-            <label class="form-label" for="firstName">First Name</label>
+            <label class="form-label" for="firstName">First Name *</label>
             <input type="text" name="firstName" id="firstName" class="form-input" placeholder="John" required value="<%= formData?.firstName || '' %>">
           </div>
           <div class="form-group">
-            <label class="form-label" for="lastName">Last Name</label>
+            <label class="form-label" for="lastName">Last Name *</label>
             <input type="text" name="lastName" id="lastName" class="form-input" placeholder="Doe" required value="<%= formData?.lastName || '' %>">
           </div>
         </div>
@@ -473,39 +581,45 @@
           Organization Information
         </h2>
 
-        <div class="form-group">
-          <label class="form-label" for="orgName">Organization Name</label>
-          <input type="text" name="orgName" id="orgName" class="form-input" placeholder="My School Name" required value="<%= formData?.orgName || '' %>">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="orgNickName">Organisation Nickname</label>
-          <input type="text" name="orgNickName" id="orgNickName" class="form-input" placeholder="HJS School" minlength="3" maxlength="60" required value="<%= formData?.orgNickName || '' %>" autocomplete="off">
-          <p class="form-hint" id="orgNickName-hint">
-            Type your school's nickname as you'd like it shown
-            (e.g. <em>HJS School</em>, <em>DDJ SCH</em>). We'll automatically
-            create a web address from it.
-          </p>
-          <div id="subdomain-preview" class="subdomain-preview" aria-live="polite">
-            Your school address will be:
-            <strong><span id="subdomain-slug">your-school</span>.managira.com</strong>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="orgName">Org Name *</label>
+            <input type="text" name="orgName" id="orgName" class="form-input" placeholder="University of Greenwood" required value="<%= formData?.orgName || '' %>">
           </div>
-          <p class="form-hint" style="margin-top: 6px; color: #b54708;">
-            <strong>Heads up:</strong> the web address is permanent. You can
-            rename your school later, but the subdomain stays the same.
-          </p>
+
+          <div class="form-group">
+            <label class="form-label" for="orgNickName">Org Nickname *</label>
+            <input type="text" name="orgNickName" id="orgNickName" class="form-input" placeholder="UGW, MIS Sch, The Best" minlength="3" maxlength="60" required value="<%= formData?.orgNickName || '' %>" autocomplete="off">
+            <div id="subdomain-preview" class="subdomain-preview" aria-live="polite">
+              Org URL: <strong><span id="subdomain-slug">your-school</span>.managira.com</strong>
+            </div>
+          </div>
         </div>
 
         <style>
           .subdomain-preview {
-            margin-top: 8px;
-            padding: 10px 12px;
+            position: relative;
+            top: -16px;
+            margin-top: 0;
+            margin-bottom: 0;
+            padding: 1px 4px 0 4px;
             background: #f0f9ff;
             border: 1px solid #bae6fd;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 11px;
             color: #075985;
             word-break: break-all;
+            line-height: 1.2;
+          }
+          @media (max-width: 600px) {
+            #subdomain-preview {
+              font-size: 9px;
+            }
+          }
+          @media (max-width: 400px) {
+            #subdomain-preview {
+              font-size: 8px;
+            }
           }
           .subdomain-preview strong { color: #0c4a6e; }
           .subdomain-preview.is-invalid {
@@ -557,46 +671,58 @@
         </script>
 
         <div class="form-group">
-          <label class="form-label" for="orgAddress">Organization Address</label>
-          <input type="text" name="orgAddress" id="orgAddress" class="form-input" placeholder="123 Main Street, City" required value="<%= formData?.orgAddress || '' %>">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="orgCountry">Country</label>
-          <% const selectedRegisterCountry = (formData?.orgCountry ? String(formData.orgCountry).toUpperCase() : registerDefaultCountry || 'GH'); %>
-          <select name="orgCountry" id="orgCountry" class="form-input" required>
-            <option value="">Select country</option>
-            <% (registerCountryOptions || []).forEach((country) => { %>
-              <option value="<%= country.code %>" <%= country.code === selectedRegisterCountry ? 'selected' : '' %>>
-                <%= country.name %> (<%= country.code %>)
-              </option>
-            <% }) %>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="orgProvince">Province / Region / State</label>
-          <input type="text" name="orgProvince" id="orgProvince" class="form-input" placeholder="e.g. Ontario" required value="<%= formData?.orgProvince || '' %>">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="orgPhone">Organization Phone</label>
-          <input type="text" name="orgPhone" id="orgPhone" class="form-input" placeholder="+1 234 567 8900" required value="<%= formData?.orgPhone || '' %>">
-        </div>
-
-        <div class="notice" style="margin-top: 20px;">
-          <strong>📄 Proof of Existence:</strong> Upload any valid document (certificate, registration document, or website screenshot) to verify your organization.
+          <label class="form-label" for="orgAddress">Org Address *</label>
+          <input type="text" name="orgAddress" id="orgAddress" class="form-input" placeholder="123 Main St, Provo, UT" required value="<%= formData?.orgAddress || '' %>">
         </div>
 
         <div class="form-row">
           <div class="form-group">
+            <label class="form-label" for="orgCountry">Country *</label>
+            <% const selectedRegisterCountry = (formData?.orgCountry ? String(formData.orgCountry).toUpperCase() : registerDefaultCountry || 'US'); %>
+            <select name="orgCountry" id="orgCountry" class="form-input" required>
+              <option value="">Select country</option>
+              <% (registerCountryOptions || []).forEach((country) => { %>
+                <option value="<%= country.code %>" <%= country.code === selectedRegisterCountry ? 'selected' : '' %>>
+                  <%= country.name %> (<%= country.code %>)
+                </option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="orgProvince">Province / Region / State *</label>
+            <input type="text" name="orgProvince" id="orgProvince" class="form-input" placeholder="Utah" required value="<%= formData?.orgProvince || '' %>">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="orgPhone">Org Phone *</label>
+          <input type="tel" name="orgPhone" id="orgPhone" class="form-input" placeholder="+1 801 555 0123" required pattern="^\+?[0-9\s().-]{6,25}$" title="Use 6 to 15 digits. Country code is allowed (for example: +1 801 555 0123)." autocomplete="tel" value="<%= formData?.orgPhone || '' %>">
+        </div>
+
+        <% const hasCachedProof1 = !!(formData?.hasProof1 || proofDraft?.proof1Url); %>
+        <% const hasCachedProof2 = !!(formData?.hasProof2 || proofDraft?.proof2Url); %>
+        <% if (hasCachedProof2) { %>
+          <div class="notice" style="margin-top: -8px; margin-bottom: 16px;">
+            ✅ Your previously uploaded additional proof is still saved. Choose a new file only if you want to replace it.
+          </div>
+        <% } %>
+
+        <div class="form-row">
+          <div class="form-group">
             <label class="form-label" for="proof1">Proof of Existence *</label>
-            <input type="file" name="proof1" id="proof1" class="form-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
+            <input type="file" name="proof1" id="proof1" class="form-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" <%= hasCachedProof1 ? '' : 'required' %>>
           </div>
           <div class="form-group">
             <label class="form-label" for="proof2">Additional Proof (Optional)</label>
             <input type="file" name="proof2" id="proof2" class="form-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+            <% if (hasCachedProof2) { %>
+              <p class="form-hint">A temporary cached file already exists for this field.</p>
+            <% } %>
           </div>
+        </div>
+
+        <div class="notice verification-notice" style="margin-top: 8px; font-size: 0.76rem; padding: 8px 10px;">
+          <strong>📄 For Verification:</strong> Upload any (certificate, registration document, or website screenshot).
         </div>
 
         <h2 class="section-title">
@@ -607,44 +733,47 @@
           Sign-In Credentials
         </h2>
 
-        <div class="form-group">
-          <label class="form-label" for="email">Email</label>
-          <input type="email" name="email" id="email" class="form-input" placeholder="you@example.com" required value="<%= formData?.email || '' %>">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="confirmEmail">Confirm Email</label>
-          <input type="email" name="confirmEmail" id="confirmEmail" class="form-input" placeholder="Confirm your email" required value="<%= formData?.confirmEmail || '' %>">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="password">Password</label>
-          <div class="password-input-wrapper">
-            <input type="password" name="password" id="password" class="form-input" placeholder="Create a strong password" required oninput="checkPasswordStrength(this.value)" value="<%= formData?.password || '' %>">
-            <button type="button" class="password-toggle-btn" onclick="toggleMultiplePasswords(['password', 'confirmPassword'], this)" aria-label="Show passwords">
-              <svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
-              </svg>
-            </button>
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" for="email">Email *</label>
+            <input type="email" name="email" id="email" class="form-input" placeholder="you@example.com" required value="<%= formData?.email || '' %>">
           </div>
-          <p id="password-strength" class="password-strength"></p>
-          <div class="password-requirements">
-            <p>Password must include:</p>
-            <ul>
-              <li>At least 6 characters</li>
-              <li>One uppercase letter (A-Z)</li>
-              <li>One lowercase letter (a-z)</li>
-              <li>One number (0-9)</li>
-              <li>One special character (!@#$%^&*)</li>
-            </ul>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" for="confirmEmail">Confirm Email *</label>
+            <input type="email" name="confirmEmail" id="confirmEmail" class="form-input" placeholder="Re-enter email" required value="<%= formData?.confirmEmail || '' %>">
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="confirmPassword">Confirm Password</label>
-          <div class="password-input-wrapper">
-            <input type="password" name="confirmPassword" id="confirmPassword" class="form-input" placeholder="Re-enter your password" required value="<%= formData?.confirmPassword || '' %>">
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" for="password">Password *</label>
+            <div class="password-input-wrapper">
+              <input type="password" name="password" id="password" class="form-input" placeholder="Create a password" required oninput="checkPasswordStrength(this.value)" value="<%= formData?.password || '' %>">
+              <button type="button" class="password-toggle-btn" onclick="toggleMultiplePasswords(['password', 'confirmPassword'], this)" aria-label="Show passwords">
+                <svg class="eye-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
+                </svg>
+              </button>
+            </div>
+            <p id="password-strength" class="password-strength"></p>
           </div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label" for="confirmPassword">Confirm Password *</label>
+            <div class="password-input-wrapper">
+              <input type="password" name="confirmPassword" id="confirmPassword" class="form-input" placeholder="Re-enter password" required value="<%= formData?.confirmPassword || '' %>">
+            </div>
+          </div>
+        </div>
+
+        <div class="password-requirements" style="margin-top: 0; margin-bottom: 10px;">
+          <p>Password requirements:</p>
+          <ul>
+            <li>At least 6 characters</li>
+            <li>One uppercase letter (A-Z)</li>
+            <li>One lowercase letter (a-z)</li>
+            <li>One number (0-9)</li>
+            <li>One special character (!@#$%^&*)</li>
+          </ul>
         </div>
 
         <div class="terms-group">
@@ -654,7 +783,7 @@
           </label>
         </div>
 
-        <button type="submit" class="btn-primary">Proceed to Payment</button>
+        <button type="submit" class="btn-primary" id="registerSubmitBtn">Proceed to Payment</button>
       </form>
 
       <p class="login-link">
@@ -778,8 +907,6 @@
         const input = document.getElementById(id);
         if (input) input.type = isVisible ? 'password' : 'text';
       });
-
-      updatePasswordToggleIcon(button, !isVisible);
     }
 
     function checkPasswordStrength(password) {
@@ -809,8 +936,17 @@
       const confirmPasswordInput = document.getElementById("confirmPassword");
       const emailInput = document.getElementById("email");
       const confirmEmailInput = document.getElementById("confirmEmail");
+      const termsCheckbox = document.getElementById("termsCheckbox");
+      const registerSubmitBtn = document.getElementById("registerSubmitBtn");
 
       restoreRegisterDraft();
+
+      function syncSubmitState() {
+        if (!termsCheckbox || !registerSubmitBtn) return;
+        const enabled = !!termsCheckbox.checked;
+        registerSubmitBtn.disabled = !enabled;
+        registerSubmitBtn.classList.toggle('is-disabled', !enabled);
+      }
 
       registerDraftFields.forEach((id) => {
         const el = document.getElementById(id);
@@ -819,6 +955,12 @@
         const eventName = el.type === 'checkbox' ? 'change' : 'input';
         el.addEventListener(eventName, saveRegisterDraft);
       });
+
+      if (termsCheckbox) {
+        termsCheckbox.addEventListener('change', syncSubmitState);
+      }
+
+      syncSubmitState();
 
       window.addEventListener('beforeunload', saveRegisterDraft);
 
