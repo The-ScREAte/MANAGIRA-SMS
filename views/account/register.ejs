@@ -678,7 +678,7 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="orgCountry">Country *</label>
-            <% const selectedRegisterCountry = (formData?.orgCountry ? String(formData.orgCountry).toUpperCase() : registerDefaultCountry || 'US'); %>
+            <% const selectedRegisterCountry = (formData?.orgCountry ? String(formData.orgCountry).toUpperCase() : ((typeof registerDefaultCountry !== 'undefined' && registerDefaultCountry) ? registerDefaultCountry : 'US')); %>
             <select name="orgCountry" id="orgCountry" class="form-input" required>
               <option value="">Select country</option>
               <% (registerCountryOptions || []).forEach((country) => { %>
