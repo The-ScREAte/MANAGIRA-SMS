@@ -681,7 +681,7 @@
             <% const selectedRegisterCountry = (formData?.orgCountry ? String(formData.orgCountry).toUpperCase() : ((typeof registerDefaultCountry !== 'undefined' && registerDefaultCountry) ? registerDefaultCountry : 'US')); %>
             <select name="orgCountry" id="orgCountry" class="form-input" required>
               <option value="">Select country</option>
-              <% (registerCountryOptions || []).forEach((country) => { %>
+              <% ((typeof registerCountryOptions !== 'undefined' && Array.isArray(registerCountryOptions)) ? registerCountryOptions : []).forEach((country) => { %>
                 <option value="<%= country.code %>" <%= country.code === selectedRegisterCountry ? 'selected' : '' %>>
                   <%= country.name %> (<%= country.code %>)
                 </option>
