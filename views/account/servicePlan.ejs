@@ -448,7 +448,7 @@
 
       @media (max-width: 768px) {
         .pricing-shell {
-          padding: 16px 18px 36px;
+          padding: 12px 12px 20px;
         }
 
         #servicePlanForm {
@@ -456,37 +456,113 @@
         }
 
         .form-actions {
-          padding: 0 6px 12px;
+          padding: 0 2px 8px;
+          margin-top: 10px;
+          gap: 6px;
         }
 
         .pricing-header {
-          padding: 18px;
+          padding: 12px;
+          margin-bottom: 10px;
         }
 
         .pricing-header h1 {
-          font-size: 1.7rem;
+          font-size: 1.42rem;
+        }
+
+        .pricing-header p {
+          font-size: 12px;
+        }
+
+        .trial-banner {
+          font-size: 11.5px;
         }
 
         .plan-grid {
           grid-template-columns: 1fr;
+          gap: 0;
         }
 
         .plan-card {
-          margin: 0 10px;
+          margin: 0;
+        }
+
+        .plan-content {
+          padding: 10px;
+          gap: 0;
+        }
+
+        .feature-list {
+          padding-top: 8px;
+          gap: 0;
+        }
+
+        .plan-price {
+          padding: 10px;
         }
 
         .period-grid {
           grid-template-columns: repeat(2, 1fr);
+          gap: 6px;
         }
 
         .period-card {
           min-height: 55px;
         }
+
+        .period-section,
+        .tier-section {
+          margin-top: 10px;
+          padding: 10px;
+        }
+
+        .tier-grid {
+          gap: 6px;
+        }
+
+        .plan-name {
+          font-size: 13px;
+        }
+
+        .plan-description,
+        .feature-list li {
+          font-size: 11.5px;
+        }
+
+        .plan-price strong {
+          font-size: 1.02rem;
+        }
+
+        .price-caption,
+        .price-local,
+        .price-after-trial,
+        .price-breakdown,
+        .period-section h3,
+        .period-card-price,
+        .trial-note,
+        .btn,
+        .btn-secondary {
+          font-size: 11px;
+        }
+
+        .free-students-badge,
+        .period-card-badge,
+        .billing-footer-note,
+        .core-toggle,
+        .core-features-collapse .feature-list li {
+          font-size: 10.5px;
+        }
+
+        .school-size-notice {
+          font-size: 11.5px;
+          margin-top: 6px;
+          padding: 8px 9px;
+        }
       }
 
       @media (max-width: 480px) {
         .pricing-shell {
-          padding: 14px 16px 30px;
+          padding: 8px 8px 14px;
         }
 
         #servicePlanForm {
@@ -494,20 +570,101 @@
         }
 
         .form-actions {
-          padding: 0 4px 10px;
+          padding: 0 1px 6px;
+          margin-top: 8px;
+          gap: 0;
         }
 
         .plan-card {
-          margin: 0 8px;
+          margin: 0;
+          border-radius: 10px;
+        }
+
+        .pricing-header {
+          padding: 10px;
+          margin-bottom: 8px;
+          border-radius: 10px;
+        }
+
+        .plan-grid,
+        .period-grid,
+        .tier-grid {
+          gap: 0;
+        }
+
+        .plan-content,
+        .plan-price,
+        .period-section,
+        .tier-section {
+          padding: 8px;
+        }
+
+        .plan-content {
+          gap: 6px;
+        }
+
+        .feature-list {
+          padding-top: 6px;
+          gap: 0;
         }
 
         .period-card {
-          padding: 8px 6px;
+          padding: 6px 5px;
           min-height: 50px;
         }
 
         .period-card-label {
-          font-size: 14px;
+          font-size: 11.5px;
+        }
+
+        .pricing-header h1 {
+          font-size: 1.16rem;
+        }
+
+        .pricing-header p {
+          font-size: 11px;
+        }
+
+        .plan-name {
+          font-size: 11.8px;
+        }
+
+        .plan-description,
+        .feature-list li {
+          font-size: 10.5px;
+          line-height: 1.35;
+        }
+
+        .plan-price strong {
+          font-size: 0.95rem;
+        }
+
+        .price-caption,
+        .price-local,
+        .price-after-trial,
+        .price-breakdown,
+        .period-section h3,
+        .period-card-price,
+        .trial-note,
+        .btn,
+        .btn-secondary,
+        .trial-banner {
+          font-size: 10px;
+        }
+
+        .free-students-badge,
+        .period-card-badge,
+        .billing-footer-note,
+        .core-toggle,
+        .core-features-collapse .feature-list li {
+          font-size: 10px;
+        }
+
+        .school-size-notice {
+          font-size: 10.5px;
+          line-height: 1.4;
+          margin-top: 4px;
+          padding: 6px 7px;
         }
       }
 
@@ -793,6 +950,141 @@
           if (_moneyFmt) { try { return _moneyFmt.format(v); } catch (e) {} }
           return USER_CURRENCY + ' ' + v.toFixed(2);
         }
+
+        (function syncClientGeoHint() {
+          var currentCountry = '<%= (currencyProfile && currencyProfile.countryCode) ? currencyProfile.countryCode : "" %>';
+          var detectionSource = '<%= (currencyProfile && currencyProfile.detectionSource) ? currencyProfile.detectionSource : "" %>';
+          var hostname = String(window.location && window.location.hostname || '').toLowerCase();
+          var isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+          var nowMs = Date.now();
+          var lastSyncAt = Number(window.sessionStorage ? window.sessionStorage.getItem('servicePlanGeoHintSyncAt') : 0) || 0;
+
+          if (!isLocalhost) return;
+          if (lastSyncAt && (nowMs - lastSyncAt) < (10 * 60 * 1000)) return;
+
+          // Only run this sync when detection is weak/derived from language/fallback.
+          if (detectionSource && detectionSource !== 'accept-language-fallback' && detectionSource !== 'fallback') {
+            return;
+          }
+
+          function validCountry(code) {
+            return /^[A-Z]{2}$/.test(String(code || '').trim().toUpperCase());
+          }
+
+          function normalizeCountry(code) {
+            return String(code || '').trim().toUpperCase();
+          }
+
+          function fetchWithTimeout(url, timeoutMs) {
+            return new Promise(function(resolve) {
+              var done = false;
+              var timer = setTimeout(function() {
+                if (done) return;
+                done = true;
+                resolve(null);
+              }, timeoutMs);
+
+              fetch(url, { cache: 'no-store' })
+                .then(function(resp) {
+                  if (done) return;
+                  if (!resp || !resp.ok) {
+                    done = true;
+                    clearTimeout(timer);
+                    resolve(null);
+                    return;
+                  }
+                  return resp.json();
+                })
+                .then(function(payload) {
+                  if (done) return;
+                  done = true;
+                  clearTimeout(timer);
+                  resolve(payload || null);
+                })
+                .catch(function() {
+                  if (done) return;
+                  done = true;
+                  clearTimeout(timer);
+                  resolve(null);
+                });
+            });
+          }
+
+          function geolocatePosition(timeoutMs) {
+            return new Promise(function(resolve) {
+              if (!navigator.geolocation) {
+                resolve(null);
+                return;
+              }
+              navigator.geolocation.getCurrentPosition(
+                function(pos) { resolve(pos); },
+                function() { resolve(null); },
+                { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 10 * 60 * 1000 }
+              );
+            });
+          }
+
+          function countryFromPosition(pos) {
+            if (!pos || !pos.coords) return Promise.resolve(null);
+            var lat = Number(pos.coords.latitude);
+            var lon = Number(pos.coords.longitude);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return Promise.resolve(null);
+            var url = 'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' +
+              encodeURIComponent(lat) + '&longitude=' + encodeURIComponent(lon) + '&localityLanguage=en';
+            return fetchWithTimeout(url, 3500).then(function(payload) {
+              var code = normalizeCountry(payload && payload.countryCode);
+              return validCountry(code) ? code : null;
+            });
+          }
+
+          function countryFromIpProviders() {
+            return fetchWithTimeout('https://ipapi.co/json/', 3000)
+              .then(function(payload) {
+                var code = normalizeCountry(payload && payload.country_code);
+                if (validCountry(code)) return code;
+                return fetchWithTimeout('https://ipwho.is/', 3000).then(function(payload2) {
+                  var code2 = normalizeCountry(payload2 && payload2.country_code);
+                  return validCountry(code2) ? code2 : null;
+                });
+              });
+          }
+
+          function saveGeoHint(countryCode) {
+            return fetch('/account/geo-hint', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ countryCode: countryCode }),
+            }).then(function(res) { return res && res.ok; }).catch(function() { return false; });
+          }
+
+          Promise.resolve()
+            .then(function() { return geolocatePosition(3500); })
+            .then(function(pos) { return countryFromPosition(pos); })
+            .then(function(codeFromGeo) {
+              if (validCountry(codeFromGeo)) return codeFromGeo;
+              return countryFromIpProviders();
+            })
+            .then(function(hintedCountry) {
+              hintedCountry = normalizeCountry(hintedCountry);
+              if (!validCountry(hintedCountry)) return null;
+              if (hintedCountry === currentCountry) {
+                if (window.sessionStorage) window.sessionStorage.setItem('servicePlanGeoHintSyncAt', String(Date.now()));
+                return null;
+              }
+              return saveGeoHint(hintedCountry).then(function(ok) {
+                if (!ok) return null;
+                return hintedCountry;
+              });
+            })
+            .then(function(savedCountry) {
+              if (window.sessionStorage) window.sessionStorage.setItem('servicePlanGeoHintSyncAt', String(Date.now()));
+              if (!savedCountry) return;
+              window.location.reload();
+            })
+            .catch(function() {
+              if (window.sessionStorage) window.sessionStorage.setItem('servicePlanGeoHintSyncAt', String(Date.now()));
+            });
+        })();
 
         const approxInput = document.getElementById('approxStudentCount');
 
