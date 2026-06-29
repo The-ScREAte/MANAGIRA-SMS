@@ -2,20 +2,100 @@
 // Runs recurring subscription charges using Stripe off-session card billing.
 
 const db = require('../config/db');
-const { getStripeClient } = require('../utils/stripeConfig');
+const { getStripeClient, getStripeChargeCurrency } = require('../utils/stripeConfig');
 const { ensurePaymentProviderSchema } = require('../utils/paymentProviderSchema');
 const { getOrgChargeCards } = require('../utils/orgChargeCards');
+const {
+  getCurrencyForCountry,
+  normalizeCurrencyCode,
+  getUsdRate,
+} = require('../utils/currencyLocalization');
 const {
   computeDynamicMonthlyPrice,
   applyCycle,
   getRegionForCountry,
-  getPlanRegionPrice,
+  getBestPlanRegionPrice,
 } = require('../utils/dynamicPricing');
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 require('dotenv').config();
 
 const FAILED_RETRY_COOLDOWN_DAYS = 4;
 const MAX_FAILED_RETRY_ATTEMPTS = 4;
+const STRIPE_PREFERRED_CHARGE_CURRENCIES = new Set([
+  'USD',
+  'EUR',
+  'GBP',
+  'GHS',
+  'NGN',
+  'KES',
+  'ZAR',
+  'CAD',
+  'AUD',
+  'INR',
+]);
+
+const fallbackPlanMonthlyCache = new Map();
+
+async function getFallbackPlanMonthlyUsd(planId) {
+  const normalizedPlanId = Number(planId || 0);
+  if (!Number.isInteger(normalizedPlanId) || normalizedPlanId <= 0) return 0;
+  if (fallbackPlanMonthlyCache.has(normalizedPlanId)) {
+    return Number(fallbackPlanMonthlyCache.get(normalizedPlanId) || 0);
+  }
+
+  const result = await db.query(
+    `SELECT p.id,
+            p.total_cost,
+            COALESCE(SUM(f.price_usd), 0) AS feature_sum
+       FROM plans p
+       LEFT JOIN plan_features pf ON pf.plan_id = p.id
+       LEFT JOIN features f ON f.id = pf.feature_id
+      WHERE p.id = $1
+      GROUP BY p.id, p.total_cost
+      LIMIT 1`,
+    [normalizedPlanId]
+  );
+
+  const row = result.rows?.[0] || null;
+  const featureSum = Number(row?.feature_sum || 0);
+  const totalCost = Number(row?.total_cost || 0);
+  const fallback = featureSum > 0 ? featureSum : totalCost;
+
+  fallbackPlanMonthlyCache.set(normalizedPlanId, fallback);
+  return fallback;
+}
+
+function resolveStripeChargeCurrencyForOrganization(organizationCountry, organizationCurrency = null) {
+  const overrideCurrency = normalizeCurrencyCode(organizationCurrency);
+  if (overrideCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(overrideCurrency)) {
+    return overrideCurrency;
+  }
+
+  const countryCurrency = normalizeCurrencyCode(getCurrencyForCountry(organizationCountry));
+  if (countryCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(countryCurrency)) {
+    return countryCurrency;
+  }
+
+  const envCurrency = normalizeCurrencyCode(getStripeChargeCurrency());
+  if (envCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(envCurrency)) {
+    return envCurrency;
+  }
+
+  return 'USD';
+}
+
+async function convertUsdAmountToCurrency(usdAmount, targetCurrency) {
+  const amountUsd = Number(usdAmount || 0);
+  const normalizedTarget = normalizeCurrencyCode(targetCurrency) || 'USD';
+
+  if (!(amountUsd > 0)) return 0;
+  if (normalizedTarget === 'USD') return amountUsd;
+
+  const rate = Number(await getUsdRate(normalizedTarget));
+  if (!(rate > 0)) return amountUsd;
+
+  return amountUsd * rate;
+}
 
 async function ensureBillingInvoiceSchema() {
   await db.query(`
@@ -235,9 +315,9 @@ async function recordRenewalFailure({
   return null;
 }
 
-async function createAndSendPrechargeInvoices({ stripeChargeCurrency }) {
+async function createAndSendPrechargeInvoices() {
   const upcomingOrgs = await db.query(`
-    SELECT o.organization_id, o.email, o.organization_name, o.plan_id, o.organization_country,
+    SELECT o.organization_id, o.email, o.organization_name, o.plan_id, o.organization_country, o.organization_currency,
            o.trial_active_until,
            p.next_payment_end_date,
            COALESCE(p.billing_period_key, 'monthly') AS billing_period_key
@@ -264,19 +344,36 @@ async function createAndSendPrechargeInvoices({ stripeChargeCurrency }) {
       const actualStudentCount = await getOrganizationStudentCount(org.organization_id);
       const dynamicTermDivider = await getDynamicTermDivider();
       const region = await getRegionForCountry(db, org.organization_country || null);
-      if (!region) continue;
+      const pricingMatch = await getBestPlanRegionPrice(
+        db,
+        Number(org.plan_id),
+        Number(region?.id || 0) || null
+      );
 
-      const dynamicPriceRow = await getPlanRegionPrice(db, Number(org.plan_id), Number(region.id));
-      if (!dynamicPriceRow) continue;
+      let monthlyPrice = 0;
+      if (pricingMatch?.priceRow) {
+        const resolvedRegion = pricingMatch.region || region;
+        const monthsPerTerm = await getDynamicRegionTermMonths(
+          Number(resolvedRegion?.id || region?.id || 0),
+          dynamicTermDivider
+        );
+        const monthly = computeDynamicMonthlyPrice(pricingMatch.priceRow, actualStudentCount, {
+          termDivider: monthsPerTerm,
+        });
+        monthlyPrice = Number(monthly?.monthlyTotal || 0);
+      } else {
+        monthlyPrice = await getFallbackPlanMonthlyUsd(org.plan_id);
+      }
+      if (!(monthlyPrice > 0)) continue;
 
-      const monthsPerTerm = await getDynamicRegionTermMonths(Number(region.id), dynamicTermDivider);
-      const monthly = computeDynamicMonthlyPrice(dynamicPriceRow, actualStudentCount, {
-        termDivider: monthsPerTerm,
-      });
-      const monthlyPrice = Number(monthly?.monthlyTotal || 0);
       const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
       const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
-      const chargeAmount = Number(cycleBreakdown.finalTotal || 0);
+      const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0);
+      const chargeCurrency = resolveStripeChargeCurrencyForOrganization(
+        org.organization_country,
+        org.organization_currency || null
+      );
+      const chargeAmount = await convertUsdAmountToCurrency(chargeAmountUsd, chargeCurrency);
 
       const scheduledChargeAt = new Date(org.next_payment_end_date);
       const invoiceNumber = buildPrechargeInvoiceNumber(org.organization_id, scheduledChargeAt);
@@ -302,7 +399,7 @@ async function createAndSendPrechargeInvoices({ stripeChargeCurrency }) {
           org.organization_id,
           invoiceNumber,
           chargeAmount,
-          String(stripeChargeCurrency || 'usd').toUpperCase(),
+          String(chargeCurrency || 'usd').toUpperCase(),
           org.billing_period_key || 'monthly',
           scheduledChargeAt,
         ]
@@ -318,7 +415,7 @@ async function createAndSendPrechargeInvoices({ stripeChargeCurrency }) {
         organizationName: org.organization_name,
         invoiceNumber,
         amount: chargeAmount,
-        currency: String(stripeChargeCurrency || 'usd').toUpperCase(),
+        currency: String(chargeCurrency || 'usd').toUpperCase(),
         chargeDate: scheduledChargeAt,
         cycleLabel: periodConfig.label || org.billing_period_key || 'Monthly',
       });
@@ -340,9 +437,6 @@ async function createAndSendPrechargeInvoices({ stripeChargeCurrency }) {
 async function runRecurringBilling() {
   await ensurePaymentProviderSchema(db);
   await ensureBillingInvoiceSchema();
-  // Recurring pricing is computed in USD. Keep recurring charges in USD to
-  // avoid wrong amount/currency combinations when env currency is changed.
-  const stripeChargeCurrency = 'usd';
   let stripe = null;
   try {
     stripe = await getStripeClient(db);
@@ -350,7 +444,7 @@ async function runRecurringBilling() {
     stripe = null;
   }
   const paymentFailureColumns = await getPaymentsFailureColumns();
-  await createAndSendPrechargeInvoices({ stripeChargeCurrency });
+  await createAndSendPrechargeInvoices();
   const retryStatusClause = paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
     ? `(p.status = 'active' OR (p.status = 'failed' AND COALESCE(p.failed_attempts, 0) < ${MAX_FAILED_RETRY_ATTEMPTS} AND (p.last_failed_payment IS NULL OR p.last_failed_payment <= NOW() - interval '${FAILED_RETRY_COOLDOWN_DAYS} days')))`
     : `p.status = 'active'`;
@@ -369,7 +463,7 @@ async function runRecurringBilling() {
   
   const orgsDue = await db.query(`
       SELECT o.organization_id, o.email, o.organization_name, o.plan_id, p.next_payment_end_date, o.trial_active_until,
-        o.organization_country,
+        o.organization_country, o.organization_currency,
         COALESCE(o.billing_provider, 'stripe') AS billing_provider,
         o.stripe_customer_id,
            COALESCE(p.billing_period_key, 'monthly') AS billing_period_key,
@@ -482,26 +576,43 @@ async function runRecurringBilling() {
       const actualStudentCount = await getOrganizationStudentCount(org.organization_id);
       const dynamicTermDivider = await getDynamicTermDivider();
       const region = await getRegionForCountry(db, org.organization_country || null);
+      const pricingMatch = await getBestPlanRegionPrice(
+        db,
+        Number(org.plan_id),
+        Number(region?.id || 0) || null
+      );
 
-      if (!region) {
-        continue;
+      let monthlyPrice = 0;
+      if (pricingMatch?.priceRow) {
+        const resolvedRegion = pricingMatch.region || region;
+        const monthsPerTerm = await getDynamicRegionTermMonths(
+          Number(resolvedRegion?.id || region?.id || 0),
+          dynamicTermDivider
+        );
+        const monthly = computeDynamicMonthlyPrice(pricingMatch.priceRow, actualStudentCount, {
+          termDivider: monthsPerTerm,
+        });
+        monthlyPrice = Number(monthly?.monthlyTotal || 0);
+      } else {
+        monthlyPrice = await getFallbackPlanMonthlyUsd(org.plan_id);
       }
 
-      const dynamicPriceRow = await getPlanRegionPrice(db, Number(org.plan_id), Number(region.id));
-      if (!dynamicPriceRow) {
+      if (!(monthlyPrice > 0)) {
         continue;
       }
-      const monthsPerTerm = await getDynamicRegionTermMonths(Number(region.id), dynamicTermDivider);
-      const monthly = computeDynamicMonthlyPrice(dynamicPriceRow, actualStudentCount, {
-        termDivider: monthsPerTerm,
-      });
-      const monthlyPrice = Number(monthly?.monthlyTotal || 0);
 
       const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
       const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
       const periodMonths = Number(cycleBreakdown.months) || 1;
-      const chargeAmount = Number(cycleBreakdown.finalTotal || 0);
-      const amount = Math.round(chargeAmount * 100); // cents
+      const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0);
+      const stripeChargeCurrency = String(
+        resolveStripeChargeCurrencyForOrganization(
+          org.organization_country,
+          org.organization_currency || null
+        )
+      ).toLowerCase();
+      const chargeAmount = await convertUsdAmountToCurrency(chargeAmountUsd, stripeChargeCurrency);
+      const amount = Math.round(chargeAmount * 100); // minor units in charge currency
 
       // 3. Charge via Stripe using saved cards (primary first, then fallbacks)
       let chargeRes = null;
@@ -539,6 +650,7 @@ async function runRecurringBilling() {
                 flow: 'recurring_renewal',
                 organization_id: String(org.organization_id),
                 billing_period_key: org.billing_period_key || 'monthly',
+                charge_currency: stripeChargeCurrency,
                 card_position: String(cardsTriedCount),
                 is_primary_card: String(Boolean(card.is_primary)),
               },
@@ -635,7 +747,7 @@ async function runRecurringBilling() {
                      status = 'active'
                  WHERE organization_id = $2
                    AND next_payment_end_date <= NOW()`,
-            [amount / 100, org.organization_id]
+            [chargeAmountUsd, org.organization_id]
           );
 
           await db.query(

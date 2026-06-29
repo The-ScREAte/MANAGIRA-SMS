@@ -88,6 +88,18 @@
       color: #0c4a6e;
     }
 
+    .access-blocked-message {
+      background: #fff1f2;
+      border: 1px solid #fecdd3;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      color: #9f1239;
+      font-weight: 600;
+    }
+
     .form-group {
       width: 100%;
       margin-bottom: 16px;
@@ -241,6 +253,9 @@
       .notice {
         font-size: 0.75rem;
       }
+      .access-blocked-message {
+        font-size: 0.74rem;
+      }
       .form-label {
         font-size: 0.8rem;
       }
@@ -271,6 +286,10 @@
         <div class="notice">
           Sign in with your student email. If you do not have a password yet, ask your school to send a setup email.
         </div>
+
+        <% if (accessReasonMessage) { %>
+        <div class="access-blocked-message"><%= accessReasonMessage %></div>
+        <% } %>
 
         <%- include('../partials/flash') %>
 

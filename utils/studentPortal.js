@@ -9,6 +9,11 @@ async function ensureStudentPortalSchema(dbClient) {
   if (studentPortalSchemaReady) return;
 
   await dbClient.query(`
+    ALTER TABLE organizations
+      ADD COLUMN IF NOT EXISTS student_portal_activated BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+
+  await dbClient.query(`
     CREATE TABLE IF NOT EXISTS student_accounts (
       id SERIAL PRIMARY KEY,
       student_id INTEGER NOT NULL REFERENCES students(student_id) ON DELETE CASCADE,
@@ -70,6 +75,39 @@ async function ensureStudentPortalSchema(dbClient) {
   studentPortalSchemaReady = true;
 }
 
+function buildStudentPortalIntegrationStatus(row = {}) {
+  const activated = Boolean(row.student_portal_activated);
+  return {
+    activated,
+    shouldShowFeatures: activated,
+  };
+}
+
+async function getStudentPortalIntegrationStatus(dbClient, organizationId) {
+  if (!organizationId) return buildStudentPortalIntegrationStatus({});
+  await ensureStudentPortalSchema(dbClient);
+
+  const result = await dbClient.query(
+    `SELECT student_portal_activated
+     FROM organizations
+     WHERE organization_id = $1
+     LIMIT 1`,
+    [organizationId]
+  );
+
+  return buildStudentPortalIntegrationStatus(result.rows[0] || {});
+}
+
+async function setStudentPortalActivation(dbClient, organizationId, activated) {
+  await ensureStudentPortalSchema(dbClient);
+  await dbClient.query(
+    `UPDATE organizations
+     SET student_portal_activated = $2
+     WHERE organization_id = $1`,
+    [organizationId, Boolean(activated)]
+  );
+}
+
 async function upsertStudentAccount(dbClient, options = {}) {
   const organizationId = Number(options.organizationId || 0);
   const studentId = Number(options.studentId || 0);
@@ -107,4 +145,6 @@ module.exports = {
   ensureStudentPortalSchema,
   normalizeStudentEmail,
   upsertStudentAccount,
+  getStudentPortalIntegrationStatus,
+  setStudentPortalActivation,
 };

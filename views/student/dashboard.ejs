@@ -176,6 +176,14 @@
     gap: 10px;
   }
 
+  .sp-tiles.sp-tiles-no-testing {
+    grid-template-columns: repeat(3, minmax(0,1fr));
+  }
+
+  .sp-action-tiles.sp-action-tiles-no-testing {
+    grid-template-columns: repeat(3, minmax(0,1fr));
+  }
+
   .sp-action-tile {
     border: 1px solid #e2e8f0;
     border-radius: 10px;
@@ -585,7 +593,7 @@
           </div>
         </div>
 
-        <div class="sp-tiles">
+        <div class="sp-tiles <%= testingRoomEnabled ? '' : 'sp-tiles-no-testing' %>">
           <article class="sp-tile">
             <div class="l">Attendance Rate</div>
             <div class="v"><%= attendanceSummary.attendanceRate %>%</div>
@@ -598,13 +606,15 @@
             <div class="l">Absent</div>
             <div class="v"><%= attendanceSummary.absent %></div>
           </article>
+          <% if (testingRoomEnabled) { %>
           <article class="sp-tile">
             <div class="l">Open Testing Room</div>
             <div class="v"><%= openAssessmentsCount %></div>
           </article>
+          <% } %>
         </div>
 
-        <div class="sp-action-tiles">
+        <div class="sp-action-tiles <%= testingRoomEnabled ? '' : 'sp-action-tiles-no-testing' %>">
           <button class="sp-action-tile" type="button" data-panel="teachers">
             <h4 class="sp-action-title">Subject Teachers</h4>
             <p class="sp-action-copy">Open your teacher list for current term.</p>
@@ -617,10 +627,12 @@
             <h4 class="sp-action-title">Grades</h4>
             <p class="sp-action-copy">Open current-term subject grades.</p>
           </button>
+          <% if (testingRoomEnabled) { %>
           <a class="sp-action-tile sp-testing" href="/student/testing-room">
             <h4 class="sp-action-title">Testing Room</h4>
             <p class="sp-action-copy">Open assessments and exam room.</p>
           </a>
+          <% } %>
         </div>
       </section>
 

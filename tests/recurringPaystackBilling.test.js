@@ -212,6 +212,13 @@ function createHarness(options = {}) {
     async getRegionForCountry() {
       return { id: 1 };
     },
+    async getBestPlanRegionPrice() {
+      return {
+        priceRow: { effective_amount: planTotalCost },
+        region: { id: 1 },
+        matchType: 'exact',
+      };
+    },
     async getPlanRegionPrice() {
       return { effective_amount: planTotalCost };
     },

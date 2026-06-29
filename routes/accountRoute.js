@@ -15,8 +15,6 @@ router.get("/register", (req, res) => accountController.registerGet(req, res));
 router.post(
   "/register",
   upload.fields([{ name: "proof1" }, { name: "proof2" }]),
-  accountValidation.validateRegistration,
-  accountValidation.validateRegistrationResult,
   (req, res) => accountController.registerPost(req, res)
 );
 
@@ -29,6 +27,19 @@ router.post("/payment/confirm", (req, res) => accountController.paymentConfirmPo
 // Service Plan Route
 router.get("/service-plan", (req, res) => accountController.servicePlanGet(req, res));
 router.post("/service-plan", (req, res) => accountController.servicePlanPost(req, res));
+router.post("/geo-hint", (req, res) => {
+  const countryCode = String(req.body?.countryCode || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(countryCode)) {
+    return res.status(400).json({ success: false, message: "Invalid country code." });
+  }
+
+  req.session.geoCountryHint = {
+    countryCode,
+    updatedAt: Date.now(),
+  };
+
+  return res.json({ success: true, countryCode });
+});
 
 // Password Confirmation Routes
 router.get("/confirm-password", accountController.confirmPasswordGet);
@@ -81,7 +92,7 @@ router.post(
   accountValidation.validateStudentLoginResult,
   (req, res) => accountController.studentLoginPost(req, res, db)
 );
-router.get("/logout", isAuthenticated, (req, res) =>
+router.get("/logout", (req, res) =>
   accountController.logoutGet(req, res, db)
 );
 
@@ -274,6 +285,12 @@ router.post(
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountController.googleClassroomActivationPost
+);
+router.post(
+  "/student-portal/activate",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.studentPortalActivationPost
 );
 router.get(
   "/google-classroom/connect",

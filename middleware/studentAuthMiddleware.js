@@ -12,6 +12,16 @@ async function isStudentAuthenticated(req, res, next) {
   };
 
   try {
+    const destroyAndRedirect = (location) => {
+      if (req.session && typeof req.session.destroy === "function") {
+        return req.session.destroy(() => {
+          res.redirect(location);
+        });
+      }
+
+      return res.redirect(location);
+    };
+
     if (!req.session || !req.session.studentId || req.session.userRole !== "Student") {
       safeFlash("error", "Please log in as a student.");
       return res.redirect("/account/student-login");
@@ -19,23 +29,23 @@ async function isStudentAuthenticated(req, res, next) {
 
     const organizationId = req.session.organizationId;
     if (!organizationId) {
-      safeFlash("error", "Session is missing school information.");
-      req.session.destroy(() => {});
-      return res.redirect("/account/student-login");
+      return destroyAndRedirect("/account/student-login?reason=session_invalid");
     }
 
+    await ensureStudentPortalSchema(db);
+
     const orgResult = await db.query(
-      "SELECT deleted, on_hold FROM organizations WHERE organization_id = $1 LIMIT 1",
+      "SELECT deleted, on_hold, student_portal_activated FROM organizations WHERE organization_id = $1 LIMIT 1",
       [organizationId]
     );
 
     if (!orgResult.rows.length || orgResult.rows[0].deleted || orgResult.rows[0].on_hold) {
-      safeFlash("error", "School account is not active.");
-      req.session.destroy(() => {});
-      return res.redirect("/account/student-login");
+      return destroyAndRedirect("/account/student-login?reason=school_inactive");
     }
 
-    await ensureStudentPortalSchema(db);
+    if (!Boolean(orgResult.rows[0].student_portal_activated)) {
+      return destroyAndRedirect("/account/student-login?reason=portal_inactive");
+    }
 
     const studentResult = await db.query(
       `SELECT s.student_id, s.organization_id
@@ -46,16 +56,13 @@ async function isStudentAuthenticated(req, res, next) {
     );
 
     if (!studentResult.rows.length) {
-      safeFlash("error", "Student account not found.");
-      req.session.destroy(() => {});
-      return res.redirect("/account/student-login");
+      return destroyAndRedirect("/account/student-login?reason=student_not_found");
     }
 
     next();
   } catch (error) {
     console.error("Student auth error:", error.message || error);
-    safeFlash("error", "Authentication error.");
-    return res.redirect("/account/student-login");
+    return res.redirect("/account/student-login?reason=auth_error");
   }
 }
 

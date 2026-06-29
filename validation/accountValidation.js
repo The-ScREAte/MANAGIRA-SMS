@@ -156,13 +156,20 @@ const validateRegistration = [
     .not()
     .isEmpty()
     .withMessage("Organization phone number is required")
-    .matches(
-      /^(\+?233|0)?\s?\d{2,3}[\s-]?\d{3}[\s-]?\d{4}$|^(\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}$/
-    )
-    .withMessage("Invalid phone number format"),
+    .custom((value) => {
+      const raw = String(value || "").trim();
+      if (!/^\+?[\d\s().-]+$/.test(raw)) {
+        throw new Error("Invalid phone number format");
+      }
+      const digits = raw.replace(/\D/g, "");
+      if (digits.length < 6 || digits.length > 15) {
+        throw new Error("Invalid phone number format");
+      }
+      return true;
+    }),
   // check("plan").not().isEmpty().withMessage("Please select a plan"), // Removed plan validation for registration
   check("proof1").custom((value, { req }) => {
-    if (!req.files?.proof1?.[0]) {
+    if (!req.files?.proof1?.[0] && !req.session?.registrationProofDraft?.proof1Url) {
       throw new Error("Proof of existence is required");
     }
     return true;

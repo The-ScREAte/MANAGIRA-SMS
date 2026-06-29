@@ -8,6 +8,8 @@ function parseTruthyFlag(val) {
   return false;
 }
 
+const REGISTER_PROOF_DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
+
 function sanitizeCurrencyProfileSnapshot(profile) {
   if (!profile || typeof profile !== "object") return null;
   const userCurrency = String(profile.userCurrency || "").trim().toUpperCase();
@@ -24,6 +26,15 @@ function sanitizeCurrencyProfileSnapshot(profile) {
     countryCode: /^[A-Z]{2}$/.test(countryCode) ? countryCode : null,
     source: profile.source || profile.detectionSource || null,
   };
+}
+
+function isLikelyInternationalPhone(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return false;
+  if (!/^\+?[\d\s().-]+$/.test(raw)) return false;
+
+  const digits = raw.replace(/\D/g, "");
+  return digits.length >= 6 && digits.length <= 15;
 }
 
 function startOfDayLocal(date) {
@@ -100,11 +111,12 @@ async function computeOrganizationPlanMonthlyPrice(dbClient, {
 
   try {
     const region = await getRegionForCountry(dbClient, countryCode || null);
-    if (!region) {
+    const pricingMatch = await getBestPlanRegionPrice(dbClient, Number(planId), Number(region?.id || 0) || null);
+    if (!pricingMatch?.priceRow) {
       return {
         monthlyPriceUsd: fallbackPrice,
         pricingMode: 'flat',
-        region: null,
+        region: region || null,
         threshold: null,
         extraStudents: 0,
         perStudentRateUsd: 0,
@@ -114,23 +126,15 @@ async function computeOrganizationPlanMonthlyPrice(dbClient, {
       };
     }
 
-    const priceRow = await getPlanRegionPrice(dbClient, Number(planId), Number(region.id));
-    if (!priceRow) {
-      return {
-        monthlyPriceUsd: fallbackPrice,
-        pricingMode: 'flat',
-        region,
-        threshold: null,
-        extraStudents: 0,
-        perStudentRateUsd: 0,
-        termStudentCostUsd: 0,
-        studentMonthlyCostUsd: 0,
-        monthsPerTerm: 1,
-      };
-    }
+    const priceRow = pricingMatch.priceRow;
+    const resolvedRegion = pricingMatch.region || region || null;
 
     const dynamicTermDivider = await getDynamicTermDivider(dbClient);
-    const monthsPerTerm = await getDynamicRegionTermMonths(dbClient, Number(region.id), dynamicTermDivider);
+    const monthsPerTerm = await getDynamicRegionTermMonths(
+      dbClient,
+      Number(resolvedRegion?.id || region?.id || 0),
+      dynamicTermDivider
+    );
     const monthly = computeDynamicMonthlyPrice(priceRow, normalizedCount, {
       termDivider: monthsPerTerm,
     });
@@ -138,7 +142,7 @@ async function computeOrganizationPlanMonthlyPrice(dbClient, {
     return {
       monthlyPriceUsd: Number(monthly?.monthlyTotal || 0),
       pricingMode: 'dynamic',
-      region,
+      region: resolvedRegion,
       threshold: Number(monthly?.threshold || 0),
       extraStudents: Number(monthly?.extraStudents || 0),
       perStudentRateUsd: Number(monthly?.perStudentRate || 0),
@@ -389,7 +393,7 @@ const {
   computeDynamicMonthlyPrice,
   applyCycle,
   getRegionForCountry,
-  getPlanRegionPrice,
+  getBestPlanRegionPrice,
 } = require("../utils/dynamicPricing");
 const {
   WEEKDAY_OPTIONS,
@@ -407,7 +411,12 @@ const {
 } = require("../utils/attendanceCalendar");
 const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
-const { ensureStudentPortalSchema, normalizeStudentEmail } = require("../utils/studentPortal");
+const {
+  ensureStudentPortalSchema,
+  normalizeStudentEmail,
+  getStudentPortalIntegrationStatus,
+  setStudentPortalActivation,
+} = require("../utils/studentPortal");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
 const cacheManager = require("../utils/cacheManager");
@@ -458,42 +467,32 @@ const GOOGLE_CLASSROOM_SCOPES = [
   "https://www.googleapis.com/auth/classroom.profile.photos",
 ];
 
-function buildGoogleOauthClient(req) {
-  const clientId = process.env.GOOGLE_CLIENT_ID || "";
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-  const configuredRedirectUri = process.env.GOOGLE_REDIRECT_URI || "";
-  const redirectUri = configuredRedirectUri || `${req.protocol}://${req.get("host")}/account/google-classroom/callback`;
+async function verifySessionPassword(rawPassword, req) {
+  const password = String(rawPassword || "");
+  if (!password) return false;
 
-  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
-}
+  const orgId = Number(req?.session?.organizationId || 0);
+  const userId = Number(req?.session?.userId || 0);
 
-function hasGoogleOauthConfig() {
-  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-}
-
-async function verifySessionPassword(password, req) {
-  const rawPassword = String(password || "");
-  const orgId = req.session.organizationId;
-  if (!rawPassword || !orgId) return false;
-
-  const sessionUserId = req.session.user?.user_id || req.session.userId || null;
-  if (sessionUserId) {
+  if (userId && orgId) {
     const userResult = await db.query(
       `SELECT password FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
-      [sessionUserId, orgId]
+      [userId, orgId]
     );
     if (userResult.rows.length && userResult.rows[0].password) {
-      const matchUser = await bcryptjs.compare(rawPassword, userResult.rows[0].password);
+      const matchUser = await bcryptjs.compare(password, userResult.rows[0].password);
       if (matchUser) return true;
     }
   }
+
+  if (!orgId) return false;
 
   const orgResult = await db.query(
     `SELECT password FROM organizations WHERE organization_id = $1 LIMIT 1`,
     [orgId]
   );
   if (!orgResult.rows.length || !orgResult.rows[0].password) return false;
-  return bcryptjs.compare(rawPassword, orgResult.rows[0].password);
+  return bcryptjs.compare(password, orgResult.rows[0].password);
 }
 // Invalidate the /admin dashboard organizations cache so newly-registered
 // organizations become visible immediately (mirrors adminController’s behavior
@@ -615,6 +614,139 @@ function getStripeConnectOnboardingErrorMessage(error) {
   }
 
   return "Could not start Stripe Connect onboarding. Please try again.";
+}
+
+function getPlainEnglishStripeError(input, fallbackMessage = "We could not process your card right now. Please check your card details and try again.") {
+  const code = String(
+    input?.code ||
+      input?.raw?.code ||
+      input?.decline_code ||
+      input?.raw?.decline_code ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+  const message = String(input?.raw?.message || input?.message || "").trim();
+  const normalizedMessage = message.toLowerCase();
+
+  const englishByCode = {
+    card_declined: "Your bank declined this card. Please contact your bank or use another card.",
+    do_not_honor: "Your bank declined this card. Please contact your bank or use another card.",
+    generic_decline: "Your card was declined. Please try another card or contact your bank.",
+    card_not_supported: "This card is not supported for this payment. Please use another card.",
+    currency_not_supported: "This card does not support the required currency. Please use another card.",
+    restricted_card: "This card has restrictions and cannot be used for this payment. Please contact your bank or use another card.",
+    transaction_not_allowed: "This card is not allowed to complete this type of transaction. Please contact your bank or use another card.",
+    service_not_allowed: "This card is not allowed for this type of payment. Please use another card.",
+    withdrawal_count_limit_exceeded: "This card has reached its transaction limit. Please contact your bank or use another card.",
+    insufficient_funds: "This card does not have enough funds for this payment. Please use another card.",
+    incorrect_cvc: "The card security code (CVC) is incorrect. Please check it and try again.",
+    incorrect_number: "The card number looks incorrect. Please check it and try again.",
+    invalid_number: "The card number looks incorrect. Please check it and try again.",
+    expired_card: "This card has expired. Please use a different card.",
+    invalid_expiry_month: "The card expiry month is invalid. Please check it and try again.",
+    invalid_expiry_year: "The card expiry year is invalid. Please check it and try again.",
+    processing_error: "We could not process this card right now. Please try again in a moment.",
+    authentication_required: "Your bank needs extra confirmation for this card. Please try again and complete bank verification.",
+    payment_intent_authentication_failure: "Your bank verification was not completed. Please try again.",
+    payment_method_provider_timeout: "The card provider took too long to respond. Please try again.",
+    incomplete_number: "Please enter a complete card number.",
+    incomplete_cvc: "Please enter the full card security code (CVC).",
+    incomplete_expiry: "Please enter the full card expiry date.",
+    invalid_request_error: "Some payment details are invalid. Please review your card details and try again.",
+  };
+
+  if (englishByCode[code]) {
+    return englishByCode[code];
+  }
+
+  if (normalizedMessage.includes("insufficient") && normalizedMessage.includes("fund")) {
+    return englishByCode.insufficient_funds;
+  }
+  if (normalizedMessage.includes("incorrect") && normalizedMessage.includes("cvc")) {
+    return englishByCode.incorrect_cvc;
+  }
+  if ((normalizedMessage.includes("incorrect") || normalizedMessage.includes("invalid")) && normalizedMessage.includes("card number")) {
+    return englishByCode.incorrect_number;
+  }
+  if (normalizedMessage.includes("expired")) {
+    return englishByCode.expired_card;
+  }
+  if (normalizedMessage.includes("authentication") || normalizedMessage.includes("3d secure") || normalizedMessage.includes("3-d secure")) {
+    return englishByCode.authentication_required;
+  }
+  if (
+    normalizedMessage.includes("not support") ||
+    normalizedMessage.includes("unsupported") ||
+    normalizedMessage.includes("not allowed") ||
+    normalizedMessage.includes("restricted card") ||
+    normalizedMessage.includes("transaction is not allowed")
+  ) {
+    return englishByCode.card_not_supported;
+  }
+  if (normalizedMessage.includes("declin")) {
+    return englishByCode.card_declined;
+  }
+
+  return message || fallbackMessage;
+}
+
+function buildStripeRegistrationIdempotencyKey({
+  registrationDetails,
+  paymentContext,
+  selectedGateway,
+  flowType,
+}) {
+  const planId = Number(registrationDetails?.planId || 0) || 0;
+  const email = String(registrationDetails?.email || "").trim().toLowerCase();
+  const orgName = String(registrationDetails?.orgName || "").trim().toLowerCase();
+  const billingKey = String(paymentContext?.billingPeriodKey || "monthly").trim().toLowerCase();
+  const amountDue = Number(paymentContext?.amountDue || 0);
+  const currency = String(paymentContext?.chargeCurrency || "usd").trim().toLowerCase();
+  const promoCode = String(paymentContext?.promoCode || "").trim().toUpperCase();
+  const trialStart = paymentContext?.trialStartAt
+    ? new Date(paymentContext.trialStartAt).toISOString().slice(0, 10)
+    : "none";
+  const gateway = String(selectedGateway || "stripe").trim().toLowerCase();
+  const intentMode = String(flowType || (paymentContext?.isTrialCheckout ? "setup" : "payment")).trim().toLowerCase();
+
+  return [
+    "reg",
+    "v1",
+    intentMode,
+    gateway,
+    `plan_${planId}`,
+    `email_${email}`,
+    `org_${orgName}`,
+    `cycle_${billingKey}`,
+    `amt_${amountDue}`,
+    `cur_${currency}`,
+    `promo_${promoCode || "none"}`,
+    `trial_${trialStart}`,
+  ].join(":");
+}
+
+let stripeProcessedIntentsSchemaReady = false;
+
+async function ensureStripeProcessedIntentsSchema(dbClient) {
+  if (stripeProcessedIntentsSchemaReady) return;
+
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS stripe_processed_intents (
+      id BIGSERIAL PRIMARY KEY,
+      stripe_intent_id TEXT NOT NULL UNIQUE,
+      stripe_intent_type TEXT,
+      organization_id BIGINT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await dbClient.query(`
+    CREATE INDEX IF NOT EXISTS idx_stripe_processed_intents_org
+    ON stripe_processed_intents (organization_id)
+  `);
+
+  stripeProcessedIntentsSchemaReady = true;
 }
 
 async function getActivePaymentProvider() {
@@ -1498,11 +1630,52 @@ async function completeStripeRegistrationPayment(
     planId: registrationDetails.planId,
   });
   await ensurePaymentProviderSchema(db);
+  await ensureStripeProcessedIntentsSchema(db);
 
   const client = await db.connect();
   try {
     await client.query("BEGIN");
     console.log("[Stripe][complete] transaction begin");
+
+    const processedIntentId = String(paymentIntent?.id || "").trim();
+    if (!processedIntentId) {
+      throw new Error("Stripe intent id is missing during registration completion.");
+    }
+
+    const lockResult = await client.query(
+      "SELECT pg_advisory_xact_lock(hashtext($1))",
+      [processedIntentId]
+    );
+    if (!lockResult) {
+      throw new Error("Unable to acquire registration payment lock.");
+    }
+
+    const existingProcessed = await client.query(
+      `SELECT organization_id
+         FROM stripe_processed_intents
+        WHERE stripe_intent_id = $1
+        LIMIT 1`,
+      [processedIntentId]
+    );
+
+    if (existingProcessed.rows.length > 0) {
+      const existingOrganizationId = Number(existingProcessed.rows[0].organization_id || 0) || null;
+      await client.query("COMMIT");
+      console.log("[Stripe][complete] duplicate intent ignored", {
+        paymentIntentId: processedIntentId,
+        organizationId: existingOrganizationId,
+      });
+      return {
+        organizationId: existingOrganizationId,
+        discountAmount: paymentContext.discountAmount,
+        finalAmount: paymentContext.finalAmount,
+        totalChargedAmount: paymentContext.totalChargedAmount,
+        platformFeePercentage: paymentContext.platformFeePercentage,
+        platformFeeAmount: paymentContext.platformFeeAmount,
+        chargeCurrency: paymentContext.chargeCurrency,
+        alreadyProcessed: true,
+      };
+    }
 
     const orgResult = await client.query(
       `INSERT INTO organizations (
@@ -1511,6 +1684,7 @@ async function completeStripeRegistrationPayment(
         nickname_display,
         organization_address,
         organization_country,
+        organization_currency,
         organization_province,
         organization_phone,
         email,
@@ -1527,7 +1701,7 @@ async function completeStripeRegistrationPayment(
         selected_student_tier_id,
         approx_student_count
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
       ) RETURNING organization_id`,
       [
         registrationDetails.orgName,
@@ -1535,6 +1709,10 @@ async function completeStripeRegistrationPayment(
         registrationDetails.orgNickNameDisplay || registrationDetails.orgNickName,
         registrationDetails.orgAddress,
         registrationDetails.orgCountry,
+        normalizeCurrencyCode(
+          registrationDetails.organizationCurrency ||
+          getCurrencyForCountry(registrationDetails.orgCountry)
+        ) || null,
         registrationDetails.orgProvince,
         registrationDetails.orgPhone,
         registrationDetails.email,
@@ -1642,6 +1820,20 @@ async function completeStripeRegistrationPayment(
     } else {
       console.warn("[Stripe][complete] no payment method on intent; skipping stored_cards");
     }
+
+    await client.query(
+      `INSERT INTO stripe_processed_intents (
+        stripe_intent_id,
+        stripe_intent_type,
+        organization_id
+      ) VALUES ($1, $2, $3)
+      ON CONFLICT (stripe_intent_id) DO NOTHING`,
+      [
+        processedIntentId,
+        String(paymentIntent?.type || "payment_intent"),
+        organizationId,
+      ]
+    );
 
     await client.query("COMMIT");
     console.log("[Stripe][complete] transaction committed", { organizationId });
@@ -1785,9 +1977,6 @@ const accountController = {
       const countryCode = currencyProfile?.countryCode || null;
       const dynamicRegion = await getRegionForCountry(db, countryCode).catch(() => null);
       const dynamicTermDivider = await getDynamicTermDivider(db);
-      const dynamicRegionTermMonths = dynamicRegion
-        ? await getDynamicRegionTermMonths(db, Number(dynamicRegion.id), dynamicTermDivider)
-        : dynamicTermDivider;
 
       // Build student-size choices and default display from dynamic pricing rows.
       let studentTiersByPlan = {};
@@ -1798,18 +1987,25 @@ const accountController = {
       if (dynamicRegion) {
         await Promise.all(
           plans.map(async (plan) => {
-            const row = await getPlanRegionPrice(db, plan.plan_id, dynamicRegion.id).catch(() => null);
+            const pricingMatch = await getBestPlanRegionPrice(db, Number(plan.plan_id), Number(dynamicRegion.id)).catch(() => null);
+            const row = pricingMatch?.priceRow || null;
+            const planRegion = pricingMatch?.region || dynamicRegion;
             if (!row) return;
             const threshold = Math.max(0, Number(row.free_student_threshold) || 0);
+            const planRegionTermMonths = await getDynamicRegionTermMonths(
+              db,
+              Number(planRegion?.id || dynamicRegion.id),
+              dynamicTermDivider
+            );
             dynamicPriceMetaByPlan[plan.plan_id] = {
               basePriceUsd: Number(row.base_price_usd || 0),
               freeStudentThreshold: threshold,
               perStudentRateUsd: Number(row.per_student_rate_usd || 0),
-              monthsPerTerm: dynamicRegionTermMonths,
+              monthsPerTerm: planRegionTermMonths,
             };
             const makeTier = (idSuffix, minStudents, maxStudents, sampleCount) => {
               const monthly = computeDynamicMonthlyPrice(row, sampleCount, {
-                termDivider: dynamicRegionTermMonths,
+                termDivider: planRegionTermMonths,
               });
               const loc = localizeUsdAmount(monthly.monthlyTotal, currencyProfile);
               return {
@@ -1921,9 +2117,11 @@ const accountController = {
       const dynamicTermDivider = await getDynamicTermDivider(db);
       const region = await getRegionForCountry(db, currencyProfile?.countryCode || null);
       if (region) {
-        const row = await getPlanRegionPrice(db, Number(plan_id), region.id);
+        const pricingMatch = await getBestPlanRegionPrice(db, Number(plan_id), Number(region.id));
+        const row = pricingMatch?.priceRow || null;
+        const resolvedRegion = pricingMatch?.region || region;
         if (row) {
-          const dynamicRegionTermMonths = await getDynamicRegionTermMonths(db, Number(region.id), dynamicTermDivider);
+          const dynamicRegionTermMonths = await getDynamicRegionTermMonths(db, Number(resolvedRegion?.id || region.id), dynamicTermDivider);
           const threshold = Math.max(0, Number(row.free_student_threshold) || 0);
           const effectiveCount = approxCount != null ? approxCount : threshold;
           const monthly = computeDynamicMonthlyPrice(row, effectiveCount, {
@@ -1931,8 +2129,8 @@ const accountController = {
           });
           monthlyPrice = Number(monthly?.monthlyTotal || 0);
           dynamicPricingApplied = true;
-          dynamicRegionId = region.id;
-          dynamicRegionName = region.name;
+          dynamicRegionId = resolvedRegion?.id || region.id;
+          dynamicRegionName = resolvedRegion?.name || region.name;
           selectedTierId = null;
           approxCount = effectiveCount;
         }
@@ -1996,9 +2194,12 @@ const accountController = {
 
   registerGet: async (req, res) => {
     // If ?new=1 is present, clear any previous registration session
-    if (req.query.new) {
+    if (req.query.new || req.query.clearRegisterDraft === "1") {
       delete req.session.registrationDetails;
       delete req.session.planSelection;
+      delete req.session.formData;
+      delete req.session.formMessages;
+      delete req.session.registrationProofDraft;
     }
 
     // Require a plan selection before showing the registration form
@@ -2009,6 +2210,18 @@ const accountController = {
 
     // Check for sticky form data and error in session
     const formData = req.session.formData || {};
+    let proofDraft = req.session.registrationProofDraft || {};
+    const proofDraftUpdatedAt = Number(proofDraft.updatedAt || 0);
+    if (proofDraftUpdatedAt && Date.now() - proofDraftUpdatedAt > REGISTER_PROOF_DRAFT_TTL_MS) {
+      delete req.session.registrationProofDraft;
+      proofDraft = {};
+    }
+    if (proofDraft.proof1Url && !formData.hasProof1) {
+      formData.hasProof1 = true;
+    }
+    if (proofDraft.proof2Url && !formData.hasProof2) {
+      formData.hasProof2 = true;
+    }
     delete req.session.formData;
     const messages = req.session.formMessages || req.flash();
     delete req.session.formMessages;
@@ -2036,10 +2249,13 @@ const accountController = {
       trialRequested,
       registerCountryOptions,
       registerDefaultCountry,
+      proofDraft,
     });
   },
 
   registerPost: async (req, res) => {
+    let proof1Url = "";
+    let proof2Url = "";
     try {
       const planSelection = req.session.planSelection;
 
@@ -2073,6 +2289,11 @@ const accountController = {
       // so destructure with `let` semantics via a separate binding.
       let orgNickName = req.body.orgNickName;
       const normalizedOrgCountry = String(orgCountry || '').trim().toUpperCase();
+      const normalizedOrgPhone = String(orgPhone || '').trim();
+
+      const existingProofDraft = req.session.registrationProofDraft || {};
+      proof1Url = String(existingProofDraft.proof1Url || "");
+      proof2Url = String(existingProofDraft.proof2Url || "");
 
       const { trialRequested = false, plan, planId, totalCost, billingPeriodKey, billingPeriodLabel, billingPeriodMonths, billingPeriodDiscount, monthlyPrice, selectedTierId, approxStudentCount } = planSelection;
       const currencyProfileSnapshot = sanitizeCurrencyProfileSnapshot(planSelection.currencyProfileSnapshot);
@@ -2104,17 +2325,50 @@ const accountController = {
 
         orgProvince,
 
-        orgPhone,
+        orgPhone: normalizedOrgPhone,
 
         confirmEmail: req.body.confirmEmail,
+        hasProof1: !!proof1Url,
+        hasProof2: !!proof2Url,
       };
 
       // Helper: on error, store formData/messages in session and redirect
       // Uses session.save() to guarantee persistence before redirecting (avoids mobile race condition)
       function stickyError(message) {
         req.session.formData = formData;
+        req.session.registrationProofDraft = {
+          proof1Url,
+          proof2Url,
+          updatedAt: Date.now(),
+        };
         req.session.formMessages = { error: [message] };
         req.session.save(() => res.redirect("/account/register"));
+      }
+
+      if (proof1) {
+        try {
+          const newlyUploadedProof1Url = await uploadToS3(proof1);
+          if (proof1Url && proof1Url !== newlyUploadedProof1Url) {
+            await deleteFromS3(proof1Url).catch(() => {});
+          }
+          proof1Url = newlyUploadedProof1Url;
+          formData.hasProof1 = true;
+        } catch (_) {
+          return stickyError("Unable to upload the primary proof document. Please retry.");
+        }
+      }
+
+      if (proof2) {
+        try {
+          const newlyUploadedProof2Url = await uploadToS3(proof2);
+          if (proof2Url && proof2Url !== newlyUploadedProof2Url) {
+            await deleteFromS3(proof2Url).catch(() => {});
+          }
+          proof2Url = newlyUploadedProof2Url;
+          formData.hasProof2 = true;
+        } catch (_) {
+          return stickyError("Unable to upload the additional proof document. Please retry.");
+        }
       }
 
       // Required fields check
@@ -2137,6 +2391,14 @@ const accountController = {
 
       if (!/^[A-Z]{2}$/.test(normalizedOrgCountry) || !COUNTRY_NAME_LOOKUP[normalizedOrgCountry]) {
         return stickyError("Please select a valid country from the list.");
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim())) {
+        return stickyError("Invalid email format.");
+      }
+
+      if (!isLikelyInternationalPhone(normalizedOrgPhone)) {
+        return stickyError("Please enter a valid phone number with 6 to 15 digits (country code supported).");
       }
 
       // Passwords match check
@@ -2199,7 +2461,7 @@ const accountController = {
 
       // Proof of existence validation
 
-      if (!proof1) {
+      if (!proof1Url) {
         return stickyError("Proof of existence is required.");
       }
 
@@ -2234,16 +2496,6 @@ const accountController = {
         }
       }
 
-      // Upload proofs to S3 after validations; ensure cleanup on errors
-      let proof1Url = "";
-      let proof2Url = "";
-      try {
-        proof1Url = await uploadToS3(proof1);
-        proof2Url = proof2 ? await uploadToS3(proof2) : "";
-      } catch (uploadErr) {
-                return stickyError("Unable to upload proof documents. Please retry.");
-      }
-
       // Save registration details in session with selected plan
 
       req.session.registrationDetails = {
@@ -2269,7 +2521,7 @@ const accountController = {
 
         orgProvince,
 
-        orgPhone,
+        orgPhone: normalizedOrgPhone,
 
         proof1Url,
 
@@ -2303,6 +2555,7 @@ const accountController = {
       req.session.registrationDetails.orgCountry = normalizedOrgCountry;
 
       delete req.session.planSelection;
+      delete req.session.registrationProofDraft;
 
       req.flash("success", "Registration details saved. Proceed to payment.");
 
@@ -2314,27 +2567,28 @@ const accountController = {
       return req.session.save((err) => {
         if (err) {
           req.session.formData = formData;
+          req.session.registrationProofDraft = {
+            proof1Url,
+            proof2Url,
+            updatedAt: Date.now(),
+          };
           req.session.formMessages = { error: ["Session error. Please try again."] };
           return req.session.save(() => res.redirect("/account/register"));
         }
         return res.redirect("/account/payment");
       });
     } catch (error) {
-            // Attempt cleanup of uploaded proofs if present
-      if (typeof proof1Url !== "undefined" && proof1Url) {
-        try {
-          await deleteFromS3(proof1Url);
-        } catch (cleanupErr) {
-                  }
-      }
-      if (typeof proof2Url !== "undefined" && proof2Url) {
-        try {
-          await deleteFromS3(proof2Url);
-        } catch (cleanupErr) {
-                  }
-      }
-
-      req.session.formData = req.body;
+      req.session.formData = {
+        ...req.body,
+        orgPhone: String(req.body?.orgPhone || "").trim(),
+        hasProof1: !!proof1Url,
+        hasProof2: !!proof2Url,
+      };
+      req.session.registrationProofDraft = {
+        proof1Url,
+        proof2Url,
+        updatedAt: Date.now(),
+      };
 
       req.session.formMessages = {
         error: ["Registration failed. Please try again."],
@@ -2865,6 +3119,12 @@ const accountController = {
 
       let stripeIntent = null;
       let stripeIntentType = "payment";
+      const paymentIdempotencyKey = buildStripeRegistrationIdempotencyKey({
+        registrationDetails,
+        paymentContext,
+        selectedGateway,
+        flowType: paymentContext.isTrialCheckout ? "setup" : "payment",
+      });
       if (paymentContext.isTrialCheckout) {
         stripeIntentType = "setup";
         stripeIntent = await stripe.setupIntents.create({
@@ -2878,6 +3138,8 @@ const accountController = {
             billing_period_key: paymentContext.billingPeriodKey || "monthly",
             charge_currency: stripeChargeCurrency,
           },
+        }, {
+          idempotencyKey: paymentIdempotencyKey,
         });
         console.log("[Stripe][intent] created setup intent", {
           id: stripeIntent.id,
@@ -2899,6 +3161,8 @@ const accountController = {
             billing_period_key: paymentContext.billingPeriodKey || "monthly",
             charge_currency: stripeChargeCurrency,
           },
+        }, {
+          idempotencyKey: paymentIdempotencyKey,
         });
         console.log("[Stripe][intent] created", {
           id: stripeIntent.id,
@@ -2964,6 +3228,12 @@ const accountController = {
       const fallbackMessage = isStripeTlsChainIssue
         ? "Stripe TLS certificate validation failed in this environment. If this is local/dev, set STRIPE_ALLOW_INSECURE_TLS=true and restart the server, or install the missing CA certificate chain."
         : "Unable to initialize Stripe payment. Please try again.";
+      const friendlyMessage = getPlainEnglishStripeError(
+        error,
+        isStripeTlsChainIssue
+          ? fallbackMessage
+          : "We could not start your card payment. Please check your card details and try again."
+      );
 
       return res.status(statusCode).json({
         success: false,
@@ -2972,7 +3242,7 @@ const accountController = {
             ? error.message
             : isStripeTlsChainIssue
               ? fallbackMessage
-              : error?.raw?.message || error.message || fallbackMessage,
+              : friendlyMessage,
         detail: isStripeTlsChainIssue ? fallbackMessage : undefined,
       });
     }
@@ -3255,11 +3525,13 @@ const accountController = {
         });
 
         if (setupIntent.status !== "succeeded") {
+          const setupFriendlyError = getPlainEnglishStripeError(
+            setupIntent?.last_setup_error,
+            "We could not verify your card setup. Please check your card details and try again."
+          );
           req.flash(
             "error",
-            `Payment confirmation failed: ${
-              setupIntent.last_setup_error?.message || "Unknown error"
-            }`
+            `Payment confirmation failed: ${setupFriendlyError}`
           );
 
           return res.redirect("/account/payment");
@@ -3285,12 +3557,13 @@ const accountController = {
         });
 
         if (paymentIntent.status !== "succeeded") {
+          const paymentFriendlyError = getPlainEnglishStripeError(
+            paymentIntent?.last_payment_error,
+            "We could not confirm your card payment. Please check your card details and try again."
+          );
           req.flash(
             "error",
-
-            `Payment confirmation failed: ${
-              paymentIntent.last_payment_error?.message || "Unknown error"
-            }`
+            `Payment confirmation failed: ${paymentFriendlyError}`
           );
 
           return res.redirect("/account/payment");
@@ -3336,7 +3609,13 @@ const accountController = {
       });
     } catch (error) {
       console.error("[paymentConfirmPost] failed:", error);
-      req.flash("error", "An error occurred while confirming the payment.");
+      req.flash(
+        "error",
+        getPlainEnglishStripeError(
+          error,
+          "We could not confirm your card payment right now. Please try again."
+        )
+      );
 
       return res.redirect("/account/payment");
     }
@@ -5041,12 +5320,26 @@ const accountController = {
 
   studentLoginGet: (req, res) => {
     const url = req.url;
+    const reason = String(req.query.reason || "").trim();
+    const loginReasonMessages = {
+      portal_inactive:
+        "Student Portal is currently deactivated for this school. Please contact your school administrator.",
+      school_inactive:
+        "This school account is not active right now. Please contact your school administrator.",
+      student_not_found:
+        "Your student account could not be found for this school. Please contact your school administrator.",
+      session_invalid:
+        "Your student session is missing school information. Please sign in again.",
+      auth_error:
+        "We could not verify your student access right now. Please sign in again.",
+    };
 
     return res.render("account/studentLogin", {
       title: "Student Portal Login",
       url,
       showFooterTopSection: true,
       messages: req.flash(),
+      accessReasonMessage: loginReasonMessages[reason] || "",
     });
   },
 
@@ -5093,6 +5386,18 @@ const accountController = {
       const match = await bcrypt.compare(password, studentAccount.password_hash);
       if (!match) {
         req.flash("error", "Invalid student email or password.");
+        return res.redirect("/account/student-login");
+      }
+
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(
+        db,
+        studentAccount.organization_id
+      );
+      if (!studentPortalIntegration.activated) {
+        req.flash(
+          "error",
+          "Student portal is deactivated for this organization. Please contact your school administrator."
+        );
         return res.redirect("/account/student-login");
       }
 
@@ -5929,13 +6234,13 @@ const accountController = {
 
   updateOrgNamePost: async (req, res, db) => {
     try {
-      const { orgName, orgAddress, orgCountry, orgProvince, orgCurrency, redirectTo } = req.body;
+      const { orgName, orgAddress, orgCountry, orgProvince, redirectTo } = req.body;
       const orgId = req.session.organizationId;
       const normalizedOrgName = String(orgName || '').trim();
       const normalizedOrgAddress = String(orgAddress || '').trim() || null;
       const normalizedOrgProvince = String(orgProvince || '').trim() || null;
       const normalizedOrgCountry = String(orgCountry || '').trim().toUpperCase();
-      const normalizedOrgCurrency = normalizeCurrencyCode(orgCurrency);
+      const normalizedOrgCurrency = normalizeCurrencyCode(getCurrencyForCountry(normalizedOrgCountry));
 
       if (!normalizedOrgName || !orgId) {
         req.flash("error", "Organization name is required.");
@@ -5949,11 +6254,6 @@ const accountController = {
 
       if (!/^[A-Z]{2}$/.test(normalizedOrgCountry) || !COUNTRY_NAME_LOOKUP[normalizedOrgCountry]) {
         req.flash("error", "Please select a valid country from the list.");
-        return res.redirect(redirectTo || "/account/personalization");
-      }
-
-      if (orgCurrency && String(orgCurrency).trim() && !normalizedOrgCurrency) {
-        req.flash("error", "Please select a valid currency from the list.");
         return res.redirect(redirectTo || "/account/personalization");
       }
 
@@ -7624,11 +7924,19 @@ const accountController = {
             const holidayStartDate = `${now.getUTCFullYear()}-01-01`;
             const holidayEndDate = `${now.getUTCFullYear() + 2}-12-31`;
             const userIdForSync = req.session.userId || req.session.user?.user_id || null;
+            const orgCountryCode = String(orgRow?.organization_country || "").trim().toUpperCase();
+            const detectedCountryCode = String(currencyProfile?.countryCode || "").trim().toUpperCase();
+            const defaultHolidayCountryCode = COUNTRY_NAME_LOOKUP[orgCountryCode]
+              ? orgCountryCode
+              : (COUNTRY_NAME_LOOKUP[detectedCountryCode] ? detectedCountryCode : "US");
+            const syncCountryCode = COUNTRY_NAME_LOOKUP[String(attendanceCalendarProfile.country_code || "").trim().toUpperCase()]
+              ? String(attendanceCalendarProfile.country_code || "").trim().toUpperCase()
+              : defaultHolidayCountryCode;
 
             await syncPublicHolidayDays(db, {
               calendarId: attendanceCalendarProfile.calendar_id,
               organizationId: orgId,
-              countryCode: attendanceCalendarProfile.country_code || 'GH',
+              countryCode: syncCountryCode,
               startDate: holidayStartDate,
               endDate: holidayEndDate,
               userId: userIdForSync,
@@ -7740,6 +8048,10 @@ const accountController = {
         connected: false,
         shouldShowFeatures: false,
       };
+      let studentPortalIntegration = {
+        activated: false,
+        shouldShowFeatures: false,
+      };
 
       if (!isTeacherSettingsUser) {
         const [settingsPermission, billingPermission, paygiraPermission] = await Promise.all([
@@ -7753,7 +8065,12 @@ const accountController = {
         canAccessPaygiraSettings = billingPermission || paygiraPermission;
 
         if (canAccessCustomizeSettings && orgId) {
-          googleIntegration = await getGoogleIntegrationStatus(db, orgId);
+          const [resolvedGoogleIntegration, resolvedStudentPortalIntegration] = await Promise.all([
+            getGoogleIntegrationStatus(db, orgId),
+            getStudentPortalIntegrationStatus(db, orgId),
+          ]);
+          googleIntegration = resolvedGoogleIntegration;
+          studentPortalIntegration = resolvedStudentPortalIntegration;
         }
       }
 
@@ -7804,6 +8121,7 @@ const accountController = {
         canAccessBillingSettings,
         canAccessPaygiraSettings,
         googleIntegration,
+        studentPortalIntegration,
         feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
         feedbackAreaOptions: FEEDBACK_AREA_OPTIONS,
         feedbackPriorityOptions: FEEDBACK_PRIORITY_OPTIONS,
@@ -7887,9 +8205,30 @@ const accountController = {
     try {
       await ensureAttendanceCalendarSchema(db);
 
-      const countryCode = String(req.body.countryCode || "GH").toUpperCase();
+      const orgCountryResult = await db.query(
+        `SELECT organization_country FROM organizations WHERE organization_id = $1 LIMIT 1`,
+        [organizationId]
+      );
+      const orgCountryCode = String(orgCountryResult.rows?.[0]?.organization_country || "")
+        .trim()
+        .toUpperCase();
+      const detectedCountryCode = String(
+        (await getCurrencyProfileForRequest(req, { organizationId }).catch(() => null))?.countryCode || ""
+      )
+        .trim()
+        .toUpperCase();
+      const requestedCountryCode = String(req.body.countryCode || "")
+        .trim()
+        .toUpperCase();
+      const fallbackCountryCode = COUNTRY_NAME_LOOKUP[orgCountryCode]
+        ? orgCountryCode
+        : (COUNTRY_NAME_LOOKUP[detectedCountryCode] ? detectedCountryCode : "US");
+      const countryCode = COUNTRY_NAME_LOOKUP[requestedCountryCode]
+        ? requestedCountryCode
+        : fallbackCountryCode;
       const includePublicHolidays = parseBoolean(req.body.includePublicHolidays);
-      const weekendDays = normalizeWeekendDaysInput(req.body.weekendDays || []);
+      const requestedWeekendDays = normalizeWeekendDaysInput(req.body.weekendDays || []);
+      const weekendDays = requestedWeekendDays.length > 0 ? requestedWeekendDays : [0, 6];
 
       const fallbackTermResult = await db.query(
         `
@@ -7970,6 +8309,22 @@ const accountController = {
       let profile = await getAttendanceCalendarProfile(db, organizationId, null);
 
       if (!profile) {
+        const orgCountryResult = await db.query(
+          `SELECT organization_country FROM organizations WHERE organization_id = $1 LIMIT 1`,
+          [organizationId]
+        );
+        const orgCountryCode = String(orgCountryResult.rows?.[0]?.organization_country || "")
+          .trim()
+          .toUpperCase();
+        const detectedCountryCode = String(
+          (await getCurrencyProfileForRequest(req, { organizationId }).catch(() => null))?.countryCode || ""
+        )
+          .trim()
+          .toUpperCase();
+        const fallbackCountryCode = COUNTRY_NAME_LOOKUP[orgCountryCode]
+          ? orgCountryCode
+          : (COUNTRY_NAME_LOOKUP[detectedCountryCode] ? detectedCountryCode : "US");
+
         const fallbackTermResult = await db.query(
           `
             SELECT t.term_id, t.school_year_id
@@ -7993,7 +8348,7 @@ const accountController = {
           organizationId,
           schoolYearId: fallbackTerm.school_year_id,
           termId: fallbackTerm.term_id,
-          countryCode: "GH",
+          countryCode: fallbackCountryCode,
           weekendDays: [0, 6],
           includePublicHolidays: true,
           userId,
@@ -8591,10 +8946,14 @@ const accountController = {
 
         const authorizationCode = cardResult.rows[0].authorization_code;
         const cardProvider = cardResult.rows[0].provider || 'paystack';
-        const stripeChargeCurrency = getStripeChargeCurrency();
+        const stripeChargeCurrency = normalizeCurrencyCode(getStripeChargeCurrency()) || 'USD';
+        const proratedAmountInChargeCurrency = await convertUsdAmountToCurrency(
+          proratedAmount,
+          stripeChargeCurrency
+        );
 
         try {
-          const chargeAmountStripeMinor = Math.round(proratedAmount * 100);
+          const chargeAmountStripeMinor = Math.round(proratedAmountInChargeCurrency * 100);
           const orgStripeRow = await db.query(
             'SELECT stripe_customer_id FROM organizations WHERE organization_id = $1',
             [orgId]
@@ -8639,9 +8998,9 @@ const accountController = {
       invalidateOrganizationAccessCache(orgId);
       req.session.allowedFeatures = [];
 
-      const proratedCurrency = getStripeChargeCurrency().toUpperCase();
+      const proratedCurrency = normalizeCurrencyCode(getStripeChargeCurrency()) || 'USD';
       const proratedMsg = proratedAmount > 0
-        ? ` A prorated charge of ${proratedCurrency} ${proratedAmount.toFixed(2)} has been applied for the remaining ${remainingDays} day${remainingDays !== 1 ? 's' : ''} in your current billing period.`
+        ? ` A prorated charge of ${proratedCurrency} ${Number(proratedAmountInChargeCurrency || 0).toFixed(2)} has been applied for the remaining ${remainingDays} day${remainingDays !== 1 ? 's' : ''} in your current billing period.`
         : '';
       req.flash("success", `Your plan has been upgraded to ${newPlanName}.${proratedMsg}` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
 
@@ -9970,6 +10329,75 @@ const accountController = {
     } catch (error) {
       req.flash("error", "Unable to update Google Classroom activation right now.");
       return res.redirect("/account/settings?section=integrations");
+    }
+  },
+
+  studentPortalActivationPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    const acceptsHeader = String(req.get("accept") || "").toLowerCase();
+    const wantsJson =
+      req.xhr ||
+      acceptsHeader.includes("application/json") ||
+      String(req.get("x-requested-with") || "").toLowerCase() === "xmlhttprequest";
+
+    const respond = (statusCode, payload) => {
+      if (wantsJson) {
+        return res.status(statusCode).json(payload);
+      }
+
+      if (!payload.success && payload.message) {
+        req.flash("error", payload.message);
+      } else if (payload.success && payload.message) {
+        req.flash("success", payload.message);
+      }
+
+      return res.redirect("/account/settings?section=integrations");
+    };
+
+    try {
+      await ensureStudentPortalSchema(db);
+      const shouldActivate = String(req.body.activate || "").trim() === "1";
+
+      const integrationPassword = String(
+        req.body.integrationPassword || req.body.deactivationPassword || ""
+      );
+      if (!integrationPassword.trim()) {
+        return respond(400, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? "Enter your password to activate Student Portal integration."
+            : "Enter your password to deactivate Student Portal integration.",
+        });
+      }
+
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      if (!isPasswordValid) {
+        return respond(401, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? "Incorrect password. Student Portal integration was not activated."
+            : "Incorrect password. Student Portal integration was not deactivated.",
+        });
+      }
+
+      await setStudentPortalActivation(db, orgId, shouldActivate);
+
+      return respond(200, {
+        success: true,
+        activated: shouldActivate,
+        message: shouldActivate
+          ? "Student Portal integration is now activated."
+          : "Student Portal integration has been deactivated.",
+      });
+    } catch (error) {
+      return respond(500, {
+        success: false,
+        message: "Unable to update Student Portal activation right now.",
+      });
     }
   },
 

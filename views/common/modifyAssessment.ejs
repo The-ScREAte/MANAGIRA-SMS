@@ -459,7 +459,7 @@
             <input type="checkbox" id="isLockedCb" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> />
             <label for="isLockedCb">Lock this assessment (prevents score entry)</label>
           </div>
-          <% if (canUseGoogleClassroom) { %>
+          <% if (canUseQuestionSetIntegration) { %>
           <div class="check-row">
             <input type="checkbox" id="showQuestionSetOnDashboardCb" name="showQuestionSetOnDashboard" <%= assessment.show_question_set_on_dashboard ? 'checked' : '' %> />
             <label for="showQuestionSetOnDashboardCb">Show Set Questions in Class Dashboard</label>

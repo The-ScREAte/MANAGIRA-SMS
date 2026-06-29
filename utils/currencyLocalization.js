@@ -640,6 +640,77 @@ function getAcceptLanguageCountry(req) {
   return /^[A-Z]{2}$/.test(region) ? region : null;
 }
 
+function getSessionGeoHint(req) {
+  const rawHint = req?.session?.geoCountryHint;
+  if (!rawHint || typeof rawHint !== "object") return null;
+
+  const countryCode = String(rawHint.countryCode || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(countryCode)) return null;
+
+  const updatedAt = Number(rawHint.updatedAt || 0);
+  if (!Number.isFinite(updatedAt) || updatedAt <= 0) return null;
+  if (Date.now() - updatedAt > GEO_TTL_MS) return null;
+
+  const currencyCode = normalizeCurrencyCode(getCurrencyForCountry(countryCode));
+  if (!currencyCode) return null;
+
+  return { countryCode, currencyCode };
+}
+
+async function detectCurrencyFromRequestSignals(req) {
+  const headerCountry = getHeaderCountry(req);
+  const headerCurrency = normalizeCurrencyCode(getCurrencyForCountry(headerCountry));
+  if (headerCurrency) {
+    return {
+      countryCode: headerCountry,
+      currencyCode: headerCurrency,
+      source: "request-header",
+    };
+  }
+
+  const ip = getClientIp(req);
+  const hasPublicIp = Boolean(ip && !isPrivateOrLoopbackIp(ip));
+  if (ip) {
+    try {
+      const geo = await fetchGeoFromIp(ip);
+      if (geo.currencyCode) {
+        return {
+          ...geo,
+          source: "request-ip-geo",
+        };
+      }
+    } catch (_) {
+    }
+  }
+
+  // Browser-provided hint (captured client-side) helps localhost/dev where the
+  // server often sees only loopback/private IP and weak geo context.
+  const sessionGeoHint = getSessionGeoHint(req);
+  if (!headerCountry && !hasPublicIp && sessionGeoHint) {
+    return {
+      countryCode: sessionGeoHint.countryCode,
+      currencyCode: sessionGeoHint.currencyCode,
+      source: "session-geo-hint",
+    };
+  }
+
+  const acceptLanguageCountry = getAcceptLanguageCountry(req);
+  const acceptLanguageCurrency = normalizeCurrencyCode(getCurrencyForCountry(acceptLanguageCountry));
+  if (acceptLanguageCurrency) {
+    return {
+      countryCode: acceptLanguageCountry,
+      currencyCode: acceptLanguageCurrency,
+      source: "accept-language-fallback",
+    };
+  }
+
+  return {
+    countryCode: headerCountry || acceptLanguageCountry || null,
+    currencyCode: FALLBACK_CURRENCY,
+    source: "fallback",
+  };
+}
+
 async function detectCurrencyForRequest(req, options = {}) {
   const organizationId =
     Number(options.organizationId || 0) ||
@@ -672,56 +743,11 @@ async function detectCurrencyForRequest(req, options = {}) {
       return orgGeo;
     }
 
-    // For organization-scoped pages, keep billing stable even when request geo
-    // varies (VPN/proxy/mobility). If org settings are incomplete, use USD until
-    // an explicit country/currency is saved in Settings.
-    return {
-      countryCode: null,
-      currencyCode: FALLBACK_CURRENCY,
-      source: "organization-default-fallback",
-    };
+    // If org settings are incomplete, fall back to request-level detection.
+    return detectCurrencyFromRequestSignals(req);
   }
 
-  const headerCountry = getHeaderCountry(req);
-  const headerCurrency = normalizeCurrencyCode(getCurrencyForCountry(headerCountry));
-  if (headerCurrency) {
-    return {
-      countryCode: headerCountry,
-      currencyCode: headerCurrency,
-      source: "request-header",
-    };
-  }
-
-  const ip = getClientIp(req);
-
-  if (ip) {
-    try {
-      const geo = await fetchGeoFromIp(ip);
-      if (geo.currencyCode) {
-        return {
-          ...geo,
-          source: "request-ip-geo",
-        };
-      }
-    } catch (_) {
-    }
-  }
-
-  const acceptLanguageCountry = getAcceptLanguageCountry(req);
-  const acceptLanguageCurrency = normalizeCurrencyCode(getCurrencyForCountry(acceptLanguageCountry));
-  if (acceptLanguageCurrency) {
-    return {
-      countryCode: acceptLanguageCountry,
-      currencyCode: acceptLanguageCurrency,
-      source: "accept-language-fallback",
-    };
-  }
-
-  return {
-    countryCode: headerCountry || acceptLanguageCountry || null,
-    currencyCode: FALLBACK_CURRENCY,
-    source: "fallback",
-  };
+  return detectCurrencyFromRequestSignals(req);
 }
 
 async function fetchUsdRates() {

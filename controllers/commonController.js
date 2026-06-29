@@ -91,7 +91,29 @@ const {
   ensureStudentPortalSchema,
   upsertStudentAccount,
   normalizeStudentEmail,
+  getStudentPortalIntegrationStatus,
 } = require("../utils/studentPortal");
+
+const SET_ASSESSMENT_QUESTION_FEATURE_NAMES = [
+  "Set Assessment Questions",
+  "Assessment Questions",
+];
+
+function hasOrgFeature(req, featureNames = []) {
+  const allowed = Array.isArray(req?.session?.allowedFeatures)
+    ? req.session.allowedFeatures
+    : [];
+  if (!allowed.length || !Array.isArray(featureNames) || !featureNames.length) {
+    return false;
+  }
+
+  const allowedSet = new Set(allowed.map((value) => String(value || "").trim().toLowerCase()));
+  return featureNames.some((name) => allowedSet.has(String(name || "").trim().toLowerCase()));
+}
+
+function hasSetAssessmentQuestionsFeature(req) {
+  return hasOrgFeature(req, SET_ASSESSMENT_QUESTION_FEATURE_NAMES);
+}
 
 async function getActivePaystackConfig(dbClient) {
   const settings = await getPaystackSettings(dbClient);
@@ -2383,6 +2405,15 @@ const commonController = {
       const url = req.url;
       const isSuperAdminSwitch = req.session.superAdminOrgSwitch;
 
+      const orgCountryResult = await db.query(
+        "SELECT organization_country FROM organizations WHERE organization_id = $1",
+        [organizationId]
+      );
+      const dashboardCountryCode = String(orgCountryResult.rows[0]?.organization_country || "")
+        .trim()
+        .toUpperCase();
+      const dashboardCountryName = COUNTRY_NAME_LOOKUP[dashboardCountryCode] || dashboardCountryCode || "";
+
       // Fetch the current school year and term
       const schoolYearResult = await db.query(
         `
@@ -2562,6 +2593,8 @@ const commonController = {
         orgHeaderLogo,
         orgHeaderNickname,
         orgHeaderNicknameDisplay: typeof orgHeaderNicknameDisplay !== 'undefined' ? orgHeaderNicknameDisplay : null,
+        dashboardCountryCode,
+        dashboardCountryName,
         todayAttendanceStatus: null,
         nextTermSuggestion,
       });
@@ -2591,6 +2624,15 @@ const commonController = {
         req.flash("error", "School not found.");
         return res.redirect("/");
       }
+
+      const orgCountryResult = await db.query(
+        "SELECT organization_country FROM organizations WHERE organization_id = $1",
+        [organizationId]
+      );
+      const dashboardCountryCode = String(orgCountryResult.rows[0]?.organization_country || "")
+        .trim()
+        .toUpperCase();
+      const dashboardCountryName = COUNTRY_NAME_LOOKUP[dashboardCountryCode] || dashboardCountryCode || "";
 
       const url = req.url;
       const { schoolYearId, termId } = req.params;
@@ -2957,6 +2999,8 @@ const commonController = {
         orgHeaderLogo,
         orgHeaderNickname,
         orgHeaderNicknameDisplay: typeof orgHeaderNicknameDisplay !== 'undefined' ? orgHeaderNicknameDisplay : null,
+        dashboardCountryCode,
+        dashboardCountryName,
         todayAttendanceStatus,
         nextTermSuggestion,
         // Include any additional data as needed
@@ -6642,6 +6686,8 @@ const commonController = {
         : student.class_id;
 
       await ensureStudentPortalSchema(db);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      const studentPortalIntegrationActive = Boolean(studentPortalIntegration.activated);
       const studentPortalAccountResult = await db.query(
         `SELECT login_email, password_hash
            FROM student_accounts
@@ -6669,6 +6715,7 @@ const commonController = {
       );
       const canSendStudentPortalRequest = Boolean(
         req.session &&
+        studentPortalIntegrationActive &&
         canManageStudentsSettings &&
         normalizeStudentEmail(student.email)
       );
@@ -6955,6 +7002,7 @@ const commonController = {
         enrolledClassForTerm,
         termNameForPage,
         studentEnrolledInCurrent,
+        studentPortalIntegrationActive,
         studentPortalSetupComplete,
         studentPortalAction,
         studentPortalActionLabel,
@@ -8071,15 +8119,24 @@ const commonController = {
       );
       logStep("classes_loaded", { classCount: classesResult.rows.length });
 
+      const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
+      const permissionOptions = setAssessmentQuestionsFeatureEnabled
+        ? PERMISSION_OPTIONS
+        : PERMISSION_OPTIONS.filter((option) => option.key !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+      const stripUnavailablePermissions = (permissions = []) =>
+        setAssessmentQuestionsFeatureEnabled
+          ? permissions
+          : permissions.filter((permissionKey) => permissionKey !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+
       res.render("common/createEmployee", {
         title: "Create Employee",
         classes: classesResult.rows,
-        permissionOptions: PERMISSION_OPTIONS,
-        managerDefaultPermissions: getSuggestedPermissionsForRole("Manager"),
+        permissionOptions,
+        managerDefaultPermissions: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
         roleDefaultPermissionsMap: {
-          Manager: getSuggestedPermissionsForRole("Manager"),
-          Teacher: mergePermissionsForRole("Teacher", []),
-          Supervisor: mergePermissionsForRole("Supervisor", []),
+          Manager: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
+          Teacher: stripUnavailablePermissions(mergePermissionsForRole("Teacher", [])),
+          Supervisor: stripUnavailablePermissions(mergePermissionsForRole("Supervisor", [])),
         },
         messages: {
           success: req.flash("success"),
@@ -8122,6 +8179,10 @@ const commonController = {
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
+    const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
+    const featureFilteredPermissions = setAssessmentQuestionsFeatureEnabled
+      ? requestedPermissions
+      : requestedPermissions.filter((permissionKey) => permissionKey !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
     const highRiskPermissions = new Set([
       PERMISSIONS.MANAGE_EMPLOYEES,
       PERMISSIONS.MANAGE_SETTINGS,
@@ -8157,8 +8218,8 @@ const commonController = {
     }
 
     const sanitizedRequestedPermissions = canAssignSensitivePermissions
-      ? requestedPermissions
-      : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
+      ? featureFilteredPermissions
+      : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
     // Persist exactly what was selected in the form (after safety filtering)
     // so the permission page remains authoritative for every employee role.
@@ -9066,7 +9127,15 @@ const commonController = {
         userId,
         req.session.organizationId
       );
-      const selectedPermissions = rawSelectedPermissions;
+      const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
+      const permissionOptions = setAssessmentQuestionsFeatureEnabled
+        ? PERMISSION_OPTIONS
+        : PERMISSION_OPTIONS.filter((option) => option.key !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+      const stripUnavailablePermissions = (permissions = []) =>
+        setAssessmentQuestionsFeatureEnabled
+          ? permissions
+          : permissions.filter((permissionKey) => permissionKey !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+      const selectedPermissions = stripUnavailablePermissions(rawSelectedPermissions);
 
       res.render("common/modifyEmployee", {
         title: "Modify Employee",
@@ -9074,12 +9143,12 @@ const commonController = {
         classes,
         enrolledClasses,
         enrolledSubjects,
-        permissionOptions: PERMISSION_OPTIONS,
-        managerDefaultPermissions: getSuggestedPermissionsForRole("Manager"),
+        permissionOptions,
+        managerDefaultPermissions: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
         roleDefaultPermissionsMap: {
-          Manager: mergePermissionsForRole("Manager", []),
-          Teacher: mergePermissionsForRole("Teacher", []),
-          Supervisor: mergePermissionsForRole("Supervisor", []),
+          Manager: stripUnavailablePermissions(mergePermissionsForRole("Manager", [])),
+          Teacher: stripUnavailablePermissions(mergePermissionsForRole("Teacher", [])),
+          Supervisor: stripUnavailablePermissions(mergePermissionsForRole("Supervisor", [])),
         },
         selectedPermissions,
         messages: req.flash(),
@@ -9120,6 +9189,10 @@ const commonController = {
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
+    const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
+    const featureFilteredPermissions = setAssessmentQuestionsFeatureEnabled
+      ? requestedPermissions
+      : requestedPermissions.filter((permissionKey) => permissionKey !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
     const highRiskPermissions = new Set([
       PERMISSIONS.MANAGE_EMPLOYEES,
       PERMISSIONS.MANAGE_SETTINGS,
@@ -9143,8 +9216,8 @@ const commonController = {
     }
 
     const sanitizedRequestedPermissions = canAssignSensitivePermissions
-      ? requestedPermissions
-      : requestedPermissions.filter((permission) => !highRiskPermissions.has(permission));
+      ? featureFilteredPermissions
+      : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
     // Persist exactly what was selected in the form (after safety filtering).
     const effectivePermissions = sanitizedRequestedPermissions;
@@ -9354,6 +9427,9 @@ const commonController = {
       await ensureGoogleIntegrationSchema(db);
       const organizationId = req.session.organizationId;
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      const canUseQuestionSetIntegration =
+        Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
       const canManageGoogleIntegration = await userHasPermission(
         db,
         {
@@ -9365,17 +9441,18 @@ const commonController = {
         },
         PERMISSIONS.MANAGE_SETTINGS
       );
-
-      if (!googleIntegration.shouldShowFeatures) {
-        req.flash("error", "Assessment Questions is available only when Google integration is active.");
-        const redirectTermId = Number.isInteger(requestedTermId)
-          ? requestedTermId
-          : Number.parseInt(req.session.currentTermId || req.session.termId || '', 10);
-        const manageUrl = Number.isInteger(redirectTermId)
-          ? `/common/manageAssessment?organizationId=${organizationId}&termId=${redirectTermId}`
-          : `/common/manageAssessment?organizationId=${organizationId}`;
-        return res.redirect(manageUrl);
-      }
+      const canSetAssessmentQuestions = await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId: organizationId || null,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.SET_ASSESSMENT_QUESTIONS
+      );
+      const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
 
       // Validate `organizationId`
       if (!organizationId) {
@@ -9606,7 +9683,11 @@ const commonController = {
         .filter((row) => Boolean(row.show_question_set_on_dashboard))
         .map((row) => Number(row.assessment_id))
         .filter((value) => Number.isInteger(value) && value > 0);
-      const canShowQuestionSetControls = Boolean(googleIntegration.shouldShowFeatures) && questionSetEnabledAssessmentIds.length > 0;
+      const canShowQuestionSetControls =
+        assessments.length > 0 &&
+        canUseQuestionSetIntegration &&
+        setAssessmentQuestionsFeatureEnabled &&
+        canSetAssessmentQuestions;
       let hasQuestionSets = false;
       try {
         const assessmentIds = canShowQuestionSetControls ? questionSetEnabledAssessmentIds : [];
@@ -9644,8 +9725,11 @@ const commonController = {
         maxPossibleScore,
         hasQuestionSets,
         canShowQuestionSetControls,
+        canSetAssessmentQuestions,
+        setAssessmentQuestionsFeatureEnabled,
         isEmbedded,
         canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
+        canUseQuestionSetIntegration,
         canManageGoogleIntegration,
         messages: req.flash(),
         hideGlobalHeader: true,
@@ -11001,6 +11085,9 @@ NUMBERING:
 
       await ensureGoogleIntegrationSchema(db);
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      const canUseQuestionSetIntegration =
+        Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
       const canManageGoogleIntegration = await userHasPermission(
         db,
         {
@@ -11012,6 +11099,20 @@ NUMBERING:
         },
         PERMISSIONS.MANAGE_SETTINGS
       );
+      const canSetAssessmentQuestions = await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId: organizationId || null,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.SET_ASSESSMENT_QUESTIONS
+      );
+      const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
+      const canAccessAssessmentQuestions =
+        canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions;
 
       const termOwnershipResult = await db.query(
         `
@@ -11100,6 +11201,10 @@ NUMBERING:
         termId,
         assessments,
         canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
+        canUseQuestionSetIntegration,
+        canSetAssessmentQuestions,
+        setAssessmentQuestionsFeatureEnabled,
+        canAccessAssessmentQuestions,
         canManageGoogleIntegration,
         messages: req.flash(),
       });
@@ -11134,6 +11239,9 @@ NUMBERING:
       await ensureGoogleIntegrationSchema(db);
       await ensureAssessmentQuestionSetReviewSchema(db);
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      const canUseQuestionSetIntegration =
+        Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
       const canManageGoogleIntegration = await userHasPermission(
         db,
         {
@@ -11596,7 +11704,8 @@ NUMBERING:
         assessmentsForOrg: [],
         assessmentsForTerm: enrichedAssessmentsForTerm,
         questionSets,
-        canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
+        canUseGoogleClassroom: googleIntegration.activated,
+        canUseQuestionSetIntegration,
         canManageGoogleIntegration,
         messages: req.flash(),
       });
@@ -12449,6 +12558,9 @@ NUMBERING:
       await ensureAssessmentControlSchema(db);
           await ensureGoogleIntegrationSchema(db);
           const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      const canUseQuestionSetIntegration =
+        Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
       // Fetch assessment details for the group
       const assessmentQuery = `
                 SELECT title, weight, max_score, category,
@@ -12524,6 +12636,7 @@ NUMBERING:
         termId,
         groupId,
         canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
+        canUseQuestionSetIntegration,
         messages: req.flash(),
       });
     } catch (error) {
@@ -12625,7 +12738,10 @@ NUMBERING:
       await ensureGoogleIntegrationSchema(client);
       await ensureScoreRemarkGradeSchema(client);
       const googleIntegration = await getGoogleIntegrationStatus(client, organizationId);
-      const showQuestionSetFlag = Boolean(googleIntegration.shouldShowFeatures) && parseBooleanValue(showQuestionSetOnDashboard, false);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(client, organizationId);
+      const canUseQuestionSetIntegration =
+        Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
+      const showQuestionSetFlag = canUseQuestionSetIntegration && parseBooleanValue(showQuestionSetOnDashboard, false);
       await client.query("BEGIN"); // Start transaction
 
       const existingAssessmentsResult = await client.query(
@@ -13234,6 +13350,9 @@ NUMBERING:
     try {
       await ensureGoogleIntegrationSchema(db);
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      const canUseQuestionSetIntegration =
+        Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
       // Fetch the current term for the organization
       const termQuery = `
         SELECT term_id, term_name 
@@ -13291,6 +13410,7 @@ NUMBERING:
         termId,
         currentTerm,
         canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
+        canUseQuestionSetIntegration,
         messages: req.flash(),
       });
     } catch (error) {
@@ -13319,6 +13439,9 @@ NUMBERING:
       await ensureAssessmentControlSchema(client);
       await ensureGoogleIntegrationSchema(client);
       const googleIntegration = await getGoogleIntegrationStatus(client, organizationId);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(client, organizationId);
+      const canUseQuestionSetIntegration =
+        Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
       await client.query("BEGIN"); // Start a transaction
 
       // Track the classes for which tests were added
@@ -13330,7 +13453,7 @@ NUMBERING:
         const selectedSubjects = test.subjects;
         const locked = parseBooleanValue(test.isLocked, false);
         const active = parseBooleanValue(test.isActive, true);
-        const showQuestionSetFlag = Boolean(googleIntegration.shouldShowFeatures) && parseBooleanValue(test.showQuestionSetOnDashboard, false);
+        const showQuestionSetFlag = canUseQuestionSetIntegration && parseBooleanValue(test.showQuestionSetOnDashboard, false);
         const notifyTeachers = parseBooleanValue(test.notifyTeachers, false);
         const parsedWindowStart = parseDateTimeValue(test.editWindowStart);
         const parsedWindowEnd = parseDateTimeValue(test.editWindowEnd);
@@ -15629,14 +15752,15 @@ NUMBERING:
            SELECT
              f.id, f.user_id, f.user_type, f.failed_email, f.reason,
              grouped.failure_count, grouped.first_failed_at, grouped.last_failed_at,
-             COALESCE(u.first_name, g.first_name, '') AS first_name,
-             COALESCE(u.last_name,  g.last_name,  '') AS last_name,
-             COALESCE(NULLIF(u.image_url,''), NULLIF(g.image_url,''), 'profilePlaceholder.png') AS image_url,
-             COALESCE(u.account_type::text, 'guardian') AS account_type
+             COALESCE(u.first_name, g.first_name, s.first_name, '') AS first_name,
+             COALESCE(u.last_name,  g.last_name,  s.last_name,  '') AS last_name,
+             COALESCE(NULLIF(u.image_url,''), NULLIF(g.image_url,''), NULLIF(s.image_url,''), 'profilePlaceholder.png') AS image_url,
+             COALESCE(u.account_type::text, CASE WHEN f.user_type = 'student' THEN 'Student' ELSE 'guardian' END) AS account_type
            FROM grouped_failures grouped
            JOIN email_delivery_failures f ON f.id = grouped.id
            LEFT JOIN users    u ON f.user_type = 'staff'    AND u.user_id     = f.user_id AND u.organization_id = f.organization_id
            LEFT JOIN guardians g ON f.user_type = 'guardian' AND g.guardian_id = f.user_id AND g.organization_id = f.organization_id
+           LEFT JOIN students s ON f.user_type = 'student'  AND s.student_id  = f.user_id AND s.organization_id = f.organization_id
            ORDER BY grouped.last_failed_at DESC`,
           [orgId]
         );
@@ -15666,6 +15790,7 @@ NUMBERING:
     try {
       const orgId = req.session.organizationId;
       if (!orgId) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      await ensureStudentPortalSchema(db);
 
       const email = String(req.query.email || '').trim().toLowerCase();
       const excludeFailureId = parseInt(req.query.excludeFailureId, 10) || null;
@@ -15727,6 +15852,40 @@ NUMBERING:
         });
       }
 
+      // Check students table
+      const studentConflict = await db.query(
+        `SELECT student_id, first_name, last_name
+         FROM students
+         WHERE LOWER(email) = $1
+           AND organization_id = $2
+           AND ($3::int IS NULL OR NOT (student_id = $3 AND $4 = 'student'))
+         LIMIT 1`,
+        [email, orgId, excludeUserId, excludeUserType]
+      );
+      if (studentConflict.rows.length > 0) {
+        const s = studentConflict.rows[0];
+        return res.json({
+          ok: false,
+          error: `Already used by ${s.first_name} ${s.last_name} (Student) in this organisation.`,
+        });
+      }
+
+      const studentAccountConflict = await db.query(
+        `SELECT student_id
+         FROM student_accounts
+         WHERE organization_id = $1
+           AND LOWER(login_email) = $2
+           AND ($3::int IS NULL OR NOT (student_id = $3 AND $4 = 'student'))
+         LIMIT 1`,
+        [orgId, email, excludeUserId, excludeUserType]
+      );
+      if (studentAccountConflict.rows.length > 0) {
+        return res.json({
+          ok: false,
+          error: 'That email address is already used by another student portal account in this organisation.',
+        });
+      }
+
       return res.json({ ok: true });
     } catch (err) {
       console.error('[failedEmails] checkFailedEmail error:', err.message);
@@ -15738,6 +15897,7 @@ NUMBERING:
     try {
       const orgId = req.session.organizationId;
       if (!orgId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      await ensureStudentPortalSchema(db);
 
       const role = String(
         req.session.userRole || req.session.user?.account_type || req.session.accountType || ''
@@ -15780,10 +15940,37 @@ NUMBERING:
         return res.json({ success: false, error: 'That email address is already in use by another guardian in this organisation.' });
       }
 
+      const dupStudent = await db.query(
+        `SELECT student_id FROM students WHERE LOWER(email) = $1 AND organization_id = $2
+         AND NOT (student_id = $3 AND $4 = 'student') LIMIT 1`,
+        [newEmail, orgId, failure.user_id, failure.user_type]
+      );
+      if (dupStudent.rows.length > 0) {
+        return res.json({ success: false, error: 'That email address is already in use by another student in this organisation.' });
+      }
+
+      const dupStudentAccount = await db.query(
+        `SELECT student_id FROM student_accounts WHERE LOWER(login_email) = $1 AND organization_id = $2
+         AND NOT (student_id = $3 AND $4 = 'student') LIMIT 1`,
+        [newEmail, orgId, failure.user_id, failure.user_type]
+      );
+      if (dupStudentAccount.rows.length > 0) {
+        return res.json({ success: false, error: 'That email address is already in use by another student portal account in this organisation.' });
+      }
+
       // Update the email on the user record
       if (failure.user_type === 'staff') {
         await db.query(
           `UPDATE users SET email = $1 WHERE user_id = $2 AND organization_id = $3`,
+          [newEmail, failure.user_id, orgId]
+        );
+      } else if (failure.user_type === 'student') {
+        await db.query(
+          `UPDATE students SET email = $1 WHERE student_id = $2 AND organization_id = $3`,
+          [newEmail, failure.user_id, orgId]
+        );
+        await db.query(
+          `UPDATE student_accounts SET login_email = $1, updated_at = NOW() WHERE student_id = $2 AND organization_id = $3`,
           [newEmail, failure.user_id, orgId]
         );
       } else {
@@ -15802,6 +15989,9 @@ NUMBERING:
       let displayName = 'User';
       if (failure.user_type === 'staff') {
         const nameRes = await db.query(`SELECT first_name, last_name FROM users WHERE user_id = $1`, [failure.user_id]);
+        if (nameRes.rows.length > 0) displayName = `${nameRes.rows[0].first_name} ${nameRes.rows[0].last_name}`.trim();
+      } else if (failure.user_type === 'student') {
+        const nameRes = await db.query(`SELECT first_name, last_name FROM students WHERE student_id = $1`, [failure.user_id]);
         if (nameRes.rows.length > 0) displayName = `${nameRes.rows[0].first_name} ${nameRes.rows[0].last_name}`.trim();
       } else {
         const nameRes = await db.query(`SELECT first_name, last_name FROM guardians WHERE guardian_id = $1`, [failure.user_id]);
@@ -17884,12 +18074,20 @@ NUMBERING:
       }
 
       const studentId = Number(req.body.studentId || 0);
+      const requestedPortalAction = req.body.portalAction === "reset" ? "reset" : "setup";
 
       if (!organizationId || !studentId) {
         return res.status(400).json({ success: false, error: "Invalid student request." });
       }
 
       await ensureStudentPortalSchema(db);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      if (!studentPortalIntegration.activated) {
+        return res.status(403).json({
+          success: false,
+          error: "Student Portal is deactivated for this organization. Activate it from Integrations to continue.",
+        });
+      }
 
       const studentResult = await db.query(
         `SELECT s.student_id, s.first_name, s.last_name, s.email, s.class_id, c.class_name
@@ -17924,7 +18122,22 @@ NUMBERING:
         existingAccount.password_hash &&
         String(existingAccount.password_hash).trim()
       );
-      const isSetupInvite = !hasExistingPassword;
+
+      if (requestedPortalAction === "setup" && hasExistingPassword) {
+        return res.status(400).json({
+          success: false,
+          error: "This student already has portal access. Use reset (one student at a time).",
+        });
+      }
+
+      if (requestedPortalAction === "reset" && !hasExistingPassword) {
+        return res.status(400).json({
+          success: false,
+          error: "This student does not have portal access yet. Send setup first.",
+        });
+      }
+
+      const isSetupInvite = requestedPortalAction !== "reset";
 
       await upsertStudentAccount(db, {
         organizationId,
@@ -18000,9 +18213,211 @@ NUMBERING:
         message: isSetupInvite
           ? "Password setup email sent successfully."
           : "Password reset email sent successfully.",
+        portalAction: isSetupInvite ? "setup" : "reset",
       });
     } catch (error) {
       return res.status(500).json({ success: false, error: "Error sending student password email." });
+    }
+  },
+
+  studentBulkRequestPasswordReset: async (req, res, db) => {
+    try {
+      if (!req.session) {
+        return res.status(403).json({ success: false, error: "You are not authorized to send student password emails." });
+      }
+
+      const organizationId = req.session.organizationId;
+      const userId = req.session.user?.user_id || req.session.userId || null;
+      const userRole = req.session.userRole || req.session.user?.account_type || null;
+      const accountType = req.session.accountType || req.session.user?.account_type || null;
+      const userEmail = req.session.user?.email || null;
+      const canBypassAsAdmin = ["admin"].includes(normalizeRoleKey(userRole)) || ["admin"].includes(normalizeRoleKey(accountType));
+      const canManageStudentsSettings = canBypassAsAdmin || await userHasPermission(
+        db,
+        { userId, userRole, organizationId, accountType, userEmail },
+        PERMISSIONS.MANAGE_STUDENTS
+      );
+
+      if (!canManageStudentsSettings) {
+        return res.status(403).json({ success: false, error: "You do not have permission to send student password setup/reset emails." });
+      }
+
+      const requestedIds = Array.isArray(req.body?.studentIds)
+        ? req.body.studentIds
+            .map((value) => Number(value))
+            .filter((value) => Number.isInteger(value) && value > 0)
+        : [];
+      const studentIds = [...new Set(requestedIds)];
+
+      if (!organizationId || !studentIds.length) {
+        return res.status(400).json({ success: false, error: "Select at least one student." });
+      }
+
+      await ensureStudentPortalSchema(db);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      if (!studentPortalIntegration.activated) {
+        return res.status(403).json({
+          success: false,
+          error: "Student Portal is deactivated for this organization. Activate it from Integrations to continue.",
+        });
+      }
+
+      const [studentsResult, accountResult, orgResult] = await Promise.all([
+        db.query(
+          `SELECT s.student_id, s.first_name, s.last_name, s.email, s.class_id, c.class_name
+             FROM students s
+             LEFT JOIN classes c ON c.class_id = s.class_id
+            WHERE s.organization_id = $1
+              AND s.student_id = ANY($2::int[])`,
+          [organizationId, studentIds]
+        ),
+        db.query(
+          `SELECT student_id, password_hash
+             FROM student_accounts
+            WHERE organization_id = $1
+              AND student_id = ANY($2::int[])`,
+          [organizationId, studentIds]
+        ),
+        db.query(
+          `SELECT organization_name FROM organizations WHERE organization_id = $1 LIMIT 1`,
+          [organizationId]
+        ),
+      ]);
+
+      const studentsById = new Map(studentsResult.rows.map((student) => [Number(student.student_id), student]));
+      const accountByStudentId = new Map(accountResult.rows.map((account) => [Number(account.student_id), account]));
+      const organizationName = orgResult.rows[0]?.organization_name || "School";
+
+      let sentCount = 0;
+      let setupCount = 0;
+      let resetCount = 0;
+      let skippedNoEmailCount = 0;
+      let skippedAlreadyAccessCount = 0;
+      let skippedMissingCount = 0;
+
+      for (const studentId of studentIds) {
+        const student = studentsById.get(studentId);
+        if (!student) {
+          skippedMissingCount += 1;
+          continue;
+        }
+
+        const existingAccount = accountByStudentId.get(studentId) || null;
+        const hasExistingPassword = Boolean(
+          existingAccount &&
+          existingAccount.password_hash &&
+          String(existingAccount.password_hash).trim()
+        );
+
+        // Students with an existing password already have portal access.
+        if (hasExistingPassword) {
+          skippedAlreadyAccessCount += 1;
+          continue;
+        }
+
+        const studentEmail = normalizeStudentEmail(student.email);
+        if (!studentEmail) {
+          skippedNoEmailCount += 1;
+          continue;
+        }
+
+        const isSetupInvite = true;
+
+        await upsertStudentAccount(db, {
+          organizationId,
+          studentId,
+          loginEmail: studentEmail,
+        });
+
+        const token = crypto.randomBytes(32).toString("hex");
+        const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await db.query(
+          `INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at)
+           VALUES ($1, $2, $3, NOW())
+           ON CONFLICT (user_id) DO UPDATE SET token = $2, expires_at = $3, created_at = NOW()`,
+          [`student_${studentId}`, token, tokenExpiry]
+        );
+
+        const resetLink = process.env.NODE_ENV === "production"
+          ? `https://www.managira.com/common/set-password?token=${token}&type=student`
+          : `http://localhost:4000/common/set-password?token=${token}&type=student`;
+
+        const emailTitle = isSetupInvite ? "Student Portal Access Setup" : "Student Password Reset Request";
+        const emailHeading = isSetupInvite ? "Welcome to Student Portal" : "Password Reset Request";
+        const emailMessage = isSetupInvite
+          ? `You have been invited to access the Student Portal at ${he.encode(organizationName)}.`
+          : `A password reset has been requested for your Student Portal account at ${he.encode(organizationName)}.`;
+
+        const html = renderCleanEmail({
+          title: emailHeading,
+          greeting: `Hello <strong>${he.encode(student.first_name || "Student")} ${he.encode(student.last_name || "")}</strong>,`,
+          paragraphs: [
+            emailMessage,
+            `Use your student email <strong>${he.encode(studentEmail)}</strong> to sign in after setting your password.`,
+            ...(student.class_name ? [`Class: <strong>${he.encode(student.class_name)}</strong>`] : []),
+            ...(!isSetupInvite ? ["If you did not request this reset, please ignore this email."] : []),
+          ],
+          cta: {
+            text: isSetupInvite ? "Set Password" : "Reset Password",
+            url: he.encode(resetLink),
+          },
+          note: "This link will expire in 24 hours.",
+        });
+
+        sendEmailInBackground(
+          {
+            from: process.env.ADMIN_NOTIFY_EMAIL_USER,
+            to: studentEmail,
+            subject: `${emailTitle} - ${organizationName}`,
+            html,
+            failureNotification: buildFailureNotification(organizationId, {
+              title: "Student password email failed",
+              body: `The student password email for ${studentEmail} could not be delivered.`,
+            }),
+            attachments: [
+              {
+                filename: "managira.png",
+                path: path.join(__dirname, "../public/images/managira.png"),
+                cid: "managira_logo",
+              },
+            ],
+          },
+          "Student Password Email"
+        );
+
+        sentCount += 1;
+        setupCount += 1;
+      }
+
+      if (!sentCount) {
+        const allAlreadyHaveAccess = skippedAlreadyAccessCount > 0 && skippedNoEmailCount === 0 && skippedMissingCount === 0;
+        return res.status(400).json({
+          success: false,
+          error: allAlreadyHaveAccess
+            ? "All selected students already have portal access."
+            : "No student emails were sent. Select students without portal access and with valid email addresses.",
+          sentCount,
+          setupCount,
+          resetCount,
+          skippedNoEmailCount,
+          skippedAlreadyAccessCount,
+          skippedMissingCount,
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: `Sent ${sentCount} student portal setup email(s). Skipped ${skippedAlreadyAccessCount} with existing portal access${skippedNoEmailCount ? `, ${skippedNoEmailCount} without email` : ""}${skippedMissingCount ? `, ${skippedMissingCount} not found` : ""}.`,
+        sentCount,
+        setupCount,
+        resetCount,
+        skippedNoEmailCount,
+        skippedAlreadyAccessCount,
+        skippedMissingCount,
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "Error sending bulk student password emails." });
     }
   },
 
@@ -18021,6 +18436,11 @@ NUMBERING:
   allStudents: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
+      const userId = req.session.user?.user_id || req.session.userId || null;
+      const userRole = req.session.userRole || req.session.user?.account_type || null;
+      const accountType = req.session.accountType || req.session.user?.account_type || null;
+      const userEmail = req.session.user?.email || null;
+      const canBypassAsAdmin = ["admin"].includes(normalizeRoleKey(userRole)) || ["admin"].includes(normalizeRoleKey(accountType));
       const nameSortClause = buildNameSortExpression(req.session?.nameDisplayFormat, "s");
       if (!organizationId) {
         req.flash("error", "Organization not found.");
@@ -18028,7 +18448,7 @@ NUMBERING:
       }
 
       await ensureStudentIdSettingsSchema(db);
-      const [studentsResult, classesResult, schoolYearsResult, orgIdSettingsResult] = await Promise.all([
+      const [studentsResult, classesResult, schoolYearsResult, orgIdSettingsResult, studentPortalIntegration, hasManageStudentsPermission] = await Promise.all([
         db.query(
           `SELECT
               s.student_id,
@@ -18040,6 +18460,14 @@ NUMBERING:
               s.date_of_birth,
               s.image_url,
               COALESCE(s.graduated, false) AS graduated,
+              EXISTS (
+                SELECT 1
+                FROM student_accounts sa
+                WHERE sa.organization_id = s.organization_id
+                  AND sa.student_id = s.student_id
+                  AND sa.password_hash IS NOT NULL
+                  AND BTRIM(sa.password_hash) <> ''
+              ) AS has_portal_access,
               c.class_name,
               c.class_id,
               g.name AS grad_year_group_name,
@@ -18076,7 +18504,18 @@ NUMBERING:
              FROM organizations WHERE organization_id = $1`,
           [organizationId]
         ),
+        getStudentPortalIntegrationStatus(db, organizationId),
+        canBypassAsAdmin
+          ? Promise.resolve(true)
+          : userHasPermission(
+              db,
+              { userId, userRole, organizationId, accountType, userEmail },
+              PERMISSIONS.MANAGE_STUDENTS
+            ),
       ]);
+
+      const studentPortalIntegrationActive = Boolean(studentPortalIntegration && studentPortalIntegration.activated);
+      const canSendStudentPortalRequest = Boolean(studentPortalIntegrationActive && hasManageStudentsPermission);
 
       const studentIdSettings = orgIdSettingsResult.rows[0] || {};
       const nextAvailableStudentIdNumber = studentIdSettings.use_custom_student_id
@@ -18103,6 +18542,8 @@ NUMBERING:
         schoolYears: schoolYearsResult.rows,
         studentIdSettings,
         nextAvailableStudentIdNumber,
+        studentPortalIntegrationActive,
+        canSendStudentPortalRequest,
         messages: req.flash(),
       });
     } catch (error) {
@@ -18190,6 +18631,7 @@ NUMBERING:
     const studentId = parseInt(req.params.studentId, 10);
 
     await ensureStudentIdSettingsSchema(db);
+    await ensureStudentEmailSchema(db);
 
     if (!organizationId) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
@@ -18199,8 +18641,10 @@ NUMBERING:
     }
 
     const hasStudentIdChange = Object.prototype.hasOwnProperty.call(req.body || {}, 'customStudentId');
+    const hasEmailChange = Object.prototype.hasOwnProperty.call(req.body || {}, 'email');
     const rawClassId = req.body.classId;
     const rawSchoolYearId = req.body.schoolYearId;
+    const normalizedEmailInput = normalizeStudentEmail(req.body && req.body.email);
     const keepExistingSubjects = parseKeepExistingSubjectsPreference(req.body && req.body.keepExistingSubjects, true);
 
     const client = await db.connect();
@@ -18208,7 +18652,7 @@ NUMBERING:
       await client.query("BEGIN");
 
       const studentResult = await client.query(
-        `SELECT s.student_id, s.class_id, s.custom_student_id, c.class_name
+        `SELECT s.student_id, s.class_id, s.custom_student_id, s.email, c.class_name
            FROM students s
            LEFT JOIN classes c ON c.class_id = s.class_id
           WHERE s.student_id = $1 AND s.organization_id = $2
@@ -18389,8 +18833,69 @@ NUMBERING:
         );
       }
 
+      if (hasEmailChange) {
+        if (!normalizedEmailInput) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ success: false, error: "Email must be a valid address" });
+        }
+
+        const duplicateStaff = await client.query(
+          `SELECT user_id FROM users WHERE organization_id = $1 AND LOWER(email) = $2 LIMIT 1`,
+          [organizationId, normalizedEmailInput]
+        );
+        if (duplicateStaff.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ success: false, error: "This email is already used by a staff member." });
+        }
+
+        const duplicateGuardian = await client.query(
+          `SELECT guardian_id FROM guardians WHERE organization_id = $1 AND LOWER(email) = $2 LIMIT 1`,
+          [organizationId, normalizedEmailInput]
+        );
+        if (duplicateGuardian.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ success: false, error: "This email is already used by a guardian." });
+        }
+
+        const duplicateStudent = await client.query(
+          `SELECT student_id FROM students
+            WHERE organization_id = $1 AND student_id != $2 AND LOWER(email) = $3
+            LIMIT 1`,
+          [organizationId, studentId, normalizedEmailInput]
+        );
+        if (duplicateStudent.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ success: false, error: "This email is already used by another student." });
+        }
+
+        const duplicateStudentAccount = await client.query(
+          `SELECT student_id FROM student_accounts
+            WHERE organization_id = $1 AND student_id != $2 AND LOWER(login_email) = $3
+            LIMIT 1`,
+          [organizationId, studentId, normalizedEmailInput]
+        );
+        if (duplicateStudentAccount.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ success: false, error: "This email is already used by another student portal account." });
+        }
+
+        await client.query(
+          `UPDATE students
+              SET email = $1
+            WHERE student_id = $2 AND organization_id = $3`,
+          [normalizedEmailInput, studentId, organizationId]
+        );
+        await client.query(
+          `UPDATE student_accounts
+              SET login_email = $1,
+                  updated_at = NOW()
+            WHERE student_id = $2 AND organization_id = $3`,
+          [normalizedEmailInput, studentId, organizationId]
+        );
+      }
+
       const refreshedStudentResult = await client.query(
-        `SELECT student_id, class_id, custom_student_id
+        `SELECT student_id, class_id, custom_student_id, email
            FROM students
           WHERE student_id = $1 AND organization_id = $2`,
         [studentId, organizationId]
@@ -18405,6 +18910,7 @@ NUMBERING:
         schoolYearId: safeSchoolYearId,
         yearLabel: newYearLabel,
         yearIsCurrent: newYearIsCurrent,
+        email: refreshedStudent.email || null,
         displayStudentId: buildStudentDisplayId(refreshedStudent, idSettings),
         editableStudentId: getStudentIdEditorValue(refreshedStudent, idSettings),
         subjectCarryoverMessage: subjectCarryoverNotice.message,
@@ -18425,15 +18931,17 @@ NUMBERING:
       if (!organizationId) return res.status(401).json({ success: false, error: "Unauthorized" });
 
       await ensureStudentIdSettingsSchema(db);
+      await ensureStudentEmailSchema(db);
 
-      const { studentIds, classId, schoolYearId, customStudentIds } = req.body;
+      const { studentIds, classId, schoolYearId, customStudentIds, studentEmails } = req.body;
       const keepExistingSubjects = parseKeepExistingSubjectsPreference(req.body && req.body.keepExistingSubjects, true);
       const hasStudentIdPayload = customStudentIds && typeof customStudentIds === 'object' && !Array.isArray(customStudentIds);
+      const hasStudentEmailPayload = studentEmails && typeof studentEmails === 'object' && !Array.isArray(studentEmails);
 
       if (!Array.isArray(studentIds) || studentIds.length === 0)
         return res.status(400).json({ success: false, error: "No students selected" });
-      if (!classId && !schoolYearId && !hasStudentIdPayload)
-        return res.status(400).json({ success: false, error: "Nothing to update — select a class, school year, or student ID edits" });
+      if (!classId && !schoolYearId && !hasStudentIdPayload && !hasStudentEmailPayload)
+        return res.status(400).json({ success: false, error: "Nothing to update — select a class, school year, student ID edits, or email edits" });
 
       // Sanitize to positive integers
       const safeIds = [...new Set(
@@ -18456,6 +18964,24 @@ NUMBERING:
           return res.status(400).json({ success: false, error: "No valid student ID changes were provided" });
         }
         sanitizedStudentIdUpdates = incomingIds;
+      }
+
+      let sanitizedStudentEmailUpdates = new Map();
+      if (hasStudentEmailPayload) {
+        const incomingEmails = Object.entries(studentEmails).reduce((accumulator, [studentId, rawValue]) => {
+          const parsedStudentId = parseInt(studentId, 10);
+          if (!Number.isInteger(parsedStudentId) || parsedStudentId <= 0) return accumulator;
+          if (!safeIds.includes(parsedStudentId)) return accumulator;
+
+          const normalizedEmail = normalizeStudentEmail(rawValue);
+          accumulator.set(parsedStudentId, normalizedEmail);
+          return accumulator;
+        }, new Map());
+
+        if (!incomingEmails.size) {
+          return res.status(400).json({ success: false, error: "No valid student email changes were provided" });
+        }
+        sanitizedStudentEmailUpdates = incomingEmails;
       }
 
       // Verify all students belong to this org
@@ -18484,7 +19010,7 @@ NUMBERING:
         }
 
         const studentsSnapshotResult = await client.query(
-          `SELECT student_id, custom_student_id
+          `SELECT student_id, custom_student_id, email
              FROM students
             WHERE student_id = ANY($1::int[]) AND organization_id = $2
             FOR UPDATE`,
@@ -18565,6 +19091,92 @@ NUMBERING:
               [maxNumericIdInBulk, organizationId]
             );
             idSettings.student_id_counter = maxNumericIdInBulk;
+          }
+        }
+
+        if (sanitizedStudentEmailUpdates.size) {
+          const seenEmails = new Set();
+
+          for (const [currentStudentId, newEmail] of sanitizedStudentEmailUpdates.entries()) {
+            const currentStudent = studentsSnapshotById.get(Number(currentStudentId));
+            if (!currentStudent) {
+              throw new Error("One or more students could not be loaded for email updates");
+            }
+
+            if (!newEmail) {
+              throw new Error("Student email must be a valid address");
+            }
+
+            const normalizedCurrentEmail = normalizeStudentEmail(currentStudent.email);
+            if (newEmail === normalizedCurrentEmail) continue;
+
+            if (seenEmails.has(newEmail)) {
+              throw new Error(`Duplicate student email "${newEmail}" was entered in bulk edit`);
+            }
+            seenEmails.add(newEmail);
+
+            const conflictStaff = await client.query(
+              `SELECT 1 FROM users WHERE organization_id = $1 AND LOWER(email) = $2 LIMIT 1`,
+              [organizationId, newEmail]
+            );
+            if (conflictStaff.rows.length) {
+              throw new Error(`Student email "${newEmail}" is already used by a staff member`);
+            }
+
+            const conflictGuardian = await client.query(
+              `SELECT 1 FROM guardians WHERE organization_id = $1 AND LOWER(email) = $2 LIMIT 1`,
+              [organizationId, newEmail]
+            );
+            if (conflictGuardian.rows.length) {
+              throw new Error(`Student email "${newEmail}" is already used by a guardian`);
+            }
+
+            const conflictStudent = await client.query(
+              `SELECT 1
+                 FROM students
+                WHERE organization_id = $1
+                  AND student_id != $2
+                  AND LOWER(email) = $3
+                LIMIT 1`,
+              [organizationId, Number(currentStudentId), newEmail]
+            );
+            if (conflictStudent.rows.length) {
+              throw new Error(`Student email "${newEmail}" is already used by another student`);
+            }
+
+            const conflictStudentAccount = await client.query(
+              `SELECT 1
+                 FROM student_accounts
+                WHERE organization_id = $1
+                  AND student_id != $2
+                  AND LOWER(login_email) = $3
+                LIMIT 1`,
+              [organizationId, Number(currentStudentId), newEmail]
+            );
+            if (conflictStudentAccount.rows.length) {
+              throw new Error(`Student email "${newEmail}" is already used by another student portal account`);
+            }
+          }
+
+          for (const [currentStudentId, newEmail] of sanitizedStudentEmailUpdates.entries()) {
+            const currentStudent = studentsSnapshotById.get(Number(currentStudentId));
+            if (!currentStudent) continue;
+            const normalizedCurrentEmail = normalizeStudentEmail(currentStudent.email);
+            if (newEmail === normalizedCurrentEmail) continue;
+
+            await client.query(
+              `UPDATE students
+                  SET email = $1
+                WHERE student_id = $2 AND organization_id = $3`,
+              [newEmail, Number(currentStudentId), organizationId]
+            );
+            await client.query(
+              `UPDATE student_accounts
+                  SET login_email = $1,
+                      updated_at = NOW()
+                WHERE student_id = $2 AND organization_id = $3`,
+              [newEmail, Number(currentStudentId), organizationId]
+            );
           }
         }
 
@@ -18686,6 +19298,22 @@ NUMBERING:
           }, {});
         }
 
+        let updatedStudentEmails = {};
+        if (sanitizedStudentEmailUpdates && sanitizedStudentEmailUpdates.size) {
+          const refreshedEmailStudentsResult = await db.query(
+            `SELECT student_id, email
+               FROM students
+              WHERE organization_id = $1 AND student_id = ANY($2::int[])`,
+            [organizationId, Array.from(sanitizedStudentEmailUpdates.keys())]
+          );
+          updatedStudentEmails = refreshedEmailStudentsResult.rows.reduce((accumulator, studentRow) => {
+            accumulator[String(studentRow.student_id)] = {
+              email: studentRow.email || null,
+            };
+            return accumulator;
+          }, {});
+        }
+
         return res.json({
           success: true,
           updated: safeIds.length,
@@ -18693,6 +19321,7 @@ NUMBERING:
           yearLabel: newYearLabel,
           yearIsCurrent: newYearIsCurrent,
           updatedStudentIds,
+          updatedStudentEmails,
           subjectCarryoverMessage: subjectCarryoverNotice.message,
           subjectCarryoverWarning: subjectCarryoverNotice.skippedMessage,
         });

@@ -10,59 +10,73 @@
         --primary: var(--org-primary-color, #0f5a66);
         --primary-hover: var(--org-primary-hover, #0d4f59);
         --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
-        --surface: #f3f6f9;
-        --card-surface: #ffffff;
-        --border-soft: #e4ebf2;
-        --text-main: #15313a;
-        --text-soft: #607380;
+        --surface: color-mix(in srgb, var(--primary) 8%, white);
+        --card-surface: white;
+        --border-soft: color-mix(in srgb, var(--primary) 16%, white);
+        --text-main: color-mix(in srgb, var(--primary) 72%, black);
+        --text-soft: color-mix(in srgb, var(--primary) 46%, white);
+        --table-head-bg: color-mix(in srgb, var(--primary) 10%, white);
+        --row-even-bg: color-mix(in srgb, var(--primary) 3%, white);
+        --row-hover-bg: color-mix(in srgb, var(--primary) 8%, white);
+        --btn-disabled-bg: color-mix(in srgb, var(--primary) 10%, white);
+        --btn-disabled-border: color-mix(in srgb, var(--primary) 20%, white);
+        --btn-disabled-text: color-mix(in srgb, var(--primary) 36%, white);
+        --pill-on-bg: color-mix(in srgb, var(--primary) 14%, white);
+        --pill-on-text: color-mix(in srgb, var(--primary) 68%, black);
+        --pill-off-bg: color-mix(in srgb, var(--primary) 8%, white);
+        --pill-off-text: color-mix(in srgb, var(--primary) 44%, white);
+        --icon-btn-bg: color-mix(in srgb, var(--primary) 7%, white);
+        --icon-btn-border: color-mix(in srgb, var(--primary) 18%, white);
+        --icon-btn-hover: color-mix(in srgb, var(--primary) 13%, white);
+        --shadow-soft: color-mix(in srgb, var(--primary) 15%, transparent);
       }
       *, *::before, *::after { box-sizing: border-box; }
       body { font-family: var(--font-family); background: var(--surface); margin: 0; color: var(--text-main); }
       .page-wrap { max-width: 1260px; margin: 0 auto; padding: 22px 20px 40px; }
       .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
-      .top-bar h1 { font-size: 1.38rem; font-weight: 700; margin: 0; color: #0f2d32; }
+      .top-bar h1 { font-size: 1.38rem; font-weight: 700; margin: 0; color: var(--text-main); }
       .top-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
       .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px; font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: none; border: none; transition: background 0.17s, transform 0.14s; white-space: nowrap; }
-      .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 3px 10px rgba(15,90,102,0.22); }
+      .btn-primary { background: var(--primary); color: white; box-shadow: 0 3px 10px var(--shadow-soft); }
       .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); transform: translateY(-1px); }
-      .btn-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
-      .btn-outline:hover { background: #eef4f7; transform: translateY(-1px); }
+      .btn-outline { background: white; color: var(--primary); border: 2px solid var(--primary); }
+      .btn-outline:hover { background: var(--table-head-bg); transform: translateY(-1px); }
       .btn-disabled {
-        background: #edf1f4;
-        color: #8a9aa6;
-        border: 2px solid #d9e2e9;
+        background: var(--btn-disabled-bg);
+        color: var(--btn-disabled-text);
+        border: 2px solid var(--btn-disabled-border);
         cursor: not-allowed;
         opacity: 0.9;
       }
-      .card { background: var(--card-surface); border-radius: 14px; border: 1px solid var(--border-soft); box-shadow: 0 6px 22px rgba(15,45,50,0.07); overflow: hidden; }
+      .card { background: var(--card-surface); border-radius: 14px; border: 1px solid var(--border-soft); box-shadow: 0 6px 22px var(--shadow-soft); overflow: hidden; }
       .table-scroll { overflow-x: auto; }
       table { width: 100%; border-collapse: collapse; min-width: 860px; font-size: 0.86rem; }
-      thead th { background: #f6f9fb; color: #3b5561; font-weight: 700; padding: 12px 12px; text-align: left; letter-spacing: 0.2px; border-bottom: 1px solid var(--border-soft); white-space: nowrap; text-transform: uppercase; font-size: 0.73rem; }
-      tbody tr { border-bottom: 1px solid #eef2f6; }
+      thead th { background: var(--table-head-bg); color: var(--text-soft); font-weight: 700; padding: 12px 12px; text-align: left; letter-spacing: 0.2px; border-bottom: 1px solid var(--border-soft); white-space: nowrap; text-transform: uppercase; font-size: 0.73rem; }
+      tbody tr { border-bottom: 1px solid var(--border-soft); }
       tbody tr:last-child { border-bottom: none; }
-      tbody tr:nth-child(even) td { background: #fbfdff; }
-      tbody tr:hover td { background: #f2f8fb; }
-      td { padding: 11px 12px; vertical-align: middle; color: #1a2e35; }
-      .table-name { font-weight: 700; color: #1b2f3a; }
+      tbody tr:nth-child(even) td { background: var(--row-even-bg); }
+      tbody tr:hover td { background: var(--row-hover-bg); }
+      td { padding: 11px 12px; vertical-align: middle; color: var(--text-main); }
+      .table-name { font-weight: 700; color: var(--text-main); }
       .status-stack { display: flex; flex-wrap: wrap; gap: 6px; }
       .state-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; line-height: 1; }
       .state-pill svg { width: 12px; height: 12px; }
-      .state-lock-on { background: #fdecec; color: #c2413b; }
-      .state-lock-off { background: #e7f8ef; color: #1d7b4d; }
-      .state-edit-on { background: #e8f7f1; color: #12744a; }
-      .state-edit-off { background: #f2f4f7; color: #5f6d7a; }
-      .state-q-on { background: #e9f2ff; color: #1f4f8a; }
-      .state-q-off { background: #f2f4f7; color: #5f6d7a; }
+      .state-lock-on { background: var(--pill-on-bg); color: var(--pill-on-text); }
+      .state-lock-off { background: var(--pill-off-bg); color: var(--pill-off-text); }
+      .state-edit-on { background: var(--pill-on-bg); color: var(--pill-on-text); }
+      .state-edit-off { background: var(--pill-off-bg); color: var(--pill-off-text); }
+      .state-q-on { background: var(--pill-on-bg); color: var(--pill-on-text); }
+      .state-q-off { background: var(--pill-off-bg); color: var(--pill-off-text); }
       .window-info { font-size: 0.74rem; color: var(--text-soft); margin-top: 6px; line-height: 1.45; }
       .window-info span { display: block; }
-      .collapse-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: #195848; color: #fff; border: none; border-radius: 999px; font-size: 0.76rem; font-weight: 700; cursor: pointer; transition: background 0.17s; }
+      .collapse-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--primary); color: white; border: none; border-radius: 999px; font-size: 0.76rem; font-weight: 700; cursor: pointer; transition: background 0.17s; }
       .collapse-btn:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
       .collapse-btn svg { width: 12px; height: 12px; }
       .collapse-arrow { font-size: 10px; transition: transform 0.2s; }
-      .collapse-body { margin-top: 8px; background: #f4f8fa; border-radius: 8px; border: 1px solid #dde4ec; padding: 10px 14px; }
-      .collapse-body ul { margin: 2px 0 0 14px; padding: 0; font-size: 0.83rem; color: #3a5060; }
+      .collapse-body { margin-top: 8px; background: var(--table-head-bg); border-radius: 8px; border: 1px solid var(--border-soft); padding: 10px 14px; }
+      .collapse-body ul { margin: 2px 0 0 14px; padding: 0; font-size: 0.83rem; color: var(--text-soft); }
       .collapse-body li { margin-bottom: 2px; }
-      .collapse-class-name { font-size: 0.85rem; font-weight: 600; color: #1a2e35; margin-bottom: 2px; }
+      .collapse-class-name { font-size: 0.85rem; font-weight: 600; color: var(--text-main); margin-bottom: 2px; }
       .actions-cell { display: flex; gap: 8px; align-items: center; }
       .action-icon-btn {
         width: 32px;
@@ -71,21 +85,21 @@
         align-items: center;
         justify-content: center;
         border-radius: 10px;
-        border: 1px solid #d9e3ea;
+        border: 1px solid var(--icon-btn-border);
         text-decoration: none;
         cursor: pointer;
         transition: transform 0.14s, background 0.16s, border-color 0.16s;
-        background: #f8fbfd;
-        color: #1f4d57;
+        background: var(--icon-btn-bg);
+        color: var(--primary);
       }
-      .action-icon-btn:hover { transform: translateY(-1px); background: #eff6fa; }
+      .action-icon-btn:hover { transform: translateY(-1px); background: var(--icon-btn-hover); }
       .action-icon-btn svg { width: 16px; height: 16px; }
-      .action-icon-btn-lock { color: #b64037; background: #fff6f5; border-color: #f3d1ce; }
-      .action-icon-btn-lock:hover { background: #feecec; }
-      .action-icon-btn-unlock { color: #1d7b4d; background: #f3fcf7; border-color: #cfead9; }
-      .action-icon-btn-unlock:hover { background: #e9f8ef; }
-      .action-icon-btn-modify { color: #175d72; background: #f2f9fd; border-color: #cddfea; }
-      .action-icon-btn-modify:hover { background: #e7f2f9; }
+      .action-icon-btn-lock { color: var(--primary); background: var(--icon-btn-bg); border-color: var(--icon-btn-border); }
+      .action-icon-btn-lock:hover { background: var(--icon-btn-hover); }
+      .action-icon-btn-unlock { color: var(--primary); background: var(--icon-btn-bg); border-color: var(--icon-btn-border); }
+      .action-icon-btn-unlock:hover { background: var(--icon-btn-hover); }
+      .action-icon-btn-modify { color: var(--primary); background: var(--icon-btn-bg); border-color: var(--icon-btn-border); }
+      .action-icon-btn-modify:hover { background: var(--icon-btn-hover); }
       .sr-only {
         position: absolute;
         width: 1px;
@@ -97,7 +111,7 @@
         white-space: nowrap;
         border: 0;
       }
-      .empty-row td { text-align: center; color: #7a919e; font-style: italic; padding: 32px; }
+      .empty-row td { text-align: center; color: var(--text-soft); font-style: italic; padding: 32px; }
 
       /* ── Small screen ── */
       @media (max-width: 760px) {
@@ -113,10 +127,10 @@
         thead { display: none; }
         tbody tr {
           display: block;
-          background: #fff;
+          background: white;
           border: 1px solid var(--border-soft);
           border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(15,45,50,0.06);
+          box-shadow: 0 4px 12px var(--shadow-soft);
           padding: 2px 0;
         }
         tbody tr:nth-child(even) td,
@@ -127,13 +141,13 @@
           justify-content: space-between;
           gap: 12px;
           width: 100%;
-          border-bottom: 1px dashed #e8eef4;
+          border-bottom: 1px dashed var(--border-soft);
           padding: 10px 12px;
         }
         td:last-child { border-bottom: none; }
         td::before {
           content: attr(data-label);
-          color: #6b7f8d;
+          color: var(--text-soft);
           font-weight: 700;
           font-size: 0.72rem;
           letter-spacing: 0.2px;
@@ -188,16 +202,11 @@
   <div class="top-bar">
     <h1>Manage Assessments</h1>
     <div class="top-bar-actions">
-      <% if (canUseGoogleClassroom) { %>
-        <a href="/common/allClassAssessmentExams?organizationId=<%= organizationId %>&termId=<%= termId %>" class="btn btn-outline" title="Open all class assessment questions">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" width="15" height="15"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          Assessment Questions
-        </a>
-      <% } else { %>
-        <span class="btn btn-disabled" title="Assessment Questions requires Google integration">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" width="15" height="15"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          Assessment Questions
-        </span>
+      <% if (canAccessAssessmentQuestions) { %>
+      <a href="/common/allClassAssessmentExams?organizationId=<%= organizationId %>&termId=<%= termId %>" class="btn btn-outline" title="Open all class assessment questions">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" width="15" height="15"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Assessment Questions
+      </a>
       <% } %>
       <a href="/common/createTest?organizationId=<%= organizationId %>&termId=<%= termId %>" class="btn btn-primary" title="Create new test">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" width="15" height="15"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -245,7 +254,7 @@
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     <%= assessment.can_edit_scores ? 'Editable' : 'Read only' %>
                   </span>
-                  <% if (canUseGoogleClassroom) { %>
+                  <% if (canUseQuestionSetIntegration) { %>
                     <span class="state-pill <%= assessment.show_question_set_on_dashboard ? 'state-q-on' : 'state-q-off' %>" title="Teacher question set visibility">
                       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/></svg>
                       <%= assessment.show_question_set_on_dashboard ? 'Q set on' : 'Q set off' %>
@@ -261,7 +270,7 @@
                       <span>End: &nbsp;&nbsp;<%= new Date(assessment.edit_window_end).toLocaleString() %></span>
                     <% } %>
                   <% } else { %>
-                    <span style="color:#9aabb6;">No window</span>
+                    <span style="color:var(--text-soft);">No window</span>
                   <% } %>
                 </div>
               </td>

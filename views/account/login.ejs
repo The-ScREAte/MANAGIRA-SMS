@@ -185,12 +185,12 @@
 
     .btn-primary {
       width: 100%;
-      padding: 14px 24px;
+      padding: 11px 18px;
       background: linear-gradient(135deg, var(--primary) 0%, #0a6d77 100%);
       color: white;
       border: none;
       border-radius: 10px;
-      font-size: 1rem;
+      font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -355,20 +355,26 @@
         height: 32px;
       }
       .btn-primary {
-        padding: 8px 16px;
-        font-size: 0.85rem;
-      }
-      .button-row {
-        flex-direction: column;
+        padding: 7px 14px;
+        font-size: 0.78rem;
       }
       .button-row.portal-buttons {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
       }
       .btn-guardian {
-        width: 100%;
+        width: auto;
+        padding: 8px 10px;
+        font-size: 0.74rem;
+        gap: 6px;
+        border-radius: 8px;
+      }
+      .btn-guardian svg {
+        width: 14px;
+        height: 14px;
       }
       .btn-guardian.student-login-btn {
-        width: 100%;
+        width: min(210px, 100%);
       }
       .login-links p {
         font-size: 0.85rem;

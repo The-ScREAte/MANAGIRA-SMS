@@ -71,9 +71,82 @@ async function getPlanRegionPrice(db, planId, regionId) {
   return r.rows[0] || null;
 }
 
+async function getBestPlanRegionPrice(db, planId, preferredRegionId = null) {
+  const normalizedPlanId = Number(planId || 0);
+  if (!Number.isInteger(normalizedPlanId) || normalizedPlanId <= 0) return null;
+
+  const normalizedPreferredRegionId = Number(preferredRegionId || 0);
+  if (Number.isInteger(normalizedPreferredRegionId) && normalizedPreferredRegionId > 0) {
+    const exact = await db.query(
+      `SELECT prp.*, pr.id AS matched_region_id, pr.name AS matched_region_name
+         FROM plan_region_prices prp
+         JOIN pricing_regions pr ON pr.id = prp.region_id
+        WHERE prp.plan_id = $1
+          AND prp.region_id = $2
+          AND pr.is_active = TRUE
+        LIMIT 1`,
+      [normalizedPlanId, normalizedPreferredRegionId]
+    );
+    if (exact.rows[0]) {
+      return {
+        priceRow: exact.rows[0],
+        region: {
+          id: Number(exact.rows[0].matched_region_id),
+          name: exact.rows[0].matched_region_name,
+        },
+        matchType: "exact",
+      };
+    }
+  }
+
+  const defaultRegion = await db.query(
+    `SELECT prp.*, pr.id AS matched_region_id, pr.name AS matched_region_name
+       FROM plan_region_prices prp
+       JOIN pricing_regions pr ON pr.id = prp.region_id
+      WHERE prp.plan_id = $1
+        AND pr.is_active = TRUE
+        AND pr.is_default = TRUE
+      ORDER BY pr.sort_order ASC, pr.id ASC
+      LIMIT 1`,
+    [normalizedPlanId]
+  );
+  if (defaultRegion.rows[0]) {
+    return {
+      priceRow: defaultRegion.rows[0],
+      region: {
+        id: Number(defaultRegion.rows[0].matched_region_id),
+        name: defaultRegion.rows[0].matched_region_name,
+      },
+      matchType: "default",
+    };
+  }
+
+  const anyActive = await db.query(
+    `SELECT prp.*, pr.id AS matched_region_id, pr.name AS matched_region_name
+       FROM plan_region_prices prp
+       JOIN pricing_regions pr ON pr.id = prp.region_id
+      WHERE prp.plan_id = $1
+        AND pr.is_active = TRUE
+      ORDER BY pr.is_default DESC, pr.sort_order ASC, pr.id ASC
+      LIMIT 1`,
+    [normalizedPlanId]
+  );
+  if (!anyActive.rows[0]) return null;
+
+  return {
+    priceRow: anyActive.rows[0],
+    region: {
+      id: Number(anyActive.rows[0].matched_region_id),
+      name: anyActive.rows[0].matched_region_name,
+    },
+    matchType: "any-active",
+  };
+}
+
 module.exports = {
   computeDynamicMonthlyPrice,
   applyCycle,
   getRegionForCountry,
   getPlanRegionPrice,
+  getBestPlanRegionPrice,
 };

@@ -242,9 +242,10 @@
   .as-table .col-id      { width: 80px; }
   .as-table .col-class   { width: 130px; }
   .as-table .col-gender  { width: 80px; }
+  .as-table .col-email   { width: 220px; }
   .as-table .col-syear   { width: 130px; }
   .as-table .col-status  { width: 96px; }
-  .as-table .col-actions { width: 120px; }
+  .as-table .col-actions { width: 138px; }
 
   .as-table tbody tr {
     border-bottom: 1px solid #f1f5f9;
@@ -323,6 +324,32 @@
     color: #94a3b8;
     font-style: italic;
     font-size: 12.5px;
+  }
+
+  .as-email-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+  }
+  .as-email-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .as-portal-access-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   /* ── Status badge ────────────────────────── */
@@ -907,6 +934,8 @@
   .as-bulk-btn svg { width: 12px; height: 12px; }
   .as-bulk-btn-edit  { background: #fff; color: var(--primary); }
   .as-bulk-btn-edit:hover { background: #f0fdf4; }
+  .as-bulk-btn-portal { background: #fef3c7; color: #7c2d12; }
+  .as-bulk-btn-portal:hover { background: #fde68a; }
   .as-bulk-btn-clear { background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
   .as-bulk-btn-clear:hover { background: rgba(255,255,255,0.28); }
   .as-bulk-btn-clear.icon-only {
@@ -1275,6 +1304,12 @@
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
         Edit Selected
       </button>
+      <% if (canSendStudentPortalRequest) { %>
+      <button class="as-bulk-btn as-bulk-btn-portal" id="asBulkPortalBtn">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-18 8h18a2 2 0 002-2V8a2 2 0 00-2-2H3a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+        Send Portal Emails
+      </button>
+      <% } %>
       <button class="as-bulk-btn as-bulk-btn-clear icon-only" id="asBulkClearBtn" aria-label="Clear selection" title="Clear selection">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
@@ -1295,6 +1330,7 @@
           <th class="col-id">ID <button type="button" class="as-sort-btn" data-sort-key="displayId" data-sort-label="student IDs" data-sort-direction="asc" aria-label="Sort student IDs descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th class="col-class">Class <button type="button" class="as-sort-btn" data-sort-key="className" data-sort-label="classes" data-sort-direction="asc" aria-label="Sort classes descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th class="col-gender">Gender <button type="button" class="as-sort-btn" data-sort-key="gender" data-sort-label="genders" data-sort-direction="asc" aria-label="Sort genders descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+          <th class="col-email">Email <button type="button" class="as-sort-btn" data-sort-key="email" data-sort-label="emails" data-sort-direction="asc" aria-label="Sort emails descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th class="col-syear">School Year <button type="button" class="as-sort-btn" data-sort-key="schoolYear" data-sort-label="school years" data-sort-direction="asc" aria-label="Sort school years descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th class="col-status">Status <button type="button" class="as-sort-btn" data-sort-key="status" data-sort-label="statuses" data-sort-direction="asc" aria-label="Sort statuses descending"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 1 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 1 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
           <th class="col-actions">Actions</th>
@@ -1315,6 +1351,8 @@
           data-class-id="<%= s.class_id || '' %>"
           data-class-name="<%= String(s.class_name || '').toLowerCase() %>"
           data-gender="<%= String(s.gender || '').toLowerCase() %>"
+          data-email="<%= String(s.email || '').toLowerCase() %>"
+          data-has-portal-access="<%= s.has_portal_access ? 'true' : 'false' %>"
           data-school-year-id="<%= s.last_school_year_id || '' %>"
           data-school-year-label="<%= String(s.last_school_year || '').toLowerCase() %>"
           data-display-id="<%= String(s.display_student_id || '').toLowerCase() %>"
@@ -1344,6 +1382,15 @@
           <td><%= s.gender || '—' %></td>
 
           <td>
+            <div class="as-email-cell">
+              <span class="as-email-text"><%= s.email || '—' %></span>
+              <% if (studentPortalIntegrationActive && s.has_portal_access) { %>
+              <span class="as-portal-access-badge">Portal access</span>
+              <% } %>
+            </div>
+          </td>
+
+          <td>
             <span class="js-student-year-value <%= s.last_school_year ? 'as-syear-curr' : 'as-syear-none' %>"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %><span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><% } %><% } else { %>—<% } %></span>
           </td>
 
@@ -1362,6 +1409,7 @@
               <button class="as-btn as-btn-edit js-edit-class icon-only"
                 data-student-id="<%= s.student_id %>"
                 data-student-name="<%= studentDisplayName %>"
+                data-email="<%= s.email || '' %>"
                 data-class-id="<%= s.class_id || '' %>"
                 data-class-name="<%= s.class_name || '' %>"
                 data-school-year-id="<%= s.last_school_year_id || '' %>"
@@ -1375,10 +1423,13 @@
                 aria-label="Edit student">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               </button>
-              <% if (req.session && req.session.userRole === 'Supervisor' && s.email) { %>
+              <% if (canSendStudentPortalRequest) { %>
               <button class="as-btn as-btn-reset js-student-password-reset icon-only"
                 data-student-id="<%= s.student_id %>"
                 data-student-name="<%= studentDisplayName %>"
+                data-has-portal-access="<%= s.has_portal_access ? 'true' : 'false' %>"
+                data-email-present="<%= s.email ? 'true' : 'false' %>"
+                style="<%= s.email ? '' : 'display:none;' %>"
                 title="Send student portal password setup/reset email"
                 aria-label="Send student portal password setup/reset email">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7a4.5 4.5 0 10-9 0v3.5m-.75 0h10.5A1.75 1.75 0 0119 12.25v6A1.75 1.75 0 0117.25 20h-10.5A1.75 1.75 0 015 18.25v-6A1.75 1.75 0 016.75 10.5z"/></svg>
@@ -1406,6 +1457,8 @@
         data-search-id="<%= String(s.display_student_id || '').toLowerCase() %>"
         data-class-id="<%= s.class_id || '' %>"
         data-gender="<%= s.gender || '' %>"
+        data-email="<%= String(s.email || '').toLowerCase() %>"
+        data-has-portal-access="<%= s.has_portal_access ? 'true' : 'false' %>"
         data-school-year-id="<%= s.last_school_year_id || '' %>"
         data-display-id="<%= s.display_student_id || '' %>"
         data-status="<%= isGrad ? 'graduated' : 'active' %>">
@@ -1434,6 +1487,15 @@
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             <span class="js-student-year-value"><% if (s.last_school_year) { %><%= s.last_school_year %><% if (s.in_current_year) { %> <span class="as-syear-label" title="Current year" aria-label="Current year"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span><% } %><% } else { %>No year<% } %></span>
           </div>
+          <div class="as-card-meta-item">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8m-18 8h18a2 2 0 002-2V8a2 2 0 00-2-2H3a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+            <span class="as-email-cell">
+              <span class="as-email-text"><%= s.email || 'No email' %></span>
+              <% if (studentPortalIntegrationActive && s.has_portal_access) { %>
+              <span class="as-portal-access-badge">Portal access</span>
+              <% } %>
+            </span>
+          </div>
         </div>
         <div class="as-card-actions">
           <a href="<%= detailsHref %>" class="as-btn as-btn-view icon-only" title="View student" aria-label="View student">
@@ -1442,6 +1504,7 @@
           <button class="as-btn as-btn-edit js-edit-class icon-only"
             data-student-id="<%= s.student_id %>"
             data-student-name="<%= studentDisplayName %>"
+            data-email="<%= s.email || '' %>"
             data-class-id="<%= s.class_id || '' %>"
             data-class-name="<%= s.class_name || '' %>"
             data-school-year-id="<%= s.last_school_year_id || '' %>"
@@ -1455,10 +1518,13 @@
             aria-label="Edit student">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
           </button>
-          <% if (req.session && req.session.userRole === 'Supervisor' && s.email) { %>
+          <% if (canSendStudentPortalRequest) { %>
           <button class="as-btn as-btn-reset js-student-password-reset icon-only"
             data-student-id="<%= s.student_id %>"
             data-student-name="<%= studentDisplayName %>"
+            data-has-portal-access="<%= s.has_portal_access ? 'true' : 'false' %>"
+            data-email-present="<%= s.email ? 'true' : 'false' %>"
+            style="<%= s.email ? '' : 'display:none;' %>"
             title="Send student portal password setup/reset email"
             aria-label="Send student portal password setup/reset email">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7a4.5 4.5 0 10-9 0v3.5m-.75 0h10.5A1.75 1.75 0 0119 12.25v6A1.75 1.75 0 0117.25 20h-10.5A1.75 1.75 0 015 18.25v-6A1.75 1.75 0 016.75 10.5z"/></svg>
@@ -1526,6 +1592,15 @@
             <option value="<%= sy.id %>"><%= sy.year_label %><% if (sy.current) { %> (Current)<% } %></option>
             <% }); %>
           </select>
+        </div>
+        <div class="as-modal-field">
+          <label class="as-modal-label" for="asModalEmailInput">Student Email</label>
+          <input type="email"
+            class="as-modal-input"
+            id="asModalEmailInput"
+            placeholder="student@example.com"
+            autocomplete="off">
+          <div class="as-modal-hint">Used for student portal setup and login communication.</div>
         </div>
         <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
         <div class="as-modal-field">
@@ -1626,6 +1701,17 @@
             <% }); %>
           </select>
         </div>
+        <div class="as-bfield">
+          <div class="as-bfield-row">
+            <input type="checkbox" id="asBulkChkEmail" class="as-bulk-field-chk">
+            <label for="asBulkChkEmail">Edit Student Emails</label>
+          </div>
+          <input type="text" class="as-bfield-select" id="asBulkEmailSearch" placeholder="Search selected students by name..." style="display:none;" autocomplete="off">
+          <div class="as-modal-hint" style="margin-top:2px;">
+            Enter a valid email for each selected student you want to update.
+          </div>
+          <div class="as-bulk-id-list" id="asBulkEmailList" style="display:none;"></div>
+        </div>
         <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
         <div class="as-bfield">
           <div class="as-bfield-row">
@@ -1682,6 +1768,9 @@
 <script>
 (function () {
   'use strict';
+
+  var canSendStudentPortalRequest = <%- JSON.stringify(Boolean(canSendStudentPortalRequest)) %>;
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
   var studentIdConfig = {
     enabled: <%- JSON.stringify(Boolean(studentIdSettings && studentIdSettings.use_custom_student_id)) %>,
@@ -1795,6 +1884,34 @@
     }
   }
 
+  function setStudentEmailValue(studentId, emailValue) {
+    var normalizedEmail = String(emailValue || '').trim().toLowerCase();
+    var row = document.querySelector('#asTableBody tr[data-id="' + studentId + '"]');
+    var card = document.querySelector('#asCardList .as-card[data-id="' + studentId + '"]');
+
+    function apply(node, placeholderText) {
+      if (!node) return;
+      node.dataset.email = normalizedEmail;
+
+      var emailText = node.querySelector('.as-email-text');
+      if (emailText) emailText.textContent = normalizedEmail || placeholderText;
+
+      var editBtn = node.querySelector('.js-edit-class');
+      if (editBtn) editBtn.dataset.email = normalizedEmail || '';
+
+      var resetBtn = node.querySelector('.js-student-password-reset');
+      if (resetBtn) {
+        resetBtn.dataset.emailPresent = normalizedEmail ? 'true' : 'false';
+        if (canSendStudentPortalRequest) {
+          resetBtn.style.display = normalizedEmail ? '' : 'none';
+        }
+      }
+    }
+
+    apply(row, '—');
+    apply(card, 'No email');
+  }
+
   function updateModalHeaderOffset() {
     var selectors = ['header', '#header', '.header', '.navbar', '.top-nav', '.main-header'];
     var maxBottom = 0;
@@ -1861,6 +1978,8 @@
         return String(node.dataset.className || '');
       case 'gender':
         return String(node.dataset.gender || '');
+      case 'email':
+        return String(node.dataset.email || '');
       case 'schoolYear':
         return String(node.dataset.schoolYearLabel || node.dataset.schoolYearId || '');
       case 'status':
@@ -1992,6 +2111,7 @@
   var bulkBar       = document.getElementById('asBulkBar');
   var bulkCountText = document.getElementById('asBulkCountText');
   var bulkEditBtn   = document.getElementById('asBulkEditBtn');
+  var bulkPortalBtn = document.getElementById('asBulkPortalBtn');
   var bulkClearBtn  = document.getElementById('asBulkClearBtn');
   var selectAllCb   = document.getElementById('asSelectAll');
   var bulkModeBtn   = document.getElementById('asBulkModeBtn');
@@ -2048,6 +2168,112 @@
   bulkEditBtn.addEventListener('click', openBulkModal);
   bulkClearBtn.addEventListener('click', clearAllSelections);
 
+  function buildPortalSendSelection() {
+    return Array.from(selectedIds).reduce(function(acc, id) {
+      var row = document.querySelector('#asTableBody tr[data-id="' + String(id) + '"]');
+      if (!row) {
+        acc.missing += 1;
+        return acc;
+      }
+
+      var hasPortalAccess = String(row.dataset.hasPortalAccess || 'false').toLowerCase() === 'true';
+      if (hasPortalAccess) {
+        acc.alreadyAccess += 1;
+        return acc;
+      }
+
+      var hasEmail = Boolean(String(row.dataset.email || '').trim());
+      if (!hasEmail) {
+        acc.noEmail += 1;
+        return acc;
+      }
+
+      acc.eligibleIds.push(String(id));
+      return acc;
+    }, {
+      eligibleIds: [],
+      alreadyAccess: 0,
+      noEmail: 0,
+      missing: 0,
+    });
+  }
+
+  if (bulkPortalBtn) {
+    bulkPortalBtn.addEventListener('click', function() {
+      if (!selectedIds.size) {
+        window.alert('Select at least one student first.');
+        return;
+      }
+
+      var selection = buildPortalSendSelection();
+      if (!selection.eligibleIds.length) {
+        if (selection.alreadyAccess > 0 && selection.noEmail === 0 && selection.missing === 0) {
+          window.alert('All selected students already have portal access.');
+          return;
+        }
+
+        var noSendReasons = [];
+        if (selection.alreadyAccess > 0) {
+          noSendReasons.push(selection.alreadyAccess + ' already have portal access');
+        }
+        if (selection.noEmail > 0) {
+          noSendReasons.push(selection.noEmail + ' have no email');
+        }
+        if (selection.missing > 0) {
+          noSendReasons.push(selection.missing + ' are unavailable');
+        }
+        window.alert('No selected students are eligible for portal setup emails. ' + noSendReasons.join(', ') + '.');
+        return;
+      }
+
+      var confirmText = 'You are sending Student Portal setup email(s) to ' + selection.eligibleIds.length + ' selected student(s).';
+      var skipNotes = [];
+      if (selection.alreadyAccess > 0) {
+        skipNotes.push(selection.alreadyAccess + ' already have portal access and will not receive email');
+      }
+      if (selection.noEmail > 0) {
+        skipNotes.push(selection.noEmail + ' have no email and will be skipped');
+      }
+      if (selection.missing > 0) {
+        skipNotes.push(selection.missing + ' are unavailable and will be skipped');
+      }
+      if (skipNotes.length) {
+        confirmText += '\n\n' + skipNotes.join('\n');
+      }
+      confirmText += '\n\nDo you want to continue?';
+      if (!window.confirm(confirmText)) return;
+
+      var previousHtml = bulkPortalBtn.innerHTML;
+      bulkPortalBtn.disabled = true;
+      bulkPortalBtn.textContent = 'Sending...';
+
+      fetch('/common/studentRequestPasswordResetBulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ studentIds: selection.eligibleIds })
+      })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+          if (data && data.success) {
+            window.alert(data.message || 'Student portal emails sent successfully.');
+            return;
+          }
+          window.alert((data && data.error) || 'Unable to send student portal emails.');
+        })
+        .catch(function() {
+          window.alert('Network error while sending student portal emails.');
+        })
+        .finally(function() {
+          bulkPortalBtn.disabled = false;
+          bulkPortalBtn.innerHTML = previousHtml;
+        });
+    });
+  }
+
   /* ── Single-student Edit Class Modal (2-step) ─────────── */
   var overlay     = document.getElementById('asModalOverlay');
   var modalClose  = document.getElementById('asModalClose');
@@ -2057,6 +2283,7 @@
   var modalSave   = document.getElementById('asModalSave');
   var modalSelect = document.getElementById('asModalClassSelect');
   var modalYearSelect = document.getElementById('asModalYearSelect');
+  var modalEmailInput = document.getElementById('asModalEmailInput');
   var modalStudentIdInput = document.getElementById('asModalStudentIdInput');
   var modalStudentIdMsg = document.getElementById('asModalStudentIdMsg');
   var modalMsg    = document.getElementById('asModalMsg');
@@ -2066,7 +2293,7 @@
   var step2       = document.getElementById('asModalStep2');
   var confirmDetail = document.getElementById('asConfirmDetail');
   var changeArrow   = document.getElementById('asChangeArrow');
-  var _sid=null, _row=null, _card=null, _oldClassName='', _oldClassId='', _oldSchoolYearId='', _oldSchoolYearLabel='', _oldDisplayId='', _oldEditableId='', _studentIdToken=0, _studentIdTimer=null, _carryExistingSubjects=null, _carryExistingSubjectsClassId='';
+  var _sid=null, _row=null, _card=null, _oldClassName='', _oldClassId='', _oldSchoolYearId='', _oldSchoolYearLabel='', _oldEmail='', _oldDisplayId='', _oldEditableId='', _studentIdToken=0, _studentIdTimer=null, _carryExistingSubjects=null, _carryExistingSubjectsClassId='';
 
   function clearStudentIdInlineState() {
     if (!modalStudentIdInput || !modalStudentIdMsg) return;
@@ -2121,12 +2348,14 @@
     _sid = btn.dataset.studentId;
     var name=btn.dataset.studentName, classId=btn.dataset.classId,
         className=btn.dataset.className, img=btn.dataset.image, initials=btn.dataset.initials,
-        schoolYearId=btn.dataset.schoolYearId, schoolYearLabel=btn.dataset.schoolYearLabel,
+      schoolYearId=btn.dataset.schoolYearId, schoolYearLabel=btn.dataset.schoolYearLabel,
+      email=btn.dataset.email,
         displayId=btn.dataset.displayId, editableId=btn.dataset.editableId;
     _oldClassId=classId||'';
     _oldClassName=className||'—';
     _oldSchoolYearId=schoolYearId||'';
     _oldSchoolYearLabel=schoolYearLabel||'—';
+    _oldEmail = String(email || '').trim().toLowerCase();
     _oldDisplayId=displayId||buildDisplayStudentId('', _sid);
     _oldEditableId=editableId||'';
     _carryExistingSubjects = null;
@@ -2143,6 +2372,10 @@
     if (modalYearSelect) {
       modalYearSelect.value = schoolYearId||'';
       modalYearSelect.classList.remove('is-error');
+    }
+    if (modalEmailInput) {
+      modalEmailInput.value = _oldEmail;
+      modalEmailInput.classList.remove('is-error');
     }
     if (modalStudentIdInput) {
       modalStudentIdInput.value = editableId || '';
@@ -2167,14 +2400,21 @@
     var newSchoolYearLabel = newSchoolYearId && modalYearSelect
       ? modalYearSelect.options[modalYearSelect.selectedIndex].text.replace(/\s*\(Current\)\s*$/,'')
       : '—';
+    var newEmail = modalEmailInput ? String(modalEmailInput.value || '').trim().toLowerCase() : _oldEmail;
+    if (modalEmailInput) modalEmailInput.value = newEmail;
     var newStudentIdValue = modalStudentIdInput ? normalizeNumericStudentIdValue(modalStudentIdInput.value) : '';
     if (modalStudentIdInput) modalStudentIdInput.value = newStudentIdValue;
     var hasClassChange = newClassId !== _oldClassId;
     var hasYearChange = newSchoolYearId !== _oldSchoolYearId;
+    var hasEmailChange = newEmail !== _oldEmail;
     var hasIdChange = !!modalStudentIdInput && newStudentIdValue !== _oldEditableId;
 
-    if (!hasClassChange && !hasYearChange && !hasIdChange) {
+    if (!hasClassChange && !hasYearChange && !hasEmailChange && !hasIdChange) {
       modalMsg.textContent='Make at least one change before saving.'; modalMsg.className='as-modal-msg error'; return;
+    }
+    if (hasEmailChange && !EMAIL_RE.test(newEmail)) {
+      if (modalEmailInput) modalEmailInput.classList.add('is-error');
+      modalMsg.textContent='Enter a valid student email address.'; modalMsg.className='as-modal-msg error'; return;
     }
     if (modalStudentIdInput && modalStudentIdInput.classList.contains('is-error')) {
       modalMsg.textContent='This student ID is already in use.'; modalMsg.className='as-modal-msg error'; return;
@@ -2198,6 +2438,11 @@
         '<div class="as-change-row"><span class="as-change-label">School year:</span>'+pill(_oldSchoolYearLabel,'from')+'<span style="color:#94a3b8;">→</span>'+pill(newSchoolYearLabel,'year')+'</div>'
       );
     }
+    if (hasEmailChange) {
+      summary.push(
+        '<div class="as-change-row"><span class="as-change-label">Email:</span>'+pill(_oldEmail || '—','from')+'<span style="color:#94a3b8;">→</span>'+pill(newEmail,'to')+'</div>'
+      );
+    }
     if (hasIdChange) {
       summary.push(
         '<div class="as-change-row"><span class="as-change-label">Student ID:</span>'+pill(_oldDisplayId,'from')+'<span style="color:#94a3b8;">→</span>'+pill(buildDisplayStudentId(newStudentIdValue, _sid),'to')+'</div>'
@@ -2219,13 +2464,19 @@
   modalSave.addEventListener('click', function(){
     var newClassId = modalSelect.value || '';
     var newSchoolYearId = modalYearSelect ? (modalYearSelect.value || '') : '';
+    var newEmail = modalEmailInput ? String(modalEmailInput.value || '').trim().toLowerCase() : _oldEmail;
     var newStudentIdValue = modalStudentIdInput ? normalizeNumericStudentIdValue(modalStudentIdInput.value) : '';
     var hasClassChange = newClassId !== _oldClassId;
     var hasYearChange = !!newSchoolYearId && newSchoolYearId !== _oldSchoolYearId;
+    var hasEmailChange = newEmail !== _oldEmail;
     var hasIdChange = !!modalStudentIdInput && newStudentIdValue !== _oldEditableId;
 
-    if (!hasClassChange && !hasYearChange && !hasIdChange) {
+    if (!hasClassChange && !hasYearChange && !hasEmailChange && !hasIdChange) {
       modalMsg2.textContent='No changes to save.'; modalMsg2.className='as-modal-msg error'; return;
+    }
+    if (hasEmailChange && !EMAIL_RE.test(newEmail)) {
+      if (modalEmailInput) modalEmailInput.classList.add('is-error');
+      modalMsg2.textContent='Enter a valid student email address.'; modalMsg2.className='as-modal-msg error'; return;
     }
 
     modalSave.disabled=true;
@@ -2233,6 +2484,7 @@
     var payload = {};
     if (hasClassChange) payload.classId = newClassId;
     if (hasYearChange) payload.schoolYearId = newSchoolYearId;
+    if (hasEmailChange) payload.email = newEmail;
     if (hasIdChange) payload.customStudentId = newStudentIdValue;
     if (hasClassChange) payload.keepExistingSubjects = !!_carryExistingSubjects;
 
@@ -2248,6 +2500,9 @@
         }
         if (hasYearChange) {
           setStudentYearValue(_sid, data.schoolYearId || newSchoolYearId, data.yearLabel || '', !!data.yearIsCurrent);
+        }
+        if (hasEmailChange) {
+          setStudentEmailValue(_sid, data.email || newEmail);
         }
         setStudentDisplayId(_sid, data.displayStudentId || buildDisplayStudentId(newStudentIdValue, _sid), data.editableStudentId);
         var singleCarryoverNotice = joinSubjectCarryoverMessages(data);
@@ -2275,7 +2530,17 @@
     if (!button) return;
     var studentId = button.dataset.studentId;
     var studentName = button.dataset.studentName || 'this student';
+    var hasEmail = String(button.dataset.emailPresent || 'false').toLowerCase() === 'true';
+    var hasPortalAccess = String(button.dataset.hasPortalAccess || 'false').toLowerCase() === 'true';
     if (!studentId) return;
+    if (!hasEmail) {
+      window.alert(studentName + ' does not have an email address yet.');
+      return;
+    }
+    if (hasPortalAccess) {
+      window.alert(studentName + ' already has portal access. No email was sent.');
+      return;
+    }
     if (!window.confirm('Send student portal password setup/reset email to ' + studentName + '?')) {
       return;
     }
@@ -2320,6 +2585,14 @@
     modalStudentIdInput.addEventListener('input', checkStudentIdAvailability);
     modalStudentIdInput.addEventListener('blur', checkStudentIdAvailability);
   }
+  if (modalEmailInput) {
+    modalEmailInput.addEventListener('input', function() {
+      var value = String(modalEmailInput.value || '').trim().toLowerCase();
+      if (!value || EMAIL_RE.test(value)) {
+        modalEmailInput.classList.remove('is-error');
+      }
+    });
+  }
   modalSelect.addEventListener('change', function(){ _carryExistingSubjects = null; _carryExistingSubjectsClassId = ''; });
 
   /* ── Bulk Edit Modal (2-step) ────────────────────────── */
@@ -2340,7 +2613,10 @@
   var bulkChangeSummary = document.getElementById('asBulkChangeSummary');
   var chkClass = document.getElementById('asBulkChkClass');
   var chkYear  = document.getElementById('asBulkChkYear');
+  var chkEmail = document.getElementById('asBulkChkEmail');
   var chkStudentId = document.getElementById('asBulkChkStudentId');
+  var bulkEmailSearch = document.getElementById('asBulkEmailSearch');
+  var bulkEmailList = document.getElementById('asBulkEmailList');
   var bulkStudentIdSearch = document.getElementById('asBulkStudentIdSearch');
   var selClass = document.getElementById('asBulkClassSelect');
   var selYear  = document.getElementById('asBulkYearSelect');
@@ -2352,6 +2628,16 @@
 
   chkClass.addEventListener('change', function(){ selClass.disabled=!this.checked; if(this.checked) selClass.focus(); });
   chkYear.addEventListener('change',  function(){ selYear.disabled=!this.checked;  if(this.checked) selYear.focus(); });
+  if (chkEmail) {
+    chkEmail.addEventListener('change', function(){
+      if (!bulkEmailList) return;
+      bulkEmailList.style.display = this.checked ? 'grid' : 'none';
+      if (bulkEmailSearch) bulkEmailSearch.style.display = this.checked ? 'block' : 'none';
+      if (!this.checked) return;
+      var firstInput = bulkEmailList.querySelector('.as-bulk-email-input');
+      if (firstInput) firstInput.focus();
+    });
+  }
   if (chkStudentId) {
     chkStudentId.addEventListener('change', function(){
       if (!bulkStudentIdList) return;
@@ -2459,6 +2745,127 @@
     });
   }
 
+  function setBulkEmailError(input, message) {
+    if (!input) return;
+    var row = input.closest('.as-bulk-id-row');
+    var errorLabel = row ? row.querySelector('.as-bulk-id-error') : null;
+    var hasMessage = !!String(message || '').trim();
+    input.classList.toggle('is-error', hasMessage);
+    input.dataset.error = hasMessage ? String(message) : '';
+    if (errorLabel) {
+      errorLabel.textContent = hasMessage ? String(message) : '';
+      errorLabel.classList.toggle('visible', hasMessage);
+    }
+  }
+
+  function validateBulkEmailDuplicates() {
+    if (!bulkEmailList) return;
+    var inputs = Array.from(bulkEmailList.querySelectorAll('.as-bulk-email-input'));
+    var grouped = new Map();
+
+    inputs.forEach(function(input) {
+      var value = String(input.value || '').trim().toLowerCase();
+      input.value = value;
+      if (!value) return;
+      if (!grouped.has(value)) grouped.set(value, []);
+      grouped.get(value).push(input);
+    });
+
+    inputs.forEach(function(input) {
+      if ((input.dataset.error || '').startsWith('Duplicate')) {
+        setBulkEmailError(input, '');
+      }
+    });
+
+    grouped.forEach(function(inputGroup) {
+      if (inputGroup.length <= 1) return;
+      inputGroup.forEach(function(input) {
+        setBulkEmailError(input, 'Duplicate in new changes');
+      });
+    });
+  }
+
+  function validateBulkEmailInput(input) {
+    if (!input) return;
+    var value = String(input.value || '').trim().toLowerCase();
+    input.value = value;
+    var original = String(input.dataset.original || '').trim().toLowerCase();
+    validateBulkEmailDuplicates();
+
+    if (!value || value === original) {
+      if (!((input.dataset.error || '').startsWith('Duplicate'))) {
+        setBulkEmailError(input, '');
+      }
+      return;
+    }
+    if ((input.dataset.error || '').startsWith('Duplicate')) return;
+
+    if (!EMAIL_RE.test(value)) {
+      setBulkEmailError(input, 'Invalid email format');
+      return;
+    }
+
+    setBulkEmailError(input, '');
+  }
+
+  function applyBulkEmailSearchFilter() {
+    if (!bulkEmailList || !bulkEmailSearch) return;
+    var query = String(bulkEmailSearch.value || '').trim().toLowerCase();
+    Array.from(bulkEmailList.querySelectorAll('.as-bulk-id-row')).forEach(function(row) {
+      var name = String(row.dataset.studentName || '').toLowerCase();
+      var show = !query || name.indexOf(query) !== -1;
+      row.style.display = show ? 'grid' : 'none';
+    });
+  }
+
+  function buildBulkEmailList() {
+    if (!bulkEmailList) return;
+    var selectedRows = Array.from(selectedIds)
+      .map(function(id) {
+        var row = document.querySelector('#asTableBody tr[data-id="' + id + '"]');
+        if (!row) return null;
+        var editBtn = row.querySelector('.js-edit-class');
+        var existingEmail = String(row.dataset.email || '').trim().toLowerCase();
+        return {
+          id: String(id),
+          name: editBtn ? String(editBtn.dataset.studentName || '').trim() : ('Student #' + id),
+          email: existingEmail,
+        };
+      })
+      .filter(Boolean)
+      .sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+    bulkEmailList.innerHTML = selectedRows.map(function(studentRow) {
+      return '' +
+        '<div class="as-bulk-id-row" data-student-id="' + escHtml(studentRow.id) + '" data-student-name="' + escHtml(studentRow.name.toLowerCase()) + '">' +
+          '<div class="as-bulk-id-name">' + escHtml(studentRow.name) +
+            '<span class="as-bulk-id-current">(' + escHtml(studentRow.email || 'No email') + ')</span>' +
+          '</div>' +
+          '<div>' +
+            '<input type="email" class="as-bulk-id-input as-bulk-email-input" ' +
+              'data-student-id="' + escHtml(studentRow.id) + '" data-original="' + escHtml(studentRow.email || '') + '" ' +
+              'value="' + escHtml(studentRow.email || '') + '" placeholder="student@example.com" autocomplete="off">' +
+            '<div class="as-bulk-id-error"></div>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+
+    bulkEmailList.querySelectorAll('.as-bulk-email-input').forEach(function(input) {
+      input.addEventListener('input', function() {
+        validateBulkEmailInput(input);
+      });
+      input.addEventListener('blur', function() {
+        validateBulkEmailInput(input);
+      });
+    });
+
+    if (bulkEmailSearch) {
+      bulkEmailSearch.value = '';
+    }
+    applyBulkEmailSearchFilter();
+    validateBulkEmailDuplicates();
+  }
+
   function buildBulkStudentIdList() {
     if (!bulkStudentIdList) return;
     var selectedRows = Array.from(selectedIds)
@@ -2517,7 +2924,16 @@
     bulkSaveCnt.textContent  = n;
     chkClass.checked=false; selClass.disabled=true; selClass.value='';
     chkYear.checked=false;  selYear.disabled=true;  selYear.value='';
+    if (chkEmail) chkEmail.checked = false;
     if (chkStudentId) chkStudentId.checked = false;
+    if (bulkEmailList) {
+      buildBulkEmailList();
+      bulkEmailList.style.display = 'none';
+    }
+    if (bulkEmailSearch) {
+      bulkEmailSearch.style.display = 'none';
+      bulkEmailSearch.value = '';
+    }
     if (bulkStudentIdList) {
       buildBulkStudentIdList();
       bulkStudentIdList.style.display = 'none';
@@ -2538,8 +2954,9 @@
   function showBulkStep2() {
     var hasClass = chkClass.checked && selClass.value;
     var hasYear  = chkYear.checked  && selYear.value;
+    var hasEmail = !!(chkEmail && chkEmail.checked);
     var hasStudentId = !!(chkStudentId && chkStudentId.checked);
-    if (!hasClass && !hasYear && !hasStudentId) {
+    if (!hasClass && !hasYear && !hasEmail && !hasStudentId) {
       bulkMsg.textContent='Tick at least one field and choose a value.'; bulkMsg.className='as-modal-msg error'; return;
     }
     if (chkClass.checked && !selClass.value) {
@@ -2547,6 +2964,34 @@
     }
     if (chkYear.checked && !selYear.value) {
       bulkMsg.textContent='Please select a school year.'; bulkMsg.className='as-modal-msg error'; return;
+    }
+    var studentEmailChangesCount = 0;
+    if (hasEmail) {
+      var emailInputs = Array.from(bulkEmailList ? bulkEmailList.querySelectorAll('.as-bulk-email-input') : []);
+      emailInputs.forEach(function(input) {
+        var value = String(input.value || '').trim().toLowerCase();
+        var original = String(input.dataset.original || '').trim().toLowerCase();
+        input.value = value;
+        if (value !== original) studentEmailChangesCount += 1;
+      });
+
+      validateBulkEmailDuplicates();
+
+      if (!hasClass && !hasYear && !hasStudentId && studentEmailChangesCount === 0) {
+        bulkMsg.textContent='No student email changes detected. Edit at least one email before continuing.';
+        bulkMsg.className='as-modal-msg error';
+        return;
+      }
+
+      var hasEmailErrors = emailInputs.some(function(input) {
+        validateBulkEmailInput(input);
+        return !!String(input.dataset.error || '').trim();
+      });
+      if (hasEmailErrors) {
+        bulkMsg.textContent='Please fix highlighted student email errors before continuing.';
+        bulkMsg.className='as-modal-msg error';
+        return;
+      }
     }
     var studentIdChangesCount = 0;
     if (hasStudentId) {
@@ -2601,6 +3046,9 @@
     if (hasYear) {
       summary += '<div class="as-change-row"><span class="as-change-label">School year:</span>'+pill(selYear.options[selYear.selectedIndex].text,'year')+'</div>';
     }
+    if (hasEmail) {
+      summary += '<div class="as-change-row"><span class="as-change-label">Student emails:</span>'+pill(studentEmailChangesCount + ' student(s) edited','to')+'</div>';
+    }
     if (hasStudentId) {
       summary += '<div class="as-change-row"><span class="as-change-label">Student IDs:</span>'+pill(studentIdChangesCount + ' student(s) edited','to')+'</div>';
     }
@@ -2627,6 +3075,7 @@
   bulkSave.addEventListener('click', function(){
     var hasClass = chkClass.checked && selClass.value;
     var hasYear  = chkYear.checked  && selYear.value;
+    var hasEmail = !!(chkEmail && chkEmail.checked);
     var hasStudentId = !!(chkStudentId && chkStudentId.checked);
     bulkSave.disabled=true;
     bulkMsg2.textContent='Applying changes…'; bulkMsg2.className='as-modal-msg';
@@ -2634,6 +3083,19 @@
     if (hasClass) payload.classId = selClass.value;
     if (hasYear)  payload.schoolYearId = selYear.value;
     if (hasClass) payload.keepExistingSubjects = !!bulkKeepExistingSubjects;
+    if (hasEmail) {
+      var studentEmails = {};
+      Array.from(bulkEmailList ? bulkEmailList.querySelectorAll('.as-bulk-email-input') : []).forEach(function(input) {
+        var cleaned = String(input.value || '').trim().toLowerCase();
+        var original = String(input.dataset.original || '').trim().toLowerCase();
+        if (cleaned !== original) {
+          studentEmails[String(input.dataset.studentId)] = cleaned;
+        }
+      });
+      if (Object.keys(studentEmails).length) {
+        payload.studentEmails = studentEmails;
+      }
+    }
     if (hasStudentId) {
       var customStudentIds = {};
       Array.from(bulkStudentIdList ? bulkStudentIdList.querySelectorAll('.as-bulk-id-input') : []).forEach(function(input) {
@@ -2661,6 +3123,9 @@
             if (hasYear && data.yearLabel) {
               setStudentYearValue(id, selYear.value, data.yearLabel, !!data.yearIsCurrent);
             }
+            if (data.updatedStudentEmails && data.updatedStudentEmails[String(id)]) {
+              setStudentEmailValue(id, data.updatedStudentEmails[String(id)].email || '');
+            }
             if (data.updatedStudentIds && data.updatedStudentIds[String(id)]) {
               var updatedIdData = data.updatedStudentIds[String(id)];
               setStudentDisplayId(id, updatedIdData.displayStudentId, updatedIdData.editableStudentId);
@@ -2682,6 +3147,9 @@
   selClass.addEventListener('change', function(){ bulkKeepExistingSubjects = null; bulkKeepExistingSubjectsClassId = ''; });
   if (bulkStudentIdSearch) {
     bulkStudentIdSearch.addEventListener('input', applyBulkStudentIdSearchFilter);
+  }
+  if (bulkEmailSearch) {
+    bulkEmailSearch.addEventListener('input', applyBulkEmailSearchFilter);
   }
 
   window.addEventListener('resize', updateModalHeaderOffset);

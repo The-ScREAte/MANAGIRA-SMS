@@ -162,7 +162,8 @@ async function getAttendanceCalendarProfile(db, organizationId, termId) {
   if (result.rows.length === 0) return null;
 
   const profile = result.rows[0];
-  profile.weekend_days = normalizeWeekendDaysInput(profile.weekend_days || []);
+  const normalizedWeekendDays = normalizeWeekendDaysInput(profile.weekend_days || []);
+  profile.weekend_days = normalizedWeekendDays.length > 0 ? normalizedWeekendDays : [0, 6];
   return profile;
 }
 
@@ -267,7 +268,8 @@ async function upsertAttendanceCalendarProfile(db, {
   includePublicHolidays,
   userId,
 }) {
-  const safeWeekendDays = normalizeWeekendDaysInput(weekendDays);
+  const normalizedWeekendDays = normalizeWeekendDaysInput(weekendDays);
+  const safeWeekendDays = normalizedWeekendDays.length > 0 ? normalizedWeekendDays : [0, 6];
 
   // Organization-bound behavior: update the latest row for this organization regardless of term,
   // and only insert a new row when none exists yet.

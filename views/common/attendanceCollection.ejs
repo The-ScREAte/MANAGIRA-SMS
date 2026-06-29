@@ -620,6 +620,16 @@
         font-weight: 600;
         color: #000;
     }
+    .attendance-sheet td.student-name {
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        line-height: 1.25;
+    }
+    .attendance-sheet th.student-name {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
     .attendance-sheet thead .student-name { z-index: 7; }
     .inactive-watermark.paired-watermark,
     .term-end-watermark.paired-watermark { z-index: 3 !important; }
@@ -627,6 +637,7 @@
     .attendance-sheet th.overall-attendance,
     .attendance-sheet td.overall-attendance {
         min-width: 130px;
+        text-align: center;
     }
     
     /* Sticky Header */
@@ -751,22 +762,22 @@
 
         /* === TABLE IMPROVEMENTS === */
         .attendance-sheet {
-            font-size: 0.7rem;
+                        font-size: 0.68rem;
             min-width: 600px; /* Ensure minimum width for horizontal scroll */
         }
 
         .attendance-sheet th,
         .attendance-sheet td {
-          font-size: 0.7rem;
-          padding: 6px 4px !important;
-          min-width: 40px;
+                                        font-size: 0.64rem;
+                    padding: 5px 3px !important;
+                    min-width: 36px;
         }
 
         /* === STICKY COLUMN IMPROVEMENTS === */
         .attendance-sheet .student-name {
           min-width: 100px;
           max-width: 120px;
-          font-size: 0.75rem;
+                                        font-size: 0.68rem;
           padding: 6px 4px !important;
           background-color: #f8f8f8;
                     border-right: 2px solid var(--primary);
@@ -777,29 +788,29 @@
             padding: 5px 2px;
             line-height: 1.2;
         }
-        .day-name { font-size: 0.7rem; }
+        .day-name { font-size: 0.66rem; }
         .day-name .day-full { display: none; }
         .day-name .day-short { display: inline; }
       
                 .edit-save-link,
                 .cancel-link,
                 .mark-all-link {
-          font-size: 0.65rem;
+                    font-size: 0.62rem;
           padding: 2px 4px;
           margin-top: 2px;
         }
       
         .last-edited {
-          font-size: 0.6rem;
+                    font-size: 0.56rem;
           margin-top: 2px;
         }
 
         /* === CHECKBOX IMPROVEMENTS === */
         .attendance-sheet input[type="checkbox"] {
-            transform: scale(1.6);
-            margin: 6px;
-            min-width: 20px;
-            min-height: 20px;
+            transform: scale(1.28);
+            margin: 4px;
+            min-width: 16px;
+            min-height: 16px;
             cursor: pointer;
         }
 
@@ -811,22 +822,28 @@
 
         /* === OVERALL ATTENDANCE COLUMN === */
         .overall-attendance {
-            min-width: 92px;
-            font-size: 0.7rem;
+            min-width: 84px;
+            max-width: 100px;
+            font-size: 0.64rem;
             background-color: #e5f5f7;
             font-weight: bold;
+            text-align: center !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            line-height: 1.2;
         }
 
         /* === SUMMARY TABLE IMPROVEMENTS === */
         #attendance-summary {
-          font-size: 0.8rem;
+                    font-size: 0.76rem;
           padding: 15px 10px;
           margin: 20px 10px;
           border-radius: 8px;
         }
 
         #attendance-summary th {
-            font-size: 0.9rem;
+            font-size: 0.84rem;
             padding: 8px;
         }
 
@@ -840,7 +857,7 @@
             content: "← Scroll left to see older dates";
             display: block;
             text-align: center;
-            font-size: 0.7rem;
+            font-size: 0.66rem;
             color: #666;
             margin-top: 5px;
             font-style: italic;
@@ -861,6 +878,27 @@
             margin: 6px; /* Reduced from 8px */
         }
 
+        .attendance-header-top.embedded-row {
+            gap: 6px;
+        }
+
+        .attendance-header-top.embedded-row .attendance-header-title {
+            font-size: 0.9rem;
+        }
+
+        .attendance-header-top.embedded-row .cal-pill {
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            gap: 2px;
+        }
+
+        .attendance-header-top.embedded-row .filter-toggle-btn {
+            font-size: 0.64rem;
+            padding: 4px 7px;
+            margin: 4px;
+            gap: 5px;
+        }
+
         .filter-inner-container {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 6px;
@@ -874,70 +912,81 @@
         }
       
         .filter-controls label {
-          font-size: 0.85rem;
+                    font-size: 0.8rem;
         }
       
         .filter-controls select {
-          font-size: 0.85rem;
+                    font-size: 0.8rem;
           padding: 8px;
         }
       
         .filter-controls button {
-          font-size: 0.85rem;
+                    font-size: 0.8rem;
           padding: 10px 12px;
         }
 
         /* === ULTRA COMPACT TABLE === */
         .attendance-sheet {
-            font-size: 0.65rem;
+            font-size: 0.62rem;
             min-width: 500px;
         }
       
         .attendance-sheet .student-name {
           min-width: 90px;
           max-width: 110px;
-          font-size: 0.7rem;
+                                        font-size: 0.62rem;
           padding: 4px 3px !important;
         }
       
         .attendance-sheet th,
         .attendance-sheet td {
-          font-size: 0.65rem;
-          padding: 4px 3px !important;
-          min-width: 35px;
+                                        font-size: 0.58rem;
+                    padding: 3px 2px !important;
+                    min-width: 32px;
         }
 
         /* === COMPACT DATE HEADERS === */
         .date-header {
             padding: 3px 1px;
         }
-        .day-name { font-size: 0.62rem; }
+        .day-name { font-size: 0.58rem; }
         .day-name .day-full { display: none; }
         .day-name .day-short { display: inline; }
       
                 .edit-save-link,
                 .cancel-link,
                 .mark-all-link {
-          font-size: 0.6rem;
+                    font-size: 0.56rem;
           padding: 1px 2px;
         }
       
         .last-edited {
-          font-size: 0.55rem;
+                    font-size: 0.52rem;
         }
 
         /* === COMPACT CHECKBOXES === */
         .attendance-sheet input[type="checkbox"] {
-            transform: scale(1.5);
-            margin: 5px;
-            min-width: 18px;
-            min-height: 18px;
+            transform: scale(1.2);
+            margin: 4px;
+            min-width: 15px;
+            min-height: 15px;
             cursor: pointer;
+        }
+
+        .overall-attendance {
+            min-width: 80px;
+            max-width: 94px;
+            font-size: 0.6rem;
+            text-align: center !important;
+            white-space: normal !important;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            line-height: 1.2;
         }
 
         /* === COMPACT SUMMARY === */
         #attendance-summary {
-          font-size: 0.75rem;
+                    font-size: 0.7rem;
           padding: 10px 5px;
           margin: 15px 5px;
         }
@@ -963,7 +1012,7 @@
         }
       }    
 
-            @media screen and (max-width: 768px) {
+            @media screen and (min-width: 481px) and (max-width: 768px) {
                 body {
                     padding-bottom: 0 !important;
                 }
@@ -990,11 +1039,42 @@
                     gap: 8px;
                 }
 
+                .attendance-header-top.embedded-row .attendance-header-title {
+                    font-size: 0.96rem;
+                }
+
                 .attendance-header-pills-center {
                     order: 3;
                     flex: 0 1 auto;
                     justify-content: flex-start;
                     width: 100%;
+                    gap: 4px;
+                }
+
+                .attendance-header-top.embedded-row .cal-pill {
+                    font-size: 0.64rem;
+                    padding: 2px 7px;
+                    gap: 3px;
+                }
+
+                .attendance-header-top.embedded-row .cal-pill-popover {
+                    min-width: 140px;
+                    max-width: 210px;
+                    padding: 8px 10px;
+                }
+
+                .attendance-header-top.embedded-row .cal-popover-label {
+                    font-size: 0.62rem;
+                }
+
+                .attendance-header-top.embedded-row .cal-popover-value {
+                    font-size: 0.74rem;
+                }
+
+                .attendance-header-top.embedded-row .filter-toggle-btn {
+                    font-size: 0.68rem;
+                    padding: 4px 8px;
+                    gap: 6px;
                 }
 
                 .attendance-meta {

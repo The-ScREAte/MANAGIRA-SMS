@@ -730,7 +730,7 @@
                   <input type="checkbox" name="notifyTeachers-1" id="notifyTeachers-1">
                   <label for="notifyTeachers-1">Email affected class teachers</label>
                 </div>
-                <% if (canUseGoogleClassroom) { %>
+                <% if (canUseQuestionSetIntegration) { %>
                 <div class="form-group checkbox-group">
                   <input type="checkbox" name="showQuestionSetOnDashboard-1" id="showQuestionSetOnDashboard-1">
                   <label for="showQuestionSetOnDashboard-1">Show Set Questions in Class Dashboard</label>
@@ -781,7 +781,7 @@
  
   <script>
     let testFormCount = 1;
-    const canUseGoogleClassroom = <%= canUseGoogleClassroom ? 'true' : 'false' %>;
+    const canUseQuestionSetIntegration = <%= canUseQuestionSetIntegration ? 'true' : 'false' %>;
 
     function addTestForm() {
       testFormCount++;
@@ -847,7 +847,7 @@
           <input type="checkbox" name="notifyTeachers-${testFormCount}" id="notifyTeachers-${testFormCount}">
           <label for="notifyTeachers-${testFormCount}">Email affected class teachers</label>
         </div>
-        ${canUseGoogleClassroom ? `
+        ${canUseQuestionSetIntegration ? `
         <div class="form-group checkbox-group">
           <input type="checkbox" name="showQuestionSetOnDashboard-${testFormCount}" id="showQuestionSetOnDashboard-${testFormCount}">
           <label for="showQuestionSetOnDashboard-${testFormCount}">Show Set Questions in Class Dashboard</label>

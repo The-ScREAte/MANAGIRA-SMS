@@ -1019,7 +1019,6 @@
         <div class="payment-method-head">
           <div class="payment-method-copy">
             <h3 class="section-title">Payment Method</h3>
-            <p class="payment-method-note">Pay with Stripe card checkout, or Apple/Google Pay when your device supports it.</p>
           </div>
           <span class="payment-method-badge">Stripe Secure</span>
         </div>
@@ -1039,7 +1038,6 @@
               <p class="card-entry-title">Card details</p>
               <p class="card-entry-subtitle">Your card is encrypted and used for your recurring billing.</p>
             </div>
-            <span class="card-entry-badge">Visa / MasterCard</span>
           </div>
           <div id="stripe-card-element"></div>
           <div class="express-shell" id="express-shell">
@@ -1130,6 +1128,79 @@
           paymentMessage.textContent = text || '';
           paymentMessage.style.color = color || 'red';
           paymentMessage.style.display = text ? 'block' : 'none';
+        }
+
+        function getPlainEnglishGatewayError(errorLike, fallbackMessage) {
+          const safeFallback = fallbackMessage || 'We could not process your card right now. Please check your card details and try again.';
+          const errorObj = errorLike && typeof errorLike === 'object' ? errorLike : {};
+          const code = String(
+            errorObj.code ||
+            errorObj.decline_code ||
+            errorObj.raw?.code ||
+            errorObj.raw?.decline_code ||
+            ''
+          ).trim().toLowerCase();
+          const rawMessage = String(errorObj.message || errorObj.raw?.message || '').trim();
+          const normalized = rawMessage.toLowerCase();
+
+          const messageByCode = {
+            card_declined: 'Your bank declined this card. Please contact your bank or use another card.',
+            do_not_honor: 'Your bank declined this card. Please contact your bank or use another card.',
+            generic_decline: 'Your card was declined. Please try another card or contact your bank.',
+            card_not_supported: 'This card is not supported for this payment. Please use another card.',
+            currency_not_supported: 'This card does not support the required currency. Please use another card.',
+            restricted_card: 'This card has restrictions and cannot be used for this payment. Please contact your bank or use another card.',
+            transaction_not_allowed: 'This card is not allowed to complete this type of transaction. Please contact your bank or use another card.',
+            service_not_allowed: 'This card is not allowed for this type of payment. Please use another card.',
+            withdrawal_count_limit_exceeded: 'This card has reached its transaction limit. Please contact your bank or use another card.',
+            insufficient_funds: 'This card does not have enough funds for this payment. Please use another card.',
+            incorrect_cvc: 'The card security code (CVC) is incorrect. Please check it and try again.',
+            incorrect_number: 'The card number looks incorrect. Please check it and try again.',
+            invalid_number: 'The card number looks incorrect. Please check it and try again.',
+            expired_card: 'This card has expired. Please use a different card.',
+            invalid_expiry_month: 'The card expiry month is invalid. Please check it and try again.',
+            invalid_expiry_year: 'The card expiry year is invalid. Please check it and try again.',
+            processing_error: 'We could not process this card right now. Please try again in a moment.',
+            authentication_required: 'Your bank needs extra confirmation for this card. Please try again and complete bank verification.',
+            payment_intent_authentication_failure: 'Your bank verification was not completed. Please try again.',
+            incomplete_number: 'Please enter a complete card number.',
+            incomplete_cvc: 'Please enter the full card security code (CVC).',
+            incomplete_expiry: 'Please enter the full card expiry date.'
+          };
+
+          if (messageByCode[code]) {
+            return messageByCode[code];
+          }
+
+          if (normalized.includes('insufficient') && normalized.includes('fund')) {
+            return messageByCode.insufficient_funds;
+          }
+          if (normalized.includes('incorrect') && normalized.includes('cvc')) {
+            return messageByCode.incorrect_cvc;
+          }
+          if ((normalized.includes('incorrect') || normalized.includes('invalid')) && normalized.includes('card number')) {
+            return messageByCode.incorrect_number;
+          }
+          if (normalized.includes('expired')) {
+            return messageByCode.expired_card;
+          }
+          if (normalized.includes('authentication') || normalized.includes('3d secure') || normalized.includes('3-d secure')) {
+            return messageByCode.authentication_required;
+          }
+          if (
+            normalized.includes('not support') ||
+            normalized.includes('unsupported') ||
+            normalized.includes('not allowed') ||
+            normalized.includes('restricted card') ||
+            normalized.includes('transaction is not allowed')
+          ) {
+            return messageByCode.card_not_supported;
+          }
+          if (normalized.includes('declin')) {
+            return messageByCode.card_declined;
+          }
+
+          return rawMessage || safeFallback;
         }
 
         function formatMoney(amountMinor, currencyCode) {
@@ -1295,7 +1366,10 @@
                 }, 800);
               } catch (expressError) {
                 console.error('Express checkout error:', expressError);
-                setPaymentMessage(expressError.message || 'Unable to complete express checkout.', 'red');
+                setPaymentMessage(
+                  getPlainEnglishGatewayError(expressError, 'Unable to complete express checkout. Please try again.'),
+                  'red'
+                );
               }
             });
 
@@ -1319,7 +1393,9 @@
           stripeCardElement.on('change', function(event) {
             isStripeCardComplete = Boolean(event.complete);
             if (stripeCardError) {
-              stripeCardError.textContent = event.error ? event.error.message : '';
+              stripeCardError.textContent = event.error
+                ? getPlainEnglishGatewayError(event.error, 'Please check your card details and try again.')
+                : '';
               stripeCardError.style.display = event.error ? 'block' : 'none';
             }
             if (event.complete && !event.error) {
@@ -1591,7 +1667,7 @@
               });
 
           if (confirmation.error) {
-            throw new Error(confirmation.error.message || 'Unable to confirm Stripe payment.');
+            throw confirmation.error;
           }
 
           const completedIntent = isSetupIntent ? confirmation.setupIntent : confirmation.paymentIntent;
@@ -1624,7 +1700,10 @@
           isSubmittingAfterPayment = false;
           hideRedirectOverlay();
 
-          setPaymentMessage(error.message || "Error loading payment gateway. Please refresh and try again.", "red");
+          setPaymentMessage(
+            getPlainEnglishGatewayError(error, "Error loading payment gateway. Please refresh and try again."),
+            "red"
+          );
         }
         });
       }

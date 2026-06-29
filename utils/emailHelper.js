@@ -368,6 +368,12 @@ async function _findUserByEmail(db, email, orgId) {
       [addr, orgId]
     );
     if (guardRes.rows.length > 0) return { userId: guardRes.rows[0].user_id, userType: 'guardian' };
+
+    const studentRes = await db.query(
+      `SELECT student_id AS user_id FROM students WHERE LOWER(email) = $1 AND organization_id = $2 LIMIT 1`,
+      [addr, orgId]
+    );
+    if (studentRes.rows.length > 0) return { userId: studentRes.rows[0].user_id, userType: 'student' };
   } catch (_) { /* non-fatal */ }
   return null;
 }

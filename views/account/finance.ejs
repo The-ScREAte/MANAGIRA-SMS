@@ -1255,17 +1255,19 @@
 
   /* ── Mobile ≤600px ────────────────────────────────────────────── */
   @media (max-width:600px) {
-    .fin-shell   { padding:12px 10px 80px; }
+    .fin-shell   { padding:10px 8px 72px; }
     .fin-stats   { grid-template-columns:1fr 1fr; gap:10px; }
-    .stat        { padding:15px; }
-    .stat .value { font-size:1.25rem; }
+    .stat        { padding:12px; }
+    .stat .label { font-size:.62rem; margin-bottom:8px; }
+    .stat .value { font-size:1.08rem; }
+    .stat .sub   { font-size:.7rem; }
     .fin-row-3   { grid-template-columns:1fr; }
-    .fin-page-head h1 { font-size:1.4rem; }
+    .fin-page-head h1 { font-size:1.18rem; }
     .fin-report-filters .fin-field label { display:none; }
     .fin-report-filters .fin-field select { margin-top:0; }
     .fin-actions { flex-direction:row; flex-wrap:wrap; overflow:visible; padding:8px 10px; scrollbar-width:none; }
     .fin-actions::-webkit-scrollbar { display:none; }
-    .fin-actions .fin-btn { flex-shrink:0; }
+    .fin-actions .fin-btn { flex-shrink:0; min-height:34px; font-size:.74rem; padding:0 10px; }
     .fin-context-actions,
     .fin-student-context-actions,
     .fin-selection-tools,
@@ -1273,10 +1275,15 @@
     .arrears-filter-actions { flex-wrap:wrap; overflow:visible; }
     .fin-col-md  { display:none !important; }
     .fin-modal   { padding:0; align-items:flex-end; }
-    .fin-modal-content { max-height:96vh; border-radius:18px 18px 0 0; padding:20px 14px; animation:none; }
+    .fin-modal-content { max-height:96vh; border-radius:18px 18px 0 0; padding:16px 12px; animation:none; }
     #studentDrawerPanel { width:100% !important; }
     .section-head { flex-direction:column; align-items:flex-start; }
-    .fin-card    { padding:14px; }
+    .fin-card    { padding:12px; border-radius:14px; }
+    .fin-table th { padding:9px 8px; font-size:.56rem; letter-spacing:.1em; }
+    .fin-table td { padding:9px 8px; font-size:.78rem; }
+    .fin-pagebar { padding:8px 10px; }
+    .fin-page-btn { height:30px; min-width:40px; padding:0 10px; font-size:.76rem; }
+    .fin-pagebar-label, .fin-page-info { font-size:.74rem; }
   }
 
   /* ── Very small ≤380px ────────────────────────────────────────── */
@@ -1296,7 +1303,7 @@
       position:relative; z-index:201; /* must be above backdrop(199) and nav(200) so × is always clickable */
     }
     .fin-mobile-header h2 {
-      margin:0; font-size:1.45rem; font-weight:700;
+      margin:0; font-size:1.28rem; font-weight:700;
       font-family:'Space Grotesk',sans-serif;
       color:#fff;
       flex:1; text-align:center;
@@ -1360,6 +1367,12 @@
       background:rgba(0,212,170,.22);
       filter:drop-shadow(0 0 5px rgba(0,212,170,.4));
     }
+  }
+  @media (max-width:420px) {
+    .fin-mobile-header h2 { font-size:1.12rem; }
+    .fin-hamburger { width:34px; height:34px; padding:7px 8px; }
+    .fin-nav a { font-size:.82rem; padding:10px 12px; }
+    .fin-nav a .ico { width:26px; height:26px; font-size:.9rem; }
   }
   @media (max-width:700px) {
     .fin-student-context-grid,

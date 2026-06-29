@@ -1,6 +1,27 @@
 const { getClassScheduleForTerm } = require("../utils/classScheduleService");
 const { ensureStudentPortalSchema } = require("../utils/studentPortal");
 
+const STUDENT_TESTING_ROOM_FEATURE_NAMES = [
+  "Set Assessment Questions",
+  "Assessment Questions",
+];
+
+function canUseStudentTestingRoom(req) {
+  const allowedFeatures = Array.isArray(req?.session?.allowedFeatures)
+    ? req.session.allowedFeatures
+    : [];
+
+  if (!allowedFeatures.length) return false;
+
+  const normalized = new Set(
+    allowedFeatures.map((featureName) => String(featureName || "").trim().toLowerCase())
+  );
+
+  return STUDENT_TESTING_ROOM_FEATURE_NAMES.some((featureName) =>
+    normalized.has(String(featureName || "").trim().toLowerCase())
+  );
+}
+
 let studentAssessmentLockSchemaReady = false;
 let studentAssessmentAttemptIntegrityReady = false;
 let assessmentQuestionSetRetakeSchemaReady = false;
@@ -405,6 +426,7 @@ module.exports = {
   dashboardGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const studentId = req.session.studentId;
+    const testingRoomEnabled = canUseStudentTestingRoom(req);
 
     try {
       await ensureStudentPortalSchema(db);
@@ -439,6 +461,7 @@ module.exports = {
           classSchedule: null,
           scheduleTable: { periods: [], rows: [] },
           openAssessmentsCount: 0,
+          testingRoomEnabled,
           messages: req.flash(),
         });
       }
@@ -578,7 +601,9 @@ module.exports = {
               termId: selectedTerm.term_id,
             })
           : null,
-        getOpenAssessments(db, organizationId, studentId, effectiveClassId, selectedTerm.term_id),
+        testingRoomEnabled
+          ? getOpenAssessments(db, organizationId, studentId, effectiveClassId, selectedTerm.term_id)
+          : Promise.resolve([]),
       ]);
 
       const attendanceRows = attendanceResult.rows || [];
@@ -708,6 +733,7 @@ module.exports = {
         classSchedule,
         scheduleTable,
         openAssessmentsCount: openAssessments.length,
+        testingRoomEnabled,
         messages: req.flash(),
       });
     } catch (error) {
@@ -720,6 +746,12 @@ module.exports = {
   testingRoomGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const studentId = req.session.studentId;
+    const testingRoomEnabled = canUseStudentTestingRoom(req);
+
+    if (!testingRoomEnabled) {
+      req.flash("error", "Testing Room is not enabled for your organization.");
+      return res.redirect("/student/dashboard");
+    }
 
     try {
       await ensureStudentPortalSchema(db);
@@ -766,6 +798,12 @@ module.exports = {
     const organizationId = req.session.organizationId;
     const studentId = req.session.studentId;
     const assessmentId = Number(req.params.assessmentId);
+    const testingRoomEnabled = canUseStudentTestingRoom(req);
+
+    if (!testingRoomEnabled) {
+      req.flash("error", "Testing Room is not enabled for your organization.");
+      return res.redirect("/student/dashboard");
+    }
 
     if (!Number.isInteger(assessmentId) || assessmentId <= 0) {
       req.flash("error", "Invalid assessment.");

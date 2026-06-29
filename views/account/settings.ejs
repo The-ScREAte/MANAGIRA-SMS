@@ -88,6 +88,22 @@
         font-weight: 700;
       }
 
+      .settings-nav-country-flag {
+        font-size: 32px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+      }
+
+      @media (min-width: 1280px) {
+        .settings-nav-country-flag {
+          font-size: 40px;
+          min-width: 44px;
+        }
+      }
+
       .nav-list {
         list-style: none;
         padding: 0;
@@ -137,6 +153,8 @@
 
       .settings-main{
         padding: 24px 0 0 0;
+        max-width: 920px;
+        width: 100%;
         scroll-margin-top: var(--settings-header-offset);
       }
 
@@ -149,6 +167,50 @@
       .settings-main p.lead {
         margin: 0 0 20px 0;
         color: var(--muted);
+      }
+
+      @media (min-width: 1200px) {
+        .settings-layout {
+          max-width: 1320px;
+          gap: 30px;
+        }
+
+        .settings-main h1 {
+          font-size: 32px;
+        }
+
+        .settings-main p.lead {
+          font-size: 16px;
+        }
+
+        .nav-link {
+          font-size: 15px;
+          padding: 8px 12px;
+        }
+
+        .card {
+          padding: 20px;
+        }
+
+        .card h4 {
+          font-size: 17px;
+        }
+
+        .card small {
+          font-size: 14px;
+        }
+
+        .form-input,
+        .form-select {
+          min-height: 40px;
+          padding: 10px 12px;
+          font-size: 15px;
+        }
+
+        .btn-link {
+          font-size: 14px;
+          padding: 9px 14px;
+        }
       }
 
       .settings-section {
@@ -670,9 +732,23 @@
         gap: 10px;
       }
 
+      .student-portal-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+
       .google-classroom-logo {
         width: 58px;
         height: 44px;
+        display: inline-block;
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
+      }
+
+      .student-portal-logo {
+        width: 58px;
+        height: 44px;
+        object-fit: contain;
         display: inline-block;
         filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
       }
@@ -803,11 +879,24 @@
           height: 34px;
         }
 
+        .student-portal-logo {
+          width: 44px;
+          height: 34px;
+        }
+
         .google-classroom-title {
           gap: 8px;
         }
 
+        .student-portal-title {
+          gap: 8px;
+        }
+
         .google-classroom-title span {
+          font-size: 1.02rem;
+        }
+
+        .student-portal-title span {
           font-size: 1.02rem;
         }
 
@@ -1804,9 +1893,9 @@
 
         .settings-nav-header {
           cursor: pointer;
-          justify-content: flex-start;
+          justify-content: space-between;
           gap: 6px;
-          width: auto;
+          width: 100%;
         }
 
         .settings-nav-header h3 {
@@ -1818,6 +1907,7 @@
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          gap: 6px;
           background: none;
           border: none;
           cursor: pointer;
@@ -1845,6 +1935,11 @@
 
         .settings-nav-toggle .hub-hamburger-icon::before { top: -5px; }
         .settings-nav-toggle .hub-hamburger-icon::after  { top:  5px; }
+
+        .settings-nav-country-flag {
+          font-size: 26px;
+          min-width: 30px;
+        }
 
         .settings-nav-header-caret {
           display: inline-block;
@@ -1920,9 +2015,72 @@
         .card small {
           font-size: 12px;
         }
+
+        .settings-main {
+          max-width: 100%;
+          padding-top: 18px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .settings-layout {
+          gap: 14px;
+          padding: 0 12px;
+        }
+
+        .settings-main {
+          padding-top: 12px;
+        }
+
+        .settings-main h1 {
+          font-size: 18px;
+        }
+
+        .settings-main p.lead {
+          font-size: 12px;
+          margin-bottom: 12px;
+        }
+
+        .nav-link {
+          font-size: 13px;
+          padding: 6px 8px;
+        }
+
+        .card {
+          padding: 12px;
+        }
+
+        .card h4 {
+          font-size: 13px;
+        }
+
+        .card small {
+          font-size: 11px;
+        }
+
+        .form-input,
+        .form-select {
+          min-height: 34px;
+          padding: 6px 8px;
+          font-size: 13px;
+        }
+
+        .btn-link {
+          font-size: 12px;
+          padding: 7px 10px;
+        }
+
+        .text-muted-sm {
+          font-size: 12px;
+        }
       }
 
       @media (max-width: 480px) {
+        .settings-nav-country-flag {
+          font-size: 22px;
+          min-width: 26px;
+        }
+
         .settings-main h1 {
           font-size: 15px;
         }
@@ -1972,6 +2130,91 @@
           font-size: 0.79rem;
         }
       }
+
+      /* Final size overrides: keep desktop clearly larger and mobile clearly smaller. */
+      @media (min-width: 1024px) {
+        .settings-main h1 { font-size: 34px; }
+        .settings-main p.lead { font-size: 17px; }
+        .settings-nav h3 { font-size: 20px; }
+        .nav-link { font-size: 15px; padding: 9px 12px; }
+        .card h4 { font-size: 18px; }
+        .card small { font-size: 14px; }
+        .form-label { font-size: 14px; }
+        .form-input,
+        .form-select { font-size: 15px; min-height: 42px; padding: 10px 12px; }
+        .btn-link { font-size: 14px; padding: 9px 13px; }
+      }
+
+      @media (max-width: 768px) {
+        .settings-main h1 { font-size: 17px; }
+        .settings-main p.lead { font-size: 11px; }
+        .settings-nav h3 { font-size: 14px; }
+        .nav-link { font-size: 12px; padding: 6px 8px; }
+        .card h4 { font-size: 12px; font-weight: 700; }
+        .card small { font-size: 10px; }
+        .form-label { font-size: 11px; }
+        .form-input,
+        .form-select { font-size: 12px; min-height: 32px; padding: 5px 8px; }
+        .btn-link { font-size: 11px; padding: 6px 9px; }
+
+        .mobile-compact-card {
+          padding: 10px;
+        }
+
+        .mobile-compact-card .content-row {
+          gap: 8px;
+          margin-top: 8px;
+        }
+
+        .mobile-compact-card h4 {
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .mobile-compact-card small,
+        .mobile-compact-card .text-muted-sm {
+          font-size: 9.5px;
+          line-height: 1.35;
+        }
+
+        .mobile-compact-card .form-label {
+          font-size: 10px;
+          font-weight: 400;
+          margin-bottom: 4px;
+        }
+
+        .mobile-compact-card .form-input,
+        .mobile-compact-card .form-select {
+          font-size: 11px;
+          min-height: 30px;
+          padding: 4px 7px;
+        }
+
+        .mobile-compact-card .btn-link {
+          font-size: 10px;
+          padding: 5px 8px;
+        }
+
+        .mobile-unbold-card strong,
+        .mobile-unbold-card b,
+        .mobile-unbold-card label,
+        .mobile-unbold-card p,
+        .mobile-unbold-card span {
+          font-weight: 400 !important;
+        }
+
+        .mobile-unbold-card .card-collapse-head h4 {
+          font-weight: 700 !important;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .settings-main h1 { font-size: 14px; }
+        .settings-main p.lead { font-size: 10px; }
+        .nav-link { font-size: 11px; }
+        .card h4 { font-size: 11px; }
+        .card small { font-size: 9.5px; }
+      }
     </style>
     <link rel="stylesheet" href="/css/workspace-shell.css" />
   </head>
@@ -1985,12 +2228,27 @@
         const _defaultSettingsSectionId = _canCustomizeSettings ? 'customize' : 'profile';
       %>
       <aside class="settings-nav" id="settings-nav-panel">
+        <% 
+          const navCountryCode = (org && org.organization_country ? String(org.organization_country).toUpperCase() : '');
+          const navCountry = (settingsCountryOptionsWithCurrency || settingsCountryOptions || []).find((country) => String(country.code || '').toUpperCase() === navCountryCode) || null;
+          const navCountryLabel = navCountry ? `${navCountry.name} (${navCountry.code})` : 'Country not set';
+          const navCountryFlag = (function toFlagEmoji(code) {
+            if (!code || code.length !== 2) return '🌐';
+            const upper = code.toUpperCase();
+            const base = 127397;
+            const first = upper.charCodeAt(0);
+            const second = upper.charCodeAt(1);
+            if (first < 65 || first > 90 || second < 65 || second > 90) return '🌐';
+            return String.fromCodePoint(first + base, second + base);
+          })(navCountryCode);
+        %>
         <div class="settings-nav-header">
           <span class="settings-nav-toggle">
             <span class="hub-hamburger-icon"> </span>
-          
-                      <h3>| Settings</h3>
+
+            <h3>Settings</h3>
           </span>
+          <span class="settings-nav-country-flag" title="Organization country: <%= navCountryLabel %>" aria-label="Organization country: <%= navCountryLabel %>"><%= navCountryFlag %></span>
         </div>
         <ul class="nav-list">
           <% if (_canCustomizeSettings) { %>
@@ -2054,22 +2312,6 @@
             ? 'explicit org currency override'
             : (activeSettingsCountry ? 'country-based' : 'default fallback (set country or currency below)'); %>
           <% const hasSavedBillingContext = Boolean((org && org.organization_currency) || activeSettingsCountry); %>
-          <div class="card" style="border-left:4px solid #0ea5a4;">
-            <h4>Active Billing Context</h4>
-            <small>
-              Country: <strong><%= activeSettingsCountry ? `${activeSettingsCountry.name} (${activeSettingsCountry.code})` : 'Not set' %></strong>
-              <% if (activeSettingsCountry && activeSettingsCountry.currencyCode) { %>
-                - Country Currency: <strong><%= activeSettingsCountry.currencyCode %> <%= activeSettingsCountry.currencyName || '' %></strong>
-              <% } %>
-              <br>
-              Effective Billing Currency: <strong><%= activeSettingsCurrencyOption ? `${activeSettingsCurrencyOption.code} — ${activeSettingsCurrencyOption.name}` : activeSettingsCurrencyCode %></strong>
-              (<%= activeSettingsCurrencySource %>)
-              <% if (!hasSavedBillingContext) { %>
-                <br>
-                No organization country or currency is saved yet. The system will try majority organization activity location first, but this school currently has only local/private activity IPs, so there is no reliable majority-country signal to use. Until you save country or currency below, the stable fallback is USD.
-              <% } %>
-            </small>
-          </div>
 
           <% 
             const rawLogo = (org && (org.logo || org.logo_path)) ? (org.logo || org.logo_path) : "";
@@ -2140,30 +2382,15 @@
                   <% }) %>
                 </select>
 
-                <% const selectedOrgCurrencyForCustomize = (org && org.organization_currency ? String(org.organization_currency).toUpperCase() : ''); %>
-                <% const selectedOrgCurrencyOption = (settingsCurrencyOptions || []).find((option) => option.code === selectedOrgCurrencyForCustomize) || null; %>
-                <select
-                  name="orgCurrency"
-                  class="form-input"
-                  style="margin-bottom: 8px;"
-                >
-                  <option value="">Auto from country</option>
-                  <% (settingsCurrencyOptions || []).forEach((option) => { %>
-                    <option value="<%= option.code %>" <%= option.code === selectedOrgCurrencyForCustomize ? 'selected' : '' %>>
-                      <%= option.code %> — <%= option.name %>
-                    </option>
-                  <% }) %>
-                </select>
-
                 <small class="text-muted-sm" style="display:block; margin-bottom: 12px;">
-                  Current saved currency (from DB): <strong><%= selectedOrgCurrencyOption ? `${selectedOrgCurrencyOption.code} — ${selectedOrgCurrencyOption.name}` : 'Auto from country' %></strong>.
+                  Currency is automatically saved from the selected country.
                 </small>
 
                 <small class="text-muted-sm" style="display:block; margin-bottom: 12px;">
-                  Currency priority across the app: explicit currency here, otherwise country-based currency.
+                  Current saved currency (from DB): <strong><%= activeSettingsCurrencyCode %></strong>.
                 </small>
 
-                <button class="btn-primary btn-link" type="submit">Save Name, Location &amp; Currency</button>
+                <button class="btn-primary btn-link" type="submit">Save Name &amp; Location</button>
               </div>
             </form>
           </div>
@@ -2207,7 +2434,7 @@
             </form>
           </div>
 
-          <div class="card">
+          <div class="card mobile-compact-card">
             <h4>Name And Date Display</h4>
             <small>Control how names and dates appear across your school portal, including PayGira and student pages.</small>
             <% const nameDisplayFormat = (org && org.name_display_format) ? org.name_display_format : 'first_last'; %>
@@ -2243,7 +2470,7 @@
             </form>
           </div>
 
-          <div class="card">
+          <div class="card mobile-compact-card mobile-unbold-card">
             <h4>School Theme</h4>
             <small>Pick theme for your school.</small>
             <form action="/account/updatePublicDashboardTheme" method="POST">
@@ -2394,7 +2621,7 @@
             </div>
           </div>
 
-          <div class="card">
+          <div class="card mobile-compact-card mobile-unbold-card">
             <h4>School Calender Rule</h4>
             <small>
               Configure organization-wide attendance rules, then add date overrides below.
@@ -2405,13 +2632,19 @@
                 <div class="field-group">
                   <label class="form-label" for="calendar-country">Country Public Holidays</label>
                   <select id="calendar-country" name="countryCode" class="form-select" required>
-                    <% const selectedCountryCode = (attendanceCalendarProfile && attendanceCalendarProfile.country_code) ? attendanceCalendarProfile.country_code : 'GH'; %>
+                    <% const detectedSettingsCountryCode = (currencyProfile && currencyProfile.countryCode)
+                      ? String(currencyProfile.countryCode).toUpperCase()
+                      : ''; %>
+                    <% const selectedCountryCode = activeSettingsCountryCode || detectedSettingsCountryCode || 'US'; %>
                     <% (holidayCountries || []).forEach((country) => { %>
                       <option value="<%= country.code %>" <%= country.code === selectedCountryCode ? 'selected' : '' %>>
                         <%= country.name %> (<%= country.code %>)
                       </option>
                     <% }) %>
                   </select>
+                  <small class="text-muted-sm" style="display:block; margin-top:6px;">
+                    Defaults to your organization country. You can still choose a different holiday country here.
+                  </small>
                 </div>
 
                 <div class="field-group" style="min-width:260px;">
@@ -2532,7 +2765,7 @@
           </div>
 
           <!-- Student ID Settings card -->
-          <div class="card">
+          <div class="card mobile-compact-card mobile-unbold-card">
             <h4>Student ID Settings</h4>
             <small>Use your school's own ID format for students.</small>
 
@@ -3047,6 +3280,8 @@
           <% const giConfigured = !!gi.configured; %>
           <% const giConnected = !!gi.connected; %>
           <% const giReady = !!gi.shouldShowFeatures; %>
+          <% const spi = (typeof studentPortalIntegration !== 'undefined' && studentPortalIntegration) ? studentPortalIntegration : {}; %>
+          <% const spiActivated = !!spi.activated; %>
 
           <div class="card">
             <h4>
@@ -3116,6 +3351,54 @@
             <% if (gi.lastSyncNote) { %>
             <small style="display:block;margin-top:4px;"><%= gi.lastSyncNote %></small>
             <% } %>
+          </div>
+
+          <div class="card" style="margin-top:14px;">
+            <h4>
+              <span class="student-portal-title">
+                <img class="student-portal-logo" src="/images/managira.png" alt="Managira logo" />
+                <span>Student Portal</span>
+              </span>
+            </h4>
+            <small class="google-integration-description">
+              Activate Student Portal to control school-level access to student-facing portal features and flows.
+            </small>
+
+            <div class="google-integration-toolbar">
+              <div class="google-integration-summary">
+                <span class="google-integration-copy">Student Portal status</span>
+                <span
+                  class="pill"
+                  id="student-portal-status-pill"
+                  data-activated="<%= spiActivated ? '1' : '0' %>"
+                  style="background:<%= spiActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= spiActivated ? '#166534' : '#92400e' %>">
+                  <%= spiActivated ? 'Active' : 'Inactive' %>
+                </span>
+              </div>
+
+              <div class="google-integration-actions">
+                <details class="google-actions-menu">
+                  <summary class="google-actions-toggle" aria-label="Student Portal actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-student-portal-activate-modal"
+                      style="display:<%= spiActivated ? 'none' : 'block' %>;">Activate</a>
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-student-portal-deactivate-modal"
+                      style="display:<%= spiActivated ? 'block' : 'none' %>;">Deactivate</a>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="student-portal-activation-form" action="/account/student-portal/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="student-portal-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="student-portal-activation-password" />
+            </form>
           </div>
         </section>
         <% } %>
@@ -3428,6 +3711,28 @@
           <p class="error-text" id="google-deactivate-error"></p>
           <div class="form-actions">
             <button class="btn-primary btn-link" id="google-deactivate-submit" type="button">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="student-portal-activation-modal">
+      <div class="modal-card password-modal">
+        <button class="modal-close" type="button" id="student-portal-activation-close">x</button>
+        <h2>Confirm Password</h2>
+        <p id="student-portal-activation-copy">Please confirm your password to continue with Student Portal changes.</p>
+        <div class="content-row">
+          <div class="field-group">
+            <label class="form-label" for="student-portal-activation-input">Password</label>
+            <input
+              type="password"
+              id="student-portal-activation-input"
+              placeholder="Enter your password"
+              class="form-input"
+            />
+          </div>
+          <p class="error-text" id="student-portal-activation-error"></p>
+          <div class="form-actions">
+            <button class="btn-primary btn-link" id="student-portal-activation-submit" type="button">Continue</button>
           </div>
         </div>
       </div>
@@ -3926,6 +4231,18 @@
         const googleDisconnectLink = document.getElementById("google-disconnect-link");
         const googleResyncForm = document.getElementById("google-resync-form");
         const googleDisconnectForm = document.getElementById("google-disconnect-form");
+        const studentPortalActivationModal = document.getElementById("student-portal-activation-modal");
+        const studentPortalActivateOpen = document.getElementById("open-student-portal-activate-modal");
+        const studentPortalDeactivateOpen = document.getElementById("open-student-portal-deactivate-modal");
+        const studentPortalActivationClose = document.getElementById("student-portal-activation-close");
+        const studentPortalActivationSubmit = document.getElementById("student-portal-activation-submit");
+        const studentPortalActivationInput = document.getElementById("student-portal-activation-input");
+        const studentPortalActivationError = document.getElementById("student-portal-activation-error");
+        const studentPortalActivationCopy = document.getElementById("student-portal-activation-copy");
+        const studentPortalActivationValue = document.getElementById("student-portal-activation-value");
+        const studentPortalActivationPassword = document.getElementById("student-portal-activation-password");
+        const studentPortalActivationForm = document.getElementById("student-portal-activation-form");
+        const studentPortalStatusPill = document.getElementById("student-portal-status-pill");
         const planModal = document.getElementById("plan-modal");
         const planModalOpen = document.getElementById("open-plan-modal");
         const planModalClose = document.getElementById("plan-modal-close");
@@ -4441,6 +4758,126 @@
 
             googleActivationPassword.value = password;
             googleActivationForm.submit();
+          });
+        }
+
+        function openStudentPortalPasswordModal(mode) {
+          if (!studentPortalActivationModal) return;
+          const isActivate = mode === "activate";
+          if (studentPortalActivationCopy) {
+            studentPortalActivationCopy.textContent = isActivate
+              ? "Please confirm your password to activate Student Portal."
+              : "Please confirm your password to deactivate Student Portal.";
+          }
+          if (studentPortalActivationValue) {
+            studentPortalActivationValue.value = isActivate ? "1" : "0";
+          }
+          if (studentPortalActivationInput) {
+            studentPortalActivationInput.value = "";
+          }
+          if (studentPortalActivationError) {
+            studentPortalActivationError.textContent = "";
+          }
+          openModal(studentPortalActivationModal);
+        }
+
+        function setStudentPortalUiState(isActive) {
+          if (studentPortalStatusPill) {
+            studentPortalStatusPill.textContent = isActive ? "Active" : "Inactive";
+            studentPortalStatusPill.style.background = isActive ? "#dcfce7" : "#fef3c7";
+            studentPortalStatusPill.style.color = isActive ? "#166534" : "#92400e";
+            studentPortalStatusPill.dataset.activated = isActive ? "1" : "0";
+          }
+
+          if (studentPortalActivateOpen) {
+            studentPortalActivateOpen.style.display = isActive ? "none" : "block";
+          }
+
+          if (studentPortalDeactivateOpen) {
+            studentPortalDeactivateOpen.style.display = isActive ? "block" : "none";
+          }
+        }
+
+        if (studentPortalActivateOpen && studentPortalActivationModal) {
+          studentPortalActivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openStudentPortalPasswordModal("activate");
+          });
+        }
+
+        if (studentPortalDeactivateOpen && studentPortalActivationModal) {
+          studentPortalDeactivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openStudentPortalPasswordModal("deactivate");
+          });
+        }
+
+        if (studentPortalActivationClose && studentPortalActivationModal) {
+          studentPortalActivationClose.addEventListener("click", () => closeModal(studentPortalActivationModal));
+        }
+
+        if (studentPortalActivationModal) {
+          studentPortalActivationModal.addEventListener("click", (event) => {
+            if (event.target === studentPortalActivationModal) {
+              closeModal(studentPortalActivationModal);
+            }
+          });
+        }
+
+        if (studentPortalActivationSubmit && studentPortalActivationInput && studentPortalActivationForm && studentPortalActivationPassword) {
+          studentPortalActivationSubmit.addEventListener("click", async () => {
+            const password = studentPortalActivationInput.value.trim();
+            if (!password) {
+              if (studentPortalActivationError) {
+                studentPortalActivationError.textContent = "Password is required.";
+              }
+              return;
+            }
+
+            const activateValue = studentPortalActivationValue
+              ? String(studentPortalActivationValue.value || "0").trim()
+              : "0";
+
+            if (studentPortalActivationError) {
+              studentPortalActivationError.textContent = "";
+            }
+
+            studentPortalActivationSubmit.disabled = true;
+            const previousLabel = studentPortalActivationSubmit.textContent;
+            studentPortalActivationSubmit.textContent = "Processing...";
+
+            try {
+              const response = await fetch("/account/student-portal/activate", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: new URLSearchParams({
+                  activate: activateValue,
+                  integrationPassword: password,
+                }),
+              });
+
+              const result = await response.json();
+              if (!response.ok || !result || !result.success) {
+                if (studentPortalActivationError) {
+                  studentPortalActivationError.textContent = (result && result.message) || "Unable to update Student Portal integration.";
+                }
+                return;
+              }
+
+              setStudentPortalUiState(Boolean(result.activated));
+              closeModal(studentPortalActivationModal);
+            } catch (error) {
+              if (studentPortalActivationError) {
+                studentPortalActivationError.textContent = "Unable to update Student Portal integration right now.";
+              }
+            } finally {
+              studentPortalActivationSubmit.disabled = false;
+              studentPortalActivationSubmit.textContent = previousLabel || "Continue";
+            }
           });
         }
 
