@@ -14,6 +14,7 @@ const { registerFeature } = require("../utils/featureRegistrar");
   await registerFeature("Progressive Student Report", "/termDetails");
   await registerFeature("Attendance Tracking", "/attendanceCollection");
   await registerFeature("Assessment Tracking", "/assessment");
+  await registerFeature("Set Assessment Questions", "/allClassAssessmentExams");
   await registerFeature("Parent/Guardian Portal", "/guardian");
   await registerFeature("Create Files", "/documents");
   await registerFeature("Class Base Merit Sheet", "/meritSheetPage");

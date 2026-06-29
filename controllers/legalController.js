@@ -572,6 +572,49 @@ const legalController = {
                 ]
             }, 'Demo Request Confirmation Email');
 
+            const demoAlertRecipient =
+                process.env.DEMO_REQUEST_ALERT_EMAIL ||
+                process.env.ADMIN_NOTIFY_EMAIL_USER ||
+                process.env.ADMIN_EMAIL ||
+                process.env.EMAIL_USER;
+
+            if (demoAlertRecipient) {
+                const internalDemoAlertHtml = renderCleanEmail({
+                    title: `New Demo Request (#${threadId})`,
+                    greeting: 'Hello Team,',
+                    paragraphs: [
+                        'A new demo request has been submitted from the public Request Demo page.',
+                        'Please follow up with the requester to schedule the walkthrough.',
+                    ],
+                    details: [
+                        { label: 'Reference', value: `#${threadId}` },
+                        { label: 'Name', value: name || '—' },
+                        { label: 'Email', value: email || '—' },
+                        { label: 'Phone', value: phone || '—' },
+                        { label: 'Organisation', value: organization || '—' },
+                        { label: 'Role', value: role || '—' },
+                        { label: 'Country', value: country || '—' },
+                        { label: 'Approx. Students', value: student_count || '—' },
+                        { label: 'Preferred Date', value: preferred_date || 'Flexible' },
+                        { label: 'Preferred Time', value: preferred_time || 'Flexible' },
+                        { label: 'Message', value: trimmedMessage || '—' },
+                    ],
+                });
+
+                sendEmailInBackground({
+                    to: demoAlertRecipient,
+                    subject: `[DEMO REQUEST] ${organization || name} - #${threadId}`,
+                    html: internalDemoAlertHtml,
+                    attachments: [
+                        {
+                            filename: 'managira.png',
+                            path: path.join(__dirname, '../public/images/managira.png'),
+                            cid: 'managira_logo'
+                        }
+                    ]
+                }, 'Demo Request Internal Alert Email');
+            }
+
             req.flash('success', 'Thanks! Your demo request has been received. Our team will be in touch shortly.');
             return res.redirect('/legal/request-demo');
         } catch (error) {
