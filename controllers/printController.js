@@ -3478,6 +3478,7 @@ students
       }
 
       const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
+      const orgNameDisplayFormat = req.session?.nameDisplayFormat;
 
       const logoUrl = organization.logo_path
         ? `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${organization.logo_path}`
@@ -3535,7 +3536,21 @@ students
         })
       );
 
-      // Fetch students enrolled in the class for the given term
+      // Fetch students enrolled in the class for the given term.
+      const studentsResult = await db.query(
+        `SELECT es.student_id, s.custom_student_id, s.first_name, s.last_name
+         FROM enrolled_students es
+         JOIN students s ON es.student_id = s.student_id
+         JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+         WHERE es.class_id = $1
+           AND e.term_id = $2
+           AND e.organization_id = $3`,
+        [parsedClassId, parsedTermId, organizationId]
+      );
+
+      const students = studentsResult.rows;
+
+      // Fetch students' assessment scores used in merit-sheet computation.
       const scoresResult = await db.query(
         `
             SELECT
@@ -3637,8 +3652,18 @@ students
 
       // Sort students by total score and assign positions
       meritSheetData.sort((a, b) => b.totalScore - a.totalScore);
+      const hasAnyRecordedScore = meritSheetData.some((student) =>
+        Array.isArray(student.scores) &&
+        student.scores.some((subject) =>
+          Array.isArray(subject.assessments) &&
+          subject.assessments.some((assessment) => assessment.score !== "-" && assessment.score !== null)
+        )
+      );
+
       meritSheetData.forEach((student, index) => {
-        student.position = `${index + 1}${getOrdinalSuffix(index + 1)}`;
+        student.position = hasAnyRecordedScore
+          ? `${index + 1}${getOrdinalSuffix(index + 1)}`
+          : "-";
       });
 
       // Cache last run to support refresh on the same URL (before render in case render fails)

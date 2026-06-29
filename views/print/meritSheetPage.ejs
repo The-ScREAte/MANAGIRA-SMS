@@ -28,6 +28,7 @@
       }
 
       .container {
+        position: relative;
         width: 90%;
         margin: 30px auto;
         padding: 20px;
@@ -113,8 +114,22 @@
       table {
         width: 100%;
         border-collapse: collapse;
+        table-layout: fixed;
         margin-top: 20px;
       }
+
+      .merit-sheet {
+        overflow-x: auto;
+      }
+
+      .merit-sheet .col-sn { width: 56px; }
+      .merit-sheet .col-student-id { width: 74px; }
+      .merit-sheet .col-student-name { width: 150px; }
+      .merit-sheet .col-assessment { width: 106px; }
+      .merit-sheet .col-grade { width: 48px; }
+      .merit-sheet .col-total { width: 76px; }
+      .merit-sheet .col-average { width: 70px; }
+      .merit-sheet .col-position { width: 68px; }
 
         table, th, td {
             border: 1.5px solid var(--primary);
@@ -123,21 +138,66 @@
       th {
         background: linear-gradient(135deg, var(--primary), var(--primary-hover));
         color: #ffffff;
-        padding: 10px;
+        padding: 6px;
         vertical-align: middle;
       }
 
       td {
-        padding: 8px;
+        padding: 5px 4px;
         text-align: center;
       }
 
+      .merit-sheet td:nth-child(3),
+      .merit-sheet th:nth-child(3) {
+        white-space: normal;
+        word-break: break-word;
+      }
+
       .rotated-header {
-        writing-mode: vertical-rl; /* Rotate text */
-        transform: rotate(180deg); /* Adjust for correct alignment */
+        position: static;
+        height: 84px;
+        min-width: 54px;
+        padding: 6px 4px;
+        vertical-align: middle;
         text-align: center;
-        white-space: nowrap;
+        overflow: hidden;
         color: #ffffff;
+      }
+
+      .rotated-header .header-label {
+        position: static;
+        left: auto;
+        bottom: auto;
+        display: block;
+        width: 100%;
+        line-height: 1.2;
+        white-space: normal;
+        word-break: break-word;
+        text-align: center;
+        margin: 0 auto;
+        transform: none;
+        transform-origin: center;
+      }
+
+      .student-id-header,
+      .grade-header,
+      .total-header,
+      .average-header,
+      .position-header {
+        padding: 0;
+      }
+
+      .student-id-header .header-label,
+      .grade-header .header-label,
+      .total-header .header-label,
+      .average-header .header-label,
+      .position-header .header-label {
+        display: inline-block;
+        width: auto;
+        white-space: nowrap;
+        line-height: 1;
+        transform: rotate(-62deg);
+        transform-origin: center;
       }
 
         .btn {
@@ -160,6 +220,48 @@
         text-align: center;
         font-size: 16px;
         color: #888;
+      }
+
+      .screen-watermark-logo {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(56vw, 700px);
+        max-height: 82%;
+        opacity: 0.06;
+        z-index: 0;
+        pointer-events: none;
+        object-fit: contain;
+      }
+
+      .form-section,
+      .print-section {
+        position: relative;
+        z-index: 1;
+      }
+
+      .print-section {
+        position: relative;
+      }
+
+      .print-watermark-logo {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(55vw, 620px);
+        max-height: 78%;
+        opacity: 0.08;
+        z-index: 0;
+        pointer-events: none;
+        object-fit: contain;
+      }
+
+      .print-section .header,
+      .print-section .merit-sheet {
+        position: relative;
+        z-index: 1;
       }
 
       @media print {
@@ -185,8 +287,10 @@
         th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .container { box-shadow: none; border: 1px solid #cbd5e1; padding: 24px; }
+        .screen-watermark-logo { display: none; }
         .merit-sheet table { border: 1.5px solid var(--primary); }
-        @page { margin: 18mm 16mm; }
+        .print-watermark-logo { opacity: 0.1; }
+        @page { size: A4 landscape; margin: 12mm 10mm; }
 
         table {
           page-break-inside: auto; /* Prevents breaking table rows between pages */
@@ -282,6 +386,9 @@
 
   <body>
     <div class="container">
+      <% if (session.logo) { %>
+      <img src="<%= session.logo %>" alt="School Watermark" class="screen-watermark-logo" />
+      <% } %>
       <!-- Form Section -->
       <% if (!meritSheet || meritSheet.length === 0) { %>
       <div class="form-section">
@@ -367,6 +474,9 @@
       <!-- Merit Sheet Section -->
       <% if (meritSheet && meritSheet.length > 0) { %>
       <div class="print-section">
+        <% if (session.logo) { %>
+        <img src="<%= session.logo %>" alt="School Watermark" class="print-watermark-logo" />
+        <% } %>
         <div class="header">
           <% if (session.logo) { %>
           <img src="<%= session.logo %>" alt="School Logo" />
@@ -381,21 +491,35 @@
 
         <div class="merit-sheet">
           <table>
+            <colgroup>
+              <col class="col-sn" />
+              <col class="col-student-id" />
+              <col class="col-student-name" />
+              <% subjects.forEach(subject => { %>
+                <% subject.assessments.forEach(() => { %>
+                  <col class="col-assessment" />
+                  <col class="col-grade" />
+                <% }); %>
+              <% }); %>
+              <col class="col-total" />
+              <col class="col-average" />
+              <col class="col-position" />
+            </colgroup>
             <thead>
               <tr>
-                <th class="rotated-header">S/N</th>
-                <th class="rotated-header">Student ID</th>
-                <th class="rotated-header">Student Name</th>
+                <th class="rotated-header"><span class="header-label">S/N</span></th>
+                <th class="rotated-header student-id-header"><span class="header-label">Student ID</span></th>
+                <th class="rotated-header"><span class="header-label">Student Name</span></th>
                 <% subjects.forEach(subject => { %> <%
                 subject.assessments.forEach(assessment => { %>
                 <th class="rotated-header">
-                  <%= subject.subject_name %> - <%= assessment.title %>
+                  <span class="header-label"><%= subject.subject_name %> - <%= assessment.title %></span>
                 </th>
-                <th class="rotated-header">Grade</th>
+                <th class="rotated-header grade-header"><span class="header-label">Grade</span></th>
                 <% }); %> <% }); %>
-                <th class="rotated-header">Total Score</th>
-                <th class="rotated-header">Average</th>
-                <th class="rotated-header">Position</th>
+                <th class="rotated-header total-header"><span class="header-label">Total Score</span></th>
+                <th class="rotated-header average-header"><span class="header-label">Average</span></th>
+                <th class="rotated-header position-header"><span class="header-label">Position</span></th>
               </tr>
             </thead>
             <tbody>
