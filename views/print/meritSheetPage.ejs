@@ -119,7 +119,31 @@
       }
 
       .merit-sheet {
+        position: relative;
         overflow-x: auto;
+      }
+
+      .merit-sheet table {
+        position: relative;
+        z-index: 1;
+        background: transparent;
+      }
+
+      .merit-sheet-watermark-logo {
+        position: absolute;
+        left: 50%;
+        top: 96px;
+        transform: translateX(-50%);
+        width: min(46vw, 560px);
+        max-height: calc(100% - 110px);
+        opacity: 0.11;
+        z-index: 0;
+        pointer-events: none;
+        object-fit: contain;
+      }
+
+      .print-watermark-page {
+        display: none;
       }
 
       .merit-sheet .col-sn { width: 56px; }
@@ -222,40 +246,10 @@
         color: #888;
       }
 
-      .screen-watermark-logo {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: min(56vw, 700px);
-        max-height: 82%;
-        opacity: 0.06;
-        z-index: 0;
-        pointer-events: none;
-        object-fit: contain;
-      }
-
       .form-section,
       .print-section {
         position: relative;
         z-index: 1;
-      }
-
-      .print-section {
-        position: relative;
-      }
-
-      .print-watermark-logo {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: min(55vw, 620px);
-        max-height: 78%;
-        opacity: 0.08;
-        z-index: 0;
-        pointer-events: none;
-        object-fit: contain;
       }
 
       .print-section .header,
@@ -274,6 +268,13 @@
           visibility: visible;
         }
 
+        html,
+        body {
+          background: #ffffff !important;
+          margin: 0;
+          padding: 0;
+        }
+
         .print-section {
           position: static;
           width: auto;
@@ -281,19 +282,93 @@
           box-sizing: border-box;
         }
 
+        .print-section,
+        .print-section * {
+          position: relative;
+          z-index: 1;
+        }
+
+        #print-wm {
+          visibility: visible !important;
+          position: fixed !important;
+          inset: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          z-index: 0 !important;
+          pointer-events: none !important;
+        }
+
+        #print-wm img {
+          visibility: visible !important;
+          opacity: 0.08 !important;
+        }
+
         .btn { display: none !important; visibility: hidden !important; }
 
         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .container { box-shadow: none; border: 1px solid #cbd5e1; padding: 24px; }
-        .screen-watermark-logo { display: none; }
+        .container {
+          width: 100%;
+          margin: 0;
+          box-shadow: none;
+          border: 0;
+          border-radius: 0;
+          padding: 8px;
+          background: #ffffff;
+        }
+
+        .header {
+          margin-bottom: 10px;
+          gap: 10px;
+        }
+
+        .header img {
+          width: 56px;
+          height: 56px;
+          padding: 3px;
+        }
+
+        .header-text h1 {
+          font-size: 17px;
+          line-height: 1.2;
+        }
+
+        .header-text h2 {
+          font-size: 13px;
+          line-height: 1.2;
+        }
+
+        .header-text h3 {
+          font-size: 12px;
+          line-height: 1.2;
+        }
+
+        .print-section .header .header-text h2:last-child {
+          font-size: 14px;
+          margin-top: 2px;
+        }
+
+        .merit-sheet {
+          overflow: visible;
+        }
+
         .merit-sheet table { border: 1.5px solid var(--primary); }
-        .print-watermark-logo { opacity: 0.1; }
+        .merit-sheet-watermark-logo { display: none; }
         @page { size: A4 landscape; margin: 12mm 10mm; }
 
         table {
           page-break-inside: auto; /* Prevents breaking table rows between pages */
+        }
+
+        thead {
+          display: table-row-group;
+        }
+
+        tbody {
+          display: table-row-group;
         }
 
         tr {
@@ -301,9 +376,84 @@
           page-break-after: auto;
         }
 
-            th, td {
-                border: 1px solid #000; /* Keeps borders consistent in print */
-            }
+        th, td {
+          border: 1px solid var(--primary) !important;
+          font-size: 10px !important;
+          font-weight: normal !important;
+          padding: 2px 3px !important;
+          vertical-align: middle !important;
+          line-height: 1 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          height: 22px !important;
+          max-height: 22px !important;
+        }
+
+        th {
+          background: linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
+          color: #ffffff !important;
+          font-weight: normal !important;
+        }
+
+        .rotated-header {
+          writing-mode: horizontal-tb !important;
+          height: 70px !important;
+          min-width: 64px;
+          padding: 6px 5px;
+          overflow: visible;
+          transform: none !important;
+        }
+
+        .rotated-header .header-label {
+          writing-mode: horizontal-tb !important;
+          transform: none !important;
+          white-space: normal;
+          line-height: 1.2;
+          width: 100%;
+          display: block;
+        }
+
+        .student-id-header .header-label,
+        .grade-header .header-label,
+        .total-header .header-label,
+        .average-header .header-label,
+        .position-header .header-label {
+          writing-mode: horizontal-tb !important;
+          transform: rotate(-62deg) !important;
+          white-space: nowrap !important;
+          width: auto;
+          display: inline-block;
+          line-height: 1;
+        }
+
+        .merit-sheet .col-sn { width: 44px; }
+        .merit-sheet .col-student-id { width: 72px; }
+        .merit-sheet .col-student-name { width: 180px; }
+        .merit-sheet .col-assessment { width: 84px; }
+        .merit-sheet .col-grade { width: 48px; }
+        .merit-sheet .col-total { width: 72px; }
+        .merit-sheet .col-average { width: 72px; }
+        .merit-sheet .col-position { width: 68px; }
+
+        .merit-sheet td:nth-child(3),
+        .merit-sheet th:nth-child(3) {
+          text-align: left;
+          padding-left: 6px;
+        }
+
+        .merit-sheet th:nth-child(3) .header-label {
+          white-space: normal;
+          word-break: break-word;
+        }
+
+        .merit-sheet td:nth-child(3) {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          text-align: left;
+          padding-left: 6px;
+        }
         }
 
         @media (max-width: 768px) {
@@ -385,16 +535,14 @@
   </head>
 
   <body>
+    <% const effectiveLogo = logoUrl || (session && session.logo) || null; %>
     <div class="container">
-      <% if (session.logo) { %>
-      <img src="<%= session.logo %>" alt="School Watermark" class="screen-watermark-logo" />
-      <% } %>
       <!-- Form Section -->
       <% if (!meritSheet || meritSheet.length === 0) { %>
       <div class="form-section">
         <div class="header">
-          <% if (session.logo) { %>
-          <img src="<%= session.logo %>" alt="School Logo" />
+          <% if (effectiveLogo) { %>
+          <img src="<%= effectiveLogo %>" alt="School Logo" />
           <% } %>
           <div class="header-text">
             <h1><%= orgName %></h1>
@@ -474,12 +622,9 @@
       <!-- Merit Sheet Section -->
       <% if (meritSheet && meritSheet.length > 0) { %>
       <div class="print-section">
-        <% if (session.logo) { %>
-        <img src="<%= session.logo %>" alt="School Watermark" class="print-watermark-logo" />
-        <% } %>
         <div class="header">
-          <% if (session.logo) { %>
-          <img src="<%= session.logo %>" alt="School Logo" />
+          <% if (effectiveLogo) { %>
+          <img src="<%= effectiveLogo %>" alt="School Logo" />
           <% } %>
           <div class="header-text">
             <h1><%= orgName %></h1>
@@ -490,6 +635,9 @@
         </div>
 
         <div class="merit-sheet">
+          <% if (effectiveLogo) { %>
+          <img src="<%= effectiveLogo %>" alt="School Watermark" class="merit-sheet-watermark-logo" />
+          <% } %>
           <table>
             <colgroup>
               <col class="col-sn" />
@@ -551,6 +699,38 @@
     </div>
 
     <script>
+      window.addEventListener("beforeprint", function () {
+        const logo = "<%= effectiveLogo || '' %>";
+        if (!logo) return;
+
+        let wm = document.getElementById("print-wm");
+        if (!wm) {
+          wm = document.createElement("div");
+          wm.id = "print-wm";
+          wm.setAttribute("aria-hidden", "true");
+          wm.style.cssText = [
+            "position: fixed",
+            "inset: 0",
+            "display: flex",
+            "align-items: center",
+            "justify-content: center",
+            "z-index: 0",
+            "pointer-events: none",
+            "visibility: visible",
+          ].join(";");
+          wm.innerHTML =
+            '<img src="' +
+            logo +
+            '" alt="" style="width:min(44vw,540px);opacity:0.08;object-fit:contain;" />';
+          document.body.appendChild(wm);
+        }
+      });
+
+      window.addEventListener("afterprint", function () {
+        const wm = document.getElementById("print-wm");
+        if (wm) wm.remove();
+      });
+
       function toggleAssessments(subjectId, checkbox) {
         const assessmentContainer = document.getElementById(
           `assessment-container-${subjectId}`
