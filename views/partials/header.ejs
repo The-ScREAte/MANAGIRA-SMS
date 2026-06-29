@@ -1030,8 +1030,14 @@
     .search-bar-container.is-mobile-collapsible .search-results-dropdown {
       left: auto;
       right: 0;
-      width: min(88vw, 320px);
+      width: min(80vw, 280px);
       min-width: 0;
+    }
+
+    @media (max-width: 480px) {
+      .search-bar-container.is-mobile-collapsible .search-results-dropdown {
+        width: min(72vw, 240px);
+      }
     }
 
     #tools a.header-welcome {
@@ -1221,7 +1227,7 @@
   <% const publicOrgFullName = (typeof orgDetails !== 'undefined' && orgDetails && orgDetails.organization_name) ? orgDetails.organization_name : ''; %>
   <% const publicOrgNickname = (typeof orgDetails !== 'undefined' && orgDetails && (orgDetails.nickname || orgDetails.org_nickname || orgDetails.organization_nickname)) ? (orgDetails.nickname || orgDetails.org_nickname || orgDetails.organization_nickname) : ''; %>
   <% const publicOrgNicknameDisplay = (typeof orgDetails !== 'undefined' && orgDetails && orgDetails.nickname_display && String(orgDetails.nickname_display).trim()) ? orgDetails.nickname_display : publicOrgNickname; %>
-  <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : '/common/orgDashboard'); %>
+  <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : (req.session && req.session.userRole === 'Student' ? '/student/dashboard' : '/common/orgDashboard')); %>
   <div class="header-mobile-row">
     <div class="header-mobile-left">
       <span class="siteName">
@@ -1436,6 +1442,33 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
           </svg>
           Settings
+        </a></li>
+        <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+          </svg>
+          Logout
+        </a></li>
+      <% } else if (req.session && req.session.userRole === 'Student') { %>
+        <li class="nav-item"><a href="/student/dashboard" class="management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+          </svg>
+          Dashboard
+        </a></li>
+        <% if (req.session && req.session.organizationId && Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
+        <li class="nav-item"><a href="/common/publicDashboard?organizationId=<%= req.session.organizationId %>" class="management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+          </svg>
+          School Website
+        </a></li>
+        <% } %>
+        <li class="nav-item"><a href="/student/testing-room" class="nav-item-link management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L15 12l-5.25-5"></path>
+          </svg>
+          Testing Room
         </a></li>
         <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1966,7 +1999,11 @@
                       break;
                     case "subject":
                       subtitle = "Subject";
-                      href = `/common/manageClassSubjectAndGradYr#subject-${item.id}`;
+                      href = item.student_scope ? `/student/dashboard` : `/common/manageClassSubjectAndGradYr#subject-${item.id}`;
+                      break;
+                    case "teacher":
+                      subtitle = "Teacher";
+                      href = "/student/dashboard";
                       break;
                     default:
                       subtitle = "";
@@ -2553,6 +2590,57 @@
 
   // Re-run count after SPA navigation
   window.addEventListener('spa:pageLoaded', refreshCount);
+
+  // Student-only birthday popup (simple modal via AJAX)
+  const _isStudentSession = '<%= String((session && (session.userRole || session.accountType)) || "") %>'.toLowerCase() === 'student';
+  if (_isStudentSession) {
+    const showBirthdayPopup = (title, message) => {
+      const existing = document.getElementById('student-birthday-popup-overlay');
+      if (existing) existing.remove();
+      const overlay = document.createElement('div');
+      overlay.id = 'student-birthday-popup-overlay';
+      overlay.style.position = 'fixed';
+      overlay.style.inset = '0';
+      overlay.style.background = 'rgba(15,23,42,0.48)';
+      overlay.style.zIndex = '12050';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+
+      const card = document.createElement('div');
+      card.style.width = 'min(92vw, 380px)';
+      card.style.background = '#fff';
+      card.style.borderRadius = '12px';
+      card.style.padding = '16px';
+      card.style.boxShadow = '0 14px 35px rgba(15,23,42,0.22)';
+      card.innerHTML = `
+        <h3 style="margin:0 0 8px;color:#0f172a;font-size:1.05rem;">${escapeHtml(title || 'Happy Birthday!')}</h3>
+        <p style="margin:0 0 12px;color:#334155;font-size:.9rem;line-height:1.5;">${escapeHtml(message || 'Wishing you a beautiful day.')}</p>
+        <div style="display:flex;justify-content:flex-end;">
+          <button id="student-birthday-popup-ok" type="button" style="background:var(--org-primary-color,#01535b);color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:600;">Thank you</button>
+        </div>
+      `;
+
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+
+      const close = () => overlay.remove();
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) close();
+      });
+      const okBtn = card.querySelector('#student-birthday-popup-ok');
+      if (okBtn) okBtn.addEventListener('click', close);
+    };
+
+    fetch('/notifications/student-birthday-popup', { credentials: 'same-origin' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (payload && payload.success && payload.shouldShow) {
+          showBirthdayPopup(payload.title, payload.message);
+        }
+      })
+      .catch(() => {});
+  }
 })();
 </script>
 

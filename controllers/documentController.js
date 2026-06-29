@@ -339,8 +339,6 @@ const documentController = {
 
       let documentRows = [];
 
-      console.log('[DOCS][LIST] session dump', { orgId, userId, userRole, classId, canCreate });
-
       if (classId) {
         const classExists = await classBelongsToOrg(db, classId, orgId);
         if (!classExists) {
@@ -376,7 +374,6 @@ const documentController = {
             WHERE d.organization_id = $1 AND d.is_deleted = FALSE
             ORDER BY d.updated_at DESC
           `, [orgId, classId]);
-          console.log('[DOCS][LIST][ADMIN] query returned', docs.rows.length, 'rows for classId', classId, 'userId', userId, 'effectiveUserId', effectiveUserId);
           documentRows = docs.rows;
         } else {
           // Regular user (teacher etc): show only docs they can access for this class.

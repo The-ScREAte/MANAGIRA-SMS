@@ -745,7 +745,7 @@ async function markAllRead(db, context) {
 async function notifyClassTeachers(db, { orgId, classId, type, title, body, link, refId }) {
   try {
     const result = await db.query(
-      `SELECT DISTINCT user_id FROM class_employees
+      `SELECT DISTINCT user_id FROM user_classes
        WHERE class_id = $1`,
       [classId]
     );
@@ -765,7 +765,7 @@ async function notifyMultipleClassTeachers(db, { orgId, classIds, type, title, b
   try {
     if (!classIds || classIds.length === 0) return;
     const result = await db.query(
-      `SELECT DISTINCT user_id FROM class_employees
+      `SELECT DISTINCT user_id FROM user_classes
        WHERE class_id = ANY($1::int[])`,
       [classIds]
     );
@@ -786,7 +786,7 @@ async function notifyPerClassTeachers(db, { orgId, classIds, type, title, body, 
     if (!classIds || classIds.length === 0) return;
     for (const classId of classIds) {
       const result = await db.query(
-        `SELECT DISTINCT user_id FROM class_employees WHERE class_id = $1`,
+        `SELECT DISTINCT user_id FROM user_classes WHERE class_id = $1`,
         [classId]
       );
       if (!result.rows.length) continue;

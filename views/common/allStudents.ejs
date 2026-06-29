@@ -418,6 +418,13 @@
   }
   .as-btn-edit:hover { background: #dbeafe; border-color: #93c5fd; }
 
+  .as-btn-reset {
+    border-color: #fcd34d;
+    color: #92400e;
+    background: #fffbeb;
+  }
+  .as-btn-reset:hover { background: #fef3c7; border-color: #f59e0b; }
+
   /* ── Empty / loading states ──────────────── */
   .as-empty {
     padding: 60px 20px;
@@ -1368,6 +1375,15 @@
                 aria-label="Edit student">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               </button>
+              <% if (req.session && req.session.userRole === 'Supervisor' && s.email) { %>
+              <button class="as-btn as-btn-reset js-student-password-reset icon-only"
+                data-student-id="<%= s.student_id %>"
+                data-student-name="<%= studentDisplayName %>"
+                title="Send student portal password setup/reset email"
+                aria-label="Send student portal password setup/reset email">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7a4.5 4.5 0 10-9 0v3.5m-.75 0h10.5A1.75 1.75 0 0119 12.25v6A1.75 1.75 0 0117.25 20h-10.5A1.75 1.75 0 015 18.25v-6A1.75 1.75 0 016.75 10.5z"/></svg>
+              </button>
+              <% } %>
             </div>
           </td>
         </tr>
@@ -1439,6 +1455,15 @@
             aria-label="Edit student">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
           </button>
+          <% if (req.session && req.session.userRole === 'Supervisor' && s.email) { %>
+          <button class="as-btn as-btn-reset js-student-password-reset icon-only"
+            data-student-id="<%= s.student_id %>"
+            data-student-name="<%= studentDisplayName %>"
+            title="Send student portal password setup/reset email"
+            aria-label="Send student portal password setup/reset email">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V7a4.5 4.5 0 10-9 0v3.5m-.75 0h10.5A1.75 1.75 0 0119 12.25v6A1.75 1.75 0 0117.25 20h-10.5A1.75 1.75 0 015 18.25v-6A1.75 1.75 0 016.75 10.5z"/></svg>
+          </button>
+          <% } %>
         </div>
       </div>
       <% }); %>
@@ -2245,6 +2270,50 @@
       modalMsg2.textContent='Network error.'; modalMsg2.className='as-modal-msg error';
       modalSave.disabled=false;
     });
+  });
+  function requestStudentPasswordReset(button) {
+    if (!button) return;
+    var studentId = button.dataset.studentId;
+    var studentName = button.dataset.studentName || 'this student';
+    if (!studentId) return;
+    if (!window.confirm('Send student portal password setup/reset email to ' + studentName + '?')) {
+      return;
+    }
+
+    var oldTitle = button.title;
+    button.disabled = true;
+    button.title = 'Sending...';
+
+    fetch('/common/studentRequestPasswordReset', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      credentials: 'same-origin',
+      body: new URLSearchParams({ studentId: String(studentId) }).toString()
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data && data.success) {
+          window.alert(data.message || 'Student password email sent successfully.');
+          return;
+        }
+        window.alert((data && data.error) || 'Unable to send student password email.');
+      })
+      .catch(function() {
+        window.alert('Network error while sending student password email.');
+      })
+      .finally(function() {
+        button.disabled = false;
+        button.title = oldTitle;
+      });
+  }
+
+  document.addEventListener('click', function(e) {
+    var resetButton = e.target.closest('.js-student-password-reset');
+    if (!resetButton) return;
+    requestStudentPasswordReset(resetButton);
   });
   document.addEventListener('click', function(e){ var b=e.target.closest('.js-edit-class'); if(b) openModal(b); });
   if (modalStudentIdInput) {

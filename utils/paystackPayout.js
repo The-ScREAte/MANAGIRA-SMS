@@ -23,6 +23,11 @@
 
 const axios = require("axios");
 const defaultDb = require("../config/db");
+const {
+  getCurrencyForCountry,
+  inferCountryCodeFromLocationParts,
+  normalizeCurrencyCode,
+} = require("./currencyLocalization");
 
 const PAYSTACK_API = "https://api.paystack.co";
 const MAX_PAYOUT_ATTEMPTS = 24; // ~ retried by the scheduler until settled
@@ -46,19 +51,27 @@ function resolveMomoProviderCode(provider) {
   return "MTN";
 }
 
-const COUNTRY_TO_CURRENCY = {
-  GH: "GHS", NG: "NGN", KE: "KES", ZA: "ZAR",
-  CI: "XOF", EG: "EGP", TZ: "TZS", UG: "UGX", RW: "RWF",
-};
-
-async function resolveOrgCurrency(dbClient, orgId, fallback = "GHS") {
+async function resolveOrgCurrency(dbClient, orgId, fallback = "USD") {
   try {
     const row = (await dbClient.query(
-      `SELECT organization_country FROM organizations WHERE organization_id = $1 LIMIT 1`,
+      `SELECT organization_currency, organization_country, organization_address, organization_province
+         FROM organizations
+        WHERE organization_id = $1
+        LIMIT 1`,
       [orgId]
     )).rows[0];
-    const iso = String(row?.organization_country || "GH").toUpperCase().slice(0, 2);
-    return COUNTRY_TO_CURRENCY[iso] || fallback;
+
+    const currencyOverride = normalizeCurrencyCode(row?.organization_currency);
+    if (currencyOverride) return currencyOverride;
+
+    const explicitCountry = String(row?.organization_country || "").toUpperCase().slice(0, 2);
+    const inferredCountry = inferCountryCodeFromLocationParts(
+      row?.organization_address,
+      row?.organization_province
+    );
+    const countryCode = /^[A-Z]{2}$/.test(explicitCountry) ? explicitCountry : inferredCountry;
+    const countryCurrency = normalizeCurrencyCode(getCurrencyForCountry(countryCode));
+    return countryCurrency || fallback;
   } catch (_) {
     return fallback;
   }
@@ -132,7 +145,7 @@ async function ensureTransferRecipient(dbClient, { orgId, account, secretKey, cu
   const headers = {
     headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
   };
-  const cur = String(currency || "GHS").toUpperCase();
+  const cur = String(currency || "USD").toUpperCase();
 
   let recipientPayload = null;
   if (account?.account_type === "mobile_money") {
@@ -191,7 +204,7 @@ async function executeTransfer(dbClient, payout, secretKey) {
         amount: toMinorUnits(payout.amount),
         recipient: payout.recipient_code,
         reference: payout.transfer_reference,
-        currency: String(payout.currency || "GHS").toUpperCase(),
+        currency: String(payout.currency || "USD").toUpperCase(),
         reason: `School settlement for ${payout.source_reference}`,
       },
       headers

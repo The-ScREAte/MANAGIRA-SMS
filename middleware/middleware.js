@@ -29,6 +29,11 @@ async function isAuthenticated(req, res, next) {
     try {
         await hydrateOrganizationSession(req);
 
+        if (req.session && req.session.userRole === 'Student') {
+            req.flash('error', 'You do not have permission to access that page.');
+            return res.redirect('/student/dashboard');
+        }
+
         if (!req.session || (!req.session.organizationId && !req.session.userId)) {
             return res.redirect('/account/login');
         }
@@ -70,6 +75,10 @@ function blockGuardians(req, res, next) {
     if (req.session.userRole === 'Guardian') {
         req.flash('error', 'You do not have permission to access this page.');
         return res.redirect('/guardian/dashboard');
+    }
+    if (req.session.userRole === 'Student') {
+        req.flash('error', 'You do not have permission to access this page.');
+        return res.redirect('/student/dashboard');
     }
     next();
 }

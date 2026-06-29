@@ -1,0 +1,1676 @@
+{
+  "generatedAt": "2026-06-26T06:15:55.927Z",
+  "organization": {
+    "organization_id": 63,
+    "organization_name": "Managira Int. School"
+  },
+  "totals": {
+    "totalAssessments": 166,
+    "totalSyncedAssessments": 80,
+    "totalUnsyncedAssessments": 86
+  },
+  "bySchoolYearTerm": [
+    {
+      "school_year_id": 143,
+      "year_label": "2026 - 2027",
+      "term_id": 150,
+      "term_name": "1st Semester",
+      "total_assessments": 146,
+      "synced_assessments": 80
+    },
+    {
+      "school_year_id": 141,
+      "year_label": "2022-2023",
+      "term_id": 144,
+      "term_name": "1st Semester",
+      "total_assessments": 20,
+      "synced_assessments": 0
+    }
+  ],
+  "byClassSubject": [
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English",
+      "total_assessments": 6,
+      "synced_assessments": 4
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "French",
+      "total_assessments": 6,
+      "synced_assessments": 4
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic",
+      "total_assessments": 6,
+      "synced_assessments": 4
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science",
+      "total_assessments": 6,
+      "synced_assessments": 4
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English",
+      "total_assessments": 7,
+      "synced_assessments": 4
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "French",
+      "total_assessments": 7,
+      "synced_assessments": 4
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic",
+      "total_assessments": 6,
+      "synced_assessments": 4
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Science",
+      "total_assessments": 6,
+      "synced_assessments": 4
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "English",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "French",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Mathematic",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Science",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "English",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "French",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Mathematic",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Science",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "English",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "French",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Mathematic",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Science",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "English",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "French",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Mathematic",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Science",
+      "total_assessments": 6,
+      "synced_assessments": 3
+    },
+    {
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English",
+      "total_assessments": 4,
+      "synced_assessments": 0
+    },
+    {
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic",
+      "total_assessments": 4,
+      "synced_assessments": 0
+    },
+    {
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science",
+      "total_assessments": 4,
+      "synced_assessments": 0
+    },
+    {
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English",
+      "total_assessments": 4,
+      "synced_assessments": 0
+    },
+    {
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic",
+      "total_assessments": 4,
+      "synced_assessments": 0
+    }
+  ],
+  "syncedAssessments": [
+    {
+      "assessment_id": 2181,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English",
+      "google_coursework_id": "868663880629"
+    },
+    {
+      "assessment_id": 2277,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English",
+      "google_coursework_id": "819831743047"
+    },
+    {
+      "assessment_id": 4374,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English",
+      "google_coursework_id": "868664921805"
+    },
+    {
+      "assessment_id": 2301,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English",
+      "google_coursework_id": "868665361238"
+    },
+    {
+      "assessment_id": 2182,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "French",
+      "google_coursework_id": "868664680423"
+    },
+    {
+      "assessment_id": 2278,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "French",
+      "google_coursework_id": "868664729943"
+    },
+    {
+      "assessment_id": 4375,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "French",
+      "google_coursework_id": "868653858271"
+    },
+    {
+      "assessment_id": 2302,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "French",
+      "google_coursework_id": "868664446760"
+    },
+    {
+      "assessment_id": 2183,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868664129198"
+    },
+    {
+      "assessment_id": 2279,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868665011477"
+    },
+    {
+      "assessment_id": 4376,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868661441478"
+    },
+    {
+      "assessment_id": 2303,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868663921106"
+    },
+    {
+      "assessment_id": 2184,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science",
+      "google_coursework_id": "868665061226"
+    },
+    {
+      "assessment_id": 2280,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science",
+      "google_coursework_id": "868664636915"
+    },
+    {
+      "assessment_id": 4377,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science",
+      "google_coursework_id": "868665589775"
+    },
+    {
+      "assessment_id": 2304,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science",
+      "google_coursework_id": "868665250960"
+    },
+    {
+      "assessment_id": 2185,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English",
+      "google_coursework_id": "868663956793"
+    },
+    {
+      "assessment_id": 2281,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English",
+      "google_coursework_id": "868664689894"
+    },
+    {
+      "assessment_id": 4378,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English",
+      "google_coursework_id": "868665746333"
+    },
+    {
+      "assessment_id": 2305,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English",
+      "google_coursework_id": "868664420875"
+    },
+    {
+      "assessment_id": 2186,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "French",
+      "google_coursework_id": "868664732267"
+    },
+    {
+      "assessment_id": 2282,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "French",
+      "google_coursework_id": "868663851286"
+    },
+    {
+      "assessment_id": 4379,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "French",
+      "google_coursework_id": "868664942249"
+    },
+    {
+      "assessment_id": 2306,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "French",
+      "google_coursework_id": "868663709538"
+    },
+    {
+      "assessment_id": 2187,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868663989422"
+    },
+    {
+      "assessment_id": 2283,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868661430585"
+    },
+    {
+      "assessment_id": 4380,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868661441482"
+    },
+    {
+      "assessment_id": 2307,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868665156148"
+    },
+    {
+      "assessment_id": 2188,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Science",
+      "google_coursework_id": "868663813103"
+    },
+    {
+      "assessment_id": 2284,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Science",
+      "google_coursework_id": "868663067261"
+    },
+    {
+      "assessment_id": 4381,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Science",
+      "google_coursework_id": "868666138591"
+    },
+    {
+      "assessment_id": 2308,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Science",
+      "google_coursework_id": "868664589668"
+    },
+    {
+      "assessment_id": 2189,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "English",
+      "google_coursework_id": "868665265831"
+    },
+    {
+      "assessment_id": 2285,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "English",
+      "google_coursework_id": "868665254509"
+    },
+    {
+      "assessment_id": 2309,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "English",
+      "google_coursework_id": "868665223101"
+    },
+    {
+      "assessment_id": 2190,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "French",
+      "google_coursework_id": "868665147201"
+    },
+    {
+      "assessment_id": 2286,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "French",
+      "google_coursework_id": "868663505197"
+    },
+    {
+      "assessment_id": 2310,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "French",
+      "google_coursework_id": "868664801491"
+    },
+    {
+      "assessment_id": 2191,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868665177357"
+    },
+    {
+      "assessment_id": 2287,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868664952951"
+    },
+    {
+      "assessment_id": 2311,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868665111165"
+    },
+    {
+      "assessment_id": 2192,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Science",
+      "google_coursework_id": "868664706189"
+    },
+    {
+      "assessment_id": 2288,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Science",
+      "google_coursework_id": "868661389375"
+    },
+    {
+      "assessment_id": 2312,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Science",
+      "google_coursework_id": "868664625168"
+    },
+    {
+      "assessment_id": 2193,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "English",
+      "google_coursework_id": "868664680429"
+    },
+    {
+      "assessment_id": 2289,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "English",
+      "google_coursework_id": "868663963933"
+    },
+    {
+      "assessment_id": 2313,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "English",
+      "google_coursework_id": "868661389658"
+    },
+    {
+      "assessment_id": 2194,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "French",
+      "google_coursework_id": "868664751584"
+    },
+    {
+      "assessment_id": 2290,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "French",
+      "google_coursework_id": "868663838884"
+    },
+    {
+      "assessment_id": 2314,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "French",
+      "google_coursework_id": "868664737132"
+    },
+    {
+      "assessment_id": 2195,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868664125978"
+    },
+    {
+      "assessment_id": 2291,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868664190165"
+    },
+    {
+      "assessment_id": 2315,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868665756119"
+    },
+    {
+      "assessment_id": 2196,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Science",
+      "google_coursework_id": "819831743039"
+    },
+    {
+      "assessment_id": 2292,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Science",
+      "google_coursework_id": "868664650172"
+    },
+    {
+      "assessment_id": 2316,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Science",
+      "google_coursework_id": "868664383285"
+    },
+    {
+      "assessment_id": 2197,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "English",
+      "google_coursework_id": "868664635352"
+    },
+    {
+      "assessment_id": 2293,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "English",
+      "google_coursework_id": "868664181494"
+    },
+    {
+      "assessment_id": 2317,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "English",
+      "google_coursework_id": "868664120492"
+    },
+    {
+      "assessment_id": 2198,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "French",
+      "google_coursework_id": "868665229780"
+    },
+    {
+      "assessment_id": 2294,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "French",
+      "google_coursework_id": "868653791713"
+    },
+    {
+      "assessment_id": 2318,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "French",
+      "google_coursework_id": "868664377569"
+    },
+    {
+      "assessment_id": 2199,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868665060255"
+    },
+    {
+      "assessment_id": 2295,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868663872871"
+    },
+    {
+      "assessment_id": 2319,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868662567467"
+    },
+    {
+      "assessment_id": 2200,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Science",
+      "google_coursework_id": "868664968490"
+    },
+    {
+      "assessment_id": 2296,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Science",
+      "google_coursework_id": "868665174049"
+    },
+    {
+      "assessment_id": 2320,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Science",
+      "google_coursework_id": "868665297997"
+    },
+    {
+      "assessment_id": 2201,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "English",
+      "google_coursework_id": "868653753496"
+    },
+    {
+      "assessment_id": 2297,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "English",
+      "google_coursework_id": "868665173028"
+    },
+    {
+      "assessment_id": 2321,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "English",
+      "google_coursework_id": "868664109321"
+    },
+    {
+      "assessment_id": 2202,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "French",
+      "google_coursework_id": "868664738147"
+    },
+    {
+      "assessment_id": 2298,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "French",
+      "google_coursework_id": "868665159802"
+    },
+    {
+      "assessment_id": 2322,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "French",
+      "google_coursework_id": "868665350862"
+    },
+    {
+      "assessment_id": 2203,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868664981896"
+    },
+    {
+      "assessment_id": 2299,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868664007765"
+    },
+    {
+      "assessment_id": 2323,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Mathematic",
+      "google_coursework_id": "868665401942"
+    },
+    {
+      "assessment_id": 2204,
+      "title": "Class Test 1",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Science",
+      "google_coursework_id": "868664706197"
+    },
+    {
+      "assessment_id": 2300,
+      "title": "Class Test 2",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Science",
+      "google_coursework_id": "868664279269"
+    },
+    {
+      "assessment_id": 2324,
+      "title": "Exams",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Science",
+      "google_coursework_id": "868665680296"
+    }
+  ],
+  "unsyncedAssessments": [
+    {
+      "assessment_id": 4588,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4398,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4589,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4399,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4590,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4400,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4591,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4401,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4592,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4402,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4422,
+      "title": "quiz",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4593,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4403,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4423,
+      "title": "quiz",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4594,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4404,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4595,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4405,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4596,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4382,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4406,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4597,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4383,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4407,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4598,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4384,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4408,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4599,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4385,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4409,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "Jss 3",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4600,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4386,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4410,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4601,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4387,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4411,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4602,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4388,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4412,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4603,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4389,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4413,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 1",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4604,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4390,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4414,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4605,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4391,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4415,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4606,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4392,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4416,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4607,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4393,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4417,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 2",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4608,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4394,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4418,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 4609,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4395,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4419,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "French"
+    },
+    {
+      "assessment_id": 4610,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4396,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4420,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 4611,
+      "title": "CAT 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4397,
+      "title": "Class Test 3",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 4421,
+      "title": "Class Test 4",
+      "year_label": "2026 - 2027",
+      "term_name": "1st Semester",
+      "class_name": "SS 3",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 2104,
+      "title": "CAT 1",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 2110,
+      "title": "CAT 2",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 2122,
+      "title": "CAT 3",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 2128,
+      "title": "EXAMS ",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 2105,
+      "title": "CAT 1",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 2111,
+      "title": "CAT 2",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 2123,
+      "title": "CAT 3",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 2129,
+      "title": "EXAMS ",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 2106,
+      "title": "CAT 1",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 2112,
+      "title": "CAT 2",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 2124,
+      "title": "CAT 3",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 2130,
+      "title": "EXAMS ",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 1",
+      "subject_name": "Science"
+    },
+    {
+      "assessment_id": 2107,
+      "title": "CAT 1",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 2113,
+      "title": "CAT 2",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 2125,
+      "title": "CAT 3",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 2131,
+      "title": "EXAMS ",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "English"
+    },
+    {
+      "assessment_id": 2108,
+      "title": "CAT 1",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 2114,
+      "title": "CAT 2",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 2126,
+      "title": "CAT 3",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic"
+    },
+    {
+      "assessment_id": 2132,
+      "title": "EXAMS ",
+      "year_label": "2022-2023",
+      "term_name": "1st Semester",
+      "class_name": "Jss 2",
+      "subject_name": "Mathematic"
+    }
+  ]
+}

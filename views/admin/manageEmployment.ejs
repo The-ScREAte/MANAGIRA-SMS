@@ -949,11 +949,11 @@
         <div class="email-editor-toggle-row">
           <label class="email-editor-radio">
             <input type="radio" name="emailEditorMode" value="template" checked>
-            <span><strong>Use standard template</strong><br><small>Asks for a 6-month growth proposal to <code>managirasms@gmail.com</code> + Calendly booking.</small></span>
+            <span><strong>Use standard template</strong><br><small>Asks for a 6-month growth proposal to <code>managirasms@gmail.com</code> + interview link.</small></span>
           </label>
           <label class="email-editor-radio">
             <input type="radio" name="emailEditorMode" value="custom">
-            <span><strong>Custom message</strong><br><small>Write your own body. Calendly link &amp; CTA are still appended automatically.</small></span>
+            <span><strong>Custom message</strong><br><small>Write your own body. Interview link &amp; CTA are still appended automatically.</small></span>
           </label>
         </div>
 
@@ -962,7 +962,7 @@
 
         <div class="email-editor-meta">
           <p><strong>Subject:</strong> <span id="emailEditorSubject">—</span></p>
-          <p><strong>CTA button:</strong> <a id="emailEditorCta" href="https://calendly.com/managirasms/30min" target="_blank" rel="noopener">Book on Calendly</a></p>
+          <p><strong>CTA button:</strong> <a id="emailEditorCta" href="https://filevine.slack.com/archives/D0AR5HBHUC9/p1782314109507379" target="_blank" rel="noopener">Open Interview Link</a></p>
           <p class="email-editor-note">The body is wrapped in the Managira-branded email shell. Line breaks and basic HTML are preserved.</p>
         </div>
       </div>
@@ -1650,6 +1650,7 @@
 
     let emailEditorContext = null;
     let emailEditorTemplateText = '';
+    const interviewInviteUrl = 'https://filevine.slack.com/archives/D0AR5HBHUC9/p1782314109507379';
 
     function emailEditorMode() {
       const checked = document.querySelector('input[name="emailEditorMode"]:checked');
@@ -1664,7 +1665,7 @@
         `Congratulations on moving forward to the second interview!\n\n` +
         `As preparation, please prepare a short written proposal describing how you would help improve and grow Managira in your local area over the next 6 months. Outline the strategy, the activities you would lead, and the measurable results you expect to achieve.\n\n` +
         `Email your proposal to managirasms@gmail.com before your second interview.\n\n` +
-        `When booking, please add a note in the Calendly comment section that this is your second interview.\n\n` +
+        `When joining, please include a note that this is your second interview.\n\n` +
         `Thank you,\nThe Managira Team`
       );
     }
@@ -1673,7 +1674,7 @@
       return (
         `Dear ${greet},\n\n` +
         `Thank you for the strong showing in your second interview. We would like to invite you to a final interview with the wider Managira team.\n\n` +
-        `Please book a slot using the Calendly link below and mention "Final Interview" in the Calendly comment section.\n\n` +
+        `Please join using the interview link below and include "Final Interview" in your message/note.\n\n` +
         `We look forward to meeting you again.\n\n` +
         `Warm regards,\nThe Managira Team`
       );
@@ -1701,6 +1702,10 @@
       emailEditorTitleEl.textContent = ctx.title || 'Send Email';
       emailEditorSubEl.textContent   = `Recipient: ${ctx.recipient || '—'}`;
       emailEditorSubject.textContent = ctx.subject || '—';
+      if (emailEditorCta) {
+        emailEditorCta.href = interviewInviteUrl;
+        emailEditorCta.textContent = 'Open Interview Link';
+      }
       // default to template mode
       const tplRadio = document.querySelector('input[name="emailEditorMode"][value="template"]');
       if (tplRadio) tplRadio.checked = true;

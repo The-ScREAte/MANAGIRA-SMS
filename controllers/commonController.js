@@ -77,6 +77,21 @@ const {
   buildNameSortExpression,
   formatDisplayName,
 } = require("../utils/organizationDisplayPreferences");
+const { COUNTRY_NAME_LOOKUP } = require("../utils/countries");
+const {
+  ensureGoogleIntegrationSchema,
+  getGoogleIntegrationStatus,
+  markGoogleSync,
+  normalizeQuestionPayload,
+} = require("../utils/googleClassroomIntegration");
+const {
+  pushPendingAssessmentsForOrganization,
+} = require("../utils/googleClassroomSync");
+const {
+  ensureStudentPortalSchema,
+  upsertStudentAccount,
+  normalizeStudentEmail,
+} = require("../utils/studentPortal");
 
 async function getActivePaystackConfig(dbClient) {
   const settings = await getPaystackSettings(dbClient);
@@ -90,6 +105,7 @@ async function getActivePaystackConfig(dbClient) {
 let publicRegistrationSchemaReady = false;
 let guardianPaymentMethodSchemaReady = false;
 let studentIdSettingsSchemaReady = false;
+let studentEmailSchemaReady = false;
 
 function roundCurrencyAmount(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -132,6 +148,21 @@ async function ensureStudentIdSettingsSchema(dbClient) {
   `);
 
   studentIdSettingsSchemaReady = true;
+}
+
+async function ensureStudentEmailSchema(dbClient) {
+  if (studentEmailSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE students
+      ADD COLUMN IF NOT EXISTS email VARCHAR(255)
+  `);
+  await dbClient.query(`
+    ALTER TABLE pending_students
+      ADD COLUMN IF NOT EXISTS email VARCHAR(255)
+  `);
+
+  studentEmailSchemaReady = true;
 }
 
 async function ensurePublicRegistrationSchema(dbClient) {
@@ -774,6 +805,10 @@ const FIELD_ALIASES = {
     'Current City', 'Origin', 'Place of Origin', 'District', 'Municipality', 'County', 'State', 'Province',
     'Local Area', 'Address City', 'Location', 'Area', 'Community', 'Student Hometown'
   ],
+  studentEmail: [
+    'Student Email', 'Student E-mail', 'Student Email Address', 'Student Contact Email', 'Learner Email',
+    'Pupil Email', 'Applicant Email', 'Child Email'
+  ],
   class: [
     'Class', 'Grade', 'Grade Level', 'Class Level', 'Academic Level', 'Year Level', 'Form', 'Standard',
     'Class Group', 'Section', 'Division', 'Batch', 'Stream', 'Cohort', 'Level', 'Academic Year Level',
@@ -879,6 +914,7 @@ function buildHeaderIndexMap(headers = []) {
     dateOfBirth: aliasToIndex(FIELD_ALIASES.dateOfBirth),
     gender: aliasToIndex(FIELD_ALIASES.gender),
     hometown: aliasToIndex(FIELD_ALIASES.hometown),
+    studentEmail: aliasToIndex(FIELD_ALIASES.studentEmail),
     class: aliasToIndex(FIELD_ALIASES.class),
     graduationYear: aliasToIndex(FIELD_ALIASES.graduationYear),
     subjects: aliasToIndex(FIELD_ALIASES.subjects),
@@ -912,6 +948,11 @@ function sanitizePhoneNumber(raw) {
   return String(raw).replace(/[\s\-\(\)\.\+]/g, '');
 }
 
+function normalizeOptionalEmail(raw) {
+  const value = String(raw || '').trim().toLowerCase();
+  return value || null;
+}
+
 function mapRowToStudent(rowValues = [], indexMap) {
   const guardianNameRaw = valueAt(rowValues, indexMap.guardianName);
   const splitGuardian = splitGuardianName(guardianNameRaw);
@@ -923,6 +964,7 @@ function mapRowToStudent(rowValues = [], indexMap) {
     gender: normalizeGenderValue(valueAt(rowValues, indexMap.gender)),
     class: valueAt(rowValues, indexMap.class),
     hometown: valueAt(rowValues, indexMap.hometown),
+    studentEmail: normalizeOptionalEmail(valueAt(rowValues, indexMap.studentEmail)) || '',
     subjects: valueAt(rowValues, indexMap.subjects),
     graduationYear: extractYear(valueAt(rowValues, indexMap.graduationYear)),
     guardian: {
@@ -1021,6 +1063,7 @@ function parseTextToStudents(text) {
   for (const line of lines) {
     const parts = line.split(/[\t,|]/).map((p) => p.trim()).filter(Boolean);
     if (parts.length >= 2) {
+      const hasStudentEmail = Boolean(parts[6] && String(parts[6]).includes('@'));
       const student = {
         firstName: parts[0] || '',
         lastName: parts[1] || '',
@@ -1028,15 +1071,16 @@ function parseTextToStudents(text) {
         gender: normalizeGenderValue(parts[3] || ''),
         class: parts[4] || '',
         hometown: parts[5] || '',
-        subjects: parts[6] || '',
-        graduationYear: extractYear(parts[7] || ''),
+        studentEmail: hasStudentEmail ? String(parts[6] || '').toLowerCase() : '',
+        subjects: hasStudentEmail ? (parts[7] || '') : (parts[6] || ''),
+        graduationYear: extractYear(hasStudentEmail ? (parts[8] || '') : (parts[7] || '')),
         guardian: {
-          firstName: parts[8] || '',
-          lastName: parts[9] || '',
-          phone: sanitizePhoneNumber(parts[10] || ''),
-          email: (parts[11] || '').toLowerCase(),
-          address: parts[12] || '',
-          hometown: parts[13] || ''
+          firstName: hasStudentEmail ? (parts[9] || '') : (parts[8] || ''),
+          lastName: hasStudentEmail ? (parts[10] || '') : (parts[9] || ''),
+          phone: sanitizePhoneNumber(hasStudentEmail ? (parts[11] || '') : (parts[10] || '')),
+          email: String(hasStudentEmail ? (parts[12] || '') : (parts[11] || '')).toLowerCase(),
+          address: hasStudentEmail ? (parts[13] || '') : (parts[12] || ''),
+          hometown: hasStudentEmail ? (parts[14] || '') : (parts[13] || '')
         }
       };
       if (student.firstName && student.lastName) fallbackStudents.push(student);
@@ -1449,6 +1493,9 @@ async function ensureAssessmentControlSchema(database = require("../config/db"))
         ALTER TABLE assessments
         ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE,
         ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS show_question_set_on_dashboard BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS open_book BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS time_limit_minutes INTEGER,
         ADD COLUMN IF NOT EXISTS edit_window_start TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS edit_window_end TIMESTAMPTZ
       `);
@@ -1463,6 +1510,695 @@ async function ensureAssessmentControlSchema(database = require("../config/db"))
   // Do NOT clear the global on error — a resolved-but-warned promise is far
   // better than clearing the singleton and retrying on every single request.
   return global._assessmentControlSchemaPromise;
+}
+
+let assessmentQuestionSetReviewSchemaReady = false;
+let assessmentQuestionSetRetakeSchemaReady = false;
+
+async function ensureAssessmentQuestionSetReviewSchema(dbClient) {
+  if (assessmentQuestionSetReviewSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE assessment_question_sets
+      ADD COLUMN IF NOT EXISTS review_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      ADD COLUMN IF NOT EXISTS review_note TEXT,
+      ADD COLUMN IF NOT EXISTS reviewed_by INTEGER,
+      ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `);
+
+  await dbClient.query(`
+    UPDATE assessment_question_sets
+    SET review_status = COALESCE(NULLIF(TRIM(review_status), ''), 'pending')
+    WHERE review_status IS NULL OR NULLIF(TRIM(review_status), '') IS NULL
+  `);
+
+  assessmentQuestionSetReviewSchemaReady = true;
+}
+
+async function ensureAssessmentQuestionSetRetakeSchema(dbClient) {
+  if (assessmentQuestionSetRetakeSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE assessment_question_sets
+      ADD COLUMN IF NOT EXISTS retake_student_id INTEGER REFERENCES students(student_id) ON DELETE SET NULL
+  `);
+
+  assessmentQuestionSetRetakeSchemaReady = true;
+}
+
+let studentAssessmentLockSchemaReady = false;
+
+async function ensureStudentAssessmentLockSchema(dbClient) {
+  if (studentAssessmentLockSchemaReady) return;
+
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS student_assessment_lock_overrides (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL REFERENCES students(student_id) ON DELETE CASCADE,
+      assessment_id INTEGER NOT NULL REFERENCES assessments(assessment_id) ON DELETE CASCADE,
+      question_set_id INTEGER REFERENCES assessment_question_sets(question_set_id) ON DELETE SET NULL,
+      is_locked BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (organization_id, student_id, assessment_id)
+    )
+  `);
+
+  studentAssessmentLockSchemaReady = true;
+}
+
+function normalizeImportedQuestionType(value) {
+  const raw = String(value || "").trim().toLowerCase().replace(/[\s_-]+/g, "_");
+  if (!raw) return "short_text";
+  if (["multiple_choice", "multiple choice", "mcq"].includes(raw)) return "multiple_choice";
+  if (["single_choice", "single choice", "one_choice", "one choice"].includes(raw)) return "single_choice";
+  if (["true_false", "true false", "true/false"].includes(raw)) return "true_false";
+  if (["short_answer", "short answer", "short_text", "short_ans"].includes(raw)) return "short_text";
+  if (["fill_blank", "fill_in_the_blank", "fill blank", "fill_in_blank"].includes(raw)) return "fill_blank";
+  if (["matching"].includes(raw)) return "matching";
+  if (raw === "essay") return "essay";
+  return "short_text";
+}
+
+function isLikelySectionHeader(text) {
+  const value = String(text || "").trim();
+  if (!value) return true;
+  if (/^[A-G]\s+(MULTIPLE|TRUE|FILL|MATCHING|SHORT|ESSAY)/i.test(value)) return true;
+  if (/^GENERAL\s+INSTRUCTIONS/i.test(value)) return true;
+  if (/^(Subject|Term|Time|Total)\s*:/i.test(value)) return true;
+  if (/^(Response:|Answer:|Column\s+[AB])/i.test(value)) return true;
+  if (/End of Paper/i.test(value)) return true;
+  return false;
+}
+
+function stripTrailingMarksLabel(text) {
+  return String(text || "")
+    .replace(/\s*[\[(]?\d+(?:\.\d+)?\s*(?:mk|mks|marks?|pts?|points?)\s*[\])]?(?=\s*$)/i, "")
+    .trim();
+}
+
+async function cloneQuestionSetForRetakeShuffle(client, options) {
+  const organizationId = Number(options.organizationId || 0);
+  const sourceQuestionSetId = Number(options.sourceQuestionSetId || 0);
+  const actorUserId = Number(options.actorUserId || 0) || null;
+  const retakeStudentId = Number(options.retakeStudentId || 0) || null;
+  const shuffleMode = String(options.shuffleMode || "random").trim().toLowerCase();
+
+  if (!organizationId || !sourceQuestionSetId) {
+    throw new Error("A source question set is required for reshuffle.");
+  }
+
+  const sourceSetResult = await client.query(
+    `SELECT
+       question_set_id,
+       term_id,
+       class_id,
+       subject_id,
+       assessment_id,
+       group_id,
+       set_title,
+       set_description,
+       total_points
+     FROM assessment_question_sets
+     WHERE organization_id = $1
+       AND question_set_id = $2
+     LIMIT 1`,
+    [organizationId, sourceQuestionSetId]
+  );
+
+  if (!sourceSetResult.rows.length) {
+    throw new Error("Question set not found for reshuffle.");
+  }
+
+  const sourceSet = sourceSetResult.rows[0];
+  const sourceQuestionsResult = await client.query(
+    `SELECT
+       question_type,
+       question_text,
+       options_json,
+       answer_key,
+       marks,
+       position_index
+     FROM assessment_questions
+     WHERE question_set_id = $1
+     ORDER BY position_index ASC, question_id ASC`,
+    [sourceQuestionSetId]
+  );
+
+  if (!sourceQuestionsResult.rows.length) {
+    throw new Error("Question set has no questions to reshuffle.");
+  }
+
+  const questions = sourceQuestionsResult.rows.map((row) => ({
+    questionType: row.question_type,
+    questionText: row.question_text,
+    options: Array.isArray(row.options_json) ? [...row.options_json] : [],
+    answerKey: row.answer_key || null,
+    marks: Number(row.marks || 0),
+    positionIndex: Number(row.position_index || 0),
+  }));
+
+  if (shuffleMode === "reverse") {
+    questions.reverse();
+  } else {
+    for (let index = questions.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [questions[index], questions[swapIndex]] = [questions[swapIndex], questions[index]];
+    }
+  }
+
+  await ensureAssessmentQuestionSetReviewSchema(client);
+  await ensureAssessmentQuestionSetRetakeSchema(client);
+
+  const cloneSetTitle = `${sourceSet.set_title || "Question Set"} (Retake Shuffle)`;
+  const insertQuestionSetResult = await client.query(
+    `INSERT INTO assessment_question_sets (
+       organization_id,
+       term_id,
+       class_id,
+       subject_id,
+       assessment_id,
+       group_id,
+       set_title,
+       set_description,
+       total_points,
+       retake_student_id,
+       review_status,
+       submitted_at,
+       created_by,
+       updated_by
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'approved', NOW(), $11, $11)
+     RETURNING question_set_id`,
+    [
+      organizationId,
+      Number(sourceSet.term_id || 0),
+      Number(sourceSet.class_id || 0),
+      Number(sourceSet.subject_id || 0),
+      Number(sourceSet.assessment_id || 0),
+      sourceSet.group_id || null,
+      cloneSetTitle,
+      sourceSet.set_description || null,
+      Number(sourceSet.total_points || 0),
+      retakeStudentId,
+      actorUserId,
+    ]
+  );
+
+  const clonedQuestionSetId = Number(insertQuestionSetResult.rows[0].question_set_id);
+
+  for (let index = 0; index < questions.length; index += 1) {
+    const question = questions[index];
+    await client.query(
+      `INSERT INTO assessment_questions (
+         question_set_id,
+         organization_id,
+         question_type,
+         question_text,
+         options_json,
+         answer_key,
+         marks,
+         position_index
+       )
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+      [
+        clonedQuestionSetId,
+        organizationId,
+        question.questionType,
+        question.questionText,
+        JSON.stringify(question.options || []),
+        question.answerKey,
+        Number(question.marks || 0),
+        index + 1,
+      ]
+    );
+  }
+
+  return clonedQuestionSetId;
+}
+
+function looksLikeMergedQuestions(text) {
+  const value = String(text || "");
+  if (!value) return false;
+  const inlineQuestionMarkers = value.match(/(?:^|\s)(?:q(?:uestion)?\s*)?\d{1,3}\s*[\)\].:-]\s+/gi) || [];
+  return inlineQuestionMarkers.length > 1;
+}
+
+function shouldAcceptLocalExtraction(questions = []) {
+  const list = Array.isArray(questions) ? questions : [];
+  if (!list.length) return false;
+  for (const q of list) {
+    const text = String(q && q.questionText ? q.questionText : "").trim();
+    if (!text) return false;
+    if (isLikelySectionHeader(text)) return false;
+    if (looksLikeMergedQuestions(text)) return false;
+  }
+  return true;
+}
+
+function stripCodeFences(text) {
+  return String(text || "")
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+}
+
+function extractJsonArrayFromText(rawText) {
+  const text = stripCodeFences(rawText);
+  const startIdx = text.indexOf("[");
+  const endIdx = text.lastIndexOf("]");
+  if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
+    return null;
+  }
+
+  const candidate = text.slice(startIdx, endIdx + 1);
+  try {
+    const parsed = JSON.parse(candidate);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function normalizeExtractedQuestions(rawQuestions = []) {
+  const input = Array.isArray(rawQuestions) ? rawQuestions : [];
+
+  const normalized = input
+    .map((question, index) => {
+      const questionType = normalizeImportedQuestionType(question.questionType);
+      const questionText = String(question.questionText || question.question || "").trim();
+      const marks = Number(question.marks || question.mark || question.points || 1);
+      const questionNumber = Number(question.questionNumber || index + 1);
+
+      let options = Array.isArray(question.options)
+        ? question.options.map((entry) => String(entry || "").trim()).filter(Boolean)
+        : [];
+
+      if (questionType === "true_false" && options.length === 0) {
+        options = ["True", "False"];
+      }
+
+      let answerKey = "";
+      if (Array.isArray(question.answerKeys)) {
+        answerKey = question.answerKeys
+          .map((entry) => String(entry || "").trim())
+          .filter(Boolean)
+          .join("||");
+      } else {
+        answerKey = String(question.answerKey || question.answer || "").trim();
+      }
+
+      if (!questionText || isLikelySectionHeader(questionText)) return null;
+
+      return {
+        questionNumber: Number.isInteger(questionNumber) && questionNumber > 0 ? questionNumber : (index + 1),
+        questionType,
+        questionText,
+        options,
+        answerKey,
+        marks: Number.isFinite(marks) && marks > 0 ? marks : 1,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.questionNumber - b.questionNumber);
+
+  return normalized;
+}
+
+function postProcessQuestions(rawQuestions = []) {
+  const input = Array.isArray(rawQuestions) ? rawQuestions : [];
+  const result = [];
+
+  input.forEach((question, index) => {
+    const questionNumber = Number(question.questionNumber || index + 1);
+    const rawText = String(question.questionText || question.question || "").trim();
+    if (!rawText) return;
+
+    // Matching-row salvage: "25. Photosynthesis | A. ... | D" -> questionText=Photosynthesis, answerKey=D
+    let questionText = rawText;
+    let extractedMatchingAnswer = "";
+    if (rawText.includes("|")) {
+      const parts = rawText.split("|").map((part) => String(part || "").trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const firstPart = parts[0].replace(/^\d+\s*[\)\].:-]\s*/, "").trim();
+        const trailingAnswer = parts[parts.length - 1].match(/^\(?([A-H])\)?$/i);
+        if (firstPart) questionText = firstPart;
+        if (trailingAnswer) extractedMatchingAnswer = String(trailingAnswer[1] || "").toUpperCase();
+      }
+    }
+
+    questionText = stripTrailingMarksLabel(questionText);
+    if (!questionText) return;
+    if (isLikelySectionHeader(questionText)) return;
+    if (questionText.length < 3) return;
+
+    let questionType = normalizeImportedQuestionType(question.questionType);
+    if (["fill_blank", "matching"].includes(questionType)) {
+      questionType = "short_text";
+    }
+    if (!["multiple_choice", "single_choice", "true_false", "short_text", "essay"].includes(questionType)) {
+      questionType = "short_text";
+    }
+
+    let options = Array.isArray(question.options)
+      ? question.options.map((entry) => String(entry || "").trim()).filter(Boolean)
+      : [];
+
+    if (questionType === "true_false") {
+      options = ["True", "False"];
+    }
+
+    const rawAnswer = Array.isArray(question.answerKeys)
+      ? question.answerKeys.map((entry) => String(entry || "").trim()).filter(Boolean).join(",")
+      : String(question.answerKey || question.answer || "").trim();
+    const answerKey = /answer not provided|student to respond/i.test(rawAnswer)
+      ? ""
+      : (extractedMatchingAnswer || rawAnswer);
+
+    const marks = Number(question.marks || question.mark || question.points || 1);
+
+    result.push({
+      questionNumber: Number.isInteger(questionNumber) && questionNumber > 0 ? questionNumber : (index + 1),
+      questionType,
+      questionText,
+      options,
+      answerKey,
+      marks: Number.isFinite(marks) && marks > 0 ? marks : 1,
+    });
+  });
+
+  result.sort((a, b) => a.questionNumber - b.questionNumber);
+  return result;
+}
+
+function inferQuestionTypeFromText(questionText, options) {
+  const normalizedText = String(questionText || "").toLowerCase();
+  const normalizedOptions = Array.isArray(options)
+    ? options.map((opt) => String(opt || "").toLowerCase())
+    : [];
+
+  if (
+    normalizedOptions.length === 2 &&
+    normalizedOptions.includes("true") &&
+    normalizedOptions.includes("false")
+  ) {
+    return "true_false";
+  }
+
+  if (normalizedOptions.length > 0) {
+    if (/select\s+all|all\s+that\s+apply|more\s+than\s+one|multiple\s+answers?/i.test(normalizedText)) {
+      return "multiple_choice";
+    }
+    if (/choose\s+one|select\s+one|best\s+answer|one\s+correct\s+answer/i.test(normalizedText)) {
+      return "single_choice";
+    }
+    return "single_choice";
+  }
+
+  if (/essay|explain|discuss|describe in detail|long answer/i.test(normalizedText)) {
+    return "essay";
+  }
+
+  return "short_text";
+}
+
+function preprocessPlainQuestionText(rawText = "") {
+  let text = String(rawText || "")
+    .replace(/\r/g, "\n")
+    .replace(/\t/g, " ")
+    .replace(/\u00a0/g, " ");
+
+  text = text.replace(/[ ]{2,}/g, " ");
+  text = text.replace(/([^.\n])\s+(?=(?:Q(?:uestion)?\s*)?\d{1,3}\s*[\)\].:-]\s+)/gi, "$1\n");
+  text = text.replace(/([^.\n])\s+(?=(?:Answer|Ans(?:wer)?\s*Key|Correct\s*Answer|Key)\s*[:\-])/gi, "$1\n");
+
+  return text;
+}
+
+function extractMarksFromText(rawText = "") {
+  let text = String(rawText || "").trim();
+  let marks = null;
+
+  const patterns = [
+    /(?:\(|\[)?\s*(\d+(?:\.\d+)?)\s*marks?\s*(?:\)|\])?$/i,
+    /(?:\(|\[)?\s*(\d+(?:\.\d+)?)\s*(?:pts?|points?|mks?|mk|m)\s*(?:\)|\])?$/i,
+    /^\s*\[(\d+(?:\.\d+)?)\]\s*$/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      marks = Number(match[1]);
+      text = text.replace(pattern, "").trim();
+      break;
+    }
+  }
+
+  return {
+    text,
+    marks: Number.isFinite(marks) && marks > 0 ? marks : null,
+  };
+}
+
+function splitInlineOptions(rawText = "") {
+  const text = String(rawText || "").trim();
+  if (!text) return null;
+
+  const optionToken = /\(?([A-Ha-h])\)?[\).:-]\s*/g;
+  const hits = [];
+  let match = optionToken.exec(text);
+  while (match) {
+    hits.push({
+      label: String(match[1] || "").toUpperCase(),
+      start: match.index,
+      valueStart: optionToken.lastIndex,
+    });
+    match = optionToken.exec(text);
+  }
+
+  if (hits.length < 2) return null;
+
+  const leadText = text.slice(0, hits[0].start).trim();
+  if (!leadText || leadText.length < 4) return null;
+
+  const options = hits
+    .map((hit, index) => {
+      const end = index + 1 < hits.length ? hits[index + 1].start : text.length;
+      const value = text.slice(hit.valueStart, end).trim().replace(/\s+/g, " ");
+      return value;
+    })
+    .filter(Boolean);
+
+  if (options.length < 2) return null;
+
+  return {
+    stem: leadText,
+    options,
+    optionLabels: hits.map((hit) => hit.label),
+  };
+}
+
+function normalizeParsedAnswer(rawAnswer = "", optionLabels = []) {
+  const raw = String(rawAnswer || "").trim();
+  if (!raw) return "";
+
+  const labels = Array.isArray(optionLabels)
+    ? optionLabels.map((label) => String(label || "").toUpperCase()).filter(Boolean)
+    : [];
+
+  const compact = raw.replace(/\s+/g, " ").trim();
+  const singleLabelMatch = compact.match(/^\(?([A-Ha-h])\)?$/);
+  if (singleLabelMatch && labels.length && labels.includes(singleLabelMatch[1].toUpperCase())) {
+    return singleLabelMatch[1].toUpperCase();
+  }
+
+  const multiLabelPattern = /^(?:\(?[A-Ha-h]\)?\s*(?:,|\/|\||&|\band\b)\s*)+\(?[A-Ha-h]\)?$/i;
+  if (multiLabelPattern.test(compact)) {
+    const parts = compact
+      .split(/,|\/|\||&|\band\b/i)
+      .map((part) => part.replace(/[()\s]/g, "").toUpperCase())
+      .filter(Boolean);
+    if (parts.length) {
+      return parts.join("||");
+    }
+  }
+
+  return compact;
+}
+
+function parseQuestionsFromPlainText(rawText = "") {
+  const text = preprocessPlainQuestionText(rawText);
+  const lines = text
+    .split("\n")
+    .map((line) => String(line || "").trim())
+    .filter(Boolean);
+
+  const questions = [];
+  let current = null;
+
+  const startQuestionRegex = /^(?:q(?:uestion)?\s*)?(\d{1,3})\s*[\)\].:-]\s*(.+)$/i;
+  const altQuestionRegex = /^\((\d{1,3})\)\s*(.+)$/;
+  const optionRegex = /^\(?([A-Ha-h])\)?\s*[\)\].:-]\s*(.+)$/;
+  const answerRegex = /^(?:answer|ans(?:wer)?\s*key|correct\s*answer|key)\s*[:\-]\s*(.+)$/i;
+  const marksOnlyRegex = /^(?:marks?|score|points?)\s*[:\-]\s*(\d+(?:\.\d+)?)$/i;
+
+  const finalizeCurrent = () => {
+    if (!current) return;
+
+    current.questionText = String(current.questionText || "").trim();
+    current.options = Array.isArray(current.options)
+      ? current.options.map((opt) => String(opt || "").trim()).filter(Boolean)
+      : [];
+
+    current.questionType = inferQuestionTypeFromText(current.questionText, current.options);
+
+    if (current.questionType === "true_false" && current.options.length === 0) {
+      current.options = ["True", "False"];
+    }
+
+    if (!current.questionText) {
+      current = null;
+      return;
+    }
+
+    questions.push({
+      questionNumber: current.questionNumber,
+      questionType: current.questionType,
+      questionText: current.questionText,
+      options: current.options,
+      answerKey: normalizeParsedAnswer(current.answerKey, current.optionLabels),
+      marks: Number.isFinite(Number(current.marks)) && Number(current.marks) > 0 ? Number(current.marks) : 1,
+    });
+    current = null;
+  };
+
+  lines.forEach((line, index) => {
+    const questionMatch = line.match(startQuestionRegex) || line.match(altQuestionRegex);
+    if (questionMatch) {
+      finalizeCurrent();
+
+      const qNum = Number(questionMatch[1]);
+      const initialText = String(questionMatch[2] || "").trim();
+      const extractedMarks = extractMarksFromText(initialText);
+      const inlineOptions = splitInlineOptions(extractedMarks.text);
+      const cleanedText = inlineOptions ? inlineOptions.stem : extractedMarks.text;
+
+      current = {
+        questionNumber: Number.isInteger(qNum) ? qNum : (index + 1),
+        questionType: "short_text",
+        questionText: cleanedText,
+        options: inlineOptions ? inlineOptions.options : [],
+        optionLabels: inlineOptions ? inlineOptions.optionLabels : [],
+        answerKey: "",
+        marks: extractedMarks.marks || 1,
+      };
+      return;
+    }
+
+    if (!current) {
+      return;
+    }
+
+    const marksOnlyMatch = line.match(marksOnlyRegex);
+    if (marksOnlyMatch) {
+      current.marks = Number(marksOnlyMatch[1]);
+      return;
+    }
+
+    const optionMatch = line.match(optionRegex);
+    if (optionMatch) {
+      current.optionLabels = Array.isArray(current.optionLabels) ? current.optionLabels : [];
+      current.optionLabels.push(String(optionMatch[1] || "").toUpperCase());
+      current.options.push(String(optionMatch[2] || "").trim());
+      return;
+    }
+
+    const answerMatch = line.match(answerRegex);
+    if (answerMatch) {
+      current.answerKey = String(answerMatch[1] || "").trim();
+      return;
+    }
+
+    if (!current.options.length) {
+      const inlineOptions = splitInlineOptions(line);
+      if (inlineOptions) {
+        current.options = inlineOptions.options;
+        current.optionLabels = inlineOptions.optionLabels;
+        current.questionText = (String(current.questionText || "") + " " + inlineOptions.stem).trim();
+        return;
+      }
+    }
+
+    if (current.options.length > 0) {
+      // Multi-line option continuation appends to last option.
+      const lastIndex = current.options.length - 1;
+      current.options[lastIndex] = String(current.options[lastIndex] || "") + " " + line;
+      current.options[lastIndex] = current.options[lastIndex].trim();
+      return;
+    }
+
+    current.questionText = (String(current.questionText || "") + " " + line).trim();
+  });
+
+  finalizeCurrent();
+
+  return normalizeExtractedQuestions(questions);
+}
+
+async function extractTextFromExamFile(file) {
+  const mimeType = String(file?.mimetype || "").toLowerCase();
+  const fileName = String(file?.originalname || "").toLowerCase();
+  const fileBuffer = file?.buffer;
+  if (!fileBuffer || !fileBuffer.length) return "";
+
+  const isPdf = mimeType === "application/pdf" || fileName.endsWith(".pdf");
+  const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx");
+  const isXlsx = mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || fileName.endsWith(".xlsx");
+  const isImage = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"].includes(mimeType)
+    || [".png", ".jpg", ".jpeg", ".webp", ".gif"].some((ext) => fileName.endsWith(ext));
+
+  if (isPdf) {
+    const pdfParse = require("pdf-parse");
+    const parsed = await pdfParse(fileBuffer);
+    return String(parsed?.text || "").trim();
+  }
+
+  if (isDocx) {
+    const mammoth = require("mammoth");
+    const textResult = await mammoth.extractRawText({ buffer: fileBuffer });
+    return String(textResult?.value || "").trim();
+  }
+
+  if (isXlsx) {
+    const ExcelJS = require("exceljs");
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(fileBuffer);
+
+    const rows = [];
+    workbook.eachSheet((sheet) => {
+      rows.push("Sheet: " + sheet.name);
+      sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+        const values = Array.isArray(row.values)
+          ? row.values.slice(1).map((value) => String(value || "").trim()).filter(Boolean)
+          : [];
+        if (values.length) {
+          rows.push("Row " + rowNumber + ": " + values.join(" | "));
+        }
+      });
+    });
+
+    return rows.join("\n").trim();
+  }
+
+  if (isImage) {
+    const Tesseract = require("tesseract.js");
+    const ocrResult = await Tesseract.recognize(fileBuffer, "eng");
+    return String(ocrResult?.data?.text || "").trim();
+  }
+
+  return "";
 }
 
 function parseBooleanValue(value, defaultValue = false) {
@@ -2460,15 +3196,20 @@ const commonController = {
         : null;
 
       const _publicAlias = orgDetails?.nickname_display || orgDetails?.nickname || "";
+      const _countryCode = String(orgDetails?.organization_country || "").trim().toUpperCase();
+      const _countryLabel = COUNTRY_NAME_LOOKUP[_countryCode] || _countryCode || "";
+      const _nicknameLabel = orgDetails?.nickname ? String(orgDetails.nickname).trim() : "";
+      const _nicknameDisplayLabel = orgDetails?.nickname_display ? String(orgDetails.nickname_display).trim() : "";
+      const _seoTitleParts = [orgDetails?.organization_name, _nicknameDisplayLabel, _nicknameLabel, 'Official School Website']
+        .map((value) => String(value || '').trim())
+        .filter((value, index, list) => value && list.indexOf(value) === index);
       const seoTitle = orgDetails?.organization_name
-        ? (_publicAlias
-          ? `${_publicAlias} | ${orgDetails.organization_name} | Official School Website`
-          : `${orgDetails.organization_name} | Official School Website`)
+        ? _seoTitleParts.join(' | ')
         : "Official School Website";
 
       const seoDescription = aboutusPlain
-        ? `${aboutusPlain}${_publicAlias ? ` Also known as ${_publicAlias}.` : ""}`
-        : `${orgDetails?.organization_name || "School"}${_publicAlias ? ` (${_publicAlias})` : ""} official school website. View admissions, announcements, class information, and school updates.`;
+        ? `${aboutusPlain}${_publicAlias ? ` Also known as ${_publicAlias}.` : ""}${_nicknameLabel && _nicknameLabel !== _publicAlias ? ` Searchers may also know this school as ${_nicknameLabel}.` : ""}${_countryLabel ? ` Located in ${_countryLabel}.` : ''}`
+        : `${orgDetails?.organization_name || "School"}${_publicAlias ? ` (${_publicAlias})` : ""}${_nicknameLabel && _nicknameLabel !== _publicAlias ? `, also known as ${_nicknameLabel},` : ''} official school website${_countryLabel ? ` in ${_countryLabel}` : ''}. View admissions, announcements, class information, and school updates.`;
 
       // Build rich keyword list: full name, every word, every partial combination,
       // nickname variations, and common school search terms — maximises chances of
@@ -2494,17 +3235,31 @@ const commonController = {
         _nicknameVariants.add(_nickname.replace(/e/g, "i"));
       }
 
+      const addPhraseVariants = (targetSet, phrase) => {
+        const normalizedPhrase = String(phrase || '').trim();
+        if (!normalizedPhrase) return;
+        targetSet.add(normalizedPhrase);
+        targetSet.add(normalizedPhrase.toLowerCase());
+        const phraseWords = normalizedPhrase.split(/\s+/).filter(Boolean);
+        for (let i = 0; i < phraseWords.length; i++) {
+          for (let j = i + 1; j <= phraseWords.length; j++) {
+            const segment = phraseWords.slice(i, j).join(' ');
+            if (!segment) continue;
+            targetSet.add(segment);
+            targetSet.add(segment.toLowerCase());
+          }
+        }
+      };
+
       // All consecutive word subsequences (e.g. "SAM KORANCHIE", "KORANCHIE SOLID", etc.)
       const _nameVariants = new Set();
-      _nameVariants.add(_orgName);
-      _nameVariants.add(_orgName.toLowerCase());
-      _nameVariants.add(_nickname);
-      _nameVariants.add(_nicknameDisplay);
-      _nameVariants.add(_acronym);
-      _nameVariants.add(`${_nickname}.managira.com`);
+      addPhraseVariants(_nameVariants, _orgName);
+      addPhraseVariants(_nameVariants, _nickname);
+      addPhraseVariants(_nameVariants, _nicknameDisplay);
+      addPhraseVariants(_nameVariants, _acronym);
+      addPhraseVariants(_nameVariants, `${_nickname}.managira.com`);
       _nicknameVariants.forEach((variant) => {
-        _nameVariants.add(variant);
-        _nameVariants.add(String(variant).toLowerCase());
+        addPhraseVariants(_nameVariants, variant);
       });
       for (let i = 0; i < _words.length; i++) {
         for (let j = i + 1; j <= _words.length; j++) {
@@ -2519,20 +3274,35 @@ const commonController = {
       const seoKeywords = [
         ..._nameVariants,
         `${_orgName} school`,
-        `${_orgName} Ghana`,
+        `${_orgName} official school`,
         `${_orgName} admissions`,
         `${_orgName} enrollment`,
+        `${_orgName} website`,
+        `${_orgName} school website`,
         `${_acronym} school`,
-        `${_acronym} Ghana`,
+        `${_acronym} website`,
         `${_nickname} school`,
         `${_nickname} managira`,
+        `${_nickname} website`,
         `${_nicknameDisplay} school`,
-        "school portal Ghana",
-        "school website Ghana",
+        `${_nicknameDisplay} website`,
+        _countryLabel ? `${_orgName} ${_countryLabel}` : '',
+        _countryLabel ? `${_nicknameDisplay} ${_countryLabel}` : '',
+        _countryLabel ? `${_nicknameLabel} ${_countryLabel}` : '',
+        _countryLabel ? `school portal ${_countryLabel}` : '',
+        _countryLabel ? `school website ${_countryLabel}` : '',
         "school management system",
         "managira school",
-        "school admissions Ghana",
+        _countryLabel ? `school admissions ${_countryLabel}` : 'school admissions',
       ].filter(Boolean).join(", ");
+
+      const searchIdentityTerms = [...new Set([
+        orgDetails?.organization_name,
+        _nicknameDisplayLabel,
+        _nicknameLabel,
+        _acronym,
+        `${_nicknameLabel}.managira.com`,
+      ].map((value) => String(value || '').trim()).filter(Boolean))];
 
       // Build rich Schema.org School structured data
       const _logoAbs = toAbsoluteUrl(orgDetails?.logo);
@@ -2625,6 +3395,7 @@ const commonController = {
         publicDashboardTheme,
         publicDashboardLayout,
         aboutDetails,
+        searchIdentityTerms,
         url,
         isLoggedIn: req.session && req.session.userId,
         accountType: req.session.accountType || null, // ✅ Pass accountType explicitly
@@ -2816,6 +3587,7 @@ const commonController = {
   },
 
   addStudentPost: async (req, res, db) => {
+    const addStudentVerboseLogs = String(process.env.LOG_ADD_STUDENT_VERBOSE || '').trim().toLowerCase() === 'true';
     const organizationId = req.session.organizationId;
     const createdBy = req.session.userId || null;
     const body = req.body;
@@ -2824,6 +3596,7 @@ const commonController = {
 
     // Fetch org student ID settings once before processing students
     await ensureStudentIdSettingsSchema(db);
+    await ensureStudentEmailSchema(db);
     const orgIdSettingsResult = await db.query(
       `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter, student_id_start_number
        FROM organizations WHERE organization_id = $1`,
@@ -2832,7 +3605,7 @@ const commonController = {
     const idSettings = orgIdSettingsResult.rows[0] || {};
 
     const indexes = [];
-    const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
+    const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|studentEmail|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
 
     // Detect whether this is single or multiple students
     const isMultiple = Object.keys(body).some((key) => key.match(/_\d+$/));
@@ -2846,10 +3619,12 @@ const commonController = {
       indexes.push("single");
     }
 
-    console.log('[AddStudent] Detected indexes for processing', {
-      indexes,
-      sampleKeys: Object.keys(body).slice(0, 40)
-    });
+    if (addStudentVerboseLogs) {
+      console.log('[AddStudent] Detected indexes for processing', {
+        indexes,
+        sampleKeys: Object.keys(body).slice(0, 40)
+      });
+    }
 
     const client = await db.connect();
     const guardianCache = new Map();
@@ -2882,6 +3657,7 @@ const commonController = {
           dateOfBirth: getStudentField('dateOfBirth'),
           height: getStudentField('height'),
           hometown: getStudentField('hometown'),
+          studentEmail: normalizeOptionalEmail(getStudentField('studentEmail')),
           classId: getStudentField('classId'),
           graduationYearGroupId: getStudentField('graduationYearGroupId'),
           gender: getStudentField('gender'),
@@ -2896,19 +3672,23 @@ const commonController = {
 
         const isEmptyStudentForm = !student.firstName && !student.lastName && !student.dateOfBirth && !student.gender && !student.classId;
         if (isEmptyStudentForm) {
-          console.log('[AddStudent] Skipping empty student form', { index });
+          if (addStudentVerboseLogs) {
+            console.log('[AddStudent] Skipping empty student form', { index });
+          }
           continue;
         }
 
-        console.log('[AddStudent] Parsed student payload', {
-          index,
-          firstName: student.firstName,
-          lastName: student.lastName,
-          dateOfBirth: student.dateOfBirth,
-          gender: student.gender,
-          classId: student.classId,
-          graduationYearGroupId: student.graduationYearGroupId
-        });
+        if (addStudentVerboseLogs) {
+          console.log('[AddStudent] Parsed student payload', {
+            index,
+            firstName: student.firstName,
+            lastName: student.lastName,
+            dateOfBirth: student.dateOfBirth,
+            gender: student.gender,
+            classId: student.classId,
+            graduationYearGroupId: student.graduationYearGroupId
+          });
+        }
 
         currentPhaseForLog = 'duplicateCheck';
 
@@ -3068,8 +3848,8 @@ const commonController = {
 
         const studentInsert = await client.query(
           `INSERT INTO students 
-          (first_name, last_name, date_of_birth, height, hometown, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id, custom_student_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          (first_name, last_name, date_of_birth, height, hometown, email, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id, custom_student_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
           RETURNING student_id`,
           [
             student.firstName,
@@ -3077,6 +3857,7 @@ const commonController = {
             student.dateOfBirth,
             student.height,
             student.hometown,
+            student.studentEmail,
             student.classId,
             imageUrl,
             student.graduationYearGroupId || null,
@@ -3493,12 +4274,14 @@ const commonController = {
 
       currentPhaseForLog = 'commit';
       await client.query("COMMIT");
-      console.log('[AddStudent] Save completed', {
-        studentsSaved: studentsSavedCount,
-        guardiansCreated: guardiansCreatedCount,
-        guardiansReused: guardiansReusedCount,
-        guardianLinksCreated: guardianLinksCreatedCount
-      });
+      if (addStudentVerboseLogs) {
+        console.log('[AddStudent] Save completed', {
+          studentsSaved: studentsSavedCount,
+          guardiansCreated: guardiansCreatedCount,
+          guardiansReused: guardiansReusedCount,
+          guardianLinksCreated: guardianLinksCreatedCount
+        });
+      }
       req.flash("success", "Student(s) saved successfully.");
       res.redirect("/common/addStudent");
     } catch (err) {
@@ -4035,6 +4818,7 @@ const commonController = {
       (req.schoolDetails && req.schoolDetails.organization_id);
 
     try {
+      await ensureStudentEmailSchema(db);
       if (
         !body.firstName ||
         !body.lastName ||
@@ -4082,8 +4866,8 @@ const commonController = {
       const isFreeRegistration = !(parseFloat(amount) > 0);
       const insertResult = await db.query(
         `INSERT INTO pending_students 
-        (first_name, last_name, date_of_birth, gender, hometown, class_id, image_url, enrollment_type, school_year_id, term_id, graduation_year_group_id, organization_id, stripe_payment_verified, payment_pending, submitted_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+        (first_name, last_name, date_of_birth, gender, hometown, email, class_id, image_url, enrollment_type, school_year_id, term_id, graduation_year_group_id, organization_id, stripe_payment_verified, payment_pending, submitted_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
         RETURNING pending_id`,
         [
           body.firstName,
@@ -4091,6 +4875,7 @@ const commonController = {
           body.dateOfBirth,
           body.gender,
           body.hometown,
+          normalizeOptionalEmail(body.studentEmail),
           body.classId,
           imageUrl,
           body.enrollmentType,
@@ -4243,7 +5028,7 @@ const commonController = {
         [organizationId]
       );
       const orgRow = orgResult.rows[0];
-      const currency = normalizeCurrencyCode(orgRow?.public_registration_currency) || 'GHS';
+      const currency = normalizeCurrencyCode(orgRow?.public_registration_currency) || 'USD';
       const organizationName = orgRow?.organization_name || 'School';
       const payoutContext = await resolveSchoolPayoutDestination(organizationId, db, { fresh: true }).catch(() => null);
       const selectedIsStripe = String(payoutAccountId || '').toLowerCase() === 'stripe';
@@ -5303,6 +6088,7 @@ const commonController = {
     const client = await db.connect();
 
     try {
+      await ensureStudentEmailSchema(db);
       await client.query("BEGIN");
 
       console.log('[Approve Pending Student] Starting approval for ID:', id);
@@ -5356,6 +6142,7 @@ const commonController = {
           req.body.date_of_birth,
           req.body.gender,
           req.body.hometown,
+          normalizeOptionalEmail(req.body.student_email),
           classId,
           gradGroupId,
           schoolYearId,
@@ -5374,13 +6161,14 @@ const commonController = {
             date_of_birth = $3,
             gender = $4,
             hometown = $5,
-            class_id = $6,
-            graduation_year_group_id = $7,
-            school_year_id = $8,
-            term_id = $9,
-            enrollment_type = $10
-            ${imageUrl ? ", image_url = $11" : ""}
-          WHERE pending_id = $${imageUrl ? 12 : 11} AND organization_id = $${imageUrl ? 13 : 12}
+            email = COALESCE($6, email),
+            class_id = $7,
+            graduation_year_group_id = $8,
+            school_year_id = $9,
+            term_id = $10,
+            enrollment_type = $11
+            ${imageUrl ? ", image_url = $12" : ""}
+          WHERE pending_id = $${imageUrl ? 13 : 12} AND organization_id = $${imageUrl ? 14 : 13}
         `;
 
         await client.query(updateQuery, queryParams);
@@ -5451,8 +6239,8 @@ const commonController = {
 
       // ✅ Create student
       const inserted = await client.query(
-        `INSERT INTO students (first_name, last_name, date_of_birth, gender, hometown, class_id, graduation_year_group_id, organization_id, image_url)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        `INSERT INTO students (first_name, last_name, date_of_birth, gender, hometown, email, class_id, graduation_year_group_id, organization_id, image_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          RETURNING student_id`,
         [
           student.first_name,
@@ -5460,6 +6248,7 @@ const commonController = {
           student.date_of_birth,
           student.gender,
           student.hometown,
+          normalizeOptionalEmail(student.email),
           student.class_id,
           student.graduation_year_group_id,
           organizationId,
@@ -5817,7 +6606,9 @@ const commonController = {
     const requestedClassId = Number.parseInt(req.query.classId, 10);
     const organizationId = req.session.organizationId;
     const userRole = req.session.userRole;
+    const accountType = req.session.accountType || req.session.user?.account_type || null;
     const userId = req.session.user ? req.session.user.user_id : null;
+    const normalizedUserRole = normalizeRoleKey(userRole || req.session.accountType);
 
     if (!studentId || !termId) {
       return res.status(400).send("Student ID and Term ID are required.");
@@ -5849,6 +6640,42 @@ const commonController = {
       const classId = Number.isInteger(requestedClassId)
         ? requestedClassId
         : student.class_id;
+
+      await ensureStudentPortalSchema(db);
+      const studentPortalAccountResult = await db.query(
+        `SELECT login_email, password_hash
+           FROM student_accounts
+          WHERE organization_id = $1 AND student_id = $2
+          LIMIT 1`,
+        [organizationId, studentId]
+      );
+      const studentPortalAccount = studentPortalAccountResult.rows[0] || null;
+      const studentPortalSetupComplete = Boolean(
+        studentPortalAccount &&
+        studentPortalAccount.password_hash &&
+        String(studentPortalAccount.password_hash).trim()
+      );
+      const canBypassAsAdmin = ["admin"].includes(normalizeRoleKey(userRole)) || ["admin"].includes(normalizeRoleKey(accountType));
+      const canManageStudentsSettings = canBypassAsAdmin || await userHasPermission(
+        db,
+        {
+          userId,
+          userRole,
+          organizationId,
+          accountType,
+          userEmail: req.session?.user?.email || null,
+        },
+        PERMISSIONS.MANAGE_STUDENTS
+      );
+      const canSendStudentPortalRequest = Boolean(
+        req.session &&
+        canManageStudentsSettings &&
+        normalizeStudentEmail(student.email)
+      );
+      const studentPortalAction = studentPortalSetupComplete ? "reset" : "setup";
+      const studentPortalActionLabel = studentPortalSetupComplete
+        ? "Reset Student Portal Password"
+        : "Send Student Portal Request";
 
       // **Check if user is the main teacher of the class**
       let isMainTeacher = false;
@@ -6128,6 +6955,10 @@ const commonController = {
         enrolledClassForTerm,
         termNameForPage,
         studentEnrolledInCurrent,
+        studentPortalSetupComplete,
+        studentPortalAction,
+        studentPortalActionLabel,
+        canSendStudentPortalRequest,
         messages: req.flash(),
         hideGlobalHeader: true,
         hideGlobalFooter: true,
@@ -6315,6 +7146,7 @@ const commonController = {
   editStudentPost: async (req, res, db) => {
     const client = await db.connect();
     try {
+      await ensureStudentEmailSchema(db);
       const { studentId } = req.params;
       const sessionOrganizationId = req.session.organizationId;
       const {
@@ -6323,6 +7155,7 @@ const commonController = {
         dateOfBirth,
         height,
         hometown,
+        studentEmail,
         classId,
         graduationYearGroupId,
         gender,
@@ -6499,13 +7332,14 @@ const commonController = {
                 date_of_birth = $3, 
                 height = $4, 
                 hometown = $5, 
-                class_id = $6, 
-                graduation_year_group_id = $7, 
-                gender = $8, 
-                image_url = COALESCE($9, image_url),
-                custom_student_id = $12
-            WHERE student_id = $10 
-            AND organization_id = $11;
+                email = $6,
+                class_id = $7, 
+                graduation_year_group_id = $8, 
+                gender = $9, 
+                image_url = COALESCE($10, image_url),
+                custom_student_id = $13
+            WHERE student_id = $11 
+            AND organization_id = $12;
         `;
       await client.query(updateStudentQuery, [
         firstName,
@@ -6513,6 +7347,7 @@ const commonController = {
         dateOfBirth,
         height,
         hometown,
+        normalizeOptionalEmail(studentEmail),
         safeClassId,
         safeGraduationYearGroupId,
         gender,
@@ -7640,6 +8475,45 @@ const commonController = {
         });
       }
 
+      // Student token from password_reset_tokens table
+      if (tokenRow && (type === 'student' || resetTokenUserId.startsWith('student_'))) {
+        const studentId = resetTokenUserId.replace('student_', '');
+        await ensureStudentPortalSchema(db);
+
+        const studentResult = await db.query(
+          `SELECT s.first_name, s.last_name, s.email, sa.login_email, o.organization_name
+           FROM students s
+           JOIN organizations o ON o.organization_id = s.organization_id
+           LEFT JOIN student_accounts sa ON sa.student_id = s.student_id AND sa.organization_id = s.organization_id
+           WHERE s.student_id = $1
+           LIMIT 1`,
+          [studentId]
+        );
+
+        if (studentResult.rows.length === 0) {
+          return renderInvalid(
+            "We couldn't find the student account for this invite link. Please ask your school to resend the invite."
+          );
+        }
+
+        const student = studentResult.rows[0];
+        const user = {
+          first_name: student.first_name,
+          last_name: student.last_name,
+          email: student.login_email || student.email,
+          role: 'Student',
+          organization: student.organization_name,
+        };
+
+        return res.render("common/setPassword", {
+          title: "Set Your Password",
+          user,
+          token,
+          type: 'student',
+          messages: req.flash(),
+        });
+      }
+
       // Staff employee invite token from users table
       const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
       const result = await db.query(
@@ -7697,10 +8571,13 @@ const commonController = {
       const tokenRow = tokenResult.rows[0] || null;
       const resetTokenUserId = tokenRow ? String(tokenRow.user_id || "") : "";
       const isGuardianToken = Boolean(tokenRow && (type === 'guardian' || resetTokenUserId.startsWith('guardian_')));
+      const isStudentToken = Boolean(tokenRow && (type === 'student' || resetTokenUserId.startsWith('student_')));
 
       if (tokenRow && new Date(tokenRow.expires_at) < new Date()) {
         req.flash("error", "Token has expired. Please ask your school administrator to send a new password setup link.");
-        return res.redirect(isGuardianToken ? "/account/guardian-login" : "/account/login");
+        if (isGuardianToken) return res.redirect("/account/guardian-login");
+        if (isStudentToken) return res.redirect("/account/student-login");
+        return res.redirect("/account/login");
       }
 
       // Handle guardian password setup/reset from password_reset_tokens table
@@ -7730,6 +8607,30 @@ const commonController = {
 
         req.flash("success", "Password set successfully! You can now log in to the Parent Portal.");
         return res.redirect("/account/guardian-login");
+      }
+
+      // Handle student password setup/reset from password_reset_tokens table
+      if (isStudentToken) {
+        const studentId = resetTokenUserId.replace('student_', '');
+        await ensureStudentPortalSchema(db);
+
+        const updateResult = await db.query(
+          `UPDATE student_accounts
+           SET password_hash = $1, must_reset_password = FALSE, updated_at = NOW()
+           WHERE student_id = $2
+           RETURNING student_id`,
+          [hashedPassword, studentId]
+        );
+
+        if (updateResult.rowCount === 0) {
+          req.flash("error", "Student account not found. Please ask your school to resend the password setup link.");
+          return res.redirect("/account/student-login");
+        }
+
+        await db.query(`DELETE FROM password_reset_tokens WHERE token = $1`, [token]);
+
+        req.flash("success", "Password set successfully! You can now log in to the Student Portal.");
+        return res.redirect("/account/student-login");
       }
 
       // Handle staff employee invite tokens stored in users table
@@ -8450,7 +9351,31 @@ const commonController = {
     try {
       await ensureAssessmentControlSchema(db);
       await ensureScoreRemarkGradeSchema(db);
+      await ensureGoogleIntegrationSchema(db);
       const organizationId = req.session.organizationId;
+      const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const canManageGoogleIntegration = await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId: organizationId || null,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.MANAGE_SETTINGS
+      );
+
+      if (!googleIntegration.shouldShowFeatures) {
+        req.flash("error", "Assessment Questions is available only when Google integration is active.");
+        const redirectTermId = Number.isInteger(requestedTermId)
+          ? requestedTermId
+          : Number.parseInt(req.session.currentTermId || req.session.termId || '', 10);
+        const manageUrl = Number.isInteger(redirectTermId)
+          ? `/common/manageAssessment?organizationId=${organizationId}&termId=${redirectTermId}`
+          : `/common/manageAssessment?organizationId=${organizationId}`;
+        return res.redirect(manageUrl);
+      }
 
       // Validate `organizationId`
       if (!organizationId) {
@@ -8543,10 +9468,13 @@ const commonController = {
       // Fetch assessments for the class, subject, and term
       const assessmentsResult = await db.query(
         `
-                SELECT assessment_id, title, weight, max_score, category,
+                SELECT assessment_id, group_id, title, weight, max_score, category,
                        COALESCE(scale_base, 100) AS scale_base,
+                      COALESCE(open_book, FALSE) AS open_book,
+                      time_limit_minutes,
                        COALESCE(is_locked, FALSE) AS is_locked,
                        COALESCE(is_active, TRUE) AS is_active,
+                    COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard,
                        edit_window_start,
                        edit_window_end
                 FROM assessments
@@ -8674,6 +9602,31 @@ const commonController = {
 
       const scaleBase = assessments.length > 0 ? (assessments[0].scale_base || 100) : 100;
       const maxPossibleScore = assessments.reduce((sum, a) => sum + parseFloat(a.max_score || 0), 0);
+      const questionSetEnabledAssessmentIds = assessments
+        .filter((row) => Boolean(row.show_question_set_on_dashboard))
+        .map((row) => Number(row.assessment_id))
+        .filter((value) => Number.isInteger(value) && value > 0);
+      const canShowQuestionSetControls = Boolean(googleIntegration.shouldShowFeatures) && questionSetEnabledAssessmentIds.length > 0;
+      let hasQuestionSets = false;
+      try {
+        const assessmentIds = canShowQuestionSetControls ? questionSetEnabledAssessmentIds : [];
+
+        if (assessmentIds.length) {
+          const questionSetCountResult = await db.query(
+            `SELECT COUNT(*)::int AS total
+             FROM assessment_question_sets
+             WHERE organization_id = $1
+               AND term_id = $2
+               AND class_id = $3
+               AND subject_id = $4
+               AND assessment_id = ANY($5::int[])`,
+            [organizationId, currentTerm.term_id, classId, subjectId, assessmentIds]
+          );
+          hasQuestionSets = Number(questionSetCountResult.rows[0]?.total || 0) > 0;
+        }
+      } catch (_) {
+        hasQuestionSets = false;
+      }
 
       // Render the assessment page
       res.render("common/assessment", {
@@ -8689,7 +9642,11 @@ const commonController = {
         employees,
         scaleBase,
         maxPossibleScore,
+        hasQuestionSets,
+        canShowQuestionSetControls,
         isEmbedded,
+        canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
+        canManageGoogleIntegration,
         messages: req.flash(),
         hideGlobalHeader: true,
         hideGlobalFooter: true,
@@ -9002,6 +9959,937 @@ const commonController = {
     }
   },
 
+  getAssessmentQuestionSets: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number(req.query.classId);
+    const subjectId = Number(req.query.subjectId);
+    const termId = Number(req.query.termId || req.session.currentTermId);
+    const assessmentId = req.query.assessmentId ? Number(req.query.assessmentId) : null;
+
+    if (!organizationId || !Number.isInteger(classId) || !Number.isInteger(subjectId) || !Number.isInteger(termId)) {
+      return res.status(400).json({ success: false, error: "classId, subjectId, and termId are required." });
+    }
+
+    try {
+      await ensureGoogleIntegrationSchema(db);
+      await ensureAssessmentQuestionSetReviewSchema(db);
+
+      let selectedAssessmentRule = null;
+      if (Number.isInteger(assessmentId) && assessmentId > 0) {
+        const assessmentRuleResult = await db.query(
+          `SELECT
+             assessment_id,
+             title,
+             weight,
+             max_score,
+             category,
+             COALESCE(scale_base, 100) AS scale_base,
+             COALESCE(open_book, FALSE) AS open_book,
+             time_limit_minutes,
+             COALESCE(is_locked, FALSE) AS is_locked,
+             COALESCE(is_active, TRUE) AS is_active,
+             COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard,
+             edit_window_start,
+             edit_window_end
+           FROM assessments
+           WHERE organization_id = $1
+             AND term_id = $2
+             AND class_id = $3
+             AND subject_id = $4
+             AND assessment_id = $5
+           LIMIT 1`,
+          [organizationId, termId, classId, subjectId, assessmentId]
+        );
+
+        if (assessmentRuleResult.rows.length) {
+          const row = assessmentRuleResult.rows[0];
+          if (!row.show_question_set_on_dashboard) {
+            selectedAssessmentRule = null;
+          } else {
+          const editability = computeAssessmentEditability(row);
+          selectedAssessmentRule = {
+            assessmentId: row.assessment_id,
+            termId: Number(termId),
+            classId: Number(classId),
+            subjectId: Number(subjectId),
+            title: row.title,
+            weight: Number(row.weight || 0),
+            maxScore: Number(row.max_score || 0),
+            category: row.category || "Assessment",
+            scaleBase: Number(row.scale_base || 100),
+            openBook: Boolean(row.open_book),
+            timeLimitMinutes: row.time_limit_minutes !== null && row.time_limit_minutes !== undefined
+              ? Number(row.time_limit_minutes)
+              : null,
+            canEditScores: Boolean(editability.canEdit),
+            accessReason: editability.reason || "",
+            isLocked: Boolean(row.is_locked),
+            isActive: Boolean(row.is_active),
+            editWindowStart: row.edit_window_start,
+            editWindowEnd: row.edit_window_end,
+          };
+          }
+        }
+      }
+
+      const params = [organizationId, termId, classId, subjectId];
+      let whereClause = `
+        qs.organization_id = $1
+        AND qs.term_id = $2
+        AND qs.class_id = $3
+        AND qs.subject_id = $4
+        AND EXISTS (
+          SELECT 1
+          FROM assessments a2
+          WHERE a2.assessment_id = qs.assessment_id
+            AND a2.organization_id = qs.organization_id
+            AND COALESCE(a2.show_question_set_on_dashboard, FALSE) = TRUE
+        )
+      `;
+      if (Number.isInteger(assessmentId) && assessmentId > 0) {
+        params.push(assessmentId);
+        whereClause += ` AND qs.assessment_id = $5`;
+      }
+
+      const setsResult = await db.query(
+        `SELECT
+           qs.question_set_id,
+           qs.assessment_id,
+           qs.group_id,
+           qs.set_title,
+           qs.set_description,
+           qs.total_points,
+           qs.is_active,
+           qs.review_status,
+           qs.review_note,
+           qs.reviewed_at,
+           qs.submitted_at,
+           qs.created_at,
+           qs.updated_at,
+           a.title AS assessment_title,
+           CONCAT(COALESCE(ru.first_name, ''), CASE WHEN ru.last_name IS NOT NULL AND ru.last_name <> '' THEN ' ' || ru.last_name ELSE '' END) AS reviewed_by_name
+         FROM assessment_question_sets qs
+         LEFT JOIN assessments a ON a.assessment_id = qs.assessment_id
+         LEFT JOIN users ru ON ru.user_id = qs.reviewed_by AND ru.organization_id = qs.organization_id
+         WHERE ${whereClause}
+         ORDER BY qs.updated_at DESC, qs.question_set_id DESC`,
+        params
+      );
+
+      const setIds = setsResult.rows.map((row) => Number(row.question_set_id)).filter(Boolean);
+      const questionsResult = setIds.length
+        ? await db.query(
+            `SELECT
+               question_id,
+               question_set_id,
+               question_type,
+               question_text,
+               options_json,
+               answer_key,
+               marks,
+               position_index
+             FROM assessment_questions
+             WHERE question_set_id = ANY($1::int[])
+             ORDER BY question_set_id ASC, position_index ASC, question_id ASC`,
+            [setIds]
+          )
+        : { rows: [] };
+
+      const questionsBySet = new Map();
+      questionsResult.rows.forEach((row) => {
+        const key = Number(row.question_set_id);
+        if (!questionsBySet.has(key)) questionsBySet.set(key, []);
+        questionsBySet.get(key).push({
+          questionId: row.question_id,
+          questionType: row.question_type,
+          questionText: row.question_text,
+          options: Array.isArray(row.options_json) ? row.options_json : [],
+          answerKey: row.answer_key || "",
+          marks: Number(row.marks || 0),
+          positionIndex: Number(row.position_index || 0),
+        });
+      });
+
+      const sets = setsResult.rows.map((row) => ({
+        questionSetId: row.question_set_id,
+        assessmentId: row.assessment_id,
+        assessmentTitle: row.assessment_title || "Assessment",
+        groupId: row.group_id,
+        setTitle: row.set_title,
+        setDescription: row.set_description || "",
+        totalPoints: Number(row.total_points || 0),
+        isActive: Boolean(row.is_active),
+        reviewStatus: String(row.review_status || "pending").toLowerCase(),
+        reviewNote: row.review_note || "",
+        reviewedAt: row.reviewed_at,
+        submittedAt: row.submitted_at,
+        reviewedByName: String(row.reviewed_by_name || "").trim(),
+        updatedAt: row.updated_at,
+        createdAt: row.created_at,
+        questions: questionsBySet.get(Number(row.question_set_id)) || [],
+      }));
+
+      return res.json({ success: true, sets, assessment: selectedAssessmentRule });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "Failed to load question sets." });
+    }
+  },
+
+  upsertAssessmentQuestionSet: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const actorUserId = req.session.userId || req.session.user?.user_id || null;
+    const requestedClassId = Number(req.body.classId);
+    const requestedSubjectId = Number(req.body.subjectId);
+    const requestedTermId = Number(req.body.termId || req.session.currentTermId);
+    const assessmentId = Number(req.body.assessmentId);
+    const questionSetId = req.body.questionSetId ? Number(req.body.questionSetId) : null;
+    const setTitle = String(req.body.setTitle || "").trim();
+    const setDescription = String(req.body.setDescription || "").trim();
+    const hasOpenBookSetting = Object.prototype.hasOwnProperty.call(req.body || {}, "openBook");
+    const hasTimeLimitSetting = Object.prototype.hasOwnProperty.call(req.body || {}, "timeLimitMinutes");
+    const parsedOpenBookSetting = parseBooleanValue(req.body.openBook, false);
+    const parsedTimeLimitValue = Number.parseInt(req.body.timeLimitMinutes, 10);
+    const parsedTimeLimitSetting = Number.isInteger(parsedTimeLimitValue) && parsedTimeLimitValue > 0
+      ? parsedTimeLimitValue
+      : null;
+    const questions = normalizeQuestionPayload(req.body.questions || []);
+
+    if (!organizationId || !Number.isInteger(assessmentId)) {
+      return res.status(400).json({ success: false, error: "assessmentId is required." });
+    }
+    if (!setTitle) {
+      return res.status(400).json({ success: false, error: "Set title is required." });
+    }
+    if (!questions.length) {
+      return res.status(400).json({ success: false, error: "Add at least one question." });
+    }
+
+    const client = await db.connect();
+    try {
+      await ensureGoogleIntegrationSchema(client);
+      await ensureAssessmentQuestionSetReviewSchema(client);
+      await client.query("BEGIN");
+
+      const assessmentResult = await client.query(
+        `SELECT assessment_id, group_id, class_id, subject_id, term_id,
+                COALESCE(open_book, FALSE) AS open_book,
+                time_limit_minutes,
+                COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard
+         FROM assessments
+         WHERE assessment_id = $1
+           AND organization_id = $2
+         LIMIT 1`,
+        [assessmentId, organizationId]
+      );
+
+      if (!assessmentResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Assessment not found." });
+      }
+
+      const assessmentRow = assessmentResult.rows[0];
+      if (!assessmentRow.show_question_set_on_dashboard) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ success: false, error: "Question sets are disabled for this assessment." });
+      }
+      const classId = Number(assessmentRow.class_id || requestedClassId || 0);
+      const subjectId = Number(assessmentRow.subject_id || requestedSubjectId || 0);
+      const termId = Number(assessmentRow.term_id || requestedTermId || 0);
+
+      if (!Number.isInteger(classId) || classId <= 0 || !Number.isInteger(subjectId) || subjectId <= 0 || !Number.isInteger(termId) || termId <= 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Assessment scope is incomplete." });
+      }
+
+      if (hasOpenBookSetting || hasTimeLimitSetting) {
+        await client.query(
+          `UPDATE assessments
+           SET open_book = $1,
+               time_limit_minutes = $2
+           WHERE assessment_id = $3
+             AND organization_id = $4`,
+          [
+            hasOpenBookSetting ? parsedOpenBookSetting : Boolean(assessmentRow.open_book),
+            hasTimeLimitSetting ? parsedTimeLimitSetting : assessmentRow.time_limit_minutes,
+            assessmentId,
+            organizationId,
+          ]
+        );
+      }
+
+      const totalPoints = questions.reduce((sum, item) => sum + Number(item.marks || 0), 0);
+
+      let resolvedQuestionSetId = null;
+
+      if (Number.isInteger(questionSetId) && questionSetId > 0) {
+        const existingTargetResult = await client.query(
+          `SELECT question_set_id
+           FROM assessment_question_sets
+           WHERE question_set_id = $1
+             AND organization_id = $2
+             AND term_id = $3
+             AND class_id = $4
+             AND subject_id = $5
+             AND assessment_id = $6
+           LIMIT 1`,
+          [questionSetId, organizationId, termId, classId, subjectId, assessmentId]
+        );
+
+        if (!existingTargetResult.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(404).json({ success: false, error: "Question set not found for this assessment." });
+        }
+
+        await client.query(
+          `UPDATE assessment_question_sets
+           SET set_title = $1,
+               set_description = $2,
+               total_points = $3,
+               review_status = 'pending',
+               review_note = NULL,
+               reviewed_by = NULL,
+               reviewed_at = NULL,
+               submitted_at = NOW(),
+               updated_by = $4,
+               updated_at = NOW()
+           WHERE question_set_id = $5
+             AND organization_id = $6`,
+          [setTitle, setDescription || null, totalPoints, actorUserId, questionSetId, organizationId]
+        );
+
+        resolvedQuestionSetId = questionSetId;
+      } else {
+        const existingSetResult = await client.query(
+          `SELECT question_set_id, review_status
+           FROM assessment_question_sets
+           WHERE organization_id = $1
+             AND term_id = $2
+             AND class_id = $3
+             AND subject_id = $4
+             AND assessment_id = $5
+           ORDER BY question_set_id DESC
+           LIMIT 1`,
+          [organizationId, termId, classId, subjectId, assessmentId]
+        );
+
+        if (existingSetResult.rows.length > 0) {
+          const existing = existingSetResult.rows[0];
+          const existingStatus = String(existing.review_status || "pending").toLowerCase();
+          await client.query("ROLLBACK");
+          return res.status(409).json({
+            success: false,
+            error: `Questions already exist for this assessment (status: ${existingStatus}).`,
+            questionSetId: Number(existing.question_set_id),
+            reviewStatus: existingStatus,
+          });
+        }
+
+        const insertResult = await client.query(
+          `INSERT INTO assessment_question_sets (
+             organization_id,
+             term_id,
+             class_id,
+             subject_id,
+             assessment_id,
+             group_id,
+             set_title,
+             set_description,
+             total_points,
+             review_status,
+             submitted_at,
+             created_by,
+             updated_by
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', NOW(), $10, $10)
+           RETURNING question_set_id`,
+          [
+            organizationId,
+            termId,
+            classId,
+            subjectId,
+            assessmentId,
+            assessmentRow.group_id || null,
+            setTitle,
+            setDescription || null,
+            totalPoints,
+            actorUserId,
+          ]
+        );
+
+        resolvedQuestionSetId = insertResult.rows[0].question_set_id;
+      }
+
+      await client.query(
+        `DELETE FROM assessment_questions WHERE question_set_id = $1`,
+        [resolvedQuestionSetId]
+      );
+
+      for (const question of questions) {
+        await client.query(
+          `INSERT INTO assessment_questions (
+             question_set_id,
+             organization_id,
+             question_type,
+             question_text,
+             options_json,
+             answer_key,
+             marks,
+             position_index
+           )
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+          [
+            resolvedQuestionSetId,
+            organizationId,
+            question.questionType,
+            question.questionText,
+            JSON.stringify(question.options || []),
+            question.answerKey || null,
+            question.marks,
+            question.positionIndex,
+          ]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      try {
+        const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+        if (googleIntegration.shouldShowFeatures) {
+          await markGoogleSync(
+            db,
+            organizationId,
+            "queued",
+            "Question set changes detected. Google Classroom sync queued."
+          );
+        }
+      } catch (_) {
+      }
+
+      return res.json({
+        success: true,
+        message: Number.isInteger(questionSetId) && questionSetId > 0
+          ? "Question set updated and submitted for review."
+          : "Question set submitted for review.",
+        questionSetId: resolvedQuestionSetId,
+        reviewStatus: "pending",
+      });
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (_) {
+      }
+      return res.status(500).json({ success: false, error: "Failed to save question set." });
+    } finally {
+      client.release();
+    }
+  },
+
+  extractAssessmentQuestionsFromPdf: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const anthropicKey = String(process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "").trim();
+    const anthropicModel = String(process.env.ANTHROPIC_EXTRACTION_MODEL || process.env.ANTHROPIC_MODEL || "claude-opus-4-6").trim();
+
+    if (!organizationId) {
+      return res.status(401).json({ success: false, error: "Unauthorized request." });
+    }
+    const file = req.file;
+    if (!file || !file.buffer || !file.buffer.length) {
+      return res.status(400).json({ success: false, error: "Please upload a supported exam file." });
+    }
+
+    const mimeType = String(file.mimetype || "").toLowerCase();
+    const fileName = String(file.originalname || "").toLowerCase();
+    const isPdf = mimeType === "application/pdf" || fileName.endsWith(".pdf");
+    const isDocx = mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx");
+    const isDoc = mimeType === "application/msword" || fileName.endsWith(".doc");
+    const isXlsx = mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || fileName.endsWith(".xlsx");
+    const isXls = mimeType === "application/vnd.ms-excel" || fileName.endsWith(".xls");
+    const isImage = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"].includes(mimeType)
+      || [".png", ".jpg", ".jpeg", ".webp", ".gif"].some((ext) => fileName.endsWith(ext));
+
+    if (!(isPdf || isDocx || isDoc || isXlsx || isXls || isImage)) {
+      return res.status(400).json({
+        success: false,
+        error: "Unsupported file type. Please upload PDF, Word, Excel, or image files.",
+      });
+    }
+
+    // Import-style parsing first (same server-side pattern as other imports).
+    try {
+      const extractedText = await extractTextFromExamFile(file);
+      if (extractedText) {
+        const localQuestions = parseQuestionsFromPlainText(extractedText);
+        if (shouldAcceptLocalExtraction(localQuestions)) {
+          return res.json({ success: true, questions: localQuestions });
+        }
+      }
+    } catch (_) {
+      // Non-fatal: if local parsing fails, optionally fall back to Anthropic.
+    }
+
+    if (!anthropicKey) {
+      return res.status(422).json({
+        success: false,
+        error: "Import could not parse questions from this file. Try a cleaner PDF/image, or set ANTHROPIC_API_KEY for AI-assisted extraction.",
+      });
+    }
+
+    const systemPrompt = `You are a precise exam paper parser. Your job is to extract questions from an exam paper and return them as a clean JSON array.
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON array. No markdown, no backticks, no explanations, no preamble. Just the array.
+
+EACH QUESTION OBJECT must have exactly these keys:
+{
+  "questionNumber": <integer, the printed question number e.g. 1, 2, 3>,
+  "questionType": <string: "multiple_choice" | "single_choice" | "true_false" | "short_text" | "essay">,
+  "questionText": <string: ONLY the question sentence itself — no section headers, no answer keys, no labels>,
+  "options": <array of strings for MCQ/true_false/single_choice types; empty array [] for all others>,
+  "answerKey": <string: the correct answer if shown with ✓; empty string "" if no answer given>,
+  "marks": <number: extract from paper; default to 1 if not shown>
+}
+
+TYPE DETECTION:
+- Labeled "MCQ" or "Multiple Choice" → "multiple_choice"
+- Labeled "MULTI-SELECT" or "Multiple Select" → "multiple_choice" (allow multiple correct answers)
+- Labeled "TRUE/FALSE" → "true_false"
+- Labeled "FILL BLANK" or contains ___ → "short_text"
+- Labeled "SHORT ANS" or "Short Answer" → "short_text"
+- Labeled "ESSAY" → "essay"
+- Labeled "MATCHING" → treat EACH ROW as its own "short_text" question with questionText = the Column A item only, and answerKey = the matching letter/answer shown
+
+OPTION EXTRACTION RULES:
+- For multiple_choice/single_choice: extract options as plain text e.g. ["Mercury", "Venus", "Mars", "Jupiter"]
+- Do NOT include option letters (A, B, C, D) in the option text itself
+- For true_false: always set options to ["True", "False"]
+- For short_text/essay/fill_blank: set options to []
+
+ANSWER KEY RULES:
+- "✓ Answer: C. Mars" → answerKey = "Mars"
+- "✓ Correct Answers: A, C, D (Red · Green · Blue)" → answerKey = "Red,Green,Blue"
+- "✓ Model Answer: Democracy is..." → answerKey = "Democracy is a system of government in which citizens elect representatives to govern on their behalf."
+- "✓ Marking Guide / Rubric: Key points..." → answerKey = "Key points: Law of Demand (inverse), Law of Supply (direct), equilibrium price."
+- "Answer not provided — student to respond" → answerKey = ""
+- No ✓ symbol present → answerKey = ""
+
+WHAT TO SKIP (do not create questions for these):
+- Section header lines like "A MULTIPLE CHOICE...", "B MULTIPLE SELECT...", "C TRUE/FALSE...", etc.
+- Paper header lines like "Subject:", "Term:", "Time:", "Total:", "GENERAL INSTRUCTIONS:"
+- Footer lines like "End of Paper"
+- Blank lines, dashes, underscores used as answer lines
+- Labels like "Response:", "Answer:", "Column A", "Column B" when they appear alone
+
+MATCHING SECTION RULE (CRITICAL):
+- The matching section has rows like: "25. Photosynthesis | A. Longest river in the world | D"
+- Extract EACH ROW as a SEPARATE question
+- questionNumber = the printed number (25, 26, 27...)
+- questionText = ONLY the Column A item text (e.g. "Photosynthesis")
+- options = [] (empty)
+- answerKey = the letter shown in the Answer column (e.g. "D")
+- marks = 1
+
+QUESTION TEXT RULE (CRITICAL):
+- questionText must contain ONLY the question sentence
+- Do NOT include: option letters, answer keys, section codes, marks labels, column B content
+- For fill-in-the-blank: keep the ___ in the text e.g. "The chemical formula for water is ___"
+- Strip any trailing labels like "2mk", "4mk", "8mk" from the question text
+
+NUMBERING:
+- Use the exact printed question number
+- This paper has questions 1 through 40 — extract ALL of them
+- Do not skip any question, do not merge questions together
+- Each question number must appear exactly once in the output`;
+
+    try {
+      const base64File = file.buffer.toString("base64");
+      let requestContent = [];
+
+      if (isPdf) {
+        requestContent = [
+          {
+            type: "document",
+            source: {
+              type: "base64",
+              media_type: "application/pdf",
+              data: base64File,
+            },
+          },
+          {
+            type: "text",
+            text: "Extract ALL questions from this exam paper (questions 1 through 40). Return ONLY the JSON array. Each question must be a separate object. Do NOT merge multiple questions into one. Do NOT include section headers as questions.",
+          },
+        ];
+      } else if (isImage) {
+        const normalizedImageMime = mimeType === "image/jpg" ? "image/jpeg" : (mimeType || "image/png");
+        requestContent = [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: normalizedImageMime,
+              data: base64File,
+            },
+          },
+          {
+            type: "text",
+            text: "Extract ALL questions from this exam paper (questions 1 through 40). Return ONLY the JSON array. Each question must be a separate object. Do NOT merge multiple questions into one. Do NOT include section headers as questions.",
+          },
+        ];
+      } else {
+        let extractedText = "";
+
+        if (isDocx || isDoc) {
+          if (isDocx) {
+            const mammoth = require("mammoth");
+            const textResult = await mammoth.extractRawText({ buffer: file.buffer });
+            extractedText = String(textResult?.value || "").trim();
+          } else {
+            requestContent = [
+              {
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: "application/msword",
+                  data: base64File,
+                },
+              },
+              {
+                type: "text",
+                text: "Extract ALL questions from this exam paper (questions 1 through 40). Return ONLY the JSON array. Each question must be a separate object. Do NOT merge multiple questions into one. Do NOT include section headers as questions.",
+              },
+            ];
+          }
+        } else if (isXlsx || isXls) {
+          if (isXlsx) {
+            const ExcelJS = require("exceljs");
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(file.buffer);
+
+            const rows = [];
+            workbook.eachSheet((sheet) => {
+              rows.push("Sheet: " + sheet.name);
+              sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+                const values = Array.isArray(row.values)
+                  ? row.values.slice(1).map((value) => String(value || "").trim()).filter(Boolean)
+                  : [];
+                if (values.length) {
+                  rows.push("Row " + rowNumber + ": " + values.join(" | "));
+                }
+              });
+            });
+            extractedText = rows.join("\n").trim();
+          } else {
+            requestContent = [
+              {
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: "application/vnd.ms-excel",
+                  data: base64File,
+                },
+              },
+              {
+                type: "text",
+                text: "Extract ALL questions from this exam paper. Return ONLY the JSON array. Count every question including matching sub-items. Do not skip any question. Do not merge multiple questions into one.",
+              },
+            ];
+          }
+        }
+
+        if (!requestContent.length && !extractedText) {
+          return res.status(422).json({
+            success: false,
+            error: "Could not read usable text from the uploaded file.",
+          });
+        }
+
+        if (!requestContent.length) {
+          requestContent = [
+            {
+              type: "text",
+              text: [
+                "The following text was extracted from an exam file.",
+                "Extract ALL questions from this exam paper (questions 1 through 40). Return ONLY the JSON array. Each question must be a separate object. Do NOT merge multiple questions into one. Do NOT include section headers as questions.",
+                "--- BEGIN EXTRACTED FILE TEXT ---",
+                extractedText,
+                "--- END EXTRACTED FILE TEXT ---",
+              ].join("\n"),
+            },
+          ];
+        }
+      }
+
+      const anthropicResponse = await axios.post(
+        "https://api.anthropic.com/v1/messages",
+        {
+          model: anthropicModel,
+          max_tokens: 8000,
+          system: systemPrompt,
+          messages: [
+            {
+              role: "user",
+              content: requestContent,
+            },
+          ],
+        },
+        {
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": anthropicKey,
+            "anthropic-version": "2023-06-01",
+          },
+          timeout: 120000,
+        }
+      );
+
+      const blocks = Array.isArray(anthropicResponse?.data?.content)
+        ? anthropicResponse.data.content
+        : [];
+      const combinedText = blocks
+        .filter((block) => block && block.type === "text")
+        .map((block) => String(block.text || ""))
+        .join("\n")
+        .trim();
+
+      const extracted = extractJsonArrayFromText(combinedText);
+      if (!extracted) {
+        return res.status(422).json({
+          success: false,
+          error: "Could not parse question JSON from extraction response.",
+        });
+      }
+
+      const questions = normalizeExtractedQuestions(postProcessQuestions(extracted));
+      if (!questions.length) {
+        return res.status(422).json({
+          success: false,
+          error: "No questions were extracted from this file.",
+        });
+      }
+
+      return res.json({ success: true, questions });
+    } catch (error) {
+      const apiMessage = error?.response?.data?.error?.message;
+      return res.status(500).json({
+        success: false,
+        error: apiMessage || "Failed to extract questions from uploaded file.",
+      });
+    }
+  },
+
+  reviewAssessmentQuestionSet: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId);
+    const reviewerUserId = Number(req.session.userId || req.session.user?.user_id || 0) || null;
+    const questionSetId = Number(req.body.questionSetId);
+    const action = String(req.body.action || "").trim().toLowerCase();
+    const reviewNote = String(req.body.reviewNote || "").trim();
+
+    if (!organizationId || !Number.isInteger(questionSetId) || questionSetId <= 0) {
+      return res.status(400).json({ success: false, error: "questionSetId is required." });
+    }
+    if (!["approve", "reject"].includes(action)) {
+      return res.status(400).json({ success: false, error: "action must be approve or reject." });
+    }
+
+    const nextStatus = action === "approve" ? "approved" : "rejected";
+
+    try {
+      await ensureAssessmentQuestionSetReviewSchema(db);
+
+      const updateResult = await db.query(
+        `UPDATE assessment_question_sets
+         SET review_status = $1,
+             review_note = NULLIF($2, ''),
+             reviewed_by = $3,
+             reviewed_at = NOW(),
+             updated_by = $3,
+             updated_at = NOW()
+         WHERE question_set_id = $4
+           AND organization_id = $5
+         RETURNING question_set_id, review_status`,
+        [nextStatus, reviewNote, reviewerUserId, questionSetId, organizationId]
+      );
+
+      if (!updateResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Question set not found." });
+      }
+
+      return res.json({
+        success: true,
+        message: nextStatus === "approved" ? "Question set approved." : "Question set rejected.",
+        questionSetId: Number(updateResult.rows[0].question_set_id),
+        reviewStatus: String(updateResult.rows[0].review_status || nextStatus).toLowerCase(),
+      });
+    } catch (_error) {
+      return res.status(500).json({ success: false, error: "Failed to update review status." });
+    }
+  },
+
+  deleteAssessmentQuestionSet: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const actorUserId = Number(req.session.userId || req.session.user?.user_id || 0) || null;
+    const questionSetId = Number(req.body.questionSetId || 0);
+
+    if (!organizationId || !Number.isInteger(questionSetId) || questionSetId <= 0) {
+      return res.status(400).json({ success: false, error: "questionSetId is required." });
+    }
+
+    const client = await db.connect();
+    try {
+      await ensureGoogleIntegrationSchema(client);
+      await client.query("BEGIN");
+
+      const existingResult = await client.query(
+        `SELECT question_set_id, set_title
+         FROM assessment_question_sets
+         WHERE question_set_id = $1
+           AND organization_id = $2
+         LIMIT 1`,
+        [questionSetId, organizationId]
+      );
+
+      if (!existingResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Question set not found." });
+      }
+
+      await client.query(
+        `DELETE FROM assessment_questions
+         WHERE question_set_id = $1`,
+        [questionSetId]
+      );
+
+      const deleteResult = await client.query(
+        `DELETE FROM assessment_question_sets
+         WHERE question_set_id = $1
+           AND organization_id = $2`,
+        [questionSetId, organizationId]
+      );
+
+      if (!deleteResult.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Question set not found." });
+      }
+
+      await client.query("COMMIT");
+
+      try {
+        const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+        if (googleIntegration.shouldShowFeatures) {
+          await markGoogleSync(
+            db,
+            organizationId,
+            "queued",
+            "Question set deletion detected. Google Classroom sync queued."
+          );
+        }
+      } catch (_) {
+      }
+
+      return res.json({
+        success: true,
+        message: "Question set deleted successfully.",
+        questionSetId,
+        deletedBy: actorUserId,
+      });
+    } catch (_error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (_) {
+      }
+      return res.status(500).json({ success: false, error: "Failed to delete question set." });
+    } finally {
+      client.release();
+    }
+  },
+
+  listClassAssessmentExams: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number(req.query.classId);
+    const termId = Number(req.query.termId || req.session.currentTermId);
+    const role = normalizeRoleKey(req.session.userRole || req.session.accountType || req.session.user?.account_type);
+
+    if (!["manager", "supervisor"].includes(role)) {
+      return res.status(403).json({ success: false, error: "Access denied." });
+    }
+
+    if (!organizationId || !Number.isInteger(classId) || !Number.isInteger(termId)) {
+      return res.status(400).json({ success: false, error: "classId and termId are required." });
+    }
+
+    try {
+      const result = await db.query(
+        `SELECT
+           a.group_id,
+           MIN(a.title) AS exam_title,
+           COUNT(*)::int AS assessment_count,
+           ARRAY_REMOVE(ARRAY_AGG(DISTINCT s.subject_name ORDER BY s.subject_name), NULL) AS subjects
+         FROM assessments a
+         LEFT JOIN subjects s ON s.subject_id = a.subject_id
+         WHERE a.organization_id = $1
+           AND a.class_id = $2
+           AND a.term_id = $3
+         GROUP BY a.group_id
+         ORDER BY MIN(a.title) ASC`,
+        [organizationId, classId, termId]
+      );
+
+      return res.json({ success: true, exams: result.rows });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "Failed to load class assessment exams." });
+    }
+  },
+
+  renameClassAssessmentExam: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number(req.body.classId);
+    const termId = Number(req.body.termId || req.session.currentTermId);
+    const groupId = Number(req.body.groupId);
+    const newTitle = String(req.body.newTitle || "").trim();
+    const role = normalizeRoleKey(req.session.userRole || req.session.accountType || req.session.user?.account_type);
+
+    if (!["manager", "supervisor"].includes(role)) {
+      return res.status(403).json({ success: false, error: "Access denied." });
+    }
+
+    if (!organizationId || !Number.isInteger(classId) || !Number.isInteger(termId) || !Number.isInteger(groupId) || !newTitle) {
+      return res.status(400).json({ success: false, error: "groupId, classId, termId and newTitle are required." });
+    }
+
+    try {
+      const updateResult = await db.query(
+        `UPDATE assessments
+         SET title = $1
+         WHERE organization_id = $2
+           AND class_id = $3
+           AND term_id = $4
+           AND group_id = $5`,
+        [newTitle, organizationId, classId, termId, groupId]
+      );
+
+      if (!updateResult.rowCount) {
+        return res.status(404).json({ success: false, error: "Assessment exam group not found." });
+      }
+
+      try {
+        const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+        if (googleIntegration.shouldShowFeatures) {
+          await markGoogleSync(
+            db,
+            organizationId,
+            "queued",
+            "Assessment exam rename detected. Google Classroom sync queued."
+          );
+        }
+      } catch (_) {
+      }
+
+      return res.json({ success: true, message: "Assessment exam renamed successfully." });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "Failed to rename class assessment exam." });
+    }
+  },
+
   calculateGrade: function (totalPercentage) {
     if (totalPercentage === "-" || isNaN(totalPercentage)) return "-";
     return getDefaultGradeLabel(totalPercentage);
@@ -9111,6 +10999,20 @@ const commonController = {
         console.warn('[manageAssessment] DDL warm-up failed (non-fatal):', ddlErr.message);
       }
 
+      await ensureGoogleIntegrationSchema(db);
+      const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const canManageGoogleIntegration = await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId: organizationId || null,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.MANAGE_SETTINGS
+      );
+
       const termOwnershipResult = await db.query(
         `
           SELECT term_id
@@ -9132,6 +11034,7 @@ const commonController = {
             c.class_id, c.class_name, s.subject_name,
             BOOL_OR(COALESCE(a.is_locked, FALSE)) OVER (PARTITION BY a.group_id) AS is_locked,
             BOOL_AND(COALESCE(a.is_active, TRUE)) OVER (PARTITION BY a.group_id) AS is_active,
+          BOOL_OR(COALESCE(a.show_question_set_on_dashboard, FALSE)) OVER (PARTITION BY a.group_id) AS show_question_set_on_dashboard,
             MIN(a.edit_window_start) OVER (PARTITION BY a.group_id) AS edit_window_start,
             MAX(a.edit_window_end) OVER (PARTITION BY a.group_id) AS edit_window_end
                 FROM assessments a
@@ -9161,6 +11064,7 @@ const commonController = {
             term_id: row.term_id,
             is_locked: row.is_locked,
             is_active: row.is_active,
+            show_question_set_on_dashboard: Boolean(row.show_question_set_on_dashboard),
             edit_window_start: row.edit_window_start,
             edit_window_end: row.edit_window_end,
             can_edit_scores: editability.canEdit,
@@ -9195,12 +11099,1340 @@ const commonController = {
         organizationId,
         termId,
         assessments,
+        canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
+        canManageGoogleIntegration,
         messages: req.flash(),
       });
     } catch (err) {
       console.error('[manageAssessment] ERROR:', err.message, err.stack);
       req.flash("error", "Failed to load manage assessment data.");
       res.status(500).send("Error fetching manage assessment data.");
+    }
+  },
+
+  allClassAssessmentExamsPage: async (req, res, db) => {
+    const sessionOrganizationId = parseInt(req.session.organizationId, 10);
+    const requestedOrganizationId = req.query.organizationId
+      ? parseInt(req.query.organizationId, 10)
+      : sessionOrganizationId;
+    const organizationId = sessionOrganizationId;
+    const rawTermId = req.query.termId || req.session.termId || req.session.currentTermId || null;
+    const requestedTermId = rawTermId ? parseInt(rawTermId, 10) : null;
+
+    if (!organizationId || Number.isNaN(organizationId)) {
+      req.flash("error", "Organization ID is required.");
+      return res.status(400).send("Organization ID is required.");
+    }
+
+    if (requestedOrganizationId && !Number.isNaN(requestedOrganizationId) && requestedOrganizationId !== organizationId) {
+      req.flash("error", "You cannot access another organization's assessments.");
+      return res.status(403).send("Forbidden");
+    }
+
+    try {
+      await ensureAssessmentControlSchema(db);
+      await ensureGoogleIntegrationSchema(db);
+      await ensureAssessmentQuestionSetReviewSchema(db);
+      const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const canManageGoogleIntegration = await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId: organizationId || null,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.MANAGE_SETTINGS
+      );
+
+      const termContextResult = await db.query(
+        `SELECT
+           t.term_id,
+           t.term_name,
+           t.current AS term_current,
+           t.school_year_id,
+           sy.year_label,
+           sy.current AS school_year_current
+         FROM terms t
+         JOIN school_years sy ON sy.id = t.school_year_id
+         WHERE t.organization_id = $1
+         ORDER BY sy.current DESC, sy.id DESC, t.current DESC, t.start_date DESC, t.term_id DESC`,
+        [organizationId]
+      );
+
+      if (!termContextResult.rows.length) {
+        req.flash("error", "No terms found for this organization.");
+        return res.status(404).send("No terms found.");
+      }
+
+      const selectedTermRow = Number.isInteger(requestedTermId)
+        ? termContextResult.rows.find((row) => Number(row.term_id) === Number(requestedTermId)) || null
+        : null;
+      const fallbackCurrentTerm = termContextResult.rows.find((row) => Boolean(row.term_current)) || termContextResult.rows[0];
+      const activeTermRow = selectedTermRow || fallbackCurrentTerm;
+      const termId = Number(activeTermRow.term_id);
+      req.session.currentTermId = termId;
+
+      const schoolYearMap = new Map();
+      termContextResult.rows.forEach((row) => {
+        const schoolYearId = Number(row.school_year_id);
+        if (!schoolYearMap.has(schoolYearId)) {
+          schoolYearMap.set(schoolYearId, {
+            schoolYearId,
+            yearLabel: row.year_label,
+            current: Boolean(row.school_year_current),
+            terms: [],
+          });
+        }
+        schoolYearMap.get(schoolYearId).terms.push({
+          termId: Number(row.term_id),
+          termName: row.term_name,
+          current: Boolean(row.term_current),
+        });
+      });
+
+      const schoolYears = Array.from(schoolYearMap.values());
+
+      const classesResult = await db.query(
+        `SELECT DISTINCT c.class_id, c.class_name
+         FROM enrolled_classes ec
+         JOIN classes c ON c.class_id = ec.class_id
+         JOIN enrollments e ON e.enrollment_id = ec.enrollment_id
+         WHERE e.organization_id = $1
+           AND e.term_id = $2
+           AND c.organization_id = $1
+         ORDER BY c.class_name ASC`,
+        [organizationId, termId]
+      );
+
+      const classIds = classesResult.rows
+        .map((row) => Number(row.class_id))
+        .filter((value) => Number.isInteger(value) && value > 0);
+
+      const subjectsResult = classIds.length
+        ? await db.query(
+            `SELECT subject_id, class_id, subject_name
+             FROM subjects
+             WHERE organization_id = $1
+               AND class_id = ANY($2::int[])
+             ORDER BY class_id ASC, subject_name ASC`,
+            [organizationId, classIds]
+          )
+        : { rows: [] };
+
+      const termClassSubjectsResult = await db.query(
+        `SELECT DISTINCT
+           e.term_id,
+           c.class_id,
+           c.class_name,
+           s.subject_id,
+           s.subject_name
+         FROM enrollments e
+         JOIN enrolled_classes ec ON ec.enrollment_id = e.enrollment_id
+         JOIN classes c ON c.class_id = ec.class_id AND c.organization_id = e.organization_id
+         LEFT JOIN subjects s ON s.class_id = c.class_id AND s.organization_id = e.organization_id
+         WHERE e.organization_id = $1
+         ORDER BY e.term_id ASC, c.class_name ASC, s.subject_name ASC NULLS LAST`,
+        [organizationId]
+      );
+
+      const assessmentsForOrgResult = await db.query(
+        `SELECT
+           a.assessment_id,
+           a.organization_id,
+           a.term_id,
+           t.school_year_id,
+           a.class_id,
+           a.subject_id,
+           a.title,
+           a.weight,
+           a.max_score,
+           a.category,
+           COALESCE(a.scale_base, 100) AS scale_base,
+           COALESCE(a.open_book, FALSE) AS open_book,
+           a.time_limit_minutes,
+           COALESCE(a.is_locked, FALSE) AS is_locked,
+           COALESCE(a.is_active, TRUE) AS is_active,
+           a.edit_window_start,
+           a.edit_window_end,
+           c.class_name,
+           s.subject_name
+         FROM assessments a
+         JOIN terms t
+           ON t.term_id = a.term_id
+          AND t.organization_id = a.organization_id
+         JOIN school_years sy
+           ON sy.id = t.school_year_id
+          AND sy.organization_id = a.organization_id
+         JOIN classes c
+           ON c.class_id = a.class_id
+          AND c.organization_id = a.organization_id
+         JOIN subjects s
+           ON s.subject_id = a.subject_id
+          AND s.class_id = a.class_id
+          AND s.organization_id = a.organization_id
+         WHERE a.organization_id = $1
+           AND a.term_id IS NOT NULL
+           AND a.class_id IS NOT NULL
+           AND a.subject_id IS NOT NULL
+           AND EXISTS (
+             SELECT 1
+             FROM enrollments e
+             JOIN enrolled_classes ec ON ec.enrollment_id = e.enrollment_id
+             WHERE e.organization_id = a.organization_id
+               AND e.term_id = a.term_id
+               AND e.school_year_id = t.school_year_id
+               AND ec.class_id = a.class_id
+           )
+         ORDER BY c.class_name ASC, s.subject_name ASC, a.title ASC, a.assessment_id ASC`,
+        [organizationId]
+      );
+
+      const assessmentsForOrg = assessmentsForOrgResult.rows.map((row) => {
+        const editability = computeAssessmentEditability(row);
+        return {
+          assessment_id: row.assessment_id,
+          organization_id: Number(row.organization_id),
+          term_id: row.term_id,
+          school_year_id: row.school_year_id,
+          class_id: row.class_id,
+          subject_id: row.subject_id,
+          title: row.title,
+          weight: Number(row.weight || 0),
+          max_score: Number(row.max_score || 0),
+          category: row.category || "Assessment",
+          scale_base: Number(row.scale_base || 100),
+          open_book: Boolean(row.open_book),
+          time_limit_minutes: row.time_limit_minutes !== null && row.time_limit_minutes !== undefined
+            ? Number(row.time_limit_minutes)
+            : null,
+          is_locked: Boolean(row.is_locked),
+          is_active: Boolean(row.is_active),
+          class_name: row.class_name || "Class",
+          subject_name: row.subject_name || "Subject",
+          can_edit_scores: Boolean(editability.canEdit),
+          access_reason: editability.reason || "",
+        };
+      });
+
+      const assessmentsForTerm = assessmentsForOrg.filter(
+        (assessment) => Number(assessment.term_id) === Number(termId)
+      );
+
+      const assessmentIdsForTerm = assessmentsForTerm
+        .map((assessment) => Number(assessment.assessment_id))
+        .filter((assessmentId) => Number.isInteger(assessmentId) && assessmentId > 0);
+
+      const assessmentAttemptInsights = new Map();
+      if (assessmentIdsForTerm.length) {
+        const enrolledStudentsByAssessmentResult = await db.query(
+          `SELECT DISTINCT
+             a.assessment_id,
+             st.student_id,
+             st.first_name,
+             st.last_name
+           FROM assessments a
+           JOIN enrollments e
+             ON e.organization_id = a.organization_id
+            AND e.term_id = a.term_id
+           JOIN enrolled_students es
+             ON es.enrollment_id = e.enrollment_id
+            AND es.class_id = a.class_id
+           JOIN students st
+             ON st.student_id = es.student_id
+            AND st.organization_id = a.organization_id
+           WHERE a.organization_id = $1
+             AND a.term_id = $2
+             AND a.assessment_id = ANY($3::int[])
+           ORDER BY a.assessment_id ASC, st.last_name ASC, st.first_name ASC, st.student_id ASC`,
+          [organizationId, termId, assessmentIdsForTerm]
+        );
+
+        const submittedAttemptsByAssessmentResult = await db.query(
+          `SELECT DISTINCT ON (saa.assessment_id, saa.student_id)
+             saa.assessment_id,
+             saa.student_id,
+             saa.attempt_id,
+             saa.status,
+             saa.started_at,
+             saa.submitted_at,
+             saa.score,
+             saa.max_score,
+             st.first_name,
+             st.last_name
+           FROM student_assessment_attempts saa
+           JOIN students st
+             ON st.student_id = saa.student_id
+            AND st.organization_id = saa.organization_id
+           WHERE saa.organization_id = $1
+             AND saa.assessment_id = ANY($2::int[])
+             AND LOWER(COALESCE(saa.status, '')) = 'submitted'
+           ORDER BY saa.assessment_id ASC,
+                    saa.student_id ASC,
+                    saa.submitted_at DESC NULLS LAST,
+                    saa.started_at DESC NULLS LAST,
+                    saa.attempt_id DESC`,
+          [organizationId, assessmentIdsForTerm]
+        );
+
+        enrolledStudentsByAssessmentResult.rows.forEach((row) => {
+          const assessmentId = Number(row.assessment_id);
+          const studentId = Number(row.student_id);
+          if (!Number.isInteger(assessmentId) || !Number.isInteger(studentId)) {
+            return;
+          }
+
+          if (!assessmentAttemptInsights.has(assessmentId)) {
+            assessmentAttemptInsights.set(assessmentId, {
+              enrolledStudents: [],
+              attemptedByStudentId: new Map(),
+            });
+          }
+
+          assessmentAttemptInsights.get(assessmentId).enrolledStudents.push({
+            student_id: studentId,
+            first_name: row.first_name || "",
+            last_name: row.last_name || "",
+          });
+        });
+
+        submittedAttemptsByAssessmentResult.rows.forEach((row) => {
+          const assessmentId = Number(row.assessment_id);
+          const studentId = Number(row.student_id);
+          if (!Number.isInteger(assessmentId) || !Number.isInteger(studentId)) {
+            return;
+          }
+
+          if (!assessmentAttemptInsights.has(assessmentId)) {
+            assessmentAttemptInsights.set(assessmentId, {
+              enrolledStudents: [],
+              attemptedByStudentId: new Map(),
+            });
+          }
+
+          assessmentAttemptInsights.get(assessmentId).attemptedByStudentId.set(studentId, {
+            student_id: studentId,
+            first_name: row.first_name || "",
+            last_name: row.last_name || "",
+            attempt_id: Number(row.attempt_id || 0),
+            status: row.status || "submitted",
+            started_at: row.started_at || null,
+            submitted_at: row.submitted_at || null,
+            score: row.score,
+            max_score: row.max_score,
+          });
+        });
+      }
+
+      const enrichedAssessmentsForTerm = assessmentsForTerm.map((assessment) => {
+        const insight = assessmentAttemptInsights.get(Number(assessment.assessment_id)) || {
+          enrolledStudents: [],
+          attemptedByStudentId: new Map(),
+        };
+
+        const enrolledStudents = Array.isArray(insight.enrolledStudents)
+          ? insight.enrolledStudents
+          : [];
+        const attemptedByStudentId = insight.attemptedByStudentId instanceof Map
+          ? insight.attemptedByStudentId
+          : new Map();
+
+        const attemptedStudents = Array.from(attemptedByStudentId.values()).sort((left, right) => {
+          const leftName = `${left.last_name || ""} ${left.first_name || ""}`.trim().toLowerCase();
+          const rightName = `${right.last_name || ""} ${right.first_name || ""}`.trim().toLowerCase();
+          return leftName.localeCompare(rightName);
+        });
+
+        const nonAttemptedStudents = enrolledStudents
+          .filter((student) => !attemptedByStudentId.has(Number(student.student_id)))
+          .sort((left, right) => {
+            const leftName = `${left.last_name || ""} ${left.first_name || ""}`.trim().toLowerCase();
+            const rightName = `${right.last_name || ""} ${right.first_name || ""}`.trim().toLowerCase();
+            return leftName.localeCompare(rightName);
+          });
+
+        const eligibleStudentCount = enrolledStudents.length;
+        const attemptedStudentCount = attemptedStudents.length;
+        const nonAttemptedStudentCount = nonAttemptedStudents.length;
+        const completedStatus = eligibleStudentCount > 0 && nonAttemptedStudentCount === 0
+          ? "completed"
+          : "uncompleted";
+
+        return {
+          ...assessment,
+          eligible_student_count: eligibleStudentCount,
+          attempted_student_count: attemptedStudentCount,
+          non_attempted_student_count: nonAttemptedStudentCount,
+          completed_status: completedStatus,
+          attempted_students: attemptedStudents,
+          non_attempted_students: nonAttemptedStudents,
+        };
+      });
+
+      const questionSetsResult = await db.query(
+        `SELECT
+           qs.question_set_id,
+           qs.class_id,
+           qs.subject_id,
+           qs.assessment_id,
+           qs.set_title,
+           qs.set_description,
+           qs.total_points,
+           qs.review_status,
+           qs.review_note,
+           qs.reviewed_at,
+           qs.submitted_at,
+           qs.updated_at,
+           c.class_name,
+           s.subject_name,
+           a.title AS assessment_title,
+           COALESCE(a.open_book, FALSE) AS open_book,
+           a.time_limit_minutes,
+           CONCAT(COALESCE(ru.first_name, ''), CASE WHEN ru.last_name IS NOT NULL AND ru.last_name <> '' THEN ' ' || ru.last_name ELSE '' END) AS reviewed_by_name,
+           COUNT(q.question_id)::int AS question_count
+         FROM assessment_question_sets qs
+         LEFT JOIN classes c ON c.class_id = qs.class_id AND c.organization_id = qs.organization_id
+         LEFT JOIN subjects s ON s.subject_id = qs.subject_id AND s.organization_id = qs.organization_id
+         LEFT JOIN assessments a ON a.assessment_id = qs.assessment_id AND a.organization_id = qs.organization_id
+         LEFT JOIN users ru ON ru.user_id = qs.reviewed_by AND ru.organization_id = qs.organization_id
+         LEFT JOIN assessment_questions q ON q.question_set_id = qs.question_set_id
+         WHERE qs.organization_id = $1
+           AND qs.term_id = $2
+         GROUP BY
+           qs.question_set_id,
+           qs.class_id,
+           qs.subject_id,
+           qs.assessment_id,
+           qs.set_title,
+           qs.set_description,
+           qs.total_points,
+           qs.review_status,
+           qs.review_note,
+           qs.reviewed_at,
+           qs.submitted_at,
+           qs.updated_at,
+           c.class_name,
+           s.subject_name,
+           a.title,
+           a.open_book,
+           a.time_limit_minutes,
+           ru.first_name,
+           ru.last_name
+         ORDER BY qs.updated_at DESC, qs.question_set_id DESC`,
+        [organizationId, termId]
+      );
+
+      const questionSetIds = questionSetsResult.rows
+        .map((row) => Number(row.question_set_id))
+        .filter((value) => Number.isInteger(value) && value > 0);
+
+      const questionsResult = questionSetIds.length
+        ? await db.query(
+            `SELECT
+               question_set_id,
+               question_id,
+               question_type,
+               question_text,
+               marks,
+               position_index
+             FROM assessment_questions
+             WHERE question_set_id = ANY($1::int[])
+             ORDER BY question_set_id ASC, position_index ASC, question_id ASC`,
+            [questionSetIds]
+          )
+        : { rows: [] };
+
+      const questionsBySetId = new Map();
+      questionsResult.rows.forEach((row) => {
+        const key = Number(row.question_set_id);
+        if (!questionsBySetId.has(key)) {
+          questionsBySetId.set(key, []);
+        }
+        questionsBySetId.get(key).push({
+          questionId: row.question_id,
+          questionType: row.question_type,
+          questionText: row.question_text,
+          marks: Number(row.marks || 0),
+          positionIndex: Number(row.position_index || 0),
+        });
+      });
+
+      const questionSets = questionSetsResult.rows.map((row) => ({
+        question_set_id: row.question_set_id,
+        class_id: Number(row.class_id),
+        subject_id: Number(row.subject_id),
+        assessment_id: Number(row.assessment_id),
+        class_name: row.class_name || "Class",
+        subject_name: row.subject_name || "Subject",
+        assessment_title: row.assessment_title || "Assessment",
+        open_book: Boolean(row.open_book),
+        time_limit_minutes: row.time_limit_minutes !== null && row.time_limit_minutes !== undefined
+          ? Number(row.time_limit_minutes)
+          : null,
+        set_title: row.set_title || "Question Set",
+        set_description: row.set_description || "",
+        total_points: Number(row.total_points || 0),
+        question_count: Number(row.question_count || 0),
+        review_status: String(row.review_status || "pending").toLowerCase(),
+        review_note: row.review_note || "",
+        reviewed_at: row.reviewed_at,
+        submitted_at: row.submitted_at,
+        reviewed_by_name: String(row.reviewed_by_name || "").trim(),
+        updated_at: row.updated_at,
+        questions: questionsBySetId.get(Number(row.question_set_id)) || [],
+      }));
+
+      return res.render("common/allClassAssessmentExams", {
+        title: "All Class Assessment Questions",
+        organizationId,
+        termId,
+        selectedTermName: activeTermRow.term_name,
+        selectedSchoolYearId: Number(activeTermRow.school_year_id),
+        schoolYears,
+        classes: classesResult.rows,
+        subjects: subjectsResult.rows,
+        termClassSubjects: termClassSubjectsResult.rows,
+        assessmentsForOrg: [],
+        assessmentsForTerm: enrichedAssessmentsForTerm,
+        questionSets,
+        canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
+        canManageGoogleIntegration,
+        messages: req.flash(),
+      });
+    } catch (error) {
+      console.error("[allClassAssessmentExamsPage] ERROR:", error.message, error.stack);
+      req.flash("error", "Failed to load class assessment questions.");
+      return res.status(500).send("Error loading class assessment questions.");
+    }
+  },
+
+  getAssessmentQuestionSetStudents: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const questionSetId = Number(req.query.questionSetId || 0);
+
+    if (!organizationId || !Number.isInteger(questionSetId) || questionSetId <= 0) {
+      return res.status(400).json({ success: false, error: "questionSetId is required." });
+    }
+
+    try {
+      await ensureStudentAssessmentLockSchema(db);
+
+      const scopeResult = await db.query(
+        `SELECT
+           qs.question_set_id,
+           qs.assessment_id,
+           qs.term_id,
+           qs.class_id,
+           qs.subject_id,
+           qs.set_title,
+           c.class_name,
+           s.subject_name,
+           a.title AS assessment_title
+         FROM assessment_question_sets qs
+         LEFT JOIN classes c
+           ON c.class_id = qs.class_id
+          AND c.organization_id = qs.organization_id
+         LEFT JOIN subjects s
+           ON s.subject_id = qs.subject_id
+          AND s.organization_id = qs.organization_id
+         LEFT JOIN assessments a
+           ON a.assessment_id = qs.assessment_id
+          AND a.organization_id = qs.organization_id
+         WHERE qs.organization_id = $1
+           AND qs.question_set_id = $2
+         LIMIT 1`,
+        [organizationId, questionSetId]
+      );
+
+      if (!scopeResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Question set not found." });
+      }
+
+      const scope = scopeResult.rows[0];
+      const assessmentId = Number(scope.assessment_id || 0);
+      const termId = Number(scope.term_id || 0);
+      const classId = Number(scope.class_id || 0);
+
+      if (!assessmentId || !termId || !classId) {
+        return res.status(400).json({ success: false, error: "Question set scope is incomplete." });
+      }
+
+      const studentsResult = await db.query(
+        `WITH eligible_students AS (
+           SELECT DISTINCT
+             st.student_id,
+             st.first_name,
+             st.last_name
+           FROM enrollments e
+           JOIN enrolled_students es
+             ON es.enrollment_id = e.enrollment_id
+            AND es.class_id = $3
+           JOIN students st
+             ON st.student_id = es.student_id
+            AND st.organization_id = e.organization_id
+           WHERE e.organization_id = $1
+             AND e.term_id = $2
+         )
+         SELECT
+           es.student_id,
+           es.first_name,
+           es.last_name,
+           la.attempt_id,
+           la.status AS attempt_status,
+           la.started_at,
+           la.submitted_at,
+           la.score,
+           la.max_score,
+           COALESCE(salo.is_locked, FALSE) AS override_locked
+         FROM eligible_students es
+         LEFT JOIN LATERAL (
+           SELECT
+             saa.attempt_id,
+             saa.status,
+             saa.started_at,
+             saa.submitted_at,
+             saa.score,
+             saa.max_score,
+             saa.updated_at
+           FROM student_assessment_attempts saa
+           WHERE saa.organization_id = $1
+             AND saa.assessment_id = $4
+             AND saa.student_id = es.student_id
+           ORDER BY
+             CASE WHEN LOWER(COALESCE(saa.status, '')) = 'submitted' THEN 0 ELSE 1 END,
+             saa.submitted_at DESC NULLS LAST,
+             saa.updated_at DESC NULLS LAST,
+             saa.attempt_id DESC
+           LIMIT 1
+         ) la ON TRUE
+         LEFT JOIN student_assessment_lock_overrides salo
+           ON salo.organization_id = $1
+          AND salo.student_id = es.student_id
+          AND salo.assessment_id = $4
+         ORDER BY LOWER(COALESCE(es.last_name, '')) ASC,
+                  LOWER(COALESCE(es.first_name, '')) ASC,
+                  es.student_id ASC`,
+        [organizationId, termId, classId, assessmentId]
+      );
+
+      const students = studentsResult.rows.map((row) => {
+        const attemptStatus = String(row.attempt_status || "").toLowerCase();
+        const hasAttemptDate = Boolean(row.started_at || row.submitted_at);
+        const isCompleted = Boolean(row.started_at && row.submitted_at);
+        const isLocked = hasAttemptDate || Boolean(row.override_locked);
+        return {
+          studentId: Number(row.student_id),
+          firstName: row.first_name || "",
+          lastName: row.last_name || "",
+          attemptId: row.attempt_id ? Number(row.attempt_id) : null,
+          attemptStatus: attemptStatus || "not_started",
+          isCompleted,
+          isLocked,
+          hasAttemptDate,
+          hasOverrideLock: Boolean(row.override_locked),
+          startedAt: row.started_at || null,
+          submittedAt: row.submitted_at || null,
+          score: row.score,
+          maxScore: row.max_score,
+        };
+      });
+
+      const completedCount = students.filter((student) => student.isLocked).length;
+
+      return res.json({
+        success: true,
+        scope: {
+          questionSetId,
+          setTitle: scope.set_title || "Question Set",
+          classId,
+          className: scope.class_name || "Class",
+          subjectId: Number(scope.subject_id || 0),
+          subjectName: scope.subject_name || "Subject",
+          termId,
+          assessmentId,
+          assessmentTitle: scope.assessment_title || "Assessment",
+        },
+        summary: {
+          totalStudents: students.length,
+          completedCount,
+          unlockedCount: students.length - completedCount,
+        },
+        students,
+      });
+    } catch (_error) {
+      return res.status(500).json({ success: false, error: "Failed to load students for this question set." });
+    }
+  },
+
+  unlockAssessmentQuestionSetStudents: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const actorUserId = Number(req.session.userId || req.session.user?.user_id || 0) || null;
+    const questionSetId = Number(req.body.questionSetId || 0);
+    const studentId = req.body.studentId !== undefined ? Number(req.body.studentId) : null;
+    const unlockAll = Boolean(req.body.unlockAll);
+    const action = String(req.body.action || 'unlock').trim().toLowerCase();
+    const reshuffleQuestions = Boolean(req.body.reshuffleQuestions);
+
+    if (!organizationId || !Number.isInteger(questionSetId) || questionSetId <= 0) {
+      return res.status(400).json({ success: false, error: "questionSetId is required." });
+    }
+
+    if (!unlockAll && (!Number.isInteger(studentId) || Number(studentId) <= 0)) {
+      return res.status(400).json({ success: false, error: "studentId is required when unlockAll is false." });
+    }
+    if (!['lock', 'unlock'].includes(action)) {
+      return res.status(400).json({ success: false, error: "action must be lock or unlock." });
+    }
+    if (unlockAll && action !== 'unlock') {
+      return res.status(400).json({ success: false, error: "unlockAll only supports unlock." });
+    }
+
+    const client = await db.connect();
+    try {
+      await ensureStudentAssessmentLockSchema(client);
+      await client.query("BEGIN");
+
+      const scopeResult = await client.query(
+        `SELECT
+           question_set_id,
+           assessment_id,
+           term_id,
+           class_id,
+           subject_id
+         FROM assessment_question_sets
+         WHERE organization_id = $1
+           AND question_set_id = $2
+         LIMIT 1
+         FOR UPDATE`,
+        [organizationId, questionSetId]
+      );
+
+      if (!scopeResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Question set not found." });
+      }
+
+      const scope = scopeResult.rows[0];
+      const assessmentId = Number(scope.assessment_id || 0);
+      const termId = Number(scope.term_id || 0);
+      const classId = Number(scope.class_id || 0);
+
+      if (!assessmentId || !termId || !classId) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Question set scope is incomplete." });
+      }
+
+      const eligibleStudentsResult = await client.query(
+        `SELECT DISTINCT es.student_id
+         FROM enrollments e
+         JOIN enrolled_students es
+           ON es.enrollment_id = e.enrollment_id
+          AND es.class_id = $3
+         WHERE e.organization_id = $1
+           AND e.term_id = $2`,
+        [organizationId, termId, classId]
+      );
+
+      const eligibleStudentIds = eligibleStudentsResult.rows
+        .map((row) => Number(row.student_id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+
+      if (!eligibleStudentIds.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "No eligible students found for this scope." });
+      }
+
+      let targetStudentIds = eligibleStudentIds;
+      if (!unlockAll) {
+        if (!eligibleStudentIds.includes(Number(studentId))) {
+          await client.query("ROLLBACK");
+          return res.status(403).json({ success: false, error: "Student is outside the selected class and term scope." });
+        }
+        targetStudentIds = [Number(studentId)];
+      }
+
+      const updateResult = action === 'lock'
+        ? await client.query(
+            `SELECT NULL::INTEGER AS attempt_id, student_id
+             FROM unnest($1::int[]) AS u(student_id)`,
+            [targetStudentIds]
+          )
+        : await client.query(
+            `SELECT DISTINCT saa.attempt_id, saa.student_id
+             FROM student_assessment_attempts saa
+             WHERE saa.organization_id = $1
+               AND saa.assessment_id = $2
+               AND saa.student_id = ANY($3::int[])`,
+            [organizationId, assessmentId, targetStudentIds]
+          );
+
+      const unlockedAttemptIds = updateResult.rows
+        .map((row) => Number(row.attempt_id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+      const unlockedStudentIds = updateResult.rows
+        .map((row) => Number(row.student_id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+
+      if (action === 'lock' && targetStudentIds.length) {
+        await client.query(
+          `UPDATE student_assessment_lock_overrides
+              SET question_set_id = $4,
+                  is_locked = TRUE,
+                  updated_at = NOW()
+            WHERE organization_id = $1
+              AND assessment_id = $2
+              AND student_id = ANY($3::int[])`,
+          [organizationId, assessmentId, targetStudentIds, questionSetId]
+        );
+
+        await client.query(
+          `INSERT INTO student_assessment_lock_overrides (
+             organization_id,
+             student_id,
+             assessment_id,
+             question_set_id,
+             is_locked,
+             updated_at
+           )
+           SELECT $1, student_id, $2, $4, TRUE, NOW()
+           FROM unnest($3::int[]) AS u(student_id)
+           WHERE NOT EXISTS (
+             SELECT 1
+             FROM student_assessment_lock_overrides salo
+             WHERE salo.organization_id = $1
+               AND salo.assessment_id = $2
+               AND salo.student_id = u.student_id
+           )`,
+          [organizationId, assessmentId, targetStudentIds, questionSetId]
+        );
+      }
+
+      if (action === 'unlock' && targetStudentIds.length && !reshuffleQuestions) {
+        await client.query(
+          `DELETE FROM student_assessment_lock_overrides
+           WHERE organization_id = $1
+             AND assessment_id = $2
+             AND student_id = ANY($3::int[])`,
+          [organizationId, assessmentId, targetStudentIds]
+        );
+      }
+
+      if (action === 'unlock' && reshuffleQuestions && targetStudentIds.length) {
+        for (const targetId of targetStudentIds) {
+          const reshuffledQuestionSetId = await cloneQuestionSetForRetakeShuffle(client, {
+            organizationId,
+            sourceQuestionSetId: questionSetId,
+            actorUserId,
+            retakeStudentId: targetId,
+            shuffleMode: "random",
+          });
+
+          await client.query(
+            `UPDATE student_assessment_lock_overrides
+                SET question_set_id = $4,
+                    is_locked = FALSE,
+                    updated_at = NOW()
+              WHERE organization_id = $1
+                AND student_id = $2
+                AND assessment_id = $3`,
+            [organizationId, targetId, assessmentId, reshuffledQuestionSetId]
+          );
+
+          await client.query(
+            `INSERT INTO student_assessment_lock_overrides (
+               organization_id,
+               student_id,
+               assessment_id,
+               question_set_id,
+               is_locked,
+               updated_at
+             )
+             SELECT $1, $2, $3, $4, FALSE, NOW()
+             WHERE NOT EXISTS (
+               SELECT 1
+               FROM student_assessment_lock_overrides salo
+               WHERE salo.organization_id = $1
+                 AND salo.student_id = $2
+                 AND salo.assessment_id = $3
+             )`,
+            [organizationId, targetId, assessmentId, reshuffledQuestionSetId]
+          );
+        }
+      }
+
+      if (action === 'unlock' && unlockedAttemptIds.length) {
+        await client.query(
+          `DELETE FROM student_assessment_responses
+           WHERE attempt_id = ANY($1::int[])`,
+          [unlockedAttemptIds]
+        );
+
+        await client.query(
+          `DELETE FROM student_assessment_attempts
+           WHERE attempt_id = ANY($1::int[])`,
+          [unlockedAttemptIds]
+        );
+      }
+
+      if (action === 'unlock' && unlockedStudentIds.length) {
+        await client.query(
+          `DELETE FROM assessment_results
+           WHERE organization_id = $1
+             AND assessment_id = $2
+             AND student_id = ANY($3::int[])`,
+          [organizationId, assessmentId, unlockedStudentIds]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      return res.json({
+        success: true,
+        message: action === 'lock'
+          ? (targetStudentIds.length ? 'Student locked.' : 'Student could not be locked.')
+          : (unlockAll
+              ? `Unlocked ${targetStudentIds.length} student record(s)${reshuffleQuestions ? ' with reshuffled questions' : ''}.`
+              : (targetStudentIds.length ? `Student unlocked${reshuffleQuestions ? ' with reshuffled questions' : ''}.` : "Student has no locked attempt to unlock.")),
+        unlockedCount: unlockedStudentIds.length,
+      });
+    } catch (_error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (_) {
+      }
+      console.error("[unlockAssessmentQuestionSetStudents]", {
+        action,
+        questionSetId,
+        studentId,
+        unlockAll,
+        reshuffleQuestions,
+        message: _error && _error.message ? _error.message : _error,
+      });
+      return res.status(500).json({
+        success: false,
+        error: action === 'lock'
+          ? "Failed to lock student submission access."
+          : "Failed to unlock student submissions.",
+      });
+    } finally {
+      client.release();
+    }
+  },
+
+  getAssessmentOptionsByScope: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId);
+    const termId = Number(req.query.termId);
+    const schoolYearId = Number(req.query.schoolYearId);
+    const classId = req.query.classId ? Number(req.query.classId) : null;
+    const subjectId = req.query.subjectId ? Number(req.query.subjectId) : null;
+
+    if (!organizationId || !Number.isInteger(termId) || !Number.isInteger(schoolYearId)) {
+      return res.status(400).json({ success: false, error: "termId and schoolYearId are required." });
+    }
+
+    if ((classId !== null && (!Number.isInteger(classId) || classId <= 0)) || (subjectId !== null && (!Number.isInteger(subjectId) || subjectId <= 0))) {
+      return res.status(400).json({ success: false, error: "Invalid classId or subjectId." });
+    }
+
+    try {
+      const params = [organizationId, termId, schoolYearId];
+      let additionalWhere = "";
+
+      if (classId !== null) {
+        params.push(classId);
+        additionalWhere += ` AND a.class_id = $${params.length}`;
+      }
+
+      if (subjectId !== null) {
+        params.push(subjectId);
+        additionalWhere += ` AND a.subject_id = $${params.length}`;
+      }
+
+      const result = await db.query(
+        `SELECT
+           a.assessment_id,
+           a.organization_id,
+           a.term_id,
+           t.school_year_id,
+           a.class_id,
+           a.subject_id,
+           a.title,
+           a.weight,
+           a.max_score,
+           a.category,
+           COALESCE(a.scale_base, 100) AS scale_base,
+           COALESCE(a.open_book, FALSE) AS open_book,
+           a.time_limit_minutes,
+           COALESCE(a.is_locked, FALSE) AS is_locked,
+           COALESCE(a.is_active, TRUE) AS is_active,
+           a.edit_window_start,
+           a.edit_window_end,
+           c.class_name,
+           s.subject_name
+         FROM assessments a
+         JOIN terms t
+           ON t.term_id = a.term_id
+          AND t.organization_id = a.organization_id
+         JOIN school_years sy
+           ON sy.id = t.school_year_id
+          AND sy.organization_id = a.organization_id
+         JOIN classes c
+           ON c.class_id = a.class_id
+          AND c.organization_id = a.organization_id
+         LEFT JOIN subjects s
+           ON s.subject_id = a.subject_id
+          AND s.organization_id = a.organization_id
+         WHERE a.organization_id = $1
+           AND a.term_id = $2
+           AND t.school_year_id = $3
+           AND a.term_id IS NOT NULL
+           AND a.class_id IS NOT NULL
+           AND a.subject_id IS NOT NULL
+           ${additionalWhere}
+         ORDER BY c.class_name ASC, s.subject_name ASC, a.title ASC, a.assessment_id ASC`,
+        params
+      );
+
+      const assessments = result.rows.map((row) => {
+        const editability = computeAssessmentEditability(row);
+        return {
+          assessment_id: Number(row.assessment_id),
+          organization_id: Number(row.organization_id),
+          term_id: Number(row.term_id),
+          school_year_id: Number(row.school_year_id),
+          class_id: Number(row.class_id),
+          subject_id: Number(row.subject_id),
+          title: row.title,
+          weight: Number(row.weight || 0),
+          max_score: Number(row.max_score || 0),
+          category: row.category || "Assessment",
+          scale_base: Number(row.scale_base || 100),
+          open_book: Boolean(row.open_book),
+          time_limit_minutes: row.time_limit_minutes !== null && row.time_limit_minutes !== undefined
+            ? Number(row.time_limit_minutes)
+            : null,
+          class_name: row.class_name || "Class",
+          subject_name: row.subject_name || "Subject",
+          can_edit_scores: Boolean(editability.canEdit),
+          access_reason: editability.reason || "",
+        };
+      });
+
+      return res.json({ success: true, assessments });
+    } catch (_error) {
+      return res.status(500).json({ success: false, error: "Failed to load assessments." });
+    }
+  },
+
+  reuseAssessmentQuestionSet: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const actorUserId = req.session.userId || req.session.user?.user_id || null;
+
+    const sourceQuestionSetId = Number(req.body.sourceQuestionSetId);
+    const targetTermId = Number(req.body.targetTermId);
+    const targetClassId = Number(req.body.targetClassId);
+    const targetSubjectId = Number(req.body.targetSubjectId);
+    const targetAssessmentTitle = String(req.body.targetAssessmentTitle || "").trim();
+    const shuffleMode = String(req.body.shuffleMode || "none").trim().toLowerCase();
+    const shuffleOptions = String(req.body.shuffleOptions || "false").trim().toLowerCase() === "true";
+
+    const validShuffleModes = new Set(["none", "random", "reverse"]);
+
+    if (!organizationId || !Number.isInteger(sourceQuestionSetId) || sourceQuestionSetId <= 0) {
+      return res.status(400).json({ success: false, error: "sourceQuestionSetId is required." });
+    }
+    if (!Number.isInteger(targetTermId) || targetTermId <= 0 || !Number.isInteger(targetClassId) || targetClassId <= 0 || !Number.isInteger(targetSubjectId) || targetSubjectId <= 0) {
+      return res.status(400).json({ success: false, error: "targetTermId, targetClassId and targetSubjectId are required." });
+    }
+    if (!targetAssessmentTitle) {
+      return res.status(400).json({ success: false, error: "Target assessment title is required." });
+    }
+    if (!validShuffleModes.has(shuffleMode)) {
+      return res.status(400).json({ success: false, error: "Invalid shuffle mode." });
+    }
+
+    const client = await db.connect();
+    try {
+      await ensureGoogleIntegrationSchema(client);
+      await client.query("BEGIN");
+
+      const sourceSetResult = await client.query(
+        `SELECT
+           qs.question_set_id,
+           qs.assessment_id,
+           qs.set_title,
+           qs.set_description,
+           qs.total_points,
+           a.title AS assessment_title,
+           a.weight,
+           a.max_score,
+           a.category,
+           COALESCE(a.scale_base, 100) AS scale_base,
+           COALESCE(a.is_locked, FALSE) AS is_locked,
+           COALESCE(a.is_active, TRUE) AS is_active,
+           a.edit_window_start,
+           a.edit_window_end
+         FROM assessment_question_sets qs
+         LEFT JOIN assessments a ON a.assessment_id = qs.assessment_id AND a.organization_id = qs.organization_id
+         WHERE qs.question_set_id = $1 AND qs.organization_id = $2
+         LIMIT 1`,
+        [sourceQuestionSetId, organizationId]
+      );
+
+      if (!sourceSetResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Source question set not found." });
+      }
+
+      const sourceSet = sourceSetResult.rows[0];
+
+      const sourceQuestionsResult = await client.query(
+        `SELECT
+           question_type,
+           question_text,
+           options_json,
+           answer_key,
+           marks,
+           position_index
+         FROM assessment_questions
+         WHERE question_set_id = $1
+         ORDER BY position_index ASC, question_id ASC`,
+        [sourceQuestionSetId]
+      );
+
+      if (!sourceQuestionsResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Source question set has no questions to reuse." });
+      }
+
+      const targetTermResult = await client.query(
+        `SELECT term_id
+         FROM terms
+         WHERE term_id = $1 AND organization_id = $2
+         LIMIT 1`,
+        [targetTermId, organizationId]
+      );
+      if (!targetTermResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Target term not found." });
+      }
+
+      const classEnrollmentResult = await client.query(
+        `SELECT 1
+         FROM enrollments e
+         JOIN enrolled_classes ec ON ec.enrollment_id = e.enrollment_id
+         WHERE e.organization_id = $1
+           AND e.term_id = $2
+           AND ec.class_id = $3
+         LIMIT 1`,
+        [organizationId, targetTermId, targetClassId]
+      );
+      if (!classEnrollmentResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Target class is not enrolled in the selected term." });
+      }
+
+      const subjectResult = await client.query(
+        `SELECT subject_id
+         FROM subjects
+         WHERE organization_id = $1
+           AND class_id = $2
+           AND subject_id = $3
+         LIMIT 1`,
+        [organizationId, targetClassId, targetSubjectId]
+      );
+      if (!subjectResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Target subject not found for selected class." });
+      }
+
+      const groupIdResult = await client.query(
+        `SELECT nextval('assessments_group_id_seq') AS next_group_id`
+      );
+      const newGroupId = Number(groupIdResult.rows[0].next_group_id);
+
+      const insertAssessmentResult = await client.query(
+        `INSERT INTO assessments (
+           group_id,
+           title,
+           weight,
+           max_score,
+           category,
+           subject_id,
+           organization_id,
+           term_id,
+           class_id,
+           is_locked,
+           is_active,
+           edit_window_start,
+           edit_window_end,
+           scale_base
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         ON CONFLICT (class_id, subject_id, title, term_id) DO NOTHING
+         RETURNING assessment_id, group_id`,
+        [
+          newGroupId,
+          targetAssessmentTitle,
+          sourceSet.weight || 20,
+          sourceSet.max_score || 100,
+          sourceSet.category || "Class Assessment",
+          targetSubjectId,
+          organizationId,
+          targetTermId,
+          targetClassId,
+          Boolean(sourceSet.is_locked),
+          Boolean(sourceSet.is_active),
+          sourceSet.edit_window_start || null,
+          sourceSet.edit_window_end || null,
+          Number(sourceSet.scale_base || 100),
+        ]
+      );
+
+      let targetAssessmentId = null;
+      let targetGroupId = null;
+      if (insertAssessmentResult.rows.length) {
+        targetAssessmentId = Number(insertAssessmentResult.rows[0].assessment_id);
+        targetGroupId = Number(insertAssessmentResult.rows[0].group_id);
+      } else {
+        const existingAssessmentResult = await client.query(
+          `SELECT assessment_id, group_id
+           FROM assessments
+           WHERE organization_id = $1
+             AND term_id = $2
+             AND class_id = $3
+             AND subject_id = $4
+             AND title = $5
+           LIMIT 1`,
+          [organizationId, targetTermId, targetClassId, targetSubjectId, targetAssessmentTitle]
+        );
+        if (!existingAssessmentResult.rows.length) {
+          await client.query("ROLLBACK");
+          return res.status(500).json({ success: false, error: "Could not create or resolve target assessment." });
+        }
+        targetAssessmentId = Number(existingAssessmentResult.rows[0].assessment_id);
+        targetGroupId = Number(existingAssessmentResult.rows[0].group_id);
+      }
+
+      const clonedSetTitle = `${sourceSet.set_title || "Question Set"} (Reuse)`;
+      const insertQuestionSetResult = await client.query(
+        `INSERT INTO assessment_question_sets (
+           organization_id,
+           term_id,
+           class_id,
+           subject_id,
+           assessment_id,
+           group_id,
+           set_title,
+           set_description,
+           total_points,
+           created_by,
+           updated_by
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+         RETURNING question_set_id`,
+        [
+          organizationId,
+          targetTermId,
+          targetClassId,
+          targetSubjectId,
+          targetAssessmentId,
+          targetGroupId,
+          clonedSetTitle,
+          sourceSet.set_description || null,
+          Number(sourceSet.total_points || 0),
+          actorUserId,
+        ]
+      );
+
+      const targetQuestionSetId = Number(insertQuestionSetResult.rows[0].question_set_id);
+
+      const questions = sourceQuestionsResult.rows.map((row) => ({
+        question_type: row.question_type,
+        question_text: row.question_text,
+        options_json: Array.isArray(row.options_json) ? [...row.options_json] : [],
+        answer_key: row.answer_key || null,
+        marks: Number(row.marks || 0),
+        position_index: Number(row.position_index || 0),
+      }));
+
+      if (shuffleMode === "reverse") {
+        questions.reverse();
+      } else if (shuffleMode === "random") {
+        for (let i = questions.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [questions[i], questions[j]] = [questions[j], questions[i]];
+        }
+      }
+
+      if (shuffleOptions) {
+        questions.forEach((question) => {
+          if (Array.isArray(question.options_json) && question.options_json.length > 1) {
+            for (let i = question.options_json.length - 1; i > 0; i -= 1) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [question.options_json[i], question.options_json[j]] = [question.options_json[j], question.options_json[i]];
+            }
+          }
+        });
+      }
+
+      for (let index = 0; index < questions.length; index += 1) {
+        const question = questions[index];
+        await client.query(
+          `INSERT INTO assessment_questions (
+             question_set_id,
+             organization_id,
+             question_type,
+             question_text,
+             options_json,
+             answer_key,
+             marks,
+             position_index
+           )
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+          [
+            targetQuestionSetId,
+            organizationId,
+            question.question_type,
+            question.question_text,
+            JSON.stringify(question.options_json || []),
+            question.answer_key,
+            Number(question.marks || 0),
+            index + 1,
+          ]
+        );
+      }
+
+      await client.query("COMMIT");
+
+      try {
+        const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+        if (googleIntegration.shouldShowFeatures) {
+          await markGoogleSync(
+            db,
+            organizationId,
+            "queued",
+            "Question set reuse detected. Google Classroom sync queued."
+          );
+        }
+      } catch (_) {
+      }
+
+      return res.json({
+        success: true,
+        message: "Question set reused successfully.",
+        questionSetId: targetQuestionSetId,
+        assessmentId: targetAssessmentId,
+      });
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (_) {
+      }
+      return res.status(500).json({ success: false, error: "Failed to reuse question set." });
+    } finally {
+      client.release();
     }
   },
 
@@ -9215,12 +12447,15 @@ const commonController = {
 
     try {
       await ensureAssessmentControlSchema(db);
+          await ensureGoogleIntegrationSchema(db);
+          const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
       // Fetch assessment details for the group
       const assessmentQuery = `
                 SELECT title, weight, max_score, category,
                        COALESCE(scale_base, 100) AS scale_base,
                        COALESCE(is_locked, FALSE) AS is_locked,
                        COALESCE(is_active, TRUE) AS is_active,
+            COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard,
                        edit_window_start,
                        edit_window_end
                 FROM assessments
@@ -9288,6 +12523,7 @@ const commonController = {
         organizationId,
         termId,
         groupId,
+        canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
         messages: req.flash(),
       });
     } catch (error) {
@@ -9311,6 +12547,7 @@ const commonController = {
       isActive,
       editWindowStart,
       editWindowEnd,
+      showQuestionSetOnDashboard,
       notifyTeachers,
     } = req.body;
 
@@ -9385,12 +12622,15 @@ const commonController = {
 
     try {
       await ensureAssessmentControlSchema(client);
+      await ensureGoogleIntegrationSchema(client);
       await ensureScoreRemarkGradeSchema(client);
+      const googleIntegration = await getGoogleIntegrationStatus(client, organizationId);
+      const showQuestionSetFlag = Boolean(googleIntegration.shouldShowFeatures) && parseBooleanValue(showQuestionSetOnDashboard, false);
       await client.query("BEGIN"); // Start transaction
 
       const existingAssessmentsResult = await client.query(
         `
-          SELECT a.assessment_id, a.class_id, a.subject_id,
+          SELECT a.assessment_id, a.class_id, a.subject_id, a.max_score, a.category,
                  EXISTS (
                    SELECT 1
                    FROM assessment_results ar
@@ -9412,6 +12652,8 @@ const commonController = {
       );
 
       const parsedScaleBase = parseInt(scaleBase) > 0 ? parseInt(scaleBase) : 100;
+      const normalizedRequestedCategory = String(category || "").trim();
+      const normalizedRequestedMaxScore = Number(maxScore);
 
       const updateAssessmentMetadata = async (assessmentId, assignment) => {
         await client.query(
@@ -9427,8 +12669,9 @@ const commonController = {
                 is_active = $8,
                 edit_window_start = $9,
                 edit_window_end = $10,
-                scale_base = $12
-            WHERE assessment_id = $11
+                scale_base = $11,
+                show_question_set_on_dashboard = $12
+            WHERE assessment_id = $13
           `,
           [
             testName,
@@ -9441,8 +12684,9 @@ const commonController = {
             active,
             parsedWindowStart,
             parsedWindowEnd,
-            assessmentId,
             parsedScaleBase,
+            showQuestionSetFlag,
+            assessmentId,
           ]
         );
 
@@ -9624,9 +12868,11 @@ const commonController = {
       for (const assignment of desiredAssignments) {
         const existingAssessment = existingByPair.get(assignment.key);
         if (existingAssessment) {
+          const existingMaxScore = Number(existingAssessment.max_score);
+          const existingCategory = String(existingAssessment.category || "").trim();
           if (
-            Number(existingAssessment.max_score) !== Number(maxScore) ||
-            String(existingAssessment.category || "") !== String(category || "")
+            existingMaxScore !== normalizedRequestedMaxScore ||
+            existingCategory !== normalizedRequestedCategory
           ) {
             scoreRelevantMetadataChanged = true;
           }
@@ -9657,9 +12903,9 @@ const commonController = {
         const insertQuery = `
                   INSERT INTO assessments (
                 group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
-                is_locked, is_active, edit_window_start, edit_window_end, scale_base
+                is_locked, is_active, edit_window_start, edit_window_end, scale_base, show_question_set_on_dashboard
                   ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
                   )
                   ON CONFLICT ON CONSTRAINT unique_test_per_term_class_subject DO NOTHING
               `;
@@ -9678,6 +12924,7 @@ const commonController = {
           parsedWindowStart,
           parsedWindowEnd,
           parsedScaleBase,
+          showQuestionSetFlag,
         ]);
       }
 
@@ -9700,8 +12947,9 @@ const commonController = {
                   is_active = $6,
                   edit_window_start = $7,
                   edit_window_end = $8,
-                  scale_base = $10
-              WHERE assessment_id = $9
+                  scale_base = $9,
+                  show_question_set_on_dashboard = $10
+              WHERE assessment_id = $11
             `,
             [
               testName,
@@ -9712,8 +12960,9 @@ const commonController = {
               active,
               parsedWindowStart,
               parsedWindowEnd,
-              staleAssessment.assessment_id,
               parsedScaleBase,
+              showQuestionSetFlag,
+              staleAssessment.assessment_id,
             ]
           );
         }
@@ -9778,6 +13027,19 @@ const commonController = {
           body: `Updated · ${termName}`,
           linkTemplate: '/common/classDashboard/{classId}/subject',
         }).catch(err => console.error('[Notif] assessment_modified failed:', err.message));
+      }
+
+      try {
+        const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+        if (googleIntegration.shouldShowFeatures) {
+          await markGoogleSync(
+            db,
+            organizationId,
+            "queued",
+            "Assessment updates detected. Google Classroom sync queued."
+          );
+        }
+      } catch (_) {
       }
 
       // Respond with the success message
@@ -9872,6 +13134,56 @@ const commonController = {
     }
   },
 
+  updateAssessmentItemControlPost: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId);
+    const assessmentId = Number(req.body.assessmentId);
+    const action = String(req.body.action || "").trim().toLowerCase();
+
+    if (!organizationId || !Number.isInteger(assessmentId) || assessmentId <= 0 || !action) {
+      return res.status(400).json({ success: false, error: "assessmentId and action are required." });
+    }
+
+    const allowedActions = new Set(["lock", "open", "reactivate"]);
+    if (!allowedActions.has(action)) {
+      return res.status(400).json({ success: false, error: "Invalid action." });
+    }
+
+    try {
+      await ensureAssessmentControlSchema(db);
+
+      let updateQuery = "";
+      if (action === "lock") {
+        updateQuery = `
+          UPDATE assessments
+          SET is_locked = TRUE
+          WHERE assessment_id = $1 AND organization_id = $2
+        `;
+      } else if (action === "open") {
+        updateQuery = `
+          UPDATE assessments
+          SET is_locked = FALSE
+          WHERE assessment_id = $1 AND organization_id = $2
+        `;
+      } else {
+        updateQuery = `
+          UPDATE assessments
+          SET is_locked = FALSE,
+              is_active = TRUE
+          WHERE assessment_id = $1 AND organization_id = $2
+        `;
+      }
+
+      const updateResult = await db.query(updateQuery, [assessmentId, organizationId]);
+      if (!updateResult.rowCount) {
+        return res.status(404).json({ success: false, error: "Assessment not found." });
+      }
+
+      return res.json({ success: true, message: "Assessment status updated successfully." });
+    } catch (_error) {
+      return res.status(500).json({ success: false, error: "Failed to update assessment status." });
+    }
+  },
+
   // Controller to delete an assessment group
   deleteAssessmentPost: async (req, res, db) => {
     const { groupId } = req.body;
@@ -9920,6 +13232,8 @@ const commonController = {
     }
 
     try {
+      await ensureGoogleIntegrationSchema(db);
+      const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
       // Fetch the current term for the organization
       const termQuery = `
         SELECT term_id, term_name 
@@ -9976,6 +13290,7 @@ const commonController = {
         organizationId,
         termId,
         currentTerm,
+        canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
         messages: req.flash(),
       });
     } catch (error) {
@@ -10002,6 +13317,8 @@ const commonController = {
 
     try {
       await ensureAssessmentControlSchema(client);
+      await ensureGoogleIntegrationSchema(client);
+      const googleIntegration = await getGoogleIntegrationStatus(client, organizationId);
       await client.query("BEGIN"); // Start a transaction
 
       // Track the classes for which tests were added
@@ -10013,6 +13330,7 @@ const commonController = {
         const selectedSubjects = test.subjects;
         const locked = parseBooleanValue(test.isLocked, false);
         const active = parseBooleanValue(test.isActive, true);
+        const showQuestionSetFlag = Boolean(googleIntegration.shouldShowFeatures) && parseBooleanValue(test.showQuestionSetOnDashboard, false);
         const notifyTeachers = parseBooleanValue(test.notifyTeachers, false);
         const parsedWindowStart = parseDateTimeValue(test.editWindowStart);
         const parsedWindowEnd = parseDateTimeValue(test.editWindowEnd);
@@ -10051,9 +13369,9 @@ const commonController = {
             const insertAssessmentQuery = `
                         INSERT INTO assessments (
                     group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
-                    is_locked, is_active, edit_window_start, edit_window_end, scale_base
+                is_locked, is_active, edit_window_start, edit_window_end, scale_base, show_question_set_on_dashboard
                         ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
                         )
                         ON CONFLICT (class_id, subject_id, title, term_id) DO NOTHING
                     `;
@@ -10072,6 +13390,7 @@ const commonController = {
               parsedWindowStart,
               parsedWindowEnd,
               parsedScaleBase,
+              showQuestionSetFlag,
             ]);
           }
         }
@@ -10137,6 +13456,24 @@ const commonController = {
           body: `Added · ${termName}`,
           linkTemplate: '/common/classDashboard/{classId}/subject',
         }).catch(err => console.error('[Notif] assessment_created failed:', err.message));
+      }
+
+      try {
+        const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+        if (googleIntegration.shouldShowFeatures) {
+          await markGoogleSync(
+            db,
+            organizationId,
+            "queued",
+            "Assessment creation detected. Google Classroom sync queued."
+          );
+
+          pushPendingAssessmentsForOrganization(Number(organizationId), {
+            dbClient: db,
+            limit: 200,
+          }).catch(() => {});
+        }
+      } catch (_) {
       }
 
       // Respond with the success message
@@ -10423,6 +13760,9 @@ const commonController = {
       const currentUserRole = req.session.userRole;
       const currentUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
       const normalizedRole = normalizeRoleKey(currentUserRole || req.session.accountType);
+      await ensureGoogleIntegrationSchema(db);
+      const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const canManageAllClassAssessmentExams = ["manager", "supervisor"].includes(normalizedRole);
 
       // Fetch the current school year and term
       const schoolYearResult = await db.query(
@@ -10637,6 +13977,8 @@ const commonController = {
         initialWorkspaceRoute = { panel: 'students', itemId: '' };
       } else if (routePanel === 'subjects') {
         initialWorkspaceRoute = { panel: 'subjects', itemId: '' };
+      } else if (routePanel === 'class-exams' && canManageAllClassAssessmentExams) {
+        initialWorkspaceRoute = { panel: 'class-exams', itemId: '' };
       } else if (routePanel === 'paygira') {
         initialWorkspaceRoute = { panel: 'paygira', itemId: '' };
       } else if (routePanel === 'student' && routeItemId) {
@@ -10671,6 +14013,8 @@ const commonController = {
         upcomingClassBirthdays,
         initialWorkspaceRoute,
         classWorkspaceBasePath: `/common/classDashboard/${classId}`,
+        googleIntegration,
+        canManageAllClassAssessmentExams,
       });
     } catch (err) {
             res.status(500).send("Error loading class dashboard");
@@ -12177,6 +15521,7 @@ const commonController = {
 
   management: async (req, res, db) => {
     try {
+      await ensureGoogleIntegrationSchema(db);
       // Get current term for assessment link
       const termResult = await db.query(`
         SELECT t.term_id, t.term_name
@@ -12198,6 +15543,11 @@ const commonController = {
         },
         PERMISSIONS.MANAGE_EMPLOYEES
       );
+      const googleIntegration = await getGoogleIntegrationStatus(db, req.session.organizationId);
+      const normalizedRole = normalizeRoleKey(
+        req.session.userRole || req.session.user?.account_type || req.session.accountType
+      );
+      const canManageAllClassAssessmentExams = ["manager", "supervisor"].includes(normalizedRole);
 
       // Email Issues — count failures visible to managers/supervisors
       const roleStr = String(
@@ -12222,6 +15572,8 @@ const commonController = {
         canManageEmployees,
         canSeeEmailIssues,
         failedEmailCount,
+        googleIntegration,
+        canManageAllClassAssessmentExams,
       });
     } catch (error) {
             res.status(500).send("Failed to load management data");
@@ -14509,6 +17861,151 @@ const commonController = {
     }
   },
 
+  studentRequestPasswordReset: async (req, res, db) => {
+    try {
+      if (!req.session) {
+        return res.status(403).json({ success: false, error: "You are not authorized to send student password emails." });
+      }
+
+      const organizationId = req.session.organizationId;
+      const userId = req.session.user?.user_id || req.session.userId || null;
+      const userRole = req.session.userRole || req.session.user?.account_type || null;
+      const accountType = req.session.accountType || req.session.user?.account_type || null;
+      const userEmail = req.session.user?.email || null;
+      const canBypassAsAdmin = ["admin"].includes(normalizeRoleKey(userRole)) || ["admin"].includes(normalizeRoleKey(accountType));
+      const canManageStudentsSettings = canBypassAsAdmin || await userHasPermission(
+        db,
+        { userId, userRole, organizationId, accountType, userEmail },
+        PERMISSIONS.MANAGE_STUDENTS
+      );
+
+      if (!canManageStudentsSettings) {
+        return res.status(403).json({ success: false, error: "You do not have permission to send student password setup/reset emails." });
+      }
+
+      const studentId = Number(req.body.studentId || 0);
+
+      if (!organizationId || !studentId) {
+        return res.status(400).json({ success: false, error: "Invalid student request." });
+      }
+
+      await ensureStudentPortalSchema(db);
+
+      const studentResult = await db.query(
+        `SELECT s.student_id, s.first_name, s.last_name, s.email, s.class_id, c.class_name
+           FROM students s
+           LEFT JOIN classes c ON c.class_id = s.class_id
+          WHERE s.organization_id = $1 AND s.student_id = $2
+          LIMIT 1`,
+        [organizationId, studentId]
+      );
+
+      if (!studentResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Student not found." });
+      }
+
+      const student = studentResult.rows[0];
+      const studentEmail = normalizeStudentEmail(student.email);
+      if (!studentEmail) {
+        return res.status(400).json({
+          success: false,
+          error: "This student does not have an email address attached.",
+        });
+      }
+
+      const existingAccountResult = await db.query(
+        `SELECT id, password_hash FROM student_accounts WHERE organization_id = $1 AND student_id = $2 LIMIT 1`,
+        [organizationId, studentId]
+      );
+
+      const existingAccount = existingAccountResult.rows[0] || null;
+      const hasExistingPassword = Boolean(
+        existingAccount &&
+        existingAccount.password_hash &&
+        String(existingAccount.password_hash).trim()
+      );
+      const isSetupInvite = !hasExistingPassword;
+
+      await upsertStudentAccount(db, {
+        organizationId,
+        studentId,
+        loginEmail: studentEmail,
+      });
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await db.query(
+        `INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_id) DO UPDATE SET token = $2, expires_at = $3, created_at = NOW()`,
+        [`student_${studentId}`, token, tokenExpiry]
+      );
+
+      const orgResult = await db.query(
+        `SELECT organization_name FROM organizations WHERE organization_id = $1`,
+        [organizationId]
+      );
+      const organizationName = orgResult.rows[0]?.organization_name || "School";
+
+      const resetLink = process.env.NODE_ENV === "production"
+        ? `https://www.managira.com/common/set-password?token=${token}&type=student`
+        : `http://localhost:4000/common/set-password?token=${token}&type=student`;
+
+      const emailTitle = isSetupInvite ? "Student Portal Access Setup" : "Student Password Reset Request";
+      const emailHeading = isSetupInvite ? "Welcome to Student Portal" : "Password Reset Request";
+      const emailMessage = isSetupInvite
+        ? `You have been invited to access the Student Portal at ${he.encode(organizationName)}.`
+        : `A password reset has been requested for your Student Portal account at ${he.encode(organizationName)}.`;
+
+      const html = renderCleanEmail({
+        title: emailHeading,
+        greeting: `Hello <strong>${he.encode(student.first_name || "Student")} ${he.encode(student.last_name || "")}</strong>,`,
+        paragraphs: [
+          emailMessage,
+          `Use your student email <strong>${he.encode(studentEmail)}</strong> to sign in after setting your password.`,
+          ...(student.class_name ? [`Class: <strong>${he.encode(student.class_name)}</strong>`] : []),
+          ...(!isSetupInvite ? ["If you did not request this reset, please ignore this email."] : []),
+        ],
+        cta: {
+          text: isSetupInvite ? "Set Password" : "Reset Password",
+          url: he.encode(resetLink),
+        },
+        note: "This link will expire in 24 hours.",
+      });
+
+      sendEmailInBackground(
+        {
+          from: process.env.ADMIN_NOTIFY_EMAIL_USER,
+          to: studentEmail,
+          subject: `${emailTitle} - ${organizationName}`,
+          html,
+          failureNotification: buildFailureNotification(organizationId, {
+            title: "Student password email failed",
+            body: `The student password email for ${studentEmail} could not be delivered.`,
+          }),
+          attachments: [
+            {
+              filename: "managira.png",
+              path: path.join(__dirname, "../public/images/managira.png"),
+              cid: "managira_logo",
+            },
+          ],
+        },
+        "Student Password Email"
+      );
+
+      return res.json({
+        success: true,
+        message: isSetupInvite
+          ? "Password setup email sent successfully."
+          : "Password reset email sent successfully.",
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "Error sending student password email." });
+    }
+  },
+
   // Admissions Hub
   admissionsHub: async (req, res, db) => {
     try {
@@ -14538,6 +18035,7 @@ const commonController = {
               s.custom_student_id,
               s.first_name,
               s.last_name,
+              s.email,
               s.gender,
               s.date_of_birth,
               s.image_url,
@@ -15394,6 +18892,7 @@ const commonController = {
     const client = await db.connect();
 
     try {
+      await ensureStudentEmailSchema(db);
       await client.query("BEGIN");
 
       // Parse and coerce values
@@ -15446,6 +18945,7 @@ const commonController = {
         body.date_of_birth,
         body.gender,
         body.hometown,
+        normalizeOptionalEmail(body.student_email),
         classId,
         gradGroupId,
         schoolYearId,
@@ -15464,14 +18964,15 @@ const commonController = {
           date_of_birth = $3,
           gender = $4,
           hometown = $5,
-          class_id = $6,
-          graduation_year_group_id = $7,
-          school_year_id = $8,
-          term_id = $9,
-          enrollment_type = $10
-          ${imageUrl ? ", image_url = $11" : ""}
-        WHERE pending_id = $${imageUrl ? 12 : 11} AND organization_id = $${
-        imageUrl ? 13 : 12
+          email = COALESCE($6, email),
+          class_id = $7,
+          graduation_year_group_id = $8,
+          school_year_id = $9,
+          term_id = $10,
+          enrollment_type = $11
+          ${imageUrl ? ", image_url = $12" : ""}
+        WHERE pending_id = $${imageUrl ? 13 : 12} AND organization_id = $${
+        imageUrl ? 14 : 13
       }
       `;
 

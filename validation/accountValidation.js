@@ -57,6 +57,34 @@ const validateGuardianLoginResult = (req, res, next) => {
   next();
 };
 
+// Student login (email only)
+const validateStudentLogin = [
+  check("email")
+    .trim()
+    .escape()
+    .notEmpty()
+    .withMessage("Student email is required.")
+    .isEmail()
+    .withMessage("Invalid email format"),
+  check("password")
+    .trim()
+    .escape()
+    .notEmpty()
+    .withMessage("Password is required."),
+];
+
+const validateStudentLoginResult = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    req.flash(
+      "error",
+      errors.array().map((err) => err.msg)
+    );
+    return res.redirect("back");
+  }
+  next();
+};
+
 //validation for registration page
 const validateRegistration = [
   check("firstName")
@@ -281,6 +309,8 @@ module.exports = {
   validateLoginResult,
   validateGuardianLogin,
   validateGuardianLoginResult,
+  validateStudentLogin,
+  validateStudentLoginResult,
   validateRegistration,
   validateRegistrationResult,
   validateAccountUpdate,

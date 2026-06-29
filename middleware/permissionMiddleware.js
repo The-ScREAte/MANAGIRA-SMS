@@ -2,6 +2,7 @@ const db = require("../config/db");
 const cacheManager = require("../utils/cacheManager");
 
 const PERMISSION_CACHE_TTL_SEC = Number(process.env.PERMISSION_CACHE_TTL_SEC || 90);
+const PERMISSIONS_DDL_LOGS_ENABLED = String(process.env.LOG_PERMISSION_DDL || "").trim().toLowerCase() === "true";
 
 const MANAGER_LIKE_ROLES = new Set(["organization", "admin", "mini admin"]);
 
@@ -82,7 +83,9 @@ async function ensurePermissionsSchema(database = db) {
   if (global._permissionsSchemaPromise) return global._permissionsSchemaPromise;
 
   global._permissionsSchemaPromise = (async () => {
-    console.info('[Permissions] ensurePermissionsSchema: running DDL...');
+    if (PERMISSIONS_DDL_LOGS_ENABLED) {
+      console.info('[Permissions] ensurePermissionsSchema: running DDL...');
+    }
     await database.query(`
       CREATE TABLE IF NOT EXISTS user_permissions (
         id SERIAL PRIMARY KEY,
@@ -126,7 +129,9 @@ async function ensurePermissionsSchema(database = db) {
     await database.query(
       `CREATE INDEX IF NOT EXISTS idx_user_permissions_perm_org ON user_permissions(permission_key, organization_id)`
     );
-    console.info('[Permissions] ensurePermissionsSchema: DDL complete.');
+    if (PERMISSIONS_DDL_LOGS_ENABLED) {
+      console.info('[Permissions] ensurePermissionsSchema: DDL complete.');
+    }
   })();
 
   // If DDL fails, clear the global so the next call can retry.
@@ -187,14 +192,39 @@ function getSuggestedPermissionsForRole(role) {
   return [];
 }
 
+function isTransientPermissionDbError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  const code = String(error?.code || '').toUpperCase();
+  return (
+    code === 'ECONNRESET' ||
+    code === 'EPIPE' ||
+    message.includes('connection terminated unexpectedly') ||
+    message.includes('server closed the connection unexpectedly') ||
+    message.includes('connection reset by peer')
+  );
+}
+
+async function safePermissionCacheFetch(fetchFn, fallbackValue) {
+  try {
+    return await fetchFn();
+  } catch (error) {
+    if (isTransientPermissionDbError(error)) {
+      console.warn('[Permissions] transient DB/cache fetch failure, using fallback value.');
+      return fallbackValue;
+    }
+    throw error;
+  }
+}
+
 async function getPrimaryManagerUserId(database, organizationId) {
   if (!organizationId) return null;
 
   const cacheKey = `perm:primary-manager:${organizationId}`;
-  return cacheManager.getOrFetch(
-    "organization",
-    cacheKey,
-    async () => {
+  return safePermissionCacheFetch(
+    () => cacheManager.getOrFetch(
+      "organization",
+      cacheKey,
+      async () => {
       const orgResult = await database.query(
         `
         SELECT email, first_name, last_name
@@ -259,8 +289,10 @@ async function getPrimaryManagerUserId(database, organizationId) {
       );
 
       return earliestManager.rows[0]?.user_id || null;
-    },
-    { ttl: PERMISSION_CACHE_TTL_SEC }
+      },
+      { ttl: PERMISSION_CACHE_TTL_SEC }
+    ),
+    null
   );
 }
 
@@ -269,17 +301,20 @@ async function getUserPermissions(database, userId, organizationId) {
   await ensurePermissionsSchema(database);
 
   const cacheKey = `perm:user:${organizationId}:${userId}`;
-  return cacheManager.getOrFetch(
-    "organization",
-    cacheKey,
-    async () => {
+  return safePermissionCacheFetch(
+    () => cacheManager.getOrFetch(
+      "organization",
+      cacheKey,
+      async () => {
       const result = await database.query(
         `SELECT permission_key FROM user_permissions WHERE user_id = $1 AND organization_id = $2`,
         [userId, organizationId]
       );
       return result.rows.map((row) => row.permission_key);
-    },
-    { ttl: PERMISSION_CACHE_TTL_SEC }
+      },
+      { ttl: PERMISSION_CACHE_TTL_SEC }
+    ),
+    []
   );
 }
 
@@ -316,10 +351,11 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
   // Any user record that matches the organization's signup email is the
   // organization owner and should always have full access.
   if (userEmail) {
-    const ownerEmailResult = await cacheManager.getOrFetch(
-      "organization",
-      `perm:owner-email:${organizationId}:${String(userEmail).toLowerCase()}`,
-      async () => {
+    const ownerEmailResult = await safePermissionCacheFetch(
+      () => cacheManager.getOrFetch(
+        "organization",
+        `perm:owner-email:${organizationId}:${String(userEmail).toLowerCase()}`,
+        async () => {
         const ownerEmailQuery = await database.query(
           `SELECT 1
            FROM organizations
@@ -329,8 +365,10 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
           [organizationId, userEmail]
         );
         return ownerEmailQuery.rows.length > 0;
-      },
-      { ttl: PERMISSION_CACHE_TTL_SEC }
+        },
+        { ttl: PERMISSION_CACHE_TTL_SEC }
+      ),
+      false
     );
 
     if (ownerEmailResult) {

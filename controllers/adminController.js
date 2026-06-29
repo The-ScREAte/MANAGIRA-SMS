@@ -71,6 +71,8 @@ const {
 } = require("../utils/dynamicPricing");
 const { COUNTRIES_BY_CONTINENT, COUNTRY_NAME_LOOKUP } = require("../utils/countries");
 
+const EMPLOYMENT_INTERVIEW_INVITE_URL = "https://filevine.slack.com/archives/D0AR5HBHUC9/p1782314109507379";
+
 function computeTierMonthlyPrice(planBasePrice, tier) {
   const basePrice = Number(planBasePrice || 0);
   const adjustmentPercent = Number(tier?.adjustment_percentage);
@@ -939,8 +941,9 @@ const adminController = {
           [id, Number(userId)]
         );
 
-        // 2. Collect creator + all previous contributors, excluding the current user
+        // 2. Collect owner/assignee + all previous contributors, excluding the current user
         const creatorId = ownership.rows[0].created_by_user_id;
+        const assigneeId = ownership.rows[0].assigned_to_user_id;
         const recipientRows = await db.query(
           `SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.email
            FROM users u
@@ -948,12 +951,13 @@ const adminController = {
              AND u.user_id != $1
              AND (
                u.user_id = $2
+               OR u.user_id = $4
                OR EXISTS (
                  SELECT 1 FROM internal_contact_note_contributors c
                  WHERE c.contact_id = $3 AND c.user_id = u.user_id
                )
              )`,
-          [Number(userId), creatorId, id]
+          [Number(userId), creatorId, id, assigneeId]
         );
 
         if (recipientRows.rows.length) {
@@ -962,13 +966,18 @@ const adminController = {
             [id]
           );
           const contactName = contactRow.rows[0]?.contact_name || `Contact #${id}`;
+          const appBaseUrl = String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'http://localhost:4000').replace(/\/$/, '');
+          const respondUrl = `${appBaseUrl}/admin#contactsListWidget`;
 
           for (const recipient of recipientRows.rows) {
             const recipientName = `${recipient.first_name || ''} ${recipient.last_name || ''}`.trim() || recipient.email;
             const isCreator = creatorId && Number(recipient.user_id) === Number(creatorId);
+            const isAssignee = assigneeId && Number(recipient.user_id) === Number(assigneeId);
             const roleNote = isCreator
-              ? 'You are receiving this because you created this contact.'
-              : 'You are receiving this because you previously contributed a note on this contact.';
+              ? 'You are receiving this because you own this contact.'
+              : (isAssignee
+                ? 'You are receiving this because this contact is assigned to you.'
+                : 'You are receiving this because you previously contributed a note on this contact.');
 
             const html = renderCleanEmail({
               title: "New Note on Your Contact",
@@ -982,6 +991,7 @@ const adminController = {
                 { label: "Added by", value: authorLabel },
                 { label: "Date", value: stamp },
               ],
+              cta: { url: respondUrl, text: 'Respond to This Note' },
               note: `${roleNote} Log in to Managira to view the full note history.`,
             });
 
@@ -4003,7 +4013,7 @@ const adminController = {
         return res.redirect("/admin/employment");
       }
 
-      const calendlyUrl = "https://calendly.com/managirasms/30min";
+      const interviewInviteUrl = EMPLOYMENT_INTERVIEW_INVITE_URL;
       const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
       const html = renderCleanEmail({
         title: "Employment Application Approved",
@@ -4012,14 +4022,14 @@ const adminController = {
           `Thank you for applying for the ${he.encode(application.job_title)} position at Managira.`,
           "We are pleased to inform you that your application has been approved for the next stage of the selection process.",
           `As a next step, please schedule an interview at a time that works for you using the link below:`,
-          `<a href="${calendlyUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${calendlyUrl}</a>`,
+          `<a href="${interviewInviteUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${interviewInviteUrl}</a>`,
           "If you have any questions in the meantime, please feel free to reply to this email.",
         ],
         details: [
           { label: "Position", value: he.encode(application.job_title) },
           { label: "Application Status", value: "Approved for Next Stage" },
         ],
-        cta: { url: calendlyUrl, text: "Book Your Interview" },
+        cta: { url: interviewInviteUrl, text: "Open Interview Link" },
         followManagira: true,
         linkedinUrl,
         noReply: false,
@@ -4277,9 +4287,9 @@ const adminController = {
         return res.redirect("/admin/employment");
       }
 
-      const calendlyUrl = "https://calendly.com/managirasms/30min";
+      const interviewInviteUrl = EMPLOYMENT_INTERVIEW_INVITE_URL;
       const proposalEmail = "managirasms@gmail.com";
-      const templateMessage = `Congratulations on moving forward to the second interview! As preparation, please prepare a short written proposal describing how you would help improve and grow Managira in your local area over the next 6 months. Outline the strategy, the activities you would lead, and the measurable results you expect to achieve. Email your proposal to <a href="mailto:${proposalEmail}" style="color:#0f766e;">${proposalEmail}</a> before your second interview. When booking, please add a note in the Calendly comment section that this is your second interview.`;
+      const templateMessage = `Congratulations on moving forward to the second interview! As preparation, please prepare a short written proposal describing how you would help improve and grow Managira in your local area over the next 6 months. Outline the strategy, the activities you would lead, and the measurable results you expect to achieve. Email your proposal to <a href="mailto:${proposalEmail}" style="color:#0f766e;">${proposalEmail}</a> before your second interview. When joining the interview, please include a note that this is your second interview.`;
 
       const messageHtml = useTemplate
         ? templateMessage
@@ -4291,14 +4301,14 @@ const adminController = {
         paragraphs: [
           `Congratulations! We are pleased to invite you to the second interview stage for the ${he.encode(app.job_title)} position at Managira.`,
           messageHtml,
-          `Please schedule your second interview using the link below and remember to mention <strong>"Second Interview"</strong> in the Calendly comment section:`,
-          `<a href="${calendlyUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${calendlyUrl}</a>`,
+          `Please schedule your second interview using the link below and include <strong>"Second Interview"</strong> in your message/note:`,
+          `<a href="${interviewInviteUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${interviewInviteUrl}</a>`,
         ],
         details: [
           { label: "Position", value: he.encode(app.job_title) },
           { label: "Stage", value: "Second Interview" },
         ],
-        cta: { url: calendlyUrl, text: "Book Second Interview" },
+        cta: { url: interviewInviteUrl, text: "Open Interview Link" },
         noReply: false,
       });
 
@@ -4344,7 +4354,7 @@ const adminController = {
         return res.redirect("/admin/employment");
       }
 
-      const calendlyUrl = "https://calendly.com/managirasms/30min";
+      const interviewInviteUrl = EMPLOYMENT_INTERVIEW_INVITE_URL;
       const defaultMsg = `This is the final stage — a conversation with the wider Managira team. Please come prepared to discuss your proposal and how you envision working with us long term.`;
       const messageHtml = customMessage ? he.encode(customMessage).replace(/\n/g, '<br>') : defaultMsg;
 
@@ -4354,14 +4364,14 @@ const adminController = {
         paragraphs: [
           `Congratulations on reaching the final stage of our hiring process for the ${he.encode(app.job_title)} position!`,
           messageHtml,
-          `Please book your final interview using the link below and add <strong>"Final Interview"</strong> in the Calendly comment section:`,
-          `<a href="${calendlyUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${calendlyUrl}</a>`,
+          `Please join your final interview using the link below and include <strong>"Final Interview"</strong> in your message/note:`,
+          `<a href="${interviewInviteUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;word-break:break-all;">${interviewInviteUrl}</a>`,
         ],
         details: [
           { label: "Position", value: he.encode(app.job_title) },
           { label: "Stage", value: "Final Interview with Team" },
         ],
-        cta: { url: calendlyUrl, text: "Book Final Interview" },
+        cta: { url: interviewInviteUrl, text: "Open Interview Link" },
         noReply: false,
       });
 

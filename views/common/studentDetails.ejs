@@ -143,10 +143,40 @@
 
       .student-heading-row {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        gap: 10px;
+        flex-wrap: nowrap;
+      }
+
+      .student-heading-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
         flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .student-portal-request-btn {
+        margin: 0;
+        padding: 5px 9px;
+        border: 1px solid rgba(1, 83, 91, 0.2);
+        border-radius: 999px;
+        font-size: 0.68rem;
+        line-height: 1.2;
+      }
+
+      .student-portal-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        border: 1px solid #86efac;
+        background: #f0fdf4;
+        color: #166534;
       }
 
       .student-id-chip {
@@ -309,6 +339,21 @@
           font-size: 0.7rem;
         }
 
+        .student-heading-actions {
+          width: 100%;
+          justify-content: flex-start;
+        }
+
+        .student-heading-row {
+          align-items: flex-start;
+          flex-wrap: wrap;
+        }
+
+        .student-portal-request-btn {
+          font-size: 0.68rem;
+          padding: 5px 8px;
+        }
+
         .student-details-toggle {
           padding: 6px 10px;
           font-size: 0.74rem;
@@ -457,9 +502,25 @@
           %>
           <div class="student-heading-row">
             <h2><%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) %></h2>
-            <% if (_studentDisplayId) { %>
-            <span class="student-id-chip">ID: <%= _studentDisplayId %></span>
-            <% } %>
+            <div class="student-heading-actions">
+              <% if (_studentDisplayId) { %>
+              <span class="student-id-chip">ID: <%= _studentDisplayId %></span>
+              <% } %>
+              <% if (studentPortalSetupComplete) { %>
+              <span class="student-portal-status">Student Portal Active</span>
+              <% } %>
+              <% if (canSendStudentPortalRequest) { %>
+              <button
+                type="button"
+                class="btn btn-primary student-portal-request-btn"
+                id="student-password-reset-btn"
+                data-student-id="<%= student.student_id %>"
+                data-portal-action="<%= studentPortalAction %>"
+                data-student-name="<%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) %>">
+                <%= studentPortalActionLabel %>
+              </button>
+              <% } %>
+            </div>
           </div>
           <button class="student-details-toggle" type="button" id="student-details-toggle" aria-expanded="false" aria-controls="student-extra-details">More details</button>
           <div class="student-extra-details" id="student-extra-details">
@@ -471,6 +532,9 @@
             <strong>Date of Birth:</strong> <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) %>
           </p>
           <p><strong>Hometown:</strong> <%= student.hometown %></p>
+          <% if (student.email) { %>
+          <p><strong>Email:</strong> <%= student.email %></p>
+          <% } %>
           </div>
         </div>
       </div>
@@ -627,4 +691,49 @@
     if (j == 3 && k != 13) return "rd";
     return "th";
   }
+
+  (function () {
+    const resetBtn = document.getElementById('student-password-reset-btn');
+    if (!resetBtn) return;
+
+    resetBtn.addEventListener('click', async function () {
+      const studentId = resetBtn.dataset.studentId;
+      const studentName = resetBtn.dataset.studentName || 'this student';
+      const portalAction = resetBtn.dataset.portalAction === 'reset' ? 'reset' : 'setup';
+      if (!studentId) return;
+
+      const promptText = portalAction === 'reset'
+        ? `Send student portal password reset email to ${studentName}?`
+        : `Send student portal request to ${studentName}?`;
+      const proceed = window.confirm(promptText);
+      if (!proceed) return;
+
+      const previousText = resetBtn.textContent;
+      resetBtn.disabled = true;
+      resetBtn.textContent = 'Sending...';
+
+      try {
+        const response = await fetch('/common/studentRequestPasswordReset', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          credentials: 'same-origin',
+          body: new URLSearchParams({ studentId: String(studentId) }).toString(),
+        });
+        const data = await response.json();
+        if (data && data.success) {
+          window.alert(data.message || 'Student portal request email sent successfully.');
+          return;
+        }
+        window.alert((data && data.error) || 'Unable to send student portal request email.');
+      } catch (error) {
+        window.alert('Network error while sending student portal request email.');
+      } finally {
+        resetBtn.disabled = false;
+        resetBtn.textContent = previousText;
+      }
+    });
+  })();
 </script>

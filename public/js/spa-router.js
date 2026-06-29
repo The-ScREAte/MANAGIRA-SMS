@@ -825,9 +825,35 @@
         if (!el.hasAttribute('data-spa-bound-toggle')) {
           el.setAttribute('data-spa-bound-toggle', '1');
           el.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.dataset.toggle);
-            if (target) target.classList.toggle('hidden');
+            const rawTarget = String(this.dataset.toggle || '').trim();
+            if (!rawTarget) return;
+
+            // Let page-specific password toggles handle their own UI state.
+            if (this.classList.contains('input-icon-btn')) return;
+
+            // Prevent default only for links; buttons should remain native.
+            if (this.tagName === 'A') {
+              e.preventDefault();
+            }
+
+            let target = null;
+
+            // Common pattern in this app: data-toggle stores an element id.
+            if (/^[A-Za-z][A-Za-z0-9_:\-.]*$/.test(rawTarget)) {
+              target = document.getElementById(rawTarget);
+            }
+
+            // Fallback: treat as selector when valid.
+            if (!target) {
+              try {
+                target = document.querySelector(rawTarget);
+              } catch (_) {
+                target = null;
+              }
+            }
+
+            if (!target) return;
+            target.classList.toggle('hidden');
           });
         }
       });

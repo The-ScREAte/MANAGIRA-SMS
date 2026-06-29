@@ -72,6 +72,15 @@ router.post(
   accountValidation.validateGuardianLoginResult,
   (req, res) => accountController.guardianLoginPost(req, res, db)
 );
+router.get("/student-login", (req, res) =>
+  accountController.studentLoginGet(req, res, db)
+);
+router.post(
+  "/student-login",
+  accountValidation.validateStudentLogin,
+  accountValidation.validateStudentLoginResult,
+  (req, res) => accountController.studentLoginPost(req, res, db)
+);
 router.get("/logout", isAuthenticated, (req, res) =>
   accountController.logoutGet(req, res, db)
 );
@@ -259,6 +268,36 @@ router.post(
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   (req, res) => accountController.deleteAttendanceCalendarDayPost(req, res, db)
+);
+router.post(
+  "/google-classroom/activate",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.googleClassroomActivationPost
+);
+router.get(
+  "/google-classroom/connect",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.googleClassroomConnectGet
+);
+router.get(
+  "/google-classroom/callback",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.googleClassroomCallbackGet
+);
+router.post(
+  "/google-classroom/resync",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.googleClassroomResyncPost
+);
+router.post(
+  "/google-classroom/disconnect",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.googleClassroomDisconnectPost
 );
 
 // Payment Method Management Routes

@@ -12,10 +12,16 @@ const { runAdminEmailCampaignSweep } = require('../utils/adminEmailCampaignRunne
 const { purgeOldActivityLogs } = require('../utils/activityLog');
 const { retryPendingPaystackPayouts } = require('../utils/paystackPayout');
 const { getPaystackSettings } = require('../utils/paystackConfig');
+const {
+  syncQueuedGoogleClassroomOrganizations,
+  pullGradesFromGoogleClassroom,
+} = require('../utils/googleClassroomSync');
 
 const shouldRunScheduler = process.env.NODE_ENV === 'production' || process.env.ENABLE_BILLING_SCHEDULER === 'true';
 const shouldRunNotifications = process.env.NODE_ENV === 'production' || process.env.ENABLE_NOTIFICATION_SCHEDULER === 'true';
-const shouldRunAdminEmailScheduler = process.env.NODE_ENV === 'production' || process.env.ENABLE_ADMIN_EMAIL_SCHEDULER === 'true';
+// Announcement/email scheduling should work in both prod and local unless
+// explicitly disabled.
+const shouldRunAdminEmailScheduler = process.env.ENABLE_ADMIN_EMAIL_SCHEDULER !== 'false';
 const shouldRunActivityLogRetention = process.env.NODE_ENV === 'production' || process.env.ENABLE_ACTIVITY_LOG_RETENTION === 'true';
 const ACTIVITY_LOG_RETENTION_DAYS = Number(process.env.ACTIVITY_LOG_RETENTION_DAYS) || 1095; // ~3 years
 
@@ -119,6 +125,30 @@ if (shouldRunScheduler) {
       }
     } catch (error) {
       console.error('[Paystack Payout] Sweep failed:', error.message);
+    }
+  });
+
+  // Every 5 minutes: process queued Google Classroom course/roster sync jobs.
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const processed = await syncQueuedGoogleClassroomOrganizations({ limit: 8 });
+      if (processed > 0) {
+        console.log(`[Google Classroom] Sync sweep complete. organizations=${processed}`);
+      }
+    } catch (error) {
+      console.error('[Google Classroom] Sync sweep failed:', error.message);
+    }
+  });
+
+  // Every 30 minutes: pull Google Classroom grades back into assessment_results.
+  cron.schedule('*/30 * * * *', async () => {
+    try {
+      const imported = await pullGradesFromGoogleClassroom({ limitOrganizations: 40 });
+      if (imported > 0) {
+        console.log(`[Google Classroom] Grade pull complete. upserts=${imported}`);
+      }
+    } catch (error) {
+      console.error('[Google Classroom] Grade pull failed:', error.message);
     }
   });
 }

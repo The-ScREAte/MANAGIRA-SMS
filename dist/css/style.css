@@ -127,9 +127,10 @@ nav ul li a {
 }
 
 #loginbutton:hover {
-  background-color: #004b5e;
-  color: white;
-  box-shadow: 0 2px 8px rgba(47, 64, 60, 0.2);
+  background-color: var(--org-primary-soft-strong, #dbeff1);
+  color: var(--org-primary-color);
+  border-color: var(--org-primary-soft-border, var(--org-primary-color));
+  box-shadow: 0 2px 8px var(--org-primary-soft-shadow, rgba(47, 64, 60, 0.18));
 }
 
 /* h2 {
@@ -252,8 +253,6 @@ form textarea {
   width: 100%;
   box-sizing: border-box;
   margin-bottom: 20px;
-  top: 10px;
-  position: relative;
 }
 
 form textarea {
@@ -293,8 +292,8 @@ form textarea {
 }
 
 .nav-item a:hover {
-  background-color: #4a9ba3;
-  color: #ffffff;
+  background-color: var(--org-primary-soft-strong, #dbeff1);
+  color: var(--org-primary-color);
 }
 
 .nav-menu.show {
@@ -334,8 +333,8 @@ form textarea {
 }
 
 .submenu-toggle:hover {
-  background-color: var(--org-primary-color);
-  color: #ffffff;
+  background-color: var(--org-primary-soft-strong, #dbeff1);
+  color: var(--org-primary-color);
 }
 
 /* Specific styling for 'Management Tools', 'Settings', and 'Logout' links */
@@ -357,8 +356,8 @@ form textarea {
 }
 
 .nav-item a.logout:hover {
-  background-color: var(--org-primary-color);
-  color: #ffffff;
+  background-color: var(--org-primary-soft-strong, #dbeff1);
+  color: var(--org-primary-color);
 }
 
 /* Arrow styling and animation */
@@ -402,8 +401,8 @@ form textarea {
 }
 
 .management-links a:hover {
-  background-color: var(--org-primary-color);
-  color: #ffffff; /* White text on org color background when hovering */
+  background-color: var(--org-primary-soft, #e6f4f5);
+  color: var(--org-primary-color);
 }
 
 /* Index page specific styles */
@@ -441,7 +440,7 @@ form textarea {
 }
 
 .buttons .button-link button:hover {
-  background-color: #59a5ab;
+  background-color: var(--org-primary-hover-fill, #59a5ab);
 }
 
 .image-container {
@@ -785,5 +784,38 @@ form textarea {
 
   #herostuff h2 {
     font-size: 40px;
+  }
+}
+
+/* ── Global mobile button scaling ── */
+@media (max-width: 640px) {
+  button {
+    padding: 9px 14px;
+    font-size: 0.9rem;
+    margin-top: 12px;
+  }
+
+  button[type="submit"] {
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    margin-top: 14px;
+  }
+
+  .link-to-next-back a {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 400px) {
+  button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    margin-top: 10px;
+  }
+
+  button[type="submit"] {
+    padding: 9px 14px;
+    font-size: 0.85rem;
   }
 }

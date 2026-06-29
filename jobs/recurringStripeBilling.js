@@ -2,7 +2,7 @@
 // Runs recurring subscription charges using Stripe off-session card billing.
 
 const db = require('../config/db');
-const { getStripeClient, getStripeChargeCurrency } = require('../utils/stripeConfig');
+const { getStripeClient } = require('../utils/stripeConfig');
 const { ensurePaymentProviderSchema } = require('../utils/paymentProviderSchema');
 const { getOrgChargeCards } = require('../utils/orgChargeCards');
 const {
@@ -340,7 +340,9 @@ async function createAndSendPrechargeInvoices({ stripeChargeCurrency }) {
 async function runRecurringBilling() {
   await ensurePaymentProviderSchema(db);
   await ensureBillingInvoiceSchema();
-  const stripeChargeCurrency = getStripeChargeCurrency();
+  // Recurring pricing is computed in USD. Keep recurring charges in USD to
+  // avoid wrong amount/currency combinations when env currency is changed.
+  const stripeChargeCurrency = 'usd';
   let stripe = null;
   try {
     stripe = await getStripeClient(db);

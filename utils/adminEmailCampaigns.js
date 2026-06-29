@@ -1,6 +1,23 @@
 const { escapeHtml, renderCleanEmail } = require("./emailHelper");
 
-const ALLOWED_FREQUENCIES = new Set(["once", "daily", "weekly", "monthly"]);
+const ALLOWED_FREQUENCIES = new Set([
+  "once",
+  "every_1_minute",
+  "every_3_minutes",
+  "every_5_minutes",
+  "every_10_minutes",
+  "daily",
+  "every_2_days",
+  "weekly",
+  "monthly",
+]);
+const INTERVAL_MINUTE_FREQUENCIES = new Map([
+  ["every_1_minute", 1],
+  ["every_3_minutes", 3],
+  ["every_5_minutes", 5],
+  ["every_10_minutes", 10],
+]);
+const DAY_MS = 24 * 60 * 60 * 1000;
 const EMAIL_SPLIT_PATTERN = /[\n,;]+/;
 const URL_PATTERN = /(https?:\/\/[^\s<]+)/gi;
 
@@ -26,7 +43,7 @@ async function ensureAdminEmailCampaignSchema(db) {
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT admin_email_campaigns_frequency_check
-        CHECK (frequency IN ('once', 'daily', 'weekly', 'monthly')),
+        CHECK (frequency IN ('once', 'every_1_minute', 'every_3_minutes', 'every_5_minutes', 'every_10_minutes', 'daily', 'every_2_days', 'weekly', 'monthly')),
       CONSTRAINT admin_email_campaigns_send_time_check
         CHECK (send_time ~ '^[0-2][0-9]:[0-5][0-9]$'),
       CONSTRAINT admin_email_campaigns_day_of_week_check
@@ -44,6 +61,17 @@ async function ensureAdminEmailCampaignSchema(db) {
   await db.query(`
     CREATE INDEX IF NOT EXISTS idx_admin_email_campaigns_created_by
       ON admin_email_campaigns (created_by)
+  `);
+
+  // Keep frequency constraint aligned for existing databases.
+  await db.query(`
+    ALTER TABLE admin_email_campaigns
+    DROP CONSTRAINT IF EXISTS admin_email_campaigns_frequency_check
+  `);
+  await db.query(`
+    ALTER TABLE admin_email_campaigns
+    ADD CONSTRAINT admin_email_campaigns_frequency_check
+      CHECK (frequency IN ('once', 'every_1_minute', 'every_3_minutes', 'every_5_minutes', 'every_10_minutes', 'daily', 'every_2_days', 'weekly', 'monthly'))
   `);
 
   await db.query(`
@@ -117,8 +145,10 @@ function normalizeUserIds(value) {
 }
 
 function normalizeFrequency(value) {
-  const frequency = String(value || "once").trim().toLowerCase();
-  if (!ALLOWED_FREQUENCIES.has(frequency)) {
+  const rawFrequency = String(value || "once").trim().toLowerCase();
+  // Legacy compatibility: old interval schedules are now treated as 5-minute cadence.
+  const frequency = rawFrequency === "every_3_minutes" ? "every_5_minutes" : rawFrequency;
+  if (!ALLOWED_FREQUENCIES.has(rawFrequency) && rawFrequency !== "every_3_minutes") {
     throw new Error("Invalid frequency selected.");
   }
   return frequency;
@@ -133,8 +163,23 @@ function normalizeTime(value) {
 }
 
 function normalizeDate(value, fieldName, fallbackValue) {
-  const input = value || fallbackValue;
-  const date = input ? new Date(`${input}T00:00:00`) : null;
+  const input = value ?? fallbackValue;
+  let date = null;
+
+  if (input instanceof Date) {
+    date = new Date(input);
+  } else if (input) {
+    const raw = String(input).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      date = new Date(`${raw}T00:00:00`);
+    } else {
+      const parsed = new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) {
+        date = parsed;
+      }
+    }
+  }
+
   if (!date || Number.isNaN(date.getTime())) {
     throw new Error(`${fieldName} is invalid.`);
   }
@@ -243,6 +288,17 @@ function computeNextRunAt(schedule, fromDate = new Date(), options = {}) {
   const startDate = new Date(`${normalizeDate(schedule.startDate, "Start date")}T00:00:00`);
   const endDate = schedule.endDate ? new Date(`${normalizeDate(schedule.endDate, "End date")}T23:59:59`) : null;
 
+  if (INTERVAL_MINUTE_FREQUENCIES.has(frequency)) {
+    const intervalMinutes = INTERVAL_MINUTE_FREQUENCIES.get(frequency);
+    const candidate = computeNextIntervalBoundary(new Date(Math.max(startDate.getTime(), fromDate.getTime())), intervalMinutes);
+
+    if (endDate && candidate > endDate) {
+      return null;
+    }
+
+    return candidate;
+  }
+
   if (frequency === "once") {
     const scheduledAt = new Date(startDate);
     scheduledAt.setHours(hours, minutes, 0, 0);
@@ -300,8 +356,19 @@ function computeNextRunAt(schedule, fromDate = new Date(), options = {}) {
 }
 
 function computeNextRunAfterSend(schedule, sentAt = new Date()) {
-  if (String(schedule.frequency).toLowerCase() === "once") {
+  const frequency = String(schedule.frequency).toLowerCase();
+  if (frequency === "once") {
     return null;
+  }
+
+  if (INTERVAL_MINUTE_FREQUENCIES.has(frequency)) {
+    const intervalMinutes = INTERVAL_MINUTE_FREQUENCIES.get(frequency);
+    const nextRunAt = computeNextIntervalBoundary(sentAt, intervalMinutes);
+    const endDate = schedule.endDate ? new Date(`${normalizeDate(schedule.endDate, "End date")}T23:59:59`) : null;
+    if (endDate && nextRunAt > endDate) {
+      return null;
+    }
+    return nextRunAt;
   }
 
   const nextBase = new Date(sentAt);
@@ -312,6 +379,15 @@ function computeNextRunAfterSend(schedule, sentAt = new Date()) {
 function matchesScheduleDay(day, frequency, schedule) {
   if (frequency === "daily" || frequency === "once") {
     return true;
+  }
+
+  if (frequency === "every_2_days") {
+    const anchor = new Date(schedule.startDate);
+    anchor.setHours(0, 0, 0, 0);
+    const currentDay = new Date(day);
+    currentDay.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((currentDay.getTime() - anchor.getTime()) / DAY_MS);
+    return diffDays >= 0 && diffDays % 2 === 0;
   }
 
   if (frequency === "weekly") {
@@ -329,6 +405,14 @@ function matchesScheduleDay(day, frequency, schedule) {
 
 function daysInMonth(year, monthIndex) {
   return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function computeNextIntervalBoundary(date, intervalMinutes) {
+  const candidate = new Date(date);
+  candidate.setSeconds(0, 0);
+  candidate.setMinutes(candidate.getMinutes() + intervalMinutes);
+
+  return candidate;
 }
 
 function formatDateOnly(date) {

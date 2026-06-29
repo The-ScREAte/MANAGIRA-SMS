@@ -173,6 +173,9 @@
           </p>
           <p><strong>Height:</strong> <%= student.height %> cm</p>
           <p><strong>Hometown:</strong> <%= student.hometown %></p>
+          <% if (student.email) { %>
+          <p><strong>Email:</strong> <%= student.email %></p>
+          <% } %>
         </div>
       </div>
 
