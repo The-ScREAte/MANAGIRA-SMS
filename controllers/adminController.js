@@ -71,7 +71,7 @@ const {
 } = require("../utils/dynamicPricing");
 const { COUNTRIES_BY_CONTINENT, COUNTRY_NAME_LOOKUP } = require("../utils/countries");
 
-const EMPLOYMENT_INTERVIEW_INVITE_URL = "https://filevine.slack.com/archives/D0AR5HBHUC9/p1782314109507379";
+const EMPLOYMENT_INTERVIEW_INVITE_URL = "https://calendly.com/managirasms/managira-team-review-meeting";
 
 function computeTierMonthlyPrice(planBasePrice, tier) {
   const basePrice = Number(planBasePrice || 0);
