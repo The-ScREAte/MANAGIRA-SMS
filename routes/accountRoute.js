@@ -292,6 +292,30 @@ router.post(
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountController.studentPortalActivationPost
 );
+router.post(
+  "/whatsapp/activate",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.whatsappActivationPost
+);
+router.post(
+  "/whatsapp/connect",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.whatsappConnectPost
+);
+router.post(
+  "/whatsapp/disconnect",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.whatsappDisconnectPost
+);
+router.post(
+  "/whatsapp/test-message",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.whatsappTestMessagePost
+);
 router.get(
   "/google-classroom/connect",
   isAuthenticated,

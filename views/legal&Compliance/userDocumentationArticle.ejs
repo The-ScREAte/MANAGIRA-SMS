@@ -343,6 +343,56 @@
       margin-bottom: 18px;
     }
 
+    .article-related {
+      background: #f8fbfc;
+      border: 1px solid #dbe8ec;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .article-related h2 {
+      margin: 0 0 4px;
+      font-size: 0.92rem;
+      color: #0f172a;
+    }
+    .article-related p {
+      margin: 0 0 8px;
+      color: #64748b;
+      font-size: 0.78rem;
+    }
+    .article-related-list {
+      display: grid;
+      gap: 6px;
+    }
+    .article-related-link {
+      display: block;
+      text-decoration: none;
+      background: #fff;
+      border: 1px solid #dbe8ec;
+      border-radius: 8px;
+      padding: 7px 9px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+    }
+    .article-related-link:hover {
+      border-color: #01535b;
+      box-shadow: 0 6px 16px rgba(2, 6, 23, 0.07);
+      transform: translateY(-1px);
+    }
+    .article-related-link strong {
+      display: block;
+      color: #0f172a;
+      font-size: 0.82rem;
+      line-height: 1.28;
+      margin-bottom: 1px;
+    }
+    .article-related-link span {
+      color: #64748b;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+    }
+
     /* Rich-text content styles */
     .article-content { font-size: 1rem; line-height: 1.75; color: #374151; }
     .article-content h1,
@@ -1018,6 +1068,12 @@
         max-width: 78px;
       }
       .article-body   { padding: 18px 14px 14px; }
+      .article-related { padding: 10px; border-radius: 10px; }
+      .article-related h2 { font-size: 0.86rem; }
+      .article-related p { font-size: 0.74rem; margin-bottom: 8px; }
+      .article-related-link { border-radius: 7px; padding: 6px 8px; }
+      .article-related-link strong { font-size: 0.78rem; }
+      .article-related-link span { font-size: 0.65rem; }
       .article-content {
         font-size: 0.9rem;
         line-height: 1.65;
@@ -1055,6 +1111,7 @@
       }
       .article-header { padding: 16px 14px 12px; border-radius: 10px; }
       .article-body   { padding: 14px 12px; border-radius: 10px; }
+      .article-related { padding: 9px; border-radius: 9px; }
       .article-helpful {
         flex-direction: column;
         align-items: flex-start;
@@ -1246,6 +1303,21 @@
         <%- article.contentHtml %>
       </div>
     </div>
+
+    <% if (Array.isArray(relatedArticles) && relatedArticles.length > 0) { %>
+    <section class="article-related" aria-label="Related documentation">
+      <h2>Related Documents</h2>
+      <p>Related follow-up guides:</p>
+      <div class="article-related-list">
+        <% relatedArticles.forEach(function(related) { %>
+        <a class="article-related-link" href="/legal/user-documentation/<%= related.slug %>">
+          <strong><%= related.title %></strong>
+          <span><%= related.topic %></span>
+        </a>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
 
     <!-- Was this helpful -->
     <div class="article-helpful" id="helpfulWidget" data-article-id="<%= article.id %>">
@@ -1546,6 +1618,31 @@
     return score;
   }
 
+  function shouldSearchFaq(query) {
+    const normalized = String(query || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
+    const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+    return wordCount >= 4;
+  }
+
+  function faqMatchesExactPhrase(item, normalizedQuery) {
+    if (!normalizedQuery) return false;
+    const question = String(item.question || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
+    const answer = String(item.answer || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
+    const keywords = Array.isArray(item.keywords)
+      ? item.keywords.map(function (kw) {
+          return String(kw || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
+        })
+      : [];
+
+    if (question.includes(normalizedQuery) || answer.includes(normalizedQuery)) {
+      return true;
+    }
+
+    return keywords.some(function (kw) {
+      return kw.includes(normalizedQuery);
+    });
+  }
+
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, function (char) {
       return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
@@ -1593,6 +1690,7 @@
 
   function search(query) {
     const tokens = expandTokens(query);
+    const normalizedQuery = String(query || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
 
     const docHits = DOCS.map(function (item) {
       const haystack = [item.title, item.subtitle, Array.isArray(item.keywords) ? item.keywords.join(' ') : ''].join(' ');
@@ -1602,13 +1700,15 @@
       .sort(function (left, right) { return right.score - left.score; })
       .slice(0, 6);
 
-    const faqHits = KNOWLEDGE.map(function (item) {
-      const haystack = [item.question, item.answer, Array.isArray(item.keywords) ? item.keywords.join(' ') : '', item.category].join(' ');
-      return { item: item, score: (scoreItem(item.question, tokens) * 2) + scoreItem(haystack, tokens) };
-    })
-      .filter(function (entry) { return entry.score > 0; })
-      .sort(function (left, right) { return right.score - left.score; })
-      .slice(0, 8);
+    const faqHits = shouldSearchFaq(query)
+      ? KNOWLEDGE.filter(function (item) {
+          return faqMatchesExactPhrase(item, normalizedQuery);
+        })
+          .slice(0, 8)
+          .map(function (item) {
+            return { item: item };
+          })
+      : [];
 
     return { docHits: docHits, faqHits: faqHits, tokens: tokens };
   }

@@ -940,6 +940,23 @@ const CODE_CLASSES = [
   'language-text',
 ];
 
+const TAG_CORRECTIONS_BY_SLUG = {
+  'install-managira-on-your-device': ['mobile app', 'desktop app', 'pwa install', 'iphone', 'home screen shortcut'],
+  'register-a-school-and-complete-first-time-setup': ['school registration', 'first-time setup', 'new school setup', 'account setup'],
+  'create-school-years-classes-terms-and-set-the-current-term': ['school year', 'term setup', 'current term', 'term dates', 'overlap validation'],
+  'report-settings': ['report settings', 'report signature', 'promotion settings', 'grading remarks', 'paygira reporting'],
+  'edit-student-information': ['manage students', 'edit student', 'student records', 'student profile'],
+  'create-and-manage-bulk-student-records': ['bulk student import', 'student records', 'admissions', 'csv import', 'enrollment'],
+  'online-admission': ['online admission', 'student application', 'admissions', 'student registration', 'enrollment'],
+  'troubleshooting-common-issues': ['troubleshooting', 'attendance issues', 'report issues', 'login issues', 'plan features'],
+};
+
+const TAG_TEXT_REPLACEMENTS = [
+  [/\benrollement\b/gi, 'enrollment'],
+  [/\bprotal\b/gi, 'portal'],
+  [/\s+/g, ' '],
+];
+
 function buildCanonicalDocumentationUrl(slug = '') {
   const suffix = slug ? `/${slug}` : '';
   return `https://www.managira.com/legal/user-documentation${suffix}`;
@@ -1138,16 +1155,52 @@ function summarizeText(value, query = '', maxLength = 180) {
 }
 
 function normalizeTags(value) {
-  if (Array.isArray(value)) {
-    return Array.from(new Set(value.map((tag) => sanitizeTextField(tag, 80)).filter(Boolean)));
-  }
+  const rawTags = Array.isArray(value)
+    ? value
+    : String(value || '').split(',');
 
-  return Array.from(new Set(
-    String(value || '')
-      .split(',')
-      .map((tag) => sanitizeTextField(tag, 80))
-      .filter(Boolean)
-  ));
+  const normalized = [];
+  const seen = new Set();
+
+  rawTags.forEach((tag) => {
+    let nextTag = sanitizeTextField(tag, 80);
+    TAG_TEXT_REPLACEMENTS.forEach(([pattern, replacement]) => {
+      nextTag = nextTag.replace(pattern, replacement);
+    });
+    nextTag = nextTag.toLowerCase().trim();
+    if (!nextTag) return;
+    const key = nextTag;
+    if (seen.has(key)) return;
+    seen.add(key);
+    normalized.push(nextTag);
+  });
+
+  return normalized.slice(0, 8);
+}
+
+async function applyProfessionalTagCorrections(database = db) {
+  const result = await database.query('SELECT id, slug, tags FROM documentation_articles');
+
+  for (const row of result.rows) {
+    const slug = String(row.slug || '').trim();
+    const currentTags = Array.isArray(row.tags) ? row.tags : [];
+    const preferredTags = TAG_CORRECTIONS_BY_SLUG[slug];
+    const nextTags = normalizeTags(preferredTags || currentTags);
+
+    const currentSerialized = JSON.stringify(currentTags);
+    const nextSerialized = JSON.stringify(nextTags);
+    if (currentSerialized === nextSerialized) {
+      continue;
+    }
+
+    await database.query(
+      `UPDATE documentation_articles
+          SET tags = $2,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1`,
+      [row.id, nextTags]
+    );
+  }
 }
 
 function normalizeMedia(value) {
@@ -1538,6 +1591,7 @@ async function ensureDocumentationSchema(database = db) {
     }
 
     await syncCanonicalDocumentationArticles(database);
+    await applyProfessionalTagCorrections(database);
 
     schemaReady = true;
   })();

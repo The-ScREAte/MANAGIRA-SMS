@@ -453,9 +453,31 @@ const {
   parseOauthState,
 } = require("../utils/googleClassroomIntegration");
 const {
+  getMetaConfig,
+  ensureWhatsappIntegrationSchema,
+  getWhatsappIntegrationStatus,
+  getWhatsappMessagingCredentials,
+  setWhatsappIntegrationActivation,
+  exchangeEmbeddedSignupCodeForToken,
+  registerPhoneNumberForCloudApi,
+  subscribeAppToWaba,
+  saveWhatsappConnection,
+  markWhatsappConnectionError,
+  disconnectWhatsappIntegration,
+  normalizePhoneDigits,
+  sendWhatsappTemplateMessage,
+} = require("../utils/whatsappIntegration");
+const {
   syncGoogleClassroomForOrganization,
   pushPendingAssessmentsForOrganization,
 } = require("../utils/googleClassroomSync");
+
+const WHATSAPP_SERVER_TEST_DEFAULTS = {
+  phoneNumberId: "1149779811558777",
+  recipient: "13854521960",
+  accessToken:
+    "EAAZBr7Wh6kf4BRZBpij1Sb2oGLP3jpPfEbvPGZCKkXwR8tleChLXyq8cReIGNecrNWvP0qVgj8ZByPf5ZBImiwwsD94h2W0IC7thGI2nDlOripEpQNuH0saoHlU04EEpspZBu7aICuD4F9RnZBBTelYxGscpb7yHF5ZAPrecY0sVLbHecJ8g0YxVZBX4Swpe8l5iASF27MzPNiCZAUZB9G4n4rqljLpB2pYlOjMy2v7a0w5NAuABlNyQAZDZD",
+};
 
 const GOOGLE_CLASSROOM_SCOPES = [
   "https://www.googleapis.com/auth/classroom.courses",
@@ -8048,6 +8070,12 @@ const accountController = {
         connected: false,
         shouldShowFeatures: false,
       };
+      let whatsappIntegration = {
+        activated: false,
+        configured: false,
+        connected: false,
+        shouldShowFeatures: false,
+      };
       let studentPortalIntegration = {
         activated: false,
         shouldShowFeatures: false,
@@ -8065,14 +8093,35 @@ const accountController = {
         canAccessPaygiraSettings = billingPermission || paygiraPermission;
 
         if (canAccessCustomizeSettings && orgId) {
-          const [resolvedGoogleIntegration, resolvedStudentPortalIntegration] = await Promise.all([
+          const [resolvedGoogleIntegration, resolvedWhatsappIntegration, resolvedStudentPortalIntegration] = await Promise.all([
             getGoogleIntegrationStatus(db, orgId),
+            getWhatsappIntegrationStatus(db, orgId),
             getStudentPortalIntegrationStatus(db, orgId),
           ]);
           googleIntegration = resolvedGoogleIntegration;
+          whatsappIntegration = resolvedWhatsappIntegration;
           studentPortalIntegration = resolvedStudentPortalIntegration;
         }
       }
+
+      const metaConfig = getMetaConfig();
+      const whatsappFrontendConfig = {
+        appId: metaConfig.appId || "",
+        embeddedSignupConfigId: metaConfig.embeddedSignupConfigId || "",
+        graphApiVersion: metaConfig.graphApiVersion || "v21.0",
+      };
+      const resolvedServerTestAccessToken =
+        String(process.env.WHATSAPP_TEST_ACCESS_TOKEN || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.accessToken;
+      const resolvedServerTestPhoneNumberId =
+        String(process.env.WHATSAPP_TEST_PHONE_NUMBER_ID || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.phoneNumberId;
+      const whatsappServerTestConfig = {
+        enabled: Boolean(
+          resolvedServerTestAccessToken &&
+          resolvedServerTestPhoneNumberId
+        ),
+        defaultRecipient:
+          String(process.env.WHATSAPP_TEST_RECIPIENT || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.recipient,
+      };
 
       const payoutDestinationUtils = require("../utils/payoutDestination");
       const [payoutContext, paystackCountries] = await Promise.all([
@@ -8121,6 +8170,9 @@ const accountController = {
         canAccessBillingSettings,
         canAccessPaygiraSettings,
         googleIntegration,
+        whatsappIntegration,
+        whatsappFrontendConfig,
+        whatsappServerTestConfig,
         studentPortalIntegration,
         feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
         feedbackAreaOptions: FEEDBACK_AREA_OPTIONS,
@@ -10329,6 +10381,290 @@ const accountController = {
     } catch (error) {
       req.flash("error", "Unable to update Google Classroom activation right now.");
       return res.redirect("/account/settings?section=integrations");
+    }
+  },
+
+  whatsappActivationPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    const acceptsHeader = String(req.get("accept") || "").toLowerCase();
+    const wantsJson =
+      req.xhr ||
+      acceptsHeader.includes("application/json") ||
+      String(req.get("x-requested-with") || "").toLowerCase() === "xmlhttprequest";
+
+    const respond = (statusCode, payload) => {
+      if (wantsJson) {
+        return res.status(statusCode).json(payload);
+      }
+
+      if (!payload.success && payload.message) {
+        req.flash("error", payload.message);
+      } else if (payload.success && payload.message) {
+        req.flash("success", payload.message);
+      }
+
+      return res.redirect("/account/settings?section=integrations");
+    };
+
+    try {
+      await ensureWhatsappIntegrationSchema(db);
+      const shouldActivate = String(req.body.activate || "").trim() === "1";
+
+      const integrationPassword = String(
+        req.body.integrationPassword || req.body.deactivationPassword || ""
+      );
+      if (!integrationPassword.trim()) {
+        return respond(400, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? "Enter your password to activate WhatsApp integration."
+            : "Enter your password to deactivate WhatsApp integration.",
+        });
+      }
+
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      if (!isPasswordValid) {
+        return respond(401, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? "Incorrect password. WhatsApp integration was not activated."
+            : "Incorrect password. WhatsApp integration was not deactivated.",
+        });
+      }
+
+      await setWhatsappIntegrationActivation(db, orgId, shouldActivate);
+
+      return respond(200, {
+        success: true,
+        activated: shouldActivate,
+        message: shouldActivate
+          ? "WhatsApp integration is now activated. Connect your WhatsApp Business account to finish setup."
+          : "WhatsApp integration has been deactivated.",
+      });
+    } catch (error) {
+      return respond(500, {
+        success: false,
+        message: "Unable to update WhatsApp activation right now.",
+      });
+    }
+  },
+
+  whatsappConnectPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) {
+      return res.status(401).json({ success: false, message: "Not authenticated." });
+    }
+
+    try {
+      await ensureWhatsappIntegrationSchema(db);
+
+      const integrationStatus = await getWhatsappIntegrationStatus(db, orgId);
+      if (!integrationStatus.activated) {
+        return res.status(400).json({
+          success: false,
+          message: "Activate WhatsApp integration before connecting an account.",
+        });
+      }
+
+      const authCode = String(req.body.code || "").trim();
+      const wabaId = String(req.body.wabaId || req.body.waba_id || "").trim();
+      const phoneNumberId = String(req.body.phoneNumberId || req.body.phone_number_id || "").trim();
+      const businessName = String(req.body.businessName || req.body.business_name || "").trim();
+      const displayPhoneNumber = String(req.body.displayPhoneNumber || req.body.display_phone_number || "").trim();
+      const timezone = String(req.body.timezone || "").trim();
+      const registrationPin = String(req.body.registrationPin || req.body.pin || "").trim();
+
+      if (!authCode) {
+        return res.status(400).json({ success: false, message: "Meta authorization code is required." });
+      }
+
+      if (!wabaId || !phoneNumberId) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing WhatsApp business identifiers from Meta. Please try Connect WhatsApp again.",
+        });
+      }
+
+      const tokenResult = await exchangeEmbeddedSignupCodeForToken(authCode);
+
+      await registerPhoneNumberForCloudApi(tokenResult.accessToken, phoneNumberId, registrationPin || null);
+      await subscribeAppToWaba(tokenResult.accessToken, wabaId);
+
+      await saveWhatsappConnection(db, orgId, {
+        wabaId,
+        phoneNumberId,
+        businessName,
+        displayPhoneNumber,
+        timezone,
+        accessToken: tokenResult.accessToken,
+        expiresIn: tokenResult.expiresIn,
+      });
+
+      const refreshedStatus = await getWhatsappIntegrationStatus(db, orgId);
+
+      return res.json({
+        success: true,
+        message: "WhatsApp Business connected successfully.",
+        integration: refreshedStatus,
+      });
+    } catch (error) {
+      const reason = error?.response?.data?.error?.message || error?.message || "Unknown WhatsApp setup error.";
+      await markWhatsappConnectionError(db, orgId, reason).catch(() => {});
+      return res.status(500).json({
+        success: false,
+        message: `Unable to complete WhatsApp setup: ${reason}`,
+      });
+    }
+  },
+
+  whatsappDisconnectPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    const acceptsHeader = String(req.get("accept") || "").toLowerCase();
+    const wantsJson =
+      req.xhr ||
+      acceptsHeader.includes("application/json") ||
+      String(req.get("x-requested-with") || "").toLowerCase() === "xmlhttprequest";
+
+    try {
+      await disconnectWhatsappIntegration(db, orgId);
+      if (wantsJson) {
+        return res.json({ success: true, message: "WhatsApp disconnected." });
+      }
+      req.flash("success", "WhatsApp disconnected.");
+      return res.redirect("/account/settings?section=integrations");
+    } catch (error) {
+      if (wantsJson) {
+        return res.status(500).json({ success: false, message: "Unable to disconnect WhatsApp right now." });
+      }
+      req.flash("error", "Unable to disconnect WhatsApp right now.");
+      return res.redirect("/account/settings?section=integrations");
+    }
+  },
+
+  whatsappTestMessagePost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) {
+      return res.status(401).json({ success: false, message: "Not authenticated." });
+    }
+
+    try {
+      await ensureWhatsappIntegrationSchema(db);
+      const useServerTestCredentials =
+        String(req.body.useServerTestCredentials || "").trim() === "1" ||
+        req.body.useServerTestCredentials === true;
+
+      let accessToken = "";
+      let phoneNumberId = "";
+
+      if (useServerTestCredentials) {
+        accessToken =
+          String(process.env.WHATSAPP_TEST_ACCESS_TOKEN || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.accessToken;
+        phoneNumberId =
+          String(process.env.WHATSAPP_TEST_PHONE_NUMBER_ID || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.phoneNumberId;
+
+        if (!accessToken || !phoneNumberId) {
+          return res.status(400).json({
+            success: false,
+            message: "Server test credentials are missing. Set WHATSAPP_TEST_ACCESS_TOKEN and WHATSAPP_TEST_PHONE_NUMBER_ID.",
+          });
+        }
+      } else {
+        const integrationStatus = await getWhatsappIntegrationStatus(db, orgId);
+        if (!integrationStatus.activated || !integrationStatus.connected) {
+          return res.status(400).json({
+            success: false,
+            message: "Activate and connect WhatsApp before sending a test template.",
+          });
+        }
+
+        const credentials = await getWhatsappMessagingCredentials(db, orgId);
+        if (!credentials.configured || !credentials.phoneNumberId || !credentials.accessToken) {
+          return res.status(400).json({
+            success: false,
+            message: "WhatsApp access credentials are incomplete. Reconnect WhatsApp and try again.",
+          });
+        }
+
+        if (
+          credentials.tokenExpiresAt &&
+          Number(new Date(credentials.tokenExpiresAt).getTime()) > 0 &&
+          Number(new Date(credentials.tokenExpiresAt).getTime()) <= Date.now()
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: "The stored WhatsApp access token has expired. Reconnect WhatsApp to refresh it, then send the template again.",
+          });
+        }
+
+        accessToken = credentials.accessToken;
+        phoneNumberId = credentials.phoneNumberId;
+      }
+
+      const recipient = normalizePhoneDigits(req.body.recipient || req.body.to || "");
+      const templateName = String(req.body.templateName || "").trim();
+      const languageCode = String(req.body.languageCode || "en_US").trim() || "en_US";
+      const rawBodyParameters = req.body.bodyParameters;
+      const bodyParameters = Array.isArray(rawBodyParameters)
+        ? rawBodyParameters
+            .map((value) => String(value || "").trim())
+            .filter(Boolean)
+        : [
+            req.body.bodyParameter,
+            req.body.bodyText,
+            req.body.bodyParameter1,
+            req.body.bodyParameter2,
+            req.body.bodyParameter3,
+          ]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean);
+
+      if (!recipient) {
+        return res.status(400).json({ success: false, message: "Enter the recipient number in international format digits only." });
+      }
+
+      if (!templateName) {
+        return res.status(400).json({ success: false, message: "Enter the approved WhatsApp template name to send." });
+      }
+
+      const sendResult = await sendWhatsappTemplateMessage(
+        accessToken,
+        phoneNumberId,
+        {
+          to: recipient,
+          templateName,
+          languageCode,
+          bodyParameters,
+        }
+      );
+
+      return res.json({
+        success: true,
+        message: "Template sent. Capture the WhatsApp delivery and the returned message ID for App Review.",
+        recipient,
+        messageId: sendResult?.messages?.[0]?.id || "",
+        raw: sendResult,
+      });
+    } catch (error) {
+      const apiMessage = error?.response?.data?.error?.message || "";
+      const apiCode = error?.response?.data?.error?.code;
+      const fallbackMessage = error?.message || "Unable to send the WhatsApp template right now.";
+      const resolvedMessage = apiCode === 131030
+        ? "This recipient is not an approved WhatsApp test number yet. In Meta API Setup, open the recipient list, add the number, and complete verification in WhatsApp before sending again."
+        : (apiMessage || fallbackMessage);
+
+      await markWhatsappConnectionError(db, orgId, resolvedMessage).catch(() => {});
+
+      return res.status(500).json({
+        success: false,
+        message: resolvedMessage,
+        errorCode: apiCode || null,
+      });
     }
   },
 

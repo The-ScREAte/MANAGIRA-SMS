@@ -398,13 +398,28 @@ class ManagiraChatbot {
       heading.textContent = 'From Documentation';
       section.appendChild(heading);
       docHits.forEach((hit) => {
+        const hitType = String(hit.typeLabel || hit.contentType || 'Article');
+        const normalizedType = hitType.toLowerCase();
+        const typeClass = normalizedType.replace(/[^a-z0-9]+/g, '-');
+        const isExternal = Boolean(hit.external);
         const a = document.createElement('a');
-        a.className = 'chatbot-result-card chatbot-result-card--article';
+        const classes = ['chatbot-result-card'];
+        if (typeClass === 'article') {
+          classes.push('chatbot-result-card--article');
+        } else {
+          classes.push('chatbot-result-card--resource');
+          classes.push(`chatbot-result-card--${typeClass}`);
+        }
+        a.className = classes.join(' ');
         a.href = hit.url;
+        if (isExternal) {
+          a.target = '_blank';
+          a.rel = 'noopener';
+        }
         const excerptHtml = hit.excerpt
           ? `<span class="chatbot-result-card__excerpt">${escape(hit.excerpt.slice(0, 90))}${hit.excerpt.length > 90 ? '\u2026' : ''}</span>`
           : '';
-        a.innerHTML = `<span class="chatbot-result-card__type">Article</span><span class="chatbot-result-card__title">${escape(hit.title)}</span>${excerptHtml}<span class="chatbot-result-card__cta">Read →</span>`;
+        a.innerHTML = `<span class="chatbot-result-card__type">${escape(hitType)}</span><span class="chatbot-result-card__title">${escape(hit.title)}</span>${excerptHtml}`;
         section.appendChild(a);
       });
       messageDiv.appendChild(section);

@@ -3280,6 +3280,13 @@
           <% const giConfigured = !!gi.configured; %>
           <% const giConnected = !!gi.connected; %>
           <% const giReady = !!gi.shouldShowFeatures; %>
+          <% const wi = (typeof whatsappIntegration !== 'undefined' && whatsappIntegration) ? whatsappIntegration : {}; %>
+          <% const wiActivated = !!wi.activated; %>
+          <% const wiConfigured = !!wi.configured; %>
+          <% const wiConnected = !!wi.connected; %>
+          <% const wiReady = !!wi.shouldShowFeatures; %>
+          <% const wf = (typeof whatsappFrontendConfig !== 'undefined' && whatsappFrontendConfig) ? whatsappFrontendConfig : {}; %>
+          <% const hasWhatsappMetaConfig = !!(wf.appId && wf.embeddedSignupConfigId); %>
           <% const spi = (typeof studentPortalIntegration !== 'undefined' && studentPortalIntegration) ? studentPortalIntegration : {}; %>
           <% const spiActivated = !!spi.activated; %>
 
@@ -3352,6 +3359,93 @@
             <small style="display:block;margin-top:4px;"><%= gi.lastSyncNote %></small>
             <% } %>
           </div>
+
+            <div class="card" style="margin-top:14px;">
+              <h4>
+                <span class="google-classroom-title">
+                  <svg class="google-classroom-logo" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                    <rect x="8" y="8" width="48" height="48" rx="12" fill="#25D366"></rect>
+                    <path fill="#ffffff" d="M47.7 33.1c0 8.5-6.9 15.4-15.4 15.4-2.7 0-5.2-.7-7.4-1.9l-8.1 2.1 2.2-7.9c-1.4-2.3-2.2-5-2.2-7.9 0-8.5 6.9-15.4 15.4-15.4s15.5 6.9 15.5 15.6zm-15.4-12.9c-7.1 0-12.9 5.8-12.9 12.9 0 2.8.9 5.4 2.5 7.4l.4.5-1.3 4.8 4.9-1.3.5.3c1.9 1.2 4.1 1.8 6.4 1.8 7.1 0 12.9-5.8 12.9-12.9S39.4 20.2 32.3 20.2zm7.1 16.5c-.4-.2-2.3-1.1-2.7-1.2-.4-.1-.6-.2-.9.2-.3.4-1 1.2-1.2 1.4-.2.2-.5.3-.9.1-.4-.2-1.8-.7-3.5-2.2-1.3-1.2-2.2-2.6-2.5-3-.3-.4 0-.6.2-.8.2-.2.4-.5.6-.7.2-.2.3-.4.4-.7.1-.2.1-.5 0-.7-.1-.2-.9-2.2-1.3-3-.3-.8-.6-.7-.9-.7h-.7c-.2 0-.7.1-1 .5-.3.4-1.4 1.4-1.4 3.4s1.5 3.9 1.7 4.2c.2.3 3 4.6 7.2 6.4 1 .4 1.8.7 2.4.9 1 .3 1.9.3 2.6.2.8-.1 2.3-.9 2.6-1.8.3-.9.3-1.7.2-1.8-.1-.2-.4-.3-.8-.5z"></path>
+                  </svg>
+                  <span>WhatsApp Business</span>
+                </span>
+              </h4>
+              <small class="google-integration-description">
+                Activate WhatsApp, then connect your school's WhatsApp Business number using Meta Embedded Signup. This only sets up integration now; messaging will be configured separately.
+                <% if (wi.displayPhoneNumber) { %><br>Connected number: <strong><%= wi.displayPhoneNumber %></strong><% } %>
+              </small>
+
+              <div class="google-integration-toolbar">
+                <div class="google-integration-summary">
+                  <span class="google-integration-copy">WhatsApp status</span>
+                  <span class="pill" id="whatsapp-status-pill" data-activated="<%= wiActivated ? '1' : '0' %>" data-connected="<%= wiConnected ? '1' : '0' %>" style="background:<%= wiReady ? '#dcfce7' : '#fef3c7' %>;color:<%= wiReady ? '#166534' : '#92400e' %>">
+                    <%= wiReady ? 'Active & Connected' : (wiActivated ? 'Activated (Connection Required)' : 'Inactive') %>
+                  </span>
+                  <% if (wi.businessName) { %>
+                  <span class="text-muted-sm">Business: <strong><%= wi.businessName %></strong></span>
+                  <% } %>
+                  <% if (wi.lastError) { %>
+                  <span class="text-muted-sm" id="whatsapp-last-error" style="color:#b91c1c;"><%= wi.lastError %></span>
+                  <% } else { %>
+                  <span class="text-muted-sm" id="whatsapp-last-error" style="display:none;color:#b91c1c;"></span>
+                  <% } %>
+                </div>
+
+                <div class="google-integration-actions">
+                  <details class="google-actions-menu">
+                    <summary class="google-actions-toggle" aria-label="WhatsApp actions">⋮</summary>
+                    <div class="google-actions-menu-list">
+                      <a class="google-action-item" href="#" id="open-whatsapp-activate-modal" style="display:<%= wiActivated ? 'none' : 'block' %>">Activate</a>
+                      <a class="google-action-item" href="#" id="open-whatsapp-deactivate-modal" style="display:<%= wiActivated ? 'block' : 'none' %>">Deactivate</a>
+
+                      <% if (wiActivated) { %>
+                      <a class="google-action-item" href="#" id="whatsapp-connect-link" style="<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"><%= wiConfigured ? 'Reconnect WhatsApp' : 'Connect WhatsApp' %></a>
+                      <% } %>
+
+                      <% if (wiConfigured) { %>
+                      <a class="google-action-item is-danger" href="#" id="whatsapp-disconnect-link">Disconnect</a>
+                      <% } %>
+                    </div>
+                  </details>
+                </div>
+              </div>
+
+              <form id="whatsapp-activation-form" action="/account/whatsapp/activate" method="POST" style="display:none;">
+                <input type="hidden" name="activate" id="whatsapp-activation-value" value="0" />
+                <input type="hidden" name="integrationPassword" id="whatsapp-activation-password" />
+              </form>
+
+              <form id="whatsapp-disconnect-form" action="/account/whatsapp/disconnect" method="POST" style="display:none;"></form>
+
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+                <a
+                  class="btn-link"
+                  href="#"
+                  id="whatsapp-connect-cta"
+                  style="display:<%= wiActivated ? 'inline-flex' : 'none' %>;align-items:center;<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"
+                >
+                  <%= wiConnected ? 'Reconnect WhatsApp' : 'Connect WhatsApp' %>
+                </a>
+                <a
+                  class="btn-link"
+                  href="#"
+                  id="whatsapp-disconnect-cta"
+                  style="display:<%= wiConnected ? 'inline-flex' : 'none' %>;align-items:center;"
+                >
+                  Disconnect WhatsApp
+                </a>
+              </div>
+              <div style="margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                  <button class="btn-link" id="whatsapp-default-test-button" type="button" style="<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>">Test Message</button>
+                  <small id="whatsapp-test-message-status" style="color:#64748b;">Click Test Message to send the WhatsApp test template.</small>
+                </div>
+              </div>
+
+              <% if (!hasWhatsappMetaConfig) { %>
+              <small style="display:block;margin-top:10px;color:#b45309;">Meta app credentials are missing on this server. Set <strong>META_APP_ID</strong>, <strong>META_APP_SECRET</strong>, and <strong>WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID</strong> to connect.</small>
+              <% } %>
+            </div>
 
           <div class="card" style="margin-top:14px;">
             <h4>
@@ -3733,6 +3827,28 @@
           <p class="error-text" id="student-portal-activation-error"></p>
           <div class="form-actions">
             <button class="btn-primary btn-link" id="student-portal-activation-submit" type="button">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="whatsapp-activation-modal">
+      <div class="modal-card password-modal">
+        <button class="modal-close" type="button" id="whatsapp-activation-close">x</button>
+        <h2>Confirm Password</h2>
+        <p id="whatsapp-activation-copy">Please confirm your password to continue with WhatsApp integration changes.</p>
+        <div class="content-row">
+          <div class="field-group">
+            <label class="form-label" for="whatsapp-activation-input">Password</label>
+            <input
+              type="password"
+              id="whatsapp-activation-input"
+              placeholder="Enter your password"
+              class="form-input"
+            />
+          </div>
+          <p class="error-text" id="whatsapp-activation-error"></p>
+          <div class="form-actions">
+            <button class="btn-primary btn-link" id="whatsapp-activation-submit" type="button">Continue</button>
           </div>
         </div>
       </div>
@@ -4187,6 +4303,13 @@
       const orgEmail = <%- JSON.stringify(org?.email || "") %>;
       const orgPhone = <%- JSON.stringify(org?.organization_phone || "") %>;
       const orgName = <%- JSON.stringify(org?.organization_name || "") %>;
+      const whatsappFrontendConfig = <%- JSON.stringify(whatsappFrontendConfig || {}) %>;
+      const whatsappServerTestConfig = <%- JSON.stringify(whatsappServerTestConfig || {}) %>;
+      const hasWhatsappMetaConfig = Boolean(
+        String(whatsappFrontendConfig.appId || "").trim() &&
+        String(whatsappFrontendConfig.embeddedSignupConfigId || "").trim()
+      );
+      const hasWhatsappServerTestConfig = Boolean(whatsappServerTestConfig && whatsappServerTestConfig.enabled);
       const paymentProvider = <%- JSON.stringify(paymentProvider || "paystack") %>;
       const stripePublishableKey = <%- JSON.stringify(resolvedStripePublishableKey) %>;
       let passwordVerified = <%= passwordVerified ? "true" : "false" %>;
@@ -4243,6 +4366,26 @@
         const studentPortalActivationPassword = document.getElementById("student-portal-activation-password");
         const studentPortalActivationForm = document.getElementById("student-portal-activation-form");
         const studentPortalStatusPill = document.getElementById("student-portal-status-pill");
+        const whatsappActivationModal = document.getElementById("whatsapp-activation-modal");
+        const whatsappActivateOpen = document.getElementById("open-whatsapp-activate-modal");
+        const whatsappDeactivateOpen = document.getElementById("open-whatsapp-deactivate-modal");
+        const whatsappActivationClose = document.getElementById("whatsapp-activation-close");
+        const whatsappActivationSubmit = document.getElementById("whatsapp-activation-submit");
+        const whatsappActivationInput = document.getElementById("whatsapp-activation-input");
+        const whatsappActivationError = document.getElementById("whatsapp-activation-error");
+        const whatsappActivationCopy = document.getElementById("whatsapp-activation-copy");
+        const whatsappActivationValue = document.getElementById("whatsapp-activation-value");
+        const whatsappActivationPassword = document.getElementById("whatsapp-activation-password");
+        const whatsappActivationForm = document.getElementById("whatsapp-activation-form");
+        const whatsappConnectLink = document.getElementById("whatsapp-connect-link");
+        const whatsappConnectCta = document.getElementById("whatsapp-connect-cta");
+        const whatsappDisconnectLink = document.getElementById("whatsapp-disconnect-link");
+        const whatsappDisconnectCta = document.getElementById("whatsapp-disconnect-cta");
+        const whatsappDisconnectForm = document.getElementById("whatsapp-disconnect-form");
+        const whatsappStatusPill = document.getElementById("whatsapp-status-pill");
+        const whatsappLastError = document.getElementById("whatsapp-last-error");
+        const whatsappDefaultTestButton = document.getElementById("whatsapp-default-test-button");
+        const whatsappTestMessageStatus = document.getElementById("whatsapp-test-message-status");
         const planModal = document.getElementById("plan-modal");
         const planModalOpen = document.getElementById("open-plan-modal");
         const planModalClose = document.getElementById("plan-modal-close");
@@ -4877,6 +5020,528 @@
             } finally {
               studentPortalActivationSubmit.disabled = false;
               studentPortalActivationSubmit.textContent = previousLabel || "Continue";
+            }
+          });
+        }
+
+        function openWhatsappPasswordModal(mode) {
+          if (!whatsappActivationModal) return;
+          const isActivate = mode === "activate";
+          if (whatsappActivationCopy) {
+            whatsappActivationCopy.textContent = isActivate
+              ? "Please confirm your password to activate WhatsApp integration."
+              : "Please confirm your password to deactivate WhatsApp integration.";
+          }
+          if (whatsappActivationValue) {
+            whatsappActivationValue.value = isActivate ? "1" : "0";
+          }
+          if (whatsappActivationInput) {
+            whatsappActivationInput.value = "";
+          }
+          if (whatsappActivationError) {
+            whatsappActivationError.textContent = "";
+          }
+          openModal(whatsappActivationModal);
+        }
+
+        function setWhatsappInlineError(message) {
+          if (!whatsappLastError) return;
+          const text = String(message || "").trim();
+          if (!text) {
+            whatsappLastError.style.display = "none";
+            whatsappLastError.textContent = "";
+            return;
+          }
+          whatsappLastError.style.display = "inline";
+          whatsappLastError.textContent = text;
+        }
+
+        function setWhatsappUiState(isActive, isConnected) {
+          if (whatsappStatusPill) {
+            whatsappStatusPill.dataset.activated = isActive ? "1" : "0";
+            whatsappStatusPill.dataset.connected = isConnected ? "1" : "0";
+            if (isActive && isConnected) {
+              whatsappStatusPill.textContent = "Active & Connected";
+              whatsappStatusPill.style.background = "#dcfce7";
+              whatsappStatusPill.style.color = "#166534";
+            } else if (isActive) {
+              whatsappStatusPill.textContent = "Activated (Connection Required)";
+              whatsappStatusPill.style.background = "#fef3c7";
+              whatsappStatusPill.style.color = "#92400e";
+            } else {
+              whatsappStatusPill.textContent = "Inactive";
+              whatsappStatusPill.style.background = "#fef3c7";
+              whatsappStatusPill.style.color = "#92400e";
+            }
+          }
+
+          if (whatsappActivateOpen) {
+            whatsappActivateOpen.style.display = isActive ? "none" : "block";
+          }
+          if (whatsappDeactivateOpen) {
+            whatsappDeactivateOpen.style.display = isActive ? "block" : "none";
+          }
+          if (whatsappConnectLink) {
+            whatsappConnectLink.style.display = isActive ? "block" : "none";
+            whatsappConnectLink.textContent = isConnected ? "Reconnect WhatsApp" : "Connect WhatsApp";
+          }
+          if (whatsappConnectCta) {
+            whatsappConnectCta.style.display = isActive ? "inline-flex" : "none";
+            whatsappConnectCta.textContent = isConnected ? "Reconnect WhatsApp" : "Connect WhatsApp";
+          }
+          if (whatsappDisconnectLink) {
+            whatsappDisconnectLink.style.display = isConnected ? "block" : "none";
+          }
+          if (whatsappDisconnectCta) {
+            whatsappDisconnectCta.style.display = isConnected ? "inline-flex" : "none";
+          }
+          if (whatsappDefaultTestButton) {
+            const canUseTestButton = Boolean(hasWhatsappServerTestConfig || isConnected);
+            whatsappDefaultTestButton.style.opacity = canUseTestButton ? "" : "0.6";
+            whatsappDefaultTestButton.style.pointerEvents = canUseTestButton ? "" : "none";
+            whatsappDefaultTestButton.style.cursor = canUseTestButton ? "" : "not-allowed";
+          }
+          if (whatsappTestMessageStatus && !isConnected) {
+            whatsappTestMessageStatus.style.color = "#64748b";
+          }
+        }
+
+        function setWhatsappTestMessageStatus(message, type) {
+          if (!whatsappTestMessageStatus) return;
+          whatsappTestMessageStatus.textContent = String(message || "").trim();
+          whatsappTestMessageStatus.style.color = type === "error" ? "#b91c1c" : (type === "success" ? "#166534" : "#64748b");
+        }
+
+        if (whatsappStatusPill) {
+          setWhatsappUiState(
+            whatsappStatusPill.dataset.activated === "1",
+            whatsappStatusPill.dataset.connected === "1"
+          );
+        }
+
+        let metaSdkPromise = null;
+        function loadMetaSdk() {
+          if (window.FB) {
+            return Promise.resolve(window.FB);
+          }
+          if (metaSdkPromise) {
+            return metaSdkPromise;
+          }
+
+          metaSdkPromise = new Promise((resolve, reject) => {
+            const appId = String(whatsappFrontendConfig.appId || "").trim();
+            if (!appId) {
+              reject(new Error("META_APP_ID is not configured on the server."));
+              return;
+            }
+
+            const sdkId = "meta-jssdk";
+            const existingScript = document.getElementById(sdkId);
+            const completeInit = () => {
+              if (!window.FB) {
+                reject(new Error("Meta SDK failed to load."));
+                return;
+              }
+              try {
+                window.FB.init({
+                  appId,
+                  autoLogAppEvents: true,
+                  xfbml: false,
+                  version: String(whatsappFrontendConfig.graphApiVersion || "v21.0"),
+                });
+              } catch (err) {
+                reject(new Error(err?.message || "Unable to initialize Meta SDK."));
+                return;
+              }
+              resolve(window.FB);
+            };
+
+            if (existingScript) {
+              if (window.FB) {
+                completeInit();
+              } else {
+                existingScript.addEventListener("load", completeInit, { once: true });
+                existingScript.addEventListener("error", () => reject(new Error("Unable to load Meta SDK script.")), { once: true });
+              }
+              return;
+            }
+
+            const script = document.createElement("script");
+            script.id = sdkId;
+            script.async = true;
+            script.defer = true;
+            script.src = "https://connect.facebook.net/en_US/sdk.js";
+            script.onload = completeInit;
+            script.onerror = () => reject(new Error("Unable to load Meta SDK script."));
+            document.head.appendChild(script);
+          });
+
+          return metaSdkPromise;
+        }
+
+        async function openWhatsappEmbeddedSignupPopup() {
+          const configId = String(whatsappFrontendConfig.embeddedSignupConfigId || "").trim();
+          if (!configId) {
+            throw new Error("WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID is not configured on the server.");
+          }
+
+          const FB = await loadMetaSdk();
+
+          return new Promise((resolve, reject) => {
+            let signupPayload = {};
+
+            const consumeMessage = (event) => {
+              if (!event || !event.data) return;
+              let data = event.data;
+              if (typeof data === "string") {
+                try {
+                  data = JSON.parse(data);
+                } catch (_) {
+                  return;
+                }
+              }
+              if (!data || typeof data !== "object") return;
+
+              const raw = data.data && typeof data.data === "object" ? data.data : data;
+              const eventName = String(data.type || data.event || raw.event || "").toLowerCase();
+              const looksLikeWhatsapp =
+                eventName.includes("whatsapp") ||
+                eventName.includes("embedded") ||
+                raw.waba_id ||
+                raw.phone_number_id ||
+                raw.display_phone_number;
+
+              if (!looksLikeWhatsapp) return;
+
+              signupPayload = {
+                ...signupPayload,
+                ...raw,
+              };
+            };
+
+            window.addEventListener("message", consumeMessage);
+
+            FB.login((response) => {
+              window.removeEventListener("message", consumeMessage);
+
+              if (!response || !response.authResponse) {
+                reject(new Error("Meta signup was cancelled or did not complete."));
+                return;
+              }
+
+              const code = String(response.authResponse.code || "").trim();
+              if (!code) {
+                reject(new Error("Meta did not return an authorization code."));
+                return;
+              }
+
+              const merged = {
+                ...signupPayload,
+                ...(response.extraData && typeof response.extraData === "object" ? response.extraData : {}),
+              };
+
+              resolve({
+                code,
+                wabaId: String(merged.waba_id || merged.wabaId || merged.whatsapp_business_account_id || "").trim(),
+                phoneNumberId: String(merged.phone_number_id || merged.phoneNumberId || "").trim(),
+                displayPhoneNumber: String(merged.display_phone_number || merged.displayPhoneNumber || "").trim(),
+                businessName: String(merged.business_name || merged.businessName || merged.business_display_name || "").trim(),
+                timezone: String(merged.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "").trim(),
+              });
+            }, {
+              config_id: configId,
+              response_type: "code",
+              override_default_response_type: true,
+              extras: {
+                feature: "whatsapp_embedded_signup",
+              },
+            });
+          });
+        }
+
+        async function connectWhatsappIntegration() {
+          if (!whatsappConnectLink && !whatsappConnectCta) return;
+          if (!hasWhatsappMetaConfig) {
+            const msg = "WhatsApp connect is not configured on this server yet. Missing META_APP_ID, META_APP_SECRET, or WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID.";
+            setWhatsappInlineError(msg);
+            window.alert(msg);
+            return;
+          }
+
+          setWhatsappInlineError("");
+          if (whatsappConnectLink) {
+            whatsappConnectLink.setAttribute("aria-disabled", "true");
+            whatsappConnectLink.style.pointerEvents = "none";
+            whatsappConnectLink.textContent = "Connecting...";
+          }
+          let previousCtaLabel = "Connect WhatsApp";
+          if (whatsappConnectCta) {
+            whatsappConnectCta.setAttribute("aria-disabled", "true");
+            whatsappConnectCta.style.pointerEvents = "none";
+            previousCtaLabel = whatsappConnectCta.textContent || previousCtaLabel;
+            whatsappConnectCta.textContent = "Connecting...";
+          }
+
+          try {
+            const signupResult = await openWhatsappEmbeddedSignupPopup();
+            if (!signupResult.wabaId || !signupResult.phoneNumberId) {
+              throw new Error("Meta did not return the WhatsApp Business Account and phone number IDs.");
+            }
+
+            const response = await fetch("/account/whatsapp/connect", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+              },
+              body: JSON.stringify(signupResult),
+            });
+
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+              throw new Error(result.message || "Unable to finish WhatsApp setup.");
+            }
+
+            const integration = result.integration || {};
+            setWhatsappUiState(Boolean(integration.activated), Boolean(integration.connected));
+            setWhatsappInlineError("");
+          } catch (error) {
+            const message = error?.message || "Unable to connect WhatsApp right now.";
+            setWhatsappInlineError(message);
+            window.alert(message);
+          } finally {
+            if (whatsappConnectLink) {
+              whatsappConnectLink.removeAttribute("aria-disabled");
+              whatsappConnectLink.style.pointerEvents = "";
+            }
+            if (whatsappConnectCta) {
+              whatsappConnectCta.removeAttribute("aria-disabled");
+              whatsappConnectCta.style.pointerEvents = "";
+            }
+            const connectedNow = Boolean(whatsappStatusPill && whatsappStatusPill.dataset.connected === "1");
+            const nextLabel = connectedNow ? "Reconnect WhatsApp" : (previousCtaLabel || "Connect WhatsApp");
+            if (whatsappConnectLink) whatsappConnectLink.textContent = nextLabel;
+            if (whatsappConnectCta) whatsappConnectCta.textContent = nextLabel;
+          }
+        }
+
+        if (whatsappActivateOpen && whatsappActivationModal) {
+          whatsappActivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openWhatsappPasswordModal("activate");
+          });
+        }
+
+        if (whatsappDeactivateOpen && whatsappActivationModal) {
+          whatsappDeactivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openWhatsappPasswordModal("deactivate");
+          });
+        }
+
+        if (whatsappActivationClose && whatsappActivationModal) {
+          whatsappActivationClose.addEventListener("click", () => closeModal(whatsappActivationModal));
+        }
+
+        if (whatsappActivationModal) {
+          whatsappActivationModal.addEventListener("click", (event) => {
+            if (event.target === whatsappActivationModal) {
+              closeModal(whatsappActivationModal);
+            }
+          });
+        }
+
+        if (whatsappActivationSubmit && whatsappActivationInput && whatsappActivationForm && whatsappActivationPassword) {
+          whatsappActivationSubmit.addEventListener("click", async () => {
+            const password = whatsappActivationInput.value.trim();
+            if (!password) {
+              if (whatsappActivationError) {
+                whatsappActivationError.textContent = "Password is required.";
+              }
+              return;
+            }
+
+            const activateValue = whatsappActivationValue
+              ? String(whatsappActivationValue.value || "0").trim()
+              : "0";
+
+            if (whatsappActivationError) {
+              whatsappActivationError.textContent = "";
+            }
+
+            whatsappActivationSubmit.disabled = true;
+            const previousLabel = whatsappActivationSubmit.textContent;
+            whatsappActivationSubmit.textContent = "Processing...";
+
+            try {
+              const response = await fetch("/account/whatsapp/activate", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: new URLSearchParams({
+                  activate: activateValue,
+                  integrationPassword: password,
+                }),
+              });
+
+              const result = await response.json();
+              if (!response.ok || !result || !result.success) {
+                if (whatsappActivationError) {
+                  whatsappActivationError.textContent = (result && result.message) || "Unable to update WhatsApp integration.";
+                }
+                return;
+              }
+
+              setWhatsappUiState(Boolean(result.activated), Boolean(whatsappStatusPill?.dataset.connected === "1"));
+              if (!result.activated) {
+                setWhatsappInlineError("");
+              }
+              closeModal(whatsappActivationModal);
+            } catch (error) {
+              if (whatsappActivationError) {
+                whatsappActivationError.textContent = "Unable to update WhatsApp integration right now.";
+              }
+            } finally {
+              whatsappActivationSubmit.disabled = false;
+              whatsappActivationSubmit.textContent = previousLabel || "Continue";
+            }
+          });
+        }
+
+        if (whatsappConnectLink) {
+          whatsappConnectLink.addEventListener("click", async (event) => {
+            event.preventDefault();
+            await connectWhatsappIntegration();
+          });
+        }
+
+        if (whatsappConnectCta) {
+          whatsappConnectCta.addEventListener("click", async (event) => {
+            event.preventDefault();
+            await connectWhatsappIntegration();
+          });
+        }
+
+        if (hasWhatsappMetaConfig) {
+          // Preload SDK at idle time to keep the Connect click as close as possible
+          // to a direct popup action and reduce browser popup-blocking behavior.
+          setTimeout(() => {
+            loadMetaSdk().catch((error) => {
+              setWhatsappInlineError(error?.message || "Unable to initialize Meta SDK.");
+            });
+          }, 0);
+        }
+
+        if (whatsappDisconnectLink && whatsappDisconnectForm) {
+          whatsappDisconnectLink.addEventListener("click", async (event) => {
+            event.preventDefault();
+            const confirmed = window.confirm("Disconnect WhatsApp from this school? This only removes the integration setup.");
+            if (!confirmed) return;
+
+            try {
+              const response = await fetch("/account/whatsapp/disconnect", {
+                method: "POST",
+                headers: {
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+              });
+              const result = await response.json().catch(() => ({}));
+              if (!response.ok || !result.success) {
+                throw new Error(result.message || "Unable to disconnect WhatsApp.");
+              }
+              setWhatsappUiState(Boolean(whatsappStatusPill?.dataset.activated === "1"), false);
+              setWhatsappInlineError("");
+            } catch (error) {
+              setWhatsappInlineError(error?.message || "Unable to disconnect WhatsApp.");
+              whatsappDisconnectForm.submit();
+            }
+          });
+        }
+
+        if (whatsappDisconnectCta && whatsappDisconnectForm) {
+          whatsappDisconnectCta.addEventListener("click", async (event) => {
+            event.preventDefault();
+            const confirmed = window.confirm("Disconnect WhatsApp from this school? This only removes the integration setup.");
+            if (!confirmed) return;
+
+            try {
+              const response = await fetch("/account/whatsapp/disconnect", {
+                method: "POST",
+                headers: {
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+              });
+              const result = await response.json().catch(() => ({}));
+              if (!response.ok || !result.success) {
+                throw new Error(result.message || "Unable to disconnect WhatsApp.");
+              }
+              setWhatsappUiState(Boolean(whatsappStatusPill?.dataset.activated === "1"), false);
+              setWhatsappInlineError("");
+            } catch (error) {
+              setWhatsappInlineError(error?.message || "Unable to disconnect WhatsApp.");
+              whatsappDisconnectForm.submit();
+            }
+          });
+        }
+
+        if (whatsappDefaultTestButton) {
+          whatsappDefaultTestButton.addEventListener("click", async () => {
+            const isActivated = Boolean(whatsappStatusPill && whatsappStatusPill.dataset.activated === "1");
+            const isConnected = Boolean(whatsappStatusPill && whatsappStatusPill.dataset.connected === "1");
+            const useServerTestCredentials = Boolean(hasWhatsappServerTestConfig);
+
+            if (!useServerTestCredentials && !isActivated) {
+              setWhatsappTestMessageStatus("Activate WhatsApp first, then click Test Message again.", "error");
+              return;
+            }
+
+            if (!useServerTestCredentials && !isConnected) {
+              setWhatsappTestMessageStatus("Connect WhatsApp once before sending this test message.", "error");
+              return;
+            }
+
+            const recipient = String(whatsappServerTestConfig.defaultRecipient || "13854521960").replace(/\D+/g, "") || "13854521960";
+
+            setWhatsappTestMessageStatus("Sending test WhatsApp message...", "info");
+            whatsappDefaultTestButton.disabled = true;
+            const previousLabel = whatsappDefaultTestButton.textContent;
+            whatsappDefaultTestButton.textContent = "Sending...";
+
+            try {
+              const response = await fetch("/account/whatsapp/test-message", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: JSON.stringify({
+                  recipient,
+                  templateName: "jaspers_market_order_confirmation_v1",
+                  languageCode: "en_US",
+                  bodyParameters: ["Managira Support", "MGR-20260629", "June 30, 2026"],
+                  useServerTestCredentials,
+                }),
+              });
+
+              const result = await response.json().catch(() => ({}));
+              if (!response.ok || !result.success) {
+                throw new Error(result.message || "Unable to send the WhatsApp test message.");
+              }
+
+              const messageId = String(result.messageId || "").trim();
+              setWhatsappTestMessageStatus("Sent", "success");
+            } catch (error) {
+              setWhatsappTestMessageStatus(error?.message || "Unable to send the WhatsApp test message.", "error");
+            } finally {
+              whatsappDefaultTestButton.disabled = false;
+              whatsappDefaultTestButton.textContent = previousLabel || "Test WhatsApp Message";
             }
           });
         }

@@ -554,6 +554,31 @@
       return score;
     }
 
+    function shouldSearchFaq(query) {
+      const normalized = String(query || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
+      const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+      return wordCount >= 4;
+    }
+
+    function faqMatchesExactPhrase(item, normalizedQuery) {
+      if (!normalizedQuery) return false;
+      const question = String(item.question || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
+      const answer = String(item.answer || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
+      const keywords = Array.isArray(item.keywords)
+        ? item.keywords.map(function (kw) {
+            return String(kw || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
+          })
+        : [];
+
+      if (question.includes(normalizedQuery) || answer.includes(normalizedQuery)) {
+        return true;
+      }
+
+      return keywords.some(function (kw) {
+        return kw.includes(normalizedQuery);
+      });
+    }
+
     function highlight(text, tokens, max = 220) {
       if (!text) return '';
       let snippet = text;
@@ -590,19 +615,22 @@
 
     function search(q) {
       const tokens = expandTokens(q);
+      const normalizedQuery = String(q || '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').trim();
 
       const docHits = DOCS.map(d => {
         const hay = [d.title, d.subtitle, (d.keywords||[]).join(' ')].join(' ');
         return { item: d, score: scoreItem(hay, tokens) };
       }).filter(r => r.score > 0).sort((a,b) => b.score - a.score).slice(0, 6);
 
-      const faqHits = KNOWLEDGE.map(f => {
-        const hay = [f.question, f.answer, (f.keywords||[]).join(' '), f.category].join(' ');
-        // Boost question matches
-        const qScore = scoreItem(f.question, tokens) * 2;
-        const aScore = scoreItem(hay, tokens);
-        return { item: f, score: qScore + aScore };
-      }).filter(r => r.score > 0).sort((a,b) => b.score - a.score).slice(0, 8);
+      const faqHits = shouldSearchFaq(q)
+        ? KNOWLEDGE.filter(function (item) {
+            return faqMatchesExactPhrase(item, normalizedQuery);
+          })
+          .slice(0, 8)
+          .map(function (item) {
+            return { item: item };
+          })
+        : [];
 
       return { docHits, faqHits, tokens };
     }

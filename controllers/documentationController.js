@@ -63,6 +63,44 @@ function buildExcerpt(article) {
   return article && (article.seoDescription || article.excerpt || article.plainText || '');
 }
 
+function buildRelatedArticles(selectedArticle, allArticles = [], limit = 4) {
+  if (!selectedArticle || !Array.isArray(allArticles) || allArticles.length === 0) {
+    return [];
+  }
+
+  const selectedTags = new Set((selectedArticle.tags || []).map((tag) => String(tag || '').toLowerCase()));
+
+  return allArticles
+    .filter((candidate) => (
+      candidate
+      && candidate.slug
+      && candidate.slug !== selectedArticle.slug
+      && candidate.topic
+      && selectedArticle.topic
+      && String(candidate.topic).toLowerCase() === String(selectedArticle.topic).toLowerCase()
+    ))
+    .map((candidate) => {
+      let score = 12;
+      if (candidate.subtopic && selectedArticle.subtopic && candidate.subtopic === selectedArticle.subtopic) score += 8;
+
+      const candidateTags = new Set((candidate.tags || []).map((tag) => String(tag || '').toLowerCase()));
+      let sharedTags = 0;
+      selectedTags.forEach((tag) => {
+        if (candidateTags.has(tag)) sharedTags += 1;
+      });
+      score += sharedTags * 4;
+
+      return { candidate, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      return new Date(right.candidate.updatedAt || 0).getTime() - new Date(left.candidate.updatedAt || 0).getTime();
+    })
+    .slice(0, limit)
+    .map((entry) => entry.candidate);
+}
+
 function buildDocumentationBootstrap(pageData, isAdmin) {
   return {
     isDocumentationAdmin: isAdmin,
@@ -108,13 +146,6 @@ function buildDocumentationSearchResources(resources = []) {
       keywords: ['documentation hub', 'all guides', 'resources', 'docs'],
     },
     {
-      title: 'FAQ',
-      subtitle: 'Browse frequently asked questions',
-      url: '/legal/faq',
-      external: false,
-      keywords: ['faq', 'questions', 'answers', 'help'],
-    },
-    {
       title: 'Request a Demo',
       subtitle: 'Schedule a personalised live demo',
       url: '/legal/request-demo',
@@ -130,13 +161,40 @@ function matchStaticResources(query) {
     return [];
   }
 
-  return QUICK_START_RESOURCES.filter((resource) => {
-    const haystack = [resource.title, resource.subtitle, resource.description, resource.url]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-    return haystack.includes(normalized);
-  }).slice(0, 4);
+  const terms = normalized.split(/\s+/).filter((term) => term.length > 1);
+
+  return QUICK_START_RESOURCES
+    .map((resource) => {
+      const url = String(resource.url || '').toLowerCase();
+      let decodedUrl = url;
+      try {
+        decodedUrl = decodeURIComponent(url);
+      } catch (_) {
+        decodedUrl = url;
+      }
+
+      const haystack = [resource.title, resource.subtitle, resource.description, resource.key, resource.type, url, decodedUrl]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      let score = 0;
+      if (haystack.includes(normalized)) {
+        score += 8;
+      }
+
+      terms.forEach((term) => {
+        if (haystack.includes(term)) {
+          score += 2;
+        }
+      });
+
+      return { resource, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 4)
+    .map((entry) => entry.resource);
 }
 
 function buildMediaResponseHtml(media) {
@@ -218,6 +276,7 @@ async function renderDocumentationArticle(req, res) {
   }
 
   const selectedArticle = pageData.selectedArticle;
+  const relatedArticles = buildRelatedArticles(selectedArticle, pageData.articles, 4);
   const title = selectedArticle
     ? `${selectedArticle.title} - Managira Documentation`
     : 'User Documentation - Managira';
@@ -242,6 +301,7 @@ async function renderDocumentationArticle(req, res) {
     docsTree: pageData.tree,
     featuredArticles: pageData.featuredArticles,
     quickStartResources: pageData.quickStartResources,
+    relatedArticles,
     helpKnowledge: buildHelpKnowledge(),
     documentationSearchResources: buildDocumentationSearchResources(pageData.quickStartResources),
     selectedArticle,
