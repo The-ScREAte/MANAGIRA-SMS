@@ -242,13 +242,28 @@ p{
   margin-top:50px;
 }
 
+body[data-page="publicDashboard"] #top-header #tools #loginbutton{
+  min-height: 26px;
+  padding: 3px 8px;
+  font-size: 0.84rem;
+  line-height: 1;
+}
+
+@media (max-width:768px){
+  body[data-page="publicDashboard"] #top-header #tools #loginbutton{
+    min-height: 24px;
+    padding: 2px 7px;
+    font-size: 0.8rem;
+  }
+}
+
 /* Sections */
 .content-section{
   margin-bottom:72px;
 }
 
 .school-identity-card{
-  margin: 0 0 28px;
+  margin: 0 0 14px;
   padding: 24px 26px;
   border-radius: 18px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--org-primary-color) 12%, white), #ffffff 62%);
@@ -310,6 +325,14 @@ p{
   .school-identity-card{
     padding:20px 18px;
     border-radius:16px;
+  }
+
+  .school-identity-kicker{
+    font-size:0.64rem;
+    margin-bottom:0;
+    padding-top:0;
+    padding-bottom:0;
+    line-height:1;
   }
 }
 
@@ -855,6 +878,15 @@ object-fit:contain;
   scroll-snap-type: x mandatory;
 }
 
+/* Keep swipe + scroll behavior consistent on all screen sizes */
+.wf2-articles-scroll,
+.wf2-events-priority,
+.wf2-announcements-list{
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+}
+
 /* 3 cards visible on large screens */
 .text-container .draggable-item,
 .wf1-articles .draggable-item,
@@ -933,6 +965,8 @@ object-fit:contain;
   flex:1;
   overflow-y:auto;
   overflow-x:hidden;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: auto;
 
   padding: 12px;
   border-radius:10px;
@@ -950,6 +984,17 @@ object-fit:contain;
 }
 .draggable-item .ql-editor::-webkit-scrollbar-thumb{
   background:var(--org-primary-color, #01535b); border-radius:10px;
+}
+
+/* Large screens: slightly slimmer WF2 article cards */
+@media (min-width: 1101px){
+  body[data-page="publicDashboard"] .wf2-articles-scroll .draggable-item.wf2-article-card{
+    min-width: 300px;
+    max-width: 380px;
+    height: 390px;
+    min-height: 390px;
+    max-height: 390px;
+  }
 }
 
 /* Shared scrollbar palette for all wireframe scrollers */
@@ -1183,7 +1228,8 @@ body[data-pd-theme="classic"] .content-section > h2{
   flex:1 1 auto;
   overflow:auto;
   padding-right:6px;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: auto;
 }
 
 /* ✅ Announcement message scroll inside card */
@@ -1191,7 +1237,8 @@ body[data-pd-theme="classic"] .content-section > h2{
   flex:1 1 auto;
   overflow:auto;
   padding-right:6px;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: auto;
 
   font-size:0.95rem;   /* ✅ slightly smaller text */
   line-height:1.5;
@@ -4505,8 +4552,8 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
     padding:7px 9px !important;
     font-weight:400 !important;
     display:-webkit-box !important;
-    line-clamp:4 !important;
-    -webkit-line-clamp:4 !important;
+    line-clamp:2 !important;
+    -webkit-line-clamp:2 !important;
     -webkit-box-orient:vertical !important;
     white-space:normal !important;
     overflow:hidden !important;
@@ -4610,8 +4657,8 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
     overflow-y:auto !important;
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-    touch-action:pan-y;
+    overscroll-behavior:auto;
+    touch-action:pan-x pan-y;
     font-size:0.82rem !important;
     line-height:1.38 !important;
     scrollbar-width:thin;
@@ -4625,8 +4672,8 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
     overflow-y:auto !important;
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-    touch-action:pan-y;
+    overscroll-behavior:auto;
+    touch-action:pan-x pan-y;
     scrollbar-width:thin;
   }
 
@@ -4673,8 +4720,8 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
     overflow-y:auto !important;
     overflow-x:hidden !important;
     -webkit-overflow-scrolling:touch;
-    overscroll-behavior:contain;
-    touch-action:pan-y;
+    overscroll-behavior:auto;
+    touch-action:pan-x pan-y;
     min-height:0 !important;
     flex:1 1 auto !important;
     max-height:100% !important;
@@ -4718,7 +4765,7 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery
   box-sizing:border-box !important;
   display:-webkit-box !important;
   -webkit-box-orient:vertical !important;
-  -webkit-line-clamp:4 !important;
+  -webkit-line-clamp:2 !important;
   white-space:normal !important;
   overflow:hidden !important;
   text-overflow:ellipsis !important;
@@ -4734,7 +4781,7 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery
     padding:7px 9px !important;
     display:-webkit-box !important;
     -webkit-box-orient:vertical !important;
-    -webkit-line-clamp:4 !important;
+    -webkit-line-clamp:2 !important;
     height:calc((4 * 1.2em) + 14px) !important;
     min-height:calc((4 * 1.2em) + 14px) !important;
     max-height:calc((4 * 1.2em) + 14px) !important;
