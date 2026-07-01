@@ -2764,12 +2764,10 @@ body[data-pd-theme="minimal"] .sticky-nav a::after{
   min-height: var(--wf2-gallery-caption-height);
   margin-top: 0 !important;
   padding: 9px 11px !important;
-  font-size: 0.78rem !important;
-  font-weight: 400 !important;
-  line-height: 1.32 !important;
   box-sizing: border-box;
   white-space: normal !important;
-  -webkit-line-clamp: 4 !important;
+  line-clamp: 2 !important;
+  -webkit-line-clamp: 2 !important;
   -webkit-box-orient: vertical !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -2822,6 +2820,24 @@ body[data-pd-theme] .wf2-gallery-masonry .gallery-card .caption {
   padding: 6px 4px 16px;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
+}
+
+.wf2-events-priority,
+.wf2-announcements-list,
+.wf2-articles-scroll{
+  cursor: grab;
+}
+
+.wf2-events-priority.is-dragging-scroll,
+.wf2-announcements-list.is-dragging-scroll,
+.wf2-articles-scroll.is-dragging-scroll{
+  cursor: grabbing;
+}
+
+.wf2-events-priority.is-dragging-scroll *,
+.wf2-announcements-list.is-dragging-scroll *,
+.wf2-articles-scroll.is-dragging-scroll *{
+  user-select: none;
 }
 
 .wf2-event-badge {
@@ -3702,13 +3718,6 @@ body[data-pd-theme="bold"] #modalCaption{
     gap: 8px;
   }
 
-  .wf2-gallery-masonry .gallery-card .caption {
-    font-size: 0.74rem !important;
-    line-height: 1.3 !important;
-    padding: 8px 10px !important;
-    -webkit-line-clamp: 4 !important;
-  }
-
   .wf2-event-badge,
   .wf2-announcement-badge {
     min-height: 170px;
@@ -3770,22 +3779,17 @@ body[data-pd-theme] .gallery-card .caption{
   line-height:1.3 !important;
 }
 
-/* WF2 gallery caption: always show exactly three full lines */
+/* WF2 gallery caption: strict 2-line preview while keeping existing space */
 body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card .caption{
-  display:block !important;
-  line-clamp:unset !important;
-  -webkit-line-clamp:unset !important;
-  -webkit-box-orient:unset !important;
+  display:-webkit-box !important;
+  line-clamp:2 !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
   white-space:normal !important;
   overflow:hidden !important;
-  overflow:clip !important;
-  text-overflow:clip !important;
+  text-overflow:ellipsis !important;
   padding:8px 10px !important;
-  line-height:1.26 !important;
   box-sizing:border-box !important;
-  height:calc((1.26em * 4) + 16px) !important;
-  min-height:calc((1.26em * 4) + 16px) !important;
-  max-height:calc((1.26em * 4) + 16px) !important;
 }
 
 /* Small screens (mobile) */
@@ -4126,6 +4130,18 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card .caption{
     padding:12px;
     line-height:1.35;
     max-height:24vh;
+  }
+}
+
+/* Medium screens only: keep WF2 rows horizontally swipeable */
+@media screen and (min-width:769px) and (max-width:1024px){
+  body[data-page="publicDashboard"] .wf2-events-priority,
+  body[data-page="publicDashboard"] .wf2-announcements-list,
+  body[data-page="publicDashboard"] .wf2-articles-scroll{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-x:contain;
+    touch-action:pan-x;
   }
 }
 
@@ -4547,10 +4563,7 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
   }
 
   body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card .caption{
-    font-size:0.72rem !important;
-    line-height:1.24 !important;
     padding:7px 9px !important;
-    font-weight:400 !important;
     display:-webkit-box !important;
     line-clamp:2 !important;
     -webkit-line-clamp:2 !important;
@@ -4559,9 +4572,6 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
     overflow:hidden !important;
     text-overflow:ellipsis !important;
     box-sizing:border-box !important;
-    height:calc((1.24em * 4) + 14px) !important;
-    min-height:calc((1.24em * 4) + 14px) !important;
-    max-height:calc((1.24em * 4) + 14px) !important;
     border-top:1px solid rgba(148, 163, 184, 0.25);
   }
 
@@ -4757,34 +4767,32 @@ body[data-page="publicDashboard"] .public-dashboard-container .about-inline-text
   }
 }
 
-/* Final WF2 caption guard: never render more than two visible lines */
+/* Final WF2 caption guard: strict two-line preview on all screens */
+body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card .caption,
 body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery-item .caption{
-  font-size:0.78rem !important;
-  line-height:1.24 !important;
-  padding:8px 10px !important;
   box-sizing:border-box !important;
   display:-webkit-box !important;
-  -webkit-box-orient:vertical !important;
+  line-clamp:2 !important;
   -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
   white-space:normal !important;
   overflow:hidden !important;
   text-overflow:ellipsis !important;
-  height:calc((4 * 1.24em) + 16px) !important;
-  min-height:calc((4 * 1.24em) + 16px) !important;
-  max-height:calc((4 * 1.24em) + 16px) !important;
+}
+
+/* Large screens: improve readability while keeping strict 2-line clamp */
+@media (min-width: 1101px){
+  body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card .caption,
+  body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery-item .caption{
+    padding:10px 12px !important;
+    line-height:1.34 !important;
+  }
 }
 
 @media (max-width: 480px){
+  body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card .caption,
   body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery-item .caption{
-    font-size:0.72rem !important;
-    line-height:1.2 !important;
     padding:7px 9px !important;
-    display:-webkit-box !important;
-    -webkit-box-orient:vertical !important;
-    -webkit-line-clamp:2 !important;
-    height:calc((4 * 1.2em) + 14px) !important;
-    min-height:calc((4 * 1.2em) + 14px) !important;
-    max-height:calc((4 * 1.2em) + 14px) !important;
   }
 }
 
@@ -5540,6 +5548,44 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery
         // Initialize the first slide
         if (slides.length > 0) slides[currentIndex].classList.add("active");
         if (captions.length > 0) captions[currentIndex].classList.add("active");
+      });
+
+      // WF2 horizontal rows: drag-to-scroll support for desktop/medium screens.
+      document.addEventListener("DOMContentLoaded", function () {
+        const scrollers = document.querySelectorAll(".wf2-events-priority, .wf2-announcements-list, .wf2-articles-scroll");
+        if (!scrollers.length) return;
+
+        scrollers.forEach((scroller) => {
+          let isDragging = false;
+          let startX = 0;
+          let startScrollLeft = 0;
+
+          const endDrag = () => {
+            isDragging = false;
+            scroller.classList.remove("is-dragging-scroll");
+          };
+
+          scroller.addEventListener("mousedown", (event) => {
+            if (event.button !== 0) return;
+            if (event.target.closest("a, button, input, textarea, select")) return;
+
+            isDragging = true;
+            scroller.classList.add("is-dragging-scroll");
+            startX = event.clientX;
+            startScrollLeft = scroller.scrollLeft;
+          });
+
+          scroller.addEventListener("mousemove", (event) => {
+            if (!isDragging) return;
+            event.preventDefault();
+            const delta = event.clientX - startX;
+            scroller.scrollLeft = startScrollLeft - delta;
+          });
+
+          scroller.addEventListener("mouseleave", endDrag);
+          scroller.addEventListener("mouseup", endDrag);
+          window.addEventListener("mouseup", endDrag);
+        });
       });
 
       // Function to save the order of draggable sections
