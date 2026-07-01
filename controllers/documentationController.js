@@ -20,7 +20,22 @@ const db = require('../config/db');
 const { uploadToS3, deleteFromS3 } = require('../middleware/s3Upload');
 
 function isDocumentationAdmin(req) {
-  return String(req.session && req.session.accountType || '').trim().toLowerCase() === 'admin';
+  const accountType = String(req.session && req.session.accountType || '').trim().toLowerCase();
+  const userRole = String(req.session && req.session.userRole || '').trim().toLowerCase();
+  return accountType === 'admin' || userRole === 'admin';
+}
+
+function buildDocumentationHeaderIdentity(req, documentationAdmin) {
+  if (!documentationAdmin) {
+    return {};
+  }
+
+  return {
+    orgHeaderName: 'Admin',
+    orgHeaderNickname: 'Admin',
+    orgHeaderNicknameDisplay: 'Admin',
+    orgHeaderLogo: '/images/managira.png',
+  };
 }
 
 function buildStructuredData(article) {
@@ -220,6 +235,7 @@ function buildMediaResponseHtml(media) {
 
 async function renderDocumentationIndex(req, res) {
   const documentationAdmin = isDocumentationAdmin(req);
+  const headerIdentity = buildDocumentationHeaderIdentity(req, documentationAdmin);
 
   await ensureDocumentationSchema(db);
   const pageData = await buildDocumentationPageData({
@@ -237,11 +253,14 @@ async function renderDocumentationIndex(req, res) {
     allArticles: pageData.index,
     availableTopics: pageData.availableTopics,
     documentationAdmin,
+    forceAdminHeader: documentationAdmin,
+    ...headerIdentity,
   });
 }
 
 async function renderDocumentationArticle(req, res) {
   const documentationAdmin = isDocumentationAdmin(req);
+  const headerIdentity = buildDocumentationHeaderIdentity(req, documentationAdmin);
   const requestedSlug = req.params.slug || null;
 
   await ensureDocumentationSchema(db);
@@ -272,6 +291,7 @@ async function renderDocumentationArticle(req, res) {
       docsBootstrapJson: escapeJsonForScript(buildDocumentationBootstrap(pageData, documentationAdmin)),
       pageNotFound: true,
       currentPath: req.originalUrl,
+      ...headerIdentity,
     });
   }
 
@@ -311,6 +331,7 @@ async function renderDocumentationArticle(req, res) {
     docsBootstrapJson: escapeJsonForScript(buildDocumentationBootstrap(pageData, documentationAdmin)),
     pageNotFound: false,
     currentPath: req.originalUrl,
+    ...headerIdentity,
   });
 }
 

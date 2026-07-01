@@ -4761,29 +4761,15 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery
     <div class="public-dashboard-container">
       <div class="public-dashboard-header"></div>
       <%
-        const identityTerms = Array.isArray(searchIdentityTerms) ? searchIdentityTerms : [];
-        const visibleAliasTerms = identityTerms.filter((value) => value && value !== (orgDetails?.organization_name || ''));
-        const schoolLocationParts = [orgDetails?.organization_address, orgDetails?.organization_country].filter(Boolean);
+        const schoolMotto = String(orgDetails?.motto || '').trim();
       %>
 
       <section class="school-identity-card" aria-label="School identity">
         <span class="school-identity-kicker">Official School Website</span>
         <h1 class="school-identity-title"><%= orgDetails?.organization_name || 'School' %></h1>
         <p class="school-identity-subtitle">
-          <%= orgDetails?.organization_name || 'This school' %> is the official school website<% if (visibleAliasTerms.length) { %>, also known as <%= visibleAliasTerms.join(', ') %><% } %>.
-          <% if (schoolLocationParts.length) { %>Families can find the school using <%= schoolLocationParts.join(', ') %> as well.<% } %>
+          <%= schoolMotto || 'Building excellence every day.' %>
         </p>
-        <ul class="school-identity-meta">
-          <% if (visibleAliasTerms.length) { %>
-            <li class="school-identity-chip"><span class="school-identity-chip-label">Also known as</span> <span><%= visibleAliasTerms.join(', ') %></span></li>
-          <% } %>
-          <% if (orgDetails?.nickname) { %>
-            <li class="school-identity-chip"><span class="school-identity-chip-label">Web name</span> <span><%= orgDetails.nickname %>.managira.com</span></li>
-          <% } %>
-          <% if (schoolLocationParts.length) { %>
-            <li class="school-identity-chip"><span class="school-identity-chip-label">Location</span> <span><%= schoolLocationParts.join(', ') %></span></li>
-          <% } %>
-        </ul>
       </section>
 
       <!-- 🔹 Image Modal -->

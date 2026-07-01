@@ -65,9 +65,10 @@
                 || _normUserRole === 'admin' || _normUserRole === 'mini admin' || _normUserRole === 'internal worker';
               const _isFullAdmin = _normAccountType === 'admin' || _normUserRole === 'admin';
               const _isInternalWorker = _normAccountType === 'internal worker' || _normUserRole === 'internal worker';
+                            const _forceAdminHeader = !!(typeof forceAdminHeader !== 'undefined' && forceAdminHeader);
                             const _isAdminOrgSwitch = !!(session && session.superAdminOrgSwitch && session.organizationId && _isFullAdmin);
                             const _isAdminAreaRoute = _currentPath.startsWith('/admin');
-                            const _useOrgHeader = ((_isAdminOrgSwitch && !_isAdminAreaRoute) || (!_isInternalWorker && typeof showOrgHeader !== 'undefined' && showOrgHeader));
+                                                        const _useOrgHeader = !_forceAdminHeader && ((_isAdminOrgSwitch && !_isAdminAreaRoute) || (!_isInternalWorker && typeof showOrgHeader !== 'undefined' && showOrgHeader));
               const _showBackToAdmin = _isAdminOrgSwitch
                                 && !_isAdminAreaRoute
                 && _currentPath !== '/account/login'

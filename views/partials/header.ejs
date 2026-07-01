@@ -276,6 +276,16 @@
     pointer-events: none;
   }
 
+  .search-toggle-btn .search-icon-svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    pointer-events: none;
+  }
+
   .search-close-btn {
     position: absolute;
     right: 10px;
@@ -1221,12 +1231,14 @@
     };
   %>
   <% const isPublicDashboard = url && url.includes('/publicDashboard'); %>
+  <% const isSchoolSubdomainContext = !!(req && req.schoolDetails); %>
   <% const isLoggedIn = !!(session && session.firstName); %>
-  <% const showPublicOrgIdentity = !!(isPublicDashboard && !isLoggedIn); %>
+  <% const showPublicOrgIdentity = !!(!isLoggedIn && (isPublicDashboard || isSchoolSubdomainContext)); %>
+  <% const publicOrgData = (typeof orgDetails !== 'undefined' && orgDetails) ? orgDetails : ((req && req.schoolDetails) ? req.schoolDetails : null); %>
   <% const headerHomeHref = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : '/'; %>
-  <% const publicOrgFullName = (typeof orgDetails !== 'undefined' && orgDetails && orgDetails.organization_name) ? orgDetails.organization_name : ''; %>
-  <% const publicOrgNickname = (typeof orgDetails !== 'undefined' && orgDetails && (orgDetails.nickname || orgDetails.org_nickname || orgDetails.organization_nickname)) ? (orgDetails.nickname || orgDetails.org_nickname || orgDetails.organization_nickname) : ''; %>
-  <% const publicOrgNicknameDisplay = (typeof orgDetails !== 'undefined' && orgDetails && orgDetails.nickname_display && String(orgDetails.nickname_display).trim()) ? orgDetails.nickname_display : publicOrgNickname; %>
+  <% const publicOrgFullName = (publicOrgData && publicOrgData.organization_name) ? publicOrgData.organization_name : ''; %>
+  <% const publicOrgNickname = (publicOrgData && (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname)) ? (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname) : ''; %>
+  <% const publicOrgNicknameDisplay = (publicOrgData && publicOrgData.nickname_display && String(publicOrgData.nickname_display).trim()) ? publicOrgData.nickname_display : publicOrgNickname; %>
   <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : (req.session && req.session.userRole === 'Student' ? '/student/dashboard' : '/common/orgDashboard')); %>
   <div class="header-mobile-row">
     <div class="header-mobile-left">
@@ -1235,10 +1247,10 @@
           <a href="<%= dashboardHref %>" title="Go to dashboard">
             <img src="<%= normalizeLogoSrc(orgHeaderLogo) %>" alt="Organization Logo" class="logo" />
           </a>
-        <% } else if (showPublicOrgIdentity && typeof orgDetails !== 'undefined' && orgDetails && orgDetails.logo) { %>
+        <% } else if (showPublicOrgIdentity && publicOrgData && (publicOrgData.logo || publicOrgData.logo_path)) { %>
           <!-- Show org logo on public dashboard even when logged out; clicking goes home -->
           <a href="<%= headerHomeHref %>" title="Return to home page">
-            <img src="<%= normalizeLogoSrc(orgDetails.logo) %>" alt="<%= publicOrgFullName || 'Organization' %> Logo" class="logo" />
+            <img src="<%= normalizeLogoSrc(publicOrgData.logo || publicOrgData.logo_path) %>" alt="<%= publicOrgFullName || 'Organization' %> Logo" class="logo" />
           </a>
         <% } else if (!isLoggedIn) { %>
           <!-- Only show Managira logo when not logged in -->
@@ -1299,7 +1311,10 @@
             aria-label="Open search"
             aria-expanded="false"
           >
-            <i class="fa-solid fa-magnifying-glass search-icon" aria-hidden="true"></i>
+            <svg class="search-icon-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+            </svg>
           </button>
           <div class="search-input-shell">
             <input

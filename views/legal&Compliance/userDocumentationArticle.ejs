@@ -1154,7 +1154,11 @@
 </head>
 <body>
 
+<% if (documentationAdmin) { %>
+<%- include('../partials/adminHeader') %>
+<% } else { %>
 <%- include('../partials/header', { showFooterTopSection: showFooterTopSection }) %>
+<% } %>
 
 <div class="article-page">
 

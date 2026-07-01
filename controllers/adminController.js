@@ -1461,6 +1461,11 @@ const adminController = {
   },
 
   holdOrganization: async (req, res) => {
+    if (req.session?.accountType !== 'Admin') {
+      req.flash('error', 'You do not have permission to perform this action.');
+      return res.redirect('/admin');
+    }
+
     const { orgId } = req.body;
     try {
       // Update on_hold to true and record Admin in hold_by
@@ -1493,6 +1498,11 @@ const adminController = {
   },
 
   resumeOrganization: async (req, res) => {
+    if (req.session?.accountType !== 'Admin') {
+      req.flash('error', 'You do not have permission to perform this action.');
+      return res.redirect('/admin');
+    }
+
     const { orgId } = req.body;
     try {
       const result = await db.query(
@@ -1523,6 +1533,11 @@ const adminController = {
   },
 
   deleteOrganization: async (req, res) => {
+    if (req.session?.accountType !== 'Admin') {
+      req.flash('error', 'You do not have permission to perform this action.');
+      return res.redirect('/admin');
+    }
+
     const { orgId } = req.body;
     try {
       await db.query("BEGIN");

@@ -174,9 +174,9 @@ module.exports = (db) => {
     router.post('/profile', ensureAdminOrInternal, upload.single('profileImage'), adminController.updateAdminProfile);
     router.post('/profile/notifications', ensureAdminOrInternal, adminController.updateAdminNotificationPrefs);
 
-    router.post('/hold', adminController.holdOrganization);
-    router.post('/resume', adminController.resumeOrganization);
-    router.post('/delete', adminController.deleteOrganization);
+    router.post('/hold', ensureAdmin, adminController.holdOrganization);
+    router.post('/resume', ensureAdmin, adminController.resumeOrganization);
+    router.post('/delete', ensureAdmin, adminController.deleteOrganization);
 
     // Super Admin-only routes
     router.get('/superDashboard', ensureAdmin, async (req, res) => {
@@ -260,7 +260,7 @@ module.exports = (db) => {
     
 
     // Help tickets and messages
-    router.get('/helpMessages', async (req, res) => {
+    router.get('/helpMessages', ensureAdminOrMiniAdmin, async (req, res) => {
         try {
             await adminController.helpMessages(req, res);
         } catch (error) {
@@ -287,9 +287,9 @@ module.exports = (db) => {
         adminController.updateFeedbackStatus
     );
 
-    router.post('/respondMessage', adminController.respondToMessage);
-    router.post('/resolveMessage', adminController.markAsResolved);
-    router.get('/helpHistory', async (req, res) => {
+    router.post('/respondMessage', ensureAdminOrMiniAdmin, adminController.respondToMessage);
+    router.post('/resolveMessage', ensureAdminOrMiniAdmin, adminController.markAsResolved);
+    router.get('/helpHistory', ensureAdminOrMiniAdmin, async (req, res) => {
         try {
             await adminController.helpHistory(req, res);
         } catch (error) {
@@ -299,7 +299,7 @@ module.exports = (db) => {
         }
     });
 
-    router.post('/setFeaturePrice', async (req, res) => {
+    router.post('/setFeaturePrice', ensureAdmin, async (req, res) => {
         const { featureId, priceUsd } = req.body;
       
         try {
@@ -334,10 +334,10 @@ module.exports = (db) => {
       });
       
 
-    router.post('/reopenThread', adminController.reopenThread);
-    router.post('/deleteThread', adminController.deleteThread);
-    router.post('/tempDeleteMessage', adminController.tempDeleteMessage);
-    router.post('/bulkDeleteMessages', async (req, res) => {
+    router.post('/reopenThread', ensureAdminOrMiniAdmin, adminController.reopenThread);
+    router.post('/deleteThread', ensureAdminOrMiniAdmin, adminController.deleteThread);
+    router.post('/tempDeleteMessage', ensureAdminOrMiniAdmin, adminController.tempDeleteMessage);
+    router.post('/bulkDeleteMessages', ensureAdminOrMiniAdmin, async (req, res) => {
         try {
             let ids = req.body.threadIds;
             if (!ids) { req.flash('error', 'No tickets selected.'); return res.redirect('/admin/helpMessages'); }
@@ -353,8 +353,8 @@ module.exports = (db) => {
             res.redirect('/admin/helpMessages');
         }
     });
-    router.post('/restoreMessage', adminController.restoreMessage);
-    router.post('/permanentDeleteMessage', adminController.permanentDeleteMessage); 
+    router.post('/restoreMessage', ensureAdmin, adminController.restoreMessage);
+    router.post('/permanentDeleteMessage', ensureAdmin, adminController.permanentDeleteMessage); 
 
     router.get('/servicePricing', ensureAdmin, adminController.servicePricingGet);
     router.post("/updateFeature", ensureAdmin, adminController.updateFeature);
