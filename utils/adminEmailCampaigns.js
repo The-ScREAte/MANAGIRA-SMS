@@ -64,14 +64,26 @@ async function ensureAdminEmailCampaignSchema(db) {
   `);
 
   // Keep frequency constraint aligned for existing databases.
+  // Wrapped in one DO block so concurrent sweeps do not throw duplicate errors.
   await db.query(`
-    ALTER TABLE admin_email_campaigns
-    DROP CONSTRAINT IF EXISTS admin_email_campaigns_frequency_check
-  `);
-  await db.query(`
-    ALTER TABLE admin_email_campaigns
-    ADD CONSTRAINT admin_email_campaigns_frequency_check
-      CHECK (frequency IN ('once', 'every_1_minute', 'every_3_minutes', 'every_5_minutes', 'every_10_minutes', 'daily', 'every_2_days', 'weekly', 'monthly'))
+    DO $$
+    BEGIN
+      BEGIN
+        ALTER TABLE admin_email_campaigns
+        DROP CONSTRAINT admin_email_campaigns_frequency_check;
+      EXCEPTION WHEN undefined_object THEN
+        NULL;
+      END;
+
+      BEGIN
+        ALTER TABLE admin_email_campaigns
+        ADD CONSTRAINT admin_email_campaigns_frequency_check
+          CHECK (frequency IN ('once', 'every_1_minute', 'every_3_minutes', 'every_5_minutes', 'every_10_minutes', 'daily', 'every_2_days', 'weekly', 'monthly'));
+      EXCEPTION WHEN duplicate_object THEN
+        NULL;
+      END;
+    END
+    $$;
   `);
 
   await db.query(`

@@ -55,6 +55,13 @@ const cacheManager = require("../utils/cacheManager");
 // ──────────────────────────────────────────────────────────────────────────────
 const FIN_CACHE_TTL_SECONDS = 60;
 
+function resolveDbClient(dbArg) {
+  if (dbArg && typeof dbArg.query === "function") {
+    return dbArg;
+  }
+  return db;
+}
+
 function _finKey(orgId, name, extra) {
   const tag = extra ? JSON.stringify(extra) : "";
   return `paygira:${orgId}:${name}:${tag}`;
@@ -7560,7 +7567,7 @@ module.exports = {
    *        GET /guardian/paygira/invoice/:assignmentId
    */
   invoiceGet: async (req, res, dbArg) => {
-    const database = dbArg || db;
+    const database = resolveDbClient(dbArg);
     const orgId = req.session.organizationId;
     const userId = req.session.user?.user_id || req.session.userId || null;
     const guardianId = req.session.guardianId || null;
@@ -7646,7 +7653,7 @@ module.exports = {
    *        GET /guardian/paygira/receipt/:paymentId
    */
   receiptGet: async (req, res, dbArg) => {
-    const database = dbArg || db;
+    const database = resolveDbClient(dbArg);
     const orgId = req.session.organizationId;
     const userId = req.session.user?.user_id || req.session.userId || null;
     const guardianId = req.session.guardianId || null;

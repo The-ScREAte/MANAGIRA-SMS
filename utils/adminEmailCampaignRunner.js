@@ -12,9 +12,21 @@ const {
 const ADMIN_EMAIL_SWEEP_LOCK_KEY = 886431;
 const CAMPAIGN_CLAIM_LEASE_MS = 5 * 60 * 1000;
 const ADMIN_EMAIL_LOG_VERBOSE = String(process.env.LOG_ADMIN_EMAIL_SCHEDULER || "").trim().toLowerCase() === "true";
+let adminEmailSchemaReadyPromise = null;
+
+async function ensureAdminEmailSchemaReady() {
+  if (!adminEmailSchemaReadyPromise) {
+    adminEmailSchemaReadyPromise = ensureAdminEmailCampaignSchema(db).catch((error) => {
+      adminEmailSchemaReadyPromise = null;
+      throw error;
+    });
+  }
+
+  await adminEmailSchemaReadyPromise;
+}
 
 async function runAdminEmailCampaignSweep() {
-  await ensureAdminEmailCampaignSchema(db);
+  await ensureAdminEmailSchemaReady();
 
   const lockResult = await db.query(
     `SELECT pg_try_advisory_lock($1) AS locked`,
