@@ -213,7 +213,7 @@ const checkFeatureAccess = async (req, res, next) => {
         });
   // ...removed warn for clean background operation...
         if (isPublicDashboard) {
-          return res.status(403).send(`<!DOCTYPE html>
+          return res.status(200).send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />

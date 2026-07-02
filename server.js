@@ -160,6 +160,77 @@ const organizationHasSchoolWebsiteFeature = async (org) => {
   return rows.length > 0;
 };
 
+const renderWebsiteNotActivated = (res) => {
+  return res.status(200).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Website Not Activated</title>
+  <style>
+    :root {
+      --bg-1: #f4f7fb;
+      --bg-2: #eaf1f7;
+      --card-bg: #ffffff;
+      --border: #d7e2ee;
+      --text-main: #1f2937;
+      --text-muted: #4b5563;
+      --accent: #01535b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--text-main);
+    }
+
+    .notice-card {
+      width: min(720px, 100%);
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 20px 44px rgba(2, 12, 27, 0.08);
+      padding: 28px 24px;
+      text-align: center;
+    }
+
+    .notice-title {
+      margin: 0 0 12px;
+      font-size: clamp(1.25rem, 2vw, 1.55rem);
+      color: var(--accent);
+      line-height: 1.2;
+    }
+
+    .notice-text {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <main class="notice-card" role="main" aria-live="polite">
+    <h1 class="notice-title">Website Not Activated Yet</h1>
+    <p class="notice-text">Oops! This school has not set up a website with Managira yet. Please reach out to the school to encourage them to activate their School Website plan.</p>
+  </main>
+</body>
+</html>`);
+};
+
 // SEO host normalization: serve a single canonical root host.
 // Keeps Google from indexing both managira.com and www.managira.com as duplicates.
 app.use((req, res, next) => {
@@ -875,6 +946,11 @@ app.get("/", async (req, res) => {
 
   // ✅ Case 2: Production subdomain (e.g. myschool.managira.com)
   if (isProduction && req.schoolDetails) {
+    const hasWebsiteFeature = await organizationHasSchoolWebsiteFeature(req.schoolDetails);
+    if (!hasWebsiteFeature) {
+      return renderWebsiteNotActivated(res);
+    }
+
     req.organizationId = req.schoolDetails.organization_id;
     return commonController.publicDashboardContent(req, res, db);
   }

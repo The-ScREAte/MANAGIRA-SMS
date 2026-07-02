@@ -43,7 +43,7 @@
 
     <!-- Open Graph Meta Tags -->
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="<%= (orgDetails && (orgDetails.organization_name || orgDetails.nickname_display || orgDetails.nickname)) ? (orgDetails.organization_name || orgDetails.nickname_display || orgDetails.nickname) : 'School Website' %>">
+    <meta property="og:site_name" content="<%= (typeof siteName !== 'undefined' && siteName) ? siteName : ((orgDetails && (orgDetails.nickname_display || orgDetails.nickname || orgDetails.organization_name)) ? (orgDetails.nickname_display || orgDetails.nickname || orgDetails.organization_name) : 'School Website') %>">
     <meta property="og:title" content="<%= title %>">
     <% if (typeof description !== 'undefined' && description) { %>
       <meta property="og:description" content="<%= description %>">
@@ -62,17 +62,24 @@
         }
       })();
 
-      const _ogImage = (orgDetails && orgDetails.logo)
-        ? ((/^https?:\/\//i.test(orgDetails.logo)) ? orgDetails.logo : _canonicalOrigin + (orgDetails.logo.startsWith('/') ? '' : '/') + orgDetails.logo)
-        : (_canonicalOrigin + '/images/image.png');
-      const _ogImageWidth = (orgDetails && orgDetails.logo) ? '512' : '804';
-      const _ogImageHeight = (orgDetails && orgDetails.logo) ? '512' : '461';
+      const _toAbsolute = (value) => {
+        if (!value) return '';
+        if (/^https?:\/\//i.test(value)) return value;
+        return _canonicalOrigin + (String(value).startsWith('/') ? '' : '/') + value;
+      };
 
-      const _sessionLogo = (session && session.logo) ? String(session.logo).trim() : '';
-      const _orgLogo = (orgDetails && orgDetails.logo)
-        ? ((/^https?:\/\//i.test(orgDetails.logo)) ? orgDetails.logo : _canonicalOrigin + (orgDetails.logo.startsWith('/') ? '' : '/') + orgDetails.logo)
-        : null;
-      const _schoolIcon = _orgLogo || _sessionLogo;
+      const _schoolLogoCandidate =
+        (orgDetails && (orgDetails.logo || orgDetails.logo_path)) ||
+        ((req && req.schoolDetails) ? (req.schoolDetails.logo || req.schoolDetails.logo_path) : '') ||
+        (session && session.logo) ||
+        '';
+
+      // Keep Google card thumbnail consistent with Managira brand image.
+      const _ogImage = _canonicalOrigin + '/images/managira.png';
+      const _ogImageWidth = '512';
+      const _ogImageHeight = '512';
+
+      const _schoolIcon = _toAbsolute(String(_schoolLogoCandidate || '').trim());
     %>
     <meta property="og:image" content="<%= _ogImage %>">
     <meta property="og:image:width" content="<%= _ogImageWidth %>">
@@ -85,6 +92,8 @@
       <meta name="twitter:description" content="<%= description %>">
     <% } %>
     <meta name="twitter:image" content="<%= _ogImage %>">
+    <meta name="application-name" content="<%= (typeof siteName !== 'undefined' && siteName) ? siteName : ((orgDetails && (orgDetails.nickname_display || orgDetails.nickname || orgDetails.organization_name)) ? (orgDetails.nickname_display || orgDetails.nickname || orgDetails.organization_name) : 'School Website') %>">
+    <meta name="apple-mobile-web-app-title" content="<%= (typeof siteName !== 'undefined' && siteName) ? siteName : ((orgDetails && (orgDetails.nickname_display || orgDetails.nickname || orgDetails.organization_name)) ? (orgDetails.nickname_display || orgDetails.nickname || orgDetails.organization_name) : 'School Website') %>">
 
     <!-- Structured Data (School schema) -->
     <% if (typeof structuredData !== 'undefined' && structuredData) { %>

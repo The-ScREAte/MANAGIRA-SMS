@@ -3244,6 +3244,7 @@ const commonController = {
       const _countryLabel = COUNTRY_NAME_LOOKUP[_countryCode] || _countryCode || "";
       const _nicknameLabel = orgDetails?.nickname ? String(orgDetails.nickname).trim() : "";
       const _nicknameDisplayLabel = orgDetails?.nickname_display ? String(orgDetails.nickname_display).trim() : "";
+      const _schoolSiteName = _nicknameDisplayLabel || _nicknameLabel || String(orgDetails?.organization_name || "").trim() || "School";
       const _seoTitleParts = [orgDetails?.organization_name, _nicknameDisplayLabel, _nicknameLabel, 'Official School Website']
         .map((value) => String(value || '').trim())
         .filter((value, index, list) => value && list.indexOf(value) === index);
@@ -3349,7 +3350,12 @@ const commonController = {
       ].map((value) => String(value || '').trim()).filter(Boolean))];
 
       // Build rich Schema.org School structured data
-      const _logoAbs = toAbsoluteUrl(orgDetails?.logo);
+      const _logoAbs = toAbsoluteUrl(
+        orgDetails?.logo ||
+        orgDetails?.logo_path ||
+        req.schoolDetails?.logo ||
+        req.schoolDetails?.logo_path
+      );
       const _schemaAliases = [..._nameVariants]
         .map((v) => String(v || "").trim())
         .filter(Boolean)
@@ -3403,7 +3409,7 @@ const commonController = {
                 "@type": "WebSite",
                 "@id": `${canonicalUrl}#website`,
                 url: canonicalUrl,
-                name: orgDetails.organization_name,
+                name: _schoolSiteName,
                 ...( _publicAlias ? { alternateName: _publicAlias } : {}),
                 inLanguage: "en",
                 potentialAction: {
@@ -3429,6 +3435,7 @@ const commonController = {
       res.render("common/publicDashboard", {
         layout: false,
         title: seoTitle,
+        siteName: _schoolSiteName,
         description: seoDescription,
         keywords: seoKeywords,
         canonicalUrl,
