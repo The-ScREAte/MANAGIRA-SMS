@@ -63,8 +63,8 @@
 
     .class-layout { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: start; }
     .class-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); display: flex; flex-wrap: wrap; gap: 8px; }
-    .class-button { min-width: 120px; text-align: left; border: 1px solid var(--border); background: #fff; padding: 9px 11px; border-radius: 10px; cursor: pointer; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-    .class-button.active { border-color: var(--primary); background: rgba(15,90,102,0.08); color: var(--primary); }
+    .class-button { min-width: 120px; text-align: left; border: 1px solid var(--border); background: #fff; color: var(--text); padding: 9px 11px; border-radius: 10px; cursor: pointer; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .class-button.active { border-color: var(--primary); background: rgba(15,90,102,0.08); color: var(--text); }
     .class-panel { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); }
 
     .table-wrapper { overflow-x: auto; margin-top: 14px; -webkit-overflow-scrolling: touch; }
@@ -135,12 +135,135 @@
       margin-bottom: 8px;
     }
 
+    .paygira-field-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+      padding: 6px 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .paygira-field-toggle:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 40%, white);
+      outline-offset: 1px;
+    }
+
+    .paygira-field-toggle-arrow {
+      font-size: 10px;
+      color: var(--muted);
+      transition: transform 0.2s ease;
+    }
+
+    .paygira-field-card.is-open .paygira-field-toggle-arrow {
+      transform: rotate(180deg);
+    }
+
+    .paygira-preview-box.is-open .paygira-field-toggle-arrow {
+      transform: rotate(180deg);
+    }
+
     .paygira-field-row {
       display: grid;
       grid-template-columns: 1.2fr 1fr auto;
       gap: 6px;
       margin-bottom: 6px;
       align-items: center;
+    }
+
+    .paygira-totals-wrap {
+      margin-top: 10px;
+      border-top: 1px dashed #dbe3ee;
+      padding-top: 8px;
+    }
+
+    .paygira-total-card {
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      padding: 8px;
+      background: #fff;
+      margin-bottom: 8px;
+    }
+
+    .paygira-total-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+      padding: 6px 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .paygira-total-toggle:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--primary) 40%, white);
+      outline-offset: 1px;
+    }
+
+    .paygira-total-card.is-open .paygira-field-toggle-arrow {
+      transform: rotate(180deg);
+    }
+
+    .paygira-total-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .paygira-total-fields {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 4px 8px;
+      border-top: 1px dashed #e2e8f0;
+      padding-top: 6px;
+    }
+
+    .paygira-total-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: #334155;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .paygira-total-field.is-disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .paygira-total-preview {
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    .paygira-total-preview-note {
+      color: #64748b;
+      font-size: 10px;
+    }
+
+    .input-required-error {
+      border-color: #dc2626 !important;
+      box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+      background: #fff7f7 !important;
     }
 
     .paygira-field-apply {
@@ -210,6 +333,7 @@
     }
 
     .paygira-field-row input,
+    .paygira-total-row input,
     .paygira-field-row select,
     .paygira-adv-row input[type="date"] {
       border: 1px solid var(--border);
@@ -217,6 +341,22 @@
       padding: 5px 7px;
       background: #fff;
       font-size: 12px;
+    }
+
+    /* Keep Advanced panel fully contained on narrow screens */
+    #advancedDsAccordion,
+    #advancedDsPanel {
+      max-width: 100%;
+    }
+
+    #advancedDsPanel {
+      overflow-x: hidden;
+    }
+
+    #advancedDsPanel * {
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     @media (max-width: 960px) { .class-layout { grid-template-columns: 1fr; } .class-button { display: inline-flex; width: auto; } }
@@ -244,6 +384,61 @@
       .remark-text { font-size: 0.9rem; }
       table { min-width: 580px; }
       th, td { padding: 7px 6px; font-size: 0.85rem; }
+
+      #advancedDsPanel {
+        padding: 12px !important;
+      }
+
+      #advancedDsPanel .ds-adv-flat-lbl,
+      #advancedDsPanel .ds-adv-sub-lbl,
+      #advancedDsPanel .ds-adv-lbl {
+        font-size: 0.8rem;
+      }
+
+      #advancedDsPanel .paygira-adv-row,
+      #advancedDsPanel #ds-paygira-future-name-wrap {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      #advancedDsPanel .paygira-field-row {
+        grid-template-columns: 1fr;
+      }
+
+      #advancedDsPanel .paygira-total-row {
+        grid-template-columns: 1fr;
+      }
+
+      #advancedDsPanel .paygira-apply-classes-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #advancedDsPanel .paygira-preview-box {
+        overflow-x: auto;
+      }
+
+      #advancedDsPanel input[type="text"],
+      #advancedDsPanel input[type="number"],
+      #advancedDsPanel input[type="date"],
+      #advancedDsPanel select,
+      #advancedDsPanel textarea {
+        width: 100%;
+        min-width: 0 !important;
+      }
+
+      #advancedDsPanel label[style*="min-width:220px"] {
+        min-width: 0 !important;
+        width: 100% !important;
+      }
+
+      #advancedDsPanel #ds-paygira-future-bill-name {
+        min-width: 0 !important;
+        width: 100%;
+      }
+
+      #advancedDsPanel div[style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
     }
 
     /* ── Collapsible cards ── */
@@ -311,7 +506,7 @@
           <% enrolledClasses.forEach((cls, idx) => { const hasSetting = groupedStatusSettings.some(s => s.classes && s.classes.includes(cls.class_id)); %>
             <button type="button" class="class-button" data-class-id="<%= cls.class_id %>" <%= idx===0 ? 'aria-current="true"' : '' %>>
               <span><%= cls.class_name %></span>
-              <span style="font-size:12px;color:<%= hasSetting ? 'var(--primary)' : '#94a3b8' %>;"><%= hasSetting ? 'Has settings' : 'No settings' %></span>
+              <span style="font-size:12px;color:<%= hasSetting ? 'var(--text)' : '#94a3b8' %>;"><%= hasSetting ? 'Has settings' : 'No settings' %></span>
             </button>
           <% }); %>
         </div>
@@ -386,9 +581,23 @@
 
             <div style="display:grid;grid-template-columns:1fr;gap:12px;">
               <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <div style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;margin-bottom:10px;">
                   <div style="font-weight:700;color:var(--primary);">Grade Mapping</div>
-                  <a href="javascript:void(0)" id="toggleGradeForm" style="color:var(--primary);font-weight:600;text-decoration:none;">+ Add Grade Rule</a>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;min-width:0;">
+                    <label style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
+                      Format
+                      <select id="gradeDisplayModeSelect" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;min-width:114px;font-size:0.86rem;line-height:1.15;">
+                        <option value="letters">Letters</option>
+                        <option value="numbers">Numbers</option>
+                        <option value="both">Letters + Numbers</option>
+                      </select>
+                    </label>
+                    <label id="showGradeNumericTotalWrap" style="display:none;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
+                      <input type="checkbox" id="showGradeNumericTotalOnReport" style="accent-color:var(--primary);">
+                      Show on report
+                    </label>
+                  </div>
+                  <a href="javascript:void(0)" id="toggleGradeForm" style="color:var(--primary);font-weight:600;text-decoration:none;white-space:nowrap;">+ Add Grade Rule</a>
                 </div>
 
                 <div id="gradeFormContainer" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;">
@@ -742,8 +951,41 @@
     const modifyBtn = document.getElementById('modifySettingsBtn');
     const cancelBtn = document.getElementById('cancelEditBtn');
     const currentSettingsDisplay = document.getElementById('currentSettingsDisplay');
+    const gradeDisplayModeSelect = document.getElementById('gradeDisplayModeSelect');
+    const showGradeNumericTotalWrap = document.getElementById('showGradeNumericTotalWrap');
+    const showGradeNumericTotalOnReport = document.getElementById('showGradeNumericTotalOnReport');
+
+    function confirmDestructiveAction(message) {
+      return window.confirm(message || 'Are you sure you want to continue?');
+    }
+
+    // Confirm hard deletes for score/remark entries before navigating.
+    document.addEventListener('click', (event) => {
+      const deleteLink = event.target.closest('a[href*="/print/deleteScoreRemark/"], a[href*="/print/deleteRemark/"]');
+      if (!deleteLink) return;
+      if (!confirmDestructiveAction('Delete this item? This action cannot be undone.')) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    });
 
     function loadClassSettings(classId){
+            const classDisplaySettings = allDisplaySettingsMap[String(classId)] || {};
+            const gradePresentation = (classDisplaySettings.sections && classDisplaySettings.sections.gradePresentation) || {};
+            const gradeMode = (gradePresentation.mode === 'numbers' || gradePresentation.mode === 'both')
+              ? gradePresentation.mode
+              : 'letters';
+            if (gradeDisplayModeSelect) {
+              gradeDisplayModeSelect.value = gradeMode;
+            }
+            const showNumericTotal = gradeMode === 'numbers' && gradePresentation.showNumberTotalOnReport === true;
+            if (showGradeNumericTotalOnReport) {
+              showGradeNumericTotalOnReport.checked = showNumericTotal;
+            }
+            if (showGradeNumericTotalWrap) {
+              showGradeNumericTotalWrap.style.display = gradeMode === 'numbers' ? 'inline-flex' : 'none';
+            }
+
       classIdField.value = classId;
       selectedStatusClasses.value = classId;
       classButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.classId === String(classId)));
@@ -977,6 +1219,74 @@
     });
 
     classButtons.forEach(btn => { btn.addEventListener('click', () => loadClassSettings(btn.dataset.classId)); });
+
+    async function persistGradePresentationSelection() {
+      const classId = classIdField.value;
+      const classDs = allDisplaySettingsMap[String(classId)] || { columns: {}, sections: {} };
+      const selectedMode = gradeDisplayModeSelect && (gradeDisplayModeSelect.value === 'numbers' || gradeDisplayModeSelect.value === 'both')
+        ? gradeDisplayModeSelect.value
+        : 'letters';
+      if (showGradeNumericTotalWrap) {
+        showGradeNumericTotalWrap.style.display = selectedMode === 'numbers' ? 'inline-flex' : 'none';
+      }
+      if (selectedMode !== 'numbers' && showGradeNumericTotalOnReport) {
+        showGradeNumericTotalOnReport.checked = false;
+      }
+      classDs.sections = classDs.sections || {};
+      classDs.sections.gradePresentation = {
+        mode: selectedMode,
+        showNumberTotalOnReport: selectedMode === 'numbers' && showGradeNumericTotalOnReport?.checked === true,
+      };
+      allDisplaySettingsMap[String(classId)] = classDs;
+      await saveAdvancedDisplaySettings(classId);
+    }
+
+    function getCurrentGradePresentationState() {
+      const classId = classIdField.value;
+      const classDs = allDisplaySettingsMap[String(classId)] || {};
+      const gradePresentation = (classDs.sections && classDs.sections.gradePresentation) || {};
+      const mode = (gradePresentation.mode === 'numbers' || gradePresentation.mode === 'both')
+        ? gradePresentation.mode
+        : 'letters';
+      const showOnReport = mode === 'numbers' && gradePresentation.showNumberTotalOnReport === true;
+      return { mode, showOnReport };
+    }
+
+    gradeDisplayModeSelect?.addEventListener('change', async () => {
+      const prev = getCurrentGradePresentationState();
+      const nextMode = (gradeDisplayModeSelect.value === 'numbers' || gradeDisplayModeSelect.value === 'both')
+        ? gradeDisplayModeSelect.value
+        : 'letters';
+      if (nextMode === prev.mode) return;
+
+      const ok = confirmDestructiveAction('Change Format? This will update how grades display on report for this class.');
+      if (!ok) {
+        gradeDisplayModeSelect.value = prev.mode;
+        if (showGradeNumericTotalOnReport) {
+          showGradeNumericTotalOnReport.checked = prev.showOnReport;
+        }
+        if (showGradeNumericTotalWrap) {
+          showGradeNumericTotalWrap.style.display = prev.mode === 'numbers' ? 'inline-flex' : 'none';
+        }
+        return;
+      }
+
+      await persistGradePresentationSelection();
+    });
+
+    showGradeNumericTotalOnReport?.addEventListener('change', async () => {
+      const prev = getCurrentGradePresentationState();
+      const nextChecked = showGradeNumericTotalOnReport.checked === true;
+      if (nextChecked === prev.showOnReport) return;
+
+      const ok = confirmDestructiveAction('Change Show on report setting? This affects grade total visibility for this class report.');
+      if (!ok) {
+        showGradeNumericTotalOnReport.checked = prev.showOnReport;
+        return;
+      }
+
+      await persistGradePresentationSelection();
+    });
 
     // Grade mapping + score remark forms (separate UI / separate save intent)
     const toggleGradeFormLink = document.getElementById('toggleGradeForm');
@@ -2132,6 +2442,7 @@
       const paygiraFutureBillName = dsEsc(paygiraFuture.billName || '');
       const paygiraManual = paygiraBills.manual || {};
       const paygiraManualFields = Array.isArray(paygiraManual.fields) ? paygiraManual.fields : [];
+      const paygiraManualTotals = Array.isArray(paygiraManual.totals) ? paygiraManual.totals : [];
       const paygiraAutoMetrics = [
         ['totalPaid', 'Total Paid'],
         ['defaultArrears', 'Default Arrears'],
@@ -2158,10 +2469,50 @@
             <input type="text" class="ds-paygira-manual-default" placeholder="Value for all students (text or number)" value="${defaultValue}">
             <button type="button" class="btn btn-danger ds-paygira-remove-field" style="padding:4px 8px;font-size:0.75rem;">Remove</button>
           </div>
-          <div class="paygira-field-apply">
+          <div class="paygira-field-toggle" role="button" tabindex="0" aria-expanded="false">
+            <span>Apply to other classes</span>
+            <span class="paygira-field-toggle-arrow">▼</span>
+          </div>
+          <div class="paygira-field-apply" style="display:none;">
             <div class="paygira-field-apply-title">Apply to other classes</div>
             <div class="paygira-apply-classes-grid">${applyClassesHtml}</div>
           </div>
+        </div>`;
+      }).join('');
+      const paygiraManualFieldOptionsFromDefaults = paygiraManualFields
+        .map((field, index) => {
+          const label = String(field.label || '').trim();
+          if (!label) return null;
+          const keyCandidate = String(field.key || '').trim();
+          const key = keyCandidate || label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `field_${index + 1}`;
+          return { key, label };
+        })
+        .filter(Boolean);
+      const paygiraManualTotalsHtml = paygiraManualTotals.map((total, index) => {
+        const label = dsEsc(String(total.label || ''));
+        const selectedFieldKeys = new Set(Array.isArray(total.fieldKeys) ? total.fieldKeys.map((key) => String(key || '').trim()).filter(Boolean) : []);
+        const fieldOptionsHtml = paygiraManualFieldOptionsFromDefaults.length
+          ? paygiraManualFieldOptionsFromDefaults.map((field) => `
+              <label class="paygira-total-field">
+                <input type="checkbox" class="ds-paygira-total-field" value="${dsEsc(field.key)}" style="accent-color:var(--primary);" ${selectedFieldKeys.has(field.key) ? 'checked' : ''}>
+                ${dsEsc(field.label)}
+              </label>
+            `).join('')
+          : '<div style="font-size:11px;color:var(--muted);">Add manual fields first to build totals.</div>';
+        return `<div class="paygira-total-card ds-paygira-manual-total">
+          <div class="paygira-total-row">
+            <input type="text" class="ds-paygira-total-label" placeholder="Total name" value="${label}">
+            <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#334155;white-space:nowrap;">
+              <input type="checkbox" class="ds-paygira-total-show" style="accent-color:var(--primary);" ${total.showOnReport !== false ? 'checked' : ''}>
+              Show on report
+            </label>
+            <button type="button" class="btn btn-danger ds-paygira-remove-total" style="padding:4px 8px;font-size:0.75rem;">Remove</button>
+          </div>
+          <div class="paygira-total-toggle" role="button" tabindex="0" aria-expanded="false">
+            <span>Select fields for this total</span>
+            <span class="paygira-field-toggle-arrow">▼</span>
+          </div>
+          <div class="paygira-total-fields" style="display:none;">${fieldOptionsHtml}</div>
         </div>`;
       }).join('');
       const paygiraHtml = `
@@ -2226,9 +2577,21 @@
           <div id="ds-paygira-manual-box" style="display:${paygiraMode === 'manual' ? 'block' : 'none'};">
             <div id="ds-paygira-manual-fields-wrap">${paygiraManualFieldsHtml}</div>
             <button type="button" id="ds-paygira-add-field" class="btn" style="padding:5px 10px;font-size:0.78rem;">+ Add Field</button>
-            <div class="paygira-preview-box">
-              <div class="paygira-preview-title">Preview on Report</div>
-              <div id="ds-paygira-manual-preview"></div>
+            <div class="paygira-totals-wrap">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+                <span class="paygira-preview-title" style="margin:0;">Totals</span>
+                <button type="button" id="ds-paygira-add-total" class="btn" style="padding:5px 10px;font-size:0.78rem;">+ Add Total</button>
+              </div>
+              <div id="ds-paygira-manual-totals-wrap">${paygiraManualTotalsHtml}</div>
+            </div>
+            <div class="paygira-preview-box" id="ds-paygira-preview-box">
+              <div class="paygira-field-toggle paygira-preview-toggle" id="ds-paygira-preview-toggle" role="button" tabindex="0" aria-expanded="false">
+                <span class="paygira-preview-title" style="margin:0;">Preview on Report</span>
+                <span class="paygira-field-toggle-arrow">▼</span>
+              </div>
+              <div id="ds-paygira-manual-preview-wrap" style="display:none;margin-top:8px;">
+                <div id="ds-paygira-manual-preview"></div>
+              </div>
             </div>
           </div>
         </div>`;
@@ -2250,10 +2613,14 @@
             ${buildMasterGroupHtml('examsScore','Exams Score',examsItems,ds.columns.examsScore,ds.columns.examsScore_items)}
             ${buildMasterGroupHtml('otherScore','Other Score',otherItems,ds.columns.otherScore,ds.columns.otherScore_items)}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px;">${flatColsHtml}</div>
+            <div id="ds-adv-sections-left-wrap" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;">
+              <p class="ds-adv-section-label" style="margin-bottom:6px;">Report Sections</p>
+              <div id="ds-adv-sections-left-list" style="display:flex;flex-direction:column;gap:3px;"></div>
+            </div>
           </div>
           <div>
             <p class="ds-adv-section-label">Report Sections</p>
-            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${attendanceManualRow}${paygiraHtml}${secHtml}</div>
+            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${attendanceManualRow}${paygiraHtml}<div id="ds-adv-sections-right-wrap"><div id="ds-adv-sections-right-list">${secHtml}</div></div></div>
           </div>
         </div>
         <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
@@ -2297,27 +2664,178 @@
       const paygiraScopeRadios = panel.querySelectorAll('input[name="ds-paygira-scope"]');
       const paygiraFutureActionRadios = panel.querySelectorAll('input[name="ds-paygira-future-action"]');
       const paygiraFutureNameWrap = document.getElementById('ds-paygira-future-name-wrap');
+      const sectionsLeftWrap = document.getElementById('ds-adv-sections-left-wrap');
+      const sectionsLeftList = document.getElementById('ds-adv-sections-left-list');
+      const sectionsRightWrap = document.getElementById('ds-adv-sections-right-wrap');
+      const sectionsRightList = document.getElementById('ds-adv-sections-right-list');
       const paygiraFieldsWrap = document.getElementById('ds-paygira-manual-fields-wrap');
       const paygiraAddFieldBtn = document.getElementById('ds-paygira-add-field');
+      const paygiraTotalsWrap = document.getElementById('ds-paygira-manual-totals-wrap');
+      const paygiraAddTotalBtn = document.getElementById('ds-paygira-add-total');
+      const paygiraPreviewBox = document.getElementById('ds-paygira-preview-box');
+      const paygiraPreviewToggle = document.getElementById('ds-paygira-preview-toggle');
+      const paygiraPreviewWrap = document.getElementById('ds-paygira-manual-preview-wrap');
       const paygiraManualPreview = document.getElementById('ds-paygira-manual-preview');
 
-      function renderPaygiraManualPreview() {
-        if (!paygiraManualPreview) return;
-        const rows = Array.from(panel.querySelectorAll('.ds-paygira-manual-field')).map((row) => {
+      const setPaygiraPreviewExpanded = (expanded) => {
+        if (paygiraPreviewBox) paygiraPreviewBox.classList.toggle('is-open', expanded);
+        if (paygiraPreviewWrap) paygiraPreviewWrap.style.display = expanded ? 'block' : 'none';
+        if (paygiraPreviewToggle) paygiraPreviewToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      };
+
+      const togglePaygiraPreview = () => {
+        const isOpen = !!(paygiraPreviewBox && paygiraPreviewBox.classList.contains('is-open'));
+        setPaygiraPreviewExpanded(!isOpen);
+      };
+
+      paygiraPreviewToggle?.addEventListener('click', togglePaygiraPreview);
+      paygiraPreviewToggle?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          togglePaygiraPreview();
+        }
+      });
+
+      // Start collapsed; user opens when needed.
+      setPaygiraPreviewExpanded(false);
+
+      const getManualFieldRows = () => {
+        return Array.from(panel.querySelectorAll('.ds-paygira-manual-field')).map((row, index) => {
           const label = row.querySelector('.ds-paygira-manual-label')?.value?.trim() || '';
           const defaultValueRaw = row.querySelector('.ds-paygira-manual-default')?.value?.trim() || '';
           if (!label) return null;
-          const value = defaultValueRaw === '' ? '-' : defaultValueRaw;
-          return { label, value };
+          const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `field_${index + 1}`;
+          return {
+            key,
+            label,
+            value: defaultValueRaw,
+          };
         }).filter(Boolean);
+      };
 
+      const readTotalSelectedKeys = (totalRow) => {
+        return Array.from(totalRow.querySelectorAll('.ds-paygira-total-field:checked'))
+          .map((cb) => String(cb.value || '').trim())
+          .filter(Boolean);
+      };
+
+      const getSelectedKeysFromOtherTotals = (currentRow) => {
+        const used = new Set();
+        panel.querySelectorAll('.ds-paygira-manual-total').forEach((row) => {
+          if (row === currentRow) return;
+          readTotalSelectedKeys(row).forEach((key) => used.add(key));
+        });
+        return used;
+      };
+
+      function syncAllPaygiraManualTotalFieldOptions() {
+        panel.querySelectorAll('.ds-paygira-manual-total').forEach((totalRow) => {
+          syncPaygiraManualTotalFieldOptions(totalRow);
+        });
+      }
+
+      function enforceUniquePaygiraTotalFieldSelections() {
+        const seen = new Set();
+        panel.querySelectorAll('.ds-paygira-manual-total').forEach((totalRow) => {
+          totalRow.querySelectorAll('.ds-paygira-total-field').forEach((cb) => {
+            const key = String(cb.value || '').trim();
+            if (!key || !cb.checked) return;
+            if (seen.has(key)) {
+              cb.checked = false;
+            } else {
+              seen.add(key);
+            }
+          });
+        });
+      }
+
+      function handlePaygiraTotalFieldChange(totalRow, changedCheckbox) {
+        if (!changedCheckbox) return;
+        const key = String(changedCheckbox.value || '').trim();
+        if (!key) return;
+
+        if (changedCheckbox.checked) {
+          panel.querySelectorAll('.ds-paygira-manual-total').forEach((row) => {
+            if (row === totalRow) return;
+            row.querySelectorAll('.ds-paygira-total-field').forEach((cb) => {
+              if (String(cb.value || '').trim() === key) cb.checked = false;
+            });
+          });
+        }
+
+        syncAllPaygiraManualTotalFieldOptions();
+        renderPaygiraManualPreview();
+      }
+
+      function syncPaygiraManualTotalFieldOptions(totalRow) {
+        if (!totalRow) return;
+        const fieldsWrap = totalRow.querySelector('.paygira-total-fields');
+        if (!fieldsWrap) return;
+
+        const selectedSet = new Set(readTotalSelectedKeys(totalRow));
+        const selectedElsewhere = getSelectedKeysFromOtherTotals(totalRow);
+        const rows = getManualFieldRows();
         if (!rows.length) {
-          paygiraManualPreview.innerHTML = '<div style="font-size:11px;color:var(--muted);">No manual fields configured yet.</div>';
+          fieldsWrap.innerHTML = '<div style="font-size:11px;color:var(--muted);">Add manual fields first to build totals.</div>';
           return;
         }
 
-        paygiraManualPreview.innerHTML = `
-          <table class="paygira-preview-table">
+        fieldsWrap.innerHTML = rows.map((entry) => `
+          <label class="paygira-total-field ${(selectedElsewhere.has(entry.key) && !selectedSet.has(entry.key)) ? 'is-disabled' : ''}">
+            <input type="checkbox" class="ds-paygira-total-field" value="${dsEsc(entry.key)}" style="accent-color:var(--primary);" ${selectedSet.has(entry.key) ? 'checked' : ''} ${(selectedElsewhere.has(entry.key) && !selectedSet.has(entry.key)) ? 'disabled' : ''}>
+            ${dsEsc(entry.label)}
+          </label>
+        `).join('');
+
+        fieldsWrap.querySelectorAll('.ds-paygira-total-field').forEach((cb) => {
+          cb.addEventListener('change', () => handlePaygiraTotalFieldChange(totalRow, cb));
+        });
+      }
+
+      function renderPaygiraManualPreview() {
+        if (!paygiraManualPreview) return;
+        const rows = getManualFieldRows();
+        const valueByKey = Object.fromEntries(
+          rows.map((entry) => {
+            const n = Number.parseFloat(String(entry.value || '').replace(/,/g, ''));
+            return [entry.key, Number.isFinite(n) ? n : null];
+          })
+        );
+        const labelByKey = Object.fromEntries(rows.map((entry) => [entry.key, entry.label]));
+
+        const totals = Array.from(panel.querySelectorAll('.ds-paygira-manual-total')).map((totalRow, index) => {
+          const label = totalRow.querySelector('.ds-paygira-total-label')?.value?.trim() || '';
+          if (!label) return null;
+          const showOnReport = !!totalRow.querySelector('.ds-paygira-total-show')?.checked;
+          const fieldKeys = readTotalSelectedKeys(totalRow);
+          const parts = fieldKeys
+            .map((fieldKey) => {
+              const v = valueByKey[fieldKey];
+              return {
+                key: fieldKey,
+                label: labelByKey[fieldKey] || fieldKey,
+                value: v,
+              };
+            });
+          const numericParts = parts.filter((part) => Number.isFinite(part.value));
+          const sum = numericParts.reduce((acc, part) => acc + Number(part.value || 0), 0);
+          return {
+            key: label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `total_${index + 1}`,
+            label,
+            showOnReport,
+            fieldKeys,
+            sum,
+            breakdown: parts,
+          };
+        }).filter(Boolean);
+
+        const noRowsHtml = !rows.length
+          ? '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">No manual fields configured yet.</div>'
+          : '';
+
+        const fieldsTableHtml = rows.length
+          ? `
+          <table class="paygira-preview-table" style="margin-bottom:8px;">
             <thead>
               <tr>
                 <th>Item</th>
@@ -2328,16 +2846,74 @@
               ${rows.map((entry) => `
                 <tr>
                   <td>${dsEsc(entry.label)}</td>
-                  <td>${dsEsc(String(entry.value))}</td>
+                  <td>${dsEsc(String(entry.value === '' ? '-' : entry.value))}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
-        `;
+          `
+          : '';
+
+        const totalsRowsHtml = totals.map((total) => {
+          const display = Number.isInteger(total.sum) ? String(total.sum) : total.sum.toFixed(2);
+          const breakdown = total.breakdown.length
+            ? total.breakdown.map((part) => `${part.label}: ${Number.isFinite(part.value) ? part.value : '-'}`).join(' + ')
+            : 'No fields selected';
+          return `
+            <tr>
+              <td>
+                <div class="paygira-total-preview">${dsEsc(total.label)}${total.showOnReport ? '' : ' (hidden on report)'}</div>
+                <div class="paygira-total-preview-note">${dsEsc(breakdown)}</div>
+              </td>
+              <td>${dsEsc(display)}</td>
+            </tr>
+          `;
+        }).join('');
+
+        const totalsTableHtml = totals.length
+          ? `
+            <table class="paygira-preview-table">
+              <thead>
+                <tr>
+                  <th>Total</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>${totalsRowsHtml}</tbody>
+            </table>
+          `
+          : '<div style="font-size:11px;color:var(--muted);">No totals configured yet.</div>';
+
+        paygiraManualPreview.innerHTML = `${noRowsHtml}${fieldsTableHtml}${totalsTableHtml}`;
       }
 
       function wirePaygiraManualFieldRow(row) {
         if (!row) return;
+        const applyWrap = row.querySelector('.paygira-field-apply');
+        const toggle = row.querySelector('.paygira-field-toggle');
+
+        const setExpanded = (expanded) => {
+          row.classList.toggle('is-open', expanded);
+          if (applyWrap) applyWrap.style.display = expanded ? 'block' : 'none';
+          if (toggle) toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        };
+
+        const toggleExpanded = () => {
+          const isOpen = row.classList.contains('is-open');
+          setExpanded(!isOpen);
+        };
+
+        toggle?.addEventListener('click', toggleExpanded);
+        toggle?.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleExpanded();
+          }
+        });
+
+        // Start collapsed; user can expand when needed.
+        setExpanded(false);
+
         const allClassesToggle = row.querySelector('.ds-paygira-apply-all');
         const classCheckboxes = Array.from(row.querySelectorAll('.ds-paygira-apply-class')).filter((cb) => !cb.disabled);
         const syncAllClassesToggle = () => {
@@ -2355,11 +2931,68 @@
         syncAllClassesToggle();
 
         row.querySelector('.ds-paygira-remove-field')?.addEventListener('click', () => {
+          const fieldName = row.querySelector('.ds-paygira-manual-label')?.value?.trim() || 'this field';
+          if (!confirmDestructiveAction(`Remove ${fieldName}?`)) {
+            return;
+          }
           row.remove();
+          syncAllPaygiraManualTotalFieldOptions();
           renderPaygiraManualPreview();
         });
-        row.querySelector('.ds-paygira-manual-label')?.addEventListener('input', renderPaygiraManualPreview);
+        row.querySelector('.ds-paygira-manual-label')?.addEventListener('input', () => {
+          row.querySelector('.ds-paygira-manual-label')?.classList.remove('input-required-error');
+          syncAllPaygiraManualTotalFieldOptions();
+          renderPaygiraManualPreview();
+        });
         row.querySelector('.ds-paygira-manual-default')?.addEventListener('input', renderPaygiraManualPreview);
+        renderPaygiraManualPreview();
+      }
+
+      function wirePaygiraManualTotalRow(totalRow) {
+        if (!totalRow) return;
+        const fieldsWrap = totalRow.querySelector('.paygira-total-fields');
+        const toggle = totalRow.querySelector('.paygira-total-toggle');
+
+        const setExpanded = (expanded) => {
+          totalRow.classList.toggle('is-open', expanded);
+          if (fieldsWrap) fieldsWrap.style.display = expanded ? 'grid' : 'none';
+          if (toggle) toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        };
+
+        const toggleExpanded = () => {
+          const isOpen = totalRow.classList.contains('is-open');
+          setExpanded(!isOpen);
+        };
+
+        toggle?.addEventListener('click', toggleExpanded);
+        toggle?.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleExpanded();
+          }
+        });
+
+        // Start collapsed; user can expand when needed.
+        setExpanded(false);
+
+        totalRow.querySelector('.ds-paygira-remove-total')?.addEventListener('click', () => {
+          const totalName = totalRow.querySelector('.ds-paygira-total-label')?.value?.trim() || 'this total';
+          if (!confirmDestructiveAction(`Remove ${totalName}?`)) {
+            return;
+          }
+          totalRow.remove();
+          syncAllPaygiraManualTotalFieldOptions();
+          renderPaygiraManualPreview();
+        });
+        totalRow.querySelector('.ds-paygira-total-label')?.addEventListener('input', () => {
+          totalRow.querySelector('.ds-paygira-total-label')?.classList.remove('input-required-error');
+          renderPaygiraManualPreview();
+        });
+        totalRow.querySelector('.ds-paygira-total-show')?.addEventListener('change', renderPaygiraManualPreview);
+        totalRow.querySelectorAll('.ds-paygira-total-field').forEach((cb) => {
+          cb.addEventListener('change', () => handlePaygiraTotalFieldChange(totalRow, cb));
+        });
+        syncPaygiraManualTotalFieldOptions(totalRow);
         renderPaygiraManualPreview();
       }
 
@@ -2395,21 +3028,79 @@
             <input type="text" class="ds-paygira-manual-default" placeholder="Value for all students (text or number)" value="${dsEsc(defaultValue)}">
             <button type="button" class="btn btn-danger ds-paygira-remove-field" style="padding:4px 8px;font-size:0.75rem;">Remove</button>
           </div>
-          <div class="paygira-field-apply">
+          <div class="paygira-field-toggle" role="button" tabindex="0" aria-expanded="false">
+            <span>Apply to other classes</span>
+            <span class="paygira-field-toggle-arrow">▼</span>
+          </div>
+          <div class="paygira-field-apply" style="display:none;">
             <div class="paygira-field-apply-title">Apply to other classes</div>
             <div class="paygira-apply-classes-grid">${buildPaygiraApplyClassesHtml(rowId, selectedApplyClasses, classIdField.value)}</div>
           </div>
         `;
         wirePaygiraManualFieldRow(row);
         paygiraFieldsWrap.appendChild(row);
+        syncAllPaygiraManualTotalFieldOptions();
+      }
+
+      function addPaygiraManualTotalRow(label = '', showOnReport = true, fieldKeys = []) {
+        if (!paygiraTotalsWrap) return;
+        const totalRow = document.createElement('div');
+        totalRow.className = 'paygira-total-card ds-paygira-manual-total';
+        totalRow.innerHTML = `
+          <div class="paygira-total-row">
+            <input type="text" class="ds-paygira-total-label" placeholder="Total name" value="${dsEsc(label)}">
+            <label style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#334155;white-space:nowrap;">
+              <input type="checkbox" class="ds-paygira-total-show" style="accent-color:var(--primary);" ${showOnReport ? 'checked' : ''}>
+              Show on report
+            </label>
+            <button type="button" class="btn btn-danger ds-paygira-remove-total" style="padding:4px 8px;font-size:0.75rem;">Remove</button>
+          </div>
+          <div class="paygira-total-toggle" role="button" tabindex="0" aria-expanded="false">
+            <span>Select fields for this total</span>
+            <span class="paygira-field-toggle-arrow">▼</span>
+          </div>
+          <div class="paygira-total-fields" style="display:none;"></div>
+        `;
+        paygiraTotalsWrap.appendChild(totalRow);
+        wirePaygiraManualTotalRow(totalRow);
+        const selected = new Set((Array.isArray(fieldKeys) ? fieldKeys : []).map((key) => String(key || '').trim()).filter(Boolean));
+        totalRow.querySelectorAll('.ds-paygira-total-field').forEach((cb) => {
+          cb.checked = selected.has(String(cb.value || '').trim());
+        });
+        enforceUniquePaygiraTotalFieldSelections();
+        syncAllPaygiraManualTotalFieldOptions();
+        renderPaygiraManualPreview();
+      }
+
+      function moveAllChildNodes(fromNode, toNode) {
+        if (!fromNode || !toNode) return;
+        while (fromNode.firstChild) {
+          toNode.appendChild(fromNode.firstChild);
+        }
+      }
+
+      function syncReportSectionsPlacement() {
+        const billingEnabled = paygiraEnabledCb?.checked === true;
+        if (billingEnabled) {
+          moveAllChildNodes(sectionsRightList, sectionsLeftList);
+          if (sectionsLeftWrap) sectionsLeftWrap.style.display = 'block';
+          if (sectionsRightWrap) sectionsRightWrap.style.display = 'none';
+        } else {
+          moveAllChildNodes(sectionsLeftList, sectionsRightList);
+          if (sectionsLeftWrap) sectionsLeftWrap.style.display = 'none';
+          if (sectionsRightWrap) sectionsRightWrap.style.display = 'block';
+        }
       }
 
       if (paygiraEnabledCb && paygiraBox) {
         const syncPaygiraEnabledState = () => {
           paygiraBox.style.display = paygiraEnabledCb.checked ? 'block' : 'none';
+          syncReportSectionsPlacement();
         };
         syncPaygiraEnabledState();
         paygiraEnabledCb.addEventListener('change', syncPaygiraEnabledState);
+      } else {
+        syncReportSectionsPlacement();
       }
       paygiraModeRadios.forEach((radio) => radio.addEventListener('change', renderPaygiraMode));
       paygiraScopeRadios.forEach((radio) => radio.addEventListener('change', renderPaygiraScope));
@@ -2420,11 +3111,18 @@
       paygiraFieldsWrap?.querySelectorAll('.ds-paygira-manual-field').forEach((row) => {
         wirePaygiraManualFieldRow(row);
       });
+      paygiraTotalsWrap?.querySelectorAll('.ds-paygira-manual-total').forEach((totalRow) => {
+        wirePaygiraManualTotalRow(totalRow);
+      });
+      enforceUniquePaygiraTotalFieldSelections();
+      syncAllPaygiraManualTotalFieldOptions();
       paygiraAddFieldBtn?.addEventListener('click', () => addPaygiraManualFieldRow('', ''));
+      paygiraAddTotalBtn?.addEventListener('click', () => addPaygiraManualTotalRow('', true, []));
       renderPaygiraManualPreview();
 
       // Wire save button
       document.getElementById('advDsSaveBtn')?.addEventListener('click', async () => {
+        const panelEl = document.getElementById('advancedDsPanel');
         const ok = await saveAdvancedDisplaySettings(classIdField.value);
         if (ok) {
           // Sync in-memory statusSettingsMap so renderAdvancedDs reads correct state on next switch
@@ -2436,7 +3134,9 @@
           msg.style.display = 'inline';
           setTimeout(() => msg.style.display = 'none', 2500);
         } else {
-          alert('Failed to save display settings.');
+          if (panelEl?.dataset?.saveValidationError !== '1') {
+            alert('Failed to save display settings.');
+          }
         }
       });
     }
@@ -2497,6 +3197,7 @@
     async function saveAdvancedDisplaySettings(classId) {
       const panel = document.getElementById('advancedDsPanel');
       if (!panel) return false;
+      panel.dataset.saveValidationError = '0';
       // Guard: only save if panel is showing data for the requested class
       if (panel.dataset.classId && panel.dataset.classId !== String(classId)) {
         console.warn('[DS] saveAdvancedDisplaySettings: panel classId mismatch, skipping');
@@ -2512,6 +3213,13 @@
       panel.querySelectorAll('.ds-adv-col').forEach(cb => { columns[cb.dataset.key] = cb.checked; });
       const sections = {};
       panel.querySelectorAll('.ds-adv-sec').forEach(cb => { sections[cb.dataset.key] = cb.checked; });
+      const selectedGradeMode = gradeDisplayModeSelect && (gradeDisplayModeSelect.value === 'numbers' || gradeDisplayModeSelect.value === 'both')
+        ? gradeDisplayModeSelect.value
+        : 'letters';
+      sections.gradePresentation = {
+        mode: selectedGradeMode,
+        showNumberTotalOnReport: selectedGradeMode === 'numbers' && showGradeNumericTotalOnReport?.checked === true,
+      };
       const turnOffAutoAttendanceCb = document.getElementById('ds-adv-turnOffAutoAttendance');
       sections.turnOffAutoAttendance = turnOffAutoAttendanceCb ? turnOffAutoAttendanceCb.checked : false;
       const manualAttendanceOutOfInput = document.getElementById('ds-adv-manualAttendanceOutOf');
@@ -2532,6 +3240,38 @@
       });
       const paygiraDateFrom = document.getElementById('ds-paygira-date-from')?.value || '';
       const paygiraDateTo = document.getElementById('ds-paygira-date-to')?.value || '';
+
+      // Validate manual Paygira required names before collecting payload.
+      panel.querySelectorAll('.input-required-error').forEach((el) => el.classList.remove('input-required-error'));
+      if (paygiraEnabledCb?.checked === true && paygiraMode === 'manual') {
+        const invalidInputs = [];
+
+        panel.querySelectorAll('.ds-paygira-manual-field').forEach((row) => {
+          const labelInput = row.querySelector('.ds-paygira-manual-label');
+          const labelValue = labelInput?.value?.trim() || '';
+          if (!labelInput || labelValue) return;
+          labelInput.classList.add('input-required-error');
+          invalidInputs.push(labelInput);
+        });
+
+        panel.querySelectorAll('.ds-paygira-manual-total').forEach((row) => {
+          const labelInput = row.querySelector('.ds-paygira-total-label');
+          const labelValue = labelInput?.value?.trim() || '';
+          if (!labelInput || labelValue) return;
+          labelInput.classList.add('input-required-error');
+          invalidInputs.push(labelInput);
+        });
+
+        if (invalidInputs.length > 0) {
+          panel.dataset.saveValidationError = '1';
+          alert('Add this: fill in all required names before saving (field name and total name).');
+          const firstInvalid = invalidInputs[0];
+          firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          firstInvalid?.focus();
+          return false;
+        }
+      }
+
       const paygiraManualFields = [];
       panel.querySelectorAll('.ds-paygira-manual-field').forEach((row, index) => {
         const label = row.querySelector('.ds-paygira-manual-label')?.value?.trim() || '';
@@ -2547,6 +3287,18 @@
           applyToClasses.unshift(currentClassNum);
         }
         paygiraManualFields.push({ key, label, defaultValue, applyToClasses });
+      });
+      const paygiraManualFieldKeySet = new Set(paygiraManualFields.map((field) => field.key));
+      const paygiraManualTotals = [];
+      panel.querySelectorAll('.ds-paygira-manual-total').forEach((row, index) => {
+        const label = row.querySelector('.ds-paygira-total-label')?.value?.trim() || '';
+        if (!label) return;
+        const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `total_${index + 1}`;
+        const showOnReport = !!row.querySelector('.ds-paygira-total-show')?.checked;
+        const fieldKeys = Array.from(row.querySelectorAll('.ds-paygira-total-field:checked'))
+          .map((cb) => String(cb.value || '').trim())
+          .filter((value) => value && paygiraManualFieldKeySet.has(value));
+        paygiraManualTotals.push({ key, label, showOnReport, fieldKeys });
       });
 
       sections.paygiraBills = {
@@ -2571,6 +3323,7 @@
         },
         manual: {
           fields: paygiraManualFields,
+          totals: paygiraManualTotals,
         },
       };
       const advActProm = document.getElementById('ds-adv-activatePromotion');
@@ -2590,8 +3343,10 @@
     // Intercept status settings form to also save advanced DS settings first
     document.getElementById('statusSettingsForm')?.addEventListener('submit', async function(e) {
       e.preventDefault();
-      await saveAdvancedDisplaySettings(classIdField.value);
-      this.submit();
+      const ok = await saveAdvancedDisplaySettings(classIdField.value);
+      if (ok) {
+        this.submit();
+      }
     });
 
     // ── Collapsible cards ──

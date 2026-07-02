@@ -70,9 +70,9 @@
             display: block;
             margin-top: 18px;
             page-break-inside: avoid;
-            border: 1px solid #dbe5f0;
+            border: 1px solid color-mix(in srgb, var(--primary) 24%, #dbe5f0);
             border-radius: 8px;
-            background: #f8fbff;
+            background: color-mix(in srgb, var(--primary) 8%, #ffffff);
             padding: 8px;
         }
 
@@ -96,6 +96,26 @@
             padding: 5px 4px;
             font-size: 10px;
             vertical-align: top;
+        }
+
+        .paygira-print-block th {
+            background: color-mix(in srgb, var(--primary) 12%, #ffffff);
+            color: var(--primary);
+            border-color: color-mix(in srgb, var(--primary) 28%, #d9e1ea);
+            font-weight: 700;
+        }
+
+        .paygira-print-block .paygira-total-row-emphasis td {
+            font-weight: 800;
+            font-size: 11px;
+            background: color-mix(in srgb, var(--primary) 16%, #ffffff);
+            border-top: 2px solid color-mix(in srgb, var(--primary) 65%, #334155);
+            border-color: color-mix(in srgb, var(--primary) 30%, #d9e1ea);
+            color: var(--primary);
+        }
+
+        .paygira-print-block .paygira-total-row-emphasis td:first-child {
+            letter-spacing: 0.03em;
         }
 
         .paygira-print-block input {
@@ -160,12 +180,13 @@
 
         .paygira-edit-grid {
             display: grid;
-            grid-template-columns: 1.2fr 1fr auto;
+            grid-template-columns: 1.1fr 0.9fr 0.9fr auto;
             gap: 8px;
             margin-bottom: 8px;
         }
 
-        .paygira-edit-grid input {
+        .paygira-edit-grid input,
+        .paygira-edit-grid select {
             width: 100%;
             border: 1px solid #d0dae6;
             border-radius: 7px;
@@ -1875,8 +1896,12 @@
                                   <%= formattedReopenDate %>
                                 </td>
                                                             </tr>
-                            <% if (activatePromotion && displaySettings.sections.promotion) { %>
+                            <% const showGradeTotalRow = displaySettings.sections.gradePresentation && displaySettings.sections.gradePresentation.showNumberTotalOnReport; %>
+                            <% const showPromotionRow = activatePromotion && displaySettings.sections.promotion; %>
+                            <% if (showGradeTotalRow && showPromotionRow) { %>
                                 <tr>
+                                    <td>Total Grade Score:</td>
+                                    <td><%= Number.isFinite(Number(student.totalGradeNumericScore)) ? Number(student.totalGradeNumericScore) : '-' %></td>
                                     <td>
                                         <span class="promotion-select-wrapper">
                                             <select name="promotionStatus-<%= student.student_id %>" id="promotionStatus-<%= student.student_id %>" onchange="updateClass('<%= student.student_id %>')">
@@ -1887,7 +1912,30 @@
                                         </span>
                                     </td>
                                     <td id="promotionClass-<%= student.student_id %>" data-class-id="<%= student.promotionClassId || '' %>"><%= student.promotionClass %></td>
+                                    <td colspan="4"></td>
                                 </tr>
+                            <% } else { %>
+                                <% if (showGradeTotalRow) { %>
+                                    <tr>
+                                        <td>Total Grade Score:</td>
+                                        <td><%= Number.isFinite(Number(student.totalGradeNumericScore)) ? Number(student.totalGradeNumericScore) : '-' %></td>
+                                        <td colspan="6"></td>
+                                    </tr>
+                                <% } %>
+                                <% if (showPromotionRow) { %>
+                                    <tr>
+                                        <td>
+                                            <span class="promotion-select-wrapper">
+                                                <select name="promotionStatus-<%= student.student_id %>" id="promotionStatus-<%= student.student_id %>" onchange="updateClass('<%= student.student_id %>')">
+                                                    <option value="Promoted" <%= student.promotionStatus === 'Promoted' ? 'selected' : '' %>>Promoted To:</option>
+                                                    <option value="Repeated" <%= student.promotionStatus === 'Repeated' ? 'selected' : '' %>>Repeated In:</option>
+                                                </select>
+                                                <span class="promotion-chevron">&#9662;</span>
+                                            </span>
+                                        </td>
+                                        <td id="promotionClass-<%= student.student_id %>" data-class-id="<%= student.promotionClassId || '' %>"><%= student.promotionClass %></td>
+                                    </tr>
+                                <% } %>
                             <% } %>
                         </table>
                     </div>
@@ -1969,12 +2017,25 @@
                                     <button type="button" class="paygira-edit-btn" data-student-id="<%= student.student_id %>" aria-label="Edit billing" title="Edit billing">✎</button>
                                 <% } %>
                             </div>
+                            <% const manualMode = displaySettings.sections.paygiraBills.mode === 'manual'; %>
+                            <% const paygiraManualFields = manualMode && Array.isArray(student.paygiraManualResolvedFields) ? student.paygiraManualResolvedFields : []; %>
+                            <% const paygiraManualTotals = manualMode && Array.isArray(student.paygiraManualTotalsRows) ? student.paygiraManualTotalsRows : []; %>
+                            <% const useTotalsColumns = manualMode && paygiraManualTotals.length > 0; %>
                             <table>
                                 <thead>
-                                    <tr><th>Item</th><th>Value</th></tr>
+                                    <% if (useTotalsColumns) { %>
+                                        <tr>
+                                            <th>Item</th>
+                                            <% paygiraManualTotals.forEach((totalCol) => { %>
+                                                <th style="color:var(--primary);"><%= totalCol.label %></th>
+                                            <% }); %>
+                                        </tr>
+                                    <% } else { %>
+                                        <tr><th>Item</th><th>Value</th></tr>
+                                    <% } %>
                                 </thead>
                                 <tbody>
-                                    <% if (displaySettings.sections.paygiraBills.mode === 'auto') { %>
+                                    <% if (!manualMode) { %>
                                         <% if (displaySettings.sections.paygiraBills.auto && displaySettings.sections.paygiraBills.auto.scope === 'future') { %>
                                             <% const futureCfg = displaySettings.sections.paygiraBills.auto.future || {}; %>
                                             <% if (futureCfg.action === 'custom' && futureCfg.billName) { %>
@@ -2001,8 +2062,29 @@
                                                 <tr><td colspan="2" style="color:#64748b;">No Paygira metrics selected.</td></tr>
                                             <% } %>
                                         <% } %>
+                                    <% } else if (useTotalsColumns) { %>
+                                        <% paygiraManualFields.forEach((field) => { %>
+                                            <% const displayValue = (field.value === undefined || field.value === null || field.value === '') ? '-' : String(field.value); %>
+                                            <tr>
+                                                <td><%= field.label %></td>
+                                                <% paygiraManualTotals.forEach((totalCol) => { %>
+                                                    <% const selected = Array.isArray(totalCol.fieldKeys) ? totalCol.fieldKeys : []; %>
+                                                    <% const explicitTotalMatch = field.totalKey && field.totalKey === totalCol.key; %>
+                                                    <% const belongsToTotal = explicitTotalMatch || selected.includes(field.key); %>
+                                                    <td><%= belongsToTotal ? displayValue : '' %></td>
+                                                <% }); %>
+                                            </tr>
+                                        <% }); %>
+                                        <tr class="paygira-total-row-emphasis">
+                                            <td>TOTAL</td>
+                                            <% paygiraManualTotals.forEach((totalCol) => { %>
+                                                <td><%= totalCol.value %></td>
+                                            <% }); %>
+                                        </tr>
+                                        <% if (paygiraManualFields.length === 0) { %>
+                                            <tr><td colspan="<%= paygiraManualTotals.length + 1 %>" style="color:#64748b;">No manual fields configured.</td></tr>
+                                        <% } %>
                                     <% } else { %>
-                                        <% const paygiraManualFields = Array.isArray(student.paygiraManualResolvedFields) ? student.paygiraManualResolvedFields : []; %>
                                         <% paygiraManualFields.forEach((field) => { %>
                                             <% const displayValue = (field.value === undefined || field.value === null || field.value === '') ? '-' : field.value; %>
                                             <tr>
@@ -2083,6 +2165,15 @@
         let visibilityGuardInterval = null;
         const isBillingManualMode = <%- JSON.stringify(displaySettings.sections.paygiraBills && displaySettings.sections.paygiraBills.enabled && displaySettings.sections.paygiraBills.mode === 'manual') %>;
         const billingRowsByStudent = <%- JSON.stringify(paygiraManualResolvedByStudent || {}) %>;
+        const billingTotalsColumns = <%- JSON.stringify(
+            ((displaySettings?.sections?.paygiraBills?.manual?.totals || [])
+                .filter((total) => total && total.showOnReport !== false)
+                .map((total) => ({
+                    key: String(total.key || '').trim(),
+                    label: String(total.label || '').trim(),
+                    fieldKeys: Array.isArray(total.fieldKeys) ? total.fieldKeys : [],
+                })))
+        ) %>;
         const billingStudentOptions = <%- JSON.stringify(reportStudentOptions || []) %>;
         const billingClassOptions = <%- JSON.stringify(reportClassOptions || []) %>;
         const currentBillingClassId = <%- JSON.stringify(Number(classId)) %>;
@@ -2162,22 +2253,53 @@
             }
         }
 
-        function createBillingEditRow(label = '', value = '') {
+        function inferBillingTotalKeyForRow(rowData = {}) {
+            const rowTotalKey = String(rowData.totalKey || '').trim();
+            if (rowTotalKey) return rowTotalKey;
+            const rowKey = String(rowData.key || '').trim();
+            if (!rowKey) return '';
+            const matched = billingTotalsColumns.find((col) => Array.isArray(col.fieldKeys) && col.fieldKeys.includes(rowKey));
+            return matched ? String(matched.key || '').trim() : '';
+        }
+
+        function buildBillingTotalOptionsHtml(selectedTotalKey = '') {
             const esc = (input) => String(input || '')
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+            const normalizedSelected = String(selectedTotalKey || '').trim();
+            const baseOption = '<option value="">No column</option>';
+            const totalOptions = billingTotalsColumns.map((col) => {
+                const key = String(col.key || '').trim();
+                const label = String(col.label || '').trim() || key;
+                return `<option value="${esc(key)}" ${normalizedSelected === key ? 'selected' : ''}>${esc(label)}</option>`;
+            }).join('');
+            return baseOption + totalOptions;
+        }
+
+        function createBillingEditRow(label = '', value = '', rowData = {}) {
+            const esc = (input) => String(input || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+            const selectedTotalKey = inferBillingTotalKeyForRow(rowData);
             const row = document.createElement('div');
             row.className = 'paygira-edit-grid';
             row.innerHTML = `
                 <input type="text" class="paygira-edit-label" placeholder="Item name" value="${esc(label)}">
                 <input type="text" class="paygira-edit-value" placeholder="Value" value="${esc(value)}">
+                <select class="paygira-edit-total" title="Total column">
+                    ${buildBillingTotalOptionsHtml(selectedTotalKey)}
+                </select>
                 <button type="button" class="btn btn-danger paygira-edit-remove" style="padding:6px 8px;font-size:0.74rem;">Remove</button>
             `;
             row.querySelector('.paygira-edit-label')?.addEventListener('input', () => { billingDraftDirty = true; });
             row.querySelector('.paygira-edit-value')?.addEventListener('input', () => { billingDraftDirty = true; });
+            row.querySelector('.paygira-edit-total')?.addEventListener('change', () => { billingDraftDirty = true; });
             row.querySelector('.paygira-edit-remove')?.addEventListener('click', () => {
                 billingDraftDirty = true;
                 row.remove();
@@ -2193,10 +2315,10 @@
             const rows = Array.isArray(billingRowsByStudent[activeBillingEditStudentId]) ? billingRowsByStudent[activeBillingEditStudentId] : [];
             els.rowsWrap.innerHTML = '';
             if (rows.length === 0) {
-                els.rowsWrap.appendChild(createBillingEditRow('', ''));
+                els.rowsWrap.appendChild(createBillingEditRow('', '', {}));
             } else {
                 rows.forEach((entry) => {
-                    els.rowsWrap.appendChild(createBillingEditRow(entry.label || '', entry.value || ''));
+                    els.rowsWrap.appendChild(createBillingEditRow(entry.label || '', entry.value || '', entry));
                 });
             }
             if (els.status) els.status.textContent = '';
@@ -2222,9 +2344,10 @@
             const rows = Array.from(els.rowsWrap.querySelectorAll('.paygira-edit-grid')).map((row, index) => {
                 const label = row.querySelector('.paygira-edit-label')?.value?.trim() || '';
                 const value = row.querySelector('.paygira-edit-value')?.value?.trim() || '';
+                const totalKey = row.querySelector('.paygira-edit-total')?.value?.trim() || '';
                 if (!label) return null;
                 const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `field_${index + 1}`;
-                return { key, label, value };
+                return { key, label, value, totalKey };
             }).filter(Boolean);
 
             if (!rows.length) {
@@ -2803,7 +2926,7 @@ function updateClass(studentId) {
                 billingEls.saveBtn?.addEventListener('click', saveBillingOverrides);
                 billingEls.addRowBtn?.addEventListener('click', () => {
                     billingDraftDirty = true;
-                    billingEls.rowsWrap?.appendChild(createBillingEditRow('', ''));
+                    billingEls.rowsWrap?.appendChild(createBillingEditRow('', '', {}));
                 });
                 billingEls.applyAllStudents?.addEventListener('change', () => {
                     billingDraftDirty = true;

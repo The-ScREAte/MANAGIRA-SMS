@@ -273,6 +273,199 @@ function normalizePaygiraManualFields(fields, sourceClassId) {
     .filter(Boolean);
 }
 
+function normalizePaygiraManualTotal(total, index, allowedFieldKeys = []) {
+  if (!total || typeof total !== 'object') return null;
+
+  const label = String(total.label || '').trim();
+  if (!label) return null;
+
+  const keyCandidate = String(total.key || '').trim();
+  const key = keyCandidate || label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `total_${index + 1}`;
+
+  const allowedSet = new Set((Array.isArray(allowedFieldKeys) ? allowedFieldKeys : []).map((k) => String(k || '').trim()).filter(Boolean));
+  const rawFieldKeys = Array.isArray(total.fieldKeys) ? total.fieldKeys : [];
+  const normalizedFieldKeys = [...new Set(
+    rawFieldKeys
+      .map((k) => String(k || '').trim())
+      .filter((k) => k && (allowedSet.size === 0 || allowedSet.has(k)))
+  )];
+
+  return {
+    key,
+    label,
+    fieldKeys: normalizedFieldKeys,
+    showOnReport: total.showOnReport !== false,
+  };
+}
+
+function normalizePaygiraManualTotals(totals, allowedFieldKeys = []) {
+  if (!Array.isArray(totals)) return [];
+  return totals
+    .map((total, index) => normalizePaygiraManualTotal(total, index, allowedFieldKeys))
+    .filter(Boolean);
+}
+
+function buildReportPaygiraManualTotalsRows(fields, totals) {
+  const safeFields = Array.isArray(fields) ? fields : [];
+  const safeTotals = Array.isArray(totals) ? totals : [];
+
+  const valueByKey = {};
+  const labelByKey = {};
+  safeFields.forEach((field) => {
+    const key = String(field?.key || '').trim();
+    if (!key) return;
+    labelByKey[key] = String(field?.label || key).trim() || key;
+    const numericValue = Number.parseFloat(String(field?.value ?? '').replace(/,/g, ''));
+    valueByKey[key] = Number.isFinite(numericValue) ? numericValue : null;
+  });
+
+  return safeTotals
+    .filter((total) => total && total.showOnReport !== false)
+    .map((total) => {
+      const selectedKeys = Array.isArray(total.fieldKeys)
+        ? total.fieldKeys.map((k) => String(k || '').trim()).filter(Boolean)
+        : [];
+
+      const parts = selectedKeys.map((key) => {
+        const label = labelByKey[key] || key;
+        const value = valueByKey[key];
+        return {
+          key,
+          label,
+          value,
+          displayValue: Number.isFinite(value) ? String(value) : '-',
+        };
+      });
+
+      const numericParts = parts.filter((part) => Number.isFinite(part.value));
+      const totalValue = numericParts.reduce((sum, part) => sum + Number(part.value || 0), 0);
+      const valueDisplay = Number.isFinite(totalValue)
+        ? (Number.isInteger(totalValue) ? String(totalValue) : totalValue.toFixed(2))
+        : '-';
+      const details = parts.length
+        ? parts.map((part) => `${part.label}: ${part.displayValue}`).join(' + ')
+        : 'No fields selected';
+
+      return {
+        key: String(total.key || '').trim(),
+        label: String(total.label || '').trim() || 'Total',
+        value: valueDisplay,
+        details,
+        fieldKeys: selectedKeys,
+        parts,
+      };
+    });
+}
+
+function normalizeGradePresentationConfig(rawConfig) {
+  const safe = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
+  const rawMode = String(safe.mode || '').trim().toLowerCase();
+  const mode = (rawMode === 'numbers' || rawMode === 'both') ? rawMode : 'letters';
+  const showNumberTotalOnReport = mode === 'numbers' && safe.showNumberTotalOnReport === true;
+  return {
+    mode,
+    showNumberTotalOnReport,
+  };
+}
+
+function parseGradeLabelParts(label) {
+  const text = String(label || '').trim();
+  if (!text) return { letters: '', number: null };
+  const numberMatch = text.match(/-?\d+(?:\.\d+)?/);
+  const number = numberMatch ? Number(numberMatch[0]) : null;
+  const letters = text
+    .replace(/-?\d+(?:\.\d+)?/g, ' ')
+    .replace(/[^A-Za-z]+/g, ' ')
+    .trim();
+  return {
+    letters,
+    number: Number.isFinite(number) ? number : null,
+  };
+}
+
+function formatGradeByPresentation(label, mode) {
+  const safeMode = (mode === 'numbers' || mode === 'both') ? mode : 'letters';
+  const original = String(label || '').trim();
+  const parts = parseGradeLabelParts(original);
+
+  if (safeMode === 'numbers') {
+    if (Number.isFinite(parts.number)) return String(parts.number);
+    return original || '-';
+  }
+
+  if (safeMode === 'both') {
+    // Keep custom grade labels exactly as configured in Grade Mapping.
+    return original || '-';
+  }
+
+  // Letters mode should also display the exact saved label when present.
+  return original || '-';
+}
+
+function resolveClosestScoreRemarkRule(percentage, rules) {
+  const value = Number(percentage);
+  if (!Number.isFinite(value) || !Array.isArray(rules) || rules.length === 0) {
+    return null;
+  }
+
+  const normalizedRules = rules
+    .map((rule) => {
+      const rawFrom = rule?.fromPercentage ?? rule?.from_percentage ?? rule?.from;
+      const rawTo = rule?.toPercentage ?? rule?.to_percentage ?? rule?.to;
+      const from = Number.parseFloat(rawFrom);
+      const to = Number.parseFloat(rawTo);
+      if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+      return {
+        from: Math.min(from, to),
+        to: Math.max(from, to),
+        rule,
+      };
+    })
+    .filter(Boolean);
+
+  if (normalizedRules.length === 0) return null;
+
+  const inRangeRule = normalizedRules.find((entry) => value >= entry.from && value <= entry.to);
+  if (inRangeRule) return inRangeRule.rule;
+
+  // Clamp to nearest boundary for out-of-range values.
+  let minRule = normalizedRules[0];
+  let maxRule = normalizedRules[0];
+  normalizedRules.forEach((entry) => {
+    if (entry.from < minRule.from) minRule = entry;
+    if (entry.to > maxRule.to) maxRule = entry;
+  });
+
+  if (value < minRule.from) return minRule.rule;
+  if (value > maxRule.to) return maxRule.rule;
+
+  // For internal gaps, use the closest immediate rule.
+  let best = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  normalizedRules.forEach((entry) => {
+    const distance = value < entry.from
+      ? entry.from - value
+      : value > entry.to
+        ? value - entry.to
+        : 0;
+
+    if (distance < bestDistance) {
+      best = entry;
+      bestDistance = distance;
+      return;
+    }
+
+    if (distance === bestDistance && best) {
+      // Tie-break toward lower band to keep grading conservative.
+      if (entry.to < best.to) {
+        best = entry;
+      }
+    }
+  });
+
+  return best ? best.rule : null;
+}
+
 function normalizeReportPaygiraManualField(field, index) {
   if (!field || typeof field !== "object") return null;
   const label = String(field.label || "").trim();
@@ -281,7 +474,9 @@ function normalizeReportPaygiraManualField(field, index) {
   const key = keyCandidate || label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || `field_${index + 1}`;
   const valueRaw = field.value;
   const value = valueRaw === undefined || valueRaw === null ? "" : String(valueRaw);
-  return { key, label, value };
+  const totalKeyRaw = String(field.totalKey || "").trim();
+  const totalKey = totalKeyRaw || "";
+  return { key, label, value, totalKey };
 }
 
 function normalizeReportPaygiraManualFields(fields) {
@@ -780,6 +975,9 @@ const printController = (db) => ({
       const paygiraManualRaw = paygiraBillsRaw.manual || {};
       const paygiraManualFieldsRaw = Array.isArray(paygiraManualRaw.fields) ? paygiraManualRaw.fields : [];
       const paygiraManualFields = normalizePaygiraManualFields(paygiraManualFieldsRaw, parsedClassId);
+      const paygiraManualTotalsRaw = Array.isArray(paygiraManualRaw.totals) ? paygiraManualRaw.totals : [];
+      const paygiraManualTotals = normalizePaygiraManualTotals(paygiraManualTotalsRaw, paygiraManualFields.map((field) => field.key));
+      const gradePresentation = normalizeGradePresentationConfig(secVis.gradePresentation);
       const displaySettings = {
         columns: {
           classScore:      colVis.classScore      !== false,
@@ -798,6 +996,7 @@ const printController = (db) => ({
           attitudeRemarks: secVis.attitudeRemarks !== false,
           interestRemarks: secVis.interestRemarks !== false,
           gradeKey:        secVis.gradeKey        !== false,
+          gradePresentation,
           attendance:      secVis.attendance      !== false,
           turnOffAutoAttendance: secVis.turnOffAutoAttendance === true,
           manualAttendanceOutOf: Number.isFinite(Number(secVis.manualAttendanceOutOf)) && Number(secVis.manualAttendanceOutOf) > 0
@@ -826,6 +1025,7 @@ const printController = (db) => ({
             },
             manual: {
               fields: paygiraManualFields,
+              totals: paygiraManualTotals,
             },
           },
           promotion:       secVis.promotion       !== false,
@@ -971,10 +1171,15 @@ const printController = (db) => ({
         } else {
           student.paygiraManualResolvedFields = templatePaygiraRows;
         }
+        student.paygiraManualTotalsRows = buildReportPaygiraManualTotalsRows(
+          student.paygiraManualResolvedFields,
+          displaySettings.sections.paygiraBills?.manual?.totals || []
+        );
 
         let totalScoreSum = 0;
         let totalPercentageSum = 0;
         let subjectCount = 0;
+        let totalGradeNumericScore = 0;
 
         // ✅ NEW: Assign class position to student
         student.positionInClass = student.class_position
@@ -998,20 +1203,21 @@ const printController = (db) => ({
             : 0;
 
           // Recalculate grade from score remarks
-          const matchingGrade = scoreRemarks.find(
-            (r) => totalPercentage >= parseFloat(r.fromPercentage) && totalPercentage <= parseFloat(r.toPercentage)
-          );
+          const matchingRule = resolveClosestScoreRemarkRule(totalPercentage, scoreRemarks);
           const grade = totalScore > 0
-            ? (matchingGrade
-                ? resolveGradeLabelFromRule(matchingGrade, totalPercentage)
+            ? (matchingRule
+                ? resolveGradeLabelFromRule(matchingRule, totalPercentage)
                 : getDefaultGradeLabel(totalPercentage))
             : "-";
+          const gradeMode = displaySettings.sections?.gradePresentation?.mode || 'letters';
+          const parsedGradeParts = parseGradeLabelParts(grade);
+          const gradeDisplay = totalScore > 0 ? formatGradeByPresentation(grade, gradeMode) : '-';
+          if (totalScore > 0 && Number.isFinite(parsedGradeParts.number)) {
+            totalGradeNumericScore += Number(parsedGradeParts.number);
+          }
 
           // Recalculate remarks column
-          const matchingRemark = totalPercentage > 0 ? scoreRemarks.find(
-            (r) => totalPercentage >= parseFloat(r.fromPercentage) && totalPercentage <= parseFloat(r.toPercentage)
-          ) : null;
-          const remarks = totalScore > 0 ? (matchingRemark ? matchingRemark.remark : "-") : "-";
+          const remarks = totalScore > 0 ? (matchingRule ? matchingRule.remark : "-") : "-";
 
           const scaleBase = scaleBasesMap[subject.subject_id] || 100;
           const scaledScore = totalScore > 0
@@ -1034,7 +1240,9 @@ const printController = (db) => ({
             totalScore: totalScore > 0 ? totalScore.toFixed(2) : "-",
             scaledScore,
             totalPercentage: totalScore > 0 ? `${totalPercentage} %` : "-",
-            grade,
+            grade: gradeDisplay,
+            gradeRaw: grade,
+            gradeNumeric: Number.isFinite(parsedGradeParts.number) ? Number(parsedGradeParts.number) : null,
             remarks,
             position: totalScore > 0 && subjectPos
               ? `${subjectPos}${getOrdinalSuffix(subjectPos)}`
@@ -1048,6 +1256,7 @@ const printController = (db) => ({
           subjectCount > 0
             ? (totalPercentageSum / subjectCount).toFixed(2)
             : "0.00";
+        student.totalGradeNumericScore = Number(totalGradeNumericScore.toFixed(2));
 
         student.attendance = {
           presentDays: attendanceMap[student.student_id] || 0,
@@ -1528,6 +1737,9 @@ students
         const paygiraManualRaw = paygiraBillsRaw.manual || {};
         const paygiraManualFieldsRaw = Array.isArray(paygiraManualRaw.fields) ? paygiraManualRaw.fields : [];
         const paygiraManualFields = normalizePaygiraManualFields(paygiraManualFieldsRaw, cls.class_id);
+        const paygiraManualTotalsRaw = Array.isArray(paygiraManualRaw.totals) ? paygiraManualRaw.totals : [];
+        const paygiraManualTotals = normalizePaygiraManualTotals(paygiraManualTotalsRaw, paygiraManualFields.map((field) => field.key));
+        const gradePresentation = normalizeGradePresentationConfig(sec.gradePresentation);
         allDisplaySettingsMap[cls.class_id] = {
           columns: {
             classScore:       col.classScore       !== false,
@@ -1549,6 +1761,7 @@ students
             attitudeRemarks: sec.attitudeRemarks !== false,
             interestRemarks: sec.interestRemarks !== false,
             gradeKey:        sec.gradeKey        !== false,
+            gradePresentation,
             attendance:      sec.attendance      !== false,
             turnOffAutoAttendance: sec.turnOffAutoAttendance === true,
             manualAttendanceOutOf: Number.isFinite(Number(sec.manualAttendanceOutOf)) && Number(sec.manualAttendanceOutOf) > 0
@@ -1577,6 +1790,7 @@ students
               },
               manual: {
                 fields: paygiraManualFields,
+                totals: paygiraManualTotals,
               },
             },
             promotion:       sec.promotion       !== false,
@@ -1729,6 +1943,9 @@ students
       const paygiraManualRaw2 = paygiraBillsRaw2.manual || {};
       const paygiraManualFieldsRaw2 = Array.isArray(paygiraManualRaw2.fields) ? paygiraManualRaw2.fields : [];
       const paygiraManualFields2 = normalizePaygiraManualFields(paygiraManualFieldsRaw2, parsedClassId);
+      const paygiraManualTotalsRaw2 = Array.isArray(paygiraManualRaw2.totals) ? paygiraManualRaw2.totals : [];
+      const paygiraManualTotals2 = normalizePaygiraManualTotals(paygiraManualTotalsRaw2, paygiraManualFields2.map((field) => field.key));
+      const gradePresentation2 = normalizeGradePresentationConfig(secVis2.gradePresentation);
       const currentDisplaySettings = {
         columns: {
           classScore:      colVis2.classScore      !== false,
@@ -1750,6 +1967,7 @@ students
           attitudeRemarks: secVis2.attitudeRemarks !== false,
           interestRemarks: secVis2.interestRemarks !== false,
           gradeKey:        secVis2.gradeKey        !== false,
+          gradePresentation: gradePresentation2,
           attendance:      secVis2.attendance      !== false,
           turnOffAutoAttendance: secVis2.turnOffAutoAttendance === true,
           manualAttendanceOutOf: Number.isFinite(Number(secVis2.manualAttendanceOutOf)) && Number(secVis2.manualAttendanceOutOf) > 0
@@ -1778,6 +1996,7 @@ students
             },
             manual: {
               fields: paygiraManualFields2,
+              totals: paygiraManualTotals2,
             },
           },
           promotion:       secVis2.promotion       !== false,
@@ -1855,11 +2074,18 @@ students
       const paygiraManual = paygiraBills.manual && typeof paygiraBills.manual === 'object'
         ? paygiraBills.manual
         : {};
+      const gradePresentationRaw = sections.gradePresentation && typeof sections.gradePresentation === 'object'
+        ? sections.gradePresentation
+        : {};
       const normalizedManualFields = normalizePaygiraManualFields(paygiraManual.fields, parsedClassId)
         .map((field) => ({
           ...field,
           applyToClasses: parsePositiveIntArray(field.applyToClasses).filter((targetClassId) => organizationClassIdSet.has(targetClassId)),
         }));
+      const normalizedManualTotals = normalizePaygiraManualTotals(
+        paygiraManual.totals,
+        normalizedManualFields.map((field) => field.key)
+      );
 
       const normalizedDisplaySettings = {
         ...displaySettings,
@@ -1870,8 +2096,10 @@ students
             manual: {
               ...paygiraManual,
               fields: normalizedManualFields,
+              totals: normalizedManualTotals,
             },
           },
+          gradePresentation: normalizeGradePresentationConfig(gradePresentationRaw),
         },
       };
 
@@ -1925,6 +2153,25 @@ students
           mergedByKey.set(field.key, field);
         });
 
+        const mergedFields = Array.from(mergedByKey.values());
+        const existingTotalsRaw = Array.isArray(existingPaygiraManual.totals) ? existingPaygiraManual.totals : [];
+        const incomingTotals = normalizedManualTotals
+          .filter((total) => Array.isArray(total.fieldKeys) && total.fieldKeys.some((fieldKey) => mergedByKey.has(fieldKey)))
+          .map((total) => ({
+            ...total,
+            fieldKeys: total.fieldKeys.filter((fieldKey) => mergedByKey.has(fieldKey)),
+          }));
+        const mergedTotalsByKey = new Map(
+          normalizePaygiraManualTotals(existingTotalsRaw, mergedFields.map((field) => field.key)).map((total) => [total.key, total])
+        );
+        incomingTotals.forEach((total) => {
+          mergedTotalsByKey.set(total.key, total);
+        });
+        const mergedTotals = normalizePaygiraManualTotals(
+          Array.from(mergedTotalsByKey.values()),
+          mergedFields.map((field) => field.key)
+        );
+
         const mergedDisplaySettings = {
           ...existingDisplaySettings,
           sections: {
@@ -1933,7 +2180,8 @@ students
               ...existingPaygiraBills,
               manual: {
                 ...existingPaygiraManual,
-                fields: Array.from(mergedByKey.values()),
+                fields: mergedFields,
+                totals: mergedTotals,
               },
             },
           },
