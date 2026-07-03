@@ -7599,6 +7599,16 @@ const accountController = {
           }
         : null;
 
+      const orgRowForCurrency = orgResult.rows[0] || null;
+      const orgCountryRaw = String(orgRowForCurrency?.organization_country || '').trim().toUpperCase();
+      const orgCountryCode = COUNTRY_NAME_LOOKUP[orgCountryRaw] ? orgCountryRaw : null;
+      const orgCurrencyOverride = normalizeCurrencyCode(orgRowForCurrency?.organization_currency || '');
+      const settingsCurrencyCacheSignature = [
+        String(orgId || ''),
+        String(orgCountryCode || ''),
+        String(orgCurrencyOverride || ''),
+      ].join(':');
+
       let currencyProfile = null;
       try {
         const cachedCurrency = req.session?.settingsCurrencyProfile || null;
@@ -7610,20 +7620,54 @@ const accountController = {
           cachedCurrency &&
           cacheAgeMs >= 0 &&
           cacheAgeMs < 1000 * 60 * 15 &&
-          cachedCurrency.profile
+          cachedCurrency.profile &&
+          cachedCurrency.signature === settingsCurrencyCacheSignature
         ) {
           currencyProfile = cachedCurrency.profile;
         } else {
-          currencyProfile = await getCurrencyProfileForRequest(req);
+          if (orgCountryCode || orgCurrencyOverride) {
+            const userCurrency = orgCurrencyOverride || normalizeCurrencyCode(getCurrencyForCountry(orgCountryCode)) || 'USD';
+            const usdToUserRate = (await getUsdRate(userCurrency)) || 1;
+            const usdToGhsRate = (await getUsdRate('GHS')) || null;
+
+            currencyProfile = {
+              userCurrency,
+              countryCode: orgCountryCode,
+              detectionSource: orgCurrencyOverride ? 'organization-currency-override' : 'organization-country-fallback',
+              usdToUserRate,
+              usdToGhsRate,
+              locale: getLocaleForCurrency(userCurrency),
+              updatedAt: new Date(),
+            };
+          } else {
+            currencyProfile = await getCurrencyProfileForRequest(req, { organizationId: orgId });
+          }
+
           if (req.session) {
             req.session.settingsCurrencyProfile = {
               cachedAt: Date.now(),
+              signature: settingsCurrencyCacheSignature,
               profile: currencyProfile,
             };
           }
         }
       } catch (_) {
-        currencyProfile = await getCurrencyProfileForRequest(req);
+        if (orgCountryCode || orgCurrencyOverride) {
+          const userCurrency = orgCurrencyOverride || normalizeCurrencyCode(getCurrencyForCountry(orgCountryCode)) || 'USD';
+          const usdToUserRate = (await getUsdRate(userCurrency)) || 1;
+          const usdToGhsRate = (await getUsdRate('GHS')) || null;
+          currencyProfile = {
+            userCurrency,
+            countryCode: orgCountryCode,
+            detectionSource: orgCurrencyOverride ? 'organization-currency-override' : 'organization-country-fallback',
+            usdToUserRate,
+            usdToGhsRate,
+            locale: getLocaleForCurrency(userCurrency),
+            updatedAt: new Date(),
+          };
+        } else {
+          currencyProfile = await getCurrencyProfileForRequest(req, { organizationId: orgId });
+        }
       }
 
       const plansResult = orgId

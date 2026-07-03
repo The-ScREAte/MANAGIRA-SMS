@@ -3105,8 +3105,8 @@
                 <% const billingMonths = hasBillingInfo ? Math.max(1, Number(billingInfo.period_months || 1)) : 1; %>
                 <% const billingDiscount = hasBillingInfo ? Math.max(0, Number(billingInfo.discount_percentage || 0)) : 0; %>
                 <% const billingCycleTotal = currentMonthlyBase * billingMonths * (1 - (billingDiscount / 100)); %>
-                <% const billingPerMonthEquivalent = billingMonths > 0 ? (billingCycleTotal / billingMonths) : currentMonthlyBase; %>
                 <% const billingChargeLabel = hasBillingInfo ? (billingInfo.period_label || 'Monthly') : 'Monthly'; %>
+                <% const billingPrimaryLine = `Next payment: You pay ${formatCurrentPlanAmount(billingCycleTotal)}.`; %>
                 <% const nextPaymentDate = hasBillingInfo && billingInfo.next_payment_end_date ? new Date(billingInfo.next_payment_end_date) : null; %>
                 <% const currentStudentCount = currentPlanPricing ? Number(currentPlanPricing.organizationStudentCount || 0) : 0; %>
                 <% if (pendingPlan) { %>
@@ -3135,8 +3135,8 @@
                           Additional charges are not active because your student count is within the free <%= freeThreshold %>.
                         <% } %>
                       </div>
-                      <div class="current-plan-pricing-note-point">Monthly price at your current student count: <%= formatCurrentPlanAmount(currentMonthlyBase) %>/mo.</div>
-                      <div class="current-plan-pricing-note-sub">Billing cycle name: <%= billingChargeLabel %> • Discount: <%= billingDiscount %>% • Selected cycle total: <%= formatCurrentPlanAmount(billingCycleTotal) %> (~<%= formatCurrentPlanAmount(billingPerMonthEquivalent) %>/mo).</div>
+                      <div class="current-plan-pricing-note-point"><strong><%= billingPrimaryLine %></strong></div>
+                      <div class="current-plan-pricing-note-sub">Billing cycle: <%= billingChargeLabel %><%= billingDiscount > 0 ? ` • Includes ${billingDiscount}% cycle discount.` : '' %></div>
                     </div>
                   </div>
                 <% } else if (currentPlanPricing) { %>
@@ -3149,8 +3149,8 @@
                       <div class="current-plan-pricing-note-point"><strong>You have <%= currentStudentCount %> students.</strong></div>
                       <div class="current-plan-pricing-note-point"><strong>Region: <%= currentPlanPricing.pricingRegionName %> • First <%= fallbackThreshold %> students are free.</strong></div>
                       <div class="current-plan-pricing-note-point">Additional charges are currently active because your student count is above <%= fallbackThreshold %>.</div>
-                      <div class="current-plan-pricing-note-point">Monthly price at your current student count: <%= formatCurrentPlanAmount(currentMonthlyBase) %>/mo.</div>
-                      <div class="current-plan-pricing-note-sub">Billing cycle name: <%= billingChargeLabel %> • Discount: <%= billingDiscount %>% • Selected cycle total: <%= formatCurrentPlanAmount(billingCycleTotal) %> (~<%= formatCurrentPlanAmount(billingPerMonthEquivalent) %>/mo).</div>
+                      <div class="current-plan-pricing-note-point"><strong><%= billingPrimaryLine %></strong></div>
+                      <div class="current-plan-pricing-note-sub">Billing cycle: <%= billingChargeLabel %><%= billingDiscount > 0 ? ` • Includes ${billingDiscount}% cycle discount.` : '' %></div>
                     </div>
                   </div>
                 <% } %>
@@ -6333,12 +6333,27 @@
           const updatePlanBtn = document.getElementById("updatePlanBtn");
           const planPricingSummary = document.getElementById("planPricingSummary");
           const currentBillingKey = <%- JSON.stringify((typeof billingInfo !== 'undefined' && billingInfo && billingInfo.billing_period_key) ? billingInfo.billing_period_key : '') %>;
+          const modalCurrencyCode = <%- JSON.stringify((currencyProfile && currencyProfile.userCurrency) ? String(currencyProfile.userCurrency).toUpperCase() : 'USD') %>;
+          const modalCurrencyLocale = <%- JSON.stringify((currencyProfile && currencyProfile.locale) ? currencyProfile.locale : 'en-US') %>;
+          const modalUsdToUserRate = <%- JSON.stringify((currencyProfile && Number(currencyProfile.usdToUserRate) > 0) ? Number(currencyProfile.usdToUserRate) : 1) %>;
+          const modalShowLocalizedCurrency = modalCurrencyCode !== 'USD' && Number(modalUsdToUserRate) > 0;
           let planChanged = false;
           let billingCycleChanged = false;
 
           function formatUsd(value) {
             const numeric = Number(value || 0);
             return "$" + numeric.toFixed(2);
+          }
+
+          function formatPlanAmount(usdValue) {
+            const baseUsd = Number(usdValue || 0);
+            const usdDisplay = formatUsd(baseUsd);
+            if (!modalShowLocalizedCurrency) return usdDisplay;
+            const localizedDisplay = new Intl.NumberFormat(modalCurrencyLocale, {
+              style: 'currency',
+              currency: modalCurrencyCode,
+            }).format(baseUsd * Number(modalUsdToUserRate || 1));
+            return localizedDisplay + " (" + usdDisplay + ")";
           }
 
           const currentSelectedOption = planOptions.find(
@@ -6371,12 +6386,12 @@
               const perMo = final_ / months;
 
               if (months === 1) {
-                priceEl.innerHTML = "$" + baseUsd.toFixed(2) + "/mo";
+                priceEl.innerHTML = formatPlanAmount(baseUsd) + "/mo";
               } else if (discount > 0) {
-                priceEl.innerHTML = '<span class="period-price-strike">$' + raw.toFixed(2) + "</span> $" + final_.toFixed(2)
-                  + '<span style="display:block;font-size:11px;color:#5f6b7a;margin-top:1px;">~$' + perMo.toFixed(2) + "/mo</span>";
+                priceEl.innerHTML = '<span class="period-price-strike">' + formatPlanAmount(raw) + "</span> " + formatPlanAmount(final_)
+                  + '<span style="display:block;font-size:11px;color:#5f6b7a;margin-top:1px;">~' + formatPlanAmount(perMo) + "/mo</span>";
               } else {
-                priceEl.innerHTML = "$" + final_.toFixed(2) + " (~$" + perMo.toFixed(2) + "/mo)";
+                priceEl.innerHTML = formatPlanAmount(final_) + " (~" + formatPlanAmount(perMo) + "/mo)";
               }
             });
             updatePlanPricingSummary();
@@ -6408,7 +6423,6 @@
               : 'Monthly';
             const monthlyUsd = parseFloat(selected.dataset.baseUsd) || 0;
             const cycleTotal = discount > 0 ? (monthlyUsd * months) * (1 - discount / 100) : (monthlyUsd * months);
-            const perMonth = months > 0 ? cycleTotal / months : monthlyUsd;
             const pricingMode = selected.dataset.pricingMode || 'flat';
             const regionName = selected.dataset.regionName || 'Default Region';
             const studentCount = parseInt(selected.dataset.studentCount || '0', 10) || 0;
@@ -6425,7 +6439,11 @@
                   ? `Additional charges are currently active because your student count is above ${freeThreshold}.`
                   : `Additional charges are not active because your student count is within the free ${freeThreshold}.`)
               : 'Additional charges follow flat pricing for your region.';
-            const monthlyLine = `Monthly price at your current student count: ${formatUsd(monthlyUsd)}/mo.`;
+            const cycleCadence = months === 1 ? 'month' : (months === 12 ? 'year' : (months === 24 ? '2 years' : `${months} months`));
+            const primaryChargeLine = months === 1
+              ? `You pay ${formatPlanAmount(cycleTotal)} every month.`
+              : `You pay ${formatPlanAmount(cycleTotal)} every ${cycleCadence}.`;
+            const discountLine = discount > 0 ? `Includes ${discount}% cycle discount.` : '';
 
             planPricingSummary.classList.remove('is-ok', 'is-warn', 'is-flat');
             planPricingSummary.classList.add(summaryStateClass);
@@ -6435,9 +6453,10 @@
               + '<div class="plan-modal-summary-points">'
               + '<div class="plan-modal-summary-point"><strong>' + regionLine + '</strong></div>'
               + '<div class="plan-modal-summary-point">' + additionalLine + '</div>'
-              + '<div class="plan-modal-summary-point">' + monthlyLine + '</div>'
+                + '<div class="plan-modal-summary-point"><strong>' + primaryChargeLine + '</strong></div>'
+                + (discountLine ? '<div class="plan-modal-summary-point">' + discountLine + '</div>' : '')
               + '</div>'
-              + '<div class="plan-modal-summary-sub">Billing cycle name: ' + cycleName + ' • Discount: ' + discount + '% • Selected cycle total: ' + formatUsd(cycleTotal) + ' (~' + formatUsd(perMonth) + '/mo)</div>';
+                + '<div class="plan-modal-summary-sub">Billing cycle: ' + cycleName + '</div>';
           }
 
           function updateSubmitState() {
