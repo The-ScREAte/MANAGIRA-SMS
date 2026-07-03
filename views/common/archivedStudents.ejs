@@ -68,120 +68,137 @@
 </div>
 
 <script>
-    // Confirmation dialog for form submission
-    function confirmAction(message) {
-        return confirm(message);
-    }
-
-    // Show suggestions as user types
-    function showSuggestions(query) {
-        const suggestionsBox = document.getElementById('search-suggestions');
-        const studentItems = document.querySelectorAll('.student-item');
-
-        // Reset suggestions
-        suggestionsBox.innerHTML = '';
-        suggestionsBox.classList.add('hidden');
-
-        if (query.trim() === '') return;
-
-        const suggestions = Array.from(studentItems)
-            .filter(item => item.getAttribute('data-name').includes(query.toLowerCase()))
-            .map(item => {
-                const studentName = item.getAttribute('data-name');
-                return `<div class="suggestion-item" onclick="selectStudent('${studentName}', ${item.getAttribute('data-group')})">${studentName}</div>`;
-            });
-
-        if (suggestions.length > 0) {
-            suggestionsBox.innerHTML = suggestions.join('');
-            suggestionsBox.classList.remove('hidden');
+    (function () {
+        function getToggleIcons() {
+            return Array.from(document.querySelectorAll('.toggle-icon'));
         }
-    }
 
-    // Select student from suggestions
-    function selectStudent(studentName, groupIndex) {
-        const studentItems = document.querySelectorAll('.student-item');
-        const suggestionsBox = document.getElementById('search-suggestions');
-
-        // Reset styles
-        studentItems.forEach(item => (item.style.backgroundColor = ''));
-
-        // Find the student and highlight
-        const studentItem = Array.from(studentItems).find(
-            item => item.getAttribute('data-name') === studentName
-        );ef3c7'; // Highlight selected student
-            studentItem.style.borderColor = '#f59e0b';
-
-            // Close all other groups first (accordion behavior)
-            toggleIcons.forEach(otherIcon => {
+        function closeAllGroupsExcept(targetId) {
+            getToggleIcons().forEach((otherIcon) => {
                 const otherId = otherIcon.getAttribute('data-target');
                 const otherElement = document.getElementById(otherId);
-                const otherButton = otherElement.nextElementSibling;
-                
-                if (otherId !== `archived-group-${groupIndex}`) {
+                const otherButton = otherElement ? otherElement.nextElementSibling : null;
+
+                if (otherId !== targetId && otherElement) {
                     otherElement.classList.add('hidden');
-                    otherButton.classList.add('hidden');
+                    if (otherButton) otherButton.classList.add('hidden');
                     otherIcon.textContent = '+';
                 }
             });
-
-            // Expand the corresponding group
-            const group = document.getElementById(`archived-group-${groupIndex}`);
-            const toggleIcon = document.querySelector(`[data-target="archived-group-${groupIndex}"]`);
-            const submitButton = group.nextElementSibling;
-
-            if (group.classList.contains('hidden')) {
-                group.classList.remove('hidden');
-                submitButton.classList.remove('hidden');
-                toggleIcon.textContent = '−';
-            }
-
-            // Scroll to the highlighted student
-            setTimeout(() => {
-                studentItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 300);
         }
 
-        // Clear search bar and hide suggestions
-        document.getElementById('search-student').value = '';
-        suggestionsBox.classList.add('hidden');
-    }
+        // Keep this global because forms use inline onsubmit.
+        window.confirmAction = function confirmAction(message) {
+            return confirm(message);
+        };
 
-    // Toggle visibility for groups (accordion behavior)
-    const toggleIcons = document.querySelectorAll('.toggle-icon');
-    toggleIcons.forEach(icon => {
-        icon.addEventListener('click', () => {
-            const targetId = icon.getAttribute('data-target');
-            const targetElement = document.getElementById(targetId);
-            const submitButton = targetElement.nextElementSibling;
-            const isCurrentlyHidden = targetElement.classList.contains('hidden');
+        // Keep this global because search input uses inline oninput.
+        window.showSuggestions = function showSuggestions(query) {
+            const suggestionsBox = document.getElementById('search-suggestions');
+            const studentItems = Array.from(document.querySelectorAll('.student-item'));
+            if (!suggestionsBox) return;
 
-            // Close all other groups first
-            toggleIcons.forEach(otherIcon => {
-                const otherId = otherIcon.getAttribute('data-target');
-                const otherElement = document.getElementById(otherId);
-                const otherButton = otherElement.nextElementSibling;
-                
-                if (otherId !== targetId) {
-                    otherElement.classList.add('hidden');
-                    otherButton.classList.add('hidden');
-                    otherIcon.textContent = '+';
-                }
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.classList.add('hidden');
+
+            const normalizedQuery = String(query || '').trim().toLowerCase();
+            if (!normalizedQuery) return;
+
+            const matches = studentItems.filter((item) => {
+                const name = String(item.getAttribute('data-name') || '');
+                return name.includes(normalizedQuery);
             });
 
-            // Toggle the clicked group
-            if (isCurrentlyHidden) {
-                targetElement.classList.remove('hidden');
-                submitButton.classList.remove('hidden');
-                icon.textContent = '−';
-            } else {
-                targetElement.classList.add('hidden');
-                submitButton.classList.add('hidden');
-                icon.textContent = '+st.add('hidden');
-                submitButton.classList.add('hidden');
-                icon.textContent = '➕';
+            matches.forEach((item) => {
+                const studentName = String(item.getAttribute('data-name') || '');
+                const groupIndex = Number(item.getAttribute('data-group'));
+                const suggestion = document.createElement('div');
+                suggestion.className = 'suggestion-item';
+                suggestion.textContent = studentName;
+                suggestion.addEventListener('click', () => {
+                    window.selectStudent(studentName, groupIndex);
+                });
+                suggestionsBox.appendChild(suggestion);
+            });
+
+            if (matches.length > 0) {
+                suggestionsBox.classList.remove('hidden');
             }
-        });
-    });
+        };
+
+        window.selectStudent = function selectStudent(studentName, groupIndex) {
+            const studentItems = Array.from(document.querySelectorAll('.student-item'));
+            const suggestionsBox = document.getElementById('search-suggestions');
+            const normalizedName = String(studentName || '').toLowerCase();
+
+            studentItems.forEach((item) => {
+                item.style.backgroundColor = '';
+                item.style.borderColor = '';
+            });
+
+            const studentItem = studentItems.find((item) => {
+                return String(item.getAttribute('data-name') || '') === normalizedName;
+            });
+
+            if (studentItem) {
+                studentItem.style.backgroundColor = '#fef3c7';
+                studentItem.style.borderColor = '#f59e0b';
+
+                const targetId = `archived-group-${groupIndex}`;
+                closeAllGroupsExcept(targetId);
+
+                const group = document.getElementById(targetId);
+                const toggleIcon = document.querySelector(`[data-target="${targetId}"]`);
+                const submitButton = group ? group.nextElementSibling : null;
+
+                if (group && group.classList.contains('hidden')) {
+                    group.classList.remove('hidden');
+                    if (submitButton) submitButton.classList.remove('hidden');
+                    if (toggleIcon) toggleIcon.textContent = '−';
+                }
+
+                setTimeout(() => {
+                    studentItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+            }
+
+            const searchInput = document.getElementById('search-student');
+            if (searchInput) searchInput.value = '';
+            if (suggestionsBox) suggestionsBox.classList.add('hidden');
+        };
+
+        function bindAccordionHandlers() {
+            getToggleIcons().forEach((icon) => {
+                if (icon.dataset.spaBound === '1') return;
+                icon.dataset.spaBound = '1';
+
+                icon.addEventListener('click', () => {
+                    const targetId = icon.getAttribute('data-target');
+                    if (!targetId) return;
+
+                    const targetElement = document.getElementById(targetId);
+                    if (!targetElement) return;
+
+                    const submitButton = targetElement.nextElementSibling;
+                    const isCurrentlyHidden = targetElement.classList.contains('hidden');
+
+                    closeAllGroupsExcept(targetId);
+
+                    if (isCurrentlyHidden) {
+                        targetElement.classList.remove('hidden');
+                        if (submitButton) submitButton.classList.remove('hidden');
+                        icon.textContent = '−';
+                    } else {
+                        targetElement.classList.add('hidden');
+                        if (submitButton) submitButton.classList.add('hidden');
+                        icon.textContent = '+';
+                    }
+                });
+            });
+        }
+
+        bindAccordionHandlers();
+    })();
 </script>
 
 <style>

@@ -2133,7 +2133,11 @@
             <div class="paygira-selector-box">
                 <div class="paygira-selector-title">Students</div>
                 <label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;margin-bottom:6px;">
-                    <input type="checkbox" id="paygiraApplyAllStudents" style="accent-color:var(--primary);" checked>
+                    <input type="checkbox" id="paygiraApplyOnlyCurrentStudent" style="accent-color:var(--primary);" checked>
+                    Apply only to this student
+                </label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.86rem;margin-bottom:6px;">
+                    <input type="checkbox" id="paygiraApplyAllStudents" style="accent-color:var(--primary);">
                     All students
                 </label>
                 <div id="paygiraStudentSelector" class="paygira-selector-grid"></div>
@@ -2185,6 +2189,7 @@
                 modal: document.getElementById('paygiraEditModal'),
                 rowsWrap: document.getElementById('paygiraEditRowsWrap'),
                 status: document.getElementById('paygiraEditStatus'),
+                applyOnlyCurrentStudent: document.getElementById('paygiraApplyOnlyCurrentStudent'),
                 applyAllStudents: document.getElementById('paygiraApplyAllStudents'),
                 applyAllClasses: document.getElementById('paygiraApplyAllClasses'),
                 studentSelector: document.getElementById('paygiraStudentSelector'),
@@ -2221,14 +2226,34 @@
 
         function syncBillingSelectorState(els) {
             if (!els) return;
-            const applyAllStudents = els.applyAllStudents?.checked === true;
+            const applyOnlyCurrentStudent = els.applyOnlyCurrentStudent?.checked === true;
+            const applyAllStudents = !applyOnlyCurrentStudent && (els.applyAllStudents?.checked === true);
             const studentChecks = Array.from(els.studentSelector?.querySelectorAll('.paygira-student-check') || []);
             const classChecks = Array.from(els.classSelector?.querySelectorAll('.paygira-class-check') || []);
 
-            studentChecks.forEach((cb) => {
-                cb.checked = applyAllStudents ? true : cb.checked;
-                cb.disabled = applyAllStudents;
-            });
+            if (applyOnlyCurrentStudent) {
+                studentChecks.forEach((cb) => {
+                    cb.checked = String(cb.value) === String(activeBillingEditStudentId);
+                    cb.disabled = true;
+                });
+                if (els.applyAllStudents) {
+                    els.applyAllStudents.checked = false;
+                }
+            } else if (applyAllStudents) {
+                studentChecks.forEach((cb) => {
+                    cb.checked = true;
+                    cb.disabled = true;
+                });
+            } else {
+                studentChecks.forEach((cb) => {
+                    cb.disabled = false;
+                });
+                const selectedCount = studentChecks.filter((cb) => cb.checked).length;
+                if (selectedCount === 0) {
+                    const currentStudentCb = studentChecks.find((cb) => String(cb.value) === String(activeBillingEditStudentId));
+                    if (currentStudentCb) currentStudentCb.checked = true;
+                }
+            }
 
             if (!applyAllStudents && els.applyAllClasses) {
                 els.applyAllClasses.checked = false;
@@ -2322,7 +2347,8 @@
                 });
             }
             if (els.status) els.status.textContent = '';
-            if (els.applyAllStudents) els.applyAllStudents.checked = true;
+            if (els.applyOnlyCurrentStudent) els.applyOnlyCurrentStudent.checked = true;
+            if (els.applyAllStudents) els.applyAllStudents.checked = false;
             if (els.applyAllClasses) els.applyAllClasses.checked = false;
             renderBillingStudentSelector(els);
             renderBillingClassSelector(els);
@@ -2355,9 +2381,12 @@
                 return false;
             }
 
-            const applyToAllStudents = els.applyAllStudents?.checked === true;
-            const applyToAllClasses = els.applyAllClasses?.checked === true;
-            const selectedStudentIds = Array.from(els.studentSelector?.querySelectorAll('.paygira-student-check:checked') || []).map((cb) => parseInt(cb.value, 10)).filter((id) => Number.isFinite(id));
+            const applyOnlyCurrentStudent = els.applyOnlyCurrentStudent?.checked === true;
+            const applyToAllStudents = !applyOnlyCurrentStudent && (els.applyAllStudents?.checked === true);
+            const applyToAllClasses = applyToAllStudents && (els.applyAllClasses?.checked === true);
+            const selectedStudentIds = applyOnlyCurrentStudent
+                ? [parseInt(activeBillingEditStudentId, 10)].filter((id) => Number.isFinite(id))
+                : Array.from(els.studentSelector?.querySelectorAll('.paygira-student-check:checked') || []).map((cb) => parseInt(cb.value, 10)).filter((id) => Number.isFinite(id));
             const selectedClassIds = Array.from(els.classSelector?.querySelectorAll('.paygira-class-check:checked') || []).map((cb) => parseInt(cb.value, 10)).filter((id) => Number.isFinite(id));
 
             if (!applyToAllStudents && selectedStudentIds.length === 0) {
@@ -2928,8 +2957,21 @@ function updateClass(studentId) {
                     billingDraftDirty = true;
                     billingEls.rowsWrap?.appendChild(createBillingEditRow('', '', {}));
                 });
+                billingEls.applyOnlyCurrentStudent?.addEventListener('change', () => {
+                    billingDraftDirty = true;
+                    if (billingEls.applyOnlyCurrentStudent.checked && billingEls.applyAllStudents) {
+                        billingEls.applyAllStudents.checked = false;
+                    }
+                    syncBillingSelectorState(billingEls);
+                });
                 billingEls.applyAllStudents?.addEventListener('change', () => {
                     billingDraftDirty = true;
+                    if (billingEls.applyAllStudents.checked && billingEls.applyOnlyCurrentStudent) {
+                        billingEls.applyOnlyCurrentStudent.checked = false;
+                    }
+                    if (!billingEls.applyAllStudents.checked && billingEls.applyOnlyCurrentStudent && !billingEls.applyOnlyCurrentStudent.checked) {
+                        billingEls.applyOnlyCurrentStudent.checked = true;
+                    }
                     syncBillingSelectorState(billingEls);
                 });
                 billingEls.applyAllClasses?.addEventListener('change', () => {
