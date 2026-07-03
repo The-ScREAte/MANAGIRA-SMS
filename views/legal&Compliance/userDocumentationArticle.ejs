@@ -919,7 +919,7 @@
       display: none;
       border-bottom: 1px solid #e2e8f0;
       background: #f8fafc;
-      padding: 12px 14px;
+      padding: 10px 12px;
     }
     .ep-mpick.is-open { display: block; }
     .ep-mpick__head {
@@ -928,12 +928,12 @@
       justify-content: space-between;
       margin-bottom: 10px;
     }
-    .ep-mpick__head span { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #374151; }
-    .ep-mpick__close { background: none; border: none; cursor: pointer; font-size: 18px; color: #94a3b8; line-height: 1; padding: 0; }
+    .ep-mpick__head span { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #374151; }
+    .ep-mpick__close { background: none; border: none; cursor: pointer; font-size: 15px; color: #94a3b8; line-height: 1; padding: 0; }
     .ep-mpick__close:hover { color: #374151; }
-    .ep-mpick__tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+    .ep-mpick__tabs { display: flex; gap: 4px; margin-bottom: 8px; }
     .ep-mpick__tab {
-      padding: 4px 12px; border: 1px solid #d1d5db; background: #fff;
+      padding: 3px 9px; border: 1px solid #d1d5db; background: #fff;
       border-radius: 6px; font-size: 0.78rem; font-weight: 600;
       font-family: inherit; cursor: pointer; color: #374151;
       transition: background 0.12s;
@@ -942,25 +942,48 @@
     .ep-mpick__panel { display: none; }
     .ep-mpick__panel.active { display: flex; flex-direction: column; gap: 8px; }
     .ep-mpick__drop {
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: 7px;
       border: 1.5px dashed #d1d5db; border-radius: 8px;
-      padding: 12px 14px; cursor: pointer; color: #6b7280;
-      font-size: 0.84rem; transition: border-color 0.15s, background 0.15s;
+      padding: 9px 11px; cursor: pointer; color: #6b7280;
+      font-size: 0.8rem; transition: border-color 0.15s, background 0.15s;
       background: #fff;
     }
     .ep-mpick__drop:hover, .ep-mpick__drop.drag-over { border-color: #01535b; background: #f0fafa; color: #01535b; }
     .ep-mpick__inp {
-      width: 100%; padding: 8px 10px; border: 1px solid #d1d5db;
-      border-radius: 6px; font-size: 0.87rem; font-family: inherit;
+      width: 100%; padding: 7px 9px; border: 1px solid #d1d5db;
+      border-radius: 6px; font-size: 0.82rem; font-family: inherit;
       background: #fff; box-sizing: border-box;
     }
     .ep-mpick__inp:focus { outline: none; border-color: #01535b; }
     .ep-mpick__row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    #epImgUploadP .ep-mpick__row .ep-mpick__inp {
+      padding: 6px 8px;
+      font-size: 0.78rem;
+    }
+    #epLinkPick .ep-mpick__head span,
+    #epVidPick .ep-mpick__head span {
+      font-size: 0.7rem;
+    }
+    #epLinkPick .ep-mpick__inp,
+    #epVidPick .ep-mpick__inp {
+      padding: 6px 8px;
+      font-size: 0.78rem;
+    }
+    #epLinkPick .ep-mpick__btn,
+    #epVidPick .ep-mpick__btn {
+      padding: 5px 9px;
+      font-size: 0.76rem;
+    }
+    #epLinkPick .ep-mpick__hint,
+    #epVidPick .ep-mpick__hint {
+      font-size: 0.72rem;
+      line-height: 1.35;
+    }
     .ep-mpick__foot { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-    .ep-mpick__err { font-size: 0.8rem; color: #dc2626; flex: 1; min-height: 1em; }
+    .ep-mpick__err { font-size: 0.74rem; color: #dc2626; flex: 1; min-height: 1em; }
     .ep-mpick__btn {
-      padding: 7px 14px; background: #01535b; color: #fff;
-      border: none; border-radius: 6px; font-size: 0.84rem;
+      padding: 6px 10px; background: #01535b; color: #fff;
+      border: none; border-radius: 6px; font-size: 0.78rem;
       font-weight: 700; font-family: inherit; cursor: pointer;
       white-space: nowrap; transition: background 0.12s;
     }
@@ -1444,37 +1467,37 @@
           <!-- Image picker -->
           <div class="ep-mpick" id="epImgPick">
             <div class="ep-mpick__head">
-              <span>Insert Image</span>
+              <span>Image</span>
               <button type="button" class="ep-mpick__close" data-close="epImgPick">&times;</button>
             </div>
             <div class="ep-mpick__tabs">
-              <button type="button" class="ep-mpick__tab active" data-for="epImgUploadP">Upload File</button>
-              <button type="button" class="ep-mpick__tab" data-for="epImgUrlP">Image URL</button>
+              <button type="button" class="ep-mpick__tab active" data-for="epImgUploadP">Upload</button>
+              <button type="button" class="ep-mpick__tab" data-for="epImgUrlP">URL</button>
             </div>
             <div class="ep-mpick__panel active" id="epImgUploadP">
               <label class="ep-mpick__drop" id="epImgDrop">
                 <input type="file" id="epImgFileInp" accept="image/*" style="display:none">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span id="epImgDropLabel">Click to select an image</span>
+                <span id="epImgDropLabel">Choose image</span>
               </label>
               <div class="ep-mpick__row">
-                <input type="text" class="ep-mpick__inp" id="epImgAlt" placeholder="Alt text (recommended)">
-                <input type="text" class="ep-mpick__inp" id="epImgCaption" placeholder="Caption (optional)">
+                <input type="text" class="ep-mpick__inp" id="epImgAlt" placeholder="Alt text">
+                <input type="text" class="ep-mpick__inp" id="epImgCaption" placeholder="Caption">
               </div>
               <div class="ep-mpick__foot">
                 <span class="ep-mpick__err" id="epImgUploadErr"></span>
-                <button type="button" class="ep-mpick__btn" id="epImgUploadBtn">Upload &amp; Insert</button>
+                <button type="button" class="ep-mpick__btn" id="epImgUploadBtn">Insert</button>
               </div>
             </div>
             <div class="ep-mpick__panel" id="epImgUrlP">
-              <input type="url" class="ep-mpick__inp" id="epImgUrlInp" placeholder="https://&#x2026; image URL">
+              <input type="url" class="ep-mpick__inp" id="epImgUrlInp" placeholder="https://...">
               <div class="ep-mpick__row">
                 <input type="text" class="ep-mpick__inp" id="epImgUrlAlt" placeholder="Alt text">
-                <input type="text" class="ep-mpick__inp" id="epImgUrlCap" placeholder="Caption (optional)">
+                <input type="text" class="ep-mpick__inp" id="epImgUrlCap" placeholder="Caption">
               </div>
               <div class="ep-mpick__foot">
                 <span></span>
-                <button type="button" class="ep-mpick__btn" id="epImgUrlBtn">Insert Image</button>
+                <button type="button" class="ep-mpick__btn" id="epImgUrlBtn">Insert</button>
               </div>
             </div>
           </div>
@@ -1482,31 +1505,31 @@
           <!-- Video embed picker -->
           <div class="ep-mpick" id="epVidPick">
             <div class="ep-mpick__head">
-              <span>Embed Video</span>
+              <span>Video</span>
               <button type="button" class="ep-mpick__close" data-close="epVidPick">&times;</button>
             </div>
             <div class="ep-mpick__panel active" style="display:flex">
-              <input type="url" class="ep-mpick__inp" id="epVidUrl" placeholder="https://www.youtube.com/watch?v=&#x2026; or youtu.be/&#x2026;">
-              <p class="ep-mpick__hint">Supports YouTube and Vimeo. Embeds as a responsive player.</p>
+              <input type="url" class="ep-mpick__inp" id="epVidUrl" placeholder="YouTube or Vimeo URL">
+              <p class="ep-mpick__hint">YouTube and Vimeo only.</p>
               <div class="ep-mpick__foot">
                 <span class="ep-mpick__err" id="epVidErr"></span>
-                <button type="button" class="ep-mpick__btn" id="epVidEmbedBtn">Embed Video</button>
+                <button type="button" class="ep-mpick__btn" id="epVidEmbedBtn">Insert</button>
               </div>
             </div>
           </div>
 
           <div class="ep-mpick" id="epLinkPick">
             <div class="ep-mpick__head">
-              <span>Insert Link</span>
+              <span>Link</span>
               <button type="button" class="ep-mpick__close" data-close="epLinkPick">&times;</button>
             </div>
             <div class="ep-mpick__panel active" style="display:flex">
-              <input type="url" class="ep-mpick__inp" id="epLinkUrl" placeholder="https://... or /account/login">
-              <input type="text" class="ep-mpick__inp" id="epLinkText" placeholder="Link text (uses selected text if left empty)">
-              <p class="ep-mpick__hint">Select text like Login first, then add the destination URL.</p>
+              <input type="url" class="ep-mpick__inp" id="epLinkUrl" placeholder="https://... or /path">
+              <input type="text" class="ep-mpick__inp" id="epLinkText" placeholder="Text (optional)">
+              <p class="ep-mpick__hint">Select text first, then add URL.</p>
               <div class="ep-mpick__foot">
                 <span class="ep-mpick__err" id="epLinkErr"></span>
-                <button type="button" class="ep-mpick__btn" id="epLinkInsertBtn">Insert Link</button>
+                <button type="button" class="ep-mpick__btn" id="epLinkInsertBtn">Insert</button>
               </div>
             </div>
           </div>
@@ -2229,10 +2252,6 @@
     epTogglePicker('epVidPick');
   });
 
-  // File input trigger
-  document.getElementById('epImgDrop').addEventListener('click', function() {
-    document.getElementById('epImgFileInp').click();
-  });
   document.getElementById('epImgFileInp').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) document.getElementById('epImgDropLabel').textContent = file.name;
@@ -2247,7 +2266,7 @@
 
     const btn = document.getElementById('epImgUploadBtn');
     btn.disabled = true;
-    btn.textContent = 'Uploading…';
+    btn.textContent = 'Uploading...';
 
     try {
       const fd = new FormData();
@@ -2266,12 +2285,12 @@
       document.getElementById('epImgFileInp').value = '';
       document.getElementById('epImgAlt').value = '';
       document.getElementById('epImgCaption').value = '';
-      document.getElementById('epImgDropLabel').textContent = 'Click to select an image';
+      document.getElementById('epImgDropLabel').textContent = 'Choose image';
     } catch (_) {
       errEl.textContent = 'Network error. Please try again.';
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Upload & Insert';
+      btn.textContent = 'Insert';
     }
   });
 
