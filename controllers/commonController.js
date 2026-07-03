@@ -17406,6 +17406,262 @@ NUMBERING:
     }
   },
 
+  guardianRelinkStudent: async (req, res, db) => {
+    const client = await db.connect();
+    try {
+      const organizationId = req.session.organizationId;
+      const {
+        currentGuardianId,
+        studentId,
+        source,
+        mode,
+        targetGuardianId,
+        guardians,
+        guardian,
+      } = req.body || {};
+
+      if (!organizationId) {
+        return res.status(401).json({ success: false, error: 'Unauthorized' });
+      }
+
+      const parsedStudentId = parseInt(studentId, 10);
+      const parsedCurrentGuardianId = parseInt(currentGuardianId, 10);
+      if (!Number.isInteger(parsedStudentId) || parsedStudentId <= 0 || !Number.isInteger(parsedCurrentGuardianId) || parsedCurrentGuardianId <= 0) {
+        return res.status(400).json({ success: false, error: 'Invalid guardian or student.' });
+      }
+
+      const studentRow = (await client.query(
+        `SELECT student_id FROM students WHERE student_id = $1 AND organization_id = $2 LIMIT 1`,
+        [parsedStudentId, organizationId]
+      )).rows[0];
+      if (!studentRow) {
+        return res.status(404).json({ success: false, error: 'Student not found.' });
+      }
+
+      await client.query('BEGIN');
+
+      let targetGuardianProfileId = null;
+      let targetGuardianProfile = null;
+      let targetGuardianProfiles = [];
+
+      if (mode === 'existing') {
+        const parsedTargetGuardianId = parseInt(targetGuardianId, 10);
+        if (!Number.isInteger(parsedTargetGuardianId) || parsedTargetGuardianId <= 0) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ success: false, error: 'Please select a guardian to relink.' });
+        }
+
+        targetGuardianProfile = (await client.query(
+          `SELECT guardian_id, first_name, last_name, phone, email, address, hometown, image_url
+           FROM guardian_profiles
+           WHERE guardian_id = $1 AND organization_id = $2
+           LIMIT 1`,
+          [parsedTargetGuardianId, organizationId]
+        )).rows[0] || null;
+
+        if (!targetGuardianProfile) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ success: false, error: 'Selected guardian was not found.' });
+        }
+
+        targetGuardianProfileId = Number(targetGuardianProfile.guardian_id);
+        targetGuardianProfiles = [targetGuardianProfile];
+      } else if (mode === 'new') {
+        const rawNewGuardians = Array.isArray(guardians)
+          ? guardians
+          : (guardian && typeof guardian === 'object' ? [guardian] : []);
+
+        const normalizedNewGuardians = rawNewGuardians
+          .map((entry) => ({
+            firstName: String(entry?.firstName || '').trim(),
+            lastName: String(entry?.lastName || '').trim(),
+            phone: String(entry?.phone || '').trim(),
+            email: String(entry?.email || '').trim().toLowerCase(),
+            address: String(entry?.address || '').trim(),
+            hometown: String(entry?.hometown || '').trim(),
+          }))
+          .filter((entry) => entry.firstName && entry.lastName);
+
+        if (!normalizedNewGuardians.length) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ success: false, error: 'New guardian first and last name are required.' });
+        }
+
+        for (const newGuardian of normalizedNewGuardians) {
+          const insertedOrExistingGuardianId = await ensureGuardianPortalProfileAndAccount(client, {
+            organizationId,
+            firstName: newGuardian.firstName,
+            lastName: newGuardian.lastName,
+            phone: newGuardian.phone || null,
+            email: newGuardian.email || null,
+            address: newGuardian.address || null,
+            hometown: newGuardian.hometown || null,
+            imageUrl: null,
+          });
+
+          const profileRow = (await client.query(
+            `SELECT guardian_id, first_name, last_name, phone, email, address, hometown, image_url
+             FROM guardian_profiles
+             WHERE guardian_id = $1 AND organization_id = $2
+             LIMIT 1`,
+            [insertedOrExistingGuardianId, organizationId]
+          )).rows[0] || null;
+
+          if (!profileRow) {
+            await client.query('ROLLBACK');
+            return res.status(500).json({ success: false, error: 'Failed to create guardian profile.' });
+          }
+
+          if (!targetGuardianProfiles.some((row) => Number(row.guardian_id) === Number(profileRow.guardian_id))) {
+            targetGuardianProfiles.push(profileRow);
+          }
+        }
+
+        targetGuardianProfile = targetGuardianProfiles[0] || null;
+        targetGuardianProfileId = targetGuardianProfile ? Number(targetGuardianProfile.guardian_id) : null;
+      } else {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'Invalid relink mode.' });
+      }
+
+      if (String(source) === 'profile') {
+        const currentProfile = (await client.query(
+          `SELECT guardian_id, first_name, last_name, phone, email
+           FROM guardian_profiles
+           WHERE guardian_id = $1 AND organization_id = $2
+           LIMIT 1`,
+          [parsedCurrentGuardianId, organizationId]
+        )).rows[0] || null;
+
+        if (!currentProfile) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ success: false, error: 'Current guardian profile not found.' });
+        }
+
+        if (targetGuardianProfiles.some((row) => Number(row.guardian_id) === Number(currentProfile.guardian_id))) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ success: false, error: 'Student is already linked to that guardian.' });
+        }
+
+        await client.query(
+          `DELETE FROM guardian_students
+           WHERE guardian_id = $1 AND student_id = $2`,
+          [parsedCurrentGuardianId, parsedStudentId]
+        );
+
+        for (const targetProfile of targetGuardianProfiles) {
+          await client.query(
+            `INSERT INTO guardian_students (guardian_id, student_id, relationship)
+             VALUES ($1, $2, 'Parent/Guardian')
+             ON CONFLICT DO NOTHING`,
+            [targetProfile.guardian_id, parsedStudentId]
+          );
+        }
+
+        // Keep legacy table in sync for pages still backed by guardians rows.
+        await client.query(
+          `DELETE FROM guardians
+           WHERE organization_id = $1
+             AND student_id = $2
+             AND LOWER(TRIM(first_name)) = LOWER(TRIM($3))
+             AND LOWER(TRIM(COALESCE(last_name, ''))) = LOWER(TRIM(COALESCE($4, '')))
+             AND (
+               COALESCE(NULLIF(TRIM(COALESCE(phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE($5, '')), ''), '__NO_PHONE__')
+               OR COALESCE(NULLIF(TRIM(COALESCE(email, '')), ''), '__NO_EMAIL__') = COALESCE(NULLIF(TRIM(COALESCE($6, '')), ''), '__NO_EMAIL__')
+             )`,
+          [
+            organizationId,
+            parsedStudentId,
+            currentProfile.first_name,
+            currentProfile.last_name,
+            currentProfile.phone || null,
+            currentProfile.email || null,
+          ]
+        );
+      } else {
+        const currentLegacy = (await client.query(
+          `SELECT guardian_id
+           FROM guardians
+           WHERE guardian_id = $1 AND student_id = $2 AND organization_id = $3
+           LIMIT 1`,
+          [parsedCurrentGuardianId, parsedStudentId, organizationId]
+        )).rows[0] || null;
+
+        if (!currentLegacy) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ success: false, error: 'Current guardian link was not found.' });
+        }
+
+        await client.query(
+          `DELETE FROM guardians WHERE guardian_id = $1 AND student_id = $2 AND organization_id = $3`,
+          [parsedCurrentGuardianId, parsedStudentId, organizationId]
+        );
+
+        for (const targetProfile of targetGuardianProfiles) {
+          await client.query(
+            `INSERT INTO guardian_students (guardian_id, student_id, relationship)
+             VALUES ($1, $2, 'Parent/Guardian')
+             ON CONFLICT DO NOTHING`,
+            [targetProfile.guardian_id, parsedStudentId]
+          );
+        }
+      }
+
+      for (const targetProfile of targetGuardianProfiles) {
+        const existingLegacyForTarget = await client.query(
+          `SELECT guardian_id
+           FROM guardians
+           WHERE organization_id = $1 AND student_id = $2
+             AND LOWER(TRIM(first_name)) = LOWER(TRIM($3))
+             AND LOWER(TRIM(COALESCE(last_name, ''))) = LOWER(TRIM(COALESCE($4, '')))
+             AND (
+               COALESCE(NULLIF(TRIM(COALESCE(phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE($5, '')), ''), '__NO_PHONE__')
+               OR COALESCE(NULLIF(TRIM(COALESCE(email, '')), ''), '__NO_EMAIL__') = COALESCE(NULLIF(TRIM(COALESCE($6, '')), ''), '__NO_EMAIL__')
+             )
+           LIMIT 1`,
+          [
+            organizationId,
+            parsedStudentId,
+            targetProfile.first_name,
+            targetProfile.last_name,
+            targetProfile.phone || null,
+            targetProfile.email || null,
+          ]
+        );
+
+        if (!existingLegacyForTarget.rows.length) {
+          await client.query(
+            `INSERT INTO guardians (first_name, last_name, address, phone, email, hometown, image_url, student_id, organization_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [
+              targetProfile.first_name,
+              targetProfile.last_name,
+              targetProfile.address || null,
+              targetProfile.phone || null,
+              targetProfile.email || null,
+              targetProfile.hometown || null,
+              targetProfile.image_url || null,
+              parsedStudentId,
+              organizationId,
+            ]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      return res.json({
+        success: true,
+        targetGuardianId: targetGuardianProfileId,
+        targetGuardianIds: targetGuardianProfiles.map((row) => Number(row.guardian_id)),
+      });
+    } catch (error) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+      return res.status(500).json({ success: false, error: 'Error relinking student to guardian.' });
+    } finally {
+      client.release();
+    }
+  },
+
   staffReportStudent: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
