@@ -372,6 +372,19 @@ class ManagiraChatbot {
     const fallbackDocHits = Array.isArray(result && result.docHits) ? result.docHits : [];
     const docsForDisplay = primaryDoc ? [primaryDoc].concat(relatedDocs) : fallbackDocHits;
 
+    const iconSvgForType = (typeClass) => {
+      if (typeClass === 'pdf') {
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm0 1.5L18.5 8H14zM8 14h2.2a2 2 0 0 0 0-4H8zm1.2-3h1a1 1 0 0 1 0 2h-1zm3.3 3h1.7a2 2 0 1 0 0-4h-1.7zm1.2-3h.5a1 1 0 1 1 0 2h-.5zM18 11h-2.6v4h1.2v-1.4H18v-1h-1.4V12H18z"/></svg>';
+      }
+      if (typeClass === 'video') {
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 10.5V6a2 2 0 0 0-2-2H5A2 2 0 0 0 3 6v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4.5l4 3v-9zM10 15V9l4 3z"/></svg>';
+      }
+      if (typeClass === 'guide' || typeClass === 'resource') {
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h5a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H6a2 2 0 0 0-2 2zm16 0a2 2 0 0 0-2-2h-5a3 3 0 0 0-3 3v13a3 3 0 0 1 3-3h5a2 2 0 0 1 2 2z"/></svg>';
+      }
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1v5h5"/></svg>';
+    };
+
     const renderDocCard = (hit, emphasisLabel) => {
       const hitType = String(hit.typeLabel || hit.contentType || 'Article');
       const normalizedType = hitType.toLowerCase();
@@ -399,20 +412,7 @@ class ManagiraChatbot {
         ? `<span class="chatbot-result-card__excerpt">${escape(hit.excerpt.slice(0, 115))}${hit.excerpt.length > 115 ? '\u2026' : ''}</span>`
         : '';
 
-      const keywords = Array.isArray(hit.matchedKeywords) ? hit.matchedKeywords.slice(0, 4) : [];
-      const tags = Array.isArray(hit.matchedTags) ? hit.matchedTags.slice(0, 3) : [];
-      const chips = keywords
-        .map((kw) => ({ label: kw, kind: 'kw' }))
-        .concat(tags.map((tag) => ({ label: tag, kind: 'tag' })));
-      const keywordHtml = chips.length
-        ? `<span class="chatbot-result-card__keywords">${chips.map((chip) => `<span class="chatbot-result-chip chatbot-result-chip--${chip.kind}">${escape(chip.label)}</span>`).join('')}</span>`
-        : '';
-
-      const emphasisHtml = emphasisLabel
-        ? `<span class="chatbot-result-card__emphasis">${escape(emphasisLabel)}</span>`
-        : '';
-
-      a.innerHTML = `<span class="chatbot-result-card__type">${escape(hitType)}</span><span class="chatbot-result-card__title">${escape(hit.title)}</span>${emphasisHtml}${excerptHtml}${keywordHtml}`;
+      a.innerHTML = `<span class="chatbot-result-card__type chatbot-result-card__type--${escape(typeClass)}" title="${escape(hitType)}">${iconSvgForType(typeClass)}</span><span class="chatbot-result-card__title">${escape(hit.title)}</span>${excerptHtml}`;
       return a;
     };
 
