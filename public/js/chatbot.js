@@ -149,7 +149,6 @@ class ManagiraChatbot {
       this.keyboardVisible = true;
       setTimeout(() => {
         if (this.isOpen && !this.isMinimized) {
-          this.container.classList.add('keyboard-active');
           this.scrollToBottom();
         }
       }, 300);
@@ -157,22 +156,6 @@ class ManagiraChatbot {
 
     bind(this.input, 'blur', () => {
       this.keyboardVisible = false;
-      setTimeout(() => {
-        this.container.classList.remove('keyboard-active');
-      }, 300);
-    });
-
-    // Viewport resize handling for keyboard detection
-    bind(window, 'resize', () => {
-      const currentHeight = window.innerHeight;
-      const heightDifference = this.originalViewportHeight - currentHeight;
-      
-      // If height reduced significantly, keyboard is likely visible
-      if (heightDifference > 150 && this.isOpen && !this.isMinimized) {
-        this.container.classList.add('keyboard-active');
-      } else {
-        this.container.classList.remove('keyboard-active');
-      }
     });
   }
 

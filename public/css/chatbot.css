@@ -1774,3 +1774,49 @@ body[data-page="publicDashboard"] .chatbot-container {
 .chatbot-procedure__list li {
   margin: 0;
 }
+
+/* Final mobile stability layer: prevent input zoom and keyboard resize jumps */
+@media (max-width: 768px) {
+  .chatbot-container {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 14px) !important;
+    bottom: 8px !important;
+    height: min(74svh, 640px) !important;
+    max-height: min(74svh, 640px) !important;
+  }
+
+  .chatbot-container.active,
+  .chatbot-container.keyboard-active {
+    transform: translateX(-50%) !important;
+    height: min(74svh, 640px) !important;
+    max-height: min(74svh, 640px) !important;
+  }
+
+  .chatbot-input,
+  .chatbot-input:focus {
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100% !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .chatbot-container {
+    width: calc(100vw - 10px) !important;
+    bottom: 6px !important;
+    height: min(70svh, 560px) !important;
+    max-height: min(70svh, 560px) !important;
+  }
+
+  .chatbot-container.active,
+  .chatbot-container.keyboard-active {
+    height: min(70svh, 560px) !important;
+    max-height: min(70svh, 560px) !important;
+  }
+
+  .chatbot-input,
+  .chatbot-input:focus {
+    font-size: 16px !important;
+  }
+}
