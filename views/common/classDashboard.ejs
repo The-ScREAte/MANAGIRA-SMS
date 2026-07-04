@@ -5129,39 +5129,6 @@ main {
       var printWindow = window.open('', '_blank');
       if (!printWindow) return;
       printWindow.document.write('<html><head><title>Class Schedule</title><style>@page{size:landscape;margin:12mm;} body{font-family:' + esc(getComputedStyle(document.body).fontFamily || 'Arial, sans-serif') + ';margin:0;color:#0f172a;background:#f4f7fb;} .schedule-print{position:relative;min-height:100vh;padding:20px;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);display:flex;flex-direction:column;} .schedule-print::after{content:"";position:fixed;inset:0;background-image:' + (classScheduleContext.logoUrl ? 'url("' + esc(classScheduleContext.logoUrl) + '")' : 'none') + ';background-repeat:no-repeat;background-position:center;background-size:360px 360px;opacity:0.06;pointer-events:none;z-index:2;} .schedule-print > *{position:relative;z-index:1;} .schedule-print-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:20px 22px;border-radius:24px;background:linear-gradient(135deg,' + esc(orgPrimaryColor) + ' 0%,' + esc(orgPrimaryHover) + ' 100%);color:#ffffff;box-shadow:0 18px 40px rgba(15,23,42,0.14);} .schedule-print-brand{display:flex;align-items:center;gap:16px;} .schedule-print-logo{width:64px;height:64px;border-radius:18px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto;} .schedule-print-logo img{width:100%;height:100%;object-fit:contain;} .schedule-print-kicker{margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.78);} .schedule-print-school{margin:0;font-size:28px;line-height:1.1;font-weight:800;} .schedule-print-title{margin:6px 0 0;font-size:15px;line-height:1.5;color:rgba(255,255,255,0.9);} .schedule-print-header-side{display:flex;flex-direction:column;align-items:flex-end;gap:10px;min-width:220px;} .schedule-print-pill{display:inline-flex;align-items:center;padding:10px 14px;border-radius:999px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.26);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;} .schedule-print-header-meta{display:grid;gap:6px;text-align:right;} .schedule-print-header-meta-row{font-size:13px;line-height:1.4;color:rgba(255,255,255,0.92);} .schedule-print-header-meta-label{font-weight:700;color:rgba(255,255,255,0.72);text-transform:uppercase;letter-spacing:0.08em;font-size:10px;margin-right:6px;} .schedule-print-table{margin-top:18px;border-radius:20px;overflow:hidden;border:1px solid #d7dee8;box-shadow:0 10px 28px rgba(15,23,42,0.06);} .schedule-print-disclaimer{max-width:760px;margin:28px auto 0;padding:18px 22px;text-align:center;color:#475569;font-size:13px;line-height:1.75;} .schedule-print-disclaimer strong{display:block;margin-bottom:8px;color:' + esc(orgPrimaryColor) + ';font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;} .schedule-print-footer{margin-top:auto;padding-top:18px;display:flex;justify-content:center;color:#64748b;font-size:12px;font-weight:600;} table{width:100%;border-collapse:collapse;table-layout:fixed;background:#ffffff;} @media print{body{background:#ffffff;} .schedule-print{padding:0;background:#ffffff;} .schedule-print-header{box-shadow:none;} .schedule-print-table{box-shadow:none;}}</style></head><body><div class="schedule-print"><div class="schedule-print-header"><div class="schedule-print-brand">' + (classScheduleContext.logoUrl ? '<div class="schedule-print-logo"><img src="' + esc(classScheduleContext.logoUrl) + '" alt="School logo" /></div>' : '') + '<div><p class="schedule-print-kicker">Class Timetable</p><h1 class="schedule-print-school">' + esc(schoolName) + '</h1><p class="schedule-print-title">' + esc(classScheduleContext.className) + ' Class Schedule</p></div></div><div class="schedule-print-header-side"><div class="schedule-print-pill">' + esc(classScheduleContext.termName) + '</div><div class="schedule-print-header-meta"><div class="schedule-print-header-meta-row"><span class="schedule-print-header-meta-label">Class</span>' + esc(classScheduleContext.className) + '</div><div class="schedule-print-header-meta-row"><span class="schedule-print-header-meta-label">School Year</span>' + esc(classScheduleContext.schoolYearLabel) + '</div></div></div></div><div class="schedule-print-table">' + content + '</div><div class="schedule-print-disclaimer"><strong>Ownership Notice</strong><span>' + esc(ownershipNotice) + '</span></div><div class="schedule-print-footer">Printed on ' + esc(printedAt) + '</div></div></body></html>');
-      var printOverrideStyle = printWindow.document.createElement('style');
-      printOverrideStyle.textContent = [
-        '@media print {',
-        '  @page { size: landscape; margin: 8mm; }',
-        '  html, body { width: 100%; height: 100%; overflow: hidden !important; }',
-        '  body { background: #ffffff !important; }',
-        '  .schedule-print { min-height: 100% !important; height: 100% !important; padding: 0 !important; background: #ffffff !important; }',
-        '  .schedule-print-header { box-shadow: none !important; padding: 14px 16px !important; gap: 12px !important; border-radius: 18px !important; }',
-        '  .schedule-print-logo { width: 56px !important; height: 56px !important; border-radius: 14px !important; }',
-        '  .schedule-print-school { font-size: 22px !important; }',
-        '  .schedule-print-title { margin-top: 4px !important; font-size: 13px !important; line-height: 1.35 !important; }',
-        '  .schedule-print-header-meta-row { font-size: 11px !important; line-height: 1.25 !important; }',
-        '  .schedule-print-table { margin-top: 10px !important; border-radius: 14px !important; box-shadow: none !important; }',
-        '  table th, table td { font-size: 10px !important; padding: 6px 5px !important; }',
-        '  .schedule-print-disclaimer { margin: 10px auto 0 !important; padding: 10px 14px !important; font-size: 10px !important; line-height: 1.45 !important; }',
-        '  .schedule-print-disclaimer strong { margin-bottom: 5px !important; font-size: 10px !important; }',
-        '  .schedule-print-footer { margin-top: 8px !important; padding-top: 8px !important; font-size: 10px !important; }',
-        '  .schedule-print::after {',
-        '    position: fixed !important;',
-        '    inset: 0 !important;',
-        '    background-repeat: no-repeat !important;',
-        '    background-position: center !important;',
-        '    background-size: 420px 420px !important;',
-        '    opacity: 0.14 !important;',
-        '    z-index: 0 !important;',
-        '    pointer-events: none !important;',
-        '    -webkit-print-color-adjust: exact !important;',
-        '    print-color-adjust: exact !important;',
-        '  }',
-        '  .schedule-print, .schedule-print * { page-break-inside: avoid !important; }',
-        '}',
-      ].join('\n');
-      printWindow.document.head.appendChild(printOverrideStyle);
       printWindow.document.close();
       printWindow.focus();
       printWindow.print();
