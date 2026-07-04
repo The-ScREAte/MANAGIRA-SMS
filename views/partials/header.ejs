@@ -1431,11 +1431,11 @@
           Dashboard
         </a></li>
         <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
-        <li class="nav-item"><a href="/common/publicDashboard?organizationId=<%= req.session.organizationId %>" class="management-link">
+        <li class="nav-item"><a href="/" class="management-link" data-no-spa>
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
           </svg>
-          Public Dashboard
+          School Website
         </a></li>
         <% } %>
         <li class="nav-item"><a href="/guardian/reports" class="management-link">
@@ -1474,7 +1474,7 @@
           Dashboard
         </a></li>
         <% if (req.session && req.session.organizationId && Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
-        <li class="nav-item"><a href="/common/publicDashboard?organizationId=<%= req.session.organizationId %>" class="management-link">
+        <li class="nav-item"><a href="/" class="management-link" data-no-spa>
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
           </svg>

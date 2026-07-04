@@ -291,7 +291,7 @@ class ManagiraChatbot {
 
       if (data.success) {
         if (data.type === 'results') {
-          this.showSearchResults(data.summary, data.faqHits || [], data.docHits || []);
+          this.showSearchResults(data);
         } else if (data.type === 'no_results') {
           this.showNoResults(data.message, data.links || []);
         } else {
@@ -363,65 +363,126 @@ class ManagiraChatbot {
     this.scrollToBottom();
   }
 
-  showSearchResults(summary, faqHits, docHits) {
+  showSearchResults(result) {
     const escape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const summary = result && result.summary ? result.summary : 'I found documentation that can help.';
+    const answer = result && result.answer ? result.answer : null;
+    const primaryDoc = result && result.primaryDoc ? result.primaryDoc : null;
+    const relatedDocs = Array.isArray(result && result.relatedDocs) ? result.relatedDocs : [];
+    const fallbackDocHits = Array.isArray(result && result.docHits) ? result.docHits : [];
+    const docsForDisplay = primaryDoc ? [primaryDoc].concat(relatedDocs) : fallbackDocHits;
+
+    const renderDocCard = (hit, emphasisLabel) => {
+      const hitType = String(hit.typeLabel || hit.contentType || 'Article');
+      const normalizedType = hitType.toLowerCase();
+      const typeClass = normalizedType.replace(/[^a-z0-9]+/g, '-');
+      const isExternal = Boolean(hit.external);
+      const a = document.createElement('a');
+      const classes = ['chatbot-result-card'];
+      if (typeClass === 'article') {
+        classes.push('chatbot-result-card--article');
+      } else {
+        classes.push('chatbot-result-card--resource');
+        classes.push(`chatbot-result-card--${typeClass}`);
+      }
+      if (emphasisLabel === 'Primary') {
+        classes.push('chatbot-result-card--primary');
+      }
+      a.className = classes.join(' ');
+      a.href = hit.url;
+      if (isExternal) {
+        a.target = '_blank';
+        a.rel = 'noopener';
+      }
+
+      const excerptHtml = hit.excerpt
+        ? `<span class="chatbot-result-card__excerpt">${escape(hit.excerpt.slice(0, 115))}${hit.excerpt.length > 115 ? '\u2026' : ''}</span>`
+        : '';
+
+      const keywords = Array.isArray(hit.matchedKeywords) ? hit.matchedKeywords.slice(0, 4) : [];
+      const tags = Array.isArray(hit.matchedTags) ? hit.matchedTags.slice(0, 3) : [];
+      const chips = keywords
+        .map((kw) => ({ label: kw, kind: 'kw' }))
+        .concat(tags.map((tag) => ({ label: tag, kind: 'tag' })));
+      const keywordHtml = chips.length
+        ? `<span class="chatbot-result-card__keywords">${chips.map((chip) => `<span class="chatbot-result-chip chatbot-result-chip--${chip.kind}">${escape(chip.label)}</span>`).join('')}</span>`
+        : '';
+
+      const emphasisHtml = emphasisLabel
+        ? `<span class="chatbot-result-card__emphasis">${escape(emphasisLabel)}</span>`
+        : '';
+
+      a.innerHTML = `<span class="chatbot-result-card__type">${escape(hitType)}</span><span class="chatbot-result-card__title">${escape(hit.title)}</span>${emphasisHtml}${excerptHtml}${keywordHtml}`;
+      return a;
+    };
+
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message message-bot';
 
     const bubbleDiv = document.createElement('div');
-    bubbleDiv.className = 'message-bubble';
-    bubbleDiv.textContent = summary;
-    messageDiv.appendChild(bubbleDiv);
+    bubbleDiv.className = 'message-bubble chatbot-response-shell';
 
-    if (faqHits.length > 0) {
-      const section = document.createElement('div');
-      section.className = 'chatbot-results-section';
-      const heading = document.createElement('div');
-      heading.className = 'chatbot-results-heading';
-      heading.textContent = 'From the FAQ';
-      section.appendChild(heading);
-      faqHits.forEach((hit) => {
-        const a = document.createElement('a');
-        a.className = 'chatbot-result-card chatbot-result-card--faq';
-        a.href = hit.url;
-        a.innerHTML = `<span class="chatbot-result-card__type">FAQ</span><span class="chatbot-result-card__title">${escape(hit.question)}</span><span class="chatbot-result-card__cta">Read →</span>`;
-        section.appendChild(a);
+    if (answer && Array.isArray(answer.lines) && answer.lines.length > 0) {
+      const answerBlock = document.createElement('div');
+      answerBlock.className = 'chatbot-procedure';
+
+      const answerHeading = document.createElement('div');
+      answerHeading.className = 'chatbot-procedure__heading';
+      answerHeading.textContent = answer.title || 'Answer';
+      answerBlock.appendChild(answerHeading);
+
+      const answerLead = document.createElement('p');
+      answerLead.className = 'chatbot-procedure__lead';
+      answerLead.textContent = answer.lead || summary;
+      answerBlock.appendChild(answerLead);
+
+      const list = document.createElement('ol');
+      list.className = 'chatbot-procedure__list';
+      answer.lines.forEach((step) => {
+        const li = document.createElement('li');
+        li.textContent = String(step || '').trim();
+        list.appendChild(li);
       });
-      messageDiv.appendChild(section);
+      answerBlock.appendChild(list);
+      bubbleDiv.appendChild(answerBlock);
+    } else {
+      const summaryLine = document.createElement('div');
+      summaryLine.className = 'chatbot-response-summary';
+      summaryLine.textContent = summary;
+      bubbleDiv.appendChild(summaryLine);
     }
 
-    if (docHits.length > 0) {
+    messageDiv.appendChild(bubbleDiv);
+
+    if (docsForDisplay.length > 0) {
       const section = document.createElement('div');
       section.className = 'chatbot-results-section';
       const heading = document.createElement('div');
       heading.className = 'chatbot-results-heading';
-      heading.textContent = 'From Documentation';
+      heading.textContent = 'Primary Documentation';
       section.appendChild(heading);
-      docHits.forEach((hit) => {
-        const hitType = String(hit.typeLabel || hit.contentType || 'Article');
-        const normalizedType = hitType.toLowerCase();
-        const typeClass = normalizedType.replace(/[^a-z0-9]+/g, '-');
-        const isExternal = Boolean(hit.external);
-        const a = document.createElement('a');
-        const classes = ['chatbot-result-card'];
-        if (typeClass === 'article') {
-          classes.push('chatbot-result-card--article');
-        } else {
-          classes.push('chatbot-result-card--resource');
-          classes.push(`chatbot-result-card--${typeClass}`);
-        }
-        a.className = classes.join(' ');
-        a.href = hit.url;
-        if (isExternal) {
-          a.target = '_blank';
-          a.rel = 'noopener';
-        }
-        const excerptHtml = hit.excerpt
-          ? `<span class="chatbot-result-card__excerpt">${escape(hit.excerpt.slice(0, 90))}${hit.excerpt.length > 90 ? '\u2026' : ''}</span>`
-          : '';
-        a.innerHTML = `<span class="chatbot-result-card__type">${escape(hitType)}</span><span class="chatbot-result-card__title">${escape(hit.title)}</span>${excerptHtml}`;
-        section.appendChild(a);
+
+      if (primaryDoc) {
+        section.appendChild(renderDocCard(primaryDoc, 'Primary'));
+      }
+
+      if (relatedDocs.length > 0) {
+        const relatedHeading = document.createElement('div');
+        relatedHeading.className = 'chatbot-results-heading';
+        relatedHeading.textContent = 'Related Documentation';
+        section.appendChild(relatedHeading);
+      }
+
+      relatedDocs.slice(0, 3).forEach((hit) => {
+        section.appendChild(renderDocCard(hit, 'Related'));
       });
+
+      if (!primaryDoc) {
+        docsForDisplay.slice(0, 4).forEach((hit) => {
+          section.appendChild(renderDocCard(hit, null));
+        });
+      }
+
       messageDiv.appendChild(section);
     }
 
