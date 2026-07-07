@@ -22,21 +22,27 @@
 
       .class-subject-page .page-shell {
         width: 100%;
-        max-width: 1200px;
+        max-width: none;
         margin: 0 auto;
         flex: 1;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
       }
 
       .class-subject-page .page-banner {
         background: var(--org-primary-color, #01535b);
         color: white;
-        padding: 28px 20px;
+        padding: 30px 24px;
         text-align: center;
         margin-bottom: 0;
-        width: 100%;
+        position: relative;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-left: 0;
+        margin-right: 0;
+        border-radius: 0;
+        box-sizing: border-box;
       }
 
       .class-subject-page .page-banner h1 {
@@ -59,8 +65,8 @@
         margin: 24px auto;
         flex-wrap: wrap;
         width: 100%;
-        max-width: 1100px;
-        padding: 0 20px;
+        max-width: 1280px;
+        padding: 0 clamp(20px, 4vw, 44px);
         box-sizing: border-box;
       }
 
@@ -88,13 +94,13 @@
       }
 
       .class-subject-page .container {
-        width: min(1100px, 100%);
+        width: min(1320px, 100%);
         margin: 0 auto 48px;
-        padding: 0 20px 60px;
+        padding: 0 clamp(20px, 4vw, 44px) 70px;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 420px));
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
         justify-content: center;
-        gap: 20px;
+        gap: 24px;
         align-items: start;
         box-sizing: border-box;
       }
@@ -104,7 +110,7 @@
         border: 1px solid var(--border);
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        padding: 24px;
+        padding: 28px;
         height: 100%;
         box-sizing: border-box;
         margin: 0;
@@ -112,7 +118,7 @@
 
       .class-subject-page legend {
         font-weight: 700;
-        font-size: 16px;
+        font-size: 18px;
         color: #111827;
         padding: 0 8px;
         text-align: center;
@@ -161,12 +167,40 @@
         align-items: stretch;
         gap: 0;
       }
+
+      .class-subject-page .icon-form-vertical.rows-two-up {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 12px;
+        align-items: start;
+      }
+
+      .class-subject-page .icon-form-vertical.rows-two-up .form-container {
+        width: 100%;
+        margin: 0;
+      }
+
+      .class-subject-page .icon-form-vertical.rows-two-up .input-with-menu {
+        width: 100%;
+      }
+
+      .class-subject-page .icon-form-vertical.rows-two-up .input-with-menu input[type="text"] {
+        font-size: 13px;
+      }
+
+      .class-subject-page .icon-form-vertical.rows-two-up .icon-btn-row {
+        grid-column: 1 / -1;
+      }
+
+      .class-subject-page fieldset.graduation-fieldset {
+        grid-column: span 2;
+      }
       .class-subject-page .icon-form-vertical input[type="text"] {
         margin-bottom: 8px;
-        padding: 10px 14px;
+        padding: 12px 16px;
         border: 1px solid var(--border);
         border-radius: 6px;
-        font-size: 14px;
+        font-size: 15px;
         font-family: var(--font-family);
         width: 100%;
         box-sizing: border-box;
@@ -245,18 +279,20 @@
 
       .section-collapse-toggle {
         display: none;
-        margin: 10px auto 0;
+        margin: 8px 0 0 auto;
         border: 1px solid var(--border);
         background: #f8fafc;
         color: #334155;
         border-radius: 999px;
-        padding: 6px 11px;
-        font-size: 0.76rem;
+        padding: 5px 10px;
+        font-size: 0.72rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s ease;
         line-height: 1.2;
-        min-width: 84px;
+        min-width: 74px;
+        width: auto;
+        flex: 0 0 auto;
       }
 
       .section-collapse-toggle:hover {
@@ -350,10 +386,10 @@
 
       .class-subject-page select {
         width: 100%;
-        padding: 10px 14px;
+        padding: 12px 16px;
         border: 1px solid var(--border);
         border-radius: 6px;
-        font-size: 14px;
+        font-size: 15px;
         font-family: var(--font-family);
         box-sizing: border-box;
       }
@@ -467,15 +503,23 @@
         
         .class-subject-page .container {
           padding: 0 16px 40px;
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 760px);
+          justify-content: center;
         }
         
         .class-subject-page .action-bar {
+          justify-content: center;
           padding: 0 16px;
         }
         
         .class-subject-page fieldset {
+          width: 100%;
+          margin: 0 auto;
           padding: 16px;
+        }
+
+        .class-subject-page fieldset.graduation-fieldset {
+          grid-column: auto;
         }
 
         .action-btn {
@@ -484,9 +528,11 @@
         }
 
         .section-collapse-toggle {
-          display: inline-flex;
+          display: flex;
           align-items: center;
           justify-content: center;
+          margin-left: auto;
+          margin-right: 0;
         }
       }
 
@@ -496,12 +542,13 @@
         .class-subject-page .page-banner p { font-size: 12px; }
         .class-subject-page .action-bar { gap: 8px; margin: 16px auto; }
         .action-btn { padding: 9px 14px; font-size: 12.5px; }
-        .class-subject-page .container { padding: 0 12px 28px; gap: 14px; }
+        .class-subject-page .container { padding: 0 12px 28px; gap: 14px; grid-template-columns: minmax(0, 1fr); justify-content: center; }
         .class-subject-page fieldset { padding: 14px 12px; }
         .class-subject-page legend { font-size: 14px; }
         .class-subject-page .icon-btn { padding: 8px 14px; font-size: 13px; }
         .class-subject-page .collapsible-btn { font-size: 13px; padding: 9px 12px; }
         .class-subject-page .icon-form-vertical input[type="text"] { font-size: 13px; }
+        .class-subject-page .icon-form-vertical.rows-two-up { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -516,7 +563,7 @@
     <div class="page-shell">
     <div class="page-banner">
       <h1>Manage Classes & Subjects</h1>
-      <p>Configure classes, subjects, and graduation year groups</p>
+      <p>Edit classes, subjects, and graduation groups</p>
     </div>
 
     <div class="action-bar">
@@ -524,14 +571,14 @@
         <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
         </svg>
-        Add Class, Subject & Grad Year
+        Add New Items
       </a>
     </div>
 
     <% if (classes.length === 0 && graduationYearGroups.length === 0) { %>
     <div style="width: 100%; max-width: 1100px; padding: 0 20px; margin: 0 auto 24px;">
       <div class="note" style="display: block; background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px 20px; border-radius: 0 8px 8px 0; text-align: center;">
-        <p style="margin: 0; color: #92400e;">No classes or graduation year groups yet. Click the button above to create them.</p>
+        <p style="margin: 0; color: #92400e;">No classes or graduation groups yet. Use Add New Items.</p>
       </div>
     </div>
     <% } %>
@@ -585,7 +632,7 @@
           <form
             action="/common/editClass"
             method="post"
-            class="icon-form-vertical"
+            class="icon-form-vertical rows-two-up"
           >
             <% classes.forEach(cls => { %>
             <div class="form-container">
@@ -621,7 +668,7 @@
       <fieldset>
         <legend>Subjects</legend>
         <% if (!subjectGroups || subjectGroups.length === 0) { %>
-          <div class="subject-empty">No subjects found. Add subjects first to manage assignments here.</div>
+          <div class="subject-empty">No subjects yet. Add subjects first.</div>
         <% } else { %>
           <form id="bulkSubjectUpdateForm" action="/common/editSubject" method="post"></form>
 
@@ -662,7 +709,7 @@
                   </div>
                 </div>
 
-                <div class="subject-section-title">Classes assigned to this subject</div>
+                <div class="subject-section-title">Assigned classes</div>
                 <% if (group.assigned_classes.length > 0) { %>
                   <div class="subject-class-list">
                     <% group.assigned_classes.forEach(function(cls) { %>
@@ -670,19 +717,19 @@
                     <% }); %>
                   </div>
                 <% } else { %>
-                  <div class="subject-empty">Not assigned to any class yet.</div>
+                  <div class="subject-empty">Not assigned yet.</div>
                 <% } %>
 
                 <div class="subject-separator"></div>
 
-                <div class="subject-section-title">Classes this subject does not affect yet</div>
+                <div class="subject-section-title">Available classes</div>
                 <% if (group.unassigned_classes.length > 0) { %>
                   <form action="/common/assignExistingSubject" method="post" class="subject-assign-form">
                     <input type="hidden" name="subjectKey" value="<%= group.subject_key %>" />
 
                     <label class="subject-select-all">
                       <input type="checkbox" class="subject-unassigned-select-all" />
-                      Select all unassigned classes
+                      Select all
                     </label>
 
                     <div class="subject-unassigned-list">
@@ -694,10 +741,10 @@
                       <% }); %>
                     </div>
 
-                    <button type="submit" class="icon-btn update-btn subject-assign-btn">Assign Subject to Selected Classes</button>
+                    <button type="submit" class="icon-btn update-btn subject-assign-btn">Assign to Selected Classes</button>
                   </form>
                 <% } else { %>
-                  <div class="subject-empty">This subject is already assigned to all classes.</div>
+                  <div class="subject-empty">Already assigned to all classes.</div>
                 <% } %>
               </div>
             </div>
@@ -716,12 +763,12 @@
         <% } %>
       </fieldset>
       <% } %> <% if (graduationYearGroups.length > 0) { %>
-      <fieldset>
+      <fieldset class="graduation-fieldset">
         <legend>Graduation Year Groups</legend>
         <form
           action="/common/editGraduationYearGroup"
           method="post"
-          class="icon-form-vertical"
+          class="icon-form-vertical rows-two-up"
         >
           <% graduationYearGroups.forEach(group => { %>
           <div class="form-container">
@@ -743,7 +790,7 @@
           <% }); %>
           <div class="icon-btn-row">
             <button type="submit" class="icon-btn update-btn" title="Update All Graduation Year Groups">
-              Update All Graduation Year Groups
+              Update All Groups
             </button>
           </div>
         </form>
@@ -833,7 +880,7 @@
           const selected = form.querySelectorAll('.subject-unassigned-checkbox:checked');
           if (selected.length === 0) {
             event.preventDefault();
-            alert('Select at least one class to assign this subject.');
+            alert('Select at least one class.');
           }
         });
       });

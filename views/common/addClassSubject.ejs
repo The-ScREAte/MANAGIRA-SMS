@@ -22,21 +22,27 @@
 
       .add-class-page .page-shell {
         width: 100%;
-        max-width: 1200px;
+        max-width: none;
         margin: 0 auto;
         flex: 1;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
       }
 
       .add-class-page .page-banner {
         background: var(--org-primary-color, #01535b);
         color: white;
-        padding: 28px 20px;
+        padding: 30px 24px;
         text-align: center;
         margin-bottom: 0;
-        width: 100%;
+        position: relative;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-left: 0;
+        margin-right: 0;
+        border-radius: 0;
+        box-sizing: border-box;
       }
 
       .add-class-page .page-banner h1 {
@@ -59,8 +65,8 @@
         margin: 24px auto;
         flex-wrap: wrap;
         width: 100%;
-        max-width: 1100px;
-        padding: 0 20px;
+        max-width: 1280px;
+        padding: 0 clamp(20px, 4vw, 44px);
       }
 
       .add-class-page .back-btn {
@@ -106,13 +112,13 @@
       }
 
       .add-class-page .container {
-        max-width: 1100px;
+        max-width: 1320px;
         width: 100%;
         margin: 0 auto 40px;
-        padding: 0 20px 60px;
+        padding: 0 clamp(20px, 4vw, 44px) 70px;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 24px;
         align-items: start;
       }
 
@@ -121,7 +127,7 @@
         border: 1px solid var(--border);
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        padding: 24px;
+        padding: 28px;
         height: 100%;
         box-sizing: border-box;
         margin: 0;
@@ -129,7 +135,7 @@
 
       .add-class-page legend {
         font-weight: 700;
-        font-size: 16px;
+        font-size: 18px;
         color: #111827;
         padding: 0 8px;
         text-align: center;
@@ -149,10 +155,10 @@
       .add-class-page select {
         width: 100%;
         box-sizing: border-box;
-        padding: 10px 14px;
+        padding: 12px 16px;
         border: 1px solid var(--border);
         border-radius: 6px;
-        font-size: 14px;
+        font-size: 15px;
         font-family: var(--font-family);
       }
 
@@ -161,8 +167,8 @@
         color: #fff;
         border: none;
         border-radius: 8px;
-        padding: 12px 20px;
-        font-size: 15px;
+        padding: 13px 22px;
+        font-size: 16px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
@@ -277,6 +283,34 @@
         background-color: #fee;
       }
 
+      .section-collapse-toggle {
+        display: none;
+        margin: 8px 0 0 auto;
+        border: 1px solid var(--border);
+        background: #f8fafc;
+        color: #334155;
+        border-radius: 999px;
+        padding: 5px 10px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        line-height: 1.2;
+        min-width: 74px;
+        width: auto;
+        flex: 0 0 auto;
+      }
+
+      .section-collapse-toggle:hover {
+        border-color: var(--org-primary-color, #01535b);
+        color: var(--org-primary-color, #01535b);
+        background: #ffffff;
+      }
+
+      .fieldset-collapsible.is-collapsed > .fieldset-content {
+        display: none !important;
+      }
+
       @media (max-width: 768px) {
         .add-class-page .page-banner h1 {
           font-size: 20px;
@@ -284,19 +318,36 @@
         
         .add-class-page .container {
           padding: 0 16px 40px;
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 760px);
+          justify-content: center;
         }
         
         .add-class-page .action-bar {
+          justify-content: center;
           padding: 0 16px;
         }
         
         .add-class-page fieldset {
+          width: 100%;
+          margin: 0 auto;
           padding: 16px;
+        }
+
+        .section-collapse-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-left: auto;
+          margin-right: 0;
         }
       }
 
       @media (max-width: 480px) {
+        .add-class-page .container {
+          grid-template-columns: minmax(0, 1fr);
+          justify-content: center;
+        }
+
         .add-class-page .page-banner {
           padding: 18px 14px;
         }
@@ -328,7 +379,7 @@
     <div class="page-shell">
     <div class="page-banner">
       <h1>Add Classes & Subjects</h1>
-      <p>Create new classes, subjects, and graduation year groups</p>
+      <p>Add classes, subjects, and graduation groups</p>
     </div>
 
     <div class="action-bar">
@@ -336,66 +387,60 @@
         <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
         </svg>
-        Back to Manage
+        Back
       </a>
     </div>
 
     <div class="container">
       <!-- Add Class Section -->
       <fieldset>
-        <h1>Add Class</h1>
+        <h1>New Class</h1>
         <div class="notice">
-          <h2>Notice:</h2>
-          <p>
-            Please make sure you have classes before assigning subjects. These
-            classes will be applied across your organization.
-          </p>
+          <h2>Tip</h2>
+          <p>Add classes first, then assign subjects.</p>
         </div>
         <legend>Class</legend>
         <form action="/common/addClass" method="post" id="classForm">
           <div id="class-fields">
             <div class="input-with-menu">
-              <label>Class<br>Name:</label>
+              <label>Class<br>Name</label>
               <input
                 type="text"
                 name="className[]"
                 required
-                placeholder="Enter class name (e.g., Grade 1, Standard A, Class 1)"
+                placeholder="Eg: Grade 1"
               />
             </div>
           </div>
           <span class="add-button" onclick="addClassField()">+</span>
 
-          <button type="submit">Add Class</button>
+          <button type="submit">Save Class</button>
         </form>
       </fieldset>
 
       <!-- Add Subject Section -->
       <fieldset>
-        <h1>Add Subject</h1>
+        <h1>New Subject</h1>
         <div class="notice">
-          <h2>Notice:</h2>
-          <p>
-            Add subjects to your selected classes. Subjects will only be applied
-            to the classes you choose.
-          </p>
+          <h2>Tip</h2>
+          <p>Add a subject, then choose classes.</p>
         </div>
         <legend>Subject</legend>
         <form action="/common/addSubject" method="post" id="subjectForm">
           <div id="subject-fields">
             <div data-subject-index="0">
               <div class="input-with-menu">
-                <label>Subject<br>Name:</label>
+                <label>Subject<br>Name</label>
                 <input
                   type="text"
                   name="subjectName[]"
                   required
-                  placeholder="Enter subject name (e.g., Mathematics, History)"
+                  placeholder="Eg: Mathematics"
                 />
               </div>
-              <label>Assign to Class:</label>
+              <label>Classes</label>
               <div>
-                <input type="checkbox" class="select-all-checkbox" /> Select All <br>
+                <input type="checkbox" class="select-all-checkbox" /> Select all <br>
                 <% classes.forEach(function(cls) { %>
                   <input
                     type="checkbox"
@@ -410,44 +455,41 @@
           </div>
               <span class="add-button" onclick="addSubjectField()">+</span>
 
-          <button type="submit">Add Subject</button>
+          <button type="submit">Save Subject</button>
         </form>
 
         <hr style="margin: 22px 0; border: none; border-top: 1px solid #e2e8f0;" />
 
-        <h2 style="font-size: 1.05rem; margin: 0 0 10px 0; color: #0f172a;">Assign Existing Subject to New Classes</h2>
+        <h2 style="font-size: 1.05rem; margin: 0 0 10px 0; color: #0f172a;">Assign Existing Subject</h2>
         <p style="margin: 0 0 14px 0; color: #475569; font-size: 0.93rem; line-height: 1.45;">
-          Select an existing subject, then choose from classes where that subject is not yet assigned.
+          Choose a subject, then select classes.
         </p>
         <form action="/common/assignExistingSubject" method="post" id="assignExistingSubjectForm">
           <div class="input-with-menu" style="margin-bottom: 12px;">
-            <label for="existingSubjectSelect">Existing<br>Subject:</label>
+            <label for="existingSubjectSelect">Existing<br>Subject</label>
             <select id="existingSubjectSelect" name="subjectKey" required>
-              <option value="">Select a subject</option>
+              <option value="">Choose subject</option>
               <% assignableSubjects.forEach(function(item) { %>
                 <option value="<%= item.subject_key %>"><%= item.subject_name %></option>
               <% }); %>
             </select>
           </div>
 
-          <label>Assign to Class:</label>
+          <label>Classes</label>
           <div id="existingSubjectClassContainer" style="margin-bottom: 14px;">
-            <span style="color:#64748b; font-size:0.9rem;">Choose a subject to load eligible classes.</span>
+            <span style="color:#64748b; font-size:0.9rem;">Choose a subject to load classes.</span>
           </div>
 
-          <button type="submit">Apply Subject to Selected Classes</button>
+          <button type="submit">Assign to Classes</button>
         </form>
       </fieldset>
 
       <!-- Add Graduation Year Group Section -->
       <fieldset>
-        <h1>Add Graduation Year Group</h1>
+        <h1>New Graduation Group</h1>
         <div class="notice">
-          <h2>Notice:</h2>
-          <p>
-            Set a school year group to indicate the year students will graduate.
-            This is important for managing student identification and records.
-          </p>
+          <h2>Tip</h2>
+          <p>Add expected graduation years.</p>
         </div>
         <legend>Graduation Year Group</legend>
         <form
@@ -457,19 +499,19 @@
         >
           <div id="graduationYear-fields">
             <div class="input-with-menu">
-              <label>Graduation<br>Year:</label>
+              <label>Graduation<br>Year</label>
               <input
                 type="number"
                 name="graduationYear[]"
                 min="2000"
                 max="2100"
                 required
-                placeholder="Enter graduation year (e.g., 2025)"
+                placeholder="Eg: 2028"
               />
             </div>
           </div>
           <span class="add-button" onclick="addGraduationYearField()">+</span>
-          <button type="submit">Add Graduation Year Group</button>
+          <button type="submit">Save Graduation Group</button>
         </form>
       </fieldset>
     </div>
@@ -505,8 +547,8 @@
         const newField = document.createElement("div");
         newField.innerHTML = `
             <div class="input-with-menu">
-                <label>Class<br>Name:</label>
-                <input type="text" name="className[]" required placeholder="Enter class name (e.g., Grade 1, Standard A)">
+                <label>Class<br>Name</label>
+                <input type="text" name="className[]" required placeholder="Eg: Grade 1">
                 <div class="field-menu-container">
                     <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
                         ⋮
@@ -529,8 +571,8 @@
         newField.setAttribute('data-subject-index', subjectIndex);
         newField.innerHTML = `
             <div class="input-with-menu">
-                <label>Subject<br>Name:</label>
-                <input type="text" name="subjectName[]" required placeholder="Enter subject name (e.g., Mathematics, History)">
+                <label>Subject<br>Name</label>
+                <input type="text" name="subjectName[]" required placeholder="Eg: Mathematics">
                 <div class="field-menu-container">
                     <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
                         ⋮
@@ -542,9 +584,9 @@
                     </div>
                 </div>
             </div>
-            <label>Assign to Class:</label>
+            <label>Classes</label>
             <div>
-                <input type="checkbox" class="select-all-checkbox"> Select All <br>
+              <input type="checkbox" class="select-all-checkbox"> Select all <br>
                 <% classes.forEach(function(cls) { %>
                     <input type="checkbox" class="class-checkbox" name="classId[${subjectIndex}][]" value="<%= cls.class_id %>"> <%= cls.class_name %> <br>
                 <% }); %>
@@ -565,8 +607,8 @@
         const newField = document.createElement("div");
         newField.innerHTML = `
             <div class="input-with-menu">
-                <label>Graduation<br>Year:</label>
-                <input type="number" name="graduationYear[]" min="2000" max="2100" required placeholder="Enter graduation year (e.g., 2020)">
+                <label>Graduation<br>Year</label>
+                <input type="number" name="graduationYear[]" min="2000" max="2100" required placeholder="Eg: 2028">
                 <div class="field-menu-container">
                     <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
                         ⋮
@@ -614,7 +656,7 @@
         const isChecked = Array.from(checkboxes).some((checkbox) => checkbox.checked);
         if (!isChecked) {
           e.preventDefault();
-          alert("Please select at least one class to assign the subject.");
+          alert("Select at least one class.");
         }
       });
 
@@ -683,7 +725,7 @@
 
         const selected = assignableMap[subjectKey];
         if (!selected) {
-          existingSubjectClassContainer.innerHTML = '<span style="color:#64748b; font-size:0.9rem;">Choose a subject to load eligible classes.</span>';
+          existingSubjectClassContainer.innerHTML = '<span style="color:#64748b; font-size:0.9rem;">Choose a subject to load classes.</span>';
           return;
         }
 
@@ -704,7 +746,7 @@
 
         existingSubjectClassContainer.innerHTML = `
           <label style="display:block; margin-bottom:6px;">
-            <input type="checkbox" id="existingSelectAll"> Select All
+            <input type="checkbox" id="existingSelectAll"> Select all
           </label>
           <div>${checkboxRows}</div>
         `;
@@ -731,10 +773,65 @@
           const checked = assignExistingSubjectForm.querySelectorAll('.existing-class-checkbox:checked');
           if (checked.length === 0) {
             event.preventDefault();
-            alert('Please select at least one eligible class.');
+            alert('Select at least one class.');
           }
         });
       }
+
+      // Mobile-only collapsible sections (same pattern as account settings)
+      document.addEventListener('DOMContentLoaded', function () {
+        const mediaQuery = window.matchMedia('(max-width: 768px)');
+        const fieldsets = document.querySelectorAll('.add-class-page .container fieldset');
+
+        fieldsets.forEach((fieldset) => {
+          if (fieldset.dataset.collapseReady === '1') return;
+
+          const legend = fieldset.querySelector(':scope > legend');
+          if (!legend) return;
+
+          const content = document.createElement('div');
+          content.className = 'fieldset-content';
+
+          const movableNodes = Array.from(fieldset.children).filter((node) => node !== legend);
+          movableNodes.forEach((node) => content.appendChild(node));
+          fieldset.appendChild(content);
+
+          const toggle = document.createElement('button');
+          toggle.type = 'button';
+          toggle.className = 'section-collapse-toggle';
+          legend.insertAdjacentElement('afterend', toggle);
+
+          const setCollapsed = (collapsed) => {
+            fieldset.classList.toggle('is-collapsed', collapsed);
+            toggle.textContent = collapsed ? 'Expand' : 'Collapse';
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          };
+
+          const applyByViewport = () => {
+            if (mediaQuery.matches) {
+              setCollapsed(true);
+            } else {
+              setCollapsed(false);
+            }
+          };
+
+          applyByViewport();
+          toggle.addEventListener('click', function () {
+            if (!mediaQuery.matches) return;
+            const collapsed = fieldset.classList.contains('is-collapsed');
+            setCollapsed(!collapsed);
+          });
+
+          if (typeof mediaQuery.addEventListener === 'function') {
+            mediaQuery.addEventListener('change', applyByViewport);
+          } else if (typeof mediaQuery.addListener === 'function') {
+            mediaQuery.addListener(applyByViewport);
+          }
+
+          fieldset.classList.add('fieldset-collapsible');
+          fieldset.dataset.collapseReady = '1';
+        });
+      });
     </script>
     </div>
   </body>
