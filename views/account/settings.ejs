@@ -3287,6 +3287,8 @@
           <% const wiReady = !!wi.shouldShowFeatures; %>
           <% const wf = (typeof whatsappFrontendConfig !== 'undefined' && whatsappFrontendConfig) ? whatsappFrontendConfig : {}; %>
           <% const hasWhatsappMetaConfig = !!(wf.appId && wf.embeddedSignupConfigId); %>
+          <% const wst = (typeof whatsappServerTestConfig !== 'undefined' && whatsappServerTestConfig) ? whatsappServerTestConfig : {}; %>
+          <% const hasWhatsappServerTestMode = !!wst.enabled; %>
           <% const spi = (typeof studentPortalIntegration !== 'undefined' && studentPortalIntegration) ? studentPortalIntegration : {}; %>
           <% const spiActivated = !!spi.activated; %>
 
@@ -3399,7 +3401,7 @@
                       <a class="google-action-item" href="#" id="open-whatsapp-deactivate-modal" style="display:<%= wiActivated ? 'block' : 'none' %>">Deactivate</a>
 
                       <% if (wiActivated) { %>
-                      <a class="google-action-item" href="#" id="whatsapp-connect-link" style="<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"><%= wiConfigured ? 'Reconnect WhatsApp' : 'Connect WhatsApp' %></a>
+                      <a class="google-action-item" href="#" id="whatsapp-connect-link" style="<%= (hasWhatsappMetaConfig || hasWhatsappServerTestMode) ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"><%= wiConfigured ? 'Reconnect WhatsApp' : 'Connect WhatsApp' %></a>
                       <% } %>
 
                       <% if (wiConfigured) { %>
@@ -3422,7 +3424,7 @@
                   class="btn-link"
                   href="#"
                   id="whatsapp-connect-cta"
-                  style="display:<%= wiActivated ? 'inline-flex' : 'none' %>;align-items:center;<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"
+                  style="display:<%= wiActivated ? 'inline-flex' : 'none' %>;align-items:center;<%= (hasWhatsappMetaConfig || hasWhatsappServerTestMode) ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"
                 >
                   <%= wiConnected ? 'Reconnect WhatsApp' : 'Connect WhatsApp' %>
                 </a>
@@ -3435,15 +3437,17 @@
                   Disconnect WhatsApp
                 </a>
               </div>
+              <% if (false) { %>
               <div style="margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                  <button class="btn-link" id="whatsapp-default-test-button" type="button" style="<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>">Test Message</button>
+                  <button class="btn-link" id="whatsapp-default-test-button" type="button" style="<%= (hasWhatsappMetaConfig || hasWhatsappServerTestMode) ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>">Test Message</button>
                   <small id="whatsapp-test-message-status" style="color:#64748b;">Click Test Message to send the WhatsApp test template.</small>
                 </div>
               </div>
+              <% } %>
 
               <% if (!hasWhatsappMetaConfig) { %>
-              <small style="display:block;margin-top:10px;color:#b45309;">Meta app credentials are missing on this server. Set <strong>META_APP_ID</strong>, <strong>META_APP_SECRET</strong>, and <strong>WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID</strong> to connect.</small>
+              <small style="display:block;margin-top:10px;color:#b45309;">Meta app credentials are missing on this server. Set <strong>META_APP_ID</strong>, <strong>META_APP_SECRET</strong>, and <strong>WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID</strong> for Embedded Signup connect. <% if (hasWhatsappServerTestMode) { %>Server test mode is enabled, so Test Message can still be used.<% } %></small>
               <% } %>
             </div>
 
@@ -5262,6 +5266,12 @@
         async function connectWhatsappIntegration() {
           if (!whatsappConnectLink && !whatsappConnectCta) return;
           if (!hasWhatsappMetaConfig) {
+            if (hasWhatsappServerTestConfig) {
+              const msg = "Server test mode is active. You can use Test Message now. Set META_APP_ID, META_APP_SECRET, and WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID when you are ready to connect via Embedded Signup.";
+              setWhatsappInlineError(msg);
+              setWhatsappTestMessageStatus("Server test mode is active. Use Test Message to send texts.", "success");
+              return;
+            }
             const msg = "WhatsApp connect is not configured on this server yet. Missing META_APP_ID, META_APP_SECRET, or WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID.";
             setWhatsappInlineError(msg);
             window.alert(msg);

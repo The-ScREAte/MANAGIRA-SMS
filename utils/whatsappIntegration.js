@@ -99,6 +99,19 @@ function buildWhatsappIntegrationStatus(row = {}) {
   };
 }
 
+function isTransientWhatsappErrorMessage(errorMessage) {
+  const normalized = safeString(errorMessage).toLowerCase();
+  if (!normalized) return false;
+
+  return [
+    "authentication error",
+    "meta signup was cancelled or did not complete",
+    "meta did not return an authorization code",
+    "unable to load meta sdk script",
+    "meta sdk failed to load",
+  ].some((fragment) => normalized.includes(fragment));
+}
+
 async function getWhatsappIntegrationStatus(dbClient, organizationId) {
   if (!organizationId) return buildWhatsappIntegrationStatus({});
   await ensureWhatsappIntegrationSchema(dbClient);
@@ -258,6 +271,21 @@ async function markWhatsappConnectionError(dbClient, organizationId, errorMessag
   );
 }
 
+async function clearWhatsappConnectionError(dbClient, organizationId) {
+  await ensureWhatsappIntegrationSchema(dbClient);
+  await dbClient.query(
+    `UPDATE organizations
+     SET whatsapp_last_status = CASE
+           WHEN whatsapp_configured = TRUE THEN 'connected'
+           WHEN whatsapp_activated = TRUE THEN 'idle'
+           ELSE COALESCE(whatsapp_last_status, 'idle')
+         END,
+         whatsapp_last_error = NULL
+     WHERE organization_id = $1`,
+    [organizationId]
+  );
+}
+
 async function disconnectWhatsappIntegration(dbClient, organizationId) {
   await ensureWhatsappIntegrationSchema(dbClient);
 
@@ -386,6 +414,8 @@ module.exports = {
   subscribeAppToWaba,
   saveWhatsappConnection,
   markWhatsappConnectionError,
+  clearWhatsappConnectionError,
+  isTransientWhatsappErrorMessage,
   disconnectWhatsappIntegration,
   getWhatsappMessagingCredentials,
   normalizePhoneDigits,

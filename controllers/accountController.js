@@ -463,6 +463,8 @@ const {
   subscribeAppToWaba,
   saveWhatsappConnection,
   markWhatsappConnectionError,
+  clearWhatsappConnectionError,
+  isTransientWhatsappErrorMessage,
   disconnectWhatsappIntegration,
   normalizePhoneDigits,
   sendWhatsappTemplateMessage,
@@ -8137,14 +8139,23 @@ const accountController = {
         canAccessPaygiraSettings = billingPermission || paygiraPermission;
 
         if (canAccessCustomizeSettings && orgId) {
-          const [resolvedGoogleIntegration, resolvedWhatsappIntegration, resolvedStudentPortalIntegration] = await Promise.all([
+          const [resolvedGoogleIntegration, initialWhatsappIntegration, resolvedStudentPortalIntegration] = await Promise.all([
             getGoogleIntegrationStatus(db, orgId),
             getWhatsappIntegrationStatus(db, orgId),
             getStudentPortalIntegrationStatus(db, orgId),
           ]);
           googleIntegration = resolvedGoogleIntegration;
-          whatsappIntegration = resolvedWhatsappIntegration;
+          whatsappIntegration = initialWhatsappIntegration;
           studentPortalIntegration = resolvedStudentPortalIntegration;
+
+          if (
+            whatsappIntegration &&
+            whatsappIntegration.lastError &&
+            isTransientWhatsappErrorMessage(whatsappIntegration.lastError)
+          ) {
+            await clearWhatsappConnectionError(db, orgId).catch(() => {});
+            whatsappIntegration = await getWhatsappIntegrationStatus(db, orgId).catch(() => whatsappIntegration);
+          }
         }
       }
 
