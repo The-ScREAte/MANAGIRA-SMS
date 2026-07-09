@@ -2797,6 +2797,36 @@ const commonController = {
         // ...removed error log for clean background operation...
       }
 
+      const activeEnrollmentResult = await db.query(
+        `
+          SELECT enrollment_id
+          FROM enrollments
+          WHERE term_id = $1
+            AND school_year_id = $2
+            AND organization_id = $3
+          ORDER BY enrollment_id ASC
+          LIMIT 1
+        `,
+        [termId, schoolYearId, organizationId]
+      );
+      const activeEnrollmentId = Number(activeEnrollmentResult.rows[0]?.enrollment_id) || null;
+
+      const enrolledClassesResult = activeEnrollmentId
+        ? await db.query(
+            `
+              SELECT DISTINCT ec.class_id
+              FROM enrolled_classes ec
+              WHERE ec.enrollment_id = $1
+            `,
+            [activeEnrollmentId]
+          )
+        : { rows: [] };
+      const enrolledClassIdSet = new Set(
+        enrolledClassesResult.rows
+          .map((row) => Number(row.class_id))
+          .filter((classId) => Number.isInteger(classId))
+      );
+
       if (shouldRestrictToAssignedClasses) {
         const teacherClassesResult = await db.query(
           `
@@ -2826,27 +2856,15 @@ const commonController = {
         );
 
         const assignedClasses = teacherClassesResult.rows;
-        const enrolledClassesResult = await db.query(
-          `
-                SELECT ec.class_id
-                FROM enrolled_classes ec
-                INNER JOIN enrollments e ON ec.enrollment_id = e.enrollment_id
-                WHERE e.term_id = $1 AND e.school_year_id = $2 AND e.organization_id = $3
-                `,
-          [termId, schoolYearId, organizationId]
-        );
 
-        let enrolledClassIds = enrolledClassesResult.rows.map(
-          (row) => row.class_id
-        );
-
-        // Match assigned classes with enrolled classes
+        // Match assigned classes with enrolled classes for this selected term.
         classes = assignedClasses.filter((cls) =>
-          enrolledClassIds.includes(cls.class_id)
+          enrolledClassIdSet.has(Number(cls.class_id))
         );
       } else {
         // Fetch all enrolled classes for manager-like roles
-        const enrolledClassesResult = await db.query(
+        const termEnrolledClassesResult = activeEnrollmentId
+          ? await db.query(
           `
                     SELECT c.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after,
                     json_agg(
@@ -2864,19 +2882,21 @@ const commonController = {
                 INNER JOIN classes c ON ec.class_id = c.class_id
                 LEFT JOIN user_classes uc ON c.class_id = uc.class_id
                 LEFT JOIN users u ON u.user_id = uc.user_id
-                WHERE ec.enrollment_id = (
-                    SELECT enrollment_id FROM enrollments 
-                    WHERE term_id = $1 AND school_year_id = $2 AND organization_id = $3
-                    LIMIT 1
-                )
+                WHERE ec.enrollment_id = $1
                 GROUP BY c.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after
                 ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
 
                 `,
-          [termId, schoolYearId, organizationId]
-        );
-        classes = enrolledClassesResult.rows;
+          [activeEnrollmentId]
+        )
+          : { rows: [] };
+        classes = termEnrolledClassesResult.rows;
       }
+
+      // Hard gate: dashboard must only include classes enrolled for selected term/year.
+      classes = (classes || []).filter((cls) =>
+        enrolledClassIdSet.has(Number(cls.class_id))
+      );
 
       classes = (classes || []).map((cls) => ({
         ...cls,
