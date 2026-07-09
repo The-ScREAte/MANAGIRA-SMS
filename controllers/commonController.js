@@ -128,6 +128,7 @@ let publicRegistrationSchemaReady = false;
 let guardianPaymentMethodSchemaReady = false;
 let studentIdSettingsSchemaReady = false;
 let studentEmailSchemaReady = false;
+let classDashboardLayoutSchemaReady = false;
 
 function roundCurrencyAmount(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -186,6 +187,41 @@ async function ensureStudentEmailSchema(dbClient) {
 
   studentEmailSchemaReady = true;
 }
+
+async function ensureClassDashboardLayoutSchema(dbClient) {
+  if (classDashboardLayoutSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE classes
+      ADD COLUMN IF NOT EXISTS dashboard_sort_order INTEGER,
+      ADD COLUMN IF NOT EXISTS dashboard_break_after BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+
+  await dbClient.query(`
+    WITH ranked AS (
+      SELECT
+        class_id,
+        ROW_NUMBER() OVER (
+          PARTITION BY organization_id
+          ORDER BY class_name ASC, class_id ASC
+        ) AS sort_order
+      FROM classes
+    )
+    UPDATE classes c
+    SET dashboard_sort_order = ranked.sort_order
+    FROM ranked
+    WHERE c.class_id = ranked.class_id
+      AND c.dashboard_sort_order IS NULL
+  `);
+
+  classDashboardLayoutSchemaReady = true;
+}
+
+const CLASS_DASHBOARD_ORDER_SQL = `
+  COALESCE(dashboard_sort_order, 2147483647),
+  class_name ASC,
+  class_id ASC
+`;
 
 async function ensurePublicRegistrationSchema(dbClient) {
   if (publicRegistrationSchemaReady) return;
@@ -2751,6 +2787,8 @@ const commonController = {
 
       let classes = [];
 
+      await ensureClassDashboardLayoutSchema(db);
+
       req.session.currentTermId = currentTerm.term_id;
       // ...removed log for clean background operation...
       // ...removed log for clean background operation...
@@ -2762,7 +2800,7 @@ const commonController = {
       if (shouldRestrictToAssignedClasses) {
         const teacherClassesResult = await db.query(
           `
-            SELECT uc.class_id, c.class_name,
+            SELECT uc.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after,
                 json_agg(
                     json_build_object(
                         'user_id', u.user_id,
@@ -2781,7 +2819,8 @@ const commonController = {
                 SELECT class_id FROM user_classes WHERE user_id = $1
             )
             AND u.organization_id = $2
-            GROUP BY uc.class_id, c.class_name
+            GROUP BY uc.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after
+            ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
           `,
           [currentUserId, organizationId]
         );
@@ -2809,7 +2848,7 @@ const commonController = {
         // Fetch all enrolled classes for manager-like roles
         const enrolledClassesResult = await db.query(
           `
-                    SELECT c.class_id, c.class_name,
+                    SELECT c.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after,
                     json_agg(
                         json_build_object(
                             'user_id', u.user_id,
@@ -2830,7 +2869,8 @@ const commonController = {
                     WHERE term_id = $1 AND school_year_id = $2 AND organization_id = $3
                     LIMIT 1
                 )
-                GROUP BY c.class_id
+                GROUP BY c.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after
+                ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
 
                 `,
           [termId, schoolYearId, organizationId]
@@ -15202,8 +15242,10 @@ NUMBERING:
     try {
       const { organizationId } = req.session;
 
+      await ensureClassDashboardLayoutSchema(db);
+
       const classResult = await db.query(
-        "SELECT * FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
+        `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId]
       );
       const classes = classResult.rows;
@@ -15280,11 +15322,20 @@ NUMBERING:
     try {
       await client.query("BEGIN");
 
+      await ensureClassDashboardLayoutSchema(client);
+
+      const maxOrderResult = await client.query(
+        "SELECT COALESCE(MAX(dashboard_sort_order), 0) AS max_order FROM classes WHERE organization_id = $1",
+        [organizationId]
+      );
+      let nextSortOrder = Number(maxOrderResult.rows[0]?.max_order || 0);
+
       for (let name of className) {
         if (name.trim() !== "") {
+          nextSortOrder += 1;
           await client.query(
-            "INSERT INTO classes (class_name, organization_id) VALUES ($1, $2)",
-            [name.trim(), organizationId]
+            "INSERT INTO classes (class_name, organization_id, dashboard_sort_order) VALUES ($1, $2, $3)",
+            [name.trim(), organizationId, nextSortOrder]
           );
         }
       }
@@ -15546,12 +15597,14 @@ NUMBERING:
 
   manageClassSubjectAndGradYr: async (req, res, db) => {
     try {
+      await ensureClassDashboardLayoutSchema(db);
+
       const graduationYearsResult = await db.query(
         "SELECT * FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name",
         [req.session.organizationId]
       );
       const classesResult = await db.query(
-        "SELECT * FROM classes WHERE organization_id = $1 ORDER BY class_name",
+        `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
       const subjectsResult = await db.query(
@@ -16324,6 +16377,89 @@ NUMBERING:
       await client.query("ROLLBACK");
       req.flash("error", "Failed to update class.");
       res.redirect("/common/manageClassSubjectAndGradYr");
+    } finally {
+      client.release();
+    }
+  },
+
+  updateClassDashboardLayout: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const rawPayload = String(req.body.layoutPayload || "").trim();
+
+    if (!rawPayload) {
+      req.flash("error", "No dashboard class layout was submitted.");
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    }
+
+    let submittedItems;
+    try {
+      submittedItems = JSON.parse(rawPayload);
+    } catch (_) {
+      req.flash("error", "Dashboard class layout data was invalid.");
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    }
+
+    if (!Array.isArray(submittedItems) || submittedItems.length === 0) {
+      req.flash("error", "Dashboard class layout is empty.");
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    }
+
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      await ensureClassDashboardLayoutSchema(client);
+
+      const existingClassesResult = await client.query(
+        `SELECT class_id, dashboard_break_after, class_name
+         FROM classes
+         WHERE organization_id = $1
+         ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+        [organizationId]
+      );
+
+      const existingClassIds = existingClassesResult.rows
+        .map((row) => Number(row.class_id))
+        .filter((value) => Number.isInteger(value) && value > 0);
+      const existingBreakMap = new Map(
+        existingClassesResult.rows.map((row) => [Number(row.class_id), Boolean(row.dashboard_break_after)])
+      );
+
+      const submittedMap = new Map();
+      submittedItems.forEach((item) => {
+        const classId = Number(item && item.classId);
+        if (!Number.isInteger(classId) || classId <= 0 || submittedMap.has(classId)) return;
+        submittedMap.set(classId, {
+          classId,
+          breakAfter: Boolean(item && item.breakAfter),
+        });
+      });
+
+      const orderedClassIds = [
+        ...Array.from(submittedMap.keys()).filter((classId) => existingBreakMap.has(classId)),
+        ...existingClassIds.filter((classId) => !submittedMap.has(classId)),
+      ];
+
+      for (let index = 0; index < orderedClassIds.length; index++) {
+        const classId = orderedClassIds[index];
+        const submitted = submittedMap.get(classId);
+        const breakAfter = submitted ? submitted.breakAfter : Boolean(existingBreakMap.get(classId));
+
+        await client.query(
+          `UPDATE classes
+           SET dashboard_sort_order = $1,
+               dashboard_break_after = $2
+           WHERE class_id = $3 AND organization_id = $4`,
+          [index + 1, breakAfter, classId, organizationId]
+        );
+      }
+
+      await client.query("COMMIT");
+      req.flash("success", "Dashboard class layout saved.");
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      req.flash("error", "Failed to save dashboard class layout.");
+      return res.redirect("/common/manageClassSubjectAndGradYr");
     } finally {
       client.release();
     }

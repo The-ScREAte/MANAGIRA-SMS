@@ -277,6 +277,161 @@
         display: block;
       }
 
+      .dashboard-layout-panel {
+        margin-top: 16px;
+        margin-bottom: 6px;
+        padding: 16px;
+        border: 1px solid #dbe5ef;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+      }
+
+      .dashboard-layout-panel__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .dashboard-layout-panel__header-copy {
+        min-width: 0;
+      }
+
+      .dashboard-layout-panel__toggle {
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: #334155;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .dashboard-layout-panel__toggle:hover {
+        border-color: var(--org-primary-color, #01535b);
+        color: var(--org-primary-color, #01535b);
+      }
+
+      .dashboard-layout-panel__content {
+        margin-top: 8px;
+      }
+
+      .dashboard-layout-panel.is-collapsed .dashboard-layout-panel__content {
+        display: none;
+      }
+
+      .dashboard-layout-panel__header h3 {
+        margin: 0 0 6px;
+        font-size: 1rem;
+        color: #0f172a;
+      }
+
+      .dashboard-layout-panel__header p {
+        margin: 0 0 14px;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: #475569;
+      }
+
+      .dashboard-layout-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      .dashboard-layout-item {
+        display: grid;
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 11px 12px;
+        border: 1px solid #dbe5ef;
+        border-radius: 12px;
+        background: #ffffff;
+        cursor: grab;
+      }
+
+      .dashboard-layout-item.is-dragging {
+        opacity: 0.55;
+      }
+
+      .dashboard-layout-item.is-break-after {
+        border-color: #f59e0b;
+        box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.14);
+      }
+
+      .dashboard-layout-item__position {
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #0f172a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      .dashboard-layout-item__handle {
+        color: #64748b;
+        font-size: 1rem;
+        letter-spacing: 1px;
+        user-select: none;
+      }
+
+      .dashboard-layout-item__meta {
+        min-width: 0;
+        display: grid;
+        gap: 3px;
+      }
+
+      .dashboard-layout-item__name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .dashboard-layout-item__note {
+        font-size: 0.8rem;
+        color: #64748b;
+      }
+
+      .dashboard-layout-item__break-toggle {
+        border: 1px solid #cbd5e1;
+        background: #fff;
+        color: #334155;
+        border-radius: 999px;
+        padding: 7px 11px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .dashboard-layout-item.is-break-after .dashboard-layout-item__break-toggle {
+        border-color: #f59e0b;
+        color: #b45309;
+        background: #fff7ed;
+      }
+
+      .dashboard-layout-panel__actions {
+        margin-top: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .dashboard-layout-panel__actions small {
+        color: #64748b;
+        font-size: 0.82rem;
+      }
+
       .section-collapse-toggle {
         display: none;
         margin: 8px 0 0 auto;
@@ -534,6 +689,15 @@
           margin-left: auto;
           margin-right: 0;
         }
+
+        .dashboard-layout-item {
+          grid-template-columns: auto auto minmax(0, 1fr);
+        }
+
+        .dashboard-layout-item__break-toggle {
+          grid-column: 1 / -1;
+          justify-self: start;
+        }
       }
 
       @media (max-width: 480px) {
@@ -662,6 +826,42 @@
               </button>
             </div>
           </form>
+        </div>
+        <div class="dashboard-layout-panel is-collapsed" id="dashboard-layout-panel">
+          <div class="dashboard-layout-panel__header">
+            <div class="dashboard-layout-panel__header-copy">
+              <h3>Dashboard Class Arrangement</h3>
+              <p>Drag classes to choose what shows first on the organization dashboard. Turn on <strong>Break after</strong> below any class to start a new dashboard section after it, which is useful for grouping Basics, JSS, SS, and more.</p>
+            </div>
+            <button type="button" class="dashboard-layout-panel__toggle" id="dashboard-layout-panel-toggle" aria-expanded="false" aria-controls="dashboard-layout-panel-content">Expand</button>
+          </div>
+          <div class="dashboard-layout-panel__content" id="dashboard-layout-panel-content">
+            <form id="class-dashboard-layout-form" action="/common/updateClassDashboardLayout" method="post">
+              <input type="hidden" name="layoutPayload" id="class-dashboard-layout-payload" />
+              <ul class="dashboard-layout-list" id="class-dashboard-layout-list">
+                <% classes.forEach((cls, index) => { %>
+                  <li
+                    class="dashboard-layout-item<%= cls.dashboard_break_after ? ' is-break-after' : '' %>"
+                    draggable="true"
+                    data-class-id="<%= cls.class_id %>"
+                    data-break-after="<%= cls.dashboard_break_after ? '1' : '0' %>"
+                  >
+                    <span class="dashboard-layout-item__position"><%= index + 1 %></span>
+                    <span class="dashboard-layout-item__handle" aria-hidden="true">⋮⋮</span>
+                    <div class="dashboard-layout-item__meta">
+                      <span class="dashboard-layout-item__name"><%= cls.class_name %></span>
+                      <span class="dashboard-layout-item__note"><%= cls.dashboard_break_after ? 'A new section starts below this class on the dashboard.' : 'Continues in the current dashboard section.' %></span>
+                    </div>
+                    <button type="button" class="dashboard-layout-item__break-toggle"><%= cls.dashboard_break_after ? 'Break after' : 'Continue' %></button>
+                  </li>
+                <% }); %>
+              </ul>
+              <div class="dashboard-layout-panel__actions">
+                <small>This only changes the order and grouping shown on the organization dashboard.</small>
+                <button type="submit" class="icon-btn update-btn">Save Dashboard Layout</button>
+              </div>
+            </form>
+          </div>
         </div>
       </fieldset>
       <% } %> <% if (classes.length > 0) { %>
@@ -889,6 +1089,122 @@
       document.addEventListener('DOMContentLoaded', function () {
         const mediaQuery = window.matchMedia('(max-width: 768px)');
         const fieldsets = document.querySelectorAll('.class-subject-page .container fieldset');
+        const dashboardLayoutForm = document.getElementById('class-dashboard-layout-form');
+        const dashboardLayoutList = document.getElementById('class-dashboard-layout-list');
+        const dashboardLayoutPayload = document.getElementById('class-dashboard-layout-payload');
+        const dashboardLayoutPanel = document.getElementById('dashboard-layout-panel');
+        const dashboardLayoutPanelToggle = document.getElementById('dashboard-layout-panel-toggle');
+        let draggingLayoutItem = null;
+
+        if (dashboardLayoutPanel && dashboardLayoutPanelToggle) {
+          const setDashboardPanelCollapsed = (collapsed) => {
+            dashboardLayoutPanel.classList.toggle('is-collapsed', collapsed);
+            dashboardLayoutPanelToggle.textContent = collapsed ? 'Expand' : 'Collapse';
+            dashboardLayoutPanelToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+          };
+
+          setDashboardPanelCollapsed(true);
+          dashboardLayoutPanelToggle.addEventListener('click', function () {
+            const collapsed = dashboardLayoutPanel.classList.contains('is-collapsed');
+            setDashboardPanelCollapsed(!collapsed);
+          });
+        }
+
+        const syncDashboardLayoutItems = () => {
+          if (!dashboardLayoutList) return;
+
+          Array.from(dashboardLayoutList.children).forEach((item, index) => {
+            const position = item.querySelector('.dashboard-layout-item__position');
+            const breakToggle = item.querySelector('.dashboard-layout-item__break-toggle');
+            const note = item.querySelector('.dashboard-layout-item__note');
+            const breakAfter = item.dataset.breakAfter === '1';
+
+            if (position) position.textContent = String(index + 1);
+            item.classList.toggle('is-break-after', breakAfter);
+            if (breakToggle) breakToggle.textContent = breakAfter ? 'Break after' : 'Continue';
+            if (note) {
+              note.textContent = breakAfter
+                ? 'A new section starts below this class on the dashboard.'
+                : 'Continues in the current dashboard section.';
+            }
+          });
+        };
+
+        const serializeDashboardLayout = () => {
+          if (!dashboardLayoutList) return '[]';
+          return JSON.stringify(
+            Array.from(dashboardLayoutList.children).map((item) => ({
+              classId: Number(item.dataset.classId),
+              breakAfter: item.dataset.breakAfter === '1',
+            }))
+          );
+        };
+
+        const getDashboardDropTarget = (container, clientY) => {
+          const candidates = Array.from(container.querySelectorAll('.dashboard-layout-item:not(.is-dragging)'));
+          let closest = null;
+          let closestOffset = Number.NEGATIVE_INFINITY;
+
+          candidates.forEach((candidate) => {
+            const box = candidate.getBoundingClientRect();
+            const offset = clientY - box.top - box.height / 2;
+            if (offset < 0 && offset > closestOffset) {
+              closestOffset = offset;
+              closest = candidate;
+            }
+          });
+
+          return closest;
+        };
+
+        if (dashboardLayoutList) {
+          Array.from(dashboardLayoutList.querySelectorAll('.dashboard-layout-item')).forEach((item) => {
+            item.addEventListener('dragstart', () => {
+              draggingLayoutItem = item;
+              item.classList.add('is-dragging');
+            });
+
+            item.addEventListener('dragend', () => {
+              item.classList.remove('is-dragging');
+              draggingLayoutItem = null;
+              syncDashboardLayoutItems();
+            });
+          });
+
+          dashboardLayoutList.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            if (!draggingLayoutItem) return;
+
+            const target = getDashboardDropTarget(dashboardLayoutList, event.clientY);
+            if (!target) {
+              dashboardLayoutList.appendChild(draggingLayoutItem);
+              return;
+            }
+
+            if (target !== draggingLayoutItem) {
+              dashboardLayoutList.insertBefore(draggingLayoutItem, target);
+            }
+          });
+
+          dashboardLayoutList.addEventListener('click', (event) => {
+            const breakToggle = event.target.closest('.dashboard-layout-item__break-toggle');
+            if (!breakToggle) return;
+
+            const item = breakToggle.closest('.dashboard-layout-item');
+            if (!item) return;
+
+            item.dataset.breakAfter = item.dataset.breakAfter === '1' ? '0' : '1';
+            syncDashboardLayoutItems();
+          });
+
+          syncDashboardLayoutItems();
+        }
+
+        if (dashboardLayoutForm && dashboardLayoutPayload) {
+          dashboardLayoutForm.addEventListener('submit', () => {
+            dashboardLayoutPayload.value = serializeDashboardLayout();
+          });
+        }
 
         fieldsets.forEach((fieldset) => {
           if (fieldset.dataset.collapseReady === '1') return;

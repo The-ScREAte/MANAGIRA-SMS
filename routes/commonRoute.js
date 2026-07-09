@@ -542,6 +542,9 @@ module.exports = (db) => {
   router.post("/editClass", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.editClass(req, res, db)
   );
+  router.post("/updateClassDashboardLayout", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
+    commonController.updateClassDashboardLayout(req, res, db)
+  );
   router.get("/getSubjectsByClass", isAuthenticated, (req, res) =>
     commonController.getSubjectsByClass(req, res, db)
   );

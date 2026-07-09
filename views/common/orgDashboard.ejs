@@ -137,48 +137,146 @@
           <!-- Classes Section -->
           <div class="classes-container" style="text-align: center">
             <h2>Enrolled Classes</h2>
-            <ul>
+            <div class="classes-columns">
               <% if (classes && classes.length > 0) { %>
                 <%
-                  // Sort classes alphabetically by name with natural ordering
-                  // so "Class 2" comes before "Class 10" instead of "Class 10" before "Class 2".
-                  const sortedClasses = [...classes].sort(function(a, b) {
+                  const orderedClasses = [...classes].sort(function(a, b) {
+                    const orderA = Number(a.dashboard_sort_order);
+                    const orderB = Number(b.dashboard_sort_order);
+
+                    if (Number.isFinite(orderA) && Number.isFinite(orderB) && orderA !== orderB) {
+                      return orderA - orderB;
+                    }
+
+                    if (Number.isFinite(orderA) && !Number.isFinite(orderB)) return -1;
+                    if (!Number.isFinite(orderA) && Number.isFinite(orderB)) return 1;
+
                     return String(a.class_name || '').localeCompare(
                       String(b.class_name || ''),
                       undefined,
                       { numeric: true, sensitivity: 'base' }
                     );
                   });
+                  const seenClassNames = new Set();
+                  const uniqueSortedClasses = orderedClasses.filter(function(cls) {
+                    const key = String(cls.class_name || '').trim().toLowerCase();
+                    if (!key || seenClassNames.has(key)) return false;
+                    seenClassNames.add(key);
+                    return true;
+                  });
+                  const classSections = [];
+                  let currentSection = [];
+
+                  uniqueSortedClasses.forEach(function(cls, index) {
+                    currentSection.push({
+                      ...cls,
+                      dashboard_index: index,
+                    });
+
+                    if (cls.dashboard_break_after) {
+                      classSections.push(currentSection);
+                      currentSection = [];
+                    }
+                  });
+
+                  if (currentSection.length > 0) {
+                    classSections.push(currentSection);
+                  }
                 %>
-                <% sortedClasses.forEach(function(cls, clsIndex) { %>
-                  <li class="class-item">
-                    <div class="class-header">
-                      <a href="/common/classDashboard?classId=<%= cls.class_id %>"><%= cls.class_name %></a>
-                      - <b>Teachers:</b>
-                      <span class="teacher-toggle" onclick="toggleTeachers(<%= clsIndex %>)" title="Click to show/hide teachers">
-                        <svg class="toggle-arrow" id="arrow-<%= clsIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                          <polyline points="9 18 15 12 9 6"></polyline>
-                        </svg>
-                      </span>
-                    </div>
-                    <div class="teachers-list" id="teachers-<%= clsIndex %>" style="display: none;">
-                      <% const validEmployees = (cls.employees || []).filter(emp => emp && emp.name && String(emp.name).trim()); %>
-                      <% if (validEmployees.length > 0) { %>
-                        <% validEmployees.forEach(function(emp) { %>
-                          <div class="teacher-entry">
-                            <% if (emp.main) { %><span class="main" title="Main teacher">•</span><% } %>
-                            <% if (emp.reset_password_token) { %><span class="yellow-dot" title="Has not set password">•</span><% } %>
-                            <% if (emp.on_hold) { %><span class="on-hold" title="On hold">•</span><% } %>
-                            <%= emp.name %>
-                          </div>
-                        <% }); %>
-                      <% } else { %>
-                        <div class="teacher-entry">No teacher</div>
-                      <% } %>
-                    </div>
-                  </li>
+                <% classSections.forEach(function(section, sectionIndex) { %>
+                <div class="classes-section">
+                  <%
+                    const classRowGroups = [];
+                    for (let index = 0; index < section.length; index += 14) {
+                      const chunk = section.slice(index, index + 14);
+                      const splitPoint = chunk.length <= 1
+                        ? chunk.length
+                        : Math.min(7, Math.ceil(chunk.length / 2));
+                      classRowGroups.push({
+                        left: chunk.slice(0, splitPoint),
+                        right: chunk.slice(splitPoint),
+                      });
+                    }
+                  %>
+                  <% classRowGroups.forEach(function(group) { %>
+                  <div class="classes-row-group<%= group.right.length === 0 ? ' classes-row-group--single' : '' %>">
+                    <ul class="classes-column classes-column--left">
+                    <% group.left.forEach(function(cls) { %>
+                      <% const clsIndex = cls.dashboard_index; %>
+                      <li class="class-item">
+                        <div class="class-header">
+                          <a href="/common/classDashboard?classId=<%= cls.class_id %>"><%= cls.class_name %></a>
+                          - <b>Teachers:</b>
+                          <span class="teacher-toggle" onclick="toggleTeachers(<%= clsIndex %>)" title="Click to show/hide teachers">
+                            <svg class="toggle-arrow" id="arrow-<%= clsIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                          </span>
+                        </div>
+                        <div class="teachers-list" id="teachers-<%= clsIndex %>" style="display: none;">
+                          <% const validEmployees = (cls.employees || []).filter(emp => emp && emp.name && String(emp.name).trim()); %>
+                          <% if (validEmployees.length > 0) { %>
+                            <% validEmployees.forEach(function(emp) { %>
+                              <div class="teacher-entry">
+                                <% if (emp.main) { %><span class="main" title="Main teacher">•</span><% } %>
+                                <% if (emp.reset_password_token) { %><span class="yellow-dot" title="Has not set password">•</span><% } %>
+                                <% if (emp.on_hold) { %><span class="on-hold" title="On hold">•</span><% } %>
+                                <%= emp.name %>
+                              </div>
+                            <% }); %>
+                          <% } else { %>
+                            <div class="teacher-entry">No teacher</div>
+                          <% } %>
+                        </div>
+                      </li>
+                    <% }); %>
+                    </ul>
+
+                    <% if (group.right.length > 0) { %>
+                    <ul class="classes-column classes-column--right">
+                    <% group.right.forEach(function(cls) { %>
+                      <% const clsIndex = cls.dashboard_index; %>
+                      <li class="class-item">
+                        <div class="class-header">
+                          <a href="/common/classDashboard?classId=<%= cls.class_id %>"><%= cls.class_name %></a>
+                          - <b>Teachers:</b>
+                          <span class="teacher-toggle" onclick="toggleTeachers(<%= clsIndex %>)" title="Click to show/hide teachers">
+                            <svg class="toggle-arrow" id="arrow-<%= clsIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                          </span>
+                        </div>
+                        <div class="teachers-list" id="teachers-<%= clsIndex %>" style="display: none;">
+                          <% const validEmployees = (cls.employees || []).filter(emp => emp && emp.name && String(emp.name).trim()); %>
+                          <% if (validEmployees.length > 0) { %>
+                            <% validEmployees.forEach(function(emp) { %>
+                              <div class="teacher-entry">
+                                <% if (emp.main) { %><span class="main" title="Main teacher">•</span><% } %>
+                                <% if (emp.reset_password_token) { %><span class="yellow-dot" title="Has not set password">•</span><% } %>
+                                <% if (emp.on_hold) { %><span class="on-hold" title="On hold">•</span><% } %>
+                                <%= emp.name %>
+                              </div>
+                            <% }); %>
+                          <% } else { %>
+                            <div class="teacher-entry">No teacher</div>
+                          <% } %>
+                        </div>
+                      </li>
+                    <% }); %>
+                    </ul>
+                    <% } %>
+                  </div>
+                  <% }); %>
+                </div>
+                <% if (sectionIndex < classSections.length - 1) { %>
+                <div class="classes-dashboard-break" aria-hidden="true">
+                  <span></span>
+                </div>
+                <% } %>
                 <% }); %>
               <% } else { %>
+                <div class="classes-row-group">
+                <ul class="classes-column classes-column--left">
                 <% if (userRole === "Teacher") { %>
                   <li>You are not assigned to any classes yet.</li>
                 <% } else { %>
@@ -186,8 +284,10 @@
                     No classes have been set up for this current term yet. <a href="/enrollment/manageEnrollment">Enroll classes for this term</a>, or <a href="/common/manageClassSubjectAndGradYr">create classes for your organization</a> if you haven't done so already.
                   </li>
                 <% } %>
+                </ul>
+                </div>
               <% } %>
-            </ul>
+            </div>
           </div>
 
           <!-- School Year and Term Section -->
@@ -230,7 +330,10 @@
               </a>
             </div>
             <% } %>
-            <% if (todayAttendanceStatus && todayAttendanceStatus.label) { %>
+            <% const dashboardTodayLabel = (todayAttendanceStatus && todayAttendanceStatus.label)
+              ? todayAttendanceStatus.label
+              : ([0, 6].includes(new Date().getDay()) ? 'Weekend' : 'School Day'); %>
+            <% if (dashboardCountryCode || dashboardTodayLabel) { %>
             <div style="margin-top:6px; font-size:0.9rem; color:#334155; display:inline-flex; align-items:center; gap:6px;">
               <% const dashboardCountryFlag = (function toFlagEmoji(code) {
                 const normalized = String(code || '').trim().toUpperCase();
@@ -242,8 +345,10 @@
               })(dashboardCountryCode); %>
               <% if (dashboardCountryCode) { %>
               <span style="display:inline-flex; align-items:center; font-size:1.50rem; line-height:1;" title="Organization country: <%= dashboardCountryName || dashboardCountryCode %>" aria-label="Organization country: <%= dashboardCountryName || dashboardCountryCode %>"><%= dashboardCountryFlag %></span>
+              <% } else { %>
+              <span style="display:inline-flex; align-items:center; font-size:1.05rem; line-height:1;" aria-hidden="true">🌍</span>
               <% } %>
-              <span><%= todayAttendanceStatus.label %></span>
+              <span><%= dashboardTodayLabel %></span>
             </div>
             <% } %>
             <% } else { %>
