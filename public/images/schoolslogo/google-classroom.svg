@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Google Classroom">
+  <rect width="120" height="120" rx="24" fill="#0F9D58"/>
+  <rect x="18" y="24" width="84" height="66" rx="10" fill="#FBC02D"/>
+  <rect x="26" y="32" width="68" height="50" rx="8" fill="#0F9D58"/>
+  <circle cx="60" cy="52" r="10" fill="#FBC02D"/>
+  <circle cx="43" cy="56" r="6" fill="#FBC02D"/>
+  <circle cx="77" cy="56" r="6" fill="#FBC02D"/>
+  <rect x="38" y="67" width="44" height="9" rx="4.5" fill="#FBC02D"/>
+  <rect x="24" y="90" width="72" height="8" rx="4" fill="#0B8043"/>
+</svg>

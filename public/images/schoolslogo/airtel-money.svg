@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 72" role="img" aria-label="Airtel Money">
+  <rect width="220" height="72" rx="8" fill="#d32f2f"/>
+  <text x="24" y="45" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700" fill="#ffffff">Airtel</text>
+  <text x="126" y="45" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700" fill="#ffd54f">Money</text>
+</svg>

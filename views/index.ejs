@@ -554,6 +554,181 @@ a {
   margin: 0 auto;
 }
 
+.paygira-section {
+  padding: 52px 20px;
+  background: var(--bg);
+}
+
+.paygira-grid {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.paygira-overview {
+  display: grid;
+  gap: 14px;
+}
+
+.paygira-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  border: 1px solid rgba(34, 197, 94, 0.55);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #86efac;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: rgba(22, 101, 52, 0.22);
+}
+
+.paygira-lock-icon {
+  color: #22c55e;
+  font-size: 0.86rem;
+  line-height: 1;
+}
+
+.paygira-brand-card {
+  border: none;
+  border-radius: 14px;
+  padding: 0;
+  background: transparent;
+}
+
+.paygira-brand-card img {
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  background: #0f1f3c;
+}
+
+.paygira-content h2 {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 1.55rem;
+}
+
+.paygira-content p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.62;
+}
+
+.paygira-resources {
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 100%;
+}
+
+.paygira-resources-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.paygira-resources h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  color: var(--text);
+}
+
+.paygira-methods {
+  margin-top: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.paygira-marquee-row {
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.paygira-track {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  width: max-content;
+  will-change: transform;
+}
+
+.paygira-marquee-row--right .paygira-track {
+  animation: paygira-slide-right 44s linear infinite;
+}
+
+.paygira-marquee-row--left .paygira-track {
+  animation: paygira-slide-left 44s linear infinite;
+}
+
+.paygira-method {
+  flex: 0 0 165px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  font-size: 0.94rem;
+  color: var(--text);
+  font-weight: 600;
+  text-align: center;
+}
+
+.paygira-method img {
+  max-width: 128px;
+  max-height: 38px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+.paygira-method-label {
+  font-size: 0.74rem;
+  color: #cbd5e1;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+@keyframes paygira-slide-right {
+  from {
+    transform: translateX(calc(-50% - 5px));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes paygira-slide-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - 5px));
+  }
+}
+
 .benefits-section h2 {
   font-size: 1.8rem;
   color: var(--text);
@@ -794,6 +969,44 @@ a {
   .logo-container span {
     font-size: 0.9rem;
   }
+
+  .paygira-section {
+    padding: 48px 16px;
+  }
+
+  .paygira-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .paygira-resources-header {
+    align-items: flex-start;
+  }
+
+  .paygira-content h2 {
+    font-size: 1.45rem;
+  }
+
+  .paygira-methods {
+    gap: 8px;
+  }
+
+  .paygira-method {
+    flex-basis: 145px;
+    min-height: 96px;
+    font-size: 0.84rem;
+  }
+
+  .paygira-lock-badge { font-size: 0.7rem; padding: 4px 8px; }
+
+  .paygira-brand-card img {
+    max-width: 180px;
+  }
+
+  .paygira-method img {
+    max-width: 108px;
+    max-height: 34px;
+  }
 }
 
 /* ≥768px (tablet) */
@@ -879,6 +1092,17 @@ a {
   }
 }
     </style>
+
+    <meta name="description" content="Managira is an all-in-one school management platform. Paygira by Managira helps schools collect fees with mobile money, cards, and secure online payments.">
+    <meta name="keywords" content="Paygira, Paygira by Managira, Managira, school management software, school payments, mobile money payments, Google Classroom integration, WhatsApp school communication">
+    <meta property="og:title" content="Managira | Paygira by Managira">
+    <meta property="og:description" content="Paygira by Managira helps schools accept mobile money and card payments while managing classes, attendance, and assessments in one secure platform.">
+    <meta property="og:image" content="https://www.managira.com/images/schoolslogo/paygira.svg">
+    <meta property="og:url" content="https://www.managira.com/">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Paygira by Managira">
+    <meta name="twitter:description" content="Secure school payments and management in one platform.">
+    <meta name="twitter:image" content="https://www.managira.com/images/schoolslogo/paygira.svg">
     
     <!-- SPA Router for smooth navigation -->
     <script src="/js/spa-router.js" defer></script>
@@ -949,48 +1173,77 @@ a {
 <section class="logo-section">
   <div class="logo-container">
 
-    <img src="/images/schoolslogo/aws.png" alt="AWS Logo">
+    <img src="/images/schoolslogo/aws.png" alt="AWS Logo" loading="eager" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">Amazon Web Services</span>
 
-    <img src="/images/schoolslogo/paystack.png" alt="Paystack Logo">
-    <span style="font-size: 1.1rem; color: #333;"></span>
+    <img src="/images/schoolslogo/paystack.png" alt="Paystack Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Paystack</span>
 
-    <img src="/images/schoolslogo/snyk.png" alt="Snyk Logo">
-    <span style="font-size: 1.1rem; color: #333;"></span>
-
-        <img src="/images/schoolslogo/stripe.jpeg" alt="Stripe Logo">
+    <img src="/images/schoolslogo/stripe.jpeg" alt="Stripe Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">Stripe</span>
 
-    <img src="/images/schoolslogo/SECURED.png" alt="DATA Security Logo">
+    <img src="/images/schoolslogo/whatsapp.svg" alt="WhatsApp Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">WhatsApp</span>
+
+    <img src="/images/schoolslogo/google-classroom.svg" alt="Google Classroom Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Google Classroom</span>
+
+    <img src="/images/schoolslogo/mobile-money.svg" alt="Mobile Money Sign" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Mobile Money</span>
+
+    <img src="/images/schoolslogo/paygira.svg" alt="Paygira Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Paygira</span>
+
+    <img src="/images/schoolslogo/snyk.png" alt="Snyk Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Snyk</span>
+
+    <img src="/images/schoolslogo/owasp.png" alt="OWASP Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">OWASP</span>
+
+    <img src="/images/schoolslogo/SECURED.png" alt="DATA Security Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">DATA Security</span>
 
-    <img src="/images/schoolslogo/screate.png" alt="NCA Ghana Logo">
+    <img src="/images/schoolslogo/NCA.png" alt="NCA Ghana Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">NCA Ghana</span>
+
+    <img src="/images/schoolslogo/screate.png" alt="ScREAte Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">ScREAte</span>
 
-    <img src="/images/schoolslogo/owasp.png" alt="OWASP Logo">
-    <span style="font-size: 1.1rem; color: #333;">OWASP</span>
-
-    <!-- Second round, shuffled -->
-    <img src="/images/schoolslogo/snyk.png" alt="Snyk Logo">
-    <span style="font-size: 1.1rem; color: #333;"></span>
-
-    <img src="/images/schoolslogo/aws.png" alt="AWS Logo">
+    <!-- Second round -->
+    <img src="/images/schoolslogo/aws.png" alt="AWS Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">Amazon Web Services</span>
 
-    <img src="/images/schoolslogo/paystack.png" alt="Paystack Logo">
-    <span style="font-size: 1.1rem; color: #333;"></span>
+    <img src="/images/schoolslogo/paystack.png" alt="Paystack Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Paystack</span>
 
-        <img src="/images/schoolslogo/stripe.jpeg" alt="Stripe Logo">
+    <img src="/images/schoolslogo/stripe.jpeg" alt="Stripe Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">Stripe</span>
 
+    <img src="/images/schoolslogo/whatsapp.svg" alt="WhatsApp Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">WhatsApp</span>
 
-    <img src="/images/schoolslogo/owasp.png" alt="OWASP Logo">
+    <img src="/images/schoolslogo/google-classroom.svg" alt="Google Classroom Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Google Classroom</span>
+
+    <img src="/images/schoolslogo/mobile-money.svg" alt="Mobile Money Sign" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Mobile Money</span>
+
+    <img src="/images/schoolslogo/paygira.svg" alt="Paygira Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Paygira</span>
+
+    <img src="/images/schoolslogo/snyk.png" alt="Snyk Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">Snyk</span>
+
+    <img src="/images/schoolslogo/owasp.png" alt="OWASP Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">OWASP</span>
 
-    <img src="/images/schoolslogo/SECURED.png" alt="DATA Security Logo">
+    <img src="/images/schoolslogo/SECURED.png" alt="DATA Security Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">DATA Security</span>
 
-    <img src="/images/schoolslogo/screate.png" alt="NCA Ghana Logo">
+    <img src="/images/schoolslogo/NCA.png" alt="NCA Ghana Logo" loading="lazy" decoding="async">
+    <span style="font-size: 1.1rem; color: #333;">NCA Ghana</span>
+
+    <img src="/images/schoolslogo/screate.png" alt="ScREAte Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">ScREAte</span>
 
   </div>
@@ -1147,6 +1400,118 @@ a {
         </div>
     </section>
 
+      <section class="paygira-section">
+        <div class="paygira-grid">
+          <div class="paygira-overview">
+            <div class="paygira-brand-card">
+              <img src="/images/schoolslogo/paygira.svg" alt="Paygira Logo" loading="lazy" decoding="async" />
+            </div>
+
+            <div class="paygira-content">
+              <h2>Paygira by Managira</h2>
+              <p>
+                Paygira by Managira helps schools collect fees through mobile money, cards, and bank transfers while families and individuals pay conveniently. It is fully integrated into Managira, so payment records flow directly into enrollment, finance, and reporting for transparent, real-time tracking.
+              </p>
+            </div>
+          </div>
+
+          <div class="paygira-resources">
+            <div class="paygira-resources-header">
+              <h3>Payment Methods & Resources</h3>
+              <div class="paygira-lock-badge" aria-label="Secure">
+                <span class="paygira-lock-icon" aria-hidden="true">🔒</span>
+                <span>SECURE</span>
+              </div>
+            </div>
+            <div class="paygira-methods" aria-label="Paygira payment methods">
+              <div class="paygira-marquee-row paygira-marquee-row--right">
+                <div class="paygira-track">
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/paystack.png" alt="Paystack" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/mtn-momo.svg" alt="MTN MoMo" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/mpesa.svg" alt="M-Pesa" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/airtel-official.svg" alt="Airtel Money" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/vodacom.svg" alt="Vodacom" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/vodafone-official.svg" alt="Vodafone Cash" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/paystack.png" alt="Paystack" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/mtn-momo.svg" alt="MTN MoMo" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/mpesa.svg" alt="M-Pesa" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/airtel-official.svg" alt="Airtel Money" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/vodacom.svg" alt="Vodacom" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/vodafone-official.svg" alt="Vodafone Cash" loading="lazy" decoding="async" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="paygira-marquee-row paygira-marquee-row--left">
+                <div class="paygira-track">
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/visa-official.svg" alt="Visa" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/mastercard-official.svg" alt="Mastercard" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/bank-transfer.svg" alt="Bank Transfer" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/applepay-official.svg" alt="Apple Pay" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/googlepay-official.svg" alt="Google Pay" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/stripe-official.svg" alt="Stripe" loading="lazy" decoding="async" />
+                    <span class="paygira-method-label">Stripe</span>
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/visa-official.svg" alt="Visa" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/mastercard-official.svg" alt="Mastercard" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/bank-transfer.svg" alt="Bank Transfer" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/applepay-official.svg" alt="Apple Pay" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/googlepay-official.svg" alt="Google Pay" loading="lazy" decoding="async" />
+                  </div>
+                  <div class="paygira-method">
+                    <img src="/images/schoolslogo/stripe-official.svg" alt="Stripe" loading="lazy" decoding="async" />
+                    <span class="paygira-method-label">Stripe</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
     <!-- CTA Section -->
     <section class="cta-section">
         <h2>Ready to Transform Your School?</h2>
@@ -1246,5 +1611,26 @@ a {
             "@type": "Organization",
             "name": "Managira"
         }
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "name": "Paygira by Managira",
+      "brand": {
+        "@type": "Brand",
+        "name": "Managira"
+      },
+      "image": "https://www.managira.com/images/schoolslogo/paygira.svg",
+      "url": "https://www.managira.com/",
+      "description": "Paygira by Managira enables schools to accept mobile money and card payments with secure tracking and integrated school finance workflows.",
+      "category": "Education Payment Software",
+      "isRelatedTo": {
+        "@type": "SoftwareApplication",
+        "name": "Managira",
+        "url": "https://www.managira.com/"
+      }
     }
     </script>

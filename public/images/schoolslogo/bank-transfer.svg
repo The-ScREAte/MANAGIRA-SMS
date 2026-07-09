@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 72" role="img" aria-label="Bank Transfer">
+  <rect width="220" height="72" rx="8" fill="#0f172a"/>
+  <path d="M26 30h168" stroke="#38bdf8" stroke-width="4" stroke-linecap="round"/>
+  <path d="M34 42h152" stroke="#60a5fa" stroke-width="3" stroke-linecap="round"/>
+  <path d="M170 20l18 10-18 10" fill="none" stroke="#22d3ee" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="24" y="62" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700" fill="#e2e8f0">Bank Transfer</text>
+</svg>
