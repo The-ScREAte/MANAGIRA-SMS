@@ -1,7 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 72" role="img" aria-label="Bank Transfer">
-  <rect width="220" height="72" rx="8" fill="#0f172a"/>
-  <path d="M26 30h168" stroke="#38bdf8" stroke-width="4" stroke-linecap="round"/>
-  <path d="M34 42h152" stroke="#60a5fa" stroke-width="3" stroke-linecap="round"/>
-  <path d="M170 20l18 10-18 10" fill="none" stroke="#22d3ee" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="24" y="62" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700" fill="#e2e8f0">Bank Transfer</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 302" role="img" aria-label="Bank Transfer">
+  <rect width="512" height="302" fill="#d9d9d9"/>
+
+  <!-- Roof -->
+  <polygon points="256,14 130,120 382,120" fill="#000"/>
+
+  <!-- Currency symbol -->
+  <text x="256" y="80" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="700" fill="#fff">$</text>
+
+  <!-- Top beam -->
+  <rect x="140" y="126" width="232" height="12" fill="#000"/>
+
+  <!-- Columns -->
+  <rect x="146" y="138" width="40" height="100" fill="#000"/>
+  <rect x="206" y="138" width="40" height="100" fill="#000"/>
+  <rect x="266" y="138" width="40" height="100" fill="#000"/>
+  <rect x="326" y="138" width="40" height="100" fill="#000"/>
+
+  <!-- Column base accents -->
+  <rect x="140" y="232" width="52" height="8" fill="#000"/>
+  <rect x="200" y="232" width="52" height="8" fill="#000"/>
+  <rect x="260" y="232" width="52" height="8" fill="#000"/>
+  <rect x="320" y="232" width="52" height="8" fill="#000"/>
+
+  <!-- Base -->
+  <rect x="130" y="244" width="252" height="14" fill="#000"/>
+  <rect x="122" y="260" width="268" height="14" fill="#000"/>
+
+  <!-- Label -->
+  <text x="256" y="296" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="700" fill="#000">Bank Transfer</text>
 </svg>
