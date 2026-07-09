@@ -9586,7 +9586,7 @@ const commonController = {
       // Fetch students enrolled in the class for the current term
       const studentsResult = await db.query(
         `
-                SELECT DISTINCT s.student_id, s.first_name, s.last_name
+                SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.gender
                 FROM students s
                 JOIN enrolled_students es ON s.student_id = es.student_id
                 JOIN enrollments e ON es.enrollment_id = e.enrollment_id

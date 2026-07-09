@@ -67,9 +67,31 @@ body {
   color: var(--text);
   font-size: 1.05rem;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 30px;
   text-align: left;
   white-space: nowrap;
+}
+
+.assessment-compact-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.assessment-gender-filter {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  height: 30px;
+  margin: 0;
+  align-self: center;
 }
 
 .assessment-compact-actions {
@@ -1334,7 +1356,14 @@ input[type="number"].score-input-invalid {
 
       <% if (isEmbedded) { %>
       <div class="assessment-header compact">
-        <h1 class="assessment-compact-title"><%= subjectName %></h1>
+        <div class="assessment-compact-heading">
+          <h1 class="assessment-compact-title"><%= subjectName %></h1>
+          <select id="assessment-gender-filter" class="assessment-gender-filter" aria-label="Filter students by gender">
+            <option value="all">All</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
         <div class="assessment-compact-actions">
           <% if (employees.length > 0) { %>
           <div class="teachers-popover-wrap">
@@ -1449,7 +1478,7 @@ input[type="number"].score-input-invalid {
               if (j == 3 && k != 13) { return "rd"; } return "th"; } %> <%
               students.forEach(function(student, index) { %>
               <% const assessmentStudentName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
-              <tr data-student-name="<%= assessmentStudentName.toLowerCase() %>">
+              <tr data-student-name="<%= assessmentStudentName.toLowerCase() %>" data-student-gender="<%= String(student.gender || '').toLowerCase() %>">
                 <td><%= index + 1 %></td>
                 <!-- Numbering each row -->
                 <td><%= assessmentStudentName %></td>
@@ -1641,6 +1670,44 @@ input[type="number"].score-input-invalid {
         button.setAttribute("aria-label", direction === "asc" ? "Sort students Z to A" : "Sort students A to Z");
       }
 
+      function normalizeGenderValue(value) {
+        var raw = String(value || "").trim().toLowerCase();
+        if (raw === "m" || raw === "male" || raw === "boy") return "male";
+        if (raw === "f" || raw === "female" || raw === "girl") return "female";
+        return "";
+      }
+
+      function syncVisibleAssessmentRowNumbers() {
+        var tbody = document.getElementById("students-table-body");
+        if (!tbody) return;
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr[data-student-name]"));
+        var visibleIndex = 0;
+
+        rows.forEach(function(row) {
+          if (row.style.display === "none") return;
+          visibleIndex += 1;
+          var indexCell = row.querySelector("td");
+          if (indexCell) indexCell.textContent = String(visibleIndex);
+        });
+      }
+
+      function applyAssessmentGenderFilter() {
+        var filterSelect = document.getElementById("assessment-gender-filter");
+        var tbody = document.getElementById("students-table-body");
+        if (!filterSelect || !tbody) return;
+
+        var selected = String(filterSelect.value || "all").toLowerCase();
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr[data-student-name]"));
+
+        rows.forEach(function(row) {
+          var rowGender = normalizeGenderValue(row.getAttribute("data-student-gender"));
+          var shouldShow = selected === "all" || rowGender === selected;
+          row.style.display = shouldShow ? "" : "none";
+        });
+
+        syncVisibleAssessmentRowNumbers();
+      }
+
       function sortAssessmentRows(direction) {
         var tbody = document.getElementById("students-table-body");
         if (!tbody) return;
@@ -1652,14 +1719,15 @@ input[type="number"].score-input-invalid {
             ? nameB.localeCompare(nameA, undefined, { sensitivity: "base" })
             : nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
         });
-        rows.forEach(function(row, index) {
-          var indexCell = row.querySelector("td");
-          if (indexCell) indexCell.textContent = String(index + 1);
+        rows.forEach(function(row) {
           tbody.appendChild(row);
         });
+
+        applyAssessmentGenderFilter();
       }
 
       const assessmentSortButton = document.getElementById("assessmentStudentSort");
+      const assessmentGenderFilter = document.getElementById("assessment-gender-filter");
       if (assessmentSortButton) {
         syncAssessmentSortLabel(assessmentSortButton);
         sortAssessmentRows(assessmentSortButton.getAttribute("data-sort-direction") || "asc");
@@ -1669,6 +1737,11 @@ input[type="number"].score-input-invalid {
           syncAssessmentSortLabel(assessmentSortButton);
           sortAssessmentRows(nextDirection);
         });
+      }
+
+      if (assessmentGenderFilter) {
+        assessmentGenderFilter.addEventListener("change", applyAssessmentGenderFilter);
+        applyAssessmentGenderFilter();
       }
 
       // Teachers popover
