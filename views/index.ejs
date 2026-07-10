@@ -318,15 +318,102 @@ a {
   line-height: 1.3;
 }
 
-.feature-cards {
+.feature-cards-marquee {
   display: grid;
   gap: 16px;
   width: 100%;
-  grid-template-columns: repeat(2, 1fr);
+}
+
+.feature-row {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.feature-row.is-dragging {
+  cursor: grabbing;
+}
+
+.feature-track {
+  display: flex;
   align-items: stretch;
+  gap: 16px;
+  width: 100%;
+  will-change: transform;
+  transform: translateX(0);
+  transition: transform 420ms cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+#index-feature-slider .feature-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12%;
+  z-index: 3;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.46;
+  transition: opacity 0.2s ease;
+}
+
+#index-feature-slider .feature-edge--left {
+  left: 0;
+}
+
+#index-feature-slider .feature-edge--right {
+  right: 0;
+}
+
+#index-feature-slider .feature-edge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.34;
+  transition: opacity 0.2s ease;
+}
+
+#index-feature-slider .feature-edge--left::after {
+  background: linear-gradient(
+    90deg,
+    rgba(46, 255, 251, 0.5) 0%,
+    rgba(46, 255, 251, 0.24) 28%,
+    rgba(46, 255, 251, 0.08) 58%,
+    rgba(46, 255, 251, 0) 100%
+  );
+}
+
+#index-feature-slider .feature-edge--right::after {
+  background: linear-gradient(
+    270deg,
+    rgba(46, 255, 251, 0.5) 0%,
+    rgba(46, 255, 251, 0.24) 28%,
+    rgba(46, 255, 251, 0.08) 58%,
+    rgba(46, 255, 251, 0) 100%
+  );
+}
+
+#index-feature-slider .feature-edge:hover::after {
+  opacity: 0.58;
+}
+
+#index-feature-slider .feature-edge:hover {
+  opacity: 1;
+}
+
+#index-feature-slider .feature-row.edge-hint-active .feature-edge {
+  animation: edge-hint-blink 0.34s ease-in-out 0s 6 alternate;
+}
+
+@keyframes edge-hint-blink {
+  from { opacity: 0.2; }
+  to { opacity: 1; }
 }
 
 .feature-card {
+  flex: 0 0 calc((100% - 16px) / 2);
   background: var(--card);
   padding: 24px 20px;
   border-radius: 12px;
@@ -335,12 +422,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: border-color 0.3s, transform 0.2s;
-}
-
-.feature-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
+  transition: none;
 }
 
 .feature-icon {
@@ -409,7 +491,7 @@ a {
 
 /* ========== How It Works ========== */
 .how-it-works-section {
-  padding: 60px 20px;
+  padding: 0;
   text-align: center;
   max-width: 1000px;
   margin: 0 auto;
@@ -555,7 +637,7 @@ a {
 }
 
 .paygira-section {
-  padding: 52px 20px;
+  padding: 0 20px;
   background: var(--bg);
 }
 
@@ -751,11 +833,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: border-color 0.3s;
-}
-
-.benefit-card:hover {
-  border-color: var(--accent);
+  transition: none;
 }
 
 .benefit-icon {
@@ -926,8 +1004,20 @@ a {
 
 /* Small screens — stack grids */
 @media (max-width: 600px) {
-  .feature-cards {
-    grid-template-columns: 1fr;
+  .feature-row {
+    padding: 0;
+  }
+
+  .feature-track {
+    width: 100%;
+  }
+
+  .feature-card {
+    flex: 0 0 calc((100% - 16px) / 2);
+  }
+
+  #index-feature-slider .feature-edge {
+    width: 15%;
   }
   .benefit-cards {
     grid-template-columns: 1fr;
@@ -971,7 +1061,7 @@ a {
   }
 
   .paygira-section {
-    padding: 48px 16px;
+    padding: 0 16px;
   }
 
   .paygira-grid {
@@ -988,12 +1078,22 @@ a {
   }
 
   .paygira-methods {
+    gap: 6px;
+  }
+
+  .paygira-marquee-row {
+    border-radius: 10px;
+  }
+
+  .paygira-track {
     gap: 8px;
   }
 
   .paygira-method {
-    flex-basis: 145px;
-    min-height: 96px;
+    flex-basis: 132px;
+    min-height: 82px;
+    padding: 8px;
+    border-radius: 8px;
     font-size: 0.84rem;
   }
 
@@ -1192,7 +1292,7 @@ a {
     <span style="font-size: 1.1rem; color: #333;">Mobile Money</span>
 
     <img src="/images/schoolslogo/paygira.svg" alt="Paygira Logo" loading="lazy" decoding="async">
-    <span style="font-size: 1.1rem; color: #333;">Paygira</span>
+    <span style="font-size: 1.1rem; color: #333;">PayGira</span>
 
     <img src="/images/schoolslogo/snyk.png" alt="Snyk Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">Snyk</span>
@@ -1229,7 +1329,7 @@ a {
     <span style="font-size: 1.1rem; color: #333;">Mobile Money</span>
 
     <img src="/images/schoolslogo/paygira.svg" alt="Paygira Logo" loading="lazy" decoding="async">
-    <span style="font-size: 1.1rem; color: #333;">Paygira</span>
+    <span style="font-size: 1.1rem; color: #333;">PayGira</span>
 
     <img src="/images/schoolslogo/snyk.png" alt="Snyk Logo" loading="lazy" decoding="async">
     <span style="font-size: 1.1rem; color: #333;">Snyk</span>
@@ -1250,39 +1350,94 @@ a {
 </section>
 
     <!-- Core Features + Video Section -->
-    <section class="features-video-section">
+    <section class="features-video-section" id="index-feature-slider">
         <div class="features">
             <p class="section-label">What We Offer</p>
             <h2>Everything Your School Needs, In One Place</h2>
-            <div class="feature-cards">
-                <div class="feature-card">
+            <div class="feature-cards-marquee">
+              <div class="feature-row feature-row--top">
+                <button class="feature-edge feature-edge--left" type="button" aria-label="Previous top feature"></button>
+                <button class="feature-edge feature-edge--right" type="button" aria-label="Next top feature"></button>
+                <div class="feature-track">
+                  <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    </div>
-                    <h3>Student Records & Attendance</h3>
-                    <p>Track grades, attendance, and student information digitally — accessible from any device, anywhere, anytime. No more paperwork.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                    </div>
-                    <h3>Hub Management</h3>
-                    <p>Oversee multiple schools from a single dashboard. Hubs let you monitor performance, manage staff, and coordinate across your entire network.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v14"/><path d="M4 13h16"/><path d="M8 21v-4"/><path d="M12 21v-4"/><path d="M16 21v-4"/></svg>
                     </div>
                     <h3>Parent Portal</h3>
-                    <p>Parents stay connected to their child's progress — view grades, attendance, and school updates in real time. Transparent. Trustworthy.</p>
-                </div>
-                <div class="feature-card">
+                    <p>Parents stay connected to their child's progress — view grades, attendance, and school updates in real time.</p>
+                  </div>
+                  <div class="feature-card">
                     <div class="feature-icon">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><path d="M3 12h18"/><circle cx="12" cy="12" r="9"/></svg>
+                    </div>
+                    <h3>Student Portal</h3>
+                    <p>Students own their learning. Access assignments, timetables, grades, and exam results in one place — from any device.</p>
+                  </div>
+                  <div class="feature-card">
+                    <div class="feature-icon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+                    </div>
+                    <h3>Testing Room</h3>
+                    <p>Run exams online end to end. Students sit assessments in their portal, and results flow straight into academic records.</p>
+                  </div>
+                  <div class="feature-card">
+                    <div class="feature-icon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4Z"/></svg>
+                    </div>
+                    <h3>Communication</h3>
+                    <p>Reach families through text, email, and WhatsApp notifications for events, reminders, and school updates.</p>
+                  </div>
+                  <div class="feature-card">
+                    <div class="feature-icon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                     </div>
                     <h3>Analytics & Reporting</h3>
-                    <p>Turn data into decisions. Clear reports on performance, attendance, and operations help leaders make choices that drive real results.</p>
+                    <p>Turn data into decisions with clear performance, attendance, and operations reports.</p>
+                  </div>
                 </div>
+              </div>
+
+              <div class="feature-row feature-row--bottom">
+                <button class="feature-edge feature-edge--left" type="button" aria-label="Previous bottom feature"></button>
+                <button class="feature-edge feature-edge--right" type="button" aria-label="Next bottom feature"></button>
+                <div class="feature-track">
+                  <div class="feature-card">
+                    <div class="feature-icon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <h3>Student Records & Attendance</h3>
+                    <p>Track grades, attendance, and student information digitally — accessible from any device, anytime.</p>
+                  </div>
+                  <div class="feature-card">
+                    <div class="feature-icon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    </div>
+                    <h3>Hub Management</h3>
+                    <p>Oversee multiple schools from one dashboard and coordinate operations across your network.</p>
+                  </div>
+                  <div class="feature-card">
+                    <div class="feature-icon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"/><path d="m7 10 5 3 5-3"/><path d="M3 15h18"/><path d="M5 19h14"/></svg>
+                    </div>
+                    <h3>Google Classroom Integration</h3>
+                    <p>Sync class workflows and simplify assignment coordination with Google Classroom integration.</p>
+                  </div>
+                  <div class="feature-card">
+                    <div class="feature-icon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+                    </div>
+                    <h3>Online Admissions</h3>
+                    <p>Simplify student enrollment with digital admission workflows and cleaner intake management.</p>
+                  </div>
+                  <div class="feature-card">
+                    <div class="feature-icon">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v12"/><path d="M8.5 9.5h5a2.5 2.5 0 1 1 0 5h-5"/></svg>
+                    </div>
+                    <h3>Finance Management</h3>
+                    <p>Track school fees, payments, and financial records in one transparent finance workspace.</p>
+                  </div>
+                </div>
+              </div>
             </div>
         </div>
         <div class="video-section">
@@ -1317,7 +1472,7 @@ a {
             <div class="step-card">
                 <div class="step-number">03</div>
                 <h3>Start Managing</h3>
-                <p>Record attendance, enter grades, generate reports, and keep parents informed — all from your dashboard.</p>
+              <p>Record attendance, run exams in the Testing Room, enter grades, generate reports, and keep parents informed — all from your dashboard.</p>
             </div>
         </div>
     </section>
@@ -1335,6 +1490,9 @@ a {
                 <p>
                     Families stay in the loop with real-time updates on events, grades, and achievements. 
                     And behind it all, enterprise-grade security keeps every piece of data safe, private, and compliant.
+                </p>
+                <p>
+                  Exams move online with the Testing Room. Set assessments, let students sit them in their portal, and get results marked and recorded without a red pen in sight — so teachers get their evenings back.
                 </p>
                 <a href="/account/service-plan" class="automation-cta">See Plans & Pricing →</a>
             </div>
@@ -1358,8 +1516,8 @@ a {
                 <span class="stat-label">Setup Time</span>
             </div>
             <div class="stat-item">
-                <span class="stat-number">100%</span>
-                <span class="stat-label">Data Security</span>
+              <span class="stat-number">0</span>
+              <span class="stat-label">Paper Exams Target</span>
             </div>
         </div>
     </section>
@@ -1374,7 +1532,7 @@ a {
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </div>
                 <h3>Save Hours Every Week</h3>
-                <p>Automate attendance, grades, and communications. Give educators back the time they need to do what they do best — teach and mentor.</p>
+              <p>Automate attendance, exams, grades, and communications. Give educators back the time they need to do what they do best — teach and mentor.</p>
             </div>
             <div class="benefit-card">
                 <div class="benefit-icon">
@@ -1410,7 +1568,7 @@ a {
             <div class="paygira-content">
               <h2>Paygira by Managira</h2>
               <p>
-                Paygira by Managira helps schools collect fees through mobile money, cards, and bank transfers while families and individuals pay conveniently. It is fully integrated into Managira, so payment records flow directly into enrollment, finance, and reporting for transparent, real-time tracking.
+                Helps schools collect fees through mobile money, cards, and bank transfers while families and individuals pay conveniently. It is fully integrated into Managira, so payment records flow directly into enrollment, finance, and reporting for transparent, real-time tracking.
               </p>
             </div>
           </div>
@@ -1633,4 +1791,218 @@ a {
         "url": "https://www.managira.com/"
       }
     }
+    </script>
+
+    <script>
+      (() => {
+        const rows = Array.from(document.querySelectorAll('.feature-row'));
+        if (!rows.length) return;
+
+        const STEP_WAIT_MS = 4000;
+        const MOVE_MS = 420;
+        const EASING = 'cubic-bezier(0.25, 0.8, 0.25, 1)';
+
+        const rowStates = rows.map((row, index) => {
+          const track = row.querySelector('.feature-track');
+          const edgeLeft = row.querySelector('.feature-edge--left');
+          const edgeRight = row.querySelector('.feature-edge--right');
+          return {
+            row,
+            track,
+            edgeLeft,
+            edgeRight,
+            baseDirection: 1,
+            isAnimating: false,
+            timer: null,
+            paused: false,
+            pointerId: null,
+            dragStartX: 0,
+            dragDeltaX: 0,
+            dragActive: false
+          };
+        });
+
+        const getStepSize = (rowState) => {
+          const firstCard = rowState.track?.querySelector('.feature-card');
+          if (!firstCard) return 0;
+          const gap = parseFloat(getComputedStyle(rowState.track).gap || '16') || 16;
+          return firstCard.getBoundingClientRect().width + gap;
+        };
+
+        const settleStep = (rowState, direction) => {
+          if (direction === 1) {
+            const first = rowState.track.firstElementChild;
+            if (first) rowState.track.appendChild(first);
+          } else {
+            const last = rowState.track.lastElementChild;
+            if (last) rowState.track.insertBefore(last, rowState.track.firstElementChild);
+          }
+          rowState.track.style.transform = 'translateX(0)';
+          void rowState.track.offsetWidth;
+          rowState.track.style.transition = '';
+          rowState.isAnimating = false;
+        };
+
+        const moveRowByOne = (rowState, direction) => {
+          if (!rowState?.track || rowState.isAnimating) return Promise.resolve(false);
+
+          const stepSize = getStepSize(rowState);
+          if (!stepSize) return Promise.resolve(false);
+
+          rowState.isAnimating = true;
+          rowState.track.style.transition = `transform ${MOVE_MS}ms ${EASING}`;
+          rowState.track.style.transform = `translateX(${direction === 1 ? -stepSize : stepSize}px)`;
+
+          return new Promise((resolve) => {
+            const handleTransitionEnd = () => {
+              rowState.track.removeEventListener('transitionend', handleTransitionEnd);
+              rowState.track.style.transition = 'none';
+              settleStep(rowState, direction);
+              resolve(true);
+            };
+
+            rowState.track.addEventListener('transitionend', handleTransitionEnd, { once: true });
+          });
+        };
+
+        const clearRowTimer = (rowState) => {
+          if (rowState.timer) {
+            clearTimeout(rowState.timer);
+            rowState.timer = null;
+          }
+        };
+
+        const scheduleRow = (rowState, delay = STEP_WAIT_MS) => {
+          clearRowTimer(rowState);
+          if (rowState.paused) return;
+
+          rowState.timer = setTimeout(async () => {
+            if (rowState.paused) return;
+            const moved = await moveRowByOne(rowState, rowState.baseDirection);
+            if (!rowState.paused) {
+              scheduleRow(rowState, moved ? STEP_WAIT_MS : 300);
+            }
+          }, delay);
+        };
+
+        const pauseRow = (rowState) => {
+          rowState.paused = true;
+          clearRowTimer(rowState);
+        };
+
+        const resumeRow = (rowState) => {
+          rowState.paused = false;
+          scheduleRow(rowState, STEP_WAIT_MS);
+        };
+
+        const completeDrag = (rowState) => {
+          const stepSize = getStepSize(rowState);
+          const threshold = Math.min(110, stepSize * 0.2);
+          const delta = rowState.dragDeltaX;
+
+          rowState.row.classList.remove('is-dragging');
+          rowState.dragActive = false;
+          rowState.pointerId = null;
+
+          if (Math.abs(delta) < threshold) {
+            rowState.track.style.transition = `transform 220ms ${EASING}`;
+            rowState.track.style.transform = 'translateX(0)';
+            rowState.track.addEventListener('transitionend', () => {
+              rowState.track.style.transition = '';
+            }, { once: true });
+            resumeRow(rowState);
+            return;
+          }
+
+          const direction = delta < 0 ? 1 : -1;
+          rowState.track.style.transition = `transform ${MOVE_MS}ms ${EASING}`;
+          rowState.track.style.transform = `translateX(${direction === 1 ? -stepSize : stepSize}px)`;
+          rowState.isAnimating = true;
+
+          rowState.track.addEventListener('transitionend', () => {
+            rowState.track.style.transition = 'none';
+            settleStep(rowState, direction);
+            resumeRow(rowState);
+          }, { once: true });
+        };
+
+        rowStates.forEach((rowState) => {
+          rowState.row.addEventListener('mouseenter', () => pauseRow(rowState));
+          rowState.row.addEventListener('mouseleave', () => resumeRow(rowState));
+
+          rowState.edgeLeft?.addEventListener('click', () => {
+            pauseRow(rowState);
+            moveRowByOne(rowState, -1).then(() => resumeRow(rowState));
+          });
+
+          rowState.edgeRight?.addEventListener('click', () => {
+            pauseRow(rowState);
+            moveRowByOne(rowState, 1).then(() => resumeRow(rowState));
+          });
+
+          rowState.row.addEventListener('pointerdown', (event) => {
+            if (event.target.closest('.feature-edge') || rowState.isAnimating) return;
+            rowState.dragActive = true;
+            rowState.pointerId = event.pointerId;
+            rowState.dragStartX = event.clientX;
+            rowState.dragDeltaX = 0;
+            rowState.row.classList.add('is-dragging');
+            rowState.row.setPointerCapture(event.pointerId);
+            rowState.track.style.transition = 'none';
+            pauseRow(rowState);
+          });
+
+          rowState.row.addEventListener('pointermove', (event) => {
+            if (!rowState.dragActive || rowState.pointerId !== event.pointerId) return;
+            rowState.dragDeltaX = event.clientX - rowState.dragStartX;
+            rowState.track.style.transform = `translateX(${rowState.dragDeltaX}px)`;
+          });
+
+          const releasePointer = (event) => {
+            if (!rowState.dragActive || rowState.pointerId !== event.pointerId) return;
+            completeDrag(rowState);
+          };
+
+          rowState.row.addEventListener('pointerup', releasePointer);
+          rowState.row.addEventListener('pointercancel', releasePointer);
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            rowStates.forEach((rowState) => pauseRow(rowState));
+          } else {
+            rowStates.forEach((rowState) => resumeRow(rowState));
+          }
+        });
+
+        rowStates.forEach((rowState, index) => {
+          const startupDelay = index === 1 ? 1000 : 0;
+          setTimeout(() => {
+            moveRowByOne(rowState, rowState.baseDirection).then(() => {
+              resumeRow(rowState);
+            });
+          }, startupDelay);
+        });
+
+        const flashEdgeHints = () => {
+          rowStates.forEach((rowState) => rowState.row.classList.add('edge-hint-active'));
+          setTimeout(() => {
+            rowStates.forEach((rowState) => rowState.row.classList.remove('edge-hint-active'));
+          }, 2100);
+        };
+
+        const featureArea = document.querySelector('.feature-cards-marquee');
+        if ('IntersectionObserver' in window && featureArea) {
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              flashEdgeHints();
+              observer.disconnect();
+            });
+          }, { threshold: 0.35 });
+          observer.observe(featureArea);
+        } else {
+          flashEdgeHints();
+        }
+      })();
     </script>
