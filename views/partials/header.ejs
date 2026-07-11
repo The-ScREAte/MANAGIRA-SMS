@@ -579,21 +579,22 @@
   }
 
   .public-mobile-overview {
-    padding: 2px 0 10px;
+    padding: 2px 0 8px;
   }
 
   .public-mobile-overview strong {
     display: block;
     font-size: 0.95rem;
     color: #0f172a;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
   .public-mobile-overview p {
+    display: none;
     font-size: 0.8rem;
     line-height: 1.5;
     color: #64748b;
-    margin: 0 0 10px;
+    margin: 0 0 8px;
   }
 
   .public-mobile-overview a {
@@ -604,37 +605,50 @@
     text-decoration: none;
   }
 
+
   .public-mobile-section-title {
     display: block;
-    font-size: 0.72rem;
+    font-size: 0.74rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #64748b;
-    margin: 10px 0 6px;
+    margin: 18px 0 6px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .public-mobile-submenu > .public-mobile-section-title:first-of-type {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
   }
 
   .public-mobile-submenu a.public-mobile-link {
     display: block;
-    padding: 7px 0;
+    padding: 5px 0;
     text-decoration: none;
     color: #0f172a;
-    font-size: 0.84rem;
+    font-size: 0.9rem;
     font-weight: 600;
     line-height: 1.35;
   }
 
   .public-mobile-submenu a.public-mobile-link span {
-    display: block;
+    display: none;
     color: #64748b;
     font-size: 0.74rem;
     font-weight: 500;
     margin-top: 2px;
   }
 
+
+
   .public-mobile-section-visual {
+    display: none;
     margin: 4px 0 8px;
   }
+
 
   .public-mobile-section-visual img {
     display: block;
@@ -672,7 +686,10 @@
 
   .public-mobile-capabilities .public-mobile-section-title {
     margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
   }
+
 
   .public-mobile-capability-item {
     display: block;
