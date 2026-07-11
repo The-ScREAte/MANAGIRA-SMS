@@ -129,6 +129,7 @@ let guardianPaymentMethodSchemaReady = false;
 let studentIdSettingsSchemaReady = false;
 let studentEmailSchemaReady = false;
 let studentAddressSchemaReady = false;
+let studentDobUnknownSchemaReady = false;
 let classDashboardLayoutSchemaReady = false;
 
 function roundCurrencyAmount(value) {
@@ -198,6 +199,17 @@ async function ensureStudentAddressSchema(dbClient) {
   `);
 
   studentAddressSchemaReady = true;
+}
+
+async function ensureStudentDobUnknownSchema(dbClient) {
+  if (studentDobUnknownSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE students
+      ADD COLUMN IF NOT EXISTS date_of_birth_unknown BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+
+  studentDobUnknownSchemaReady = true;
 }
 
 async function ensureClassDashboardLayoutSchema(dbClient) {
@@ -1029,17 +1041,32 @@ function normalizeOptionalEmail(raw) {
   return value || null;
 }
 
+function parseBooleanLike(value) {
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value || '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y', 'on'].includes(normalized);
+}
+
+function isUnknownDobToken(value) {
+  const normalized = String(value || '').trim().toLowerCase().replace(/\s+/g, '');
+  return ['n/k', 'nk', 'unknown', 'notknown', 'dontknow', "don'tknow", 'na', 'n/a'].includes(normalized);
+}
+
 function mapRowToStudent(rowValues = [], indexMap) {
   const guardianNameRaw = valueAt(rowValues, indexMap.guardianName);
   const splitGuardian = splitGuardianName(guardianNameRaw);
   const mappedHometown = valueAt(rowValues, indexMap.hometown);
   const rawStudentAddress = valueAt(rowValues, indexMap.studentAddress);
   const mappedStudentAddress = rawStudentAddress;
+  const rawDateOfBirth = valueAt(rowValues, indexMap.dateOfBirth);
+  const mappedDateOfBirth = formatDate(rawDateOfBirth);
+  const dateOfBirthUnknown = !mappedDateOfBirth || isUnknownDobToken(rawDateOfBirth);
 
   const student = {
     firstName: valueAt(rowValues, indexMap.firstName),
     lastName: valueAt(rowValues, indexMap.lastName),
-    dateOfBirth: formatDate(valueAt(rowValues, indexMap.dateOfBirth)),
+    dateOfBirth: dateOfBirthUnknown ? '' : mappedDateOfBirth,
+    dateOfBirthUnknown,
     gender: normalizeGenderValue(valueAt(rowValues, indexMap.gender)),
     class: valueAt(rowValues, indexMap.class),
     hometown: mappedHometown,
@@ -1236,10 +1263,14 @@ function parseTextToStudents(text) {
     const parts = line.split(/[\t,|]/).map((p) => p.trim()).filter(Boolean);
     if (parts.length >= 2) {
       const hasStudentEmail = Boolean(parts[6] && String(parts[6]).includes('@'));
+      const rawFallbackDob = parts[2] || '';
+      const fallbackDateOfBirth = rawFallbackDob ? formatDate(rawFallbackDob) : '';
+      const fallbackDateUnknown = !fallbackDateOfBirth || isUnknownDobToken(rawFallbackDob);
       const student = {
         firstName: parts[0] || '',
         lastName: parts[1] || '',
-        dateOfBirth: parts[2] ? formatDate(parts[2]) : '',
+        dateOfBirth: fallbackDateUnknown ? '' : fallbackDateOfBirth,
+        dateOfBirthUnknown: fallbackDateUnknown,
         gender: normalizeGenderValue(parts[3] || ''),
         class: parts[4] || '',
         hometown: parts[5] || '',
@@ -3823,6 +3854,7 @@ const commonController = {
     await ensureStudentIdSettingsSchema(db);
     await ensureStudentEmailSchema(db);
     await ensureStudentAddressSchema(db);
+    await ensureStudentDobUnknownSchema(db);
     const orgIdSettingsResult = await db.query(
       `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter, student_id_start_number
        FROM organizations WHERE organization_id = $1`,
@@ -3831,10 +3863,10 @@ const commonController = {
     const idSettings = orgIdSettingsResult.rows[0] || {};
 
     const indexes = [];
-    const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|studentAddress|studentEmail|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
+    const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|dateOfBirthUnknown|gender|classId|graduationYearGroupId|hometown|studentAddress|studentEmail|height|enrollmentType|schoolYearId|termId)_+(\d+)$/;
 
     // Detect whether this is single or multiple students
-    const isMultiple = Object.keys(body).some((key) => key.match(/_\d+$/));
+    const isMultiple = Object.keys(body).some((key) => key.match(/_+\d+$/));
 
     if (isMultiple) {
       Object.keys(body).forEach((key) => {
@@ -3853,10 +3885,15 @@ const commonController = {
     }
 
     const client = await db.connect();
+    const uploadedFileByField = new Map((uploadedFiles || []).map((file) => [String(file.fieldname || ''), file]));
     const guardianCache = new Map();
+    const enrollmentCache = new Map();
+    let cachedCurrentTerm = null;
+    let organizationNameCache = null;
     let currentIndexForLog = null;
     let currentPhaseForLog = 'begin';
     let studentsSavedCount = 0;
+    let emptyFormsSkippedCount = 0;
     let guardiansCreatedCount = 0;
     let guardiansReusedCount = 0;
     let guardianLinksCreatedCount = 0;
@@ -3865,9 +3902,73 @@ const commonController = {
     let allocatedCustomIdsLower = new Set();
     let nextAutoStudentIdCandidate = 1;
     let maxAllocatedStudentIdCounter = Math.max(0, Number(idSettings.student_id_counter) || 0);
+    const knownDuplicateKeys = new Set();
+    const unknownDuplicateKeys = new Set();
+    const seenBatchDuplicateKeys = new Set();
+    let sharedGuardianTempHash = null;
 
     try {
       await client.query("BEGIN");
+
+      if (!allowDuplicateSave) {
+        const classIdsForDuplicateCheck = [...new Set(
+          indexes
+            .map((index) => {
+              const prefix = index === "single" ? "" : `_${index}`;
+              const rawClassId = index === 'single'
+                ? body.classId
+                : (body[`classId${prefix}`] !== undefined ? body[`classId${prefix}`] : body[`classId___${index}`]);
+              const parsedClassId = Number(rawClassId);
+              return Number.isInteger(parsedClassId) && parsedClassId > 0 ? parsedClassId : null;
+            })
+            .filter((value) => Number.isInteger(value) && value > 0)
+        )];
+
+        if (classIdsForDuplicateCheck.length) {
+          const existingStudentsForDuplicateCheck = await client.query(
+            `SELECT
+               s.class_id,
+               LOWER(TRIM(COALESCE(s.first_name, ''))) AS first_name_key,
+               LOWER(TRIM(COALESCE(s.last_name, ''))) AS last_name_key,
+               COALESCE(s.date_of_birth::text, '') AS date_of_birth_key,
+               COALESCE(s.date_of_birth_unknown, FALSE) AS date_of_birth_unknown,
+               LOWER(TRIM(COALESCE(s.gender, ''))) AS gender_key,
+               LOWER(TRIM(COALESCE(s.hometown, ''))) AS hometown_key
+             FROM students s
+             WHERE s.organization_id = $1
+               AND s.class_id = ANY($2::int[])`,
+            [organizationId, classIdsForDuplicateCheck]
+          );
+
+          existingStudentsForDuplicateCheck.rows.forEach((row) => {
+            const classKey = String(row.class_id || '');
+            const firstNameKey = String(row.first_name_key || '');
+            const lastNameKey = String(row.last_name_key || '');
+            const genderKey = String(row.gender_key || '');
+            const hometownKey = String(row.hometown_key || '');
+
+            if (row.date_of_birth_unknown) {
+              unknownDuplicateKeys.add([
+                classKey,
+                firstNameKey,
+                lastNameKey,
+                genderKey,
+                hometownKey
+              ].join('|'));
+              return;
+            }
+
+            knownDuplicateKeys.add([
+              classKey,
+              firstNameKey,
+              lastNameKey,
+              String(row.date_of_birth_key || ''),
+              genderKey,
+              hometownKey
+            ].join('|'));
+          });
+        }
+      }
 
       if (idSettings.use_custom_student_id) {
         const lockedIdSettingsResult = await client.query(
@@ -3920,6 +4021,7 @@ const commonController = {
           firstName: getStudentField('firstName'),
           lastName: getStudentField('lastName'),
           dateOfBirth: getStudentField('dateOfBirth'),
+          dateOfBirthUnknown: parseBooleanLike(getStudentField('dateOfBirthUnknown')),
           height: getStudentField('height'),
           hometown: getStudentField('hometown'),
           studentAddress: getStudentField('studentAddress'),
@@ -3938,6 +4040,7 @@ const commonController = {
 
         const isEmptyStudentForm = !student.firstName && !student.lastName && !student.dateOfBirth && !student.gender && !student.classId;
         if (isEmptyStudentForm) {
+          emptyFormsSkippedCount += 1;
           if (addStudentVerboseLogs) {
             console.log('[AddStudent] Skipping empty student form', { index });
           }
@@ -3958,38 +4061,42 @@ const commonController = {
 
         currentPhaseForLog = 'duplicateCheck';
 
-        // Duplicate guard (same student data in same class for this organization)
-        const duplicateCheck = await client.query(
-          `
-          SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown, c.class_name
-          FROM students s
-          JOIN classes c ON c.class_id = s.class_id
-          WHERE s.organization_id = $1
-            AND s.class_id = $2
-            AND LOWER(TRIM(s.first_name)) = LOWER(TRIM($3))
-            AND LOWER(TRIM(s.last_name)) = LOWER(TRIM($4))
-            AND s.date_of_birth = $5
-            AND LOWER(TRIM(COALESCE(s.gender, ''))) = LOWER(TRIM(COALESCE($6, '')))
-            AND LOWER(TRIM(COALESCE(s.hometown, ''))) = LOWER(TRIM(COALESCE($7, '')))
-          LIMIT 1
-          `,
-          [
-            organizationId,
-            student.classId,
-            student.firstName || '',
-            student.lastName || '',
-            student.dateOfBirth || null,
-            student.gender || '',
-            student.hometown || ''
-          ]
-        );
+        if (!allowDuplicateSave) {
+          const duplicateClassKey = String(student.classId || '');
+          const duplicateFirstNameKey = String(student.firstName || '').trim().toLowerCase();
+          const duplicateLastNameKey = String(student.lastName || '').trim().toLowerCase();
+          const duplicateGenderKey = String(student.gender || '').trim().toLowerCase();
+          const duplicateHometownKey = String(student.hometown || '').trim().toLowerCase();
 
-        if (duplicateCheck.rows.length > 0 && !allowDuplicateSave) {
-          const dup = duplicateCheck.rows[0];
-          throw new Error(
-            `Duplicate student detected in class ${dup.class_name}: ${dup.first_name} ${dup.last_name}. ` +
-            `Please confirm duplicate save and try again.`
-          );
+          const duplicateKey = student.dateOfBirthUnknown
+            ? [
+                duplicateClassKey,
+                duplicateFirstNameKey,
+                duplicateLastNameKey,
+                duplicateGenderKey,
+                duplicateHometownKey
+              ].join('|')
+            : [
+                duplicateClassKey,
+                duplicateFirstNameKey,
+                duplicateLastNameKey,
+                String(student.dateOfBirth || ''),
+                duplicateGenderKey,
+                duplicateHometownKey
+              ].join('|');
+
+          const existsInDb = student.dateOfBirthUnknown
+            ? unknownDuplicateKeys.has(duplicateKey)
+            : knownDuplicateKeys.has(duplicateKey);
+          const existsInBatch = seenBatchDuplicateKeys.has(duplicateKey);
+
+          if (existsInDb || existsInBatch) {
+            throw new Error(
+              `Duplicate student detected in class: ${student.firstName || ''} ${student.lastName || ''}. Please confirm duplicate save and try again.`
+            );
+          }
+
+          seenBatchDuplicateKeys.add(duplicateKey);
         }
 
         // Collect guardians
@@ -4011,9 +4118,7 @@ const commonController = {
 
         // Insert student
         currentPhaseForLog = 'studentImage';
-        const imageFile = uploadedFiles.find(
-          (f) => f.fieldname === `studentImage${prefix}`
-        );
+        const imageFile = uploadedFileByField.get(`studentImage${prefix}`);
         let imageUrl = "profilePlaceholder.png";
         if (imageFile) {
           const s3Key = `images/studentimages/${organizationId}/${imageFile.originalname}`;
@@ -4087,13 +4192,14 @@ const commonController = {
 
         const studentInsert = await client.query(
           `INSERT INTO students 
-          (first_name, last_name, date_of_birth, height, hometown, address, email, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id, custom_student_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+          (first_name, last_name, date_of_birth, date_of_birth_unknown, height, hometown, address, email, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id, custom_student_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
           RETURNING student_id`,
           [
             student.firstName,
             student.lastName,
-            student.dateOfBirth,
+            student.dateOfBirthUnknown ? null : student.dateOfBirth,
+            Boolean(student.dateOfBirthUnknown),
             student.height,
             student.hometown,
             student.studentAddress,
@@ -4133,9 +4239,7 @@ const commonController = {
           ].join('|');
 
           // 1) Upload guardian photo if provided
-          const guardianImageFile = uploadedFiles.find(
-            (f) => f.fieldname === `guardianImage${prefix}_${i}`
-          );
+          const guardianImageFile = uploadedFileByField.get(`guardianImage${prefix}_${i}`);
 
           let guardianImageUrl = null;
           if (guardianImageFile) {
@@ -4306,7 +4410,10 @@ const commonController = {
 
           if (loginEmail || loginPhone) {
             // Seed temporary hash; guardian will set their own password via token link.
-            const tempHash = await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 10);
+            if (!sharedGuardianTempHash) {
+              sharedGuardianTempHash = await bcrypt.hash(crypto.randomBytes(24).toString("hex"), 10);
+            }
+            const tempHash = sharedGuardianTempHash;
 
             // Prefer email matching; fallback to phone matching.
             // Avoid ON CONFLICT with expression targets that may not be backed by DB constraints.
@@ -4390,12 +4497,15 @@ const commonController = {
 
           // 5) Send email notifications after transaction commits
           if (loginEmail) {
-            // Get organization name and student name for email
-            const orgResult = await client.query(
-              `SELECT organization_name FROM organizations WHERE organization_id = $1`,
-              [organizationId]
-            );
-            const organizationName = orgResult.rows[0]?.organization_name || 'School';
+            // Get organization name once per request and reuse.
+            if (!organizationNameCache) {
+              const orgResult = await client.query(
+                `SELECT organization_name FROM organizations WHERE organization_id = $1`,
+                [organizationId]
+              );
+              organizationNameCache = orgResult.rows[0]?.organization_name || 'School';
+            }
+            const organizationName = organizationNameCache;
             const studentName = `${student.firstName} ${student.lastName}`;
 
             // Send welcome email only for new guardian profiles (first-time guardians)
@@ -4456,14 +4566,15 @@ const commonController = {
           ? [student.subjects]
           : [];
 
-        for (const subjectId of subjectsArray) {
-          if (subjectId) {
-            await client.query(
-              `INSERT INTO student_subjects (student_id, subject_id, organization_id)
-               VALUES ($1, $2, $3)`,
-              [studentId, subjectId, organizationId]
-            );
-          }
+        const normalizedSubjectIds = subjectsArray
+          .map((subjectId) => Number(subjectId))
+          .filter((subjectId) => Number.isInteger(subjectId) && subjectId > 0);
+        if (normalizedSubjectIds.length) {
+          await client.query(
+            `INSERT INTO student_subjects (student_id, subject_id, organization_id)
+             SELECT $1, UNNEST($2::int[]), $3`,
+            [studentId, normalizedSubjectIds, organizationId]
+          );
         }
 
         // Determine enrollment term & year
@@ -4472,35 +4583,42 @@ const commonController = {
         let term = student.termId;
 
         if (student.enrollmentType === "current") {
-          const current = await client.query(
-            `SELECT term_id, school_year_id FROM terms WHERE organization_id = $1 AND current = true LIMIT 1`,
-            [organizationId]
-          );
-          if (!current.rows.length) throw new Error("No current term found.");
-          term = current.rows[0].term_id;
-          schoolYear = current.rows[0].school_year_id;
+          if (!cachedCurrentTerm) {
+            const current = await client.query(
+              `SELECT term_id, school_year_id FROM terms WHERE organization_id = $1 AND current = true LIMIT 1`,
+              [organizationId]
+            );
+            if (!current.rows.length) throw new Error("No current term found.");
+            cachedCurrentTerm = current.rows[0];
+          }
+          term = cachedCurrentTerm.term_id;
+          schoolYear = cachedCurrentTerm.school_year_id;
         }
 
         if (!schoolYear || !term)
           throw new Error("Missing school year or term.");
 
-        // Check or insert enrollment
-        const existing = await client.query(
-          `SELECT enrollment_id FROM enrollments WHERE school_year_id = $1 AND term_id = $2 AND organization_id = $3`,
-          [schoolYear, term, organizationId]
-        );
-
-        let enrollmentId;
-        if (existing.rows.length) {
-          enrollmentId = existing.rows[0].enrollment_id;
-        } else {
-          const insertEnrollment = await client.query(
-            `INSERT INTO enrollments (school_year_id, term_id, organization_id, created_at)
-             VALUES ($1, $2, $3, NOW())
-             RETURNING enrollment_id`,
+        // Check/insert enrollment once per (schoolYear, term) and reuse in-request.
+        const enrollmentCacheKey = `${schoolYear}:${term}`;
+        let enrollmentId = enrollmentCache.get(enrollmentCacheKey);
+        if (!enrollmentId) {
+          const existing = await client.query(
+            `SELECT enrollment_id FROM enrollments WHERE school_year_id = $1 AND term_id = $2 AND organization_id = $3`,
             [schoolYear, term, organizationId]
           );
-          enrollmentId = insertEnrollment.rows[0].enrollment_id;
+
+          if (existing.rows.length) {
+            enrollmentId = existing.rows[0].enrollment_id;
+          } else {
+            const insertEnrollment = await client.query(
+              `INSERT INTO enrollments (school_year_id, term_id, organization_id, created_at)
+               VALUES ($1, $2, $3, NOW())
+               RETURNING enrollment_id`,
+              [schoolYear, term, organizationId]
+            );
+            enrollmentId = insertEnrollment.rows[0].enrollment_id;
+          }
+          enrollmentCache.set(enrollmentCacheKey, enrollmentId);
         }
 
         // Enroll student
@@ -4534,7 +4652,12 @@ const commonController = {
           guardianLinksCreated: guardianLinksCreatedCount
         });
       }
-      req.flash("success", "Student(s) saved successfully.");
+      const processedFormsCount = indexes.length;
+      const saveSummaryMessage = `Saved ${studentsSavedCount} student(s) from ${processedFormsCount} submitted form(s).`;
+      const skipSummaryMessage = emptyFormsSkippedCount > 0
+        ? ` ${emptyFormsSkippedCount} empty form(s) were skipped.`
+        : '';
+      req.flash("success", `${saveSummaryMessage}${skipSummaryMessage}`);
       res.redirect("/common/addStudent");
     } catch (err) {
       await client.query("ROLLBACK");
@@ -4548,7 +4671,8 @@ const commonController = {
         where: err.where,
         stack: err.stack
       });
-      req.flash("error", "Failed to save student(s).");
+      const safeErrorMessage = err && err.message ? String(err.message) : "Unknown error";
+      req.flash("error", `Failed to save student(s): ${safeErrorMessage}`);
       res.redirect("/common/addStudent");
     } finally {
       client.release();
@@ -7424,12 +7548,14 @@ const commonController = {
     try {
       await ensureStudentEmailSchema(db);
       await ensureStudentAddressSchema(db);
+      await ensureStudentDobUnknownSchema(db);
       const { studentId } = req.params;
       const sessionOrganizationId = req.session.organizationId;
       const {
         firstName,
         lastName,
         dateOfBirth,
+        dateOfBirthUnknown,
         height,
         hometown,
         studentAddress,
@@ -7608,22 +7734,24 @@ const commonController = {
             SET first_name = $1, 
                 last_name = $2, 
                 date_of_birth = $3, 
-                height = $4, 
-                hometown = $5, 
-                address = $6,
-                email = $7,
-                class_id = $8, 
-                graduation_year_group_id = $9, 
-                gender = $10, 
-                image_url = COALESCE($11, image_url),
-                custom_student_id = $14
-            WHERE student_id = $12 
-            AND organization_id = $13;
+                date_of_birth_unknown = $4,
+                height = $5, 
+                hometown = $6, 
+                address = $7,
+                email = $8,
+                class_id = $9, 
+                graduation_year_group_id = $10, 
+                gender = $11, 
+                image_url = COALESCE($12, image_url),
+                custom_student_id = $15
+            WHERE student_id = $13 
+            AND organization_id = $14;
         `;
       await client.query(updateStudentQuery, [
         firstName,
         lastName,
-        dateOfBirth,
+        parseBooleanLike(dateOfBirthUnknown) ? null : (dateOfBirth || null),
+        parseBooleanLike(dateOfBirthUnknown),
         height,
         hometown,
         studentAddress,

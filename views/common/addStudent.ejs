@@ -1054,6 +1054,88 @@
         font-weight: 500;
       }
 
+      .import-busy-overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 23, 42, 0.36);
+        z-index: 3000;
+        backdrop-filter: blur(2px);
+      }
+
+      .import-busy-overlay.show {
+        display: flex;
+      }
+
+      .import-busy-card {
+        width: min(92vw, 360px);
+        background: #ffffff;
+        border: 1px solid #dbe3ea;
+        border-radius: 14px;
+        padding: 20px 18px;
+        box-shadow: 0 20px 48px rgba(2, 6, 23, 0.25);
+        text-align: center;
+      }
+
+      .import-busy-card .spinner {
+        margin-bottom: 12px;
+      }
+
+      .import-busy-text {
+        color: #0f172a;
+        font-size: 0.92rem;
+        font-weight: 600;
+      }
+
+      .save-busy-overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(2, 6, 23, 0.45);
+        z-index: 3200;
+        backdrop-filter: blur(2px);
+      }
+
+      .save-busy-overlay.show {
+        display: flex;
+      }
+
+      .save-busy-card {
+        width: min(92vw, 420px);
+        background: #ffffff;
+        border: 1px solid #dbe3ea;
+        border-radius: 14px;
+        padding: 22px 18px;
+        box-shadow: 0 20px 48px rgba(2, 6, 23, 0.28);
+        text-align: center;
+      }
+
+      .save-busy-title {
+        margin: 0 0 6px;
+        color: #0f172a;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .save-busy-text {
+        margin: 0;
+        color: #334155;
+        font-size: 0.9rem;
+        font-weight: 500;
+        min-height: 1.4em;
+      }
+
+      .save-busy-meta {
+        margin: 8px 0 0;
+        color: #64748b;
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+
       @media (max-width: 768px) {
         .bulk-import-btn,
         .clear-import-btn {
@@ -2452,6 +2534,10 @@
                 <div class="form-field-group">
                   <label class="form-label">Date of Birth<span class="req">*</span></label>
                   <input type="date" class="form-input" name="dateOfBirth___INDEX__" required>
+                  <label class="form-helper" style="margin-top: 6px; margin-bottom: 0; display: flex; align-items: center; gap: 6px;">
+                    <input type="checkbox" class="dob-unknown-toggle" name="dateOfBirthUnknown___INDEX__" value="true">
+                    N/K (Date of birth not known)
+                  </label>
                 </div>
                 <div class="form-field-group">
                   <label class="form-label">Gender<span class="req">*</span></label>
@@ -2761,12 +2847,131 @@
       let studentIndex = 0;
       const LOCAL_DRAFT_KEY = `addStudentDraft_${organizationId || 'default'}`;
       const PERFORMANCE_MODE_THRESHOLD = 600;
+      const DUPLICATE_PRECHECK_LIMIT = 120;
       const DEFAULT_IMPORT_BATCH_SIZE = 25;
       const PERFORMANCE_IMPORT_BATCH_SIZE = 10;
       let submitBypassCheck = false;
+      let saveBusyMessageTimer = null;
       let saveDraftTimer = null;
       let isBulkRenderInProgress = false;
       const classSubjectsCache = new Map();
+      const pendingBulkSubjectPrefills = [];
+
+      function queueBulkSubjectPrefill(index, classId, preSelectedSubjects = []) {
+        const parsedIndex = Number(index);
+        if (!Number.isInteger(parsedIndex) || parsedIndex < 0 || !classId) return;
+        pendingBulkSubjectPrefills.push({
+          index: parsedIndex,
+          classId: String(classId),
+          preSelectedSubjects: Array.isArray(preSelectedSubjects)
+            ? preSelectedSubjects.filter(Boolean)
+            : []
+        });
+      }
+
+      async function flushBulkSubjectPrefills() {
+        if (!pendingBulkSubjectPrefills.length) return;
+        const queued = pendingBulkSubjectPrefills.splice(0, pendingBulkSubjectPrefills.length);
+
+        for (const item of queued) {
+          if (!item || !Number.isInteger(Number(item.index)) || Number(item.index) < 0 || !item.classId) continue;
+          await loadSubjectsForClass(item.index, item.classId, item.preSelectedSubjects || []);
+        }
+      }
+
+      function setImportProgressText(message) {
+        const progressText = document.getElementById('progressText');
+        const overlayText = document.getElementById('importBusyText');
+        if (progressText) progressText.textContent = message;
+        if (overlayText) overlayText.textContent = message;
+      }
+
+      function showImportBusyOverlay(message = 'Processing file...') {
+        const overlay = document.getElementById('importBusyOverlay');
+        if (!overlay) return;
+        setImportProgressText(message);
+        overlay.classList.add('show');
+      }
+
+      function hideImportBusyOverlay() {
+        const overlay = document.getElementById('importBusyOverlay');
+        if (!overlay) return;
+        overlay.classList.remove('show');
+      }
+
+      function showSaveBusyOverlay() {
+        const overlay = document.getElementById('saveBusyOverlay');
+        const text = document.getElementById('saveBusyText');
+        const saveButton = document.querySelector('button.save-form-btn[form="addStudentFormMain"]');
+        if (!overlay || !text) return;
+
+        const messages = [
+          'Validating and preparing records...',
+          'Saving students to database...',
+          'Creating class enrollments and subject links...',
+          'Finalizing guardian links and notifications...'
+        ];
+        let cursor = 0;
+        text.textContent = messages[cursor];
+        overlay.classList.add('show');
+        if (saveButton) saveButton.disabled = true;
+
+        if (saveBusyMessageTimer) {
+          clearInterval(saveBusyMessageTimer);
+        }
+        saveBusyMessageTimer = setInterval(() => {
+          cursor = (cursor + 1) % messages.length;
+          text.textContent = messages[cursor];
+        }, 2200);
+      }
+
+      function estimateSaveWindow(studentCount) {
+        const count = Math.max(1, Number(studentCount) || 1);
+
+        // Fast-path estimate for typical no-image/low-contention saves.
+        let lowSeconds = Math.round(count * 0.06);
+        let highSeconds = Math.round(count * 0.2);
+
+        // Heavier-path guardrail for larger batches.
+        if (count >= 300) {
+          lowSeconds = Math.max(lowSeconds, Math.round(count * 0.08));
+          highSeconds = Math.max(highSeconds, Math.round(count * 0.28));
+        }
+
+        const toHuman = (seconds) => {
+          if (seconds < 60) return `${seconds}s`;
+          const mins = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          return secs ? `${mins}m ${secs}s` : `${mins}m`;
+        };
+
+        return `${toHuman(lowSeconds)} - ${toHuman(highSeconds)}`;
+      }
+
+      function setSaveBusyText(message) {
+        const text = document.getElementById('saveBusyText');
+        if (text && message) {
+          text.textContent = message;
+        }
+      }
+
+      function setSaveBusyEta(message) {
+        const eta = document.getElementById('saveBusyEta');
+        if (eta) {
+          eta.textContent = message || '';
+        }
+      }
+
+      function hideSaveBusyOverlay() {
+        const overlay = document.getElementById('saveBusyOverlay');
+        const saveButton = document.querySelector('button.save-form-btn[form="addStudentFormMain"]');
+        if (saveBusyMessageTimer) {
+          clearInterval(saveBusyMessageTimer);
+          saveBusyMessageTimer = null;
+        }
+        if (overlay) overlay.classList.remove('show');
+        if (saveButton) saveButton.disabled = false;
+      }
 
       function getAllStudentIdInputs() {
         return Array.from(document.querySelectorAll('.student-form .sid-id-input'));
@@ -2984,12 +3189,13 @@
           const firstName = find('firstName')?.value?.trim();
           const lastName = find('lastName')?.value?.trim();
           const dateOfBirth = find('dateOfBirth')?.value?.trim();
+          const dateOfBirthUnknown = Boolean(find('dateOfBirthUnknown')?.checked);
           const gender = find('gender')?.value?.trim();
           const classId = find('classId')?.value?.trim();
           const missing = [];
           if (!firstName) missing.push('firstName');
           if (!lastName) missing.push('lastName');
-          if (!dateOfBirth) missing.push('dateOfBirth');
+          if (!dateOfBirth && !dateOfBirthUnknown) missing.push('dateOfBirth');
           if (!gender) missing.push('gender');
           if (!classId) missing.push('classId');
           if (missing.length) {
@@ -3005,24 +3211,41 @@
           return;
         }
 
+        // Show immediate feedback right after user confirmation.
+        showSaveBusyOverlay();
+        const estimatedWindow = estimateSaveWindow(studentBlocks.length);
+        setSaveBusyEta(`Estimated save time: ${estimatedWindow}`);
+        setSaveBusyText('Running duplicate checks...');
+
         let allowDuplicateSave = false;
         try {
-          const duplicates = await checkDuplicateStudentsBeforeSubmit();
-          if (duplicates.length > 0) {
-            const preview = duplicates.slice(0, 5).map((d, i) =>
-              `${i + 1}. ${d.input.firstName} ${d.input.lastName} (${d.existing.class_name})`
-            ).join('\n');
-            const more = duplicates.length > 5 ? `\n...and ${duplicates.length - 5} more.` : '';
-            const proceed = confirm(
-              `Student with exact same information already exists in this class:\n\n${preview}${more}\n\nDo you still want to save duplicate record(s)?`
-            );
-            if (!proceed) return;
-            allowDuplicateSave = true;
+          const candidateCount = studentBlocks.length;
+          if (candidateCount > DUPLICATE_PRECHECK_LIMIT) {
+            setSaveBusyText('Large save detected. Skipping browser duplicate precheck for speed...');
+          } else {
+            const duplicates = await checkDuplicateStudentsBeforeSubmit();
+            if (duplicates.length > 0) {
+              const preview = duplicates.slice(0, 5).map((d, i) =>
+                `${i + 1}. ${d.input.firstName} ${d.input.lastName} (${d.existing.class_name})`
+              ).join('\n');
+              const more = duplicates.length > 5 ? `\n...and ${duplicates.length - 5} more.` : '';
+              const proceed = confirm(
+                `Student with exact same information already exists in this class:\n\n${preview}${more}\n\nDo you still want to save duplicate record(s)?`
+              );
+              if (!proceed) {
+                hideSaveBusyOverlay();
+                return;
+              }
+              allowDuplicateSave = true;
+            }
           }
         } catch (err) {
           console.error('Duplicate precheck failed:', err);
           const proceedOnError = confirm('Could not verify duplicates right now. Do you want to continue saving?');
-          if (!proceedOnError) return;
+          if (!proceedOnError) {
+            hideSaveBusyOverlay();
+            return;
+          }
         }
 
         let duplicateInput = form.querySelector('input[name="allowDuplicateSave"]');
@@ -3045,9 +3268,15 @@
           }
         });
 
+        setSaveBusyText('Submitting records for save...');
+        setSaveBusyEta(`Estimated save time: ${estimatedWindow}`);
         submitBypassCheck = true;
         form.submit();
       }
+
+      window.addEventListener('pageshow', () => {
+        hideSaveBusyOverlay();
+      });
 
       function scheduleSaveDraft() {
         if (isBulkRenderInProgress) return;
@@ -3184,6 +3413,7 @@
             if (name.startsWith(`subjects_${currentIndex}[]`)) return;
             setNamedFieldValue(block, name, value);
           });
+          bindDobUnknownToggle(block);
 
           // Reload class subjects then restore checked subjects
           const classSelect =
@@ -3237,11 +3467,12 @@
             firstName: getIndexedVal('firstName'),
             lastName: getIndexedVal('lastName'),
             dateOfBirth: getIndexedVal('dateOfBirth'),
+            dateOfBirthUnknown: Boolean(block.querySelector(`[name="dateOfBirthUnknown___${idx}"]`)?.checked || block.querySelector(`[name="dateOfBirthUnknown_${idx}"]`)?.checked),
             gender: getIndexedVal('gender'),
             hometown: getIndexedVal('hometown'),
             classId: getIndexedVal('classId')
           };
-        }).filter((s) => s.firstName && s.lastName && s.dateOfBirth && s.classId);
+        }).filter((s) => s.firstName && s.lastName && (s.dateOfBirth || s.dateOfBirthUnknown) && s.classId);
 
         if (!students.length) return [];
 
@@ -3400,6 +3631,35 @@ function removeStudentForm(button) {
   }
 }
 
+function bindDobUnknownToggle(block) {
+  if (!block) return;
+  const idx = block.getAttribute('data-index');
+  const dobInput =
+    block.querySelector(`[name="dateOfBirth___${idx}"]`) ||
+    block.querySelector(`[name="dateOfBirth_${idx}"]`) ||
+    block.querySelector('input[name*="dateOfBirth"]');
+  const dobUnknownToggle =
+    block.querySelector(`[name="dateOfBirthUnknown___${idx}"]`) ||
+    block.querySelector(`[name="dateOfBirthUnknown_${idx}"]`);
+
+  if (!dobInput || !dobUnknownToggle) return;
+
+  const applyState = () => {
+    const isUnknown = Boolean(dobUnknownToggle.checked);
+    dobInput.required = !isUnknown;
+    dobInput.disabled = isUnknown;
+    if (isUnknown) {
+      dobInput.value = '';
+      dobInput.dataset.unknownDob = 'true';
+    } else {
+      delete dobInput.dataset.unknownDob;
+    }
+  };
+
+  applyState();
+  dobUnknownToggle.addEventListener('change', applyState);
+}
+
 // Modify the addStudentForm function to include proper indexing
 function addStudentForm() {
   const container = document.getElementById("studentFormsContainer");
@@ -3432,6 +3692,7 @@ function addStudentForm() {
   renumberStudentCards();
   scheduleSaveDraft();
 
+  bindDobUnknownToggle(div);
   setupStudentIdInput(div);
   refreshStudentIdPageConflicts();
 }    
@@ -3797,6 +4058,14 @@ function addStudentForm() {
         return '';
       }
 
+      function isIndexedCheckboxChecked(block, idx, baseName) {
+        const triple = block.querySelector(`[name="${baseName}___${idx}"]`);
+        if (triple && triple.type === 'checkbox') return Boolean(triple.checked);
+        const single = block.querySelector(`[name="${baseName}_${idx}"]`);
+        if (single && single.type === 'checkbox') return Boolean(single.checked);
+        return false;
+      }
+
       function getExistingFormSignatures() {
         const signatures = new Set();
         const blocks = document.querySelectorAll('#studentFormsContainer .student-form');
@@ -3806,6 +4075,7 @@ function addStudentForm() {
           const firstName = getIndexedFieldValue(block, idx, 'firstName');
           const lastName = getIndexedFieldValue(block, idx, 'lastName');
           const dateOfBirth = getIndexedFieldValue(block, idx, 'dateOfBirth');
+          const dateOfBirthUnknown = isIndexedCheckboxChecked(block, idx, 'dateOfBirthUnknown');
           const gender = getIndexedFieldValue(block, idx, 'gender');
           const hometown = getIndexedFieldValue(block, idx, 'hometown');
 
@@ -3818,9 +4088,9 @@ function addStudentForm() {
             ? classSelect.selectedOptions[0].textContent
             : '';
 
-          if (!firstName || !lastName || !dateOfBirth) return;
+          if (!firstName || !lastName || (!dateOfBirth && !dateOfBirthUnknown)) return;
 
-          const signature = [firstName, lastName, dateOfBirth, gender, hometown, className]
+          const signature = [firstName, lastName, (dateOfBirth || (dateOfBirthUnknown ? 'n/k' : '')), gender, hometown, className]
             .map(normalizeSignaturePart)
             .join('|');
           signatures.add(signature);
@@ -3833,7 +4103,7 @@ function addStudentForm() {
         return [
           studentData.firstName,
           studentData.lastName,
-          studentData.dateOfBirth,
+          studentData.dateOfBirth || (studentData.dateOfBirthUnknown ? 'n/k' : ''),
           studentData.gender,
           studentData.hometown,
           studentData.class,
@@ -3856,6 +4126,7 @@ function addStudentForm() {
         const firstName = getVal('firstName');
         const lastName = getVal('lastName');
         const dateOfBirth = getVal('dateOfBirth');
+        const dateOfBirthUnknown = isIndexedCheckboxChecked(block, idx, 'dateOfBirthUnknown');
         const gender = getVal('gender');
         const classId = getVal('classId');
 
@@ -3905,7 +4176,8 @@ function addStudentForm() {
 
         // Show progress
         document.getElementById('parsingProgress').classList.add('show');
-        document.getElementById('progressText').textContent = 'Parsing file...';
+        setImportProgressText('Parsing file...');
+        showImportBusyOverlay('Parsing file...');
 
         const formData = new FormData();
         formData.append('bulkFile', file);
@@ -3919,7 +4191,7 @@ function addStudentForm() {
           const result = await response.json();
 
           if (result.success) {
-            document.getElementById('progressText').textContent = `Found ${result.students.length} students! Generating forms...`;
+            setImportProgressText(`Found ${result.students.length} students! Generating forms...`);
             
             // Show warnings if any
             if (result.warnings) {
@@ -3954,6 +4226,7 @@ function addStudentForm() {
 
             if (studentsToAdd.length === 0) {
               document.getElementById('parsingProgress').classList.remove('show');
+              hideImportBusyOverlay();
               alert(`No new students were added. ${skippedDuplicates} duplicate record(s) already exist in the current forms.`);
               return;
             }
@@ -3973,9 +4246,11 @@ function addStudentForm() {
             // Fast batched rendering with adaptive tuning for large imports
             isBulkRenderInProgress = true;
             if (progressText) {
-              progressText.textContent = usePerformanceMode
-                ? `Large import performance mode: generating ${studentsToAdd.length} form(s)...`
-                : `Generating ${studentsToAdd.length} form(s)...`;
+              setImportProgressText(
+                usePerformanceMode
+                  ? `Large import performance mode: generating ${studentsToAdd.length} form(s)...`
+                  : `Generating ${studentsToAdd.length} form(s)...`
+              );
             }
 
             const batchSize = usePerformanceMode ? PERFORMANCE_IMPORT_BATCH_SIZE : DEFAULT_IMPORT_BATCH_SIZE;
@@ -3989,29 +4264,37 @@ function addStudentForm() {
 
                 if (isBatchBoundary || isLast) {
                   if (progressText) {
-                    progressText.textContent = `Generated ${index + 1} of ${studentsToAdd.length} forms...`;
+                    setImportProgressText(`Generated ${index + 1} of ${studentsToAdd.length} forms...`);
                   }
                   await yieldToBrowser();
                 }
               }
+
+              // Ensure subjects are preselected for every generated form.
+              await flushBulkSubjectPrefills();
             } finally {
               isBulkRenderInProgress = false;
             }
 
             if (usePerformanceMode) {
               closeBulkImportModal();
+            } else {
+              closeBulkImportModal();
             }
+            hideImportBusyOverlay();
             scheduleSaveDraft();
             const skipNote = skippedDuplicates > 0 ? ` (${skippedDuplicates} duplicate record(s) skipped)` : '';
             alert(`Successfully added ${studentsToAdd.length} student(s) to existing forms${skipNote}. Please review and submit.`);
           } else {
             alert('Error parsing file: ' + (result.error || 'Unknown error'));
             document.getElementById('parsingProgress').classList.remove('show');
+            hideImportBusyOverlay();
           }
         } catch (error) {
           console.error('Upload error:', error);
           alert('Error uploading file. Please try again.');
           document.getElementById('parsingProgress').classList.remove('show');
+          hideImportBusyOverlay();
         }
       }
 
@@ -4071,17 +4354,20 @@ function addStudentForm() {
           }
         }
         
-        if (studentData.dateOfBirth) {
-          const dobInput = cardElement.querySelector(`input[name="dateOfBirth___${currentIndex}"]`);
-          if (dobInput) {
-            dobInput.value = studentData.dateOfBirth;
-          } else {
-            const altInput = cardElement.querySelector('input[name*="dateOfBirth"]');
-            if (altInput) {
-              altInput.value = studentData.dateOfBirth;
-            }
-          }
+        const dobInput =
+          cardElement.querySelector(`input[name="dateOfBirth___${currentIndex}"]`) ||
+          cardElement.querySelector('input[name*="dateOfBirth"]');
+        const dobUnknownToggle =
+          cardElement.querySelector(`input[name="dateOfBirthUnknown___${currentIndex}"]`) ||
+          cardElement.querySelector('input[name*="dateOfBirthUnknown"]');
+        const isDobUnknown = Boolean(studentData.dateOfBirthUnknown) || !String(studentData.dateOfBirth || '').trim();
+        if (dobUnknownToggle) {
+          dobUnknownToggle.checked = isDobUnknown;
         }
+        if (dobInput) {
+          dobInput.value = isDobUnknown ? '' : String(studentData.dateOfBirth || '').trim();
+        }
+        bindDobUnknownToggle(cardElement);
         
         if (studentData.gender) {
           const genderSelect = cardElement.querySelector(`select[name="gender___${currentIndex}"]`);
@@ -4142,7 +4428,7 @@ function addStudentForm() {
               const preSubjects = studentData.subjects
                 ? studentData.subjects.split(',').map(s => s.trim()).filter(Boolean)
                 : [];
-              loadSubjectsForClass(currentIndex, classSelect.value, preSubjects);
+              queueBulkSubjectPrefill(currentIndex, classSelect.value, preSubjects);
             } else {
             }
           } else {
@@ -4505,6 +4791,22 @@ function addStudentForm() {
           <div class="spinner"></div>
           <div class="progress-text" id="progressText">Processing file...</div>
         </div>
+      </div>
+    </div>
+
+    <div class="import-busy-overlay" id="importBusyOverlay" aria-live="polite" aria-busy="true">
+      <div class="import-busy-card">
+        <div class="spinner"></div>
+        <div class="import-busy-text" id="importBusyText">Processing file...</div>
+      </div>
+    </div>
+
+    <div class="save-busy-overlay" id="saveBusyOverlay" aria-live="polite" aria-busy="true">
+      <div class="save-busy-card">
+        <div class="spinner"></div>
+        <h3 class="save-busy-title">Saving Students</h3>
+        <p class="save-busy-text" id="saveBusyText">Saving students to database...</p>
+        <p class="save-busy-meta" id="saveBusyEta">Estimated save time: calculating...</p>
       </div>
     </div>
 

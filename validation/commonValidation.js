@@ -22,6 +22,11 @@ function normalizeGender(raw) {
   return raw.trim();
 }
 
+function parseBooleanLike(raw) {
+  const normalized = String(raw || '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y', 'on'].includes(normalized);
+}
+
 // Names: allow letters, spaces, hyphens, apostrophes, accents, periods
 const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/;
 
@@ -31,9 +36,9 @@ const validateStudents = (req, res, next) => {
 
   const body = req.body;
   const indexes = [];
-  const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|studentAddress|studentEmail|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
+  const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|dateOfBirthUnknown|gender|classId|graduationYearGroupId|hometown|studentAddress|studentEmail|height|enrollmentType|schoolYearId|termId)_+(\d+)$/;
 
-  const isMultiple = Object.keys(body).some((key) => key.match(/_\d+$/));
+  const isMultiple = Object.keys(body).some((key) => key.match(/_+\d+$/));
 
   if (isMultiple) {
     Object.keys(body).forEach((key) => {
@@ -70,6 +75,7 @@ const validateStudents = (req, res, next) => {
     const firstName = getField("firstName");
     const lastName = getField("lastName");
     const dateOfBirth = getField("dateOfBirth");
+    const dateOfBirthUnknown = parseBooleanLike(getField("dateOfBirthUnknown"));
     const gender = getField("gender");
     const classId = getField("classId");
     const studentEmail = getField("studentEmail");
@@ -96,7 +102,7 @@ const validateStudents = (req, res, next) => {
       );
     }
 
-    if (!dateOfBirth) {
+    if (!dateOfBirth && !dateOfBirthUnknown) {
       errors.push(`Student ${+index + 1}: Date of birth is required.`);
     }
 
@@ -173,7 +179,12 @@ const validatePublicRegister = [
     .matches(/^[A-Za-zÀ-ÖØ-öø-ÿ\s'\-\.]+$/)
     .withMessage("Last name must contain only letters, spaces, hyphens, or apostrophes."),
 
-  check("dateOfBirth").notEmpty().withMessage("Date of birth is required"),
+  check("dateOfBirth").custom((value, { req }) => {
+    const dobUnknown = parseBooleanLike(req.body.dateOfBirthUnknown);
+    if (dobUnknown) return true;
+    if (String(value || '').trim()) return true;
+    throw new Error("Date of birth is required");
+  }),
 
   check("gender").notEmpty().withMessage("Gender is required"),
 

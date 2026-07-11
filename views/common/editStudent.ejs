@@ -573,6 +573,24 @@
         }
         function confirmDelete(message) { return confirm(message); }
 
+        function bindEditDobUnknownToggle() {
+          const dobInput = document.getElementById('esDateOfBirth');
+          const unknownToggle = document.getElementById('esDateOfBirthUnknown');
+          if (!dobInput || !unknownToggle) return;
+
+          const apply = () => {
+            const isUnknown = Boolean(unknownToggle.checked);
+            dobInput.required = !isUnknown;
+            dobInput.disabled = isUnknown;
+            if (isUnknown) {
+              dobInput.value = '';
+            }
+          };
+
+          apply();
+          unknownToggle.addEventListener('change', apply);
+        }
+
         function toggleActionMenu() {
           const menu = document.getElementById('studentActionDropdown');
           if (!menu) return;
@@ -814,6 +832,7 @@
 
         document.addEventListener('DOMContentLoaded', function () {
           document.querySelectorAll('.es-guardian-entry').forEach(bindGuardianAddressSyncForEntry);
+          bindEditDobUnknownToggle();
         });
     </script>
 </head>
@@ -903,7 +922,11 @@
         </div>
         <div class="es-field">
           <label>Date of Birth *</label>
-          <input type="date" name="dateOfBirth" value="<%= student.date_of_birth ? (student.date_of_birth instanceof Date ? student.date_of_birth : new Date(student.date_of_birth)).toISOString().slice(0, 10) : '' %>" required>
+          <input type="date" id="esDateOfBirth" name="dateOfBirth" value="<%= student.date_of_birth ? (student.date_of_birth instanceof Date ? student.date_of_birth : new Date(student.date_of_birth)).toISOString().slice(0, 10) : '' %>" <%= student.date_of_birth_unknown ? '' : 'required' %>>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.75rem;margin:6px 0 0;color:#64748b;">
+            <input type="checkbox" id="esDateOfBirthUnknown" name="dateOfBirthUnknown" value="true" <%= student.date_of_birth_unknown ? 'checked' : '' %>>
+            N/K (Date of birth not known)
+          </label>
         </div>
         <div class="es-field">
           <label>Gender *</label>
