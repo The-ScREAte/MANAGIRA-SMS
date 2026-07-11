@@ -2462,10 +2462,16 @@
                   </select>
                 </div>
               </div>
-              <div class="form-field-group">
-                  <label class="form-label">Hometown</label>
-                  <input type="text" class="form-input" name="hometown___INDEX__" placeholder="City or town of origin">
-                </div>
+              <div class="form-field-row">
+                <div class="form-field-group">
+                    <label class="form-label">Hometown</label>
+                    <input type="text" class="form-input" name="hometown___INDEX__" placeholder="City or town of origin">
+                  </div>
+                <div class="form-field-group">
+                    <label class="form-label">Student Address</label>
+                    <input type="text" class="form-input" name="studentAddress___INDEX__" placeholder="House number, street, area">
+                  </div>
+              </div>
               <div class="form-field-group">
                   <label class="form-label">Student Email</label>
                   <input type="email" class="form-input" name="studentEmail___INDEX__" placeholder="student@example.com">
@@ -2754,8 +2760,13 @@
       const studentIdNextAvailableStart = Number(addStudentPageData.studentIdNextAvailableStart || 1);
       let studentIndex = 0;
       const LOCAL_DRAFT_KEY = `addStudentDraft_${organizationId || 'default'}`;
+      const PERFORMANCE_MODE_THRESHOLD = 600;
+      const DEFAULT_IMPORT_BATCH_SIZE = 25;
+      const PERFORMANCE_IMPORT_BATCH_SIZE = 10;
       let submitBypassCheck = false;
       let saveDraftTimer = null;
+      let isBulkRenderInProgress = false;
+      const classSubjectsCache = new Map();
 
       function getAllStudentIdInputs() {
         return Array.from(document.querySelectorAll('.student-form .sid-id-input'));
@@ -2763,6 +2774,14 @@
 
       function getStudentIdNumericValue(input) {
         return String(input && input.value ? input.value : '').replace(/\D/g, '').trim();
+      }
+
+      function isStudentIdInManualMode(input) {
+        if (!input) return false;
+        const formBlock = input.closest('.student-form');
+        const modeInput = formBlock ? formBlock.querySelector('.sid-id-mode') : null;
+        if (!modeInput) return true;
+        return String(modeInput.value || '').trim().toLowerCase() !== 'auto';
       }
 
       function getNextStudentIdPreviewValue(excludeInput = null) {
@@ -2838,6 +2857,18 @@
       function refreshAllStudentIdConflictStates() {
         refreshStudentIdPageConflicts();
         getAllStudentIdInputs().forEach((input) => {
+          if (!getStudentIdNumericValue(input)) {
+            input.dataset.dbTaken = 'false';
+            applyStudentIdConflictState(input);
+            return;
+          }
+
+          if (!isStudentIdInManualMode(input)) {
+            input.dataset.dbTaken = 'false';
+            applyStudentIdConflictState(input);
+            return;
+          }
+
           if (getStudentIdNumericValue(input)) {
             refreshStudentIdDbConflict(input);
           } else {
@@ -2872,9 +2903,14 @@
         ensurePreviewValue();
         syncStudentIdInputWidth(sidInput);
         refreshStudentIdPageConflicts();
-        sidTimer = setTimeout(() => {
-          refreshStudentIdDbConflict(sidInput);
-        }, 0);
+        if (isStudentIdInManualMode(sidInput) && getStudentIdNumericValue(sidInput)) {
+          sidTimer = setTimeout(() => {
+            refreshStudentIdDbConflict(sidInput);
+          }, 0);
+        } else {
+          sidInput.dataset.dbTaken = 'false';
+          applyStudentIdConflictState(sidInput);
+        }
 
         sidInput.addEventListener('input', function() {
           clearTimeout(sidTimer);
@@ -2893,6 +2929,11 @@
             applyStudentIdConflictState(sidInput);
             return;
           }
+          if (!isStudentIdInManualMode(sidInput)) {
+            sidInput.dataset.dbTaken = 'false';
+            applyStudentIdConflictState(sidInput);
+            return;
+          }
           sidTimer = setTimeout(() => {
             refreshStudentIdDbConflict(sidInput);
           }, 250);
@@ -2904,9 +2945,14 @@
           }
           syncStudentIdInputWidth(sidInput);
           refreshStudentIdPageConflicts();
-          sidTimer = setTimeout(() => {
-            refreshStudentIdDbConflict(sidInput);
-          }, 0);
+          if (isStudentIdInManualMode(sidInput) && getStudentIdNumericValue(sidInput)) {
+            sidTimer = setTimeout(() => {
+              refreshStudentIdDbConflict(sidInput);
+            }, 0);
+          } else {
+            sidInput.dataset.dbTaken = 'false';
+            applyStudentIdConflictState(sidInput);
+          }
         });
 
         refreshStudentIdPageConflicts();
@@ -3004,8 +3050,19 @@
       }
 
       function scheduleSaveDraft() {
+        if (isBulkRenderInProgress) return;
         if (saveDraftTimer) clearTimeout(saveDraftTimer);
         saveDraftTimer = setTimeout(saveDraftToLocalStorage, 300);
+      }
+
+      function yieldToBrowser() {
+        return new Promise((resolve) => {
+          if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+            window.requestAnimationFrame(() => resolve());
+            return;
+          }
+          setTimeout(resolve, 0);
+        });
       }
 
       function saveDraftToLocalStorage() {
@@ -3202,6 +3259,44 @@
         return Array.isArray(result.duplicates) ? result.duplicates : [];
       }
     
+      function renderSubjectsForClass(index, subjectsData = [], preSelectedSubjects = []) {
+        const container = document.getElementById(`subjectsContainer-${index}`);
+        const collapsibleBtn = document.querySelector(`#subjectsCollapsible-${index} .collapsible-btn`);
+        if (!container) return;
+
+        if (Array.isArray(subjectsData) && subjectsData.length > 0) {
+          let html = `<label><input type="checkbox" id="selectAllSubjects-${index}"> Select All</label><br>`;
+          subjectsData.forEach(subject => {
+            html += `<label><input type="checkbox" name="subjects_${index}[]" data-subject-name="${subject.subject_name}" value="${subject.subject_id}"> ${subject.subject_name}</label><br>`;
+          });
+          container.innerHTML = html;
+          container.style.display = "block";
+          if (collapsibleBtn) setSubjectsToggleState(collapsibleBtn, true);
+
+          document.getElementById(`selectAllSubjects-${index}`).addEventListener("change", function () {
+            const checkboxes = container.querySelectorAll(`input[name="subjects_${index}[]"]`);
+            checkboxes.forEach(cb => cb.checked = this.checked);
+          });
+
+          if (preSelectedSubjects.length > 0) {
+            const lowerList = preSelectedSubjects.map(s => s.toLowerCase());
+            const checkboxes = container.querySelectorAll(`input[name="subjects_${index}[]"]`);
+            checkboxes.forEach(cb => {
+              const subjName = (cb.getAttribute('data-subject-name') || '').toLowerCase();
+              if (lowerList.some(name => subjName.includes(name) || name.includes(subjName))) {
+                cb.checked = true;
+              }
+            });
+          }
+          updateSubjectCountBadge(index);
+          return;
+        }
+
+        container.innerHTML = "<p>No subjects found for the selected class.</p>";
+        container.style.display = "block";
+        if (collapsibleBtn) setSubjectsToggleState(collapsibleBtn, true);
+      }
+
       async function loadSubjectsForClass(index, classId, preSelectedSubjects = []) {
         const container = document.getElementById(`subjectsContainer-${index}`);
         const collapsibleBtn = document.querySelector(`#subjectsCollapsible-${index} .collapsible-btn`);
@@ -3215,40 +3310,20 @@
         }
 
         try {
-          const response = await fetch(`/common/getSubjectsForClass?classId=${classId}&organizationId=${organizationId}`);
-          const subjectsData = await response.json();
+          const classCacheKey = String(classId);
+          let subjectsData = classSubjectsCache.get(classCacheKey);
 
-          if (Array.isArray(subjectsData) && subjectsData.length > 0) {
-            let html = `<label><input type=\"checkbox\" id=\"selectAllSubjects-${index}\"> Select All</label><br>`;
-            subjectsData.forEach(subject => {
-              html += `<label><input type=\"checkbox\" name=\"subjects_${index}[]\" data-subject-name=\"${subject.subject_name}\" value=\"${subject.subject_id}\"> ${subject.subject_name}</label><br>`;
-            });
-            container.innerHTML = html;
-            container.style.display = "block";
-            if (collapsibleBtn) setSubjectsToggleState(collapsibleBtn, true);
-
-            document.getElementById(`selectAllSubjects-${index}`).addEventListener("change", function () {
-              const checkboxes = container.querySelectorAll(`input[name=\"subjects_${index}[]\"]`);
-              checkboxes.forEach(cb => cb.checked = this.checked);
-            });
-
-            // Auto-select subjects if provided
-            if (preSelectedSubjects.length > 0) {
-              const lowerList = preSelectedSubjects.map(s => s.toLowerCase());
-              const checkboxes = container.querySelectorAll(`input[name=\"subjects_${index}[]\"]`);
-              checkboxes.forEach(cb => {
-                const subjName = (cb.getAttribute('data-subject-name') || '').toLowerCase();
-                if (lowerList.some(name => subjName.includes(name) || name.includes(subjName))) {
-                  cb.checked = true;
-                }
-              });
+          if (!subjectsData) {
+            const response = await fetch(`/common/getSubjectsForClass?classId=${classId}&organizationId=${organizationId}`);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch subjects for class ${classId}`);
             }
-            updateSubjectCountBadge(index);
-          } else {
-            container.innerHTML = "<p>No subjects found for the selected class.</p>";
-            container.style.display = "block";
-            if (collapsibleBtn) setSubjectsToggleState(collapsibleBtn, true);
+            const payload = await response.json();
+            subjectsData = Array.isArray(payload) ? payload : [];
+            classSubjectsCache.set(classCacheKey, subjectsData);
           }
+
+          renderSubjectsForClass(index, subjectsData, preSelectedSubjects);
         } catch (err) {
           console.error("Error loading subjects:", err);
           container.innerHTML = "<p>Error loading subjects.</p>";
@@ -3420,6 +3495,37 @@ function addStudentForm() {
           if (m) updateSubjectCountBadge(m[1]);
         }
       }, true);
+
+      function getStudentAddressInputForBlock(block) {
+        if (!block) return null;
+        const index = block.getAttribute("data-index");
+        return (
+          block.querySelector(`input[name="studentAddress___${index}"]`) ||
+          block.querySelector(`input[name="studentAddress_${index}"]`) ||
+          block.querySelector('input[name^="studentAddress_"]') ||
+          null
+        );
+      }
+
+      function bindGuardianAddressSync(guardianRow, block) {
+        if (!guardianRow || !block) return;
+
+        const syncToggle = guardianRow.querySelector('.guardian-address-sync-toggle');
+        const guardianAddressInput = guardianRow.querySelector('input[name^="guardianAddress_"]');
+        const studentAddressInput = getStudentAddressInputForBlock(block);
+
+        if (!syncToggle || !guardianAddressInput || !studentAddressInput) return;
+
+        const syncAddressFromStudent = () => {
+          if (syncToggle.checked) {
+            guardianAddressInput.value = studentAddressInput.value || '';
+          }
+        };
+
+        syncAddressFromStudent();
+        syncToggle.addEventListener('change', syncAddressFromStudent);
+        studentAddressInput.addEventListener('input', syncAddressFromStudent);
+      }
     
       function addGuardian(button, mode = null) {
         const block = button.closest(".student-form");
@@ -3514,6 +3620,10 @@ function addStudentForm() {
               <div class="form-field-group">
                 <label class="form-label">Address</label>
                 <input type="text" class="form-input" name="guardianAddress_${index}_${count}" />
+                <label class="form-helper" style="margin-top: 6px; margin-bottom: 0; display: flex; align-items: center; gap: 6px;">
+                  <input type="checkbox" class="guardian-address-sync-toggle" checked>
+                  Use student address
+                </label>
               </div>
 
               <div class="form-field-group">
@@ -3546,6 +3656,8 @@ function addStudentForm() {
         // Bind autocomplete only for existing guardian mode
         if (mode === 'existing') {
           bindGuardianAutocomplete(guardianRow);
+        } else {
+          bindGuardianAddressSync(guardianRow, block);
         }
 
         scheduleSaveDraft();
@@ -3758,6 +3870,11 @@ function addStudentForm() {
         return blocks.find((block) => isEmptyStudentFormBlock(block)) || null;
       }
 
+      function findReusableEmptyStudentFormBlocks() {
+        const blocks = Array.from(document.querySelectorAll('#studentFormsContainer .student-form'));
+        return blocks.filter((block) => isEmptyStudentFormBlock(block));
+      }
+
       function setStudentFormCollapsed(block, collapsed) {
         if (!block) return;
         block.classList.toggle('is-collapsed', !!collapsed);
@@ -3819,55 +3936,74 @@ function addStudentForm() {
               }
             }
             
-            // Close modal after a short delay
-            setTimeout(() => {
-              closeBulkImportModal();
+            // Keep existing forms and append only non-duplicate imported rows
+            const existingSignatures = getExistingFormSignatures();
+            const seenSignatures = new Set(existingSignatures);
+            const studentsToAdd = [];
+            let skippedDuplicates = 0;
 
-              // Keep existing forms and append only non-duplicate imported rows
-              const existingSignatures = getExistingFormSignatures();
-              const seenSignatures = new Set(existingSignatures);
-              const studentsToAdd = [];
-              let skippedDuplicates = 0;
-
-              result.students.forEach((studentData) => {
-                const signature = getImportedStudentSignature(studentData);
-                if (seenSignatures.has(signature)) {
-                  skippedDuplicates++;
-                  return;
-                }
-                seenSignatures.add(signature);
-                studentsToAdd.push(studentData);
-              });
-
-              if (studentsToAdd.length === 0) {
-                document.getElementById('parsingProgress').classList.remove('show');
-                alert(`No new students were added. ${skippedDuplicates} duplicate record(s) already exist in the current forms.`);
+            result.students.forEach((studentData) => {
+              const signature = getImportedStudentSignature(studentData);
+              if (seenSignatures.has(signature)) {
+                skippedDuplicates++;
                 return;
               }
-              
-              // Generate forms sequentially with proper delays
-              let delay = 0;
-              studentsToAdd.forEach((studentData, index) => {
-                setTimeout(() => {
-                  addStudentFormWithData(studentData);
-                  scheduleSaveDraft();
-                  
-                  // Show progress
-                  if ((index + 1) % 10 === 0 || index === studentsToAdd.length - 1) {
+              seenSignatures.add(signature);
+              studentsToAdd.push(studentData);
+            });
+
+            if (studentsToAdd.length === 0) {
+              document.getElementById('parsingProgress').classList.remove('show');
+              alert(`No new students were added. ${skippedDuplicates} duplicate record(s) already exist in the current forms.`);
+              return;
+            }
+
+            const reusableEmptyBlocks = findReusableEmptyStudentFormBlocks();
+
+            const progressText = document.getElementById('progressText');
+            const parsingProgress = document.getElementById('parsingProgress');
+            const usePerformanceMode = studentsToAdd.length > PERFORMANCE_MODE_THRESHOLD;
+
+            if (usePerformanceMode && parsingProgress) {
+              parsingProgress.classList.add('show');
+            } else {
+              closeBulkImportModal();
+            }
+
+            // Fast batched rendering with adaptive tuning for large imports
+            isBulkRenderInProgress = true;
+            if (progressText) {
+              progressText.textContent = usePerformanceMode
+                ? `Large import performance mode: generating ${studentsToAdd.length} form(s)...`
+                : `Generating ${studentsToAdd.length} form(s)...`;
+            }
+
+            const batchSize = usePerformanceMode ? PERFORMANCE_IMPORT_BATCH_SIZE : DEFAULT_IMPORT_BATCH_SIZE;
+            try {
+              for (let index = 0; index < studentsToAdd.length; index++) {
+                const targetBlock = index < reusableEmptyBlocks.length ? reusableEmptyBlocks[index] : null;
+                addStudentFormWithData(studentsToAdd[index], targetBlock);
+
+                const isBatchBoundary = (index + 1) % batchSize === 0;
+                const isLast = index === studentsToAdd.length - 1;
+
+                if (isBatchBoundary || isLast) {
+                  if (progressText) {
+                    progressText.textContent = `Generated ${index + 1} of ${studentsToAdd.length} forms...`;
                   }
-                  
-                  // Alert when done
-                  if (index === studentsToAdd.length - 1) {
-                    setTimeout(() => {
-                      scheduleSaveDraft();
-                      const skipNote = skippedDuplicates > 0 ? ` (${skippedDuplicates} duplicate record(s) skipped)` : '';
-                      alert(`Successfully added ${studentsToAdd.length} student(s) to existing forms${skipNote}. Please review and submit.`);
-                    }, 200);
-                  }
-                }, delay);
-                delay += 80; // Stagger by 80ms each to avoid race conditions
-              });
-            }, 1000);
+                  await yieldToBrowser();
+                }
+              }
+            } finally {
+              isBulkRenderInProgress = false;
+            }
+
+            if (usePerformanceMode) {
+              closeBulkImportModal();
+            }
+            scheduleSaveDraft();
+            const skipNote = skippedDuplicates > 0 ? ` (${skippedDuplicates} duplicate record(s) skipped)` : '';
+            alert(`Successfully added ${studentsToAdd.length} student(s) to existing forms${skipNote}. Please review and submit.`);
           } else {
             alert('Error parsing file: ' + (result.error || 'Unknown error'));
             document.getElementById('parsingProgress').classList.remove('show');
@@ -3879,14 +4015,16 @@ function addStudentForm() {
         }
       }
 
-      function addStudentFormWithData(studentData) {
+      function addStudentFormWithData(studentData, preferredBlock = null) {
         // IMPORTANT: bulk-import must create the exact same DOM structure as manual addStudentForm().
         // Subjects + guardian logic depend on:
         // - a `.student-form` wrapper with `data-index`
         // - `__INDEX__` placeholders replaced (ids like subjectsContainer-0)
         // - existing event bindings in addStudentForm()
 
-        const reusableBlock = findReusableEmptyStudentFormBlock();
+        const reusableBlock = (preferredBlock && isEmptyStudentFormBlock(preferredBlock))
+          ? preferredBlock
+          : findReusableEmptyStudentFormBlock();
         if (!reusableBlock) {
           addStudentForm();
         }
@@ -3957,16 +4095,22 @@ function addStudentForm() {
           }
         }
         
-        if (studentData.hometown) {
-          const hometownInput = cardElement.querySelector(`input[name="hometown___${currentIndex}"]`);
-          if (hometownInput) {
-            hometownInput.value = studentData.hometown;
-          } else {
-            const altInput = cardElement.querySelector('input[name*="hometown"]');
-            if (altInput) {
-              altInput.value = studentData.hometown;
-            }
-          }
+        const hometownInput =
+          cardElement.querySelector(`input[name="hometown___${currentIndex}"]`) ||
+          cardElement.querySelector('input[name*="hometown"]');
+        const hometownValue = (studentData.hometown || '').trim();
+        if (hometownInput) {
+          // Always source hometown from hometown field only; never infer from address.
+          hometownInput.value = hometownValue;
+        }
+
+        const studentAddressInput =
+          cardElement.querySelector(`input[name="studentAddress___${currentIndex}"]`) ||
+          cardElement.querySelector('input[name*="studentAddress"]');
+        const studentAddressValue =
+          (studentData.studentAddress || studentData.address || '').trim();
+        if (studentAddressInput) {
+          studentAddressInput.value = studentAddressValue;
         }
 
         if (studentData.studentEmail) {
@@ -4103,6 +4247,7 @@ function addStudentForm() {
           'Date of Birth',
           'Gender',
           'Hometown',
+          'Student Address',
           'Student Email',
           'Class',
           'Graduation Year Group',
@@ -4131,6 +4276,7 @@ function addStudentForm() {
               '2010-05-15',
               'Female',
               'Accra',
+              '12 Ring Road West, Accra',
               'ama.mensah@studentmail.com',
               'Jss 1',
               'Graduation Class of 2027 Group',
@@ -4156,6 +4302,7 @@ function addStudentForm() {
               '2011-08-22',
               'Male',
               'Kumasi',
+              'Atonsu Road, Kumasi',
               'kofi.owusu@studentmail.com',
               'Jss 2',
               'Graduation Class of 2028 Group',
@@ -4258,8 +4405,8 @@ function addStudentForm() {
       function downloadWordTemplate() {
         const headers = getStudentImportTemplateHeaders();
         const sections = getStudentImportTemplateSections();
-        const studentHeaders = headers.slice(0, 14);
-        const guardianHeaders = headers.slice(14);
+        const studentHeaders = headers.slice(0, 15);
+        const guardianHeaders = headers.slice(15);
         const mapRowsByRange = (rows, start, end) => rows.map((row) => row.slice(start, end));
 
         function renderWordTable(tableHeaders, tableRows) {
@@ -4275,10 +4422,10 @@ function addStudentForm() {
   </table>`;
         }
 
-        const currentStudentRows = mapRowsByRange(sections.current, 0, 14);
-        const currentGuardianRows = mapRowsByRange(sections.current, 14);
-        const futureStudentRows = mapRowsByRange(sections.future, 0, 14);
-        const futureGuardianRows = mapRowsByRange(sections.future, 14);
+        const currentStudentRows = mapRowsByRange(sections.current, 0, 15);
+        const currentGuardianRows = mapRowsByRange(sections.current, 15);
+        const futureStudentRows = mapRowsByRange(sections.future, 0, 15);
+        const futureGuardianRows = mapRowsByRange(sections.future, 15);
 
         const docHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Student Import Template</title>

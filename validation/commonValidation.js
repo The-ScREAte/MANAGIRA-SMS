@@ -31,7 +31,7 @@ const validateStudents = (req, res, next) => {
 
   const body = req.body;
   const indexes = [];
-  const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|studentEmail|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
+  const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|studentAddress|studentEmail|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
 
   const isMultiple = Object.keys(body).some((key) => key.match(/_\d+$/));
 

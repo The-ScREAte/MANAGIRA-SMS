@@ -787,11 +787,34 @@
               '<div class="es-field"><label>Last Name</label><input type="text" name="guardians[' + count + '][lastName]"></div>' +
               '<div class="es-field"><label>Phone</label><input type="text" name="guardians[' + count + '][phone]"></div>' +
               '<div class="es-field"><label>Email</label><input type="email" name="guardians[' + count + '][email]"></div>' +
-              '<div class="es-field"><label>Address</label><input type="text" name="guardians[' + count + '][address]"></div>' +
+              '<div class="es-field"><label>Address</label><input type="text" name="guardians[' + count + '][address]"><label style="display:flex;align-items:center;gap:6px;font-size:0.75rem;margin:6px 0 0;"><input type="checkbox" class="es-guardian-address-sync" checked> Use student address</label></div>' +
               '<div class="es-field"><label>Hometown</label><input type="text" name="guardians[' + count + '][hometown]"></div>' +
             '</div>';
             container.appendChild(div);
+            bindGuardianAddressSyncForEntry(div);
         }
+
+        function bindGuardianAddressSyncForEntry(entry) {
+          if (!entry) return;
+          const studentAddressInput = document.querySelector('input[name="studentAddress"]');
+          const guardianAddressInput = entry.querySelector('input[name*="[address]"]');
+          const syncToggle = entry.querySelector('.es-guardian-address-sync');
+          if (!studentAddressInput || !guardianAddressInput || !syncToggle) return;
+
+          const syncAddress = () => {
+            if (syncToggle.checked) {
+              guardianAddressInput.value = studentAddressInput.value || '';
+            }
+          };
+
+          syncAddress();
+          studentAddressInput.addEventListener('input', syncAddress);
+          syncToggle.addEventListener('change', syncAddress);
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+          document.querySelectorAll('.es-guardian-entry').forEach(bindGuardianAddressSyncForEntry);
+        });
     </script>
 </head>
 <body>
@@ -892,6 +915,10 @@
         <div class="es-field">
           <label>Hometown</label>
           <input type="text" name="hometown" value="<%= student.hometown %>">
+        </div>
+        <div class="es-field">
+          <label>Student Address</label>
+          <input type="text" name="studentAddress" value="<%= student.address || '' %>">
         </div>
         <div class="es-field">
           <label>Student Email</label>

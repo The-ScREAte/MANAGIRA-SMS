@@ -609,6 +609,9 @@
             <strong>Date of Birth:</strong> <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : new Date(student.date_of_birth).toLocaleDateString()) %>
           </p>
           <p><strong>Hometown:</strong> <%= student.hometown %></p>
+          <% if (student.address) { %>
+          <p><strong>Address:</strong> <%= student.address %></p>
+          <% } %>
           <% if (student.email) { %>
           <p><strong>Email:</strong> <%= student.email %></p>
           <% } %>

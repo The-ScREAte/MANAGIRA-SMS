@@ -128,6 +128,7 @@ let publicRegistrationSchemaReady = false;
 let guardianPaymentMethodSchemaReady = false;
 let studentIdSettingsSchemaReady = false;
 let studentEmailSchemaReady = false;
+let studentAddressSchemaReady = false;
 let classDashboardLayoutSchemaReady = false;
 
 function roundCurrencyAmount(value) {
@@ -186,6 +187,17 @@ async function ensureStudentEmailSchema(dbClient) {
   `);
 
   studentEmailSchemaReady = true;
+}
+
+async function ensureStudentAddressSchema(dbClient) {
+  if (studentAddressSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE students
+      ADD COLUMN IF NOT EXISTS address TEXT
+  `);
+
+  studentAddressSchemaReady = true;
 }
 
 async function ensureClassDashboardLayoutSchema(dbClient) {
@@ -863,6 +875,11 @@ const FIELD_ALIASES = {
     'Current City', 'Origin', 'Place of Origin', 'District', 'Municipality', 'County', 'State', 'Province',
     'Local Area', 'Address City', 'Location', 'Area', 'Community', 'Student Hometown'
   ],
+  studentAddress: [
+    'Student Address', 'Student Residential Address', 'Student Home Address', 'Residential Address',
+    'Home Address', 'House Address', 'Street Address', 'Address', 'Address Line 1', 'Residence Address',
+    'Student Addr', 'Student Add', 'Stud Address', 'Stu Address'
+  ],
   studentEmail: [
     'Student Email', 'Student E-mail', 'Student Email Address', 'Student Contact Email', 'Learner Email',
     'Pupil Email', 'Applicant Email', 'Child Email'
@@ -972,6 +989,7 @@ function buildHeaderIndexMap(headers = []) {
     dateOfBirth: aliasToIndex(FIELD_ALIASES.dateOfBirth),
     gender: aliasToIndex(FIELD_ALIASES.gender),
     hometown: aliasToIndex(FIELD_ALIASES.hometown),
+    studentAddress: aliasToIndex(FIELD_ALIASES.studentAddress),
     studentEmail: aliasToIndex(FIELD_ALIASES.studentEmail),
     class: aliasToIndex(FIELD_ALIASES.class),
     graduationYear: aliasToIndex(FIELD_ALIASES.graduationYear),
@@ -1014,6 +1032,9 @@ function normalizeOptionalEmail(raw) {
 function mapRowToStudent(rowValues = [], indexMap) {
   const guardianNameRaw = valueAt(rowValues, indexMap.guardianName);
   const splitGuardian = splitGuardianName(guardianNameRaw);
+  const mappedHometown = valueAt(rowValues, indexMap.hometown);
+  const rawStudentAddress = valueAt(rowValues, indexMap.studentAddress);
+  const mappedStudentAddress = rawStudentAddress;
 
   const student = {
     firstName: valueAt(rowValues, indexMap.firstName),
@@ -1021,7 +1042,8 @@ function mapRowToStudent(rowValues = [], indexMap) {
     dateOfBirth: formatDate(valueAt(rowValues, indexMap.dateOfBirth)),
     gender: normalizeGenderValue(valueAt(rowValues, indexMap.gender)),
     class: valueAt(rowValues, indexMap.class),
-    hometown: valueAt(rowValues, indexMap.hometown),
+    hometown: mappedHometown,
+    studentAddress: mappedStudentAddress,
     studentEmail: normalizeOptionalEmail(valueAt(rowValues, indexMap.studentEmail)) || '',
     subjects: valueAt(rowValues, indexMap.subjects),
     graduationYear: extractYear(valueAt(rowValues, indexMap.graduationYear)),
@@ -1052,6 +1074,98 @@ function mapRowToStudent(rowValues = [], indexMap) {
 function parseRowsToStudents(headers = [], rows = []) {
   const indexMap = buildHeaderIndexMap(headers);
   return rows.map((row) => mapRowToStudent(row, indexMap)).filter(Boolean);
+}
+
+function detectHeaderAndDataRows(matrixRows = []) {
+  if (!Array.isArray(matrixRows) || !matrixRows.length) {
+    return { headers: [], rows: [] };
+  }
+
+  let bestHeaderIndex = -1;
+  let bestScore = -1;
+
+  const scanLimit = Math.min(matrixRows.length, 50);
+  for (let i = 0; i < scanLimit; i++) {
+    const candidate = (matrixRows[i] || []).map((value) => String(value || '').trim());
+    const indexMap = buildHeaderIndexMap(candidate);
+    const score = [
+      indexMap.firstName,
+      indexMap.lastName,
+      indexMap.dateOfBirth,
+      indexMap.class,
+      indexMap.guardianFirstName,
+      indexMap.guardianName,
+    ].filter((idx) => idx >= 0).length;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestHeaderIndex = i;
+    }
+  }
+
+  if (bestHeaderIndex < 0 || bestScore < 2) {
+    return { headers: [], rows: [] };
+  }
+
+  const headers = (matrixRows[bestHeaderIndex] || []).map((value) => String(value || '').trim());
+  const rows = matrixRows
+    .slice(bestHeaderIndex + 1)
+    .map((row) => (Array.isArray(row) ? row : []))
+    .filter((row) => row.some((cell) => String(cell || '').trim()));
+
+  return { headers, rows };
+}
+
+function parseSpreadsheetXmlWorkbook(fileContent = '') {
+  const xml = String(fileContent || '');
+  if (!xml) return [];
+
+  const worksheetRegex = /<Worksheet\b[\s\S]*?<Table\b[\s\S]*?<\/Table>[\s\S]*?<\/Worksheet>/gi;
+  const rowRegex = /<Row\b[^>]*>([\s\S]*?)<\/Row>/gi;
+  const cellRegex = /<Cell\b([^>]*)>([\s\S]*?)<\/Cell>|<Cell\b([^>]*)\/>/gi;
+
+  const parseCellValue = (rawCell = '') => {
+    const dataMatch = String(rawCell).match(/<Data\b[^>]*>([\s\S]*?)<\/Data>/i);
+    const rawValue = dataMatch ? dataMatch[1] : '';
+    return he.decode(String(rawValue || '').replace(/<[^>]+>/g, '').trim());
+  };
+
+  const worksheets = [];
+  const worksheetMatches = xml.match(worksheetRegex) || [];
+
+  worksheetMatches.forEach((worksheetXml) => {
+    const rows = [];
+    let rowMatch;
+    while ((rowMatch = rowRegex.exec(worksheetXml)) !== null) {
+      const rowInner = rowMatch[1] || '';
+      const rowValues = [];
+      let cellMatch;
+      let colIndex = 1;
+
+      while ((cellMatch = cellRegex.exec(rowInner)) !== null) {
+        const attrs = String(cellMatch[1] || cellMatch[3] || '');
+        const explicitIndex = attrs.match(/(?:ss:)?Index="(\d+)"/i);
+        if (explicitIndex) {
+          colIndex = Math.max(1, Number(explicitIndex[1]) || 1);
+        }
+
+        const cellContent = cellMatch[2] || '';
+        const value = parseCellValue(cellContent);
+        rowValues[colIndex - 1] = value;
+        colIndex += 1;
+      }
+
+      if (rowValues.some((value) => String(value || '').trim())) {
+        rows.push(rowValues.map((value) => String(value || '').trim()));
+      }
+    }
+
+    if (rows.length) {
+      worksheets.push(rows);
+    }
+  });
+
+  return worksheets;
 }
 
 // Helper function to format dates from various formats to YYYY-MM-DD
@@ -3708,6 +3822,7 @@ const commonController = {
     // Fetch org student ID settings once before processing students
     await ensureStudentIdSettingsSchema(db);
     await ensureStudentEmailSchema(db);
+    await ensureStudentAddressSchema(db);
     const orgIdSettingsResult = await db.query(
       `SELECT use_custom_student_id, student_id_prefix, student_id_auto_generate, student_id_counter, student_id_start_number
        FROM organizations WHERE organization_id = $1`,
@@ -3716,7 +3831,7 @@ const commonController = {
     const idSettings = orgIdSettingsResult.rows[0] || {};
 
     const indexes = [];
-    const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|studentEmail|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
+    const studentFieldPattern = /^(?:firstName|lastName|dateOfBirth|gender|classId|graduationYearGroupId|hometown|studentAddress|studentEmail|height|enrollmentType|schoolYearId|termId)_(\d+)$/;
 
     // Detect whether this is single or multiple students
     const isMultiple = Object.keys(body).some((key) => key.match(/_\d+$/));
@@ -3745,9 +3860,48 @@ const commonController = {
     let guardiansCreatedCount = 0;
     let guardiansReusedCount = 0;
     let guardianLinksCreatedCount = 0;
+    let lockedIdSettings = null;
+    let allocatedStudentIdNumbers = new Set();
+    let allocatedCustomIdsLower = new Set();
+    let nextAutoStudentIdCandidate = 1;
+    let maxAllocatedStudentIdCounter = Math.max(0, Number(idSettings.student_id_counter) || 0);
 
     try {
       await client.query("BEGIN");
+
+      if (idSettings.use_custom_student_id) {
+        const lockedIdSettingsResult = await client.query(
+          `SELECT student_id_counter, student_id_start_number
+             FROM organizations
+            WHERE organization_id = $1
+            FOR UPDATE`,
+          [organizationId]
+        );
+        lockedIdSettings = lockedIdSettingsResult.rows[0] || {};
+
+        const occupiedNumbers = await getOccupiedStudentIdNumbers(client, organizationId);
+        allocatedStudentIdNumbers = new Set(occupiedNumbers);
+
+        const occupiedCustomIdsResult = await client.query(
+          `SELECT LOWER(TRIM(custom_student_id)) AS custom_student_id
+             FROM students
+            WHERE organization_id = $1
+              AND custom_student_id IS NOT NULL
+              AND TRIM(custom_student_id) <> ''`,
+          [organizationId]
+        );
+        allocatedCustomIdsLower = new Set(
+          occupiedCustomIdsResult.rows
+            .map((row) => String(row.custom_student_id || '').trim())
+            .filter(Boolean)
+        );
+
+        nextAutoStudentIdCandidate = getStudentIdSearchStart(
+          occupiedNumbers,
+          lockedIdSettings.student_id_counter || idSettings.student_id_counter || 0,
+          lockedIdSettings.student_id_start_number || idSettings.student_id_start_number || null
+        );
+      }
 
       for (const index of indexes) {
         currentIndexForLog = index;
@@ -3768,6 +3922,7 @@ const commonController = {
           dateOfBirth: getStudentField('dateOfBirth'),
           height: getStudentField('height'),
           hometown: getStudentField('hometown'),
+          studentAddress: getStudentField('studentAddress'),
           studentEmail: normalizeOptionalEmail(getStudentField('studentEmail')),
           classId: getStudentField('classId'),
           graduationYearGroupId: getStudentField('graduationYearGroupId'),
@@ -3887,80 +4042,53 @@ const commonController = {
           );
 
           if (useAutoGeneratedId) {
-            const lockedIdSettingsResult = await client.query(
-              `SELECT student_id_counter, student_id_start_number
-                 FROM organizations
-                WHERE organization_id = $1
-                FOR UPDATE`,
-              [organizationId]
-            );
-            const lockedIdSettings = lockedIdSettingsResult.rows[0] || {};
+            while (allocatedStudentIdNumbers.has(nextAutoStudentIdCandidate)) {
+              nextAutoStudentIdCandidate += 1;
+            }
 
-            const nextStudentIdNumber = await getNextSuggestedStudentIdNumber(
-              client,
-              organizationId,
-              lockedIdSettings.student_id_counter || idSettings.student_id_counter || 0,
-              [],
-              null,
-              lockedIdSettings.student_id_start_number || idSettings.student_id_start_number || null
-            );
+            const nextStudentIdNumber = nextAutoStudentIdCandidate;
+            allocatedStudentIdNumbers.add(nextStudentIdNumber);
+            nextAutoStudentIdCandidate = nextStudentIdNumber + 1;
             resolvedCustomId = prefix + String(nextStudentIdNumber).padStart(3, '0');
-
-            await client.query(
-              `UPDATE organizations
-                  SET student_id_counter = GREATEST(COALESCE(student_id_counter, 0), $1)
-                WHERE organization_id = $2`,
-              [nextStudentIdNumber, organizationId]
-            );
+            allocatedCustomIdsLower.add(String(resolvedCustomId).trim().toLowerCase());
+            maxAllocatedStudentIdCounter = Math.max(maxAllocatedStudentIdCounter, nextStudentIdNumber);
           } else if (manualOverride) {
             resolvedCustomId = prefix + manualOverride;
-            // Check if manually specified ID is already taken by either a
-            // custom ID or a system student_id-derived display ID.
-            const manualConflictParams = [organizationId, resolvedCustomId];
-            let manualConflictQuery = `
-              SELECT 1
-                FROM students
-               WHERE organization_id = $1
-                 AND custom_student_id = $2
-               LIMIT 1`;
-            if (Number.isInteger(manualNumericValue)) {
-              manualConflictParams.push(manualNumericValue);
-              manualConflictQuery = `
-                SELECT 1
-                  FROM students
-                 WHERE organization_id = $1
-                   AND (custom_student_id = $2 OR student_id = $3)
-                 LIMIT 1`;
-            }
-            const idConflict = await client.query(manualConflictQuery, manualConflictParams);
-            if (idConflict.rows.length > 0) {
+            const normalizedResolvedId = String(resolvedCustomId).trim().toLowerCase();
+            const hasManualConflict =
+              allocatedCustomIdsLower.has(normalizedResolvedId) ||
+              (Number.isInteger(manualNumericValue) && manualNumericValue > 0 && allocatedStudentIdNumbers.has(manualNumericValue));
+
+            if (hasManualConflict) {
               // Find next available ID starting from +1 and suggest it
               const numPart = manualNumericValue || 0;
               const padLen = manualNumericRaw.length || 3;
               let suggestion = null;
               for (let n = numPart + 1; n < numPart + 1000; n++) {
                 const candidate = prefix + String(n).padStart(padLen, '0');
-                const check = await client.query(
-                  `SELECT 1
-                     FROM students
-                    WHERE organization_id = $1
-                      AND (custom_student_id = $2 OR student_id = $3)
-                    LIMIT 1`,
-                  [organizationId, candidate, n]
-                );
-                if (check.rows.length === 0) { suggestion = candidate; break; }
+                const candidateLower = String(candidate).trim().toLowerCase();
+                if (!allocatedCustomIdsLower.has(candidateLower) && !allocatedStudentIdNumbers.has(n)) {
+                  suggestion = candidate;
+                  break;
+                }
               }
               throw new Error(
                 `ID "${resolvedCustomId}" is already taken.${suggestion ? ` Next available: "${suggestion}".` : ''}`
               );
+            }
+
+            allocatedCustomIdsLower.add(normalizedResolvedId);
+            if (Number.isInteger(manualNumericValue) && manualNumericValue > 0) {
+              allocatedStudentIdNumbers.add(manualNumericValue);
+              maxAllocatedStudentIdCounter = Math.max(maxAllocatedStudentIdCounter, manualNumericValue);
             }
           }
         }
 
         const studentInsert = await client.query(
           `INSERT INTO students 
-          (first_name, last_name, date_of_birth, height, hometown, email, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id, custom_student_id)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          (first_name, last_name, date_of_birth, height, hometown, address, email, class_id, image_url, graduation_year_group_id, gender, created_by, organization_id, custom_student_id)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
           RETURNING student_id`,
           [
             student.firstName,
@@ -3968,6 +4096,7 @@ const commonController = {
             student.dateOfBirth,
             student.height,
             student.hometown,
+            student.studentAddress,
             student.studentEmail,
             student.classId,
             imageUrl,
@@ -4383,6 +4512,18 @@ const commonController = {
         );
       }
 
+      if (idSettings.use_custom_student_id) {
+        const lockedCounter = Number(lockedIdSettings && lockedIdSettings.student_id_counter) || 0;
+        if (maxAllocatedStudentIdCounter > lockedCounter) {
+          await client.query(
+            `UPDATE organizations
+                SET student_id_counter = GREATEST(COALESCE(student_id_counter, 0), $1)
+              WHERE organization_id = $2`,
+            [maxAllocatedStudentIdCounter, organizationId]
+          );
+        }
+      }
+
       currentPhaseForLog = 'commit';
       await client.query("COMMIT");
       if (addStudentVerboseLogs) {
@@ -4488,29 +4629,50 @@ const commonController = {
 
       try {
         if (fileExtension === '.xlsx' || fileExtension === '.xls') {
-          // Parse Excel file using exceljs
-          let workbook = new ExcelJS.Workbook();
-          if (file.buffer) {
-            await workbook.xlsx.load(file.buffer);
-          } else if (file.path) {
-            await workbook.xlsx.readFile(file.path);
+          const readBuffer = file.buffer || (file.path ? await fs.promises.readFile(file.path) : null);
+          if (!readBuffer) throw new Error('File data not accessible');
+
+          const isSpreadsheetXmlXls =
+            fileExtension === '.xls' &&
+            String(readBuffer.slice(0, 300).toString('utf8')).toLowerCase().includes('<?xml');
+
+          if (isSpreadsheetXmlXls) {
+            const xmlText = readBuffer.toString('utf8');
+            const worksheets = parseSpreadsheetXmlWorkbook(xmlText);
+            const parsedStudents = [];
+
+            for (const worksheetRows of worksheets) {
+              const { headers, rows } = detectHeaderAndDataRows(worksheetRows);
+              if (!headers.length || !rows.length) continue;
+              parsedStudents.push(...parseRowsToStudents(headers, rows));
+            }
+
+            students = parsedStudents;
           } else {
-            throw new Error('File data not accessible');
+            // Parse modern Excel workbook (.xlsx binary and compatible .xls variants)
+            const workbook = new ExcelJS.Workbook();
+            if (file.buffer) {
+              await workbook.xlsx.load(file.buffer);
+            } else if (file.path) {
+              await workbook.xlsx.readFile(file.path);
+            } else {
+              throw new Error('File data not accessible');
+            }
+
+            const parsedStudents = [];
+            workbook.worksheets.forEach((worksheet) => {
+              const rowsAsArrays = [];
+              worksheet.eachRow({ includeEmpty: false }, (row) => {
+                rowsAsArrays.push(row.values.slice(1));
+              });
+
+              const { headers, rows } = detectHeaderAndDataRows(rowsAsArrays);
+              if (!headers.length || !rows.length) return;
+              parsedStudents.push(...parseRowsToStudents(headers, rows));
+            });
+
+            students = parsedStudents;
           }
-
-          const worksheet = workbook.worksheets[0];
-          if (!worksheet) throw new Error('No worksheet found in Excel file');
-
-          // Read all rows as arrays
-          const rowsAsArrays = [];
-          worksheet.eachRow({ includeEmpty: false }, (row) => {
-            rowsAsArrays.push(row.values.slice(1)); // Remove first empty element
-          });
-          const headers = (rowsAsArrays[0] || []).map((v) => String(v || '').trim());
-          const rows = rowsAsArrays.slice(1).filter((r) => Array.isArray(r) && r.some((c) => String(c || '').trim()));
-
-          console.log('Excel headers:', headers);
-          students = parseRowsToStudents(headers, rows);
 
         } else if (fileExtension === '.csv') {
           // Parse CSV file
@@ -4522,9 +4684,12 @@ const commonController = {
           const lines = fileContent.split(/\r?\n/).filter((line) => line.trim());
           if (lines.length < 2) throw new Error('CSV file is empty or invalid');
 
-          const headers = parseCSVLine(lines[0]);
-          const rows = lines.slice(1).map((line) => parseCSVLine(line));
-          console.log('CSV Headers:', headers);
+          const matrixRows = lines.map((line) => parseCSVLine(line));
+          const { headers, rows } = detectHeaderAndDataRows(matrixRows);
+          if (!headers.length || !rows.length) {
+            throw new Error('Could not detect valid student headers in CSV file');
+          }
+
           students = parseRowsToStudents(headers, rows);
 
         } else if (fileExtension === '.doc' || fileExtension === '.docx') {
@@ -4572,8 +4737,6 @@ const commonController = {
             error: 'No valid student data found in the file. Please check the format.'
           });
         }
-
-        console.log('Parsed students:', JSON.stringify(students, null, 2));
 
         // Validate classes and subjects against database
         const warnings = {
@@ -4664,8 +4827,6 @@ const commonController = {
               }
             }
           }
-        } else {
-          console.log('Skipping database validation - organization ID not found in session or user object');
         }
 
         return res.json({
@@ -7262,6 +7423,7 @@ const commonController = {
     const client = await db.connect();
     try {
       await ensureStudentEmailSchema(db);
+      await ensureStudentAddressSchema(db);
       const { studentId } = req.params;
       const sessionOrganizationId = req.session.organizationId;
       const {
@@ -7270,6 +7432,7 @@ const commonController = {
         dateOfBirth,
         height,
         hometown,
+        studentAddress,
         studentEmail,
         classId,
         graduationYearGroupId,
@@ -7447,14 +7610,15 @@ const commonController = {
                 date_of_birth = $3, 
                 height = $4, 
                 hometown = $5, 
-                email = $6,
-                class_id = $7, 
-                graduation_year_group_id = $8, 
-                gender = $9, 
-                image_url = COALESCE($10, image_url),
-                custom_student_id = $13
-            WHERE student_id = $11 
-            AND organization_id = $12;
+                address = $6,
+                email = $7,
+                class_id = $8, 
+                graduation_year_group_id = $9, 
+                gender = $10, 
+                image_url = COALESCE($11, image_url),
+                custom_student_id = $14
+            WHERE student_id = $12 
+            AND organization_id = $13;
         `;
       await client.query(updateStudentQuery, [
         firstName,
@@ -7462,6 +7626,7 @@ const commonController = {
         dateOfBirth,
         height,
         hometown,
+        studentAddress,
         normalizeOptionalEmail(studentEmail),
         safeClassId,
         safeGraduationYearGroupId,
