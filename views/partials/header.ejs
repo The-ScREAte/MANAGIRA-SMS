@@ -649,6 +649,10 @@
     margin: 4px 0 8px;
   }
 
+  .public-mobile-group--products .public-mobile-section-visual {
+    display: block;
+  }
+
 
   .public-mobile-section-visual img {
     display: block;
@@ -2454,7 +2458,7 @@
     </div>
     <ul class="nav-menu header-nav-menu public-header-nav-menu" id="header-nav-menu">
       <% publicMarketingNav.forEach((menu, menuIndex) => { %>
-        <li class="nav-item public-mobile-group">
+        <li class="nav-item public-mobile-group <%= menu.label === 'Products' ? 'public-mobile-group--products' : '' %>">
           <button type="button" class="submenu-toggle public-mobile-toggle" data-target="public-mobile-submenu-<%= menuIndex %>">
             <span><%= menu.label %></span>
             <span class="arrow">▾</span>
