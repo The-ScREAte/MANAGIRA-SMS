@@ -1,0 +1,326 @@
+<section class="product-category-page">
+  <div class="product-category-shell">
+    <nav class="category-tabs" aria-label="Product categories">
+      <% categoryTabs.forEach((tab) => { %>
+        <a
+          href="/legal/product-category?category=<%= tab.key %>"
+          class="category-tab <%= tab.key === activeCategory.key ? 'is-active' : '' %>"
+        ><%= tab.title %></a>
+      <% }) %>
+    </nav>
+
+    <article class="category-hero">
+      <div class="category-image-wrap">
+        <img src="<%= activeCategory.image %>" alt="<%= activeCategory.title %> banner" />
+      </div>
+      <div class="category-content">
+        <p class="category-kicker">Product Category</p>
+        <h1><%= activeCategory.title %></h1>
+        <p class="category-description"><%= activeCategory.shortDescription %></p>
+      </div>
+    </article>
+
+    <section class="category-explanations" aria-label="All features explained">
+      <p class="explanations-kicker">Complete Breakdown</p>
+      <h2><%= activeItem.title %> Explained</h2>
+      <p class="explanations-intro">Select any capability below to view its own dedicated explanation.</p>
+
+      <article class="feature-explanation" id="feature-<%= activeItem.key %>">
+        <%
+          const singleExplanation = activeItem.fullExplanation
+            || `${activeItem.whatItDoes || activeItem.description} ${activeItem.howItWorks || activeCategory.shortDescription} ${activeItem.whyItMatters || activeItem.description}`;
+        %>
+        <p><%= singleExplanation %></p>
+      </article>
+    </section>
+
+    <section class="category-items" aria-label="Category details">
+      <% activeCategory.items.forEach((item) => { %>
+        <a
+          href="/legal/product-category?category=<%= activeCategory.key %>&item=<%= item.key %>"
+          class="category-item <%= item.key === activeItem.key ? 'is-active' : '' %>"
+        >
+          <h2><%= item.title %></h2>
+          <p><%= item.description %></p>
+        </a>
+      <% }) %>
+    </section>
+  </div>
+</section>
+
+<style>
+  .product-category-page {
+    padding: 28px 16px 46px;
+  }
+
+  .product-category-shell {
+    width: min(1120px, 100%);
+    margin: 0 auto;
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+  }
+
+  .category-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .category-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .category-tab {
+    text-decoration: none;
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    border: 1px solid #d0d7e2;
+    border-radius: 999px;
+    padding: 10px 14px;
+    background: #ffffff;
+    transition: all 0.2s ease;
+  }
+
+  .category-tab:hover,
+  .category-tab.is-active {
+    border-color: #2563eb;
+    color: #1d4ed8;
+    background: #eff6ff;
+  }
+
+  .category-hero {
+    border: 1px solid #dce3ec;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #ffffff;
+    display: grid;
+    grid-template-columns: 1fr;
+    min-width: 0;
+  }
+
+  .category-image-wrap {
+    background: #f8fafc;
+    padding: 14px;
+  }
+
+  .category-image-wrap img {
+    width: min(96%, 860px);
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    transform: none;
+  }
+
+  .category-content {
+    padding: 18px 18px 20px;
+    min-width: 0;
+  }
+
+  .category-kicker {
+    margin: 0 0 8px;
+    color: #2563eb;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .category-content h1 {
+    margin: 0 0 8px;
+    font-size: clamp(1.5rem, 2.2vw, 2rem);
+    line-height: 1.15;
+    color: #0f172a;
+  }
+
+  .category-description {
+    margin: 0;
+    color: #475569;
+    font-size: 1rem;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+
+  .category-items {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .category-item {
+    display: block;
+    text-decoration: none;
+    border: 1px solid #dce3ec;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 10px 12px;
+    transition: all 0.2s ease;
+    min-width: 0;
+  }
+
+  .category-item h2 {
+    margin: 0 0 2px;
+    color: #0f172a;
+    font-size: 0.98rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .category-item p {
+    margin: 0;
+    color: #475569;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .category-item:hover,
+  .category-item.is-active {
+    border-color: #2563eb;
+    background: #f8fbff;
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.08);
+  }
+
+  .category-explanations {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .explanations-kicker {
+    margin: 0;
+    color: #0f766e;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .category-explanations h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: clamp(1.22rem, 2.1vw, 1.65rem);
+  }
+
+  .explanations-intro {
+    margin: 0;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+
+  .feature-explanation {
+    display: grid;
+    gap: 8px;
+  }
+
+  .feature-explanation h3 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 1.08rem;
+  }
+
+  .feature-explanation p {
+    margin: 0;
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    max-width: 95ch;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 640px) {
+    .product-category-page {
+      padding: 18px 12px 34px;
+    }
+
+    .product-category-shell {
+      gap: 14px;
+    }
+
+    .category-tabs {
+      gap: 4px;
+      width: 100%;
+      overflow-x: hidden;
+    }
+
+    .category-tab {
+      flex: 1 1 0;
+      min-width: 0;
+      text-align: center;
+      font-size: 0.7rem;
+      line-height: 1.2;
+      white-space: normal;
+      word-break: break-word;
+      padding: 6px 5px;
+      letter-spacing: 0.01em;
+    }
+
+    .category-image-wrap {
+      padding: 10px;
+    }
+
+    .category-image-wrap img {
+      width: 100%;
+    }
+
+    .category-content {
+      padding: 14px 14px 16px;
+    }
+
+    .category-description {
+      font-size: 0.94rem;
+      line-height: 1.5;
+    }
+
+    .explanations-intro,
+    .feature-explanation p,
+    .category-item p {
+      font-size: 0.92rem;
+    }
+
+    .category-item {
+      padding: 9px 10px;
+      border-radius: 10px;
+    }
+
+    .category-item h2 {
+      font-size: 0.94rem;
+      margin-bottom: 2px;
+    }
+
+    .category-item p {
+      font-size: 0.82rem;
+    }
+  }
+
+  @media (min-width: 900px) {
+    .product-category-page {
+      padding: 34px 20px 56px;
+    }
+
+    .category-hero {
+      grid-template-columns: 1.15fr 1fr;
+      align-items: stretch;
+    }
+
+    .category-image-wrap {
+      padding: 20px;
+    }
+
+    .category-items {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

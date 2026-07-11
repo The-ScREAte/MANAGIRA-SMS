@@ -44,6 +44,15 @@
     padding-top: calc(var(--header-height) + 16px) !important;
   }
 
+  body.homepage-overlay-header {
+    padding-top: 0 !important;
+  }
+
+  body.homepage-overlay-header .hero {
+    padding-top: calc(var(--header-height) + 42px);
+    margin-top: 0;
+  }
+
   header#top-header {
     position: fixed;
     top: 0;
@@ -61,6 +70,59 @@
     justify-content: space-between;
     gap: 12px;
     z-index: 9999;
+    transition: background-color 260ms ease, box-shadow 260ms ease, border-color 260ms ease, backdrop-filter 260ms ease;
+  }
+
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) {
+    background: transparent !important;
+    box-shadow: none;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-bottom: 1px solid transparent;
+  }
+
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-nav-trigger,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) #loginbutton,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-expert-button,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .siteName a,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .siteName,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .org-names a,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .org-full-name,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .org-nickname,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .hamburger {
+    color: #f8fafc !important;
+  }
+
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) #loginbutton,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-expert-button {
+    border-color: rgba(255, 255, 255, 0.78);
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: none;
+  }
+
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-nav-trigger:hover,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-nav-trigger:focus-visible {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+  }
+
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-expert-button:hover,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .public-expert-button:focus-visible,
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) #loginbutton:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.92);
+  }
+
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled:not(.is-solid) .siteName .logo {
+    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.28));
+  }
+
+  body.homepage-overlay-header header#top-header.homepage-overlay-enabled.is-solid {
+    background: rgba(248, 250, 252, 0.68) !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+    backdrop-filter: saturate(1.04) blur(9px);
+    -webkit-backdrop-filter: saturate(1.04) blur(9px);
   }
 
   .header-mobile-row {
@@ -184,6 +246,446 @@
     color: #111827 !important;
     border-color: #111827;
     box-shadow: none;
+  }
+
+  .public-header-main {
+    display: none;
+    align-items: stretch;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    position: static;
+  }
+
+  .public-nav-list {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    position: static;
+  }
+
+  .public-nav-item {
+    position: static;
+  }
+
+  .public-nav-trigger {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: #0f172a;
+    font-size: 0.96rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 12px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .public-nav-item.is-open .public-nav-trigger,
+  .public-nav-trigger:hover,
+  .public-nav-trigger:focus-visible {
+    background: #67d8ea;
+    color: #083b75;
+    outline: none;
+  }
+
+  .public-nav-panel {
+    position: absolute;
+    top: calc(100% - 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(1100px, calc(100vw - 16px));
+    max-width: calc(100vw - 24px);
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 22px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+    padding: 0;
+    display: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: calc(100vh - var(--header-height) - 20px);
+    z-index: 11030;
+  }
+
+  .public-nav-panel.public-nav-panel--with-section-images {
+    width: min(1320px, calc(100vw - 16px));
+    max-width: calc(100vw - 24px);
+  }
+
+  .public-nav-item.is-open .public-nav-panel {
+    display: block;
+  }
+
+  .public-nav-panel-inner {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.7fr);
+    min-height: 300px;
+  }
+
+  .public-nav-overview {
+    background: #f5f7fb;
+    padding: 24px 24px 26px;
+    border-right: 1px solid rgba(15, 23, 42, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .public-nav-eyebrow {
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #2563eb;
+  }
+
+  .public-nav-overview h3 {
+    margin: 0;
+    font-size: 1.78rem;
+    line-height: 1.05;
+    color: #0f172a;
+  }
+
+  .public-nav-overview p {
+    margin: 0;
+    font-size: 0.94rem;
+    line-height: 1.65;
+    color: #334155;
+  }
+
+  .public-nav-overview a {
+    margin-top: auto;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #2563eb;
+    text-decoration: none;
+  }
+
+  .public-nav-panel-inner.public-nav-spotlight {
+    grid-template-columns: minmax(240px, 0.92fr) minmax(360px, 1.5fr) minmax(220px, 0.85fr);
+    min-height: 340px;
+  }
+
+  .public-nav-panel-inner.public-nav-spotlight .public-nav-overview {
+    background: #eef2f7;
+    border-right: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .public-nav-visual {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid rgba(15, 23, 42, 0.08);
+    background: #ffffff;
+    overflow: hidden;
+  }
+
+  .public-nav-visual img {
+    display: block;
+    width: 100%;
+    max-width: none;
+    height: 286px;
+    max-height: none;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .public-nav-capabilities {
+    padding: 26px 26px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: #ffffff;
+  }
+
+  .public-nav-capabilities-title {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #475569;
+    margin: 0 0 6px;
+  }
+
+  .public-nav-capability-item {
+    font-size: 1.02rem;
+    line-height: 1.22;
+    font-weight: 800;
+    color: #1f2937;
+  }
+
+  .public-nav-columns {
+    display: grid;
+    grid-template-columns: repeat(var(--public-nav-columns, 3), minmax(0, 1fr));
+    gap: 20px;
+    padding: 24px 26px;
+    align-content: start;
+  }
+
+  .public-nav-columns.public-nav-columns--with-images {
+    gap: 16px;
+    padding: 22px 20px;
+  }
+
+  .public-nav-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .public-nav-section-visual {
+    border-radius: 0;
+    overflow: hidden;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    margin-bottom: 6px;
+  }
+
+  .public-nav-section-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    object-position: center;
+    background: #ffffff;
+  }
+
+  .public-nav-section-title {
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #475569;
+  }
+
+  .public-nav-link {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0;
+    color: #0f172a;
+    text-decoration: none;
+  }
+
+  .public-nav-link strong {
+    font-size: 0.95rem;
+    line-height: 1.35;
+  }
+
+  .public-nav-link span {
+    font-size: 0.79rem;
+    line-height: 1.5;
+    color: #64748b;
+  }
+
+  .public-nav-link:hover strong,
+  .public-nav-link:focus-visible strong {
+    color: #2563eb;
+    outline: none;
+  }
+
+  .public-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .public-expert-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0 18px;
+    border-radius: 12px;
+    border: 1.5px solid #2563eb;
+    background: #ffffff;
+    color: #2563eb;
+    font-size: 0.95rem;
+    font-weight: 800;
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .public-expert-button:hover,
+  .public-expert-button:focus-visible {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #1d4ed8;
+    outline: none;
+  }
+
+  .public-header-nav-menu {
+    width: min(680px, calc(100vw - 4px));
+    right: -1px;
+    left: auto;
+    padding: 8px;
+    max-height: calc(100vh - var(--header-height) - 18px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .public-mobile-group {
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
+
+  .public-mobile-group:last-of-type {
+    border-bottom: 0;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .public-mobile-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 0;
+    background: transparent;
+    color: #0f172a;
+    font-size: 0.9rem;
+    font-weight: 800;
+    padding: 10px 10px 8px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .public-mobile-toggle .arrow {
+    transition: transform 0.2s ease;
+    color: #475569;
+  }
+
+  .public-mobile-toggle .arrow.open {
+    transform: rotate(180deg);
+  }
+
+  .public-mobile-submenu {
+    display: none;
+    padding: 0 10px 8px;
+  }
+
+  .public-mobile-submenu.show {
+    display: block;
+  }
+
+  .public-mobile-overview {
+    padding: 2px 0 10px;
+  }
+
+  .public-mobile-overview strong {
+    display: block;
+    font-size: 0.95rem;
+    color: #0f172a;
+    margin-bottom: 6px;
+  }
+
+  .public-mobile-overview p {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #64748b;
+    margin: 0 0 10px;
+  }
+
+  .public-mobile-overview a {
+    display: inline-flex;
+    color: #2563eb;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .public-mobile-section-title {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin: 10px 0 6px;
+  }
+
+  .public-mobile-submenu a.public-mobile-link {
+    display: block;
+    padding: 7px 0;
+    text-decoration: none;
+    color: #0f172a;
+    font-size: 0.84rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .public-mobile-submenu a.public-mobile-link span {
+    display: block;
+    color: #64748b;
+    font-size: 0.74rem;
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  .public-mobile-section-visual {
+    margin: 4px 0 8px;
+  }
+
+  .public-mobile-section-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  .public-mobile-action {
+    margin-top: 4px;
+  }
+
+  .public-mobile-visual {
+    margin: 2px 0 12px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #ffffff;
+  }
+
+  .public-mobile-visual img {
+    display: block;
+    width: 100%;
+    height: 190px;
+    object-fit: cover;
+    object-position: center;
+    background: #ffffff;
+  }
+
+  .public-mobile-capabilities {
+    margin: 4px 0 10px;
+    padding: 4px 0 0;
+  }
+
+  .public-mobile-capabilities .public-mobile-section-title {
+    margin-top: 0;
+  }
+
+  .public-mobile-capability-item {
+    display: block;
+    color: #1f2937;
+    font-size: 0.9rem;
+    line-height: 1.25;
+    font-weight: 800;
+    margin: 0 0 8px;
+  }
+
+  .public-mobile-action a {
+    width: 100%;
+    justify-content: center;
   }
 
   .hamburger-container {
@@ -858,6 +1360,52 @@
     #tools a.header-welcome {
       font-size: 0.9rem;
     }
+
+    .public-header-main {
+      display: none !important;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    header#top-header.public-header-mode {
+      min-height: 76px;
+      background: rgba(255, 255, 255, 0.96) !important;
+      backdrop-filter: saturate(1.1) blur(12px);
+      -webkit-backdrop-filter: saturate(1.1) blur(12px);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.1);
+    }
+
+    header#top-header.public-header-mode .header-mobile-left {
+      width: auto;
+      flex: 0 0 auto;
+    }
+
+    header#top-header.public-header-mode .siteName .logo {
+      width: 92px;
+      max-height: 66px;
+    }
+
+    header#top-header.public-header-mode .public-header-main {
+      display: flex;
+      padding: 0 18px;
+    }
+
+    header#top-header.public-header-mode .hamburger-container,
+    header#top-header.public-header-mode .header-nav-menu {
+      display: none !important;
+    }
+
+    header#top-header.public-header-mode #tools {
+      gap: 12px;
+      right: 0;
+    }
+
+    header#top-header.public-header-mode #tools #loginbutton {
+      min-height: 40px;
+      padding: 0 16px;
+      border-radius: 12px;
+      font-weight: 700;
+    }
   }
 
   @media (max-width: 768px) {
@@ -873,6 +1421,14 @@
     body {
       padding-top: calc(var(--header-height) + 12px) !important;
       padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--dynamic-bottom-inset, 0px));
+    }
+
+    body.homepage-overlay-header {
+      padding-top: 0 !important;
+    }
+
+    body.homepage-overlay-header .hero {
+      padding-top: calc(var(--header-height) + 28px);
     }
 
     header#top-header {
@@ -1069,6 +1625,94 @@
       z-index: 11030;
     }
 
+    .public-header-actions {
+      gap: 8px;
+    }
+
+    .public-expert-button {
+      display: none;
+    }
+
+    .public-header-nav-menu {
+      width: min(680px, calc(100vw - 2px));
+      right: -1px;
+      left: auto;
+      max-height: calc(100vh - var(--header-height) - 14px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .public-nav-panel {
+      position: static;
+      width: 100%;
+      max-width: 100%;
+      transform: none;
+      border-radius: 14px;
+      margin-top: 8px;
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+    }
+
+    .public-nav-panel-inner {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+
+    .public-nav-panel-inner.public-nav-spotlight {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+
+    .public-nav-overview {
+      border-right: 0;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      padding: 18px 16px;
+    }
+
+    .public-nav-overview h3 {
+      font-size: 1.15rem;
+    }
+
+    .public-nav-overview p {
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
+    .public-nav-columns {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      padding: 18px 16px;
+    }
+
+    .public-nav-section-visual {
+      border-width: 0;
+      border-radius: 0;
+    }
+
+    .public-nav-section-visual img {
+      height: auto;
+      max-height: none;
+      object-fit: contain;
+      object-position: center;
+      background: #ffffff;
+    }
+
+    .public-nav-visual {
+      border-right: 0;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      padding: 14px;
+    }
+
+    .public-nav-capabilities {
+      padding: 18px 16px;
+      gap: 10px;
+    }
+
+    .public-nav-capability-item {
+      font-size: 0.95rem;
+      line-height: 1.25;
+    }
+
     .sticky-nav {
       position: fixed !important;
       /* Always anchor to visual-viewport bottom — no offset on `bottom` itself.
@@ -1198,9 +1842,15 @@
       max-width: calc(100vw - 138px);
     }
 
-    .nav-menu {
+    .nav-menu:not(.public-header-nav-menu) {
       width: min(220px, calc(100vw - 12px));
       right: -2px;
+    }
+
+    .public-header-nav-menu {
+      width: min(680px, calc(100vw - 2px));
+      right: -1px;
+      left: auto;
     }
 
     header#top-header .nav-menu .nav-item a.management-link:not(.logout),
@@ -1222,25 +1872,164 @@
   }
 </style>
 
-<header id="top-header">
-  <%
-    const normalizeLogoSrc = (logo) => {
-      if (!logo) return "";
-      if (/^https?:\/\//i.test(logo)) return logo;
-      if (logo.startsWith("/")) return logo;
-      return `/${logo}`;
-    };
-  %>
-  <% const isPublicDashboard = url && url.includes('/publicDashboard'); %>
-  <% const isSchoolSubdomainContext = !!(req && req.schoolDetails); %>
-  <% const isLoggedIn = !!(session && session.firstName); %>
-  <% const showPublicOrgIdentity = !!(!isLoggedIn && (isPublicDashboard || isSchoolSubdomainContext)); %>
+<%
+  const normalizeLogoSrc = (logo) => {
+    if (!logo) return "";
+    if (/^https?:\/\//i.test(logo)) return logo;
+    if (logo.startsWith("/")) return logo;
+    return `/${logo}`;
+  };
+%>
+<% const isPublicDashboard = url && url.includes('/publicDashboard'); %>
+<% const isSchoolSubdomainContext = !!(req && req.schoolDetails); %>
+<% const isLoggedIn = !!(session && session.firstName); %>
+<% const headerCurrentPath = (typeof currentPath !== 'undefined' && currentPath) ? String(currentPath) : ((typeof url !== 'undefined' && url) ? String(url) : ''); %>
+<% const isMarketingHome = !!(!isLoggedIn && !isPublicDashboard && headerCurrentPath === '/'); %>
+<% const showPublicOrgIdentity = !!(!isLoggedIn && (isPublicDashboard || isSchoolSubdomainContext)); %>
+<header id="top-header" class="<%= isMarketingHome ? 'homepage-overlay-enabled' : '' %>">
   <% const publicOrgData = (typeof orgDetails !== 'undefined' && orgDetails) ? orgDetails : ((req && req.schoolDetails) ? req.schoolDetails : null); %>
   <% const headerHomeHref = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : '/'; %>
   <% const publicOrgFullName = (publicOrgData && publicOrgData.organization_name) ? publicOrgData.organization_name : ''; %>
   <% const publicOrgNickname = (publicOrgData && (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname)) ? (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname) : ''; %>
   <% const publicOrgNicknameDisplay = (publicOrgData && publicOrgData.nickname_display && String(publicOrgData.nickname_display).trim()) ? publicOrgData.nickname_display : publicOrgNickname; %>
   <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : (req.session && req.session.userRole === 'Student' ? '/student/dashboard' : '/common/orgDashboard')); %>
+  <% const showMarketingMegaNav = !isLoggedIn && !isPublicDashboard; %>
+  <% const publicMarketingNav = [
+    {
+      label: 'Unify School',
+      eyebrow: 'Unify School',
+      title: 'One platform for connected school communities.',
+      description: 'Managira helps you connect with home communities and large campuses in a more modern, intelligent way, unifying communication, learning, operations, and decision-making in one seamless experience.',
+      ctaLabel: '',
+      ctaHref: '/account/service-plan',
+      columns: 2,
+      heroImage: '/images/unify-school-ecosystem.png',
+      heroImageAlt: 'Unify School platform overview',
+      capabilitiesTitle: 'Capabilities',
+      capabilities: ['Contextual AI', 'Data Infrastructure', 'Security'],
+      sections: [
+        {
+          title: 'Core Platform',
+          links: [
+            { label: 'School Website & Dashboard', href: '/#why-managira', description: 'Public-facing presence, updates, and trust-building.' },
+            { label: 'Paygira Payments', href: '/#paygira-section', description: 'Collect fees through cards, bank transfer, and mobile money.' },
+            { label: 'Built for Educators', href: '/#educators-section', description: 'Reduce admin work and keep teaching at the center.' }
+          ]
+        },
+        {
+          title: 'Get Started',
+          links: [
+            { label: 'Request a Demo', href: '/legal/request-demo', description: 'See how Managira fits your school.' },
+            { label: 'Help Center', href: '/legal/help', description: 'Find guides, answers, and support resources.' },
+            { label: 'Documentation', href: '/legal/user-documentation', description: 'Explore product guides and walkthroughs.' }
+          ]
+        }
+      ]
+    },
+    {
+      label: 'Products',
+      eyebrow: 'Our Products',
+      title: 'Built for student success and trusted school communities.',
+      description: 'Provide clear visibility for schools, families, and the wider community.',
+      landingHref: '/legal/product-category?category=family',
+      ctaLabel: 'Explore all products',
+      ctaHref: '/legal/product-category?category=family',
+      columns: 3,
+      sections: [
+        {
+          title: 'Family Connections',
+          image: '/images/products-home-connections.png',
+          imageAlt: 'Home Connections product overview',
+          imageBorderColor: '#f97316',
+          links: [
+            { label: 'Parent Portal', href: '/legal/product-category?category=family&item=parent-portal', description: 'Keep families informed in real time.' },
+            { label: 'Student Schedule Plan', href: '/legal/product-category?category=family&item=student-schedule-plan', description: 'Help homes follow student plans and routines.' },
+            { label: 'School Website', href: '/legal/product-category?category=family&item=school-website', description: 'Manage your public-facing school presence with ease.' },
+            { label: 'Communication', href: '/legal/product-category?category=family&item=communication', description: 'Reach families by text, email, and WhatsApp. School website support and more.' },
+            { label: 'View All Family Features', href: '/legal/product-category?category=family', description: 'See the complete list and explanation of all Family Connections capabilities.' }
+          ]
+        },
+        {
+          title: 'Student Success',
+          image: '/images/products-student-achievement.png',
+          imageAlt: 'Student Achievement product overview',
+          imageBorderColor: '#84cc16',
+          links: [
+            { label: 'Testing Room', href: '/legal/product-category?category=student&item=testing-room', description: 'Run assessments and exams digitally.' },
+            { label: 'Time Table', href: '/legal/product-category?category=student&item=time-table', description: 'Keep class periods and learning flow well organized.' },
+            { label: 'Detailed Reports', href: '/legal/product-category?category=student&item=detailed-reports', description: 'Generate report cards and academic summaries.' },
+            { label: 'Official Transcript', href: '/legal/product-category?category=student&item=official-transcript', description: 'Produce transcript-ready academic history outputs.' },
+            { label: 'View All Student Features', href: '/legal/product-category?category=student', description: 'Explore all Student Success capabilities.' }
+          ]
+        },
+        {
+          title: 'Operational Excellence',
+          image: '/images/products-operational-excellence.png',
+          imageAlt: 'Operational Excellence product overview',
+          imageBorderColor: '#d8b4fe',
+          links: [
+            { label: 'Questions Setter', href: '/legal/product-category?category=operational&item=questions-setter', description: 'Set up structured question banks and controls.' },
+            { label: 'Digest Notification', href: '/legal/product-category?category=operational&item=digest-notification', description: 'Run scheduled updates for stakeholders.' },
+            { label: 'Paygira', href: '/legal/product-category?category=operational&item=paygira', description: 'Manage school billing and collection operations.' },
+            { label: 'Hub Management', href: '/legal/product-category?category=operational&item=hub-management', description: 'Coordinate multiple schools from one dashboard.' },
+            { label: 'View All Operational Features', href: '/legal/product-category?category=operational', description: 'Explore all Operational Excellence capabilities.' }
+          ]
+        }
+      ]
+    },
+    {
+      label: 'Company',
+      eyebrow: 'About Managira',
+      title: 'Empowering schools.',
+      description: 'Reach every family every time.',
+      ctaLabel: 'About Managira',
+      ctaHref: '/legal/about-us',
+      columns: 2,
+      sections: [
+        {
+          title: 'Company',
+          links: [
+            { label: 'About Us', href: '/legal/about-us', description: 'What Managira stands for and how it is evolving.' },
+            { label: 'Careers', href: '/legal/employment', description: 'Open roles and opportunities to work with us.' },
+            { label: 'Give to Managira', href: '/legal/donations', description: 'Support our mission to make this accessible and affordable for all schools.' }
+          ]
+        },
+        {
+          title: 'Trust & Support',
+          links: [
+            { label: 'Help Center', href: '/legal/help', description: 'Ask questions or find help instantly.' },
+            { label: 'Privacy Policy', href: '/legal/privacy-policy', description: 'How data is handled and protected.' },
+            { label: 'Terms of Service', href: '/legal/terms-of-service', description: 'Platform terms and responsibilities.' }
+          ]
+        }
+      ]
+    },
+    {
+      label: 'More',
+      eyebrow: 'More Resources',
+      title: 'Resources and support.',
+      description: 'Get what you need quickly: FAQ, documentation, request a demo, and service plans.',
+      ctaLabel: 'Request a demo',
+      ctaHref: '/legal/request-demo',
+      columns: 2,
+      sections: [
+        {
+          title: 'Resources',
+          links: [
+            { label: 'FAQ', href: '/legal/faq', description: 'Quick answers to the most common questions.' },
+            { label: 'Documentation', href: '/legal/user-documentation', description: 'Detailed setup and usage guides.' }
+          ]
+        },
+        {
+          title: 'Get Started',
+          links: [
+            { label: 'Service Plans', href: '/account/service-plan', description: 'Compare plans, pricing, and included features.' },
+            { label: 'Request Demo', href: '/legal/request-demo', description: 'Book a conversation with the team.' }
+          ]
+        }
+      ]
+    }
+  ]; %>
   <div class="header-mobile-row">
     <div class="header-mobile-left">
       <span class="siteName">
@@ -1300,6 +2089,68 @@
         <% } %>
       </span>
     </div>
+    <% if (showMarketingMegaNav) { %>
+      <nav class="public-header-main" aria-label="Public site navigation">
+        <ul class="public-nav-list">
+          <% publicMarketingNav.forEach((menu, menuIndex) => { %>
+            <li class="public-nav-item" data-public-nav-item>
+              <button
+                type="button"
+                class="public-nav-trigger"
+                aria-expanded="false"
+                aria-controls="public-nav-panel-<%= menuIndex %>"
+                <% if (menu.landingHref) { %>data-nav-href="<%= menu.landingHref %>"<% } %>
+              ><%= menu.label %></button>
+              <div
+                class="public-nav-panel <%= menu.sections && menu.sections.some((section) => section.image) ? 'public-nav-panel--with-section-images' : '' %>"
+                id="public-nav-panel-<%= menuIndex %>"
+                role="group"
+                aria-label="<%= menu.label %> menu"
+              >
+                <div class="public-nav-panel-inner <%= menu.heroImage ? 'public-nav-spotlight' : '' %>">
+                  <div class="public-nav-overview">
+                    <span class="public-nav-eyebrow"><%= menu.eyebrow %></span>
+                    <h3><%= menu.title %></h3>
+                    <p><%= menu.description %></p>
+                    <% if (menu.ctaLabel) { %>
+                      <a href="<%= menu.ctaHref %>"><%= menu.ctaLabel %></a>
+                    <% } %>
+                  </div>
+                  <% if (menu.heroImage) { %>
+                    <div class="public-nav-visual">
+                      <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" onerror="this.onerror=null;this.src='/images/image.png';" />
+                    </div>
+                    <div class="public-nav-capabilities">
+                      <span class="public-nav-capabilities-title"><%= menu.capabilitiesTitle || 'Capabilities' %></span>
+                      <% (menu.capabilities || []).forEach((item) => { %>
+                        <span class="public-nav-capability-item"><%= item %></span>
+                      <% }); %>
+                    </div>
+                  <% } else { %>
+                    <div class="public-nav-columns <%= menu.sections && menu.sections.some((section) => section.image) ? 'public-nav-columns--with-images' : '' %>" style="--public-nav-columns:<%= menu.columns || Math.max(menu.sections.length, 1) %>">
+                      <% menu.sections.forEach((section) => { %>
+                        <div class="public-nav-section">
+                          <% if (section.image) { %>
+                            <div class="public-nav-section-visual" style="--section-accent:<%= section.imageBorderColor || '#cbd5e1' %>;"><img src="<%= section.image %>" alt="<%= section.imageAlt || section.title %>" /></div>
+                          <% } %>
+                          <span class="public-nav-section-title"><%= section.title %></span>
+                          <% section.links.forEach((link) => { %>
+                            <a class="public-nav-link" href="<%= link.href %>">
+                              <strong><%= link.label %></strong>
+                              <span><%= link.description %></span>
+                            </a>
+                          <% }); %>
+                        </div>
+                      <% }); %>
+                    </div>
+                  <% } %>
+                </div>
+              </div>
+            </li>
+          <% }); %>
+        </ul>
+      </nav>
+    <% } %>
     <div id="tools">
       <% if (session.firstName) { %>
       <% if ((req.session.userRole && req.session.userRole !== 'Guardian') || req.session.accountType === 'Hub') { %>
@@ -1572,8 +2423,68 @@
       <% } %>
     </ul>
     <% } else { %>
+    <% if (showMarketingMegaNav) { %>
+    <div class="public-header-actions">
+      <a class="public-expert-button" href="/legal/request-demo">Talk to an Expert</a>
+      <a id="loginbutton" title="Click to log in" href="/account/login">Login / Sign Up</a>
+      <div class="hamburger-container">
+        <div class="hamburger header-hamburger" id="header-hamburger" aria-label="Open menu" role="button" tabindex="0">
+          <span class="bar"></span>
+          <span class="bar"></span>
+          <span class="bar"></span>
+        </div>
+      </div>
+    </div>
+    <ul class="nav-menu header-nav-menu public-header-nav-menu" id="header-nav-menu">
+      <% publicMarketingNav.forEach((menu, menuIndex) => { %>
+        <li class="nav-item public-mobile-group">
+          <button type="button" class="submenu-toggle public-mobile-toggle" data-target="public-mobile-submenu-<%= menuIndex %>">
+            <span><%= menu.label %></span>
+            <span class="arrow">▾</span>
+          </button>
+          <div id="public-mobile-submenu-<%= menuIndex %>" class="submenu public-mobile-submenu">
+            <div class="public-mobile-overview">
+              <strong><%= menu.title %></strong>
+              <p><%= menu.description %></p>
+              <% if (menu.ctaLabel) { %>
+                <a href="<%= menu.ctaHref %>"><%= menu.ctaLabel %></a>
+              <% } %>
+            </div>
+            <% if (menu.heroImage) { %>
+              <div class="public-mobile-visual">
+                <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" onerror="this.onerror=null;this.src='/images/image.png';" />
+              </div>
+              <% if (menu.capabilities && menu.capabilities.length) { %>
+                <div class="public-mobile-capabilities">
+                  <span class="public-mobile-section-title"><%= menu.capabilitiesTitle || 'Capabilities' %></span>
+                  <% menu.capabilities.forEach((item) => { %>
+                    <span class="public-mobile-capability-item"><%= item %></span>
+                  <% }); %>
+                </div>
+              <% } %>
+            <% } else { %>
+              <% menu.sections.forEach((section) => { %>
+                <% if (section.image) { %>
+                  <div class="public-mobile-section-visual"><img src="<%= section.image %>" alt="<%= section.imageAlt || section.title %>" /></div>
+                <% } %>
+                <span class="public-mobile-section-title"><%= section.title %></span>
+                <% section.links.forEach((link) => { %>
+                  <a href="<%= link.href %>" class="public-mobile-link management-link">
+                    <%= link.label %>
+                    <span><%= link.description %></span>
+                  </a>
+                <% }); %>
+              <% }); %>
+            <% } %>
+          </div>
+        </li>
+      <% }); %>
+      <li class="nav-item public-mobile-action"><a href="/legal/request-demo" class="management-link">Talk to an Expert</a></li>
+    </ul>
+    <% } else { %>
     <a id="loginbutton" title="Click to log in" href="/account/login"
       >Sign In | Sign Up</a>
+    <% } %>
     <% } %>
   </div>
 </div>
@@ -1676,6 +2587,58 @@
 
 <script>
   function initHeaderMenu() {
+    const publicHeader = document.querySelector('header#top-header');
+    if (publicHeader && !publicHeader.dataset.publicHeaderBooted) {
+      publicHeader.dataset.publicHeaderBooted = '1';
+      if (publicHeader.querySelector('.public-header-main')) {
+        publicHeader.classList.add('public-header-mode');
+      }
+    }
+
+    // Keep homepage overlay behavior in sync for both full loads and SPA route changes.
+    if (window.__headerOverlayCleanup && typeof window.__headerOverlayCleanup === 'function') {
+      window.__headerOverlayCleanup();
+      window.__headerOverlayCleanup = null;
+    }
+
+    if (publicHeader) {
+      const isPublicMarketingShell = !!publicHeader.querySelector('.public-header-main');
+      const isPublicDashboardPath = window.location.pathname.includes('/publicDashboard');
+      const isHomePath = window.location.pathname === '/';
+      const shouldUseOverlay = isPublicMarketingShell && isHomePath && !isPublicDashboardPath;
+
+      publicHeader.classList.toggle('homepage-overlay-enabled', shouldUseOverlay);
+      document.body.classList.toggle('homepage-overlay-header', shouldUseOverlay);
+
+      if (!shouldUseOverlay) {
+        publicHeader.classList.remove('is-solid');
+      } else {
+        const setHeaderSolid = (isSolid) => {
+          publicHeader.classList.toggle('is-solid', isSolid);
+        };
+
+        const syncHomepageHeader = () => {
+          const heroSection = document.querySelector('.hero');
+          if (!heroSection) {
+            setHeaderSolid(window.scrollY > 24);
+            return;
+          }
+
+          const heroThreshold = Math.max(heroSection.offsetHeight - publicHeader.offsetHeight, 24);
+          setHeaderSolid(window.scrollY > heroThreshold);
+        };
+
+        syncHomepageHeader();
+        window.addEventListener('scroll', syncHomepageHeader, { passive: true });
+        window.addEventListener('resize', syncHomepageHeader);
+
+        window.__headerOverlayCleanup = () => {
+          window.removeEventListener('scroll', syncHomepageHeader);
+          window.removeEventListener('resize', syncHomepageHeader);
+        };
+      }
+    }
+
     const hamburger = document.getElementById("header-hamburger");
     const navMenu = document.getElementById("header-nav-menu");
     const submenuToggles = document.querySelectorAll(".submenu-toggle");
@@ -1686,6 +2649,102 @@
     const searchToggleButton = document.getElementById("search-toggle-button");
     const searchCloseButton = document.getElementById("search-close-button");
     const mobileSearchBreakpoint = window.matchMedia("(max-width: 768px)");
+    const publicDesktopNavItems = document.querySelectorAll('[data-public-nav-item]');
+
+    function closePublicDesktopMenus() {
+      publicDesktopNavItems.forEach((item) => {
+        item.dataset.clickPinned = '0';
+        item.classList.remove('is-open');
+        const trigger = item.querySelector('.public-nav-trigger');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    publicDesktopNavItems.forEach((item) => {
+      if (item.dataset.publicNavBound === '1') return;
+      item.dataset.publicNavBound = '1';
+
+      const trigger = item.querySelector('.public-nav-trigger');
+      const panel = item.querySelector('.public-nav-panel');
+      if (!trigger) return;
+
+      let hoverCloseTimer = null;
+
+      const clearHoverCloseTimer = () => {
+        if (hoverCloseTimer) {
+          window.clearTimeout(hoverCloseTimer);
+          hoverCloseTimer = null;
+        }
+      };
+
+      const openMenu = () => {
+        clearHoverCloseTimer();
+        closePublicDesktopMenus();
+        item.classList.add('is-open');
+        trigger.setAttribute('aria-expanded', 'true');
+      };
+
+      const closeMenu = () => {
+        clearHoverCloseTimer();
+        item.dataset.clickPinned = '0';
+        item.classList.remove('is-open');
+        trigger.setAttribute('aria-expanded', 'false');
+      };
+
+      const scheduleHoverClose = () => {
+        if (item.dataset.clickPinned === '1') return;
+        clearHoverCloseTimer();
+        hoverCloseTimer = window.setTimeout(() => {
+          const panelHovered = !!(panel && panel.matches(':hover'));
+          const itemHovered = item.matches(':hover');
+          if (!panelHovered && !itemHovered) {
+            closeMenu();
+          }
+        }, 140);
+      };
+
+      trigger.addEventListener('mouseenter', () => {
+        clearHoverCloseTimer();
+        if (item.dataset.clickPinned === '1') return;
+        openMenu();
+      });
+
+      item.addEventListener('mouseenter', () => {
+        clearHoverCloseTimer();
+        if (item.dataset.clickPinned === '1') return;
+        openMenu();
+      });
+
+      item.addEventListener('mouseleave', scheduleHoverClose);
+
+      if (panel) {
+        panel.addEventListener('mouseenter', clearHoverCloseTimer);
+        panel.addEventListener('mouseleave', scheduleHoverClose);
+      }
+
+      trigger.addEventListener('click', (event) => {
+        const navHref = trigger.dataset.navHref;
+        if (navHref) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (window.spaRouter && window.spaRouter.shouldHandleRoute(navHref)) {
+            window.spaRouter.navigate(navHref);
+          } else {
+            window.location.href = navHref;
+          }
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        const shouldOpen = !item.classList.contains('is-open');
+        closePublicDesktopMenus();
+        if (shouldOpen) {
+          openMenu();
+          item.dataset.clickPinned = '1';
+        }
+      });
+    });
 
     function isMobileCollapsibleSearch() {
       return mobileSearchBreakpoint.matches && searchContainer && searchForm;
@@ -1875,6 +2934,19 @@
         if (!e.target.closest("#header-hamburger") && !e.target.closest("#header-nav-menu")) {
           newHamburger.classList.remove("active");
           toggleNavMenu(false);
+        }
+
+        if (!e.target.closest('[data-public-nav-item]')) {
+          closePublicDesktopMenus();
+        }
+      });
+    }
+
+    if (publicHeader && publicHeader.dataset.publicEscapeBound !== '1') {
+      publicHeader.dataset.publicEscapeBound = '1';
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          closePublicDesktopMenus();
         }
       });
     }
@@ -2086,6 +3158,11 @@
     document.addEventListener("DOMContentLoaded", initHeaderMenu);
   } else {
     initHeaderMenu();
+  }
+
+  if (!window.__headerSpaOverlaySyncBound) {
+    window.__headerSpaOverlaySyncBound = true;
+    window.addEventListener('spa:pageLoaded', initHeaderMenu);
   }
 
   // ⭐ Add SPA navigation to logo clicks for instant dashboard access
@@ -2335,6 +3412,36 @@
 @media (max-width: 480px) {
   .notif-panel { width: calc(100vw - 16px); right: -50px; }
 }
+
+  @media (max-width: 1099px) {
+    header#top-header .nav-menu.public-header-nav-menu {
+      width: min(508px, calc(100vw - 32px)) !important;
+      max-width: calc(100vw - 32px) !important;
+      right: 0 !important;
+      left: auto !important;
+      box-sizing: border-box !important;
+    }
+  }
+
+  @media (max-width: 768px) {
+    header#top-header .nav-menu.public-header-nav-menu {
+      width: min(488px, calc(100vw - 26px)) !important;
+      max-width: calc(100vw - 26px) !important;
+      right: 0 !important;
+      left: auto !important;
+      padding-left: 10px !important;
+      padding-right: 10px !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    header#top-header .nav-menu.public-header-nav-menu {
+      width: min(448px, calc(100vw - 20px)) !important;
+      max-width: calc(100vw - 20px) !important;
+      right: 0 !important;
+      left: auto !important;
+    }
+  }
 </style>
 
 <%# ── Notification Bell JS ──────────────────────────────────────────────── %>

@@ -103,6 +103,372 @@ const sendEmploymentInternalAlertEmail = async ({
 };
 
 const legalController = {
+    productCategoryPage: (req, res) => {
+        const categories = {
+            family: {
+                key: 'family',
+                title: 'Family Connections',
+                shortDescription: 'Connect families, school teams, and the public in one communication flow. Strengthen trust through clear updates and shared visibility.',
+                image: '/images/products-home-connections.png',
+                items: [
+                    {
+                        key: 'student-records-attendance',
+                        title: 'Student Records & Attendance',
+                        description: 'Manage student profiles and class attendance in one place so academic and operational teams work from the same source of truth.',
+                        whatItDoes: 'Managira combines student profile management with attendance tracking so schools can keep identity details, class placement, and attendance history aligned inside the same operational workflow. This reduces fragmented record keeping and supports cleaner handoffs between school offices and teaching teams.',
+                        howItWorks: 'Schools maintain student records through management and student detail flows, then mark attendance by class and date using permission-aware attendance workflows. Attendance history remains linked to the learner profile and can feed broader reporting.',
+                        whyItMatters: 'When student records and attendance are disconnected, interventions happen late. Keeping both together helps schools act faster on absence trends, improve data accuracy, and keep parents informed with confidence.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 1.2, 10.1-10.6',
+                            'help-content-audit-table.csv: Rows 5 and 10'
+                        ]
+                    },
+                    {
+                        key: 'parent-portal',
+                        title: 'Parent Portal',
+                        description: 'Give guardians a dedicated portal for child information, academic visibility, and direct school communication.',
+                        whatItDoes: 'The Parent Portal gives families secure, role-scoped access to student-facing information and communication workflows. Guardians can review relevant child data and interact with the school through structured report and feedback channels.',
+                        howItWorks: 'Guardians sign in through dedicated guardian authentication routes and access dashboard, student, and academic pages where enabled. Schools also manage guardian-to-student linking from internal guardian management tools to keep access correct.',
+                        whyItMatters: 'Family engagement improves when parents can see reliable, current information without waiting for manual updates. The portal reduces communication gaps and builds trust through transparency.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 1.4, 9.5, 11.4',
+                            'help-content-audit-table.csv: Rows 20, 21, and 22'
+                        ]
+                    },
+                    {
+                        key: 'student-portal',
+                        title: 'Student Portal',
+                        description: 'Provide students with guided access to school information and academic progress in a secure, role-aware environment.',
+                        whatItDoes: 'Managira supports student-facing access patterns so learners can engage with their academic journey through a structured platform experience. This keeps student access aligned with institution policy and configured permissions.',
+                        howItWorks: 'Student access follows the platform\'s layered identity and authorization model, with school-defined configuration controlling what is visible. Student-facing experiences are part of the broader role-driven workflow model used across the platform.',
+                        whyItMatters: 'When students can independently check key information, administrative interruptions reduce and ownership increases. It also helps schools maintain a consistent digital experience across staff, learners, and families.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 1.3, 2.6, 5.2',
+                            'help-content-audit-table.csv: Context from guardian/student access workflows'
+                        ]
+                    },
+                    {
+                        key: 'communication',
+                        title: 'Communication',
+                        description: 'Coordinate parent communication through structured school channels instead of disconnected messages.',
+                        whatItDoes: 'Communication in Managira spans parent-school records, announcements, events, and support-linked messaging paths. The platform also supports email pipelines and asynchronous communication infrastructure for continuity.',
+                        howItWorks: 'Schools publish announcements/events from management workflows, guardians submit reports through portal routes, and support/notification operations run through managed email and background processing patterns.',
+                        whyItMatters: 'Clear communication reduces misunderstandings, improves response speed, and strengthens school-family relationships, especially during high-volume periods like admissions, exams, and term close.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 7.2, 11.4, 14.1-14.4, 16.4',
+                            'help-content-audit-table.csv: Rows 22 and 23'
+                        ]
+                    },
+                    {
+                        key: 'student-management',
+                        title: 'Student Management',
+                        description: 'Create, edit, organize, archive, and maintain complete student records through the full student lifecycle.',
+                        whatItDoes: 'Student Management centralizes core learner data, class alignment, guardian linkage, and profile updates in one operational module. It supports both active student management and archive flows for lifecycle continuity.',
+                        howItWorks: 'Authorized users manage student records from records and student detail views, edit profile fields, and archive/unarchive as needed without losing historical continuity.',
+                        whyItMatters: 'A strong student management foundation improves every downstream workflow, including attendance, assessment, reporting, promotions, and admissions decisions.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 1.2, 2.7, 12.5',
+                            'help-content-audit-table.csv: Rows 5 and 6'
+                        ]
+                    },
+                    {
+                        key: 'role-based-access-control',
+                        title: 'Role-Based Access Control',
+                        description: 'Protect sensitive school data by giving each role only the access needed for their responsibilities.',
+                        whatItDoes: 'Managira enforces layered access using session identity, role context, permission keys, and feature checks. Managers, supervisors, teachers, and class-level leads each operate within controlled boundaries.',
+                        howItWorks: 'Permission middleware and role baselines gate routes and actions across modules, while assignment-specific checks further control class workflows and document/file visibility.',
+                        whyItMatters: 'Role-based access improves privacy, governance, and auditability while still enabling delegation. It is essential for scaling operations without overexposing student or finance data.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 2.6, 5.1-5.10'
+                        ]
+                    },
+                    {
+                        key: 'assessment-tracking',
+                        title: 'Assessment Tracking',
+                        description: 'Design assessments, capture scores, and keep grading workflows consistent across classes and terms.',
+                        whatItDoes: 'Assessment Tracking supports custom assessment design, controlled edit windows, teacher score entry, and persistent storage of academic outcomes for reporting continuity.',
+                        howItWorks: 'Schools define assessments and grading structures, teachers enter scores through assessment workflows, and records remain available for report generation and transcript-related outputs.',
+                        whyItMatters: 'Reliable assessment workflows reduce grading inconsistency and provide the academic evidence needed for reports, progression decisions, and parent communication.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 9.1-9.6',
+                            'help-content-audit-table.csv: Rows 11, 12, 13, and 14'
+                        ]
+                    },
+                    {
+                        key: 'detailed-reports',
+                        title: 'Detailed Reports',
+                        description: 'Generate report cards and operational views from stored academic and attendance data.',
+                        whatItDoes: 'Reporting tools provide school-level visibility, class-level output, and student report production using platform data. Reports can be prepared for print workflows and digital sharing where configured.',
+                        howItWorks: 'Authorized users confirm the active term and data completeness, then use report hubs and report-generation workflows to produce review-ready outputs.',
+                        whyItMatters: 'Strong reporting turns daily school activity into decision-ready insight for school leadership, educators, and families.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 11.1-11.5',
+                            'help-content-audit-table.csv: Row 15'
+                        ]
+                    },
+                    {
+                        key: 'multi-school-analytics',
+                        title: 'Multi-School Analytics',
+                        description: 'Support network-level oversight for hub operators coordinating multiple schools.',
+                        whatItDoes: 'Multi-school analytics in the Managira model combines hub-level organization context, dashboard visibility, and activity tracking to help operators monitor distributed school operations.',
+                        howItWorks: 'Hub workflows and organization dashboards provide comparative and operational visibility, while invitation and membership tools maintain clear structure for participating schools.',
+                        whyItMatters: 'For school networks, centralized visibility reduces blind spots, improves governance, and enables faster decision-making across institutions.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 2.5 and 2.4',
+                            'help-content-audit-table.csv: Rows 31 and 32',
+                            'HUB_INVITATION_ENHANCED.md: Overview and search/invitation flow'
+                        ]
+                    },
+                    {
+                        key: 'school-website',
+                        title: 'School Website',
+                        description: 'Manage a professional public school website from inside the same platform used for daily operations.',
+                        whatItDoes: 'The School Website module gives schools a public communication surface for announcements, events, branding, admissions visibility, and institutional storytelling without separate web development overhead.',
+                        howItWorks: 'Authorized users update public content, layout, and theme from account-side website management tools, then publish changes for public visibility.',
+                        whyItMatters: 'A modern public website strengthens trust, improves discoverability, and creates a consistent front door for families and prospective applicants.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 7.1-7.8',
+                            'help-content-audit-table.csv: Rows 2, 23, and 24'
+                        ]
+                    },
+                    {
+                        key: 'online-admissions',
+                        title: 'Online Admissions',
+                        description: 'Let families apply online and move applications through structured review and approval workflows.',
+                        whatItDoes: 'Online Admissions links public application capture with internal review, decisioning, and enrollment continuity. Schools can run both self-admission and school-managed intake pathways.',
+                        howItWorks: 'Families submit via public registration routes, applications enter pending queues, and authorized staff review, edit, approve, or reject before final student activation.',
+                        whyItMatters: 'Digital admissions reduce queue pressure, improve intake quality, and give schools clearer visibility into application pipelines.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 8.1-8.10',
+                            'help-content-audit-table.csv: Rows 7 and 8'
+                        ]
+                    },
+                    {
+                        key: 'event-announcement-updates',
+                        title: 'Event & Announcement Updates',
+                        description: 'Publish timely events and announcements for both internal dashboards and public-facing communication.',
+                        whatItDoes: 'Event and announcement management provides one controlled workspace for creating, updating, and publishing school updates that can surface across relevant channels.',
+                        howItWorks: 'Users manage announcements/events from dedicated management routes and publish updates to dashboards and public website sections where configured.',
+                        whyItMatters: 'Consistent updates improve transparency, reduce misinformation, and keep families aligned with academic calendars and school priorities.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 7.4 and 7.7',
+                            'help-content-audit-table.csv: Row 23'
+                        ]
+                    },
+                    {
+                        key: 'merit-sheets',
+                        title: 'Merit Sheets',
+                        description: 'Produce merit sheets from validated academic data to support term-end recognition and reporting.',
+                        whatItDoes: 'Merit sheet workflows are part of Managira\'s broader report generation capabilities, allowing schools to create structured academic outputs from recorded student performance.',
+                        howItWorks: 'Schools complete assessments and attendance context, then generate merit/report outputs through reporting and print-oriented workflows.',
+                        whyItMatters: 'Merit sheets make recognition processes fairer and more transparent by relying on centralized academic records.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 11.1-11.3',
+                            'help-content-audit-table.csv: Row 15'
+                        ]
+                    },
+                    {
+                        key: 'official-transcript',
+                        title: 'Official Transcript',
+                        description: 'Generate transcript-style academic history with options for review, signature, print, and email delivery.',
+                        whatItDoes: 'Transcript workflows compile student academic history into formal output suitable for school records and authorized sharing. Signature and email support are included where configured.',
+                        howItWorks: 'Authorized users open transcript tools for a student, validate output, attach required signature assets, and then print, download, or email the transcript.',
+                        whyItMatters: 'Official transcripts are high-trust documents; standardized generation improves consistency, compliance, and confidence in external-facing academic records.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 1.6 and 11.3',
+                            'help-content-audit-table.csv: Row 16'
+                        ]
+                    },
+                    {
+                        key: 'employee-management',
+                        title: 'Employee Management',
+                        description: 'Create staff accounts, assign roles, and manage permissions aligned to each team member\'s duties.',
+                        whatItDoes: 'Employee Management centralizes staff onboarding, updates, and role assignment so schools can maintain controlled access and clear accountability.',
+                        howItWorks: 'Authorized users manage staff through employee routes, configure role/permission settings, and maintain class or operational assignments as school structures evolve.',
+                        whyItMatters: 'Schools scale better when staff access is intentional. This module reduces security risk and keeps workflows aligned to real responsibilities.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 5.3-5.10',
+                            'help-content-audit-table.csv: Rows 18 and 19'
+                        ]
+                    },
+                    {
+                        key: 'finance-management',
+                        title: 'Finance Management',
+                        description: 'Coordinate school billing, payment collection, and financial visibility through integrated finance workflows.',
+                        whatItDoes: 'Finance Management combines bill setup, payment operations, and recurring/billing infrastructure so schools can move from manual fee tracking to structured financial workflows.',
+                        howItWorks: 'Schools configure finance settings and bill templates, assign billing targets, process payments, and monitor balances using finance and Paygira workflows backed by scheduler/payment infrastructure.',
+                        whyItMatters: 'Strong finance operations protect school sustainability by improving collection consistency, reconciliation, and parent payment visibility.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 2.9 and 2.10',
+                            'help-content-audit-table.csv: Rows 26, 27, and 28'
+                        ]
+                    },
+                    {
+                        key: 'digest-notification',
+                        title: 'Digest Notification',
+                        description: 'Use scheduled communication patterns to keep stakeholders updated on school activities and operational milestones.',
+                        whatItDoes: 'Digest Notification represents Managira\'s scheduled and asynchronous communication capability, where schools can maintain continuity of updates through managed notification and email workflows.',
+                        howItWorks: 'Background jobs and communication infrastructure handle recurring or asynchronous notification-related operations, while school updates originate from announcement, support, and workflow events.',
+                        whyItMatters: 'Digest-style updates improve visibility without overwhelming recipients, helping families and staff stay informed about progress, events, and key actions over time.',
+                        sources: [
+                            'MANAGIRA_INTRODUCTION_AND_SYSTEM_OVERVIEW.md: Sections 2.10, 14.1-14.3, and 16.4',
+                            'HUB_INVITATION_ENHANCED.md: Email notification templates and flow'
+                        ]
+                    },
+                    {
+                        key: 'questions-setter',
+                        title: 'Questions Setter',
+                        description: 'Set up structured questions and assessment prompts for controlled academic workflows.',
+                        whatItDoes: 'Questions Setter helps schools define and organize assessment question sets so teaching teams can maintain consistency in tests and learning checks.',
+                        howItWorks: 'Authorized users configure question structures within assessment workflows and align them to classes, subjects, and evaluation plans.',
+                        whyItMatters: 'Standardized question setup improves assessment quality, makes review easier, and supports fairer measurement of student understanding.'
+                    },
+                    {
+                        key: 'time-table',
+                        title: 'Time Table',
+                        description: 'Organize academic periods, classes, and activity timing into a clear schedule for students and staff.',
+                        whatItDoes: 'Time Table support keeps daily and weekly school schedules structured so classes, teachers, and learners can follow one coordinated rhythm.',
+                        howItWorks: 'Schools define timetable structures aligned to class and term context, then use schedule visibility to reduce clashes and confusion.',
+                        whyItMatters: 'A reliable timetable improves punctuality, classroom readiness, and the overall learning environment.'
+                    },
+                    {
+                        key: 'student-schedule-plan',
+                        title: 'Student Schedule Plan',
+                        description: 'Give families a clearer view of student plans and routine learning schedules.',
+                        whatItDoes: 'Student Schedule Plan helps homes understand what students are expected to do and when, strengthening parent support for daily learning.',
+                        howItWorks: 'School schedule and planning details are organized in student-facing or family-facing contexts so guardians can follow key routines.',
+                        whyItMatters: 'When homes can see schedule plans, students get better support outside school and trust between school and family improves.'
+                    },
+                    {
+                        key: 'paygira',
+                        title: 'Paygira',
+                        description: 'Run fee collection and payment workflows through Managira\'s integrated Paygira finance tools.',
+                        whatItDoes: 'Paygira powers school billing and collections with structured payment workflows for administrators, staff, and guardians.',
+                        howItWorks: 'Schools configure payment settings, create bills, and track collections in finance workflows connected to school operations.',
+                        whyItMatters: 'Integrated collections reduce finance friction, improve visibility, and support sustainable school operations.'
+                    }
+                ]
+            },
+            student: {
+                key: 'student',
+                title: 'Student Success',
+                shortDescription: 'Support student achievement with structured assessments, reports, and transcripts. Give homes clear, reliable insight into academic progress.',
+                image: '/images/products-student-achievement.png',
+                items: [
+                    {
+                        key: 'testing-room',
+                        title: 'Testing Room',
+                        description: 'Run assessments and exams digitally with structure, reliability, and better turnaround.'
+                    },
+                    {
+                        key: 'google-classroom-integration',
+                        title: 'Google Classroom Integration',
+                        description: 'Bridge class workflows with Google tools and others so teachers and students stay in sync.'
+                    },
+                    {
+                        key: 'analytics-reporting',
+                        title: 'Analytics & Reporting',
+                        description: 'Turn performance data into action with study timetable guidance, schedules, and progress visibility.'
+                    }
+                ]
+            },
+            operational: {
+                key: 'operational',
+                title: 'Operational Excellence',
+                shortDescription: 'Run school operations with secure controls across staff, finance, and governance. Improve consistency and efficiency with centralized management.',
+                image: '/images/products-operational-excellence.png',
+                items: [
+                    {
+                        key: 'hub-management',
+                        title: 'Hub Management',
+                        description: 'Coordinate multiple schools from one dashboard with centralized controls and oversight.'
+                    },
+                    {
+                        key: 'online-admissions',
+                        title: 'Online Admissions',
+                        description: 'Handle applications and enrollment more cleanly with structured workflows and tracking.'
+                    },
+                    {
+                        key: 'finance-management',
+                        title: 'Finance Management',
+                        description: 'See billing and finance records together, plus report management and organization management.'
+                    }
+                ]
+            }
+        };
+
+        // Re-group capabilities so each category matches the product narrative.
+        const familyItemsByKey = new Map(categories.family.items.map((item) => [item.key, item]));
+        const studentItemsByKey = new Map(categories.student.items.map((item) => [item.key, item]));
+        const operationalItemsByKey = new Map(categories.operational.items.map((item) => [item.key, item]));
+
+        const pick = (key) => familyItemsByKey.get(key) || studentItemsByKey.get(key) || operationalItemsByKey.get(key);
+
+        categories.family.items = [
+            pick('parent-portal'),
+            pick('communication'),
+            pick('school-website'),
+            pick('online-admissions'),
+            pick('event-announcement-updates'),
+            pick('student-schedule-plan')
+        ].filter(Boolean);
+
+        categories.student.items = [
+            pick('student-records-attendance'),
+            pick('student-portal'),
+            pick('assessment-tracking'),
+            pick('testing-room'),
+            pick('time-table'),
+            pick('google-classroom-integration'),
+            pick('analytics-reporting'),
+            pick('detailed-reports'),
+            pick('merit-sheets'),
+            pick('official-transcript')
+        ].filter(Boolean);
+
+        categories.operational.items = [
+            pick('student-management'),
+            pick('role-based-access-control'),
+            pick('employee-management'),
+            pick('questions-setter'),
+            pick('digest-notification'),
+            pick('paygira'),
+            pick('finance-management'),
+            pick('multi-school-analytics'),
+            pick('hub-management')
+        ].filter(Boolean);
+
+        const categoryAliases = {
+            'family-connections': 'family',
+            'home-connections': 'family',
+            family: 'family',
+            'student-success': 'student',
+            'student-achievement': 'student',
+            student: 'student',
+            'operational-excellence': 'operational',
+            operational: 'operational'
+        };
+
+        const requestedCategory = String(req.query.category || '').trim().toLowerCase();
+        const categoryKey = categoryAliases[requestedCategory] || 'family';
+        const activeCategory = categories[categoryKey];
+
+        const requestedItem = String(req.query.item || '').trim().toLowerCase();
+        const defaultItemKey = categoryKey === 'family' ? 'parent-portal' : activeCategory.items[0].key;
+        const activeItem = activeCategory.items.find((entry) => entry.key === requestedItem)
+            || activeCategory.items.find((entry) => entry.key === defaultItemKey)
+            || activeCategory.items[0];
+
+        res.render('legal&Compliance/productCategory', {
+            title: `${activeCategory.title} - Managira`,
+            description: activeCategory.shortDescription,
+            activeCategory,
+            activeItem,
+            categoryTabs: Object.values(categories).map((entry) => ({ key: entry.key, title: entry.title })),
+            showFooterTopSection: true
+        });
+    },
+
     aboutUs: (req, res) => {
         res.render('legal&Compliance/AboutUs', { 
             title: 'About Managira - School Management That Actually Works',
