@@ -977,18 +977,47 @@
         color: #0f2d32;
       }
 
+      .template-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
       .template-link {
-        display: inline-block;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        border-radius: 999px;
+        padding: 6px 12px;
+        cursor: pointer;
         color: #01535b;
-        text-decoration: none;
         font-weight: 600;
-        font-size: 0.9rem;
-        transition: color 0.2s;
+        font-size: 0.84rem;
+        line-height: 1.2;
+        transition: all 0.2s;
       }
 
       .template-link:hover {
         color: #014d54;
-        text-decoration: underline;
+        border-color: #01535b;
+        background: #ecfeff;
+      }
+
+      .template-link:focus-visible {
+        outline: 2px solid #0ea5b7;
+        outline-offset: 1px;
+      }
+
+      .template-meta {
+        margin-top: 10px;
+        font-size: 0.82rem;
+        color: #64748b;
+      }
+
+      .template-warning {
+        margin-top: 6px;
+        font-size: 0.82rem;
+        color: #b91c1c;
+        font-weight: 700;
       }
 
       .parsing-progress {
@@ -1031,6 +1060,15 @@
           position: static;
           width: 100%;
           justify-content: center;
+        }
+
+        .template-actions {
+          gap: 6px;
+        }
+
+        .template-link {
+          width: 100%;
+          text-align: center;
         }
 
         .page-header-wrapper {
@@ -4307,15 +4345,13 @@ function addStudentForm() {
 
         <div class="template-download">
           <p>📋 Need a template?</p>
-          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-            <button type="button" class="template-link" style="border:none;background:transparent;padding:0;cursor:pointer;" onclick="downloadCsvTemplate()">Download CSV Template</button>
-            <span style="color:#94a3b8;">|</span>
-            <button type="button" class="template-link" style="border:none;background:transparent;padding:0;cursor:pointer;" onclick="downloadExcelTemplate()">Download Excel Template (.xls)</button>
-            <span style="color:#94a3b8;">|</span>
-            <button type="button" class="template-link" style="border:none;background:transparent;padding:0;cursor:pointer;" onclick="downloadWordTemplate()">Download Word Template (.doc)</button>
+          <div class="template-actions">
+            <button type="button" class="template-link" onclick="downloadCsvTemplate()">Download CSV Template</button>
+            <button type="button" class="template-link" onclick="downloadExcelTemplate()">Download Excel Template (.xls)</button>
+            <button type="button" class="template-link" onclick="downloadWordTemplate()">Download Word Template (.doc)</button>
           </div>
-          <div style="margin-top:8px;font-size:0.82rem;color:#64748b;">Template Types: CSV, Excel (.xls), Word (.doc)</div>
-          <div style="margin-top:4px;font-size:0.82rem;color:#dc2626;font-weight:700;">Remove example rows before importing.</div>
+          <div class="template-meta">Template Types: CSV, Excel (.xls), Word (.doc)</div>
+          <div class="template-warning">Remove example rows before importing.</div>
         </div>
 
         <div id="parsingProgress" class="parsing-progress">

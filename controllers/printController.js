@@ -3073,19 +3073,37 @@ students
         return res.redirect(`/print/reportSettings?classId=${classId}`);
       }
 
-      let classesToApply = [];
+      const parsedTermId = parseInt(termId, 10);
+      if (!Number.isFinite(parsedTermId)) {
+        req.flash("error", "Invalid term selected.");
+        return res.redirect(`/print/reportSettings?classId=${classId}`);
+      }
+
+      let requestedClassIds = [];
       if (applyAllClasses) {
         const allClassesResult = await db.query(
           "SELECT class_id FROM classes WHERE organization_id = $1",
           [organizationId]
         );
-        classesToApply = allClassesResult.rows.map((row) => row.class_id);
+        requestedClassIds = allClassesResult.rows.map((row) => row.class_id);
       } else if (Array.isArray(selectedSignatureClasses)) {
-        classesToApply = selectedSignatureClasses.map((id) => parseInt(id, 10));
+        requestedClassIds = selectedSignatureClasses;
       } else if (selectedSignatureClasses) {
-        classesToApply = [parseInt(selectedSignatureClasses, 10)];
+        requestedClassIds = [selectedSignatureClasses];
       } else if (classId) {
-        classesToApply = [parseInt(classId, 10)];
+        requestedClassIds = [classId];
+      }
+
+      requestedClassIds = parsePositiveIntArray(requestedClassIds);
+      if (!requestedClassIds.length) {
+        req.flash("error", "Please select at least one valid class.");
+        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${parsedTermId}`);
+      }
+
+      const classesToApply = await getScopedClassIds(db, organizationId, requestedClassIds);
+      if (classesToApply.length !== requestedClassIds.length) {
+        req.flash("error", "One or more selected classes are outside this organization.");
+        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${parsedTermId}`);
       }
 
       const timestamp = Date.now();
@@ -3102,7 +3120,7 @@ students
           `SELECT signature_image_path 
            FROM report_settings 
            WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
-          [organizationId, currentClassId, termId]
+          [organizationId, currentClassId, parsedTermId]
         );
 
         const existingSignaturePath = existingSignatureResult.rows[0]?.signature_image_path;
@@ -3115,7 +3133,7 @@ students
            DO UPDATE SET signature_image_path = EXCLUDED.signature_image_path,
                          signature_name = EXCLUDED.signature_name,
                          signature_title = EXCLUDED.signature_title`,
-          [organizationId, currentClassId, termId, uploadedKey, signatureName || null, signatureTitle || null]
+          [organizationId, currentClassId, parsedTermId, uploadedKey, signatureName || null, signatureTitle || null]
         );
 
         // Check if old signature is still used by other classes
@@ -3124,7 +3142,7 @@ students
             `SELECT COUNT(*) as count 
              FROM report_settings 
              WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3`,
-            [organizationId, termId, existingSignaturePath]
+            [organizationId, parsedTermId, existingSignaturePath]
           );
 
           const otherUsesCount = parseInt(otherUsesResult.rows[0]?.count || 0);
@@ -3143,7 +3161,7 @@ students
       }
 
       req.flash("success", "Signature image uploaded successfully.");
-      res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+      res.redirect(`/print/reportSettings?classId=${classId}&termId=${parsedTermId}`);
     } catch (error) {
             req.flash("error", "Failed to upload signature image.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
@@ -3166,26 +3184,47 @@ students
       return res.redirect(`/print/reportSettings?classId=${classId}`);
     }
 
+    const parsedTermId = parseInt(termId, 10);
+    const parsedClassId = parseInt(classId, 10);
+    if (!Number.isFinite(parsedTermId) || !Number.isFinite(parsedClassId)) {
+      req.flash("error", "Invalid class or term.");
+      return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+    }
+
     try {
+      const scopedClassIds = await getScopedClassIds(db, organizationId, [parsedClassId]);
+      if (!scopedClassIds.length) {
+        req.flash("error", "Selected class is outside this organization.");
+        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+      }
+
       const result = await db.query(
         "SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, classId, termId]
+        [organizationId, parsedClassId, parsedTermId]
       );
       const signatureImagePath = result.rows[0]?.signature_image_path;
 
       if (signatureImagePath) {
-        // Remove the S3 URL prefix to get the key if needed
-        const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
-        let oldSignatureKey = signatureImagePath;
-        if (signatureImagePath.startsWith(s3Prefix)) {
-          oldSignatureKey = signatureImagePath.substring(s3Prefix.length);
+        const otherUsesResult = await db.query(
+          "SELECT COUNT(*)::int AS count FROM report_settings WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3 AND class_id <> $4",
+          [organizationId, parsedTermId, signatureImagePath, parsedClassId]
+        );
+        const otherUsesCount = Number(otherUsesResult.rows[0]?.count || 0);
+
+        if (otherUsesCount === 0) {
+          // Remove the S3 URL prefix to get the key if needed
+          const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+          let oldSignatureKey = signatureImagePath;
+          if (signatureImagePath.startsWith(s3Prefix)) {
+            oldSignatureKey = signatureImagePath.substring(s3Prefix.length);
+          }
+          await deleteFromS3(oldSignatureKey);
         }
-        await deleteFromS3(oldSignatureKey);
       }
 
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, classId, termId]
+        [organizationId, parsedClassId, parsedTermId]
       );
 
       req.flash("success", "Signature image deleted successfully.");
@@ -3210,25 +3249,38 @@ students
       return res.redirect(`/print/reportSettings`);
     }
 
+    const parsedTermId = parseInt(termId, 10);
+    const parsedClassId = parseInt(classId, 10);
+    if (!Number.isFinite(parsedTermId) || !Number.isFinite(parsedClassId)) {
+      req.flash("error", "Invalid class or term.");
+      return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+    }
+
     try {
+      const scopedClassIds = await getScopedClassIds(db, organizationId, [parsedClassId]);
+      if (!scopedClassIds.length) {
+        req.flash("error", "Selected class is outside this organization.");
+        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+      }
+
       // Get the signature path before deleting
       const sigResult = await db.query(
         "SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, classId, termId]
+        [organizationId, parsedClassId, parsedTermId]
       );
       const signaturePath = sigResult.rows[0]?.signature_image_path;
 
       // Remove the signature assignment for this class
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, classId, termId]
+        [organizationId, parsedClassId, parsedTermId]
       );
 
       // Check if this signature is used by any other class
       if (signaturePath) {
         const otherClassesResult = await db.query(
           "SELECT COUNT(*) as count FROM report_settings WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3",
-          [organizationId, termId, signaturePath]
+          [organizationId, parsedTermId, signaturePath]
         );
 
         const otherClassesCount = parseInt(otherClassesResult.rows[0]?.count || 0);
@@ -3268,11 +3320,29 @@ students
       return res.redirect(`/print/reportSettings?termId=${termId}`);
     }
 
+    const parsedTermId = parseInt(termId, 10);
+    if (!Number.isFinite(parsedTermId)) {
+      req.flash("error", "Invalid term.");
+      return res.redirect(`/print/reportSettings?termId=${termId}`);
+    }
+
     try {
+      const ownershipResult = await db.query(
+        `SELECT COUNT(*)::int AS count
+         FROM report_settings
+         WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3`,
+        [organizationId, parsedTermId, signaturePath]
+      );
+      const ownedCount = Number(ownershipResult.rows[0]?.count || 0);
+      if (ownedCount === 0) {
+        req.flash("error", "Signature not found in this organization.");
+        return res.redirect(`/print/reportSettings?termId=${parsedTermId}`);
+      }
+
       // Remove signature from all classes in this organization and term
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3",
-        [organizationId, termId, signaturePath]
+        [organizationId, parsedTermId, signaturePath]
       );
 
       // Delete the signature file from S3
@@ -3285,11 +3355,11 @@ students
 
       console.log(`[deleteEntireSignature] Deleted signature: ${signatureKey}`);
       req.flash("success", "Signature deleted successfully from all classes.");
-      res.redirect(`/print/reportSettings?termId=${termId}`);
+      res.redirect(`/print/reportSettings?termId=${parsedTermId}`);
     } catch (error) {
       console.error("[deleteEntireSignature] error", error);
       req.flash("error", "Failed to delete signature.");
-      res.redirect(`/print/reportSettings?termId=${termId}`);
+      res.redirect(`/print/reportSettings?termId=${parsedTermId}`);
     }
   },
 
@@ -3314,10 +3384,29 @@ students
       }
 
       const parsedTermId = parseInt(termId, 10);
+      if (!Number.isFinite(parsedTermId)) {
+        return res.json({ success: false, message: "Invalid term." });
+      }
+
+      const ownershipResult = await db.query(
+        `SELECT COUNT(*)::int AS count
+         FROM report_settings
+         WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3`,
+        [organizationId, parsedTermId, signaturePath]
+      );
+      const ownedCount = Number(ownershipResult.rows[0]?.count || 0);
+      if (ownedCount === 0) {
+        return res.json({ success: false, message: "Signature not found in this organization." });
+      }
+
+      const requestedClassIds = parsePositiveIntArray(selectedClasses);
+      const validClassIds = await getScopedClassIds(db, organizationId, requestedClassIds);
+      if (!requestedClassIds.length || validClassIds.length !== requestedClassIds.length) {
+        return res.json({ success: false, message: "One or more selected classes are outside this organization." });
+      }
 
       // Add signature to selected classes
-      for (const classId of selectedClasses) {
-        const parsedClassId = parseInt(classId, 10);
+      for (const parsedClassId of validClassIds) {
         
         await db.query(
           `
@@ -3367,7 +3456,13 @@ students
         return res.redirect(`/print/reportSettings`);
       }
 
-      const classesToApply = normalizedTranscriptClasses.map((id) => parseInt(id, 10));
+      const requestedClassIds = parsePositiveIntArray(normalizedTranscriptClasses);
+      const classesToApply = await getScopedClassIds(db, organizationId, requestedClassIds);
+      if (!requestedClassIds.length || classesToApply.length !== requestedClassIds.length) {
+        req.flash("error", "One or more selected classes are outside this organization.");
+        return res.redirect(`/print/reportSettings`);
+      }
+
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(2, 8);
       const filename = `transcript-signature-${timestamp}-${randomSuffix}.png`;
@@ -3438,16 +3533,27 @@ students
 
     try {
       const transcriptTermId = -1;
+      const parsedClassId = parseInt(classId, 10);
+      if (!Number.isFinite(parsedClassId)) {
+        req.flash("error", "Invalid class.");
+        return res.redirect(`/print/reportSettings`);
+      }
+
+      const scopedClassIds = await getScopedClassIds(db, organizationId, [parsedClassId]);
+      if (!scopedClassIds.length) {
+        req.flash("error", "Selected class is outside this organization.");
+        return res.redirect(`/print/reportSettings`);
+      }
 
       const sigResult = await db.query(
         "SELECT signature_image_path FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, classId, transcriptTermId]
+        [organizationId, parsedClassId, transcriptTermId]
       );
       const signaturePath = sigResult.rows[0]?.signature_image_path;
 
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
-        [organizationId, classId, transcriptTermId]
+        [organizationId, parsedClassId, transcriptTermId]
       );
 
       if (signaturePath) {
@@ -3484,6 +3590,18 @@ students
 
     try {
       const transcriptTermId = -1;
+
+      const ownershipResult = await db.query(
+        `SELECT COUNT(*)::int AS count
+         FROM report_settings
+         WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3`,
+        [organizationId, transcriptTermId, signaturePath]
+      );
+      const ownedCount = Number(ownershipResult.rows[0]?.count || 0);
+      if (ownedCount === 0) {
+        req.flash("error", "Signature not found in this organization.");
+        return res.redirect(`/print/reportSettings`);
+      }
 
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3",
@@ -3522,8 +3640,24 @@ students
 
       const transcriptTermId = -1;
 
-      for (const classId of selectedClasses) {
-        const parsedClassId = parseInt(classId, 10);
+      const ownershipResult = await db.query(
+        `SELECT COUNT(*)::int AS count
+         FROM report_settings
+         WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3`,
+        [organizationId, transcriptTermId, signaturePath]
+      );
+      const ownedCount = Number(ownershipResult.rows[0]?.count || 0);
+      if (ownedCount === 0) {
+        return res.json({ success: false, message: "Signature not found in this organization." });
+      }
+
+      const requestedClassIds = parsePositiveIntArray(selectedClasses);
+      const validClassIds = await getScopedClassIds(db, organizationId, requestedClassIds);
+      if (!requestedClassIds.length || validClassIds.length !== requestedClassIds.length) {
+        return res.json({ success: false, message: "One or more selected classes are outside this organization." });
+      }
+
+      for (const parsedClassId of validClassIds) {
         
         await db.query(
           `INSERT INTO report_settings (organization_id, class_id, term_id, signature_image_path)

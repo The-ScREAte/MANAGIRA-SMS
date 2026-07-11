@@ -15593,18 +15593,66 @@ NUMBERING:
     try {
       await client.query("BEGIN");
 
+      // Ensure uniqueness is tenant-scoped so each organization can keep the same year-group names.
+      await client.query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1
+            FROM pg_constraint
+            WHERE conname = 'graduation_year_groups_name_key'
+          ) THEN
+            ALTER TABLE graduation_year_groups
+              DROP CONSTRAINT graduation_year_groups_name_key;
+          END IF;
+
+          IF NOT EXISTS (
+            SELECT 1
+            FROM pg_constraint
+            WHERE conname = 'graduation_year_groups_org_name_key'
+          ) THEN
+            ALTER TABLE graduation_year_groups
+              ADD CONSTRAINT graduation_year_groups_org_name_key UNIQUE (organization_id, name);
+          END IF;
+        END
+        $$;
+      `);
+
+      let insertedCount = 0;
+      let skippedCount = 0;
+
       for (let year of graduationYear) {
         if (year.trim() !== "") {
           const yearGroup = `Graduation Class of ${year.trim()} Group`;
-          await client.query(
-            "INSERT INTO graduation_year_groups (name, organization_id) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
+          const insertResult = await client.query(
+            "INSERT INTO graduation_year_groups (name, organization_id) VALUES ($1, $2) ON CONFLICT (organization_id, name) DO NOTHING",
             [yearGroup, organizationId]
           );
+
+          if (insertResult.rowCount > 0) {
+            insertedCount += 1;
+          } else {
+            skippedCount += 1;
+          }
         }
       }
 
       await client.query("COMMIT");
-      req.flash("success", "Graduation year groups added successfully.");
+
+      if (insertedCount > 0 && skippedCount > 0) {
+        req.flash(
+          "success",
+          `Added ${insertedCount} graduation year group${insertedCount === 1 ? "" : "s"}. ${skippedCount} already existed.`
+        );
+      } else if (insertedCount > 0) {
+        req.flash(
+          "success",
+          `Added ${insertedCount} graduation year group${insertedCount === 1 ? "" : "s"} successfully.`
+        );
+      } else {
+        req.flash("error", "No new graduation year groups were added. They may already exist.");
+      }
+
       res.redirect("/common/addClassSubject");
     } catch (error) {
       await client.query("ROLLBACK");
