@@ -3314,7 +3314,7 @@
           let subjectsData = classSubjectsCache.get(classCacheKey);
 
           if (!subjectsData) {
-            const response = await fetch(`/common/getSubjectsForClass?classId=${classId}&organizationId=${organizationId}`);
+            const response = await fetch(`/common/getSubjectsForClass?classId=${classId}`);
             if (!response.ok) {
               throw new Error(`Failed to fetch subjects for class ${classId}`);
             }

@@ -248,7 +248,7 @@ module.exports = (db) => {
     commonController.classReportDetail(req, res, db)
   );
   
-  router.get("/check-student-id", isAuthenticated, (req, res) =>
+  router.get("/check-student-id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.checkStudentId(req, res, db)
   );
   router.get("/editStudent", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
@@ -404,7 +404,7 @@ module.exports = (db) => {
     commonController.renameClassAssessmentExam(req, res, db)
   );
 
-  router.get("/getSubjectsForClass", isAuthenticated, (req, res) =>
+  router.get("/getSubjectsForClass", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>
     commonController.getSubjectsForClass(req, res, db)
   );
 
