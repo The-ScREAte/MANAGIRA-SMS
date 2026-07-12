@@ -19,7 +19,8 @@ const {
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 require('dotenv').config();
 
-const FAILED_RETRY_COOLDOWN_DAYS = 4;
+const FAILED_RETRY_COOLDOWN_DAYS = 3;
+// Total failed attempts allowed before hold: 1 initial failure + 3 retries.
 const MAX_FAILED_RETRY_ATTEMPTS = 4;
 const STRIPE_PREFERRED_CHARGE_CURRENCIES = new Set([
   'USD',
@@ -122,6 +123,83 @@ async function ensureBillingInvoiceSchema() {
     CREATE UNIQUE INDEX IF NOT EXISTS billing_invoices_unique_precharge_idx
     ON billing_invoices (organization_id, invoice_type, scheduled_charge_at)
   `);
+}
+
+async function ensureBillingRetryAttemptSchema() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS billing_retry_attempts (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL,
+      attempt_number INTEGER,
+      max_attempts INTEGER NOT NULL DEFAULT 4,
+      charge_status TEXT NOT NULL,
+      amount_due NUMERIC(12, 2) NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'USD',
+      failure_reason TEXT,
+      payment_intent_id TEXT,
+      email_to_school TEXT,
+      email_to_school_sent BOOLEAN,
+      email_to_admin TEXT,
+      email_to_admin_sent BOOLEAN,
+      next_retry_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS billing_retry_attempts_org_created_idx
+    ON billing_retry_attempts (organization_id, created_at DESC)
+  `);
+}
+
+async function logBillingRetryAttempt({
+  organizationId,
+  attemptNumber,
+  chargeStatus,
+  amountDue,
+  currency,
+  failureReason,
+  paymentIntentId,
+  emailToSchool,
+  emailToSchoolSent,
+  emailToAdmin,
+  emailToAdminSent,
+  nextRetryAt,
+}) {
+  await db.query(
+    `INSERT INTO billing_retry_attempts (
+       organization_id,
+       attempt_number,
+       max_attempts,
+       charge_status,
+       amount_due,
+       currency,
+       failure_reason,
+       payment_intent_id,
+       email_to_school,
+       email_to_school_sent,
+       email_to_admin,
+       email_to_admin_sent,
+       next_retry_at
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+     )`,
+    [
+      organizationId,
+      Number.isInteger(Number(attemptNumber)) ? Number(attemptNumber) : null,
+      MAX_FAILED_RETRY_ATTEMPTS,
+      chargeStatus,
+      Number(amountDue || 0),
+      String(currency || 'USD').toUpperCase(),
+      failureReason || null,
+      paymentIntentId || null,
+      emailToSchool || null,
+      typeof emailToSchoolSent === 'boolean' ? emailToSchoolSent : null,
+      emailToAdmin || null,
+      typeof emailToAdminSent === 'boolean' ? emailToAdminSent : null,
+      nextRetryAt || null,
+    ]
+  );
 }
 
 function buildPrechargeInvoiceNumber(organizationId, scheduledChargeAt) {
@@ -267,7 +345,7 @@ async function sendRenewalFailureNotification({ email, organizationName, amount,
     ],
   });
 
-  await sendEmailSafely(
+  return sendEmailSafely(
     {
       to: email,
       subject: 'Managira: Renewal Payment Failed',
@@ -437,6 +515,7 @@ async function createAndSendPrechargeInvoices() {
 async function runRecurringBilling() {
   await ensurePaymentProviderSchema(db);
   await ensureBillingInvoiceSchema();
+  await ensureBillingRetryAttemptSchema();
   let stripe = null;
   try {
     stripe = await getStripeClient(db);
@@ -792,26 +871,47 @@ async function runRecurringBilling() {
             [org.organization_id]
           );
 
-          await recordRenewalFailure({
+          const failedAttempts = await recordRenewalFailure({
             organizationId: org.organization_id,
             paymentFailureColumns,
           });
 
-          await sendRenewalFailureNotification({
+          const schoolEmailSent = await sendRenewalFailureNotification({
             email: org.email,
             organizationName: org.organization_name,
             amount: amount / 100,
             reason: failureMessage,
           });
 
+          let adminEmailSent = null;
           if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL !== org.email) {
-            await sendRenewalFailureNotification({
+            adminEmailSent = await sendRenewalFailureNotification({
               email: process.env.ADMIN_EMAIL,
               organizationName: org.organization_name,
               amount: amount / 100,
               reason: failureMessage,
             });
           }
+
+          const nextRetryAt = Number.isInteger(Number(failedAttempts))
+            && Number(failedAttempts) < MAX_FAILED_RETRY_ATTEMPTS
+            ? new Date(Date.now() + FAILED_RETRY_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
+            : null;
+
+          await logBillingRetryAttempt({
+            organizationId: org.organization_id,
+            attemptNumber: failedAttempts,
+            chargeStatus: 'failed',
+            amountDue: chargeAmount,
+            currency: stripeChargeCurrency,
+            failureReason: failureMessage,
+            paymentIntentId: chargeRes.data?.paymentIntentId || null,
+            emailToSchool: org.email,
+            emailToSchoolSent: Boolean(schoolEmailSent),
+            emailToAdmin: process.env.ADMIN_EMAIL || null,
+            emailToAdminSent: adminEmailSent,
+            nextRetryAt,
+          });
         }
       } catch (err) {
         const failureMessage = err?.response?.data?.message || err.message || 'Charge request failed.';
@@ -828,26 +928,47 @@ async function runRecurringBilling() {
           [org.organization_id]
         );
 
-        await recordRenewalFailure({
+        const failedAttempts = await recordRenewalFailure({
           organizationId: org.organization_id,
           paymentFailureColumns,
         });
 
-        await sendRenewalFailureNotification({
+        const schoolEmailSent = await sendRenewalFailureNotification({
           email: org.email,
           organizationName: org.organization_name,
           amount: amount / 100,
           reason: failureMessage,
         });
 
+        let adminEmailSent = null;
         if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL !== org.email) {
-          await sendRenewalFailureNotification({
+          adminEmailSent = await sendRenewalFailureNotification({
             email: process.env.ADMIN_EMAIL,
             organizationName: org.organization_name,
             amount: amount / 100,
             reason: failureMessage,
           });
         }
+
+        const nextRetryAt = Number.isInteger(Number(failedAttempts))
+          && Number(failedAttempts) < MAX_FAILED_RETRY_ATTEMPTS
+          ? new Date(Date.now() + FAILED_RETRY_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
+          : null;
+
+        await logBillingRetryAttempt({
+          organizationId: org.organization_id,
+          attemptNumber: failedAttempts,
+          chargeStatus: 'failed',
+          amountDue: chargeAmount,
+          currency: stripeChargeCurrency,
+          failureReason: failureMessage,
+          paymentIntentId: null,
+          emailToSchool: org.email,
+          emailToSchoolSent: Boolean(schoolEmailSent),
+          emailToAdmin: process.env.ADMIN_EMAIL || null,
+          emailToAdminSent: adminEmailSent,
+          nextRetryAt,
+        });
       }
     } finally {
       await db.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);

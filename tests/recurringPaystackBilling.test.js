@@ -91,6 +91,15 @@ function createHarness(options = {}) {
         return { rows: [] };
       }
 
+      if (sql.includes('CREATE TABLE IF NOT EXISTS billing_retry_attempts')
+        || sql.includes('CREATE INDEX IF NOT EXISTS billing_retry_attempts_org_created_idx')) {
+        return { rows: [] };
+      }
+
+      if (sql.includes('INSERT INTO billing_retry_attempts')) {
+        return { rows: [] };
+      }
+
       if (sql.includes("SELECT value FROM app_settings WHERE key = 'billing_interval'")) {
         return { rows: [{ value: 'monthly' }] };
       }
@@ -295,7 +304,7 @@ test('recurring billing charges via stripe and resets failure tracking on succes
     && entry.sql.includes('COALESCE(p.failed_attempts, 0) < 4')
   );
   assert.ok(dueQuery.sql.includes("COALESCE(p.failed_attempts, 0) < 4"));
-  assert.ok(dueQuery.sql.includes("interval '4 days'"));
+  assert.ok(dueQuery.sql.includes("interval '3 days'"));
   assert.ok(dueQuery.sql.includes('COALESCE(o.deleted, false) = false'));
 
   assert.equal(harness.charges.length, 1);
