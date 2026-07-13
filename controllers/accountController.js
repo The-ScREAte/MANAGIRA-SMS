@@ -8261,10 +8261,25 @@ const accountController = {
         connected: false,
         shouldShowFeatures: false,
       };
+      let whatsappIntegration = {
+        activated: false,
+        configured: false,
+        connected: false,
+        shouldShowFeatures: false,
+        displayPhoneNumber: "",
+        businessName: "",
+        lastError: "",
+      };
+      let studentPortalIntegration = {
+        activated: false,
+        configured: false,
+        connected: false,
+        shouldShowFeatures: false,
+      };
       const [settingsPermission, billingPermission, paygiraPermission] = await Promise.all([
-        userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_SETTINGS),
-        userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_BILLING),
-        userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_PAYGIRA),
+        userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_SETTINGS).catch(() => false),
+        userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_BILLING).catch(() => false),
+        userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_PAYGIRA).catch(() => false),
       ]);
 
       canAccessCustomizeSettings = settingsPermission || localPermissionSet.has(PERMISSIONS.MANAGE_SETTINGS);
@@ -8315,10 +8330,12 @@ const accountController = {
 
       const payoutDestinationUtils = require("../utils/payoutDestination");
       const [payoutContext, paystackCountries] = await Promise.all([
-        payoutDestinationUtils
-          .resolveSchoolPayoutDestination(orgId, db, { fresh: true })
-          .catch(() => null),
-        getCachedPaystackCountries(),
+        orgId
+          ? payoutDestinationUtils
+              .resolveSchoolPayoutDestination(orgId, db, { fresh: true })
+              .catch(() => null)
+          : Promise.resolve(null),
+        getCachedPaystackCountries().catch(() => []),
       ]);
 
       res.render("account/settings", {

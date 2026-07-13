@@ -23,6 +23,22 @@ function hasPaygiraFeatureInSession(req, res) {
 	);
 }
 
+function isWorkspaceEmbeddedMyPaygiraRequest(req) {
+	const isMyPaygiraPath = /^\/my-paygira(\/|$)/.test(String(req.path || ""));
+	if (!isMyPaygiraPath) {
+		return false;
+	}
+
+	const embedMode = String(req.query?.embed || req.body?.embedMode || "").trim().toLowerCase();
+	if (embedMode !== "workspace") {
+		return false;
+	}
+
+	const classIdRaw = req.query?.classId ?? req.body?.classId;
+	const classId = Number.parseInt(classIdRaw, 10);
+	return Number.isInteger(classId) && classId > 0;
+}
+
 async function hydrateFinanceSessionContext(req) {
 	try {
 		await hydrateOrganizationSession(req);
@@ -84,6 +100,10 @@ const requireMyPaygiraAccess = async (req, res, next) => {
 	try {
 		await hydrateFinanceSessionContext(req);
 
+		if (isWorkspaceEmbeddedMyPaygiraRequest(req)) {
+			return next();
+		}
+
 		const database = req.app.get("db");
 		const localPermissionSet = new Set(
 			(Array.isArray(res.locals?.userPermissions) ? res.locals.userPermissions : [])
@@ -127,6 +147,10 @@ router.use((req, res, next) => {
 // Platform admins (no org) also bypass this gate.
 const requirePaygiraFeature = async (req, res, next) => {
 	await hydrateFinanceSessionContext(req);
+
+	if (isWorkspaceEmbeddedMyPaygiraRequest(req)) {
+		return next();
+	}
 
 	const accountType = String(
 		req.session?.accountType || req.session?.user?.account_type || req.user?.account_type || ""

@@ -14529,13 +14529,7 @@ NUMBERING:
         classReportsCount = Number(reportsCountResult.rows[0]?.total || 0);
       }
 
-      const localPermissionSet = new Set(
-        (Array.isArray(res.locals?.userPermissions) ? res.locals.userPermissions : [])
-          .map((permissionKey) => String(permissionKey || "").trim().toLowerCase())
-      );
-      const canOpenPaygiraWorkspace =
-        localPermissionSet.has(PERMISSIONS.MANAGE_PAYGIRA) ||
-        localPermissionSet.has(PERMISSIONS.MANAGE_BILLING);
+      const canOpenPaygiraWorkspace = true;
 
       const routePanel = String(req.params.panel || '').trim().toLowerCase();
       const routeItemId = req.params.itemId ? String(req.params.itemId).trim() : '';
@@ -14557,7 +14551,7 @@ NUMBERING:
         initialWorkspaceRoute = { panel: 'subjects', itemId: '' };
       } else if (routePanel === 'class-exams' && canManageAllClassAssessmentExams) {
         initialWorkspaceRoute = { panel: 'class-exams', itemId: '' };
-      } else if (routePanel === 'paygira' && canOpenPaygiraWorkspace) {
+      } else if (routePanel === 'paygira') {
         initialWorkspaceRoute = { panel: 'paygira', itemId: '' };
       } else if (routePanel === 'student' && routeItemId) {
         initialWorkspaceRoute = { panel: 'student', itemId: routeItemId };
