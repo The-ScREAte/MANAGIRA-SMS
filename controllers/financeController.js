@@ -9,7 +9,7 @@ const Stripe = require("stripe");
 const axios = require("axios");
 const bcrypt = require("bcryptjs");
 const db = require("../config/db");
-const { userHasPermission } = require("../middleware/permissionMiddleware");
+const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const { logOrganizationActivity } = require("../utils/activityLog");
 const {
   getHolidayCountryOptions,
@@ -169,8 +169,8 @@ async function isFinanceAdmin(req) {
       userEmail: req?.session?.user?.email || req?.session?.email || null,
     };
 
-    const canManageBilling = await userHasPermission(database, permissionContext, "MANAGE_BILLING");
-    const canManagePaygira = await userHasPermission(database, permissionContext, "MANAGE_PAYGIRA");
+    const canManageBilling = await userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_BILLING);
+    const canManagePaygira = await userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_PAYGIRA);
     return Boolean(canManageBilling || canManagePaygira);
   } catch (_) {
     return false;

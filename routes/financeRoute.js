@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const { isAuthenticated } = require("../middleware/authMiddleware");
 const { requirePermission, PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
+const { hydrateOrganizationSession } = require("../utils/sessionContext");
 const c = require("../controllers/financeController");
 
 const PAYGIRA_FEATURE_NAMES = new Set([
@@ -22,41 +23,50 @@ function hasPaygiraFeatureInSession(req, res) {
 	);
 }
 
+async function hydrateFinanceSessionContext(req) {
+	try {
+		await hydrateOrganizationSession(req);
+	} catch (_) {
+		// Best-effort only; guards below still handle denial/fallback.
+	}
+}
+
+function getPermissionContextFromRequest(req) {
+	const sessionUser = req.session?.user || {};
+	const requestUser = req.user || {};
+
+	return {
+		userId: sessionUser.user_id || req.session?.userId || req.session?.passport?.user || requestUser.user_id || null,
+		userRole: req.session?.userRole || sessionUser.account_type || requestUser.account_type || null,
+		organizationId: req.session?.organizationId || sessionUser.organization_id || requestUser.organization_id || null,
+		accountType: req.session?.accountType || sessionUser.account_type || requestUser.account_type || null,
+		userEmail: sessionUser.email || req.session?.email || requestUser.email || null,
+	};
+}
+
 // Admin/finance pages require the Manage Billing permission (in addition to authentication).
 // Owners/admins always pass; managers must have it explicitly granted.
 const requireBilling = requirePermission(PERMISSIONS.MANAGE_BILLING);
 const requireFinanceSettingsAccess = async (req, res, next) => {
 	try {
-		const userRole = req.session.userRole || req.session.user?.account_type || null;
-		const accountType = req.session.accountType || req.session.user?.account_type || null;
-		const normalizedRole = String(userRole || accountType || "").trim().toLowerCase();
+		await hydrateFinanceSessionContext(req);
 
-		if (normalizedRole === "teacher") {
-			req.flash("error", "Teachers do not have access to these PayGira settings.");
-			return res.redirect("/account/settings?section=profile");
-		}
+		const localPermissionSet = new Set(
+			(Array.isArray(res.locals?.userPermissions) ? res.locals.userPermissions : [])
+				.map((permissionKey) => String(permissionKey || "").trim().toLowerCase())
+		);
+		const hasLocalBillingAccess = localPermissionSet.has(PERMISSIONS.MANAGE_BILLING);
+		const hasLocalPaygiraAccess = localPermissionSet.has(PERMISSIONS.MANAGE_PAYGIRA);
 
 		const database = req.app.get("db");
-		const permissionContext = {
-			userId: req.session.user?.user_id || req.session.userId || null,
-			userRole,
-			organizationId: req.session.organizationId,
-			accountType,
-			userEmail: req.session.user?.email || req.session.email || null,
-		};
+		const permissionContext = getPermissionContextFromRequest(req);
 
-		const canManageBilling = await userHasPermission(
-			database,
-			permissionContext,
-			PERMISSIONS.MANAGE_BILLING
-		);
-		const canManagePaygira = await userHasPermission(
-			database,
-			permissionContext,
-			PERMISSIONS.MANAGE_PAYGIRA
-		);
+		const [canManageBilling, canManagePaygira] = await Promise.all([
+			userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_BILLING),
+			userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_PAYGIRA),
+		]);
 
-		if (canManageBilling || canManagePaygira) {
+		if (canManageBilling || canManagePaygira || hasLocalBillingAccess || hasLocalPaygiraAccess) {
 			return next();
 		}
 
@@ -72,21 +82,21 @@ const requireFinanceSettingsAccess = async (req, res, next) => {
 // explicitly granted the MANAGE_PAYGIRA (or MANAGE_BILLING) permission.
 const requireMyPaygiraAccess = async (req, res, next) => {
 	try {
+		await hydrateFinanceSessionContext(req);
+
 		const database = req.app.get("db");
-		const userRole = req.session.userRole || req.session.user?.account_type || null;
-		const accountType = req.session.accountType || req.session.user?.account_type || null;
-		const permissionContext = {
-			userId: req.session.user?.user_id || req.session.userId || null,
-			userRole,
-			organizationId: req.session.organizationId,
-			accountType,
-			userEmail: req.session.user?.email || req.session.email || null,
-		};
+		const localPermissionSet = new Set(
+			(Array.isArray(res.locals?.userPermissions) ? res.locals.userPermissions : [])
+				.map((permissionKey) => String(permissionKey || "").trim().toLowerCase())
+		);
+		const hasLocalBillingAccess = localPermissionSet.has(PERMISSIONS.MANAGE_BILLING);
+		const hasLocalPaygiraAccess = localPermissionSet.has(PERMISSIONS.MANAGE_PAYGIRA);
+		const permissionContext = getPermissionContextFromRequest(req);
 
 		const canManageBilling = await userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_BILLING);
 		const canManagePaygira = await userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_PAYGIRA);
 
-		if (canManageBilling || canManagePaygira) {
+		if (canManageBilling || canManagePaygira || hasLocalBillingAccess || hasLocalPaygiraAccess) {
 			return next();
 		}
 
@@ -116,8 +126,14 @@ router.use((req, res, next) => {
 // 2) Explicit finance permission (MANAGE_PAYGIRA / MANAGE_BILLING).
 // Platform admins (no org) also bypass this gate.
 const requirePaygiraFeature = async (req, res, next) => {
-	const accountType = String(req.session?.accountType || "").trim().toLowerCase();
-	const role = String(req.session?.userRole || "").trim().toLowerCase();
+	await hydrateFinanceSessionContext(req);
+
+	const accountType = String(
+		req.session?.accountType || req.session?.user?.account_type || req.user?.account_type || ""
+	).trim().toLowerCase();
+	const role = String(
+		req.session?.userRole || req.session?.user?.account_type || req.user?.account_type || ""
+	).trim().toLowerCase();
 	const adminSet = new Set(["admin", "mini admin", "internal worker"]);
 	if (adminSet.has(accountType) || adminSet.has(role)) {
 		return next();
@@ -129,13 +145,7 @@ const requirePaygiraFeature = async (req, res, next) => {
 
 	try {
 		const database = req.app.get("db");
-		const permissionContext = {
-			userId: req.session?.user?.user_id || req.session?.userId || null,
-			userRole: req.session?.userRole || req.session?.user?.account_type || null,
-			organizationId: req.session?.organizationId || null,
-			accountType: req.session?.accountType || req.session?.user?.account_type || null,
-			userEmail: req.session?.user?.email || req.session?.email || null,
-		};
+		const permissionContext = getPermissionContextFromRequest(req);
 
 		const [canManageBilling, canManagePaygira] = await Promise.all([
 			userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_BILLING),

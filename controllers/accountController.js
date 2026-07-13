@@ -8247,10 +8247,10 @@ const accountController = {
         accountType: req.session.accountType || user?.account_type || null,
         userEmail: user?.email || req.session.email || null,
       };
-      const normalizedSettingsRole = String(permissionContext.userRole || permissionContext.accountType || "")
-        .trim()
-        .toLowerCase();
-      const isTeacherSettingsUser = normalizedSettingsRole === "teacher";
+      const localPermissionSet = new Set(
+        (Array.isArray(res.locals?.userPermissions) ? res.locals.userPermissions : [])
+          .map((permissionKey) => String(permissionKey || "").trim().toLowerCase())
+      );
 
       let canAccessCustomizeSettings = false;
       let canAccessBillingSettings = false;
@@ -8261,46 +8261,36 @@ const accountController = {
         connected: false,
         shouldShowFeatures: false,
       };
-      let whatsappIntegration = {
-        activated: false,
-        configured: false,
-        connected: false,
-        shouldShowFeatures: false,
-      };
-      let studentPortalIntegration = {
-        activated: false,
-        shouldShowFeatures: false,
-      };
+      const [settingsPermission, billingPermission, paygiraPermission] = await Promise.all([
+        userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_SETTINGS),
+        userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_BILLING),
+        userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_PAYGIRA),
+      ]);
 
-      if (!isTeacherSettingsUser) {
-        const [settingsPermission, billingPermission, paygiraPermission] = await Promise.all([
-          userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_SETTINGS),
-          userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_BILLING),
-          userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_PAYGIRA),
+      canAccessCustomizeSettings = settingsPermission || localPermissionSet.has(PERMISSIONS.MANAGE_SETTINGS);
+      canAccessBillingSettings = billingPermission || localPermissionSet.has(PERMISSIONS.MANAGE_BILLING);
+      canAccessPaygiraSettings =
+        canAccessBillingSettings ||
+        paygiraPermission ||
+        localPermissionSet.has(PERMISSIONS.MANAGE_PAYGIRA);
+
+      if (canAccessCustomizeSettings && orgId) {
+        const [resolvedGoogleIntegration, initialWhatsappIntegration, resolvedStudentPortalIntegration] = await Promise.all([
+          getGoogleIntegrationStatus(db, orgId),
+          getWhatsappIntegrationStatus(db, orgId),
+          getStudentPortalIntegrationStatus(db, orgId),
         ]);
+        googleIntegration = resolvedGoogleIntegration;
+        whatsappIntegration = initialWhatsappIntegration;
+        studentPortalIntegration = resolvedStudentPortalIntegration;
 
-        canAccessCustomizeSettings = settingsPermission;
-        canAccessBillingSettings = billingPermission;
-        canAccessPaygiraSettings = billingPermission || paygiraPermission;
-
-        if (canAccessCustomizeSettings && orgId) {
-          const [resolvedGoogleIntegration, initialWhatsappIntegration, resolvedStudentPortalIntegration] = await Promise.all([
-            getGoogleIntegrationStatus(db, orgId),
-            getWhatsappIntegrationStatus(db, orgId),
-            getStudentPortalIntegrationStatus(db, orgId),
-          ]);
-          googleIntegration = resolvedGoogleIntegration;
-          whatsappIntegration = initialWhatsappIntegration;
-          studentPortalIntegration = resolvedStudentPortalIntegration;
-
-          if (
-            whatsappIntegration &&
-            whatsappIntegration.lastError &&
-            isTransientWhatsappErrorMessage(whatsappIntegration.lastError)
-          ) {
-            await clearWhatsappConnectionError(db, orgId).catch(() => {});
-            whatsappIntegration = await getWhatsappIntegrationStatus(db, orgId).catch(() => whatsappIntegration);
-          }
+        if (
+          whatsappIntegration &&
+          whatsappIntegration.lastError &&
+          isTransientWhatsappErrorMessage(whatsappIntegration.lastError)
+        ) {
+          await clearWhatsappConnectionError(db, orgId).catch(() => {});
+          whatsappIntegration = await getWhatsappIntegrationStatus(db, orgId).catch(() => whatsappIntegration);
         }
       }
 

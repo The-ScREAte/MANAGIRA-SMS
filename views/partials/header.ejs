@@ -2390,7 +2390,11 @@
           const hasManagementPermission = Array.isArray(userPermissions) && userPermissions.some((permissionKey) =>
             managementPermissionKeys.has(String(permissionKey || '').trim().toLowerCase())
           );
-          const canSeeManagementTools = ['manager', 'supervisor', 'superviser'].includes(headerRoleKey) || hasManagementPermission;
+          const isTeacherRole = headerRoleKey === 'teacher';
+          const canSeeManagementTools = !isTeacherRole && (
+            ['manager', 'supervisor', 'superviser'].includes(headerRoleKey) ||
+            hasManagementPermission
+          );
         %>
         <% if (req.session && canSeeManagementTools) { %>
         <li class="nav-item">
