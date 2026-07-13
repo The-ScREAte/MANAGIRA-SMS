@@ -3109,6 +3109,8 @@
                 <% const billingPrimaryLine = `Next payment: You pay ${formatCurrentPlanAmount(billingCycleTotal)}.`; %>
                 <% const nextPaymentDate = hasBillingInfo && billingInfo.next_payment_end_date ? new Date(billingInfo.next_payment_end_date) : null; %>
                 <% const isBillingFailed = !!(hasBillingInfo && String(billingInfo.status || '').toLowerCase() === 'failed'); %>
+                <% const billingStatus = hasBillingInfo ? String(billingInfo.status || '').toLowerCase() : ''; %>
+                <% const isBillingSuccessful = ['active', 'paid', 'succeeded', 'success'].includes(billingStatus); %>
                 <% const hasFailureInfo = !!(typeof billingFailureInfo !== 'undefined' && billingFailureInfo); %>
                 <% const currentStudentCount = currentPlanPricing ? Number(currentPlanPricing.organizationStudentCount || 0) : 0; %>
                 <% if (pendingPlan) { %>
@@ -3157,16 +3159,6 @@
                   </div>
                 <% } %>
                 <% if (hasBillingInfo) { %>
-                  <div class="current-plan-meta">
-                    <span class="current-plan-pill">
-                      <%= billingInfo.period_label || 'Monthly' %>
-                    </span>
-                    <% if (billingInfo.discount_percentage > 0) { %>
-                      <span style="font-size:11px;color:#0d8d5d;font-weight:600;">
-                        (<%= billingInfo.discount_percentage %>% off)
-                      </span>
-                    <% } %>
-                  </div>
                   <% if (isBillingFailed) { %>
                     <% const failedAttemptNumber = hasFailureInfo && billingFailureInfo.attemptNumber ? Number(billingFailureInfo.attemptNumber) : null; %>
                     <% const failedMaxAttempts = hasFailureInfo && billingFailureInfo.maxAttempts ? Number(billingFailureInfo.maxAttempts) : 4; %>
@@ -3227,7 +3219,7 @@
                         <%= trialDaysLeft %> day<%= trialDaysLeft !== 1 ? 's' : '' %> remaining. First payment starts after trial.
                       </div>
                     </div>
-                  <% } else if (billingInfo.next_payment_end_date) { %>
+                  <% } else if (!isBillingSuccessful && billingInfo.next_payment_end_date) { %>
                     <div class="current-plan-summary">
                       <div class="current-plan-summary-standout">
                         Next renewal: <%= new Date(billingInfo.next_payment_end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
@@ -3238,7 +3230,7 @@
                         </div>
                       <% } %>
                     </div>
-                  <% } else if (!billingInfo.is_trial || parseFloat(billingInfo.amount_paid || 0) > 1) { %>
+                  <% } else if (!isBillingSuccessful && (!billingInfo.is_trial || parseFloat(billingInfo.amount_paid || 0) > 1)) { %>
                     <div class="current-plan-summary">
                       <div class="current-plan-summary-standout">
                         Last payment: <%= formatCurrentPlanAmount(parseFloat(billingInfo.amount_paid || 0)) %>
@@ -3269,11 +3261,13 @@
             <% if (appInvoices && appInvoices.length) { %>
             <ul class="billing-invoice-list">
               <% appInvoices.forEach((invoice) => { %>
-              <% const invoiceNumber = invoice.number || ('Invoice #' + invoice.id); %>
+              <% const invoiceTitle = invoice.displayName || 'Managira Invoice (SCREATE LLC)'; %>
+              <% const invoiceReference = invoice.displayReference || invoice.number || ('INV-' + invoice.id); %>
               <li class="billing-invoice-item">
                 <div class="billing-invoice-meta">
-                  <div class="billing-invoice-title"><%= invoiceNumber %></div>
-                  <div class="billing-invoice-copy"><%= (org && org.organization_name) ? org.organization_name : 'School' %></div>
+                  <div class="billing-invoice-title"><%= invoiceTitle %></div>
+                  <div class="billing-invoice-copy">Ref: <%= invoiceReference %></div>
+                  <div class="billing-invoice-copy">Billed to <%= (org && org.organization_name) ? org.organization_name : 'School' %></div>
                 </div>
                 <div class="billing-invoice-actions">
                   <a class="btn-link btn-inline" href="/account/invoices/<%= invoice.id %>/pdf?download=1" rel="noopener noreferrer">Download</a>

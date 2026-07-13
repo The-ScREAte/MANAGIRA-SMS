@@ -116,7 +116,10 @@ function createHarness(options = {}) {
         return { rows: [] };
       }
 
-      if (sql.includes('FROM organizations o') && sql.includes('JOIN payments p') && sql.includes("p.next_payment_end_date > NOW() + interval '23 hours'")) {
+      if (sql.includes('FROM organizations o')
+        && sql.includes('JOIN payments p')
+        && sql.includes("p.next_payment_end_date > NOW()")
+        && sql.includes("p.next_payment_end_date <= NOW() + interval '25 hours'")) {
         return { rows: upcomingOrgsRows };
       }
 
@@ -315,6 +318,46 @@ test('recurring billing charges via stripe and resets failure tracking on succes
 
   const paymentSuccessUpdate = harness.queries.find((entry) => entry.sql.includes("failed_attempts = 0"));
   assert.deepEqual(paymentSuccessUpdate.params, [150, 7]);
+});
+
+test('recurring billing creates invoice record for due charge when precharge window was missed', async () => {
+  const harness = createHarness({
+    studentCount: 180,
+    planTotalCost: 120,
+    upcomingOrgsRows: [],
+    orgsDueRows: [
+      {
+        organization_id: 71,
+        email: 'due@example.com',
+        organization_name: 'Due Invoice School',
+        plan_id: 3,
+        authorization_code: 'pm_due_71',
+        stripe_customer_id: 'cus_due_71',
+        next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
+        trial_active_until: null,
+        billing_period_key: 'monthly',
+        pending_plan_id: null,
+        pending_plan_effective_date: null,
+      },
+    ],
+  });
+
+  const loader = withMockedModules(harness);
+  try {
+    await loader.runRecurringBilling();
+  } finally {
+    loader.restore();
+  }
+
+  const invoiceInsert = harness.queries.find((entry) => entry.sql.includes('INSERT INTO billing_invoices'));
+  assert.ok(invoiceInsert);
+
+  const invoicePaidUpdate = harness.queries.find((entry) =>
+    entry.sql.includes('UPDATE billing_invoices')
+    && entry.sql.includes("SET status = 'paid'")
+  );
+  assert.ok(invoicePaidUpdate);
+  assert.deepEqual(invoicePaidUpdate.params, [1, 'pi_1']);
 });
 
 test('recurring billing puts organization on hold after the fourth failed charge attempt', async () => {
@@ -660,9 +703,11 @@ test('recurring billing creates upcoming precharge invoice and sends invoice ema
   const invoiceInsert = harness.queries.find((entry) => entry.sql.includes('INSERT INTO billing_invoices'));
   assert.ok(invoiceInsert);
   const upcomingQuery = harness.queries.find((entry) =>
-    entry.sql.includes("p.next_payment_end_date > NOW() + interval '23 hours'")
+    entry.sql.includes("p.next_payment_end_date > NOW()")
+    && entry.sql.includes("p.next_payment_end_date <= NOW() + interval '25 hours'")
   );
   assert.ok(upcomingQuery.sql.includes('COALESCE(o.deleted, false) = false'));
+  assert.ok(upcomingQuery.sql.includes('o.trial_active_until <= p.next_payment_end_date'));
   assert.equal(harness.emails.length, 1);
   assert.equal(harness.emails[0].tag, 'RecurringSubscriptionInvoice');
   assert.equal(harness.emails[0].payload.to, 'finance@example.com');

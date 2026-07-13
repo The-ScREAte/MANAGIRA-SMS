@@ -189,10 +189,64 @@ async function logBillingRetryAttempt({
 
 function buildPrechargeInvoiceNumber(organizationId, scheduledChargeAt) {
   const d = new Date(scheduledChargeAt || Date.now());
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  return `MNG-INV-${organizationId}-${yyyy}${mm}${dd}`;
+  const safeDate = Number.isNaN(d.getTime()) ? new Date() : d;
+  const yyyy = safeDate.getUTCFullYear();
+  const mm = String(safeDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(safeDate.getUTCDate()).padStart(2, '0');
+  const hh = String(safeDate.getUTCHours()).padStart(2, '0');
+  const min = String(safeDate.getUTCMinutes()).padStart(2, '0');
+  const orgSegment = String(Number(organizationId || 0)).padStart(4, '0');
+  return `MGI-${yyyy}${mm}${dd}-${orgSegment}-${hh}${min}`;
+}
+
+async function upsertPrechargeInvoiceRecord({
+  organizationId,
+  scheduledChargeAt,
+  amountDue,
+  currency,
+  billingPeriodKey,
+}) {
+  const scheduledAt = new Date(scheduledChargeAt || Date.now());
+  const invoiceNumber = buildPrechargeInvoiceNumber(organizationId, scheduledAt);
+
+  const upsertResult = await db.query(
+    `INSERT INTO billing_invoices (
+       organization_id,
+       invoice_number,
+       invoice_type,
+       status,
+       amount_due,
+       currency,
+       billing_period_key,
+       scheduled_charge_at
+     ) VALUES ($1, $2, 'precharge', 'issued', $3, $4, $5, $6)
+     ON CONFLICT (organization_id, invoice_type, scheduled_charge_at)
+     DO UPDATE SET
+       amount_due = EXCLUDED.amount_due,
+       currency = EXCLUDED.currency,
+       billing_period_key = EXCLUDED.billing_period_key,
+       updated_at = NOW()
+     RETURNING id, email_sent_at, status`,
+    [
+      organizationId,
+      invoiceNumber,
+      Number(amountDue || 0),
+      String(currency || 'usd').toUpperCase(),
+      billingPeriodKey || 'monthly',
+      scheduledAt,
+    ]
+  );
+
+  const row = upsertResult.rows[0] || null;
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    invoiceNumber,
+    emailSentAt: row.email_sent_at || null,
+    status: row.status || null,
+    scheduledChargeAt: scheduledAt,
+  };
 }
 
 async function sendUpcomingInvoiceNotification({
@@ -391,9 +445,9 @@ async function createAndSendPrechargeInvoices() {
       AND o.on_hold = false
       AND o.scheduled_hold_date IS NULL
       AND NOT (COALESCE(o.is_hub_member, false) = true AND o.hub_id IS NOT NULL)
-      AND p.next_payment_end_date > NOW() + interval '23 hours'
+      AND p.next_payment_end_date > NOW()
       AND p.next_payment_end_date <= NOW() + interval '25 hours'
-      AND (o.trial_active_until IS NULL OR o.trial_active_until < NOW())
+      AND (o.trial_active_until IS NULL OR o.trial_active_until <= p.next_payment_end_date)
       AND EXISTS (
         SELECT 1 FROM stored_cards c
          WHERE c.organization_id = o.organization_id
@@ -438,48 +492,25 @@ async function createAndSendPrechargeInvoices() {
       );
       const chargeAmount = await convertUsdAmountToCurrency(chargeAmountUsd, chargeCurrency);
 
-      const scheduledChargeAt = new Date(org.next_payment_end_date);
-      const invoiceNumber = buildPrechargeInvoiceNumber(org.organization_id, scheduledChargeAt);
-      const upsertResult = await db.query(
-        `INSERT INTO billing_invoices (
-           organization_id,
-           invoice_number,
-           invoice_type,
-           status,
-           amount_due,
-           currency,
-           billing_period_key,
-           scheduled_charge_at
-         ) VALUES ($1, $2, 'precharge', 'issued', $3, $4, $5, $6)
-         ON CONFLICT (organization_id, invoice_type, scheduled_charge_at)
-         DO UPDATE SET
-           amount_due = EXCLUDED.amount_due,
-           currency = EXCLUDED.currency,
-           billing_period_key = EXCLUDED.billing_period_key,
-           updated_at = NOW()
-         RETURNING id, email_sent_at`,
-        [
-          org.organization_id,
-          invoiceNumber,
-          chargeAmount,
-          String(chargeCurrency || 'usd').toUpperCase(),
-          org.billing_period_key || 'monthly',
-          scheduledChargeAt,
-        ]
-      );
+      const invoiceRecord = await upsertPrechargeInvoiceRecord({
+        organizationId: org.organization_id,
+        scheduledChargeAt: org.next_payment_end_date,
+        amountDue: chargeAmount,
+        currency: chargeCurrency,
+        billingPeriodKey: org.billing_period_key || 'monthly',
+      });
 
-      const existing = upsertResult.rows[0];
-      if (!existing || existing.email_sent_at) {
+      if (!invoiceRecord || invoiceRecord.emailSentAt) {
         continue;
       }
 
       await sendUpcomingInvoiceNotification({
         email: org.email,
         organizationName: org.organization_name,
-        invoiceNumber,
+        invoiceNumber: invoiceRecord.invoiceNumber,
         amount: chargeAmount,
         currency: String(chargeCurrency || 'usd').toUpperCase(),
-        chargeDate: scheduledChargeAt,
+        chargeDate: invoiceRecord.scheduledChargeAt,
         cycleLabel: periodConfig.label || org.billing_period_key || 'Monthly',
       });
 
@@ -489,7 +520,7 @@ async function createAndSendPrechargeInvoices() {
              email_sent_at = NOW(),
              updated_at = NOW()
          WHERE id = $1`,
-        [existing.id]
+        [invoiceRecord.id]
       );
     } catch (_) {
       // Continue invoice generation for other organizations.
@@ -678,6 +709,26 @@ async function runRecurringBilling() {
       const chargeAmount = await convertUsdAmountToCurrency(chargeAmountUsd, stripeChargeCurrency);
       const amount = Math.round(chargeAmount * 100); // minor units in charge currency
 
+      let dueInvoiceRecord = null;
+      try {
+        dueInvoiceRecord = await upsertPrechargeInvoiceRecord({
+          organizationId: org.organization_id,
+          scheduledChargeAt: org.next_payment_end_date,
+          amountDue: chargeAmount,
+          currency: stripeChargeCurrency,
+          billingPeriodKey: org.billing_period_key || 'monthly',
+        });
+      } catch (invoiceErr) {
+        console.warn(
+          `[RecurringBilling] invoice upsert failed for org ${org.organization_id}; skipping charge this run: ${invoiceErr.message || invoiceErr}`
+        );
+        continue;
+      }
+
+      if (!dueInvoiceRecord?.id) {
+        continue;
+      }
+
       // 3. Charge via Stripe using saved cards (primary first, then fallbacks)
       let chargeRes = null;
       let chargeCard = null;
@@ -818,13 +869,11 @@ async function runRecurringBilling() {
             `UPDATE billing_invoices
              SET status = 'paid',
                  paid_at = NOW(),
+                 failed_at = NULL,
                  payment_intent_id = COALESCE($2, payment_intent_id),
                  updated_at = NOW()
-             WHERE organization_id = $1
-               AND invoice_type = 'precharge'
-               AND status IN ('issued', 'email_sent')
-               AND scheduled_charge_at <= NOW()`,
-            [org.organization_id, chargeRes.data?.paymentIntentId || null]
+             WHERE id = $1`,
+            [dueInvoiceRecord.id, chargeRes.data?.paymentIntentId || null]
           );
 
         // Apply pending plan downgrade only after successful payment
@@ -849,11 +898,8 @@ async function runRecurringBilling() {
              SET status = 'failed',
                  failed_at = NOW(),
                  updated_at = NOW()
-             WHERE organization_id = $1
-               AND invoice_type = 'precharge'
-               AND status IN ('issued', 'email_sent')
-               AND scheduled_charge_at <= NOW()`,
-            [org.organization_id]
+             WHERE id = $1`,
+            [dueInvoiceRecord.id]
           );
 
           const failedAttempts = await recordRenewalFailure({
@@ -906,11 +952,8 @@ async function runRecurringBilling() {
            SET status = 'failed',
                failed_at = NOW(),
                updated_at = NOW()
-           WHERE organization_id = $1
-             AND invoice_type = 'precharge'
-             AND status IN ('issued', 'email_sent')
-             AND scheduled_charge_at <= NOW()`,
-          [org.organization_id]
+           WHERE id = $1`,
+          [dueInvoiceRecord.id]
         );
 
         const failedAttempts = await recordRenewalFailure({

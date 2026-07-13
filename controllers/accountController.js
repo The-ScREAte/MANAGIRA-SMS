@@ -1427,20 +1427,74 @@ async function listAppInvoices(dbClient, organizationId, limit = 12) {
     [organizationId, limit]
   );
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    number: row.invoice_number,
-    type: row.invoice_type,
-    status: row.status,
-    amountDue: Number(row.amount_due || 0),
-    currency: String(row.currency || 'USD').toUpperCase(),
-    billingPeriodKey: row.billing_period_key,
-    scheduledChargeAt: row.scheduled_charge_at,
-    emailSentAt: row.email_sent_at,
-    paidAt: row.paid_at,
-    failedAt: row.failed_at,
-    createdAt: row.created_at,
-  }));
+  return result.rows.map((row) => {
+    const publicReference = buildPublicInvoiceReference(row, organizationId);
+    return {
+      id: row.id,
+      number: row.invoice_number,
+      type: row.invoice_type,
+      status: row.status,
+      amountDue: Number(row.amount_due || 0),
+      currency: String(row.currency || 'USD').toUpperCase(),
+      billingPeriodKey: row.billing_period_key,
+      scheduledChargeAt: row.scheduled_charge_at,
+      emailSentAt: row.email_sent_at,
+      paidAt: row.paid_at,
+      failedAt: row.failed_at,
+      createdAt: row.created_at,
+      displayName: 'Managira Invoice (SCREATE LLC)',
+      displayReference: publicReference,
+      internalNumber: row.invoice_number || null,
+    };
+  });
+}
+
+function buildPublicInvoiceReference(invoice = {}, organizationIdFallback = null) {
+  const dateSource = invoice.scheduled_charge_at
+    || invoice.scheduledChargeAt
+    || invoice.created_at
+    || invoice.createdAt
+    || Date.now();
+  const refDate = new Date(dateSource);
+  const safeDate = Number.isNaN(refDate.getTime()) ? new Date() : refDate;
+  const yyyy = safeDate.getUTCFullYear();
+  const mm = String(safeDate.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(safeDate.getUTCDate()).padStart(2, "0");
+  const orgIdRaw = Number(
+    invoice.organization_id
+      || invoice.organizationId
+      || organizationIdFallback
+      || 0
+  );
+  const invoiceIdRaw = Number(invoice.id || invoice.invoice_id || 0);
+  const orgSegment = String(orgIdRaw > 0 ? orgIdRaw : 0).padStart(4, "0");
+  const invoiceSegment = String(invoiceIdRaw > 0 ? invoiceIdRaw : 0).padStart(4, "0");
+  return `MGI-${yyyy}${mm}${dd}-${orgSegment}-${invoiceSegment}`;
+}
+
+function buildStudentPricingBasisSummary({
+  studentCount,
+  freeThreshold,
+  extraStudents,
+}) {
+  const totalStudents = Math.max(0, Number(studentCount || 0));
+  const threshold = Math.max(0, Number(freeThreshold || 0));
+  const totalWord = totalStudents === 1 ? "student" : "students";
+
+  if (!(threshold > 0)) {
+    return `Student pricing basis: ${totalStudents} ${totalWord} total.`;
+  }
+
+  const billableStudents = Math.max(
+    0,
+    Number.isFinite(Number(extraStudents))
+      ? Number(extraStudents)
+      : totalStudents - threshold
+  );
+  const thresholdWord = threshold === 1 ? "student" : "students";
+  const billableWord = billableStudents === 1 ? "student" : "students";
+
+  return `Student pricing basis: ${totalStudents} ${totalWord} total, ${threshold} ${thresholdWord} included free, ${billableStudents} ${billableWord} billable.`;
 }
 
 function formatInvoicePdfDate(value) {
@@ -1472,6 +1526,7 @@ async function generateAppInvoicePdfBuffer(payload) {
     planName,
     cycleLabel,
     supportEmail,
+    studentPricingSummary,
   } = payload;
 
   return new Promise((resolve, reject) => {
@@ -1492,73 +1547,119 @@ async function generateAppInvoicePdfBuffer(payload) {
 
     const totalDue = Number(invoice.amount_due || 0);
     const currencyCode = String(invoice.currency || "USD").toUpperCase();
-    const invoiceNumber = String(invoice.invoice_number || `INV-${invoice.id}`);
+    const invoiceReference = buildPublicInvoiceReference(invoice);
     const status = String(invoice.status || "issued").toLowerCase();
     const statusLabel = titleCaseStatus(status);
+    const invoiceHeaderTitle = "Invoice";
+    const issuedAtText = formatInvoicePdfDate(invoice.created_at);
+    const scheduledAtText = formatInvoicePdfDate(invoice.scheduled_charge_at);
+    const paidAtText = invoice.paid_at ? formatInvoicePdfDate(invoice.paid_at) : null;
+    const failedAtText = invoice.failed_at ? formatInvoicePdfDate(invoice.failed_at) : null;
+    const emailSentText = invoice.email_sent_at ? formatInvoicePdfDate(invoice.email_sent_at) : null;
+    const accountContactLine = [organization.organization_phone, organization.email].filter(Boolean).join(" · ");
+    const issueDate = (() => {
+      const d = invoice.created_at ? new Date(invoice.created_at) : null;
+      if (!d || Number.isNaN(d.getTime())) return "-";
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    })();
+    const dueDate = (() => {
+      const d = invoice.scheduled_charge_at ? new Date(invoice.scheduled_charge_at) : null;
+      if (!d || Number.isNaN(d.getTime())) return "-";
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    })();
+    const amountDisplay = `${currencyCode} ${totalDue.toFixed(2)}`;
 
     doc.roundedRect(48, 38, contentWidth, 700, 14).fill("#ffffff").strokeColor(border).lineWidth(1).stroke();
 
-    doc.rect(48, 38, contentWidth, 72).fill("#f5f6fa");
-    doc.moveTo(48, 108).lineTo(48 + contentWidth, 108).strokeColor(teal).lineWidth(2).stroke();
+    doc.rect(48, 38, contentWidth, 96).fill("#f5f6fa");
+    doc.moveTo(48, 130).lineTo(48 + contentWidth, 130).strokeColor(teal).lineWidth(2).stroke();
 
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(18).text(organization.organization_name || "School", 64, 58, { width: 320 });
-    doc.fillColor(muted).font("Helvetica").fontSize(9);
-    doc.text(organization.organization_address || "", 64, 82, { width: 320 });
-    doc.text([organization.organization_phone, organization.email].filter(Boolean).join(" · "), 64, 94, { width: 320 });
-
-    doc.fillColor(muted).font("Helvetica-Bold").fontSize(9).text("PayGira Invoice", 360, 56, { width: 180, align: "right" });
-    doc.fillColor(teal).font("Helvetica-Bold").fontSize(20).text(`${currencyCode} ${totalDue.toFixed(2)}`, 350, 70, { width: 190, align: "right" });
-    doc.fillColor(muted).font("Helvetica").fontSize(9).text(`#${invoiceNumber}`, 350, 94, { width: 190, align: "right" });
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(30).text(invoiceHeaderTitle, 64, 56, { width: 220 });
+    doc.fillColor(muted).font("Helvetica-Bold").fontSize(10).text("Managira (SCREATE LLC)", 320, 64, { width: 220, align: "right" });
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text(`Ref ${invoiceReference}`, 320, 80, { width: 220, align: "right" });
 
     const statusBg = status === "paid" ? "#d6f7ec" : status === "failed" ? "#ffd8df" : "#e6e9f0";
     const statusColor = status === "paid" ? "#00845f" : status === "failed" ? "#b1213e" : "#5a6378";
-    doc.roundedRect(452, 116, 88, 18, 9).fill(statusBg);
-    doc.fillColor(statusColor).font("Helvetica-Bold").fontSize(8).text(statusLabel.toUpperCase(), 452, 122, { width: 88, align: "center" });
+    doc.roundedRect(452, 138, 88, 18, 9).fill(statusBg);
+    doc.fillColor(statusColor).font("Helvetica-Bold").fontSize(8).text(statusLabel.toUpperCase(), 452, 144, { width: 88, align: "center" });
 
-    let y = 150;
-    doc.roundedRect(48, y, 242, 72, 10).fill(soft);
-    doc.roundedRect(306, y, 242, 72, 10).fill(soft);
+    let y = 156;
+    const metaRows = [
+      ["Invoice ref", invoiceReference],
+      ["Date of issue", issueDate],
+      ["Date due", dueDate],
+      ["Billing period", cycleLabel || "Monthly"],
+      ["Account", organization.organization_name || "Organization"],
+    ];
+    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8);
+    metaRows.forEach((row, index) => {
+      const rowY = y + (index * 16);
+      doc.text(row[0], 62, rowY, { width: 100 });
+      doc.fillColor(deep).font("Helvetica").text(row[1], 170, rowY, { width: 190 });
+      doc.fillColor(muted).font("Helvetica-Bold");
+    });
 
-    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8).text("INVOICE TO", 62, y + 12);
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(11).text(organization.organization_name || "Organization", 62, y + 26);
-    doc.fillColor(muted).font("Helvetica").fontSize(9).text(organization.email || "-", 62, y + 42, { width: 215 });
+    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8).text("From", 320, y, { width: 100 });
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(10).text("Managira (SCREATE LLC)", 320, y + 14, { width: 220 });
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text(`Support: ${supportEmail || "support@managira.com"}`, 320, y + 30, { width: 220 });
 
-    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8).text("BILL DETAILS", 320, y + 12);
-    doc.fillColor(deep).font("Helvetica").fontSize(10).text(`Plan: ${planName || "Platform Subscription"}`, 320, y + 26, { width: 215 });
-    doc.text(`Cycle: ${cycleLabel || "Monthly"}`, 320, y + 40, { width: 215 });
-    doc.text(`Charge date: ${formatInvoicePdfDate(invoice.scheduled_charge_at)}`, 320, y + 54, { width: 215 });
+    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8).text("Bill to", 320, y + 52, { width: 100 });
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(10).text(organization.organization_name || "Organization", 320, y + 66, { width: 220 });
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text(accountContactLine || "-", 320, y + 82, { width: 220 });
 
-    y += 96;
+    y += 112;
     doc.roundedRect(48, y, contentWidth, 28, 6).fill(soft);
     doc.fillColor(muted).font("Helvetica-Bold").fontSize(8);
-    doc.text("Description", 62, y + 10, { width: 300 });
-    doc.text("Amount", 430, y + 10, { width: 110, align: "right" });
+    doc.text("Description", 62, y + 10, { width: 260 });
+    doc.text("Qty", 360, y + 10, { width: 45, align: "right" });
+    doc.text("Unit Price", 410, y + 10, { width: 80, align: "right" });
+    doc.text("Amount", 495, y + 10, { width: 45, align: "right" });
 
     y += 28;
     doc.roundedRect(48, y, contentWidth, 58, 6).strokeColor(border).lineWidth(1).stroke();
     doc.fillColor(deep).font("Helvetica").fontSize(10).text(`${planName || "Platform Subscription"} renewal invoice`, 62, y + 16, { width: 300 });
-    doc.fillColor(muted).font("Helvetica").fontSize(9).text("Auto-generated from your billing settings", 62, y + 32, { width: 300 });
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(11).text(`${currencyCode} ${totalDue.toFixed(2)}`, 430, y + 22, { width: 110, align: "right" });
+    doc.fillColor(muted).font("Helvetica").fontSize(8.5).text(studentPricingSummary || "Auto-generated from your billing settings", 62, y + 32, { width: 300 });
+    doc.fillColor(deep).font("Helvetica").fontSize(10).text("1", 360, y + 22, { width: 45, align: "right" });
+    doc.fillColor(deep).font("Helvetica").fontSize(10).text(amountDisplay, 410, y + 22, { width: 80, align: "right" });
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(11).text(amountDisplay, 495, y + 22, { width: 45, align: "right" });
 
     y += 76;
-    doc.moveTo(320, y).lineTo(540, y).strokeColor(border).lineWidth(1).stroke();
-    doc.fillColor(muted).font("Helvetica").fontSize(10).text("Total Due", 320, y + 10, { width: 120 });
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(14).text(`${currencyCode} ${totalDue.toFixed(2)}`, 420, y + 8, { width: 120, align: "right" });
+    doc.fillColor(muted).font("Helvetica").fontSize(10);
+    doc.text("Subtotal", 340, y + 2, { width: 120 });
+    doc.fillColor(deep).font("Helvetica").text(amountDisplay, 430, y + 2, { width: 110, align: "right" });
+    doc.fillColor(muted).font("Helvetica").text("Total", 340, y + 18, { width: 120 });
+    doc.fillColor(deep).font("Helvetica").text(amountDisplay, 430, y + 18, { width: 110, align: "right" });
+    doc.moveTo(340, y + 36).lineTo(540, y + 36).strokeColor(border).lineWidth(1).stroke();
+    doc.fillColor(deep).font("Helvetica-Bold").fontSize(12).text("Amount due", 340, y + 42, { width: 120 });
+    doc.text(amountDisplay, 430, y + 42, { width: 110, align: "right" });
 
-    y += 48;
-    doc.roundedRect(48, y, contentWidth, 116, 8).fill(soft);
+    y += 72;
+    const timelineLines = [
+      `Issued: ${issuedAtText}`,
+      `Scheduled charge date: ${scheduledAtText}`,
+    ];
+    if (emailSentText) {
+      timelineLines.splice(1, 0, `Invoice email sent: ${emailSentText}`);
+    }
+    if (invoice.paid_at) {
+      timelineLines.push(`Paid at: ${paidAtText}`);
+    }
+    if (invoice.failed_at) {
+      timelineLines.push(`Failed at: ${failedAtText}`);
+    }
+
+    const timelineHeight = Math.max(88, 42 + (timelineLines.length * 16));
+    doc.roundedRect(48, y, contentWidth, timelineHeight, 8).fill(soft);
     doc.fillColor(deep).font("Helvetica-Bold").fontSize(10).text("Payment Timeline", 62, y + 14);
     doc.fillColor(muted).font("Helvetica").fontSize(9);
-    doc.text(`Issued: ${formatInvoicePdfDate(invoice.created_at)}`, 62, y + 34);
-    doc.text(`Invoice email sent: ${formatInvoicePdfDate(invoice.email_sent_at)}`, 62, y + 50);
-    doc.text(`Scheduled charge date: ${formatInvoicePdfDate(invoice.scheduled_charge_at)}`, 62, y + 66);
-    doc.text(`Paid at: ${formatInvoicePdfDate(invoice.paid_at)}`, 62, y + 82);
-    doc.text(`Failed at: ${formatInvoicePdfDate(invoice.failed_at)}`, 62, y + 98);
+    timelineLines.forEach((line, index) => {
+      doc.text(line, 62, y + 34 + (index * 16));
+    });
 
     const footerY = doc.page.height - 58;
     doc.moveTo(48, footerY - 10).lineTo(48 + contentWidth, footerY - 10).strokeColor(border).lineWidth(1).stroke();
     doc.fillColor(muted).font("Helvetica").fontSize(8);
-    doc.text(`Need help? Contact ${supportEmail || "support@managira.com"}`, 48, footerY, { width: 270 });
+    doc.text(`Need help? Contact ${supportEmail || "support@managira.com"}`, 48, footerY, { width: 320 });
     doc.text(`Generated ${formatInvoicePdfDate(new Date())}`, 320, footerY, { width: 228, align: "right" });
 
     doc.end();
@@ -8303,6 +8404,7 @@ const accountController = {
 
       const invoiceResult = await dbClient.query(
         `SELECT bi.*, o.organization_name, o.email, o.organization_phone, o.organization_address,
+                o.organization_country, o.plan_id AS organization_plan_id,
                 p.plan_name, dbc.label AS billing_cycle_label
          FROM billing_invoices bi
          JOIN organizations o ON o.organization_id = bi.organization_id
@@ -8319,6 +8421,25 @@ const accountController = {
         return res.status(404).send("Invoice not found.");
       }
 
+      let studentPricingSummary = null;
+      try {
+        const organizationStudentCount = await getOrganizationStudentCount(dbClient, organizationId);
+        const planPricing = await computeOrganizationPlanMonthlyPrice(dbClient, {
+          planId: Number(invoice.organization_plan_id || 0),
+          fallbackMonthlyUsd: Number(invoice.amount_due || 0),
+          studentCount: organizationStudentCount,
+          countryCode: invoice.organization_country || null,
+        });
+
+        studentPricingSummary = buildStudentPricingBasisSummary({
+          studentCount: organizationStudentCount,
+          freeThreshold: Number(planPricing?.threshold || 0),
+          extraStudents: Number(planPricing?.extraStudents || 0),
+        });
+      } catch (_) {
+        studentPricingSummary = null;
+      }
+
       const pdfBuffer = await generateAppInvoicePdfBuffer({
         invoice,
         organization: {
@@ -8330,12 +8451,14 @@ const accountController = {
         planName: invoice.plan_name || "Managira Platform",
         cycleLabel: invoice.billing_cycle_label || invoice.billing_period_key || "Monthly",
         supportEmail: process.env.NOTIFY_EMAIL_USER || "support@managira.com",
+        studentPricingSummary,
       });
 
-      const safeNumber = String(invoice.invoice_number || `invoice-${invoice.id}`)
+      const publicReference = buildPublicInvoiceReference(invoice, organizationId);
+      const safeReference = String(publicReference)
         .replace(/[^a-zA-Z0-9_-]/g, "-")
         .slice(0, 80);
-      const filename = `${safeNumber}.pdf`;
+      const filename = `Managira_Invoice_SCREATE_LLC_${safeReference}.pdf`;
       const shouldDownload = String(req.query.download || "") === "1";
 
       res.setHeader("Content-Type", "application/pdf");
