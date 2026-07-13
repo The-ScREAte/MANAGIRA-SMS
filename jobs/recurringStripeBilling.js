@@ -2,11 +2,10 @@
 // Runs recurring subscription charges using Stripe off-session card billing.
 
 const db = require('../config/db');
-const { getStripeClient, getStripeChargeCurrency } = require('../utils/stripeConfig');
+const { getStripeClient } = require('../utils/stripeConfig');
 const { ensurePaymentProviderSchema } = require('../utils/paymentProviderSchema');
 const { getOrgChargeCards } = require('../utils/orgChargeCards');
 const {
-  getCurrencyForCountry,
   normalizeCurrencyCode,
   getUsdRate,
 } = require('../utils/currencyLocalization');
@@ -19,23 +18,22 @@ const {
 const { sendEmailSafely, renderCleanEmail } = require('../utils/emailHelper');
 require('dotenv').config();
 
-const FAILED_RETRY_COOLDOWN_DAYS = 3;
 // Total failed attempts allowed before hold: 1 initial failure + 3 retries.
 const MAX_FAILED_RETRY_ATTEMPTS = 4;
-const STRIPE_PREFERRED_CHARGE_CURRENCIES = new Set([
-  'USD',
-  'EUR',
-  'GBP',
-  'GHS',
-  'NGN',
-  'KES',
-  'ZAR',
-  'CAD',
-  'AUD',
-  'INR',
-]);
-
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const fallbackPlanMonthlyCache = new Map();
+
+function getRetryDelayDaysForAttempt(attemptNumber) {
+  const attempt = Number(attemptNumber || 0);
+  if (!Number.isInteger(attempt) || attempt <= 0) return null;
+  if (attempt === 1) return 1;
+  if (attempt < MAX_FAILED_RETRY_ATTEMPTS) return 2;
+  return null;
+}
+
+function buildRetryCooldownSqlClause(failedAttemptsExpr) {
+  return `(CASE WHEN ${failedAttemptsExpr} <= 1 THEN interval '1 day' ELSE interval '2 days' END)`;
+}
 
 async function getFallbackPlanMonthlyUsd(planId) {
   const normalizedPlanId = Number(planId || 0);
@@ -67,21 +65,8 @@ async function getFallbackPlanMonthlyUsd(planId) {
 }
 
 function resolveStripeChargeCurrencyForOrganization(organizationCountry, organizationCurrency = null) {
-  const overrideCurrency = normalizeCurrencyCode(organizationCurrency);
-  if (overrideCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(overrideCurrency)) {
-    return overrideCurrency;
-  }
-
-  const countryCurrency = normalizeCurrencyCode(getCurrencyForCountry(organizationCountry));
-  if (countryCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(countryCurrency)) {
-    return countryCurrency;
-  }
-
-  const envCurrency = normalizeCurrencyCode(getStripeChargeCurrency());
-  if (envCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(envCurrency)) {
-    return envCurrency;
-  }
-
+  // Recurring subscription renewals are charged in USD only.
+  // Organization/country currencies remain display preferences.
   return 'USD';
 }
 
@@ -525,7 +510,7 @@ async function runRecurringBilling() {
   const paymentFailureColumns = await getPaymentsFailureColumns();
   await createAndSendPrechargeInvoices();
   const retryStatusClause = paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
-    ? `(p.status = 'active' OR (p.status = 'failed' AND COALESCE(p.failed_attempts, 0) < ${MAX_FAILED_RETRY_ATTEMPTS} AND (p.last_failed_payment IS NULL OR p.last_failed_payment <= NOW() - interval '${FAILED_RETRY_COOLDOWN_DAYS} days')))`
+    ? `(p.status = 'active' OR (p.status = 'failed' AND COALESCE(p.failed_attempts, 0) < ${MAX_FAILED_RETRY_ATTEMPTS} AND (p.last_failed_payment IS NULL OR p.last_failed_payment <= NOW() - ${buildRetryCooldownSqlClause('COALESCE(p.failed_attempts, 0)')})))`
     : `p.status = 'active'`;
   
   // Fetch current billing interval from database
@@ -893,9 +878,9 @@ async function runRecurringBilling() {
             });
           }
 
-          const nextRetryAt = Number.isInteger(Number(failedAttempts))
-            && Number(failedAttempts) < MAX_FAILED_RETRY_ATTEMPTS
-            ? new Date(Date.now() + FAILED_RETRY_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
+          const retryDelayDays = getRetryDelayDaysForAttempt(failedAttempts);
+          const nextRetryAt = typeof retryDelayDays === 'number' && retryDelayDays > 0
+            ? new Date(Date.now() + Number(retryDelayDays) * MS_PER_DAY)
             : null;
 
           await logBillingRetryAttempt({
@@ -950,9 +935,9 @@ async function runRecurringBilling() {
           });
         }
 
-        const nextRetryAt = Number.isInteger(Number(failedAttempts))
-          && Number(failedAttempts) < MAX_FAILED_RETRY_ATTEMPTS
-          ? new Date(Date.now() + FAILED_RETRY_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
+        const retryDelayDays = getRetryDelayDaysForAttempt(failedAttempts);
+        const nextRetryAt = typeof retryDelayDays === 'number' && retryDelayDays > 0
+          ? new Date(Date.now() + Number(retryDelayDays) * MS_PER_DAY)
           : null;
 
         await logBillingRetryAttempt({

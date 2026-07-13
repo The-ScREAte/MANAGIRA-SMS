@@ -373,7 +373,6 @@ const {
   getStripeSettings,
   getStripeConfigurationIssue,
   getActiveStripePublicKey,
-  getStripeChargeCurrency,
   getStripeClient,
   getStripePlatformClient,
   getStripeConnectAccountColumn,
@@ -778,35 +777,9 @@ async function getActivePaymentProvider() {
   return getPaymentProvider(db);
 }
 
-const STRIPE_PREFERRED_CHARGE_CURRENCIES = new Set([
-  "USD",
-  "EUR",
-  "GBP",
-  "GHS",
-  "NGN",
-  "KES",
-  "ZAR",
-  "CAD",
-  "AUD",
-  "INR",
-]);
-
-function resolveStripeChargeCurrencyForCountry(countryCode, organizationCurrency = null) {
-  const overrideCurrency = normalizeCurrencyCode(organizationCurrency);
-  if (overrideCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(overrideCurrency)) {
-    return overrideCurrency;
-  }
-
-  const countryCurrency = normalizeCurrencyCode(getCurrencyForCountry(countryCode));
-  if (countryCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(countryCurrency)) {
-    return countryCurrency;
-  }
-
-  const envCurrency = normalizeCurrencyCode(getStripeChargeCurrency());
-  if (envCurrency && STRIPE_PREFERRED_CHARGE_CURRENCIES.has(envCurrency)) {
-    return envCurrency;
-  }
-
+function resolveStripeChargeCurrencyForCountry(_countryCode, _organizationCurrency = null) {
+  // Org billing charges are settled in USD only.
+  // Country/currency settings are for localized display and reporting.
   return "USD";
 }
 
@@ -8053,27 +8026,98 @@ const accountController = {
         };
       });
 
-      // Fetch latest payment + billing period info for the current plan card
+      // Fetch latest payment + billing period info for the current plan card.
+      // Include failed rows so the UI can show failure state/details without
+      // falling back to Monthly.
       let billingInfo = null;
+      let billingFailureInfo = null;
+      let billingRetryHistory = [];
       if (orgId) {
         try {
           const billingResult = await db.query(
             `SELECT p.billing_period_key, p.amount_paid, p.status, p.created_at,
                     p.is_trial, p.trial_starts_at, p.trial_ends_at, p.next_payment_end_date,
+                    p.failed_attempts, p.last_failed_payment,
                     dbc.label AS period_label, dbc.months AS period_months, dbc.discount_percentage
              FROM payments p
              LEFT JOIN dynamic_billing_cycles dbc ON dbc.cycle_key = p.billing_period_key
-             WHERE p.organization_id = $1 AND p.status IN ('active', 'completed')
+             WHERE p.organization_id = $1 AND p.status IN ('active', 'completed', 'failed')
              ORDER BY p.created_at DESC
              LIMIT 1`,
             [orgId]
           );
           if (billingResult.rows.length > 0) {
             billingInfo = billingResult.rows[0];
+
+            if (String(billingInfo.status || '').toLowerCase() === 'failed') {
+              const fallbackAttemptNumber = Number(billingInfo.failed_attempts || 0) || null;
+              const fallbackRetryDelayDays = fallbackAttemptNumber
+                ? (fallbackAttemptNumber <= 1 ? 1 : (fallbackAttemptNumber < 4 ? 2 : null))
+                : null;
+              let fallbackNextRetryAt = null;
+              if (billingInfo.last_failed_payment && fallbackRetryDelayDays) {
+                const retryDate = new Date(billingInfo.last_failed_payment);
+                if (!Number.isNaN(retryDate.getTime())) {
+                  retryDate.setDate(retryDate.getDate() + fallbackRetryDelayDays);
+                  fallbackNextRetryAt = retryDate;
+                }
+              }
+
+              const retryResult = await db.query(
+                `SELECT attempt_number,
+                        max_attempts,
+                        charge_status,
+                        amount_due,
+                        currency,
+                        failure_reason,
+                        email_to_school_sent,
+                        email_to_admin_sent,
+                        next_retry_at,
+                        created_at
+                 FROM billing_retry_attempts
+                 WHERE organization_id = $1
+                 ORDER BY created_at DESC
+                 LIMIT 5`,
+                [orgId]
+              ).catch(() => ({ rows: [] }));
+
+              billingRetryHistory = retryResult.rows || [];
+
+              if (billingRetryHistory.length > 0) {
+                const latestRetry = billingRetryHistory[0];
+                billingFailureInfo = {
+                  missingAudit: false,
+                  attemptNumber: Number(latestRetry.attempt_number || 0),
+                  maxAttempts: Number(latestRetry.max_attempts || 4),
+                  amountDue: Number(latestRetry.amount_due || 0),
+                  currency: String(latestRetry.currency || 'USD').toUpperCase(),
+                  reason: latestRetry.failure_reason || '',
+                  nextRetryAt: latestRetry.next_retry_at || null,
+                  failedAt: latestRetry.created_at || null,
+                  emailToSchoolSent: latestRetry.email_to_school_sent,
+                  emailToAdminSent: latestRetry.email_to_admin_sent,
+                };
+              } else {
+                billingFailureInfo = {
+                  missingAudit: true,
+                  attemptNumber: fallbackAttemptNumber,
+                  maxAttempts: 4,
+                  amountDue: null,
+                  currency: 'USD',
+                  reason: '',
+                  nextRetryAt: fallbackNextRetryAt,
+                  failedAt: billingInfo.last_failed_payment || null,
+                  emailToSchoolSent: null,
+                  emailToAdminSent: null,
+                };
+              }
+            }
           }
         } catch (e) {
           // Dynamic cycle lookup can fail in partial environments.
           billingInfo = null;
+          billingFailureInfo = null;
+          billingRetryHistory = [];
         }
       }
 
@@ -8194,6 +8238,8 @@ const accountController = {
         currentPlan,
         pendingPlan,
         billingInfo,
+        billingFailureInfo,
+        billingRetryHistory,
         plans,
         billingPeriods,
         currencyProfile,
@@ -9053,7 +9099,7 @@ const accountController = {
 
         const authorizationCode = cardResult.rows[0].authorization_code;
         const cardProvider = cardResult.rows[0].provider || 'paystack';
-        const stripeChargeCurrency = normalizeCurrencyCode(getStripeChargeCurrency()) || 'USD';
+        const stripeChargeCurrency = 'USD';
         const proratedAmountInChargeCurrency = await convertUsdAmountToCurrency(
           proratedAmount,
           stripeChargeCurrency
@@ -9105,7 +9151,7 @@ const accountController = {
       invalidateOrganizationAccessCache(orgId);
       req.session.allowedFeatures = [];
 
-      const proratedCurrency = normalizeCurrencyCode(getStripeChargeCurrency()) || 'USD';
+      const proratedCurrency = 'USD';
       const proratedMsg = proratedAmount > 0
         ? ` A prorated charge of ${proratedCurrency} ${Number(proratedAmountInChargeCurrency || 0).toFixed(2)} has been applied for the remaining ${remainingDays} day${remainingDays !== 1 ? 's' : ''} in your current billing period.`
         : '';

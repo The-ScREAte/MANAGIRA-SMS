@@ -304,12 +304,14 @@ test('recurring billing charges via stripe and resets failure tracking on succes
     && entry.sql.includes('COALESCE(p.failed_attempts, 0) < 4')
   );
   assert.ok(dueQuery.sql.includes("COALESCE(p.failed_attempts, 0) < 4"));
-  assert.ok(dueQuery.sql.includes("interval '3 days'"));
+  assert.ok(dueQuery.sql.includes("CASE WHEN COALESCE(p.failed_attempts, 0) <= 1 THEN interval '1 day' ELSE interval '2 days' END"));
+  assert.ok(!dueQuery.sql.includes("interval '3 days'"));
   assert.ok(dueQuery.sql.includes('COALESCE(o.deleted, false) = false'));
 
   assert.equal(harness.charges.length, 1);
   assert.equal(harness.charges[0].payload.amount, 15000);
   assert.equal(harness.charges[0].payload.payment_method, 'pm_123');
+  assert.equal(harness.charges[0].payload.currency, 'usd');
 
   const paymentSuccessUpdate = harness.queries.find((entry) => entry.sql.includes("failed_attempts = 0"));
   assert.deepEqual(paymentSuccessUpdate.params, [150, 7]);
@@ -356,6 +358,7 @@ test('recurring billing puts organization on hold after the fourth failed charge
 
   assert.equal(harness.charges.length, 1);
   assert.equal(harness.charges[0].payload.amount, 8000);
+  assert.equal(harness.charges[0].payload.currency, 'usd');
 
   const failureUpdate = harness.queries.find((entry) => entry.sql.includes('RETURNING COALESCE(failed_attempts, 0) AS failed_attempts'));
   assert.deepEqual(failureUpdate.params, [11]);
@@ -364,9 +367,160 @@ test('recurring billing puts organization on hold after the fourth failed charge
   assert.ok(holdUpdate);
   assert.deepEqual(holdUpdate.params, [11]);
 
+  const retryInsert = harness.queries.find((entry) => entry.sql.includes('INSERT INTO billing_retry_attempts'));
+  assert.ok(retryInsert);
+  assert.equal(retryInsert.params[12], null);
+
   assert.equal(harness.emails.length, 2);
   assert.equal(harness.emails[0].payload.to, 'billing@example.com');
   assert.equal(harness.emails[1].payload.to, 'admin@example.com');
+});
+
+test('recurring billing schedules first retry one day after initial failure', async () => {
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const maxClockSkewMs = 2 * 60 * 1000;
+  const runStart = Date.now();
+
+  const harness = createHarness({
+    studentCount: 40,
+    planTotalCost: 80,
+    failureAttemptsReturn: 1,
+    prechargeEmailSentAt: new Date(),
+    chargeResolver: async () => ({
+      id: 'pi_fail_12',
+      status: 'requires_payment_method',
+      last_payment_error: { message: 'Card declined' },
+    }),
+    orgsDueRows: [
+      {
+        organization_id: 12,
+        email: 'billing12@example.com',
+        organization_name: 'Retry Day One',
+        plan_id: 5,
+        authorization_code: 'pm_fail_12',
+        stripe_customer_id: 'cus_fail_12',
+        next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
+        trial_active_until: null,
+        billing_period_key: 'monthly',
+        pending_plan_id: null,
+        pending_plan_effective_date: null,
+      },
+    ],
+  });
+
+  const loader = withMockedModules(harness);
+  try {
+    await loader.runRecurringBilling();
+  } finally {
+    loader.restore();
+  }
+
+  const runEnd = Date.now();
+
+  const retryInsert = harness.queries.find((entry) => entry.sql.includes('INSERT INTO billing_retry_attempts'));
+  assert.ok(retryInsert);
+  const nextRetryAt = retryInsert.params[12];
+  assert.ok(nextRetryAt instanceof Date);
+  assert.ok(nextRetryAt.getTime() >= runStart + oneDayMs - maxClockSkewMs);
+  assert.ok(nextRetryAt.getTime() <= runEnd + oneDayMs + maxClockSkewMs);
+});
+
+test('recurring billing schedules second retry two days after the first retry fails', async () => {
+  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+  const maxClockSkewMs = 2 * 60 * 1000;
+  const runStart = Date.now();
+
+  const harness = createHarness({
+    studentCount: 40,
+    planTotalCost: 80,
+    failureAttemptsReturn: 2,
+    prechargeEmailSentAt: new Date(),
+    chargeResolver: async () => ({
+      id: 'pi_fail_13',
+      status: 'requires_payment_method',
+      last_payment_error: { message: 'Card declined' },
+    }),
+    orgsDueRows: [
+      {
+        organization_id: 13,
+        email: 'billing13@example.com',
+        organization_name: 'Retry Day Two',
+        plan_id: 5,
+        authorization_code: 'pm_fail_13',
+        stripe_customer_id: 'cus_fail_13',
+        next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
+        trial_active_until: null,
+        billing_period_key: 'monthly',
+        pending_plan_id: null,
+        pending_plan_effective_date: null,
+      },
+    ],
+  });
+
+  const loader = withMockedModules(harness);
+  try {
+    await loader.runRecurringBilling();
+  } finally {
+    loader.restore();
+  }
+
+  const runEnd = Date.now();
+
+  const retryInsert = harness.queries.find((entry) => entry.sql.includes('INSERT INTO billing_retry_attempts'));
+  assert.ok(retryInsert);
+  const nextRetryAt = retryInsert.params[12];
+  assert.ok(nextRetryAt instanceof Date);
+  assert.ok(nextRetryAt.getTime() >= runStart + twoDaysMs - maxClockSkewMs);
+  assert.ok(nextRetryAt.getTime() <= runEnd + twoDaysMs + maxClockSkewMs);
+});
+
+test('recurring billing schedules third retry two days after the second retry fails', async () => {
+  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+  const maxClockSkewMs = 2 * 60 * 1000;
+  const runStart = Date.now();
+
+  const harness = createHarness({
+    studentCount: 40,
+    planTotalCost: 80,
+    failureAttemptsReturn: 3,
+    prechargeEmailSentAt: new Date(),
+    chargeResolver: async () => ({
+      id: 'pi_fail_14',
+      status: 'requires_payment_method',
+      last_payment_error: { message: 'Card declined' },
+    }),
+    orgsDueRows: [
+      {
+        organization_id: 14,
+        email: 'billing14@example.com',
+        organization_name: 'Retry Day Three',
+        plan_id: 5,
+        authorization_code: 'pm_fail_14',
+        stripe_customer_id: 'cus_fail_14',
+        next_payment_end_date: new Date('2026-04-01T00:00:00Z'),
+        trial_active_until: null,
+        billing_period_key: 'monthly',
+        pending_plan_id: null,
+        pending_plan_effective_date: null,
+      },
+    ],
+  });
+
+  const loader = withMockedModules(harness);
+  try {
+    await loader.runRecurringBilling();
+  } finally {
+    loader.restore();
+  }
+
+  const runEnd = Date.now();
+
+  const retryInsert = harness.queries.find((entry) => entry.sql.includes('INSERT INTO billing_retry_attempts'));
+  assert.ok(retryInsert);
+  const nextRetryAt = retryInsert.params[12];
+  assert.ok(nextRetryAt instanceof Date);
+  assert.ok(nextRetryAt.getTime() >= runStart + twoDaysMs - maxClockSkewMs);
+  assert.ok(nextRetryAt.getTime() <= runEnd + twoDaysMs + maxClockSkewMs);
 });
 
 test('recurring billing skips charging organizations whose trial is still active', async () => {
