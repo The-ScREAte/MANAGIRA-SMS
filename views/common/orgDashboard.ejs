@@ -304,6 +304,11 @@
               Math.ceil((new Date(currentTerm.start_date) - today) / (1000 * 60
               * 60 * 24)); %> <% const daysUntilEnd = Math.ceil((new
               Date(currentTerm.end_date) - today) / (1000 * 60 * 60 * 24)); %>
+              <% const dashboardRoleKey = String((typeof userRole !== 'undefined' && userRole)
+                ? userRole
+                : ((req && req.session && req.session.userRole) ? req.session.userRole : '')
+              ).trim().toLowerCase(); %>
+              <% const canManageTermSwitch = ['manager', 'supervisor', 'superviser'].includes(dashboardRoleKey); %>
               <% if (daysUntilStart > 0) { %>
               <strong><%= currentTerm.term_name %> starts in:</strong>
               <span id="daysUntilStart"><%= daysUntilStart %></span>
@@ -316,7 +321,7 @@
               <span style="display:block; margin-top:4px; color:#334155;">Activate the next term/semester.</span>
               <% } %>
             </div>
-            <% if (daysUntilEnd < 0 && nextTermSuggestion) { %>
+            <% if (daysUntilEnd < 0 && nextTermSuggestion && canManageTermSwitch) { %>
             <div style="margin-top: 8px;">
               <a
                 href="/common/manageRecords"

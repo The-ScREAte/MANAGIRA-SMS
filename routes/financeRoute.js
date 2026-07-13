@@ -5,6 +5,23 @@ const { isAuthenticated } = require("../middleware/authMiddleware");
 const { requirePermission, PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
 const c = require("../controllers/financeController");
 
+const PAYGIRA_FEATURE_NAMES = new Set([
+	"paygira",
+	"pay gira",
+	"paygira & payments",
+	"paygira and payments",
+]);
+
+function hasPaygiraFeatureInSession(req, res) {
+	const allowed = Array.isArray(req.session?.allowedFeatures)
+		? req.session.allowedFeatures
+		: (Array.isArray(res.locals?.allowedFeatures) ? res.locals.allowedFeatures : []);
+
+	return allowed.some((featureName) =>
+		PAYGIRA_FEATURE_NAMES.has(String(featureName || "").trim().toLowerCase())
+	);
+}
+
 // Admin/finance pages require the Manage Billing permission (in addition to authentication).
 // Owners/admins always pass; managers must have it explicitly granted.
 const requireBilling = requirePermission(PERMISSIONS.MANAGE_BILLING);
@@ -94,10 +111,11 @@ router.use((req, res, next) => {
 	next();
 });
 
-// PayGira is a premium plan add-on. Only organizations whose plan includes the
-// "PayGira" feature can reach any of these routes. Platform admins (no org) and
-// users whose plan grants PayGira pass through; everyone else is redirected.
-const requirePaygiraFeature = (req, res, next) => {
+// PayGira routes can be unlocked by either:
+// 1) Plan feature entitlement (PayGira), or
+// 2) Explicit finance permission (MANAGE_PAYGIRA / MANAGE_BILLING).
+// Platform admins (no org) also bypass this gate.
+const requirePaygiraFeature = async (req, res, next) => {
 	const accountType = String(req.session?.accountType || "").trim().toLowerCase();
 	const role = String(req.session?.userRole || "").trim().toLowerCase();
 	const adminSet = new Set(["admin", "mini admin", "internal worker"]);
@@ -105,11 +123,30 @@ const requirePaygiraFeature = (req, res, next) => {
 		return next();
 	}
 
-	const allowed = Array.isArray(req.session?.allowedFeatures)
-		? req.session.allowedFeatures
-		: (Array.isArray(res.locals?.allowedFeatures) ? res.locals.allowedFeatures : []);
-	if (allowed.includes("PayGira")) {
+	if (hasPaygiraFeatureInSession(req, res)) {
 		return next();
+	}
+
+	try {
+		const database = req.app.get("db");
+		const permissionContext = {
+			userId: req.session?.user?.user_id || req.session?.userId || null,
+			userRole: req.session?.userRole || req.session?.user?.account_type || null,
+			organizationId: req.session?.organizationId || null,
+			accountType: req.session?.accountType || req.session?.user?.account_type || null,
+			userEmail: req.session?.user?.email || req.session?.email || null,
+		};
+
+		const [canManageBilling, canManagePaygira] = await Promise.all([
+			userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_BILLING),
+			userHasPermission(database, permissionContext, PERMISSIONS.MANAGE_PAYGIRA),
+		]);
+
+		if (canManageBilling || canManagePaygira) {
+			return next();
+		}
+	} catch (_error) {
+		// Permission checks are best-effort here; denial handling below remains the fallback.
 	}
 
 	// Background/SPA fragment and JSON requests get a clean 403 instead of an

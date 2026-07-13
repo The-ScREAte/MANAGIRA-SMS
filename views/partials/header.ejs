@@ -2368,10 +2368,31 @@
           Logout
         </a></li>
       <% } else { %>
-        <% if (req.session && (
-          req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor' ||
-          Array.isArray(userPermissions) && userPermissions.length > 0
-        )) { %>
+        <%
+          const headerRoleKey = String(
+            (req.session && (req.session.userRole || (req.session.user && req.session.user.account_type) || req.session.accountType)) || ''
+          ).trim().toLowerCase();
+          const managementPermissionKeys = new Set([
+            'manage_records',
+            'manage_school_year_terms',
+            'manage_classes_subjects',
+            'manage_assessments',
+            'set_assessment_questions',
+            'manage_students',
+            'manage_guardians',
+            'manage_promotions',
+            'approve_promotions',
+            'approve_admissions',
+            'publish_events_announcements',
+            'mark_attendance',
+            'manage_employees',
+          ]);
+          const hasManagementPermission = Array.isArray(userPermissions) && userPermissions.some((permissionKey) =>
+            managementPermissionKeys.has(String(permissionKey || '').trim().toLowerCase())
+          );
+          const canSeeManagementTools = ['manager', 'supervisor', 'superviser'].includes(headerRoleKey) || hasManagementPermission;
+        %>
+        <% if (req.session && canSeeManagementTools) { %>
         <li class="nav-item">
           <a href="/common/management" class="nav-item-link management-link">
             <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">

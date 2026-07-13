@@ -54,7 +54,7 @@ function requireSetAssessmentQuestionsFeature(req, res, next) {
 }
 
 module.exports = (db) => {
-  router.get("/orgDashboard", isAuthenticated, blockGuardians, checkFeatureAccess, (req, res) => {
+  router.get("/orgDashboard", isAuthenticated, blockGuardians, (req, res) => {
   // ...removed log for clean background operation...
     return commonController.orgDashboard(req, res, db);
   });

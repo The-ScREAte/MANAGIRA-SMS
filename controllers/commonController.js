@@ -2684,30 +2684,49 @@ const commonController = {
 
         if (shouldShow) {
           adminAnnouncements.push(announcement);
-          if (viewResult.rows.length === 0) {
-            // For super admin org switch, use the admin's userId for announcement_views
-            let insertUserId = currentUserId;
-            if (isSuperAdminSwitch) {
-              insertUserId = req.session.userId;
-              if (!insertUserId) {
-                // ...removed warn for clean background operation...
-                // Do not attempt insert for super admin if no userId
-                // ...removed orphaned continue statement after log cleanup...
+          try {
+            if (isOrgAccount) {
+              if (viewResult.rows.length === 0) {
+                // For super admin org switch, use the admin's userId for announcement_views
+                let insertUserId = currentUserId;
+                if (isSuperAdminSwitch) {
+                  insertUserId = req.session.userId;
+                }
+                if (insertUserId) {
+                  await db.query(
+                    `INSERT INTO announcement_views (organization_id, announcement_id) VALUES ($1, $2)`,
+                    [insertUserId, announcement.id]
+                  );
+                }
+              } else {
+                await db.query(
+                  `UPDATE announcement_views SET last_viewed = CURRENT_TIMESTAMP WHERE view_id = $1`,
+                  [viewResult.rows[0].view_id]
+                );
+              }
+            } else {
+              // Idempotent write to avoid unique-conflict races when SPA preloads
+              // and user navigation hit this endpoint at nearly the same time.
+              const insertUserId = isSuperAdminSwitch
+                ? (req.session.userId || null)
+                : currentUserId;
+              if (insertUserId) {
+                await db.query(
+                  `INSERT INTO announcement_views (user_id, announcement_id, last_viewed)
+                   VALUES ($1, $2, CURRENT_TIMESTAMP)
+                   ON CONFLICT (user_id, announcement_id)
+                   DO UPDATE SET last_viewed = EXCLUDED.last_viewed`,
+                  [insertUserId, announcement.id]
+                );
               }
             }
-            if (insertUserId) {
-              await db.query(
-                `INSERT INTO announcement_views (${
-                  isOrgAccount ? "organization_id" : "user_id"
-                }, announcement_id) VALUES ($1, $2)`,
-                [insertUserId, announcement.id]
-              );
-            }
-          } else {
-            await db.query(
-              `UPDATE announcement_views SET last_viewed = CURRENT_TIMESTAMP WHERE view_id = $1`,
-              [viewResult.rows[0].view_id]
-            );
+          } catch (viewWriteError) {
+            console.warn("[orgDashboard] Unable to persist announcement view", {
+              announcementId: announcement.id,
+              userId: currentUserId,
+              orgMode: isOrgAccount,
+              message: viewWriteError?.message || viewWriteError,
+            });
           }
         }
       }
@@ -2781,12 +2800,37 @@ const commonController = {
       });
       // ...removed log for clean background operation...
     } catch (error) {
-      // ...removed error log for clean background operation...
+      console.error("[orgDashboard] Failed to load dashboard", {
+        organizationId: req.session?.organizationId || null,
+        userId: req.session?.user?.user_id || req.session?.userId || null,
+        userRole: req.session?.userRole || null,
+        message: error?.message || error,
+      });
       req.flash(
         "error",
         "Failed to load dashboard data. Please refresh or contact support if needed."
       );
-      res.redirect("/");
+      return res.render("common/orgDashboard", {
+        title: "Organization Dashboard",
+        url: req.url,
+        schoolYear: null,
+        currentTerm: null,
+        classes: [],
+        events: [],
+        announcements: [],
+        organizationId: req.session?.organizationId || null,
+        messages: req.flash(),
+        adminAnnouncements: [],
+        showOrgHeader: Boolean(req.session?.superAdminOrgSwitch),
+        orgHeaderName: null,
+        orgHeaderLogo: null,
+        orgHeaderNickname: null,
+        orgHeaderNicknameDisplay: null,
+        dashboardCountryCode: "",
+        dashboardCountryName: "",
+        todayAttendanceStatus: null,
+        nextTermSuggestion: null,
+      });
     }
   },
 
@@ -2995,7 +3039,7 @@ const commonController = {
             )
             AND u.organization_id = $2
             GROUP BY uc.class_id, c.class_name, c.dashboard_sort_order, c.dashboard_break_after
-            ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
+            ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, uc.class_id ASC
           `,
           [currentUserId, organizationId]
         );
@@ -3118,29 +3162,46 @@ const commonController = {
 
         if (shouldShow) {
           adminAnnouncements.push(announcement);
-          if (viewResult.rows.length === 0) {
-            // For super admin org switch, skip insert if no valid userId
-            let insertUserId = currentUserId;
-            if (isSuperAdminSwitch) {
-              insertUserId = req.session.userId;
-              if (!insertUserId) {
-                // Do not attempt insert for super admin if no userId
-                continue;
+          try {
+            if (isOrgAccount) {
+              if (viewResult.rows.length === 0) {
+                let insertUserId = currentUserId;
+                if (isSuperAdminSwitch) {
+                  insertUserId = req.session.userId;
+                }
+                if (insertUserId) {
+                  await db.query(
+                    `INSERT INTO announcement_views (organization_id, announcement_id) VALUES ($1, $2)`,
+                    [insertUserId, announcement.id]
+                  );
+                }
+              } else {
+                await db.query(
+                  `UPDATE announcement_views SET last_viewed = CURRENT_TIMESTAMP WHERE view_id = $1`,
+                  [viewResult.rows[0].view_id]
+                );
+              }
+            } else {
+              const insertUserId = isSuperAdminSwitch
+                ? (req.session.userId || null)
+                : currentUserId;
+              if (insertUserId) {
+                await db.query(
+                  `INSERT INTO announcement_views (user_id, announcement_id, last_viewed)
+                   VALUES ($1, $2, CURRENT_TIMESTAMP)
+                   ON CONFLICT (user_id, announcement_id)
+                   DO UPDATE SET last_viewed = EXCLUDED.last_viewed`,
+                  [insertUserId, announcement.id]
+                );
               }
             }
-            if (insertUserId) {
-              await db.query(
-                `INSERT INTO announcement_views (${
-                  isOrgAccount ? "organization_id" : "user_id"
-                }, announcement_id) VALUES ($1, $2)`,
-                [insertUserId, announcement.id]
-              );
-            }
-          } else {
-            await db.query(
-              `UPDATE announcement_views SET last_viewed = CURRENT_TIMESTAMP WHERE view_id = $1`,
-              [viewResult.rows[0].view_id]
-            );
+          } catch (viewWriteError) {
+            console.warn("[orgDashboardRestricted] Unable to persist announcement view", {
+              announcementId: announcement.id,
+              userId: currentUserId,
+              orgMode: isOrgAccount,
+              message: viewWriteError?.message || viewWriteError,
+            });
           }
         }
       }
@@ -3211,12 +3272,38 @@ const commonController = {
         // Include any additional data as needed
       });
     } catch (error) {
-      // ...removed error log for clean background operation...
+      console.error("[orgDashboardRestricted] Failed to load dashboard", {
+        organizationId: req.session?.organizationId || null,
+        userId: req.session?.user?.user_id || req.session?.userId || null,
+        userRole: req.session?.userRole || null,
+        params: req.params,
+        message: error?.message || error,
+      });
       req.flash(
         "error",
         "Failed to load dashboard data. Please try again or contact support if this issue persists."
       ); // ✅ more user-friendly flash
-      res.redirect("/"); // ✅ redirect to home if error
+      return res.render("common/orgDashboard", {
+        title: "Organization Dashboard",
+        url: req.url,
+        schoolYear: null,
+        currentTerm: null,
+        classes: [],
+        events: [],
+        announcements: [],
+        organizationId: req.session?.organizationId || null,
+        messages: req.flash(),
+        adminAnnouncements: [],
+        showOrgHeader: Boolean(req.session?.superAdminOrgSwitch),
+        orgHeaderName: null,
+        orgHeaderLogo: null,
+        orgHeaderNickname: null,
+        orgHeaderNicknameDisplay: null,
+        dashboardCountryCode: "",
+        dashboardCountryName: "",
+        todayAttendanceStatus: null,
+        nextTermSuggestion: null,
+      });
     }
   },
 
@@ -16066,6 +16153,44 @@ NUMBERING:
   management: async (req, res, db) => {
     try {
       await ensureGoogleIntegrationSchema(db);
+      const roleStr = String(
+        req.session.userRole || req.session.user?.account_type || req.session.accountType || ''
+      ).trim().toLowerCase();
+      const managementPermissionKeys = new Set([
+        PERMISSIONS.MANAGE_RECORDS,
+        PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS,
+        PERMISSIONS.MANAGE_CLASSES_SUBJECTS,
+        PERMISSIONS.MANAGE_ASSESSMENTS,
+        PERMISSIONS.SET_ASSESSMENT_QUESTIONS,
+        PERMISSIONS.MANAGE_STUDENTS,
+        PERMISSIONS.MANAGE_GUARDIANS,
+        PERMISSIONS.MANAGE_PROMOTIONS,
+        PERMISSIONS.APPROVE_PROMOTIONS,
+        PERMISSIONS.APPROVE_ADMISSIONS,
+        PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS,
+        PERMISSIONS.MARK_ATTENDANCE,
+        PERMISSIONS.MANAGE_EMPLOYEES,
+      ]);
+      const localPermissions = Array.isArray(res.locals.userPermissions)
+        ? res.locals.userPermissions
+        : [];
+      const hasManagementPermission = localPermissions.some((permissionKey) =>
+        managementPermissionKeys.has(String(permissionKey || '').trim().toLowerCase())
+      );
+      const canAccessManagementByRole = [
+        'organization',
+        'admin',
+        'mini admin',
+        'manager',
+        'supervisor',
+        'superviser',
+      ].includes(roleStr);
+
+      if (!canAccessManagementByRole && !hasManagementPermission) {
+        req.flash('error', 'You do not have access to Management Tools.');
+        return res.redirect('/common/orgDashboard');
+      }
+
       // Get current term for assessment link
       const termResult = await db.query(`
         SELECT t.term_id, t.term_name
@@ -16094,9 +16219,6 @@ NUMBERING:
       const canManageAllClassAssessmentExams = ["manager", "supervisor"].includes(normalizedRole);
 
       // Email Issues — count failures visible to managers/supervisors
-      const roleStr = String(
-        req.session.userRole || req.session.user?.account_type || req.session.accountType || ''
-      ).trim().toLowerCase();
       const canSeeEmailIssues = ['organization', 'admin', 'mini admin', 'supervisor', 'superviser', 'manager'].includes(roleStr);
       let failedEmailCount = 0;
       if (canSeeEmailIssues) {
