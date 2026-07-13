@@ -2225,6 +2225,15 @@
         const _canCustomizeSettings = typeof canAccessCustomizeSettings === 'boolean' ? canAccessCustomizeSettings : true;
         const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
         const _canPaygiraSettings = typeof canAccessPaygiraSettings === 'boolean' ? canAccessPaygiraSettings : true;
+        const _allowedFeatures = (typeof allowedFeatures !== 'undefined' && Array.isArray(allowedFeatures)) ? allowedFeatures : [];
+        const _hasPaygiraFeatureOnPlan = _allowedFeatures.some((featureName) => {
+          const normalizedFeatureName = String(featureName || '').trim().toLowerCase();
+          return normalizedFeatureName === 'paygira'
+            || normalizedFeatureName === 'pay gira'
+            || normalizedFeatureName === 'paygira & payments'
+            || normalizedFeatureName === 'paygira and payments';
+        });
+        const _showPaygiraSettingsNav = _hasPaygiraFeatureOnPlan && _canPaygiraSettings;
         const _defaultSettingsSectionId = _canCustomizeSettings ? 'customize' : 'profile';
       %>
       <aside class="settings-nav" id="settings-nav-panel">
@@ -2273,7 +2282,7 @@
             <span>Integrations</span>
           </button></li>
           <% } %>
-          <% if (_canPaygiraSettings) { %>
+          <% if (_showPaygiraSettingsNav) { %>
           <li><a class="nav-link" href="/account/settings/finance" data-no-spa>
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8.5 9.5c0-1.381 1.567-2.5 3.5-2.5s3.5 1.119 3.5 2.5-1.567 2.5-3.5 2.5S8.5 13.381 8.5 14.5 10.067 17 12 17s3.5-1.119 3.5-2.5"/></svg></span>
             <span>PayGira</span>

@@ -3013,6 +3013,9 @@ main {
   <% const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets')); %>
   <% const hasAttendanceFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Attendance Tracking') || allowedFeatures.includes('Attendance tracking feature')); %>
   <% const hasAssessmentFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Assessment Tracking') || allowedFeatures.includes('Assessment tracking feature')); %>
+  <% const _canOpenPaygiraWorkspace = typeof canOpenPaygiraWorkspace === 'boolean'
+    ? canOpenPaygiraWorkspace
+    : (Array.isArray(userPermissions) && (userPermissions.includes('manage_paygira') || userPermissions.includes('manage_billing'))); %>
   <div class="workspace-shell">
     <button class="nav-toggle" type="button">
       <span class="hamburger-icon" aria-hidden="true"></span>
@@ -3055,10 +3058,7 @@ main {
                 <span class="nav-link-label">Class Schedule</span>
               </button>
             </li>
-            <% if (
-              (Array.isArray(allowedFeatures) && allowedFeatures.some((feature) => String(feature || '').trim().toLowerCase() === 'paygira')) ||
-              (Array.isArray(userPermissions) && (userPermissions.includes('manage_paygira') || userPermissions.includes('manage_billing')))
-            ) { %>
+            <% if (_canOpenPaygiraWorkspace) { %>
             <li>
               <button class="nav-link" type="button" data-nav-key="paygira" onclick="openWorkspaceTabByKey('paygira')">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18"/><path d="M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg></span>
@@ -3431,6 +3431,7 @@ main {
         canOpenAttendance: <%= hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher) ? 'true' : 'false' %>,
         canOpenSubjects: <%= hasAssessmentFeature ? 'true' : 'false' %>,
         canOpenDocs: <%= hasFilesFeature ? 'true' : 'false' %>,
+        canOpenPaygira: <%= _canOpenPaygiraWorkspace ? 'true' : 'false' %>,
       };
 
       workspaceState = {
@@ -3800,6 +3801,7 @@ main {
       }
 
       function getWorkspacePaygiraTab() {
+        if (!workspaceContext.canOpenPaygira) return getWorkspaceOverviewTab();
         return {
           id: 'paygira',
           title: 'My PayGira',
@@ -3856,7 +3858,10 @@ main {
         if (tabKey === 'subjects') return openWorkspaceTab(getWorkspaceSubjectsTab(), options || {});
         if (tabKey === 'attendance') return openWorkspaceTab(getWorkspaceAttendanceTab(), options || {});
         if (tabKey === 'docs') return openWorkspaceTab(getWorkspaceDocsTab(), options || {});
-        if (tabKey === 'paygira') return openWorkspaceTab(getWorkspacePaygiraTab(), options || {});
+        if (tabKey === 'paygira') {
+          if (!workspaceContext.canOpenPaygira) return openWorkspaceTab(getWorkspaceOverviewTab(), options || {});
+          return openWorkspaceTab(getWorkspacePaygiraTab(), options || {});
+        }
         return openWorkspaceTab(getWorkspaceOverviewTab(), options || {});
       }
 
@@ -3881,7 +3886,7 @@ main {
           openWorkspaceTabByKey('docs');
           return;
         }
-        if (!getWorkspaceTabById('paygira')) {
+        if (workspaceContext.canOpenPaygira && !getWorkspaceTabById('paygira')) {
           openWorkspaceTabByKey('paygira');
           return;
         }
