@@ -136,6 +136,160 @@ function roundCurrencyAmount(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
 
+function quoteSqlIdentifier(identifier) {
+  return `"${String(identifier || "").replace(/"/g, '""')}"`;
+}
+
+function requestExpectsJson(req) {
+  const accept = String(req?.headers?.accept || "").toLowerCase();
+  const contentType = String(req?.headers?.["content-type"] || "").toLowerCase();
+  const requestedWith = String(req?.headers?.["x-requested-with"] || "").toLowerCase();
+  return (
+    Boolean(req?.xhr) ||
+    requestedWith === "xmlhttprequest" ||
+    accept.includes("application/json") ||
+    contentType.includes("application/json")
+  );
+}
+
+function formatDependencyTableName(tableName) {
+  return String(tableName || "").replace(/_/g, " ").trim();
+}
+
+function buildSchoolYearDependencyErrorMessage(blockers = []) {
+  if (!Array.isArray(blockers) || blockers.length === 0) {
+    return "Cannot delete this school year because related records still exist.";
+  }
+
+  const ordered = blockers
+    .slice()
+    .sort((a, b) => Number(b.count || 0) - Number(a.count || 0));
+  const preview = ordered.slice(0, 6);
+  const summary = preview
+    .map((entry) => `${formatDependencyTableName(entry.tableName)} (${entry.count})`)
+    .join(", ");
+  const extraCount = ordered.length - preview.length;
+  const extraSuffix = extraCount > 0 ? ` and ${extraCount} more area${extraCount === 1 ? "" : "s"}` : "";
+
+  return `Cannot delete this school year because related records still exist in the system: ${summary}${extraSuffix}. Remove those records first, then try again.`;
+}
+
+async function collectSchoolYearDeletionBlockers(dbClient, { organizationId, schoolYearId, termIds = [] }) {
+  const blockers = [];
+
+  const getReferences = async (referencedTable, referencedColumn) => {
+    const result = await dbClient.query(
+      `SELECT
+         tc.table_schema,
+         tc.table_name,
+         kcu.column_name,
+         EXISTS (
+           SELECT 1
+           FROM information_schema.columns c
+           WHERE c.table_schema = tc.table_schema
+             AND c.table_name = tc.table_name
+             AND c.column_name = 'organization_id'
+         ) AS has_organization_id
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu
+         ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+       JOIN information_schema.constraint_column_usage ccu
+         ON tc.constraint_name = ccu.constraint_name
+        AND tc.table_schema = ccu.table_schema
+       WHERE tc.constraint_type = 'FOREIGN KEY'
+         AND tc.table_schema = 'public'
+         AND ccu.table_schema = 'public'
+         AND ccu.table_name = $1
+         AND ccu.column_name = $2`,
+      [referencedTable, referencedColumn]
+    );
+    return result.rows || [];
+  };
+
+  const schoolYearReferences = await getReferences("school_years", "id");
+  const schoolYearSkipTables = new Set(["terms"]);
+
+  for (const reference of schoolYearReferences) {
+    const tableName = String(reference.table_name || "");
+    if (!tableName || schoolYearSkipTables.has(tableName)) continue;
+
+    const hasOrganizationId =
+      reference.has_organization_id === true ||
+      reference.has_organization_id === "t" ||
+      reference.has_organization_id === 1;
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS count
+      FROM ${quoteSqlIdentifier(reference.table_schema)}.${quoteSqlIdentifier(tableName)}
+      WHERE ${quoteSqlIdentifier(reference.column_name)} = $1
+      ${hasOrganizationId ? "AND organization_id = $2" : ""}
+    `;
+    const params = hasOrganizationId
+      ? [schoolYearId, organizationId]
+      : [schoolYearId];
+    const countResult = await dbClient.query(countQuery, params);
+    const count = Number(countResult.rows[0]?.count || 0);
+    if (count > 0) {
+      blockers.push({
+        tableName,
+        count,
+      });
+    }
+  }
+
+  const safeTermIds = Array.isArray(termIds)
+    ? termIds.map((termId) => Number(termId)).filter((termId) => Number.isInteger(termId))
+    : [];
+
+  if (safeTermIds.length) {
+    const termReferences = await getReferences("terms", "term_id");
+    const termSkipTables = new Set(["term_classes"]);
+
+    for (const reference of termReferences) {
+      const tableName = String(reference.table_name || "");
+      if (!tableName || termSkipTables.has(tableName)) continue;
+
+      const hasOrganizationId =
+        reference.has_organization_id === true ||
+        reference.has_organization_id === "t" ||
+        reference.has_organization_id === 1;
+
+      const countQuery = `
+        SELECT COUNT(*)::int AS count
+        FROM ${quoteSqlIdentifier(reference.table_schema)}.${quoteSqlIdentifier(tableName)}
+        WHERE ${quoteSqlIdentifier(reference.column_name)} = ANY($1::int[])
+        ${hasOrganizationId ? "AND organization_id = $2" : ""}
+      `;
+      const params = hasOrganizationId
+        ? [safeTermIds, organizationId]
+        : [safeTermIds];
+      const countResult = await dbClient.query(countQuery, params);
+      const count = Number(countResult.rows[0]?.count || 0);
+      if (count > 0) {
+        blockers.push({
+          tableName,
+          count,
+        });
+      }
+    }
+  }
+
+  const dedupedByTable = new Map();
+  for (const blocker of blockers) {
+    const tableName = String(blocker.tableName || "").trim();
+    if (!tableName) continue;
+    const count = Number(blocker.count || 0);
+    const prev = dedupedByTable.get(tableName) || 0;
+    dedupedByTable.set(tableName, Math.max(prev, count));
+  }
+
+  return Array.from(dedupedByTable.entries()).map(([tableName, count]) => ({
+    tableName,
+    count,
+  }));
+}
+
 async function convertAmountBetweenCurrencies(amount, fromCurrency, toCurrency) {
   const normalizedFrom = normalizeCurrencyCode(fromCurrency);
   const normalizedTo = normalizeCurrencyCode(toCurrency);
@@ -17440,82 +17594,125 @@ NUMBERING:
   },
 
   deleteSchoolYear: async (req, res, db) => {
-    const { yearId } = req.body;
+    const yearIdRaw = req.body?.yearId ?? req.body?.id;
+    const yearId = Number.parseInt(String(yearIdRaw || ""), 10);
     const organizationId = req.session.organizationId;
+    const expectsJson = requestExpectsJson(req);
+
+    const sendError = (statusCode, message) => {
+      if (expectsJson) {
+        return res.status(statusCode).json({ success: false, message });
+      }
+      req.flash("error", message);
+      return res.redirect("/common/manageRecords");
+    };
+
+    const sendSuccess = (message) => {
+      if (expectsJson) {
+        return res.json({ success: true, message });
+      }
+      req.flash("success", message);
+      return res.redirect("/common/manageRecords");
+    };
+
     if (!organizationId) {
+      if (expectsJson) {
+        return res.status(401).json({ success: false, message: "Unauthorized." });
+      }
       req.flash("error", "Unauthorized.");
       return res.redirect("/account/login");
     }
+
+    if (!Number.isInteger(yearId)) {
+      return sendError(400, "Invalid school year selected.");
+    }
+
+    const client = await db.connect();
     try {
+      await client.query("BEGIN");
+
       // Tenant boundary: only proceed when the year actually belongs to caller.
-      const yearOwn = await db.query(
-        `SELECT 1 FROM school_years WHERE id = $1 AND organization_id = $2`,
+      const yearOwn = await client.query(
+        `SELECT id
+         FROM school_years
+         WHERE id = $1 AND organization_id = $2
+         FOR UPDATE`,
         [yearId, organizationId]
       );
       if (!yearOwn.rows.length) {
-        req.flash("error", "School year does not belong to your organization.");
-        return res.redirect("/common/manageRecords");
+        await client.query("ROLLBACK");
+        return sendError(404, "School year does not belong to your organization.");
       }
 
-      await db.query(
-        `DELETE FROM term_classes
-          WHERE term_id IN (SELECT term_id FROM terms WHERE school_year_id = $1 AND organization_id = $2)`,
+      const termResult = await client.query(
+        `SELECT term_id
+         FROM terms
+         WHERE school_year_id = $1 AND organization_id = $2`,
         [yearId, organizationId]
       );
-      await db.query(
+      const termIds = termResult.rows
+        .map((row) => Number(row.term_id))
+        .filter((termId) => Number.isInteger(termId));
+
+      const blockers = await collectSchoolYearDeletionBlockers(client, {
+        organizationId,
+        schoolYearId: yearId,
+        termIds,
+      });
+
+      if (blockers.length) {
+        await client.query("ROLLBACK");
+        return sendError(409, buildSchoolYearDependencyErrorMessage(blockers));
+      }
+
+      if (termIds.length) {
+        await client.query(
+          `DELETE FROM term_classes
+           WHERE organization_id = $1
+             AND term_id = ANY($2::int[])`,
+          [organizationId, termIds]
+        );
+      }
+
+      await client.query(
         "DELETE FROM terms WHERE school_year_id = $1 AND organization_id = $2",
         [yearId, organizationId]
       );
-      await db.query(
+
+      const schoolYearDeleteResult = await client.query(
         "DELETE FROM school_years WHERE id = $1 AND organization_id = $2",
         [yearId, organizationId]
       );
 
-      req.flash("success", "School year deleted successfully.");
-      res.redirect("/common/manageRecords");
+      if (schoolYearDeleteResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return sendError(404, "School year was not found or could not be deleted.");
+      }
+
+      await client.query("COMMIT");
+      return sendSuccess("School year deleted successfully.");
     } catch (error) {
-            req.flash("error", "Failed to delete school year.");
-      res.redirect("/common/manageRecords");
+      try {
+        await client.query("ROLLBACK");
+      } catch (_) {
+        // ignore rollback failures
+      }
+
+      if (error && error.code === "23503") {
+        return sendError(
+          409,
+          "Cannot delete this school year because related records still exist. Remove them first, then try again."
+        );
+      }
+
+      return sendError(500, "Failed to delete school year due to an internal error.");
+    } finally {
+      client.release();
     }
   },
 
   deleteSchoolYearPost: async (req, res, db) => {
-    try {
-      const { yearId } = req.body;
-      const organizationId = req.session.organizationId;
-      if (!organizationId) {
-        req.flash("error", "Unauthorized.");
-        return res.redirect("/account/login");
-      }
-
-      // Tenant boundary: confirm ownership before any deletes.
-      const yearOwn = await db.query(
-        `SELECT 1 FROM school_years WHERE id = $1 AND organization_id = $2`,
-        [yearId, organizationId]
-      );
-      if (!yearOwn.rows.length) {
-        req.flash("error", "School year does not belong to your organization.");
-        return res.redirect("/common/manageRecords");
-      }
-
-      // Delete all terms associated with the school year (org-scoped)
-      await db.query(
-        "DELETE FROM terms WHERE school_year_id = $1 AND organization_id = $2",
-        [yearId, organizationId]
-      );
-
-      // Delete the school year (org-scoped)
-      await db.query(
-        "DELETE FROM school_years WHERE id = $1 AND organization_id = $2",
-        [yearId, organizationId]
-      );
-
-      req.flash("success", "School year deleted successfully.");
-      res.redirect("/common/manageRecords");
-    } catch (error) {
-            req.flash("error", "Failed to delete school year.");
-      res.redirect("/common/manageRecords");
-    }
+    return commonController.deleteSchoolYear(req, res, db);
   },
 
   // Guardian Management Functions

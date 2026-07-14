@@ -4012,6 +4012,7 @@ main {
         const navOverlay = document.getElementById('class-tools-overlay');
         const navClose = document.querySelector('.nav-close');
         const navLinks = document.querySelectorAll('.nav-link');
+        const navSublinks = document.querySelectorAll('.nav-sublink');
         const classInfoSection = document.getElementById('class-info-section');
         const classInfoToggle = document.getElementById('class-info-toggle');
         const classInfoContent = document.getElementById('class-info-content');
@@ -4070,9 +4071,28 @@ main {
         }
         if (navLinks && navLinks.length) {
           navLinks.forEach(link => {
+            if (link.classList.contains('nav-section-toggle') || link.id === 'subjects-section-toggle') {
+              return;
+            }
+
             if (!link.dataset.boundNavLinkClose) {
               link.dataset.boundNavLinkClose = '1';
-              link.addEventListener('click', closeNav);
+              link.addEventListener('click', () => {
+                if (!isSmallScreen()) return;
+                closeNav();
+              });
+            }
+          });
+        }
+
+        if (navSublinks && navSublinks.length) {
+          navSublinks.forEach(link => {
+            if (!link.dataset.boundNavSublinkClose) {
+              link.dataset.boundNavSublinkClose = '1';
+              link.addEventListener('click', () => {
+                if (!isSmallScreen()) return;
+                closeNav();
+              });
             }
           });
         }

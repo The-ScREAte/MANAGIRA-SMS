@@ -353,6 +353,7 @@
     background: var(--primary) !important;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     text-decoration: none;
     padding: 10px 16px;
@@ -1224,6 +1225,23 @@
       font-size: 0.8rem;
     }
 
+    #toggle-upload-content-form,
+    #toggle-upload-text-form {
+      padding: 6px 9px;
+      font-size: 0.74rem;
+      border-radius: 8px;
+      gap: 4px;
+      line-height: 1.15;
+    }
+
+    .slideshow-images .form-action-row > button[type="submit"],
+    .standalone-images .form-action-row > button[type="submit"] {
+      padding: 7px 10px;
+      font-size: 0.74rem;
+      border-radius: 8px;
+      min-height: 30px;
+    }
+
     .form-action-row {
       gap: 8px;
       margin-top: 6px;
@@ -1372,6 +1390,30 @@
     .section-collapse-toggle {
       padding: 7px 9px;
       font-size: 0.76rem;
+    }
+
+    #toggle-upload-content-form,
+    #toggle-upload-text-form {
+      padding: 5px 8px;
+      font-size: 0.7rem;
+      border-radius: 7px;
+      gap: 3px;
+    }
+
+    .slideshow-images .form-action-row > button[type="submit"],
+    .standalone-images .form-action-row > button[type="submit"] {
+      padding: 6px 8px;
+      font-size: 0.7rem;
+      min-height: 28px;
+      border-radius: 7px;
+    }
+
+    #contentUploadForm .form-actions .btn-primary {
+      min-width: 122px;
+      max-width: 74%;
+      padding: 6px 9px;
+      font-size: 0.68rem;
+      border-radius: 7px;
     }
   }
 
@@ -1606,6 +1648,8 @@
     color: var(--text-primary);
     transition: border-color 0.2s, box-shadow 0.2s;
     box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .form-field:focus {
@@ -1616,6 +1660,15 @@
 
   textarea.form-field {
     resize: vertical;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .ql-editor {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .form-actions {
@@ -1623,6 +1676,18 @@
     justify-content: center;
     padding-top: 8px;
     gap: 10px;
+  }
+
+  #contentUploadForm .form-actions {
+    justify-content: center;
+  }
+
+  #contentUploadForm .form-actions .btn-primary {
+    width: auto !important;
+    min-width: 160px;
+    max-width: 82%;
+    margin: 0 auto;
+    justify-content: center;
   }
 
   .dynamic-list {
@@ -1738,15 +1803,52 @@
   }
 
   @media (max-width: 768px) {
+    .manage-public-page input[type="text"],
+    .manage-public-page input[type="email"],
+    .manage-public-page input[type="number"],
+    .manage-public-page input[type="date"],
+    .manage-public-page input[type="month"],
+    .manage-public-page input[type="time"],
+    .manage-public-page input[type="datetime-local"],
+    .manage-public-page select,
+    .manage-public-page textarea,
+    .manage-public-page .form-field {
+      font-size: 16px !important;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
     .header-actions {
       gap: 6px;
     }
     .inline-panel {
-      padding: 18px 16px;
+      padding: 14px 12px;
       border-radius: 12px;
     }
     .images-header h2, .texts-header h2 {
       font-size: 1rem;
+    }
+
+    #contentUploadForm .form-actions .btn-primary {
+      min-width: 136px;
+      max-width: 78%;
+      padding: 6px 10px;
+      font-size: 0.72rem;
+      border-radius: 8px;
+    }
+  }
+
+  @media (hover: none), (pointer: coarse) {
+    .image-content-form:hover,
+    .text-content-form:hover,
+    .btn:hover,
+    .image-content-form button:hover,
+    .text-content-form button:hover,
+    .btn-primary:hover,
+    .theme-save-btn:hover {
+      transform: none;
     }
   }
 </style>
@@ -1916,7 +2018,7 @@
                             <input type="hidden" name="imageId" value="<%= image.image_id %>">
                       
                             <label for="caption">Caption:</label>
-                            <input type="text" required name="caption" value="<%= image.caption %>">
+                            <input type="text" name="caption" value="<%= image.caption %>">
                       
                             <label for="allocation">Allocation:</label>
                             <select name="allocation">
@@ -2204,9 +2306,12 @@
             // Show "Add More Images" button for both slideshow and site image
             addMoreFilesBtn.style.display = (isSlideShow || isSiteImage) ? 'inline-block' : 'none';
 
+            if (!isSlideShow && !isSiteImage) {
+              return;
+            }
+
             // Add initial fields
             addFileUploadField();
-            if (isSlideShow) addFileUploadField(); // Add second field for slideshows by default
         });
 
         addMoreFilesBtn.addEventListener('click', addFileUploadField);
@@ -2215,33 +2320,27 @@
             const fieldHTML = `
                 <div class="file-upload-field">
                     <label>Choose File:</label>
-                    <input type="file" name="slideshowImages" accept="image/*,video/*" required>
+              <input type="file" name="slideshowImages" accept="image/*,video/*">
                     <button type="button" class="removeFileBtn" onclick="removeFileField(this)">Remove</button>
                     <label>Caption:</label>
-                    <input type="text" name="fileTexts" placeholder="Enter caption for this file" required>
+              <input type="text" name="fileTexts" placeholder="Enter caption for this file (optional)">
                 </div>`;
             fileUploadContainer.insertAdjacentHTML('beforeend', fieldHTML);
         }
 
         window.removeFileField = function (button) {
-            const fileFields = document.querySelectorAll('.file-upload-field');
-            // Prevent removing the last field - always keep at least one
-            if (fileFields.length > 1) {
-                button.closest('.file-upload-field').remove();
-            } else {
-                alert('You must have at least one file upload field.');
-            }
+          const row = button.closest('.file-upload-field');
+          if (row) row.remove();
         };
         
         const contentUploadForm = document.getElementById('contentUploadForm');
         if (contentUploadForm) {
           contentUploadForm.addEventListener('submit', function(e) {
-            if (contentTypeSelect.value === 'slideshow') {
-              const fileInputs = fileUploadContainer.querySelectorAll('input[type="file"]');
-              if (fileInputs.length < 2) {
-                e.preventDefault();
-                alert('Please upload at least two images or videos for the slideshow.');
-              }
+            const fileInputs = fileUploadContainer.querySelectorAll('input[type="file"]');
+            const hasAtLeastOneFile = Array.from(fileInputs).some((input) => input.files && input.files.length > 0);
+            if (!hasAtLeastOneFile) {
+              e.preventDefault();
+              alert('Please choose at least one image or video to upload.');
             }
           });
         }
@@ -2648,6 +2747,18 @@
               const form = event.target;
               if (!(form instanceof HTMLFormElement)) return;
 
+              const activeEl = document.activeElement;
+              const isImplicitInputSubmit =
+                !event.submitter &&
+                activeEl instanceof HTMLElement &&
+                activeEl.form === form &&
+                activeEl.matches('input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="time"], input[type="datetime-local"], input[type="search"], input[type="tel"], input[type="url"]');
+
+              if (isImplicitInputSubmit) {
+                event.preventDefault();
+                return;
+              }
+
               event.preventDefault();
 
               if (form.matches('form[action="/account/addTextSection"], form[action="/account/updateText"]')) {
@@ -2672,6 +2783,18 @@
                 setElementLoading(submitter, false);
               }
             }, true);
+
+            pageRoot.addEventListener('keydown', function (event) {
+              if (event.key !== 'Enter') return;
+              const target = event.target;
+              if (!(target instanceof HTMLInputElement)) return;
+              if (target.type === 'submit' || target.type === 'button') return;
+
+              const textLikeTypes = new Set(['text', 'email', 'number', 'date', 'time', 'datetime-local', 'search', 'tel', 'url']);
+              if (!textLikeTypes.has(target.type)) return;
+
+              event.preventDefault();
+            });
 
             // Delete links use a native onclick confirm and navigate directly to the
             // server route, which deletes the full record (image + caption) from the

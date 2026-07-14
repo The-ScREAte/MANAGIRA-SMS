@@ -1115,6 +1115,22 @@
     width: 200px;
   }
 
+  /* Keep shared header menu isolated from page-level list defaults */
+  header#top-header .nav-menu,
+  header#top-header .nav-menu .nav-item {
+    list-style: none !important;
+    margin: 0;
+  }
+
+  header#top-header .nav-menu {
+    padding-inline-start: 6px !important;
+    padding-inline-end: 6px !important;
+  }
+
+  header#top-header .nav-menu .nav-item::marker {
+    content: '';
+  }
+
   /* 🔹 Sticky Navigation - uses organization theme */
   .sticky-nav {
     position: absolute;

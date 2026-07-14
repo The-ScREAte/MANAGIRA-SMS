@@ -9,6 +9,10 @@ function parseTruthyFlag(val) {
 }
 
 const REGISTER_PROOF_DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
+const DOWNGRADE_USAGE_CHARGE_THRESHOLD_DAYS = 20;
+const DOWNGRADE_USAGE_CHARGE_WINDOW_DAYS = 30;
+
+let organizationPlanChangeEventsSchemaReady = false;
 
 function sanitizeCurrencyProfileSnapshot(profile) {
   if (!profile || typeof profile !== "object") return null;
@@ -714,6 +718,163 @@ function getPlainEnglishStripeError(input, fallbackMessage = "We could not proce
   return message || fallbackMessage;
 }
 
+function getStripeConnectivityFlags(error) {
+  const rawMessage = String(
+    error?.raw?.message || error?.response?.data?.message || error?.message || ""
+  );
+  const rawDetailMessage = String(
+    error?.raw?.detail?.message || error?.detail?.message || ""
+  );
+  const rawLower = rawMessage.toLowerCase();
+  const detailLower = rawDetailMessage.toLowerCase();
+
+  const isConnectionIssue =
+    String(error?.type || "").toLowerCase() === "stripeconnectionerror" ||
+    rawLower.includes("connection to stripe") ||
+    rawLower.includes("network") ||
+    rawLower.includes("socket") ||
+    rawLower.includes("econn") ||
+    detailLower.includes("econn");
+
+  const isTlsIssue =
+    isConnectionIssue && (
+      rawLower.includes("unable to get local issuer certificate") ||
+      rawLower.includes("unable to verify the first certificate") ||
+      rawLower.includes("self signed certificate") ||
+      detailLower.includes("unable to get local issuer certificate") ||
+      detailLower.includes("unable to verify the first certificate") ||
+      detailLower.includes("self signed certificate")
+    );
+
+  return {
+    isConnectionIssue,
+    isTlsIssue,
+    rawMessage,
+    rawDetailMessage,
+  };
+}
+
+async function chargeOrganizationPlanChangeAmount(dbClient, {
+  organizationId,
+  amountUsd,
+  fromPlanId = null,
+  toPlanId = null,
+  reason = "Plan change charge",
+  metadata = {},
+  missingCardMessage = "No payment card on file. Please add a payment method before continuing.",
+  missingStripeCardMessage = "Payment failed: please add a Stripe card before continuing.",
+  defaultFailureMessage = "Unable to charge your card for this plan change.",
+}) {
+  const normalizedUsd = Number(amountUsd || 0);
+  if (!(normalizedUsd > 0)) {
+    return {
+      success: true,
+      skipped: true,
+      chargedAmount: 0,
+      chargeCurrency: "USD",
+      paymentIntentId: null,
+    };
+  }
+
+  const cardResult = await dbClient.query(
+    `SELECT authorization_code, provider FROM stored_cards
+     WHERE organization_id = $1 AND is_primary = true AND is_active = true
+     LIMIT 1`,
+    [organizationId]
+  );
+
+  if (cardResult.rows.length === 0) {
+    return {
+      success: false,
+      userMessage: missingCardMessage,
+      isConnectionIssue: false,
+      isTlsIssue: false,
+    };
+  }
+
+  const authorizationCode = cardResult.rows[0].authorization_code;
+  const cardProvider = cardResult.rows[0].provider || "paystack";
+  const chargeCurrency = "USD";
+  const amountInChargeCurrency = await convertUsdAmountToCurrency(normalizedUsd, chargeCurrency);
+  const amountMinor = Math.round(amountInChargeCurrency * 100);
+
+  const orgStripeRow = await dbClient.query(
+    "SELECT stripe_customer_id FROM organizations WHERE organization_id = $1",
+    [organizationId]
+  );
+  const stripeCustomerId = orgStripeRow.rows[0]?.stripe_customer_id;
+
+  if (!stripeCustomerId || cardProvider !== "stripe") {
+    return {
+      success: false,
+      userMessage: missingStripeCardMessage,
+      isConnectionIssue: false,
+      isTlsIssue: false,
+    };
+  }
+
+  try {
+    const stripeClient = await getStripeClient(dbClient);
+    const mergedMetadata = {
+      reason: String(reason || "Plan change charge"),
+      from_plan: fromPlanId == null ? "" : String(fromPlanId),
+      to_plan: toPlanId == null ? "" : String(toPlanId),
+    };
+
+    Object.entries(metadata || {}).forEach(([key, value]) => {
+      if (value === null || value === undefined) return;
+      mergedMetadata[String(key)] = String(value);
+    });
+
+    const intent = await stripeClient.paymentIntents.create({
+      amount: amountMinor,
+      currency: chargeCurrency,
+      customer: stripeCustomerId,
+      payment_method: authorizationCode,
+      confirm: true,
+      off_session: true,
+      metadata: mergedMetadata,
+    });
+
+    if (intent.status !== "succeeded") {
+      const intentFailureMessage = String(
+        intent.last_payment_error?.message || defaultFailureMessage
+      );
+      return {
+        success: false,
+        userMessage: getPlainEnglishStripeError(
+          { message: intentFailureMessage, raw: { message: intentFailureMessage } },
+          defaultFailureMessage
+        ),
+        isConnectionIssue: false,
+        isTlsIssue: false,
+      };
+    }
+
+    return {
+      success: true,
+      skipped: false,
+      chargedAmount: Number(amountInChargeCurrency || 0),
+      chargeCurrency,
+      paymentIntentId: intent.id || null,
+      cardProvider,
+    };
+  } catch (chargeErr) {
+    const connectivity = getStripeConnectivityFlags(chargeErr);
+    const fallbackMessage = connectivity.isTlsIssue
+      ? "Stripe TLS certificate validation failed. Set STRIPE_ALLOW_INSECURE_TLS=true for local/dev or install the missing CA chain."
+      : defaultFailureMessage;
+
+    return {
+      success: false,
+      userMessage: getPlainEnglishStripeError(chargeErr, fallbackMessage),
+      isConnectionIssue: connectivity.isConnectionIssue,
+      isTlsIssue: connectivity.isTlsIssue,
+      error: chargeErr,
+    };
+  }
+}
+
 function buildStripeRegistrationIdempotencyKey({
   registrationDetails,
   paymentContext,
@@ -1412,6 +1573,135 @@ async function ensureBillingInvoicesSchema(dbClient) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+}
+
+async function ensureOrganizationPlanChangeEventsSchema(dbClient) {
+  if (organizationPlanChangeEventsSchemaReady) return;
+
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS organization_plan_change_events (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id BIGINT NOT NULL,
+      actor_user_id BIGINT,
+      from_plan_id INT,
+      to_plan_id INT,
+      change_type TEXT NOT NULL,
+      event_stage TEXT NOT NULL DEFAULT 'applied',
+      requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      effective_at TIMESTAMPTZ,
+      billing_period_key TEXT,
+      charge_required BOOLEAN NOT NULL DEFAULT FALSE,
+      charge_applied BOOLEAN NOT NULL DEFAULT FALSE,
+      charge_amount_usd NUMERIC(12, 2) NOT NULL DEFAULT 0,
+      charge_currency TEXT,
+      charge_amount NUMERIC(12, 2),
+      charge_reference TEXT,
+      charge_reason TEXT,
+      note TEXT
+    )
+  `);
+
+  await dbClient.query(`
+    CREATE INDEX IF NOT EXISTS idx_org_plan_change_events_org_requested
+    ON organization_plan_change_events (organization_id, requested_at DESC)
+  `);
+
+  await dbClient.query(`
+    CREATE INDEX IF NOT EXISTS idx_org_plan_change_events_type_stage
+    ON organization_plan_change_events (change_type, event_stage)
+  `);
+
+  organizationPlanChangeEventsSchemaReady = true;
+}
+
+async function recordOrganizationPlanChangeEvent(dbClient, eventPayload = {}) {
+  const organizationId = Number(eventPayload.organizationId || 0);
+  if (!organizationId) return null;
+
+  await ensureOrganizationPlanChangeEventsSchema(dbClient);
+
+  const actorUserId = Number(eventPayload.actorUserId || 0) || null;
+  const fromPlanId = Number(eventPayload.fromPlanId || 0) || null;
+  const toPlanId = Number(eventPayload.toPlanId || 0) || null;
+  const changeType = String(eventPayload.changeType || "unknown").trim().toLowerCase();
+  const eventStage = String(eventPayload.eventStage || "applied").trim().toLowerCase();
+  const effectiveAt = eventPayload.effectiveAt ? new Date(eventPayload.effectiveAt) : null;
+  const billingPeriodKey = eventPayload.billingPeriodKey ? String(eventPayload.billingPeriodKey).trim() : null;
+  const chargeRequired = Boolean(eventPayload.chargeRequired);
+  const chargeApplied = Boolean(eventPayload.chargeApplied);
+  const chargeAmountUsd = Number(eventPayload.chargeAmountUsd || 0);
+  const chargeCurrency = eventPayload.chargeCurrency ? String(eventPayload.chargeCurrency).trim().toUpperCase() : null;
+  const chargeAmount = eventPayload.chargeAmount === null || eventPayload.chargeAmount === undefined
+    ? null
+    : Number(eventPayload.chargeAmount);
+  const chargeReference = eventPayload.chargeReference ? String(eventPayload.chargeReference).trim() : null;
+  const chargeReason = eventPayload.chargeReason ? String(eventPayload.chargeReason).trim() : null;
+  const note = eventPayload.note ? String(eventPayload.note).trim() : null;
+
+  const result = await dbClient.query(
+    `INSERT INTO organization_plan_change_events (
+      organization_id,
+      actor_user_id,
+      from_plan_id,
+      to_plan_id,
+      change_type,
+      event_stage,
+      effective_at,
+      billing_period_key,
+      charge_required,
+      charge_applied,
+      charge_amount_usd,
+      charge_currency,
+      charge_amount,
+      charge_reference,
+      charge_reason,
+      note
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8,
+      $9, $10, $11, $12, $13, $14, $15, $16
+    )
+    RETURNING id, requested_at`,
+    [
+      organizationId,
+      actorUserId,
+      fromPlanId,
+      toPlanId,
+      changeType,
+      eventStage,
+      effectiveAt && !Number.isNaN(effectiveAt.getTime()) ? effectiveAt : null,
+      billingPeriodKey,
+      chargeRequired,
+      chargeApplied,
+      Number.isFinite(chargeAmountUsd) ? chargeAmountUsd : 0,
+      chargeCurrency,
+      chargeAmount,
+      chargeReference,
+      chargeReason,
+      note,
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function getLatestAppliedUpgradePlanChangeEvent(dbClient, organizationId) {
+  const orgId = Number(organizationId || 0);
+  if (!orgId) return null;
+
+  await ensureOrganizationPlanChangeEventsSchema(dbClient);
+
+  const result = await dbClient.query(
+    `SELECT id, organization_id, from_plan_id, to_plan_id, requested_at, effective_at
+     FROM organization_plan_change_events
+     WHERE organization_id = $1
+       AND change_type = 'upgrade'
+       AND event_stage = 'applied'
+     ORDER BY COALESCE(effective_at, requested_at) DESC, id DESC
+     LIMIT 1`,
+    [orgId]
+  );
+
+  return result.rows[0] || null;
 }
 
 async function listAppInvoices(dbClient, organizationId, limit = 12) {
@@ -6676,16 +6966,6 @@ const accountController = {
         return res.redirect("/account/managePublicContent");
       }
 
-      if (contentType === "slideshow" && files.length < 2) {
-        req.flash(
-          "error",
-
-          "Please upload at least two images or videos for the slideshow."
-        );
-
-        return res.redirect("/account/managePublicContent");
-      }
-
       // Generate a unique `slideshow_id` for this set of images
 
       let slideshowId = null;
@@ -9032,8 +9312,14 @@ const accountController = {
   updatePlanPost: async (req, res) => {
     try {
       const { newPlanId, newBillingPeriod, redirectTo } = req.body;
+      const safeRedirect = redirectTo || "/account/update-plan";
 
       const orgId = req.session.organizationId;
+      const actorUserId = Number(req.session?.user?.user_id || req.session?.userId || 0) || null;
+      const isNonProduction =
+        String(process.env.NODE_ENV || "").trim().toLowerCase() !== "production";
+
+      await ensureOrganizationPlanChangeEventsSchema(db);
 
       // Fetch the current plan and trial status of the organization
       const currentOrgResult = await db.query(
@@ -9044,7 +9330,25 @@ const accountController = {
 
       if (currentOrgResult.rows.length === 0) {
         req.flash("error", "Organization not found.");
-        return res.redirect(redirectTo || "/account/update-plan");
+        return res.redirect(safeRedirect);
+      }
+
+      const recordPlanEventSafe = async (eventPayload) => {
+        try {
+          await recordOrganizationPlanChangeEvent(db, {
+            organizationId: orgId,
+            actorUserId,
+            ...eventPayload,
+          });
+        } catch (eventErr) {
+          console.warn("[Billing][updatePlanPost] failed to record plan change event:", eventErr?.message || eventErr);
+        }
+      };
+
+      const parsedNewPlanId = Number.parseInt(newPlanId, 10);
+      if (!Number.isInteger(parsedNewPlanId) || parsedNewPlanId <= 0) {
+        req.flash("error", "Please select a valid plan.");
+        return res.redirect(safeRedirect);
       }
 
       const currentPlanId = currentOrgResult.rows[0].plan_id;
@@ -9056,14 +9360,14 @@ const accountController = {
 
       // Check if user is changing billing period only (same plan)
       const billingPeriodChanged = !!newBillingPeriod;
-      const planChanged = parseInt(newPlanId) !== parseInt(currentPlanId);
+      const planChanged = parsedNewPlanId !== Number.parseInt(currentPlanId, 10);
 
       if (!planChanged && !billingPeriodChanged) {
         req.flash(
           "error",
           "⚠️ Please select a different plan or billing cycle."
         );
-        return res.redirect(redirectTo || "/account/update-plan");
+        return res.redirect(safeRedirect);
       }
 
       // If only billing period changed, update it and redirect
@@ -9072,11 +9376,21 @@ const accountController = {
           `UPDATE payments SET billing_period_key = $1 WHERE organization_id = $2 AND status = 'active'`,
           [newBillingPeriod, orgId]
         );
+        await recordPlanEventSafe({
+          fromPlanId: currentPlanId,
+          toPlanId: currentPlanId,
+          changeType: "billing_cycle",
+          eventStage: "applied",
+          billingPeriodKey: newBillingPeriod,
+          chargeRequired: false,
+          chargeApplied: false,
+          note: "Billing cycle updated without plan change.",
+        });
         req.flash(
           "success",
           "Your billing cycle has been updated. The change will take effect at your next renewal."
         );
-        return res.redirect(redirectTo || "/account/update-plan");
+        return res.redirect(safeRedirect);
       }
 
       // Fetch the plan names and fallback base prices, then resolve dynamic monthly pricing.
@@ -9087,7 +9401,7 @@ const accountController = {
          LEFT JOIN features f ON pf.feature_id = f.id
          WHERE p.id = $1 OR p.id = $2
          GROUP BY p.id`,
-        [currentPlanId, newPlanId]
+        [currentPlanId, parsedNewPlanId]
       );
       let currentPrice = 0, newPrice = 0, newPlanName = '';
       for (const row of planPrices.rows) {
@@ -9100,9 +9414,9 @@ const accountController = {
           });
           currentPrice = Number(pricing.monthlyPriceUsd || 0);
         }
-        if (parseInt(row.id) === parseInt(newPlanId)) {
+        if (parseInt(row.id) === parseInt(parsedNewPlanId)) {
           const pricing = await computeOrganizationPlanMonthlyPrice(db, {
-            planId: newPlanId,
+            planId: parsedNewPlanId,
             fallbackMonthlyUsd: parseFloat(row.total_price),
             studentCount: organizationStudentCount,
             countryCode: currencyProfile?.countryCode || null,
@@ -9110,6 +9424,11 @@ const accountController = {
           newPrice = Number(pricing.monthlyPriceUsd || 0);
           newPlanName = row.plan_name;
         }
+      }
+
+      if (!newPlanName) {
+        req.flash("error", "Selected plan is not available.");
+        return res.redirect(safeRedirect);
       }
 
       // Also update billing period if changed
@@ -9122,6 +9441,72 @@ const accountController = {
 
       // ── DOWNGRADE (new plan is cheaper) ──
       if (newPrice < currentPrice) {
+        const latestUpgradeEvent = await getLatestAppliedUpgradePlanChangeEvent(db, orgId).catch(() => null);
+        let daysSinceLatestUpgrade = null;
+        if (latestUpgradeEvent && Number(latestUpgradeEvent.to_plan_id || 0) === Number(currentPlanId || 0)) {
+          const anchorDate = new Date(latestUpgradeEvent.effective_at || latestUpgradeEvent.requested_at);
+          if (!Number.isNaN(anchorDate.getTime())) {
+            daysSinceLatestUpgrade = Math.floor((Date.now() - anchorDate.getTime()) / (1000 * 60 * 60 * 24));
+          }
+        }
+
+        const shouldApplyDowngradeUsageCharge =
+          Number.isInteger(daysSinceLatestUpgrade) &&
+          daysSinceLatestUpgrade >= DOWNGRADE_USAGE_CHARGE_THRESHOLD_DAYS &&
+          daysSinceLatestUpgrade < DOWNGRADE_USAGE_CHARGE_WINDOW_DAYS;
+        const downgradeUsageChargeUsd = shouldApplyDowngradeUsageCharge
+          ? Math.max(0, Number(currentPrice || 0))
+          : 0;
+
+        let downgradeChargeApplied = false;
+        let downgradeChargeCurrency = null;
+        let downgradeChargeAmount = null;
+        let downgradeChargeReference = null;
+        let downgradeChargeSkippedInNonProduction = false;
+
+        if (downgradeUsageChargeUsd > 0) {
+          const downgradeChargeResult = await chargeOrganizationPlanChangeAmount(db, {
+            organizationId: orgId,
+            amountUsd: downgradeUsageChargeUsd,
+            fromPlanId: currentPlanId,
+            toPlanId: parsedNewPlanId,
+            reason: "Plan downgrade usage charge",
+            metadata: {
+              charge_rule: "downgrade_usage_after_20_days",
+              days_since_latest_upgrade: String(daysSinceLatestUpgrade),
+            },
+            missingCardMessage: "No payment card on file. Please add a payment method before downgrading.",
+            missingStripeCardMessage: "Payment failed: please add a Stripe card before downgrading your plan.",
+            defaultFailureMessage: "Unable to charge your card for this downgrade request.",
+          });
+
+          if (!downgradeChargeResult.success) {
+            if (isNonProduction && downgradeChargeResult.isConnectionIssue) {
+              downgradeChargeSkippedInNonProduction = true;
+            } else {
+              await recordPlanEventSafe({
+                fromPlanId: currentPlanId,
+                toPlanId: parsedNewPlanId,
+                changeType: "downgrade",
+                eventStage: "failed",
+                billingPeriodKey: newBillingPeriod || null,
+                chargeRequired: true,
+                chargeApplied: false,
+                chargeAmountUsd: downgradeUsageChargeUsd,
+                chargeReason: "downgrade_usage_after_20_days",
+                note: `Downgrade blocked because usage charge failed: ${downgradeChargeResult.userMessage}`,
+              });
+              req.flash("error", "Payment failed: " + downgradeChargeResult.userMessage);
+              return res.redirect(safeRedirect);
+            }
+          } else {
+            downgradeChargeApplied = true;
+            downgradeChargeCurrency = downgradeChargeResult.chargeCurrency || "USD";
+            downgradeChargeAmount = Number(downgradeChargeResult.chargedAmount || 0);
+            downgradeChargeReference = downgradeChargeResult.paymentIntentId || null;
+          }
+        }
+
         const paymentResult = await db.query(
           `SELECT next_payment_end_date FROM payments WHERE organization_id = $1 ORDER BY created_at DESC LIMIT 1`,
           [orgId]
@@ -9132,27 +9517,78 @@ const accountController = {
           effectiveDate = paymentResult.rows[0].next_payment_end_date;
         }
 
+        const downgradeMessages = [];
+        if (downgradeChargeApplied) {
+          downgradeMessages.push(
+            `A monthly usage charge of ${downgradeChargeCurrency || "USD"} ${Number(downgradeChargeAmount || 0).toFixed(2)} was applied because this downgrade was requested ${daysSinceLatestUpgrade} day${daysSinceLatestUpgrade === 1 ? "" : "s"} after your latest upgrade.`
+          );
+        }
+
         if (effectiveDate) {
           await db.query(
             `UPDATE organizations SET pending_plan_id = $1, pending_plan_effective_date = $2 WHERE organization_id = $3`,
-            [newPlanId, effectiveDate, orgId]
+            [parsedNewPlanId, effectiveDate, orgId]
           );
           await updateBillingPeriod;
           const msgs = [`Your plan will be downgraded to ${newPlanName} on ${new Date(effectiveDate).toLocaleDateString()}. You will retain your current plan features until then.`];
+          if (downgradeMessages.length) msgs.push(...downgradeMessages);
           if (billingPeriodChanged) msgs.push('Your billing cycle update will take effect at the next renewal.');
           req.flash("success", msgs.join(' '));
+          await recordPlanEventSafe({
+            fromPlanId: currentPlanId,
+            toPlanId: parsedNewPlanId,
+            changeType: "downgrade",
+            eventStage: "requested",
+            effectiveAt: effectiveDate,
+            billingPeriodKey: newBillingPeriod || null,
+            chargeRequired: downgradeUsageChargeUsd > 0,
+            chargeApplied: downgradeChargeApplied,
+            chargeAmountUsd: downgradeUsageChargeUsd,
+            chargeCurrency: downgradeChargeCurrency,
+            chargeAmount: downgradeChargeAmount,
+            chargeReference: downgradeChargeReference,
+            chargeReason: downgradeUsageChargeUsd > 0 ? "downgrade_usage_after_20_days" : null,
+            note: downgradeChargeSkippedInNonProduction
+              ? "Downgrade usage charge skipped in non-production because Stripe connection was unavailable."
+              : `Downgrade requested${Number.isInteger(daysSinceLatestUpgrade) ? ` ${daysSinceLatestUpgrade} days after latest upgrade` : ""}.`,
+          });
         } else {
           await db.query(
             `UPDATE organizations SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL WHERE organization_id = $2`,
-            [newPlanId, orgId]
+            [parsedNewPlanId, orgId]
           );
           await updateBillingPeriod;
           invalidateOrganizationAccessCache(orgId);
           req.session.allowedFeatures = [];
-          req.flash("success", `Your plan has been changed to ${newPlanName}.` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
+          req.flash("success", `Your plan has been changed to ${newPlanName}.` + (downgradeMessages.length ? ` ${downgradeMessages.join(" ")}` : "") + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
+          await recordPlanEventSafe({
+            fromPlanId: currentPlanId,
+            toPlanId: parsedNewPlanId,
+            changeType: "downgrade",
+            eventStage: "applied",
+            effectiveAt: new Date(),
+            billingPeriodKey: newBillingPeriod || null,
+            chargeRequired: downgradeUsageChargeUsd > 0,
+            chargeApplied: downgradeChargeApplied,
+            chargeAmountUsd: downgradeUsageChargeUsd,
+            chargeCurrency: downgradeChargeCurrency,
+            chargeAmount: downgradeChargeAmount,
+            chargeReference: downgradeChargeReference,
+            chargeReason: downgradeUsageChargeUsd > 0 ? "downgrade_usage_after_20_days" : null,
+            note: downgradeChargeSkippedInNonProduction
+              ? "Downgrade usage charge skipped in non-production because Stripe connection was unavailable."
+              : `Downgrade applied immediately${Number.isInteger(daysSinceLatestUpgrade) ? ` (${daysSinceLatestUpgrade} days after latest upgrade)` : ""}.`,
+          });
         }
 
-        return res.redirect(redirectTo || "/account/update-plan");
+        if (downgradeChargeSkippedInNonProduction) {
+          req.flash(
+            "warning",
+            "Stripe connection was unavailable in this non-production environment, so the downgrade usage charge was skipped."
+          );
+        }
+
+        return res.redirect(safeRedirect);
       }
 
       // ── UPGRADE (new plan is more expensive) ──
@@ -9161,13 +9597,25 @@ const accountController = {
       if (isOnTrial) {
         await db.query(
           `UPDATE organizations SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL WHERE organization_id = $2`,
-          [newPlanId, orgId]
+          [parsedNewPlanId, orgId]
         );
         await updateBillingPeriod;
         invalidateOrganizationAccessCache(orgId);
         req.session.allowedFeatures = [];
+        await recordPlanEventSafe({
+          fromPlanId: currentPlanId,
+          toPlanId: parsedNewPlanId,
+          changeType: "upgrade",
+          eventStage: "applied",
+          effectiveAt: new Date(),
+          billingPeriodKey: newBillingPeriod || null,
+          chargeRequired: false,
+          chargeApplied: false,
+          chargeReason: "trial_upgrade",
+          note: "Upgraded while trial was still active.",
+        });
         req.flash("success", `Your plan has been upgraded to ${newPlanName}. Since you are on a free trial, you will be charged the new plan rate when your trial ends.` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
-        return res.redirect(redirectTo || "/account/update-plan");
+        return res.redirect(safeRedirect);
       }
 
       // Not on trial — calculate prorated upgrade charge
@@ -9182,13 +9630,25 @@ const accountController = {
         // No payment record — just switch immediately
         await db.query(
           `UPDATE organizations SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL WHERE organization_id = $2`,
-          [newPlanId, orgId]
+          [parsedNewPlanId, orgId]
         );
         await updateBillingPeriod;
         invalidateOrganizationAccessCache(orgId);
         req.session.allowedFeatures = [];
+        await recordPlanEventSafe({
+          fromPlanId: currentPlanId,
+          toPlanId: parsedNewPlanId,
+          changeType: "upgrade",
+          eventStage: "applied",
+          effectiveAt: new Date(),
+          billingPeriodKey: newBillingPeriod || null,
+          chargeRequired: false,
+          chargeApplied: false,
+          chargeReason: "no_active_payment_record",
+          note: "Upgraded immediately because no active payment record was found.",
+        });
         req.flash("success", `Your plan has been upgraded to ${newPlanName}.` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
-        return res.redirect(redirectTo || "/account/update-plan");
+        return res.redirect(safeRedirect);
       }
 
       const payment = paymentResult.rows[0];
@@ -9212,83 +9672,116 @@ const accountController = {
       // Prorated difference: (newMonthlyPrice - currentMonthlyPrice) * remainingDays / 30
       const monthlyDifference = newPrice - currentPrice;
       const proratedAmount = Math.max(0, (monthlyDifference * remainingDays) / 30);
+      const proratedCurrency = 'USD';
+      let proratedAmountInChargeCurrency = 0;
+      let proratedChargeReference = null;
 
       if (proratedAmount > 0) {
-        // Get the stored card to charge
-        const cardResult = await db.query(
-          `SELECT authorization_code, provider FROM stored_cards
-           WHERE organization_id = $1 AND is_primary = true AND is_active = true
-           LIMIT 1`,
-          [orgId]
-        );
+        const proratedChargeResult = await chargeOrganizationPlanChangeAmount(db, {
+          organizationId: orgId,
+          amountUsd: proratedAmount,
+          fromPlanId: currentPlanId,
+          toPlanId: parsedNewPlanId,
+          reason: "Plan upgrade proration",
+          metadata: {
+            prorated_days: String(remainingDays),
+          },
+          missingCardMessage: "No payment card on file. Please add a payment method before upgrading.",
+          missingStripeCardMessage: "Payment failed: please add a Stripe card before upgrading your plan.",
+          defaultFailureMessage: "Unable to charge your card for the upgrade.",
+        });
 
-        if (cardResult.rows.length === 0) {
-          req.flash("error", "No payment card on file. Please add a payment method before upgrading.");
-          return res.redirect(redirectTo || "/account/update-plan");
-        }
+        if (!proratedChargeResult.success) {
+          if (isNonProduction && proratedChargeResult.isConnectionIssue) {
+            await db.query(
+              `UPDATE organizations SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL WHERE organization_id = $2`,
+              [parsedNewPlanId, orgId]
+            );
+            await updateBillingPeriod;
+            invalidateOrganizationAccessCache(orgId);
+            req.session.allowedFeatures = [];
+            await recordPlanEventSafe({
+              fromPlanId: currentPlanId,
+              toPlanId: parsedNewPlanId,
+              changeType: "upgrade",
+              eventStage: "applied",
+              effectiveAt: new Date(),
+              billingPeriodKey: newBillingPeriod || null,
+              chargeRequired: true,
+              chargeApplied: false,
+              chargeAmountUsd: proratedAmount,
+              chargeReason: "upgrade_proration",
+              note: "Upgrade proration charge skipped in non-production because Stripe connection was unavailable.",
+            });
 
-        const authorizationCode = cardResult.rows[0].authorization_code;
-        const cardProvider = cardResult.rows[0].provider || 'paystack';
-        const stripeChargeCurrency = 'USD';
-        const proratedAmountInChargeCurrency = await convertUsdAmountToCurrency(
-          proratedAmount,
-          stripeChargeCurrency
-        );
-
-        try {
-          const chargeAmountStripeMinor = Math.round(proratedAmountInChargeCurrency * 100);
-          const orgStripeRow = await db.query(
-            'SELECT stripe_customer_id FROM organizations WHERE organization_id = $1',
-            [orgId]
-          );
-          const stripeCustomerId = orgStripeRow.rows[0]?.stripe_customer_id;
-          if (!stripeCustomerId || cardProvider !== 'stripe') {
-            req.flash("error", "Payment failed: please add a Stripe card before upgrading your plan.");
-            return res.redirect(redirectTo || "/account/update-plan");
+            const connectivity = getStripeConnectivityFlags(proratedChargeResult.error);
+            const fallbackReason = connectivity.isTlsIssue
+              ? "Stripe TLS verification failed in this environment"
+              : "Stripe connection is unavailable in this environment";
+            req.flash(
+              "warning",
+              `${fallbackReason}. Applied ${newPlanName} immediately without prorated upgrade charge because this is a non-production environment.` +
+                (billingPeriodChanged ? " Billing cycle updated." : "")
+            );
+            return res.redirect(safeRedirect);
           }
-          const stripeClient = await getStripeClient(db);
-          const intent = await stripeClient.paymentIntents.create({
-            amount: chargeAmountStripeMinor,
-            currency: stripeChargeCurrency,
-            customer: stripeCustomerId,
-            payment_method: authorizationCode,
-            confirm: true,
-            off_session: true,
-            metadata: {
-              reason: 'Plan upgrade proration',
-              from_plan: String(currentPlanId),
-              to_plan: String(newPlanId),
-              prorated_days: String(remainingDays),
-            },
+
+          await recordPlanEventSafe({
+            fromPlanId: currentPlanId,
+            toPlanId: parsedNewPlanId,
+            changeType: "upgrade",
+            eventStage: "failed",
+            billingPeriodKey: newBillingPeriod || null,
+            chargeRequired: true,
+            chargeApplied: false,
+            chargeAmountUsd: proratedAmount,
+            chargeReason: "upgrade_proration",
+            note: `Upgrade blocked because prorated charge failed: ${proratedChargeResult.userMessage}`,
           });
-          if (intent.status !== 'succeeded') {
-            req.flash("error", "Payment failed: " + (intent.last_payment_error?.message || "Unable to charge your card for the upgrade."));
-            return res.redirect(redirectTo || "/account/update-plan");
-          }
-        } catch (chargeErr) {
-          const errMsg = chargeErr?.response?.data?.message || chargeErr.message || 'Payment processing failed.';
-          req.flash("error", "Payment failed: " + errMsg);
-          return res.redirect(redirectTo || "/account/update-plan");
+          req.flash("error", "Payment failed: " + proratedChargeResult.userMessage);
+          return res.redirect(safeRedirect);
         }
+
+        proratedAmountInChargeCurrency = Number(proratedChargeResult.chargedAmount || 0);
+        proratedChargeReference = proratedChargeResult.paymentIntentId || null;
       }
 
       // Payment succeeded (or no charge needed) — apply the upgrade immediately
       await db.query(
         `UPDATE organizations SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL WHERE organization_id = $2`,
-        [newPlanId, orgId]
+        [parsedNewPlanId, orgId]
       );
       await updateBillingPeriod;
       invalidateOrganizationAccessCache(orgId);
       req.session.allowedFeatures = [];
 
-      const proratedCurrency = 'USD';
+      await recordPlanEventSafe({
+        fromPlanId: currentPlanId,
+        toPlanId: parsedNewPlanId,
+        changeType: "upgrade",
+        eventStage: "applied",
+        effectiveAt: new Date(),
+        billingPeriodKey: newBillingPeriod || null,
+        chargeRequired: proratedAmount > 0,
+        chargeApplied: proratedAmount > 0,
+        chargeAmountUsd: proratedAmount > 0 ? proratedAmount : 0,
+        chargeCurrency: proratedAmount > 0 ? proratedCurrency : null,
+        chargeAmount: proratedAmount > 0 ? proratedAmountInChargeCurrency : null,
+        chargeReference: proratedChargeReference,
+        chargeReason: proratedAmount > 0 ? "upgrade_proration" : null,
+        note: proratedAmount > 0
+          ? `Prorated upgrade charge applied for ${remainingDays} remaining day${remainingDays === 1 ? "" : "s"}.`
+          : "Upgrade applied without proration charge.",
+      });
+
       const proratedMsg = proratedAmount > 0
         ? ` A prorated charge of ${proratedCurrency} ${Number(proratedAmountInChargeCurrency || 0).toFixed(2)} has been applied for the remaining ${remainingDays} day${remainingDays !== 1 ? 's' : ''} in your current billing period.`
         : '';
       req.flash("success", `Your plan has been upgraded to ${newPlanName}.${proratedMsg}` + (billingPeriodChanged ? ' Billing cycle updated.' : ''));
 
-      return res.redirect(redirectTo || "/account/update-plan");
+      return res.redirect(safeRedirect);
     } catch (error) {
+      console.error("[Billing][updatePlanPost] failed:", error);
       req.flash("error", "❌ Failed to update plan.");
       return res.redirect(req.body.redirectTo || "/account/update-plan");
     }

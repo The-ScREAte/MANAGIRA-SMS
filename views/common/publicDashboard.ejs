@@ -4815,6 +4815,169 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery
   }
 }
 
+/* Small screens: show one WF2 card per swipe/view */
+@media screen and (max-width: 900px){
+  body[data-page="publicDashboard"] .wf2-right-events,
+  body[data-page="publicDashboard"] .wf2-right-announcements,
+  body[data-page="publicDashboard"] .wf2-articles-section{
+    position: relative;
+  }
+
+  body[data-page="publicDashboard"] .wf2-events-priority,
+  body[data-page="publicDashboard"] .wf2-announcements-list,
+  body[data-page="publicDashboard"] .wf2-articles-scroll{
+    padding-inline: 0 !important;
+    gap: 10px !important;
+    scroll-padding-inline: 0 !important;
+  }
+
+  body[data-page="publicDashboard"] .event-card.wf2-event-badge,
+  body[data-page="publicDashboard"] .announcement-card.wf2-announcement-badge,
+  body[data-page="publicDashboard"] .wf2-articles-scroll .draggable-item{
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    margin-inline: 0 !important;
+  }
+
+  body[data-page="publicDashboard"] .wf2-articles-scroll .draggable-item.wf2-article-card{
+    min-width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+    margin-inline: 0 !important;
+  }
+
+  body[data-page="publicDashboard"] .wf2-right-events.has-right-scroll-hint::after,
+  body[data-page="publicDashboard"] .wf2-right-announcements.has-right-scroll-hint::after,
+  body[data-page="publicDashboard"] .wf2-articles-section.has-right-scroll-hint::after{
+    content: '';
+    position: absolute;
+    right: 6px;
+    top: calc(50% + 12px);
+    transform: translateY(-50%);
+    width: 9px;
+    height: 54px;
+    border-radius: 999px;
+    display: block;
+    background: linear-gradient(180deg, rgba(1, 83, 91, 0.78) 0%, rgba(1, 83, 91, 0.2) 100%);
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.12);
+    pointer-events: none;
+    z-index: 4;
+    animation: wf2-scroll-hint-blink 1.1s ease-in-out infinite;
+  }
+}
+
+@keyframes wf2-scroll-hint-blink {
+  0%,
+  100% { opacity: 0.28; }
+  50% { opacity: 1; }
+}
+
+/* Modal polish: org-color glass look + centered caption + larger image preview */
+body[data-page="publicDashboard"] .modal{
+  background:
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--org-primary-color, #01535b) 24%, transparent) 0%, transparent 46%),
+    radial-gradient(circle at 82% 78%, color-mix(in srgb, var(--org-primary-color, #01535b) 18%, transparent) 0%, transparent 50%),
+    rgba(9, 16, 27, 0.54) !important;
+  backdrop-filter: blur(6px);
+}
+
+body[data-page="publicDashboard"] .modal-content{
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--org-primary-color, #01535b) 16%, white) 0%,
+      color-mix(in srgb, var(--org-primary-color, #01535b) 8%, white) 100%
+    ) !important;
+  border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 40%, white) !important;
+  box-shadow:
+    0 18px 44px rgba(2, 6, 23, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.42) !important;
+  backdrop-filter: blur(14px) saturate(130%);
+  margin-inline: auto !important;
+  width: min(94%, 560px) !important;
+  max-height: calc(100dvh - var(--header-height, 64px) - 22px) !important;
+  overflow: hidden !important;
+  box-sizing: border-box;
+}
+
+body[data-page="publicDashboard"] .modalImageContainer{
+  width: 100%;
+  max-height: 48vh;
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--org-primary-color, #01535b) 14%, white),
+    rgba(255, 255, 255, 0.92)
+  );
+  border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 32%, white);
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 8px;
+}
+
+body[data-page="publicDashboard"] #modalImage{
+  max-height: 48vh;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+body[data-page="publicDashboard"] #modalCaption{
+  text-align: center !important;
+  color: color-mix(in srgb, var(--org-primary-color, #01535b) 76%, black);
+  background: color-mix(in srgb, var(--org-primary-color, #01535b) 9%, white);
+  border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 24%, white);
+  border-radius: 10px;
+  padding: 12px 14px;
+  width: 100%;
+  margin-top: 6px;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  max-height: min(22vh, 190px);
+  display: block !important;
+  line-clamp: unset !important;
+  -webkit-line-clamp: unset !important;
+  -webkit-box-orient: initial !important;
+  -webkit-overflow-scrolling: touch;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width:768px){
+  body[data-page="publicDashboard"] .modal-content{
+    width: min(94%, 420px) !important;
+    max-height: calc(100dvh - var(--header-height, 56px) - 16px) !important;
+  }
+
+  body[data-page="publicDashboard"] .modalImageContainer,
+  body[data-page="publicDashboard"] #modalImage{
+    max-height: 44vh;
+  }
+
+  body[data-page="publicDashboard"] #modalCaption{
+    max-height: min(21vh, 150px);
+  }
+}
+
+@media (max-width:480px){
+  body[data-page="publicDashboard"] .modal-content{
+    width: min(95%, 360px) !important;
+    max-height: calc(100dvh - var(--header-height, 56px) - 12px) !important;
+  }
+
+  body[data-page="publicDashboard"] .modalImageContainer,
+  body[data-page="publicDashboard"] #modalImage{
+    max-height: 40vh;
+  }
+
+  body[data-page="publicDashboard"] #modalCaption{
+    max-height: min(20vh, 130px);
+    font-size: 0.86rem;
+    line-height: 1.4;
+  }
+}
+
 @media (prefers-reduced-motion:reduce){
   .registration-cta__dot,
   .registration-cta__button{
@@ -5574,6 +5737,57 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery
         const scrollers = document.querySelectorAll(".wf2-events-priority, .wf2-announcements-list, .wf2-articles-scroll");
         if (!scrollers.length) return;
 
+        const hintTimers = new WeakMap();
+
+        const getHintHost = (scroller) => {
+          return scroller.closest(".wf2-right-events, .wf2-right-announcements, .wf2-articles-section");
+        };
+
+        const hasMoreToScrollRight = (scroller) => {
+          const hasHorizontalOverflow = scroller.scrollWidth - scroller.clientWidth > 8;
+          const atRightEdge = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 8;
+          return hasHorizontalOverflow && !atRightEdge;
+        };
+
+        const clearHintForHost = (hintHost) => {
+          if (!hintHost) return;
+          const activeTimer = hintTimers.get(hintHost);
+          if (activeTimer) {
+            clearTimeout(activeTimer);
+            hintTimers.delete(hintHost);
+          }
+          hintHost.classList.remove("has-right-scroll-hint");
+        };
+
+        const showHintForFiveSeconds = (scroller) => {
+          const hintHost = getHintHost(scroller);
+          if (!hintHost) return;
+
+          if (!hasMoreToScrollRight(scroller)) {
+            clearHintForHost(hintHost);
+            return;
+          }
+
+          if (hintTimers.has(hintHost)) return;
+
+          hintHost.classList.add("has-right-scroll-hint");
+          const timerId = setTimeout(() => {
+            hintHost.classList.remove("has-right-scroll-hint");
+            hintTimers.delete(hintHost);
+          }, 5000);
+          hintTimers.set(hintHost, timerId);
+        };
+
+        const refreshScrollerHints = () => {
+          scrollers.forEach((scroller) => {
+            const hintHost = getHintHost(scroller);
+            if (!hintHost) return;
+            if (!hasMoreToScrollRight(scroller)) {
+              clearHintForHost(hintHost);
+            }
+          });
+        };
+
         scrollers.forEach((scroller) => {
           let isDragging = false;
           let startX = 0;
@@ -5592,6 +5806,7 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery
             scroller.classList.add("is-dragging-scroll");
             startX = event.clientX;
             startScrollLeft = scroller.scrollLeft;
+            showHintForFiveSeconds(scroller);
           });
 
           scroller.addEventListener("mousemove", (event) => {
@@ -5601,10 +5816,40 @@ body[data-page="publicDashboard"] .wf2-gallery-masonry .gallery-card.wf2-gallery
             scroller.scrollLeft = startScrollLeft - delta;
           });
 
+          scroller.addEventListener("touchstart", () => showHintForFiveSeconds(scroller), {
+            passive: true,
+          });
+
+          scroller.addEventListener("scroll", () => showHintForFiveSeconds(scroller), {
+            passive: true,
+          });
+
           scroller.addEventListener("mouseleave", endDrag);
           scroller.addEventListener("mouseup", endDrag);
           window.addEventListener("mouseup", endDrag);
         });
+
+        if ("IntersectionObserver" in window) {
+          const hintObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              const hintHost = entry.target;
+              const scroller = hintHost.querySelector(".wf2-events-priority, .wf2-announcements-list, .wf2-articles-scroll");
+              if (!scroller) return;
+              showHintForFiveSeconds(scroller);
+            });
+          }, { threshold: 0.35 });
+
+          scrollers.forEach((scroller) => {
+            const hintHost = getHintHost(scroller);
+            if (hintHost) hintObserver.observe(hintHost);
+          });
+        }
+
+        window.addEventListener("resize", refreshScrollerHints);
+        window.addEventListener("load", refreshScrollerHints);
+        requestAnimationFrame(refreshScrollerHints);
+        setTimeout(refreshScrollerHints, 220);
       });
 
       // Function to save the order of draggable sections

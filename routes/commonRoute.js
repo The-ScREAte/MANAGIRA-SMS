@@ -599,6 +599,9 @@ module.exports = (db) => {
   router.post("/deleteSchoolYear", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
     commonController.deleteSchoolYear(req, res, db)
   );
+  router.delete("/deleteSchoolYear", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), express.json(), (req, res) =>
+    commonController.deleteSchoolYear(req, res, db)
+  );
   router.post("/deleteSchoolYearPost", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
     commonController.deleteSchoolYearPost(req, res, db)
   );

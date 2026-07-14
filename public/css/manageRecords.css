@@ -37,9 +37,22 @@
 
 .manage-records-page button,
 .manage-records-page select,
-.manage-records-page input[type="text"] {
+.manage-records-page input[type="text"],
+.manage-records-page input[type="date"],
+.manage-records-page input[type="month"],
+.manage-records-page input[type="datetime-local"] {
   padding: 8px;
   margin-top: 5px;
+}
+
+.manage-records-page select,
+.manage-records-page input[type="text"],
+.manage-records-page input[type="date"],
+.manage-records-page input[type="month"],
+.manage-records-page input[type="datetime-local"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .manage-records-page legend {

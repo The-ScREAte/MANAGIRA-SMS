@@ -958,6 +958,14 @@ body {
   height: 10px;
 }
 
+.student-name-heading-label {
+  display: inline;
+}
+
+.student-name-heading-label-short {
+  display: none;
+}
+
 .assessment-status.is-editable {
   color: #22c55e;
   font-weight: 700;
@@ -1256,6 +1264,28 @@ input[type="number"].score-input-invalid {
     font-weight: 600;
   }
 
+  table th.student-name-heading {
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .student-name-heading-label {
+    display: block;
+  }
+
+  .student-name-heading-label-full {
+    display: none;
+  }
+
+  .student-name-heading-label-short {
+    display: block;
+  }
+
+  table th.student-name-heading .table-sort-btn {
+    margin-left: 0;
+    margin-top: 2px;
+  }
+
   th,
   td {
     padding: 10px;
@@ -1443,8 +1473,9 @@ input[type="number"].score-input-invalid {
               <tr>
                 <th>#</th>
                 <!-- Added column for numbering -->
-                <th>
-                  Student Name
+                <th class="student-name-heading">
+                  <span class="student-name-heading-label student-name-heading-label-full">Student Name</span>
+                  <span class="student-name-heading-label student-name-heading-label-short" aria-hidden="true">Students</span>
                   <button type="button" class="table-sort-btn" id="assessmentStudentSort" data-sort-direction="asc" aria-label="Sort students Z to A">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg>
                   </button>

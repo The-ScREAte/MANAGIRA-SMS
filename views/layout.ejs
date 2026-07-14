@@ -146,6 +146,17 @@
                     padding: 5px 10px;
                     font-size: 12px;
                 }
+
+                /* Keep native date/select controls within viewport on phones. */
+                body main input[type="date"],
+                body main input[type="month"],
+                body main input[type="time"],
+                body main input[type="datetime-local"],
+                body main select {
+                    max-width: 100% !important;
+                    min-width: 0 !important;
+                    box-sizing: border-box;
+                }
             }
 
             /* ---------- Managira Compact Headings ---------- */
