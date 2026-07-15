@@ -209,6 +209,19 @@ async function ensureStudentReportPaygiraManualDataColumn(dbClient) {
   }
 }
 
+let ensuredStudentReportCustomRemarksColumn = false;
+async function ensureStudentReportCustomRemarksColumn(dbClient) {
+  if (ensuredStudentReportCustomRemarksColumn) return;
+  try {
+    await dbClient.query(
+      "ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS custom_remarks_json JSONB"
+    );
+    ensuredStudentReportCustomRemarksColumn = true;
+  } catch (err) {
+    console.error("[ensureStudentReportCustomRemarksColumn] Failed to add column", err);
+  }
+}
+
 let ensuredReportPaygiraManualOverridesTable = false;
 async function ensureReportPaygiraManualOverridesTable(dbClient) {
   if (ensuredReportPaygiraManualOverridesTable) return;
@@ -246,6 +259,150 @@ function parsePositiveIntArray(value) {
   return [...new Set(value
     .map((entry) => parseInt(entry, 10))
     .filter((entry) => Number.isFinite(entry) && entry > 0))];
+}
+
+function normalizeClassroomRemarkTypes(value) {
+  const allowedTypes = ["teacher", "conduct", "interest", "attitude"];
+  const incoming = Array.isArray(value)
+    ? value
+    : (value === undefined || value === null ? [] : [value]);
+
+  const normalized = incoming
+    .map((entry) => String(entry || "").trim().toLowerCase())
+    .filter((entry) => allowedTypes.includes(entry) || entry.startsWith('custom:'));
+
+  const unique = [...new Set(normalized)];
+  return unique.length ? unique : ["teacher"];
+}
+
+let ensuredOrganizationCustomRemarkTypesTable = false;
+async function ensureOrganizationCustomRemarkTypesTable(dbClient) {
+  if (ensuredOrganizationCustomRemarkTypesTable) return;
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS organization_custom_remark_types (
+      id SERIAL PRIMARY KEY,
+      organization_id INT NOT NULL,
+      type_key TEXT NOT NULL,
+      label TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (organization_id, type_key)
+    )
+  `);
+  ensuredOrganizationCustomRemarkTypesTable = true;
+}
+
+let ensuredRemarksCustomTypeSupport = false;
+async function ensureRemarksCustomTypeSupport(dbClient) {
+  if (ensuredRemarksCustomTypeSupport) return;
+
+  try {
+    await dbClient.query(`
+      ALTER TABLE remarks
+      ALTER COLUMN remark_type TYPE TEXT
+    `);
+
+    await dbClient.query(`
+      DO $$
+      DECLARE
+        constraint_name TEXT;
+      BEGIN
+        SELECT con.conname
+        INTO constraint_name
+        FROM pg_constraint con
+        JOIN pg_class rel ON rel.oid = con.conrelid
+        JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+        WHERE rel.relname = 'remarks'
+          AND con.contype = 'c'
+          AND pg_get_constraintdef(con.oid) ILIKE '%remark_type%teacher%conduct%interest%attitude%'
+        LIMIT 1;
+
+        IF constraint_name IS NOT NULL THEN
+          EXECUTE format('ALTER TABLE remarks DROP CONSTRAINT %I', constraint_name);
+        END IF;
+      END
+      $$;
+    `);
+
+    await dbClient.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'remarks_remark_type_nonempty_check'
+            AND conrelid = 'remarks'::regclass
+        ) THEN
+          ALTER TABLE remarks
+          ADD CONSTRAINT remarks_remark_type_nonempty_check
+          CHECK (length(btrim(COALESCE(remark_type, ''))) > 0);
+        END IF;
+      END
+      $$;
+    `);
+
+    ensuredRemarksCustomTypeSupport = true;
+  } catch (err) {
+    console.error('[ensureRemarksCustomTypeSupport] Failed to update remarks.remark_type schema', err);
+  }
+}
+
+function normalizeCustomRemarkTypeLabel(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 60);
+}
+
+function buildCustomRemarkTypeKeyFromLabel(label) {
+  const slug = String(label || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  return slug ? `custom:${slug}` : "";
+}
+
+function buildCustomRemarkTypeDisplayLabel(entry) {
+  const rawLabel = normalizeCustomRemarkTypeLabel(entry?.label);
+  if (rawLabel) return rawLabel;
+  const fallbackKey = String(entry?.type_key || "").replace(/^custom:/, "");
+  if (!fallbackKey) return "Custom Remarks";
+  return fallbackKey
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+async function getOrganizationCustomRemarkTypes(dbClient, organizationId) {
+  await ensureOrganizationCustomRemarkTypesTable(dbClient);
+  const result = await dbClient.query(
+    `SELECT type_key, label
+     FROM organization_custom_remark_types
+     WHERE organization_id = $1
+     ORDER BY LOWER(label) ASC, id ASC`,
+    [organizationId]
+  );
+
+  return (result.rows || [])
+    .map((row) => ({
+      type_key: String(row.type_key || "").trim().toLowerCase(),
+      label: buildCustomRemarkTypeDisplayLabel(row),
+    }))
+    .filter((row) => row.type_key.startsWith("custom:") && row.label);
+}
+
+function normalizeCustomRemarkVisibilityMap(value, customRemarkTypes) {
+  const source = value && typeof value === "object" ? value : {};
+  const normalized = {};
+  (Array.isArray(customRemarkTypes) ? customRemarkTypes : []).forEach((entry) => {
+    const typeKey = String(entry?.type_key || "").trim().toLowerCase();
+    if (!typeKey) return;
+    normalized[typeKey] = source[typeKey] !== false;
+  });
+  return normalized;
 }
 
 async function getScopedTermRecord(dbClient, organizationId, termId) {
@@ -1043,6 +1200,8 @@ const printController = (db) => ({
     await ensureScoreRemarkGradeColumn(db);
     await ensureStudentReportManualAttendanceColumn(db);
     await ensureStudentReportPaygiraManualDataColumn(db);
+    await ensureStudentReportCustomRemarksColumn(db);
+    await ensureOrganizationCustomRemarkTypesTable(db);
     // Validate inputs
     if (!organizationId) {
       return res.status(400).send("Organization ID is not set in session.");
@@ -1155,10 +1314,10 @@ const printController = (db) => ({
 
       // Fetch saved reports (filtered by studentId if provided)
       const savedReportsQuery = parsedStudentId
-        ? `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
+        ? `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
          FROM student_reports
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id = $4`
-        : `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
+        : `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
          FROM student_reports
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`;
 
@@ -1183,6 +1342,8 @@ const printController = (db) => ({
         [term.start_date, term.end_date]
       );
       const totalDays = totalDaysResult.rows[0]?.total_days || 0;
+
+      const customRemarkTypes = await getOrganizationCustomRemarkTypes(db, organizationId);
 
       // Fetch students, subjects, remarks, and scores
       const studentFilterId = parsedStudentId || null;
@@ -1313,6 +1474,7 @@ const printController = (db) => ({
           conductRemarks:  secVis.conductRemarks  !== false,
           attitudeRemarks: secVis.attitudeRemarks !== false,
           interestRemarks: secVis.interestRemarks !== false,
+          customRemarksVisibility: normalizeCustomRemarkVisibilityMap(secVis.customRemarksVisibility, customRemarkTypes),
           gradeKey:        secVis.gradeKey        !== false,
           gradePresentation,
           attendance:      secVis.attendance      !== false,
@@ -1412,6 +1574,12 @@ const printController = (db) => ({
       const attitudeRemarks = remarksResult.rows.filter(
         (r) => r.remark_type === "attitude"
       );
+      const customRemarkOptionsMap = {};
+      customRemarkTypes.forEach((entry) => {
+        customRemarkOptionsMap[entry.type_key] = remarksResult.rows.filter(
+          (row) => String(row.remark_type || "").trim().toLowerCase() === entry.type_key
+        );
+      });
       const scoreRemarks = scoreRemarksResult.rows;
       const signatureImagePath =
         reportSettingsResult.rows[0]?.signature_image_path;
@@ -1472,6 +1640,9 @@ const printController = (db) => ({
         student.attitudeRemarks = savedReport.attitude_remarks || "";
         student.interestRemarks = savedReport.interest_remarks || "";
         student.teacherRemarks = savedReport.teacher_remarks || "";
+        student.customRemarks = (savedReport.custom_remarks_json && typeof savedReport.custom_remarks_json === 'object')
+          ? savedReport.custom_remarks_json
+          : {};
         student.manualAttendancePresentDays = Number.isFinite(Number(savedReport.manual_attendance_present_days))
           ? Number(savedReport.manual_attendance_present_days)
           : null;
@@ -1856,7 +2027,9 @@ students
           conduct: conductRemarks,
           interest: interestRemarks,
           attitude: attitudeRemarks,
+          custom: customRemarkOptionsMap,
         },
+        customRemarkTypes,
         promotedClassId,
         repeatedClassId,
         displaySettings,
@@ -1892,6 +2065,7 @@ students
     await ensureScoreRemarkRuleLockTable(db);
     await ensureScoreRemarkRangeUniqueConstraint(db);
     await ensureClassDashboardLayoutColumns(db);
+    await ensureOrganizationCustomRemarkTypesTable(db);
 
     try {
       const organizationClassesResult = await db.query(
@@ -1933,10 +2107,13 @@ students
           termId: fallbackTermId || null,
           setupRequired: true,
           setupMessage: "This is for classes. Kindly start by adding classes and setting up your school first to be able to access it.",
+          customRemarkTypes: [],
           allSubjectsByClassMap: {},
           messages: req.flash(),
         });
       }
+
+      const customRemarkTypes = await getOrganizationCustomRemarkTypes(db, organizationId);
 
       let resolvedClassId = classId;
       let resolvedTermId = termId;
@@ -2107,6 +2284,8 @@ students
             conductRemarks:  sec.conductRemarks  !== false,
             attitudeRemarks: sec.attitudeRemarks !== false,
             interestRemarks: sec.interestRemarks !== false,
+            customRemarksVisibility: normalizeCustomRemarkVisibilityMap(sec.customRemarksVisibility, customRemarkTypes),
+            classroomRemarkTypes: normalizeClassroomRemarkTypes(sec.classroomRemarkTypes),
             gradeKey:        sec.gradeKey        !== false,
             gradePresentation,
             attendance:      sec.attendance      !== false,
@@ -2327,6 +2506,8 @@ students
           conductRemarks:  secVis2.conductRemarks  !== false,
           attitudeRemarks: secVis2.attitudeRemarks !== false,
           interestRemarks: secVis2.interestRemarks !== false,
+          customRemarksVisibility: normalizeCustomRemarkVisibilityMap(secVis2.customRemarksVisibility, customRemarkTypes),
+          classroomRemarkTypes: normalizeClassroomRemarkTypes(secVis2.classroomRemarkTypes),
           gradeKey:        secVis2.gradeKey        !== false,
           gradePresentation: gradePresentation2,
           attendance:      secVis2.attendance      !== false,
@@ -2386,6 +2567,8 @@ students
         setupMessage: null,
         assessmentsByCategory,
         currentDisplaySettings,
+        customRemarkTypes,
+        classroomRemarkTypes: normalizeClassroomRemarkTypes(currentDisplaySettings?.sections?.classroomRemarkTypes),
         allDisplaySettingsMap,
         allSubjectsByClassMap,
         allAssessmentsByCategoryMap,
@@ -2450,10 +2633,29 @@ students
         normalizedManualFields.map((field) => field.key)
       );
 
+      const existingPrimaryResult = await db.query(
+        `SELECT display_settings
+         FROM report_settings
+         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+         LIMIT 1`,
+        [organizationId, parsedClassId, parsedTermId]
+      );
+      const existingPrimaryDisplaySettings = existingPrimaryResult.rows[0]?.display_settings || {};
+      const existingPrimarySections = existingPrimaryDisplaySettings.sections && typeof existingPrimaryDisplaySettings.sections === 'object'
+        ? existingPrimaryDisplaySettings.sections
+        : {};
+      const requestedClassroomRemarkTypes = normalizeClassroomRemarkTypes(sections.classroomRemarkTypes);
+      const existingClassroomRemarkTypes = normalizeClassroomRemarkTypes(existingPrimarySections.classroomRemarkTypes);
+      const shouldApplyRequestedClassroomTypes = Object.prototype.hasOwnProperty.call(sections, 'classroomRemarkTypes');
+      const effectiveClassroomRemarkTypes = shouldApplyRequestedClassroomTypes
+        ? requestedClassroomRemarkTypes
+        : existingClassroomRemarkTypes;
+
       const normalizedDisplaySettings = {
         ...displaySettings,
         sections: {
           ...sections,
+          classroomRemarkTypes: effectiveClassroomRemarkTypes,
           paygiraBills: {
             ...paygiraBills,
             manual: {
@@ -2928,12 +3130,20 @@ students
     }
 
     try {
+      await ensureRemarksCustomTypeSupport(db);
+      const customRemarkTypes = await getOrganizationCustomRemarkTypes(db, organizationId);
       const remarksArray = Array.isArray(remarks) ? remarks : [remarks];
       const remarkTypesArray = Array.isArray(remarkTypes)
         ? remarkTypes
         : [remarkTypes];
 
-      const allowedTypes = new Set(["teacher", "conduct", "interest", "attitude"]);
+      const allowedTypes = new Set([
+        "teacher",
+        "conduct",
+        "interest",
+        "attitude",
+        ...customRemarkTypes.map((entry) => entry.type_key),
+      ]);
       const batchedRows = [];
       for (let i = 0; i < remarksArray.length; i += 1) {
         const text = String(remarksArray[i] || "").trim();
@@ -2963,8 +3173,193 @@ students
       req.flash("success", "Remarks saved successfully.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     } catch (error) {
-            req.flash("error", "Failed to save remarks.");
+      console.error('[saveRemarks] error', error);
+      req.flash("error", "Failed to save remarks.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+    }
+  },
+
+  createCustomRemarkTypeAjax: async (req, res) => {
+    const organizationId = req.session.organizationId;
+    const labelRaw = req.body?.label;
+    const label = normalizeCustomRemarkTypeLabel(labelRaw);
+
+    if (!organizationId) {
+      return res.status(401).json({ success: false, message: "Unauthorized." });
+    }
+
+    if (!label || label.length < 3) {
+      return res.status(400).json({ success: false, message: "Enter at least 3 characters for the custom remark name." });
+    }
+
+    try {
+      await ensureOrganizationCustomRemarkTypesTable(db);
+
+      const typeKey = buildCustomRemarkTypeKeyFromLabel(label);
+      if (!typeKey) {
+        return res.status(400).json({ success: false, message: "Invalid custom remark name." });
+      }
+
+      const existingByLabel = await db.query(
+        `SELECT type_key, label
+         FROM organization_custom_remark_types
+         WHERE organization_id = $1
+           AND LOWER(label) = LOWER($2)
+         LIMIT 1`,
+        [organizationId, label]
+      );
+      if (existingByLabel.rows.length) {
+        return res.status(409).json({ success: false, message: "That custom remark type already exists." });
+      }
+
+      await db.query(
+        `INSERT INTO organization_custom_remark_types (organization_id, type_key, label)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (organization_id, type_key)
+         DO UPDATE SET label = EXCLUDED.label, updated_at = CURRENT_TIMESTAMP`,
+        [organizationId, typeKey, label]
+      );
+
+      const customRemarkTypes = await getOrganizationCustomRemarkTypes(db, organizationId);
+      return res.json({
+        success: true,
+        message: "Custom remark type created.",
+        created: { type_key: typeKey, label },
+        customRemarkTypes,
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to create custom remark type." });
+    }
+  },
+
+  deleteCustomRemarkTypeAjax: async (req, res) => {
+    const organizationId = req.session.organizationId;
+    const typeKeyRaw = req.body?.typeKey;
+    const typeKey = String(typeKeyRaw || "").trim().toLowerCase();
+
+    if (!organizationId) {
+      return res.status(401).json({ success: false, message: "Unauthorized." });
+    }
+
+    if (!typeKey || !typeKey.startsWith("custom:")) {
+      return res.status(400).json({ success: false, message: "Invalid custom remark type." });
+    }
+
+    try {
+      await ensureOrganizationCustomRemarkTypesTable(db);
+
+      const usageCheck = await db.query(
+        `SELECT 1
+         FROM remarks
+         WHERE organization_id = $1
+           AND remark_type = $2
+         LIMIT 1`,
+        [organizationId, typeKey]
+      );
+
+      if (usageCheck.rows.length) {
+        return res.status(409).json({
+          success: false,
+          message: "This custom type is already used by saved remarks. Delete those remarks first.",
+        });
+      }
+
+      const deleted = await db.query(
+        `DELETE FROM organization_custom_remark_types
+         WHERE organization_id = $1
+           AND type_key = $2`,
+        [organizationId, typeKey]
+      );
+
+      if (!deleted.rowCount) {
+        return res.status(404).json({ success: false, message: "Custom remark type not found." });
+      }
+
+      await db.query(
+        `UPDATE report_settings
+         SET display_settings = jsonb_set(
+           COALESCE(display_settings, '{}'::jsonb),
+           '{sections,customRemarksVisibility}',
+           COALESCE(
+             COALESCE(display_settings, '{}'::jsonb)->'sections'->'customRemarksVisibility',
+             '{}'::jsonb
+           ) - $2,
+           true
+         )
+         WHERE organization_id = $1
+           AND COALESCE(display_settings, '{}'::jsonb)->'sections'->'customRemarksVisibility' ? $2`,
+        [organizationId, typeKey]
+      );
+
+      const customRemarkTypes = await getOrganizationCustomRemarkTypes(db, organizationId);
+      return res.json({
+        success: true,
+        message: "Custom remark type deleted.",
+        deleted: { type_key: typeKey },
+        customRemarkTypes,
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to delete custom remark type." });
+    }
+  },
+
+  saveClassroomRemarkTypes: async (req, res) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number.parseInt(req.query.classId || req.body.classId, 10);
+    const termId = Number.parseInt(req.query.termId || req.body.termId, 10);
+    const selectedRemarkTypesRaw = req.body["classroomRemarkTypes[]"] || req.body.classroomRemarkTypes || [];
+    const selectedRemarkTypes = normalizeClassroomRemarkTypes(selectedRemarkTypesRaw);
+
+    if (!organizationId || !Number.isInteger(classId) || !Number.isInteger(termId)) {
+      req.flash("error", "Missing class or term context for classroom remark visibility settings.");
+      return res.redirect(`/print/reportSettings?classId=${classId || ""}&termId=${termId || ""}`);
+    }
+
+    try {
+      const [scopedClassIds, scopedTerm] = await Promise.all([
+        getScopedClassIds(db, organizationId, [classId]),
+        getScopedTermRecord(db, organizationId, termId),
+      ]);
+
+      if (!scopedClassIds.length || !scopedTerm) {
+        req.flash("error", "Class or term not found for this organization.");
+        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+      }
+
+      const existingResult = await db.query(
+        `SELECT display_settings
+         FROM report_settings
+         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+         LIMIT 1`,
+        [organizationId, classId, termId]
+      );
+
+      const existingDisplaySettings = existingResult.rows[0]?.display_settings || {};
+      const existingSections = existingDisplaySettings.sections && typeof existingDisplaySettings.sections === 'object'
+        ? existingDisplaySettings.sections
+        : {};
+
+      const nextDisplaySettings = {
+        ...existingDisplaySettings,
+        sections: {
+          ...existingSections,
+          classroomRemarkTypes: selectedRemarkTypes,
+        },
+      };
+
+      await db.query(
+        `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (organization_id, class_id, term_id)
+         DO UPDATE SET display_settings = $4`,
+        [organizationId, classId, termId, JSON.stringify(nextDisplaySettings)]
+      );
+
+      req.flash("success", "Classroom remark visibility updated.");
+      return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+    } catch (error) {
+      req.flash("error", "Failed to update classroom remark visibility.");
+      return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     }
   },
 
@@ -5321,6 +5716,7 @@ students
     try {
       await ensureStudentReportManualAttendanceColumn(db);
       await ensureStudentReportPaygiraManualDataColumn(db);
+      await ensureStudentReportCustomRemarksColumn(db);
       const parsedClassId = parseInt(classId, 10);
       const parsedTermId = parseInt(termId, 10);
 
@@ -5358,6 +5754,7 @@ students
           attitudeRemarks,
           interestRemarks,
           teacherRemarks,
+          customRemarks,
           promotionStatus,       // ✅ from frontend
           promotionClassId,      // ✅ from frontend
           manualAttendancePresentDays,
@@ -5396,31 +5793,36 @@ students
           ? paygiraManualData
           : null;
 
+        const customRemarksValue = customRemarks && typeof customRemarks === 'object' && !Array.isArray(customRemarks)
+          ? customRemarks
+          : {};
+
         await db.query(
           `
             INSERT INTO student_reports (
               organization_id, class_id, term_id, student_id, 
-              conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks,
+              conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json,
               promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             ON CONFLICT (organization_id, class_id, term_id, student_id)
             DO UPDATE SET
               conduct_remarks = EXCLUDED.conduct_remarks,
               attitude_remarks = EXCLUDED.attitude_remarks,
               interest_remarks = EXCLUDED.interest_remarks,
               teacher_remarks = EXCLUDED.teacher_remarks,
+              custom_remarks_json = EXCLUDED.custom_remarks_json,
               promotion_status = EXCLUDED.promotion_status,
               promotion_class_id = EXCLUDED.promotion_class_id,
               manual_attendance_present_days = CASE
-                WHEN $14 THEN EXCLUDED.manual_attendance_present_days
+                WHEN $15 THEN EXCLUDED.manual_attendance_present_days
                 ELSE student_reports.manual_attendance_present_days
               END,
               manual_attendance_total_days = CASE
-                WHEN $15 THEN EXCLUDED.manual_attendance_total_days
+                WHEN $16 THEN EXCLUDED.manual_attendance_total_days
                 ELSE student_reports.manual_attendance_total_days
               END,
               paygira_manual_data = CASE
-                WHEN $16 THEN EXCLUDED.paygira_manual_data
+                WHEN $17 THEN EXCLUDED.paygira_manual_data
                 ELSE student_reports.paygira_manual_data
               END,
               updated_at = CURRENT_TIMESTAMP
@@ -5434,6 +5836,7 @@ students
             attitudeRemarks,
             interestRemarks,
             teacherRemarks,
+            customRemarksValue,
             promotionStatus,
             promotionClassId ? parseInt(promotionClassId, 10) : null, // ensure numeric or null
             manualAttendanceValue,

@@ -28,6 +28,9 @@ module.exports = (db) => {
     router.post('/getScoreRemarkClassCoverageAjax', isAuthenticated, printController.getScoreRemarkClassCoverageAjax); // Fetch class coverage for a score remark range/value
     router.post('/setScoreRemarkClassLockAjax', isAuthenticated, printController.setScoreRemarkClassLockAjax); // Lock/unlock a specific score remark rule range for selected classes
     router.post('/saveRemarks', isAuthenticated, printController.saveRemarks); // Save remarks
+    router.post('/createCustomRemarkTypeAjax', isAuthenticated, express.json(), printController.createCustomRemarkTypeAjax); // Create custom remark type via AJAX
+    router.post('/deleteCustomRemarkTypeAjax', isAuthenticated, express.json(), printController.deleteCustomRemarkTypeAjax); // Delete custom remark type via AJAX
+    router.post('/saveClassroomRemarkTypes', isAuthenticated, printController.saveClassroomRemarkTypes); // Save classroom remark visibility controls
     router.get('/meritSheetPage', checkFeatureAccess, isAuthenticated, printController.meritSheetPage); // Render merit sheet page
     router.get('/deleteStatusSettings', isAuthenticated, printController.deleteStatusSettings);
 

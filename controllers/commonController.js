@@ -131,6 +131,165 @@ let studentEmailSchemaReady = false;
 let studentAddressSchemaReady = false;
 let studentDobUnknownSchemaReady = false;
 let classDashboardLayoutSchemaReady = false;
+let studentReportCustomRemarksColumnReady = false;
+const TEACHER_REMARK_OPTIONS_CACHE_TTL_MS = 2 * 60 * 1000;
+const teacherRemarkOptionsCache = new Map();
+let ensuredOrganizationCustomRemarkTypesTable = false;
+
+async function ensureOrganizationCustomRemarkTypesTable(dbClient) {
+  if (ensuredOrganizationCustomRemarkTypesTable) return;
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS organization_custom_remark_types (
+      id SERIAL PRIMARY KEY,
+      organization_id INT NOT NULL,
+      type_key TEXT NOT NULL,
+      label TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (organization_id, type_key)
+    )
+  `);
+  ensuredOrganizationCustomRemarkTypesTable = true;
+}
+
+function buildCustomRemarkTypeDisplayLabel(entry) {
+  var rawLabel = String(entry && entry.label ? entry.label : '').trim().replace(/\s+/g, ' ');
+  if (rawLabel) return rawLabel;
+  var fallbackKey = String(entry && entry.type_key ? entry.type_key : '').replace(/^custom:/, '');
+  if (!fallbackKey) return 'Custom Remarks';
+  return fallbackKey
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map(function(part) { return part.charAt(0).toUpperCase() + part.slice(1); })
+    .join(' ');
+}
+
+async function getOrganizationCustomRemarkTypes(dbClient, organizationId) {
+  await ensureOrganizationCustomRemarkTypesTable(dbClient);
+  var result = await dbClient.query(
+    `SELECT type_key, label
+     FROM organization_custom_remark_types
+     WHERE organization_id = $1
+     ORDER BY LOWER(label) ASC, id ASC`,
+    [organizationId]
+  );
+
+  return (result.rows || [])
+    .map(function(row) {
+      return {
+        type_key: String(row.type_key || '').trim().toLowerCase(),
+        label: buildCustomRemarkTypeDisplayLabel(row),
+      };
+    })
+    .filter(function(row) {
+      return row.type_key.indexOf('custom:') === 0 && row.label;
+    });
+}
+
+async function ensureStudentReportCustomRemarksColumn(dbClient) {
+  if (studentReportCustomRemarksColumnReady) return;
+  try {
+    await dbClient.query(
+      "ALTER TABLE student_reports ADD COLUMN IF NOT EXISTS custom_remarks_json JSONB"
+    );
+    studentReportCustomRemarksColumnReady = true;
+  } catch (err) {
+    console.error('[ensureStudentReportCustomRemarksColumn] Failed to add custom_remarks_json column', err);
+  }
+}
+
+function normalizeClassroomRemarkTypes(value) {
+  const allowedTypes = ["teacher", "conduct", "interest", "attitude"];
+  const incoming = Array.isArray(value)
+    ? value
+    : (value === undefined || value === null ? [] : [value]);
+
+  const normalized = incoming
+    .map((entry) => String(entry || "").trim().toLowerCase())
+    .filter((entry) => allowedTypes.includes(entry) || entry.startsWith('custom:'));
+
+  const unique = [...new Set(normalized)];
+  return unique.length ? unique : ["teacher"];
+}
+
+function readClassroomRemarkTypesFromDisplaySettings(displaySettings) {
+  const sections = displaySettings && typeof displaySettings.sections === "object"
+    ? displaySettings.sections
+    : {};
+
+  if (!Object.prototype.hasOwnProperty.call(sections, "classroomRemarkTypes")) {
+    return null;
+  }
+
+  return normalizeClassroomRemarkTypes(sections.classroomRemarkTypes);
+}
+
+async function getConfiguredClassroomRemarkTypes(dbClient, organizationId, classId, termId) {
+  const classScopedResult = await dbClient.query(
+    `SELECT display_settings
+     FROM report_settings
+     WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+     LIMIT 1`,
+    [organizationId, classId, termId]
+  );
+
+  const classScopedTypes = readClassroomRemarkTypesFromDisplaySettings(
+    classScopedResult.rows[0]?.display_settings || {}
+  );
+  if (Array.isArray(classScopedTypes) && classScopedTypes.length) {
+    return classScopedTypes;
+  }
+
+  const termScopedResult = await dbClient.query(
+    `SELECT display_settings
+     FROM report_settings
+     WHERE organization_id = $1
+       AND term_id = $2
+       AND jsonb_typeof(display_settings->'sections') = 'object'
+       AND (display_settings->'sections' ? 'classroomRemarkTypes')
+     ORDER BY class_id ASC
+     LIMIT 1`,
+    [organizationId, termId]
+  );
+
+  const termScopedTypes = readClassroomRemarkTypesFromDisplaySettings(
+    termScopedResult.rows[0]?.display_settings || {}
+  );
+  if (Array.isArray(termScopedTypes) && termScopedTypes.length) {
+    return termScopedTypes;
+  }
+
+  return ["teacher"];
+}
+
+function getTeacherRemarkOptionsCacheKey(organizationId, classId, termId, remarkTypes) {
+  const normalizedTypes = normalizeClassroomRemarkTypes(remarkTypes).join(",");
+  return `${String(organizationId || "")}:${String(classId || "")}:${String(termId || "")}:${normalizedTypes}`;
+}
+
+async function getTeacherRemarkOptionsCached(dbClient, organizationId, classId, termId, options = {}) {
+  const forceRefresh = options && options.forceRefresh === true;
+  const selectedRemarkTypes = normalizeClassroomRemarkTypes(options?.remarkTypes);
+  const cacheKey = getTeacherRemarkOptionsCacheKey(organizationId, classId, termId, selectedRemarkTypes);
+  const now = Date.now();
+  const cacheEntry = teacherRemarkOptionsCache.get(cacheKey);
+
+  if (!forceRefresh && cacheEntry && (now - cacheEntry.ts) < TEACHER_REMARK_OPTIONS_CACHE_TTL_MS) {
+    return cacheEntry.options;
+  }
+
+  const teacherOptionsResult = await dbClient.query(
+    `SELECT id, remark, remark_type
+     FROM remarks
+     WHERE organization_id = $1 AND remark_type = ANY($2::text[])
+     ORDER BY LOWER(remark) ASC`,
+    [organizationId, selectedRemarkTypes]
+  );
+
+  const nextOptions = Array.isArray(teacherOptionsResult.rows) ? teacherOptionsResult.rows : [];
+  teacherRemarkOptionsCache.set(cacheKey, { ts: now, options: nextOptions });
+  return nextOptions;
+}
 
 function roundCurrencyAmount(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -14503,6 +14662,7 @@ NUMBERING:
       const currentUserRole = req.session.userRole;
       const currentUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
       const normalizedRole = normalizeRoleKey(currentUserRole || req.session.accountType);
+      await ensureStudentReportCustomRemarksColumn(db);
       await ensureGoogleIntegrationSchema(db);
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
       const canManageAllClassAssessmentExams = ["manager", "supervisor"].includes(normalizedRole);
@@ -14605,6 +14765,50 @@ NUMBERING:
 
       const students = studentsResult.rows;
       const upcomingClassBirthdays = buildUpcomingBirthdayCards(students, 7);
+      const classStudentIds = students
+        .map((studentRow) => Number(studentRow.student_id))
+        .filter((studentIdValue) => Number.isInteger(studentIdValue) && studentIdValue > 0);
+
+      const configuredClassroomRemarkTypes = await getConfiguredClassroomRemarkTypes(
+        db,
+        organizationId,
+        Number(classId),
+        Number(currentTerm.term_id)
+      );
+
+      const [customRemarkTypes, teacherRemarkOptions, studentTeacherRemarkRowsResult] = await Promise.all([
+        getOrganizationCustomRemarkTypes(db, organizationId),
+        getTeacherRemarkOptionsCached(db, organizationId, Number(classId), Number(currentTerm.term_id), {
+          remarkTypes: configuredClassroomRemarkTypes,
+        }),
+        classStudentIds.length
+          ? db.query(
+              `SELECT student_id, teacher_remarks, conduct_remarks, interest_remarks, attitude_remarks, custom_remarks_json
+               FROM student_reports
+               WHERE organization_id = $1
+                 AND class_id = $2
+                 AND term_id = $3
+                 AND student_id = ANY($4::int[])`,
+              [organizationId, classId, currentTerm.term_id, classStudentIds]
+            )
+          : Promise.resolve({ rows: [] }),
+      ]);
+
+      const studentTeacherRemarksMap = {};
+      (studentTeacherRemarkRowsResult.rows || []).forEach((row) => {
+        const key = String(row.student_id || "").trim();
+        if (!key) return;
+        const customRemarkValues = row.custom_remarks_json && typeof row.custom_remarks_json === 'object'
+          ? row.custom_remarks_json
+          : {};
+        studentTeacherRemarksMap[key] = {
+          teacher: String(row.teacher_remarks || ""),
+          conduct: String(row.conduct_remarks || ""),
+          interest: String(row.interest_remarks || ""),
+          attitude: String(row.attitude_remarks || ""),
+          ...customRemarkValues,
+        };
+      });
 
       // **Fetch subjects for this class**
       let subjectsResult;
@@ -14761,9 +14965,236 @@ NUMBERING:
         googleIntegration,
         canManageAllClassAssessmentExams,
         canOpenPaygiraWorkspace,
+        teacherRemarkOptions,
+        classroomRemarkTypes: configuredClassroomRemarkTypes,
+        classroomCustomRemarkTypes: customRemarkTypes,
+        studentTeacherRemarksMap,
       });
     } catch (err) {
             res.status(500).send("Error loading class dashboard");
+    }
+  },
+
+  getStudentTeacherRemarkOptions: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const classId = Number.parseInt(req.query.classId, 10);
+    const termId = Number.parseInt(req.query.termId, 10);
+    const studentId = Number.parseInt(req.query.studentId, 10);
+    const currentUserRole = req.session.userRole;
+    const currentUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
+    const normalizedRole = normalizeRoleKey(currentUserRole || req.session.accountType);
+
+    if (!organizationId || !Number.isInteger(classId) || !Number.isInteger(termId) || !Number.isInteger(studentId)) {
+      return res.status(400).json({ success: false, message: "Missing or invalid class, term, or student." });
+    }
+
+    try {
+      await ensureStudentReportCustomRemarksColumn(db);
+      const isElevatedRole = ["manager", "supervisor", "admin", "organization", "mini admin"].includes(normalizedRole);
+      if (!isElevatedRole && !currentUserId) {
+        return res.status(403).json({ success: false, message: "Unauthorized." });
+      }
+
+      const accessJoinSql = isElevatedRole
+        ? ""
+        : "JOIN user_classes uc ON uc.class_id = es.class_id AND uc.user_id = $5";
+      const scopedParams = isElevatedRole
+        ? [studentId, classId, termId, organizationId]
+        : [studentId, classId, termId, organizationId, currentUserId];
+
+      const scopedStudentResult = await db.query(
+        `SELECT es.student_id
+         FROM enrolled_students es
+         JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+         JOIN classes c ON c.class_id = es.class_id
+         JOIN terms t ON t.term_id = e.term_id
+         ${accessJoinSql}
+         WHERE es.student_id = $1
+           AND es.class_id = $2
+           AND e.term_id = $3
+           AND e.organization_id = $4
+           AND c.organization_id = $4
+           AND t.organization_id = $4
+         LIMIT 1`,
+        scopedParams
+      );
+
+      if (!scopedStudentResult.rows.length) {
+        if (!isElevatedRole) {
+          return res.status(403).json({ success: false, message: "You can only manage remarks for classes assigned to you." });
+        }
+        return res.status(404).json({ success: false, message: "Student/class/term context not found for this organization." });
+      }
+
+      const [customRemarkTypes, configuredRemarkTypes, savedRemarkResult] = await Promise.all([
+        getOrganizationCustomRemarkTypes(db, organizationId),
+        getConfiguredClassroomRemarkTypes(db, organizationId, classId, termId),
+        db.query(
+          `SELECT teacher_remarks, conduct_remarks, interest_remarks, attitude_remarks, custom_remarks_json
+           FROM student_reports
+           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id = $4
+           LIMIT 1`,
+          [organizationId, classId, termId, studentId]
+        ),
+      ]);
+
+      const teacherOptions = await getTeacherRemarkOptionsCached(db, organizationId, classId, termId, {
+        remarkTypes: configuredRemarkTypes,
+      });
+
+      const customRemarkValues = savedRemarkResult.rows[0]?.custom_remarks_json && typeof savedRemarkResult.rows[0].custom_remarks_json === 'object'
+        ? savedRemarkResult.rows[0].custom_remarks_json
+        : {};
+
+      return res.json({
+        success: true,
+        options: teacherOptions || [],
+        selectedRemarkTypes: configuredRemarkTypes,
+        customRemarkTypes,
+        teacherRemark: String(savedRemarkResult.rows[0]?.teacher_remarks || ""),
+        remarkValues: {
+          teacher: String(savedRemarkResult.rows[0]?.teacher_remarks || ""),
+          conduct: String(savedRemarkResult.rows[0]?.conduct_remarks || ""),
+          interest: String(savedRemarkResult.rows[0]?.interest_remarks || ""),
+          attitude: String(savedRemarkResult.rows[0]?.attitude_remarks || ""),
+          ...customRemarkValues,
+        },
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to load remark options." });
+    }
+  },
+
+  saveStudentTeacherRemark: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const currentUserRole = req.session.userRole;
+    const currentUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
+    const normalizedRole = normalizeRoleKey(currentUserRole || req.session.accountType);
+    const classId = Number.parseInt(req.body.classId, 10);
+    const termId = Number.parseInt(req.body.termId, 10);
+    const studentId = Number.parseInt(req.body.studentId, 10);
+    const incomingRemarkValues = req.body.remarkValues && typeof req.body.remarkValues === "object"
+      ? req.body.remarkValues
+      : {};
+
+    if (!organizationId || !Number.isInteger(classId) || !Number.isInteger(termId) || !Number.isInteger(studentId)) {
+      return res.status(400).json({ success: false, message: "Missing or invalid class, term, or student." });
+    }
+
+    try {
+      await ensureStudentReportCustomRemarksColumn(db);
+      const customRemarkTypes = await getOrganizationCustomRemarkTypes(db, organizationId);
+      const allowedRemarkTypes = ["teacher", "conduct", "interest", "attitude"];
+      const customTypeKeys = customRemarkTypes.map(function(entry) {
+        return String(entry.type_key || '').trim().toLowerCase();
+      }).filter(Boolean);
+      const normalizedRemarkValues = {
+        teacher: String(incomingRemarkValues.teacher ?? req.body.teacherRemark ?? "").trim(),
+        conduct: String(incomingRemarkValues.conduct ?? "").trim(),
+        interest: String(incomingRemarkValues.interest ?? "").trim(),
+        attitude: String(incomingRemarkValues.attitude ?? "").trim(),
+      };
+      const customRemarkValues = {};
+
+      customTypeKeys.forEach(function(typeKey) {
+        customRemarkValues[typeKey] = String(incomingRemarkValues[typeKey] ?? '').trim();
+      });
+
+      const overLimitBuiltinType = allowedRemarkTypes.find(function(typeKey) {
+        return normalizedRemarkValues[typeKey].length > 500;
+      });
+      if (overLimitBuiltinType) {
+        const labelMap = {
+          teacher: "Teacher",
+          conduct: "Conduct",
+          interest: "Interest",
+          attitude: "Attitude",
+        };
+        return res.status(400).json({
+          success: false,
+          message: `${labelMap[overLimitBuiltinType] || "Remark"} remark is too long. Keep it under 500 characters.`,
+        });
+      }
+
+      const overLimitCustomType = customTypeKeys.find(function(typeKey) {
+        return String(customRemarkValues[typeKey] || '').length > 500;
+      });
+      if (overLimitCustomType) {
+        var matchingCustomType = customRemarkTypes.find(function(entry) {
+          return String(entry.type_key || '').trim().toLowerCase() === overLimitCustomType;
+        });
+        return res.status(400).json({
+          success: false,
+          message: `${matchingCustomType?.label || 'Custom'} remark is too long. Keep it under 500 characters.`,
+        });
+      }
+
+      const isElevatedRole = ["manager", "supervisor", "admin", "organization", "mini admin"].includes(normalizedRole);
+      if (!isElevatedRole && !currentUserId) {
+        return res.status(403).json({ success: false, message: "Unauthorized." });
+      }
+
+      const accessJoinSql = isElevatedRole
+        ? ""
+        : "JOIN user_classes uc ON uc.class_id = es.class_id AND uc.user_id = $5";
+      const scopedParams = isElevatedRole
+        ? [studentId, classId, termId, organizationId]
+        : [studentId, classId, termId, organizationId, currentUserId];
+
+      const scopedStudentResult = await db.query(
+        `SELECT es.student_id
+         FROM enrolled_students es
+         JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+         JOIN classes c ON c.class_id = es.class_id
+         JOIN terms t ON t.term_id = e.term_id
+         ${accessJoinSql}
+         WHERE es.student_id = $1
+           AND es.class_id = $2
+           AND e.term_id = $3
+           AND e.organization_id = $4
+           AND c.organization_id = $4
+           AND t.organization_id = $4
+         LIMIT 1`,
+        scopedParams
+      );
+
+      if (!scopedStudentResult.rows.length) {
+        if (!isElevatedRole) {
+          return res.status(403).json({ success: false, message: "You can only manage remarks for classes assigned to you." });
+        }
+        return res.status(404).json({ success: false, message: "Student/class/term context not found for this organization." });
+      }
+
+      await db.query(
+        `INSERT INTO student_reports (
+           organization_id, class_id, term_id, student_id,
+           teacher_remarks, conduct_remarks, interest_remarks, attitude_remarks, custom_remarks_json
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (organization_id, class_id, term_id, student_id)
+         DO UPDATE SET
+           teacher_remarks = EXCLUDED.teacher_remarks,
+           conduct_remarks = EXCLUDED.conduct_remarks,
+           interest_remarks = EXCLUDED.interest_remarks,
+           attitude_remarks = EXCLUDED.attitude_remarks,
+           custom_remarks_json = EXCLUDED.custom_remarks_json,
+           updated_at = CURRENT_TIMESTAMP`,
+        [
+          organizationId,
+          classId,
+          termId,
+          studentId,
+          normalizedRemarkValues.teacher,
+          normalizedRemarkValues.conduct,
+          normalizedRemarkValues.interest,
+          normalizedRemarkValues.attitude,
+          customRemarkValues,
+        ]
+      );
+
+      return res.json({ success: true, message: "Student remarks saved." });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to save student remarks." });
     }
   },
 

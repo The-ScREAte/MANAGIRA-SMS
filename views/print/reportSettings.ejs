@@ -362,6 +362,37 @@
       overflow-x: hidden;
     }
 
+    #advancedDsToggleBtn {
+      padding: 8px 12px !important;
+      font-size: 0.8rem !important;
+      background: #f8fafc !important;
+    }
+
+    #advancedDsPanel {
+      padding: 10px 12px !important;
+      background: #fff !important;
+    }
+
+    #advancedDsPanel .ds-adv-grid {
+      gap: 10px !important;
+    }
+
+    #advancedDsPanel .ds-adv-section-label {
+      margin-bottom: 5px !important;
+      font-size: 0.68rem !important;
+      letter-spacing: 0.05em !important;
+    }
+
+    #advancedDsPanel .ds-adv-flat-lbl,
+    #advancedDsPanel .ds-adv-sub-lbl,
+    #advancedDsPanel .ds-adv-lbl {
+      font-size: 0.78rem !important;
+      padding: 4px 6px !important;
+      border-radius: 6px !important;
+      border: 1px solid #e5e7eb !important;
+      background: #fff !important;
+    }
+
     #advancedDsPanel * {
       min-width: 0;
       max-width: 100%;
@@ -1446,6 +1477,311 @@
     .collapsible-card.collapsed .card-collapse-body {
       display: none;
     }
+
+    .gr-toolbar {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    .gr-toolbar-item {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .gr-toolbar .rs-action-links {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .gr-toolbar .rs-action-link {
+      font-size: 0.86rem;
+      padding: 0;
+    }
+
+    .gr-inline-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    .gr-inline-actions .btn {
+      width: min(260px, 100%);
+      min-width: 180px;
+      min-height: 44px;
+      height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gr-remark-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .gr-remark-title {
+      margin: 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #64748b;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .gr-remark-add-link {
+      font-size: 0.82rem;
+    }
+
+    .remark-item {
+      border: 1px solid rgba(203, 213, 225, 0.72);
+      border-radius: 10px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.66));
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+      padding: 7px;
+      margin-bottom: 8px;
+    }
+
+    .remark-item-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      min-height: 18px;
+      margin-bottom: 4px;
+    }
+
+    .remark-item-remove {
+      display: none;
+      color: #b91c1c;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-decoration: none;
+      line-height: 1.2;
+    }
+
+    .remark-item.is-removable .remark-item-remove {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .remark-item .form-group {
+      margin-bottom: 0;
+    }
+
+    .remark-item label {
+      font-size: 0.8rem;
+      margin-bottom: 4px;
+    }
+
+    .gr-accordion-trigger {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 0.86rem;
+      cursor: pointer;
+    }
+
+    .gr-accordion-trigger:hover {
+      background: #f1f5f9;
+    }
+
+    .gr-accordion-panel {
+      display: none;
+      margin-top: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      animation: dsFadeIn 0.16s ease;
+    }
+
+    .gr-accordion-trigger .gr-arrow {
+      font-size: 10px;
+      color: var(--muted);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .gr-accordion-trigger[aria-expanded="true"] .gr-arrow {
+      transform: rotate(180deg);
+    }
+
+    .gr-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 15, 30, 0.48);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10060;
+      padding: 16px;
+    }
+
+    .gr-modal-overlay.is-open {
+      display: flex;
+    }
+
+    .gr-modal-card {
+      width: min(560px, 96vw);
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #d8e3ef;
+      border-radius: 14px;
+      box-shadow: 0 28px 74px rgba(0,0,0,0.28);
+      padding: 12px;
+    }
+
+    .gr-modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .gr-modal-title {
+      margin: 0;
+      font-size: 0.92rem;
+      color: #1f2937;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    .gr-modal-close {
+      border: 1px solid #d7e1ec;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #475569;
+      cursor: pointer;
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+
+    .gr-modal-note {
+      margin: 0 0 10px;
+      font-size: 0.76rem;
+      color: #64748b;
+      line-height: 1.35;
+    }
+
+    .gr-type-list {
+      margin-top: 10px;
+      border-top: 1px dashed var(--border);
+      padding-top: 10px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .gr-type-list-title {
+      margin: 0 0 2px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .gr-type-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      border-radius: 8px;
+      padding: 7px 9px;
+      font-size: 0.82rem;
+      color: #334155;
+    }
+
+    .gr-type-row-label {
+      display: block;
+      font-weight: 600;
+      color: #1f2937;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+      line-height: 1.3;
+      min-width: 0;
+    }
+
+    .gr-type-delete-btn {
+      border: 1px solid rgba(220, 38, 38, 0.25);
+      background: #fff;
+      color: #b91c1c;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .gr-type-delete-btn:hover {
+      background: #fef2f2;
+    }
+
+    .gr-type-empty {
+      font-size: 0.78rem;
+      color: var(--muted);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      background: #f8fafc;
+    }
+
+    .global-remark-textarea {
+      min-height: 58px;
+      height: 58px;
+      padding: 6px 8px;
+      font-size: 0.87rem;
+      line-height: 1.32;
+      margin-bottom: 8px;
+      resize: vertical;
+    }
+
+    @media (max-width: 640px) {
+      .gr-toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .gr-inline-actions .btn {
+        width: 100%;
+      }
+
+      .gr-inline-actions {
+        justify-content: stretch;
+      }
+
+      .gr-remark-head {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .gr-modal-card {
+        width: 98vw;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1729,10 +2065,49 @@
       <div class="card">
         <h2>Global Remarks</h2>
         <div class="notice">These remarks are global and can be reused for any class or term.</div>
+        <div class="gr-toolbar">
+          <div class="gr-toolbar-item">
+            <div class="rs-action-links">
+              <a href="javascript:void(0)" id="openCustomRemarkTypeModalBtn" class="rs-action-link">Custom Remarks</a>
+            </div>
+          </div>
+          <div class="gr-toolbar-item">
+          <button type="button" class="gr-accordion-trigger" id="toggleClassroomRemarkTypesBtn" aria-expanded="false">
+            <span>Class Remark Types</span>
+            <span class="gr-arrow">▼</span>
+          </button>
+          </div>
+        </div>
+        <div id="classroomRemarkTypesWrap" class="gr-accordion-panel">
+        <form id="classroomRemarkTypeForm" action="/print/saveClassroomRemarkTypes?classId=<%= classId %>&termId=<%= termId %>" method="POST" style="margin-bottom:0;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">
+            <% const classroomTypes = Array.isArray(classroomRemarkTypes) && classroomRemarkTypes.length ? classroomRemarkTypes : ['teacher']; %>
+            <label style="display:flex;align-items:center;gap:7px;font-size:0.83rem;color:var(--text);"><input type="checkbox" name="classroomRemarkTypes[]" value="teacher" <%= classroomTypes.includes('teacher') ? 'checked' : '' %> /> Teacher's Remarks</label>
+            <label style="display:flex;align-items:center;gap:7px;font-size:0.83rem;color:var(--text);"><input type="checkbox" name="classroomRemarkTypes[]" value="conduct" <%= classroomTypes.includes('conduct') ? 'checked' : '' %> /> Conduct Remarks</label>
+            <label style="display:flex;align-items:center;gap:7px;font-size:0.83rem;color:var(--text);"><input type="checkbox" name="classroomRemarkTypes[]" value="interest" <%= classroomTypes.includes('interest') ? 'checked' : '' %> /> Interest Remarks</label>
+            <label style="display:flex;align-items:center;gap:7px;font-size:0.83rem;color:var(--text);"><input type="checkbox" name="classroomRemarkTypes[]" value="attitude" <%= classroomTypes.includes('attitude') ? 'checked' : '' %> /> Attitude Remarks</label>
+            <% (customRemarkTypes || []).forEach(function(customType){ %>
+              <label style="display:flex;align-items:center;gap:7px;font-size:0.83rem;color:var(--text);"><input type="checkbox" name="classroomRemarkTypes[]" value="<%= customType.type_key %>" <%= classroomTypes.includes(customType.type_key) ? 'checked' : '' %> /> <%= customType.label %></label>
+            <% }); %>
+          </div>
+          <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+            <button type="submit" class="btn btn-secondary" id="saveClassroomRemarkTypesBtn">Save Classroom Popup Types</button>
+          </div>
+        </form>
+        </div>
         <form id="globalRemarksForm" action="/print/saveRemarks?classId=<%= classId %>&termId=<%= termId %>" method="POST">
+          <div class="gr-remark-head">
+            <div class="gr-remark-title">Remark Entries</div>
+            <div class="rs-action-links">
+              <a href="javascript:void(0)" id="add-remark-btn" class="rs-action-link gr-remark-add-link">+ Add remark</a>
+            </div>
+          </div>
           <div id="remarks-container">
             <div class="form-group remark-item">
-              <textarea name="remarks[]" required maxlength="150" placeholder="Enter remark (max 150 characters)"></textarea>
+              <div class="remark-item-head">
+                <a href="javascript:void(0)" class="remark-item-remove" aria-label="Remove remark entry">Remove</a>
+              </div>
+              <textarea class="global-remark-textarea" name="remarks[]" required maxlength="150" placeholder="Enter remark (max 150 characters)"></textarea>
               <div class="form-group">
                 <label>Select Remark Type:</label>
                 <select name="remarkType[]" required>
@@ -1740,20 +2115,36 @@
                   <option value="conduct">Conduct Remark</option>
                   <option value="interest">Interest Remark</option>
                   <option value="attitude">Attitude Remark</option>
+                  <% (customRemarkTypes || []).forEach(function(customType){ %>
+                    <option value="<%= customType.type_key %>"><%= customType.label %></option>
+                  <% }); %>
                 </select>
               </div>
             </div>
           </div>
-          <button type="button" class="btn" id="add-remark-btn">+ Add Remark</button>
-          <button type="submit" class="btn" id="saveRemarksBtn">Save Remarks</button>
+          <div class="gr-inline-actions">
+            <button type="submit" class="btn" id="saveRemarksBtn">Save Remarks</button>
+          </div>
         </form>
         <div class="table-wrapper">
-          <div class="section-title" style="margin-top:14px;">Saved Remarks</div>
-          <div class="remarks-list">
+          <button type="button" class="gr-accordion-trigger" id="toggleSavedRemarksBtn" aria-expanded="false" style="margin-top:14px;">
+            <span>Saved Remarks</span>
+            <span class="gr-arrow">▼</span>
+          </button>
+          <div class="gr-accordion-panel" id="savedRemarksWrap">
+          <div class="remarks-list" id="savedRemarksList">
             <% if (!hasSavedRemarks) { %>
               <div class="empty-inline">No remarks saved yet.</div>
             <% } else { %>
-              <% ['teacher','conduct','interest','attitude'].forEach(function(type){ const label = {teacher:"Teacher's Remarks",conduct:'Conduct Remarks',interest:'Interest Remarks',attitude:'Attitude Remarks'}[type]; if(remarks.some(r=>r.remark_type===type)){ %>
+              <% const builtinRemarkTypes = [
+                { type_key: 'teacher', label: "Teacher's Remarks" },
+                { type_key: 'conduct', label: 'Conduct Remarks' },
+                { type_key: 'interest', label: 'Interest Remarks' },
+                { type_key: 'attitude', label: 'Attitude Remarks' },
+              ];
+              const allRemarkTypeRows = [...builtinRemarkTypes, ...((customRemarkTypes || []).map(function(customType){ return { type_key: customType.type_key, label: customType.label }; }))];
+              %>
+              <% allRemarkTypeRows.forEach(function(typeRow){ const type = typeRow.type_key; const label = typeRow.label; if(remarks.some(r=>r.remark_type===type)){ %>
                 <h3 style="margin:10px 0 6px;color:var(--primary);"><%= label %></h3>
                 <% remarks.filter(r=>r.remark_type===type).forEach(function(remark){ %>
                   <div class="remark-row">
@@ -1761,13 +2152,43 @@
                     <div class="kebab-menu" data-remark-id="<%= remark.id %>">
                       <button type="button" class="kebab" aria-label="More actions" aria-expanded="false">⋮</button>
                       <ul>
-                        <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>" data-no-spa>Delete</a></li>
+                        <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>" data-no-spa data-confirm-message="Delete this remark? This action cannot be undone.">Delete</a></li>
                       </ul>
                     </div>
                   </div>
                 <% }); %>
               <% } }); %>
             <% } %>
+          </div>
+          </div>
+        </div>
+
+        <div id="customRemarkTypeModal" class="gr-modal-overlay" aria-hidden="true">
+          <div class="gr-modal-card" role="dialog" aria-modal="true" aria-labelledby="customRemarkTypeModalTitle">
+            <div class="gr-modal-head">
+              <h3 id="customRemarkTypeModalTitle" class="gr-modal-title">Create Custom Remark Type</h3>
+              <button type="button" class="gr-modal-close" id="closeCustomRemarkTypeModalBtn" aria-label="Close">x</button>
+            </div>
+            <p class="gr-modal-note">Create a custom type for this organization. It saves with AJAX and appears immediately in remark selectors.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="text" id="customRemarkTypeInput" maxlength="60" placeholder="e.g. Creativity Remarks" style="flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:0.83rem;" />
+              <button type="button" class="btn" id="createCustomRemarkTypeBtn">Save Custom Type</button>
+              <button type="button" class="btn btn-secondary" id="cancelCustomRemarkTypeBtn">Cancel</button>
+            </div>
+            <div id="customRemarkTypeMsg" style="min-height:16px;margin-top:6px;font-size:0.76rem;color:var(--muted);"></div>
+            <div id="customRemarkTypeList" class="gr-type-list">
+              <div class="gr-type-list-title">Saved Custom Types</div>
+              <% if (!(customRemarkTypes || []).length) { %>
+                <div class="gr-type-empty">No custom types yet.</div>
+              <% } else { %>
+                <% (customRemarkTypes || []).forEach(function(customType){ %>
+                  <div class="gr-type-row" data-type-key="<%= customType.type_key %>">
+                    <span class="gr-type-row-label"><%= customType.label %></span>
+                    <button type="button" class="gr-type-delete-btn" data-type-key="<%= customType.type_key %>">Delete</button>
+                  </div>
+                <% }); %>
+              <% } %>
+            </div>
           </div>
         </div>
       </div>
@@ -1952,22 +2373,376 @@
 
   <% if (!setupRequired) { %>
   <script>
-    document.getElementById('add-remark-btn')?.addEventListener('click', () => {
-      const container = document.getElementById('remarks-container');
-      const div = document.createElement('div');
-      div.className = 'form-group remark-item';
-      div.innerHTML = `
-        <textarea name="remarks[]" required maxlength="150" placeholder="Enter remark (max 150 characters)"></textarea>
+    const initialCustomRemarkTypes = <%- JSON.stringify(customRemarkTypes || []) %>;
+    const customRemarkTypesState = Array.isArray(initialCustomRemarkTypes)
+      ? initialCustomRemarkTypes.slice()
+      : [];
+
+    function buildRemarkTypeOptionsHtml() {
+      const escHtml = (value) => String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+      const baseOptions = [
+        { value: 'teacher', label: "Teacher's Remark" },
+        { value: 'conduct', label: 'Conduct Remark' },
+        { value: 'interest', label: 'Interest Remark' },
+        { value: 'attitude', label: 'Attitude Remark' },
+      ];
+      const customOptions = customRemarkTypesState.map((item) => ({
+        value: String(item.type_key || '').trim(),
+        label: String(item.label || '').trim() || 'Custom Remark',
+      })).filter((item) => item.value && item.label);
+
+      return [...baseOptions, ...customOptions]
+        .map((item) => `<option value="${escHtml(item.value)}">${escHtml(item.label)}</option>`)
+        .join('');
+    }
+
+    function refreshCustomRemarkTypeTags() {
+      const listEl = document.getElementById('customRemarkTypeList');
+      if (!listEl) return;
+      const escHtml = (value) => String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+      if (!customRemarkTypesState.length) {
+        listEl.innerHTML = [
+          '<div class="gr-type-list-title">Saved Custom Types</div>',
+          '<div class="gr-type-empty">No custom types yet.</div>'
+        ].join('');
+        return;
+      }
+      listEl.innerHTML = [
+        '<div class="gr-type-list-title">Saved Custom Types</div>',
+        ...customRemarkTypesState.map((item) => `
+          <div class="gr-type-row" data-type-key="${item.type_key}">
+            <span class="gr-type-row-label">${escHtml(item.label || item.type_key)}</span>
+            <button type="button" class="gr-type-delete-btn" data-type-key="${escHtml(item.type_key)}">Delete</button>
+          </div>
+        `)
+      ].join('');
+    }
+
+    function refreshRemarkTypeSelectOptions() {
+      const optionsHtml = buildRemarkTypeOptionsHtml();
+      document.querySelectorAll('select[name="remarkType[]"]').forEach((selectEl) => {
+        const currentValue = selectEl.value;
+        selectEl.innerHTML = optionsHtml;
+        if (currentValue && Array.from(selectEl.options).some((optionEl) => optionEl.value === currentValue)) {
+          selectEl.value = currentValue;
+        }
+      });
+    }
+
+    function escapeHtmlText(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function refreshClassroomRemarkTypeOptions() {
+      const container = document.querySelector('#classroomRemarkTypeForm > div');
+      if (!container) return;
+
+      const checkedValues = new Set(
+        Array.from(container.querySelectorAll('input[name="classroomRemarkTypes[]"]:checked'))
+          .map((inputEl) => String(inputEl.value || '').trim().toLowerCase())
+      );
+
+      const builtins = [
+        { value: 'teacher', label: "Teacher's Remarks" },
+        { value: 'conduct', label: 'Conduct Remarks' },
+        { value: 'interest', label: 'Interest Remarks' },
+        { value: 'attitude', label: 'Attitude Remarks' },
+      ];
+
+      const customs = customRemarkTypesState.map((item) => ({
+        value: String(item.type_key || '').trim().toLowerCase(),
+        label: String(item.label || '').trim(),
+      })).filter((item) => item.value && item.label);
+
+      container.innerHTML = [...builtins, ...customs].map((item) => {
+        const checked = checkedValues.has(item.value) ? ' checked' : '';
+        return '<label style="display:flex;align-items:center;gap:7px;font-size:0.83rem;color:var(--text);">'
+          + '<input type="checkbox" name="classroomRemarkTypes[]" value="' + escapeHtmlText(item.value) + '"' + checked + ' /> '
+          + escapeHtmlText(item.label)
+          + '</label>';
+      }).join('');
+    }
+
+    const openCustomRemarkTypeModalBtn = document.getElementById('openCustomRemarkTypeModalBtn');
+    const closeCustomRemarkTypeModalBtn = document.getElementById('closeCustomRemarkTypeModalBtn');
+    const customRemarkModal = document.getElementById('customRemarkTypeModal');
+    const customRemarkCancelBtn = document.getElementById('cancelCustomRemarkTypeBtn');
+    const toggleClassroomRemarkTypesBtn = document.getElementById('toggleClassroomRemarkTypesBtn');
+    const classroomRemarkTypesWrap = document.getElementById('classroomRemarkTypesWrap');
+    const toggleSavedRemarksBtn = document.getElementById('toggleSavedRemarksBtn');
+    const savedRemarksWrap = document.getElementById('savedRemarksWrap');
+
+    function setAccordionOpen(triggerEl, panelEl, isOpen) {
+      if (!triggerEl || !panelEl) return;
+      triggerEl.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      panelEl.style.display = isOpen ? 'block' : 'none';
+    }
+
+    function setCustomRemarkTypeModalOpen(isOpen) {
+      if (!customRemarkModal) return;
+      customRemarkModal.classList.toggle('is-open', isOpen === true);
+      customRemarkModal.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+      if (isOpen) {
+        const msgEl = document.getElementById('customRemarkTypeMsg');
+        if (msgEl) {
+          msgEl.textContent = '';
+          msgEl.style.color = 'var(--muted)';
+        }
+        document.getElementById('customRemarkTypeInput')?.focus();
+      }
+    }
+
+    openCustomRemarkTypeModalBtn?.addEventListener('click', () => {
+      setCustomRemarkTypeModalOpen(true);
+    });
+
+    closeCustomRemarkTypeModalBtn?.addEventListener('click', () => {
+      setCustomRemarkTypeModalOpen(false);
+    });
+
+    customRemarkCancelBtn?.addEventListener('click', () => {
+      const inputEl = document.getElementById('customRemarkTypeInput');
+      const msgEl = document.getElementById('customRemarkTypeMsg');
+      if (inputEl) inputEl.value = '';
+      if (msgEl) msgEl.textContent = '';
+      setCustomRemarkTypeModalOpen(false);
+    });
+
+    customRemarkModal?.addEventListener('click', (event) => {
+      if (event.target === customRemarkModal) {
+        setCustomRemarkTypeModalOpen(false);
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && customRemarkModal?.classList.contains('is-open')) {
+        setCustomRemarkTypeModalOpen(false);
+      }
+    });
+
+    toggleClassroomRemarkTypesBtn?.addEventListener('click', () => {
+      const nextOpen = toggleClassroomRemarkTypesBtn.getAttribute('aria-expanded') !== 'true';
+      setAccordionOpen(toggleClassroomRemarkTypesBtn, classroomRemarkTypesWrap, nextOpen);
+    });
+
+    toggleSavedRemarksBtn?.addEventListener('click', () => {
+      const nextOpen = toggleSavedRemarksBtn.getAttribute('aria-expanded') !== 'true';
+      setAccordionOpen(toggleSavedRemarksBtn, savedRemarksWrap, nextOpen);
+    });
+
+    setAccordionOpen(toggleClassroomRemarkTypesBtn, classroomRemarkTypesWrap, false);
+    setAccordionOpen(toggleSavedRemarksBtn, savedRemarksWrap, false);
+
+    document.getElementById('createCustomRemarkTypeBtn')?.addEventListener('click', async () => {
+      const inputEl = document.getElementById('customRemarkTypeInput');
+      const msgEl = document.getElementById('customRemarkTypeMsg');
+      const createBtn = document.getElementById('createCustomRemarkTypeBtn');
+      const label = String(inputEl?.value || '').trim();
+
+      if (!label) {
+        if (msgEl) {
+          msgEl.style.color = '#dc2626';
+          msgEl.textContent = 'Enter a custom remark type name.';
+        }
+        return;
+      }
+
+      if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.textContent = 'Saving...';
+      }
+      if (msgEl) {
+        msgEl.style.color = 'var(--muted)';
+        msgEl.textContent = 'Creating custom remark type...';
+      }
+
+      try {
+        const response = await fetch('/print/createCustomRemarkTypeAjax', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label }),
+        });
+        const result = await response.json();
+        if (!response.ok || !result || !result.success) {
+          throw new Error((result && result.message) || 'Failed to create custom remark type.');
+        }
+
+        customRemarkTypesState.length = 0;
+        (result.customRemarkTypes || []).forEach((item) => {
+          customRemarkTypesState.push({
+            type_key: String(item.type_key || '').trim(),
+            label: String(item.label || '').trim(),
+          });
+        });
+
+        refreshCustomRemarkTypeTags();
+        refreshRemarkTypeSelectOptions();
+        refreshClassroomRemarkTypeOptions();
+
+        const activeClassId = String(document.getElementById('statusClassId')?.value || '').trim();
+        if (activeClassId && allDisplaySettingsMap[activeClassId] && allDisplaySettingsMap[activeClassId].sections) {
+          const sectionMap = allDisplaySettingsMap[activeClassId].sections;
+          if (!sectionMap.customRemarksVisibility || typeof sectionMap.customRemarksVisibility !== 'object') {
+            sectionMap.customRemarksVisibility = {};
+          }
+          sectionMap.customRemarksVisibility[result.created.type_key] = true;
+          if (typeof renderAdvancedDs === 'function') {
+            renderAdvancedDs(activeClassId);
+          }
+        }
+
+        if (inputEl) inputEl.value = '';
+        if (msgEl) {
+          msgEl.style.color = '#16a34a';
+          msgEl.textContent = 'Custom remark type created. Add remarks under this type below.';
+        }
+        setCustomRemarkTypeModalOpen(false);
+        if (typeof showToast === 'function') {
+          showToast('Custom remark type created successfully.');
+        }
+      } catch (error) {
+        if (msgEl) {
+          msgEl.style.color = '#dc2626';
+          msgEl.textContent = error && error.message ? error.message : 'Failed to create custom remark type.';
+        }
+      } finally {
+        if (createBtn) {
+          createBtn.disabled = false;
+          createBtn.textContent = 'Save Custom Type';
+        }
+      }
+    });
+
+    function syncRemarkItemRemoveState() {
+      const items = Array.from(document.querySelectorAll('#remarks-container .remark-item'));
+      items.forEach((itemEl, index) => {
+        itemEl.classList.toggle('is-removable', index > 0);
+      });
+    }
+
+    function buildRemarkItemHtml() {
+      return `
+        <div class="remark-item-head">
+          <a href="javascript:void(0)" class="remark-item-remove" aria-label="Remove remark entry">Remove</a>
+        </div>
+        <textarea class="global-remark-textarea" name="remarks[]" required maxlength="150" placeholder="Enter remark (max 150 characters)"></textarea>
         <div class="form-group">
           <label>Select Remark Type:</label>
           <select name="remarkType[]" required>
-            <option value="teacher">Teacher's Remark</option>
-            <option value="conduct">Conduct Remark</option>
-            <option value="interest">Interest Remark</option>
-            <option value="attitude">Attitude Remark</option>
+            ${buildRemarkTypeOptionsHtml()}
           </select>
         </div>`;
+    }
+
+    document.getElementById('add-remark-btn')?.addEventListener('click', () => {
+      const container = document.getElementById('remarks-container');
+      const div = document.createElement('div');
+      div.className = 'form-group remark-item is-removable';
+      div.innerHTML = buildRemarkItemHtml();
       container.appendChild(div);
+      syncRemarkItemRemoveState();
+      div.querySelector('textarea[name="remarks[]"]')?.focus();
+    });
+
+    document.getElementById('remarks-container')?.addEventListener('click', (event) => {
+      const removeLink = event.target.closest('.remark-item-remove');
+      if (!removeLink) return;
+      event.preventDefault();
+      const itemEl = removeLink.closest('.remark-item');
+      if (!itemEl) return;
+      itemEl.remove();
+      syncRemarkItemRemoveState();
+    });
+
+    syncRemarkItemRemoveState();
+
+    document.getElementById('customRemarkTypeList')?.addEventListener('click', async (event) => {
+      const deleteBtn = event.target.closest('.gr-type-delete-btn');
+      if (!deleteBtn) return;
+
+      const typeKey = String(deleteBtn.getAttribute('data-type-key') || '').trim();
+      if (!typeKey) return;
+
+      const rowEl = deleteBtn.closest('.gr-type-row');
+      const typeLabel = rowEl?.querySelector('.gr-type-row-label')?.textContent?.trim() || 'this custom type';
+      const msgEl = document.getElementById('customRemarkTypeMsg');
+
+      if (!window.confirm(`Delete "${typeLabel}" custom type?`)) {
+        return;
+      }
+
+      const originalBtnText = deleteBtn.textContent;
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting...';
+
+      if (msgEl) {
+        msgEl.style.color = 'var(--muted)';
+        msgEl.textContent = 'Deleting custom remark type...';
+      }
+
+      try {
+        const response = await fetch('/print/deleteCustomRemarkTypeAjax', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ typeKey }),
+        });
+        const result = await response.json();
+        if (!response.ok || !result || !result.success) {
+          throw new Error((result && result.message) || 'Failed to delete custom remark type.');
+        }
+
+        customRemarkTypesState.length = 0;
+        (result.customRemarkTypes || []).forEach((item) => {
+          customRemarkTypesState.push({
+            type_key: String(item.type_key || '').trim(),
+            label: String(item.label || '').trim(),
+          });
+        });
+
+        refreshCustomRemarkTypeTags();
+        refreshRemarkTypeSelectOptions();
+        refreshClassroomRemarkTypeOptions();
+
+        const activeClassId = String(document.getElementById('statusClassId')?.value || '').trim();
+        if (activeClassId && allDisplaySettingsMap[activeClassId] && allDisplaySettingsMap[activeClassId].sections) {
+          const sectionMap = allDisplaySettingsMap[activeClassId].sections;
+          if (sectionMap.customRemarksVisibility && typeof sectionMap.customRemarksVisibility === 'object') {
+            delete sectionMap.customRemarksVisibility[typeKey];
+          }
+          if (typeof renderAdvancedDs === 'function') {
+            renderAdvancedDs(activeClassId);
+          }
+        }
+
+        if (msgEl) {
+          msgEl.style.color = '#16a34a';
+          msgEl.textContent = 'Custom remark type deleted.';
+        }
+      } catch (error) {
+        if (msgEl) {
+          msgEl.style.color = '#dc2626';
+          msgEl.textContent = error && error.message ? error.message : 'Failed to delete custom remark type.';
+        }
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = originalBtnText;
+      }
     });
 
     const statusSettingsMap = {};
@@ -2600,7 +3375,8 @@
     document.addEventListener('click', (event) => {
       const deleteLink = event.target.closest('a[href*="/print/deleteScoreRemark/"], a[href*="/print/deleteRemark/"]');
       if (!deleteLink) return;
-      if (!confirmDestructiveAction('Delete this item? This action cannot be undone.')) {
+      const confirmMessage = String(deleteLink.getAttribute('data-confirm-message') || 'Delete this item? This action cannot be undone.');
+      if (!confirmDestructiveAction(confirmMessage)) {
         event.preventDefault();
         event.stopPropagation();
       }
@@ -4328,7 +5104,31 @@
 
     const globalRemarksForm = document.getElementById('globalRemarksForm');
     const saveRemarksBtn = document.getElementById('saveRemarksBtn');
+    const classroomRemarkTypeForm = document.getElementById('classroomRemarkTypeForm');
+    const saveClassroomRemarkTypesBtn = document.getElementById('saveClassroomRemarkTypesBtn');
     let remarksSubmitInFlight = false;
+    let classroomRemarkTypeSubmitInFlight = false;
+
+    classroomRemarkTypeForm?.addEventListener('submit', (event) => {
+      if (classroomRemarkTypeSubmitInFlight) {
+        event.preventDefault();
+        return;
+      }
+
+      const checkedCount = classroomRemarkTypeForm.querySelectorAll('input[name="classroomRemarkTypes[]"]:checked').length;
+      if (!checkedCount) {
+        event.preventDefault();
+        alert('Select at least one remark type for classroom popup options.');
+        return;
+      }
+
+      classroomRemarkTypeSubmitInFlight = true;
+      if (saveClassroomRemarkTypesBtn) {
+        saveClassroomRemarkTypesBtn.disabled = true;
+        saveClassroomRemarkTypesBtn.textContent = 'Saving...';
+      }
+      showLoading();
+    });
 
     globalRemarksForm?.addEventListener('submit', () => {
       if (remarksSubmitInFlight) {
@@ -4578,6 +5378,19 @@
         </label>`).join('');
 
       const secRows = [['teacherRemarks','💬','Teacher Remarks'],['conductRemarks','📋','Conduct Remarks'],['attitudeRemarks','🌟','Attitude Remarks'],['interestRemarks','🎯','Interest Remarks'],['gradeKey','🔑','Grade Key'],['attendance','📅','Attendance'],['promotion','🎓','Promotion']];
+      const customRows = customRemarkTypesState.map((customType) => {
+        const typeKey = String(customType.type_key || '').trim();
+        const label = String(customType.label || '').trim();
+        if (!typeKey || !label) return '';
+        const customVisibilityMap = (ds.sections && ds.sections.customRemarksVisibility) || {};
+        const checked = customVisibilityMap[typeKey] !== false;
+        return `
+        <label class="ds-adv-flat-lbl">
+          <input type="checkbox" class="ds-adv-sec-custom" data-type-key="${dsEsc(typeKey)}" style="accent-color:var(--primary);" ${checked ? 'checked' : ''}>
+          <span style="font-size:13px;line-height:1;">🧩</span> ${dsEsc(label)}
+        </label>`;
+      }).filter(Boolean).join('');
+
       const secHtml = secRows.map(([key,icon,lbl]) => `
         <label class="ds-adv-flat-lbl">
           <input type="checkbox" class="ds-adv-sec" data-key="${key}" style="accent-color:var(--primary);" ${ds.sections[key] ? 'checked' : ''}>
@@ -4789,7 +5602,7 @@
           </div>
           <div>
             <p class="ds-adv-section-label">Report Sections</p>
-            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${attendanceManualRow}${paygiraHtml}<div id="ds-adv-sections-right-wrap"><div id="ds-adv-sections-right-list">${secHtml}</div></div></div>
+            <div style="display:flex;flex-direction:column;gap:3px;">${activatePromotionRow}${attendanceManualRow}${paygiraHtml}<div id="ds-adv-sections-right-wrap"><div id="ds-adv-sections-right-list">${secHtml}${customRows}</div></div></div>
           </div>
         </div>
         <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
@@ -5383,6 +6196,13 @@
       panel.querySelectorAll('.ds-adv-col').forEach(cb => { columns[cb.dataset.key] = cb.checked; });
       const sections = {};
       panel.querySelectorAll('.ds-adv-sec').forEach(cb => { sections[cb.dataset.key] = cb.checked; });
+      const customRemarksVisibility = {};
+      panel.querySelectorAll('.ds-adv-sec-custom').forEach((cb) => {
+        const typeKey = String(cb.dataset.typeKey || '').trim();
+        if (!typeKey) return;
+        customRemarksVisibility[typeKey] = cb.checked;
+      });
+      sections.customRemarksVisibility = customRemarksVisibility;
       sections.gradePresentation = getGradePresentationPayloadFromControls();
       const turnOffAutoAttendanceCb = document.getElementById('ds-adv-turnOffAutoAttendance');
       sections.turnOffAutoAttendance = turnOffAutoAttendanceCb ? turnOffAutoAttendanceCb.checked : false;
@@ -5542,6 +6362,15 @@
         conductRemarks: !!document.getElementById('ds-adv-conductRemarks')?.checked,
         attitudeRemarks: !!document.getElementById('ds-adv-attitudeRemarks')?.checked,
         interestRemarks: !!document.getElementById('ds-adv-interestRemarks')?.checked,
+        customRemarksVisibility: (() => {
+          const visibility = {};
+          document.querySelectorAll('.ds-adv-sec-custom').forEach((cb) => {
+            const typeKey = String(cb.dataset.typeKey || '').trim();
+            if (!typeKey) return;
+            visibility[typeKey] = cb.checked;
+          });
+          return visibility;
+        })(),
         gradeKey: !!document.getElementById('ds-adv-gradeKey')?.checked,
         gradePresentation,
         attendance: !!document.getElementById('ds-adv-attendance')?.checked,
@@ -5582,6 +6411,16 @@
           conductRemarks: secs.conductRemarks !== false,
           attitudeRemarks: secs.attitudeRemarks !== false,
           interestRemarks: secs.interestRemarks !== false,
+          customRemarksVisibility: (() => {
+            const visibility = {};
+            const source = (secs && typeof secs.customRemarksVisibility === 'object') ? secs.customRemarksVisibility : {};
+            customRemarkTypesState.forEach((customType) => {
+              const typeKey = String(customType.type_key || '').trim();
+              if (!typeKey) return;
+              visibility[typeKey] = source[typeKey] !== false;
+            });
+            return visibility;
+          })(),
           gradeKey: secs.gradeKey !== false,
           gradePresentation: normalizeGradePresentationState(secs.gradePresentation || {}),
           attendance: secs.attendance !== false,
@@ -5671,6 +6510,7 @@
     (function initCardCollapse() {
       const isLarge = window.innerWidth >= 960;
       document.querySelectorAll('.card').forEach((card, index) => {
+        if (card.classList.contains('collapsible-card')) return;
         // First card = "Class-specific Status Settings" — keep open on large screens
         const isStatusCard = index === 0;
         const header = card.querySelector(':scope > h2, :scope > .section-title');

@@ -567,7 +567,7 @@ CREATE TABLE remarks (
     id SERIAL PRIMARY KEY,
     organization_id INTEGER NOT NULL,
     remark TEXT NOT NULL,
-    remark_type VARCHAR(20) NOT NULL CHECK (remark_type IN ('teacher', 'conduct', 'interest', 'attitude')),
+        remark_type TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

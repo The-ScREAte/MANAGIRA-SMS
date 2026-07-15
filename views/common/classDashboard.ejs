@@ -1916,7 +1916,9 @@ main {
 .students-overview-section .section-title { font-size: 13px; font-weight: 700; color: var(--text); margin: 0; }
 .students-numbered-list { list-style: none; counter-reset: none; padding: 0; margin: 0; display: grid; gap: 0; }
 .students-numbered-list li {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   border-bottom: 1px solid var(--border);
   background: transparent !important;
 }
@@ -1924,7 +1926,7 @@ main {
 .students-numbered-list li::before { content: none !important; }
 
 .student-row {
-  width: 100%;
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1940,6 +1942,10 @@ main {
 .student-row:hover { background: rgba(1, 83, 91, 0.04); }
 .student-row:hover .student-name { color: var(--primary); }
 .student-row:hover .student-arrow { color: var(--primary); transform: translateX(2px); }
+.student-row.has-remark .student-name {
+  color: var(--primary);
+  font-weight: 600;
+}
 .student-index {
   flex: 0 0 20px;
   color: var(--muted);
@@ -1959,6 +1965,142 @@ main {
   font-size: 13px;
   line-height: 1;
   transition: color 0.15s ease, transform 0.15s ease;
+}
+.student-remark-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.student-remark-btn:hover,
+.student-remark-btn:focus-visible {
+  color: var(--primary);
+  background: rgba(1, 83, 91, 0.08);
+  border-color: rgba(1, 83, 91, 0.18);
+  outline: none;
+}
+.student-remark-btn.has-remark {
+  color: var(--primary);
+}
+
+/* Student remark modal */
+.student-remark-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  z-index: 1200;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.student-remark-modal-overlay.active { display: flex; }
+.student-remark-modal-box {
+  width: 100%;
+  max-width: 500px;
+  max-height: min(88vh, 760px);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 18px 42px rgba(2, 8, 23, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.student-remark-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.student-remark-modal-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.student-remark-modal-close {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.student-remark-modal-body {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  overflow-y: auto;
+}
+.student-remark-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.student-remark-input,
+.student-remark-select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 9px;
+  font-size: 12px;
+  color: var(--text);
+  background: #fff;
+}
+.student-remark-input {
+  min-height: 62px;
+  line-height: 1.35;
+  resize: vertical;
+}
+.student-remark-status {
+  min-height: 14px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.student-remark-status.error { color: #dc2626; }
+.student-remark-status.success { color: #047857; }
+.student-remark-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+
+#studentRemarkEditorsContainer {
+  display: grid;
+  gap: 8px;
+}
+
+.student-remark-editor {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 8px;
+  background: #fff;
+}
+
+.student-remark-editor .student-remark-label {
+  margin-bottom: 5px;
+}
+
+.student-remark-editor .student-remark-select {
+  margin-bottom: 6px;
 }
 
 /* Subjects cards (overview) */
@@ -3230,11 +3372,21 @@ main {
                       <% if (students.length > 0) { %>
                         <% sortedOverviewStudents.forEach(function(student, i) { %>
                           <% const studentFullName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
-                          <li data-student-name="<%= studentFullName.toLowerCase() %>">
+                          <li data-student-name="<%= studentFullName.toLowerCase() %>" data-student-id="<%= student.student_id %>">
                             <button class="student-row" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
                               <span class="student-index"><%= i + 1 %></span>
                               <span class="student-name"><%= studentFullName %></span>
                               <span class="student-arrow" aria-hidden="true">›</span>
+                            </button>
+                            <button
+                              class="student-remark-btn"
+                              type="button"
+                              title="Teacher remark"
+                              aria-label="Teacher remark for <%= studentFullName %>"
+                              data-student-id="<%= student.student_id %>"
+                              data-student-name="<%= studentFullName %>"
+                              onclick="openStudentTeacherRemarkModal(this, event)">
+                              ✎
                             </button>
                           </li>
                         <% }); %>
@@ -3376,6 +3528,23 @@ main {
             </div>
           </div>
         </div>
+
+        <div class="student-remark-modal-overlay" id="studentTeacherRemarkModal" onclick="handleStudentTeacherRemarkOverlayClick(event)">
+          <div class="student-remark-modal-box" role="dialog" aria-modal="true" aria-labelledby="studentTeacherRemarkModalTitle">
+            <div class="student-remark-modal-head">
+              <h3 class="student-remark-modal-title" id="studentTeacherRemarkModalTitle">Student Remark</h3>
+              <button type="button" class="student-remark-modal-close" onclick="closeStudentTeacherRemarkModal()" aria-label="Close">×</button>
+            </div>
+            <div class="student-remark-modal-body">
+              <div id="studentRemarkEditorsContainer"></div>
+              <div class="student-remark-status" id="studentTeacherRemarkStatus"></div>
+            </div>
+            <div class="student-remark-modal-actions">
+              <button type="button" class="btn btn-secondary" onclick="closeStudentTeacherRemarkModal()">Cancel</button>
+              <button type="button" class="btn" id="studentTeacherRemarkSaveBtn" onclick="saveStudentTeacherRemark()">Save Remark</button>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   </div>
@@ -3385,6 +3554,7 @@ main {
     var classScheduleState;
     var workspaceContext;
     var workspaceState;
+    var studentTeacherRemarkState;
 
     (function () {
       classScheduleContext = {
@@ -3434,6 +3604,59 @@ main {
         tabs: [],
         activeTabId: '',
       };
+
+      studentTeacherRemarkState = {
+        classId: Number('<%= classId %>'),
+        termId: Number('<%= currentTerm.term_id %>'),
+        studentId: null,
+        studentName: '',
+        isLoading: false,
+        isSaving: false,
+        optionsCache: <%- JSON.stringify(Array.isArray(teacherRemarkOptions) ? teacherRemarkOptions : []) %>,
+        selectedRemarkTypes: <%- JSON.stringify(Array.isArray(classroomRemarkTypes) ? classroomRemarkTypes : ['teacher']) %>,
+        customRemarkTypes: <%- JSON.stringify(Array.isArray(classroomCustomRemarkTypes) ? classroomCustomRemarkTypes : []) %>,
+        optionsLoadedAt: Date.now(),
+        optionsMaxAgeMs: 2 * 60 * 1000,
+        studentRemarkCache: <%- JSON.stringify(studentTeacherRemarksMap || {}) %>,
+        activeLoadToken: 0,
+        inputDirty: false,
+      };
+
+      var builtinRemarkTypeLabels = {
+        teacher: "Teacher's Remarks",
+        conduct: 'Conduct Remarks',
+        interest: 'Interest Remarks',
+        attitude: 'Attitude Remarks',
+      };
+
+      var remarkTypeLabels = Object.assign({}, builtinRemarkTypeLabels);
+
+      function buildCustomRemarkTypeLabel(typeKey) {
+        var normalized = String(typeKey || '').trim().toLowerCase();
+        if (!normalized || normalized.indexOf('custom:') !== 0) return "Teacher's Remarks";
+        return normalized
+          .replace(/^custom:/, '')
+          .split(/[-_\s]+/)
+          .filter(Boolean)
+          .map(function(part) { return part.charAt(0).toUpperCase() + part.slice(1); })
+          .join(' ') || 'Custom Remarks';
+      }
+
+      function rebuildRemarkTypeLabels() {
+        remarkTypeLabels = Object.assign({}, builtinRemarkTypeLabels);
+        var customTypes = Array.isArray(studentTeacherRemarkState.customRemarkTypes)
+          ? studentTeacherRemarkState.customRemarkTypes
+          : [];
+
+        customTypes.forEach(function(typeRow) {
+          var typeKey = String(typeRow && typeRow.type_key ? typeRow.type_key : '').trim().toLowerCase();
+          if (!typeKey || typeKey.indexOf('custom:') !== 0) return;
+          var label = String(typeRow && typeRow.label ? typeRow.label : '').trim() || buildCustomRemarkTypeLabel(typeKey);
+          remarkTypeLabels[typeKey] = label;
+        });
+      }
+
+      rebuildRemarkTypeLabels();
 
       function getWorkspacePanelsRoot() {
         return document.getElementById('workspacePanels');
@@ -3891,6 +4114,382 @@ main {
         return openWorkspaceTab(tab, options || {});
       }
 
+      function setStudentTeacherRemarkStatus(message, tone) {
+        var statusEl = document.getElementById('studentTeacherRemarkStatus');
+        if (!statusEl) return;
+        statusEl.classList.remove('error', 'success');
+        if (tone === 'error') statusEl.classList.add('error');
+        if (tone === 'success') statusEl.classList.add('success');
+        statusEl.textContent = message || '';
+      }
+
+      function normalizeTeacherRemarkText(value) {
+        return String(value == null ? '' : value).trim();
+      }
+
+      function emptyRemarkValues() {
+        var values = {};
+        Object.keys(remarkTypeLabels).forEach(function(typeKey) {
+          values[typeKey] = '';
+        });
+        if (!Object.prototype.hasOwnProperty.call(values, 'teacher')) {
+          values.teacher = '';
+        }
+        return values;
+      }
+
+      function normalizeRemarkValues(value) {
+        var base = emptyRemarkValues();
+        if (!value || typeof value !== 'object') {
+          if (typeof value === 'string') {
+            base.teacher = normalizeTeacherRemarkText(value);
+          }
+          return base;
+        }
+        Object.keys(base).forEach(function(typeKey) {
+          base[typeKey] = normalizeTeacherRemarkText(value[typeKey]);
+        });
+        Object.keys(value).forEach(function(typeKey) {
+          var normalizedTypeKey = normalizeRemarkTypeKey(typeKey);
+          base[normalizedTypeKey] = normalizeTeacherRemarkText(value[typeKey]);
+        });
+        return base;
+      }
+
+      function getEnabledRemarkTypes() {
+        var selectedTypes = Array.isArray(studentTeacherRemarkState.selectedRemarkTypes)
+          ? studentTeacherRemarkState.selectedRemarkTypes
+          : ['teacher'];
+        var normalized = selectedTypes
+          .map(normalizeRemarkTypeKey)
+          .filter(function(typeKey, index, list) {
+            return list.indexOf(typeKey) === index;
+          });
+        return normalized.length ? normalized : ['teacher'];
+      }
+
+      function hasAnyEnabledRemark(remarkValues) {
+        var values = normalizeRemarkValues(remarkValues);
+        return getEnabledRemarkTypes().some(function(typeKey) {
+          return normalizeTeacherRemarkText(values[typeKey]).length > 0;
+        });
+      }
+
+      function areRemarkValuesEqual(left, right) {
+        var leftValues = normalizeRemarkValues(left);
+        var rightValues = normalizeRemarkValues(right);
+        return Object.keys(remarkTypeLabels).every(function(typeKey) {
+          return leftValues[typeKey] === rightValues[typeKey];
+        });
+      }
+
+      function getCachedStudentTeacherRemark(studentId) {
+        var key = String(studentId || '').trim();
+        if (!key) return emptyRemarkValues();
+        return normalizeRemarkValues(studentTeacherRemarkState.studentRemarkCache[key]);
+      }
+
+      function setCachedStudentTeacherRemark(studentId, remarkValues) {
+        var key = String(studentId || '').trim();
+        if (!key) return;
+        studentTeacherRemarkState.studentRemarkCache[key] = normalizeRemarkValues(remarkValues);
+      }
+
+      function setTeacherRemarkOptionsCache(options) {
+        studentTeacherRemarkState.optionsCache = Array.isArray(options) ? options : [];
+        studentTeacherRemarkState.optionsLoadedAt = Date.now();
+      }
+
+      function setCustomRemarkTypes(nextTypes) {
+        studentTeacherRemarkState.customRemarkTypes = Array.isArray(nextTypes) ? nextTypes : [];
+        rebuildRemarkTypeLabels();
+      }
+
+      function normalizeRemarkTypeKey(value) {
+        var normalized = String(value || '').trim().toLowerCase();
+        if (remarkTypeLabels[normalized]) return normalized;
+        if (normalized.indexOf('custom:') === 0) return normalized;
+        return 'teacher';
+      }
+
+      function setSelectedRemarkTypes(nextTypes) {
+        var incoming = Array.isArray(nextTypes) ? nextTypes : [];
+        var normalized = incoming
+          .map(normalizeRemarkTypeKey)
+          .filter(function(value, index, list) {
+            return list.indexOf(value) === index;
+          });
+        studentTeacherRemarkState.selectedRemarkTypes = normalized.length ? normalized : ['teacher'];
+      }
+
+      function getEnabledRemarkTypesText() {
+        return getEnabledRemarkTypes()
+          .map(function(typeKey) { return remarkTypeLabels[typeKey] || remarkTypeLabels.teacher; })
+          .join(', ');
+      }
+
+      function getCurrentRemarkValuesFromInputs() {
+        var values = emptyRemarkValues();
+        Array.prototype.forEach.call(document.querySelectorAll('.student-remark-input[data-remark-type]'), function(textArea) {
+          var typeKey = normalizeRemarkTypeKey(textArea.getAttribute('data-remark-type'));
+          values[typeKey] = normalizeTeacherRemarkText(textArea.value || '');
+        });
+        return values;
+      }
+
+      function renderStudentRemarkEditors(remarkValues) {
+        var container = document.getElementById('studentRemarkEditorsContainer');
+        if (!container) return;
+
+        var normalizedValues = normalizeRemarkValues(remarkValues);
+        var selectedTypes = getEnabledRemarkTypes();
+        var options = Array.isArray(studentTeacherRemarkState.optionsCache)
+          ? studentTeacherRemarkState.optionsCache
+          : [];
+        var optionsByType = {};
+        Object.keys(remarkTypeLabels).forEach(function(typeKey) {
+          optionsByType[typeKey] = [];
+        });
+
+        options.forEach(function(optionRow) {
+          var typeKey = normalizeRemarkTypeKey(optionRow && optionRow.remark_type);
+          var remarkText = normalizeTeacherRemarkText(optionRow && optionRow.remark);
+          if (!remarkText) return;
+          if (!Array.isArray(optionsByType[typeKey])) {
+            optionsByType[typeKey] = [];
+          }
+          optionsByType[typeKey].push(remarkText);
+        });
+
+        container.innerHTML = selectedTypes.map(function(typeKey) {
+          var typeLabel = remarkTypeLabels[typeKey] || remarkTypeLabels.teacher;
+          var selectedText = normalizedValues[typeKey] || '';
+          var optionsMarkup = (optionsByType[typeKey] || []).map(function(remarkText) {
+            var escapedValue = esc(remarkText);
+            return '<option value="' + escapedValue + '"' + (remarkText === selectedText ? ' selected' : '') + '>' + escapedValue + '</option>';
+          }).join('');
+
+          return ''
+            + '<div class="student-remark-editor">'
+            +   '<div class="student-remark-label">' + esc(typeLabel) + '</div>'
+            +   '<select class="student-remark-select" data-remark-type="' + esc(typeKey) + '">'
+            +     '<option value="">Choose a saved ' + esc(typeLabel.toLowerCase()) + ' (optional)</option>'
+            +     optionsMarkup
+            +   '</select>'
+            +   '<textarea class="student-remark-input" data-remark-type="' + esc(typeKey) + '" maxlength="500" placeholder="Type ' + esc(typeLabel.toLowerCase()) + '...">' + esc(selectedText) + '</textarea>'
+            + '</div>';
+        }).join('');
+
+        Array.prototype.forEach.call(container.querySelectorAll('.student-remark-select[data-remark-type]'), function(selectEl) {
+          selectEl.onchange = function() {
+            var typeKey = normalizeRemarkTypeKey(selectEl.getAttribute('data-remark-type'));
+            var textEl = container.querySelector('.student-remark-input[data-remark-type="' + typeKey + '"]');
+            if (!textEl) return;
+            var selectedValue = normalizeTeacherRemarkText(selectEl.value || '');
+            if (selectedValue) {
+              textEl.value = selectedValue;
+            }
+            studentTeacherRemarkState.inputDirty = true;
+          };
+        });
+
+        Array.prototype.forEach.call(container.querySelectorAll('.student-remark-input[data-remark-type]'), function(textEl) {
+          textEl.oninput = function() {
+            studentTeacherRemarkState.inputDirty = true;
+          };
+        });
+      }
+
+      function applyInitialStudentTeacherRemarkIndicators() {
+        var list = document.getElementById('classDashboardStudentsList');
+        if (!list) return;
+        Array.prototype.forEach.call(list.querySelectorAll('li[data-student-id]'), function(item) {
+          var studentId = Number.parseInt(item.getAttribute('data-student-id'), 10);
+          if (!Number.isInteger(studentId)) return;
+          var hasRemark = hasAnyEnabledRemark(getCachedStudentTeacherRemark(studentId));
+          markStudentTeacherRemarkState(studentId, hasRemark);
+        });
+      }
+
+      function shouldRefreshTeacherRemarkOptions() {
+        var ageMs = Date.now() - Number(studentTeacherRemarkState.optionsLoadedAt || 0);
+        return !Array.isArray(studentTeacherRemarkState.optionsCache)
+          || studentTeacherRemarkState.optionsCache.length === 0
+          || ageMs > Number(studentTeacherRemarkState.optionsMaxAgeMs || 120000);
+      }
+
+      function markStudentTeacherRemarkState(studentId, hasRemark) {
+        var listItem = document.querySelector('#classDashboardStudentsList li[data-student-id="' + String(studentId) + '"]');
+        if (!listItem) return;
+        var rowBtn = listItem.querySelector('.student-row');
+        var remarkBtn = listItem.querySelector('.student-remark-btn');
+        if (rowBtn) rowBtn.classList.toggle('has-remark', !!hasRemark);
+        if (remarkBtn) remarkBtn.classList.toggle('has-remark', !!hasRemark);
+      }
+
+      function closeStudentTeacherRemarkModal() {
+        var modal = document.getElementById('studentTeacherRemarkModal');
+        if (!modal) return;
+        modal.classList.remove('active');
+        studentTeacherRemarkState.studentId = null;
+        studentTeacherRemarkState.studentName = '';
+        studentTeacherRemarkState.inputDirty = false;
+        setStudentTeacherRemarkStatus('');
+      }
+
+      function handleStudentTeacherRemarkOverlayClick(event) {
+        if (event && event.target && event.target.id === 'studentTeacherRemarkModal') {
+          closeStudentTeacherRemarkModal();
+        }
+      }
+
+      async function openStudentTeacherRemarkModal(trigger, event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        var studentId = Number.parseInt(trigger && trigger.getAttribute('data-student-id'), 10);
+        var studentName = String((trigger && trigger.getAttribute('data-student-name')) || '').trim();
+        if (!Number.isInteger(studentId) || !studentName) {
+          return;
+        }
+
+        var modal = document.getElementById('studentTeacherRemarkModal');
+        var titleEl = document.getElementById('studentTeacherRemarkModalTitle');
+        var saveBtn = document.getElementById('studentTeacherRemarkSaveBtn');
+        if (!modal || !titleEl || !saveBtn) {
+          return;
+        }
+
+        studentTeacherRemarkState.studentId = studentId;
+        studentTeacherRemarkState.studentName = studentName;
+        studentTeacherRemarkState.isLoading = true;
+        studentTeacherRemarkState.inputDirty = false;
+        var loadToken = Date.now();
+        studentTeacherRemarkState.activeLoadToken = loadToken;
+
+        titleEl.textContent = 'Remark: ' + studentName;
+        var cachedRemarkValues = getCachedStudentTeacherRemark(studentId);
+        renderStudentRemarkEditors(cachedRemarkValues);
+        saveBtn.disabled = true;
+        if (shouldRefreshTeacherRemarkOptions()) {
+          setStudentTeacherRemarkStatus('Syncing latest remarks... Enabled types: ' + getEnabledRemarkTypesText());
+        } else {
+          setStudentTeacherRemarkStatus('Loaded from cache. Checking for updates... Enabled types: ' + getEnabledRemarkTypesText());
+        }
+        modal.classList.add('active');
+
+        try {
+          var params = new URLSearchParams({
+            classId: String(studentTeacherRemarkState.classId),
+            termId: String(studentTeacherRemarkState.termId),
+            studentId: String(studentId),
+          });
+          var response = await fetch('/common/studentTeacherRemarkOptions?' + params.toString(), {
+            method: 'GET',
+            credentials: 'same-origin',
+          });
+          var result = await response.json();
+          if (!response.ok || !result || !result.success) {
+            throw new Error((result && result.message) || 'Failed to load remark options.');
+          }
+
+          if (studentTeacherRemarkState.activeLoadToken !== loadToken) {
+            return;
+          }
+
+          setCustomRemarkTypes(Array.isArray(result.customRemarkTypes) ? result.customRemarkTypes : []);
+          setSelectedRemarkTypes(result.selectedRemarkTypes);
+          setTeacherRemarkOptionsCache(Array.isArray(result.options) ? result.options : []);
+          var currentRemarkValues = normalizeRemarkValues(result.remarkValues || { teacher: result.teacherRemark || '' });
+          setCachedStudentTeacherRemark(studentId, currentRemarkValues);
+          if (!studentTeacherRemarkState.inputDirty) {
+            renderStudentRemarkEditors(currentRemarkValues);
+          }
+
+          markStudentTeacherRemarkState(studentId, hasAnyEnabledRemark(currentRemarkValues));
+          setStudentTeacherRemarkStatus('Enabled types: ' + getEnabledRemarkTypesText());
+        } catch (error) {
+          if (studentTeacherRemarkState.activeLoadToken === loadToken) {
+            setStudentTeacherRemarkStatus(error && error.message ? error.message : 'Failed to load remark options.', 'error');
+          }
+        } finally {
+          if (studentTeacherRemarkState.activeLoadToken === loadToken) {
+            studentTeacherRemarkState.isLoading = false;
+            saveBtn.disabled = false;
+            var firstInput = document.querySelector('.student-remark-input[data-remark-type]');
+            if (firstInput) firstInput.focus();
+          }
+        }
+      }
+
+      async function saveStudentTeacherRemark() {
+        if (studentTeacherRemarkState.isSaving || !Number.isInteger(studentTeacherRemarkState.studentId)) {
+          return;
+        }
+
+        var saveBtn = document.getElementById('studentTeacherRemarkSaveBtn');
+        if (!saveBtn) {
+          return;
+        }
+
+        var currentRemarkValues = getCurrentRemarkValuesFromInputs();
+
+        var payload = {
+          classId: studentTeacherRemarkState.classId,
+          termId: studentTeacherRemarkState.termId,
+          studentId: studentTeacherRemarkState.studentId,
+          teacherRemark: normalizeTeacherRemarkText(currentRemarkValues.teacher || ''),
+          remarkValues: currentRemarkValues,
+        };
+
+        var previousRemarkValues = getCachedStudentTeacherRemark(payload.studentId);
+        if (areRemarkValuesEqual(currentRemarkValues, previousRemarkValues)) {
+          setStudentTeacherRemarkStatus('No changes to save.', 'success');
+          setTimeout(function() {
+            closeStudentTeacherRemarkModal();
+          }, 120);
+          return;
+        }
+
+        setCachedStudentTeacherRemark(payload.studentId, currentRemarkValues);
+        markStudentTeacherRemarkState(payload.studentId, hasAnyEnabledRemark(currentRemarkValues));
+
+        studentTeacherRemarkState.isSaving = true;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        setStudentTeacherRemarkStatus('Saving...');
+
+        try {
+          var response = await fetch('/common/saveStudentTeacherRemark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload),
+          });
+          var result = await response.json();
+          if (!response.ok || !result || !result.success) {
+            throw new Error((result && result.message) || 'Failed to save remark.');
+          }
+
+          setCachedStudentTeacherRemark(payload.studentId, currentRemarkValues);
+          markStudentTeacherRemarkState(payload.studentId, hasAnyEnabledRemark(currentRemarkValues));
+          setStudentTeacherRemarkStatus('Saved.', 'success');
+          studentTeacherRemarkState.inputDirty = false;
+          setTimeout(function() {
+            closeStudentTeacherRemarkModal();
+          }, 140);
+        } catch (error) {
+          setCachedStudentTeacherRemark(payload.studentId, previousRemarkValues);
+          markStudentTeacherRemarkState(payload.studentId, hasAnyEnabledRemark(previousRemarkValues));
+          setStudentTeacherRemarkStatus(error && error.message ? error.message : 'Failed to save remark.', 'error');
+        } finally {
+          studentTeacherRemarkState.isSaving = false;
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save Remark';
+        }
+      }
+
       function openSubjectWorkspaceTab(subjectId, options) {
         var tab = buildSubjectWorkspaceTab(subjectId);
         if (!tab) return openWorkspaceTabByKey('subjects', options || {});
@@ -3954,6 +4553,10 @@ main {
 
       window.openWorkspaceTabByKey = openWorkspaceTabByKey;
       window.openStudentWorkspaceTab = openStudentWorkspaceTab;
+      window.openStudentTeacherRemarkModal = openStudentTeacherRemarkModal;
+      window.closeStudentTeacherRemarkModal = closeStudentTeacherRemarkModal;
+      window.handleStudentTeacherRemarkOverlayClick = handleStudentTeacherRemarkOverlayClick;
+      window.saveStudentTeacherRemark = saveStudentTeacherRemark;
       window.openSubjectWorkspaceTab = openSubjectWorkspaceTab;
       window.openWorkspaceQuickAdd = openWorkspaceQuickAdd;
       window.activateWorkspaceTab = activateWorkspaceTab;
@@ -5216,6 +5819,7 @@ main {
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+      applyInitialStudentTeacherRemarkIndicators();
       var studentButton = document.getElementById('classDashboardStudentSort');
       if (studentButton) {
         syncClassDashboardSortLabel(studentButton, 'students');
