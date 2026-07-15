@@ -26,7 +26,13 @@
       color: var(--text);
     }
 
-    main { max-width: 1200px; margin: 24px auto 48px; padding: 0 18px 0; box-sizing: border-box; }
+    main {
+      width: min(98vw, 1520px);
+      max-width: 1520px;
+      margin: 24px auto 48px;
+      padding: 0 12px;
+      box-sizing: border-box;
+    }
 
     .hero { background: linear-gradient(135deg, var(--primary), #0b4c56); color: #fff; border-radius: 16px; padding: 20px 22px; box-shadow: 0 18px 34px rgba(0,0,0,0.14); margin-bottom: 16px; }
     .hero h1 { margin: 0 0 6px; font-size: 1.6rem; letter-spacing: 0.2px; }
@@ -61,13 +67,13 @@
     .empty-panel p { margin: 0 auto 18px; max-width: 640px; color: var(--muted); line-height: 1.6; }
     .empty-inline { padding: 14px 16px; border: 1px dashed var(--border); border-radius: 10px; background: #f8fafc; color: var(--muted); }
 
-    .class-layout { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: start; }
-    .class-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); display: flex; flex-wrap: wrap; gap: 8px; }
+    .class-layout { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: 14px; align-items: start; }
+    .class-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); display: flex; flex-wrap: wrap; gap: 8px; }
     .class-button { min-width: 120px; text-align: left; border: 1px solid var(--border); background: #fff; color: var(--text); padding: 9px 11px; border-radius: 10px; cursor: pointer; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
     .class-button.active { border-color: var(--primary); background: rgba(15,90,102,0.08); color: var(--text); }
-    .class-panel { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); }
+    .class-panel { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); }
 
-    .table-wrapper { overflow-x: auto; margin-top: 14px; -webkit-overflow-scrolling: touch; }
+    .table-wrapper { overflow-x: auto; overflow-y: visible; margin-top: 14px; -webkit-overflow-scrolling: touch; }
     table { width: 100%; border-collapse: collapse; min-width: 720px; }
     th, td { padding: 10px 8px; border: 1px solid #e0e0e0; text-align: left; }
     th { background: #f4f7fa; color: var(--primary); }
@@ -78,11 +84,14 @@
     .sig-status { margin-top: 8px; font-size: 0.9rem; color: var(--muted); }
     .sig-helper-text { margin-top: 10px; font-size: 0.88rem; color: var(--muted); line-height: 1.45; }
 
-    .remark-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 6px; background: #fff; }
+    .remark-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 6px; background: #fff; position: relative; }
+    .remarks-list { position: relative; overflow: visible; }
     .remark-text { flex: 1; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; hyphens: auto; max-width: calc(100% - 40px); line-height: 1.5; }
     .kebab { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; cursor: pointer; background: transparent; font-weight: 700; font-size: 18px; color: #6b7280; flex-shrink: 0; margin-top: 2px; }
-    .kebab-menu { position: relative; flex-shrink: 0; }
-    .kebab-menu ul { list-style: none; padding: 6px 0; margin: 6px 0 0 0; position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; min-width: 120px; box-shadow: 0 10px 20px rgba(0,0,0,0.08); display: none; z-index: 10; }
+    .kebab-menu { position: relative; flex-shrink: 0; z-index: 40; }
+    .kebab-menu.open { z-index: 2500; }
+    .kebab-menu ul { list-style: none; padding: 6px 0; margin: 6px 0 0 0; position: absolute; right: 0; top: 100%; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; min-width: 120px; box-shadow: 0 10px 20px rgba(0,0,0,0.08); display: none; z-index: 2600; }
+    .remarks-list .kebab-menu ul { top: auto; bottom: 100%; margin: 0 0 6px 0; }
     .kebab-menu ul li { padding: 8px 12px; }
     .kebab-menu ul li a { color: #e11d48; text-decoration: none; font-weight: 600; display: block; }
     .kebab-menu ul li:hover { background: #f8fafc; }
@@ -359,9 +368,862 @@
       box-sizing: border-box;
     }
 
+    .rs-score-header-grid {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .rs-score-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .rs-action-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+
+    .rs-action-link {
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-decoration: none;
+      line-height: 1.2;
+      padding: 4px 7px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      transition: all 0.16s ease;
+    }
+
+    .rs-action-link:hover {
+      background: rgba(15,90,102,0.08);
+      border-color: rgba(15,90,102,0.2);
+    }
+
+    .rs-grade-format-panel {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .rs-grade-format-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .rs-grade-config-trigger {
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .rs-grade-strategy-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      color: #334155;
+      font-size: 0.76rem;
+      margin: 0;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+      padding: 7px 8px;
+      line-height: 1.3;
+    }
+
+    .rs-grade-strategy-details {
+      display: none;
+      padding-left: 22px;
+      margin-top: -2px;
+    }
+
+    .rs-grade-strategy-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 8px;
+    }
+
+    .rs-grade-base-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 100%;
+    }
+
+    .rs-grade-core-glass,
+    .rs-grade-core-glass-pane {
+      border: 1px solid rgba(14, 116, 144, 0.28);
+      background: linear-gradient(140deg, rgba(236, 253, 255, 0.86), rgba(224, 242, 254, 0.72));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+      backdrop-filter: blur(4px);
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .rs-grade-core-subject-grid {
+      border-color: rgba(14, 116, 144, 0.24);
+      background: rgba(239, 246, 255, 0.88);
+    }
+
+    .rs-grade-core-subject-grid .rs-grade-subject-item {
+      border-color: rgba(14, 116, 144, 0.22);
+      background: rgba(224, 242, 254, 0.92);
+      color: #0f4b5a;
+    }
+
+    .rs-grade-random-glass,
+    .rs-grade-random-glass-pane {
+      border: 1px solid rgba(21, 128, 61, 0.26);
+      background: linear-gradient(140deg, rgba(240, 253, 244, 0.86), rgba(220, 252, 231, 0.72));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.54);
+      backdrop-filter: blur(4px);
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+
+    .rs-grade-random-select {
+      border: 1px solid rgba(21, 128, 61, 0.3);
+      background: rgba(220, 252, 231, 0.92);
+      color: #166534;
+    }
+
+    .rs-grade-random-subject-grid {
+      border-color: rgba(21, 128, 61, 0.24);
+      background: rgba(240, 253, 244, 0.9);
+    }
+
+    .rs-grade-random-subject-grid .rs-grade-subject-item {
+      border-color: rgba(21, 128, 61, 0.22);
+      background: rgba(220, 252, 231, 0.92);
+      color: #166534;
+    }
+
+    .rs-grade-config-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 15, 30, 0.48);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10030;
+      padding: 16px;
+    }
+
+    .rs-grade-config-card {
+      width: min(680px, 96vw);
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #d8e3ef;
+      border-radius: 14px;
+      box-shadow: 0 28px 74px rgba(0,0,0,0.28);
+      padding: 14px;
+    }
+
+    .rs-grade-config-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .rs-grade-config-title {
+      margin: 0;
+      font-size: 0.92rem;
+      color: #1f2937;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+
+    .rs-grade-config-close {
+      border: 1px solid #d7e1ec;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #475569;
+      cursor: pointer;
+      font-size: 0.9rem;
+      line-height: 1;
+    }
+
+    .rs-grade-config-note {
+      margin: 0 0 10px;
+      font-size: 0.76rem;
+      color: #64748b;
+      line-height: 1.35;
+    }
+
+    #showGradeNumericTotalWrap {
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+      user-select: none;
+    }
+
+    #showGradeNumericTotalWrap.is-checked {
+      color: #1d4ed8 !important;
+      background: rgba(37, 99, 235, 0.12);
+      border-color: rgba(37, 99, 235, 0.36);
+    }
+
+    #showGradeNumericTotalOnReport {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border: 1.6px solid #94a3b8;
+      border-radius: 4px;
+      background: #fff;
+      display: inline-grid;
+      place-items: center;
+      margin: 0;
+      transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    #showGradeNumericTotalOnReport::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      background: #2563eb;
+      transform: scale(0);
+      transition: transform 0.12s ease;
+    }
+
+    #showGradeNumericTotalOnReport:checked {
+      border-color: #2563eb;
+      background: #eff6ff;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+    }
+
+    #showGradeNumericTotalOnReport:checked::before {
+      transform: scale(1);
+    }
+
+    #showGradeNumericTotalOnReport:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    .rs-grade-subject-grid {
+      margin-top: 8px;
+      border: 1px solid #dbe5ef;
+      border-radius: 9px;
+      background: #fff;
+      max-height: 170px;
+      overflow-y: auto;
+      padding: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 6px;
+    }
+
+    .rs-grade-subject-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 0.75rem;
+      line-height: 1.2;
+    }
+
+    .rs-grade-config-footer {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    .rs-action-link.is-locked {
+      color: #92400e;
+      background: rgba(217, 119, 6, 0.12);
+      border-color: rgba(217, 119, 6, 0.25);
+    }
+
+    .rs-action-link.is-unlocked {
+      color: #065f46;
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.22);
+    }
+
+    .rs-plus-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .rs-bulk-picker-modal,
+    .rs-bulk-modal {
+      width: min(620px, 94vw);
+      max-height: 90vh;
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.25);
+      padding: 11px;
+    }
+
+    .rs-bulk-modal {
+      font-size: 0.84rem;
+    }
+
+    .rs-bulk-picker-modal {
+      width: min(470px, 94vw);
+    }
+
+    .rs-bulk-picker-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .rs-bulk-input-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr;
+      gap: 7px;
+      align-items: end;
+      margin-bottom: 8px;
+    }
+
+    .rs-bulk-rules-wrap {
+      margin-bottom: 8px;
+    }
+
+    .rs-bulk-rules-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .rs-bulk-rules {
+      display: grid;
+      gap: 7px;
+    }
+
+    .rs-bulk-rule-row {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px;
+      background: #f8fafc;
+    }
+
+    .rs-bulk-rule-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 8px;
+    }
+
+    .rs-bulk-rule-index {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .rs-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--primary);
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      font-size: 0.9rem;
+    }
+
+    .rs-icon-btn:hover {
+      background: rgba(15,90,102,0.08);
+    }
+
+    .rs-icon-btn[data-tone="danger"] {
+      color: #b91c1c;
+      border-color: rgba(185,28,28,0.25);
+    }
+
+    .rs-bulk-class-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .rs-bulk-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .rs-bulk-rules-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .rs-bulk-input-label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .rs-bulk-input {
+      padding: 5px 7px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 0.76rem;
+    }
+
+    .rs-bulk-select-all {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .rs-bulk-class-name {
+      font-size: 0.78rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-rows-group {
+      margin: 0 0 10px;
+    }
+
+    .status-rows-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+      padding: 0 2px;
+    }
+
+    .status-rows-title {
+      margin: 0;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #1f2937;
+      font-weight: 800;
+    }
+
+    .status-rows-help {
+      margin: 0;
+      font-size: 0.76rem;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    .status-row-editor {
+      --status-row-columns: 0.85fr 1.35fr 1.35fr 0.72fr 1.08fr;
+      border: 1px solid #dbe4ef;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 6px;
+      overflow: auto;
+      max-height: 440px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+    }
+
+    .status-row-head,
+    .status-row-item {
+      display: grid;
+      grid-template-columns: var(--status-row-columns);
+      gap: 8px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .status-row-head > span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 18px;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.035em;
+      color: #64748b;
+      font-weight: 800;
+    }
+
+    .status-row-head {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: 7px 10px;
+      border: 1px solid #e4ebf3;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      background: linear-gradient(180deg, #f9fbfe 0%, #f4f8fc 100%);
+      box-shadow: 0 1px 0 rgba(255,255,255,0.85);
+    }
+
+    .status-row-item {
+      padding: 5px 10px;
+      border: 1px solid #eaf0f6;
+      border-radius: 10px;
+      margin-bottom: 5px;
+      background: #fff;
+      transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .status-row-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .status-row-item:hover {
+      border-color: #d8e1eb;
+      background: #fbfdff;
+    }
+
+    .status-row-item.is-active {
+      border-color: color-mix(in srgb, var(--primary) 28%, white);
+      background: color-mix(in srgb, var(--primary) 6%, white);
+      box-shadow: inset 3px 0 0 color-mix(in srgb, var(--primary) 72%, white);
+    }
+
+    .status-row-item.is-dirty {
+      border-color: color-mix(in srgb, var(--primary) 46%, white);
+      background: color-mix(in srgb, var(--primary) 9%, white);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 26%, white);
+    }
+
+    .status-row-class {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      max-width: 100%;
+      min-height: 36px;
+      line-height: 1;
+      padding-left: 2px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #1f2937;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .form-group .status-row-item input.status-row-field,
+    .form-group .status-row-item select.status-row-field {
+      width: 100%;
+      min-width: 0;
+      min-height: 38px;
+      height: 38px;
+      padding: 0 10px;
+      margin: 0;
+      border: 1px solid #d1dbe7;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 0.79rem;
+      line-height: 1.1;
+      color: #0f172a;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .form-group .status-row-item input.status-row-field:focus,
+    .form-group .status-row-item select.status-row-field:focus {
+      outline: none;
+      border-color: color-mix(in srgb, var(--primary) 42%, white);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, white);
+    }
+
+    .form-group .status-row-item select.status-row-field {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      padding-right: 30px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364758b' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 9px center;
+      background-size: 14px;
+      cursor: pointer;
+    }
+
+    .form-group .status-row-item input[type="date"].status-row-field {
+      padding-right: 10px;
+    }
+
+    .status-settings-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: nowrap;
+      align-items: center;
+      justify-content: flex-start;
+      margin-top: 2px;
+    }
+
+    .status-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      min-width: 174px;
+      min-height: 40px;
+      width: auto !important;
+      margin: 0 !important;
+      padding: 8px 16px !important;
+      font-size: 0.82rem !important;
+      font-weight: 700 !important;
+      line-height: 1;
+      border-radius: 10px;
+      transform: none !important;
+      transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease !important;
+    }
+
+    .status-btn:hover {
+      transform: none !important;
+    }
+
+    .status-btn-danger {
+      background: #e15847;
+      box-shadow: 0 3px 10px rgba(225,88,71,0.2);
+    }
+
+    .status-btn-danger:hover {
+      background: #cc4737;
+      box-shadow: 0 4px 12px rgba(204,71,55,0.24);
+    }
+
+    .status-overview-card {
+      background: #fff;
+      border: 1px solid #dbe5ef;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .status-overview-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .status-overview-title {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .status-overview-note {
+      margin-top: 4px;
+      font-size: 0.76rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .status-overview-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .status-overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 10px;
+    }
+
+    .status-overview-item {
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid #e0e8f1;
+      background: linear-gradient(180deg, #f9fbfd 0%, #f4f8fb 100%);
+    }
+
+    .status-overview-item-label {
+      font-size: 0.73rem;
+      color: #64748b;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-weight: 700;
+    }
+
+    .status-overview-item-value {
+      font-weight: 700;
+      color: var(--primary);
+      font-size: 0.9rem;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .rs-class-select-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid #e8edf2;
+      border-radius: 8px;
+      padding: 6px 8px;
+      background: #fff;
+    }
+
+    .rs-class-select-row.is-locked {
+      background: #f8fafc;
+      border-color: #d7dee8;
+    }
+
+    .rs-lock-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      color: #475569;
+      background: #eef2f7;
+      border: 1px solid #dbe2ea;
+      border-radius: 999px;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .rs-lock-icon-svg {
+      width: 12px;
+      height: 12px;
+      display: block;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .rs-lock-toggle-btn {
+      min-width: 34px;
+      padding-inline: 8px;
+    }
+
+    .rs-lock-toggle-btn .rs-lock-icon-svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .rs-override-modal {
+      width: min(430px, 95vw);
+      max-height: 88vh;
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 55px rgba(0,0,0,0.24);
+      padding: 14px;
+    }
+
+    .rs-override-list {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 8px;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+      color: #334155;
+      display: grid;
+      gap: 6px;
+    }
+
+    .rs-bulk-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: nowrap;
+      align-items: center;
+    }
+
+    .rs-bulk-picker-modal .btn,
+    .rs-bulk-modal .btn {
+      padding: 5px 9px;
+      font-size: 0.72rem;
+      border-radius: 8px;
+    }
+
+    .rs-bulk-modal .btn,
+    .rs-bulk-picker-modal .btn {
+      width: auto !important;
+      display: inline-flex !important;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 1200px) {
+      main {
+        width: 100%;
+        max-width: 100%;
+        padding: 0 10px;
+      }
+
+      .status-row-editor {
+        --status-row-columns: 0.85fr 1.25fr 1.25fr 0.72fr 1.05fr;
+      }
+    }
+
     @media (max-width: 960px) { .class-layout { grid-template-columns: 1fr; } .class-button { display: inline-flex; width: auto; } }
     @media (max-width: 640px) {
-      main { padding: 70px 12px 0; margin-top: 16px; }
+      main { padding: 70px 8px 0; margin-top: 16px; }
       .hero { padding: 16px 16px; border-radius: 12px; }
       .hero h1 { font-size: 1.3rem; }
       .hero p { font-size: 0.88rem; }
@@ -377,13 +1239,18 @@
       .sig-canvas { height: 160px; }
       .class-list { padding: 8px; gap: 6px; }
       .class-button { min-width: 100px; padding: 8px 10px; font-size: 0.88rem; }
-      .class-panel { padding: 12px 14px; }
+      .class-panel { padding: 12px 10px; }
       .notice { padding: 10px 12px; font-size: 0.88rem; }
       .tag { font-size: 0.82rem; padding: 4px 8px; }
       .remark-row { padding: 8px 10px; }
       .remark-text { font-size: 0.9rem; }
       table { min-width: 580px; }
       th, td { padding: 7px 6px; font-size: 0.85rem; }
+
+      .status-row-head,
+      .status-row-item {
+        min-width: 760px;
+      }
 
       #advancedDsPanel {
         padding: 12px !important;
@@ -417,6 +1284,23 @@
         overflow-x: auto;
       }
 
+      .rs-bulk-modal {
+        width: min(96vw, 540px);
+      }
+
+      .rs-bulk-input-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .rs-bulk-footer {
+        flex-wrap: wrap;
+      }
+
+      .rs-bulk-footer .btn {
+        flex: 1 1 calc(50% - 6px);
+        justify-content: center;
+      }
+
       #advancedDsPanel input[type="text"],
       #advancedDsPanel input[type="number"],
       #advancedDsPanel input[type="date"],
@@ -438,6 +1322,94 @@
 
       #advancedDsPanel div[style*="grid-template-columns:1fr 1fr"] {
         grid-template-columns: 1fr !important;
+      }
+
+      .rs-score-header-grid {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+      }
+
+      .status-settings-actions {
+        flex-wrap: wrap;
+      }
+
+      .status-settings-actions .status-btn {
+        width: 100% !important;
+        min-width: 0;
+      }
+
+      .status-overview-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .rs-score-header-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .rs-action-links {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .rs-action-link {
+        font-size: 0.77rem;
+        padding: 4px 6px;
+      }
+
+      .rs-bulk-modal,
+      .rs-bulk-picker-modal {
+        width: 98vw;
+        padding: 12px;
+      }
+
+      .rs-bulk-modal {
+        font-size: 0.8rem;
+      }
+
+      .rs-bulk-title {
+        font-size: 0.84rem;
+      }
+
+      .rs-bulk-rules-label,
+      .rs-bulk-input-label,
+      .rs-bulk-select-all {
+        font-size: 0.68rem;
+      }
+
+      .rs-bulk-input,
+      .rs-bulk-class-name {
+        font-size: 0.74rem;
+      }
+
+      .rs-bulk-modal .btn {
+        font-size: 0.68rem;
+        padding: 5px 8px;
+      }
+
+      .rs-bulk-modal .rs-class-select-row {
+        padding: 5px 6px;
+      }
+
+      .rs-grade-config-card {
+        width: 98vw;
+        padding: 12px;
+      }
+
+      .rs-bulk-input-grid,
+      .rs-bulk-class-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .rs-bulk-class-grid {
+        padding: 8px;
+        gap: 6px;
+        max-height: 260px;
+      }
+
+      .rs-bulk-footer .btn {
+        width: 100%;
       }
     }
 
@@ -488,6 +1460,7 @@
     </div>
 
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
+    <% const classOrderIndexMap = {}; (enrolledClasses || []).forEach((cls, idx) => { classOrderIndexMap[String(cls.class_id)] = idx; }); %>
     <% const hasTranscriptFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Official School Transcript') || allowedFeatures.includes('Official Transcript')); %>
     <% const hasSavedRemarks = Array.isArray(remarks) && remarks.length > 0; %>
 
@@ -519,45 +1492,73 @@
               <input type="hidden" name="selectedStatusClasses" id="selectedStatusClasses" value="<%= currentClass ? currentClass.class_id : '' %>" />
 
               <div id="noSettingsMsg" style="display:none;padding:16px;background:#f0f4f8;border-radius:8px;margin-bottom:12px;color:#64748b;font-weight:600;">No settings saved for this class yet. Add settings for this class below.</div>
-              <div class="form-grid">
-                <div class="form-group"><label>Promoted Class</label>
-                  <select name="promotedClass" id="promotedClassSelect">
-                    <option value="" disabled selected>-- Select Class --</option>
-                    <% [...enrolledClasses].sort((a,b)=>a.class_id-b.class_id).forEach(classItem=>{ %>
-                      <option value="<%= classItem.class_id %>"><%= classItem.class_name %></option>
-                    <% }); %>
-                  </select>
+              <div class="form-group status-rows-group">
+                <div class="status-rows-heading">
+                  <div class="status-rows-title">Class Status Rows</div>
+                  <div class="status-rows-help">Edit each row, then save once.</div>
                 </div>
+                <div id="statusRowsEditor" class="status-row-editor">
+                  <div class="status-row-head">
+                    <span>Class</span>
+                    <span>Promoted To</span>
+                    <span>Repeated To</span>
+                    <span>Cut Off</span>
+                    <span>Reopen Date</span>
+                  </div>
+                  <% enrolledClasses.forEach(classItem=>{
+                    const rowSetting = groupedStatusSettings.find(setting => Array.isArray(setting.classes) && setting.classes.includes(classItem.class_id));
+                    const rowPromoted = rowSetting && rowSetting.promoted_class ? Number(rowSetting.promoted_class) : null;
+                    const rowRepeated = rowSetting && rowSetting.repeated_class ? Number(rowSetting.repeated_class) : null;
+                    const rowCutOff = rowSetting && rowSetting.cut_off_point !== null && rowSetting.cut_off_point !== undefined ? rowSetting.cut_off_point : '';
+                    const rowReopenDate = rowSetting && rowSetting.school_reopen_date ? String(rowSetting.school_reopen_date).slice(0, 10) : '';
+                  %>
+                    <div class="status-row-item<%= String(currentClass ? currentClass.class_id : '') === String(classItem.class_id) ? ' is-active' : '' %>" data-class-id="<%= classItem.class_id %>">
+                      <input type="hidden" name="statusRowClassId[]" value="<%= classItem.class_id %>" />
+                      <div class="status-row-class"><%= classItem.class_name %></div>
 
-                <div class="form-group"><label>Repeated Class</label>
-                  <select name="repeatedClass" id="repeatedClassSelect">
-                    <option value="" disabled selected>-- Select Class --</option>
-                    <% [...enrolledClasses].sort((a,b)=>a.class_id-b.class_id).forEach(classItem=>{ %>
-                      <option value="<%= classItem.class_id %>"><%= classItem.class_name %></option>
-                    <% }); %>
-                  </select>
+                      <select class="status-row-field" name="statusRowPromotedClass[]">
+                        <option value="">Select class</option>
+                        <% enrolledClasses.forEach(optionClass=>{ %>
+                          <option value="<%= optionClass.class_id %>" <%= rowPromoted === Number(optionClass.class_id) ? 'selected' : '' %>><%= optionClass.class_name %></option>
+                        <% }); %>
+                      </select>
+
+                      <select class="status-row-field" name="statusRowRepeatedClass[]">
+                        <option value="">Select class</option>
+                        <% enrolledClasses.forEach(optionClass=>{ %>
+                          <option value="<%= optionClass.class_id %>" <%= rowRepeated === Number(optionClass.class_id) ? 'selected' : '' %>><%= optionClass.class_name %></option>
+                        <% }); %>
+                      </select>
+
+                      <input class="status-row-field" type="number" name="statusRowCutOffPoint[]" value="<%= rowCutOff %>" />
+                      <input class="status-row-field" type="date" name="statusRowSchoolReopenDate[]" value="<%= rowReopenDate %>" />
+                    </div>
+                  <% }); %>
                 </div>
-
-                <div class="form-group"><label>Cut Off Point</label><input type="number" name="cutOffPoint" id="cutOffPoint" /></div>
-                <div class="form-group"><label>School Reopen Date</label><input type="date" name="schoolReopenDate" id="schoolReopenDate" /></div>
-                <!-- Activate Promotion is managed in the Advanced section -->
-                <div style="display:none;"><input type="checkbox" id="activatePromotion" name="activatePromotion" /></div>
               </div>
 
-              <div style="display:flex;gap:8px;">
-                <button type="submit" class="btn" style="padding:6px 14px;font-size:0.82rem;font-weight:600;">Save Status Settings</button>
-                <button type="button" class="btn btn-danger" id="cancelEditBtn" style="display:none;padding:6px 14px;font-size:0.82rem;font-weight:600;margin-top:0;align-self:center;">Cancel</button>
+              <!-- Activate Promotion is managed in the Advanced section -->
+              <div style="display:none;"><input type="checkbox" id="activatePromotion" name="activatePromotion" /></div>
+
+              <div class="status-settings-actions">
+                <button type="submit" class="btn status-btn status-btn-primary">Save Status Settings</button>
+                <button type="button" class="btn btn-danger status-btn status-btn-danger" id="cancelEditBtn" style="display:none;">Cancel</button>
               </div>
             </form>
           </div>
 
           <div id="settingsOverviewContainer" style="display:none;">
-            <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-                <div class="section-title" style="margin:0;">Current Settings</div>
-                <button type="button" class="btn" id="modifySettingsBtn" style="padding:6px 14px;font-size:0.82rem;font-weight:600;">Modify Settings</button>
+            <div class="status-overview-card">
+              <div class="status-overview-toolbar">
+                <div>
+                  <div class="status-overview-title">Current Settings</div>
+                  <div class="status-overview-note">Review this class summary or open row editor.</div>
+                </div>
+                <div class="status-overview-actions rs-action-links">
+                  <a href="javascript:void(0)" id="bulkStatusSettingsBtn" class="rs-action-link">Edit Status Rows</a>
+                </div>
               </div>
-              <div id="currentSettingsDisplay" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;"></div>
+              <div id="currentSettingsDisplay" class="status-overview-grid"></div>
             </div>
           </div>
 
@@ -581,9 +1582,66 @@
 
             <div style="display:grid;grid-template-columns:1fr;gap:12px;">
               <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;">
-                <div style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;margin-bottom:10px;">
-                  <div style="font-weight:700;color:var(--primary);">Grade Mapping</div>
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;min-width:0;">
+                <div class="rs-score-header-row">
+                  <div style="font-weight:700;color:var(--primary);">Grade & Score Mapping</div>
+                  <div class="rs-action-links">
+                    <a href="javascript:void(0)" id="openGradeBulkPicker" class="rs-action-link">+ Add Grade & Remark Rules</a>
+                  </div>
+                </div>
+
+                <div id="gradeFormContainer" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;">
+                  <form id="gradeForm">
+                    <input type="hidden" id="editingGradeRowId" value="" />
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+                      <div style="font-size:0.84rem;font-weight:700;color:var(--primary);">Rule Rows</div>
+                      <button type="button" id="addGradeRuleRowBtn" class="rs-icon-btn" title="Add another rule">+</button>
+                    </div>
+                    <div id="gradeRuleRows" style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px;"></div>
+                    <template id="gradeRuleRowTemplate">
+                      <div class="grade-rule-row" data-role="grade-rule-row" style="border:1px solid var(--border);border-radius:8px;padding:10px;background:#fff;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+                          <div style="font-size:0.78rem;font-weight:700;color:var(--muted);" data-role="grade-rule-title">Rule</div>
+                          <button type="button" class="rs-icon-btn" data-role="remove-grade-rule-row" data-tone="danger" title="Remove rule">&times;</button>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1.6fr 0.9fr 0.9fr;gap:12px;align-items:start;">
+                          <div class="form-group" style="margin-bottom:0;">
+                            <label>Grade Label</label>
+                            <input type="text" data-field="grade" placeholder="e.g., A" maxlength="20" />
+                          </div>
+                          <div class="form-group" style="margin-bottom:0;">
+                            <label>Score Remark</label>
+                            <input type="text" data-field="remark" placeholder="e.g., Excellent" />
+                          </div>
+                          <div class="form-group" style="margin-bottom:0;">
+                            <label>From %</label>
+                            <input type="number" data-field="from" placeholder="70" />
+                          </div>
+                          <div class="form-group" style="margin-bottom:0;">
+                            <label>To %</label>
+                            <input type="number" data-field="to" placeholder="100" />
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                    <div class="form-group">
+                      <label>Apply To Classes:</label>
+                      <label style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:0.78rem;margin:0 0 8px 0;">
+                        <input type="checkbox" id="selectAllGradeClasses" style="accent-color:var(--primary);" />
+                        Select all classes
+                      </label>
+                      <div id="gradeClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                      <button type="submit" class="btn" id="saveGradeMappingBtn">Save Rules</button>
+                      <button type="button" class="btn btn-secondary" id="cancelGradeMappingBtn">Cancel</button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="remarks-list" id="classGradeMappings"></div>
+
+                <div class="rs-grade-format-panel">
+                  <div class="rs-grade-format-row">
                     <label style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
                       Format
                       <select id="gradeDisplayModeSelect" style="padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;max-width:100%;min-width:0;font-size:0.86rem;line-height:1.15;">
@@ -592,81 +1650,75 @@
                         <option value="both">Letters + Numbers</option>
                       </select>
                     </label>
-                    <label id="showGradeNumericTotalWrap" style="display:none;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
-                      <input type="checkbox" id="showGradeNumericTotalOnReport" style="accent-color:var(--primary);">
-                      Show on report
-                    </label>
+                    <div id="gradeNumericConfigTriggerWrap" class="rs-grade-config-trigger" style="display:none;">
+                      <a href="javascript:void(0)" id="openGradeNumericConfigBtn" class="rs-action-link">Configure Numbers</a>
+                    </div>
                   </div>
-                  <a href="javascript:void(0)" id="toggleGradeForm" style="color:var(--primary);font-weight:600;text-decoration:none;white-space:nowrap;">+ Add Grade Rule</a>
-                </div>
 
-                <div id="gradeFormContainer" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;">
-                  <form id="gradeForm">
-                    <input type="hidden" id="editingGradeRowId" value="" />
-                    <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px;align-items:start;margin-bottom:12px;">
-                      <div class="form-group" style="margin-bottom:0;">
-                        <label>Grade Label</label>
-                        <input type="text" id="gradeLabelText" placeholder="e.g., A" maxlength="20" required />
+                  <div id="gradeNumericConfigModal" class="rs-grade-config-modal" style="display:none;">
+                    <div class="rs-grade-config-card">
+                      <div class="rs-grade-config-head">
+                        <h4 class="rs-grade-config-title">Number Format Configuration</h4>
+                        <button type="button" id="closeGradeNumericConfigIcon" class="rs-grade-config-close" aria-label="Close">x</button>
                       </div>
-                      <div class="form-group" style="margin-bottom:0;">
-                        <label>From %</label>
-                        <input type="number" id="gradeFromPct" placeholder="70" required />
-                      </div>
-                      <div class="form-group" style="margin-bottom:0;">
-                        <label>To %</label>
-                        <input type="number" id="gradeToPct" placeholder="100" required />
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label>Apply To Classes:</label>
-                      <div id="gradeClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
-                    </div>
-                    <div style="display:flex;gap:10px;align-items:center;">
-                      <button type="submit" class="btn" id="saveGradeMappingBtn">Save Grade Mapping</button>
-                      <button type="button" class="btn btn-secondary" id="cancelGradeMappingBtn">Cancel</button>
-                    </div>
-                  </form>
-                </div>
 
-                <div class="remarks-list" id="classGradeMappings"></div>
+                      <p class="rs-grade-config-note">Configure how numeric grade totals should be shown and calculated for this class.</p>
+
+                      <label id="showGradeNumericTotalWrap" style="display:none;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;cursor:pointer;">
+                        <input type="checkbox" id="showGradeNumericTotalOnReport" style="cursor:pointer;">
+                        Show number total on report
+                      </label>
+
+                      <div id="gradeNumericTotalConfigWrap" style="display:none;flex:1 1 100%;margin:8px 0 0 0;padding:10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;">
+                        <div style="font-size:0.75rem;color:var(--muted);font-weight:600;margin-bottom:8px;">Number Total Setup</div>
+                        <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+                          <label class="rs-grade-strategy-option">
+                            <input type="radio" name="gradeNumericTotalStrategyOption" class="grade-numeric-strategy-radio" value="base_plus_best" style="accent-color:var(--primary);margin-top:2px;">
+                            <span>Calculate using Core + Additional Subjects.</span>
+                          </label>
+                          <div id="gradeBasePlusDetailsWrap" class="rs-grade-strategy-details">
+                            <div class="rs-grade-base-stack">
+                              <label id="gradeBaseSubjectCountWrap" class="rs-grade-core-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;">
+                                Core Subjects Count
+                                <input type="number" id="gradeBaseSubjectCountInput" min="0" step="1" placeholder="5" style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:0.86rem;line-height:1.15;" />
+                              </label>
+                              <div id="gradeCoreSubjectConfigWrap" class="rs-grade-core-glass-pane" style="display:none;margin-top:0;">
+                                <div id="gradeCoreSubjectList" class="rs-grade-subject-grid rs-grade-core-subject-grid"></div>
+                                <div id="gradeCoreSubjectHint" style="margin-top:6px;font-size:0.72rem;color:var(--muted);"></div>
+                              </div>
+
+                              <label id="gradeOtherSubjectCountWrap" class="rs-grade-random-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;">
+                                Additional Subjects Count
+                                <input type="number" id="gradeOtherSubjectCountInput" min="0" step="1" placeholder="2" style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:0.86rem;line-height:1.15;" />
+                              </label>
+
+                              <label id="gradeBaseRandomSelectionTypeWrap" class="rs-grade-random-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;max-width:240px;">
+                                Additional Subject Selection
+                                <select id="gradeBaseRandomSelectionTypeSelect" class="rs-grade-random-select" style="padding:5px 6px;border-radius:6px;font-size:0.86rem;line-height:1.15;">
+                                  <option value="any">Random</option>
+                                  <option value="best">Top</option>
+                                </select>
+                              </label>
+                            </div>
+                          </div>
+                          <label class="rs-grade-strategy-option">
+                            <input type="radio" name="gradeNumericTotalStrategyOption" class="grade-numeric-strategy-radio" value="all_subjects" style="accent-color:var(--primary);margin-top:2px;">
+                            <span>Calculate using All Subjects.</span>
+                          </label>
+                          <input type="hidden" id="gradeNumericTotalStrategySelect" value="all_subjects" />
+                        </div>
+
+                        <div id="gradeNumericTotalConfigHint" style="margin-top:8px;font-size:0.72rem;color:var(--muted);"></div>
+                      </div>
+
+                      <div class="rs-grade-config-footer">
+                        <button type="button" class="btn" id="closeGradeNumericConfigBtn">Done</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                  <div style="font-weight:700;color:var(--primary);">Score Remarks</div>
-                  <a href="javascript:void(0)" id="toggleRemarkForm" style="color:var(--primary);font-weight:600;text-decoration:none;">+ Add Score Remark</a>
-                </div>
-
-                <div id="remarkFormContainer" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;">
-                  <form id="remarkForm">
-                    <input type="hidden" id="editingRemarkRowId" value="" />
-                    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;align-items:start;margin-bottom:12px;">
-                      <div class="form-group" style="margin-bottom:0;">
-                        <label>Remark</label>
-                        <input type="text" id="scoreRemarkText" placeholder="e.g., Excellent" required />
-                      </div>
-                      <div class="form-group" style="margin-bottom:0;">
-                        <label>From %</label>
-                        <input type="number" id="remarkFromPct" placeholder="70" required />
-                      </div>
-                      <div class="form-group" style="margin-bottom:0;">
-                        <label>To %</label>
-                        <input type="number" id="remarkToPct" placeholder="100" required />
-                      </div>
-                    </div>
-                    <div class="form-group">
-                      <label>Apply To Classes:</label>
-                      <div id="remarkClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
-                    </div>
-                    <div style="display:flex;gap:10px;align-items:center;">
-                      <button type="submit" class="btn" id="saveScoreRemarkBtn">Save Score Remark</button>
-                      <button type="button" class="btn btn-secondary" id="cancelScoreRemarkBtn">Cancel</button>
-                    </div>
-                  </form>
-                </div>
-
-                <div class="remarks-list" id="classScoreRemarks"></div>
-              </div>
             </div>
           </div>
         </div>
@@ -677,7 +1729,7 @@
       <div class="card">
         <h2>Global Remarks</h2>
         <div class="notice">These remarks are global and can be reused for any class or term.</div>
-        <form action="/print/saveRemarks?classId=<%= classId %>&termId=<%= termId %>" method="POST">
+        <form id="globalRemarksForm" action="/print/saveRemarks?classId=<%= classId %>&termId=<%= termId %>" method="POST">
           <div id="remarks-container">
             <div class="form-group remark-item">
               <textarea name="remarks[]" required maxlength="150" placeholder="Enter remark (max 150 characters)"></textarea>
@@ -693,7 +1745,7 @@
             </div>
           </div>
           <button type="button" class="btn" id="add-remark-btn">+ Add Remark</button>
-          <button type="submit" class="btn">Save Remarks</button>
+          <button type="submit" class="btn" id="saveRemarksBtn">Save Remarks</button>
         </form>
         <div class="table-wrapper">
           <div class="section-title" style="margin-top:14px;">Saved Remarks</div>
@@ -707,7 +1759,7 @@
                   <div class="remark-row">
                     <span class="remark-text"><%= remark.remark %></span>
                     <div class="kebab-menu" data-remark-id="<%= remark.id %>">
-                      <div class="kebab" aria-label="More actions">⋮</div>
+                      <button type="button" class="kebab" aria-label="More actions" aria-expanded="false">⋮</button>
                       <ul>
                         <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>" data-no-spa>Delete</a></li>
                       </ul>
@@ -747,7 +1799,7 @@
                     </div>
                     <div style="font-weight:600;color:var(--primary);margin-bottom:8px;font-size:0.95rem;">Applied to <%= sig.classes.length %> class<%= sig.classes.length !== 1 ? 'es' : '' %>:</div>
                     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-                      <% sig.classes.sort((a,b)=>a.class_id-b.class_id).forEach(classInfo=>{ %>
+                      <% sig.classes.slice().sort((a,b)=> (classOrderIndexMap[String(a.class_id)] ?? 2147483647) - (classOrderIndexMap[String(b.class_id)] ?? 2147483647)).forEach(classInfo=>{ %>
                         <span class="tag" style="background:rgba(15,90,102,0.1);color:var(--primary);padding:4px 10px;border-radius:6px;font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;">
                           <%= classInfo.class_name %>
                           <a href="javascript:void(0)" 
@@ -832,7 +1884,7 @@
                       </div>
                       <div style="font-weight:600;color:var(--primary);margin-bottom:8px;font-size:0.95rem;">Applied to <%= sig.classes.length %> class<%= sig.classes.length !== 1 ? 'es' : '' %>:</div>
                       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-                        <% sig.classes.sort((a,b)=>a.class_id-b.class_id).forEach(classInfo=>{ %>
+                        <% sig.classes.slice().sort((a,b)=> (classOrderIndexMap[String(a.class_id)] ?? 2147483647) - (classOrderIndexMap[String(b.class_id)] ?? 2147483647)).forEach(classInfo=>{ %>
                           <span class="tag" style="background:rgba(15,90,102,0.1);color:var(--primary);padding:4px 10px;border-radius:6px;font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;">
                             <%= classInfo.class_name %>
                             <a href="javascript:void(0)" 
@@ -934,29 +1986,614 @@
 
     // ---- Display Settings data (must be defined before loadClassSettings is called) ----
     const allDisplaySettingsMap = <%- JSON.stringify(allDisplaySettingsMap) %>;
+    const allSubjectsByClassMap = <%- JSON.stringify(allSubjectsByClassMap || {}) %>;
     const allAssessmentsByCategoryMap = <%- JSON.stringify(allAssessmentsByCategoryMap) %>;
     const defaultsSuppressedMap = <%- JSON.stringify(defaultsSuppressedMap || {}) %>;
+    const initialRuleLocksMap = <%- JSON.stringify(ruleLocksMap || { grade: {}, remark: {} }) %>;
+    const ruleLocksMap = {
+      grade: initialRuleLocksMap && typeof initialRuleLocksMap.grade === 'object'
+        ? { ...initialRuleLocksMap.grade }
+        : {},
+      remark: initialRuleLocksMap && typeof initialRuleLocksMap.remark === 'object'
+        ? { ...initialRuleLocksMap.remark }
+        : {},
+    };
 
     const classButtons = document.querySelectorAll('.class-button');
-    const promotedSelect = document.getElementById('promotedClassSelect');
-    const repeatedSelect = document.getElementById('repeatedClassSelect');
-    const cutOffInput = document.getElementById('cutOffPoint');
+    const enrolledClassesData = <%- JSON.stringify(enrolledClasses) %>;
     const activatePromotion = document.getElementById('activatePromotion');
-    const reopenDate = document.getElementById('schoolReopenDate');
     const classIdField = document.getElementById('statusClassId');
     const selectedStatusClasses = document.getElementById('selectedStatusClasses');
+    const statusSettingsForm = document.getElementById('statusSettingsForm');
+    const statusRowsEditor = document.getElementById('statusRowsEditor');
+    const bulkStatusSettingsBtn = document.getElementById('bulkStatusSettingsBtn');
+    const STATUS_ROW_FIELDS_SELECTOR = [
+      'input[name="statusRowClassId[]"]',
+      'select[name="statusRowPromotedClass[]"]',
+      'select[name="statusRowRepeatedClass[]"]',
+      'input[name="statusRowCutOffPoint[]"]',
+      'input[name="statusRowSchoolReopenDate[]"]',
+    ].join(', ');
 
     const formContainer = document.getElementById('settingsFormContainer');
     const overviewContainer = document.getElementById('settingsOverviewContainer');
-    const modifyBtn = document.getElementById('modifySettingsBtn');
     const cancelBtn = document.getElementById('cancelEditBtn');
     const currentSettingsDisplay = document.getElementById('currentSettingsDisplay');
     const gradeDisplayModeSelect = document.getElementById('gradeDisplayModeSelect');
+    const gradeNumericConfigTriggerWrap = document.getElementById('gradeNumericConfigTriggerWrap');
+    const openGradeNumericConfigBtn = document.getElementById('openGradeNumericConfigBtn');
+    const gradeNumericConfigModal = document.getElementById('gradeNumericConfigModal');
+    const closeGradeNumericConfigBtn = document.getElementById('closeGradeNumericConfigBtn');
+    const closeGradeNumericConfigIcon = document.getElementById('closeGradeNumericConfigIcon');
     const showGradeNumericTotalWrap = document.getElementById('showGradeNumericTotalWrap');
     const showGradeNumericTotalOnReport = document.getElementById('showGradeNumericTotalOnReport');
+    const gradeNumericTotalConfigWrap = document.getElementById('gradeNumericTotalConfigWrap');
+    const gradeNumericTotalStrategySelect = document.getElementById('gradeNumericTotalStrategySelect');
+    const gradeNumericStrategyRadios = Array.from(document.querySelectorAll('.grade-numeric-strategy-radio'));
+    const gradeBaseSubjectCountWrap = document.getElementById('gradeBaseSubjectCountWrap');
+    const gradeBaseSubjectCountInput = document.getElementById('gradeBaseSubjectCountInput');
+    const gradeOtherSubjectCountWrap = document.getElementById('gradeOtherSubjectCountWrap');
+    const gradeOtherSubjectCountInput = document.getElementById('gradeOtherSubjectCountInput');
+    const gradeBasePlusDetailsWrap = document.getElementById('gradeBasePlusDetailsWrap');
+    const gradeCoreSubjectConfigWrap = document.getElementById('gradeCoreSubjectConfigWrap');
+    const gradeCoreSubjectList = document.getElementById('gradeCoreSubjectList');
+    const gradeCoreSubjectHint = document.getElementById('gradeCoreSubjectHint');
+    const gradeBaseRandomSelectionTypeWrap = document.getElementById('gradeBaseRandomSelectionTypeWrap');
+    const gradeBaseRandomSelectionTypeSelect = document.getElementById('gradeBaseRandomSelectionTypeSelect');
+    const gradeRandomSubjectConfigWrap = document.getElementById('gradeRandomSubjectConfigWrap');
+    const gradeRandomSubjectCountWrap = document.getElementById('gradeRandomSubjectCountWrap');
+    const gradeRandomSubjectHeading = document.getElementById('gradeRandomSubjectHeading');
+    const gradeRandomSelectionTypeWrap = document.getElementById('gradeRandomSelectionTypeWrap');
+    const gradeRandomSelectionTypeSelect = document.getElementById('gradeRandomSelectionTypeSelect');
+    const gradeRandomSelectionTypeLabel = document.getElementById('gradeRandomSelectionTypeLabel');
+    const gradeRandomSubjectSelectionWrap = document.getElementById('gradeRandomSubjectSelectionWrap');
+    const gradeRandomSubjectCountInput = document.getElementById('gradeRandomSubjectCountInput');
+    const gradeRandomSubjectList = document.getElementById('gradeRandomSubjectList');
+    const gradeRandomSubjectHint = document.getElementById('gradeRandomSubjectHint');
+    const gradeNumericTotalConfigHint = document.getElementById('gradeNumericTotalConfigHint');
 
     function confirmDestructiveAction(message) {
       return window.confirm(message || 'Are you sure you want to continue?');
+    }
+
+    function normalizeStatusRowValue(value) {
+      return String(value ?? '').trim();
+    }
+
+    function getStatusRowState(row) {
+      return {
+        classId: normalizeStatusRowValue(row.querySelector('input[name="statusRowClassId[]"]')?.value),
+        promotedClass: normalizeStatusRowValue(row.querySelector('select[name="statusRowPromotedClass[]"]')?.value),
+        repeatedClass: normalizeStatusRowValue(row.querySelector('select[name="statusRowRepeatedClass[]"]')?.value),
+        cutOffPoint: normalizeStatusRowValue(row.querySelector('input[name="statusRowCutOffPoint[]"]')?.value),
+        schoolReopenDate: normalizeStatusRowValue(row.querySelector('input[name="statusRowSchoolReopenDate[]"]')?.value),
+      };
+    }
+
+    function captureStatusRowsInitialState() {
+      if (!statusRowsEditor) return;
+      statusRowsEditor.querySelectorAll('.status-row-item').forEach((row) => {
+        row.dataset.initialState = JSON.stringify(getStatusRowState(row));
+      });
+    }
+
+    function isStatusRowDirty(row) {
+      try {
+        const initialState = row.dataset.initialState ? JSON.parse(row.dataset.initialState) : null;
+        if (!initialState) return false;
+        const currentState = getStatusRowState(row);
+        return (
+          currentState.promotedClass !== initialState.promotedClass
+          || currentState.repeatedClass !== initialState.repeatedClass
+          || currentState.cutOffPoint !== initialState.cutOffPoint
+          || currentState.schoolReopenDate !== initialState.schoolReopenDate
+        );
+      } catch (error) {
+        return false;
+      }
+    }
+
+    function syncStatusRowDirtyState(row) {
+      row.classList.toggle('is-dirty', isStatusRowDirty(row));
+    }
+
+    function getDirtyStatusRows() {
+      if (!statusRowsEditor) return [];
+      return Array.from(statusRowsEditor.querySelectorAll('.status-row-item')).filter((row) => isStatusRowDirty(row));
+    }
+
+    function parseNonNegativeInteger(value, fallback = 0) {
+      const parsed = parseInt(String(value ?? '').trim(), 10);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        return fallback;
+      }
+      return parsed;
+    }
+
+    function normalizeRuleEntryType(entryType) {
+      return entryType === 'grade' ? 'grade' : 'remark';
+    }
+
+    function buildRuleRangeKey(fromValue, toValue) {
+      const fromPct = Number(fromValue);
+      const toPct = Number(toValue);
+      if (!Number.isFinite(fromPct) || !Number.isFinite(toPct)) {
+        return null;
+      }
+      return `${fromPct}__${toPct}`;
+    }
+
+    function isRuleLocked(entryType, classId, fromValue, toValue) {
+      const safeEntryType = normalizeRuleEntryType(entryType);
+      const classKey = String(classId);
+      const rangeKey = buildRuleRangeKey(fromValue, toValue);
+      if (!rangeKey) return false;
+      const classLockRanges = ruleLocksMap[safeEntryType] && ruleLocksMap[safeEntryType][classKey];
+      return !!(classLockRanges && classLockRanges[rangeKey] === true);
+    }
+
+    function applyRuleLockState(entryType, classIds, fromValue, toValue, locked) {
+      const safeEntryType = normalizeRuleEntryType(entryType);
+      const rangeKey = buildRuleRangeKey(fromValue, toValue);
+      if (!rangeKey) return;
+
+      if (!ruleLocksMap[safeEntryType]) {
+        ruleLocksMap[safeEntryType] = {};
+      }
+
+      const normalizedClassIds = Array.isArray(classIds) ? classIds : [];
+      normalizedClassIds.forEach((classId) => {
+        const classKey = String(classId);
+        if (!classKey) return;
+        if (!ruleLocksMap[safeEntryType][classKey] || typeof ruleLocksMap[safeEntryType][classKey] !== 'object') {
+          ruleLocksMap[safeEntryType][classKey] = {};
+        }
+        ruleLocksMap[safeEntryType][classKey][rangeKey] = locked === true;
+      });
+    }
+
+    function getLockIconSvg(unlocked = false) {
+      if (unlocked === true) {
+        return '<svg class="rs-lock-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 7.2-2.4"></path></svg>';
+      }
+      return '<svg class="rs-lock-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>';
+    }
+
+    function getRuleLockBadgeHtml() {
+      return `<span class="rs-lock-chip" title="Locked" aria-label="Locked">${getLockIconSvg(false)}</span>`;
+    }
+
+    function normalizePositiveIntegerArray(values) {
+      if (!Array.isArray(values)) return [];
+      return [...new Set(
+        values
+          .map((entry) => parseInt(entry, 10))
+          .filter((entry) => Number.isFinite(entry) && entry > 0)
+      )];
+    }
+
+    function normalizeRandomSelectionMode(value, fallback = 'any') {
+      const parsed = String(value || '').trim().toLowerCase();
+      return (parsed === 'best' || parsed === 'any') ? parsed : fallback;
+    }
+
+    function syncShowGradeNumericTotalVisualState() {
+      if (!showGradeNumericTotalWrap || !showGradeNumericTotalOnReport) return;
+      const isChecked = showGradeNumericTotalOnReport.checked === true;
+      showGradeNumericTotalWrap.classList.toggle('is-checked', isChecked);
+    }
+
+    function normalizeGradePresentationState(rawGradePresentation) {
+      const safe = rawGradePresentation && typeof rawGradePresentation === 'object' ? rawGradePresentation : {};
+      const mode = (safe.mode === 'numbers' || safe.mode === 'both') ? safe.mode : 'letters';
+      const showOnReport = safe.showNumberTotalOnReport === true;
+      const rawTotalScoreStrategy = String(safe.totalScoreStrategy || '').trim();
+      const mappedLegacySampled = rawTotalScoreStrategy === 'random_selected_subjects';
+      const totalScoreStrategy = (
+        rawTotalScoreStrategy === 'base_plus_best'
+        || rawTotalScoreStrategy === 'base_plus_random'
+      )
+        ? rawTotalScoreStrategy
+        : (mappedLegacySampled ? 'base_plus_best' : 'all_subjects');
+      const isBasePlus = totalScoreStrategy === 'base_plus_best' || totalScoreStrategy === 'base_plus_random';
+      const defaultBaseCount = totalScoreStrategy === 'all_subjects'
+        ? 0
+        : (mappedLegacySampled ? 0 : 5);
+      const defaultOtherCount = totalScoreStrategy === 'all_subjects'
+        ? 0
+        : (mappedLegacySampled
+          ? parseNonNegativeInteger(safe.randomSubjectCount ?? safe.otherSubjectCount, 2)
+          : 2);
+      const gradeBaseSubjectCount = parseNonNegativeInteger(safe.gradeBaseSubjectCount, defaultBaseCount);
+      const otherSubjectCount = parseNonNegativeInteger(safe.otherSubjectCount, defaultOtherCount);
+      const randomSubjectCount = 0;
+      const coreSubjectIds = normalizePositiveIntegerArray(safe.coreSubjectIds);
+      const randomSubjectIds = [];
+      const randomSelectionMode = normalizeRandomSelectionMode(
+        safe.randomSelectionMode,
+        'any'
+      );
+      const usesCorePool = isBasePlus;
+
+      return {
+        mode,
+        showOnReport,
+        totalScoreStrategy,
+        gradeBaseSubjectCount: isBasePlus ? gradeBaseSubjectCount : 0,
+        otherSubjectCount: isBasePlus ? otherSubjectCount : 0,
+        randomSubjectCount,
+        coreSubjectIds: usesCorePool ? coreSubjectIds : [],
+        randomSubjectIds,
+        randomSelectionMode: isBasePlus ? randomSelectionMode : 'any',
+      };
+    }
+
+    function getAvailableClassSubjects(classId) {
+      const classKey = String(classId ?? classIdField?.value ?? '').trim();
+      const rawSubjects = allSubjectsByClassMap && typeof allSubjectsByClassMap === 'object'
+        ? allSubjectsByClassMap[classKey]
+        : [];
+      if (!Array.isArray(rawSubjects)) return [];
+      return rawSubjects
+        .map((subject) => {
+          const subjectId = parseInt(subject?.subject_id, 10);
+          if (!Number.isFinite(subjectId) || subjectId <= 0) return null;
+          const subjectName = String(subject?.subject_name || '').trim() || `Subject ${subjectId}`;
+          return { subject_id: subjectId, subject_name: subjectName };
+        })
+        .filter(Boolean);
+    }
+
+    function getSelectedRandomSubjectIdsFromControls() {
+      if (!gradeRandomSubjectList) return [];
+      return normalizePositiveIntegerArray(
+        Array.from(gradeRandomSubjectList.querySelectorAll('.grade-random-subject-checkbox:checked'))
+          .map((checkbox) => checkbox.value)
+      );
+    }
+
+    function getSelectedCoreSubjectIdsFromControls() {
+      if (!gradeCoreSubjectList) return [];
+      const maxCore = parseNonNegativeInteger(gradeBaseSubjectCountInput?.value, 0);
+      if (maxCore <= 0) return [];
+      return normalizePositiveIntegerArray(
+        Array.from(gradeCoreSubjectList.querySelectorAll('.grade-core-subject-checkbox:checked'))
+          .map((checkbox) => checkbox.value)
+      ).slice(0, maxCore);
+    }
+
+    function enforceCoreSelectionLimit(changedCheckbox = null) {
+      if (!gradeCoreSubjectList) return;
+      const maxCore = parseNonNegativeInteger(gradeBaseSubjectCountInput?.value, 0);
+      const checked = Array.from(gradeCoreSubjectList.querySelectorAll('.grade-core-subject-checkbox:checked'));
+      if (checked.length <= maxCore) return;
+
+      if (changedCheckbox && changedCheckbox.checked) {
+        changedCheckbox.checked = false;
+      } else {
+        checked.slice(maxCore).forEach((checkbox) => {
+          checkbox.checked = false;
+        });
+      }
+    }
+
+    function updateRandomTypeSelectOptions(selectElement, targetCount) {
+      if (!selectElement) return;
+      const safeCount = Math.max(0, parseNonNegativeInteger(targetCount, 0));
+      const anyOption = selectElement.querySelector('option[value="any"]');
+      const bestOption = selectElement.querySelector('option[value="best"]');
+      if (anyOption) {
+        anyOption.textContent = safeCount > 0 ? `Random ${safeCount}` : 'Random';
+      }
+      if (bestOption) {
+        bestOption.textContent = safeCount > 0 ? `Top ${safeCount}` : 'Top';
+      }
+    }
+
+    function renderGradeCoreSubjectOptions(state, options = {}) {
+      if (!gradeCoreSubjectList) return;
+      const gradeState = normalizeGradePresentationState(state);
+      const showSubjectList = options.showSubjectList !== false;
+      const classSubjects = getAvailableClassSubjects(classIdField?.value);
+      const selectedIds = new Set(gradeState.coreSubjectIds);
+      const coreLimit = Math.max(0, parseNonNegativeInteger(gradeState.gradeBaseSubjectCount, 0));
+      let selectedCountForLimit = 0;
+
+      if (gradeBaseSubjectCountInput) {
+        gradeBaseSubjectCountInput.max = String(classSubjects.length || 0);
+      }
+
+      if (gradeCoreSubjectList) {
+        gradeCoreSubjectList.style.display = showSubjectList ? 'grid' : 'none';
+      }
+
+      if (!classSubjects.length) {
+        gradeCoreSubjectList.innerHTML = '<div style="font-size:0.74rem;color:var(--muted);">No subjects found for this class.</div>';
+        if (gradeCoreSubjectHint) {
+          gradeCoreSubjectHint.textContent = 'Add subjects to this class before configuring core subjects.';
+        }
+        return;
+      }
+
+      gradeCoreSubjectList.innerHTML = classSubjects.map((subject) => {
+        const shouldCheck = selectedIds.has(subject.subject_id) && selectedCountForLimit < coreLimit;
+        if (shouldCheck) selectedCountForLimit += 1;
+        return `
+          <label class="rs-grade-subject-item">
+            <input type="checkbox" class="grade-core-subject-checkbox" value="${subject.subject_id}" style="accent-color:var(--primary);" ${shouldCheck ? 'checked' : ''}>
+            <span>${escapeHtmlText(subject.subject_name)}</span>
+          </label>
+        `;
+      }).join('');
+
+      enforceCoreSelectionLimit();
+
+      if (gradeCoreSubjectHint) {
+        if (!showSubjectList) {
+          gradeCoreSubjectHint.textContent = 'Enter a Core Subjects Count to choose core subjects.';
+          return;
+        }
+        const selectedCount = getSelectedCoreSubjectIdsFromControls().length;
+        if (!selectedCount) {
+          gradeCoreSubjectHint.textContent = `Select up to ${coreLimit} core subjects. If none are selected, highest-scoring subjects are used automatically.`;
+        } else {
+          gradeCoreSubjectHint.textContent = `${selectedCount} of ${coreLimit} selected as core subjects.`;
+        }
+      }
+    }
+
+    function renderGradeRandomSubjectOptions(state, options = {}) {
+      if (!gradeRandomSubjectList) return;
+      const gradeState = normalizeGradePresentationState(state);
+      const showSubjectList = options.showSubjectList !== false;
+      const classSubjects = getAvailableClassSubjects(classIdField?.value);
+      const selectedIds = new Set(gradeState.randomSubjectIds);
+
+      if (gradeRandomSubjectCountInput) {
+        gradeRandomSubjectCountInput.max = String(classSubjects.length || 0);
+      }
+
+      if (gradeRandomSubjectList) {
+        gradeRandomSubjectList.style.display = showSubjectList ? 'grid' : 'none';
+      }
+
+      const emptySelectionText = 'Select subjects for the sampling pool. If none are selected, all subjects are included.';
+
+      if (!classSubjects.length) {
+        gradeRandomSubjectList.innerHTML = '<div style="font-size:0.74rem;color:var(--muted);">No subjects found for this class.</div>';
+        if (gradeRandomSubjectHint) {
+          gradeRandomSubjectHint.textContent = 'Add subjects to this class before using sampled-subject calculation.';
+        }
+        return;
+      }
+
+      gradeRandomSubjectList.innerHTML = classSubjects.map((subject) => `
+        <label class="rs-grade-subject-item">
+          <input type="checkbox" class="grade-random-subject-checkbox" value="${subject.subject_id}" style="accent-color:var(--primary);" ${selectedIds.has(subject.subject_id) ? 'checked' : ''}>
+          <span>${escapeHtmlText(subject.subject_name)}</span>
+        </label>
+      `).join('');
+
+      if (gradeRandomSubjectHint) {
+        if (!showSubjectList) {
+          gradeRandomSubjectHint.textContent = 'Enter a sample count to choose subjects for the sampling pool.';
+          return;
+        }
+
+        const selectedCount = selectedIds.size;
+        if (!selectedCount) {
+          gradeRandomSubjectHint.textContent = emptySelectionText;
+        } else {
+          gradeRandomSubjectHint.textContent = `${selectedCount} subject${selectedCount === 1 ? '' : 's'} selected for sampling pool.`;
+        }
+      }
+    }
+
+    function syncGradeNumericConfigUI(state) {
+      const gradeState = normalizeGradePresentationState(state);
+      const isNumericMode = gradeState.mode === 'numbers' || gradeState.mode === 'both';
+      const shouldShowConfig = isNumericMode;
+      const isBasePlus = shouldShowConfig
+        && (gradeState.totalScoreStrategy === 'base_plus_best' || gradeState.totalScoreStrategy === 'base_plus_random');
+      const configuredCoreCount = parseNonNegativeInteger(gradeState.gradeBaseSubjectCount, 0);
+      const configuredOtherCount = parseNonNegativeInteger(gradeState.otherSubjectCount, 0);
+      const showCoreSubjectList = isBasePlus && configuredCoreCount > 0;
+      const needsRandomSubjectPanel = false;
+
+      if (gradeNumericConfigTriggerWrap) {
+        gradeNumericConfigTriggerWrap.style.display = isNumericMode ? 'inline-flex' : 'none';
+      }
+      if (showGradeNumericTotalWrap) {
+        showGradeNumericTotalWrap.style.display = isNumericMode ? 'inline-flex' : 'none';
+      }
+      if (showGradeNumericTotalOnReport) {
+        showGradeNumericTotalOnReport.disabled = false;
+      }
+      syncShowGradeNumericTotalVisualState();
+      if (gradeNumericTotalConfigWrap) {
+        gradeNumericTotalConfigWrap.style.display = shouldShowConfig ? 'block' : 'none';
+      }
+      if (gradeBasePlusDetailsWrap) {
+        gradeBasePlusDetailsWrap.style.display = isBasePlus ? 'block' : 'none';
+      }
+      if (gradeBaseSubjectCountWrap) {
+        gradeBaseSubjectCountWrap.style.display = isBasePlus ? 'flex' : 'none';
+      }
+      if (gradeOtherSubjectCountWrap) {
+        gradeOtherSubjectCountWrap.style.display = isBasePlus ? 'flex' : 'none';
+      }
+      if (gradeCoreSubjectConfigWrap) {
+        gradeCoreSubjectConfigWrap.style.display = isBasePlus ? 'block' : 'none';
+      }
+      if (gradeBaseRandomSelectionTypeWrap) {
+        gradeBaseRandomSelectionTypeWrap.style.display = (isBasePlus && configuredOtherCount > 0) ? 'flex' : 'none';
+      }
+      if (gradeRandomSubjectConfigWrap) {
+        gradeRandomSubjectConfigWrap.style.display = needsRandomSubjectPanel ? 'block' : 'none';
+      }
+      if (gradeRandomSubjectCountWrap) {
+        gradeRandomSubjectCountWrap.style.display = 'none';
+      }
+      if (gradeRandomSelectionTypeWrap) {
+        gradeRandomSelectionTypeWrap.style.display = needsRandomSubjectPanel ? 'flex' : 'none';
+      }
+      if (gradeRandomSelectionTypeLabel) {
+        gradeRandomSelectionTypeLabel.textContent = 'Sampling Method';
+      }
+      updateRandomTypeSelectOptions(gradeBaseRandomSelectionTypeSelect, configuredOtherCount);
+      updateRandomTypeSelectOptions(gradeRandomSelectionTypeSelect, 0);
+      if (gradeRandomSubjectHeading) {
+        gradeRandomSubjectHeading.textContent = 'Sample from these subjects';
+      }
+      if (gradeRandomSubjectSelectionWrap) {
+        gradeRandomSubjectSelectionWrap.style.display = 'none';
+      }
+      renderGradeCoreSubjectOptions(gradeState, {
+        showSubjectList: showCoreSubjectList,
+      });
+
+      if (gradeNumericTotalConfigHint) {
+        if (!shouldShowConfig) {
+          gradeNumericTotalConfigHint.textContent = '';
+        } else {
+          let formulaHint = 'Total Grade Score = sum of numeric grades for all scored subjects.';
+          const randomMode = normalizeRandomSelectionMode(gradeState.randomSelectionMode, 'any');
+          const basePickText = randomMode === 'best'
+            ? `top ${configuredOtherCount}`
+            : `random ${configuredOtherCount}`;
+          if (gradeState.totalScoreStrategy === 'base_plus_best') {
+            formulaHint = `Total Grade Score = core subjects (${gradeState.gradeBaseSubjectCount}) + ${basePickText} additional subjects.`;
+          } else if (gradeState.totalScoreStrategy === 'base_plus_random') {
+            formulaHint = `Legacy strategy = core subjects (${gradeState.gradeBaseSubjectCount}) + random additional subjects (${gradeState.otherSubjectCount}).`;
+          }
+          const visibilityHint = gradeState.showOnReport
+            ? ''
+            : ' Enable "Show number total on report" to display this total in the final report.';
+          gradeNumericTotalConfigHint.textContent = `${formulaHint}${visibilityHint}`;
+        }
+      }
+
+      if (!isNumericMode && gradeNumericConfigModal) {
+        gradeNumericConfigModal.style.display = 'none';
+      }
+    }
+
+    function applyGradePresentationStateToControls(rawState) {
+      const state = normalizeGradePresentationState(rawState);
+      if (gradeDisplayModeSelect) {
+        gradeDisplayModeSelect.value = state.mode;
+      }
+      if (showGradeNumericTotalOnReport) {
+        showGradeNumericTotalOnReport.checked = state.showOnReport;
+      }
+      syncShowGradeNumericTotalVisualState();
+      if (gradeNumericTotalStrategySelect) {
+        const supportedStrategies = ['base_plus_best', 'all_subjects', 'base_plus_random'];
+        const normalizedStrategy = supportedStrategies.includes(state.totalScoreStrategy)
+          ? state.totalScoreStrategy
+          : (state.totalScoreStrategy === 'random_selected_subjects' ? 'base_plus_best' : 'all_subjects');
+        gradeNumericTotalStrategySelect.value = normalizedStrategy;
+        if (normalizedStrategy === 'base_plus_random') {
+          gradeNumericTotalStrategySelect.value = 'base_plus_best';
+        }
+      }
+      if (gradeNumericStrategyRadios.length) {
+        const activeStrategy = gradeNumericTotalStrategySelect?.value || 'all_subjects';
+        gradeNumericStrategyRadios.forEach((radio) => {
+          radio.checked = radio.value === activeStrategy;
+        });
+      }
+      if (gradeBaseSubjectCountInput) {
+        gradeBaseSubjectCountInput.value = String(state.gradeBaseSubjectCount);
+      }
+      if (gradeOtherSubjectCountInput) {
+        gradeOtherSubjectCountInput.value = String(state.otherSubjectCount);
+      }
+      if (gradeRandomSubjectCountInput) {
+        gradeRandomSubjectCountInput.value = String(state.randomSubjectCount);
+      }
+      if (gradeBaseRandomSelectionTypeSelect) {
+        gradeBaseRandomSelectionTypeSelect.value = normalizeRandomSelectionMode(
+          state.randomSelectionMode,
+          'any'
+        );
+      }
+      if (gradeRandomSelectionTypeSelect) {
+        gradeRandomSelectionTypeSelect.value = normalizeRandomSelectionMode(
+          state.randomSelectionMode,
+          'any'
+        );
+      }
+      syncGradeNumericConfigUI(state);
+    }
+
+    function getGradePresentationPayloadFromControls() {
+      const selectedMode = gradeDisplayModeSelect && (gradeDisplayModeSelect.value === 'numbers' || gradeDisplayModeSelect.value === 'both')
+        ? gradeDisplayModeSelect.value
+        : 'letters';
+      const showNumberTotalOnReport = showGradeNumericTotalOnReport?.checked === true;
+      const selectedStrategyRadio = gradeNumericStrategyRadios.find((radio) => radio.checked);
+      if (gradeNumericTotalStrategySelect && selectedStrategyRadio) {
+        gradeNumericTotalStrategySelect.value = selectedStrategyRadio.value;
+      }
+      const totalScoreStrategy = (
+        gradeNumericTotalStrategySelect?.value === 'base_plus_best'
+        || gradeNumericTotalStrategySelect?.value === 'base_plus_random'
+      )
+        ? gradeNumericTotalStrategySelect.value
+        : 'all_subjects';
+      const isBasePlus = totalScoreStrategy === 'base_plus_best' || totalScoreStrategy === 'base_plus_random';
+      const defaultBaseCount = totalScoreStrategy === 'all_subjects' ? 0 : 5;
+      const defaultOtherCount = totalScoreStrategy === 'all_subjects' ? 0 : 2;
+      const gradeBaseSubjectCount = parseNonNegativeInteger(gradeBaseSubjectCountInput?.value, defaultBaseCount);
+      const otherSubjectCount = parseNonNegativeInteger(gradeOtherSubjectCountInput?.value, defaultOtherCount);
+      const randomSubjectCount = 0;
+      const coreSubjectIds = isBasePlus
+        ? getSelectedCoreSubjectIdsFromControls()
+        : [];
+      const randomSubjectIds = [];
+      const randomSelectionMode = normalizeRandomSelectionMode(
+        gradeBaseRandomSelectionTypeSelect?.value,
+        'any'
+      );
+
+      return {
+        mode: selectedMode,
+        showNumberTotalOnReport,
+        totalScoreStrategy,
+        gradeBaseSubjectCount: isBasePlus ? gradeBaseSubjectCount : 0,
+        otherSubjectCount: isBasePlus ? otherSubjectCount : 0,
+        randomSubjectCount,
+        coreSubjectIds: isBasePlus ? coreSubjectIds : [],
+        randomSubjectIds,
+        randomSelectionMode: isBasePlus ? randomSelectionMode : 'any',
+      };
+    }
+
+    function openGradeNumericConfigModal() {
+      const gradeState = getCurrentGradePresentationState();
+      const isNumericMode = gradeState.mode === 'numbers' || gradeState.mode === 'both';
+      if (!isNumericMode) {
+        return;
+      }
+      applyGradePresentationStateToControls(gradeState);
+      if (gradeNumericConfigModal) {
+        gradeNumericConfigModal.style.display = 'flex';
+      }
+    }
+
+    function closeGradeNumericConfigModal() {
+      if (gradeNumericConfigModal) {
+        gradeNumericConfigModal.style.display = 'none';
+      }
+    }
+
+    function focusStatusRow(classId) {
+      if (!statusRowsEditor) return;
+      const classIdText = String(classId || '').trim();
+      statusRowsEditor.querySelectorAll('.status-row-item').forEach((row) => {
+        row.classList.toggle('is-active', row.dataset.classId === classIdText);
+      });
     }
 
     // Confirm hard deletes for score/remark entries before navigating.
@@ -970,114 +2607,90 @@
     });
 
     function loadClassSettings(classId){
-            const classDisplaySettings = allDisplaySettingsMap[String(classId)] || {};
-            const gradePresentation = (classDisplaySettings.sections && classDisplaySettings.sections.gradePresentation) || {};
-            const gradeMode = (gradePresentation.mode === 'numbers' || gradePresentation.mode === 'both')
-              ? gradePresentation.mode
-              : 'letters';
-            if (gradeDisplayModeSelect) {
-              gradeDisplayModeSelect.value = gradeMode;
-            }
-            const showNumericTotal = gradeMode === 'numbers' && gradePresentation.showNumberTotalOnReport === true;
-            if (showGradeNumericTotalOnReport) {
-              showGradeNumericTotalOnReport.checked = showNumericTotal;
-            }
-            if (showGradeNumericTotalWrap) {
-              showGradeNumericTotalWrap.style.display = gradeMode === 'numbers' ? 'inline-flex' : 'none';
-            }
-
+      closeGradeNumericConfigModal();
       classIdField.value = classId;
-      selectedStatusClasses.value = classId;
+      if (selectedStatusClasses) {
+        selectedStatusClasses.value = String(classId || '');
+      }
+
+      const classDisplaySettings = allDisplaySettingsMap[String(classId)] || {};
+      const gradePresentation = (classDisplaySettings.sections && classDisplaySettings.sections.gradePresentation) || {};
+      const gradeState = normalizeGradePresentationState(gradePresentation);
+      applyGradePresentationStateToControls(gradeState);
+
+      focusStatusRow(classId);
       classButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.classId === String(classId)));
       
-      // Update selected class name for score remarks
-      const enrolledClasses = <%- JSON.stringify(enrolledClasses) %>;
-      const selectedClass = enrolledClasses.find(c => c.class_id == classId);
+      // Update selected class name for grade/score rules
+      const selectedClass = enrolledClassesData.find(c => c.class_id == classId);
       const selectedClassNameEl = document.getElementById('selectedClassName');
       if (selectedClassNameEl) {
         selectedClassNameEl.textContent = selectedClass ? selectedClass.class_name : '';
       }
       
-      // Load grade mappings and score remarks for this class (kept as separate UI lists)
+      // Load merged grade + score remark rules for this class.
       const classRows = scoreRemarksMap[String(classId)] || [];
       const gradeListEl = document.getElementById('classGradeMappings');
-      const remarksListEl = document.getElementById('classScoreRemarks');
-      if (!gradeListEl || !remarksListEl) {
+      if (!gradeListEl) {
         return;
       }
 
-      const sortedRows = [...classRows].sort((a, b) => Number(a.from_percentage || 0) - Number(b.from_percentage || 0));
-      const gradeRows = sortedRows.filter((r) => String(r.grade_label || '').trim() !== '');
-      const remarkRows = sortedRows.filter((r) => String(r.remark || '').trim() !== '' && String(r.remark || '').trim() !== 'No Remark');
+      const sortedRows = [...classRows].sort((a, b) => {
+        const aTo = Number(a.to_percentage || 0);
+        const bTo = Number(b.to_percentage || 0);
+        if (bTo !== aTo) return bTo - aTo;
+        return Number(b.from_percentage || 0) - Number(a.from_percentage || 0);
+      });
+      const mergedRuleRows = sortedRows.filter((r) => {
+        const gradeText = String(r.grade_label || '').trim();
+        const remarkText = String(r.remark || '').trim();
+        return gradeText !== '' || (remarkText !== '' && remarkText !== 'No Remark');
+      });
       const escAttr = (value) => String(value ?? '')
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-      if (gradeRows.length === 0) {
-        gradeListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No grade mapping saved for this class.</p>';
+      if (mergedRuleRows.length === 0) {
+        gradeListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No grade/remark rule saved for this class.</p>';
       } else {
         gradeListEl.innerHTML =
           '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
-          + gradeRows.map(row => `
+          + mergedRuleRows.map(row => `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;">
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:700;color:var(--primary);margin-bottom:2px;">${row.grade_label || '-'}</div>
+              <div style="font-weight:700;color:var(--primary);margin-bottom:2px;">Grade: ${escAttr(String(row.grade_label || '').trim() || '-')}</div>
+              <div style="font-size:0.84rem;color:#334155;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Remark: ${escAttr((String(row.remark || '').trim() && String(row.remark || '').trim() !== 'No Remark') ? row.remark : '-')}</div>
               <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${row.from_percentage}% - ${row.to_percentage}%</div>
             </div>
-            <div class="kebab-menu" data-score-id="${row.id}" style="flex-shrink:0;">
-              <div class="kebab" aria-label="More actions">⋮</div>
-              <ul>
-                <li>
-                  <a href="javascript:void(0)"
-                     class="edit-grade-rule"
-                     data-id="${row.id}"
-                     data-class-id="${classId}"
-                     data-grade="${escAttr(row.grade_label)}"
-                     data-from="${row.from_percentage}"
-                     data-to="${row.to_percentage}">Edit</a>
-                </li>
-                <li><a href="/print/deleteScoreRemark/${row.id}?classId=${classId}&termId=<%= termId %>" data-no-spa>Delete</a></li>
-              </ul>
-            </div>
-          </div>
-        `).join('')
-          + '</div>';
-      }
-
-      if (remarkRows.length === 0) {
-        remarksListEl.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;margin-top:10px;">No score remark saved for this class.</p>';
-      } else {
-        remarksListEl.innerHTML =
-          '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">'
-          + remarkRows.map(row => `
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;background:#fff;">
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:600;color:var(--primary);margin-bottom:2px;">${row.remark || '-'}</div>
-              <div style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${row.from_percentage}% - ${row.to_percentage}%</div>
-            </div>
-            <div class="kebab-menu" data-score-id="${row.id}" style="flex-shrink:0;">
-              <div class="kebab" aria-label="More actions">⋮</div>
-              <ul>
-                <li>
-                  <a href="javascript:void(0)"
-                     class="edit-score-remark"
-                     data-id="${row.id}"
-                     data-class-id="${classId}"
-                     data-remark="${escAttr(row.remark)}"
-                     data-from="${row.from_percentage}"
-                     data-to="${row.to_percentage}">Edit</a>
-                </li>
-                <li><a href="/print/deleteScoreRemark/${row.id}?classId=${classId}&termId=<%= termId %>" data-no-spa>Delete</a></li>
-              </ul>
-            </div>
+            ${(isRuleLocked('grade', classId, row.from_percentage, row.to_percentage)
+              || isRuleLocked('remark', classId, row.from_percentage, row.to_percentage))
+              ? getRuleLockBadgeHtml()
+              : `
+                <div class="kebab-menu" data-score-id="${row.id}" style="flex-shrink:0;">
+                  <button type="button" class="kebab" aria-label="More actions" aria-expanded="false">⋮</button>
+                  <ul>
+                    <li>
+                      <a href="javascript:void(0)"
+                         class="edit-grade-rule"
+                         data-id="${row.id}"
+                         data-class-id="${classId}"
+                         data-grade="${escAttr(row.grade_label)}"
+                        data-remark="${escAttr(row.remark)}"
+                         data-from="${row.from_percentage}"
+                         data-to="${row.to_percentage}">Edit</a>
+                    </li>
+                    <li><a href="/print/deleteScoreRemark/${row.id}?classId=${classId}&termId=<%= termId %>" data-no-spa>Delete</a></li>
+                  </ul>
+                </div>
+              `}
           </div>
         `).join('')
           + '</div>';
       }
 
       // Re-bind kebab menus for dynamically added rows
-      [gradeListEl, remarksListEl].filter(Boolean).forEach((container) => {
+      [gradeListEl].forEach((container) => {
         container.querySelectorAll('.kebab-menu').forEach(menu => {
           const trigger = menu.querySelector('.kebab');
           trigger?.addEventListener('click', (e) => {
@@ -1094,51 +2707,31 @@
             const rowId = link.dataset.id;
             const classIdToEdit = link.dataset.classId;
             const grade = link.dataset.grade || '';
+            const remark = link.dataset.remark || '';
             const fromPct = link.dataset.from || '';
             const toPct = link.dataset.to || '';
 
             editingGradeRowIdInput.value = rowId || '';
-            document.getElementById('gradeLabelText').value = grade;
-            document.getElementById('gradeFromPct').value = fromPct;
-            document.getElementById('gradeToPct').value = toPct;
+            renderGradeRuleRows([
+              {
+                gradeLabel: grade,
+                remark,
+                from: fromPct,
+                to: toPct,
+              },
+            ], { allowMultiple: false });
 
             gradeClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => {
               cb.checked = cb.value === String(classIdToEdit);
               cb.disabled = true;
             });
+            syncSelectAllCheckboxState(selectAllGradeClasses, gradeClassCheckboxes);
 
             gradeFormContainer.style.display = 'block';
-            toggleGradeFormLink.textContent = '− Hide Form';
-            saveGradeMappingBtn.textContent = 'Update Grade Mapping';
+            if (toggleGradeFormLink) toggleGradeFormLink.textContent = 'Hide Form';
+            saveGradeMappingBtn.textContent = 'Update Grade & Remark';
           });
         });
-
-        container.querySelectorAll('.edit-score-remark').forEach((link) => {
-          link.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const rowId = link.dataset.id;
-            const classIdToEdit = link.dataset.classId;
-            const remark = link.dataset.remark || '';
-            const fromPct = link.dataset.from || '';
-            const toPct = link.dataset.to || '';
-
-            editingRemarkRowIdInput.value = rowId || '';
-            document.getElementById('scoreRemarkText').value = remark;
-            document.getElementById('remarkFromPct').value = fromPct;
-            document.getElementById('remarkToPct').value = toPct;
-
-            remarkClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => {
-              cb.checked = cb.value === String(classIdToEdit);
-              cb.disabled = true;
-            });
-
-            remarkFormContainer.style.display = 'block';
-            toggleRemarkFormLink.textContent = '− Hide Form';
-            saveScoreRemarkBtn.textContent = 'Update Score Remark';
-          });
-        });
-
       });
       
       const data = statusSettingsMap[String(classId)];
@@ -1150,35 +2743,29 @@
         formContainer.style.display = 'none';
         overviewContainer.style.display = 'block';
         cancelBtn.style.display = 'none';
-        
-        // Populate form fields (hidden but ready for edit)
-        promotedSelect.value = data.promoted_class || '';
-        repeatedSelect.value = data.repeated_class || '';
-        cutOffInput.value = data.cut_off_point || '';
+
         activatePromotion.checked = !!data.activate_promotion;
-        reopenDate.value = data.school_reopen_date ? new Date(data.school_reopen_date).toISOString().split('T')[0] : '';
         
         // Display current settings
-        const enrolledClasses = <%- JSON.stringify(enrolledClasses) %>;
-        const promotedClassObj = enrolledClasses.find(c => c.class_id === data.promoted_class);
-        const repeatedClassObj = enrolledClasses.find(c => c.class_id === data.repeated_class);
+        const promotedClassObj = enrolledClassesData.find(c => c.class_id === data.promoted_class);
+        const repeatedClassObj = enrolledClassesData.find(c => c.class_id === data.repeated_class);
         
         currentSettingsDisplay.innerHTML = `
-          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
-            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">Promoted Class</div>
-            <div style="font-weight:600;color:var(--primary);">${promotedClassObj ? promotedClassObj.class_name : '-'}</div>
+          <div class="status-overview-item">
+            <div class="status-overview-item-label">Promoted Class</div>
+            <div class="status-overview-item-value">${promotedClassObj ? promotedClassObj.class_name : '-'}</div>
           </div>
-          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
-            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">Repeated Class</div>
-            <div style="font-weight:600;color:var(--primary);">${repeatedClassObj ? repeatedClassObj.class_name : '-'}</div>
+          <div class="status-overview-item">
+            <div class="status-overview-item-label">Repeated Class</div>
+            <div class="status-overview-item-value">${repeatedClassObj ? repeatedClassObj.class_name : '-'}</div>
           </div>
-          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
-            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">Cut Off Point</div>
-            <div style="font-weight:600;color:var(--primary);">${data.cut_off_point || '-'}</div>
+          <div class="status-overview-item">
+            <div class="status-overview-item-label">Cut Off Point</div>
+            <div class="status-overview-item-value">${data.cut_off_point || '-'}</div>
           </div>
-          <div style="padding:10px;background:#f8fafc;border-radius:8px;">
-            <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">School Reopen Date</div>
-            <div style="font-weight:600;color:var(--primary);">${data.school_reopen_date ? (window.formatDisplayDate ? window.formatDisplayDate(data.school_reopen_date) : new Date(data.school_reopen_date).toLocaleDateString()) : '-'}</div>
+          <div class="status-overview-item">
+            <div class="status-overview-item-label">School Reopen Date</div>
+            <div class="status-overview-item-value">${data.school_reopen_date ? (window.formatDisplayDate ? window.formatDisplayDate(data.school_reopen_date) : new Date(data.school_reopen_date).toLocaleDateString()) : '-'}</div>
           </div>
         `;
       } else {
@@ -1187,12 +2774,8 @@
         formContainer.style.display = 'block';
         overviewContainer.style.display = 'none';
         cancelBtn.style.display = 'none';
-        
-        promotedSelect.value = '';
-        repeatedSelect.value = '';
-        cutOffInput.value = '';
+
         activatePromotion.checked = false;
-        reopenDate.value = '';
       }
 
       // Reset the Advanced panel before re-rendering for the new class
@@ -1207,10 +2790,16 @@
       renderAdvancedDs(classId);
     }
 
-    modifyBtn?.addEventListener('click', () => {
+    function openStatusRowsEditor() {
       formContainer.style.display = 'block';
       overviewContainer.style.display = 'none';
       cancelBtn.style.display = 'inline-flex';
+      focusStatusRow(classIdField.value);
+    }
+
+    bulkStatusSettingsBtn?.addEventListener('click', (event) => {
+      event.preventDefault();
+      openStatusRowsEditor();
     });
 
     cancelBtn?.addEventListener('click', () => {
@@ -1219,38 +2808,63 @@
     });
 
     classButtons.forEach(btn => { btn.addEventListener('click', () => loadClassSettings(btn.dataset.classId)); });
+    focusStatusRow(classIdField.value);
+    captureStatusRowsInitialState();
+
+    statusRowsEditor?.addEventListener('change', (event) => {
+      const row = event.target.closest('.status-row-item');
+      if (!row) return;
+      syncStatusRowDirtyState(row);
+    });
+
+    statusRowsEditor?.addEventListener('input', (event) => {
+      const row = event.target.closest('.status-row-item');
+      if (!row) return;
+      syncStatusRowDirtyState(row);
+    });
 
     async function persistGradePresentationSelection() {
       const classId = classIdField.value;
       const classDs = allDisplaySettingsMap[String(classId)] || { columns: {}, sections: {} };
-      const selectedMode = gradeDisplayModeSelect && (gradeDisplayModeSelect.value === 'numbers' || gradeDisplayModeSelect.value === 'both')
-        ? gradeDisplayModeSelect.value
-        : 'letters';
-      if (showGradeNumericTotalWrap) {
-        showGradeNumericTotalWrap.style.display = selectedMode === 'numbers' ? 'inline-flex' : 'none';
-      }
-      if (selectedMode !== 'numbers' && showGradeNumericTotalOnReport) {
-        showGradeNumericTotalOnReport.checked = false;
-      }
+      const payload = getGradePresentationPayloadFromControls();
+      const normalizedState = normalizeGradePresentationState(payload);
+      applyGradePresentationStateToControls(normalizedState);
       classDs.sections = classDs.sections || {};
-      classDs.sections.gradePresentation = {
-        mode: selectedMode,
-        showNumberTotalOnReport: selectedMode === 'numbers' && showGradeNumericTotalOnReport?.checked === true,
-      };
+      classDs.sections.gradePresentation = normalizedState;
       allDisplaySettingsMap[String(classId)] = classDs;
-      await saveAdvancedDisplaySettings(classId);
+      await saveAdvancedDisplaySettings(classId, { skipManualPaygiraValidation: true });
     }
 
     function getCurrentGradePresentationState() {
       const classId = classIdField.value;
       const classDs = allDisplaySettingsMap[String(classId)] || {};
       const gradePresentation = (classDs.sections && classDs.sections.gradePresentation) || {};
-      const mode = (gradePresentation.mode === 'numbers' || gradePresentation.mode === 'both')
-        ? gradePresentation.mode
-        : 'letters';
-      const showOnReport = mode === 'numbers' && gradePresentation.showNumberTotalOnReport === true;
-      return { mode, showOnReport };
+      return normalizeGradePresentationState(gradePresentation);
     }
+
+    openGradeNumericConfigBtn?.addEventListener('click', () => {
+      openGradeNumericConfigModal();
+    });
+
+    closeGradeNumericConfigBtn?.addEventListener('click', () => {
+      closeGradeNumericConfigModal();
+    });
+
+    closeGradeNumericConfigIcon?.addEventListener('click', () => {
+      closeGradeNumericConfigModal();
+    });
+
+    gradeNumericConfigModal?.addEventListener('click', (event) => {
+      if (event.target === gradeNumericConfigModal) {
+        closeGradeNumericConfigModal();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && gradeNumericConfigModal && gradeNumericConfigModal.style.display === 'flex') {
+        closeGradeNumericConfigModal();
+      }
+    });
 
     gradeDisplayModeSelect?.addEventListener('change', async () => {
       const prev = getCurrentGradePresentationState();
@@ -1261,74 +2875,469 @@
 
       const ok = confirmDestructiveAction('Change Format? This will update how grades display on report for this class.');
       if (!ok) {
-        gradeDisplayModeSelect.value = prev.mode;
-        if (showGradeNumericTotalOnReport) {
-          showGradeNumericTotalOnReport.checked = prev.showOnReport;
-        }
-        if (showGradeNumericTotalWrap) {
-          showGradeNumericTotalWrap.style.display = prev.mode === 'numbers' ? 'inline-flex' : 'none';
-        }
+        applyGradePresentationStateToControls(prev);
         return;
       }
 
       await persistGradePresentationSelection();
+      if (nextMode === 'numbers' || nextMode === 'both') {
+        openGradeNumericConfigModal();
+      } else {
+        closeGradeNumericConfigModal();
+      }
     });
 
     showGradeNumericTotalOnReport?.addEventListener('change', async () => {
-      const prev = getCurrentGradePresentationState();
       const nextChecked = showGradeNumericTotalOnReport.checked === true;
-      if (nextChecked === prev.showOnReport) return;
+      syncShowGradeNumericTotalVisualState();
 
-      const ok = confirmDestructiveAction('Change Show on report setting? This affects grade total visibility for this class report.');
-      if (!ok) {
-        showGradeNumericTotalOnReport.checked = prev.showOnReport;
-        return;
+      // Reveal/hide options immediately for a responsive settings UX.
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+      await persistGradePresentationSelection();
+
+      if (nextChecked && gradeNumericTotalConfigWrap) {
+        gradeNumericTotalConfigWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
+    });
 
+    showGradeNumericTotalWrap?.addEventListener('pointerdown', (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      event.preventDefault();
+    });
+
+    showGradeNumericTotalWrap?.addEventListener('click', async (event) => {
+      if (!showGradeNumericTotalOnReport) return;
+      event.preventDefault();
+      showGradeNumericTotalOnReport.checked = !showGradeNumericTotalOnReport.checked;
+      syncShowGradeNumericTotalVisualState();
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
       await persistGradePresentationSelection();
     });
 
-    // Grade mapping + score remark forms (separate UI / separate save intent)
+    gradeNumericTotalStrategySelect?.addEventListener('change', async () => {
+      if (gradeNumericStrategyRadios.length) {
+        gradeNumericStrategyRadios.forEach((radio) => {
+          radio.checked = radio.value === gradeNumericTotalStrategySelect.value;
+        });
+      }
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+      await persistGradePresentationSelection();
+    });
+
+    gradeNumericStrategyRadios.forEach((radio) => {
+      radio.addEventListener('change', async () => {
+        if (!radio.checked) return;
+        if (gradeNumericTotalStrategySelect) {
+          gradeNumericTotalStrategySelect.value = radio.value;
+        }
+        syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+        await persistGradePresentationSelection();
+      });
+    });
+
+    gradeBaseSubjectCountInput?.addEventListener('input', () => {
+      enforceCoreSelectionLimit();
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+    });
+
+    gradeBaseSubjectCountInput?.addEventListener('change', async () => {
+      enforceCoreSelectionLimit();
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+      await persistGradePresentationSelection();
+    });
+
+    gradeOtherSubjectCountInput?.addEventListener('input', () => {
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+    });
+
+    gradeOtherSubjectCountInput?.addEventListener('change', async () => {
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+      await persistGradePresentationSelection();
+    });
+
+    gradeRandomSubjectCountInput?.addEventListener('input', () => {
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+    });
+
+    gradeRandomSubjectCountInput?.addEventListener('change', async () => {
+      await persistGradePresentationSelection();
+    });
+
+    gradeRandomSelectionTypeSelect?.addEventListener('change', async () => {
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+      await persistGradePresentationSelection();
+    });
+
+    gradeBaseRandomSelectionTypeSelect?.addEventListener('change', async () => {
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+      await persistGradePresentationSelection();
+    });
+
+    gradeCoreSubjectList?.addEventListener('change', async (event) => {
+      if (!event.target || !event.target.classList.contains('grade-core-subject-checkbox')) {
+        return;
+      }
+      enforceCoreSelectionLimit(event.target);
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+      await persistGradePresentationSelection();
+    });
+
+    gradeRandomSubjectList?.addEventListener('change', async (event) => {
+      if (!event.target || !event.target.classList.contains('grade-random-subject-checkbox')) {
+        return;
+      }
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+      await persistGradePresentationSelection();
+    });
+
+    // Unified grade + score remark rule form.
+    const openGradeBulkPickerLink = document.getElementById('openGradeBulkPicker');
     const toggleGradeFormLink = document.getElementById('toggleGradeForm');
     const gradeFormContainer = document.getElementById('gradeFormContainer');
     const gradeForm = document.getElementById('gradeForm');
     const gradeClassCheckboxes = document.getElementById('gradeClassCheckboxes');
+    const selectAllGradeClasses = document.getElementById('selectAllGradeClasses');
     const editingGradeRowIdInput = document.getElementById('editingGradeRowId');
     const saveGradeMappingBtn = document.getElementById('saveGradeMappingBtn');
     const cancelGradeMappingBtn = document.getElementById('cancelGradeMappingBtn');
-
-    const toggleRemarkFormLink = document.getElementById('toggleRemarkForm');
-    const remarkFormContainer = document.getElementById('remarkFormContainer');
-    const remarkForm = document.getElementById('remarkForm');
-    const remarkClassCheckboxes = document.getElementById('remarkClassCheckboxes');
-    const editingRemarkRowIdInput = document.getElementById('editingRemarkRowId');
-    const saveScoreRemarkBtn = document.getElementById('saveScoreRemarkBtn');
-    const cancelScoreRemarkBtn = document.getElementById('cancelScoreRemarkBtn');
+    const gradeRuleRowsEl = document.getElementById('gradeRuleRows');
+    const gradeRuleRowTemplate = document.getElementById('gradeRuleRowTemplate');
+    const addGradeRuleRowBtn = document.getElementById('addGradeRuleRowBtn');
 
     const enrolledClassesForScore = <%- JSON.stringify(enrolledClasses) %>;
-    const buildClassCheckboxMarkup = (prefix) => enrolledClassesForScore
-      .sort((a,b) => a.class_id - b.class_id)
-      .map(cls => `
-        <div style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" class="score-class-checkbox" value="${cls.class_id}" id="${prefix}-${cls.class_id}" />
-          <label for="${prefix}-${cls.class_id}" style="cursor:pointer;margin:0;">${cls.class_name}</label>
-        </div>
-      `).join('');
+    const sortedEnrolledClassesForScore = [...enrolledClassesForScore];
+    const classOrderIndexById = new Map(
+      sortedEnrolledClassesForScore.map((cls, idx) => [Number(cls.class_id), idx])
+    );
+    const sortClassesByArrangement = (classes) => [...(Array.isArray(classes) ? classes : [])]
+      .sort((a, b) => {
+        const aIndex = classOrderIndexById.get(Number(a.class_id));
+        const bIndex = classOrderIndexById.get(Number(b.class_id));
+        if (Number.isFinite(aIndex) && Number.isFinite(bIndex)) {
+          return aIndex - bIndex;
+        }
+        if (Number.isFinite(aIndex)) return -1;
+        if (Number.isFinite(bIndex)) return 1;
+        return Number(a.class_id || 0) - Number(b.class_id || 0);
+      });
+    const classNameByIdMap = new Map(
+      sortedEnrolledClassesForScore.map((cls) => [String(cls.class_id), String(cls.class_name || '').trim()])
+    );
+    let ruleSaveRequestInFlight = false;
+    let gradeRuleRowCounter = 0;
 
-    if (gradeClassCheckboxes) {
-      gradeClassCheckboxes.innerHTML = buildClassCheckboxMarkup('grade-class');
-    }
-    if (remarkClassCheckboxes) {
-      remarkClassCheckboxes.innerHTML = buildClassCheckboxMarkup('remark-class');
+    function createGradeRuleRowElement(rowState = {}, options = {}) {
+      if (!gradeRuleRowTemplate) return null;
+      const index = Number(options?.index || 0);
+      const canRemove = options?.canRemove === true;
+
+      const fragment = gradeRuleRowTemplate.content.cloneNode(true);
+      const rowEl = fragment.querySelector('[data-role="grade-rule-row"]');
+      if (!rowEl) return null;
+
+      const rowId = String(rowState?.id || `grade-rule-${++gradeRuleRowCounter}`);
+      rowEl.setAttribute('data-row-id', rowId);
+
+      const titleEl = rowEl.querySelector('[data-role="grade-rule-title"]');
+      if (titleEl) {
+        titleEl.textContent = `Rule ${index + 1}`;
+      }
+
+      const gradeInput = rowEl.querySelector('[data-field="grade"]');
+      const remarkInput = rowEl.querySelector('[data-field="remark"]');
+      const fromInput = rowEl.querySelector('[data-field="from"]');
+      const toInput = rowEl.querySelector('[data-field="to"]');
+      const removeBtn = rowEl.querySelector('[data-role="remove-grade-rule-row"]');
+
+      if (gradeInput) gradeInput.value = String(rowState?.gradeLabel || rowState?.grade || '');
+      if (remarkInput) remarkInput.value = String(rowState?.remark || '');
+      if (fromInput) fromInput.value = String(rowState?.from ?? '');
+      if (toInput) toInput.value = String(rowState?.to ?? '');
+
+      if (removeBtn) {
+        removeBtn.style.visibility = canRemove ? 'visible' : 'hidden';
+      }
+
+      return rowEl;
     }
 
-    function setCurrentClassAsDefaultChecked(containerEl) {
+    function getGradeRuleRowElements() {
+      if (!gradeRuleRowsEl) return [];
+      return Array.from(gradeRuleRowsEl.querySelectorAll('[data-role="grade-rule-row"]'));
+    }
+
+    function getGradeRuleRowsState() {
+      return getGradeRuleRowElements().map((rowEl) => {
+        const id = String(rowEl.getAttribute('data-row-id') || '').trim();
+        const gradeLabel = String(rowEl.querySelector('[data-field="grade"]')?.value || '').trim();
+        const remark = String(rowEl.querySelector('[data-field="remark"]')?.value || '').trim();
+        const from = String(rowEl.querySelector('[data-field="from"]')?.value || '').trim();
+        const to = String(rowEl.querySelector('[data-field="to"]')?.value || '').trim();
+        return {
+          id,
+          gradeLabel,
+          remark,
+          from,
+          to,
+        };
+      });
+    }
+
+    function renderGradeRuleRows(rowsState = [], options = {}) {
+      if (!gradeRuleRowsEl) return;
+      const allowMultiple = options?.allowMultiple !== false;
+      const safeRows = Array.isArray(rowsState) && rowsState.length
+        ? rowsState
+        : [{ gradeLabel: '', remark: '', from: '', to: '' }];
+
+      gradeRuleRowsEl.innerHTML = '';
+      safeRows.forEach((rowState, index) => {
+        const rowEl = createGradeRuleRowElement(rowState, {
+          index,
+          canRemove: allowMultiple && safeRows.length > 1,
+        });
+        if (rowEl) {
+          gradeRuleRowsEl.appendChild(rowEl);
+        }
+      });
+
+      if (addGradeRuleRowBtn) {
+        addGradeRuleRowBtn.disabled = !allowMultiple;
+        addGradeRuleRowBtn.style.visibility = allowMultiple ? 'visible' : 'hidden';
+      }
+    }
+
+    function getValidatedGradeRuleRows(options = {}) {
+      const requireSingle = options?.requireSingle === true;
+      const rowsState = getGradeRuleRowsState();
+      if (!rowsState.length) {
+        return { ok: false, rows: [], message: 'Add at least one rule row.' };
+      }
+
+      const seenRanges = [];
+      const validatedRows = [];
+
+      for (let index = 0; index < rowsState.length; index += 1) {
+        const row = rowsState[index];
+        const fromPct = Number(row.from);
+        const toPct = Number(row.to);
+
+        if (!row.gradeLabel) {
+          return { ok: false, rows: [], message: `Rule ${index + 1}: grade label is required.` };
+        }
+
+        if (!row.remark) {
+          return { ok: false, rows: [], message: `Rule ${index + 1}: score remark is required.` };
+        }
+
+        if (!Number.isFinite(fromPct) || !Number.isFinite(toPct) || fromPct > toPct) {
+          return { ok: false, rows: [], message: `Rule ${index + 1}: provide a valid percentage range.` };
+        }
+
+        const rangeKey = buildRuleRangeKey(fromPct, toPct);
+        if (rangeKey && seenRanges.some((range) => range.key === rangeKey)) {
+          return { ok: false, rows: [], message: `Rule ${index + 1}: duplicate range ${fromPct}% - ${toPct}% detected.` };
+        }
+
+        if (seenRanges.some((range) => rangesOverlap(range.fromPct, range.toPct, fromPct, toPct))) {
+          return { ok: false, rows: [], message: `Rule ${index + 1}: range ${fromPct}% - ${toPct}% overlaps another row.` };
+        }
+
+        seenRanges.push({ key: rangeKey, fromPct, toPct });
+
+        validatedRows.push({
+          id: row.id,
+          gradeLabel: row.gradeLabel,
+          remark: row.remark,
+          fromPct,
+          toPct,
+        });
+      }
+
+      if (requireSingle && validatedRows.length !== 1) {
+        return {
+          ok: false,
+          rows: [],
+          message: 'Edit mode supports one rule row only. Remove extra rows or cancel edit.',
+        };
+      }
+
+      return { ok: true, rows: validatedRows };
+    }
+
+    function rangesOverlap(fromA, toA, fromB, toB) {
+      const aFrom = Number(fromA);
+      const aTo = Number(toA);
+      const bFrom = Number(fromB);
+      const bTo = Number(toB);
+      if (!Number.isFinite(aFrom) || !Number.isFinite(aTo) || !Number.isFinite(bFrom) || !Number.isFinite(bTo)) {
+        return false;
+      }
+      return aFrom <= bTo && aTo >= bFrom;
+    }
+
+    function getScoreRowsForClass(classId) {
+      const classKey = String(classId || '').trim();
+      const classRows = classKey ? scoreRemarksMap[classKey] : null;
+      return Array.isArray(classRows) ? classRows : [];
+    }
+
+    function isClassLockedForProposedRange(entryType, classId, fromValue, toValue) {
+      const safeEntryType = normalizeRuleEntryType(entryType);
+      const classKey = String(classId || '').trim();
+      const fromPct = Number(fromValue);
+      const toPct = Number(toValue);
+      if (!classKey || !Number.isFinite(fromPct) || !Number.isFinite(toPct) || fromPct > toPct) {
+        return false;
+      }
+
+      const classLocks = ruleLocksMap[safeEntryType] && ruleLocksMap[safeEntryType][classKey];
+      if (!classLocks || typeof classLocks !== 'object') {
+        return false;
+      }
+
+      return Object.entries(classLocks).some(([rangeKey, locked]) => {
+        if (locked !== true) return false;
+        const [lockFromRaw, lockToRaw] = String(rangeKey || '').split('__');
+        const lockFrom = Number(lockFromRaw);
+        const lockTo = Number(lockToRaw);
+        if (!Number.isFinite(lockFrom) || !Number.isFinite(lockTo)) {
+          return false;
+        }
+        return rangesOverlap(lockFrom, lockTo, fromPct, toPct);
+      });
+    }
+
+    function buildLocalOverrideTargets(selectedClassIds, fromPct, toPct) {
+      const uniqueClassIds = Array.isArray(selectedClassIds)
+        ? [...new Set(selectedClassIds.map((classId) => String(classId || '').trim()).filter(Boolean))]
+        : [];
+
+      return uniqueClassIds
+        .map((classId) => {
+          const conflictingRows = getScoreRowsForClass(classId).filter((row) => (
+            rangesOverlap(row?.from_percentage, row?.to_percentage, fromPct, toPct)
+          ));
+
+          if (!conflictingRows.length) {
+            return null;
+          }
+
+          return {
+            class_id: Number(classId),
+            class_name: classNameByIdMap.get(classId) || `Class ${classId}`,
+          };
+        })
+        .filter(Boolean);
+    }
+
+    const buildClassCheckboxMarkup = (prefix) => sortedEnrolledClassesForScore
+      .map((cls) => {
+        const classId = Number(cls.class_id);
+        return `
+          <div class="rs-class-select-row">
+            <span style="display:flex;align-items:center;gap:8px;min-width:0;">
+              <input type="checkbox" class="score-class-checkbox" value="${classId}" id="${prefix}-${classId}" />
+              <label for="${prefix}-${classId}" style="cursor:pointer;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtmlText(cls.class_name)}</label>
+            </span>
+          </div>
+        `;
+      }).join('');
+
+    function renderRuleFormClassCheckboxes(containerEl, prefix, selectAllEl, preservedSelectionSet = null) {
+      if (!containerEl) return;
+      const currentSelection = preservedSelectionSet instanceof Set
+        ? preservedSelectionSet
+        : new Set(Array.from(containerEl.querySelectorAll('.score-class-checkbox:checked')).map((cb) => cb.value));
+
+      containerEl.innerHTML = buildClassCheckboxMarkup(prefix);
+      containerEl.querySelectorAll('.score-class-checkbox').forEach((cb) => {
+        cb.checked = currentSelection.has(cb.value);
+      });
+      syncSelectAllCheckboxState(selectAllEl, containerEl);
+    }
+
+    renderRuleFormClassCheckboxes(gradeClassCheckboxes, 'grade-class', selectAllGradeClasses);
+    renderGradeRuleRows();
+
+    addGradeRuleRowBtn?.addEventListener('click', () => {
+      if (editingGradeRowIdInput && editingGradeRowIdInput.value) {
+        return;
+      }
+      const currentRows = getGradeRuleRowsState();
+      currentRows.push({ gradeLabel: '', remark: '', from: '', to: '' });
+      renderGradeRuleRows(currentRows, { allowMultiple: true });
+    });
+
+    gradeRuleRowsEl?.addEventListener('click', (event) => {
+      const removeBtn = event.target.closest('[data-role="remove-grade-rule-row"]');
+      if (!removeBtn) return;
+      const rowEl = removeBtn.closest('[data-role="grade-rule-row"]');
+      if (!rowEl) return;
+
+      const rowId = String(rowEl.getAttribute('data-row-id') || '').trim();
+      const currentRows = getGradeRuleRowsState();
+      if (currentRows.length <= 1) {
+        return;
+      }
+
+      const nextRows = currentRows.filter((row) => row.id !== rowId);
+      renderGradeRuleRows(nextRows, {
+        allowMultiple: !(editingGradeRowIdInput && editingGradeRowIdInput.value),
+      });
+    });
+
+    function syncSelectAllCheckboxState(selectAllEl, containerEl) {
+      if (!selectAllEl || !containerEl) return;
+      const checkboxes = Array.from(containerEl.querySelectorAll('.score-class-checkbox'));
+      const enabledCheckboxes = checkboxes.filter((cb) => !cb.disabled);
+
+      if (!enabledCheckboxes.length) {
+        selectAllEl.checked = false;
+        selectAllEl.indeterminate = false;
+        selectAllEl.disabled = true;
+        return;
+      }
+
+      const checkedCount = enabledCheckboxes.filter((cb) => cb.checked).length;
+      selectAllEl.disabled = false;
+      selectAllEl.checked = checkedCount === enabledCheckboxes.length;
+      selectAllEl.indeterminate = checkedCount > 0 && checkedCount < enabledCheckboxes.length;
+    }
+
+    function bindSelectAllClassCheckbox(selectAllEl, containerEl) {
+      if (!selectAllEl || !containerEl) return;
+
+      selectAllEl.addEventListener('change', () => {
+        const shouldCheck = selectAllEl.checked === true;
+        containerEl.querySelectorAll('.score-class-checkbox').forEach((cb) => {
+          if (cb.disabled) return;
+          cb.checked = shouldCheck;
+        });
+        syncSelectAllCheckboxState(selectAllEl, containerEl);
+      });
+
+      containerEl.addEventListener('change', (event) => {
+        const checkbox = event.target;
+        if (!checkbox || !checkbox.classList || !checkbox.classList.contains('score-class-checkbox')) {
+          return;
+        }
+        syncSelectAllCheckboxState(selectAllEl, containerEl);
+      });
+
+      syncSelectAllCheckboxState(selectAllEl, containerEl);
+    }
+
+    bindSelectAllClassCheckbox(selectAllGradeClasses, gradeClassCheckboxes);
+
+    function setCurrentClassAsDefaultChecked(containerEl, selectAllEl) {
       if (!containerEl) return;
       const currentClassId = classIdField.value;
-      containerEl.querySelectorAll('.score-class-checkbox').forEach(cb => {
-        cb.checked = cb.value === currentClassId;
+      containerEl.querySelectorAll('.score-class-checkbox').forEach((cb) => {
         cb.disabled = false;
+        cb.checked = cb.value === currentClassId;
       });
+      syncSelectAllCheckboxState(selectAllEl, containerEl);
     }
 
     function showToast(message) {
@@ -1348,22 +3357,154 @@
       });
     }
 
+    function escapeHtmlText(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function promptOverrideDecision(entryType, overrideClasses, options = {}) {
+      return new Promise((resolve) => {
+        const classes = Array.isArray(overrideClasses) ? overrideClasses : [];
+        const allowBypass = options?.allowBypass !== false;
+        if (!classes.length) {
+          resolve('continue');
+          return;
+        }
+
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:10012;padding:16px;';
+        const entryLabel = entryType === 'grade' ? 'grade mapping' : 'score remark';
+        const classItems = classes
+          .map((cls) => `<div>${escapeHtmlText(cls.class_name || `Class ${cls.class_id}`)}</div>`)
+          .join('');
+
+        modal.innerHTML = `
+          <div class="rs-override-modal">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+              <div style="font-size:0.95rem;font-weight:700;color:#b45309;">Override Warning</div>
+              <button type="button" data-action="close" class="btn btn-secondary">Cancel</button>
+            </div>
+            <div style="font-size:0.82rem;color:var(--muted);line-height:1.45;">
+              You are overriding an existing or overlapping ${entryLabel} for these classes.
+            </div>
+            <div class="rs-override-list">${classItems}</div>
+            <div class="rs-bulk-footer" style="margin-top:0;">
+              ${allowBypass ? '<button type="button" data-action="bypass" class="btn btn-secondary">Bypass Existing</button>' : ''}
+              <button type="button" data-action="continue" class="btn">Override</button>
+            </div>
+          </div>
+        `;
+
+        const close = (decision = null) => {
+          modal.remove();
+          resolve(decision);
+        };
+
+        modal.addEventListener('click', (event) => {
+          if (event.target === modal) {
+            close(null);
+          }
+        });
+
+        modal.querySelector('[data-action="close"]')?.addEventListener('click', () => close(null));
+        modal.querySelector('[data-action="bypass"]')?.addEventListener('click', () => close('bypass'));
+        modal.querySelector('[data-action="continue"]')?.addEventListener('click', () => close('continue'));
+
+        document.body.appendChild(modal);
+      });
+    }
+
+    async function prepareRuleSaveRequest(entryType, selectedClasses, fromPct, toPct, editingRowId) {
+      const normalizedSelectedClasses = Array.isArray(selectedClasses)
+        ? selectedClasses.map((classId) => String(classId || '').trim()).filter(Boolean)
+        : [];
+
+      if (editingRowId) {
+        return {
+          cancelled: false,
+          cancelReason: null,
+          selectedClasses: normalizedSelectedClasses,
+          action: undefined,
+          bypassOverrideClassIds: undefined,
+          lockedSkippedCount: 0,
+        };
+      }
+
+      const selectedUnlockedClasses = normalizedSelectedClasses.filter((classId) => (
+        !isClassLockedForProposedRange(entryType, classId, fromPct, toPct)
+      ));
+
+      const lockedSkippedCount = normalizedSelectedClasses.length - selectedUnlockedClasses.length;
+      if (!selectedUnlockedClasses.length) {
+        return {
+          cancelled: true,
+          cancelReason: 'locked',
+          selectedClasses: [],
+          action: undefined,
+          bypassOverrideClassIds: undefined,
+          lockedSkippedCount,
+        };
+      }
+
+      const overrideTargets = buildLocalOverrideTargets(selectedUnlockedClasses, fromPct, toPct);
+
+      let bypassOverrideClassIds = [];
+      if (overrideTargets.length) {
+        const decision = await promptOverrideDecision(entryType, overrideTargets, { allowBypass: false });
+        if (!decision) {
+          return {
+            cancelled: true,
+            cancelReason: 'cancelled',
+            selectedClasses: selectedUnlockedClasses,
+            action: undefined,
+            bypassOverrideClassIds: undefined,
+            lockedSkippedCount,
+          };
+        }
+        if (decision === 'bypass') {
+          bypassOverrideClassIds = overrideTargets.map((cls) => String(cls.class_id));
+        }
+      }
+
+      return {
+        cancelled: false,
+        cancelReason: null,
+        selectedClasses: selectedUnlockedClasses,
+        action: 'bulkUpsert',
+        bypassOverrideClassIds,
+        lockedSkippedCount,
+      };
+    }
+
+    openGradeBulkPickerLink?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!gradeFormContainer) return;
+      const isVisible = gradeFormContainer.style.display !== 'none';
+      gradeFormContainer.style.display = isVisible ? 'none' : 'block';
+      if (!isVisible) {
+        gradeForm.reset();
+        resetGradeEditMode();
+        setCurrentClassAsDefaultChecked(gradeClassCheckboxes, selectAllGradeClasses);
+      } else {
+        gradeForm.reset();
+        resetGradeEditMode();
+        renderRuleFormClassCheckboxes(gradeClassCheckboxes, 'grade-class', selectAllGradeClasses, new Set());
+      }
+    });
+
     function resetGradeEditMode() {
       if (editingGradeRowIdInput) {
         editingGradeRowIdInput.value = '';
       }
       if (saveGradeMappingBtn) {
-        saveGradeMappingBtn.textContent = 'Save Grade Mapping';
+        saveGradeMappingBtn.textContent = 'Save Rules';
       }
-    }
-
-    function resetRemarkEditMode() {
-      if (editingRemarkRowIdInput) {
-        editingRemarkRowIdInput.value = '';
-      }
-      if (saveScoreRemarkBtn) {
-        saveScoreRemarkBtn.textContent = 'Save Score Remark';
-      }
+      renderGradeRuleRows([], { allowMultiple: true });
     }
 
     toggleGradeFormLink?.addEventListener('click', (e) => {
@@ -1371,30 +3512,14 @@
       e.stopPropagation();
       const isVisible = gradeFormContainer.style.display !== 'none';
       gradeFormContainer.style.display = isVisible ? 'none' : 'block';
-      toggleGradeFormLink.textContent = isVisible ? '+ Add Grade Rule' : '− Hide Form';
+      toggleGradeFormLink.textContent = isVisible ? 'Grade & Remark Rule' : 'Hide Form';
 
       if (!isVisible) {
-        setCurrentClassAsDefaultChecked(gradeClassCheckboxes);
+        setCurrentClassAsDefaultChecked(gradeClassCheckboxes, selectAllGradeClasses);
       } else {
         gradeForm.reset();
         resetGradeEditMode();
-        gradeClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => { cb.disabled = false; });
-      }
-    });
-
-    toggleRemarkFormLink?.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const isVisible = remarkFormContainer.style.display !== 'none';
-      remarkFormContainer.style.display = isVisible ? 'none' : 'block';
-      toggleRemarkFormLink.textContent = isVisible ? '+ Add Score Remark' : '− Hide Form';
-
-      if (!isVisible) {
-        setCurrentClassAsDefaultChecked(remarkClassCheckboxes);
-      } else {
-        remarkForm.reset();
-        resetRemarkEditMode();
-        remarkClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => { cb.disabled = false; });
+        renderRuleFormClassCheckboxes(gradeClassCheckboxes, 'grade-class', selectAllGradeClasses, new Set());
       }
     });
 
@@ -1402,25 +3527,13 @@
       gradeForm.reset();
       resetGradeEditMode();
       gradeFormContainer.style.display = 'none';
-      toggleGradeFormLink.textContent = '+ Add Grade Rule';
-      gradeClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => { cb.disabled = false; cb.checked = false; });
-    });
-
-    cancelScoreRemarkBtn?.addEventListener('click', () => {
-      remarkForm.reset();
-      resetRemarkEditMode();
-      remarkFormContainer.style.display = 'none';
-      toggleRemarkFormLink.textContent = '+ Add Score Remark';
-      remarkClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => { cb.disabled = false; cb.checked = false; });
+      if (toggleGradeFormLink) toggleGradeFormLink.textContent = 'Grade & Remark Rule';
+      renderRuleFormClassCheckboxes(gradeClassCheckboxes, 'grade-class', selectAllGradeClasses, new Set());
     });
 
     gradeForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
-
-      const gradeLabel = document.getElementById('gradeLabelText').value.trim();
-      const fromPct = document.getElementById('gradeFromPct').value;
-      const toPct = document.getElementById('gradeToPct').value;
-      const selectedClasses = Array.from(gradeClassCheckboxes.querySelectorAll('.score-class-checkbox:checked')).map(cb => cb.value);
+      let selectedClasses = Array.from(gradeClassCheckboxes.querySelectorAll('.score-class-checkbox:checked')).map(cb => cb.value);
       const termId = '<%= termId %>';
       const editingRowId = editingGradeRowIdInput.value ? Number(editingGradeRowIdInput.value) : null;
       if(!selectedClasses.length){
@@ -1428,196 +3541,201 @@
         return;
       }
 
-      if(!gradeLabel){
-        alert('Please enter a grade label.');
+      const validatedRows = getValidatedGradeRuleRows({ requireSingle: Boolean(editingRowId) });
+      if (!validatedRows.ok) {
+        alert(validatedRows.message || 'Please complete all rule rows before saving.');
         return;
       }
 
+      if (ruleSaveRequestInFlight) {
+        return;
+      }
+
+      let didShowLoading = false;
+      ruleSaveRequestInFlight = true;
+      showLoading();
+      didShowLoading = true;
+      if (saveGradeMappingBtn) {
+        saveGradeMappingBtn.disabled = true;
+        saveGradeMappingBtn.textContent = editingRowId ? 'Updating...' : 'Saving...';
+      }
+
       try {
-        const response = await fetch('/print/saveScoreRemarksAjax', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            entryType: 'grade',
-            rowId: editingRowId,
-            grade_label: gradeLabel,
-            from_percentage: fromPct,
-            to_percentage: toPct,
-            termId,
-            selectedClasses
-          })
-        });
+        const rowsToProcess = validatedRows.rows || [];
+        const savePlans = [];
+        let lockedSkippedCount = 0;
 
-        const result = await response.json();
+        for (let index = 0; index < rowsToProcess.length; index += 1) {
+          const row = rowsToProcess[index];
 
-        if(result.success){
-          applyClassRowsMap(result.classRowsMap);
-          result.savedRemarks.forEach(rem => {
+          if (editingRowId) {
+            savePlans.push({
+              index: index + 1,
+              rowId: editingRowId,
+              row,
+              selectedClasses,
+              action: undefined,
+              bypassOverrideClassIds: undefined,
+            });
+            continue;
+          }
+
+          const savePlan = await prepareRuleSaveRequest('grade', selectedClasses, row.fromPct, row.toPct, null);
+          lockedSkippedCount += Number(savePlan?.lockedSkippedCount || 0);
+
+          if (savePlan?.cancelled) {
+            if (savePlan.cancelReason === 'locked') {
+              continue;
+            }
+            return;
+          }
+
+          const selectedClassesForRow = Array.isArray(savePlan?.selectedClasses)
+            ? savePlan.selectedClasses
+            : selectedClasses;
+          if (!selectedClassesForRow.length) {
+            continue;
+          }
+
+          savePlans.push({
+            index: index + 1,
+            rowId: null,
+            row,
+            selectedClasses: selectedClassesForRow,
+            action: savePlan?.action,
+            bypassOverrideClassIds: savePlan?.bypassOverrideClassIds,
+          });
+        }
+
+        if (!savePlans.length) {
+          alert('Selected classes are locked for all provided ranges. Unlock first to continue.');
+          return;
+        }
+
+        let appliedRuleCount = 0;
+        let bypassedTotal = 0;
+
+        let result;
+        if (editingRowId) {
+          const plan = savePlans[0];
+          const response = await fetch('/print/saveScoreRemarksAjax', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              entryType: 'grade',
+              action: plan.action,
+              rowId: plan.rowId || undefined,
+              grade_label: plan.row.gradeLabel,
+              remark: plan.row.remark,
+              from_percentage: plan.row.fromPct,
+              to_percentage: plan.row.toPct,
+              termId,
+              selectedClasses: plan.selectedClasses,
+            })
+          });
+          result = await response.json();
+
+          if(!result.success){
+            if (Array.isArray(result.lockedClassIds) && result.lockedClassIds.length) {
+              const lockFrom = result?.lockedRange?.from;
+              const lockTo = result?.lockedRange?.to;
+              const effectiveFrom = Number.isFinite(Number(lockFrom)) ? Number(lockFrom) : plan.row.fromPct;
+              const effectiveTo = Number.isFinite(Number(lockTo)) ? Number(lockTo) : plan.row.toPct;
+              applyRuleLockState('grade', result.lockedClassIds, effectiveFrom, effectiveTo, true);
+              loadClassSettings(classIdField.value);
+            }
+            throw new Error(result.message || 'Failed to save grade & score rule.');
+          }
+          appliedRuleCount = 1;
+        } else {
+          const mergedSelectedClasses = [...new Set(
+            savePlans.flatMap((plan) => (Array.isArray(plan.selectedClasses) ? plan.selectedClasses : []))
+          )];
+          const ruleBatch = savePlans.map((plan) => ({
+            from_percentage: plan.row.fromPct,
+            to_percentage: plan.row.toPct,
+            grade_label: plan.row.gradeLabel,
+            remark: plan.row.remark,
+            selectedClasses: plan.selectedClasses,
+            bypassOverrideClassIds: Array.isArray(plan.bypassOverrideClassIds) ? plan.bypassOverrideClassIds : [],
+          }));
+
+          const response = await fetch('/print/saveScoreRemarksAjax', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              entryType: 'grade',
+              action: 'bulkUpsertBatch',
+              termId,
+              selectedClasses: mergedSelectedClasses,
+              ruleBatch,
+            })
+          });
+          result = await response.json();
+
+          if(!result.success){
+            if (Array.isArray(result.lockedClassIds) && result.lockedClassIds.length) {
+              const firstRule = ruleBatch[0] || {};
+              const lockFrom = result?.lockedRange?.from;
+              const lockTo = result?.lockedRange?.to;
+              const effectiveFrom = Number.isFinite(Number(lockFrom)) ? Number(lockFrom) : Number(firstRule.from_percentage);
+              const effectiveTo = Number.isFinite(Number(lockTo)) ? Number(lockTo) : Number(firstRule.to_percentage);
+              if (Number.isFinite(effectiveFrom) && Number.isFinite(effectiveTo)) {
+                applyRuleLockState('grade', result.lockedClassIds, effectiveFrom, effectiveTo, true);
+              }
+              loadClassSettings(classIdField.value);
+            }
+            throw new Error(result.message || 'Failed to save grade & score rules.');
+          }
+          appliedRuleCount = savePlans.length;
+        }
+
+        applyClassRowsMap(result.classRowsMap);
+        if (Array.isArray(result.savedRemarks)) {
+          result.savedRemarks.forEach((rem) => {
             if(!scoreRemarksMap[String(rem.class_id)]) scoreRemarksMap[String(rem.class_id)] = [];
-            const existingIdx = scoreRemarksMap[String(rem.class_id)].findIndex(r => r.id === rem.id);
+            const existingIdx = scoreRemarksMap[String(rem.class_id)].findIndex((r) => r.id === rem.id);
             if(existingIdx >= 0){
               scoreRemarksMap[String(rem.class_id)][existingIdx] = rem;
             } else {
               scoreRemarksMap[String(rem.class_id)].push(rem);
             }
           });
+        }
 
-          loadClassSettings(classIdField.value);
-          gradeForm.reset();
-          gradeFormContainer.style.display = 'none';
-          toggleGradeFormLink.textContent = '+ Add Grade Rule';
-          resetGradeEditMode();
-          showToast(result.message || 'Grade mapping saved successfully!');
+        bypassedTotal = Array.isArray(result?.skippedOverrideClassIds)
+          ? result.skippedOverrideClassIds.length
+          : 0;
+
+        loadClassSettings(classIdField.value);
+        gradeForm.reset();
+        gradeFormContainer.style.display = 'none';
+        if (toggleGradeFormLink) toggleGradeFormLink.textContent = 'Grade & Remark Rule';
+        resetGradeEditMode();
+
+        if (editingRowId) {
+          showToast('Grade & score rule updated successfully!');
         } else {
-          alert(result.message || 'Failed to save grade mapping.');
+          const saveNotes = [];
+          if (bypassedTotal) saveNotes.push(`${bypassedTotal} class updates bypassed`);
+          if (lockedSkippedCount) saveNotes.push(`${lockedSkippedCount} locked class updates skipped`);
+          const noteText = saveNotes.length ? ` (${saveNotes.join(', ')})` : '';
+          showToast(`Saved ${appliedRuleCount} rule(s) successfully${noteText}.`);
         }
       } catch(error){
-        console.error('Error saving grade mapping:', error);
-        alert('An error occurred while saving grade mapping.');
+        console.error('Error saving grade + score rule:', error);
+        alert(error?.message || 'An error occurred while saving grade & score rule.');
+      } finally {
+        if (didShowLoading) {
+          hideLoading();
+        }
+        ruleSaveRequestInFlight = false;
+        if (saveGradeMappingBtn) {
+          saveGradeMappingBtn.disabled = false;
+          saveGradeMappingBtn.textContent = editingGradeRowIdInput?.value ? 'Update Grade & Remark' : 'Save Rules';
+        }
       }
     });
-
-    remarkForm?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const remark = document.getElementById('scoreRemarkText').value.trim();
-      const fromPct = document.getElementById('remarkFromPct').value;
-      const toPct = document.getElementById('remarkToPct').value;
-      const selectedClasses = Array.from(remarkClassCheckboxes.querySelectorAll('.score-class-checkbox:checked')).map(cb => cb.value);
-      const termId = '<%= termId %>';
-      const editingRowId = editingRemarkRowIdInput.value ? Number(editingRemarkRowIdInput.value) : null;
-      if(!selectedClasses.length){
-        alert('Please select at least one class.');
-        return;
-      }
-
-      if(!remark){
-        alert('Please enter a remark.');
-        return;
-      }
-
-      try {
-        const response = await fetch('/print/saveScoreRemarksAjax', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            entryType: 'remark',
-            rowId: editingRowId,
-            remark,
-            from_percentage: fromPct,
-            to_percentage: toPct,
-            termId,
-            selectedClasses
-          })
-        });
-
-        const result = await response.json();
-
-        if(result.success){
-          applyClassRowsMap(result.classRowsMap);
-          result.savedRemarks.forEach(rem => {
-            if(!scoreRemarksMap[String(rem.class_id)]) scoreRemarksMap[String(rem.class_id)] = [];
-            const existingIdx = scoreRemarksMap[String(rem.class_id)].findIndex(r => r.id === rem.id);
-            if(existingIdx >= 0){
-              scoreRemarksMap[String(rem.class_id)][existingIdx] = rem;
-            } else {
-              scoreRemarksMap[String(rem.class_id)].push(rem);
-            }
-          });
-
-          loadClassSettings(classIdField.value);
-          remarkForm.reset();
-          remarkFormContainer.style.display = 'none';
-          toggleRemarkFormLink.textContent = '+ Add Score Remark';
-          resetRemarkEditMode();
-          showToast(result.message || 'Score remark saved successfully!');
-        } else {
-          alert(result.message || 'Failed to save score remark.');
-        }
-      } catch(error){
-        console.error('Error saving score remark:', error);
-        alert('An error occurred while saving score remark.');
-      }
-    });
-
-    if (!window.__reportSettingsGradeDelegatedBound) {
-      window.__reportSettingsGradeDelegatedBound = true;
-      document.addEventListener('click', (e) => {
-        if (e.defaultPrevented) return;
-        const toggleGrade = e.target.closest('#toggleGradeForm');
-        if (toggleGrade && gradeFormContainer) {
-          e.preventDefault();
-          const isVisible = gradeFormContainer.style.display !== 'none';
-          gradeFormContainer.style.display = isVisible ? 'none' : 'block';
-          if (toggleGradeFormLink) {
-            toggleGradeFormLink.textContent = isVisible ? '+ Add Grade Rule' : '− Hide Form';
-          }
-          if (!isVisible) {
-            setCurrentClassAsDefaultChecked(gradeClassCheckboxes);
-          }
-          return;
-        }
-
-        const editGrade = e.target.closest('.edit-grade-rule');
-        if (editGrade) {
-          e.preventDefault();
-          const rowId = editGrade.dataset.id || '';
-          const classIdToEdit = editGrade.dataset.classId || '';
-          const grade = editGrade.dataset.grade || '';
-          const fromPct = editGrade.dataset.from || '';
-          const toPct = editGrade.dataset.to || '';
-
-          if (editingGradeRowIdInput) editingGradeRowIdInput.value = rowId;
-          const gradeLabelEl = document.getElementById('gradeLabelText');
-          const gradeFromEl = document.getElementById('gradeFromPct');
-          const gradeToEl = document.getElementById('gradeToPct');
-          if (gradeLabelEl) gradeLabelEl.value = grade;
-          if (gradeFromEl) gradeFromEl.value = fromPct;
-          if (gradeToEl) gradeToEl.value = toPct;
-
-          if (gradeClassCheckboxes) {
-            gradeClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => {
-              cb.checked = cb.value === String(classIdToEdit);
-              cb.disabled = true;
-            });
-          }
-
-          if (gradeFormContainer) gradeFormContainer.style.display = 'block';
-          if (toggleGradeFormLink) toggleGradeFormLink.textContent = '− Hide Form';
-          if (saveGradeMappingBtn) saveGradeMappingBtn.textContent = 'Update Grade Mapping';
-          return;
-        }
-
-        const editRemark = e.target.closest('.edit-score-remark');
-        if (editRemark) {
-          e.preventDefault();
-          const rowId = editRemark.dataset.id || '';
-          const classIdToEdit = editRemark.dataset.classId || '';
-          const remark = editRemark.dataset.remark || '';
-          const fromPct = editRemark.dataset.from || '';
-          const toPct = editRemark.dataset.to || '';
-
-          if (editingRemarkRowIdInput) editingRemarkRowIdInput.value = rowId;
-          const remarkTextEl = document.getElementById('scoreRemarkText');
-          const remarkFromEl = document.getElementById('remarkFromPct');
-          const remarkToEl = document.getElementById('remarkToPct');
-          if (remarkTextEl) remarkTextEl.value = remark;
-          if (remarkFromEl) remarkFromEl.value = fromPct;
-          if (remarkToEl) remarkToEl.value = toPct;
-
-          if (remarkClassCheckboxes) {
-            remarkClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => {
-              cb.checked = cb.value === String(classIdToEdit);
-              cb.disabled = true;
-            });
-          }
-
-          if (remarkFormContainer) remarkFormContainer.style.display = 'block';
-          if (toggleRemarkFormLink) toggleRemarkFormLink.textContent = '− Hide Form';
-          if (saveScoreRemarkBtn) saveScoreRemarkBtn.textContent = 'Update Score Remark';
-        }
-      });
-    }
 
     // Run initial class load last so earlier listener setup remains intact even if
     // a class-specific rendering issue happens for some users.
@@ -1914,7 +4032,7 @@
       if(availableClasses.length === 0){
         signatureClassCheckboxes.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;">All classes already have signatures. Select classes below to replace their signatures.</p>';
       } else {
-        signatureClassCheckboxes.innerHTML = availableClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+        signatureClassCheckboxes.innerHTML = sortClassesByArrangement(availableClasses).map(cls => `
           <div style="display:flex;align-items:center;gap:8px;">
             <input type="checkbox" class="draw-signature-class" value="${cls.class_id}" id="sig-class-${cls.class_id}" />
             <label for="sig-class-${cls.class_id}" style="cursor:pointer;margin:0;">${cls.class_name}</label>
@@ -1927,14 +4045,14 @@
         const assignedClasses = enrolledClassesForSig.filter(cls => assignedClassIds.includes(cls.class_id));
         if(assignedClasses.length > 0 && availableClasses.length > 0){
           signatureClassCheckboxes.innerHTML += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);"><p style="color:var(--muted);font-size:0.85rem;margin-bottom:8px;">Already assigned (will replace):</p>' + 
-            assignedClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+            sortClassesByArrangement(assignedClasses).map(cls => `
               <div style="display:flex;align-items:center;gap:8px;">
                 <input type="checkbox" class="draw-signature-class" value="${cls.class_id}" id="sig-class-assigned-${cls.class_id}" />
                 <label for="sig-class-assigned-${cls.class_id}" style="cursor:pointer;margin:0;color:var(--muted);">${cls.class_name}</label>
               </div>
             `).join('') + '</div>';
         } else if(availableClasses.length === 0){
-          signatureClassCheckboxes.innerHTML += assignedClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+          signatureClassCheckboxes.innerHTML += sortClassesByArrangement(assignedClasses).map(cls => `
             <div style="display:flex;align-items:center;gap:8px;">
               <input type="checkbox" class="draw-signature-class" value="${cls.class_id}" id="sig-class-${cls.class_id}" />
               <label for="sig-class-${cls.class_id}" style="cursor:pointer;margin:0;">${cls.class_name}</label>
@@ -1972,7 +4090,7 @@
           return;
         }
         
-        const classOptions = availableClasses.sort((a,b) => a.class_id - b.class_id)
+        const classOptions = sortClassesByArrangement(availableClasses)
           .map(cls => `<label style="display:block;padding:6px;"><input type="checkbox" value="${cls.class_id}" style="margin-right:8px;">${cls.class_name}</label>`)
           .join('');
         
@@ -2072,7 +4190,7 @@
       if(availableClasses.length === 0){
         transcriptSigCheckboxes.innerHTML = '<p style=\"color:var(--muted);font-size:0.9rem;\">All classes have transcript signatures. Select to replace.</p>';
       } else {
-        transcriptSigCheckboxes.innerHTML = availableClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+        transcriptSigCheckboxes.innerHTML = sortClassesByArrangement(availableClasses).map(cls => `
           <div style=\"display:flex;align-items:center;gap:8px;\">
             <input type=\"checkbox\" class=\"transcript-signature-class\" value=\"${cls.class_id}\" id=\"trans-sig-class-${cls.class_id}\" />
             <label for=\"trans-sig-class-${cls.class_id}\" style=\"cursor:pointer;margin:0;\">${cls.class_name}</label>
@@ -2084,14 +4202,14 @@
         const assignedClasses = enrolledClassesForTranscript.filter(cls => assignedTranscriptClassIds.includes(cls.class_id));
         if(assignedClasses.length > 0 && availableClasses.length > 0){
           transcriptSigCheckboxes.innerHTML += '<div style=\"margin-top:12px;padding-top:12px;border-top:1px solid var(--border);\"><p style=\"color:var(--muted);font-size:0.85rem;margin-bottom:8px;\">Already assigned (will replace):</p>' + 
-            assignedClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+            sortClassesByArrangement(assignedClasses).map(cls => `
               <div style=\"display:flex;align-items:center;gap:8px;\">
                 <input type=\"checkbox\" class=\"transcript-signature-class\" value=\"${cls.class_id}\" id=\"trans-sig-assigned-${cls.class_id}\" />
                 <label for=\"trans-sig-assigned-${cls.class_id}\" style=\"cursor:pointer;margin:0;color:var(--muted);\">${cls.class_name}</label>
               </div>
             `).join('') + '</div>';
         } else if(availableClasses.length === 0){
-          transcriptSigCheckboxes.innerHTML += assignedClasses.sort((a,b) => a.class_id - b.class_id).map(cls => `
+          transcriptSigCheckboxes.innerHTML += sortClassesByArrangement(assignedClasses).map(cls => `
             <div style=\"display:flex;align-items:center;gap:8px;\">
               <input type=\"checkbox\" class=\"transcript-signature-class\" value=\"${cls.class_id}\" id=\"trans-sig-class-${cls.class_id}\" />
               <label for=\"trans-sig-class-${cls.class_id}\" style=\"cursor:pointer;margin:0;\">${cls.class_name}</label>
@@ -2128,7 +4246,7 @@
           return;
         }
         
-        const classOptions = availableClasses.sort((a,b) => a.class_id - b.class_id)
+        const classOptions = sortClassesByArrangement(availableClasses)
           .map(cls => `<label style=\"display:block;padding:6px;\"><input type=\"checkbox\" value=\"${cls.class_id}\" style=\"margin-right:8px;\">${cls.class_name}</label>`)
           .join('');
         
@@ -2208,25 +4326,67 @@
     window.saveTranscriptSignature = saveTranscriptSignature;
     <% } %>
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const menus = document.querySelectorAll('.kebab-menu');
-      menus.forEach(menu => {
+    const globalRemarksForm = document.getElementById('globalRemarksForm');
+    const saveRemarksBtn = document.getElementById('saveRemarksBtn');
+    let remarksSubmitInFlight = false;
+
+    globalRemarksForm?.addEventListener('submit', () => {
+      if (remarksSubmitInFlight) {
+        return;
+      }
+      remarksSubmitInFlight = true;
+      if (saveRemarksBtn) {
+        saveRemarksBtn.disabled = true;
+        saveRemarksBtn.textContent = 'Saving...';
+      }
+      showLoading();
+    });
+
+    function closeAllKebabMenus() {
+      document.querySelectorAll('.kebab-menu.open').forEach((menu) => {
+        menu.classList.remove('open');
         const trigger = menu.querySelector('.kebab');
-        trigger?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          menus.forEach(m => m.classList.remove('open'));
-          menu.classList.toggle('open');
-        });
+        if (trigger) {
+          trigger.setAttribute('aria-expanded', 'false');
+        }
       });
-      document.addEventListener('click', () => { menus.forEach(m => m.classList.remove('open')); });
+    }
+
+    document.addEventListener('click', (event) => {
+      const trigger = event.target.closest('.kebab-menu .kebab');
+      if (trigger) {
+        event.preventDefault();
+        event.stopPropagation();
+        const menu = trigger.closest('.kebab-menu');
+        const wasOpen = menu?.classList.contains('open');
+        closeAllKebabMenus();
+        if (menu && !wasOpen) {
+          menu.classList.add('open');
+          trigger.setAttribute('aria-expanded', 'true');
+        }
+        return;
+      }
+
+      if (!event.target.closest('.kebab-menu')) {
+        closeAllKebabMenus();
+      }
     });
 
     // Loading overlay helpers
+    let loadingOverlayActiveCount = 0;
     function showLoading() {
-      document.getElementById('loadingOverlay').classList.add('active');
+      const overlay = document.getElementById('loadingOverlay');
+      if (!overlay) return;
+      loadingOverlayActiveCount += 1;
+      overlay.classList.add('active');
     }
     function hideLoading() {
-      document.getElementById('loadingOverlay').classList.remove('active');
+      const overlay = document.getElementById('loadingOverlay');
+      if (!overlay) return;
+      loadingOverlayActiveCount = Math.max(0, loadingOverlayActiveCount - 1);
+      if (loadingOverlayActiveCount === 0) {
+        overlay.classList.remove('active');
+      }
     }
 
     // AJAX delete functions
@@ -2341,7 +4501,16 @@
 
       return selectAllHtml + enrolledClassesForScore
         .slice()
-        .sort((a, b) => a.class_id - b.class_id)
+        .sort((a, b) => {
+          const aIndex = classOrderIndexById.get(Number(a.class_id));
+          const bIndex = classOrderIndexById.get(Number(b.class_id));
+          if (Number.isFinite(aIndex) && Number.isFinite(bIndex)) {
+            return aIndex - bIndex;
+          }
+          if (Number.isFinite(aIndex)) return -1;
+          if (Number.isFinite(bIndex)) return 1;
+          return Number(a.class_id || 0) - Number(b.class_id || 0);
+        })
         .map((cls) => {
           const classIdNum = Number(cls.class_id);
           const checked = selected.has(classIdNum);
@@ -3194,9 +5363,10 @@
       const banner = sub.querySelector('.ds-master-off-banner'); if (banner) banner.style.display = 'none';
     }
 
-    async function saveAdvancedDisplaySettings(classId) {
+    async function saveAdvancedDisplaySettings(classId, options = {}) {
       const panel = document.getElementById('advancedDsPanel');
       if (!panel) return false;
+      const skipManualPaygiraValidation = options.skipManualPaygiraValidation === true;
       panel.dataset.saveValidationError = '0';
       // Guard: only save if panel is showing data for the requested class
       if (panel.dataset.classId && panel.dataset.classId !== String(classId)) {
@@ -3213,13 +5383,7 @@
       panel.querySelectorAll('.ds-adv-col').forEach(cb => { columns[cb.dataset.key] = cb.checked; });
       const sections = {};
       panel.querySelectorAll('.ds-adv-sec').forEach(cb => { sections[cb.dataset.key] = cb.checked; });
-      const selectedGradeMode = gradeDisplayModeSelect && (gradeDisplayModeSelect.value === 'numbers' || gradeDisplayModeSelect.value === 'both')
-        ? gradeDisplayModeSelect.value
-        : 'letters';
-      sections.gradePresentation = {
-        mode: selectedGradeMode,
-        showNumberTotalOnReport: selectedGradeMode === 'numbers' && showGradeNumericTotalOnReport?.checked === true,
-      };
+      sections.gradePresentation = getGradePresentationPayloadFromControls();
       const turnOffAutoAttendanceCb = document.getElementById('ds-adv-turnOffAutoAttendance');
       sections.turnOffAutoAttendance = turnOffAutoAttendanceCb ? turnOffAutoAttendanceCb.checked : false;
       const manualAttendanceOutOfInput = document.getElementById('ds-adv-manualAttendanceOutOf');
@@ -3243,7 +5407,7 @@
 
       // Validate manual Paygira required names before collecting payload.
       panel.querySelectorAll('.input-required-error').forEach((el) => el.classList.remove('input-required-error'));
-      if (paygiraEnabledCb?.checked === true && paygiraMode === 'manual') {
+      if (!skipManualPaygiraValidation && paygiraEnabledCb?.checked === true && paygiraMode === 'manual') {
         const invalidInputs = [];
 
         panel.querySelectorAll('.ds-paygira-manual-field').forEach((row) => {
@@ -3340,13 +5504,167 @@
       } catch(e) { console.error(e); return false; }
     }
 
-    // Intercept status settings form to also save advanced DS settings first
-    document.getElementById('statusSettingsForm')?.addEventListener('submit', async function(e) {
+    function hasAdvancedDisplaySettingsChanges(classId) {
+      const payload = allDisplaySettingsMap[String(classId)] || { columns: {}, sections: {} };
+      const cols = payload.columns || {};
+      const secs = payload.sections || {};
+
+      const rowData = collectAdvancedPaygiraManualRows();
+      const paygiraManualFields = rowData.fields;
+      const paygiraManualTotals = computePaygiraManualTotalsFromRows(rowData.rows);
+      const gradePresentation = getGradePresentationPayloadFromControls();
+
+      const columns = {
+        classScore: !!document.getElementById('ds-adv-classScore')?.checked,
+        classScore_items: getItemsState('classScore_items'),
+        examsScore: !!document.getElementById('ds-adv-examsScore')?.checked,
+        examsScore_items: getItemsState('examsScore_items'),
+        otherScore: !!document.getElementById('ds-adv-otherScore')?.checked,
+        otherScore_items: getItemsState('otherScore_items'),
+        totalScore: !!document.getElementById('ds-adv-totalScore')?.checked,
+        scaledScore: !!document.getElementById('ds-adv-scaledScore')?.checked,
+        totalPercentage: !!document.getElementById('ds-adv-totalPercentage')?.checked,
+        grade: !!document.getElementById('ds-adv-grade')?.checked,
+        position: !!document.getElementById('ds-adv-position')?.checked,
+        remarksCol: !!document.getElementById('ds-adv-remarksCol')?.checked,
+      };
+
+      const turnOffAutoAttendanceOn = !!document.getElementById('ds-adv-turnOffAutoAttendance')?.checked;
+      const manualAttendanceOutOfInput = document.getElementById('ds-adv-manualAttendanceOutOf');
+      const manualAttendanceOutOfRaw = manualAttendanceOutOfInput ? manualAttendanceOutOfInput.value : '';
+      const manualAttendanceOutOfNum = Number.parseInt(String(manualAttendanceOutOfRaw || '').trim(), 10);
+      const manualAttendanceOutOf = turnOffAutoAttendanceOn && Number.isFinite(manualAttendanceOutOfNum) && manualAttendanceOutOfNum > 0
+        ? manualAttendanceOutOfNum
+        : null;
+
+      const sections = {
+        teacherRemarks: !!document.getElementById('ds-adv-teacherRemarks')?.checked,
+        conductRemarks: !!document.getElementById('ds-adv-conductRemarks')?.checked,
+        attitudeRemarks: !!document.getElementById('ds-adv-attitudeRemarks')?.checked,
+        interestRemarks: !!document.getElementById('ds-adv-interestRemarks')?.checked,
+        gradeKey: !!document.getElementById('ds-adv-gradeKey')?.checked,
+        gradePresentation,
+        attendance: !!document.getElementById('ds-adv-attendance')?.checked,
+        turnOffAutoAttendance: turnOffAutoAttendanceOn,
+        manualAttendanceOutOf,
+        promotion: !!document.getElementById('ds-adv-promotion')?.checked,
+        paygiraBills: {
+          enabled: !!document.getElementById('ds-adv-paygiraBills')?.checked,
+          mode: document.querySelector('input[name="paygiraBillMode"]:checked')?.value === 'manual' ? 'manual' : 'auto',
+          auto: {
+            scope: document.querySelector('input[name="paygiraBillAutoScope"]:checked')?.value === 'future' ? 'future' : 'past',
+            dateFrom: (document.getElementById('paygiraBillDateFrom')?.value || '').trim(),
+            dateTo: (document.getElementById('paygiraBillDateTo')?.value || '').trim(),
+            future: {
+              action: document.querySelector('input[name="paygiraFutureBillAction"]:checked')?.value === 'custom' ? 'custom' : 'create',
+              billName: (document.getElementById('paygiraFutureBillName')?.value || '').trim(),
+            },
+            metrics: {
+              totalPaid: !!document.getElementById('paygiraMetricTotalPaid')?.checked,
+              defaultArrears: !!document.getElementById('paygiraMetricDefaultArrears')?.checked,
+              latePayments: !!document.getElementById('paygiraMetricLatePayments')?.checked,
+              totalBilled: !!document.getElementById('paygiraMetricTotalBilled')?.checked,
+              totalOutstanding: !!document.getElementById('paygiraMetricTotalOutstanding')?.checked,
+              lastPaymentDate: !!document.getElementById('paygiraMetricLastPaymentDate')?.checked,
+            },
+          },
+          manual: {
+            fields: paygiraManualFields,
+            totals: paygiraManualTotals,
+          },
+        },
+      };
+
+      const oldState = JSON.stringify({
+        columns: cols,
+        sections: {
+          teacherRemarks: secs.teacherRemarks !== false,
+          conductRemarks: secs.conductRemarks !== false,
+          attitudeRemarks: secs.attitudeRemarks !== false,
+          interestRemarks: secs.interestRemarks !== false,
+          gradeKey: secs.gradeKey !== false,
+          gradePresentation: normalizeGradePresentationState(secs.gradePresentation || {}),
+          attendance: secs.attendance !== false,
+          turnOffAutoAttendance: secs.turnOffAutoAttendance === true,
+          manualAttendanceOutOf: Number.isFinite(Number(secs.manualAttendanceOutOf)) && Number(secs.manualAttendanceOutOf) > 0
+            ? Number(secs.manualAttendanceOutOf)
+            : null,
+          promotion: secs.promotion !== false,
+          paygiraBills: normalizePaygiraBillsState(secs.paygiraBills || {}),
+        },
+      });
+      const newState = JSON.stringify({ columns, sections });
+      return oldState !== newState;
+    }
+
+    // Intercept status settings form: fast-submit dirty rows; optional advanced-only save when no row changes.
+    statusSettingsForm?.addEventListener('submit', async function(e) {
       e.preventDefault();
-      const ok = await saveAdvancedDisplaySettings(classIdField.value);
-      if (ok) {
-        this.submit();
+      const submitBtn = this.querySelector('button[type="submit"]');
+      const originalSubmitText = submitBtn ? submitBtn.textContent : '';
+
+      const beginSubmitUi = () => {
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Saving...';
+        }
+        showLoading();
+      };
+
+      const endSubmitUi = () => {
+        hideLoading();
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalSubmitText;
+        }
+      };
+
+      const allRows = Array.from(this.querySelectorAll('.status-row-item'));
+      if (!allRows.length) {
+        alert('No status rows available to save.');
+        return;
       }
+
+      const dirtyRows = getDirtyStatusRows();
+      if (!dirtyRows.length) {
+        const proceedWithoutRowChanges = window.confirm('No row changes detected. Save advanced settings only?');
+        if (!proceedWithoutRowChanges) {
+          return;
+        }
+        beginSubmitUi();
+        const shouldSaveAdvancedOnly = hasAdvancedDisplaySettingsChanges(classIdField.value);
+        const advancedOnlySaved = shouldSaveAdvancedOnly ? await saveAdvancedDisplaySettings(classIdField.value) : true;
+        endSubmitUi();
+        if (advancedOnlySaved) {
+          showToast(shouldSaveAdvancedOnly
+            ? 'No row changes detected. Advanced settings saved.'
+            : 'No row changes detected. No advanced setting changes to save.');
+        }
+        return;
+      }
+
+      const rowCountLabel = dirtyRows.length === 1 ? 'row' : 'rows';
+      const confirmed = window.confirm(`Save ${dirtyRows.length} edited ${rowCountLabel}? Unedited rows will remain unchanged.`);
+      if (!confirmed) {
+        return;
+      }
+
+      const dirtyClassIdSet = new Set(dirtyRows.map((row) => getStatusRowState(row).classId));
+
+      allRows.forEach((row) => {
+        const rowClassId = getStatusRowState(row).classId;
+        const keepRow = dirtyClassIdSet.has(rowClassId);
+        row.querySelectorAll(STATUS_ROW_FIELDS_SELECTOR).forEach((field) => {
+          if (keepRow) return;
+          if (!field.disabled) {
+            field.disabled = true;
+          }
+        });
+      });
+
+      beginSubmitUi();
+      showToast(`Saving ${dirtyRows.length} edited ${rowCountLabel}...`);
+      this.submit();
     });
 
     // ── Collapsible cards ──

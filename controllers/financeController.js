@@ -2210,7 +2210,7 @@ async function loadClassesAndStudents(orgId, options = {}) {
 
   const classes = includeClasses
     ? await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC`,
         [orgId]
       )
     : { rows: [] };
@@ -2322,18 +2322,28 @@ async function loadClassesAndStudents(orgId, options = {}) {
         `SELECT class_id, class_name
            FROM classes
           WHERE class_id = ANY($1::int[])
-          ORDER BY class_name ASC`,
-        [employeeClassIds]
+            AND organization_id = $2
+          ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC`,
+        [employeeClassIds, orgId]
       ).catch(() => ({ rows: [] }))
     : { rows: [] };
   const classNameById = new Map(employeeClassRows.rows.map((row) => [String(row.class_id), row.class_name]));
+  const classOrderById = new Map(employeeClassRows.rows.map((row, index) => [String(row.class_id), index]));
   const hydratedEmployees = employees.rows.map((row) => {
     const classIds = Array.isArray(row.class_ids)
       ? row.class_ids.map((value) => parseInt(value, 10)).filter((value) => Number.isInteger(value) && value > 0)
       : [];
-    const assignedClassNames = Array.from(new Set(
-      classIds.map((classId) => classNameById.get(String(classId))).filter(Boolean)
-    )).sort((left, right) => String(left).localeCompare(String(right)));
+    const orderedClassIds = [...new Set(classIds)].sort((left, right) => {
+      const leftIndex = classOrderById.get(String(left));
+      const rightIndex = classOrderById.get(String(right));
+      if (Number.isInteger(leftIndex) && Number.isInteger(rightIndex)) return leftIndex - rightIndex;
+      if (Number.isInteger(leftIndex)) return -1;
+      if (Number.isInteger(rightIndex)) return 1;
+      return left - right;
+    });
+    const assignedClassNames = orderedClassIds
+      .map((classId) => classNameById.get(String(classId)))
+      .filter(Boolean);
     return {
       ...row,
       class_ids: classIds,

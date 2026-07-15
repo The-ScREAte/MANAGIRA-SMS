@@ -138,7 +138,7 @@
     <div class="form-group">
       <label for="promotedClass">Promoted Class</label>
       <select name="promotedClass" required>
-        <% enrolledClasses.sort((a, b) => a.class_id - b.class_id).forEach(c => { %>
+        <% enrolledClasses.forEach(c => { %>
           <option value="<%= c.class_id %>" <%= setting?.promoted_class == c.class_id ? "selected" : "" %>><%= c.class_name %></option>
         <% }) %>
       </select>
@@ -147,7 +147,7 @@
     <div class="form-group">
       <label for="repeatedClass">Repeated Class</label>
       <select name="repeatedClass" required>
-        <% enrolledClasses.sort((a, b) => a.class_id - b.class_id).forEach(c => { %>
+        <% enrolledClasses.forEach(c => { %>
           <option value="<%= c.class_id %>" <%= setting?.repeated_class == c.class_id ? "selected" : "" %>><%= c.class_name %></option>
         <% }) %>
       </select>
@@ -172,7 +172,7 @@
 
     <div class="form-group">
       <label>Apply Status Settings To:</label>
-      <% enrolledClasses.sort((a, b) => a.class_id - b.class_id).forEach(c => { %>
+      <% enrolledClasses.forEach(c => { %>
         <div class="form-checkbox-group">
           <label for="class-<%= c.class_id %>"><%= c.class_name %></label>
           <input type="radio" name="selectedStatusClasses" value="<%= c.class_id %>" <%= settingClasses?.includes(c.class_id) ? "checked" : "" %>>

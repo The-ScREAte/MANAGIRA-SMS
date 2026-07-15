@@ -204,7 +204,7 @@
                 <ul class="term-list">
                     <% currentSchoolYear.terms.forEach(term => { %>
                         <li>
-                            <a href="/common/termDetails/<%= term.term_id %>" class="btn">View <%= term.term_name %></a>
+                            <a href="/common/termDetails/<%= term.term_id %>" class="btn" data-no-spa>View <%= term.term_name %></a>
                         </li>
                     <% }) %>
                 </ul>
@@ -224,7 +224,7 @@
                         <div id="<%= schoolYear.year_label %>" class="accordion-panel">
                             <ul class="term-list">
                                 <% schoolYear.terms.forEach(term => { %>
-                                    <li><a href="/common/termDetails/<%= term.term_id %>" class="btn">View <%= term.term_name %></a></li>
+                                    <li><a href="/common/termDetails/<%= term.term_id %>" class="btn" data-no-spa>View <%= term.term_name %></a></li>
                                 <% }) %>
                             </ul>
                         </div>

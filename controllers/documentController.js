@@ -471,7 +471,7 @@ const documentController = {
         SELECT c.class_id, c.class_name 
         FROM classes c 
         WHERE c.organization_id = $1 
-        ORDER BY c.class_name
+        ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
       `, [orgId]);
 
       // Get employees for permission assignment
@@ -671,7 +671,8 @@ const documentController = {
       // Get classes and employees for assignment
       const classes = await db.query(`
         SELECT c.class_id, c.class_name FROM classes c 
-        WHERE c.organization_id = $1 ORDER BY c.class_name
+        WHERE c.organization_id = $1
+        ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
       `, [orgId]);
 
       const employees = await db.query(`

@@ -2628,8 +2628,12 @@ async function notifyTeachersForAssessmentControl({
   if (teacherResult.rows.length === 0) return;
 
   const classResult = await database.query(
-    `SELECT class_name FROM classes WHERE class_id = ANY($1::int[]) ORDER BY class_name ASC`,
-    [classIds]
+    `SELECT class_name
+       FROM classes
+      WHERE class_id = ANY($1::int[])
+        AND organization_id = $2
+      ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+    [classIds, organizationId]
   );
 
   const classNames = classResult.rows.map((row) => row.class_name).join(", ");
@@ -3981,7 +3985,7 @@ const commonController = {
             SELECT c.class_id, c.class_name
             FROM classes c
             WHERE c.organization_id = $1
-            ORDER BY c.class_name ASC;
+        ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC;
         `;
       const classResult = await db.query(classQuery, [organizationId]);
 
@@ -5257,7 +5261,7 @@ const commonController = {
       const orgDetails = orgResult.rows[0];
 
       const classResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId]
       );
 
@@ -6631,7 +6635,7 @@ const commonController = {
         SELECT class_id, class_name
         FROM classes
         WHERE organization_id = $1
-        ORDER BY class_name ASC
+        ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}
       `,
         [organizationId]
       );
@@ -7727,7 +7731,7 @@ const commonController = {
 
       // Fetch classes
       const classResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId]
       );
 
@@ -8712,10 +8716,11 @@ const commonController = {
     try {
       logStep("start");
       await ensurePermissionsSchema(db);
+      await ensureClassDashboardLayoutSchema(db);
       logStep("permissions_schema_ready");
 
       const classesResult = await db.query(
-        "SELECT * FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
+        `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
       logStep("classes_loaded", { classCount: classesResult.rows.length });
@@ -9371,7 +9376,7 @@ const commonController = {
           JOIN subjects s ON s.class_id = c.class_id
           JOIN user_subjects us ON us.subject_id = s.subject_id AND us.user_id = uc.user_id
           WHERE uc.user_id = $1
-          ORDER BY c.class_name, s.subject_name
+          ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC, s.subject_name
           `,
           [userId]
         );
@@ -9442,6 +9447,7 @@ const commonController = {
   manageEmployees: async (req, res, db) => {
     try {
       await ensurePermissionsSchema(db);
+      await ensureClassDashboardLayoutSchema(db);
 
       const orgOwnerResult = await db.query(
         `
@@ -9524,7 +9530,7 @@ const commonController = {
       );
 
       const classesResult = await db.query(
-        "SELECT * FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
+        `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
 
@@ -9556,8 +9562,12 @@ const commonController = {
 
         // 🔥 Fetch only the classes assigned to this employee
         const classesQuery = await db.query(
-          "SELECT class_id, class_name FROM classes WHERE class_id = ANY($1) ORDER BY class_name ASC",
-          [classIds]
+          `SELECT class_id, class_name
+           FROM classes
+           WHERE class_id = ANY($1)
+             AND organization_id = $2
+           ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+          [classIds, req.session.organizationId]
         );
         const classes = classesQuery.rows;
 
@@ -9573,26 +9583,27 @@ const commonController = {
         );
 
         // 🔥 Group subjects by class_id
-        const classMap = {};
+        const classMap = new Map();
         classes.forEach((cls) => {
-          classMap[cls.class_id] = {
+          classMap.set(cls.class_id, {
             class_id: cls.class_id,
             class_name: cls.class_name,
             subjects: [],
-          };
+          });
         });
 
         subjectsQuery.rows.forEach((sub) => {
-          if (classMap[sub.class_id]) {
-            classMap[sub.class_id].subjects.push({
+          const targetClass = classMap.get(sub.class_id);
+          if (targetClass) {
+            targetClass.subjects.push({
               subject_id: sub.subject_id,
               subject_name: sub.subject_name,
             });
           }
         });
 
-        // 🔥 Assign grouped classes with subjects to the employee
-        employee.classes = Object.values(classMap);
+        // Preserve dashboard arrangement order from the classes query.
+        employee.classes = Array.from(classMap.values());
       }
 
       res.render("common/manageEmployees", {
@@ -9659,6 +9670,7 @@ const commonController = {
     try {
       await ensureUserBirthdaySchema(db);
       await ensurePermissionsSchema(db);
+      await ensureClassDashboardLayoutSchema(db);
       const userResult = await db.query(
         "SELECT * FROM users WHERE user_id = $1 AND organization_id = $2",
         [userId, req.session.organizationId]
@@ -9674,7 +9686,7 @@ const commonController = {
                 SELECT c.class_id, c.class_name
                 FROM classes c
                 WHERE c.organization_id = $1
-                ORDER BY c.class_name ASC`,
+                ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC`,
         [req.session.organizationId]
       );
 
@@ -9688,18 +9700,18 @@ const commonController = {
         [req.session.organizationId]
       );
 
-      const classMap = classesResult.rows.reduce((map, cls) => {
-        map[cls.class_id] = { ...cls, subjects: [] };
-        return map;
-      }, {});
+      const classMap = new Map(
+        classesResult.rows.map((cls) => [cls.class_id, { ...cls, subjects: [] }])
+      );
 
       subjectsResult.rows.forEach((subject) => {
-        if (classMap[subject.class_id]) {
-          classMap[subject.class_id].subjects.push(subject);
+        const targetClass = classMap.get(subject.class_id);
+        if (targetClass) {
+          targetClass.subjects.push(subject);
         }
       });
 
-      const classes = Object.values(classMap);
+      const classes = Array.from(classMap.values());
 
       const enrolledSubjectsResult = await db.query(
         `
@@ -11683,6 +11695,7 @@ NUMBERING:
       } catch (ddlErr) {
         console.warn('[manageAssessment] DDL warm-up failed (non-fatal):', ddlErr.message);
       }
+      await ensureClassDashboardLayoutSchema(db);
 
       await ensureGoogleIntegrationSchema(db);
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
@@ -11743,7 +11756,11 @@ NUMBERING:
                 LEFT JOIN classes c ON a.class_id = c.class_id
                 LEFT JOIN subjects s ON a.subject_id = s.subject_id
                 WHERE a.organization_id = $1 AND a.term_id = $2
-                ORDER BY a.group_id, c.class_id, s.subject_name
+                ORDER BY a.group_id,
+                     COALESCE(c.dashboard_sort_order, 2147483647),
+                     c.class_name,
+                     c.class_id,
+                     s.subject_name
             `;
       const assessmentsResult = await db.query(assessmentsQuery, [
         organizationId,
@@ -11911,7 +11928,7 @@ NUMBERING:
          WHERE e.organization_id = $1
            AND e.term_id = $2
            AND c.organization_id = $1
-         ORDER BY c.class_name ASC`,
+         ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC`,
         [organizationId, termId]
       );
 
@@ -11994,7 +12011,7 @@ NUMBERING:
                AND e.school_year_id = t.school_year_id
                AND ec.class_id = a.class_id
            )
-         ORDER BY c.class_name ASC, s.subject_name ASC, a.title ASC, a.assessment_id ASC`,
+         ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC, s.subject_name ASC, a.title ASC, a.assessment_id ASC`,
         [organizationId]
       );
 
@@ -12800,7 +12817,7 @@ NUMBERING:
            AND a.class_id IS NOT NULL
            AND a.subject_id IS NOT NULL
            ${additionalWhere}
-         ORDER BY c.class_name ASC, s.subject_name ASC, a.title ASC, a.assessment_id ASC`,
+         ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC, s.subject_name ASC, a.title ASC, a.assessment_id ASC`,
         params
       );
 
@@ -13157,6 +13174,7 @@ NUMBERING:
 
     try {
       await ensureAssessmentControlSchema(db);
+      await ensureClassDashboardLayoutSchema(db);
           await ensureGoogleIntegrationSchema(db);
           const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
@@ -13202,7 +13220,7 @@ NUMBERING:
                     WHERE term_id = $2 AND organization_id = $3
                     LIMIT 1
                 )
-                ORDER BY c.class_name
+                  ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
             `;
       const classesResult = await db.query(enrolledClassesQuery, [
         groupId,
@@ -13713,7 +13731,7 @@ NUMBERING:
             SELECT class_name
             FROM classes
             WHERE class_id = ANY($1::int[])
-            ORDER BY class_name
+        ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}
         `;
       const classResult = await client.query(classQuery, [normalizedClassIds]);
       const classNames = classResult.rows.map((row) => row.class_name);
@@ -13949,6 +13967,7 @@ NUMBERING:
     }
 
     try {
+      await ensureClassDashboardLayoutSchema(db);
       await ensureGoogleIntegrationSchema(db);
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
@@ -13987,7 +14006,7 @@ NUMBERING:
                 WHERE term_id = $1 AND organization_id = $2
                 LIMIT 1
             )
-            ORDER BY c.class_name
+            ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
         `;
       const enrolledClassesResult = await db.query(enrolledClassesQuery, [
         termId,
@@ -14141,7 +14160,7 @@ NUMBERING:
             SELECT class_name
             FROM classes
             WHERE class_id = ANY($1::int[])
-            ORDER BY class_name
+        ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}
         `;
       const classResult = await client.query(classQuery, [
         Array.from(addedClasses),
@@ -14787,7 +14806,7 @@ NUMBERING:
            AND s.date_of_birth IS NOT NULL
            AND COALESCE(s.graduated, FALSE) = FALSE
            ${classFilterSql}
-         ORDER BY c.class_name, s.last_name, s.first_name`,
+         ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC, s.last_name, s.first_name`,
         params
       );
 
@@ -15067,7 +15086,7 @@ NUMBERING:
         `SELECT class_id, class_name
            FROM classes
           WHERE organization_id = $1
-          ORDER BY class_name`,
+          ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
       return res.render("common/registerSchoolYear", {
@@ -15088,7 +15107,7 @@ NUMBERING:
       );
       // reload classes for the form
       const classesResult = await db.query(
-        "SELECT class_id, class_name FROM classes WHERE organization_id=$1 ORDER BY class_name",
+        "SELECT class_id, class_name FROM classes WHERE organization_id= ORDER BY ",
         [req.session.organizationId]
       );
       return res.render("common/registerSchoolYear", {
@@ -15191,7 +15210,7 @@ NUMBERING:
     try {
       // Fetch all classes for the organization
       const classesResult = await db.query(
-        "SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
 
@@ -15212,7 +15231,7 @@ NUMBERING:
   getClasses: async (req, res, db) => {
     try {
       const classesResult = await db.query(
-        "SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
       res.json(classesResult.rows);
@@ -15298,7 +15317,7 @@ NUMBERING:
         [req.session.organizationId]
       );
       const classesResult = await db.query(
-        "SELECT * FROM classes WHERE organization_id = $1 ORDER BY class_name ASC",
+        `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
       const eventsResult = await db.query(
@@ -17392,6 +17411,12 @@ NUMBERING:
     const organizationId = req.session.organizationId;
 
     try {
+      // Best-effort: ensure dashboard arrangement columns exist and are seeded.
+      // Do not block page render if this fails.
+      try {
+        await ensureClassDashboardLayoutSchema(db);
+      } catch (_) {}
+
       // Fetch term details
       const termResult = await db.query(
         `
@@ -17408,20 +17433,45 @@ NUMBERING:
         return res.redirect("/common/closeSchoolYear");
       }
 
-      // Fetch all classes enrolled for the term
-      const classesResult = await db.query(
-        `
-                SELECT DISTINCT c.class_id, c.class_name
-                FROM classes c
-                INNER JOIN enrolled_classes ec ON c.class_id = ec.class_id
-                INNER JOIN enrollments e ON ec.enrollment_id = e.enrollment_id
-                WHERE e.term_id = $1 AND c.organization_id = $2
-                ORDER BY c.class_name ASC
-            `,
-        [termId, organizationId]
-      );
-
-      const classes = classesResult.rows;
+      // Fetch all classes enrolled for the term.
+      // Prefer dashboard arrangement order, but gracefully fall back to class_name
+      // if dashboard_sort_order is not available in this environment.
+      let classes = [];
+      try {
+        const classesResult = await db.query(
+          `
+                  SELECT
+                    c.class_id,
+                    c.class_name,
+                    COALESCE(c.dashboard_sort_order, 2147483647) AS dashboard_order
+                  FROM classes c
+                  INNER JOIN enrolled_classes ec ON c.class_id = ec.class_id
+                  INNER JOIN enrollments e ON ec.enrollment_id = e.enrollment_id
+                  WHERE e.term_id = $1 AND c.organization_id = $2
+                  GROUP BY c.class_id, c.class_name, c.dashboard_sort_order
+                  ORDER BY dashboard_order, c.class_name ASC, c.class_id ASC
+              `,
+          [termId, organizationId]
+        );
+        classes = classesResult.rows.map((row) => ({
+          class_id: row.class_id,
+          class_name: row.class_name,
+        }));
+      } catch (_) {
+        const fallbackClassesResult = await db.query(
+          `
+                  SELECT c.class_id, c.class_name
+                  FROM classes c
+                  INNER JOIN enrolled_classes ec ON c.class_id = ec.class_id
+                  INNER JOIN enrollments e ON ec.enrollment_id = e.enrollment_id
+                  WHERE e.term_id = $1 AND c.organization_id = $2
+                  GROUP BY c.class_id, c.class_name
+                  ORDER BY c.class_name ASC, c.class_id ASC
+              `,
+          [termId, organizationId]
+        );
+        classes = fallbackClassesResult.rows;
+      }
 
       // Pass title, termId, and classes to the view
       res.render("common/termDetails", {
@@ -19574,7 +19624,7 @@ NUMBERING:
           [organizationId]
         ),
         db.query(
-          `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC`,
+          `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
           [organizationId]
         ),
         db.query(

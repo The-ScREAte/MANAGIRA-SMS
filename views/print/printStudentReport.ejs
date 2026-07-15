@@ -611,6 +611,11 @@
 
         .grade-interpretation-item {
             display: inline-block;
+            margin: 0;
+        }
+
+        .grade-interpretation-item:not(:last-child)::after {
+            content: ", ";
         }
 
         .report-card-footer {
@@ -1861,6 +1866,9 @@
                         </table>
                     </div>
 
+                    <% const showGradeTotalRow = displaySettings.sections.gradePresentation && displaySettings.sections.gradePresentation.showNumberTotalOnReport; %>
+                    <% const showPromotionRow = activatePromotion && displaySettings.sections.promotion; %>
+
                                         <% if (displaySettings.sections.attendance) { %>
                     <div class="attendance-info">
                         <table class="promotion-table">
@@ -1896,8 +1904,6 @@
                                   <%= formattedReopenDate %>
                                 </td>
                                                             </tr>
-                            <% const showGradeTotalRow = displaySettings.sections.gradePresentation && displaySettings.sections.gradePresentation.showNumberTotalOnReport; %>
-                            <% const showPromotionRow = activatePromotion && displaySettings.sections.promotion; %>
                             <% if (showGradeTotalRow && showPromotionRow) { %>
                                 <tr>
                                     <td>Total Grade Score:</td>
@@ -1937,6 +1943,18 @@
                                     </tr>
                                 <% } %>
                             <% } %>
+                        </table>
+                    </div>
+                    <% } %>
+
+                    <% if (!displaySettings.sections.attendance && showGradeTotalRow) { %>
+                    <div class="attendance-info">
+                        <table class="promotion-table">
+                            <tr>
+                                <td>Total Grade Score:</td>
+                                <td><%= Number.isFinite(Number(student.totalGradeNumericScore)) ? Number(student.totalGradeNumericScore) : '-' %></td>
+                                <td colspan="6"></td>
+                            </tr>
                         </table>
                     </div>
                     <% } %>
@@ -2002,7 +2020,13 @@
                     <div class="grade-interpretation">
                         <h6>Interpretation of Grades:</h6>
                         <div class="grade-interpretation-content">
-                            <% scoreRemarks.forEach(function (remark) { %>
+                            <% const sortedScoreRemarks = [...scoreRemarks].sort(function (a, b) {
+                                const aTo = Number(a.toPercentage || a.to_percentage || 0);
+                                const bTo = Number(b.toPercentage || b.to_percentage || 0);
+                                if (bTo !== aTo) return bTo - aTo;
+                                return Number(b.fromPercentage || b.from_percentage || 0) - Number(a.fromPercentage || a.from_percentage || 0);
+                            }); %>
+                            <% sortedScoreRemarks.forEach(function (remark) { %>
                                 <span class="grade-interpretation-item"><%= remark.gradeLabel || '-' %> (<%= remark.fromPercentage %> to <%= remark.toPercentage %>) = <%= remark.remark || '-' %></span>
                             <% }); %>
                         </div>

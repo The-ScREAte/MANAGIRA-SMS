@@ -15,8 +15,11 @@ function isTransientIdleClientDrop(error) {
   const code = String(error?.code || '').toUpperCase();
 
   return (
+    code === 'ETIMEDOUT' ||
     code === 'ECONNRESET' ||
     code === 'EPIPE' ||
+    message.includes('etimedout') ||
+    message.includes('read etimedout') ||
     message.includes('connection terminated unexpectedly') ||
     message.includes('server closed the connection unexpectedly') ||
     message.includes('terminating connection due to administrator command') ||
@@ -96,7 +99,6 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
   if (isTransientIdleClientDrop(err)) {
-    console.warn(`[DB] Idle PostgreSQL client disconnected (auto-recoverable): ${err.message || err}`);
     return;
   }
 

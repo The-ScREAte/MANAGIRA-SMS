@@ -6,6 +6,18 @@ const flash = require("connect-flash");
 const path = require("path");
 require("dotenv").config();
 
+const suppressCronMissedExecutionLogs = process.env.SUPPRESS_NODE_CRON_MISSED_LOGS !== "false";
+if (suppressCronMissedExecutionLogs) {
+  const originalWarn = console.warn.bind(console);
+  console.warn = (...args) => {
+    const firstMessage = typeof args[0] === "string" ? args[0] : String(args[0] || "");
+    if (firstMessage.includes("[NODE-CRON] [WARN] missed execution")) {
+      return;
+    }
+    originalWarn(...args);
+  };
+}
+
 // Dev-only TLS workaround for local machines missing CA roots.
 // Set ALLOW_INSECURE_SSL=false to disable this behavior.
 if (process.env.NODE_ENV !== "production" && process.env.ALLOW_INSECURE_SSL !== "false") {
@@ -999,7 +1011,6 @@ const { ensurePermissionsSchema } = require('./middleware/permissionMiddleware')
 const logStartupDbStatus = async () => {
   try {
     await db.query('SELECT 1');
-    console.log('[DB] ✅ Startup database check passed');
     // Pre-warm the permissions schema DDL once at startup so the Promise
     // singleton is already settled before any HTTP request arrives.
     // This prevents the double-log caused by two concurrent first callers.
@@ -1014,10 +1025,6 @@ const logStartupDbStatus = async () => {
 // Start the server with dev fallback when the default port is busy
 const startServer = (port, attempt = 0) => {
   const server = app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
-    if (port !== BASE_PORT) {
-      console.log(`[Server] Base port ${BASE_PORT} was busy, using ${port}`);
-    }
     logStartupDbStatus();
   });
 

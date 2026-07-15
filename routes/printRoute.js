@@ -25,6 +25,8 @@ module.exports = (db) => {
     router.post('/savePromotionSettings', isAuthenticated, printController.savePromotionSettings); // Save promotion settings
     router.post('/saveScoreRemarks', isAuthenticated, printController.saveScoreRemarks); // Save score remarks
     router.post('/saveScoreRemarksAjax', isAuthenticated, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
+    router.post('/getScoreRemarkClassCoverageAjax', isAuthenticated, printController.getScoreRemarkClassCoverageAjax); // Fetch class coverage for a score remark range/value
+    router.post('/setScoreRemarkClassLockAjax', isAuthenticated, printController.setScoreRemarkClassLockAjax); // Lock/unlock a specific score remark rule range for selected classes
     router.post('/saveRemarks', isAuthenticated, printController.saveRemarks); // Save remarks
     router.get('/meritSheetPage', checkFeatureAccess, isAuthenticated, printController.meritSheetPage); // Render merit sheet page
     router.get('/deleteStatusSettings', isAuthenticated, printController.deleteStatusSettings);

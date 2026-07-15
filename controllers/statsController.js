@@ -13,7 +13,7 @@ const statsController = {
         INNER JOIN classes c ON ec.class_id = c.class_id
         INNER JOIN enrollments e ON ec.enrollment_id = e.enrollment_id
         WHERE e.term_id = $1 AND e.organization_id = $2
-        ORDER BY c.class_name
+        ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
       `, [termId, organizationId])).rows;
 
       res.json(classes);
@@ -45,7 +45,7 @@ const statsController = {
         WHERE c.class_id = ANY($1::int[])
           AND c.organization_id = $2
         GROUP BY c.class_name
-        ORDER BY c.class_name
+        ORDER BY MIN(COALESCE(c.dashboard_sort_order, 2147483647)), c.class_name
       `, [selectedClasses, organizationId])).rows;
 
       res.json(classStats);
@@ -153,7 +153,7 @@ const statsController = {
         LEFT JOIN attendance_records a ON s.student_id = a.student_id AND a.term_id = $2
         WHERE c.organization_id = $1
         GROUP BY c.class_name
-        ORDER BY c.class_name
+        ORDER BY MIN(COALESCE(c.dashboard_sort_order, 2147483647)), c.class_name
       `, [organizationId, currentTerm.term_id])).rows;
 
       const assessmentByClass = (await db.query(`

@@ -32,7 +32,7 @@ module.exports = {
       }));
 
       const classesResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC`,
         [organizationId]
       );
 

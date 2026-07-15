@@ -121,6 +121,26 @@ async function ensureScoreRemarkDefaultStateTable(dbClient) {
   ensuredScoreRemarkDefaultStateTable = true;
 }
 
+let ensuredScoreRemarkRuleLockTable = false;
+async function ensureScoreRemarkRuleLockTable(dbClient) {
+  if (ensuredScoreRemarkRuleLockTable) return;
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS score_remark_rule_locks (
+      organization_id INT NOT NULL,
+      class_id INT NOT NULL,
+      term_id INT NOT NULL,
+      entry_type TEXT NOT NULL,
+      from_percentage NUMERIC NOT NULL,
+      to_percentage NUMERIC NOT NULL,
+      is_locked BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (organization_id, class_id, term_id, entry_type, from_percentage, to_percentage),
+      CHECK (entry_type IN ('grade', 'remark'))
+    )
+  `);
+  ensuredScoreRemarkRuleLockTable = true;
+}
+
 let ensuredStudentReportManualAttendanceColumn = false;
 async function ensureStudentReportManualAttendanceColumn(dbClient) {
   if (ensuredStudentReportManualAttendanceColumn) return;
@@ -134,6 +154,45 @@ async function ensureStudentReportManualAttendanceColumn(dbClient) {
     ensuredStudentReportManualAttendanceColumn = true;
   } catch (err) {
     console.error("[ensureStudentReportManualAttendanceColumn] Failed to add column", err);
+  }
+}
+
+let ensuredClassDashboardLayoutColumns = false;
+const CLASS_DASHBOARD_ORDER_SQL = `
+  COALESCE(dashboard_sort_order, 2147483647),
+  class_name ASC,
+  class_id ASC
+`;
+
+async function ensureClassDashboardLayoutColumns(dbClient) {
+  if (ensuredClassDashboardLayoutColumns) return;
+  try {
+    await dbClient.query(`
+      ALTER TABLE classes
+        ADD COLUMN IF NOT EXISTS dashboard_sort_order INTEGER,
+        ADD COLUMN IF NOT EXISTS dashboard_break_after BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+
+    await dbClient.query(`
+      WITH ranked AS (
+        SELECT
+          class_id,
+          ROW_NUMBER() OVER (
+            PARTITION BY organization_id
+            ORDER BY class_name ASC, class_id ASC
+          ) AS sort_order
+        FROM classes
+      )
+      UPDATE classes c
+      SET dashboard_sort_order = ranked.sort_order
+      FROM ranked
+      WHERE c.class_id = ranked.class_id
+        AND c.dashboard_sort_order IS NULL
+    `);
+
+    ensuredClassDashboardLayoutColumns = true;
+  } catch (err) {
+    console.error("[ensureClassDashboardLayoutColumns] Failed to ensure dashboard layout columns", err);
   }
 }
 
@@ -361,10 +420,74 @@ function normalizeGradePresentationConfig(rawConfig) {
   const safe = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
   const rawMode = String(safe.mode || '').trim().toLowerCase();
   const mode = (rawMode === 'numbers' || rawMode === 'both') ? rawMode : 'letters';
-  const showNumberTotalOnReport = mode === 'numbers' && safe.showNumberTotalOnReport === true;
+  const showNumberTotalOnReport = safe.showNumberTotalOnReport === true;
+  const rawTotalScoreStrategy = String(safe.totalScoreStrategy || '').trim();
+  const mappedLegacySampled = rawTotalScoreStrategy === 'random_selected_subjects';
+  const totalScoreStrategy = (
+    rawTotalScoreStrategy === 'base_plus_best'
+    || rawTotalScoreStrategy === 'base_plus_random'
+  )
+    ? rawTotalScoreStrategy
+    : (mappedLegacySampled ? 'base_plus_best' : 'all_subjects');
+  const legacyMappedOtherRaw = Number.parseInt(String(safe.randomSubjectCount ?? safe.otherSubjectCount ?? '').trim(), 10);
+  const legacyMappedOtherCount = Number.isFinite(legacyMappedOtherRaw) && legacyMappedOtherRaw >= 0
+    ? legacyMappedOtherRaw
+    : 2;
+  const defaultBaseCount = totalScoreStrategy === 'all_subjects'
+    ? 0
+    : (mappedLegacySampled ? 0 : 5);
+  const defaultOtherCount = totalScoreStrategy === 'all_subjects'
+    ? 0
+    : (mappedLegacySampled
+      ? legacyMappedOtherCount
+      : 2);
+  const defaultRandomCount = 0;
+  const parsedBaseCount = Number.parseInt(String(safe.gradeBaseSubjectCount ?? '').trim(), 10);
+  const parsedOtherCount = Number.parseInt(String(safe.otherSubjectCount ?? '').trim(), 10);
+  const parsedRandomCount = Number.parseInt(String(safe.randomSubjectCount ?? '').trim(), 10);
+  const gradeBaseSubjectCount = Number.isFinite(parsedBaseCount) && parsedBaseCount >= 0
+    ? parsedBaseCount
+    : defaultBaseCount;
+  const otherSubjectCount = Number.isFinite(parsedOtherCount) && parsedOtherCount >= 0
+    ? parsedOtherCount
+    : defaultOtherCount;
+  const randomSubjectCount = Number.isFinite(parsedRandomCount) && parsedRandomCount >= 0
+    ? parsedRandomCount
+    : defaultRandomCount;
+  const coreSubjectIds = Array.isArray(safe.coreSubjectIds)
+    ? [...new Set(
+      safe.coreSubjectIds
+        .map((entry) => parseInt(entry, 10))
+        .filter((entry) => Number.isFinite(entry) && entry > 0)
+    )]
+    : [];
+  const randomSubjectIds = Array.isArray(safe.randomSubjectIds)
+    ? [...new Set(
+      safe.randomSubjectIds
+        .map((entry) => parseInt(entry, 10))
+        .filter((entry) => Number.isFinite(entry) && entry > 0)
+    )]
+    : [];
+  const rawRandomSelectionMode = String(safe.randomSelectionMode || '').trim().toLowerCase();
+  const randomSelectionMode = (rawRandomSelectionMode === 'best' || rawRandomSelectionMode === 'any')
+    ? rawRandomSelectionMode
+    : 'any';
+
+  const isBasePlus = totalScoreStrategy === 'base_plus_best' || totalScoreStrategy === 'base_plus_random';
+  const isRandomSelected = false;
+  const usesCorePool = isBasePlus;
+  const usesRandomPool = false;
+
   return {
     mode,
     showNumberTotalOnReport,
+    totalScoreStrategy,
+    gradeBaseSubjectCount: isBasePlus ? gradeBaseSubjectCount : 0,
+    otherSubjectCount: isBasePlus ? otherSubjectCount : 0,
+    randomSubjectCount: isRandomSelected ? randomSubjectCount : 0,
+    coreSubjectIds: usesCorePool ? coreSubjectIds : [],
+    randomSubjectIds: usesRandomPool ? randomSubjectIds : [],
+    randomSelectionMode: isBasePlus ? randomSelectionMode : 'any',
   };
 }
 
@@ -400,6 +523,129 @@ function formatGradeByPresentation(label, mode) {
 
   // Letters mode should also display the exact saved label when present.
   return original || '-';
+}
+
+function hashStringSeed(value) {
+  const input = String(value || '');
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function selectDeterministicRandomValues(values, count, seedToken) {
+  const source = Array.isArray(values) ? values.filter((value) => Number.isFinite(Number(value))).map(Number) : [];
+  const limit = Number.isFinite(Number(count)) ? Math.max(0, Math.floor(Number(count))) : 0;
+  if (!source.length || limit <= 0) return [];
+
+  const shuffled = [...source];
+  let seed = hashStringSeed(seedToken);
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    const j = seed % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, Math.min(limit, shuffled.length));
+}
+
+function selectScoresByMode(values, count, mode, seedToken) {
+  const source = Array.isArray(values) ? values.filter((value) => Number.isFinite(Number(value))).map(Number) : [];
+  const limit = Number.isFinite(Number(count)) ? Math.max(0, Math.floor(Number(count))) : 0;
+  if (!source.length || limit <= 0) return [];
+
+  if (mode === 'best') {
+    return [...source].sort((a, b) => b - a).slice(0, Math.min(limit, source.length));
+  }
+  if (mode === 'poor') {
+    return [...source].sort((a, b) => a - b).slice(0, Math.min(limit, source.length));
+  }
+  return selectDeterministicRandomValues(source, limit, seedToken);
+}
+
+function calculateTotalGradeNumericScore(subjectRows, gradePresentation, seedToken = '') {
+  const numericRows = (Array.isArray(subjectRows) ? subjectRows : [])
+    .map((row, index) => {
+      const score = Number(row?.gradeNumeric);
+      const subjectIdRaw = row?.subject_id ?? row?.subjectId;
+      const subjectId = Number.parseInt(String(subjectIdRaw ?? '').trim(), 10);
+      return {
+        rowKey: index,
+        score,
+        subjectId: Number.isFinite(subjectId) && subjectId > 0 ? subjectId : null,
+      };
+    })
+    .filter((entry) => Number.isFinite(entry.score));
+  if (!numericRows.length) return 0;
+
+  const numericScores = numericRows.map((entry) => Number(entry.score));
+
+  const gradeConfig = normalizeGradePresentationConfig(gradePresentation);
+  if (gradeConfig.totalScoreStrategy === 'all_subjects') {
+    return numericScores.reduce((sum, score) => sum + score, 0);
+  }
+
+  if (gradeConfig.totalScoreStrategy === 'random_selected_subjects') {
+    const selectedSet = new Set(
+      (Array.isArray(gradeConfig.randomSubjectIds) ? gradeConfig.randomSubjectIds : [])
+        .map((entry) => Number(entry))
+        .filter((entry) => Number.isFinite(entry) && entry > 0)
+    );
+    const poolRows = selectedSet.size
+      ? numericRows.filter((entry) => entry.subjectId && selectedSet.has(entry.subjectId))
+      : numericRows;
+    const fallbackPoolRows = poolRows.length ? poolRows : numericRows;
+    const poolScores = fallbackPoolRows.map((entry) => Number(entry.score));
+    const randomCount = Math.min(
+      Math.max(0, Number.isFinite(Number(gradeConfig.randomSubjectCount)) ? Number(gradeConfig.randomSubjectCount) : 0),
+      poolScores.length
+    );
+    if (!poolScores.length || randomCount <= 0) return 0;
+    const chosenScores = selectScoresByMode(
+      poolScores,
+      randomCount,
+      gradeConfig.randomSelectionMode,
+      `${seedToken}:random_selected_subjects`
+    );
+    return chosenScores.reduce((sum, score) => sum + score, 0);
+  }
+
+  const coreSet = new Set(
+    (Array.isArray(gradeConfig.coreSubjectIds) ? gradeConfig.coreSubjectIds : [])
+      .map((entry) => Number(entry))
+      .filter((entry) => Number.isFinite(entry) && entry > 0)
+  );
+  const configuredCoreRows = coreSet.size
+    ? numericRows.filter((entry) => entry.subjectId && coreSet.has(entry.subjectId))
+    : numericRows;
+  const fallbackCoreRows = configuredCoreRows.length ? configuredCoreRows : numericRows;
+  const rankedRows = [...fallbackCoreRows].sort((a, b) => b.score - a.score);
+  const baseCount = Math.min(
+    Math.max(0, Number.isFinite(Number(gradeConfig.gradeBaseSubjectCount)) ? Number(gradeConfig.gradeBaseSubjectCount) : 0),
+    rankedRows.length
+  );
+  const baseRows = rankedRows.slice(0, baseCount);
+  const baseScores = baseRows.map((entry) => Number(entry.score));
+  const hasMappedCoreRows = coreSet.size > 0 && configuredCoreRows.length > 0;
+  const usedKeys = new Set(baseRows.map((entry) => entry.rowKey));
+  const remainingRows = hasMappedCoreRows
+    ? numericRows.filter((entry) => !(entry.subjectId && coreSet.has(entry.subjectId)))
+    : numericRows.filter((entry) => !usedKeys.has(entry.rowKey));
+  const candidateScores = remainingRows.map((entry) => Number(entry.score));
+  const otherCount = Math.min(
+    Math.max(0, Number.isFinite(Number(gradeConfig.otherSubjectCount)) ? Number(gradeConfig.otherSubjectCount) : 0),
+    candidateScores.length
+  );
+  const legacyRandom = gradeConfig.totalScoreStrategy === 'base_plus_random';
+  const otherSelectionMode = legacyRandom
+    ? 'any'
+    : (gradeConfig.randomSelectionMode === 'best' || gradeConfig.randomSelectionMode === 'any')
+      ? gradeConfig.randomSelectionMode
+      : 'any';
+  const otherScores = selectScoresByMode(candidateScores, otherCount, otherSelectionMode, `${seedToken}:base_plus`);
+
+  return [...baseScores, ...otherScores].reduce((sum, score) => sum + score, 0);
 }
 
 function resolveClosestScoreRemarkRule(percentage, rules) {
@@ -619,6 +865,78 @@ async function getClassScoreRemarksRows(dbClient, organizationId, classId, termI
     [organizationId, classId, termId]
   );
   return rowsResult.rows;
+}
+
+async function getClassScoreRemarksRowsByClassIds(dbClient, organizationId, classIds, termId) {
+  const parsedClassIds = Array.isArray(classIds)
+    ? [...new Set(classIds
+      .map((classId) => Number(classId))
+      .filter((classId) => Number.isInteger(classId) && classId > 0))]
+    : [];
+
+  if (!parsedClassIds.length) {
+    return {};
+  }
+
+  const rowsResult = await dbClient.query(
+    `
+      SELECT *
+      FROM score_remarks
+      WHERE organization_id = $1
+        AND term_id = $2
+        AND class_id = ANY($3::int[])
+      ORDER BY class_id ASC, from_percentage ASC, id ASC
+    `,
+    [organizationId, termId, parsedClassIds]
+  );
+
+  const classRowsMap = {};
+  parsedClassIds.forEach((classId) => {
+    classRowsMap[String(classId)] = [];
+  });
+
+  rowsResult.rows.forEach((row) => {
+    const classKey = String(row.class_id);
+    if (!classRowsMap[classKey]) {
+      classRowsMap[classKey] = [];
+    }
+    classRowsMap[classKey].push(row);
+  });
+
+  return classRowsMap;
+}
+
+async function getLockedClassesForRule(dbClient, organizationId, termId, entryType, fromPct, toPct, classIds) {
+  if (!Array.isArray(classIds) || !classIds.length) return [];
+  const parsedFromPct = Number(fromPct);
+  const parsedToPct = Number(toPct);
+  if (!Number.isFinite(parsedFromPct) || !Number.isFinite(parsedToPct)) return [];
+
+  const parsedClassIds = [...new Set(classIds
+    .map((classId) => Number(classId))
+    .filter((classId) => Number.isInteger(classId) && classId > 0))];
+  if (!parsedClassIds.length) return [];
+
+  const lockedResult = await dbClient.query(
+    `
+      SELECT l.class_id, c.class_name
+      FROM score_remark_rule_locks l
+      JOIN classes c
+        ON c.class_id = l.class_id
+       AND c.organization_id = l.organization_id
+      WHERE l.organization_id = $1
+        AND l.term_id = $2
+        AND l.entry_type = $3
+        AND l.from_percentage = $4
+        AND l.to_percentage = $5
+        AND l.is_locked = TRUE
+        AND l.class_id = ANY($6::int[])
+      ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
+    `,
+    [organizationId, termId, entryType, parsedFromPct, parsedToPct, parsedClassIds]
+  );
+
+  return lockedResult.rows;
 }
 
 // Helper functions for S3 actions
@@ -1179,7 +1497,7 @@ const printController = (db) => ({
         let totalScoreSum = 0;
         let totalPercentageSum = 0;
         let subjectCount = 0;
-        let totalGradeNumericScore = 0;
+        const gradePresentationSettings = normalizeGradePresentationConfig(displaySettings.sections?.gradePresentation);
 
         // ✅ NEW: Assign class position to student
         student.positionInClass = student.class_position
@@ -1209,12 +1527,9 @@ const printController = (db) => ({
                 ? resolveGradeLabelFromRule(matchingRule, totalPercentage)
                 : getDefaultGradeLabel(totalPercentage))
             : "-";
-          const gradeMode = displaySettings.sections?.gradePresentation?.mode || 'letters';
+          const gradeMode = gradePresentationSettings.mode;
           const parsedGradeParts = parseGradeLabelParts(grade);
           const gradeDisplay = totalScore > 0 ? formatGradeByPresentation(grade, gradeMode) : '-';
-          if (totalScore > 0 && Number.isFinite(parsedGradeParts.number)) {
-            totalGradeNumericScore += Number(parsedGradeParts.number);
-          }
 
           // Recalculate remarks column
           const remarks = totalScore > 0 ? (matchingRule ? matchingRule.remark : "-") : "-";
@@ -1233,6 +1548,7 @@ const printController = (db) => ({
           const subjectPos = subjectPositionsMap[`${student.student_id}_${subject.subject_id}`];
 
           return {
+            subject_id: subject.subject_id,
             subject_name: subject.subject_name,
             classAssessmentScore: classScore > 0 ? classScore.toFixed(2) : "-",
             examsAssessmentScore: examsScore > 0 ? examsScore.toFixed(2) : "-",
@@ -1256,7 +1572,13 @@ const printController = (db) => ({
           subjectCount > 0
             ? (totalPercentageSum / subjectCount).toFixed(2)
             : "0.00";
-        student.totalGradeNumericScore = Number(totalGradeNumericScore.toFixed(2));
+        student.totalGradeNumericScore = Number(
+          calculateTotalGradeNumericScore(
+            student.subjects,
+            gradePresentationSettings,
+            `${parsedClassId}:${parsedTermId}:${student.student_id}`
+          ).toFixed(2)
+        );
 
         student.attendance = {
           presentDays: attendanceMap[student.student_id] || 0,
@@ -1567,11 +1889,13 @@ students
     await ensureSignatureMetaColumns(db);
     await ensureScoreRemarkGradeColumn(db);
     await ensureScoreRemarkDefaultStateTable(db);
+    await ensureScoreRemarkRuleLockTable(db);
     await ensureScoreRemarkRangeUniqueConstraint(db);
+    await ensureClassDashboardLayoutColumns(db);
 
     try {
       const organizationClassesResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name ASC`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId],
       );
       const organizationClasses = organizationClassesResult.rows;
@@ -1609,6 +1933,7 @@ students
           termId: fallbackTermId || null,
           setupRequired: true,
           setupMessage: "This is for classes. Kindly start by adding classes and setting up your school first to be able to access it.",
+          allSubjectsByClassMap: {},
           messages: req.flash(),
         });
       }
@@ -1701,6 +2026,28 @@ students
       const defaultsSuppressedMap = {};
       defaultsStateResult.rows.forEach((row) => {
         defaultsSuppressedMap[String(row.class_id)] = !!row.defaults_suppressed;
+      });
+
+      const ruleLocksMap = { grade: {}, remark: {} };
+      const classLocksResult = await db.query(
+        `
+          SELECT class_id, entry_type, from_percentage, to_percentage, is_locked
+          FROM score_remark_rule_locks
+          WHERE organization_id = $1
+            AND term_id = $2
+            AND is_locked = TRUE
+        `,
+        [organizationId, parsedTermId]
+      );
+      classLocksResult.rows.forEach((row) => {
+        const safeEntryType = row.entry_type === "grade" ? "grade" : (row.entry_type === "remark" ? "remark" : null);
+        if (!safeEntryType) return;
+        const classKey = String(row.class_id);
+        const rangeKey = `${Number(row.from_percentage)}__${Number(row.to_percentage)}`;
+        if (!ruleLocksMap[safeEntryType][classKey] || typeof ruleLocksMap[safeEntryType][classKey] !== "object") {
+          ruleLocksMap[safeEntryType][classKey] = {};
+        }
+        ruleLocksMap[safeEntryType][classKey][rangeKey] = true;
       });
   
       // Fetch signature image for this class/term
@@ -1798,6 +2145,34 @@ students
         };
       });
 
+      // Fetch subjects for ALL enrolled classes (used by grade numeric random subject selection UI)
+      const allSubjectsByClassMap = {};
+      enrolledClasses.forEach((cls) => {
+        allSubjectsByClassMap[String(cls.class_id)] = [];
+      });
+      const allClassSubjectsResult = await db.query(
+        `SELECT class_id, subject_id, subject_name
+         FROM subjects
+         WHERE organization_id = $1
+           AND class_id = ANY($2::int[])
+         ORDER BY class_id ASC, subject_name ASC`,
+        [organizationId, enrolledClassIds]
+      );
+      allClassSubjectsResult.rows.forEach((row) => {
+        const classKey = String(row.class_id);
+        if (!allSubjectsByClassMap[classKey]) {
+          allSubjectsByClassMap[classKey] = [];
+        }
+        const subjectId = Number(row.subject_id);
+        if (!Number.isFinite(subjectId) || subjectId <= 0) {
+          return;
+        }
+        allSubjectsByClassMap[classKey].push({
+          subject_id: subjectId,
+          subject_name: String(row.subject_name || '').trim() || `Subject ${subjectId}`,
+        });
+      });
+
       // Fetch assessments for ALL enrolled classes (unique titles per class, for sub-toggle items)
       const allClassAssessmentsResult = await db.query(
         `SELECT class_id, title, category FROM assessments
@@ -1840,13 +2215,6 @@ students
         });
       }
       
-      console.log(`[reportSettingsPage] Found ${Object.keys(signatureGroups).length} signature groups for term ${parsedTermId}:`, 
-        Object.entries(signatureGroups).map(([path, data]) => ({
-          path: path.substring(path.lastIndexOf('/') + 1),
-          classes: data.classes.map(c => c.class_name).join(', ')
-        }))
-      );
-  
       const assignedClassIds = signatureClassesResult.rows.map(
         (row) => row.class_id
       );
@@ -1880,13 +2248,6 @@ students
         });
       }
       
-      console.log(`[reportSettingsPage] Found ${Object.keys(transcriptSignatureGroups).length} transcript signature groups:`, 
-        Object.entries(transcriptSignatureGroups).map(([path, data]) => ({
-          path: path.substring(path.lastIndexOf('/') + 1),
-          classes: data.classes.map(c => c.class_name).join(', ')
-        }))
-      );
-  
       // ✅ Fetch grouped status settings for this term only
       const groupedStatusSettingsResult = await db.query(
         `SELECT 
@@ -2010,6 +2371,7 @@ students
         remarks,
         scoreRemarks,
         defaultsSuppressedMap,
+        ruleLocksMap,
         availableClasses,
         signatureImageUrl,
         signatureName,
@@ -2025,6 +2387,7 @@ students
         assessmentsByCategory,
         currentDisplaySettings,
         allDisplaySettingsMap,
+        allSubjectsByClassMap,
         allAssessmentsByCategoryMap,
         messages: req.flash(),
       });
@@ -2272,6 +2635,11 @@ students
       termEndDate,
       activatePromotion,
       selectedStatusClasses,
+      statusRowClassId,
+      statusRowPromotedClass,
+      statusRowRepeatedClass,
+      statusRowCutOffPoint,
+      statusRowSchoolReopenDate,
       classId: formClassId,
       termId: formTermId,
     } = req.body;
@@ -2316,6 +2684,146 @@ students
         req.flash("error", "Invalid class or term ID.");
         return res.redirect(
           `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
+        );
+      }
+
+      const toArray = (value) => {
+        if (Array.isArray(value)) return value;
+        if (value === undefined || value === null) return [];
+        return [value];
+      };
+
+      const rowClassIdsRaw = toArray(statusRowClassId ?? req.body["statusRowClassId[]"]);
+      const rowPromotedRaw = toArray(statusRowPromotedClass ?? req.body["statusRowPromotedClass[]"]);
+      const rowRepeatedRaw = toArray(statusRowRepeatedClass ?? req.body["statusRowRepeatedClass[]"]);
+      const rowCutOffRaw = toArray(statusRowCutOffPoint ?? req.body["statusRowCutOffPoint[]"]);
+      const rowReopenRaw = toArray(statusRowSchoolReopenDate ?? req.body["statusRowSchoolReopenDate[]"]);
+
+      if (rowClassIdsRaw.length) {
+        const rowMap = new Map();
+        rowClassIdsRaw.forEach((rawClassId, index) => {
+          const classIdNum = parseInt(rawClassId, 10);
+          if (!Number.isInteger(classIdNum) || classIdNum <= 0) {
+            return;
+          }
+
+          const promotedValue = String(rowPromotedRaw[index] ?? "").trim();
+          const repeatedValue = String(rowRepeatedRaw[index] ?? "").trim();
+          const cutOffRawValue = String(rowCutOffRaw[index] ?? "").trim();
+          const reopenDateValue = String(rowReopenRaw[index] ?? "").trim();
+          const parsedCutOff = cutOffRawValue === "" ? null : parseInt(cutOffRawValue, 10);
+
+          rowMap.set(classIdNum, {
+            classId: classIdNum,
+            promotedClass: promotedValue || null,
+            repeatedClass: repeatedValue || null,
+            cutOffPoint: Number.isInteger(parsedCutOff) ? parsedCutOff : null,
+            schoolReopenDate: reopenDateValue || null,
+          });
+        });
+
+        const candidateRows = [...rowMap.values()];
+        if (!candidateRows.length) {
+          req.flash("error", "No valid class rows were provided for status settings.");
+          return res.redirect(
+            `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
+          );
+        }
+
+        const scopedTerm = await getScopedTermRecord(db, organizationId, parsedTermId);
+        if (!scopedTerm) {
+          req.flash("error", "Selected term is outside this organization.");
+          return res.redirect(
+            `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
+          );
+        }
+
+        const candidateClassIds = candidateRows.map((row) => row.classId);
+        const validClassIds = await getScopedClassIds(db, organizationId, candidateClassIds);
+        if (validClassIds.length !== candidateClassIds.length) {
+          req.flash("error", "One or more row classes are outside this organization.");
+          return res.redirect(
+            `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
+          );
+        }
+
+        const existingRowsResult = await db.query(
+          `SELECT class_id
+           FROM status_settings
+           WHERE organization_id = $1 AND term_id = $2 AND class_id = ANY($3::int[])`,
+          [organizationId, parsedTermId, validClassIds]
+        );
+        const existingClassSet = new Set(existingRowsResult.rows.map((row) => Number(row.class_id)));
+
+        const rowsToPersist = candidateRows.filter((row) => {
+          const hasAnyValue = row.promotedClass !== null
+            || row.repeatedClass !== null
+            || row.cutOffPoint !== null
+            || row.schoolReopenDate !== null;
+          return hasAnyValue || existingClassSet.has(row.classId);
+        });
+
+        if (!rowsToPersist.length) {
+          req.flash("error", "No row values were provided to save.");
+          return res.redirect(
+            `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
+          );
+        }
+
+        const normalizedTermEndDate = typeof termEndDate === "string" && termEndDate.trim()
+          ? termEndDate.trim()
+          : null;
+        const activatePromotionValue = typeof activatePromotion === "undefined"
+          ? null
+          : (activatePromotion === "on");
+
+        for (const row of rowsToPersist) {
+          const updateResult = await db.query(
+            `UPDATE status_settings SET
+               cut_off_point = $1,
+               promoted_class = $2,
+               repeated_class = $3,
+               school_reopen_date = $4,
+               term_end_date = COALESCE($5, term_end_date),
+               activate_promotion = COALESCE($6::boolean, activate_promotion)
+             WHERE organization_id = $7 AND class_id = $8 AND term_id = $9`,
+            [
+              row.cutOffPoint,
+              row.promotedClass,
+              row.repeatedClass,
+              row.schoolReopenDate,
+              normalizedTermEndDate,
+              activatePromotionValue,
+              organizationId,
+              row.classId,
+              parsedTermId,
+            ]
+          );
+
+          if (updateResult.rowCount === 0) {
+            await db.query(
+              `INSERT INTO status_settings (
+                 organization_id, class_id, term_id, cut_off_point, promoted_class,
+                 repeated_class, school_reopen_date, term_end_date, activate_promotion
+               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::boolean, false))`,
+              [
+                organizationId,
+                row.classId,
+                parsedTermId,
+                row.cutOffPoint,
+                row.promotedClass,
+                row.repeatedClass,
+                row.schoolReopenDate,
+                normalizedTermEndDate,
+                activatePromotionValue,
+              ]
+            );
+          }
+        }
+
+        req.flash("success", `Promotion settings saved for ${rowsToPersist.length} class(es).`);
+        return res.redirect(
+          `/print/reportSettings?classId=${fallbackClassId}&termId=${parsedTermId}`
         );
       }
   
@@ -2420,22 +2928,37 @@ students
     }
 
     try {
-      // Convert remarks and remarkTypes to arrays if they are single values
       const remarksArray = Array.isArray(remarks) ? remarks : [remarks];
       const remarkTypesArray = Array.isArray(remarkTypes)
         ? remarkTypes
         : [remarkTypes];
 
-      // Insert each remark and corresponding remark type
-      for (let i = 0; i < remarksArray.length; i++) {
-        await db.query(
-          `
-                    INSERT INTO remarks (organization_id, remark, remark_type)
-                    VALUES ($1, $2, $3)
-                `,
-          [organizationId, remarksArray[i], remarkTypesArray[i]]
-        );
+      const allowedTypes = new Set(["teacher", "conduct", "interest", "attitude"]);
+      const batchedRows = [];
+      for (let i = 0; i < remarksArray.length; i += 1) {
+        const text = String(remarksArray[i] || "").trim();
+        const type = String(remarkTypesArray[i] || "teacher").trim().toLowerCase();
+        if (!text) continue;
+        if (!allowedTypes.has(type)) continue;
+        batchedRows.push({ text, type });
       }
+
+      if (!batchedRows.length) {
+        req.flash("error", "Please add at least one valid remark before saving.");
+        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+      }
+
+      const remarkValues = batchedRows.map((row) => row.text);
+      const typeValues = batchedRows.map((row) => row.type);
+
+      await db.query(
+        `
+          INSERT INTO remarks (organization_id, remark, remark_type)
+          SELECT $1, remark_value, remark_type
+          FROM unnest($2::text[], $3::text[]) AS t(remark_value, remark_type)
+        `,
+        [organizationId, remarkValues, typeValues]
+      );
 
       req.flash("success", "Remarks saved successfully.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
@@ -2475,16 +2998,6 @@ students
     const organizationId = req.session.organizationId;
     const termId = req.body.termId;
 
-    console.log("[saveScoreRemarks] incoming", {
-      remark,
-      grade_label,
-      from_percentage,
-      to_percentage,
-      termId,
-      classId,
-      organizationId,
-    });
-
     try {
       if (!organizationId) {
         req.flash("error", "Organization ID is not set in session.");
@@ -2503,6 +3016,7 @@ students
 
       const normalizedRemark = String(remark || "").trim();
       const normalizedGradeLabelInput = String(grade_label || "").trim();
+      const hasSubmittedRemark = normalizedRemark.length > 0;
 
       if (entryType === "remark" && !normalizedRemark) {
         req.flash("error", "Remark text is required.");
@@ -2638,6 +3152,7 @@ students
   },
 
   deleteScoreRemark: async (req, res) => {
+    await ensureScoreRemarkRuleLockTable(db);
     const { id } = req.params;
     const { termId, classId } = req.query;
     const organizationId = req.session.organizationId;
@@ -2650,26 +3165,62 @@ students
 
       const parsedTermId = parseInt(termId, 10);
 
+      const existingRowResult = await db.query(
+        `
+          SELECT id, class_id, term_id, from_percentage, to_percentage
+          FROM score_remarks
+          WHERE id = $1 AND organization_id = $2
+          LIMIT 1
+        `,
+        [id, organizationId]
+      );
+      if (!existingRowResult.rows.length) {
+        req.flash("error", "Score remark not found.");
+        return res.redirect(`/print/reportSettings?classId=${classId || ""}&termId=${termId}`);
+      }
+
+      const targetRow = existingRowResult.rows[0];
+      const targetClassId = Number(targetRow.class_id);
+      const effectiveTermId = Number(targetRow.term_id) || parsedTermId;
+      const targetFromPct = Number(targetRow.from_percentage);
+      const targetToPct = Number(targetRow.to_percentage);
+      const lockCheckResult = await db.query(
+        `
+          SELECT entry_type
+          FROM score_remark_rule_locks
+          WHERE organization_id = $1
+            AND class_id = $2
+            AND term_id = $3
+            AND from_percentage = $4
+            AND to_percentage = $5
+            AND is_locked = TRUE
+        `,
+        [organizationId, targetClassId, effectiveTermId, targetFromPct, targetToPct]
+      );
+      if (lockCheckResult.rows.length) {
+        const lockLabel = lockCheckResult.rows
+          .map((row) => row.entry_type === "grade" ? "grade" : "score remark")
+          .join(", ");
+        req.flash("error", `Cannot delete from locked class rules (${lockLabel}). Unlock first to continue.`);
+        return res.redirect(`/print/reportSettings?classId=${classId || ""}&termId=${termId}`);
+      }
+
       await db.query(
         "DELETE FROM score_remarks WHERE id = $1 AND organization_id = $2",
         [id, organizationId]
       );
 
-      if (classId && !Number.isNaN(Number(classId))) {
-        const parsedClassId = Number(classId);
+      const parsedClassId = (classId && !Number.isNaN(Number(classId)))
+        ? Number(classId)
+        : targetClassId;
+      if (Number.isInteger(parsedClassId) && parsedClassId > 0) {
         const remainingRows = await getClassScoreRemarksRows(
           db,
           organizationId,
           parsedClassId,
-          parsedTermId
+          effectiveTermId
         );
-        await setDefaultsSuppressedState(
-          db,
-          organizationId,
-          parsedClassId,
-          parsedTermId,
-          remainingRows.length === 0
-        );
+        await setDefaultsSuppressedState(db, organizationId, parsedClassId, effectiveTermId, remainingRows.length === 0);
       }
 
       req.flash("success", "Score remark deleted successfully.");
@@ -2680,9 +3231,246 @@ students
     }
   },
 
+  getScoreRemarkClassCoverageAjax: async (req, res) => {
+    await ensureScoreRemarkGradeColumn(db);
+    await ensureScoreRemarkRuleLockTable(db);
+    const {
+      termId,
+      from_percentage,
+      to_percentage,
+      entryType,
+      grade_label,
+      remark,
+    } = req.body || {};
+    const organizationId = req.session.organizationId;
+
+    try {
+      if (!organizationId) {
+        return res.json({ success: false, message: "Organization ID is not set in session." });
+      }
+
+      if (!termId || isNaN(termId)) {
+        return res.json({ success: false, message: "Invalid or missing term ID." });
+      }
+
+      const safeEntryType = entryType === "grade" ? "grade" : (entryType === "remark" ? "remark" : null);
+      if (!safeEntryType) {
+        return res.json({ success: false, message: "Invalid entry type." });
+      }
+
+      const parsedTermId = parseInt(termId, 10);
+      const fromPct = parseFloat(from_percentage);
+      const toPct = parseFloat(to_percentage);
+
+      if (
+        Number.isNaN(fromPct) ||
+        Number.isNaN(toPct) ||
+        fromPct > toPct
+      ) {
+        return res.json({ success: false, message: "Provide a valid percentage range (numeric values, from <= to)." });
+      }
+
+      const normalizedGradeLabelInput = String(grade_label || "").trim().toLowerCase();
+      const normalizedRemarkInput = String(remark || "").trim().toLowerCase();
+
+      const [classesResult, rowsResult, locksResult] = await Promise.all([
+        db.query(
+          `
+            SELECT class_id, class_name
+            FROM classes
+            WHERE organization_id = $1
+            ORDER BY class_id ASC
+          `,
+          [organizationId]
+        ),
+        db.query(
+          `
+            SELECT id, class_id, from_percentage, to_percentage, grade_label, remark
+            FROM score_remarks
+            WHERE organization_id = $1
+              AND term_id = $2
+              AND from_percentage <= $3
+              AND to_percentage >= $4
+          `,
+          [organizationId, parsedTermId, toPct, fromPct]
+        ),
+        db.query(
+          `
+            SELECT class_id
+            FROM score_remark_rule_locks
+            WHERE organization_id = $1
+              AND term_id = $2
+              AND entry_type = $3
+              AND from_percentage <= $4
+              AND to_percentage >= $5
+              AND is_locked = TRUE
+          `,
+          [organizationId, parsedTermId, safeEntryType, toPct, fromPct]
+        ),
+      ]);
+
+      const rowsByClassId = new Map();
+      rowsResult.rows.forEach((row) => {
+        const classId = Number(row.class_id);
+        if (!rowsByClassId.has(classId)) {
+          rowsByClassId.set(classId, []);
+        }
+        rowsByClassId.get(classId).push(row);
+      });
+      const lockedClassIds = new Set(
+        locksResult.rows.map((row) => Number(row.class_id))
+      );
+
+      const isExactRangeRow = (row) => (
+        Number(row?.from_percentage) === fromPct
+        && Number(row?.to_percentage) === toPct
+      );
+
+      const classes = classesResult.rows.map((cls) => {
+        const classId = Number(cls.class_id);
+        const classRows = rowsByClassId.get(classId) || [];
+        const exactRangeRow = classRows.find((row) => isExactRangeRow(row)) || null;
+        const primaryRow = exactRangeRow || classRows[0] || null;
+        const currentGradeLabel = String(primaryRow?.grade_label || "").trim();
+        const currentRemark = String(primaryRow?.remark || "").trim();
+        const hasRange = !!exactRangeRow;
+        const hasOverlap = classRows.some((row) => !isExactRangeRow(row));
+        const hasConflict = classRows.length > 0;
+        const hasMatch = safeEntryType === "grade"
+          ? (
+            normalizedGradeLabelInput
+              ? classRows.some((row) => String(row?.grade_label || "").trim().toLowerCase() === normalizedGradeLabelInput)
+              : false
+          )
+          : (
+            normalizedRemarkInput
+              ? classRows.some((row) => String(row?.remark || "").trim().toLowerCase() === normalizedRemarkInput)
+              : false
+          );
+
+        return {
+          class_id: classId,
+          class_name: cls.class_name,
+          hasRange,
+          hasOverlap,
+          hasConflict,
+          hasMatch,
+          isLocked: lockedClassIds.has(classId),
+          grade_label: currentGradeLabel,
+          remark: currentRemark,
+          conflictRanges: classRows.map((row) => ({
+            from_percentage: Number(row?.from_percentage),
+            to_percentage: Number(row?.to_percentage),
+            grade_label: String(row?.grade_label || "").trim(),
+            remark: String(row?.remark || "").trim(),
+          })),
+        };
+      });
+
+      return res.json({
+        success: true,
+        classes,
+        matchedClassIds: classes.filter((cls) => cls.hasMatch).map((cls) => cls.class_id),
+      });
+    } catch (error) {
+      console.error("[getScoreRemarkClassCoverageAjax] error", error);
+      return res.json({ success: false, message: "Failed to load class coverage." });
+    }
+  },
+
+  setScoreRemarkClassLockAjax: async (req, res) => {
+    await ensureScoreRemarkRuleLockTable(db);
+    const { termId, entryType, selectedClasses, from_percentage, to_percentage, locked } = req.body || {};
+    const organizationId = req.session.organizationId;
+
+    try {
+      if (!organizationId) {
+        return res.json({ success: false, message: "Organization ID is not set in session." });
+      }
+
+      if (!termId || isNaN(termId)) {
+        return res.json({ success: false, message: "Invalid or missing term ID." });
+      }
+
+      const safeEntryType = entryType === "grade" ? "grade" : (entryType === "remark" ? "remark" : null);
+      if (!safeEntryType) {
+        return res.json({ success: false, message: "Invalid entry type." });
+      }
+
+      const fromPct = parseFloat(from_percentage);
+      const toPct = parseFloat(to_percentage);
+      if (Number.isNaN(fromPct) || Number.isNaN(toPct) || fromPct > toPct) {
+        return res.json({ success: false, message: "Provide a valid percentage range (numeric values, from <= to)." });
+      }
+
+      if (!Array.isArray(selectedClasses) || !selectedClasses.length) {
+        return res.json({ success: false, message: "Please select at least one class." });
+      }
+
+      const parsedTermId = parseInt(termId, 10);
+      const parsedSelectedClassIds = selectedClasses
+        .map((classId) => parseInt(classId, 10))
+        .filter((classId) => Number.isInteger(classId) && classId > 0);
+
+      if (parsedSelectedClassIds.length !== selectedClasses.length) {
+        return res.json({ success: false, message: "Invalid class selection." });
+      }
+
+      const classOwnershipResult = await db.query(
+        `
+          SELECT class_id
+          FROM classes
+          WHERE organization_id = $1
+            AND class_id = ANY($2::int[])
+        `,
+        [organizationId, parsedSelectedClassIds]
+      );
+      const allowedClassIds = new Set(classOwnershipResult.rows.map((row) => Number(row.class_id)));
+      const unauthorizedClassId = parsedSelectedClassIds.find((classId) => !allowedClassIds.has(classId));
+      if (unauthorizedClassId) {
+        return res.json({
+          success: false,
+          message: `Access denied: class ${unauthorizedClassId} does not belong to your organization.`,
+        });
+      }
+
+      const nextLockState = locked === true;
+
+      for (const parsedClassId of parsedSelectedClassIds) {
+        await db.query(
+          `
+            INSERT INTO score_remark_rule_locks (organization_id, class_id, term_id, entry_type, from_percentage, to_percentage, is_locked, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+            ON CONFLICT (organization_id, class_id, term_id, entry_type, from_percentage, to_percentage)
+            DO UPDATE SET
+              is_locked = EXCLUDED.is_locked,
+              updated_at = CURRENT_TIMESTAMP
+          `,
+          [organizationId, parsedClassId, parsedTermId, safeEntryType, fromPct, toPct, nextLockState]
+        );
+      }
+
+      return res.json({
+        success: true,
+        entryType: safeEntryType,
+        locked: nextLockState,
+        from_percentage: fromPct,
+        to_percentage: toPct,
+        selectedClasses: parsedSelectedClassIds,
+        message: nextLockState
+          ? `${safeEntryType === "grade" ? "Grade" : "Score remark"} rule locked for selected classes.`
+          : `${safeEntryType === "grade" ? "Grade" : "Score remark"} rule unlocked for selected classes.`,
+      });
+    } catch (error) {
+      console.error("[setScoreRemarkClassLockAjax] error", error);
+      return res.json({ success: false, message: "Failed to update class locks." });
+    }
+  },
+
   saveScoreRemarksAjax: async (req, res) => {
     await ensureScoreRemarkGradeColumn(db);
     await ensureScoreRemarkDefaultStateTable(db);
+    await ensureScoreRemarkRuleLockTable(db);
     await ensureScoreRemarkRangeUniqueConstraint(db);
     const {
       remark,
@@ -2694,19 +3482,10 @@ students
       entryType,
       rowId,
       action,
+      bypassOverrideClassIds,
+      ruleBatch,
     } = req.body;
     const organizationId = req.session.organizationId;
-
-    console.log("[saveScoreRemarksAjax] incoming", {
-      entryType,
-      remark,
-      grade_label,
-      from_percentage,
-      to_percentage,
-      termId,
-      selectedClasses,
-      organizationId,
-    });
 
     try {
       if (!organizationId) {
@@ -2723,12 +3502,27 @@ students
 
       const normalizedRemark = String(remark || "").trim();
       const normalizedGradeLabelInput = String(grade_label || "").trim();
+      const hasSubmittedRemark = normalizedRemark.length > 0;
 
-      if (action !== "deleteDefault" && entryType === "remark" && !normalizedRemark) {
+      const safeEntryType = entryType === "grade" ? "grade" : (entryType === "remark" ? "remark" : null);
+      if (!safeEntryType) {
+        return res.json({ success: false, message: "Invalid entry type." });
+      }
+
+      const isBulkBatchAction = action === "bulkUpsertBatch";
+      const hasRuleBatch = isBulkBatchAction && Array.isArray(ruleBatch) && ruleBatch.length > 0;
+
+      const parsedBypassOverrideClassIds = Array.isArray(bypassOverrideClassIds)
+        ? [...new Set(bypassOverrideClassIds
+            .map((classId) => parseInt(classId, 10))
+            .filter((classId) => Number.isInteger(classId) && classId > 0))]
+        : [];
+
+      if (!hasRuleBatch && action !== "deleteDefault" && safeEntryType === "remark" && !normalizedRemark) {
         return res.json({ success: false, message: "Remark text is required." });
       }
 
-      if (action !== "deleteDefault" && entryType === "grade" && !normalizedGradeLabelInput) {
+      if (!hasRuleBatch && action !== "deleteDefault" && safeEntryType === "grade" && !normalizedGradeLabelInput) {
         return res.json({ success: false, message: "Grade label is required." });
       }
 
@@ -2763,16 +3557,426 @@ students
         });
       }
 
-      if (
+      if (!hasRuleBatch && (
         Number.isNaN(fromPct) ||
         Number.isNaN(toPct) ||
         fromPct > toPct
-      ) {
+      )) {
         return res.json({ success: false, message: "Provide a valid percentage range (numeric values, from <= to)." });
+      }
+
+      if (!hasRuleBatch) {
+        const lockedClasses = await getLockedClassesForRule(
+          db,
+          organizationId,
+          parsedTermId,
+          safeEntryType,
+          fromPct,
+          toPct,
+          parsedSelectedClassIds
+        );
+        if (lockedClasses.length) {
+          const lockedLabel = lockedClasses
+            .map((row) => row.class_name || `Class ${row.class_id}`)
+            .join(", ");
+          return res.json({
+            success: false,
+            message: `Cannot update locked classes: ${lockedLabel}. Unlock them first to continue.`,
+            lockedClassIds: lockedClasses.map((row) => Number(row.class_id)),
+            lockedRange: { from: fromPct, to: toPct },
+          });
+        }
       }
 
       const savedRemarks = [];
       const classRowsMap = {};
+
+      if (action === "bulkUpsert" || action === "bulkUpsertBatch") {
+        const attemptedClassIds = new Set(parsedSelectedClassIds);
+        const processedClassIds = [];
+        const skippedOverrideClassIds = [];
+        let lockedSkippedCount = 0;
+
+        const rowPlans = hasRuleBatch
+          ? ruleBatch
+          : [{
+              from_percentage,
+              to_percentage,
+              grade_label: normalizedGradeLabelInput,
+              remark: normalizedRemark,
+              selectedClasses: parsedSelectedClassIds,
+              bypassOverrideClassIds: parsedBypassOverrideClassIds,
+            }];
+
+        for (let rowIndex = 0; rowIndex < rowPlans.length; rowIndex += 1) {
+          const rowPlan = rowPlans[rowIndex] || {};
+          const rowFromPct = parseFloat(rowPlan.from_percentage);
+          const rowToPct = parseFloat(rowPlan.to_percentage);
+          if (Number.isNaN(rowFromPct) || Number.isNaN(rowToPct) || rowFromPct > rowToPct) {
+            return res.json({
+              success: false,
+              message: `Rule ${rowIndex + 1}: provide a valid percentage range (numeric values, from <= to).`,
+            });
+          }
+
+          const rowGradeLabelInput = String(rowPlan.grade_label || "").trim();
+          const rowRemarkInput = String(rowPlan.remark || "").trim();
+          const rowHasSubmittedRemark = rowRemarkInput.length > 0;
+
+          if (safeEntryType === "remark" && !rowRemarkInput) {
+            return res.json({
+              success: false,
+              message: `Rule ${rowIndex + 1}: remark text is required.`,
+            });
+          }
+
+          if (safeEntryType === "grade" && !rowGradeLabelInput) {
+            return res.json({
+              success: false,
+              message: `Rule ${rowIndex + 1}: grade label is required.`,
+            });
+          }
+
+          const rowSelectedClassIdsRaw = Array.isArray(rowPlan.selectedClasses) && rowPlan.selectedClasses.length
+            ? rowPlan.selectedClasses
+            : parsedSelectedClassIds;
+          const rowSelectedClassIds = [...new Set(rowSelectedClassIdsRaw
+            .map((classId) => parseInt(classId, 10))
+            .filter((classId) => Number.isInteger(classId) && classId > 0))];
+
+          if (!rowSelectedClassIds.length) {
+            continue;
+          }
+
+          const unauthorizedRowClassId = rowSelectedClassIds.find((classId) => !allowedClassIds.has(classId));
+          if (unauthorizedRowClassId) {
+            return res.json({
+              success: false,
+              message: `Access denied: class ${unauthorizedRowClassId} does not belong to your organization.`,
+            });
+          }
+
+          rowSelectedClassIds.forEach((classId) => attemptedClassIds.add(classId));
+
+          const rowLockedClasses = await getLockedClassesForRule(
+            db,
+            organizationId,
+            parsedTermId,
+            safeEntryType,
+            rowFromPct,
+            rowToPct,
+            rowSelectedClassIds
+          );
+          const rowLockedClassIdSet = new Set(rowLockedClasses.map((row) => Number(row.class_id)));
+          lockedSkippedCount += rowLockedClassIdSet.size;
+
+          const rowUnlockedClassIds = rowSelectedClassIds.filter((classId) => !rowLockedClassIdSet.has(classId));
+          if (!rowUnlockedClassIds.length) {
+            continue;
+          }
+
+          const rowParsedBypassOverrideClassIds = Array.isArray(rowPlan.bypassOverrideClassIds)
+            ? [...new Set(rowPlan.bypassOverrideClassIds
+                .map((classId) => parseInt(classId, 10))
+                .filter((classId) => Number.isInteger(classId) && classId > 0))]
+            : parsedBypassOverrideClassIds;
+          const rowBypassOverrideClassIdSet = new Set(rowParsedBypassOverrideClassIds);
+
+          const allOverlappingRowsResult = await db.query(
+            `
+              SELECT id, class_id, from_percentage, to_percentage, remark, grade_label
+              FROM score_remarks
+              WHERE organization_id = $1
+                AND class_id = ANY($2::int[])
+                AND term_id = $3
+                AND from_percentage <= $4
+                AND to_percentage >= $5
+              ORDER BY class_id ASC, from_percentage ASC, to_percentage ASC, id DESC
+            `,
+            [organizationId, rowUnlockedClassIds, parsedTermId, rowToPct, rowFromPct]
+          );
+
+          const overlappingRowsByClassId = new Map();
+          allOverlappingRowsResult.rows.forEach((row) => {
+            const overlapClassId = Number(row.class_id);
+            if (!Number.isInteger(overlapClassId) || overlapClassId <= 0) {
+              return;
+            }
+            if (!overlappingRowsByClassId.has(overlapClassId)) {
+              overlappingRowsByClassId.set(overlapClassId, []);
+            }
+            overlappingRowsByClassId.get(overlapClassId).push(row);
+          });
+
+          const rowConflictClassIds = [];
+          const rowNoConflictClassIds = [];
+          rowUnlockedClassIds.forEach((classId) => {
+            const overlappingRows = overlappingRowsByClassId.get(classId) || [];
+            const hasConflicts = overlappingRows.length > 0;
+            if (hasConflicts && rowBypassOverrideClassIdSet.has(classId)) {
+              skippedOverrideClassIds.push(classId);
+              return;
+            }
+            if (hasConflicts) {
+              rowConflictClassIds.push(classId);
+            } else {
+              rowNoConflictClassIds.push(classId);
+            }
+          });
+
+          const matchingDefaultRow = getDefaultRowForRange(rowFromPct, rowToPct);
+          const defaultGradeLabel = matchingDefaultRow?.gradeLabel || getDefaultGradeLabel((rowFromPct + rowToPct) / 2);
+          const defaultRemark = matchingDefaultRow?.remark || getDefaultScoreRemark((rowFromPct + rowToPct) / 2);
+
+          if (rowNoConflictClassIds.length) {
+            const rowFinalGradeLabelForInsert = safeEntryType === "grade"
+              ? (rowGradeLabelInput || defaultGradeLabel)
+              : defaultGradeLabel;
+            const rowFinalRemarkForInsert = (safeEntryType === "remark" || rowHasSubmittedRemark)
+              ? (rowRemarkInput || defaultRemark)
+              : defaultRemark;
+
+            if (safeEntryType === "remark" || rowHasSubmittedRemark) {
+              const remarkConflictResult = await db.query(
+                `
+                  SELECT class_id, from_percentage, to_percentage
+                  FROM score_remarks
+                  WHERE organization_id = $1
+                    AND class_id = ANY($2::int[])
+                    AND term_id = $3
+                    AND lower(trim(remark)) = lower(trim($4))
+                  ORDER BY class_id ASC, id DESC
+                  LIMIT 1
+                `,
+                [
+                  organizationId,
+                  rowNoConflictClassIds,
+                  parsedTermId,
+                  rowFinalRemarkForInsert,
+                ]
+              );
+              const remarkConflictRow = remarkConflictResult.rows[0] || null;
+              if (remarkConflictRow) {
+                return res.json({
+                  success: false,
+                  message: `Class ${Number(remarkConflictRow.class_id)}: remark "${rowFinalRemarkForInsert}" already exists for range ${formatRangeLabel(remarkConflictRow.from_percentage, remarkConflictRow.to_percentage)}.`,
+                });
+              }
+            }
+
+            const insertNoConflictResult = await db.query(
+              `
+                INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
+                SELECT
+                  $1,
+                  class_id,
+                  $2,
+                  $3,
+                  $4,
+                  $5,
+                  $6
+                FROM unnest($7::int[]) AS class_id
+                RETURNING *
+              `,
+              [
+                organizationId,
+                parsedTermId,
+                rowFinalRemarkForInsert,
+                rowFinalGradeLabelForInsert,
+                rowFromPct,
+                rowToPct,
+                rowNoConflictClassIds,
+              ]
+            );
+
+            if (Array.isArray(insertNoConflictResult.rows) && insertNoConflictResult.rows.length) {
+              savedRemarks.push(...insertNoConflictResult.rows);
+            }
+
+            await db.query(
+              `
+                INSERT INTO score_remark_default_state (organization_id, class_id, term_id, defaults_suppressed)
+                SELECT $1, class_id, $2, FALSE
+                FROM unnest($3::int[]) AS class_id
+                ON CONFLICT (organization_id, class_id, term_id)
+                DO UPDATE SET defaults_suppressed = EXCLUDED.defaults_suppressed
+              `,
+              [organizationId, parsedTermId, rowNoConflictClassIds]
+            );
+
+            processedClassIds.push(...rowNoConflictClassIds);
+          }
+
+          for (const parsedClassId of rowConflictClassIds) {
+            const overlappingRows = overlappingRowsByClassId.get(parsedClassId) || [];
+            const exactRangeRow = overlappingRows.find((row) => (
+              Number(row?.from_percentage) === rowFromPct
+              && Number(row?.to_percentage) === rowToPct
+            )) || null;
+            const hasConflicts = overlappingRows.length > 0;
+
+            if (hasConflicts) {
+              const lockedOverlapResult = await db.query(
+                `
+                  SELECT class_id, from_percentage, to_percentage
+                  FROM score_remark_rule_locks
+                  WHERE organization_id = $1
+                    AND class_id = $2
+                    AND term_id = $3
+                    AND entry_type = $4
+                    AND is_locked = TRUE
+                    AND from_percentage <= $5
+                    AND to_percentage >= $6
+                  ORDER BY from_percentage ASC
+                  LIMIT 1
+                `,
+                [organizationId, parsedClassId, parsedTermId, safeEntryType, rowToPct, rowFromPct]
+              );
+              const lockedOverlapRow = lockedOverlapResult.rows[0] || null;
+              if (lockedOverlapRow) {
+                return res.json({
+                  success: false,
+                  message: `Class ${parsedClassId}: cannot override locked range ${formatRangeLabel(lockedOverlapRow.from_percentage, lockedOverlapRow.to_percentage)}. Unlock it first to continue.`,
+                  lockedClassIds: [parsedClassId],
+                  lockedRange: {
+                    from: Number(lockedOverlapRow.from_percentage),
+                    to: Number(lockedOverlapRow.to_percentage),
+                  },
+                });
+              }
+            }
+
+            const sourceRowForFallback = exactRangeRow || overlappingRows[0] || null;
+
+            const finalGradeLabel = safeEntryType === "grade"
+              ? (rowGradeLabelInput || sourceRowForFallback?.grade_label || defaultGradeLabel)
+              : (sourceRowForFallback?.grade_label || defaultGradeLabel);
+            const finalRemark = (safeEntryType === "remark" || rowHasSubmittedRemark)
+              ? (rowRemarkInput || sourceRowForFallback?.remark || defaultRemark)
+              : (sourceRowForFallback?.remark || defaultRemark);
+
+            if (safeEntryType === "remark" || rowHasSubmittedRemark) {
+              const excludedConflictIds = overlappingRows
+                .map((row) => Number(row?.id))
+                .filter((id) => Number.isInteger(id) && id > 0);
+              const exclusionIds = excludedConflictIds.length ? excludedConflictIds : [0];
+              const remarkConflictResult = await db.query(
+                `
+                  SELECT id, from_percentage, to_percentage
+                  FROM score_remarks
+                  WHERE organization_id = $1
+                    AND class_id = $2
+                    AND term_id = $3
+                    AND lower(trim(remark)) = lower(trim($4))
+                    AND NOT (id = ANY($5::int[]))
+                  ORDER BY id DESC
+                  LIMIT 1
+                `,
+                [
+                  organizationId,
+                  parsedClassId,
+                  parsedTermId,
+                  finalRemark,
+                  exclusionIds,
+                ]
+              );
+              const remarkConflictRow = remarkConflictResult.rows[0] || null;
+              if (remarkConflictRow) {
+                return res.json({
+                  success: false,
+                  message: `Class ${parsedClassId}: remark "${finalRemark}" already exists for range ${formatRangeLabel(remarkConflictRow.from_percentage, remarkConflictRow.to_percentage)}.`,
+                });
+              }
+            }
+
+            const conflictingRowIds = overlappingRows
+              .map((row) => Number(row?.id))
+              .filter((id) => Number.isInteger(id) && id > 0);
+
+            if (conflictingRowIds.length) {
+              await db.query(
+                `
+                  DELETE FROM score_remarks
+                  WHERE organization_id = $1
+                    AND class_id = $2
+                    AND term_id = $3
+                    AND id = ANY($4::int[])
+                `,
+                [organizationId, parsedClassId, parsedTermId, conflictingRowIds]
+              );
+            }
+
+            let upsertedRow = null;
+            try {
+              const insertResult = await db.query(
+                `
+                  INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
+                  VALUES ($1, $2, $3, $4, $5, $6, $7)
+                  RETURNING *
+                `,
+                [organizationId, parsedClassId, parsedTermId, finalRemark, finalGradeLabel, rowFromPct, rowToPct]
+              );
+              upsertedRow = insertResult.rows[0] || null;
+            } catch (insertError) {
+              if (
+                insertError?.code === "23505"
+                && (insertError?.constraint === "unique_score_remark" || insertError?.constraint === "score_remarks_unique")
+              ) {
+                return res.json({
+                  success: false,
+                  message: `Class ${parsedClassId}: remark "${finalRemark}" already exists in this term. Use a different score remark text for this range.`,
+                });
+              }
+              throw insertError;
+            }
+
+            if (upsertedRow) {
+              savedRemarks.push(upsertedRow);
+            }
+            await setDefaultsSuppressedState(db, organizationId, parsedClassId, parsedTermId, false);
+            processedClassIds.push(parsedClassId);
+          }
+        }
+
+        const uniqueProcessedClassIds = [...new Set(processedClassIds)];
+        if (uniqueProcessedClassIds.length) {
+          const updatedClassRowsMap = await getClassScoreRemarksRowsByClassIds(
+            db,
+            organizationId,
+            uniqueProcessedClassIds,
+            parsedTermId
+          );
+          Object.assign(classRowsMap, updatedClassRowsMap);
+        }
+
+        const includesSubmittedRemark = hasRuleBatch
+          ? rowPlans.some((plan) => String(plan?.remark || "").trim().length > 0)
+          : hasSubmittedRemark;
+        const actionLabel = safeEntryType === "grade"
+          ? (includesSubmittedRemark ? "Grade & score rule" : "Grade mapping")
+          : "Score remark";
+        const processedLabel = uniqueProcessedClassIds.length
+          ? `${uniqueProcessedClassIds.length} class(es) updated.`
+          : "No class was updated.";
+        const bypassCount = [...new Set(skippedOverrideClassIds)].length;
+        const bypassLabel = bypassCount
+          ? ` ${bypassCount} class(es) bypassed.`
+          : "";
+        const lockedLabel = lockedSkippedCount
+          ? ` ${lockedSkippedCount} locked class update(s) skipped.`
+          : "";
+
+        return res.json({
+          success: true,
+          savedRemarks,
+          classRowsMap,
+          attemptedClassIds: [...attemptedClassIds],
+          processedClassIds: uniqueProcessedClassIds,
+          skippedOverrideClassIds: [...new Set(skippedOverrideClassIds)],
+          lockedSkippedCount,
+          message: `${actionLabel} bulk save complete. ${processedLabel}${bypassLabel}${lockedLabel}`,
+        });
+      }
 
       if (Number.isInteger(parsedRowId) && parsedRowId > 0) {
         const editableRowResult = await db.query(
@@ -2791,10 +3995,35 @@ students
 
         const editableRow = editableRowResult.rows[0];
         const targetClassId = Number(editableRow.class_id);
+        const editableTermId = Number(editableRow.term_id) || parsedTermId;
+        const editableFromPct = Number(editableRow.from_percentage);
+        const editableToPct = Number(editableRow.to_percentage);
+
+        const targetClassLocks = await getLockedClassesForRule(
+          db,
+          organizationId,
+          editableTermId,
+          safeEntryType,
+          editableFromPct,
+          editableToPct,
+          [targetClassId]
+        );
+        if (targetClassLocks.length) {
+          const targetClassName = targetClassLocks[0].class_name || `Class ${targetClassId}`;
+          return res.json({
+            success: false,
+            message: `Cannot update locked class: ${targetClassName}. Unlock it first to continue.`,
+            lockedClassIds: [targetClassId],
+            lockedRange: { from: editableFromPct, to: editableToPct },
+          });
+        }
+
         const finalFromPct = Number.isNaN(fromPct) ? Number(editableRow.from_percentage) : fromPct;
         const finalToPct = Number.isNaN(toPct) ? Number(editableRow.to_percentage) : toPct;
         const finalGradeLabel = normalizedGradeLabelInput || editableRow.grade_label || getDefaultGradeLabel((finalFromPct + finalToPct) / 2);
-        const finalRemark = normalizedRemark || editableRow.remark || "No Remark";
+        const finalRemark = hasSubmittedRemark
+          ? normalizedRemark
+          : (editableRow.remark || "No Remark");
 
         if (
           Number.isNaN(finalFromPct) ||
@@ -2850,7 +4079,7 @@ students
           });
         }
 
-        if (entryType === "remark") {
+        if (safeEntryType === "remark" || hasSubmittedRemark) {
           const remarkConflictResult = await db.query(
             `
               SELECT id, from_percentage, to_percentage
@@ -2896,7 +4125,9 @@ students
           success: true,
           savedRemarks: editedResult.rows,
           classRowsMap,
-          message: entryType === "grade" ? "Grade mapping updated successfully." : "Score remark updated successfully.",
+          message: safeEntryType === "grade"
+            ? (hasSubmittedRemark ? "Grade & score rule updated successfully." : "Grade mapping updated successfully.")
+            : "Score remark updated successfully.",
         });
       }
 
@@ -2950,9 +4181,11 @@ students
           });
         }
 
-        if (entryType === "remark") {
+        if (safeEntryType === "remark" || hasSubmittedRemark) {
           const matchingDefaultRow = getDefaultRowForRange(fromPct, toPct);
-          const finalRemarkForValidation = normalizedRemark || matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2);
+          const finalRemarkForValidation = hasSubmittedRemark
+            ? normalizedRemark
+            : (matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2));
           const existingRemarkResult = await db.query(
             `
               SELECT id, from_percentage, to_percentage
@@ -3004,7 +4237,9 @@ students
 
         const matchingDefaultRow = getDefaultRowForRange(fromPct, toPct);
         const finalGradeLabel = normalizedGradeLabelInput || matchingDefaultRow?.gradeLabel || getDefaultGradeLabel((fromPct + toPct) / 2);
-        const finalRemark = normalizedRemark || matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2);
+        const finalRemark = hasSubmittedRemark
+          ? normalizedRemark
+          : (matchingDefaultRow?.remark || getDefaultScoreRemark((fromPct + toPct) / 2));
 
         let result;
         try {
@@ -3037,8 +4272,10 @@ students
         classRowsMap,
         message:
           action === "deleteDefault"
-            ? (entryType === "grade" ? "Default grade mapping deleted successfully." : "Default score remark deleted successfully.")
-            : (entryType === "grade" ? "Grade mapping saved successfully." : "Score remark saved successfully."),
+            ? (safeEntryType === "grade" ? "Default grade mapping deleted successfully." : "Default score remark deleted successfully.")
+            : (safeEntryType === "grade"
+              ? (hasSubmittedRemark ? "Grade & score rule saved successfully." : "Grade mapping saved successfully.")
+              : "Score remark saved successfully."),
       });
     } catch (error) {
       console.error("[saveScoreRemarksAjax] error", error);

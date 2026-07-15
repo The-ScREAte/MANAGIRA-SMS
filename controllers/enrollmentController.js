@@ -1,11 +1,49 @@
 const notifSvc = require("../utils/notificationService");
 const { userHasPermission, PERMISSIONS } = require('../middleware/permissionMiddleware');
 const { formatDisplayName } = require("../utils/organizationDisplayPreferences");
+
+let classDashboardLayoutSchemaReady = false;
+const CLASS_DASHBOARD_ORDER_SQL = `
+  COALESCE(dashboard_sort_order, 2147483647),
+  class_name ASC,
+  class_id ASC
+`;
+
+async function ensureClassDashboardLayoutSchema(dbClient) {
+  if (classDashboardLayoutSchemaReady) return;
+
+  await dbClient.query(`
+    ALTER TABLE classes
+      ADD COLUMN IF NOT EXISTS dashboard_sort_order INTEGER,
+      ADD COLUMN IF NOT EXISTS dashboard_break_after BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+
+  await dbClient.query(`
+    WITH ranked AS (
+      SELECT
+        class_id,
+        ROW_NUMBER() OVER (
+          PARTITION BY organization_id
+          ORDER BY class_name ASC, class_id ASC
+        ) AS sort_order
+      FROM classes
+    )
+    UPDATE classes c
+    SET dashboard_sort_order = ranked.sort_order
+    FROM ranked
+    WHERE c.class_id = ranked.class_id
+      AND c.dashboard_sort_order IS NULL
+  `);
+
+  classDashboardLayoutSchemaReady = true;
+}
+
 const enrollmentController = {
     // Enrollment page
     enrollmentGet: async (req, res, db) => {
       try {
         const organizationId = req.session.organizationId;
+        await ensureClassDashboardLayoutSchema(db);
     
         // Fetch all school years
         const schoolYearResults = await db.query(`
@@ -42,7 +80,7 @@ const enrollmentController = {
           SELECT class_id, class_name
           FROM classes
           WHERE organization_id = $1
-          ORDER BY class_name
+          ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}
         `, [organizationId]);
         const allClasses = allClassesResult.rows;
     
@@ -239,6 +277,7 @@ const enrollmentController = {
     manageEnrollmentGet: async (req, res, db) => {
         try {
           const organizationId = req.session.organizationId;
+          await ensureClassDashboardLayoutSchema(db);
       
           // Fetch all enrollments (school year + term)
           const enrollmentsResult = await db.query(`
@@ -261,6 +300,7 @@ const enrollmentController = {
               FROM enrolled_classes ec
               JOIN classes c ON ec.class_id = c.class_id
               WHERE ec.enrollment_id = $1
+              ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
             `, [enrollment.enrollment_id]);
       
             const classes = [];
@@ -308,6 +348,7 @@ const enrollmentController = {
         try {
             const { enrollmentId } = req.params; // Extract enrollmentId from the route
             const organizationId = req.session.organizationId;
+        await ensureClassDashboardLayoutSchema(db);
     
             // Fetch the existing enrollment
             const enrollmentResult = await db.query(`
@@ -359,7 +400,7 @@ const enrollmentController = {
                     ) AS selected
                 FROM classes c
                 WHERE c.organization_id = $2
-                ORDER BY c.class_name
+                ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
             `, [enrollmentId, organizationId]);
     
             const classes = await Promise.all(classesResult.rows.map(async cls => {

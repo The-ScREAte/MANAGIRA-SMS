@@ -585,7 +585,7 @@ const hubController = {
            LEFT JOIN attendance_records a ON s.student_id = a.student_id AND a.term_id = $2
            WHERE c.organization_id = $1
            GROUP BY c.class_name
-           ORDER BY c.class_name`,
+           ORDER BY MIN(COALESCE(c.dashboard_sort_order, 2147483647)), c.class_name`,
           [organizationId, currentTerm.term_id]
         )).rows;
 
@@ -850,7 +850,7 @@ const hubController = {
          LEFT JOIN subjects sub ON sub.class_id = c.class_id
          WHERE c.organization_id = $1
          GROUP BY c.class_id, c.class_name
-         ORDER BY c.class_name ASC`,
+         ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC`,
         [organizationId]
       );
 
