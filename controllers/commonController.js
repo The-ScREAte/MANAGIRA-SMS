@@ -224,7 +224,46 @@ function readClassroomRemarkTypesFromDisplaySettings(displaySettings) {
   return normalizeClassroomRemarkTypes(sections.classroomRemarkTypes);
 }
 
+function isTeacherOnlyRemarkTypeSet(types) {
+  return Array.isArray(types) && types.length === 1 && types[0] === "teacher";
+}
+
+function pickPreferredClassroomRemarkTypes(rows) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+
+  var normalizedSets = rows
+    .map(function(row) {
+      return readClassroomRemarkTypesFromDisplaySettings(row?.display_settings || {});
+    })
+    .filter(function(types) {
+      return Array.isArray(types) && types.length > 0;
+    });
+
+  if (!normalizedSets.length) return null;
+
+  var firstNonDefault = normalizedSets.find(function(types) {
+    return !isTeacherOnlyRemarkTypeSet(types);
+  });
+
+  return firstNonDefault || normalizedSets[0];
+}
+
 async function getConfiguredClassroomRemarkTypes(dbClient, organizationId, classId, termId) {
+  const orgAnyTermResult = await dbClient.query(
+    `SELECT display_settings
+     FROM report_settings
+     WHERE organization_id = $1
+       AND jsonb_typeof(display_settings->'sections') = 'object'
+       AND (display_settings->'sections' ? 'classroomRemarkTypes')
+     ORDER BY setting_id DESC`,
+    [organizationId]
+  );
+
+  const orgAnyTermTypes = pickPreferredClassroomRemarkTypes(orgAnyTermResult.rows);
+  if (Array.isArray(orgAnyTermTypes) && orgAnyTermTypes.length) {
+    return orgAnyTermTypes;
+  }
+
   const classScopedResult = await dbClient.query(
     `SELECT display_settings
      FROM report_settings
@@ -236,8 +275,24 @@ async function getConfiguredClassroomRemarkTypes(dbClient, organizationId, class
   const classScopedTypes = readClassroomRemarkTypesFromDisplaySettings(
     classScopedResult.rows[0]?.display_settings || {}
   );
-  if (Array.isArray(classScopedTypes) && classScopedTypes.length) {
+  if (Array.isArray(classScopedTypes) && classScopedTypes.length && !isTeacherOnlyRemarkTypeSet(classScopedTypes)) {
     return classScopedTypes;
+  }
+
+  const classAnyTermResult = await dbClient.query(
+    `SELECT display_settings
+     FROM report_settings
+     WHERE organization_id = $1
+       AND class_id = $2
+       AND jsonb_typeof(display_settings->'sections') = 'object'
+       AND (display_settings->'sections' ? 'classroomRemarkTypes')
+     ORDER BY term_id DESC`,
+    [organizationId, classId]
+  );
+
+  const classAnyTermTypes = pickPreferredClassroomRemarkTypes(classAnyTermResult.rows);
+  if (Array.isArray(classAnyTermTypes) && classAnyTermTypes.length) {
+    return classAnyTermTypes;
   }
 
   const termScopedResult = await dbClient.query(
@@ -247,16 +302,17 @@ async function getConfiguredClassroomRemarkTypes(dbClient, organizationId, class
        AND term_id = $2
        AND jsonb_typeof(display_settings->'sections') = 'object'
        AND (display_settings->'sections' ? 'classroomRemarkTypes')
-     ORDER BY class_id ASC
-     LIMIT 1`,
+     ORDER BY class_id ASC`,
     [organizationId, termId]
   );
 
-  const termScopedTypes = readClassroomRemarkTypesFromDisplaySettings(
-    termScopedResult.rows[0]?.display_settings || {}
-  );
+  const termScopedTypes = pickPreferredClassroomRemarkTypes(termScopedResult.rows);
   if (Array.isArray(termScopedTypes) && termScopedTypes.length) {
     return termScopedTypes;
+  }
+
+  if (Array.isArray(classScopedTypes) && classScopedTypes.length) {
+    return classScopedTypes;
   }
 
   return ["teacher"];

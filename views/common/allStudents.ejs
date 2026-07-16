@@ -1226,6 +1226,50 @@
   .as-change-arrow-icon { color: #9ca3af; font-size: 16px; }
   .as-change-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .as-change-label { font-size: 12px; color: var(--muted); min-width: 70px; }
+
+  /* ── Page busy spinner ─────────────────────────────── */
+  .as-page-busy {
+    position: fixed;
+    inset: 0;
+    z-index: 13050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(1px);
+  }
+  .as-page-busy.open {
+    display: flex;
+  }
+  .as-page-busy-card {
+    min-width: 170px;
+    max-width: min(92vw, 320px);
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid #dbe3ec;
+    background: #ffffff;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .as-page-busy-spinner {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 2.5px solid #dbe7f2;
+    border-top-color: var(--primary);
+    animation: asSpin 0.72s linear infinite;
+    flex-shrink: 0;
+  }
+  .as-page-busy-text {
+    font-size: 12.5px;
+    color: #334155;
+    font-weight: 700;
+  }
+  @keyframes asSpin {
+    to { transform: rotate(360deg); }
+  }
 </style>
 
 <div class="as-wrapper">
@@ -1562,6 +1606,13 @@
     </div>
   </div>
 </div><!-- end .as-wrapper -->
+
+<div class="as-page-busy" id="asPageBusy" aria-live="polite" aria-busy="true">
+  <div class="as-page-busy-card">
+    <span class="as-page-busy-spinner" aria-hidden="true"></span>
+    <span class="as-page-busy-text" id="asPageBusyText">Saving changes...</span>
+  </div>
+</div>
 
 <!-- ── Edit Student Modal (single student) ───────────────── -->
 <div class="as-modal-overlay" id="asModalOverlay" role="dialog" aria-modal="true" aria-labelledby="asModalTitle">
@@ -2246,6 +2297,7 @@
       var previousHtml = bulkPortalBtn.innerHTML;
       bulkPortalBtn.disabled = true;
       bulkPortalBtn.textContent = 'Sending...';
+      setPageBusy(true, 'Sending portal emails...');
 
       fetch('/common/studentRequestPasswordResetBulk', {
         method: 'POST',
@@ -2270,6 +2322,7 @@
         .finally(function() {
           bulkPortalBtn.disabled = false;
           bulkPortalBtn.innerHTML = previousHtml;
+          setPageBusy(false);
         });
     });
   }
@@ -2335,6 +2388,25 @@
 
   function describeSubjectCarryoverChoice(keepExistingSubjects) {
     return keepExistingSubjects ? 'Keep matching previous subjects' : 'Do not carry previous subjects';
+  }
+
+  var pageBusyOverlay = document.getElementById('asPageBusy');
+  var pageBusyText = document.getElementById('asPageBusyText');
+  var pageBusyDepth = 0;
+
+  function setPageBusy(isBusy, message) {
+    if (!pageBusyOverlay) return;
+    if (isBusy) {
+      pageBusyDepth += 1;
+      if (pageBusyText && message) pageBusyText.textContent = message;
+      pageBusyOverlay.classList.add('open');
+      return;
+    }
+    pageBusyDepth = Math.max(0, pageBusyDepth - 1);
+    if (pageBusyDepth === 0) {
+      pageBusyOverlay.classList.remove('open');
+      if (pageBusyText) pageBusyText.textContent = 'Saving changes...';
+    }
   }
 
   function joinSubjectCarryoverMessages(data) {
@@ -2481,6 +2553,7 @@
 
     modalSave.disabled=true;
     modalMsg2.textContent='Saving…'; modalMsg2.className='as-modal-msg';
+    setPageBusy(true, 'Saving student...');
     var payload = {};
     if (hasClassChange) payload.classId = newClassId;
     if (hasYearChange) payload.schoolYearId = newSchoolYearId;
@@ -2510,7 +2583,7 @@
           ? 'Student updated successfully! ' + singleCarryoverNotice
           : 'Student updated successfully!';
         modalMsg2.className='as-modal-msg success';
-        setTimeout(closeModal, 900);
+        setTimeout(closeModal, 120);
       } else {
         var msg = data.error || 'Failed to update.';
         if (data.suggestion) msg += ' Try "' + data.suggestion + '".';
@@ -2524,6 +2597,8 @@
     }).catch(function(){
       modalMsg2.textContent='Network error.'; modalMsg2.className='as-modal-msg error';
       modalSave.disabled=false;
+    }).finally(function(){
+      setPageBusy(false);
     });
   });
   function requestStudentPasswordReset(button) {
@@ -2548,6 +2623,7 @@
     var oldTitle = button.title;
     button.disabled = true;
     button.title = 'Sending...';
+    setPageBusy(true, 'Sending email...');
 
     fetch('/common/studentRequestPasswordReset', {
       method: 'POST',
@@ -2572,6 +2648,7 @@
       .finally(function() {
         button.disabled = false;
         button.title = oldTitle;
+        setPageBusy(false);
       });
   }
 
@@ -3079,6 +3156,7 @@
     var hasStudentId = !!(chkStudentId && chkStudentId.checked);
     bulkSave.disabled=true;
     bulkMsg2.textContent='Applying changes…'; bulkMsg2.className='as-modal-msg';
+    setPageBusy(true, 'Applying bulk update...');
     var payload = { studentIds: Array.from(selectedIds) };
     if (hasClass) payload.classId = selClass.value;
     if (hasYear)  payload.schoolYearId = selYear.value;
@@ -3134,7 +3212,7 @@
         var bulkCarryoverNotice = joinSubjectCarryoverMessages(data);
         bulkMsg2.textContent = data.updated+' student'+(data.updated===1?'':' s')+' updated successfully!'+(bulkCarryoverNotice ? ' ' + bulkCarryoverNotice : '');
         bulkMsg2.className='as-modal-msg success';
-        setTimeout(function(){ closeBulkModal(); clearAllSelections(); }, 1100);
+        setTimeout(function(){ closeBulkModal(); clearAllSelections(); }, 140);
       } else {
         bulkMsg2.textContent=data.error||'Bulk update failed.'; bulkMsg2.className='as-modal-msg error';
         bulkSave.disabled=false;
@@ -3142,6 +3220,8 @@
     }).catch(function(){
       bulkMsg2.textContent='Network error. Please try again.'; bulkMsg2.className='as-modal-msg error';
       bulkSave.disabled=false;
+    }).finally(function(){
+      setPageBusy(false);
     });
   });
   selClass.addEventListener('change', function(){ bulkKeepExistingSubjects = null; bulkKeepExistingSubjectsClassId = ''; });

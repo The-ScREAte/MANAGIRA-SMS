@@ -251,6 +251,18 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+      const pendingSpaCacheClear = sessionStorage.getItem("managira:clear-spa-cache") === "1";
+      if (pendingSpaCacheClear) {
+        const clearSpaCache = () => {
+          if (window.spaRouter && typeof window.spaRouter.clearCache === "function") {
+            window.spaRouter.clearCache();
+          }
+        };
+        clearSpaCache();
+        window.addEventListener("load", clearSpaCache, { once: true });
+        sessionStorage.removeItem("managira:clear-spa-cache");
+      }
+
       const accountTypeSelect = document.querySelector("select[name='accountType']");
       const permissionGroup = document.getElementById("permission-assignment-group");
       const roleDefaultsData = document.getElementById("role-default-permissions-data");
@@ -320,7 +332,12 @@
           const confirmed = confirm("Are you sure you want to apply these changes?");
           if (!confirmed) {
             e.preventDefault(); // Stop form submission
+            return;
           }
+
+          // Mark that SPA cache should be purged on the next page load,
+          // ensuring header/menu access state is rebuilt from fresh server HTML.
+          sessionStorage.setItem("managira:clear-spa-cache", "1");
         });
       }
     });

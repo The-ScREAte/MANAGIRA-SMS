@@ -275,6 +275,52 @@ function normalizeClassroomRemarkTypes(value) {
   return unique.length ? unique : ["teacher"];
 }
 
+function readClassroomRemarkTypesFromDisplaySettings(displaySettings) {
+  const sections = displaySettings && typeof displaySettings.sections === 'object'
+    ? displaySettings.sections
+    : {};
+
+  if (!Object.prototype.hasOwnProperty.call(sections, 'classroomRemarkTypes')) {
+    return null;
+  }
+
+  return normalizeClassroomRemarkTypes(sections.classroomRemarkTypes);
+}
+
+function isTeacherOnlyRemarkTypeSet(types) {
+  return Array.isArray(types) && types.length === 1 && types[0] === 'teacher';
+}
+
+function pickPreferredClassroomRemarkTypes(rows) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+
+  const normalizedSets = rows
+    .map((row) => readClassroomRemarkTypesFromDisplaySettings(row?.display_settings || {}))
+    .filter((types) => Array.isArray(types) && types.length > 0);
+
+  if (!normalizedSets.length) return null;
+
+  const firstNonDefault = normalizedSets.find((types) => !isTeacherOnlyRemarkTypeSet(types));
+  return firstNonDefault || normalizedSets[0];
+}
+
+async function getOrganizationClassroomRemarkTypes(dbClient, organizationId) {
+  const result = await dbClient.query(
+    `SELECT display_settings
+     FROM report_settings
+     WHERE organization_id = $1
+       AND jsonb_typeof(display_settings->'sections') = 'object'
+       AND (display_settings->'sections' ? 'classroomRemarkTypes')
+     ORDER BY setting_id DESC`,
+    [organizationId]
+  );
+
+  const selectedTypes = pickPreferredClassroomRemarkTypes(result.rows);
+  return Array.isArray(selectedTypes) && selectedTypes.length
+    ? selectedTypes
+    : ["teacher"];
+}
+
 let ensuredOrganizationCustomRemarkTypesTable = false;
 async function ensureOrganizationCustomRemarkTypesTable(dbClient) {
   if (ensuredOrganizationCustomRemarkTypesTable) return;
@@ -2243,6 +2289,8 @@ students
         signatureImageUrl = await getFromS3(reportSettings.signature_image_path);
       }
 
+      const organizationClassroomRemarkTypes = await getOrganizationClassroomRemarkTypes(db, organizationId);
+
       // Fetch display settings for ALL enrolled classes (for the dynamic per-class Advanced panel)
       const enrolledClassIds = enrolledClasses.map(c => c.class_id);
       const allClassDsResult = await db.query(
@@ -2287,7 +2335,7 @@ students
             attitudeRemarks: sec.attitudeRemarks !== false,
             interestRemarks: sec.interestRemarks !== false,
             customRemarksVisibility: normalizeCustomRemarkVisibilityMap(sec.customRemarksVisibility, customRemarkTypes),
-            classroomRemarkTypes: normalizeClassroomRemarkTypes(sec.classroomRemarkTypes),
+            classroomRemarkTypes: organizationClassroomRemarkTypes,
             gradeKey:        sec.gradeKey        !== false,
             gradePresentation,
             attendance:      sec.attendance      !== false,
@@ -2509,7 +2557,7 @@ students
           attitudeRemarks: secVis2.attitudeRemarks !== false,
           interestRemarks: secVis2.interestRemarks !== false,
           customRemarksVisibility: normalizeCustomRemarkVisibilityMap(secVis2.customRemarksVisibility, customRemarkTypes),
-          classroomRemarkTypes: normalizeClassroomRemarkTypes(secVis2.classroomRemarkTypes),
+          classroomRemarkTypes: organizationClassroomRemarkTypes,
           gradeKey:        secVis2.gradeKey        !== false,
           gradePresentation: gradePresentation2,
           attendance:      secVis2.attendance      !== false,
@@ -2570,7 +2618,7 @@ students
         assessmentsByCategory,
         currentDisplaySettings,
         customRemarkTypes,
-        classroomRemarkTypes: normalizeClassroomRemarkTypes(currentDisplaySettings?.sections?.classroomRemarkTypes),
+        classroomRemarkTypes: organizationClassroomRemarkTypes,
         allDisplaySettingsMap,
         allSubjectsByClassMap,
         allAssessmentsByCategoryMap,
@@ -3375,36 +3423,43 @@ students
         return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
       }
 
-      const existingResult = await db.query(
-        `SELECT display_settings
-         FROM report_settings
-         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
-         LIMIT 1`,
-        [organizationId, classId, termId]
+      // Global behavior: one save applies classroom popup types across this organization.
+      await db.query(
+        `UPDATE report_settings
+         SET display_settings = jsonb_set(
+           COALESCE(display_settings, '{}'::jsonb),
+           '{sections,classroomRemarkTypes}',
+           to_jsonb($2::text[]),
+           true
+         )
+         WHERE organization_id = $1`,
+        [organizationId, selectedRemarkTypes]
       );
 
-      const existingDisplaySettings = existingResult.rows[0]?.display_settings || {};
-      const existingSections = existingDisplaySettings.sections && typeof existingDisplaySettings.sections === 'object'
-        ? existingDisplaySettings.sections
-        : {};
-
-      const nextDisplaySettings = {
-        ...existingDisplaySettings,
-        sections: {
-          ...existingSections,
-          classroomRemarkTypes: selectedRemarkTypes,
-        },
-      };
-
+      // Ensure every class in the selected term has this global value stored.
       await db.query(
         `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
-         VALUES ($1, $2, $3, $4)
+         SELECT
+           $1,
+           c.class_id,
+           $2,
+           jsonb_build_object(
+             'sections',
+             jsonb_build_object('classroomRemarkTypes', to_jsonb($3::text[]))
+           )
+         FROM classes c
+         WHERE c.organization_id = $1
          ON CONFLICT (organization_id, class_id, term_id)
-         DO UPDATE SET display_settings = $4`,
-        [organizationId, classId, termId, JSON.stringify(nextDisplaySettings)]
+         DO UPDATE SET display_settings = jsonb_set(
+           COALESCE(report_settings.display_settings, '{}'::jsonb),
+           '{sections,classroomRemarkTypes}',
+           to_jsonb($3::text[]),
+           true
+         )`,
+        [organizationId, termId, selectedRemarkTypes]
       );
 
-      req.flash("success", "Classroom remark visibility updated.");
+      req.flash("success", "Classroom remark visibility updated for all classes.");
       return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
     } catch (error) {
       req.flash("error", "Failed to update classroom remark visibility.");
