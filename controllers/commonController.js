@@ -9987,22 +9987,6 @@ const commonController = {
   },
 
   modifyEmployeePost: async (req, res, db) => {
-    const modId = `mep-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const modStart = Date.now();
-    const elapsed = () => `${Date.now() - modStart}ms`;
-
-    console.info(`\n====== [ModifyEmployee:POST][${modId}] START ======`);
-    console.info(`[ModifyEmployee:POST][${modId}] body_received`, {
-      userId: req.params.userId,
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      email: req.body.email,
-      accountType: req.body.accountType,
-      rawPermissions: req.body.permissions,
-      rawClassIds: req.body.classIds,
-      rawSubjects: req.body.subjects,
-    });
-
     const { userId } = req.params;
     const {
       firstName,
@@ -10050,18 +10034,8 @@ const commonController = {
     // Persist exactly what was selected in the form (after safety filtering).
     const effectivePermissions = sanitizedRequestedPermissions;
 
-    // Log everything critical BEFORE touching the DB
-    const modId2 = modId; // already declared above
-    console.info(`[ModifyEmployee:POST][${modId2}] pre_db_state`, {
-      userId, organizationId, requestorRole, requestorId, accountType,
-      requestedPermissions, sanitizedRequestedPermissions: sanitizedRequestedPermissions.length,
-      effectivePermissions, effectiveCount: effectivePermissions.length,
-      elapsed: elapsed(),
-    });
-
     // Guard: session must have organizationId or the INSERT will fail
     if (!organizationId) {
-      console.error(`[ModifyEmployee:POST][${modId2}] ABORT — organizationId missing in session`);
       req.flash("error", "Session error: please log in again.");
       return res.redirect("/account/login");
     }
@@ -10077,15 +10051,12 @@ const commonController = {
         .filter((value) => Number.isInteger(value) && value > 0)
     )];
 
-    console.info(`[ModifyEmployee:POST][${modId2}] acquiring_db_client`, { elapsed: elapsed() });
     const client = await db.connect();
-    console.info(`[ModifyEmployee:POST][${modId2}] db_client_acquired`, { elapsed: elapsed() });
 
     try {
       await ensureUserBirthdaySchema(client);
       // BEGIN immediately — every exit path below reaches the catch which ROLLBACKs
       await client.query("BEGIN");
-      console.info(`[ModifyEmployee:POST][${modId2}] transaction_begun`, { elapsed: elapsed() });
 
       const currentUserResult = await client.query(
         `SELECT email
@@ -10094,19 +10065,12 @@ const commonController = {
         [userId, organizationId]
       );
       if (currentUserResult.rows.length === 0) {
-        console.warn(`[ModifyEmployee:POST][${modId2}] employee_not_found`, { userId, organizationId });
         await client.query("ROLLBACK");
         req.flash("error", "Employee not found.");
         return res.redirect("/common/manageEmployees");
       }
 
       const currentEmail = currentUserResult.rows[0].email;
-      console.info(`[ModifyEmployee:POST][${modId2}] employee_found`, {
-        currentEmail,
-        newEmail: email,
-        emailChanged: email !== currentEmail,
-        elapsed: elapsed(),
-      });
 
       if (email !== currentEmail) {
         const emailCheckResult = await client.query(
@@ -10116,7 +10080,6 @@ const commonController = {
           [email, userId]
         );
         if (emailCheckResult.rows.length > 0) {
-          console.warn(`[ModifyEmployee:POST][${modId2}] email_conflict`, { email });
           await client.query("ROLLBACK");
           req.flash("error", "Email already in use by another user or organization. Please use a different email.");
           return res.redirect(`/common/modifyEmployee?userId=${userId}`);
@@ -10129,7 +10092,6 @@ const commonController = {
          WHERE user_id = $6 AND organization_id = $7`,
         [firstName, lastName, email, accountType, dateOfBirth || null, userId, organizationId]
       );
-      console.info(`[ModifyEmployee:POST][${modId}] user_updated`, { elapsed: elapsed() });
 
       await client.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
       // Tenant boundary: only reassign classes that belong to this org.
@@ -10147,10 +10109,6 @@ const commonController = {
           [userId, safeClassIdsMod]
         );
       }
-      console.info(`[ModifyEmployee:POST][${modId}] classes_updated`, {
-        count: safeClassIdsMod.length,
-        elapsed: elapsed(),
-      });
 
       await client.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
       const ownedSubjectsME = normalizedSubjectIds.length
@@ -10168,55 +10126,22 @@ const commonController = {
           [userId, safeSubjectIdsMod]
         );
       }
-      console.info(`[ModifyEmployee:POST][${modId}] subjects_updated`, {
-        count: safeSubjectIdsMod.length,
-        elapsed: elapsed(),
-      });
 
       // ✅ Replace permissions — hard DELETE for this user+org, then fresh INSERT
       //    No ON CONFLICT needed: DELETE cleared our rows; a plain INSERT is cleaner
       //    and avoids masking cross-org uniqueness constraint issues.
-      console.info(`[ModifyEmployee:POST][${modId}] permissions_replacing`, {
-        effectivePermissions, count: effectivePermissions.length, elapsed: elapsed(),
-      });
-
       await client.query(
         "DELETE FROM user_permissions WHERE user_id = $1 AND organization_id = $2",
         [userId, organizationId]
       );
 
       if (effectivePermissions.length > 0) {
-        const permResult = await client.query(
+        await client.query(
           `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
            SELECT $1, $2, unnest($3::text[]), $4
            RETURNING permission_key`,
           [userId, organizationId, effectivePermissions, requestorId]
         );
-        console.info(`[ModifyEmployee:POST][${modId}] permissions_inserted`, {
-          inserted: permResult.rows.map((r) => r.permission_key),
-          rowCount: permResult.rowCount,
-          elapsed: elapsed(),
-        });
-      } else {
-        console.warn(`[ModifyEmployee:POST][${modId}] permissions_SKIPPED — effectivePermissions empty`, { accountType, elapsed: elapsed() });
-      }
-
-      // Verify within the same transaction
-      const verifyResult = await client.query(
-        `SELECT permission_key FROM user_permissions WHERE user_id=$1 AND organization_id=$2 ORDER BY permission_key`,
-        [userId, organizationId]
-      );
-      const persistedPermissions = verifyResult.rows.map((r) => r.permission_key);
-      const expectedPermissions = [...effectivePermissions].sort();
-
-      if (JSON.stringify(persistedPermissions) !== JSON.stringify(expectedPermissions)) {
-        console.warn(`[ModifyEmployee:POST][${modId}] permissions_MISMATCH`, {
-          expected: expectedPermissions, persisted: persistedPermissions, elapsed: elapsed(),
-        });
-      } else {
-        console.info(`[ModifyEmployee:POST][${modId}] permissions_VERIFIED_OK`, {
-          count: persistedPermissions.length, permissions: persistedPermissions, elapsed: elapsed(),
-        });
       }
 
       await client.query("COMMIT");
@@ -10242,20 +10167,14 @@ const commonController = {
         }
       }
 
-      console.info(`[ModifyEmployee:POST][${modId}] ====== COMMITTED — total ${elapsed()} ======\n`);
-
       req.flash("success", "Employee details updated successfully.");
       res.redirect(`/common/modifyEmployee?userId=${userId}`);
     } catch (error) {
-      console.error(`[ModifyEmployee:POST][${modId}] ====== ERROR at ${elapsed()} ======`, {
-        message: error.message, stack: error.stack,
-      });
       try { await client.query("ROLLBACK"); } catch (_) {}
       req.flash("error", "Failed to update employee details: " + error.message);
       res.redirect(`/common/modifyEmployee?userId=${userId}`);
     } finally {
       client.release();
-      console.info(`[ModifyEmployee:POST][${modId}] db_client_released`, { elapsed: elapsed() });
     }
   },
 

@@ -433,16 +433,6 @@ function requirePermission(permissionKey) {
       );
 
       if (!allowed) {
-        console.warn("[PermissionDenied]", {
-          route: req.originalUrl,
-          permissionKey,
-          organizationId,
-          userId,
-          userRole,
-          accountType,
-          userEmail,
-          sessionId: req.sessionID,
-        });
         req.flash("error", "You do not have permission to access this page.");
         return res.redirect("/common/orgDashboard");
       }
