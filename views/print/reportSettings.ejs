@@ -600,56 +600,70 @@
     }
 
     #showGradeNumericTotalWrap {
-      padding: 6px 8px;
-      border-radius: 8px;
-      border: 1px solid transparent;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #d7e3ef;
+      background: #f8fafc;
       transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-      user-select: none;
     }
 
     #showGradeNumericTotalWrap.is-checked {
-      color: #1d4ed8 !important;
-      background: rgba(37, 99, 235, 0.12);
       border-color: rgba(37, 99, 235, 0.36);
+      background: rgba(37, 99, 235, 0.08);
     }
 
-    #showGradeNumericTotalOnReport {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      border: 1.6px solid #94a3b8;
-      border-radius: 4px;
-      background: #fff;
-      display: inline-grid;
-      place-items: center;
+    .rs-grade-toggle-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: #334155;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
       margin: 0;
-      transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
     }
 
-    #showGradeNumericTotalOnReport::before {
-      content: "";
-      width: 9px;
-      height: 9px;
-      border-radius: 2px;
-      background: #2563eb;
-      transform: scale(0);
-      transition: transform 0.12s ease;
+    .rs-grade-toggle-choices {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
-    #showGradeNumericTotalOnReport:checked {
+    .rs-grade-toggle-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid #d6e1ed;
+      background: #fff;
+      color: #475569;
+      font-size: 0.74rem;
+      cursor: pointer;
+      transition: border-color 0.14s ease, box-shadow 0.14s ease, color 0.14s ease;
+      user-select: none;
+    }
+
+    .rs-grade-toggle-option:has(input:checked) {
       border-color: #2563eb;
-      background: #eff6ff;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+      color: #1d4ed8;
     }
 
-    #showGradeNumericTotalOnReport:checked::before {
-      transform: scale(1);
+    .rs-grade-toggle-option input[type="radio"] {
+      margin: 0;
+      accent-color: var(--primary);
+      cursor: pointer;
     }
 
-    #showGradeNumericTotalOnReport:disabled {
+    .rs-grade-toggle-option input[type="radio"]:disabled {
       cursor: not-allowed;
-      opacity: 0.65;
+      opacity: 0.7;
     }
 
     .rs-grade-subject-grid {
@@ -2001,14 +2015,32 @@
 
                       <p class="rs-grade-config-note">Configure how numeric grade totals should be shown and calculated for this class.</p>
 
-                      <label id="showGradeNumericTotalWrap" style="display:none;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;cursor:pointer;">
-                        <input type="checkbox" id="showGradeNumericTotalOnReport" style="cursor:pointer;">
-                        Show number total on report
-                      </label>
+                      <div id="showGradeNumericTotalWrap" style="display:none;">
+                        <div class="rs-grade-toggle-head">Show number total on report</div>
+                        <div class="rs-grade-toggle-choices" role="radiogroup" aria-label="Show number total on report">
+                          <label class="rs-grade-toggle-option" for="showGradeNumericTotalOnReport">
+                            <input type="radio" id="showGradeNumericTotalOnReport" name="showGradeNumericTotalVisibility" value="yes">
+                            Yes
+                          </label>
+                          <label class="rs-grade-toggle-option" for="hideGradeNumericTotalOnReport">
+                            <input type="radio" id="hideGradeNumericTotalOnReport" name="showGradeNumericTotalVisibility" value="no">
+                            No
+                          </label>
+                        </div>
+                      </div>
+
+                      <div id="gradeNumericAssignClassesWrap" style="display:none;flex-direction:column;gap:8px;margin-top:8px;padding:10px;border:1px solid #d7e3ef;border-radius:10px;background:#f8fafc;">
+                        <div class="rs-grade-toggle-head" style="justify-content:flex-start;">Assigned Classes</div>
+                        <label style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
+                          <input type="checkbox" id="gradeNumericSelectAllClasses" style="accent-color:var(--primary);">
+                          Select all classes
+                        </label>
+                        <div id="gradeNumericClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
+                      </div>
 
                       <div id="gradeNumericTotalConfigWrap" style="display:none;flex:1 1 100%;margin:8px 0 0 0;padding:10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;">
                         <div style="font-size:0.75rem;color:var(--muted);font-weight:600;margin-bottom:8px;">Number Total Setup</div>
-                        <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+                        <div id="gradeNumericStrategyControls" style="display:grid;grid-template-columns:1fr;gap:8px;">
                           <label class="rs-grade-strategy-option">
                             <input type="radio" name="gradeNumericTotalStrategyOption" class="grade-numeric-strategy-radio" value="base_plus_best" style="accent-color:var(--primary);margin-top:2px;">
                             <span>Calculate using Core + Additional Subjects.</span>
@@ -2027,15 +2059,14 @@
                               <label id="gradeOtherSubjectCountWrap" class="rs-grade-random-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;">
                                 Additional Subjects Count
                                 <input type="number" id="gradeOtherSubjectCountInput" min="0" step="1" placeholder="2" style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:0.86rem;line-height:1.15;" />
+                            <div id="gradeNumericAssignClassesWrap" style="display:none;flex-direction:column;gap:8px;margin-top:10px;padding:10px;border:1px solid #d7e3ef;border-radius:10px;background:#f8fafc;">
+                              <div class="rs-grade-toggle-head" style="justify-content:flex-start;">Assigned Classes</div>
+                              <label style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
+                                <input type="checkbox" id="gradeNumericSelectAllClasses" style="accent-color:var(--primary);">
+                                Select all classes
                               </label>
-
-                              <label id="gradeBaseRandomSelectionTypeWrap" class="rs-grade-random-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;max-width:240px;">
-                                Additional Subject Selection
-                                <select id="gradeBaseRandomSelectionTypeSelect" class="rs-grade-random-select" style="padding:5px 6px;border-radius:6px;font-size:0.86rem;line-height:1.15;">
-                                  <option value="any">Random</option>
-                                  <option value="best">Top</option>
-                                </select>
-                              </label>
+                              <div id="gradeNumericClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
+                            </div>
                             </div>
                           </div>
                           <label class="rs-grade-strategy-option">
@@ -2803,7 +2834,12 @@
     const closeGradeNumericConfigIcon = document.getElementById('closeGradeNumericConfigIcon');
     const showGradeNumericTotalWrap = document.getElementById('showGradeNumericTotalWrap');
     const showGradeNumericTotalOnReport = document.getElementById('showGradeNumericTotalOnReport');
+    const hideGradeNumericTotalOnReport = document.getElementById('hideGradeNumericTotalOnReport');
     const gradeNumericTotalConfigWrap = document.getElementById('gradeNumericTotalConfigWrap');
+    const gradeNumericStrategyControls = document.getElementById('gradeNumericStrategyControls');
+    const gradeNumericAssignClassesWrap = document.getElementById('gradeNumericAssignClassesWrap');
+    const gradeNumericSelectAllClasses = document.getElementById('gradeNumericSelectAllClasses');
+    const gradeNumericClassCheckboxes = document.getElementById('gradeNumericClassCheckboxes');
     const gradeNumericTotalStrategySelect = document.getElementById('gradeNumericTotalStrategySelect');
     const gradeNumericStrategyRadios = Array.from(document.querySelectorAll('.grade-numeric-strategy-radio'));
     const gradeBaseSubjectCountWrap = document.getElementById('gradeBaseSubjectCountWrap');
@@ -2830,6 +2866,10 @@
 
     function confirmDestructiveAction(message) {
       return window.confirm(message || 'Are you sure you want to continue?');
+    }
+
+    function logGradeNumericTotal(eventName, payload = {}) {
+      console.info('[GradeNumericTotal]', eventName, payload);
     }
 
     function normalizeStatusRowValue(value) {
@@ -2953,9 +2993,14 @@
       return (parsed === 'best' || parsed === 'any') ? parsed : fallback;
     }
 
+    function getGradeNumericTotalVisibilitySelection() {
+      const selected = document.querySelector('input[name="showGradeNumericTotalVisibility"]:checked');
+      return selected?.value === 'yes';
+    }
+
     function syncShowGradeNumericTotalVisualState() {
       if (!showGradeNumericTotalWrap || !showGradeNumericTotalOnReport) return;
-      const isChecked = showGradeNumericTotalOnReport.checked === true;
+      const isChecked = getGradeNumericTotalVisibilitySelection();
       showGradeNumericTotalWrap.classList.toggle('is-checked', isChecked);
     }
 
@@ -2990,9 +3035,15 @@
         'any'
       );
       const usesCorePool = isBasePlus;
+      const selectedClassIds = normalizePositiveIntegerArray(safe.applyToClasses);
+      const currentClassId = parseInt(String(classIdField?.value || '').trim(), 10);
+      if (Number.isFinite(currentClassId) && currentClassId > 0 && !selectedClassIds.includes(currentClassId)) {
+        selectedClassIds.unshift(currentClassId);
+      }
 
       return {
         mode,
+        showNumberTotalOnReport: showOnReport,
         showOnReport,
         totalScoreStrategy,
         gradeBaseSubjectCount: isBasePlus ? gradeBaseSubjectCount : 0,
@@ -3001,7 +3052,61 @@
         coreSubjectIds: usesCorePool ? coreSubjectIds : [],
         randomSubjectIds,
         randomSelectionMode: isBasePlus ? randomSelectionMode : 'any',
+        applyToClasses: selectedClassIds,
       };
+    }
+
+    function syncGradeNumericSelectAllClassesState() {
+      if (!gradeNumericSelectAllClasses || !gradeNumericClassCheckboxes) return;
+      const boxes = Array.from(gradeNumericClassCheckboxes.querySelectorAll('.grade-numeric-class-checkbox')).filter((cb) => !cb.disabled);
+      if (!boxes.length) {
+        gradeNumericSelectAllClasses.checked = false;
+        gradeNumericSelectAllClasses.indeterminate = false;
+        return;
+      }
+      const checkedCount = boxes.filter((cb) => cb.checked).length;
+      gradeNumericSelectAllClasses.checked = checkedCount === boxes.length;
+      gradeNumericSelectAllClasses.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+    }
+
+    function getSelectedGradeNumericClassIdsFromControls() {
+      if (!gradeNumericClassCheckboxes) {
+        const currentClassId = parseInt(String(classIdField?.value || '').trim(), 10);
+        return Number.isFinite(currentClassId) && currentClassId > 0 ? [currentClassId] : [];
+      }
+
+      const selectedIds = normalizePositiveIntegerArray(
+        Array.from(gradeNumericClassCheckboxes.querySelectorAll('.grade-numeric-class-checkbox:checked')).map((cb) => cb.value)
+      );
+      const currentClassId = parseInt(String(classIdField?.value || '').trim(), 10);
+      if (Number.isFinite(currentClassId) && currentClassId > 0 && !selectedIds.includes(currentClassId)) {
+        selectedIds.unshift(currentClassId);
+      }
+      return selectedIds;
+    }
+
+    function renderGradeNumericClassOptions(state) {
+      if (!gradeNumericClassCheckboxes) return;
+      const gradeState = normalizeGradePresentationState(state);
+      const selectedSet = new Set(normalizePositiveIntegerArray(gradeState.applyToClasses));
+      const currentClassId = parseInt(String(classIdField?.value || '').trim(), 10);
+      const classRows = Array.isArray(enrolledClassesData) ? enrolledClassesData : [];
+
+      gradeNumericClassCheckboxes.innerHTML = classRows.map((cls) => {
+        const classIdValue = parseInt(cls?.class_id, 10);
+        if (!Number.isFinite(classIdValue) || classIdValue <= 0) return '';
+        const className = escapeHtmlText(String(cls?.class_name || `Class ${classIdValue}`));
+        const isCurrent = Number.isFinite(currentClassId) && currentClassId === classIdValue;
+        const isChecked = isCurrent || selectedSet.has(classIdValue);
+        return `
+          <label class="rs-class-select-row" style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <input type="checkbox" class="grade-numeric-class-checkbox" value="${classIdValue}" style="accent-color:var(--primary);" ${isChecked ? 'checked' : ''} ${isCurrent ? 'disabled' : ''}>
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${className}${isCurrent ? ' (current)' : ''}</span>
+          </label>
+        `;
+      }).join('');
+
+      syncGradeNumericSelectAllClassesState();
     }
 
     function getAvailableClassSubjects(classId) {
@@ -3167,9 +3272,11 @@
 
     function syncGradeNumericConfigUI(state) {
       const gradeState = normalizeGradePresentationState(state);
-      const isNumericMode = gradeState.mode === 'numbers' || gradeState.mode === 'both';
-      const shouldShowConfig = isNumericMode;
+      const isNumbersMode = gradeState.mode === 'numbers';
+      const canOpenConfig = gradeState.mode === 'numbers' || gradeState.mode === 'both' || gradeState.mode === 'letters';
+      const shouldShowConfig = canOpenConfig;
       const isBasePlus = shouldShowConfig
+        && isNumbersMode
         && (gradeState.totalScoreStrategy === 'base_plus_best' || gradeState.totalScoreStrategy === 'base_plus_random');
       const configuredCoreCount = parseNonNegativeInteger(gradeState.gradeBaseSubjectCount, 0);
       const configuredOtherCount = parseNonNegativeInteger(gradeState.otherSubjectCount, 0);
@@ -3177,13 +3284,28 @@
       const needsRandomSubjectPanel = false;
 
       if (gradeNumericConfigTriggerWrap) {
-        gradeNumericConfigTriggerWrap.style.display = isNumericMode ? 'inline-flex' : 'none';
+        gradeNumericConfigTriggerWrap.style.display = canOpenConfig ? 'inline-flex' : 'none';
+      }
+      if (openGradeNumericConfigBtn) {
+        openGradeNumericConfigBtn.textContent = isNumbersMode ? 'Configure Numbers' : 'Assigned Classes';
       }
       if (showGradeNumericTotalWrap) {
-        showGradeNumericTotalWrap.style.display = isNumericMode ? 'inline-flex' : 'none';
+        showGradeNumericTotalWrap.style.display = isNumbersMode ? 'flex' : 'none';
       }
       if (showGradeNumericTotalOnReport) {
-        showGradeNumericTotalOnReport.disabled = false;
+        showGradeNumericTotalOnReport.disabled = !isNumbersMode;
+      }
+      if (hideGradeNumericTotalOnReport) {
+        hideGradeNumericTotalOnReport.disabled = !isNumbersMode;
+      }
+      if (gradeNumericAssignClassesWrap) {
+        gradeNumericAssignClassesWrap.style.display = shouldShowConfig ? 'flex' : 'none';
+      }
+      if (gradeNumericStrategyControls) {
+        gradeNumericStrategyControls.style.display = isNumbersMode ? 'grid' : 'none';
+      }
+      if (gradeNumericSelectAllClasses) {
+        gradeNumericSelectAllClasses.disabled = !canOpenConfig;
       }
       syncShowGradeNumericTotalVisualState();
       if (gradeNumericTotalConfigWrap) {
@@ -3231,6 +3353,8 @@
       if (gradeNumericTotalConfigHint) {
         if (!shouldShowConfig) {
           gradeNumericTotalConfigHint.textContent = '';
+        } else if (!isNumbersMode) {
+          gradeNumericTotalConfigHint.textContent = 'Number Total Setup is only available when Format is set to Numbers. You can still manage Assigned Classes here.';
         } else {
           let formulaHint = 'Total Grade Score = sum of numeric grades for all scored subjects.';
           const randomMode = normalizeRandomSelectionMode(gradeState.randomSelectionMode, 'any');
@@ -3244,12 +3368,12 @@
           }
           const visibilityHint = gradeState.showOnReport
             ? ''
-            : ' Enable "Show number total on report" to display this total in the final report.';
+            : ' Select "Yes" under "Show number total on report" to display this total in the final report.';
           gradeNumericTotalConfigHint.textContent = `${formulaHint}${visibilityHint}`;
         }
       }
 
-      if (!isNumericMode && gradeNumericConfigModal) {
+      if (!canOpenConfig && gradeNumericConfigModal) {
         gradeNumericConfigModal.style.display = 'none';
       }
     }
@@ -3261,6 +3385,9 @@
       }
       if (showGradeNumericTotalOnReport) {
         showGradeNumericTotalOnReport.checked = state.showOnReport;
+      }
+      if (hideGradeNumericTotalOnReport) {
+        hideGradeNumericTotalOnReport.checked = !state.showOnReport;
       }
       syncShowGradeNumericTotalVisualState();
       if (gradeNumericTotalStrategySelect) {
@@ -3300,6 +3427,7 @@
           'any'
         );
       }
+      renderGradeNumericClassOptions(state);
       syncGradeNumericConfigUI(state);
     }
 
@@ -3307,7 +3435,11 @@
       const selectedMode = gradeDisplayModeSelect && (gradeDisplayModeSelect.value === 'numbers' || gradeDisplayModeSelect.value === 'both')
         ? gradeDisplayModeSelect.value
         : 'letters';
-      const showNumberTotalOnReport = showGradeNumericTotalOnReport?.checked === true;
+      const selectedVisibilityValue = document.querySelector('input[name="showGradeNumericTotalVisibility"]:checked')?.value || null;
+      const fallbackFromInputs = (showGradeNumericTotalOnReport?.checked === true) && !(hideGradeNumericTotalOnReport?.checked === true);
+      const showNumberTotalOnReport = selectedVisibilityValue
+        ? selectedVisibilityValue === 'yes'
+        : fallbackFromInputs;
       const selectedStrategyRadio = gradeNumericStrategyRadios.find((radio) => radio.checked);
       if (gradeNumericTotalStrategySelect && selectedStrategyRadio) {
         gradeNumericTotalStrategySelect.value = selectedStrategyRadio.value;
@@ -3328,12 +3460,13 @@
         ? getSelectedCoreSubjectIdsFromControls()
         : [];
       const randomSubjectIds = [];
+      const applyToClasses = getSelectedGradeNumericClassIdsFromControls();
       const randomSelectionMode = normalizeRandomSelectionMode(
         gradeBaseRandomSelectionTypeSelect?.value,
         'any'
       );
 
-      return {
+      const payload = {
         mode: selectedMode,
         showNumberTotalOnReport,
         totalScoreStrategy,
@@ -3343,15 +3476,22 @@
         coreSubjectIds: isBasePlus ? coreSubjectIds : [],
         randomSubjectIds,
         randomSelectionMode: isBasePlus ? randomSelectionMode : 'any',
+        applyToClasses,
       };
+
+      logGradeNumericTotal('payload:fromControls', {
+        classId: classIdField?.value,
+        radioSelection: selectedVisibilityValue,
+        yesChecked: showGradeNumericTotalOnReport?.checked === true,
+        noChecked: hideGradeNumericTotalOnReport?.checked === true,
+        payload,
+      });
+
+      return payload;
     }
 
     function openGradeNumericConfigModal() {
       const gradeState = getCurrentGradePresentationState();
-      const isNumericMode = gradeState.mode === 'numbers' || gradeState.mode === 'both';
-      if (!isNumericMode) {
-        return;
-      }
       applyGradePresentationStateToControls(gradeState);
       if (gradeNumericConfigModal) {
         gradeNumericConfigModal.style.display = 'flex';
@@ -3603,16 +3743,44 @@
       syncStatusRowDirtyState(row);
     });
 
-    async function persistGradePresentationSelection() {
+    async function persistGradePresentationSelection(options = {}) {
+      const forceShowNumberTotalOnReport = typeof options.forceShowNumberTotalOnReport === 'boolean'
+        ? options.forceShowNumberTotalOnReport
+        : null;
       const classId = classIdField.value;
       const classDs = allDisplaySettingsMap[String(classId)] || { columns: {}, sections: {} };
       const payload = getGradePresentationPayloadFromControls();
+      if (forceShowNumberTotalOnReport !== null) {
+        payload.showNumberTotalOnReport = forceShowNumberTotalOnReport;
+      }
       const normalizedState = normalizeGradePresentationState(payload);
+      logGradeNumericTotal('persist:start', {
+        classId,
+        mode: normalizedState.mode,
+        showOnReport: normalizedState.showOnReport,
+        totalScoreStrategy: normalizedState.totalScoreStrategy,
+        forcedShowOnReport: forceShowNumberTotalOnReport,
+      });
       applyGradePresentationStateToControls(normalizedState);
       classDs.sections = classDs.sections || {};
       classDs.sections.gradePresentation = normalizedState;
       allDisplaySettingsMap[String(classId)] = classDs;
-      await saveAdvancedDisplaySettings(classId, { skipManualPaygiraValidation: true });
+      const savedOk = await saveAdvancedDisplaySettings(classId, {
+        skipManualPaygiraValidation: true,
+        gradePresentationOverride: normalizedState,
+      });
+      logGradeNumericTotal('persist:result', {
+        classId,
+        savedOk,
+        showOnReport: normalizedState.showOnReport,
+      });
+      if (!savedOk) {
+        console.warn('[GradeNumericTotal] Persist failed. UI changed locally but server save did not complete.', {
+          classId,
+          normalizedState,
+        });
+      }
+      return savedOk;
     }
 
     function getCurrentGradePresentationState() {
@@ -3620,6 +3788,74 @@
       const classDs = allDisplaySettingsMap[String(classId)] || {};
       const gradePresentation = (classDs.sections && classDs.sections.gradePresentation) || {};
       return normalizeGradePresentationState(gradePresentation);
+    }
+
+    async function handleShowGradeNumericTotalSelection(nextShow, options = {}) {
+      const requireConfirm = options.requireConfirm === true;
+      const previousState = getCurrentGradePresentationState();
+      const previousShow = previousState.showOnReport === true;
+      const normalizedNextShow = nextShow === true;
+
+      logGradeNumericTotal('toggle:attempt', {
+        classId: classIdField?.value,
+        previousShow,
+        nextShow: normalizedNextShow,
+        requireConfirm,
+      });
+
+      if (normalizedNextShow === previousShow) {
+        if (showGradeNumericTotalOnReport) {
+          showGradeNumericTotalOnReport.checked = normalizedNextShow;
+        }
+        if (hideGradeNumericTotalOnReport) {
+          hideGradeNumericTotalOnReport.checked = !normalizedNextShow;
+        }
+        syncShowGradeNumericTotalVisualState();
+        return;
+      }
+
+      if (normalizedNextShow && requireConfirm) {
+        const ok = confirmDestructiveAction('Enable number total on report? This will display Total Grade Score on each student report for this class.');
+        logGradeNumericTotal('toggle:confirm', {
+          classId: classIdField?.value,
+          confirmed: ok,
+        });
+        if (!ok) {
+          applyGradePresentationStateToControls(previousState);
+          return;
+        }
+      }
+
+      if (showGradeNumericTotalOnReport) {
+        showGradeNumericTotalOnReport.checked = normalizedNextShow;
+      }
+      if (hideGradeNumericTotalOnReport) {
+        hideGradeNumericTotalOnReport.checked = !normalizedNextShow;
+      }
+
+      syncShowGradeNumericTotalVisualState();
+      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+      const savedOk = await persistGradePresentationSelection({
+        forceShowNumberTotalOnReport: normalizedNextShow,
+      });
+
+      if (normalizedNextShow && gradeNumericTotalConfigWrap) {
+        gradeNumericTotalConfigWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      logGradeNumericTotal('toggle:applied', {
+        classId: classIdField?.value,
+        showOnReport: normalizedNextShow,
+        savedOk,
+      });
+
+      if (normalizedNextShow) {
+        if (savedOk) {
+          window.alert('Saved successfully: Number total will be shown on report.');
+        } else {
+          window.alert('Save failed: Number total could not be enabled. Check console logs.');
+        }
+      }
     }
 
     openGradeNumericConfigBtn?.addEventListener('click', () => {
@@ -3668,29 +3904,29 @@
     });
 
     showGradeNumericTotalOnReport?.addEventListener('change', async () => {
-      const nextChecked = showGradeNumericTotalOnReport.checked === true;
-      syncShowGradeNumericTotalVisualState();
+      if (!showGradeNumericTotalOnReport.checked) return;
+      await handleShowGradeNumericTotalSelection(true, { requireConfirm: true });
+    });
 
-      // Reveal/hide options immediately for a responsive settings UX.
-      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+    hideGradeNumericTotalOnReport?.addEventListener('change', async () => {
+      if (!hideGradeNumericTotalOnReport.checked) return;
+      await handleShowGradeNumericTotalSelection(false);
+    });
+
+    gradeNumericSelectAllClasses?.addEventListener('change', async () => {
+      if (!gradeNumericClassCheckboxes) return;
+      const nextChecked = gradeNumericSelectAllClasses.checked === true;
+      gradeNumericClassCheckboxes.querySelectorAll('.grade-numeric-class-checkbox').forEach((cb) => {
+        if (cb.disabled) return;
+        cb.checked = nextChecked;
+      });
+      syncGradeNumericSelectAllClassesState();
       await persistGradePresentationSelection();
-
-      if (nextChecked && gradeNumericTotalConfigWrap) {
-        gradeNumericTotalConfigWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
     });
 
-    showGradeNumericTotalWrap?.addEventListener('pointerdown', (event) => {
-      if (event.button !== undefined && event.button !== 0) return;
-      event.preventDefault();
-    });
-
-    showGradeNumericTotalWrap?.addEventListener('click', async (event) => {
-      if (!showGradeNumericTotalOnReport) return;
-      event.preventDefault();
-      showGradeNumericTotalOnReport.checked = !showGradeNumericTotalOnReport.checked;
-      syncShowGradeNumericTotalVisualState();
-      syncGradeNumericConfigUI(getGradePresentationPayloadFromControls());
+    gradeNumericClassCheckboxes?.addEventListener('change', async (event) => {
+      if (!event.target || !event.target.classList.contains('grade-numeric-class-checkbox')) return;
+      syncGradeNumericSelectAllClassesState();
       await persistGradePresentationSelection();
     });
 
@@ -6230,10 +6466,17 @@
       const panel = document.getElementById('advancedDsPanel');
       if (!panel) return false;
       const skipManualPaygiraValidation = options.skipManualPaygiraValidation === true;
+      const gradePresentationOverride = options.gradePresentationOverride && typeof options.gradePresentationOverride === 'object'
+        ? normalizeGradePresentationState(options.gradePresentationOverride)
+        : null;
       panel.dataset.saveValidationError = '0';
       // Guard: only save if panel is showing data for the requested class
       if (panel.dataset.classId && panel.dataset.classId !== String(classId)) {
-        console.warn('[DS] saveAdvancedDisplaySettings: panel classId mismatch, skipping');
+        console.warn('[DS] saveAdvancedDisplaySettings: panel classId mismatch, skipping', {
+          panelClassId: panel.dataset.classId,
+          requestedClassId: String(classId),
+          termId: '<%= termId %>',
+        });
         return false;
       }
       const columns = {};
@@ -6253,7 +6496,13 @@
         customRemarksVisibility[typeKey] = cb.checked;
       });
       sections.customRemarksVisibility = customRemarksVisibility;
-      sections.gradePresentation = getGradePresentationPayloadFromControls();
+      sections.gradePresentation = gradePresentationOverride || getGradePresentationPayloadFromControls();
+      logGradeNumericTotal('saveAdvanced:payload', {
+        classId,
+        termId: '<%= termId %>',
+        gradePresentation: sections.gradePresentation,
+        usedOverride: gradePresentationOverride !== null,
+      });
       const turnOffAutoAttendanceCb = document.getElementById('ds-adv-turnOffAutoAttendance');
       sections.turnOffAutoAttendance = turnOffAutoAttendanceCb ? turnOffAutoAttendanceCb.checked : false;
       const manualAttendanceOutOfInput = document.getElementById('ds-adv-manualAttendanceOutOf');
@@ -6369,9 +6618,22 @@
           body: JSON.stringify({ columns, sections }),
         });
         const result = await resp.json();
+        logGradeNumericTotal('saveAdvanced:response', {
+          classId,
+          ok: resp.ok,
+          status: resp.status,
+          result,
+        });
         if (result.success) { allDisplaySettingsMap[String(classId)] = { columns, sections }; return true; }
         return false;
-      } catch(e) { console.error(e); return false; }
+      } catch(e) {
+        console.error('[DS] saveAdvancedDisplaySettings failed', {
+          classId,
+          termId: '<%= termId %>',
+          error: e,
+        });
+        return false;
+      }
     }
 
     function hasAdvancedDisplaySettingsChanges(classId) {

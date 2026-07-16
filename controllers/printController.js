@@ -629,6 +629,7 @@ function normalizeGradePresentationConfig(rawConfig) {
   const randomSelectionMode = (rawRandomSelectionMode === 'best' || rawRandomSelectionMode === 'any')
     ? rawRandomSelectionMode
     : 'any';
+  const applyToClasses = parsePositiveIntArray(safe.applyToClasses);
 
   const isBasePlus = totalScoreStrategy === 'base_plus_best' || totalScoreStrategy === 'base_plus_random';
   const isRandomSelected = false;
@@ -645,6 +646,7 @@ function normalizeGradePresentationConfig(rawConfig) {
     coreSubjectIds: usesCorePool ? coreSubjectIds : [],
     randomSubjectIds: usesRandomPool ? randomSubjectIds : [],
     randomSelectionMode: isBasePlus ? randomSelectionMode : 'any',
+    applyToClasses,
   };
 }
 
@@ -1511,6 +1513,18 @@ const printController = (db) => ({
           promotion:       secVis.promotion       !== false,
         },
       };
+
+      console.log('[printStudentReport] gradePresentation', {
+        organizationId,
+        classId: parsedClassId,
+        termId: parsedTermId,
+        mode: gradePresentation.mode,
+        showNumberTotalOnReport: gradePresentation.showNumberTotalOnReport,
+        totalScoreStrategy: gradePresentation.totalScoreStrategy,
+        gradeBaseSubjectCount: gradePresentation.gradeBaseSubjectCount,
+        otherSubjectCount: gradePresentation.otherSubjectCount,
+        randomSelectionMode: gradePresentation.randomSelectionMode,
+      });
 
       // --- Build enabled assessment ID sets per category (respects sub-item toggles) ---
       const CLASS_CATS  = ['Class Assessment'];
@@ -2668,6 +2682,32 @@ students
         },
       };
 
+      const initialGradePresentation = normalizedDisplaySettings.sections?.gradePresentation || {};
+      const requestedGradeApplyToClasses = parsePositiveIntArray(initialGradePresentation.applyToClasses)
+        .filter((targetClassId) => organizationClassIdSet.has(targetClassId));
+      if (!requestedGradeApplyToClasses.includes(parsedClassId)) {
+        requestedGradeApplyToClasses.unshift(parsedClassId);
+      }
+      const normalizedGradePresentation = normalizeGradePresentationConfig({
+        ...initialGradePresentation,
+        applyToClasses: requestedGradeApplyToClasses,
+      });
+      normalizedDisplaySettings.sections.gradePresentation = normalizedGradePresentation;
+
+      const savedGradePresentation = normalizedDisplaySettings.sections?.gradePresentation || {};
+      console.log('[saveDisplaySettings] gradePresentation', {
+        organizationId,
+        classId: parsedClassId,
+        termId: parsedTermId,
+        mode: savedGradePresentation.mode,
+        showNumberTotalOnReport: savedGradePresentation.showNumberTotalOnReport,
+        totalScoreStrategy: savedGradePresentation.totalScoreStrategy,
+        gradeBaseSubjectCount: savedGradePresentation.gradeBaseSubjectCount,
+        otherSubjectCount: savedGradePresentation.otherSubjectCount,
+        randomSelectionMode: savedGradePresentation.randomSelectionMode,
+        applyToClasses: savedGradePresentation.applyToClasses,
+      });
+
       await db.query(
         `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
          VALUES ($1, $2, $3, $4)
@@ -2675,6 +2715,41 @@ students
          DO UPDATE SET display_settings = $4`,
         [organizationId, parsedClassId, parsedTermId, JSON.stringify(normalizedDisplaySettings)]
       );
+
+      const gradePresentationTargets = requestedGradeApplyToClasses.filter((targetClassId) => targetClassId !== parsedClassId);
+      for (const targetClassId of gradePresentationTargets) {
+        const targetExistingResult = await db.query(
+          `SELECT display_settings
+           FROM report_settings
+           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+           LIMIT 1`,
+          [organizationId, targetClassId, parsedTermId]
+        );
+
+        const targetExistingDisplaySettings = targetExistingResult.rows[0]?.display_settings || {};
+        const targetExistingSections = targetExistingDisplaySettings.sections && typeof targetExistingDisplaySettings.sections === 'object'
+          ? targetExistingDisplaySettings.sections
+          : {};
+
+        const targetMergedDisplaySettings = {
+          ...targetExistingDisplaySettings,
+          sections: {
+            ...targetExistingSections,
+            gradePresentation: {
+              ...normalizedGradePresentation,
+              applyToClasses: requestedGradeApplyToClasses,
+            },
+          },
+        };
+
+        await db.query(
+          `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (organization_id, class_id, term_id)
+           DO UPDATE SET display_settings = $4`,
+          [organizationId, targetClassId, parsedTermId, JSON.stringify(targetMergedDisplaySettings)]
+        );
+      }
 
       // Apply manual field definitions to selected classes per field.
       const fieldCopiesByClass = new Map();

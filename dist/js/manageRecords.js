@@ -53,26 +53,55 @@ function deleteEvent(eventId) {
   }
 }
 
-function deleteSchoolYear(yearId) {
-  if (confirm("Are you sure you want to delete this school year?")) {
-    fetch("/common/deleteSchoolYear", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: yearId }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          alert("School year deleted successfully!");
-          window.location.reload();
-        } else {
-          alert("Deletion failed: " + data.message);
-        }
-      })
-      .catch((error) => {
-        
-        alert("Failed to delete due to an error.");
-      });
+async function deleteSchoolYear(yearId) {
+  const firstWarning =
+    "WARNING: This permanently deletes the school year and all terms inside it.\n\n" +
+    "Deletion will only succeed when there are NO records linked to this school year in the system.\n" +
+    "If linked records exist, deletion will be blocked.\n\n" +
+    "Do you want to continue?";
+
+  if (!confirm(firstWarning)) {
+    return;
+  }
+
+  const confirmationText = prompt(
+    'Type DELETE to permanently remove this school year:'
+  );
+
+  if (confirmationText !== "DELETE") {
+    alert("Deletion cancelled. Confirmation text did not match.");
+    return;
+  }
+
+  try {
+    const response = await fetch("/common/deleteSchoolYear", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: new URLSearchParams({ yearId: String(yearId) }),
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (_) {
+      data = null;
+    }
+
+    if (response.ok && data && data.success) {
+      alert(data.message || "School year deleted successfully.");
+      window.location.reload();
+      return;
+    }
+
+    const message =
+      (data && data.message) ||
+      "School year deletion failed. It may still have related records in the system.";
+    alert(message);
+  } catch (error) {
+    alert("Failed to delete due to an error.");
   }
 }
 

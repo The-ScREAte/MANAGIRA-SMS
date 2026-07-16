@@ -34,9 +34,19 @@ form, .delete-link {
   text-decoration: underline;
 }
 
-button, select, input[type="text"] {
+button, select, input[type="text"], input[type="date"], input[type="month"], input[type="datetime-local"] {
   padding: 8px;
   margin-top: 5px;
+}
+
+select,
+input[type="text"],
+input[type="date"],
+input[type="month"],
+input[type="datetime-local"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 legend {

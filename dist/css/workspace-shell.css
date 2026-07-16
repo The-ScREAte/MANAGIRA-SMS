@@ -433,6 +433,29 @@ main { padding: 0 !important; max-width: none !important; }
 
 /* Mobile */
 @media (max-width: 900px) {
+  .hub-main form input[type="date"],
+  .hub-main form input[type="month"],
+  .hub-main form input[type="time"],
+  .hub-main form input[type="datetime-local"],
+  .hub-main form select,
+  .hub-main .form-select,
+  .management-main form input[type="date"],
+  .management-main form input[type="month"],
+  .management-main form input[type="time"],
+  .management-main form input[type="datetime-local"],
+  .management-main form select,
+  .management-main .form-select,
+  .settings-main form input[type="date"],
+  .settings-main form input[type="month"],
+  .settings-main form input[type="time"],
+  .settings-main form input[type="datetime-local"],
+  .settings-main form select,
+  .settings-main .form-select {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
   .hub-layout, .management-layout, .settings-layout {
     grid-template-columns: 1fr;
     gap: 0;

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 72" role="img" aria-label="Paygira">
+  <rect width="220" height="72" rx="8" fill="#0f1f3c"/>
+  <text x="20" y="47" font-family="Inter, Arial, sans-serif" font-size="36" font-weight="700" fill="#ffffff">Pay</text>
+  <text x="90" y="47" font-family="Inter, Arial, sans-serif" font-size="36" font-weight="700" fill="#2efffb">Gira</text>
+</svg>

@@ -11,6 +11,16 @@ select {
   font-size: 16px; /* prevent mobile zoom-in */
 }
 
+/* Keep date/time/select controls from exceeding narrow viewports */
+input[type="date"],
+input[type="month"],
+input[type="time"],
+input[type="datetime-local"],
+select {
+  max-width: 100%;
+  min-width: 0;
+}
+
 /* Define the font-family variable */
 :root {
   --font-family: "Inter", sans-serif;
@@ -610,6 +620,17 @@ form textarea {
 
 /* Media queries */
 @media (max-width: 768px) {
+  form input[type="date"],
+  form input[type="month"],
+  form input[type="time"],
+  form input[type="datetime-local"],
+  form select,
+  form .form-select {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
   nav ul {
     flex-direction: column;
     align-items: flex-start;
