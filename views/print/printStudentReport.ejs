@@ -362,7 +362,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
-    column-gap: 6px;
+    column-gap: 10px;
     text-transform: capitalize;
     line-height: 1.35;
     overflow-wrap: anywhere;
@@ -384,6 +384,7 @@
     transition: all 0.2s ease;
     border: 1.5px solid var(--primary);
     margin-top: 1px;
+    margin-left: 4px;
     flex-shrink: 0;
 }
 
@@ -430,11 +431,13 @@
 
 /* Ensure dropdown is properly positioned */
 .remark-dropdown {
-    position: fixed;
-    left: auto;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 6px);
     width: auto;
-    min-width: 300px;
-    max-width: 500px;
+    min-width: 220px;
+    max-width: 100%;
     background-color: #fff;
     border: 2px solid var(--primary);
     border-radius: 8px;
@@ -2791,35 +2794,39 @@ function toggleDropdown(remarkType, studentId) {
 
     // Open or close the clicked dropdown
     const dropdown = document.getElementById(`dropdown-${remarkType}-${studentId}`);
+    if (!dropdown) return;
     const remarkLine = dropdown.closest('.remark-line');
     
     if (dropdown && remarkLine) {
         if (dropdown.style.display === 'block') {
             dropdown.style.display = 'none';
         } else {
-            // Position dropdown relative to remark line using fixed positioning
-            const rect = remarkLine.getBoundingClientRect();
-            const dropdownHeight = 280; // max-height of dropdown
-            const windowHeight = window.innerHeight;
-            const spaceBelow = windowHeight - rect.bottom;
-            const spaceAbove = rect.top;
-            
-            // Set horizontal position (aligned with remark line, starting after label)
-            dropdown.style.left = (rect.left + 140) + 'px';
-            dropdown.style.width = (rect.width - 140) + 'px';
-            
-            // Determine if dropdown should appear above or below
-            if (spaceBelow >= dropdownHeight || spaceBelow >= spaceAbove) {
-                // Show below
-                dropdown.style.top = (rect.bottom + 5) + 'px';
-                dropdown.style.bottom = 'auto';
+            // Position dropdown inside the report row (aligned with textarea area)
+            const inputField = remarkLine.querySelector('textarea');
+            if (inputField) {
+                dropdown.style.left = `${Math.max(0, inputField.offsetLeft)}px`;
+                dropdown.style.right = '0';
             } else {
-                // Show above
-                dropdown.style.bottom = (windowHeight - rect.top + 5) + 'px';
-                dropdown.style.top = 'auto';
+                dropdown.style.left = '0';
+                dropdown.style.right = '0';
             }
-            
+
+            dropdown.style.top = 'calc(100% + 6px)';
+            dropdown.style.bottom = 'auto';
             dropdown.style.display = 'block';
+
+            // If there is not enough room below inside the card, place above.
+            const reportCard = remarkLine.closest('.student-report') || document.body;
+            const reportRect = reportCard.getBoundingClientRect();
+            const lineRect = remarkLine.getBoundingClientRect();
+            const dropdownRect = dropdown.getBoundingClientRect();
+            const spaceBelowInReport = reportRect.bottom - lineRect.bottom;
+            const spaceAboveInReport = lineRect.top - reportRect.top;
+
+            if (spaceBelowInReport < dropdownRect.height + 8 && spaceAboveInReport > spaceBelowInReport) {
+                dropdown.style.top = 'auto';
+                dropdown.style.bottom = 'calc(100% + 6px)';
+            }
         }
     }
 }
