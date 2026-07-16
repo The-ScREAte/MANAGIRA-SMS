@@ -494,6 +494,26 @@
       max-width: 100%;
     }
 
+    @media (min-width: 980px) {
+      #gradeBasePlusDetailsWrap .rs-grade-base-stack {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      #gradeBasePlusDetailsWrap #gradeBaseSubjectCountWrap,
+      #gradeBasePlusDetailsWrap #gradeCoreSubjectConfigWrap {
+        grid-column: 1 / -1;
+      }
+
+      #gradeBasePlusDetailsWrap #gradeOtherSubjectCountWrap,
+      #gradeBasePlusDetailsWrap #gradeBaseRandomSelectionTypeWrap {
+        width: 100%;
+        max-width: none !important;
+      }
+    }
+
     .rs-grade-core-glass,
     .rs-grade-core-glass-pane {
       border: 1px solid rgba(14, 116, 144, 0.28);
@@ -690,6 +710,38 @@
       color: #334155;
       font-size: 0.75rem;
       line-height: 1.2;
+    }
+
+    .rs-grade-collapsible-trigger {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid #d7e3ef;
+      border-radius: 8px;
+      background: #fff;
+      color: #334155;
+      padding: 7px 9px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .rs-grade-collapsible-arrow {
+      color: var(--muted);
+      font-size: 0.72rem;
+      transition: transform 0.18s ease;
+      flex-shrink: 0;
+    }
+
+    .rs-grade-collapsible-trigger[aria-expanded="true"] .rs-grade-collapsible-arrow {
+      transform: rotate(180deg);
+    }
+
+    .rs-grade-collapsible-panel {
+      display: none;
+      margin-top: 7px;
     }
 
     .rs-grade-config-footer {
@@ -1269,7 +1321,7 @@
     @media (max-width: 960px) { .class-layout { grid-template-columns: 1fr; } .class-button { display: inline-flex; width: auto; } }
     @media (max-width: 640px) {
       main { padding: 70px 8px 0; margin-top: 16px; }
-      .hero { padding: 16px 16px; border-radius: 12px; }
+      .hero { padding: 16px 16px; border-radius: 0; }
       .hero h1 { font-size: 1.3rem; }
       .hero p { font-size: 0.88rem; }
       .grid { grid-template-columns: 1fr; gap: 12px; }
@@ -1440,6 +1492,82 @@
       .rs-grade-config-card {
         width: 98vw;
         padding: 12px;
+      }
+
+      .rs-grade-config-card .rs-grade-config-title {
+        font-size: 0.84rem;
+      }
+
+      .rs-grade-config-card .rs-grade-config-note,
+      .rs-grade-config-card .rs-grade-toggle-head,
+      .rs-grade-config-card .rs-grade-toggle-option,
+      .rs-grade-config-card .rs-grade-subject-item,
+      .rs-grade-config-card #gradeNumericAssignClassesWrap label,
+      .rs-grade-config-card .rs-class-select-row span {
+        font-size: 0.68rem !important;
+      }
+
+      .rs-grade-config-card .rs-grade-toggle-option {
+        padding: 3px 7px;
+      }
+
+      .rs-grade-config-card .btn,
+      .rs-grade-config-card .rs-grade-config-close {
+        font-size: 0.72rem;
+      }
+
+      .rs-grade-config-card .btn {
+        padding: 7px 10px;
+      }
+
+      .rs-grade-config-card #gradeNumericAssignClassesWrap {
+        gap: 6px !important;
+        padding: 8px !important;
+      }
+
+      .rs-grade-config-card #gradeNumericClassCheckboxes {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+      }
+
+      .rs-grade-config-card .rs-class-select-row {
+        gap: 6px;
+        padding: 5px 6px;
+      }
+
+      .rs-grade-config-card .grade-numeric-class-checkbox,
+      .rs-grade-config-card #gradeNumericSelectAllClasses {
+        width: 13px;
+        height: 13px;
+      }
+
+      .rs-grade-config-card #gradeCoreSubjectList {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px;
+      }
+
+      .rs-grade-config-card #gradeCoreSubjectHint {
+        font-size: 0.66rem !important;
+      }
+
+      .rs-grade-config-card #gradeBaseSubjectCountWrap,
+      .rs-grade-config-card #gradeOtherSubjectCountWrap,
+      .rs-grade-config-card #gradeBaseRandomSelectionTypeWrap {
+        flex-direction: row !important;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px !important;
+        font-size: 0.68rem !important;
+      }
+
+      .rs-grade-config-card #gradeBaseSubjectCountWrap input,
+      .rs-grade-config-card #gradeOtherSubjectCountWrap input,
+      .rs-grade-config-card #gradeBaseRandomSelectionTypeWrap select {
+        width: min(130px, 48vw);
+        min-width: 92px;
+        margin-left: auto;
+        font-size: 0.74rem !important;
+        padding: 4px 6px !important;
       }
 
       .rs-bulk-input-grid,
@@ -2029,15 +2157,6 @@
                         </div>
                       </div>
 
-                      <div id="gradeNumericAssignClassesWrap" style="display:none;flex-direction:column;gap:8px;margin-top:8px;padding:10px;border:1px solid #d7e3ef;border-radius:10px;background:#f8fafc;">
-                        <div class="rs-grade-toggle-head" style="justify-content:flex-start;">Assigned Classes</div>
-                        <label style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
-                          <input type="checkbox" id="gradeNumericSelectAllClasses" style="accent-color:var(--primary);">
-                          Select all classes
-                        </label>
-                        <div id="gradeNumericClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
-                      </div>
-
                       <div id="gradeNumericTotalConfigWrap" style="display:none;flex:1 1 100%;margin:8px 0 0 0;padding:10px;border:1px dashed var(--border);border-radius:8px;background:#f8fafc;">
                         <div style="font-size:0.75rem;color:var(--muted);font-weight:600;margin-bottom:8px;">Number Total Setup</div>
                         <div id="gradeNumericStrategyControls" style="display:grid;grid-template-columns:1fr;gap:8px;">
@@ -2059,14 +2178,15 @@
                               <label id="gradeOtherSubjectCountWrap" class="rs-grade-random-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;">
                                 Additional Subjects Count
                                 <input type="number" id="gradeOtherSubjectCountInput" min="0" step="1" placeholder="2" style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:0.86rem;line-height:1.15;" />
-                            <div id="gradeNumericAssignClassesWrap" style="display:none;flex-direction:column;gap:8px;margin-top:10px;padding:10px;border:1px solid #d7e3ef;border-radius:10px;background:#f8fafc;">
-                              <div class="rs-grade-toggle-head" style="justify-content:flex-start;">Assigned Classes</div>
-                              <label style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
-                                <input type="checkbox" id="gradeNumericSelectAllClasses" style="accent-color:var(--primary);">
-                                Select all classes
                               </label>
-                              <div id="gradeNumericClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;"></div>
-                            </div>
+
+                              <label id="gradeBaseRandomSelectionTypeWrap" class="rs-grade-random-glass" style="display:none;flex-direction:column;gap:4px;color:var(--muted);font-size:0.76rem;margin:0;max-width:240px;">
+                                Additional Subject Selection
+                                <select id="gradeBaseRandomSelectionTypeSelect" class="rs-grade-random-select" style="padding:5px 6px;border-radius:6px;font-size:0.86rem;line-height:1.15;">
+                                  <option value="any">Random</option>
+                                  <option value="best">Top</option>
+                                </select>
+                              </label>
                             </div>
                           </div>
                           <label class="rs-grade-strategy-option">
@@ -2077,6 +2197,20 @@
                         </div>
 
                         <div id="gradeNumericTotalConfigHint" style="margin-top:8px;font-size:0.72rem;color:var(--muted);"></div>
+
+                        <div id="gradeNumericAssignClassesWrap" style="display:none;flex-direction:column;gap:8px;margin-top:10px;padding:10px;border:1px solid #d7e3ef;border-radius:10px;background:#f8fafc;">
+                          <button type="button" id="toggleGradeNumericAssignClassesBtn" class="rs-grade-collapsible-trigger" aria-expanded="false">
+                            <span>Assigned Classes</span>
+                            <span class="rs-grade-collapsible-arrow" aria-hidden="true">▾</span>
+                          </button>
+                          <div id="gradeNumericAssignClassesPanel" class="rs-grade-collapsible-panel">
+                            <label style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:0.76rem;margin:0;">
+                              <input type="checkbox" id="gradeNumericSelectAllClasses" style="accent-color:var(--primary);">
+                              Select all classes
+                            </label>
+                            <div id="gradeNumericClassCheckboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:8px;"></div>
+                          </div>
+                        </div>
                       </div>
 
                       <div class="rs-grade-config-footer">
@@ -2838,6 +2972,8 @@
     const gradeNumericTotalConfigWrap = document.getElementById('gradeNumericTotalConfigWrap');
     const gradeNumericStrategyControls = document.getElementById('gradeNumericStrategyControls');
     const gradeNumericAssignClassesWrap = document.getElementById('gradeNumericAssignClassesWrap');
+    const toggleGradeNumericAssignClassesBtn = document.getElementById('toggleGradeNumericAssignClassesBtn');
+    const gradeNumericAssignClassesPanel = document.getElementById('gradeNumericAssignClassesPanel');
     const gradeNumericSelectAllClasses = document.getElementById('gradeNumericSelectAllClasses');
     const gradeNumericClassCheckboxes = document.getElementById('gradeNumericClassCheckboxes');
     const gradeNumericTotalStrategySelect = document.getElementById('gradeNumericTotalStrategySelect');
@@ -3493,6 +3629,7 @@
     function openGradeNumericConfigModal() {
       const gradeState = getCurrentGradePresentationState();
       applyGradePresentationStateToControls(gradeState);
+      setGradeNumericAssignClassesOpen(false);
       if (gradeNumericConfigModal) {
         gradeNumericConfigModal.style.display = 'flex';
       }
@@ -3790,6 +3927,16 @@
       return normalizeGradePresentationState(gradePresentation);
     }
 
+    function setGradeNumericAssignClassesOpen(isOpen) {
+      const open = isOpen === true;
+      if (toggleGradeNumericAssignClassesBtn) {
+        toggleGradeNumericAssignClassesBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      if (gradeNumericAssignClassesPanel) {
+        gradeNumericAssignClassesPanel.style.display = open ? 'block' : 'none';
+      }
+    }
+
     async function handleShowGradeNumericTotalSelection(nextShow, options = {}) {
       const requireConfirm = options.requireConfirm === true;
       const previousState = getCurrentGradePresentationState();
@@ -3928,6 +4075,11 @@
       if (!event.target || !event.target.classList.contains('grade-numeric-class-checkbox')) return;
       syncGradeNumericSelectAllClassesState();
       await persistGradePresentationSelection();
+    });
+
+    toggleGradeNumericAssignClassesBtn?.addEventListener('click', () => {
+      const nextOpen = toggleGradeNumericAssignClassesBtn.getAttribute('aria-expanded') !== 'true';
+      setGradeNumericAssignClassesOpen(nextOpen);
     });
 
     gradeNumericTotalStrategySelect?.addEventListener('change', async () => {
