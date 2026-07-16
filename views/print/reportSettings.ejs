@@ -1928,6 +1928,7 @@
                 <div id="gradeFormContainer" style="display:none;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;">
                   <form id="gradeForm">
                     <input type="hidden" id="editingGradeRowId" value="" />
+                    <input type="hidden" id="editingGradeSourceClassId" value="" />
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
                       <div style="font-size:0.84rem;font-weight:700;color:var(--primary);">Rule Rows</div>
                       <button type="button" id="addGradeRuleRowBtn" class="rs-icon-btn" title="Add another rule">+</button>
@@ -3488,6 +3489,9 @@
             const toPct = link.dataset.to || '';
 
             editingGradeRowIdInput.value = rowId || '';
+            if (editingGradeSourceClassIdInput) {
+              editingGradeSourceClassIdInput.value = classIdToEdit || '';
+            }
             renderGradeRuleRows([
               {
                 gradeLabel: grade,
@@ -3499,7 +3503,7 @@
 
             gradeClassCheckboxes.querySelectorAll('.score-class-checkbox').forEach(cb => {
               cb.checked = cb.value === String(classIdToEdit);
-              cb.disabled = true;
+              cb.disabled = false;
             });
             syncSelectAllCheckboxState(selectAllGradeClasses, gradeClassCheckboxes);
 
@@ -3774,6 +3778,7 @@
     const gradeClassCheckboxes = document.getElementById('gradeClassCheckboxes');
     const selectAllGradeClasses = document.getElementById('selectAllGradeClasses');
     const editingGradeRowIdInput = document.getElementById('editingGradeRowId');
+    const editingGradeSourceClassIdInput = document.getElementById('editingGradeSourceClassId');
     const saveGradeMappingBtn = document.getElementById('saveGradeMappingBtn');
     const cancelGradeMappingBtn = document.getElementById('cancelGradeMappingBtn');
     const gradeRuleRowsEl = document.getElementById('gradeRuleRows');
@@ -4277,6 +4282,9 @@
       if (editingGradeRowIdInput) {
         editingGradeRowIdInput.value = '';
       }
+      if (editingGradeSourceClassIdInput) {
+        editingGradeSourceClassIdInput.value = '';
+      }
       if (saveGradeMappingBtn) {
         saveGradeMappingBtn.textContent = 'Save Rules';
       }
@@ -4422,6 +4430,48 @@
             }
             throw new Error(result.message || 'Failed to save grade & score rule.');
           }
+
+          const sourceClassId = Number.parseInt(String(editingGradeSourceClassIdInput?.value || ''), 10);
+          const additionalSelectedClasses = (Array.isArray(plan.selectedClasses) ? plan.selectedClasses : [])
+            .map((classValue) => String(classValue))
+            .filter((classValue) => {
+              const parsedClassId = Number.parseInt(classValue, 10);
+              return Number.isInteger(parsedClassId) && parsedClassId > 0 && parsedClassId !== sourceClassId;
+            });
+
+          if (additionalSelectedClasses.length) {
+            const additionalResponse = await fetch('/print/saveScoreRemarksAjax', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                entryType: 'grade',
+                action: 'bulkUpsertBatch',
+                termId,
+                selectedClasses: additionalSelectedClasses,
+                ruleBatch: [{
+                  from_percentage: plan.row.fromPct,
+                  to_percentage: plan.row.toPct,
+                  grade_label: plan.row.gradeLabel,
+                  remark: plan.row.remark,
+                  selectedClasses: additionalSelectedClasses,
+                  bypassOverrideClassIds: [],
+                }],
+              })
+            });
+            const additionalResult = await additionalResponse.json();
+            if (!additionalResult.success) {
+              throw new Error(additionalResult.message || 'Rule was updated, but failed to apply to extra selected classes.');
+            }
+
+            if (additionalResult.classRowsMap && typeof additionalResult.classRowsMap === 'object') {
+              result.classRowsMap = Object.assign({}, result.classRowsMap || {}, additionalResult.classRowsMap);
+            }
+
+            if (Array.isArray(additionalResult.savedRemarks) && additionalResult.savedRemarks.length) {
+              result.savedRemarks = [...(Array.isArray(result.savedRemarks) ? result.savedRemarks : []), ...additionalResult.savedRemarks];
+            }
+          }
+
           appliedRuleCount = 1;
         } else {
           const mergedSelectedClasses = [...new Set(

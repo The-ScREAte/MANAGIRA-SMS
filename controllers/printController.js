@@ -4077,6 +4077,33 @@ students
             : parsedBypassOverrideClassIds;
           const rowBypassOverrideClassIdSet = new Set(rowParsedBypassOverrideClassIds);
 
+          const sameRemarkRowsByClassId = new Map();
+          if (safeEntryType === "remark" || rowHasSubmittedRemark) {
+            const remarkRowsResult = await db.query(
+              `
+                SELECT id, class_id, from_percentage, to_percentage, remark, grade_label
+                FROM score_remarks
+                WHERE organization_id = $1
+                  AND class_id = ANY($2::int[])
+                  AND term_id = $3
+                  AND lower(trim(remark)) = lower(trim($4))
+                ORDER BY class_id ASC, id DESC
+              `,
+              [organizationId, rowUnlockedClassIds, parsedTermId, rowRemarkInput || ""]
+            );
+
+            remarkRowsResult.rows.forEach((row) => {
+              const remarkClassId = Number(row.class_id);
+              if (!Number.isInteger(remarkClassId) || remarkClassId <= 0) {
+                return;
+              }
+              if (!sameRemarkRowsByClassId.has(remarkClassId)) {
+                sameRemarkRowsByClassId.set(remarkClassId, []);
+              }
+              sameRemarkRowsByClassId.get(remarkClassId).push(row);
+            });
+          }
+
           const allOverlappingRowsResult = await db.query(
             `
               SELECT id, class_id, from_percentage, to_percentage, remark, grade_label
@@ -4107,7 +4134,8 @@ students
           const rowNoConflictClassIds = [];
           rowUnlockedClassIds.forEach((classId) => {
             const overlappingRows = overlappingRowsByClassId.get(classId) || [];
-            const hasConflicts = overlappingRows.length > 0;
+            const sameRemarkRows = sameRemarkRowsByClassId.get(classId) || [];
+            const hasConflicts = overlappingRows.length > 0 || sameRemarkRows.length > 0;
             if (hasConflicts && rowBypassOverrideClassIdSet.has(classId)) {
               skippedOverrideClassIds.push(classId);
               return;
@@ -4159,30 +4187,44 @@ students
               }
             }
 
-            const insertNoConflictResult = await db.query(
-              `
-                INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
-                SELECT
-                  $1,
-                  class_id,
-                  $2,
-                  $3,
-                  $4,
-                  $5,
-                  $6
-                FROM unnest($7::int[]) AS class_id
-                RETURNING *
-              `,
-              [
-                organizationId,
-                parsedTermId,
-                rowFinalRemarkForInsert,
-                rowFinalGradeLabelForInsert,
-                rowFromPct,
-                rowToPct,
-                rowNoConflictClassIds,
-              ]
-            );
+            let insertNoConflictResult;
+            try {
+              insertNoConflictResult = await db.query(
+                `
+                  INSERT INTO score_remarks (organization_id, class_id, term_id, remark, grade_label, from_percentage, to_percentage)
+                  SELECT
+                    $1,
+                    class_id,
+                    $2,
+                    $3,
+                    $4,
+                    $5,
+                    $6
+                  FROM unnest($7::int[]) AS class_id
+                  RETURNING *
+                `,
+                [
+                  organizationId,
+                  parsedTermId,
+                  rowFinalRemarkForInsert,
+                  rowFinalGradeLabelForInsert,
+                  rowFromPct,
+                  rowToPct,
+                  rowNoConflictClassIds,
+                ]
+              );
+            } catch (insertError) {
+              if (
+                insertError?.code === "23505"
+                && (insertError?.constraint === "unique_score_remark" || insertError?.constraint === "score_remarks_unique")
+              ) {
+                return res.json({
+                  success: false,
+                  message: `One or more selected classes already have this rule/remark. Please refresh and try again.`,
+                });
+              }
+              throw insertError;
+            }
 
             if (Array.isArray(insertNoConflictResult.rows) && insertNoConflictResult.rows.length) {
               savedRemarks.push(...insertNoConflictResult.rows);
@@ -4204,11 +4246,12 @@ students
 
           for (const parsedClassId of rowConflictClassIds) {
             const overlappingRows = overlappingRowsByClassId.get(parsedClassId) || [];
+            const sameRemarkRows = sameRemarkRowsByClassId.get(parsedClassId) || [];
             const exactRangeRow = overlappingRows.find((row) => (
               Number(row?.from_percentage) === rowFromPct
               && Number(row?.to_percentage) === rowToPct
             )) || null;
-            const hasConflicts = overlappingRows.length > 0;
+            const hasConflicts = overlappingRows.length > 0 || sameRemarkRows.length > 0;
 
             if (hasConflicts) {
               const lockedOverlapResult = await db.query(
@@ -4241,7 +4284,7 @@ students
               }
             }
 
-            const sourceRowForFallback = exactRangeRow || overlappingRows[0] || null;
+            const sourceRowForFallback = exactRangeRow || overlappingRows[0] || sameRemarkRows[0] || null;
 
             const finalGradeLabel = safeEntryType === "grade"
               ? (rowGradeLabelInput || sourceRowForFallback?.grade_label || defaultGradeLabel)
@@ -4251,7 +4294,7 @@ students
               : (sourceRowForFallback?.remark || defaultRemark);
 
             if (safeEntryType === "remark" || rowHasSubmittedRemark) {
-              const excludedConflictIds = overlappingRows
+              const excludedConflictIds = [...overlappingRows, ...sameRemarkRows]
                 .map((row) => Number(row?.id))
                 .filter((id) => Number.isInteger(id) && id > 0);
               const exclusionIds = excludedConflictIds.length ? excludedConflictIds : [0];
@@ -4284,7 +4327,7 @@ students
               }
             }
 
-            const conflictingRowIds = overlappingRows
+            const conflictingRowIds = [...overlappingRows, ...sameRemarkRows]
               .map((row) => Number(row?.id))
               .filter((id) => Number.isInteger(id) && id > 0);
 
