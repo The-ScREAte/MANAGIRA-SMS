@@ -1514,18 +1514,6 @@ const printController = (db) => ({
         },
       };
 
-      console.log('[printStudentReport] gradePresentation', {
-        organizationId,
-        classId: parsedClassId,
-        termId: parsedTermId,
-        mode: gradePresentation.mode,
-        showNumberTotalOnReport: gradePresentation.showNumberTotalOnReport,
-        totalScoreStrategy: gradePresentation.totalScoreStrategy,
-        gradeBaseSubjectCount: gradePresentation.gradeBaseSubjectCount,
-        otherSubjectCount: gradePresentation.otherSubjectCount,
-        randomSelectionMode: gradePresentation.randomSelectionMode,
-      });
-
       // --- Build enabled assessment ID sets per category (respects sub-item toggles) ---
       const CLASS_CATS  = ['Class Assessment'];
       const EXAMS_CATS  = ['Exams Assessment', 'Exam Assessment'];
@@ -2693,20 +2681,6 @@ students
         applyToClasses: requestedGradeApplyToClasses,
       });
       normalizedDisplaySettings.sections.gradePresentation = normalizedGradePresentation;
-
-      const savedGradePresentation = normalizedDisplaySettings.sections?.gradePresentation || {};
-      console.log('[saveDisplaySettings] gradePresentation', {
-        organizationId,
-        classId: parsedClassId,
-        termId: parsedTermId,
-        mode: savedGradePresentation.mode,
-        showNumberTotalOnReport: savedGradePresentation.showNumberTotalOnReport,
-        totalScoreStrategy: savedGradePresentation.totalScoreStrategy,
-        gradeBaseSubjectCount: savedGradePresentation.gradeBaseSubjectCount,
-        otherSubjectCount: savedGradePresentation.otherSubjectCount,
-        randomSelectionMode: savedGradePresentation.randomSelectionMode,
-        applyToClasses: savedGradePresentation.applyToClasses,
-      });
 
       await db.query(
         `INSERT INTO report_settings (organization_id, class_id, term_id, display_settings)

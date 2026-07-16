@@ -1,8 +1,12 @@
 <%
+  const safeMessages = (typeof messages !== 'undefined' && messages && typeof messages === 'object')
+    ? messages
+    : {};
+
   const flashSource = {
-    error: Array.isArray(messages?.error) ? messages.error : [],
-    info: Array.isArray(messages?.info) ? messages.info : [],
-    success: Array.isArray(messages?.success) ? messages.success : [],
+    error: Array.isArray(safeMessages.error) ? safeMessages.error : [],
+    info: Array.isArray(safeMessages.info) ? safeMessages.info : [],
+    success: Array.isArray(safeMessages.success) ? safeMessages.success : [],
   };
 
   const flashOrder = ['error', 'info', 'success'];
