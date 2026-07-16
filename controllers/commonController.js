@@ -10221,6 +10221,27 @@ const commonController = {
 
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
+
+      const requestorIdNumber = Number(requestorId);
+      const editedUserIdNumber = Number(userId);
+      if (Number.isInteger(requestorIdNumber) && Number.isInteger(editedUserIdNumber) && requestorIdNumber === editedUserIdNumber) {
+        req.session.userRole = accountType;
+        req.session.firstName = firstName;
+        req.session.lastName = lastName;
+
+        const sessionAccountType = String(req.session.accountType || '').trim().toLowerCase();
+        if (!['organization', 'hub'].includes(sessionAccountType)) {
+          req.session.accountType = accountType;
+        }
+
+        if (req.session.user && typeof req.session.user === 'object') {
+          req.session.user.account_type = accountType;
+          req.session.user.first_name = firstName;
+          req.session.user.last_name = lastName;
+          req.session.user.email = email;
+        }
+      }
+
       console.info(`[ModifyEmployee:POST][${modId}] ====== COMMITTED — total ${elapsed()} ======\n`);
 
       req.flash("success", "Employee details updated successfully.");

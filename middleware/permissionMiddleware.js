@@ -330,8 +330,10 @@ function invalidateUserPermissionCache(organizationId, userId) {
 
   if (userId) {
     cacheManager.invalidatePattern("organization", `perm:user:${organizationId}:${userId}`);
+    cacheManager.invalidatePattern("organization", `perm:user-role:${organizationId}:${userId}`);
   } else {
     cacheManager.invalidatePattern("organization", `perm:user:${organizationId}:`);
+    cacheManager.invalidatePattern("organization", `perm:user-role:${organizationId}:`);
   }
 
   cacheManager.invalidatePattern("organization", `perm:owner-email:${organizationId}:`);

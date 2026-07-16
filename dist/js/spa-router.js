@@ -627,21 +627,24 @@
       // 7. Update meta tags
       this._updateMetaTags(doc);
 
-      // 8. Update header active states
+      // 8. Replace header markup so role/permission-gated menu items stay fresh.
+      this._updateHeader(doc);
+
+      // 9. Update header active states
       this._updateHeaderActiveState(path);
 
-      // 9. Update footer visibility
+      // 10. Update footer visibility
       this._updateFooter(doc);
 
-      // 10. Notify other scripts
+      // 11. Notify other scripts
       this._dispatchEvents(path);
 
-      // 11. Re-observe new links for viewport preloading
+      // 12. Re-observe new links for viewport preloading
       if (this.visibilityObserver) {
         this._observeLinks(currentMain);
       }
 
-      // 12. Warm the nav/sidebar links on the new page so follow-up clicks
+      // 13. Warm the nav/sidebar links on the new page so follow-up clicks
       //     are served from cache. Scheduled on idle so it never competes
       //     with user interaction.
       const schedule = (cb) => ('requestIdleCallback' in window)
@@ -930,6 +933,25 @@
           currentEl.setAttribute(attr, newEl.getAttribute(attr));
         }
       });
+    }
+
+    _updateHeader(doc) {
+      const newHeader = doc.querySelector('header#top-header');
+      const currentHeader = document.querySelector('header#top-header');
+
+      if (!newHeader || !currentHeader) {
+        return;
+      }
+
+      currentHeader.replaceWith(newHeader);
+
+      // Re-bind interactive header behavior on the new markup.
+      if (typeof window.initHeaderMenu === 'function') {
+        window.initHeaderMenu();
+      }
+      if (typeof window.initLogoSPANavigation === 'function') {
+        window.initLogoSPANavigation();
+      }
     }
 
     // ── Header Active State ───────────────────────────────────────────
