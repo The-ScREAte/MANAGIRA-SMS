@@ -2004,6 +2004,7 @@
 <% const isSchoolSubdomainContext = !!(req && req.schoolDetails); %>
 <% const isLoggedIn = !!(session && session.firstName); %>
 <% const headerCurrentPath = (typeof currentPath !== 'undefined' && currentPath) ? String(currentPath) : ((typeof url !== 'undefined' && url) ? String(url) : ''); %>
+<% const isSchoolPublicHome = !!(!isLoggedIn && isSchoolSubdomainContext && (headerCurrentPath === '/' || headerCurrentPath.startsWith('/?'))); %>
 <% const isMarketingHome = !!(!isLoggedIn && !isPublicDashboard && !isSchoolSubdomainContext && headerCurrentPath === '/'); %>
 <% const showPublicOrgIdentity = !!(!isLoggedIn && (isPublicDashboard || isSchoolSubdomainContext)); %>
 <header id="top-header" data-overlay-eligible="<%= isMarketingHome ? '1' : '0' %>" class="<%= isMarketingHome ? 'homepage-overlay-enabled' : '' %>">
@@ -2635,7 +2636,7 @@
 </div>
   
 
-  <% if (typeof url !== 'undefined' && url.includes('/publicDashboard')) { %>
+  <% if (isPublicDashboard || isSchoolPublicHome) { %>
   <nav class="sticky-nav">
     <ul>
       <li>
