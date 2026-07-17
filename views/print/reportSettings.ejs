@@ -3239,6 +3239,37 @@
       const rawValue = normalizeStatusRowValue(value);
       if (!rawValue) return '';
       if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) return rawValue;
+
+      const slashMatch = rawValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (slashMatch) {
+        const month = Number(slashMatch[1]);
+        const day = Number(slashMatch[2]);
+        const year = Number(slashMatch[3]);
+        const parsedSlash = new Date(Date.UTC(year, month - 1, day));
+        if (
+          parsedSlash.getUTCFullYear() === year
+          && parsedSlash.getUTCMonth() === month - 1
+          && parsedSlash.getUTCDate() === day
+        ) {
+          return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+      }
+
+      const dashMatch = rawValue.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+      if (dashMatch) {
+        const month = Number(dashMatch[1]);
+        const day = Number(dashMatch[2]);
+        const year = Number(dashMatch[3]);
+        const parsedDash = new Date(Date.UTC(year, month - 1, day));
+        if (
+          parsedDash.getUTCFullYear() === year
+          && parsedDash.getUTCMonth() === month - 1
+          && parsedDash.getUTCDate() === day
+        ) {
+          return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+      }
+
       const parsedValue = new Date(rawValue);
       return Number.isNaN(parsedValue.getTime()) ? '' : parsedValue.toISOString().slice(0, 10);
     }

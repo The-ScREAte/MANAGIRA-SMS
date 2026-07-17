@@ -2977,6 +2977,44 @@ students
       const parsedDate = value instanceof Date ? value : new Date(value);
       return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().slice(0, 10);
     };
+
+    const normalizeDateInputToIso = (value) => {
+      const rawValue = String(value ?? "").trim();
+      if (!rawValue) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) return rawValue;
+
+      const slashMatch = rawValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (slashMatch) {
+        const month = Number(slashMatch[1]);
+        const day = Number(slashMatch[2]);
+        const year = Number(slashMatch[3]);
+        const candidate = new Date(Date.UTC(year, month - 1, day));
+        if (
+          candidate.getUTCFullYear() === year
+          && candidate.getUTCMonth() === month - 1
+          && candidate.getUTCDate() === day
+        ) {
+          return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        }
+      }
+
+      const dashMatch = rawValue.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+      if (dashMatch) {
+        const month = Number(dashMatch[1]);
+        const day = Number(dashMatch[2]);
+        const year = Number(dashMatch[3]);
+        const candidate = new Date(Date.UTC(year, month - 1, day));
+        if (
+          candidate.getUTCFullYear() === year
+          && candidate.getUTCMonth() === month - 1
+          && candidate.getUTCDate() === day
+        ) {
+          return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        }
+      }
+
+      return toIsoDateString(rawValue);
+    };
   
     try {
       if (!organizationId) {
@@ -3017,7 +3055,7 @@ students
           const promotedValue = String(rowPromotedRaw[index] ?? "").trim();
           const repeatedValue = String(rowRepeatedRaw[index] ?? "").trim();
           const cutOffRawValue = String(rowCutOffRaw[index] ?? "").trim();
-          const reopenDateValue = String(rowReopenRaw[index] ?? "").trim();
+          const reopenDateValue = normalizeDateInputToIso(rowReopenRaw[index]);
           const parsedCutOff = cutOffRawValue === "" ? null : parseInt(cutOffRawValue, 10);
           const parsedPromoted = promotedValue === "" ? null : parseInt(promotedValue, 10);
           const parsedRepeated = repeatedValue === "" ? null : parseInt(repeatedValue, 10);
@@ -3027,7 +3065,7 @@ students
             promotedClass: Number.isInteger(parsedPromoted) ? parsedPromoted : null,
             repeatedClass: Number.isInteger(parsedRepeated) ? parsedRepeated : null,
             cutOffPoint: Number.isInteger(parsedCutOff) ? parsedCutOff : null,
-            schoolReopenDate: reopenDateValue || null,
+            schoolReopenDate: reopenDateValue,
           });
         });
 
@@ -3185,8 +3223,8 @@ students
             parseInt(cutOffPoint, 10) || null,
             promotedClass || null,
             repeatedClass || null,
-            schoolReopenDate || null,
-            termEndDate || null,
+            normalizeDateInputToIso(schoolReopenDate),
+            normalizeDateInputToIso(termEndDate),
             activatePromotion === "on",
             organizationId,
             classIdToSave,
@@ -3207,8 +3245,8 @@ students
               parseInt(cutOffPoint, 10) || null,
               promotedClass || null,
               repeatedClass || null,
-              schoolReopenDate || null,
-              termEndDate || null,
+              normalizeDateInputToIso(schoolReopenDate),
+              normalizeDateInputToIso(termEndDate),
               activatePromotion === "on",
             ]
           );
