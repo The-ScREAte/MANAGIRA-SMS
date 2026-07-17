@@ -2013,7 +2013,7 @@
   <% const publicOrgNickname = (publicOrgData && (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname)) ? (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname) : ''; %>
   <% const publicOrgNicknameDisplay = (publicOrgData && publicOrgData.nickname_display && String(publicOrgData.nickname_display).trim()) ? publicOrgData.nickname_display : publicOrgNickname; %>
   <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : (req.session && req.session.userRole === 'Student' ? '/student/dashboard' : '/common/orgDashboard')); %>
-  <% const showMarketingMegaNav = !isLoggedIn && !isPublicDashboard; %>
+  <% const showMarketingMegaNav = !isLoggedIn && !isPublicDashboard && !isSchoolSubdomainContext; %>
   <% const publicMarketingNav = [
     {
       label: 'Unify School',
