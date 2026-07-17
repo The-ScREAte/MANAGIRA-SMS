@@ -12,6 +12,7 @@ const {
   isEmailEnabledForRecipient,
   filterEmailsByPreference,
 } = require("./emailPreferences");
+const { getOrganizationWebsiteInfo } = require("./schoolWebsiteAccess");
 
 const DEFAULT_POLICY = {
   timezone: "UTC",
@@ -37,6 +38,14 @@ let ensuredSchema = false;
 function toNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeWeekday(value, fallback = GLOBAL_DIGEST_WEEKDAY) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 6) {
+    return fallback;
+  }
+  return parsed;
 }
 
 function buildFailureNotification(organizationId, {
@@ -164,10 +173,18 @@ async function ensureNotificationSchema(database = db) {
       error_message TEXT,
       payload JSONB,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-      sent_at TIMESTAMP,
-      UNIQUE (event_type, event_key, recipient_email)
+      sent_at TIMESTAMP
     )
   `);
+
+  await database.query(`
+    ALTER TABLE notification_dispatches
+    DROP CONSTRAINT IF EXISTS notification_dispatches_event_type_event_key_recipient_email_key
+  `);
+
+  await database.query(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_dispatches_org_event_key_recipient ON notification_dispatches (organization_id, event_type, event_key, recipient_email)"
+  );
 
   await database.query(`
     CREATE TABLE IF NOT EXISTS notification_digest_runs (
@@ -234,7 +251,7 @@ async function reserveDispatch(database, {
     `INSERT INTO notification_dispatches
        (organization_id, event_type, event_key, recipient_email, recipient_kind, subject, payload, status)
      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, 'queued')
-     ON CONFLICT (event_type, event_key, recipient_email) DO NOTHING
+     ON CONFLICT (organization_id, event_type, event_key, recipient_email) DO NOTHING
      RETURNING dispatch_id`,
     [
       organizationId,
@@ -385,6 +402,96 @@ async function getStudentAttendanceWeekly(database, organizationId, weekStartKey
   return out;
 }
 
+function describeStandingFromPercentile(percentileRank) {
+  const p = Number(percentileRank);
+  if (!Number.isFinite(p)) return "Assessment profile is still being built";
+  if (p <= 0.2) return "Top-performing group in class assessments";
+  if (p <= 0.5) return "Strong position in class assessments";
+  if (p <= 0.8) return "Steady progress in class assessments";
+  return "Building momentum in class assessments";
+}
+
+async function getStudentClassStandingMap(database, organizationId, termId, studentIds) {
+  if (!termId || !studentIds.length) return new Map();
+
+  const result = await database.query(
+    `WITH class_scores AS (
+       SELECT s.student_id,
+              s.class_id,
+              AVG(ar.total_percentage) AS avg_score
+       FROM students s
+       JOIN assessment_results ar
+         ON ar.student_id = s.student_id
+        AND ar.organization_id = $1
+       JOIN assessments a
+         ON a.assessment_id = ar.assessment_id
+       WHERE s.organization_id = $1
+         AND a.term_id = $2
+         AND ar.total_percentage IS NOT NULL
+       GROUP BY s.student_id, s.class_id
+     ),
+     ranked AS (
+       SELECT student_id,
+              class_id,
+              avg_score,
+              PERCENT_RANK() OVER (PARTITION BY class_id ORDER BY avg_score DESC) AS percentile_rank
+       FROM class_scores
+     )
+     SELECT student_id, class_id, percentile_rank
+     FROM ranked
+     WHERE student_id = ANY($3::int[])`,
+    [organizationId, termId, studentIds]
+  );
+
+  const out = new Map();
+  for (const row of result.rows) {
+    const studentId = Number(row.student_id);
+    const percentileRank = Number(row.percentile_rank);
+    out.set(studentId, {
+      classId: Number(row.class_id),
+      percentileRank,
+      standingLabel: describeStandingFromPercentile(percentileRank),
+    });
+  }
+
+  return out;
+}
+
+async function getWeeklySchoolSignals(database, organizationId, weekStartKey, weekEndKey) {
+  try {
+    const result = await database.query(
+      `SELECT
+         COUNT(*) FILTER (
+           WHERE action_type = 'Scored'
+              OR module_name = 'Assessment'
+              OR page_path ILIKE '/common/saveallscores%'
+              OR page_path ILIKE '/common/savescore%'
+         ) AS assessment_updates,
+         COUNT(*) FILTER (
+           WHERE module_name IN ('Messaging', 'Announcements')
+              OR action_type = 'Messaged'
+         ) AS communication_updates
+       FROM organization_activity_logs
+       WHERE organization_id = $1
+         AND created_at >= $2::date
+         AND created_at < ($3::date + INTERVAL '1 day')`,
+      [organizationId, weekStartKey, weekEndKey]
+    );
+
+    const row = result.rows[0] || {};
+    return {
+      assessmentUpdates: toNumber(row.assessment_updates, 0),
+      communicationUpdates: toNumber(row.communication_updates, 0),
+    };
+  } catch (error) {
+    // organization_activity_logs is optional in some environments.
+    if (error && error.code === "42P01") {
+      return { assessmentUpdates: 0, communicationUpdates: 0 };
+    }
+    throw error;
+  }
+}
+
 async function resolveGuardianLinks(database, organizationId) {
   const result = await database.query(
     `SELECT DISTINCT
@@ -458,19 +565,12 @@ function buildChildrenTableRows(children) {
 
   const rows = children
     .map((item) => {
-      const attendance = Number.isFinite(item.attendancePct)
-        ? `${item.attendancePct.toFixed(1)}%`
-        : "N/A";
-      const score = Number.isFinite(item.avgScore)
-        ? `${item.avgScore.toFixed(1)}%`
-        : "N/A";
       return `<tr>
         <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.name)}</td>
         <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.className)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${item.absentCount}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${attendance}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${score}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.scoreBand)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.attendanceSummary || "No attendance marks yet")}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.academicStanding || "Assessment profile is still being built")}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(item.weeklyFocus || "Steady routines support progress")}</td>
       </tr>`;
     })
     .join("");
@@ -480,14 +580,33 @@ function buildChildrenTableRows(children) {
       <tr>
         <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Child</th>
         <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Class</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Absences (week)</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Attendance</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Avg Score</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Performance</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Attendance Snapshot</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Academic Update</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+function buildDigestHighlights(items) {
+  const lines = Array.isArray(items)
+    ? items.filter((item) => typeof item === "string" && item.trim() !== "")
+    : [];
+
+  if (!lines.length) return "";
+
+  return `<ul style="margin:8px 0 0;padding-left:18px;color:#1f2937;font-size:14px;line-height:1.6;">${lines
+    .map((line) => `<li>${escapeHtml(line)}</li>`)
+    .join("")}</ul>`;
+}
+
+function buildWeeklyDigestFooterNote() {
+  return `<div style="text-align:center;">
+    We will update you every step of the way.<br>
+    Follow <a href="https://www.linkedin.com/company/managira" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">Managira</a> for more updates. LinkedIn.<br>
+    <strong style="color:#b91c1c;">THIS IS A NO-REPLY MESSAGE. PLEASE DO NOT REPLY TO THIS EMAIL.</strong>
+  </div>`;
 }
 
 async function sendParentAbsenceAlertsForOrganization(database, organizationId, options = {}) {
@@ -526,6 +645,7 @@ async function sendParentAbsenceAlertsForOrganization(database, organizationId, 
   const studentBasics = await getStudentBasics(database, organizationId, studentIds);
   const guardianMap = await resolveGuardianLinks(database, organizationId);
   const { organizationName } = await getOrganizationSummary(database, organizationId);
+  const websiteInfo = await getOrganizationWebsiteInfo(database, organizationId);
 
   let sent = 0;
   for (const row of result.rows) {
@@ -600,8 +720,8 @@ async function shouldRunDigestNow(database, organizationId, digestType, policy, 
   const hour = nowDate.getHours();
   const minute = nowDate.getMinutes();
 
-  // Global temporary rule: all weekly digests are sent on Saturday.
-  if (nowDate.getDay() !== GLOBAL_DIGEST_WEEKDAY) return false;
+  const digestWeekday = normalizeWeekday(policy.digest_weekday, GLOBAL_DIGEST_WEEKDAY);
+  if (nowDate.getDay() !== digestWeekday) return false;
   if (hour !== toNumber(policy.digest_send_hour, 18)) return false;
 
   // Minute window allows scheduler jitter.
@@ -674,8 +794,20 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
     weekEndKey,
     studentIds
   );
+  const rollingStart = new Date(weekStart);
+  rollingStart.setDate(rollingStart.getDate() - 14);
+  const rollingStartKey = toDateKey(rollingStart);
+  const rollingAttendanceMap = await getStudentAttendanceWeekly(
+    database,
+    organizationId,
+    rollingStartKey,
+    weekEndKey,
+    studentIds
+  );
   const currentTermId = await getCurrentTermId(database, organizationId);
   const averageMap = await getStudentTermAverages(database, organizationId, currentTermId, studentIds);
+  const classStandingMap = await getStudentClassStandingMap(database, organizationId, currentTermId, studentIds);
+  const weeklySignals = await getWeeklySchoolSignals(database, organizationId, weekStartKey, weekEndKey);
   const { organizationName } = await getOrganizationSummary(database, organizationId);
 
   let sent = 0;
@@ -685,18 +817,71 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
       const basic = studentBasics.get(sid);
       if (!basic) continue;
       const attendance = attendanceMap.get(sid) || {};
+      const rollingAttendance = rollingAttendanceMap.get(sid) || {};
       const avgScore = averageMap.get(sid);
+      const standing = classStandingMap.get(sid);
+      const marksCount = toNumber(attendance.marksCount, 0);
+      const rollingMarksCount = toNumber(rollingAttendance.marksCount, 0);
+      const absentCount = toNumber(attendance.absentCount, 0);
+      const rollingAbsentCount = toNumber(rollingAttendance.absentCount, 0);
+      const presentCount = toNumber(attendance.presentCount, 0);
+      const rollingPresentCount = toNumber(rollingAttendance.presentCount, 0);
+      const lateCount = toNumber(attendance.lateCount, 0);
+      const rollingLateCount = toNumber(rollingAttendance.lateCount, 0);
+
+      let attendanceSummary = "No attendance marks recorded yet.";
+      if (marksCount > 0 && Number.isFinite(Number(attendance.attendancePct))) {
+        attendanceSummary = `${Number(attendance.attendancePct).toFixed(1)}% this week (${presentCount} present, ${absentCount} absent${lateCount > 0 ? `, ${lateCount} late` : ""})`;
+      } else if (rollingMarksCount > 0 && Number.isFinite(Number(rollingAttendance.attendancePct))) {
+        attendanceSummary = `${Number(rollingAttendance.attendancePct).toFixed(1)}% over the last 3 weeks (${rollingPresentCount} present, ${rollingAbsentCount} absent${rollingLateCount > 0 ? `, ${rollingLateCount} late` : ""})`;
+      }
+
+      const hasAssessmentSignal = Number.isFinite(Number(avgScore)) || !!standing;
+      const academicStanding = standing?.standingLabel
+        || (Number.isFinite(Number(avgScore))
+          ? `${scoreBand(avgScore, toNumber(policy.good_score_threshold, 60))} assessment trend`
+          : "Assessment profile is still being built");
+
+      let weeklyFocus = "We will share new classroom updates as soon as teachers publish them.";
+      if (standing && Number.isFinite(standing.percentileRank) && standing.percentileRank <= 0.2) {
+        weeklyFocus = "Recent classroom entries place your child in a top-performing group.";
+      } else if (weeklySignals.assessmentUpdates > 0 && hasAssessmentSignal) {
+        weeklyFocus = "Assessment updates were recorded this week without exposing exact scores.";
+      } else if (marksCount > 0) {
+        weeklyFocus = "Attendance routines stayed active this week.";
+      } else if (rollingMarksCount > 0) {
+        weeklyFocus = "No fresh entries this week, so this digest includes a calm 3-week attendance view.";
+      }
+
       children.push({
         name: `${basic.firstName} ${basic.lastName}`,
         className: basic.className,
-        absentCount: toNumber(attendance.absentCount, 0),
+        marksCount,
+        rollingMarksCount,
+        absentCount,
         attendancePct: Number(attendance.attendancePct),
         avgScore: Number(avgScore),
-        scoreBand: scoreBand(avgScore, toNumber(policy.good_score_threshold, 60)),
+        hasAssessmentSignal,
+        attendanceSummary,
+        academicStanding,
+        weeklyFocus,
       });
     }
 
     if (!children.length) continue;
+
+    const hasCurrentWeekAttendance = children.some((child) => child.marksCount > 0);
+    const hasThreeWeekAttendance = children.some((child) => child.rollingMarksCount > 0);
+    const hasAssessmentSignals = children.some((child) => child.hasAssessmentSignal);
+    const hasSendableActivity =
+      hasCurrentWeekAttendance
+      || hasThreeWeekAttendance
+      || hasAssessmentSignals
+      || weeklySignals.assessmentUpdates > 0
+      || weeklySignals.communicationUpdates > 0;
+    if (!hasSendableActivity) continue;
+
+    const fallbackMode = !hasCurrentWeekAttendance && hasThreeWeekAttendance;
 
     // Respect this guardian's preference for the weekly parent digest.
     const guardianEnabled = await isEmailEnabledForRecipient(database, guardian.email, 'weekly_parent_digest');
@@ -704,18 +889,46 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
 
     children.sort((a, b) => a.name.localeCompare(b.name));
 
+    const digestHighlights = [];
+    if (weeklySignals.assessmentUpdates > 0) {
+      digestHighlights.push("Assessment activity was recorded this week and reflected in classroom progress insights.");
+    }
+    if (weeklySignals.communicationUpdates > 0) {
+      digestHighlights.push("School communication updates were shared this week.");
+    }
+    if (fallbackMode) {
+      digestHighlights.push(`No fresh attendance entries were recorded this week, so this digest includes context from ${rollingStartKey} to ${weekEndKey}.`);
+    }
+    if (!digestHighlights.length) {
+      digestHighlights.push("No disruptive alerts this week. Continue your current home support routine.");
+    }
+
+    const highlightsHtml = `<ul style=\"margin:8px 0 0;padding-left:18px;color:#1f2937;font-size:14px;line-height:1.6;\">${digestHighlights
+      .map((line) => `<li>${escapeHtml(line)}</li>`)
+      .join("")}</ul>`;
+
     const html = renderCleanEmail({
       title: `${organizationName} Weekly Parent Digest`,
       greeting: `Hello ${escapeHtml(`${guardian.firstName} ${guardian.lastName}`.trim())},`,
       paragraphs: [
-        `Here is your weekly summary for all linked children (${weekStartKey} to ${weekEndKey}).`,
+        fallbackMode
+          ? `Here is your family progress digest. Because this week had limited classroom updates, we prepared a useful 3-week snapshot (${rollingStartKey} to ${weekEndKey}).`
+          : `Here is your weekly summary for all linked children (${weekStartKey} to ${weekEndKey}).`,
+        highlightsHtml,
         buildChildrenTableRows(children),
       ],
       details: [
         { label: "School", value: escapeHtml(organizationName) },
         { label: "Children in digest", value: String(children.length) },
+        { label: "Assessment updates this week", value: String(weeklySignals.assessmentUpdates) },
+        { label: "Messages/announcements this week", value: String(weeklySignals.communicationUpdates) },
+        { label: "Digest basis", value: fallbackMode ? "3-week fallback context" : "Current-week updates" },
       ],
-      note: "This message is sent by Managira for your school.",
+      followManagira: false,
+      note: buildWeeklyDigestFooterNote(),
+      noReply: false,
+      schoolWebsiteUrl: websiteInfo.websiteUrl || "",
+      schoolWebsiteHost: websiteInfo.websiteHost || "",
     });
 
     const ok = await sendLoggedEmail(database, {
@@ -724,9 +937,17 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
       eventKey: weekStartKey,
       recipientEmail: guardian.email,
       recipientKind: "guardian",
-      subject: `${organizationName} weekly summary for your child's progress`,
+      subject: `${organizationName} Parent Update`,
       html,
-      payload: { weekStartKey, weekEndKey, childrenCount: children.length },
+      payload: {
+        weekStartKey,
+        weekEndKey,
+        rollingStartKey,
+        childrenCount: children.length,
+        fallbackMode,
+        assessmentUpdates: weeklySignals.assessmentUpdates,
+        communicationUpdates: weeklySignals.communicationUpdates,
+      },
       context: "Weekly Parent Digest",
     });
 
@@ -737,10 +958,31 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
   return { sent };
 }
 
-async function getTeacherAssignments(database, organizationId, teacherId) {
+async function getUserClassAssignments(database, organizationId, userId) {
   const result = await database.query(
     `SELECT uc.class_id,
             c.class_name,
+            COALESCE(uc.main, FALSE) AS is_main_teacher
+     FROM user_classes uc
+     JOIN classes c ON c.class_id = uc.class_id
+     WHERE uc.user_id = $1
+       AND c.organization_id = $2
+     ORDER BY c.class_name`,
+    [userId, organizationId]
+  );
+
+  return result.rows.map((row) => ({
+    classId: Number(row.class_id),
+    className: row.class_name,
+    isMainTeacher: !!row.is_main_teacher,
+  }));
+}
+
+async function getTeachingAssignments(database, organizationId, userId) {
+  const result = await database.query(
+    `SELECT DISTINCT uc.class_id,
+            c.class_name,
+            COALESCE(uc.main, FALSE) AS is_main_teacher,
             us.subject_id,
             s.subject_name
      FROM user_classes uc
@@ -750,7 +992,7 @@ async function getTeacherAssignments(database, organizationId, teacherId) {
      WHERE uc.user_id = $1
        AND c.organization_id = $2
      ORDER BY c.class_name, s.subject_name`,
-    [teacherId, organizationId]
+    [userId, organizationId]
   );
 
   return result.rows.map((row) => ({
@@ -758,28 +1000,129 @@ async function getTeacherAssignments(database, organizationId, teacherId) {
     className: row.class_name,
     subjectId: Number(row.subject_id),
     subjectName: row.subject_name,
+    isMainTeacher: !!row.is_main_teacher,
   }));
 }
 
-function buildTeacherSectionsRows(sections) {
-  if (!sections.length) {
-    return "<p>No class/subject assignments with data were found for this week.</p>";
+async function getClassWeeklyAttendanceMap(database, organizationId, weekStartKey, weekEndKey, classIds) {
+  if (!classIds.length) return new Map();
+
+  const result = await database.query(
+    `SELECT class_id,
+            COUNT(*) AS marks_count,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) = 'present') AS present_count,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) = 'absent') AS absent_count,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) = 'late') AS late_count,
+            ROUND(
+              100.0 * COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) = 'present')
+              / NULLIF(COUNT(*), 0),
+              1
+            ) AS attendance_pct
+     FROM attendance_records
+     WHERE organization_id = $1
+       AND class_id = ANY($2::int[])
+       AND date BETWEEN $3::date AND $4::date
+     GROUP BY class_id`,
+    [organizationId, classIds, weekStartKey, weekEndKey]
+  );
+
+  const out = new Map();
+  for (const row of result.rows) {
+    out.set(Number(row.class_id), {
+      marksCount: toNumber(row.marks_count, 0),
+      presentCount: toNumber(row.present_count, 0),
+      absentCount: toNumber(row.absent_count, 0),
+      lateCount: toNumber(row.late_count, 0),
+      attendancePct: Number(row.attendance_pct),
+    });
   }
 
-  const rows = sections
-    .map((sec) => {
-      const attendance = Number.isFinite(sec.attendancePct)
-        ? `${sec.attendancePct.toFixed(1)}%`
-        : "N/A";
-      const avgScore = Number.isFinite(sec.avgScore)
-        ? `${sec.avgScore.toFixed(1)}%`
-        : "N/A";
+  return out;
+}
+
+async function getClassSubjectPerformance(database, organizationId, termId, classIds) {
+  if (!classIds.length) return [];
+
+  if (!termId) {
+    const result = await database.query(
+      `SELECT s.class_id,
+              c.class_name,
+              s.subject_id,
+              s.subject_name,
+              NULL::numeric AS avg_score
+       FROM subjects s
+       JOIN classes c ON c.class_id = s.class_id
+       WHERE c.organization_id = $1
+         AND s.class_id = ANY($2::int[])
+       ORDER BY c.class_name, s.subject_name`,
+      [organizationId, classIds]
+    );
+
+    return result.rows.map((row) => ({
+      classId: Number(row.class_id),
+      className: row.class_name,
+      subjectId: Number(row.subject_id),
+      subjectName: row.subject_name,
+      avgScore: Number(row.avg_score),
+    }));
+  }
+
+  const result = await database.query(
+    `SELECT s.class_id,
+            c.class_name,
+            s.subject_id,
+            s.subject_name,
+            ROUND(AVG(ar.total_percentage)::numeric, 1) AS avg_score
+     FROM subjects s
+     JOIN classes c ON c.class_id = s.class_id
+     LEFT JOIN assessments a
+       ON a.subject_id = s.subject_id
+      AND a.class_id = s.class_id
+      AND a.organization_id = $1
+      AND a.term_id = $2
+     LEFT JOIN assessment_results ar
+       ON ar.assessment_id = a.assessment_id
+      AND ar.organization_id = $1
+      AND ar.total_percentage IS NOT NULL
+     WHERE c.organization_id = $1
+       AND s.class_id = ANY($3::int[])
+     GROUP BY s.class_id, c.class_name, s.subject_id, s.subject_name
+     ORDER BY c.class_name, s.subject_name`,
+    [organizationId, termId, classIds]
+  );
+
+  return result.rows.map((row) => ({
+    classId: Number(row.class_id),
+    className: row.class_name,
+    subjectId: Number(row.subject_id),
+    subjectName: row.subject_name,
+    avgScore: Number(row.avg_score),
+  }));
+}
+
+function buildTeachingUpdateRows(rows) {
+  if (!rows.length) {
+    return "<p>No subject-level updates were recorded this week.</p>";
+  }
+
+  const htmlRows = rows
+    .map((row) => {
+      const attendanceText = row.marksCount > 0 && Number.isFinite(row.attendancePct)
+        ? `${row.attendancePct.toFixed(1)}% (${row.presentCount} present, ${row.absentCount} absent${row.lateCount > 0 ? `, ${row.lateCount} late` : ""})`
+        : "No attendance marks this week";
+      const performanceText = Number.isFinite(row.avgScore)
+        ? `${row.avgScore.toFixed(1)}% average, ${row.band}`
+        : `${row.band}`;
+      const weeklyFocus = row.absentCount > 0
+        ? `${row.absentCount} absence${row.absentCount === 1 ? "" : "s"} recorded this week${row.lateCount > 0 ? `, plus ${row.lateCount} late mark${row.lateCount === 1 ? "" : "s"}` : ""}.`
+        : `Steady attendance this week${row.lateCount > 0 ? ` with ${row.lateCount} late mark${row.lateCount === 1 ? "" : "s"}` : ""}.`;
+
       return `<tr>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(sec.className)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(sec.subjectName)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${attendance}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${avgScore}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(sec.band)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(row.className)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(row.subjectName)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${attendanceText}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(performanceText)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(weeklyFocus)}</td>
       </tr>`;
     })
     .join("");
@@ -789,12 +1132,53 @@ function buildTeacherSectionsRows(sections) {
       <tr>
         <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Class</th>
         <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Subject</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Attendance</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Avg Score</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Rating</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Attendance Snapshot</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Academic Update</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
       </tr>
     </thead>
-    <tbody>${rows}</tbody>
+    <tbody>${htmlRows}</tbody>
+  </table>`;
+}
+
+function buildClassSubjectFeedRows(rows) {
+  if (!rows.length) {
+    return "<p>No class-wide updates were recorded this week.</p>";
+  }
+
+  const htmlRows = rows
+    .map((row) => {
+      const attendanceText = row.classMarksCount > 0 && Number.isFinite(row.classAttendancePct)
+        ? `${row.classAttendancePct.toFixed(1)}% (${row.classPresentCount} present, ${row.classAbsentCount} absent${row.classLateCount > 0 ? `, ${row.classLateCount} late` : ""})`
+        : "No attendance marks this week";
+      const performanceText = Number.isFinite(row.avgScore)
+        ? `${row.avgScore.toFixed(1)}% average, ${row.band}`
+        : `${row.band}`;
+      const weeklyFocus = row.classAbsentCount > 0
+        ? `${row.classAbsentCount} absence${row.classAbsentCount === 1 ? "" : "s"} recorded across the class this week${row.classLateCount > 0 ? `, plus ${row.classLateCount} late mark${row.classLateCount === 1 ? "" : "s"}` : ""}.`
+        : `Steady class attendance this week${row.classLateCount > 0 ? ` with ${row.classLateCount} late mark${row.classLateCount === 1 ? "" : "s"}` : ""}.`;
+
+      return `<tr>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(row.className)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(row.subjectName)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${attendanceText}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(performanceText)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(weeklyFocus)}</td>
+      </tr>`;
+    })
+    .join("");
+
+  return `<table style=\"width:100%;border-collapse:collapse;font-size:14px;\">
+    <thead>
+      <tr>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Class</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Subject</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Attendance Snapshot</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Academic Update</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
+      </tr>
+    </thead>
+    <tbody>${htmlRows}</tbody>
   </table>`;
 }
 
@@ -823,6 +1207,7 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
   }
 
   const { organizationName } = await getOrganizationSummary(database, organizationId);
+  const websiteInfo = await getOrganizationWebsiteInfo(database, organizationId);
   const termId = await getCurrentTermId(database, organizationId);
 
   const teachersResult = await database.query(
@@ -842,62 +1227,143 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
     // Skip teachers who have opted out of weekly_teacher_digest.
     if (!(await isUserEmailEnabled(database, teacher.user_id, 'weekly_teacher_digest'))) continue;
 
-    const assignments = await getTeacherAssignments(database, organizationId, teacher.user_id);
-    if (!assignments.length) continue;
+    const classAssignments = await getUserClassAssignments(database, organizationId, teacher.user_id);
+    const teachingAssignments = await getTeachingAssignments(database, organizationId, teacher.user_id);
+    if (!classAssignments.length && !teachingAssignments.length) continue;
 
-    const sections = [];
-    for (const assignment of assignments) {
-      const attendanceResult = await database.query(
-        `SELECT ROUND(
-                 100.0 * COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) = 'present')
-                 / NULLIF(COUNT(*), 0),
-                 1
-               ) AS attendance_pct
-         FROM attendance_records
-         WHERE organization_id = $1
-           AND class_id = $2
-           AND date BETWEEN $3::date AND $4::date`,
-        [organizationId, assignment.classId, weekStartKey, weekEndKey]
-      );
+    const classIds = Array.from(
+      new Set([
+        ...classAssignments.map((assignment) => assignment.classId),
+        ...teachingAssignments.map((assignment) => assignment.classId),
+      ])
+    );
+    if (!classIds.length) continue;
 
-      let avgScore = null;
-      if (termId) {
-        const scoreResult = await database.query(
-          `SELECT ROUND(AVG(ar.total_percentage)::numeric, 1) AS avg_score
-           FROM assessment_results ar
-           JOIN assessments a ON a.assessment_id = ar.assessment_id
-           WHERE ar.organization_id = $1
-             AND a.term_id = $2
-             AND a.class_id = $3
-             AND a.subject_id = $4
-             AND ar.total_percentage IS NOT NULL`,
-          [organizationId, termId, assignment.classId, assignment.subjectId]
-        );
-        avgScore = toNumber(scoreResult.rows[0]?.avg_score, NaN);
+    const classAttendanceMap = await getClassWeeklyAttendanceMap(
+      database,
+      organizationId,
+      weekStartKey,
+      weekEndKey,
+      classIds
+    );
+    const classSubjectPerformance = await getClassSubjectPerformance(
+      database,
+      organizationId,
+      termId,
+      classIds
+    );
+
+    const subjectPerformanceMap = new Map(
+      classSubjectPerformance.map((item) => [`${item.classId}:${item.subjectId}`, item])
+    );
+
+    const teachingRows = teachingAssignments
+      .map((assignment) => {
+        const attendance = classAttendanceMap.get(assignment.classId) || {};
+        const subjectPerf = subjectPerformanceMap.get(`${assignment.classId}:${assignment.subjectId}`) || {};
+        const avgScore = Number(subjectPerf.avgScore);
+
+        return {
+          classId: assignment.classId,
+          className: assignment.className,
+          subjectId: assignment.subjectId,
+          subjectName: assignment.subjectName,
+          marksCount: toNumber(attendance.marksCount, 0),
+          presentCount: toNumber(attendance.presentCount, 0),
+          absentCount: toNumber(attendance.absentCount, 0),
+          lateCount: toNumber(attendance.lateCount, 0),
+          attendancePct: Number(attendance.attendancePct),
+          avgScore,
+          band: scoreBand(avgScore, toNumber(policy.good_score_threshold, 60)),
+        };
+      })
+      .filter((row) => row.marksCount > 0);
+
+    const mainClassIds = new Set(
+      classAssignments
+        .filter((assignment) => assignment.isMainTeacher)
+        .map((assignment) => assignment.classId)
+    );
+    const mainClassRows = classSubjectPerformance
+      .filter((row) => mainClassIds.has(row.classId))
+      .map((row) => {
+        const attendance = classAttendanceMap.get(row.classId) || {};
+        const avgScore = Number(row.avgScore);
+        return {
+          classId: row.classId,
+          className: row.className,
+          subjectId: row.subjectId,
+          subjectName: row.subjectName,
+          classMarksCount: toNumber(attendance.marksCount, 0),
+          classPresentCount: toNumber(attendance.presentCount, 0),
+          classAbsentCount: toNumber(attendance.absentCount, 0),
+          classLateCount: toNumber(attendance.lateCount, 0),
+          classAttendancePct: Number(attendance.attendancePct),
+          avgScore,
+          band: scoreBand(avgScore, toNumber(policy.good_score_threshold, 60)),
+        };
+      })
+      .filter((row) => row.classMarksCount > 0);
+
+    if (!teachingRows.length && !mainClassRows.length) continue;
+
+    const mainClassesWithUpdates = new Set(mainClassRows.map((row) => row.classId)).size;
+    const teacherHighlights = [];
+
+    if (teachingRows.length) {
+      teacherHighlights.push(`${teachingRows.length} subject update${teachingRows.length === 1 ? "" : "s"} were recorded across your classes this week.`);
+    }
+    if (mainClassRows.length) {
+      teacherHighlights.push(`${mainClassesWithUpdates} main class${mainClassesWithUpdates === 1 ? "" : "es"} had class-wide updates ready for review.`);
+    }
+
+    const highestAbsenceRow = [...teachingRows, ...mainClassRows]
+      .sort((a, b) => {
+        const aAbsences = toNumber(a.absentCount, toNumber(a.classAbsentCount, 0));
+        const bAbsences = toNumber(b.absentCount, toNumber(b.classAbsentCount, 0));
+        return bAbsences - aAbsences;
+      })[0];
+
+    if (highestAbsenceRow) {
+      const absenceCount = toNumber(highestAbsenceRow.absentCount, toNumber(highestAbsenceRow.classAbsentCount, 0));
+      if (absenceCount > 0) {
+        teacherHighlights.push(`${highestAbsenceRow.className} ${highestAbsenceRow.subjectName ? `(${highestAbsenceRow.subjectName}) ` : ""}recorded ${absenceCount} absence${absenceCount === 1 ? "" : "s"} and may need a follow-up.`);
       }
+    }
 
-      const attendancePct = toNumber(attendanceResult.rows[0]?.attendance_pct, NaN);
-      sections.push({
-        className: assignment.className,
-        subjectName: assignment.subjectName,
-        attendancePct,
-        avgScore,
-        band: scoreBand(avgScore, toNumber(policy.good_score_threshold, 60)),
-      });
+    if (!teacherHighlights.length) {
+      teacherHighlights.push("Steady classroom activity was recorded this week.");
+    }
+
+    const paragraphs = [
+      `Here is your weekly teaching summary (${weekStartKey} to ${weekEndKey}).`,
+      buildDigestHighlights(teacherHighlights),
+    ];
+
+    if (teachingRows.length) {
+      paragraphs.push(`<h3 style="margin:18px 0 6px;font-size:15px;color:#0f172a;">Your subject updates</h3>${buildTeachingUpdateRows(teachingRows)}`);
+    }
+
+    if (mainClassRows.length) {
+      paragraphs.push(`<h3 style="margin:20px 0 6px;font-size:15px;color:#0f172a;">Main teacher class feed</h3>${buildClassSubjectFeedRows(mainClassRows)}`);
     }
 
     const html = renderCleanEmail({
-      title: `${organizationName} Weekly Teaching Digest`,
+      title: `${organizationName} Weekly Teacher Digest`,
+      showTitle: false,
       greeting: `Hello ${escapeHtml(`${teacher.first_name || ""} ${teacher.last_name || ""}`.trim() || "Teacher")},`,
-      paragraphs: [
-        `Here is your weekly teaching digest (${weekStartKey} to ${weekEndKey}) for your assigned classes and subjects.`,
-        buildTeacherSectionsRows(sections),
-      ],
+      paragraphs,
       details: [
         { label: "School", value: escapeHtml(organizationName) },
-        { label: "Assignments in digest", value: String(sections.length) },
+        { label: "Assigned classes", value: String(classIds.length) },
+        { label: "Subject updates this week", value: String(teachingRows.length) },
+        { label: "Main classes with updates", value: String(mainClassesWithUpdates) },
       ],
-      note: "This report is generated by Managira using your class and subject assignments.",
+      followManagira: false,
+      note: buildWeeklyDigestFooterNote(),
+      noReply: false,
+      schoolWebsiteUrl: websiteInfo.websiteUrl || "",
+      schoolWebsiteHost: websiteInfo.websiteHost || "",
     });
 
     const ok = await sendLoggedEmail(database, {
@@ -906,9 +1372,16 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
       eventKey: `${weekStartKey}:${teacher.user_id}`,
       recipientEmail: teacher.email,
       recipientKind: "teacher",
-      subject: `${organizationName} weekly classroom summary`,
+      subject: `${organizationName} Teachers Update`,
       html,
-      payload: { weekStartKey, weekEndKey, teacherId: teacher.user_id, sectionCount: sections.length },
+      payload: {
+        weekStartKey,
+        weekEndKey,
+        teacherId: teacher.user_id,
+        classCount: classIds.length,
+        subjectUpdates: teachingRows.length,
+        mainClassFeedRows: mainClassRows.length,
+      },
       context: "Weekly Teacher Digest",
     });
 
@@ -930,12 +1403,11 @@ function buildRiskRows(risks) {
       const avgScore = Number.isFinite(risk.avgScore)
         ? `${risk.avgScore.toFixed(1)}%`
         : "N/A";
+      const focus = `${risk.reason}. Attendance: ${attendance}. Score: ${avgScore}.`;
       return `<tr>
         <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(risk.studentName)}</td>
         <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(risk.className)}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${attendance}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${avgScore}</td>
-        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(risk.reason)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(focus)}</td>
       </tr>`;
     })
     .join("");
@@ -945,9 +1417,28 @@ function buildRiskRows(risks) {
       <tr>
         <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Student</th>
         <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Class</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Attendance</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Avg Score</th>
-        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Risk Trigger</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function buildSchoolSummaryRows(metrics) {
+  if (!metrics.length) return "<p>No school-level metrics were available for this week.</p>";
+
+  const rows = metrics
+    .map((metric) => `<tr>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${escapeHtml(metric.label)}</td>
+        <td style=\"padding:8px;border-bottom:1px solid #e5e7eb;\">${metric.value}</td>
+      </tr>`)
+    .join("");
+
+  return `<table style=\"width:100%;border-collapse:collapse;font-size:14px;\">
+    <thead>
+      <tr>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">Metric</th>
+        <th style=\"text-align:left;padding:8px;border-bottom:2px solid #d1d5db;\">This Week</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -979,15 +1470,16 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
   }
 
   const { organizationName } = await getOrganizationSummary(database, organizationId);
+  const websiteInfo = await getOrganizationWebsiteInfo(database, organizationId);
   const recipientsResult = await database.query(
     `SELECT user_id, first_name, last_name, email, account_type
      FROM users
      WHERE organization_id = $1
-       AND account_type IN ('Manager', 'Supervisor')
+       AND LOWER(COALESCE(account_type, '')) IN ('manager', 'supervisor', 'superviser')
        AND COALESCE(on_hold, FALSE) = FALSE
        AND email IS NOT NULL
        AND TRIM(email) <> ''
-     ORDER BY account_type, first_name, last_name`,
+     ORDER BY LOWER(account_type), first_name, last_name`,
     [organizationId]
   );
 
@@ -1014,6 +1506,35 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
   );
   const termId = await getCurrentTermId(database, organizationId);
   const averageMap = await getStudentTermAverages(database, organizationId, termId, studentIds);
+  const weeklyAttendanceRes = await database.query(
+    `SELECT COUNT(*) AS marks_count,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) = 'present') AS present_count,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) = 'absent') AS absent_count,
+            COUNT(DISTINCT class_id) AS classes_with_marks,
+            ROUND(
+              100.0 * COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) = 'present')
+              / NULLIF(COUNT(*), 0),
+              1
+            ) AS attendance_pct
+     FROM attendance_records
+     WHERE organization_id = $1
+       AND date BETWEEN $2::date AND $3::date`,
+    [organizationId, weekStartKey, weekEndKey]
+  );
+
+  const totalClassesRes = await database.query(
+    `SELECT COUNT(*) AS total_classes
+     FROM classes
+     WHERE organization_id = $1`,
+    [organizationId]
+  );
+
+  const weeklyAttendanceMarks = toNumber(weeklyAttendanceRes.rows[0]?.marks_count, 0);
+  const weeklyPresentMarks = toNumber(weeklyAttendanceRes.rows[0]?.present_count, 0);
+  const weeklyAbsentMarks = toNumber(weeklyAttendanceRes.rows[0]?.absent_count, 0);
+  const weeklyClassesWithMarks = toNumber(weeklyAttendanceRes.rows[0]?.classes_with_marks, 0);
+  const weeklyAttendancePct = toNumber(weeklyAttendanceRes.rows[0]?.attendance_pct, NaN);
+  const totalClasses = Math.max(0, toNumber(totalClassesRes.rows[0]?.total_classes, 0));
 
   const attendanceThreshold = toNumber(policy.underperform_attendance_threshold, 70);
   const scoreThreshold = toNumber(policy.underperform_score_threshold, 55);
@@ -1049,26 +1570,243 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
 
   risks.sort((a, b) => a.className.localeCompare(b.className) || a.studentName.localeCompare(b.studentName));
 
+  if (!weeklyAttendanceMarks && !risks.length) {
+    await markDigestRun(database, organizationId, "weekly_manager_digest", weekStartKey);
+    return { sent: 0, skipped: true };
+  }
+
   let sent = 0;
   for (const recipient of recipientsResult.rows) {
     // Skip leaders who have opted out of the weekly leadership report.
     if (!(await isUserEmailEnabled(database, recipient.user_id, 'weekly_manager_digest'))) continue;
 
+    const normalizedRole = String(recipient.account_type || '').trim().toLowerCase();
+    const isSupervisor = normalizedRole === 'supervisor' || normalizedRole === 'superviser';
     const fullName = `${recipient.first_name || ""} ${recipient.last_name || ""}`.trim() || recipient.account_type;
+
+    if (isSupervisor) {
+      const classAssignments = await getUserClassAssignments(database, organizationId, recipient.user_id);
+      const teachingAssignments = await getTeachingAssignments(database, organizationId, recipient.user_id);
+      const classIds = Array.from(
+        new Set([
+          ...classAssignments.map((assignment) => assignment.classId),
+          ...teachingAssignments.map((assignment) => assignment.classId),
+        ])
+      );
+
+      if (!classIds.length) continue;
+
+      const classAttendanceMap = await getClassWeeklyAttendanceMap(
+        database,
+        organizationId,
+        weekStartKey,
+        weekEndKey,
+        classIds
+      );
+      const classSubjectPerformance = await getClassSubjectPerformance(
+        database,
+        organizationId,
+        termId,
+        classIds
+      );
+
+      const subjectPerformanceMap = new Map(
+        classSubjectPerformance.map((item) => [`${item.classId}:${item.subjectId}`, item])
+      );
+
+      const teachingRows = teachingAssignments
+        .map((assignment) => {
+          const attendance = classAttendanceMap.get(assignment.classId) || {};
+          const subjectPerf = subjectPerformanceMap.get(`${assignment.classId}:${assignment.subjectId}`) || {};
+          const avgScore = Number(subjectPerf.avgScore);
+
+          return {
+            classId: assignment.classId,
+            className: assignment.className,
+            subjectId: assignment.subjectId,
+            subjectName: assignment.subjectName,
+            marksCount: toNumber(attendance.marksCount, 0),
+            presentCount: toNumber(attendance.presentCount, 0),
+            absentCount: toNumber(attendance.absentCount, 0),
+            lateCount: toNumber(attendance.lateCount, 0),
+            attendancePct: Number(attendance.attendancePct),
+            avgScore,
+            band: scoreBand(avgScore, toNumber(policy.good_score_threshold, 60)),
+          };
+        })
+        .filter((row) => row.marksCount > 0);
+
+      const classFeedRows = classSubjectPerformance
+        .map((row) => {
+          const attendance = classAttendanceMap.get(row.classId) || {};
+          const avgScore = Number(row.avgScore);
+          return {
+            classId: row.classId,
+            className: row.className,
+            subjectId: row.subjectId,
+            subjectName: row.subjectName,
+            classMarksCount: toNumber(attendance.marksCount, 0),
+            classPresentCount: toNumber(attendance.presentCount, 0),
+            classAbsentCount: toNumber(attendance.absentCount, 0),
+            classLateCount: toNumber(attendance.lateCount, 0),
+            classAttendancePct: Number(attendance.attendancePct),
+            avgScore,
+            band: scoreBand(avgScore, toNumber(policy.good_score_threshold, 60)),
+          };
+        })
+        .filter((row) => row.classMarksCount > 0);
+
+      if (!teachingRows.length && !classFeedRows.length) continue;
+
+      const classesWithFeedUpdates = new Set(classFeedRows.map((row) => row.classId)).size;
+      const supervisorHighlights = [];
+
+      if (teachingRows.length) {
+        supervisorHighlights.push(`${teachingRows.length} subject update${teachingRows.length === 1 ? "" : "s"} were captured in your teaching areas.`);
+      }
+      if (classFeedRows.length) {
+        supervisorHighlights.push(`${classesWithFeedUpdates} assigned class${classesWithFeedUpdates === 1 ? "" : "es"} had wider class-feed updates this week.`);
+      }
+
+      const supervisorPeakAbsence = [...teachingRows, ...classFeedRows]
+        .sort((a, b) => {
+          const aAbsences = toNumber(a.absentCount, toNumber(a.classAbsentCount, 0));
+          const bAbsences = toNumber(b.absentCount, toNumber(b.classAbsentCount, 0));
+          return bAbsences - aAbsences;
+        })[0];
+
+      if (supervisorPeakAbsence) {
+        const absenceCount = toNumber(supervisorPeakAbsence.absentCount, toNumber(supervisorPeakAbsence.classAbsentCount, 0));
+        if (absenceCount > 0) {
+          supervisorHighlights.push(`${supervisorPeakAbsence.className} ${supervisorPeakAbsence.subjectName ? `(${supervisorPeakAbsence.subjectName}) ` : ""}logged ${absenceCount} absence${absenceCount === 1 ? "" : "s"} and is worth checking.`);
+        }
+      }
+
+      if (!supervisorHighlights.length) {
+        supervisorHighlights.push("Fresh class updates were available across your assigned sections this week.");
+      }
+
+      const supervisorParagraphs = [
+        `Here is your weekly supervisor summary (${weekStartKey} to ${weekEndKey}).`,
+        buildDigestHighlights(supervisorHighlights),
+      ];
+
+      if (teachingRows.length) {
+        supervisorParagraphs.push(`<h3 style="margin:18px 0 6px;font-size:15px;color:#0f172a;">Your subject updates</h3>${buildTeachingUpdateRows(teachingRows)}`);
+      }
+
+      if (classFeedRows.length) {
+        supervisorParagraphs.push(`<h3 style="margin:20px 0 6px;font-size:15px;color:#0f172a;">Assigned class feed</h3>${buildClassSubjectFeedRows(classFeedRows)}`);
+      }
+
+      const supervisorHtml = renderCleanEmail({
+        title: `${organizationName} Weekly Supervisor Digest`,
+        showTitle: false,
+        greeting: `Hello ${escapeHtml(fullName)},`,
+        paragraphs: supervisorParagraphs,
+        details: [
+          { label: "School", value: escapeHtml(organizationName) },
+          { label: "Assigned classes", value: String(classIds.length) },
+          { label: "Subject updates this week", value: String(teachingRows.length) },
+          { label: "Classes with feed updates", value: String(classesWithFeedUpdates) },
+        ],
+        followManagira: false,
+        note: buildWeeklyDigestFooterNote(),
+        noReply: false,
+        schoolWebsiteUrl: websiteInfo.websiteUrl || "",
+        schoolWebsiteHost: websiteInfo.websiteHost || "",
+      });
+
+      const supervisorOk = await sendLoggedEmail(database, {
+        organizationId,
+        eventType: "weekly_manager_digest",
+        eventKey: `${weekStartKey}:${recipient.user_id}`,
+        recipientEmail: recipient.email,
+        recipientKind: "Supervisor",
+        subject: `${organizationName} School Update`,
+        html: supervisorHtml,
+        payload: {
+          weekStartKey,
+          weekEndKey,
+          role: "supervisor",
+          classCount: classIds.length,
+          subjectUpdates: teachingRows.length,
+          classFeedRows: classFeedRows.length,
+        },
+        context: "Weekly Supervisor Digest",
+      });
+
+      if (supervisorOk) sent += 1;
+      continue;
+    }
+
+    const totalStudents = studentIds.length;
+    const studentsAtRiskPct = totalStudents > 0 ? (risks.length / totalStudents) * 100 : 0;
+    const classCoveragePct = totalClasses > 0 ? (weeklyClassesWithMarks / totalClasses) * 100 : 0;
+    const scoredStudents = studentIds.reduce(
+      (count, sid) => count + (Number.isFinite(Number(averageMap.get(sid))) ? 1 : 0),
+      0
+    );
+    const scoredCoveragePct = totalStudents > 0 ? (scoredStudents / totalStudents) * 100 : 0;
+    const topRisks = risks.slice(0, 25);
+
+    const managerHighlights = [
+      `${weeklyAttendanceMarks} attendance mark${weeklyAttendanceMarks === 1 ? "" : "s"} were logged across ${weeklyClassesWithMarks} class${weeklyClassesWithMarks === 1 ? "" : "es"}.`,
+      Number.isFinite(weeklyAttendancePct)
+        ? `Overall attendance held at ${weeklyAttendancePct.toFixed(1)}% this week.`
+        : "Attendance rate could not be calculated from this week's entries.",
+      risks.length > 0
+        ? `${risks.length} student${risks.length === 1 ? "" : "s"} crossed the attention threshold and need follow-up.`
+        : "No students crossed the attention threshold this week.",
+    ];
+
+    const managerParagraphs = [
+      `Here is your weekly school summary (${weekStartKey} to ${weekEndKey}).`,
+      buildDigestHighlights(managerHighlights),
+      `<h3 style="margin:18px 0 6px;font-size:15px;color:#0f172a;">School snapshot</h3>${buildSchoolSummaryRows([
+        { label: "Attendance entered", value: `${weeklyAttendanceMarks} marks` },
+        {
+          label: "Attendance rate",
+          value: Number.isFinite(weeklyAttendancePct)
+            ? `${weeklyAttendancePct.toFixed(1)}% (${weeklyPresentMarks} present, ${weeklyAbsentMarks} absent)`
+            : "N/A",
+        },
+        {
+          label: "Class coverage",
+          value: `${weeklyClassesWithMarks}/${totalClasses} classes (${classCoveragePct.toFixed(1)}%)`,
+        },
+        {
+          label: "Students at risk",
+          value: `${risks.length}/${totalStudents} (${studentsAtRiskPct.toFixed(1)}%)`,
+        },
+        {
+          label: "Students with scored profile",
+          value: `${scoredStudents}/${totalStudents} (${scoredCoveragePct.toFixed(1)}%)`,
+        },
+      ])}`,
+    ];
+
+    if (topRisks.length) {
+      managerParagraphs.push(`<h3 style="margin:20px 0 6px;font-size:15px;color:#0f172a;">Students needing attention</h3>${buildRiskRows(topRisks)}`);
+    } else {
+      managerParagraphs.push("No at-risk students were identified this week.");
+    }
+
     const html = renderCleanEmail({
-      title: `${organizationName} Weekly Leadership Report`,
+      title: `${organizationName} Weekly Manager Digest`,
+      showTitle: false,
       greeting: `Hello ${escapeHtml(fullName)},`,
-      paragraphs: [
-        `Weekly risk summary (${weekStartKey} to ${weekEndKey}) for classes and students under your oversight.`,
-        buildRiskRows(risks),
-      ],
+      paragraphs: managerParagraphs,
       details: [
         { label: "School", value: escapeHtml(organizationName) },
-        { label: "Underperforming students", value: String(risks.length) },
         { label: "Attendance risk threshold", value: `${attendanceThreshold}%` },
         { label: "Score risk threshold", value: `${scoreThreshold}%` },
       ],
-      note: "This summary is generated by Managira to support timely intervention.",
+      followManagira: false,
+      note: buildWeeklyDigestFooterNote(),
+      noReply: false,
+      schoolWebsiteUrl: websiteInfo.websiteUrl || "",
+      schoolWebsiteHost: websiteInfo.websiteHost || "",
     });
 
     const ok = await sendLoggedEmail(database, {
@@ -1077,9 +1815,17 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
       eventKey: `${weekStartKey}:${recipient.user_id}`,
       recipientEmail: recipient.email,
       recipientKind: String(recipient.account_type || "Manager"),
-      subject: `${organizationName} weekly leadership summary`,
+      subject: `${organizationName} School Update`,
       html,
-      payload: { weekStartKey, weekEndKey, riskCount: risks.length },
+      payload: {
+        weekStartKey,
+        weekEndKey,
+        role: "manager",
+        riskCount: risks.length,
+        weeklyAttendanceMarks,
+        weeklyClassesWithMarks,
+        weeklyAttendancePct,
+      },
       context: "Weekly Manager Digest",
     });
 
@@ -1140,18 +1886,20 @@ function buildHubOrgRows(orgSummaries) {
   const rows = orgSummaries
     .map((org) => {
       const attendance = Number.isFinite(org.attendancePct)
-        ? `${org.attendancePct.toFixed(1)}%`
+        ? `${org.attendancePct.toFixed(1)}% attendance`
         : "N/A";
       const avgScore = Number.isFinite(org.avgScore)
-        ? `${org.avgScore.toFixed(1)}%`
+        ? `${org.avgScore.toFixed(1)}% average`
         : "N/A";
+      const focus = org.riskCount > 0
+        ? `${org.riskCount} at-risk student${org.riskCount === 1 ? "" : "s"} flagged.`
+        : "No students flagged this week.";
       return `<tr>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(org.orgName)}</td>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${org.studentCount}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${org.staffCount}</td>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${attendance}</td>
         <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${avgScore}</td>
-        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${org.riskCount}</td>
+        <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(focus)}</td>
       </tr>`;
     })
     .join("");
@@ -1161,10 +1909,9 @@ function buildHubOrgRows(orgSummaries) {
       <tr>
         <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">School</th>
         <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Students</th>
-        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Staff</th>
-        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Avg Attendance</th>
-        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Avg Score</th>
-        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">At-Risk Students</th>
+        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Attendance Snapshot</th>
+        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">Academic Update</th>
+        <th style="text-align:left;padding:8px;border-bottom:2px solid #d1d5db;">This Week</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -1212,11 +1959,19 @@ async function sendWeeklyHubDigest(database, options = {}) {
     let weekStartKey = null;
     let weekEndKey = null;
     let anyDigestEnabled = false;
+    let digestRunOrganizationId = null;
+    let schedulePolicy = null;
+    const hubDigestType = `weekly_hub_digest:${hub.hub_id}`;
 
     for (const org of orgsResult.rows) {
       const policy = await getPolicy(database, org.organization_id);
       if (policy.enable_weekly_hub_digest === false) continue;
       anyDigestEnabled = true;
+
+      if (!schedulePolicy) {
+        schedulePolicy = policy;
+        digestRunOrganizationId = Number(org.organization_id);
+      }
 
       const zonedNow = nowInTimeZone(now, policy.timezone);
       const weekStart = startOfWeek(zonedNow, toNumber(policy.week_start_day, 1));
@@ -1242,7 +1997,8 @@ async function sendWeeklyHubDigest(database, options = {}) {
 
       // Org-wide attendance this week
       const attendanceRes = await database.query(
-        `SELECT ROUND(
+        `SELECT COUNT(*) AS marks_count,
+                ROUND(
                  100.0 * COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) = 'present')
                  / NULLIF(COUNT(*), 0),
                  1
@@ -1252,6 +2008,7 @@ async function sendWeeklyHubDigest(database, options = {}) {
            AND date BETWEEN $2::date AND $3::date`,
         [org.organization_id, weekStartKey, weekEndKey]
       );
+      const attendanceMarks = toNumber(attendanceRes.rows[0]?.marks_count, 0);
       const attendancePct = toNumber(attendanceRes.rows[0]?.attendance_pct, NaN);
 
       // Org-wide average score this term
@@ -1298,6 +2055,7 @@ async function sendWeeklyHubDigest(database, options = {}) {
         orgName: org.organization_name || "School",
         studentCount,
         staffCount,
+        attendanceMarks,
         attendancePct,
         avgScore,
         riskCount,
@@ -1305,19 +2063,27 @@ async function sendWeeklyHubDigest(database, options = {}) {
     }
 
     if (!anyDigestEnabled || !orgSummaries.length) continue;
-    if (!weekStartKey) continue;
+    if (!weekStartKey || !digestRunOrganizationId || !schedulePolicy) continue;
 
-    // Check Saturday + dedup via digest run for hub
-    const zonedNow = nowInTimeZone(now, "UTC");
     if (!options.force) {
-      if (zonedNow.getDay() !== GLOBAL_DIGEST_WEEKDAY) continue;
-
-      const existing = await database.query(
-        `SELECT 1 FROM notification_digest_runs
-         WHERE organization_id = $1 AND digest_type = $2 AND week_start_date = $3::date LIMIT 1`,
-        [hub.hub_id, "weekly_hub_digest", weekStartKey]
+      const scheduleNow = nowInTimeZone(now, schedulePolicy.timezone);
+      const canRun = await shouldRunDigestNow(
+        database,
+        digestRunOrganizationId,
+        hubDigestType,
+        schedulePolicy,
+        weekStartKey,
+        scheduleNow
       );
-      if (existing.rows.length) continue;
+      if (!canRun) continue;
+    }
+
+    const hasHubWeeklyActivity = orgSummaries.some((orgSummary) =>
+      orgSummary.attendanceMarks > 0 || orgSummary.riskCount > 0
+    );
+    if (!hasHubWeeklyActivity) {
+      await markDigestRun(database, digestRunOrganizationId, hubDigestType, weekStartKey);
+      continue;
     }
 
     const totalStudents = orgSummaries.reduce((sum, o) => sum + o.studentCount, 0);
@@ -1327,12 +2093,33 @@ async function sendWeeklyHubDigest(database, options = {}) {
     const hubName = hub.hub_name || "Hub";
     const fullName = `${hub.first_name || ""} ${hub.last_name || ""}`.trim() || hubName;
 
+    const highestRiskOrg = [...orgSummaries].sort((a, b) => b.riskCount - a.riskCount)[0];
+    const strongestAttendanceOrg = [...orgSummaries]
+      .filter((orgSummary) => Number.isFinite(orgSummary.attendancePct))
+      .sort((a, b) => b.attendancePct - a.attendancePct)[0];
+
+    const hubHighlights = [
+      `${orgSummaries.length} member school${orgSummaries.length === 1 ? "" : "s"} contributed data to this week's hub summary.`,
+      `${totalStudents} students and ${totalStaff} staff are represented across the hub.`,
+      totalRisk > 0
+        ? `${totalRisk} student${totalRisk === 1 ? "" : "s"} were flagged across member schools and may need local follow-up.`
+        : "No students were flagged across the hub this week.",
+    ];
+
+    if (strongestAttendanceOrg) {
+      hubHighlights.push(`${strongestAttendanceOrg.orgName} led attendance at ${strongestAttendanceOrg.attendancePct.toFixed(1)}% this week.`);
+    }
+    if (highestRiskOrg && highestRiskOrg.riskCount > 0) {
+      hubHighlights.push(`${highestRiskOrg.orgName} had the highest watch count with ${highestRiskOrg.riskCount} flagged student${highestRiskOrg.riskCount === 1 ? "" : "s"}.`);
+    }
+
     const html = renderCleanEmail({
-      title: `${hubName} Weekly Hub Overview`,
+      title: `${hubName} Weekly Hub Digest`,
       greeting: `Hello ${escapeHtml(fullName)},`,
       paragraphs: [
         `Here is your weekly overview across all member schools (${weekStartKey} to ${weekEndKey}).`,
-        buildHubOrgRows(orgSummaries),
+        buildDigestHighlights(hubHighlights),
+        `<h3 style="margin:18px 0 6px;font-size:15px;color:#0f172a;">Member schools</h3>${buildHubOrgRows(orgSummaries)}`,
       ],
       details: [
         { label: "Hub", value: escapeHtml(hubName) },
@@ -1341,31 +2128,33 @@ async function sendWeeklyHubDigest(database, options = {}) {
         { label: "Total staff", value: String(totalStaff) },
         { label: "At-risk students (across all schools)", value: String(totalRisk) },
       ],
-      note: "This summary is generated by Managira for hub-level oversight.",
+      followManagira: false,
+      note: buildWeeklyDigestFooterNote(),
+      noReply: false,
     });
 
-    // Use hub_id as a pseudo organization_id for dispatch logging.
     const ok = await sendLoggedEmail(database, {
-      organizationId: hub.hub_id,
+      organizationId: digestRunOrganizationId,
       eventType: "weekly_hub_digest",
-      eventKey: weekStartKey,
+      eventKey: `${hub.hub_id}:${weekStartKey}`,
       recipientEmail: hub.hub_email,
       recipientKind: "hub",
-      subject: `${hubName} weekly hub summary`,
+      subject: `${hubName} Hub Update`,
       html,
-      payload: { weekStartKey, weekEndKey, orgCount: orgSummaries.length, totalStudents, totalRisk },
+      payload: {
+        weekStartKey,
+        weekEndKey,
+        hubId: hub.hub_id,
+        orgCount: orgSummaries.length,
+        totalStudents,
+        totalRisk,
+      },
       context: "Weekly Hub Digest",
     });
 
     if (ok) {
       sent += 1;
-      // Record digest run (use hub_id; digest_runs table allows any int for org_id column).
-      await database.query(
-        `INSERT INTO notification_digest_runs (organization_id, digest_type, week_start_date)
-         VALUES ($1, $2, $3::date)
-         ON CONFLICT (organization_id, digest_type, week_start_date) DO NOTHING`,
-        [hub.hub_id, "weekly_hub_digest", weekStartKey]
-      );
+      await markDigestRun(database, digestRunOrganizationId, hubDigestType, weekStartKey);
     }
   }
 

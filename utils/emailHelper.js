@@ -488,6 +488,7 @@ async function _recordAndFanOutEmailFailure(db, orgId, email, reason, notificati
 
 function renderCleanEmail({
   title,
+  showTitle = true,
   greeting,
   paragraphs = [],
   details = [],
@@ -548,7 +549,7 @@ function renderCleanEmail({
     : "";
 
   const followManagiraHtml = followManagira
-    ? `<p style="margin:14px 0 0;font-size:13px;color:#475569;">Follow <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">Managira on LinkedIn</a> for broader updates.</p>`
+    ? `<p style="margin:14px 0 0;font-size:13px;color:#475569;">Follow <a href="${linkedinUrl}" target="_blank" rel="noopener" style="color:#0f766e;text-decoration:underline;">Managira on LinkedIn</a> for more info and broader updates.</p>`
     : "";
 
   const normalizedWebsiteUrl = String(schoolWebsiteUrl || "").trim();
@@ -568,7 +569,7 @@ function renderCleanEmail({
           <span style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:0.02em;font-family:'Segoe UI',Arial,sans-serif;">Managira</span>
         </div>
         <div style="padding:24px 22px;color:#0f172a;line-height:1.65;">
-          <h2 style="margin:0 0 14px;font-size:21px;color:#0f766e;font-weight:700;">${escapeHtml(title || "Notification")}</h2>
+          ${showTitle ? `<h2 style="margin:0 0 14px;font-size:21px;color:#0f766e;font-weight:700;">${escapeHtml(title || "Notification")}</h2>` : ""}
           ${greeting ? `<p style="margin:0 0 12px;font-size:15px;">${greeting}</p>` : ""}
           ${normalizedParagraphs
             .map((text) => `<p style="margin:0 0 12px;font-size:15px;color:#1f2937;">${text}</p>`)
