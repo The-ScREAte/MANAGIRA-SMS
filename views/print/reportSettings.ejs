@@ -71,7 +71,17 @@
     .class-list { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); display: flex; flex-wrap: wrap; gap: 8px; }
     .class-button { min-width: 120px; text-align: left; border: 1px solid var(--border); background: #fff; color: var(--text); padding: 9px 11px; border-radius: 10px; cursor: pointer; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
     .class-button.active { border-color: var(--primary); background: rgba(15,90,102,0.08); color: var(--text); }
-    .class-panel { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; box-shadow: 0 6px 18px rgba(15,45,50,0.1); }
+    .class-panel {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      box-shadow: 0 6px 18px rgba(15,45,50,0.1);
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
 
     .table-wrapper { overflow-x: auto; overflow-y: visible; margin-top: 14px; -webkit-overflow-scrolling: touch; }
     table { width: 100%; border-collapse: collapse; min-width: 720px; }
@@ -359,7 +369,8 @@
     }
 
     #advancedDsPanel {
-      overflow-x: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     #advancedDsToggleBtn {
@@ -1099,6 +1110,143 @@
       padding-right: 10px;
     }
 
+    .status-row-date-cell {
+      min-width: 0;
+    }
+
+    .status-date-popup {
+      display: none;
+      position: fixed;
+      width: min(340px, calc(100vw - 22px));
+      max-height: calc(100vh - 18px);
+      overflow-y: auto;
+      padding: 9px;
+      border: 1px solid #d6e3f0;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #f8fbff 0%, #f2f7fc 100%);
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+      z-index: 12050;
+    }
+
+    .status-date-popup.is-open {
+      display: block;
+    }
+
+    .status-date-banner-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .status-date-banner-title {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .status-date-banner-close {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: #64748b;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .status-date-banner-actions { display: flex; flex-direction: column; gap: 6px; }
+
+    .status-date-banner-btn {
+      appearance: none;
+      border: 1px solid #c9d7e6;
+      background: #ffffff;
+      color: #0f172a;
+      border-radius: 8px;
+      padding: 7px 9px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      line-height: 1.1;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .status-date-banner-btn:hover,
+    .status-date-banner-btn:focus-visible {
+      outline: none;
+      border-color: color-mix(in srgb, var(--primary) 34%, white);
+      background: color-mix(in srgb, var(--primary) 8%, white);
+    }
+
+    .status-date-banner-select-panel {
+      display: none;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #d9e5f2;
+    }
+
+    .status-date-banner-select-panel.is-open {
+      display: block;
+    }
+
+    .status-date-banner-select-help {
+      margin: 0 0 8px;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    .status-date-banner-class-list {
+      display: grid;
+      gap: 6px;
+      max-height: 148px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .status-date-banner-class-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 5px 7px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.82);
+    }
+
+    .status-date-banner-class-option label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #1f2937;
+      cursor: pointer;
+    }
+
+    .status-date-banner-class-option input[type="checkbox"] {
+      margin: 0;
+      accent-color: var(--primary);
+    }
+
+    .status-date-banner-class-state {
+      flex: 0 0 auto;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .status-date-banner-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
     .status-settings-actions {
       display: flex;
       gap: 10px;
@@ -1336,7 +1484,16 @@
       .sig-canvas { height: 160px; }
       .class-list { padding: 8px; gap: 6px; }
       .class-button { min-width: 100px; padding: 8px 10px; font-size: 0.88rem; }
-      .class-panel { padding: 12px 10px; }
+      .class-panel {
+        padding: 12px 10px;
+        max-width: 100%;
+        overflow-x: auto;
+      }
+
+      #settingsFormContainer,
+      #settingsOverviewContainer {
+        min-width: 0;
+      }
       .notice { padding: 10px 12px; font-size: 0.88rem; }
       .tag { font-size: 0.82rem; padding: 4px 8px; }
       .remark-row { padding: 8px 10px; }
@@ -1347,6 +1504,37 @@
       .status-row-head,
       .status-row-item {
         min-width: 760px;
+      }
+
+      .status-date-popup {
+        width: min(298px, calc(100vw - 12px));
+        max-height: calc(100vh - 10px);
+        padding: 8px;
+      }
+
+      .status-date-banner-head {
+        margin-bottom: 5px;
+      }
+
+      .status-date-banner-title {
+        font-size: 0.68rem;
+      }
+
+      .status-date-banner-btn {
+        padding: 6px 8px;
+        font-size: 0.66rem;
+      }
+
+      .status-date-banner-actions {
+        gap: 5px;
+      }
+
+      .status-date-banner-select-help {
+        font-size: 0.64rem;
+      }
+
+      .status-date-banner-class-option {
+        padding: 5px 6px;
       }
 
       #advancedDsPanel {
@@ -1983,12 +2171,24 @@
                     <span>Cut Off</span>
                     <span>Reopen Date</span>
                   </div>
-                  <% enrolledClasses.forEach(classItem=>{
+                  <% 
+                    const formatDateInputValue = (value) => {
+                      if (!value) return '';
+                      if (value instanceof Date) {
+                        return Number.isNaN(value.getTime()) ? '' : value.toISOString().slice(0, 10);
+                      }
+                      const rawValue = String(value).trim();
+                      if (!rawValue) return '';
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) return rawValue;
+                      const parsedValue = new Date(rawValue);
+                      return Number.isNaN(parsedValue.getTime()) ? '' : parsedValue.toISOString().slice(0, 10);
+                    };
+                    enrolledClasses.forEach(classItem=>{
                     const rowSetting = groupedStatusSettings.find(setting => Array.isArray(setting.classes) && setting.classes.includes(classItem.class_id));
                     const rowPromoted = rowSetting && rowSetting.promoted_class ? Number(rowSetting.promoted_class) : null;
                     const rowRepeated = rowSetting && rowSetting.repeated_class ? Number(rowSetting.repeated_class) : null;
                     const rowCutOff = rowSetting && rowSetting.cut_off_point !== null && rowSetting.cut_off_point !== undefined ? rowSetting.cut_off_point : '';
-                    const rowReopenDate = rowSetting && rowSetting.school_reopen_date ? String(rowSetting.school_reopen_date).slice(0, 10) : '';
+                    const rowReopenDate = rowSetting ? formatDateInputValue(rowSetting.school_reopen_date) : '';
                   %>
                     <div class="status-row-item<%= String(currentClass ? currentClass.class_id : '') === String(classItem.class_id) ? ' is-active' : '' %>" data-class-id="<%= classItem.class_id %>">
                       <input type="hidden" name="statusRowClassId[]" value="<%= classItem.class_id %>" />
@@ -2009,9 +2209,30 @@
                       </select>
 
                       <input class="status-row-field" type="number" name="statusRowCutOffPoint[]" value="<%= rowCutOff %>" />
-                      <input class="status-row-field" type="date" name="statusRowSchoolReopenDate[]" value="<%= rowReopenDate %>" />
+                      <div class="status-row-date-cell">
+                        <input class="status-row-field" type="date" name="statusRowSchoolReopenDate[]" value="<%= rowReopenDate %>" />
+                      </div>
                     </div>
                   <% }); %>
+                </div>
+                <div id="statusDatePopup" class="status-date-popup" aria-hidden="true">
+                  <div class="status-date-banner-head">
+                    <div class="status-date-banner-title">Reuse this reopen date?</div>
+                    <button type="button" class="status-date-banner-close" data-status-date-close aria-label="Close reopen date options">&times;</button>
+                  </div>
+                  <div class="status-date-banner-actions">
+                    <button type="button" class="status-date-banner-btn" data-status-date-action="all">Apply to all classes</button>
+                    <button type="button" class="status-date-banner-btn" data-status-date-action="empty">Apply to classes with no date</button>
+                    <button type="button" class="status-date-banner-btn" data-status-date-action="select">Select classes</button>
+                  </div>
+                  <div class="status-date-banner-select-panel" data-status-date-select-panel>
+                    <p class="status-date-banner-select-help">Pick the classes that should receive this same reopen date.</p>
+                    <div class="status-date-banner-class-list" data-status-date-class-list></div>
+                    <div class="status-date-banner-footer">
+                      <button type="button" class="status-date-banner-btn" data-status-date-action="cancel-select">Cancel</button>
+                      <button type="button" class="status-date-banner-btn" data-status-date-action="apply-selected">Apply selected</button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2019,7 +2240,7 @@
               <div style="display:none;"><input type="checkbox" id="activatePromotion" name="activatePromotion" /></div>
 
               <div class="status-settings-actions">
-                <button type="submit" class="btn status-btn status-btn-primary">Save Status Settings</button>
+                <button type="submit" id="statusSettingsSaveBtn" class="btn status-btn status-btn-primary">Save Status Settings</button>
                 <button type="button" class="btn btn-danger status-btn status-btn-danger" id="cancelEditBtn" style="display:none;">Cancel</button>
               </div>
             </form>
@@ -2946,7 +3167,9 @@
     const classIdField = document.getElementById('statusClassId');
     const selectedStatusClasses = document.getElementById('selectedStatusClasses');
     const statusSettingsForm = document.getElementById('statusSettingsForm');
+    const statusSettingsSaveBtn = document.getElementById('statusSettingsSaveBtn');
     const statusRowsEditor = document.getElementById('statusRowsEditor');
+    const statusDatePopup = document.getElementById('statusDatePopup');
     const bulkStatusSettingsBtn = document.getElementById('bulkStatusSettingsBtn');
     const STATUS_ROW_FIELDS_SELECTOR = [
       'input[name="statusRowClassId[]"]',
@@ -3012,14 +3235,180 @@
       return String(value ?? '').trim();
     }
 
+    function normalizeStatusInputDate(value) {
+      const rawValue = normalizeStatusRowValue(value);
+      if (!rawValue) return '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) return rawValue;
+      const parsedValue = new Date(rawValue);
+      return Number.isNaN(parsedValue.getTime()) ? '' : parsedValue.toISOString().slice(0, 10);
+    }
+
     function getStatusRowState(row) {
       return {
         classId: normalizeStatusRowValue(row.querySelector('input[name="statusRowClassId[]"]')?.value),
         promotedClass: normalizeStatusRowValue(row.querySelector('select[name="statusRowPromotedClass[]"]')?.value),
         repeatedClass: normalizeStatusRowValue(row.querySelector('select[name="statusRowRepeatedClass[]"]')?.value),
         cutOffPoint: normalizeStatusRowValue(row.querySelector('input[name="statusRowCutOffPoint[]"]')?.value),
-        schoolReopenDate: normalizeStatusRowValue(row.querySelector('input[name="statusRowSchoolReopenDate[]"]')?.value),
+        schoolReopenDate: normalizeStatusInputDate(row.querySelector('input[name="statusRowSchoolReopenDate[]"]')?.value),
       };
+    }
+
+    function applySavedStatusRows(savedRows) {
+      if (!Array.isArray(savedRows) || !savedRows.length) return;
+      savedRows.forEach((savedRow) => {
+        const classId = String(savedRow.class_id ?? '').trim();
+        if (!classId) return;
+
+        statusSettingsMap[classId] = {
+          ...savedRow,
+          class_id: Number(savedRow.class_id),
+          promoted_class: savedRow.promoted_class === null || savedRow.promoted_class === undefined ? null : Number(savedRow.promoted_class),
+          repeated_class: savedRow.repeated_class === null || savedRow.repeated_class === undefined ? null : Number(savedRow.repeated_class),
+          cut_off_point: savedRow.cut_off_point === null || savedRow.cut_off_point === undefined ? null : Number(savedRow.cut_off_point),
+          school_reopen_date: savedRow.school_reopen_date || null,
+          classes: [Number(savedRow.class_id)],
+        };
+
+        const row = statusRowsEditor?.querySelector(`.status-row-item[data-class-id="${classId}"]`);
+        if (!row) return;
+        const promotedField = row.querySelector('select[name="statusRowPromotedClass[]"]');
+        const repeatedField = row.querySelector('select[name="statusRowRepeatedClass[]"]');
+        const cutOffField = row.querySelector('input[name="statusRowCutOffPoint[]"]');
+        const reopenField = row.querySelector('input[name="statusRowSchoolReopenDate[]"]');
+        if (promotedField) promotedField.value = savedRow.promoted_class ? String(savedRow.promoted_class) : '';
+        if (repeatedField) repeatedField.value = savedRow.repeated_class ? String(savedRow.repeated_class) : '';
+        if (cutOffField) cutOffField.value = savedRow.cut_off_point ?? '';
+        if (reopenField) reopenField.value = normalizeStatusInputDate(savedRow.school_reopen_date);
+      });
+
+      captureStatusRowsInitialState();
+      statusRowsEditor?.querySelectorAll('.status-row-item').forEach((row) => syncStatusRowDirtyState(row));
+    }
+
+    let suppressStatusDateBulkPrompt = false;
+    let statusDatePopupTimer = null;
+    let statusDatePopupSourceRow = null;
+    let statusDatePopupValue = '';
+    let statusDatePopupAnchorInput = null;
+
+    function closeStatusDatePopup() {
+      if (statusDatePopupTimer) {
+        window.clearTimeout(statusDatePopupTimer);
+        statusDatePopupTimer = null;
+      }
+      if (!statusDatePopup) return;
+      statusDatePopup.classList.remove('is-open');
+      statusDatePopup.setAttribute('aria-hidden', 'true');
+      const selectPanel = statusDatePopup.querySelector('[data-status-date-select-panel]');
+      if (selectPanel) selectPanel.classList.remove('is-open');
+      statusDatePopupSourceRow = null;
+      statusDatePopupValue = '';
+      statusDatePopupAnchorInput = null;
+    }
+
+    function buildStatusDatePopupClassOptions(sourceRow) {
+      if (!statusRowsEditor || !sourceRow) return '';
+      return Array.from(statusRowsEditor.querySelectorAll('.status-row-item'))
+        .filter((row) => row !== sourceRow)
+        .map((row) => {
+          const classId = String(row.dataset.classId || '').trim();
+          const className = row.querySelector('.status-row-class')?.textContent?.trim() || 'Class';
+          const existingDate = normalizeStatusInputDate(row.querySelector('input[name="statusRowSchoolReopenDate[]"]')?.value);
+          const stateLabel = existingDate ? 'Has date' : 'No date';
+          return `
+            <div class="status-date-banner-class-option">
+              <label>
+                <input type="checkbox" value="${classId}" ${existingDate ? '' : 'checked'}>
+                <span>${className}</span>
+              </label>
+              <span class="status-date-banner-class-state">${stateLabel}</span>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function positionStatusDatePopup(anchorInput) {
+      if (!statusDatePopup || !anchorInput) return;
+      if (window.innerWidth <= 680) {
+        statusDatePopup.style.left = '50%';
+        statusDatePopup.style.top = 'max(12px, env(safe-area-inset-top, 0px))';
+        statusDatePopup.style.transform = 'translateX(-50%)';
+        return;
+      }
+
+      statusDatePopup.style.transform = 'none';
+      const rect = anchorInput.getBoundingClientRect();
+      const popupRect = statusDatePopup.getBoundingClientRect();
+      const viewportPadding = 10;
+      let left = rect.right - popupRect.width;
+      left = Math.min(left, window.innerWidth - popupRect.width - viewportPadding);
+      left = Math.max(left, viewportPadding);
+
+      let top = rect.bottom + 8;
+      if (top + popupRect.height > window.innerHeight - viewportPadding) {
+        const upwardTop = rect.top - popupRect.height - 8;
+        top = upwardTop > viewportPadding ? upwardTop : Math.max(viewportPadding, window.innerHeight - popupRect.height - viewportPadding);
+      }
+
+      statusDatePopup.style.left = `${Math.round(left)}px`;
+      statusDatePopup.style.top = `${Math.round(top)}px`;
+    }
+
+    function openStatusDatePopup(row, reopenDateValue, anchorInput) {
+      if (!row || !reopenDateValue || !statusDatePopup) return;
+      closeStatusDatePopup();
+      statusDatePopupSourceRow = row;
+      statusDatePopupValue = reopenDateValue;
+      statusDatePopupAnchorInput = anchorInput || row.querySelector('input[name="statusRowSchoolReopenDate[]"]');
+
+      statusDatePopupTimer = window.setTimeout(() => {
+        const classList = statusDatePopup.querySelector('[data-status-date-class-list]');
+        const selectPanel = statusDatePopup.querySelector('[data-status-date-select-panel]');
+        if (!classList || !selectPanel) return;
+
+        classList.innerHTML = buildStatusDatePopupClassOptions(row);
+        selectPanel.classList.remove('is-open');
+        statusDatePopup.classList.add('is-open');
+        statusDatePopup.setAttribute('aria-hidden', 'false');
+        positionStatusDatePopup(statusDatePopupAnchorInput);
+        statusDatePopupTimer = null;
+      }, 140);
+    }
+
+    function applyStatusReopenDateToRows(sourceRow, reopenDateValue, options = {}) {
+      if (!statusRowsEditor || !sourceRow || !reopenDateValue) return 0;
+      const mode = options.mode || 'all';
+      const selectedClassIds = Array.isArray(options.selectedClassIds)
+        ? new Set(options.selectedClassIds.map((value) => String(value).trim()).filter(Boolean))
+        : null;
+      let appliedCount = 0;
+
+      suppressStatusDateBulkPrompt = true;
+      statusRowsEditor.querySelectorAll('.status-row-item').forEach((row) => {
+        if (row === sourceRow) {
+          syncStatusRowDirtyState(row);
+          return;
+        }
+        const classId = String(row.dataset.classId || '').trim();
+        const reopenField = row.querySelector('input[name="statusRowSchoolReopenDate[]"]');
+        if (!classId || !reopenField) return;
+
+        const currentValue = normalizeStatusInputDate(reopenField.value);
+        const shouldApply = mode === 'all'
+          ? true
+          : mode === 'empty'
+            ? !currentValue
+            : !!selectedClassIds?.has(classId);
+
+        if (!shouldApply) return;
+        reopenField.value = reopenDateValue;
+        syncStatusRowDirtyState(row);
+        appliedCount += 1;
+      });
+      suppressStatusDateBulkPrompt = false;
+      syncStatusRowDirtyState(sourceRow);
+      return appliedCount;
     }
 
     function captureStatusRowsInitialState() {
@@ -3868,10 +4257,90 @@
     focusStatusRow(classIdField.value);
     captureStatusRowsInitialState();
 
+    document.addEventListener('click', (event) => {
+      if (event.target.closest('#statusDatePopup')) return;
+      if (event.target.matches('input[name="statusRowSchoolReopenDate[]"]')) return;
+      closeStatusDatePopup();
+    });
+
+    window.addEventListener('resize', () => {
+      if (statusDatePopup?.classList.contains('is-open')) {
+        positionStatusDatePopup(statusDatePopupAnchorInput);
+      }
+    });
+
+    window.addEventListener('scroll', () => {
+      if (statusDatePopup?.classList.contains('is-open')) {
+        positionStatusDatePopup(statusDatePopupAnchorInput);
+      }
+    }, true);
+
     statusRowsEditor?.addEventListener('change', (event) => {
       const row = event.target.closest('.status-row-item');
       if (!row) return;
+      if (!suppressStatusDateBulkPrompt && event.target.matches('input[name="statusRowSchoolReopenDate[]"]')) {
+        const reopenDateValue = normalizeStatusInputDate(event.target.value);
+        if (reopenDateValue) {
+          openStatusDatePopup(row, reopenDateValue, event.target);
+        } else {
+          closeStatusDatePopup();
+        }
+      }
       syncStatusRowDirtyState(row);
+    });
+
+    statusDatePopup?.addEventListener('click', (event) => {
+      const actionButton = event.target.closest('[data-status-date-action], [data-status-date-close]');
+      if (!actionButton) return;
+
+      // Popup actions only refill fields; they must never trigger form submit.
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (actionButton.hasAttribute('data-status-date-close')) {
+        closeStatusDatePopup();
+        return;
+      }
+
+      const row = statusDatePopupSourceRow;
+      const reopenDateValue = statusDatePopupValue || normalizeStatusInputDate(row?.querySelector('input[name="statusRowSchoolReopenDate[]"]')?.value);
+      const action = actionButton.getAttribute('data-status-date-action');
+      const selectPanel = statusDatePopup.querySelector('[data-status-date-select-panel]');
+
+      if (!row || !reopenDateValue) {
+        closeStatusDatePopup();
+        return;
+      }
+
+      if (action === 'select') {
+        selectPanel?.classList.add('is-open');
+        return;
+      }
+
+      if (action === 'cancel-select') {
+        selectPanel?.classList.remove('is-open');
+        return;
+      }
+
+      let appliedCount = 0;
+      if (action === 'all') {
+        appliedCount = applyStatusReopenDateToRows(row, reopenDateValue, { mode: 'all' });
+      } else if (action === 'empty') {
+        appliedCount = applyStatusReopenDateToRows(row, reopenDateValue, { mode: 'empty' });
+      } else if (action === 'apply-selected') {
+        const selectedClassIds = Array.from(statusDatePopup.querySelectorAll('[data-status-date-class-list] input[type="checkbox"]:checked'))
+          .map((checkbox) => checkbox.value);
+        if (!selectedClassIds.length) {
+          alert('Select at least one class to apply this reopen date.');
+          return;
+        }
+        appliedCount = applyStatusReopenDateToRows(row, reopenDateValue, { mode: 'selected', selectedClassIds });
+      }
+
+      closeStatusDatePopup();
+      if (appliedCount > 0 && typeof showToast === 'function') {
+        showToast(`Applied reopen date to ${appliedCount} class${appliedCount === 1 ? '' : 'es'}.`);
+      }
     });
 
     statusRowsEditor?.addEventListener('input', (event) => {
@@ -6900,8 +7369,24 @@
       return oldState !== newState;
     }
 
+    let allowExplicitStatusSubmit = false;
+    statusSettingsSaveBtn?.addEventListener('click', () => {
+      allowExplicitStatusSubmit = true;
+      window.setTimeout(() => {
+        allowExplicitStatusSubmit = false;
+      }, 0);
+    });
+
     // Intercept status settings form: fast-submit dirty rows; optional advanced-only save when no row changes.
     statusSettingsForm?.addEventListener('submit', async function(e) {
+      const submitter = e.submitter;
+      const isSaveSubmit = submitter === statusSettingsSaveBtn || allowExplicitStatusSubmit;
+      if (!isSaveSubmit) {
+        e.preventDefault();
+        return;
+      }
+      allowExplicitStatusSubmit = false;
+
       e.preventDefault();
       const submitBtn = this.querySelector('button[type="submit"]');
       const originalSubmitText = submitBtn ? submitBtn.textContent : '';
@@ -6952,22 +7437,46 @@
         return;
       }
 
-      const dirtyClassIdSet = new Set(dirtyRows.map((row) => getStatusRowState(row).classId));
-
-      allRows.forEach((row) => {
-        const rowClassId = getStatusRowState(row).classId;
-        const keepRow = dirtyClassIdSet.has(rowClassId);
-        row.querySelectorAll(STATUS_ROW_FIELDS_SELECTOR).forEach((field) => {
-          if (keepRow) return;
-          if (!field.disabled) {
-            field.disabled = true;
-          }
-        });
-      });
-
       beginSubmitUi();
       showToast(`Saving ${dirtyRows.length} edited ${rowCountLabel}...`);
-      this.submit();
+
+      try {
+        const dirtyStates = dirtyRows.map((row) => getStatusRowState(row));
+        const formData = new FormData(this);
+        const response = await fetch(this.action, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            classId: classIdField?.value || formData.get('classId') || '',
+            termId: formData.get('termId') || '',
+            activatePromotion: activatePromotion?.checked ? 'on' : '',
+            termEndDate: formData.get('termEndDate') || '',
+            statusRowClassId: dirtyStates.map((row) => row.classId),
+            statusRowPromotedClass: dirtyStates.map((row) => row.promotedClass),
+            statusRowRepeatedClass: dirtyStates.map((row) => row.repeatedClass),
+            statusRowCutOffPoint: dirtyStates.map((row) => row.cutOffPoint),
+            statusRowSchoolReopenDate: dirtyStates.map((row) => row.schoolReopenDate),
+            responseMode: 'json',
+          }),
+        });
+
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Failed to save status settings.');
+        }
+
+        applySavedStatusRows(result.savedRows);
+        loadClassSettings(classIdField.value);
+        showToast(result.message || `Saved ${dirtyRows.length} edited ${rowCountLabel}.`);
+      } catch (error) {
+        console.error('Error saving status settings:', error);
+        alert(error?.message || 'Failed to save status settings.');
+      } finally {
+        endSubmitUi();
+      }
     });
 
     // ── Collapsible cards ──

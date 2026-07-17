@@ -2946,44 +2946,52 @@ students
     const organizationId = req.session.organizationId;
     const fallbackClassId = formClassId || req.query.classId;
     const termId = formTermId || req.query.termId;
+    const expectsJson = String(req.get("content-type") || "").includes("application/json")
+      || String(req.get("accept") || "").includes("application/json")
+      || req.body?.responseMode === "json";
+
+    const redirectUrl = `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`;
+    const respondError = (message, statusCode = 400) => {
+      if (expectsJson) {
+        return res.status(statusCode).json({ success: false, message });
+      }
+      req.flash("error", message);
+      return res.redirect(redirectUrl);
+    };
+
+    const respondSuccess = (message, payload = {}) => {
+      if (expectsJson) {
+        return res.json({ success: true, message, ...payload });
+      }
+      req.flash("success", message);
+      return res.redirect(`/print/reportSettings?classId=${fallbackClassId}&termId=${parsedTermIdForResponse(payload.termId || termId)}`);
+    };
+
+    const parsedTermIdForResponse = (value) => {
+      const parsedValue = parseInt(value, 10);
+      return Number.isInteger(parsedValue) ? parsedValue : termId;
+    };
+
+    const toIsoDateString = (value) => {
+      if (!value) return null;
+      const parsedDate = value instanceof Date ? value : new Date(value);
+      return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().slice(0, 10);
+    };
   
     try {
-      console.log("[savePromotionSettings] incoming", {
-        cutOffPoint,
-        promotedClass,
-        repeatedClass,
-        schoolReopenDate,
-        termEndDate,
-        activatePromotion,
-        selectedStatusClasses,
-        formClassId,
-        formTermId,
-        queryClassId: req.query.classId,
-        queryTermId: req.query.termId,
-      });
-
       if (!organizationId) {
-        req.flash("error", "Organization ID is not set in session.");
-        return res.redirect(
-          `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-        );
+        return respondError("Organization ID is not set in session.", 401);
       }
   
       if (!termId || isNaN(termId)) {
-        req.flash("error", "Invalid or missing termId.");
-        return res.redirect(
-          `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-        );
+        return respondError("Invalid or missing termId.");
       }
   
       const parsedTermId = parseInt(termId, 10);
       const parsedClassId = parseInt(formClassId || fallbackClassId, 10);
   
       if (isNaN(parsedClassId) || isNaN(parsedTermId)) {
-        req.flash("error", "Invalid class or term ID.");
-        return res.redirect(
-          `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-        );
+        return respondError("Invalid class or term ID.");
       }
 
       const toArray = (value) => {
@@ -3011,11 +3019,13 @@ students
           const cutOffRawValue = String(rowCutOffRaw[index] ?? "").trim();
           const reopenDateValue = String(rowReopenRaw[index] ?? "").trim();
           const parsedCutOff = cutOffRawValue === "" ? null : parseInt(cutOffRawValue, 10);
+          const parsedPromoted = promotedValue === "" ? null : parseInt(promotedValue, 10);
+          const parsedRepeated = repeatedValue === "" ? null : parseInt(repeatedValue, 10);
 
           rowMap.set(classIdNum, {
             classId: classIdNum,
-            promotedClass: promotedValue || null,
-            repeatedClass: repeatedValue || null,
+            promotedClass: Number.isInteger(parsedPromoted) ? parsedPromoted : null,
+            repeatedClass: Number.isInteger(parsedRepeated) ? parsedRepeated : null,
             cutOffPoint: Number.isInteger(parsedCutOff) ? parsedCutOff : null,
             schoolReopenDate: reopenDateValue || null,
           });
@@ -3023,27 +3033,18 @@ students
 
         const candidateRows = [...rowMap.values()];
         if (!candidateRows.length) {
-          req.flash("error", "No valid class rows were provided for status settings.");
-          return res.redirect(
-            `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-          );
+          return respondError("No valid class rows were provided for status settings.");
         }
 
         const scopedTerm = await getScopedTermRecord(db, organizationId, parsedTermId);
         if (!scopedTerm) {
-          req.flash("error", "Selected term is outside this organization.");
-          return res.redirect(
-            `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-          );
+          return respondError("Selected term is outside this organization.");
         }
 
         const candidateClassIds = candidateRows.map((row) => row.classId);
         const validClassIds = await getScopedClassIds(db, organizationId, candidateClassIds);
         if (validClassIds.length !== candidateClassIds.length) {
-          req.flash("error", "One or more row classes are outside this organization.");
-          return res.redirect(
-            `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-          );
+          return respondError("One or more row classes are outside this organization.");
         }
 
         const existingRowsResult = await db.query(
@@ -3063,10 +3064,7 @@ students
         });
 
         if (!rowsToPersist.length) {
-          req.flash("error", "No row values were provided to save.");
-          return res.redirect(
-            `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-          );
+          return respondError("No row values were provided to save.");
         }
 
         const normalizedTermEndDate = typeof termEndDate === "string" && termEndDate.trim()
@@ -3076,53 +3074,78 @@ students
           ? null
           : (activatePromotion === "on");
 
-        for (const row of rowsToPersist) {
-          const updateResult = await db.query(
-            `UPDATE status_settings SET
-               cut_off_point = $1,
-               promoted_class = $2,
-               repeated_class = $3,
-               school_reopen_date = $4,
-               term_end_date = COALESCE($5, term_end_date),
-               activate_promotion = COALESCE($6::boolean, activate_promotion)
-             WHERE organization_id = $7 AND class_id = $8 AND term_id = $9`,
-            [
-              row.cutOffPoint,
-              row.promotedClass,
-              row.repeatedClass,
-              row.schoolReopenDate,
-              normalizedTermEndDate,
-              activatePromotionValue,
-              organizationId,
-              row.classId,
-              parsedTermId,
-            ]
-          );
+        const persistedRowsResult = await db.query(
+          `WITH incoming AS (
+             SELECT *
+             FROM jsonb_to_recordset($1::jsonb) AS row_data(
+               class_id int,
+               promoted_class int,
+               repeated_class int,
+               cut_off_point int,
+               school_reopen_date date
+             )
+           )
+           INSERT INTO status_settings (
+             organization_id,
+             class_id,
+             term_id,
+             cut_off_point,
+             promoted_class,
+             repeated_class,
+             school_reopen_date,
+             term_end_date,
+             activate_promotion
+           )
+           SELECT
+             $2,
+             incoming.class_id,
+             $3,
+             incoming.cut_off_point,
+             incoming.promoted_class,
+             incoming.repeated_class,
+             incoming.school_reopen_date,
+             $4::date,
+             COALESCE($5::boolean, false)
+           FROM incoming
+           ON CONFLICT (organization_id, class_id, term_id) DO UPDATE SET
+             cut_off_point = EXCLUDED.cut_off_point,
+             promoted_class = EXCLUDED.promoted_class,
+             repeated_class = EXCLUDED.repeated_class,
+             school_reopen_date = EXCLUDED.school_reopen_date,
+             term_end_date = COALESCE(EXCLUDED.term_end_date, status_settings.term_end_date),
+             activate_promotion = CASE
+               WHEN $5::boolean IS NULL THEN status_settings.activate_promotion
+               ELSE $5::boolean
+             END
+           RETURNING class_id, promoted_class, repeated_class, cut_off_point, school_reopen_date, term_end_date, activate_promotion`,
+          [
+            JSON.stringify(rowsToPersist.map((row) => ({
+              class_id: row.classId,
+              promoted_class: row.promotedClass,
+              repeated_class: row.repeatedClass,
+              cut_off_point: row.cutOffPoint,
+              school_reopen_date: row.schoolReopenDate,
+            }))),
+            organizationId,
+            parsedTermId,
+            normalizedTermEndDate,
+            activatePromotionValue,
+          ]
+        );
 
-          if (updateResult.rowCount === 0) {
-            await db.query(
-              `INSERT INTO status_settings (
-                 organization_id, class_id, term_id, cut_off_point, promoted_class,
-                 repeated_class, school_reopen_date, term_end_date, activate_promotion
-               ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::boolean, false))`,
-              [
-                organizationId,
-                row.classId,
-                parsedTermId,
-                row.cutOffPoint,
-                row.promotedClass,
-                row.repeatedClass,
-                row.schoolReopenDate,
-                normalizedTermEndDate,
-                activatePromotionValue,
-              ]
-            );
-          }
-        }
+        const savedRows = persistedRowsResult.rows.map((row) => ({
+          class_id: Number(row.class_id),
+          promoted_class: row.promoted_class === null || row.promoted_class === undefined ? null : Number(row.promoted_class),
+          repeated_class: row.repeated_class === null || row.repeated_class === undefined ? null : Number(row.repeated_class),
+          cut_off_point: row.cut_off_point === null || row.cut_off_point === undefined ? null : Number(row.cut_off_point),
+          school_reopen_date: toIsoDateString(row.school_reopen_date),
+          term_end_date: toIsoDateString(row.term_end_date),
+          activate_promotion: row.activate_promotion === true,
+        }));
 
-        req.flash("success", `Promotion settings saved for ${rowsToPersist.length} class(es).`);
-        return res.redirect(
-          `/print/reportSettings?classId=${fallbackClassId}&termId=${parsedTermId}`
+        return respondSuccess(
+          `Promotion settings saved for ${rowsToPersist.length} class(es).`,
+          { savedRows, termId: parsedTermId }
         );
       }
   
@@ -3135,26 +3158,17 @@ students
       classesToApply = classesToApply.filter((id) => !isNaN(id));
 
       if (!classesToApply.length) {
-        req.flash("error", "No class selected for status settings.");
-        return res.redirect(
-          `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-        );
+        return respondError("No class selected for status settings.");
       }
   
       const validClassIds = await getScopedClassIds(db, organizationId, classesToApply);
       if (validClassIds.length !== classesToApply.length) {
-        req.flash("error", "One or more selected classes are outside this organization.");
-        return res.redirect(
-          `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-        );
+        return respondError("One or more selected classes are outside this organization.");
       }
 
       const scopedTerm = await getScopedTermRecord(db, organizationId, parsedTermId);
       if (!scopedTerm) {
-        req.flash("error", "Selected term is outside this organization.");
-        return res.redirect(
-          `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-        );
+        return respondError("Selected term is outside this organization.");
       }
 
       for (const classIdToSave of validClassIds) {
@@ -3201,16 +3215,10 @@ students
         }
       }
   
-      req.flash("success", "Promotion settings processed.");
-      res.redirect(
-        `/print/reportSettings?classId=${fallbackClassId}&termId=${parsedTermId}`
-      );
+      return respondSuccess("Promotion settings processed.", { termId: parsedTermId });
     } catch (error) {
       console.error("[savePromotionSettings] error", error);
-            req.flash("error", "Error saving promotion settings.");
-      res.redirect(
-        `/print/reportSettings?classId=${fallbackClassId}&termId=${termId}`
-      );
+      return respondError("Error saving promotion settings.", 500);
     }
   },
   
