@@ -52,6 +52,10 @@
     padding-top: calc(var(--header-height) + 20px) !important;
   }
 
+  body.school-subdomain-context {
+    padding-top: calc(var(--header-height) + 20px) !important;
+  }
+
   body.homepage-overlay-header .hero {
     padding-top: calc(var(--header-height) + 42px);
     margin-top: 0;
@@ -1509,6 +1513,16 @@
     background: var(--public-header-surface-hover) !important;
   }
 
+  body[data-page="publicDashboard"] header#top-header.public-header-mode:not(.homepage-overlay-enabled),
+  body.school-subdomain-context header#top-header.public-header-mode:not(.homepage-overlay-enabled) {
+    --public-header-fg: #0f172a;
+    --public-header-fg-strong: #020617;
+    --public-header-surface: #ffffff;
+    --public-header-surface-hover: #f1f5f9;
+    --public-header-border: rgba(15, 23, 42, 0.35);
+    --public-header-link-hover-bg: rgba(15, 23, 42, 0.08);
+  }
+
   @media (max-width: 768px) {
     :root {
       --header-height: 56px;
@@ -1525,7 +1539,11 @@
     }
 
     body[data-page="publicDashboard"] {
-      padding-top: calc(var(--header-height) + 14px) !important;
+      padding-top: calc(var(--header-height) + 18px) !important;
+    }
+
+    body.school-subdomain-context {
+      padding-top: calc(var(--header-height) + 18px) !important;
     }
 
     body.homepage-overlay-header {
@@ -1986,10 +2004,19 @@
   };
 %>
 <% const isPublicDashboard = url && url.includes('/publicDashboard'); %>
-<% const isSchoolSubdomainContext = !!(req && req.schoolDetails); %>
+<%
+  const requestHostRaw = (req && (req.hostname || (req.get && req.get('host'))))
+    ? String(req.hostname || req.get('host'))
+    : '';
+  const requestHost = requestHostRaw.replace(/:\d+$/, '').toLowerCase();
+  const isSchoolSubdomainHost = /\.managira\.com$/.test(requestHost)
+    && requestHost !== 'managira.com'
+    && requestHost !== 'www.managira.com';
+%>
+<% const isSchoolSubdomainContext = !!((req && req.schoolDetails) || isSchoolSubdomainHost); %>
 <% const isLoggedIn = !!(session && session.firstName); %>
 <% const headerCurrentPath = (typeof currentPath !== 'undefined' && currentPath) ? String(currentPath) : ((typeof url !== 'undefined' && url) ? String(url) : ''); %>
-<% const isMarketingHome = !!(!isLoggedIn && !isPublicDashboard && headerCurrentPath === '/'); %>
+<% const isMarketingHome = !!(!isLoggedIn && !isPublicDashboard && !isSchoolSubdomainContext && headerCurrentPath === '/'); %>
 <% const showPublicOrgIdentity = !!(!isLoggedIn && (isPublicDashboard || isSchoolSubdomainContext)); %>
 <header id="top-header" class="<%= isMarketingHome ? 'homepage-overlay-enabled' : '' %>">
   <% const publicOrgData = (typeof orgDetails !== 'undefined' && orgDetails) ? orgDetails : ((req && req.schoolDetails) ? req.schoolDetails : null); %>
@@ -1998,7 +2025,7 @@
   <% const publicOrgNickname = (publicOrgData && (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname)) ? (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname) : ''; %>
   <% const publicOrgNicknameDisplay = (publicOrgData && publicOrgData.nickname_display && String(publicOrgData.nickname_display).trim()) ? publicOrgData.nickname_display : publicOrgNickname; %>
   <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : (req.session && req.session.userRole === 'Student' ? '/student/dashboard' : '/common/orgDashboard')); %>
-  <% const showMarketingMegaNav = !isLoggedIn && !isPublicDashboard; %>
+  <% const showMarketingMegaNav = !isLoggedIn && !isPublicDashboard && !isSchoolSubdomainContext; %>
   <% const publicMarketingNav = [
     {
       label: 'Unify School',
@@ -2717,6 +2744,11 @@
 
 <script>
   function initHeaderMenu() {
+    const isSchoolSubdomainHostClient = () => {
+      const host = String(window.location.hostname || '').toLowerCase();
+      return host.endsWith('.managira.com') && host !== 'managira.com' && host !== 'www.managira.com';
+    };
+
     const parseRgbChannels = (value) => {
       if (!value) return null;
       const match = String(value).match(/rgba?\(([^)]+)\)/i);
@@ -2743,6 +2775,12 @@
       if (!headerElement || !headerElement.classList.contains('public-header-mode')) return;
       if (headerElement.classList.contains('homepage-overlay-enabled')) {
         headerElement.removeAttribute('data-contrast');
+        return;
+      }
+
+      const isPublicDashboardPage = (document.body && document.body.dataset && document.body.dataset.page === 'publicDashboard');
+      if (isPublicDashboardPage || isSchoolSubdomainHostClient()) {
+        headerElement.setAttribute('data-contrast', 'light');
         return;
       }
 
@@ -2780,10 +2818,18 @@
     }
 
     if (publicHeader) {
+      if (isSchoolSubdomainHostClient()) {
+        document.body.classList.add('school-subdomain-context');
+      } else {
+        document.body.classList.remove('school-subdomain-context');
+      }
+
       const isPublicMarketingShell = !!publicHeader.querySelector('.public-header-main');
       const isPublicDashboardPath = window.location.pathname.includes('/publicDashboard');
+      const isPublicDashboardPage = (document.body && document.body.dataset && document.body.dataset.page === 'publicDashboard');
+      const isSchoolSubdomainPage = isSchoolSubdomainHostClient() || !!document.querySelector('body[data-page="publicDashboard"] .school-identity-card');
       const isHomePath = window.location.pathname === '/';
-      const shouldUseOverlay = isPublicMarketingShell && isHomePath && !isPublicDashboardPath;
+      const shouldUseOverlay = isPublicMarketingShell && isHomePath && !isPublicDashboardPath && !isPublicDashboardPage && !isSchoolSubdomainPage;
 
       publicHeader.classList.toggle('homepage-overlay-enabled', shouldUseOverlay);
       document.body.classList.toggle('homepage-overlay-header', shouldUseOverlay);
