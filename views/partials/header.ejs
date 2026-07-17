@@ -48,6 +48,10 @@
     padding-top: 0 !important;
   }
 
+  body[data-page="publicDashboard"] {
+    padding-top: calc(var(--header-height) + 20px) !important;
+  }
+
   body.homepage-overlay-header .hero {
     padding-top: calc(var(--header-height) + 42px);
     margin-top: 0;
@@ -1443,6 +1447,66 @@
       border-radius: 12px;
       font-weight: 700;
     }
+
+    body[data-page="publicDashboard"] header#top-header.public-header-mode {
+      background: #ededed !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
+    }
+  }
+
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) {
+    --public-header-fg: #0f172a;
+    --public-header-fg-strong: #020617;
+    --public-header-surface: #ffffff;
+    --public-header-surface-hover: #f1f5f9;
+    --public-header-border: rgba(15, 23, 42, 0.35);
+    --public-header-link-hover-bg: rgba(15, 23, 42, 0.08);
+  }
+
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled)[data-contrast="dark"] {
+    --public-header-fg: #f8fafc;
+    --public-header-fg-strong: #ffffff;
+    --public-header-surface: rgba(248, 250, 252, 0.12);
+    --public-header-surface-hover: rgba(248, 250, 252, 0.2);
+    --public-header-border: rgba(248, 250, 252, 0.75);
+    --public-header-link-hover-bg: rgba(248, 250, 252, 0.18);
+  }
+
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .siteName,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .siteName a,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .org-names a,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .org-full-name,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .org-nickname,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .public-nav-trigger,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) #tools li a,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) #tools a.header-welcome,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .hamburger {
+    color: var(--public-header-fg) !important;
+  }
+
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .hamburger .bar {
+    background: var(--public-header-fg) !important;
+  }
+
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .public-nav-item.is-open .public-nav-trigger,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .public-nav-trigger:hover,
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) .public-nav-trigger:focus-visible {
+    color: var(--public-header-fg-strong) !important;
+    background: var(--public-header-link-hover-bg);
+  }
+
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) #tools #loginbutton {
+    color: var(--public-header-fg) !important;
+    border-color: var(--public-header-border) !important;
+    background: var(--public-header-surface) !important;
+  }
+
+  header#top-header.public-header-mode:not(.homepage-overlay-enabled) #tools #loginbutton:hover {
+    color: var(--public-header-fg-strong) !important;
+    border-color: var(--public-header-border) !important;
+    background: var(--public-header-surface-hover) !important;
   }
 
   @media (max-width: 768px) {
@@ -1458,6 +1522,10 @@
     body {
       padding-top: calc(var(--header-height) + 12px) !important;
       padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--dynamic-bottom-inset, 0px));
+    }
+
+    body[data-page="publicDashboard"] {
+      padding-top: calc(var(--header-height) + 14px) !important;
     }
 
     body.homepage-overlay-header {
@@ -2649,6 +2717,54 @@
 
 <script>
   function initHeaderMenu() {
+    const parseRgbChannels = (value) => {
+      if (!value) return null;
+      const match = String(value).match(/rgba?\(([^)]+)\)/i);
+      if (!match) return null;
+      const channels = match[1].split(',').map((part) => Number(part.trim()));
+      if (channels.length < 3 || channels.some((part) => Number.isNaN(part))) return null;
+      return {
+        r: channels[0],
+        g: channels[1],
+        b: channels[2],
+        a: Number.isFinite(channels[3]) ? channels[3] : 1
+      };
+    };
+
+    const relativeLuminance = (r, g, b) => {
+      const normalize = (channel) => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+      };
+      return (0.2126 * normalize(r)) + (0.7152 * normalize(g)) + (0.0722 * normalize(b));
+    };
+
+    const applyPublicHeaderContrast = (headerElement) => {
+      if (!headerElement || !headerElement.classList.contains('public-header-mode')) return;
+      if (headerElement.classList.contains('homepage-overlay-enabled')) {
+        headerElement.removeAttribute('data-contrast');
+        return;
+      }
+
+      const headerStyle = window.getComputedStyle(headerElement);
+      let sampledColor = parseRgbChannels(headerStyle.backgroundColor);
+
+      if (!sampledColor || sampledColor.a < 0.55) {
+        const bodyColor = parseRgbChannels(window.getComputedStyle(document.body).backgroundColor);
+        if (bodyColor) {
+          sampledColor = bodyColor;
+        }
+      }
+
+      if (!sampledColor) {
+        headerElement.setAttribute('data-contrast', 'light');
+        return;
+      }
+
+      const luminance = relativeLuminance(sampledColor.r, sampledColor.g, sampledColor.b);
+      headerElement.setAttribute('data-contrast', luminance < 0.42 ? 'dark' : 'light');
+    };
+
     const publicHeader = document.querySelector('header#top-header');
     if (publicHeader && !publicHeader.dataset.publicHeaderBooted) {
       publicHeader.dataset.publicHeaderBooted = '1';
@@ -2674,6 +2790,7 @@
 
       if (!shouldUseOverlay) {
         publicHeader.classList.remove('is-solid');
+        applyPublicHeaderContrast(publicHeader);
       } else {
         const setHeaderSolid = (isSolid) => {
           publicHeader.classList.toggle('is-solid', isSolid);
@@ -2699,6 +2816,8 @@
           window.removeEventListener('resize', syncHomepageHeader);
         };
       }
+
+      applyPublicHeaderContrast(publicHeader);
     }
 
     const hamburger = document.getElementById("header-hamburger");
