@@ -63,8 +63,8 @@ if (shouldRunNotifications) {
     }
   });
 
-  // Digest sweep every 5 minutes so weekday/hour/minute policy windows are honored.
-  cron.schedule('*/5 * * * *', async () => {
+  // Hourly digest window sweep; each organization policy controls weekday/hour send.
+  cron.schedule('0 * * * *', async () => {
     try {
       const summary = await runWeeklyDigestSweep();
       console.log(

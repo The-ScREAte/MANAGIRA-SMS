@@ -1475,11 +1475,11 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
     `SELECT user_id, first_name, last_name, email, account_type
      FROM users
      WHERE organization_id = $1
-       AND LOWER(COALESCE(account_type, '')) IN ('manager', 'supervisor', 'superviser')
+       AND account_type IN ('Manager', 'Supervisor')
        AND COALESCE(on_hold, FALSE) = FALSE
        AND email IS NOT NULL
        AND TRIM(email) <> ''
-     ORDER BY LOWER(account_type), first_name, last_name`,
+     ORDER BY account_type, first_name, last_name`,
     [organizationId]
   );
 
