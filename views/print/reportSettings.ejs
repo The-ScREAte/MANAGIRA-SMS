@@ -981,7 +981,7 @@
     }
 
     .status-row-editor {
-      --status-row-columns: 0.85fr 1.35fr 1.35fr 0.72fr 1.08fr;
+      --status-row-columns: 0.85fr 1.2fr 1.2fr 1.2fr 1.08fr;
       border: 1px solid #dbe4ef;
       border-radius: 12px;
       background: #ffffff;
@@ -1114,6 +1114,91 @@
       min-width: 0;
     }
 
+    .status-row-cutoff-cell {
+      position: relative;
+      min-width: 0;
+    }
+
+    .status-row-cutoff-cell input.status-row-field {
+      padding-right: 30px;
+    }
+
+    .status-row-cutoff-cell input[name="statusRowCutOffPoint[]"] {
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+
+    .status-row-cutoff-cell input[name="statusRowCutOffPoint[]"]::-webkit-outer-spin-button,
+    .status-row-cutoff-cell input[name="statusRowCutOffPoint[]"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .status-row-basis-trigger {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #64748b;
+      font-size: 0.92rem;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .status-row-basis-trigger:hover {
+      color: #334155;
+    }
+
+    .status-basis-popup-options {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    #statusBasisPopup {
+      width: min(252px, calc(100vw - 18px));
+      padding: 8px;
+    }
+
+    .status-basis-popup-btn {
+      width: 100%;
+      border: 1px solid #d8e4f0;
+      border-radius: 8px;
+      background: #fff;
+      color: #1f2937;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 6px 8px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .status-basis-popup-btn:hover,
+    .status-basis-popup-btn:focus {
+      outline: none;
+      border-color: color-mix(in srgb, var(--primary) 42%, white);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, white);
+    }
+
+    .status-basis-popup-btn.is-active {
+      border-color: color-mix(in srgb, var(--primary) 50%, white);
+      background: color-mix(in srgb, var(--primary) 10%, white);
+      color: color-mix(in srgb, var(--primary) 84%, #111827);
+    }
+
+    .status-basis-apply-panel {
+      display: none;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #d9e5f2;
+    }
+
+    .status-basis-apply-panel.is-open {
+      display: block;
+    }
+
     .status-date-popup {
       display: none;
       position: fixed;
@@ -1155,6 +1240,58 @@
       line-height: 1;
       cursor: pointer;
       padding: 0;
+      width: auto;
+      min-width: 20px;
+      max-width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      box-shadow: none;
+      flex: 0 0 20px;
+    }
+
+    .status-date-banner-close:hover,
+    .status-date-banner-close:focus-visible {
+      background: color-mix(in srgb, var(--primary) 10%, white);
+      color: #334155;
+      outline: none;
+    }
+
+    #statusBasisPopup .status-date-banner-close {
+      width: 18px !important;
+      min-width: 18px !important;
+      max-width: 18px !important;
+      height: 18px !important;
+      flex: 0 0 18px !important;
+      padding: 0 !important;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      border-radius: 999px !important;
+      font-size: 0.92rem;
+      font-weight: 800;
+      align-self: flex-start;
+    }
+
+    .status-basis-popup-close {
+      width: 18px !important;
+      min-width: 18px !important;
+      max-width: 18px !important;
+      height: 18px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex: 0 0 18px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      line-height: 1 !important;
+      text-align: center !important;
+      float: none !important;
     }
 
     .status-date-banner-actions { display: flex; flex-direction: column; gap: 6px; }
@@ -1503,13 +1640,18 @@
 
       .status-row-head,
       .status-row-item {
-        min-width: 760px;
+        min-width: 800px;
       }
 
       .status-date-popup {
         width: min(298px, calc(100vw - 12px));
         max-height: calc(100vh - 10px);
         padding: 8px;
+      }
+
+      #statusBasisPopup {
+        width: min(244px, calc(100vw - 10px));
+        padding: 7px;
       }
 
       .status-date-banner-head {
@@ -2188,6 +2330,7 @@
                     const rowPromoted = rowSetting && rowSetting.promoted_class ? Number(rowSetting.promoted_class) : null;
                     const rowRepeated = rowSetting && rowSetting.repeated_class ? Number(rowSetting.repeated_class) : null;
                     const rowCutOff = rowSetting && rowSetting.cut_off_point !== null && rowSetting.cut_off_point !== undefined ? rowSetting.cut_off_point : '';
+                    const rowPromotionBasis = rowSetting && String(rowSetting.promotion_basis || '').trim().toLowerCase() === 'total_score' ? 'total_score' : 'percentage';
                     const rowReopenDate = rowSetting ? formatDateInputValue(rowSetting.school_reopen_date) : '';
                   %>
                     <div class="status-row-item<%= String(currentClass ? currentClass.class_id : '') === String(classItem.class_id) ? ' is-active' : '' %>" data-class-id="<%= classItem.class_id %>">
@@ -2208,7 +2351,11 @@
                         <% }); %>
                       </select>
 
-                      <input class="status-row-field" type="number" name="statusRowCutOffPoint[]" value="<%= rowCutOff %>" />
+                      <div class="status-row-cutoff-cell">
+                        <input type="hidden" name="statusRowPromotionBasis[]" value="<%= rowPromotionBasis %>" />
+                        <input class="status-row-field" type="number" name="statusRowCutOffPoint[]" value="<%= rowCutOff %>" placeholder="<%= rowPromotionBasis === 'total_score' ? 'e.g. 500 (overall score)' : 'e.g. 50 (%)' %>" />
+                        <span class="status-row-basis-trigger" data-status-basis-trigger title="Cut off basis: <%= rowPromotionBasis === 'total_score' ? 'Overall Score' : 'Percentage' %>">^</span>
+                      </div>
                       <div class="status-row-date-cell">
                         <input class="status-row-field" type="date" name="statusRowSchoolReopenDate[]" value="<%= rowReopenDate %>" />
                       </div>
@@ -2231,6 +2378,50 @@
                     <div class="status-date-banner-footer">
                       <button type="button" class="status-date-banner-btn" data-status-date-action="cancel-select">Cancel</button>
                       <button type="button" class="status-date-banner-btn" data-status-date-action="apply-selected">Apply selected</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="statusCutoffPopup" class="status-date-popup" aria-hidden="true">
+                  <div class="status-date-banner-head">
+                    <div class="status-date-banner-title">Reuse this cut off?</div>
+                    <button type="button" class="status-date-banner-close" data-status-cutoff-close aria-label="Close cut off options">&times;</button>
+                  </div>
+                  <div class="status-date-banner-actions">
+                    <button type="button" class="status-date-banner-btn" data-status-cutoff-action="all">Apply to all classes</button>
+                    <button type="button" class="status-date-banner-btn" data-status-cutoff-action="empty">Apply to classes with no cut off</button>
+                    <button type="button" class="status-date-banner-btn" data-status-cutoff-action="select">Select classes</button>
+                  </div>
+                  <div class="status-date-banner-select-panel" data-status-cutoff-select-panel>
+                    <p class="status-date-banner-select-help">Pick the classes that should receive this same cut off value.</p>
+                    <div class="status-date-banner-class-list" data-status-cutoff-class-list></div>
+                    <div class="status-date-banner-footer">
+                      <button type="button" class="status-date-banner-btn" data-status-cutoff-action="cancel-select">Cancel</button>
+                      <button type="button" class="status-date-banner-btn" data-status-cutoff-action="apply-selected">Apply selected</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="statusBasisPopup" class="status-date-popup" aria-hidden="true">
+                  <div class="status-date-banner-head">
+                    <div class="status-date-banner-title">Select cut off basis</div>
+                    <button type="button" class="status-date-banner-close status-basis-popup-close" data-status-basis-close aria-label="Close basis options">&times;</button>
+                  </div>
+                  <div class="status-basis-popup-options">
+                    <button type="button" class="status-basis-popup-btn" data-status-basis-value="percentage">Percentage (%)</button>
+                    <button type="button" class="status-basis-popup-btn" data-status-basis-value="total_score">Overall Score</button>
+                  </div>
+                  <div class="status-basis-apply-panel" data-status-basis-apply-panel>
+                    <div class="status-date-banner-actions">
+                      <button type="button" class="status-date-banner-btn" data-status-basis-action="all">Apply to all classes</button>
+                      <button type="button" class="status-date-banner-btn" data-status-basis-action="this">Only this class</button>
+                      <button type="button" class="status-date-banner-btn" data-status-basis-action="select">Select classes</button>
+                    </div>
+                    <div class="status-date-banner-select-panel" data-status-basis-select-panel>
+                      <p class="status-date-banner-select-help">Pick the classes that should also use this same basis.</p>
+                      <div class="status-date-banner-class-list" data-status-basis-class-list></div>
+                      <div class="status-date-banner-footer">
+                        <button type="button" class="status-date-banner-btn" data-status-basis-action="cancel-select">Cancel</button>
+                        <button type="button" class="status-date-banner-btn" data-status-basis-action="apply-selected">Apply selected</button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3170,11 +3361,14 @@
     const statusSettingsSaveBtn = document.getElementById('statusSettingsSaveBtn');
     const statusRowsEditor = document.getElementById('statusRowsEditor');
     const statusDatePopup = document.getElementById('statusDatePopup');
+    const statusCutoffPopup = document.getElementById('statusCutoffPopup');
+    const statusBasisPopup = document.getElementById('statusBasisPopup');
     const bulkStatusSettingsBtn = document.getElementById('bulkStatusSettingsBtn');
     const STATUS_ROW_FIELDS_SELECTOR = [
       'input[name="statusRowClassId[]"]',
       'select[name="statusRowPromotedClass[]"]',
       'select[name="statusRowRepeatedClass[]"]',
+      'input[name="statusRowPromotionBasis[]"]',
       'input[name="statusRowCutOffPoint[]"]',
       'input[name="statusRowSchoolReopenDate[]"]',
     ].join(', ');
@@ -3235,6 +3429,31 @@
       return String(value ?? '').trim();
     }
 
+    function normalizePromotionBasisValue(value) {
+      return normalizeStatusRowValue(value).toLowerCase() === 'total_score' ? 'total_score' : 'percentage';
+    }
+
+    function getStatusRowPromotionBasis(row) {
+      const basisField = row?.querySelector('input[name="statusRowPromotionBasis[]"]');
+      return normalizePromotionBasisValue(basisField?.value);
+    }
+
+    function syncStatusRowCutOffFieldHint(row) {
+      if (!row) return;
+      const cutOffField = row.querySelector('input[name="statusRowCutOffPoint[]"]');
+      const basisTrigger = row.querySelector('[data-status-basis-trigger]');
+      if (!cutOffField) return;
+      const promotionBasis = getStatusRowPromotionBasis(row);
+      const isScoreBasis = promotionBasis === 'total_score';
+      cutOffField.placeholder = isScoreBasis ? 'e.g. 500 (overall score)' : 'e.g. 50 (%)';
+      cutOffField.title = isScoreBasis
+        ? 'Cut off is interpreted as overall score.'
+        : 'Cut off is interpreted as percentage.';
+      if (basisTrigger) {
+        basisTrigger.title = `Cut off basis: ${isScoreBasis ? 'Overall Score' : 'Percentage'}`;
+      }
+    }
+
     function normalizeStatusInputDate(value) {
       const rawValue = normalizeStatusRowValue(value);
       if (!rawValue) return '';
@@ -3279,6 +3498,7 @@
         classId: normalizeStatusRowValue(row.querySelector('input[name="statusRowClassId[]"]')?.value),
         promotedClass: normalizeStatusRowValue(row.querySelector('select[name="statusRowPromotedClass[]"]')?.value),
         repeatedClass: normalizeStatusRowValue(row.querySelector('select[name="statusRowRepeatedClass[]"]')?.value),
+        promotionBasis: getStatusRowPromotionBasis(row),
         cutOffPoint: normalizeStatusRowValue(row.querySelector('input[name="statusRowCutOffPoint[]"]')?.value),
         schoolReopenDate: normalizeStatusInputDate(row.querySelector('input[name="statusRowSchoolReopenDate[]"]')?.value),
       };
@@ -3296,6 +3516,7 @@
           promoted_class: savedRow.promoted_class === null || savedRow.promoted_class === undefined ? null : Number(savedRow.promoted_class),
           repeated_class: savedRow.repeated_class === null || savedRow.repeated_class === undefined ? null : Number(savedRow.repeated_class),
           cut_off_point: savedRow.cut_off_point === null || savedRow.cut_off_point === undefined ? null : Number(savedRow.cut_off_point),
+          promotion_basis: normalizePromotionBasisValue(savedRow.promotion_basis),
           school_reopen_date: savedRow.school_reopen_date || null,
           classes: [Number(savedRow.class_id)],
         };
@@ -3304,12 +3525,16 @@
         if (!row) return;
         const promotedField = row.querySelector('select[name="statusRowPromotedClass[]"]');
         const repeatedField = row.querySelector('select[name="statusRowRepeatedClass[]"]');
+        const promotionBasisField = row.querySelector('input[name="statusRowPromotionBasis[]"]');
         const cutOffField = row.querySelector('input[name="statusRowCutOffPoint[]"]');
         const reopenField = row.querySelector('input[name="statusRowSchoolReopenDate[]"]');
+        const promotionBasis = normalizePromotionBasisValue(savedRow.promotion_basis);
         if (promotedField) promotedField.value = savedRow.promoted_class ? String(savedRow.promoted_class) : '';
         if (repeatedField) repeatedField.value = savedRow.repeated_class ? String(savedRow.repeated_class) : '';
+        if (promotionBasisField) promotionBasisField.value = promotionBasis;
         if (cutOffField) cutOffField.value = savedRow.cut_off_point ?? '';
         if (reopenField) reopenField.value = normalizeStatusInputDate(savedRow.school_reopen_date);
+        syncStatusRowCutOffFieldHint(row);
       });
 
       captureStatusRowsInitialState();
@@ -3317,10 +3542,18 @@
     }
 
     let suppressStatusDateBulkPrompt = false;
+    let suppressStatusCutOffBulkPrompt = false;
     let statusDatePopupTimer = null;
     let statusDatePopupSourceRow = null;
     let statusDatePopupValue = '';
     let statusDatePopupAnchorInput = null;
+    let statusCutoffPopupTimer = null;
+    let statusCutoffPopupSourceRow = null;
+    let statusCutoffPopupValue = '';
+    let statusCutoffPopupAnchorInput = null;
+    let statusBasisPopupSourceRow = null;
+    let statusBasisPopupAnchorInput = null;
+    let statusBasisPopupValue = 'percentage';
 
     function closeStatusDatePopup() {
       if (statusDatePopupTimer) {
@@ -3335,6 +3568,35 @@
       statusDatePopupSourceRow = null;
       statusDatePopupValue = '';
       statusDatePopupAnchorInput = null;
+    }
+
+    function closeStatusCutoffPopup() {
+      if (statusCutoffPopupTimer) {
+        window.clearTimeout(statusCutoffPopupTimer);
+        statusCutoffPopupTimer = null;
+      }
+      if (!statusCutoffPopup) return;
+      statusCutoffPopup.classList.remove('is-open');
+      statusCutoffPopup.setAttribute('aria-hidden', 'true');
+      const selectPanel = statusCutoffPopup.querySelector('[data-status-cutoff-select-panel]');
+      if (selectPanel) selectPanel.classList.remove('is-open');
+      statusCutoffPopupSourceRow = null;
+      statusCutoffPopupValue = '';
+      statusCutoffPopupAnchorInput = null;
+    }
+
+    function closeStatusBasisPopup() {
+      if (!statusBasisPopup) return;
+      statusBasisPopup.classList.remove('is-open');
+      statusBasisPopup.setAttribute('aria-hidden', 'true');
+      statusBasisPopupSourceRow = null;
+      statusBasisPopupAnchorInput = null;
+      statusBasisPopupValue = 'percentage';
+      const applyPanel = statusBasisPopup.querySelector('[data-status-basis-apply-panel]');
+      const selectPanel = statusBasisPopup.querySelector('[data-status-basis-select-panel]');
+      if (applyPanel) applyPanel.classList.remove('is-open');
+      if (selectPanel) selectPanel.classList.remove('is-open');
+      statusBasisPopup.querySelectorAll('[data-status-basis-value]').forEach((btn) => btn.classList.remove('is-active'));
     }
 
     function buildStatusDatePopupClassOptions(sourceRow) {
@@ -3359,31 +3621,87 @@
         .join('');
     }
 
-    function positionStatusDatePopup(anchorInput) {
-      if (!statusDatePopup || !anchorInput) return;
+    function buildStatusCutoffPopupClassOptions(sourceRow) {
+      if (!statusRowsEditor || !sourceRow) return '';
+      return Array.from(statusRowsEditor.querySelectorAll('.status-row-item'))
+        .filter((row) => row !== sourceRow)
+        .map((row) => {
+          const classId = String(row.dataset.classId || '').trim();
+          const className = row.querySelector('.status-row-class')?.textContent?.trim() || 'Class';
+          const existingValue = normalizeStatusRowValue(row.querySelector('input[name="statusRowCutOffPoint[]"]')?.value);
+          const stateLabel = existingValue ? 'Has cut off' : 'No cut off';
+          return `
+            <div class="status-date-banner-class-option">
+              <label>
+                <input type="checkbox" value="${classId}" ${existingValue ? '' : 'checked'}>
+                <span>${className}</span>
+              </label>
+              <span class="status-date-banner-class-state">${stateLabel}</span>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function buildStatusBasisPopupClassOptions(sourceRow) {
+      if (!statusRowsEditor || !sourceRow) return '';
+      const nextBasis = normalizePromotionBasisValue(statusBasisPopupValue);
+      const nextBasisLabel = nextBasis === 'total_score' ? 'Overall Score' : 'Percentage';
+      return Array.from(statusRowsEditor.querySelectorAll('.status-row-item'))
+        .filter((row) => row !== sourceRow)
+        .map((row) => {
+          const classId = String(row.dataset.classId || '').trim();
+          const className = row.querySelector('.status-row-class')?.textContent?.trim() || 'Class';
+          const currentBasis = getStatusRowPromotionBasis(row);
+          const currentLabel = currentBasis === 'total_score' ? 'Overall Score' : 'Percentage';
+          const alreadyMatch = currentBasis === nextBasis;
+          return `
+            <div class="status-date-banner-class-option">
+              <label>
+                <input type="checkbox" value="${classId}" ${alreadyMatch ? '' : 'checked'}>
+                <span>${className}</span>
+              </label>
+              <span class="status-date-banner-class-state">${currentLabel}</span>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function positionStatusPopup(popupEl, anchorInput, options = {}) {
+      if (!popupEl || !anchorInput) return;
+      const preferAbove = options.preferAbove === true;
       if (window.innerWidth <= 680) {
-        statusDatePopup.style.left = '50%';
-        statusDatePopup.style.top = 'max(12px, env(safe-area-inset-top, 0px))';
-        statusDatePopup.style.transform = 'translateX(-50%)';
+        popupEl.style.left = '50%';
+        popupEl.style.top = 'max(12px, env(safe-area-inset-top, 0px))';
+        popupEl.style.transform = 'translateX(-50%)';
         return;
       }
 
-      statusDatePopup.style.transform = 'none';
+      popupEl.style.transform = 'none';
       const rect = anchorInput.getBoundingClientRect();
-      const popupRect = statusDatePopup.getBoundingClientRect();
+      const popupRect = popupEl.getBoundingClientRect();
       const viewportPadding = 10;
       let left = rect.right - popupRect.width;
       left = Math.min(left, window.innerWidth - popupRect.width - viewportPadding);
       left = Math.max(left, viewportPadding);
 
-      let top = rect.bottom + 8;
-      if (top + popupRect.height > window.innerHeight - viewportPadding) {
-        const upwardTop = rect.top - popupRect.height - 8;
-        top = upwardTop > viewportPadding ? upwardTop : Math.max(viewportPadding, window.innerHeight - popupRect.height - viewportPadding);
+      const downTop = rect.bottom + 8;
+      const upTop = rect.top - popupRect.height - 8;
+      let top;
+      if (preferAbove) {
+        top = upTop > viewportPadding
+          ? upTop
+          : Math.max(viewportPadding, Math.min(downTop, window.innerHeight - popupRect.height - viewportPadding));
+      } else {
+        top = downTop;
+        if (top + popupRect.height > window.innerHeight - viewportPadding) {
+          top = upTop > viewportPadding ? upTop : Math.max(viewportPadding, window.innerHeight - popupRect.height - viewportPadding);
+        }
       }
 
-      statusDatePopup.style.left = `${Math.round(left)}px`;
-      statusDatePopup.style.top = `${Math.round(top)}px`;
+      popupEl.style.left = `${Math.round(left)}px`;
+      popupEl.style.top = `${Math.round(top)}px`;
     }
 
     function openStatusDatePopup(row, reopenDateValue, anchorInput) {
@@ -3402,9 +3720,81 @@
         selectPanel.classList.remove('is-open');
         statusDatePopup.classList.add('is-open');
         statusDatePopup.setAttribute('aria-hidden', 'false');
-        positionStatusDatePopup(statusDatePopupAnchorInput);
+        positionStatusPopup(statusDatePopup, statusDatePopupAnchorInput);
         statusDatePopupTimer = null;
       }, 140);
+    }
+
+    function openStatusCutoffPopup(row, cutOffValue, anchorInput) {
+      if (!row || !cutOffValue || !statusCutoffPopup) return;
+      closeStatusCutoffPopup();
+      statusCutoffPopupSourceRow = row;
+      statusCutoffPopupValue = cutOffValue;
+      statusCutoffPopupAnchorInput = anchorInput || row.querySelector('input[name="statusRowCutOffPoint[]"]');
+
+      statusCutoffPopupTimer = window.setTimeout(() => {
+        const classList = statusCutoffPopup.querySelector('[data-status-cutoff-class-list]');
+        const selectPanel = statusCutoffPopup.querySelector('[data-status-cutoff-select-panel]');
+        if (!classList || !selectPanel) return;
+
+        classList.innerHTML = buildStatusCutoffPopupClassOptions(row);
+        selectPanel.classList.remove('is-open');
+        statusCutoffPopup.classList.add('is-open');
+        statusCutoffPopup.setAttribute('aria-hidden', 'false');
+        positionStatusPopup(statusCutoffPopup, statusCutoffPopupAnchorInput, { preferAbove: true });
+        statusCutoffPopupTimer = null;
+      }, 140);
+    }
+
+    function openStatusBasisPopup(row, anchorInput) {
+      if (!row || !statusBasisPopup) return;
+      closeStatusBasisPopup();
+      statusBasisPopupSourceRow = row;
+      statusBasisPopupAnchorInput = anchorInput || row.querySelector('[data-status-basis-trigger]');
+      const applyPanel = statusBasisPopup.querySelector('[data-status-basis-apply-panel]');
+      const selectPanel = statusBasisPopup.querySelector('[data-status-basis-select-panel]');
+      if (applyPanel) applyPanel.classList.remove('is-open');
+      if (selectPanel) selectPanel.classList.remove('is-open');
+      const currentBasis = getStatusRowPromotionBasis(row);
+      statusBasisPopupValue = currentBasis;
+      statusBasisPopup.querySelectorAll('[data-status-basis-value]').forEach((btn) => {
+        const matches = normalizePromotionBasisValue(btn.getAttribute('data-status-basis-value')) === currentBasis;
+        btn.classList.toggle('is-active', matches);
+      });
+      statusBasisPopup.classList.add('is-open');
+      statusBasisPopup.setAttribute('aria-hidden', 'false');
+      positionStatusPopup(statusBasisPopup, statusBasisPopupAnchorInput, { preferAbove: true });
+    }
+
+    function applyStatusBasisToRows(sourceRow, basisValue, options = {}) {
+      if (!statusRowsEditor || !sourceRow) return 0;
+      const normalizedBasis = normalizePromotionBasisValue(basisValue);
+      const mode = options.mode || 'all';
+      const selectedClassIds = Array.isArray(options.selectedClassIds)
+        ? new Set(options.selectedClassIds.map((value) => String(value).trim()).filter(Boolean))
+        : null;
+      let appliedCount = 0;
+
+      statusRowsEditor.querySelectorAll('.status-row-item').forEach((row) => {
+        if (row === sourceRow) {
+          syncStatusRowDirtyState(row);
+          return;
+        }
+        const classId = String(row.dataset.classId || '').trim();
+        const basisField = row.querySelector('input[name="statusRowPromotionBasis[]"]');
+        if (!classId || !basisField) return;
+
+        const shouldApply = mode === 'all' ? true : !!selectedClassIds?.has(classId);
+        if (!shouldApply) return;
+
+        basisField.value = normalizedBasis;
+        syncStatusRowCutOffFieldHint(row);
+        syncStatusRowDirtyState(row);
+        appliedCount += 1;
+      });
+
+      syncStatusRowDirtyState(sourceRow);
+      return appliedCount;
     }
 
     function applyStatusReopenDateToRows(sourceRow, reopenDateValue, options = {}) {
@@ -3442,9 +3832,46 @@
       return appliedCount;
     }
 
+    function applyStatusCutOffToRows(sourceRow, cutOffValue, options = {}) {
+      if (!statusRowsEditor || !sourceRow || !cutOffValue) return 0;
+      const mode = options.mode || 'all';
+      const selectedClassIds = Array.isArray(options.selectedClassIds)
+        ? new Set(options.selectedClassIds.map((value) => String(value).trim()).filter(Boolean))
+        : null;
+      let appliedCount = 0;
+
+      suppressStatusCutOffBulkPrompt = true;
+      statusRowsEditor.querySelectorAll('.status-row-item').forEach((row) => {
+        if (row === sourceRow) {
+          syncStatusRowDirtyState(row);
+          return;
+        }
+        const classId = String(row.dataset.classId || '').trim();
+        const cutOffField = row.querySelector('input[name="statusRowCutOffPoint[]"]');
+        if (!classId || !cutOffField) return;
+
+        const currentValue = normalizeStatusRowValue(cutOffField.value);
+        const shouldApply = mode === 'all'
+          ? true
+          : mode === 'empty'
+            ? !currentValue
+            : !!selectedClassIds?.has(classId);
+
+        if (!shouldApply) return;
+        cutOffField.value = cutOffValue;
+        syncStatusRowCutOffFieldHint(row);
+        syncStatusRowDirtyState(row);
+        appliedCount += 1;
+      });
+      suppressStatusCutOffBulkPrompt = false;
+      syncStatusRowDirtyState(sourceRow);
+      return appliedCount;
+    }
+
     function captureStatusRowsInitialState() {
       if (!statusRowsEditor) return;
       statusRowsEditor.querySelectorAll('.status-row-item').forEach((row) => {
+        syncStatusRowCutOffFieldHint(row);
         row.dataset.initialState = JSON.stringify(getStatusRowState(row));
       });
     }
@@ -3457,6 +3884,7 @@
         return (
           currentState.promotedClass !== initialState.promotedClass
           || currentState.repeatedClass !== initialState.repeatedClass
+          || currentState.promotionBasis !== initialState.promotionBasis
           || currentState.cutOffPoint !== initialState.cutOffPoint
           || currentState.schoolReopenDate !== initialState.schoolReopenDate
         );
@@ -4226,6 +4654,10 @@
         // Display current settings
         const promotedClassObj = enrolledClassesData.find(c => c.class_id === data.promoted_class);
         const repeatedClassObj = enrolledClassesData.find(c => c.class_id === data.repeated_class);
+        const promotionBasisLabel = normalizePromotionBasisValue(data.promotion_basis) === 'total_score' ? 'Overall Score' : 'Percentage';
+        const cutOffLabel = data.cut_off_point === null || data.cut_off_point === undefined || data.cut_off_point === ''
+          ? `- (${promotionBasisLabel})`
+          : `${data.cut_off_point}${normalizePromotionBasisValue(data.promotion_basis) === 'total_score' ? ' (score)' : ' %'} (${promotionBasisLabel})`;
         
         currentSettingsDisplay.innerHTML = `
           <div class="status-overview-item">
@@ -4238,7 +4670,7 @@
           </div>
           <div class="status-overview-item">
             <div class="status-overview-item-label">Cut Off Point</div>
-            <div class="status-overview-item-value">${data.cut_off_point || '-'}</div>
+            <div class="status-overview-item-value">${cutOffLabel}</div>
           </div>
           <div class="status-overview-item">
             <div class="status-overview-item-label">School Reopen Date</div>
@@ -4287,22 +4719,43 @@
     classButtons.forEach(btn => { btn.addEventListener('click', () => loadClassSettings(btn.dataset.classId)); });
     focusStatusRow(classIdField.value);
     captureStatusRowsInitialState();
+    statusRowsEditor?.querySelectorAll('.status-row-item').forEach((row) => {
+      syncStatusRowCutOffFieldHint(row);
+    });
 
     document.addEventListener('click', (event) => {
       if (event.target.closest('#statusDatePopup')) return;
+      if (event.target.closest('#statusCutoffPopup')) return;
+      if (event.target.closest('#statusBasisPopup')) return;
+      if (event.target.closest('[data-status-basis-trigger]')) return;
       if (event.target.matches('input[name="statusRowSchoolReopenDate[]"]')) return;
+      if (event.target.matches('input[name="statusRowCutOffPoint[]"]')) return;
       closeStatusDatePopup();
+      closeStatusCutoffPopup();
+      closeStatusBasisPopup();
     });
 
     window.addEventListener('resize', () => {
       if (statusDatePopup?.classList.contains('is-open')) {
-        positionStatusDatePopup(statusDatePopupAnchorInput);
+        positionStatusPopup(statusDatePopup, statusDatePopupAnchorInput);
+      }
+      if (statusCutoffPopup?.classList.contains('is-open')) {
+        positionStatusPopup(statusCutoffPopup, statusCutoffPopupAnchorInput, { preferAbove: true });
+      }
+      if (statusBasisPopup?.classList.contains('is-open')) {
+        positionStatusPopup(statusBasisPopup, statusBasisPopupAnchorInput, { preferAbove: true });
       }
     });
 
     window.addEventListener('scroll', () => {
       if (statusDatePopup?.classList.contains('is-open')) {
-        positionStatusDatePopup(statusDatePopupAnchorInput);
+        positionStatusPopup(statusDatePopup, statusDatePopupAnchorInput);
+      }
+      if (statusCutoffPopup?.classList.contains('is-open')) {
+        positionStatusPopup(statusCutoffPopup, statusCutoffPopupAnchorInput, { preferAbove: true });
+      }
+      if (statusBasisPopup?.classList.contains('is-open')) {
+        positionStatusPopup(statusBasisPopup, statusBasisPopupAnchorInput, { preferAbove: true });
       }
     }, true);
 
@@ -4317,7 +4770,25 @@
           closeStatusDatePopup();
         }
       }
+      if (!suppressStatusCutOffBulkPrompt && event.target.matches('input[name="statusRowCutOffPoint[]"]')) {
+        const cutOffValue = normalizeStatusRowValue(event.target.value);
+        if (cutOffValue) {
+          openStatusCutoffPopup(row, cutOffValue, event.target);
+        } else {
+          closeStatusCutoffPopup();
+        }
+      }
       syncStatusRowDirtyState(row);
+    });
+
+    statusRowsEditor?.addEventListener('click', (event) => {
+      const trigger = event.target.closest('[data-status-basis-trigger]');
+      if (!trigger) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const row = trigger.closest('.status-row-item');
+      if (!row) return;
+      openStatusBasisPopup(row, trigger);
     });
 
     statusDatePopup?.addEventListener('click', (event) => {
@@ -4374,9 +4845,159 @@
       }
     });
 
+    statusCutoffPopup?.addEventListener('click', (event) => {
+      const actionButton = event.target.closest('[data-status-cutoff-action], [data-status-cutoff-close]');
+      if (!actionButton) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (actionButton.hasAttribute('data-status-cutoff-close')) {
+        closeStatusCutoffPopup();
+        return;
+      }
+
+      const row = statusCutoffPopupSourceRow;
+      const cutOffValue = statusCutoffPopupValue || normalizeStatusRowValue(row?.querySelector('input[name="statusRowCutOffPoint[]"]')?.value);
+      const action = actionButton.getAttribute('data-status-cutoff-action');
+      const selectPanel = statusCutoffPopup.querySelector('[data-status-cutoff-select-panel]');
+
+      if (!row || !cutOffValue) {
+        closeStatusCutoffPopup();
+        return;
+      }
+
+      if (action === 'select') {
+        selectPanel?.classList.add('is-open');
+        return;
+      }
+
+      if (action === 'cancel-select') {
+        selectPanel?.classList.remove('is-open');
+        return;
+      }
+
+      let appliedCount = 0;
+      if (action === 'all') {
+        appliedCount = applyStatusCutOffToRows(row, cutOffValue, { mode: 'all' });
+      } else if (action === 'empty') {
+        appliedCount = applyStatusCutOffToRows(row, cutOffValue, { mode: 'empty' });
+      } else if (action === 'apply-selected') {
+        const selectedClassIds = Array.from(statusCutoffPopup.querySelectorAll('[data-status-cutoff-class-list] input[type="checkbox"]:checked'))
+          .map((checkbox) => checkbox.value);
+        if (!selectedClassIds.length) {
+          alert('Select at least one class to apply this cut off value.');
+          return;
+        }
+        appliedCount = applyStatusCutOffToRows(row, cutOffValue, { mode: 'selected', selectedClassIds });
+      }
+
+      closeStatusCutoffPopup();
+      if (appliedCount > 0 && typeof showToast === 'function') {
+        showToast(`Applied cut off to ${appliedCount} class${appliedCount === 1 ? '' : 'es'}.`);
+      }
+    });
+
+    statusBasisPopup?.addEventListener('click', (event) => {
+      const closeBtn = event.target.closest('[data-status-basis-close]');
+      if (closeBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeStatusBasisPopup();
+        return;
+      }
+
+      const actionButton = event.target.closest('[data-status-basis-action]');
+      if (actionButton) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const row = statusBasisPopupSourceRow;
+        const basisValue = normalizePromotionBasisValue(statusBasisPopupValue);
+        const action = actionButton.getAttribute('data-status-basis-action');
+        const selectPanel = statusBasisPopup.querySelector('[data-status-basis-select-panel]');
+
+        if (!row) {
+          closeStatusBasisPopup();
+          return;
+        }
+
+        if (action === 'select') {
+          selectPanel?.classList.add('is-open');
+          positionStatusPopup(statusBasisPopup, statusBasisPopupAnchorInput, { preferAbove: true });
+          return;
+        }
+
+        if (action === 'cancel-select') {
+          selectPanel?.classList.remove('is-open');
+          positionStatusPopup(statusBasisPopup, statusBasisPopupAnchorInput, { preferAbove: true });
+          return;
+        }
+
+        let appliedCount = 0;
+        if (action === 'all') {
+          appliedCount = applyStatusBasisToRows(row, basisValue, { mode: 'all' });
+        } else if (action === 'this') {
+          appliedCount = 0;
+        } else if (action === 'apply-selected') {
+          const selectedClassIds = Array.from(statusBasisPopup.querySelectorAll('[data-status-basis-class-list] input[type="checkbox"]:checked'))
+            .map((checkbox) => checkbox.value);
+          if (!selectedClassIds.length) {
+            alert('Select at least one class to apply this basis.');
+            return;
+          }
+          appliedCount = applyStatusBasisToRows(row, basisValue, { mode: 'selected', selectedClassIds });
+        }
+
+        closeStatusBasisPopup();
+        if (appliedCount > 0 && typeof showToast === 'function') {
+          showToast(`Applied basis to ${appliedCount} class${appliedCount === 1 ? '' : 'es'}.`);
+        }
+        return;
+      }
+
+      const basisBtn = event.target.closest('[data-status-basis-value]');
+      if (!basisBtn) return;
+      event.preventDefault();
+      event.stopPropagation();
+
+      const row = statusBasisPopupSourceRow;
+      if (!row) {
+        closeStatusBasisPopup();
+        return;
+      }
+
+      const basisValue = normalizePromotionBasisValue(basisBtn.getAttribute('data-status-basis-value'));
+      const basisField = row.querySelector('input[name="statusRowPromotionBasis[]"]');
+      if (basisField) {
+        basisField.value = basisValue;
+      }
+
+      statusBasisPopupValue = basisValue;
+
+      syncStatusRowCutOffFieldHint(row);
+      syncStatusRowDirtyState(row);
+
+      if (basisValue !== 'total_score') {
+        closeStatusBasisPopup();
+        return;
+      }
+
+      const applyPanel = statusBasisPopup.querySelector('[data-status-basis-apply-panel]');
+      const selectPanel = statusBasisPopup.querySelector('[data-status-basis-select-panel]');
+      const classList = statusBasisPopup.querySelector('[data-status-basis-class-list]');
+      if (applyPanel) applyPanel.classList.add('is-open');
+      if (selectPanel) selectPanel.classList.remove('is-open');
+      if (classList) classList.innerHTML = buildStatusBasisPopupClassOptions(row);
+      positionStatusPopup(statusBasisPopup, statusBasisPopupAnchorInput, { preferAbove: true });
+    });
+
     statusRowsEditor?.addEventListener('input', (event) => {
       const row = event.target.closest('.status-row-item');
       if (!row) return;
+      if (event.target.matches('input[name="statusRowCutOffPoint[]"]')) {
+        syncStatusRowCutOffFieldHint(row);
+      }
       syncStatusRowDirtyState(row);
     });
 
@@ -6308,7 +6929,7 @@
       const examsItems = [...(catMap['Exams Assessment'] || []), ...(catMap['Exam Assessment'] || [])];
       const otherItems = [...(catMap['Other'] || []), ...(catMap['Other Assessment'] || [])];
 
-      const flatCols = [['totalScore','Total Score'],['scaledScore','Scaled Score'],['totalPercentage','Total %'],['grade','Grade'],['position','Position'],['remarksCol','Remarks Col']];
+      const flatCols = [['totalScore','Total Score'],['scaledScore','Scaled Score'],['totalPercentage','Overall %'],['grade','Grade'],['position','Position'],['remarksCol','Remarks Col']];
       const flatColsHtml = flatCols.map(([key,lbl]) => `
         <label class="ds-adv-flat-lbl">
           <input type="checkbox" class="ds-adv-col" data-key="${key}" style="accent-color:var(--primary);" ${ds.columns[key] ? 'checked' : ''}>
@@ -7473,6 +8094,9 @@
 
       try {
         const dirtyStates = dirtyRows.map((row) => getStatusRowState(row));
+        const selectedClassIds = dirtyStates
+          .map((row) => String(row.classId || '').trim())
+          .filter(Boolean);
         const formData = new FormData(this);
         const response = await fetch(this.action, {
           method: 'POST',
@@ -7489,7 +8113,9 @@
             statusRowPromotedClass: dirtyStates.map((row) => row.promotedClass),
             statusRowRepeatedClass: dirtyStates.map((row) => row.repeatedClass),
             statusRowCutOffPoint: dirtyStates.map((row) => row.cutOffPoint),
+            statusRowPromotionBasis: dirtyStates.map((row) => row.promotionBasis),
             statusRowSchoolReopenDate: dirtyStates.map((row) => row.schoolReopenDate),
+            selectedStatusClasses: selectedClassIds,
             responseMode: 'json',
           }),
         });

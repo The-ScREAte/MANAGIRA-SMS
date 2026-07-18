@@ -222,6 +222,31 @@ async function ensureStudentReportCustomRemarksColumn(dbClient) {
   }
 }
 
+const PROMOTION_BASIS_PERCENTAGE = "percentage";
+const PROMOTION_BASIS_TOTAL_SCORE = "total_score";
+
+function normalizePromotionBasis(value) {
+  return String(value || "").trim().toLowerCase() === PROMOTION_BASIS_TOTAL_SCORE
+    ? PROMOTION_BASIS_TOTAL_SCORE
+    : PROMOTION_BASIS_PERCENTAGE;
+}
+
+let ensuredStatusSettingsPromotionBasisColumn = false;
+async function ensureStatusSettingsPromotionBasisColumn(dbClient) {
+  if (ensuredStatusSettingsPromotionBasisColumn) return;
+  try {
+    await dbClient.query(
+      "ALTER TABLE status_settings ADD COLUMN IF NOT EXISTS promotion_basis VARCHAR(30) DEFAULT 'percentage'"
+    );
+    await dbClient.query(
+      "UPDATE status_settings SET promotion_basis = 'percentage' WHERE promotion_basis IS NULL OR TRIM(promotion_basis) = ''"
+    );
+    ensuredStatusSettingsPromotionBasisColumn = true;
+  } catch (err) {
+    console.error("[ensureStatusSettingsPromotionBasisColumn] Failed to add column", err);
+  }
+}
+
 let ensuredReportPaygiraManualOverridesTable = false;
 async function ensureReportPaygiraManualOverridesTable(dbClient) {
   if (ensuredReportPaygiraManualOverridesTable) return;
@@ -1249,6 +1274,7 @@ const printController = (db) => ({
     await ensureStudentReportManualAttendanceColumn(db);
     await ensureStudentReportPaygiraManualDataColumn(db);
     await ensureStudentReportCustomRemarksColumn(db);
+    await ensureStatusSettingsPromotionBasisColumn(db);
     await ensureOrganizationCustomRemarkTypesTable(db);
     // Validate inputs
     if (!organizationId) {
@@ -1319,7 +1345,7 @@ const printController = (db) => ({
 
       // Fetch status settings
       const statusSettingsResult = await db.query(
-        `SELECT cut_off_point, promoted_class, repeated_class, school_reopen_date, activate_promotion, term_end_date
+        `SELECT cut_off_point, promoted_class, repeated_class, school_reopen_date, activate_promotion, term_end_date, promotion_basis
          FROM status_settings
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
          LIMIT 1`,
@@ -1328,6 +1354,7 @@ const printController = (db) => ({
 
       const statusSettings = statusSettingsResult.rows[0] || {};
       const cutOffPoint = statusSettings.cut_off_point || 50;
+      const promotionBasis = normalizePromotionBasis(statusSettings.promotion_basis);
       const orgDateDisplayFormat = req.session?.dateDisplayFormat;
       const orgNameDisplayFormat = req.session?.nameDisplayFormat;
       const schoolReopenDate = statusSettings.school_reopen_date
@@ -1714,6 +1741,7 @@ const printController = (db) => ({
         );
 
         let totalScoreSum = 0;
+        let totalMaxScoreSum = 0;
         let totalPercentageSum = 0;
         let subjectCount = 0;
         const gradePresentationSettings = normalizeGradePresentationConfig(displaySettings.sections?.gradePresentation);
@@ -1762,6 +1790,9 @@ const printController = (db) => ({
             subjectCount++;
           }
           totalScoreSum += totalScore;
+          if (filteredMaxScore > 0) {
+            totalMaxScoreSum += filteredMaxScore;
+          }
 
           // Subject position (from DB — reflects official full-score ranking)
           const subjectPos = subjectPositionsMap[`${student.student_id}_${subject.subject_id}`];
@@ -1787,6 +1818,7 @@ const printController = (db) => ({
         
 
         student.totalScoreSum = totalScoreSum;
+        student.totalMaxScoreSum = Number(totalMaxScoreSum.toFixed(2));
         student.overallPercentage =
           subjectCount > 0
             ? (totalPercentageSum / subjectCount).toFixed(2)
@@ -1804,12 +1836,16 @@ const printController = (db) => ({
           totalDays,
         };
 
+        const promotionMetric = promotionBasis === PROMOTION_BASIS_TOTAL_SCORE
+          ? Number(student.totalScoreSum || 0)
+          : Number.parseFloat(student.overallPercentage) || 0;
+
         student.promotionClass =
-          student.overallPercentage >= cutOffPoint
+          promotionMetric >= cutOffPoint
             ? promotedClassName
             : repeatedClassName;
         student.promotionStatus =
-          student.overallPercentage >= cutOffPoint ? "Promoted" : "Repeated";
+          promotionMetric >= cutOffPoint ? "Promoted" : "Repeated";
       });
 
       if (displaySettings.sections.paygiraBills.enabled && displaySettings.sections.paygiraBills.mode === 'auto' && students.length) {
@@ -1998,7 +2034,11 @@ students
     student.positionInClass = `${student.class_position}${getOrdinalSuffix(student.class_position)}`;
 
     // ✅ INSERT PROMOTION CLASS ID SETTING HERE
-    if (student.overallPercentage >= cutOffPoint) {
+    const promotionMetric = promotionBasis === PROMOTION_BASIS_TOTAL_SCORE
+      ? Number(student.totalScoreSum || 0)
+      : Number.parseFloat(student.overallPercentage) || 0;
+
+    if (promotionMetric >= cutOffPoint) {
       student.promotionClass = promotedClassName;
       student.promotionStatus = "Promoted";
       student.promotionClassId = promotedClassId; // ✅ SET promotion class id
@@ -2113,6 +2153,7 @@ students
     await ensureScoreRemarkRuleLockTable(db);
     await ensureScoreRemarkRangeUniqueConstraint(db);
     await ensureClassDashboardLayoutColumns(db);
+    await ensureStatusSettingsPromotionBasisColumn(db);
     await ensureOrganizationCustomRemarkTypesTable(db);
 
     try {
@@ -2484,11 +2525,12 @@ students
           repeated_class, 
           activate_promotion, 
           cut_off_point, 
+          promotion_basis,
           school_reopen_date,
           array_agg(class_id ORDER BY class_id ASC) AS classes
         FROM status_settings
         WHERE organization_id = $1 AND term_id = $2
-        GROUP BY promoted_class, repeated_class, activate_promotion, cut_off_point, school_reopen_date`,
+        GROUP BY promoted_class, repeated_class, activate_promotion, cut_off_point, promotion_basis, school_reopen_date`,
         [organizationId, parsedTermId]
       );
   
@@ -2502,6 +2544,7 @@ students
           repeated_class: setting.repeated_class
             ? parseInt(setting.repeated_class)
             : null,
+          promotion_basis: normalizePromotionBasis(setting.promotion_basis),
           classes: setting.classes.map((id) => parseInt(id)),
         })
       );
@@ -2932,12 +2975,14 @@ students
       repeatedClass,
       schoolReopenDate,
       termEndDate,
+      promotionBasis,
       activatePromotion,
       selectedStatusClasses,
       statusRowClassId,
       statusRowPromotedClass,
       statusRowRepeatedClass,
       statusRowCutOffPoint,
+      statusRowPromotionBasis,
       statusRowSchoolReopenDate,
       classId: formClassId,
       termId: formTermId,
@@ -3017,6 +3062,8 @@ students
     };
   
     try {
+      await ensureStatusSettingsPromotionBasisColumn(db);
+
       if (!organizationId) {
         return respondError("Organization ID is not set in session.", 401);
       }
@@ -3038,10 +3085,22 @@ students
         return [value];
       };
 
+      const parseSelectedClassIds = (rawValue) => {
+        const pieces = toArray(rawValue)
+          .flatMap((item) => String(item ?? "").split(","))
+          .map((item) => item.trim())
+          .filter(Boolean);
+        const parsed = pieces
+          .map((item) => parseInt(item, 10))
+          .filter((item) => Number.isInteger(item) && item > 0);
+        return [...new Set(parsed)];
+      };
+
       const rowClassIdsRaw = toArray(statusRowClassId ?? req.body["statusRowClassId[]"]);
       const rowPromotedRaw = toArray(statusRowPromotedClass ?? req.body["statusRowPromotedClass[]"]);
       const rowRepeatedRaw = toArray(statusRowRepeatedClass ?? req.body["statusRowRepeatedClass[]"]);
       const rowCutOffRaw = toArray(statusRowCutOffPoint ?? req.body["statusRowCutOffPoint[]"]);
+      const rowPromotionBasisRaw = toArray(statusRowPromotionBasis ?? req.body["statusRowPromotionBasis[]"]);
       const rowReopenRaw = toArray(statusRowSchoolReopenDate ?? req.body["statusRowSchoolReopenDate[]"]);
 
       if (rowClassIdsRaw.length) {
@@ -3065,6 +3124,7 @@ students
             promotedClass: Number.isInteger(parsedPromoted) ? parsedPromoted : null,
             repeatedClass: Number.isInteger(parsedRepeated) ? parsedRepeated : null,
             cutOffPoint: Number.isInteger(parsedCutOff) ? parsedCutOff : null,
+            promotionBasis: normalizePromotionBasis(rowPromotionBasisRaw[index]),
             schoolReopenDate: reopenDateValue,
           });
         });
@@ -3074,12 +3134,21 @@ students
           return respondError("No valid class rows were provided for status settings.");
         }
 
+        const explicitlySelectedClassIds = parseSelectedClassIds(selectedStatusClasses);
+        const scopedCandidateRows = explicitlySelectedClassIds.length
+          ? candidateRows.filter((row) => explicitlySelectedClassIds.includes(row.classId))
+          : candidateRows;
+
+        if (!scopedCandidateRows.length) {
+          return respondError("No edited classes matched the selected class scope.");
+        }
+
         const scopedTerm = await getScopedTermRecord(db, organizationId, parsedTermId);
         if (!scopedTerm) {
           return respondError("Selected term is outside this organization.");
         }
 
-        const candidateClassIds = candidateRows.map((row) => row.classId);
+        const candidateClassIds = scopedCandidateRows.map((row) => row.classId);
         const validClassIds = await getScopedClassIds(db, organizationId, candidateClassIds);
         if (validClassIds.length !== candidateClassIds.length) {
           return respondError("One or more row classes are outside this organization.");
@@ -3093,10 +3162,11 @@ students
         );
         const existingClassSet = new Set(existingRowsResult.rows.map((row) => Number(row.class_id)));
 
-        const rowsToPersist = candidateRows.filter((row) => {
+        const rowsToPersist = scopedCandidateRows.filter((row) => {
           const hasAnyValue = row.promotedClass !== null
             || row.repeatedClass !== null
             || row.cutOffPoint !== null
+            || row.promotionBasis !== PROMOTION_BASIS_PERCENTAGE
             || row.schoolReopenDate !== null;
           return hasAnyValue || existingClassSet.has(row.classId);
         });
@@ -3120,6 +3190,7 @@ students
                promoted_class int,
                repeated_class int,
                cut_off_point int,
+               promotion_basis text,
                school_reopen_date date
              )
            )
@@ -3128,6 +3199,7 @@ students
              class_id,
              term_id,
              cut_off_point,
+             promotion_basis,
              promoted_class,
              repeated_class,
              school_reopen_date,
@@ -3139,6 +3211,10 @@ students
              incoming.class_id,
              $3,
              incoming.cut_off_point,
+             CASE
+               WHEN incoming.promotion_basis = 'total_score' THEN 'total_score'
+               ELSE 'percentage'
+             END,
              incoming.promoted_class,
              incoming.repeated_class,
              incoming.school_reopen_date,
@@ -3147,6 +3223,7 @@ students
            FROM incoming
            ON CONFLICT (organization_id, class_id, term_id) DO UPDATE SET
              cut_off_point = EXCLUDED.cut_off_point,
+             promotion_basis = EXCLUDED.promotion_basis,
              promoted_class = EXCLUDED.promoted_class,
              repeated_class = EXCLUDED.repeated_class,
              school_reopen_date = EXCLUDED.school_reopen_date,
@@ -3155,13 +3232,14 @@ students
                WHEN $5::boolean IS NULL THEN status_settings.activate_promotion
                ELSE $5::boolean
              END
-           RETURNING class_id, promoted_class, repeated_class, cut_off_point, school_reopen_date, term_end_date, activate_promotion`,
+           RETURNING class_id, promoted_class, repeated_class, cut_off_point, promotion_basis, school_reopen_date, term_end_date, activate_promotion`,
           [
             JSON.stringify(rowsToPersist.map((row) => ({
               class_id: row.classId,
               promoted_class: row.promotedClass,
               repeated_class: row.repeatedClass,
               cut_off_point: row.cutOffPoint,
+              promotion_basis: row.promotionBasis,
               school_reopen_date: row.schoolReopenDate,
             }))),
             organizationId,
@@ -3176,6 +3254,7 @@ students
           promoted_class: row.promoted_class === null || row.promoted_class === undefined ? null : Number(row.promoted_class),
           repeated_class: row.repeated_class === null || row.repeated_class === undefined ? null : Number(row.repeated_class),
           cut_off_point: row.cut_off_point === null || row.cut_off_point === undefined ? null : Number(row.cut_off_point),
+          promotion_basis: normalizePromotionBasis(row.promotion_basis),
           school_reopen_date: toIsoDateString(row.school_reopen_date),
           term_end_date: toIsoDateString(row.term_end_date),
           activate_promotion: row.activate_promotion === true,
@@ -3209,6 +3288,8 @@ students
         return respondError("Selected term is outside this organization.");
       }
 
+      const normalizedPromotionBasis = normalizePromotionBasis(promotionBasis);
+
       for (const classIdToSave of validClassIds) {
         const updateResult = await db.query(
           `UPDATE status_settings SET
@@ -3217,8 +3298,9 @@ students
             repeated_class = $3,
             school_reopen_date = $4,
             term_end_date = $5,
-            activate_promotion = $6
-          WHERE organization_id = $7 AND class_id = $8 AND term_id = $9`,
+            activate_promotion = $6,
+            promotion_basis = $7
+          WHERE organization_id = $8 AND class_id = $9 AND term_id = $10`,
           [
             parseInt(cutOffPoint, 10) || null,
             promotedClass || null,
@@ -3226,6 +3308,7 @@ students
             normalizeDateInputToIso(schoolReopenDate),
             normalizeDateInputToIso(termEndDate),
             activatePromotion === "on",
+            normalizedPromotionBasis,
             organizationId,
             classIdToSave,
             parsedTermId,
@@ -3236,8 +3319,8 @@ students
           await db.query(
             `INSERT INTO status_settings (
               organization_id, class_id, term_id, cut_off_point, promoted_class,
-              repeated_class, school_reopen_date, term_end_date, activate_promotion
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+              repeated_class, school_reopen_date, term_end_date, activate_promotion, promotion_basis
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
             [
               organizationId,
               classIdToSave,
@@ -3248,6 +3331,7 @@ students
               normalizeDateInputToIso(schoolReopenDate),
               normalizeDateInputToIso(termEndDate),
               activatePromotion === "on",
+              normalizedPromotionBasis,
             ]
           );
         }

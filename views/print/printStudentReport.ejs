@@ -1889,8 +1889,17 @@
                     <div class="attendance-info">
                         <table class="promotion-table">
                             <tr>
-                                <td>Overall Percentage:</td>
-                                <td><%= student.overallPercentage %> %</td>
+                                                                <td>Overall % | Score:</td>
+                                                                <td>
+                                                                    <%= student.overallPercentage %> %
+                                                                    <span style="font-weight:600;color:#475569;">
+                                                                        |
+                                                                        <%= Number.isFinite(Number(student.totalScoreSum)) ? Number(student.totalScoreSum).toFixed(2) : '0.00' %>
+                                                                        <% if (Number.isFinite(Number(student.totalMaxScoreSum))) { %>
+                                                                            /<%= Number(student.totalMaxScoreSum).toFixed(2) %>
+                                                                        <% } %>
+                                                                    </span>
+                                                                </td>
                                 <td>Attendance:</td>
                                                                 <td>
                                                                     <% if (displaySettings.sections.turnOffAutoAttendance) { %>
