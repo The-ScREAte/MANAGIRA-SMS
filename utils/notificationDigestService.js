@@ -809,6 +809,7 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
   const classStandingMap = await getStudentClassStandingMap(database, organizationId, currentTermId, studentIds);
   const weeklySignals = await getWeeklySchoolSignals(database, organizationId, weekStartKey, weekEndKey);
   const { organizationName } = await getOrganizationSummary(database, organizationId);
+  const websiteInfo = await getOrganizationWebsiteInfo(database, organizationId);
 
   let sent = 0;
   for (const guardian of guardianMap.values()) {
