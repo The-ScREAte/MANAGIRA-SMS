@@ -115,6 +115,42 @@ function hasSetAssessmentQuestionsFeature(req) {
   return hasOrgFeature(req, SET_ASSESSMENT_QUESTION_FEATURE_NAMES);
 }
 
+async function notifyManagersAndSupervisors(dbClient, { orgId, type, title, body = null, link = null, refId = null }) {
+  const normalizedOrgId = Number(orgId || 0);
+  if (!normalizedOrgId || !type || !title) return;
+
+  const recipientsResult = await dbClient.query(
+    `SELECT DISTINCT user_id
+     FROM users
+     WHERE organization_id = $1
+       AND COALESCE(on_hold, FALSE) = FALSE
+        AND LOWER(TRIM(account_type::text)) IN ('manager', 'supervisor')`,
+    [normalizedOrgId]
+  );
+
+  const recipientIds = new Set(
+    recipientsResult.rows
+      .map((row) => Number(row.user_id))
+      .filter((value) => Number.isFinite(value) && value > 0)
+  );
+
+  // Keep the organization owner/manager context informed as well.
+  recipientIds.add(0);
+
+  const notifications = Array.from(recipientIds).map((recipientId) => ({
+    orgId: normalizedOrgId,
+    recipientType: 'staff',
+    recipientId,
+    type,
+    title,
+    body,
+    link,
+    refId,
+  }));
+
+  await notifSvc.createNotifications(dbClient, notifications);
+}
+
 async function getActivePaystackConfig(dbClient) {
   const settings = await getPaystackSettings(dbClient);
   return {
@@ -16194,16 +16230,41 @@ NUMBERING:
 
       await db.query("COMMIT");
 
-      // H1 — broadcast term_changed notification (only fires if a current term was set above; harmless to fire every save)
-      notifSvc.createNotification(db, {
+      const activeTermResult = await db.query(
+        `SELECT t.term_id, t.term_name, sy.year_label
+         FROM terms t
+         JOIN school_years sy ON sy.id = t.school_year_id
+         WHERE t.organization_id = $1
+           AND t.current = TRUE
+         ORDER BY t.term_id DESC
+         LIMIT 1`,
+        [organizationId]
+      );
+
+      const activeTerm = activeTermResult.rows[0] || null;
+      const activeTermLabel = activeTerm
+        ? [activeTerm.year_label, activeTerm.term_name].filter(Boolean).join(' - ')
+        : 'the new term';
+
+      notifyManagersAndSupervisors(db, {
         orgId: Number(organizationId),
-        recipientType: 'broadcast',
-        recipientId: 0,
         type: 'term_changed',
         title: 'Term settings updated',
-        body: 'School year / term has changed.',
-        link: null,
+        body: `School year / term has changed to ${activeTermLabel}.`,
+        link: '/common/manageRecords',
+        refId: Number(activeTerm?.term_id) || null,
       }).catch(err => console.error('[Notif] term_changed failed:', err.message));
+
+      if (activeTerm) {
+        notifyManagersAndSupervisors(db, {
+          orgId: Number(organizationId),
+          type: 'new_term_welcome',
+          title: `Welcome to ${activeTerm.term_name}`,
+          body: `We wish you all the best and good success this new term in ${activeTerm.year_label}.`,
+          link: '/common/orgDashboard',
+          refId: Number(activeTerm.term_id) || null,
+        }).catch(err => console.error('[Notif] new_term_welcome failed:', err.message));
+      }
 
       if (enrollmentCopySummary) {
         if (enrollmentCopySummary.mode === "classes_only") {

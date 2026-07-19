@@ -3915,52 +3915,75 @@
   // Re-run count after SPA navigation
   window.addEventListener('spa:pageLoaded', refreshCount);
 
+  const showHeaderInfoPopup = ({ overlayId, title, message, buttonLabel }) => {
+    const existing = document.getElementById(overlayId);
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = overlayId;
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.background = 'rgba(15,23,42,0.48)';
+    overlay.style.zIndex = '12050';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+
+    const card = document.createElement('div');
+    card.style.width = 'min(92vw, 390px)';
+    card.style.background = '#fff';
+    card.style.borderRadius = '12px';
+    card.style.padding = '16px';
+    card.style.boxShadow = '0 14px 35px rgba(15,23,42,0.22)';
+    card.innerHTML = `
+      <h3 style="margin:0 0 8px;color:#0f172a;font-size:1.05rem;">${escapeHtml(title || 'Notice')}</h3>
+      <p style="margin:0 0 12px;color:#334155;font-size:.9rem;line-height:1.5;">${escapeHtml(message || '')}</p>
+      <div style="display:flex;justify-content:flex-end;">
+        <button type="button" data-popup-ok="1" style="background:var(--org-primary-color,#01535b);color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:600;">${escapeHtml(buttonLabel || 'Okay')}</button>
+      </div>
+    `;
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close();
+    });
+    const okBtn = card.querySelector('[data-popup-ok="1"]');
+    if (okBtn) okBtn.addEventListener('click', close);
+  };
+
   // Student-only birthday popup (simple modal via AJAX)
   const _isStudentSession = '<%= String((session && (session.userRole || session.accountType)) || "") %>'.toLowerCase() === 'student';
   if (_isStudentSession) {
-    const showBirthdayPopup = (title, message) => {
-      const existing = document.getElementById('student-birthday-popup-overlay');
-      if (existing) existing.remove();
-      const overlay = document.createElement('div');
-      overlay.id = 'student-birthday-popup-overlay';
-      overlay.style.position = 'fixed';
-      overlay.style.inset = '0';
-      overlay.style.background = 'rgba(15,23,42,0.48)';
-      overlay.style.zIndex = '12050';
-      overlay.style.display = 'flex';
-      overlay.style.alignItems = 'center';
-      overlay.style.justifyContent = 'center';
-
-      const card = document.createElement('div');
-      card.style.width = 'min(92vw, 380px)';
-      card.style.background = '#fff';
-      card.style.borderRadius = '12px';
-      card.style.padding = '16px';
-      card.style.boxShadow = '0 14px 35px rgba(15,23,42,0.22)';
-      card.innerHTML = `
-        <h3 style="margin:0 0 8px;color:#0f172a;font-size:1.05rem;">${escapeHtml(title || 'Happy Birthday!')}</h3>
-        <p style="margin:0 0 12px;color:#334155;font-size:.9rem;line-height:1.5;">${escapeHtml(message || 'Wishing you a beautiful day.')}</p>
-        <div style="display:flex;justify-content:flex-end;">
-          <button id="student-birthday-popup-ok" type="button" style="background:var(--org-primary-color,#01535b);color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:600;">Thank you</button>
-        </div>
-      `;
-
-      overlay.appendChild(card);
-      document.body.appendChild(overlay);
-
-      const close = () => overlay.remove();
-      overlay.addEventListener('click', (event) => {
-        if (event.target === overlay) close();
-      });
-      const okBtn = card.querySelector('#student-birthday-popup-ok');
-      if (okBtn) okBtn.addEventListener('click', close);
-    };
-
     fetch('/notifications/student-birthday-popup', { credentials: 'same-origin' })
       .then((response) => response.ok ? response.json() : null)
       .then((payload) => {
         if (payload && payload.success && payload.shouldShow) {
-          showBirthdayPopup(payload.title, payload.message);
+          showHeaderInfoPopup({
+            overlayId: 'student-birthday-popup-overlay',
+            title: payload.title,
+            message: payload.message,
+            buttonLabel: 'Thank you',
+          });
+        }
+      })
+      .catch(() => {});
+  }
+
+  const _staffRole = '<%= String((session && ((session.accountType || session.user?.account_type || session.userRole || session.user?.role) || "")) || "") %>'.toLowerCase();
+  if (_staffRole.includes('manager') || _staffRole.includes('supervisor') || _staffRole === 'organization') {
+    fetch('/notifications/new-term-popup', { credentials: 'same-origin' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (payload && payload.success && payload.shouldShow) {
+          showHeaderInfoPopup({
+            overlayId: 'staff-new-term-popup-overlay',
+            title: payload.title,
+            message: payload.message,
+            buttonLabel: 'Okay',
+          });
         }
       })
       .catch(() => {});

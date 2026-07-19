@@ -662,6 +662,68 @@
       padding: 10px 14px 14px;
     }
 
+    .promotion-action-details {
+      margin: 10px 0 0;
+      border: 1px solid #dbe3ea;
+      border-radius: 10px;
+      background: #f8fbfc;
+      overflow: hidden;
+    }
+
+    .promotion-action-details > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-weight: 700;
+      color: #0f2d32;
+      background: rgba(15, 90, 102, 0.08);
+    }
+
+    .promotion-action-details > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .promotion-action-details-body {
+      padding: 12px;
+    }
+
+    .promotion-action-counts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .promotion-action-count-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid #d7dde5;
+      color: #0f5a66;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .promotion-action-list {
+      margin: 0;
+      padding-left: 18px;
+      color: #334155;
+      line-height: 1.5;
+    }
+
+    .promotion-action-list li + li {
+      margin-top: 6px;
+    }
+
+    .promotion-history-note {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 8px;
+      line-height: 1.45;
+    }
+
     .submit-row {
       display: flex;
       justify-content: flex-end;
@@ -934,7 +996,7 @@
                       <button type="submit" class="btn-cancel">Cancel</button>
                     </form>
                   <% } %>
-                  <% if (schedule.status === 'completed' && (new Date() - new Date(schedule.scheduled_date)) <= 15*24*60*60*1000) { %>
+                  <% if (schedule.canReverseExact && (new Date() - new Date(schedule.scheduled_date)) <= 15*24*60*60*1000) { %>
                     <form method="POST" action="/promotion/reverse" style="display:inline;">
                       <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
                       <button type="submit" class="btn-reverse">Reverse</button>
@@ -946,6 +1008,33 @@
                       <button type="submit" class="btn-cancel">Delete</button>
                     </form>
                   <% } %>
+                </td>
+              </tr>
+              <tr class="promotion-schedule-row <%= index >= 5 ? 'extra-schedule' : '' %>" style="<%= index >= 5 ? 'display: none;' : '' %>">
+                <td colspan="5" style="background:#fbfdff;">
+                  <details class="promotion-action-details">
+                    <summary>View Actions Performed</summary>
+                    <div class="promotion-action-details-body">
+                      <% if (schedule.auditTrail && schedule.auditTrail.available) { %>
+                        <div class="promotion-action-counts">
+                          <span class="promotion-action-count-chip">Enrollments created: <%= schedule.auditTrail.counts.enrollmentsCreated %></span>
+                          <span class="promotion-action-count-chip">Classes attached: <%= schedule.auditTrail.counts.classesAttached %></span>
+                          <span class="promotion-action-count-chip">Students enrolled: <%= schedule.auditTrail.counts.studentsEnrolled %></span>
+                          <span class="promotion-action-count-chip">Subjects added: <%= schedule.auditTrail.counts.subjectsAdded %></span>
+                        </div>
+                        <ol class="promotion-action-list">
+                          <% schedule.auditTrail.actions.forEach((action) => { %>
+                            <li><%= action.details && action.details.message ? action.details.message : action.actionType %></li>
+                          <% }) %>
+                        </ol>
+                        <% if (schedule.status === 'completed' && !schedule.canReverseExact) { %>
+                          <div class="promotion-history-note">Exact reverse is unavailable for this record.</div>
+                        <% } %>
+                      <% } else { %>
+                        <div class="promotion-history-note">Detailed action audit is unavailable for this older promotion record. New promotions will record every action so Reverse can undo exactly what was done.</div>
+                      <% } %>
+                    </div>
+                  </details>
                 </td>
               </tr>
             <% }) %>

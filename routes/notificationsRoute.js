@@ -84,6 +84,34 @@ function persistStudentNotifState(req, readIds, dismissedIds, birthdayPopupShown
   };
 }
 
+function getStaffNotifState(req) {
+  const session = req.session;
+  if (!session.staffNotifState || typeof session.staffNotifState !== 'object') {
+    session.staffNotifState = { termPopupShownKeys: [] };
+  }
+  const termPopupShownKeys = new Set(
+    Array.isArray(session.staffNotifState.termPopupShownKeys)
+      ? session.staffNotifState.termPopupShownKeys
+      : []
+  );
+  return { state: session.staffNotifState, termPopupShownKeys };
+}
+
+function persistStaffNotifState(req, termPopupShownKeys) {
+  req.session.staffNotifState = {
+    termPopupShownKeys: Array.from(termPopupShownKeys).slice(-50),
+  };
+}
+
+function isManagerOrSupervisorSession(req) {
+  const session = req.session || {};
+  const accountType = String(session.accountType || session.user?.account_type || '').trim().toLowerCase();
+  const userRole = String(session.userRole || session.user?.role || '').trim().toLowerCase();
+  return ['manager', 'supervisor'].includes(accountType)
+    || ['manager', 'supervisor'].includes(userRole)
+    || (accountType === 'organization' && userRole === 'manager');
+}
+
 async function buildStudentNotifications(db, { orgId, studentId }) {
   const now = new Date();
   const items = [];
@@ -443,6 +471,48 @@ router.get('/student-birthday-popup', requireAuth, async (req, res) => {
       shouldShow: true,
       title: `Happy Birthday, ${studentName}!`,
       message: 'Wishing you a joyful day and a great term ahead.',
+    });
+  } catch (_err) {
+    return res.json({ success: true, shouldShow: false });
+  }
+});
+
+router.get('/new-term-popup', requireAuth, async (req, res) => {
+  try {
+    if (req._notifCtx.recipientType !== 'staff' || !isManagerOrSupervisorSession(req)) {
+      return res.json({ success: true, shouldShow: false });
+    }
+
+    const currentTermResult = await db.query(
+      `SELECT t.term_id, t.term_name, sy.year_label
+       FROM terms t
+       JOIN school_years sy ON sy.id = t.school_year_id
+       WHERE t.organization_id = $1
+         AND t.current = TRUE
+       ORDER BY t.term_id DESC
+       LIMIT 1`,
+      [req._notifCtx.orgId]
+    );
+
+    const currentTerm = currentTermResult.rows[0];
+    if (!currentTerm) {
+      return res.json({ success: true, shouldShow: false });
+    }
+
+    const popupKey = `${req._notifCtx.orgId}:${currentTerm.term_id}`;
+    const { termPopupShownKeys } = getStaffNotifState(req);
+    if (termPopupShownKeys.has(popupKey)) {
+      return res.json({ success: true, shouldShow: false });
+    }
+
+    termPopupShownKeys.add(popupKey);
+    persistStaffNotifState(req, termPopupShownKeys);
+
+    return res.json({
+      success: true,
+      shouldShow: true,
+      title: `Welcome to ${currentTerm.term_name}`,
+      message: `It is a new term in ${currentTerm.year_label}. We wish you all the best and good success this new term.`,
     });
   } catch (_err) {
     return res.json({ success: true, shouldShow: false });

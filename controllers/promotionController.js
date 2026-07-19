@@ -1,8 +1,195 @@
 const db = require("../config/db");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
+const notifSvc = require("../utils/notificationService");
 
 let promotionSubjectSelectionSchemaReady = false;
 let promotionScheduleRetrySchemaReady = false;
+let promotionAuditSchemaReady = false;
+
+function formatStudentName(row = {}) {
+  return [row.first_name, row.last_name].filter(Boolean).join(' ').trim() || `Student ${row.student_id || ''}`.trim();
+}
+
+async function ensurePromotionAuditSchema() {
+  if (promotionAuditSchemaReady) return;
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS promotion_schedule_audit (
+      id SERIAL PRIMARY KEY,
+      schedule_id INT NOT NULL REFERENCES promotion_schedule(id) ON DELETE CASCADE,
+      organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+      action_type VARCHAR(50) NOT NULL,
+      enrollment_id INT,
+      enrolled_class_id INT,
+      enrolled_student_id INT,
+      student_id INT,
+      class_id INT,
+      subject_id INT,
+      details_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_promotion_schedule_audit_schedule
+      ON promotion_schedule_audit (schedule_id, id)
+  `);
+
+  promotionAuditSchemaReady = true;
+}
+
+async function recordPromotionAuditRows(client, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  await ensurePromotionAuditSchema();
+
+  const values = [];
+  const placeholders = [];
+  rows.forEach((row, index) => {
+    const offset = index * 10;
+    values.push(
+      Number(row.scheduleId),
+      Number(row.organizationId),
+      String(row.actionType || '').trim(),
+      row.enrollmentId == null ? null : Number(row.enrollmentId),
+      row.enrolledClassId == null ? null : Number(row.enrolledClassId),
+      row.enrolledStudentId == null ? null : Number(row.enrolledStudentId),
+      row.studentId == null ? null : Number(row.studentId),
+      row.classId == null ? null : Number(row.classId),
+      row.subjectId == null ? null : Number(row.subjectId),
+      JSON.stringify(row.details || {})
+    );
+    placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9}, $${offset + 10}::jsonb)`);
+  });
+
+  await client.query(
+    `INSERT INTO promotion_schedule_audit (
+       schedule_id,
+       organization_id,
+       action_type,
+       enrollment_id,
+       enrolled_class_id,
+       enrolled_student_id,
+       student_id,
+       class_id,
+       subject_id,
+       details_json
+     )
+     VALUES ${placeholders.join(', ')}`,
+    values
+  );
+}
+
+async function getPromotionAuditSummaryMap(scheduleIds = [], organizationId) {
+  const normalizedScheduleIds = Array.isArray(scheduleIds)
+    ? [...new Set(scheduleIds.map(Number).filter(Number.isFinite))]
+    : [];
+  if (!normalizedScheduleIds.length) {
+    return new Map();
+  }
+
+  await ensurePromotionAuditSchema();
+
+  const result = await db.query(
+    `SELECT schedule_id, action_type, details_json, created_at
+     FROM promotion_schedule_audit
+     WHERE organization_id = $1
+       AND schedule_id = ANY($2::int[])
+     ORDER BY id ASC`,
+    [organizationId, normalizedScheduleIds]
+  );
+
+  const map = new Map();
+  normalizedScheduleIds.forEach((scheduleId) => {
+    map.set(scheduleId, {
+      available: false,
+      counts: {
+        enrollmentsCreated: 0,
+        classesAttached: 0,
+        studentsEnrolled: 0,
+        subjectsAdded: 0,
+      },
+      actions: [],
+    });
+  });
+
+  result.rows.forEach((row) => {
+    const scheduleId = Number(row.schedule_id);
+    if (!map.has(scheduleId)) return;
+    const entry = map.get(scheduleId);
+    entry.available = true;
+    const details = row.details_json && typeof row.details_json === 'object' ? row.details_json : {};
+    const actionType = String(row.action_type || 'action');
+    if (actionType === 'enrollment_created') entry.counts.enrollmentsCreated += 1;
+    if (actionType === 'class_attached') entry.counts.classesAttached += 1;
+    if (actionType === 'student_enrolled') entry.counts.studentsEnrolled += 1;
+    if (actionType === 'subject_added') entry.counts.subjectsAdded += 1;
+    entry.actions.push({
+      actionType,
+      createdAt: row.created_at,
+      details,
+    });
+  });
+
+  return map;
+}
+
+async function notifyPromotionManagersAndSupervisors({ orgId, scheduleId, targetTermId, targetSchoolYearId, enrolledCount, totalEligible }) {
+  const normalizedOrgId = Number(orgId || 0);
+  if (!normalizedOrgId) return;
+
+  const [recipientResult, targetMetaResult, classesResult] = await Promise.all([
+    db.query(
+      `SELECT DISTINCT user_id
+       FROM users
+       WHERE organization_id = $1
+         AND COALESCE(on_hold, FALSE) = FALSE
+         AND LOWER(TRIM(account_type::text)) IN ('manager', 'supervisor')`,
+      [normalizedOrgId]
+    ),
+    db.query(
+      `SELECT t.term_name, sy.year_label
+       FROM terms t
+       JOIN school_years sy ON sy.id = t.school_year_id
+       WHERE t.term_id = $1
+         AND sy.id = $2
+         AND t.organization_id = $3
+       LIMIT 1`,
+      [targetTermId, targetSchoolYearId, normalizedOrgId]
+    ),
+    db.query(
+      `SELECT c.class_name
+       FROM promotion_schedule_classes psc
+       JOIN classes c ON c.class_id = psc.class_id
+       WHERE psc.schedule_id = $1
+       ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC`,
+      [scheduleId]
+    ),
+  ]);
+
+  const recipientIds = new Set(
+    recipientResult.rows
+      .map((row) => Number(row.user_id))
+      .filter((value) => Number.isFinite(value) && value > 0)
+  );
+  recipientIds.add(0);
+
+  const targetMeta = targetMetaResult.rows[0] || {};
+  const targetLabel = [targetMeta.year_label, targetMeta.term_name].filter(Boolean).join(' - ') || 'the selected target term';
+  const classLabel = classesResult.rows.length
+    ? classesResult.rows.map((row) => row.class_name).filter(Boolean).join(', ')
+    : 'selected classes';
+
+  await notifSvc.createNotifications(db, Array.from(recipientIds).map((recipientId) => ({
+    orgId: normalizedOrgId,
+    recipientType: 'staff',
+    recipientId,
+    type: 'promotion_completed',
+    title: 'Promotion completed',
+    body: `${enrolledCount} of ${totalEligible} eligible student(s) were promoted into ${targetLabel} for ${classLabel}.`,
+    link: '/promotion/apply',
+    refId: Number(scheduleId) || null,
+  })));
+}
 
 async function ensurePromotionSubjectSelectionSchema() {
   if (promotionSubjectSelectionSchemaReady) return;
@@ -798,6 +985,30 @@ module.exports = {
         };
       }));
 
+      const auditMap = await getPromotionAuditSummaryMap(
+        schedules.map((schedule) => Number(schedule.id)).filter(Number.isFinite),
+        organizationId
+      );
+
+      const schedulesWithAudit = schedules.map((schedule) => {
+        const auditTrail = auditMap.get(Number(schedule.id)) || {
+          available: false,
+          counts: {
+            enrollmentsCreated: 0,
+            classesAttached: 0,
+            studentsEnrolled: 0,
+            subjectsAdded: 0,
+          },
+          actions: [],
+        };
+
+        return {
+          ...schedule,
+          auditTrail,
+          canReverseExact: String(schedule.status || '').toLowerCase() === 'completed' && auditTrail.available,
+        };
+      });
+
       res.render("promotion/applyPromotion", {
         title: "Promotion Scheduler",
         currentTerm: currentTermResult.rows[0],
@@ -805,7 +1016,7 @@ module.exports = {
         allTerms: allTermsResult.rows,
         allYears: structuredYears,
         allClasses: classesResult.rows,
-        schedules,
+        schedules: schedulesWithAudit,
         messages: req.flash(),
         success_msg: req.flash("success_msg"),
         error_msg: req.flash("error_msg")
@@ -1117,6 +1328,7 @@ module.exports = {
   
     try {
       await db.query('BEGIN');
+      await ensurePromotionAuditSchema();
   
       // 1️⃣ Get the promotion schedule to reverse
       const scheduleResult = await db.query(
@@ -1129,65 +1341,91 @@ module.exports = {
         await db.query('ROLLBACK');
         return res.redirect("/promotion/apply");
       }
-  
-      const { target_term_id, target_school_year_id } = scheduleResult.rows[0];
-  
-      // 2️⃣ Find the enrollment (if any)
-      const enrollmentResult = await db.query(`
-        SELECT enrollment_id FROM enrollments
-        WHERE term_id = $1 AND school_year_id = $2 AND organization_id = $3
-      `, [target_term_id, target_school_year_id, organizationId]);
-  
-      if (enrollmentResult.rows.length > 0) {
-        const enrollmentId = enrollmentResult.rows[0].enrollment_id;
-  
-        // 3️⃣ Remove ONLY students added by promotion
-        await db.query(`
-          DELETE FROM enrolled_students 
-          WHERE enrollment_id = $1 AND added_by_promotion = TRUE
-        `, [enrollmentId]);
-  
-        // 4️⃣ Remove any classes that no longer have students
-        await db.query(`
-          DELETE FROM enrolled_classes ec
-          WHERE ec.enrollment_id = $1
-            AND NOT EXISTS (
-              SELECT 1 FROM enrolled_students es
-              WHERE es.enrollment_id = ec.enrollment_id AND es.class_id = ec.class_id
-            )
-        `, [enrollmentId]);
-  
-        // 5️⃣ Optionally delete the enrollment if it’s now empty
-        const checkEnrollmentEmpty = await db.query(`
-          SELECT 1 FROM enrolled_students WHERE enrollment_id = $1
-        `, [enrollmentId]);
-  
-        if (checkEnrollmentEmpty.rows.length === 0) {
+      const auditResult = await db.query(
+        `SELECT *
+         FROM promotion_schedule_audit
+         WHERE schedule_id = $1 AND organization_id = $2
+         ORDER BY id DESC`,
+        [scheduleId, organizationId]
+      );
+
+      if (!auditResult.rows.length) {
+        req.flash("error_msg", "Exact reverse is unavailable for this older promotion record because no action audit was stored when it was applied.");
+        await db.query('ROLLBACK');
+        return res.redirect("/promotion/apply");
+      }
+
+      const enrollmentCreatedRows = auditResult.rows.filter((row) => row.action_type === 'enrollment_created');
+      const classAttachedRows = auditResult.rows.filter((row) => row.action_type === 'class_attached');
+      const studentEnrolledRows = auditResult.rows.filter((row) => row.action_type === 'student_enrolled');
+      const subjectAddedRows = auditResult.rows.filter((row) => row.action_type === 'subject_added');
+
+      if (subjectAddedRows.length > 0) {
+        await db.query(
+          `DELETE FROM student_subjects ss
+           WHERE EXISTS (
+             SELECT 1
+             FROM promotion_schedule_audit psa
+             WHERE psa.schedule_id = $1
+               AND psa.organization_id = $2
+               AND psa.action_type = 'subject_added'
+               AND psa.student_id = ss.student_id
+               AND psa.subject_id = ss.subject_id
+           )`,
+          [scheduleId, organizationId]
+        );
+      }
+
+      if (studentEnrolledRows.length > 0) {
+        await db.query(
+          `DELETE FROM enrolled_students
+           WHERE enrolled_student_id = ANY($1::int[])`,
+          [studentEnrolledRows.map((row) => Number(row.enrolled_student_id)).filter(Number.isFinite)]
+        );
+      }
+
+      for (const row of classAttachedRows) {
+        const enrolledClassId = Number(row.enrolled_class_id);
+        const enrollmentId = Number(row.enrollment_id);
+        if (!Number.isFinite(enrolledClassId) || !Number.isFinite(enrollmentId)) continue;
+
+        const usageResult = await db.query(
+          `SELECT 1
+           FROM enrolled_students
+           WHERE enrollment_id = $1
+             AND class_id = $2
+           LIMIT 1`,
+          [enrollmentId, Number(row.class_id)]
+        );
+
+        if (usageResult.rows.length === 0) {
+          await db.query(
+            `DELETE FROM enrolled_classes
+             WHERE enrolled_class_id = $1`,
+            [enrolledClassId]
+          );
+        }
+      }
+
+      for (const row of enrollmentCreatedRows) {
+        const enrollmentId = Number(row.enrollment_id);
+        if (!Number.isFinite(enrollmentId)) continue;
+
+        const remainingStudents = await db.query(
+          `SELECT 1 FROM enrolled_students WHERE enrollment_id = $1 LIMIT 1`,
+          [enrollmentId]
+        );
+        const remainingClasses = await db.query(
+          `SELECT 1 FROM enrolled_classes WHERE enrollment_id = $1 LIMIT 1`,
+          [enrollmentId]
+        );
+
+        if (remainingStudents.rows.length === 0 && remainingClasses.rows.length === 0) {
           await db.query(`DELETE FROM enrollments WHERE enrollment_id = $1`, [enrollmentId]);
         }
       }
   
-      // 6️⃣ Delete term if it was auto-created by promotion
-      const termCheck = await db.query(`
-        SELECT term_id FROM terms 
-        WHERE term_id = $1 AND organization_id = $2 AND created_by_promotion = TRUE
-      `, [target_term_id, organizationId]);
-  
-      if (termCheck.rows.length > 0) {
-        await db.query(`DELETE FROM terms WHERE term_id = $1 AND organization_id = $2`, [target_term_id, organizationId]);
-      }
-  
-      // 7️⃣ Delete school year if it was auto-created by promotion
-      const yearCheck = await db.query(`
-        SELECT id FROM school_years 
-        WHERE id = $1 AND organization_id = $2 AND created_by_promotion = TRUE
-      `, [target_school_year_id, organizationId]);
-  
-      if (yearCheck.rows.length > 0) {
-        await db.query(`DELETE FROM school_years WHERE id = $1 AND organization_id = $2`, [target_school_year_id, organizationId]);
-      }
-  
-      // 8️⃣ Mark promotion as reversed
+      // 2️⃣ Mark promotion as reversed
       await db.query(`
         UPDATE promotion_schedule
         SET status = 'reversed'
@@ -1196,11 +1434,12 @@ module.exports = {
   
       await db.query('COMMIT');
   
-      req.flash("success_msg", "Promotion reversed. Only promotion-added data removed.");
+      req.flash("success_msg", "Promotion reversed. Recorded promotion actions were undone exactly where safe to do so.");
       res.redirect("/promotion/apply");
     } catch (err) {
       await db.query('ROLLBACK');
-            req.flash("error_msg", "Failed to reverse promotion.");
+      console.error("[Promotion] reverseAppliedPromotion failed:", err);
+      req.flash("error_msg", "Failed to reverse promotion.");
       res.redirect("/promotion/apply");
     }
   },
@@ -1242,6 +1481,7 @@ module.exports = {
     } = promo;
 
     await db.query('BEGIN');
+    await ensurePromotionAuditSchema();
 
     // 1️⃣ Get class filter from promotion_schedule_classes
     const classFilterResult = await db.query(
@@ -1302,6 +1542,7 @@ module.exports = {
 
     // 4️⃣ Ensure enrollment exists or create one
     let enrollmentId;
+    const auditRows = [];
     const existingEnrollmentResult = await db.query(`
       SELECT enrollment_id FROM enrollments
       WHERE term_id = $1 AND school_year_id = $2 AND organization_id = $3
@@ -1316,6 +1557,18 @@ module.exports = {
         RETURNING enrollment_id
       `, [target_school_year_id, target_term_id, organization_id]);
       enrollmentId = newEnrollmentResult.rows[0].enrollment_id;
+      auditRows.push({
+        scheduleId,
+        organizationId: organization_id,
+        actionType: 'enrollment_created',
+        enrollmentId,
+        details: {
+          enrollmentId,
+          targetTermId: Number(target_term_id),
+          targetSchoolYearId: Number(target_school_year_id),
+          message: 'Created target term enrollment.',
+        },
+      });
     }
 
     const finalEnrollments = promotedStudentsResult.rows.map(row => ({
@@ -1348,6 +1601,27 @@ module.exports = {
       .map((row) => Number(row.target_class_id))
       .filter(Number.isFinite);
 
+    const classNameResult = await db.query(
+      `SELECT class_id, class_name
+       FROM classes
+       WHERE class_id = ANY($1::int[])`,
+      [[...new Set([...plannedTargetClassIds, ...finalEnrollments.map((row) => Number(row.target_class_id)).filter(Number.isFinite)])]]
+    );
+    const classNameMap = new Map(
+      classNameResult.rows.map((row) => [Number(row.class_id), row.class_name || `Class ${row.class_id}`])
+    );
+
+    const studentNameResult = await db.query(
+      `SELECT student_id, first_name, last_name
+       FROM students
+       WHERE organization_id = $1
+         AND student_id = ANY($2::int[])`,
+      [organization_id, [...new Set(finalEnrollments.map((row) => Number(row.student_id)).filter(Number.isFinite))]]
+    );
+    const studentNameMap = new Map(
+      studentNameResult.rows.map((row) => [Number(row.student_id), formatStudentName(row)])
+    );
+
     const classCheckResult = await db.query(
       `SELECT class_id FROM enrolled_classes WHERE enrollment_id = $1`,
       [enrollmentId]
@@ -1358,10 +1632,28 @@ module.exports = {
     )].filter(cid => !existingClassIds.has(cid));
 
     if (newClassIds.length > 0) {
-      await db.query(`
+      const insertedClassResult = await db.query(`
         INSERT INTO enrolled_classes (enrollment_id, class_id)
         SELECT $1, unnest($2::int[])
+        RETURNING enrolled_class_id, class_id
       `, [enrollmentId, newClassIds]);
+
+      insertedClassResult.rows.forEach((row) => {
+        const classId = Number(row.class_id);
+        auditRows.push({
+          scheduleId,
+          organizationId: organization_id,
+          actionType: 'class_attached',
+          enrollmentId,
+          enrolledClassId: Number(row.enrolled_class_id),
+          classId,
+          details: {
+            classId,
+            className: classNameMap.get(classId) || `Class ${classId}`,
+            message: `Attached ${classNameMap.get(classId) || `Class ${classId}`} to the target enrollment.`,
+          },
+        });
+      });
     }
 
     // 6️⃣ Insert students
@@ -1371,15 +1663,37 @@ module.exports = {
         INSERT INTO enrolled_students (enrollment_id, student_id, class_id, added_by_promotion)
         VALUES ($1, $2, $3, TRUE)
         ON CONFLICT DO NOTHING
+        RETURNING enrolled_student_id, student_id, class_id
       `, [enrollmentId, student_id, target_class_id]);
       enrolledCount += result.rowCount;
+      result.rows.forEach((row) => {
+        const studentId = Number(row.student_id);
+        const classId = Number(row.class_id);
+        auditRows.push({
+          scheduleId,
+          organizationId: organization_id,
+          actionType: 'student_enrolled',
+          enrollmentId,
+          enrolledStudentId: Number(row.enrolled_student_id),
+          studentId,
+          classId,
+          details: {
+            studentId,
+            studentName: studentNameMap.get(studentId) || `Student ${studentId}`,
+            classId,
+            className: classNameMap.get(classId) || `Class ${classId}`,
+            message: `${studentNameMap.get(studentId) || `Student ${studentId}`} was enrolled into ${classNameMap.get(classId) || `Class ${classId}`}.`,
+          },
+        });
+      });
     }
 
     const targetClassIds = [...new Set(finalEnrollments.map((row) => Number(row.target_class_id)).filter(Number.isFinite))];
     const classSubjectsByClass = new Map();
+    const subjectNameMap = new Map();
     if (targetClassIds.length > 0) {
       const classSubjectsResult = await db.query(
-        `SELECT class_id, subject_id
+        `SELECT class_id, subject_id, subject_name
          FROM subjects
          WHERE organization_id = $1
            AND class_id = ANY($2::int[])`,
@@ -1394,6 +1708,7 @@ module.exports = {
           classSubjectsByClass.set(classId, []);
         }
         classSubjectsByClass.get(classId).push(subjectId);
+        subjectNameMap.set(subjectId, row.subject_name || `Subject ${subjectId}`);
       });
     }
 
@@ -1443,18 +1758,49 @@ module.exports = {
       const values = [];
       const placeholders = [];
       subjectInsertRows.forEach((row, index) => {
-        const offset = index * 3;
-        values.push(row.studentId, row.subjectId, organization_id);
-        placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3})`);
+        const offset = index * 4;
+        const targetClassId = finalEnrollments.find((entry) => Number(entry.student_id) === Number(row.studentId))?.target_class_id || null;
+        values.push(row.studentId, row.subjectId, organization_id, targetClassId == null ? null : Number(targetClassId));
+        placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`);
       });
 
-      await db.query(
-        `INSERT INTO student_subjects (student_id, subject_id, organization_id)
-         VALUES ${placeholders.join(', ')}
-         ON CONFLICT DO NOTHING`,
+      const insertedSubjectResult = await db.query(
+        `WITH source_rows(student_id, subject_id, organization_id, class_id) AS (
+           VALUES ${placeholders.join(', ')}
+         )
+         INSERT INTO student_subjects (student_id, subject_id, organization_id)
+         SELECT student_id, subject_id, organization_id
+         FROM source_rows
+         ON CONFLICT DO NOTHING
+         RETURNING student_id, subject_id`,
         values
       );
+
+      insertedSubjectResult.rows.forEach((row) => {
+        const studentId = Number(row.student_id);
+        const subjectId = Number(row.subject_id);
+        const classId = Number(finalEnrollments.find((entry) => Number(entry.student_id) === studentId)?.target_class_id);
+        auditRows.push({
+          scheduleId,
+          organizationId: organization_id,
+          actionType: 'subject_added',
+          studentId,
+          classId: Number.isFinite(classId) ? classId : null,
+          subjectId,
+          details: {
+            studentId,
+            studentName: studentNameMap.get(studentId) || `Student ${studentId}`,
+            classId: Number.isFinite(classId) ? classId : null,
+            className: Number.isFinite(classId) ? (classNameMap.get(classId) || `Class ${classId}`) : null,
+            subjectId,
+            subjectName: subjectNameMap.get(subjectId) || `Subject ${subjectId}`,
+            message: `${studentNameMap.get(studentId) || `Student ${studentId}`} received ${subjectNameMap.get(subjectId) || `Subject ${subjectId}`}.`,
+          },
+        });
+      });
     }
+
+    await recordPromotionAuditRows(db, auditRows);
 
     // 7️⃣ Mark schedule as completed
     await db.query(`
@@ -1462,6 +1808,18 @@ module.exports = {
     `, [scheduleId]);
 
     await db.query('COMMIT');
+
+    notifyPromotionManagersAndSupervisors({
+      orgId: organization_id,
+      scheduleId,
+      targetTermId: target_term_id,
+      targetSchoolYearId: target_school_year_id,
+      enrolledCount,
+      totalEligible: finalEnrollments.length,
+    }).catch((error) => {
+      console.error('[Promotion] promotion_completed notification failed:', error.message || error);
+    });
+
     return { success: true, enrolledCount, totalEligible: finalEnrollments.length };
   },
 
