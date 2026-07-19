@@ -16141,8 +16141,22 @@ NUMBERING:
           .map((row) => Number(row.class_id))
           .filter((value) => Number.isFinite(value) && value > 0))];
 
-        const classFilterSet = new Set(sourceClassIds);
-        const effectiveClassIds = requestedEnrollClassIds.filter((classId) => classFilterSet.has(classId));
+        const organizationClassResult = await db.query(
+          `SELECT class_id
+           FROM classes
+           WHERE organization_id = $1`,
+          [organizationId]
+        );
+
+        const organizationClassIds = new Set(
+          organizationClassResult.rows
+            .map((row) => Number(row.class_id))
+            .filter((value) => Number.isFinite(value) && value > 0)
+        );
+
+        const sourceClassSet = new Set(sourceClassIds);
+        const effectiveClassIds = requestedEnrollClassIds.filter((classId) => organizationClassIds.has(classId));
+        const carryStudentClassIds = effectiveClassIds.filter((classId) => sourceClassSet.has(classId));
 
         let targetEnrollmentId;
         const targetEnrollmentResult = await db.query(
@@ -16186,7 +16200,7 @@ NUMBERING:
         }
 
         let insertedStudentCount = 0;
-        if (normalizedEnrollMode === "classes_and_students" && effectiveClassIds.length > 0) {
+        if (normalizedEnrollMode === "classes_and_students" && carryStudentClassIds.length > 0) {
           const sourceStudentResult = await db.query(
             `SELECT DISTINCT es.student_id, es.class_id
              FROM enrollments e
@@ -16197,7 +16211,7 @@ NUMBERING:
                AND es.class_id = ANY($3::int[])
                AND s.organization_id = $1
                AND COALESCE(s.graduated, FALSE) = FALSE`,
-            [organizationId, previousCurrentTermIdFromDb, effectiveClassIds]
+            [organizationId, previousCurrentTermIdFromDb, carryStudentClassIds]
           );
 
           for (const row of sourceStudentResult.rows) {
@@ -16224,6 +16238,7 @@ NUMBERING:
           insertedClassCount,
           insertedStudentCount,
           selectedClassCount: effectiveClassIds.length,
+          carriedStudentClassCount: carryStudentClassIds.length,
           mode: normalizedEnrollMode,
         };
       }
@@ -16275,7 +16290,7 @@ NUMBERING:
         } else {
           req.flash(
             "success",
-            `School year and terms updated successfully. Enrollment copied for ${enrollmentCopySummary.selectedClassCount} class(es): ${enrollmentCopySummary.insertedClassCount} new class record(s) and ${enrollmentCopySummary.insertedStudentCount} student(s) added to the new current term.`
+            `School year and terms updated successfully. Enrollment copied for ${enrollmentCopySummary.selectedClassCount} selected class(es): ${enrollmentCopySummary.insertedClassCount} new class record(s) added, and ${enrollmentCopySummary.insertedStudentCount} student(s) carried from ${enrollmentCopySummary.carriedStudentClassCount} previous-term class(es).`
           );
         }
       } else {

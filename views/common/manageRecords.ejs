@@ -1093,6 +1093,10 @@
       const previousCurrentTermIdForEnrollment = <%= Number(previousCurrentTermId || 0) %>;
       const previousCurrentTermNameForEnrollment = <%- JSON.stringify(previousCurrentTermName || '') %>;
       const previousTermEnrollmentClasses = <%- JSON.stringify(previousTermEnrollmentClasses || []) %>;
+      const organizationEnrollmentClasses = <%- JSON.stringify((classes || []).map((item) => ({
+        class_id: Number(item.class_id),
+        class_name: item.class_name || `Class ${item.class_id}`,
+      })) || []) %>;
       let pendingEnrollmentSubmitForm = null;
       let pendingEnrollmentPreviousTermId = null;
 
@@ -1105,24 +1109,49 @@
         const grid = document.getElementById('enrollCopyClassGrid');
         if (!grid) return;
 
+        const previousClassMap = new Map(
+          (Array.isArray(previousTermEnrollmentClasses) ? previousTermEnrollmentClasses : [])
+            .filter((item) => Number.isFinite(Number(item.class_id)))
+            .map((item) => [Number(item.class_id), {
+              class_id: Number(item.class_id),
+              class_name: String(item.class_name || `Class ${item.class_id}`),
+              student_count: Number(item.student_count || 0),
+            }])
+        );
+
         const checkedClassIds = new Set(
           Array.from(grid.querySelectorAll('.enroll-copy-class-checkbox:checked'))
             .map((checkbox) => Number(checkbox.value))
             .filter((value) => Number.isFinite(value))
         );
 
-        const classes = Array.isArray(previousTermEnrollmentClasses)
-          ? previousTermEnrollmentClasses.filter((item) => Number.isFinite(Number(item.class_id)))
-          : [];
+        const classes = (Array.isArray(organizationEnrollmentClasses) ? organizationEnrollmentClasses : [])
+          .filter((item) => Number.isFinite(Number(item.class_id)))
+          .map((item) => {
+            const classId = Number(item.class_id);
+            const previousMeta = previousClassMap.get(classId);
+            return {
+              class_id: classId,
+              class_name: String(item.class_name || previousMeta?.class_name || `Class ${classId}`),
+              student_count: previousMeta ? Number(previousMeta.student_count || 0) : 0,
+              wasEnrolledPreviously: Boolean(previousMeta),
+            };
+          });
 
         grid.innerHTML = classes.map((item) => {
           const classId = Number(item.class_id);
           const className = String(item.class_name || `Class ${classId}`);
           const studentCount = Number(item.student_count || 0);
-          const isChecked = checkedClassIds.size > 0 ? checkedClassIds.has(classId) : true;
+          const isChecked = checkedClassIds.size > 0
+            ? checkedClassIds.has(classId)
+            : Boolean(item.wasEnrolledPreviously);
           const subtitle = selectedMode === 'classes_and_students'
-            ? ` <small>(${studentCount} student${studentCount === 1 ? '' : 's'})</small>`
-            : '';
+            ? (item.wasEnrolledPreviously
+              ? ` <small>(${studentCount} student${studentCount === 1 ? '' : 's'})</small>`
+              : ' <small>(no previous-term students to carry)</small>')
+            : (item.wasEnrolledPreviously
+              ? ' <small>(enrolled in previous term)</small>'
+              : ' <small>(new class for next term)</small>');
 
           return `
             <label class="enroll-copy-class-item">
@@ -1196,8 +1225,12 @@
           ? previousTermEnrollmentClasses.filter((item) => Number.isFinite(Number(item.class_id)))
           : [];
 
-        if (!classes.length) {
-          alert('No enrolled classes were found in the previous current term to copy.');
+        const allClasses = Array.isArray(organizationEnrollmentClasses)
+          ? organizationEnrollmentClasses.filter((item) => Number.isFinite(Number(item.class_id)))
+          : [];
+
+        if (!allClasses.length) {
+          alert('No classes were found in this organization to enroll.');
           return false;
         }
 
