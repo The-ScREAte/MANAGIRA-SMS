@@ -9,6 +9,10 @@ const notFound = (req, res, next) => {
 };
 
 const globalErrorHandler = (err, req, res, next) => {
+    if (res.headersSent) {
+        return next(err);
+    }
+
     const rawMessage = err && err.message ? err.message : 'Internal Server Error';
     const isNetworkError = err && (err.code === 'ENOTFOUND' || /getaddrinfo ENOTFOUND/i.test(rawMessage));
     const status = isNetworkError ? 503 : (err.status || 500);

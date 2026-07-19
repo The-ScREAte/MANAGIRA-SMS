@@ -1004,6 +1004,9 @@ app.use(globalErrorHandler);
 // Global error handler for all unhandled errors
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
   res.status(500).send('Something went wrong!');
 });
 

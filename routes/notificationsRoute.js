@@ -4,6 +4,28 @@ const router = express.Router();
 const db = require('../config/db');
 const ns = require('../utils/notificationService');
 
+let staffPopupSchemaReady = false;
+
+async function ensureStaffPopupSchema() {
+  if (staffPopupSchemaReady) return;
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS staff_term_popup_views (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL,
+      term_id INTEGER NOT NULL REFERENCES terms(term_id) ON DELETE CASCADE,
+      popup_type VARCHAR(50) NOT NULL,
+      shown_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (organization_id, user_id, term_id, popup_type)
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_staff_term_popup_views_lookup
+      ON staff_term_popup_views (organization_id, user_id, term_id, popup_type)
+  `);
+  staffPopupSchemaReady = true;
+}
+
 function resolveStaffReaderId(session) {
   const directUserId = session.userId || (session.user && session.user.user_id) || null;
   if (directUserId) return Number(directUserId);
@@ -81,25 +103,6 @@ function persistStudentNotifState(req, readIds, dismissedIds, birthdayPopupShown
     readIds: Array.from(readIds).slice(-500),
     dismissedIds: Array.from(dismissedIds).slice(-500),
     birthdayPopupShownAt: birthdayPopupShownAt || req.session.studentNotifState?.birthdayPopupShownAt || '',
-  };
-}
-
-function getStaffNotifState(req) {
-  const session = req.session;
-  if (!session.staffNotifState || typeof session.staffNotifState !== 'object') {
-    session.staffNotifState = { termPopupShownKeys: [] };
-  }
-  const termPopupShownKeys = new Set(
-    Array.isArray(session.staffNotifState.termPopupShownKeys)
-      ? session.staffNotifState.termPopupShownKeys
-      : []
-  );
-  return { state: session.staffNotifState, termPopupShownKeys };
-}
-
-function persistStaffNotifState(req, termPopupShownKeys) {
-  req.session.staffNotifState = {
-    termPopupShownKeys: Array.from(termPopupShownKeys).slice(-50),
   };
 }
 
@@ -483,6 +486,8 @@ router.get('/new-term-popup', requireAuth, async (req, res) => {
       return res.json({ success: true, shouldShow: false });
     }
 
+    await ensureStaffPopupSchema();
+
     const currentTermResult = await db.query(
       `SELECT t.term_id, t.term_name, sy.year_label
        FROM terms t
@@ -499,20 +504,34 @@ router.get('/new-term-popup', requireAuth, async (req, res) => {
       return res.json({ success: true, shouldShow: false });
     }
 
-    const popupKey = `${req._notifCtx.orgId}:${currentTerm.term_id}`;
-    const { termPopupShownKeys } = getStaffNotifState(req);
-    if (termPopupShownKeys.has(popupKey)) {
+    const popupType = 'new_term_welcome';
+    const alreadyShownResult = await db.query(
+      `SELECT 1
+       FROM staff_term_popup_views
+       WHERE organization_id = $1
+         AND user_id = $2
+         AND term_id = $3
+         AND popup_type = $4
+       LIMIT 1`,
+      [req._notifCtx.orgId, req._notifCtx.recipientId, Number(currentTerm.term_id), popupType]
+    );
+
+    if (alreadyShownResult.rows.length > 0) {
       return res.json({ success: true, shouldShow: false });
     }
 
-    termPopupShownKeys.add(popupKey);
-    persistStaffNotifState(req, termPopupShownKeys);
+    await db.query(
+      `INSERT INTO staff_term_popup_views (organization_id, user_id, term_id, popup_type)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (organization_id, user_id, term_id, popup_type) DO NOTHING`,
+      [req._notifCtx.orgId, req._notifCtx.recipientId, Number(currentTerm.term_id), popupType]
+    );
 
     return res.json({
       success: true,
       shouldShow: true,
       title: `Welcome to ${currentTerm.term_name}`,
-      message: `It is a new term in ${currentTerm.year_label}. We wish you all the best and good success this new term.`,
+      message: `Welcome to ${currentTerm.term_name} in ${currentTerm.year_label}. May this new term bring fresh energy, smooth progress, meaningful achievements, and many beautiful moments for you and your school community. We wish you a joyful, successful, and rewarding term ahead.`,
     });
   } catch (_err) {
     return res.json({ success: true, shouldShow: false });

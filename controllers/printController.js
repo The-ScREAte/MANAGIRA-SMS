@@ -1317,7 +1317,7 @@ const printController = (db) => ({
           [parsedClassId, organizationId]
         ),
         db.query(
-          `SELECT t.term_name, t.start_date, t.end_date, sy.year_label
+          `SELECT t.term_name, t.start_date, t.end_date, t.school_year_id, sy.year_label
                      FROM terms t
                      JOIN school_years sy ON t.school_year_id = sy.id
                      WHERE t.term_id = $1 AND t.organization_id = $2`,
@@ -1425,6 +1425,7 @@ const printController = (db) => ({
 
       const [
         studentsResult,
+        classStudentCountResult,
         subjectsResult,
         remarksResult,
         scoreRemarksResult,
@@ -1436,14 +1437,25 @@ const printController = (db) => ({
         studentIdSettings,
       ] = await Promise.all([
         db.query(
-          `SELECT es.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url, c.class_name
+          `SELECT DISTINCT es.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url, c.class_name
              FROM enrolled_students es
              JOIN students s ON es.student_id = s.student_id
              JOIN enrollments e ON es.enrollment_id = e.enrollment_id
              JOIN classes c ON es.class_id = c.class_id
              WHERE es.class_id = $1 AND e.term_id = $2 AND e.organization_id = $3
+               AND e.school_year_id = $5
                AND ($4::int IS NULL OR es.student_id = $4)`,
-          [parsedClassId, parsedTermId, organizationId, studentFilterId]
+          [parsedClassId, parsedTermId, organizationId, studentFilterId, Number(term.school_year_id)]
+        ),
+        db.query(
+          `SELECT COUNT(DISTINCT es.student_id)::int AS total_students
+             FROM enrolled_students es
+             JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+             WHERE es.class_id = $1
+               AND e.term_id = $2
+               AND e.organization_id = $3
+               AND e.school_year_id = $4`,
+          [parsedClassId, parsedTermId, organizationId, Number(term.school_year_id)]
         ),
         db.query(
           "SELECT subject_id, subject_name FROM subjects WHERE class_id = $1 AND organization_id = $2",
@@ -1636,6 +1648,7 @@ const printController = (db) => ({
           [student.first_name, student.last_name].filter(Boolean).join(" ").trim(),
         display_student_id: buildStudentDisplayId(student, studentIdSettings),
       }));
+      const classStudentCount = Number(classStudentCountResult.rows[0]?.total_students) || 0;
       const allSubjects = subjectsResult.rows;
       const teacherRemarks = remarksResult.rows.filter(
         (r) => r.remark_type === "teacher"
@@ -1750,7 +1763,7 @@ const printController = (db) => ({
         student.positionInClass = student.class_position
           ? `${student.class_position}${getOrdinalSuffix(
               student.class_position
-            )}`
+            )} / ${classStudentCount} student${classStudentCount === 1 ? '' : 's'}`
           : "-";
 
         student.subjects = allSubjects.map((subject) => {
@@ -2031,7 +2044,7 @@ students
     }
 
     // Add ordinal suffix
-    student.positionInClass = `${student.class_position}${getOrdinalSuffix(student.class_position)}`;
+    student.positionInClass = `${student.class_position}${getOrdinalSuffix(student.class_position)} / ${classStudentCount} student${classStudentCount === 1 ? '' : 's'}`;
 
     // ✅ INSERT PROMOTION CLASS ID SETTING HERE
     const promotionMetric = promotionBasis === PROMOTION_BASIS_TOTAL_SCORE

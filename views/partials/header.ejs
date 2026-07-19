@@ -3915,7 +3915,29 @@
   // Re-run count after SPA navigation
   window.addEventListener('spa:pageLoaded', refreshCount);
 
-  const showHeaderInfoPopup = ({ overlayId, title, message, buttonLabel }) => {
+  const ensureHeaderPopupConfettiStyles = () => {
+    if (document.getElementById('header-popup-confetti-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'header-popup-confetti-styles';
+    style.textContent = `
+      @keyframes headerPopupConfettiDrop {
+        0% {
+          opacity: 0;
+          transform: translate3d(0, -8vh, 0) rotate(0deg);
+        }
+        8% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0.95;
+          transform: translate3d(var(--drift, 0px), 118vh, 0) rotate(var(--spin, 720deg));
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  };
+
+  const showHeaderInfoPopup = ({ overlayId, title, message, buttonLabel, celebratory = false }) => {
     const existing = document.getElementById(overlayId);
     if (existing) existing.remove();
 
@@ -3929,7 +3951,59 @@
     overlay.style.alignItems = 'center';
     overlay.style.justifyContent = 'center';
 
+    if (celebratory) {
+      ensureHeaderPopupConfettiStyles();
+      const confettiLayer = document.createElement('div');
+      confettiLayer.style.position = 'absolute';
+      confettiLayer.style.inset = '0';
+      confettiLayer.style.overflow = 'hidden';
+      confettiLayer.style.pointerEvents = 'none';
+
+      const colors = ['#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#3b82f6', '#06b6d4', '#22c55e', '#fde047'];
+      const shapes = ['square', 'circle', 'ribbon'];
+      const fragment = document.createDocumentFragment();
+      const totalParticles = window.innerWidth < 640 ? 270 : 420;
+
+      for (let i = 0; i < totalParticles; i += 1) {
+        const particle = document.createElement('span');
+        const shape = shapes[Math.floor(Math.random() * shapes.length)];
+        particle.style.position = 'absolute';
+        particle.style.top = '-8vh';
+        particle.style.left = `${Math.random() * 100}%`;
+        particle.style.opacity = '0';
+        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+        particle.style.animationName = 'headerPopupConfettiDrop';
+        particle.style.animationTimingFunction = 'linear';
+        particle.style.animationFillMode = 'forwards';
+        particle.style.animationDuration = `${8.5 + Math.random() * 3.5}s`;
+        particle.style.animationDelay = `${Math.random() * 0.8}s`;
+        particle.style.setProperty('--drift', `${-120 + Math.random() * 240}px`);
+        particle.style.setProperty('--spin', `${360 + Math.random() * 1080}deg`);
+
+        if (shape === 'circle') {
+          particle.style.width = '8px';
+          particle.style.height = '8px';
+          particle.style.borderRadius = '50%';
+        } else if (shape === 'ribbon') {
+          particle.style.width = '6px';
+          particle.style.height = '24px';
+          particle.style.borderRadius = '999px';
+        } else {
+          particle.style.width = '10px';
+          particle.style.height = '20px';
+          particle.style.borderRadius = '2px';
+        }
+
+        fragment.appendChild(particle);
+      }
+
+      confettiLayer.appendChild(fragment);
+      overlay.appendChild(confettiLayer);
+    }
+
     const card = document.createElement('div');
+    card.style.position = 'relative';
+    card.style.zIndex = '1';
     card.style.width = 'min(92vw, 390px)';
     card.style.background = '#fff';
     card.style.borderRadius = '12px';
@@ -3966,6 +4040,7 @@
             title: payload.title,
             message: payload.message,
             buttonLabel: 'Thank you',
+            celebratory: true,
           });
         }
       })
@@ -3983,6 +4058,7 @@
             title: payload.title,
             message: payload.message,
             buttonLabel: 'Okay',
+            celebratory: true,
           });
         }
       })
