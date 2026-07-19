@@ -245,12 +245,18 @@
         .header .logo { justify-self: start; }
         .header .student-image { justify-self: end; }
 
+        .header .school-info {
+            min-width: 0;
+        }
+
         .header h1,
         .header h2,
         .header h3 {
             margin: 0;
             text-align: center;
-            white-space: nowrap;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
         .header h1 {
@@ -1214,11 +1220,17 @@
     }
 
     .header h1 {
-        font-size: 13px;
+        font-size: 11px;
+        line-height: 1.2;
     }
 
     .header h2 {
         font-size: 11px;
+    }
+
+    .header h3 {
+        font-size: 9px;
+        line-height: 1.25;
     }
 
     .subjects table {
