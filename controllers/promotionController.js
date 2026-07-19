@@ -1,4 +1,747 @@
 const db = require("../config/db");
+const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
+
+let promotionSubjectSelectionSchemaReady = false;
+let promotionScheduleRetrySchemaReady = false;
+
+async function ensurePromotionSubjectSelectionSchema() {
+  if (promotionSubjectSelectionSchemaReady) return;
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS promotion_subject_selections (
+      id SERIAL PRIMARY KEY,
+      organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+      term_id INT NOT NULL REFERENCES terms(term_id) ON DELETE CASCADE,
+      student_id INT NOT NULL REFERENCES students(student_id) ON DELETE CASCADE,
+      subject_id INT NOT NULL REFERENCES subjects(subject_id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (organization_id, term_id, student_id, subject_id)
+    )
+  `);
+
+  promotionSubjectSelectionSchemaReady = true;
+}
+
+async function ensurePromotionScheduleRetrySchema() {
+  if (promotionScheduleRetrySchemaReady) return;
+
+  await db.query(`
+    ALTER TABLE promotion_schedule
+      ADD COLUMN IF NOT EXISTS apply_attempt_count INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS max_apply_attempts INTEGER NOT NULL DEFAULT 4,
+      ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS last_error TEXT,
+      ADD COLUMN IF NOT EXISTS failed_at TIMESTAMP
+  `);
+
+  promotionScheduleRetrySchemaReady = true;
+}
+
+function getRetryDelayExpressionForAttempt(attemptCount) {
+  if (attemptCount === 1) return "INTERVAL '3 minutes'";
+  if (attemptCount === 2) return "INTERVAL '1 hour'";
+  if (attemptCount === 3) return "INTERVAL '1 day'";
+  return null;
+}
+
+async function markPromotionAttemptStarted(scheduleId, organizationId) {
+  const result = await db.query(
+    `UPDATE promotion_schedule
+     SET apply_attempt_count = COALESCE(apply_attempt_count, 0) + 1,
+         last_attempt_at = CURRENT_TIMESTAMP
+     WHERE id = $1 AND organization_id = $2
+     RETURNING apply_attempt_count, COALESCE(max_apply_attempts, 4) AS max_apply_attempts`,
+    [scheduleId, organizationId]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function markPromotionAttemptSuccess(scheduleId, organizationId) {
+  await db.query(
+    `UPDATE promotion_schedule
+     SET next_retry_at = NULL,
+         last_error = NULL,
+         failed_at = NULL
+     WHERE id = $1 AND organization_id = $2`,
+    [scheduleId, organizationId]
+  );
+}
+
+async function markPromotionAttemptFailure({ scheduleId, organizationId, attemptCount, maxAttempts, reason }) {
+  const normalizedReason = String(reason || "Promotion apply failed.").slice(0, 1000);
+  const retryDelayExpression = getRetryDelayExpressionForAttempt(attemptCount);
+
+  if (!retryDelayExpression || attemptCount >= maxAttempts) {
+    await db.query(
+      `UPDATE promotion_schedule
+       SET status = 'failed',
+           next_retry_at = NULL,
+           failed_at = CURRENT_TIMESTAMP,
+           last_error = $3
+       WHERE id = $1 AND organization_id = $2`,
+      [scheduleId, organizationId, normalizedReason]
+    );
+    return { willRetry: false, message: normalizedReason };
+  }
+
+  await db.query(
+    `UPDATE promotion_schedule
+     SET status = 'scheduled',
+         next_retry_at = CURRENT_TIMESTAMP + ${retryDelayExpression},
+         last_error = $3
+     WHERE id = $1 AND organization_id = $2`,
+    [scheduleId, organizationId, normalizedReason]
+  );
+
+  const retryMessage = attemptCount === 1
+    ? 'First attempt failed. Will retry in about 3 minutes.'
+    : attemptCount === 2
+      ? 'Second attempt failed. Will retry in about 1 hour.'
+      : 'Third attempt failed. Will retry in about 1 day.';
+
+  return { willRetry: true, message: `${normalizedReason} ${retryMessage}` };
+}
+
+async function executePromotionWithRetryPolicy(promo) {
+  const scheduleId = Number(promo?.id);
+  const organizationId = Number(promo?.organization_id);
+  if (!Number.isFinite(scheduleId) || !Number.isFinite(organizationId)) {
+    return { success: false, reason: "Invalid promotion schedule context.", willRetry: false };
+  }
+
+  await ensurePromotionScheduleRetrySchema();
+
+  const attemptMeta = await markPromotionAttemptStarted(scheduleId, organizationId);
+  if (!attemptMeta) {
+    return { success: false, reason: "Promotion schedule not found for retry processing.", willRetry: false };
+  }
+
+  const attemptCount = Number(attemptMeta.apply_attempt_count) || 1;
+  const maxAttempts = Number(attemptMeta.max_apply_attempts) || 4;
+
+  try {
+    const result = await module.exports._applyPromotionCore(promo);
+    if (result.success) {
+      await markPromotionAttemptSuccess(scheduleId, organizationId);
+      return { ...result, attemptCount, maxAttempts, willRetry: false };
+    }
+
+    const failureState = await markPromotionAttemptFailure({
+      scheduleId,
+      organizationId,
+      attemptCount,
+      maxAttempts,
+      reason: result.reason || "Promotion apply failed.",
+    });
+
+    return {
+      success: false,
+      reason: failureState.message,
+      attemptCount,
+      maxAttempts,
+      willRetry: failureState.willRetry,
+    };
+  } catch (error) {
+    const failureState = await markPromotionAttemptFailure({
+      scheduleId,
+      organizationId,
+      attemptCount,
+      maxAttempts,
+      reason: error?.message || "Promotion apply crashed.",
+    });
+
+    return {
+      success: false,
+      reason: failureState.message,
+      attemptCount,
+      maxAttempts,
+      willRetry: failureState.willRetry,
+    };
+  }
+}
+
+function normalizeClassIds(input) {
+  if (Array.isArray(input)) {
+    return input.map(Number).filter(Number.isFinite);
+  }
+  if (typeof input === "string") {
+    return input
+      .split(",")
+      .map((value) => Number(String(value).trim()))
+      .filter(Number.isFinite);
+  }
+  const singleValue = Number(input);
+  return Number.isFinite(singleValue) ? [singleValue] : [];
+}
+
+function extractPromotionOverrideMap(payload = {}) {
+  return Object.entries(payload).reduce((accumulator, [key, value]) => {
+    const match = /^promotionOverride_(\d+)$/.exec(String(key || ""));
+    if (!match) return accumulator;
+    const studentId = Number(match[1]);
+    const classId = Number(value);
+    if (Number.isFinite(studentId) && Number.isFinite(classId)) {
+      accumulator[studentId] = classId;
+    }
+    return accumulator;
+  }, {});
+}
+
+function extractPromotionSubjectSelectionPayload(payload = {}) {
+  const subjectSelections = {};
+  const touchedStudentIds = new Set();
+
+  Object.entries(payload || {}).forEach(([key, value]) => {
+    const touchedMatch = /^promotionSubjectTouched_(\d+)$/.exec(String(key || ""));
+    if (touchedMatch) {
+      const studentId = Number(touchedMatch[1]);
+      if (Number.isFinite(studentId)) {
+        touchedStudentIds.add(studentId);
+      }
+      return;
+    }
+
+    const selectionMatch = /^promotionSubject_(\d+)$/.exec(String(key || ""));
+    if (!selectionMatch) return;
+
+    const studentId = Number(selectionMatch[1]);
+    if (!Number.isFinite(studentId)) return;
+
+    const rawValues = Array.isArray(value) ? value : [value];
+    const subjectIds = [...new Set(rawValues
+      .map((item) => Number(item))
+      .filter(Number.isFinite))];
+
+    subjectSelections[studentId] = subjectIds;
+    touchedStudentIds.add(studentId);
+  });
+
+  touchedStudentIds.forEach((studentId) => {
+    if (!Object.prototype.hasOwnProperty.call(subjectSelections, studentId)) {
+      subjectSelections[studentId] = [];
+    }
+  });
+
+  return {
+    subjectSelections,
+    touchedStudentIds: Array.from(touchedStudentIds),
+  };
+}
+
+function buildPromotionOptionList(row) {
+  const optionMap = new Map();
+
+  [
+    {
+      classId: row.promoted_class_id,
+      className: row.promoted_class_name,
+      label: "Promoted"
+    },
+    {
+      classId: row.repeated_class_id,
+      className: row.repeated_class_name,
+      label: "Repeated"
+    },
+    {
+      classId: row.promotion_class_id,
+      className: row.assigned_class_name,
+      label: "Assigned"
+    }
+  ].forEach((option) => {
+    const classId = Number(option.classId);
+    if (!Number.isFinite(classId) || optionMap.has(classId)) return;
+    optionMap.set(classId, {
+      classId,
+      className: option.className || `Class ${classId}`,
+      label: option.label
+    });
+  });
+
+  return Array.from(optionMap.values());
+}
+
+async function fetchPromotionPreviewRows(organizationId, termId, classIds = []) {
+  const normalizedTermId = Number(termId);
+  if (!Number.isFinite(normalizedTermId)) {
+    return [];
+  }
+
+  const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
+
+  const normalizedClassIds = Array.isArray(classIds)
+    ? classIds.map(Number).filter(Number.isFinite)
+    : [];
+  if (!normalizedClassIds.length) {
+    return [];
+  }
+
+  const classMetaResult = await db.query(
+    `SELECT class_id, class_name
+     FROM classes
+     WHERE organization_id = $1
+       AND class_id = ANY($2::int[])`,
+    [organizationId, normalizedClassIds]
+  );
+  const classMetaMap = new Map(
+    classMetaResult.rows.map((row) => [Number(row.class_id), row.class_name || `Class ${row.class_id}`])
+  );
+
+  const enrolledCountResult = await db.query(
+    `SELECT es.class_id, COUNT(DISTINCT es.student_id)::int AS total_students
+     FROM enrolled_students es
+     JOIN enrollments e ON e.enrollment_id = es.enrollment_id
+     JOIN students s ON s.student_id = es.student_id
+     WHERE e.organization_id = $1
+       AND e.term_id = $2
+       AND s.organization_id = $1
+       AND COALESCE(s.graduated, FALSE) = FALSE
+       AND es.class_id = ANY($3::int[])
+     GROUP BY es.class_id`,
+    [organizationId, normalizedTermId, normalizedClassIds]
+  );
+  const enrolledCountMap = new Map(
+    enrolledCountResult.rows.map((row) => [Number(row.class_id), Number(row.total_students) || 0])
+  );
+
+  const params = [organizationId, normalizedTermId, normalizedClassIds];
+
+  const result = await db.query(
+    `SELECT
+      sr.student_id,
+      sr.class_id AS current_class_id,
+      sr.promotion_status,
+      sr.promotion_class_id,
+      s.custom_student_id,
+      COALESCE(NULLIF(TRIM(s.last_name || ', ' || s.first_name), ','), TRIM(CONCAT_WS(' ', s.first_name, s.last_name)), CONCAT('Student ', sr.student_id::text)) AS student_name,
+      cc.class_name AS current_class_name,
+      assigned.class_name AS assigned_class_name,
+      CASE
+        WHEN NULLIF(TRIM(ss.promoted_class::text), '') ~ '^\\d+$'
+          THEN TRIM(ss.promoted_class::text)::int
+        ELSE NULL
+      END AS promoted_class_id,
+      promoted.class_name AS promoted_class_name,
+      CASE
+        WHEN NULLIF(TRIM(ss.repeated_class::text), '') ~ '^\\d+$'
+          THEN TRIM(ss.repeated_class::text)::int
+        ELSE NULL
+      END AS repeated_class_id,
+      repeated.class_name AS repeated_class_name
+    FROM student_reports sr
+    JOIN students s
+      ON s.student_id = sr.student_id
+      AND s.organization_id = sr.organization_id
+      AND COALESCE(s.graduated, FALSE) = FALSE
+    LEFT JOIN classes cc ON cc.class_id = sr.class_id
+    LEFT JOIN status_settings ss
+      ON ss.organization_id = sr.organization_id
+      AND ss.term_id = sr.term_id
+      AND ss.class_id = sr.class_id
+    LEFT JOIN classes assigned ON assigned.class_id = sr.promotion_class_id
+    LEFT JOIN classes promoted ON promoted.class_id = CASE
+      WHEN NULLIF(TRIM(ss.promoted_class::text), '') ~ '^\\d+$'
+        THEN TRIM(ss.promoted_class::text)::int
+      ELSE NULL
+    END
+    LEFT JOIN classes repeated ON repeated.class_id = CASE
+      WHEN NULLIF(TRIM(ss.repeated_class::text), '') ~ '^\\d+$'
+        THEN TRIM(ss.repeated_class::text)::int
+      ELSE NULL
+    END
+    WHERE sr.organization_id = $1
+      AND sr.term_id = $2
+      AND sr.class_id = ANY($3::int[])
+      AND sr.promotion_status IN ('Promoted', 'Repeated')
+      AND sr.promotion_class_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM enrollments e
+        JOIN enrolled_students es
+          ON es.enrollment_id = e.enrollment_id
+         AND es.student_id = sr.student_id
+         AND es.class_id = sr.class_id
+        WHERE e.organization_id = sr.organization_id
+          AND e.term_id = sr.term_id
+      )
+    ORDER BY cc.class_name ASC NULLS LAST, student_name ASC`,
+    params
+  );
+
+  await ensurePromotionSubjectSelectionSchema();
+
+  const allOptionClassIds = new Set();
+  result.rows.forEach((row) => {
+    const optionClassIds = buildPromotionOptionList(row).map((option) => Number(option.classId)).filter(Number.isFinite);
+    optionClassIds.forEach((classId) => allOptionClassIds.add(classId));
+    const assignedClassId = Number(row.promotion_class_id);
+    if (Number.isFinite(assignedClassId)) {
+      allOptionClassIds.add(assignedClassId);
+    }
+  });
+
+  const classSubjectMap = new Map();
+  if (allOptionClassIds.size > 0) {
+    const subjectResult = await db.query(
+      `SELECT class_id, subject_id, subject_name
+       FROM subjects
+       WHERE organization_id = $1
+         AND class_id = ANY($2::int[])
+       ORDER BY subject_name ASC, subject_id ASC`,
+      [organizationId, Array.from(allOptionClassIds)]
+    );
+
+    subjectResult.rows.forEach((row) => {
+      const classId = Number(row.class_id);
+      if (!Number.isFinite(classId)) return;
+      if (!classSubjectMap.has(classId)) {
+        classSubjectMap.set(classId, []);
+      }
+      classSubjectMap.get(classId).push({
+        subjectId: Number(row.subject_id),
+        subjectName: row.subject_name || `Subject ${row.subject_id}`,
+      });
+    });
+  }
+
+  const previewStudentIds = [...new Set(result.rows.map((row) => Number(row.student_id)).filter(Number.isFinite))];
+  const savedSubjectSelectionMap = new Map();
+  if (previewStudentIds.length > 0) {
+    const savedSelectionsResult = await db.query(
+      `SELECT student_id, subject_id
+       FROM promotion_subject_selections
+       WHERE organization_id = $1
+         AND term_id = $2
+         AND student_id = ANY($3::int[])`,
+      [organizationId, normalizedTermId, previewStudentIds]
+    );
+
+    savedSelectionsResult.rows.forEach((row) => {
+      const studentId = Number(row.student_id);
+      const subjectId = Number(row.subject_id);
+      if (!Number.isFinite(studentId) || !Number.isFinite(subjectId)) return;
+      if (!savedSubjectSelectionMap.has(studentId)) {
+        savedSubjectSelectionMap.set(studentId, new Set());
+      }
+      savedSubjectSelectionMap.get(studentId).add(subjectId);
+    });
+  }
+
+  const rowsByClassId = new Map();
+  normalizedClassIds.forEach((classId) => {
+    rowsByClassId.set(classId, []);
+  });
+
+  result.rows.forEach((row) => {
+    const classId = Number(row.current_class_id);
+    if (!rowsByClassId.has(classId)) {
+      rowsByClassId.set(classId, []);
+    }
+    rowsByClassId.get(classId).push({
+      studentId: row.student_id,
+      studentName: row.student_name,
+      displayStudentId: buildStudentDisplayId(row, studentIdSettings),
+      displayStudentIdText: studentIdSettings && studentIdSettings.use_custom_student_id
+        ? buildStudentDisplayId(row, studentIdSettings)
+        : `#${buildStudentDisplayId(row, studentIdSettings)}`,
+      currentClassId: row.current_class_id,
+      currentClassName: row.current_class_name || "Unknown Class",
+      promotionStatus: row.promotion_status,
+      assignedClassId: row.promotion_class_id,
+      assignedClassName: row.assigned_class_name || "Unknown Class",
+      availableOptions: buildPromotionOptionList(row),
+      classSubjectOptions: Object.fromEntries(
+        buildPromotionOptionList(row).map((option) => {
+          const classIdValue = Number(option.classId);
+          const subjects = classSubjectMap.get(classIdValue) || [];
+          return [String(classIdValue), subjects];
+        })
+      ),
+      selectedSubjectIds: (() => {
+        const studentId = Number(row.student_id);
+        const assignedClassId = Number(row.promotion_class_id);
+        const assignedClassSubjects = classSubjectMap.get(assignedClassId) || [];
+        const savedSet = savedSubjectSelectionMap.get(studentId);
+        if (!savedSet) {
+          return assignedClassSubjects.map((subject) => Number(subject.subjectId)).filter(Number.isFinite);
+        }
+        return assignedClassSubjects
+          .map((subject) => Number(subject.subjectId))
+          .filter((subjectId) => Number.isFinite(subjectId) && savedSet.has(subjectId));
+      })(),
+    });
+  });
+
+  return normalizedClassIds.map((classId) => {
+    const classStudents = rowsByClassId.get(classId) || [];
+    const totalStudents = enrolledCountMap.get(classId) || 0;
+    let state = "saved";
+    let message = "";
+    if (totalStudents === 0) {
+      state = "no-students";
+      message = "This class does not have any student record for the selected term.";
+    } else if (classStudents.length === 0) {
+      state = "unsaved";
+      message = "Students exist in this class, but no saved promotion decision is available yet.";
+    } else if (classStudents.length < totalStudents) {
+      state = "partial";
+      message = `Only ${classStudents.length} of ${totalStudents} students currently have saved promotion decisions.`;
+    }
+
+    return {
+      classId,
+      className: classMetaMap.get(classId) || `Class ${classId}`,
+      totalStudents,
+      savedStudents: classStudents.length,
+      state,
+      message,
+      reportUrl: `/print/printStudentReport?classId=${classId}&termId=${normalizedTermId}`,
+      students: classStudents,
+    };
+  });
+}
+
+async function savePromotionSubjectSelections({ organizationId, termId, subjectSelections, touchedStudentIds, overrides = {} }) {
+  const normalizedTermId = Number(termId);
+  if (!Number.isFinite(normalizedTermId)) {
+    return 0;
+  }
+
+  const normalizedSelections = {};
+  Object.entries(subjectSelections || {}).forEach(([studentIdText, rawSubjectIds]) => {
+    const studentId = Number(studentIdText);
+    if (!Number.isFinite(studentId)) return;
+    const ids = Array.isArray(rawSubjectIds) ? rawSubjectIds : [rawSubjectIds];
+    normalizedSelections[studentId] = [...new Set(ids.map((value) => Number(value)).filter(Number.isFinite))];
+  });
+
+  const studentIdSet = new Set(
+    Object.keys(normalizedSelections).map(Number).filter(Number.isFinite)
+  );
+  (Array.isArray(touchedStudentIds) ? touchedStudentIds : []).forEach((studentId) => {
+    const parsed = Number(studentId);
+    if (Number.isFinite(parsed)) {
+      studentIdSet.add(parsed);
+      if (!Object.prototype.hasOwnProperty.call(normalizedSelections, parsed)) {
+        normalizedSelections[parsed] = [];
+      }
+    }
+  });
+
+  const studentIds = Array.from(studentIdSet);
+  if (!studentIds.length) {
+    return 0;
+  }
+
+  await ensurePromotionSubjectSelectionSchema();
+
+  const overrideValues = [];
+  const overridePlaceholders = [];
+  Object.entries(overrides || {}).forEach(([studentIdText, classIdValue]) => {
+    const studentId = Number(studentIdText);
+    const classId = Number(classIdValue);
+    if (!Number.isFinite(studentId) || !Number.isFinite(classId)) return;
+    const offset = overrideValues.length;
+    overrideValues.push(studentId, classId);
+    overridePlaceholders.push(`($${offset + 1}::int, $${offset + 2}::int)`);
+  });
+
+  const effectiveClassQuery = overridePlaceholders.length
+    ? `
+      SELECT sr.student_id, COALESCE(ov.class_id, sr.promotion_class_id) AS effective_class_id
+      FROM student_reports sr
+      LEFT JOIN (VALUES ${overridePlaceholders.join(", ")}) AS ov(student_id, class_id)
+        ON ov.student_id = sr.student_id
+      JOIN students s
+        ON s.student_id = sr.student_id
+       AND s.organization_id = sr.organization_id
+       AND COALESCE(s.graduated, FALSE) = FALSE
+      WHERE sr.organization_id = $${overrideValues.length + 1}
+        AND sr.term_id = $${overrideValues.length + 2}
+        AND sr.student_id = ANY($${overrideValues.length + 3}::int[])
+        AND sr.promotion_status IN ('Promoted', 'Repeated')
+        AND COALESCE(ov.class_id, sr.promotion_class_id) IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM enrollments e
+          JOIN enrolled_students es
+            ON es.enrollment_id = e.enrollment_id
+           AND es.student_id = sr.student_id
+           AND es.class_id = sr.class_id
+          WHERE e.organization_id = sr.organization_id
+            AND e.term_id = sr.term_id
+        )
+    `
+    : `
+      SELECT sr.student_id, sr.promotion_class_id AS effective_class_id
+      FROM student_reports sr
+      JOIN students s
+        ON s.student_id = sr.student_id
+       AND s.organization_id = sr.organization_id
+       AND COALESCE(s.graduated, FALSE) = FALSE
+      WHERE sr.organization_id = $1
+        AND sr.term_id = $2
+        AND sr.student_id = ANY($3::int[])
+        AND sr.promotion_status IN ('Promoted', 'Repeated')
+        AND sr.promotion_class_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM enrollments e
+          JOIN enrolled_students es
+            ON es.enrollment_id = e.enrollment_id
+           AND es.student_id = sr.student_id
+           AND es.class_id = sr.class_id
+          WHERE e.organization_id = sr.organization_id
+            AND e.term_id = sr.term_id
+        )
+    `;
+
+  const effectiveClassParams = overridePlaceholders.length
+    ? [...overrideValues, organizationId, normalizedTermId, studentIds]
+    : [organizationId, normalizedTermId, studentIds];
+
+  const effectiveClassResult = await db.query(effectiveClassQuery, effectiveClassParams);
+  const effectiveClassByStudent = new Map();
+  const effectiveClassIds = new Set();
+  effectiveClassResult.rows.forEach((row) => {
+    const studentId = Number(row.student_id);
+    const classId = Number(row.effective_class_id);
+    if (!Number.isFinite(studentId) || !Number.isFinite(classId)) return;
+    effectiveClassByStudent.set(studentId, classId);
+    effectiveClassIds.add(classId);
+  });
+
+  const allowedSubjectsByClass = new Map();
+  if (effectiveClassIds.size > 0) {
+    const subjectResult = await db.query(
+      `SELECT class_id, subject_id
+       FROM subjects
+       WHERE organization_id = $1
+         AND class_id = ANY($2::int[])`,
+      [organizationId, Array.from(effectiveClassIds)]
+    );
+    subjectResult.rows.forEach((row) => {
+      const classId = Number(row.class_id);
+      const subjectId = Number(row.subject_id);
+      if (!Number.isFinite(classId) || !Number.isFinite(subjectId)) return;
+      if (!allowedSubjectsByClass.has(classId)) {
+        allowedSubjectsByClass.set(classId, new Set());
+      }
+      allowedSubjectsByClass.get(classId).add(subjectId);
+    });
+  }
+
+  let touchedAndEligibleCount = 0;
+  const insertRows = [];
+  studentIds.forEach((studentId) => {
+    const effectiveClassId = effectiveClassByStudent.get(studentId);
+    if (!Number.isFinite(effectiveClassId)) return;
+    touchedAndEligibleCount += 1;
+
+    const allowedSet = allowedSubjectsByClass.get(effectiveClassId) || new Set();
+    const selectedIds = (normalizedSelections[studentId] || []).filter((subjectId) => allowedSet.has(subjectId));
+
+    selectedIds.forEach((subjectId) => {
+      insertRows.push({ studentId, subjectId });
+    });
+  });
+
+  if (touchedAndEligibleCount === 0) {
+    return 0;
+  }
+
+  await db.query('BEGIN');
+  try {
+    await db.query(
+      `DELETE FROM promotion_subject_selections
+       WHERE organization_id = $1
+         AND term_id = $2
+         AND student_id = ANY($3::int[])`,
+      [organizationId, normalizedTermId, Array.from(effectiveClassByStudent.keys())]
+    );
+
+    if (insertRows.length > 0) {
+      const values = [];
+      const placeholders = [];
+      insertRows.forEach((row, index) => {
+        const offset = index * 4;
+        values.push(organizationId, normalizedTermId, row.studentId, row.subjectId);
+        placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`);
+      });
+
+      await db.query(
+        `INSERT INTO promotion_subject_selections (organization_id, term_id, student_id, subject_id)
+         VALUES ${placeholders.join(', ')}
+         ON CONFLICT (organization_id, term_id, student_id, subject_id)
+         DO UPDATE SET updated_at = CURRENT_TIMESTAMP`,
+        values
+      );
+    }
+
+    await db.query('COMMIT');
+  } catch (error) {
+    await db.query('ROLLBACK');
+    throw error;
+  }
+
+  return insertRows.length;
+}
+
+async function applyPromotionOverrides({ organizationId, termId, overrides }) {
+  const studentIds = Object.keys(overrides || {})
+    .map(Number)
+    .filter(Number.isFinite);
+  if (!Number.isFinite(Number(termId)) || studentIds.length === 0) {
+    return 0;
+  }
+
+  const values = [];
+  const placeholders = [];
+  studentIds.forEach((studentId, index) => {
+    const classId = Number(overrides[studentId]);
+    if (!Number.isFinite(classId)) return;
+    const offset = values.length;
+    values.push(studentId, classId);
+    placeholders.push(`($${offset + 1}::int, $${offset + 2}::int)`);
+  });
+
+  if (placeholders.length === 0) {
+    return 0;
+  }
+
+  const query = `
+    UPDATE student_reports sr
+    SET promotion_class_id = data.class_id,
+        updated_at = CURRENT_TIMESTAMP
+    FROM (VALUES ${placeholders.join(", ")}) AS data(student_id, class_id)
+    WHERE sr.organization_id = $${values.length + 1}
+      AND sr.term_id = $${values.length + 2}
+      AND sr.student_id = data.student_id
+      AND sr.promotion_status IN ('Promoted', 'Repeated')
+      AND EXISTS (
+        SELECT 1
+        FROM students s
+        WHERE s.student_id = sr.student_id
+          AND s.organization_id = sr.organization_id
+          AND COALESCE(s.graduated, FALSE) = FALSE
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM enrollments e
+        JOIN enrolled_students es
+          ON es.enrollment_id = e.enrollment_id
+         AND es.student_id = sr.student_id
+         AND es.class_id = sr.class_id
+        WHERE e.organization_id = sr.organization_id
+          AND e.term_id = sr.term_id
+      )
+  `;
+
+  const result = await db.query(query, [...values, organizationId, Number(termId)]);
+  return result.rowCount || 0;
+}
 
 module.exports = {
   // Page to view and schedule promotions
@@ -72,6 +815,62 @@ module.exports = {
     }
   },
 
+  getPromotionPreview: async (req, res) => {
+    const organizationId = req.session.organizationId;
+    const termId = Number(req.query.termId);
+    const classIds = normalizeClassIds(req.query.classIds);
+
+    try {
+      if (!Number.isFinite(termId)) {
+        return res.json({ success: true, students: [] });
+      }
+
+      const classes = await fetchPromotionPreviewRows(organizationId, termId, classIds);
+      return res.json({ success: true, classes });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "Failed to load promotion preview." });
+    }
+  },
+
+  savePromotionPreviewOverrides: async (req, res) => {
+    const organizationId = req.session.organizationId;
+    const termId = Number(req.body.termId);
+    const overrides = req.body && typeof req.body.overrides === "object" && req.body.overrides !== null
+      ? req.body.overrides
+      : extractPromotionOverrideMap(req.body);
+    const payloadSubjectSelections = req.body && typeof req.body.subjectSelections === "object" && req.body.subjectSelections !== null
+      ? req.body.subjectSelections
+      : null;
+    const payloadTouchedStudentIds = Array.isArray(req.body?.touchedStudentIds)
+      ? req.body.touchedStudentIds
+      : [];
+    const parsedSubjectPayload = extractPromotionSubjectSelectionPayload(req.body);
+    const subjectSelections = payloadSubjectSelections || parsedSubjectPayload.subjectSelections;
+    const touchedStudentIds = payloadTouchedStudentIds.length
+      ? payloadTouchedStudentIds
+      : parsedSubjectPayload.touchedStudentIds;
+
+    try {
+      const updatedCount = await applyPromotionOverrides({
+        organizationId,
+        termId,
+        overrides,
+      });
+
+      const subjectSelectionCount = await savePromotionSubjectSelections({
+        organizationId,
+        termId,
+        subjectSelections,
+        touchedStudentIds,
+        overrides,
+      });
+
+      return res.json({ success: true, updatedCount, subjectSelectionCount });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: "Failed to save promotion decisions." });
+    }
+  },
+
   // Schedule a promotion
   schedulePromotion: async (req, res) => {
     const {
@@ -88,34 +887,102 @@ module.exports = {
     const selectedClassIds = Array.isArray(classIds)
       ? classIds.map(Number).filter(Boolean)
       : (classIds ? [Number(classIds)].filter(Boolean) : []);
+    const promotionOverrides = extractPromotionOverrideMap(req.body);
+    const parsedSubjectPayload = extractPromotionSubjectSelectionPayload(req.body);
+
+    const normalizedTargetTermId = Number(targetTermId);
+    const normalizedTargetYearId = Number(targetYearId);
+
+    if (!Number.isFinite(normalizedTargetTermId)) {
+      req.flash("error", "Please select a target term before scheduling or applying promotion.");
+      return res.redirect("/promotion/apply");
+    }
+
+    if (!Number.isFinite(normalizedTargetYearId)) {
+      req.flash("error", "Please select a target school year before scheduling or applying promotion.");
+      return res.redirect("/promotion/apply");
+    }
   
     try {
-      // 0️⃣ Check if it's already scheduled
+      await ensurePromotionScheduleRetrySchema();
+
+      const targetTermOwnershipCheck = await db.query(
+        `SELECT 1
+         FROM terms
+         WHERE term_id = $1
+           AND school_year_id = $2
+           AND organization_id = $3
+         LIMIT 1`,
+        [normalizedTargetTermId, normalizedTargetYearId, organizationId]
+      );
+
+      if (!targetTermOwnershipCheck.rows.length) {
+        req.flash("error", "Selected target term is invalid for the chosen school year.");
+        return res.redirect("/promotion/apply");
+      }
+
+      await applyPromotionOverrides({
+        organizationId,
+        termId: fromTermId,
+        overrides: promotionOverrides,
+      });
+
+      await savePromotionSubjectSelections({
+        organizationId,
+        termId: fromTermId,
+        subjectSelections: parsedSubjectPayload.subjectSelections,
+        touchedStudentIds: parsedSubjectPayload.touchedStudentIds,
+        overrides: promotionOverrides,
+      });
+
+      // 0️⃣ Block duplicate schedule/apply for the same source -> target combination
       const existingSchedule = await db.query(`
-        SELECT id FROM promotion_schedule
+        SELECT id, status FROM promotion_schedule
         WHERE organization_id = $1
           AND current_term_id = $2 AND current_school_year_id = $3
           AND target_term_id = $4 AND target_school_year_id = $5
-          AND status = 'scheduled'
+          AND status IN ('scheduled', 'completed')
+        ORDER BY id DESC
+        LIMIT 1
       `, [
         organizationId,
         fromTermId,
         fromSchoolYearId,
-        targetTermId,
-        targetYearId
+        normalizedTargetTermId,
+        normalizedTargetYearId
       ]);
   
       if (existingSchedule.rows.length > 0) {
-        req.flash("error", "This promotion is already scheduled.");
+        const existingStatus = String(existingSchedule.rows[0].status || '').toLowerCase();
+        if (existingStatus === 'completed') {
+          req.flash("error", "This promotion has already been applied for the selected source and target terms.");
+        } else {
+          req.flash("error", "This promotion is already scheduled for the selected source and target terms.");
+        }
         return res.redirect("/promotion/apply");
       }
   
       // 1️⃣ Fetch students intended for promotion
       const promotedStudentsResult = await db.query(`
-        SELECT student_id, promotion_class_id
-        FROM student_reports
-        WHERE organization_id = $1 AND term_id = $2
-          AND promotion_status IN ('Promoted', 'Repeated') AND promotion_class_id IS NOT NULL
+        SELECT sr.student_id, sr.promotion_class_id
+        FROM student_reports sr
+        JOIN students s
+          ON s.student_id = sr.student_id
+          AND s.organization_id = sr.organization_id
+          AND COALESCE(s.graduated, FALSE) = FALSE
+        WHERE sr.organization_id = $1 AND sr.term_id = $2
+          AND sr.promotion_status IN ('Promoted', 'Repeated')
+          AND sr.promotion_class_id IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM enrollments e
+            JOIN enrolled_students es
+              ON es.enrollment_id = e.enrollment_id
+             AND es.student_id = sr.student_id
+             AND es.class_id = sr.class_id
+            WHERE e.organization_id = sr.organization_id
+              AND e.term_id = sr.term_id
+          )
       `, [organizationId, fromTermId]);
   
       const studentsToPromote = promotedStudentsResult.rows;
@@ -128,7 +995,7 @@ module.exports = {
       const enrollmentResult = await db.query(`
         SELECT enrollment_id FROM enrollments
         WHERE term_id = $1 AND school_year_id = $2 AND organization_id = $3
-      `, [targetTermId, targetYearId, organizationId]);
+      `, [normalizedTargetTermId, normalizedTargetYearId, organizationId]);
   
       let existingPairs = new Set();
       if (enrollmentResult.rows.length > 0) {
@@ -175,8 +1042,8 @@ module.exports = {
         organizationId,
         fromSchoolYearId,
         fromTermId,
-        targetYearId,
-        targetTermId,
+        normalizedTargetYearId,
+        normalizedTargetTermId,
         effectiveScheduleDate
       ]);
   
@@ -209,7 +1076,11 @@ module.exports = {
       res.redirect("/promotion/apply");
   
     } catch (err) {
-            req.flash("error", "Failed to schedule promotion.");
+      console.error("[Promotion] schedulePromotion failed:", err);
+      const detailedMessage = err && err.message ? String(err.message) : "Failed to schedule promotion.";
+      req.flash("error", process.env.NODE_ENV === 'development'
+        ? `Failed to schedule promotion. ${detailedMessage}`
+        : "Failed to schedule promotion.");
       res.redirect("/promotion/apply");
     }
   },
@@ -383,7 +1254,7 @@ module.exports = {
     let classCondition = '';
     const queryParams = [organization_id, current_term_id];
     if (filterClassIds.length > 0) {
-      classCondition = ` AND ss.class_id = ANY($3)`;
+      classCondition = ` AND ss.class_id = ANY($3::int[])`;
       queryParams.push(filterClassIds);
     }
 
@@ -402,11 +1273,26 @@ module.exports = {
 
     // 3️⃣ Fetch students with promotion data, filtered by active classes
     const promotedStudentsResult = await db.query(`
-      SELECT student_id, class_id AS current_class_id, promotion_status, promotion_class_id
-      FROM student_reports
-      WHERE organization_id = $1 AND term_id = $2
-        AND class_id = ANY($3)
-        AND promotion_status IN ('Promoted', 'Repeated') AND promotion_class_id IS NOT NULL
+      SELECT sr.student_id, sr.class_id AS current_class_id, sr.promotion_status, sr.promotion_class_id
+      FROM student_reports sr
+      JOIN students s
+        ON s.student_id = sr.student_id
+        AND s.organization_id = sr.organization_id
+        AND COALESCE(s.graduated, FALSE) = FALSE
+      WHERE sr.organization_id = $1 AND sr.term_id = $2
+        AND sr.class_id = ANY($3::int[])
+        AND sr.promotion_status IN ('Promoted', 'Repeated')
+        AND sr.promotion_class_id IS NOT NULL
+        AND EXISTS (
+          SELECT 1
+          FROM enrollments e
+          JOIN enrolled_students es
+            ON es.enrollment_id = e.enrollment_id
+           AND es.student_id = sr.student_id
+           AND es.class_id = sr.class_id
+          WHERE e.organization_id = sr.organization_id
+            AND e.term_id = sr.term_id
+        )
     `, [organization_id, current_term_id, activeClassIds]);
 
     if (promotedStudentsResult.rows.length === 0) {
@@ -437,14 +1323,38 @@ module.exports = {
       target_class_id: row.promotion_class_id
     }));
 
+    await ensurePromotionSubjectSelectionSchema();
+
     // 5️⃣ Insert classes
+    // Attach every destination class involved in this promotion plan, not only
+    // classes from students inserted in this run. This keeps target-term class
+    // enrollment complete while still avoiding duplicates.
+    const promotionClassPoolResult = await db.query(
+      `SELECT DISTINCT sr.promotion_class_id AS target_class_id
+       FROM student_reports sr
+       JOIN students s
+         ON s.student_id = sr.student_id
+        AND s.organization_id = sr.organization_id
+        AND COALESCE(s.graduated, FALSE) = FALSE
+       WHERE sr.organization_id = $1
+         AND sr.term_id = $2
+         AND sr.class_id = ANY($3::int[])
+         AND sr.promotion_status IN ('Promoted', 'Repeated')
+         AND sr.promotion_class_id IS NOT NULL`,
+      [organization_id, current_term_id, activeClassIds]
+    );
+
+    const plannedTargetClassIds = promotionClassPoolResult.rows
+      .map((row) => Number(row.target_class_id))
+      .filter(Number.isFinite);
+
     const classCheckResult = await db.query(
       `SELECT class_id FROM enrolled_classes WHERE enrollment_id = $1`,
       [enrollmentId]
     );
     const existingClassIds = new Set(classCheckResult.rows.map(r => r.class_id));
     const newClassIds = [...new Set(
-      finalEnrollments.map(r => r.target_class_id)
+      [...plannedTargetClassIds, ...finalEnrollments.map((r) => Number(r.target_class_id)).filter(Number.isFinite)]
     )].filter(cid => !existingClassIds.has(cid));
 
     if (newClassIds.length > 0) {
@@ -465,6 +1375,87 @@ module.exports = {
       enrolledCount += result.rowCount;
     }
 
+    const targetClassIds = [...new Set(finalEnrollments.map((row) => Number(row.target_class_id)).filter(Number.isFinite))];
+    const classSubjectsByClass = new Map();
+    if (targetClassIds.length > 0) {
+      const classSubjectsResult = await db.query(
+        `SELECT class_id, subject_id
+         FROM subjects
+         WHERE organization_id = $1
+           AND class_id = ANY($2::int[])`,
+        [organization_id, targetClassIds]
+      );
+
+      classSubjectsResult.rows.forEach((row) => {
+        const classId = Number(row.class_id);
+        const subjectId = Number(row.subject_id);
+        if (!Number.isFinite(classId) || !Number.isFinite(subjectId)) return;
+        if (!classSubjectsByClass.has(classId)) {
+          classSubjectsByClass.set(classId, []);
+        }
+        classSubjectsByClass.get(classId).push(subjectId);
+      });
+    }
+
+    const promotedStudentIds = [...new Set(finalEnrollments.map((row) => Number(row.student_id)).filter(Number.isFinite))];
+    const savedSelectionByStudent = new Map();
+    if (promotedStudentIds.length > 0) {
+      const savedSelectionResult = await db.query(
+        `SELECT student_id, subject_id
+         FROM promotion_subject_selections
+         WHERE organization_id = $1
+           AND term_id = $2
+           AND student_id = ANY($3::int[])`,
+        [organization_id, current_term_id, promotedStudentIds]
+      );
+
+      savedSelectionResult.rows.forEach((row) => {
+        const studentId = Number(row.student_id);
+        const subjectId = Number(row.subject_id);
+        if (!Number.isFinite(studentId) || !Number.isFinite(subjectId)) return;
+        if (!savedSelectionByStudent.has(studentId)) {
+          savedSelectionByStudent.set(studentId, new Set());
+        }
+        savedSelectionByStudent.get(studentId).add(subjectId);
+      });
+    }
+
+    const subjectInsertRows = [];
+    finalEnrollments.forEach(({ student_id, target_class_id }) => {
+      const classId = Number(target_class_id);
+      const studentId = Number(student_id);
+      if (!Number.isFinite(classId) || !Number.isFinite(studentId)) return;
+
+      const classSubjectIds = classSubjectsByClass.get(classId) || [];
+      if (classSubjectIds.length === 0) return;
+
+      const savedSet = savedSelectionByStudent.get(studentId);
+      const subjectIdsToAssign = savedSet
+        ? classSubjectIds.filter((subjectId) => savedSet.has(subjectId))
+        : classSubjectIds;
+
+      subjectIdsToAssign.forEach((subjectId) => {
+        subjectInsertRows.push({ studentId, subjectId });
+      });
+    });
+
+    if (subjectInsertRows.length > 0) {
+      const values = [];
+      const placeholders = [];
+      subjectInsertRows.forEach((row, index) => {
+        const offset = index * 3;
+        values.push(row.studentId, row.subjectId, organization_id);
+        placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3})`);
+      });
+
+      await db.query(
+        `INSERT INTO student_subjects (student_id, subject_id, organization_id)
+         VALUES ${placeholders.join(', ')}
+         ON CONFLICT DO NOTHING`,
+        values
+      );
+    }
+
     // 7️⃣ Mark schedule as completed
     await db.query(`
       UPDATE promotion_schedule SET status = 'completed' WHERE id = $1
@@ -477,22 +1468,26 @@ module.exports = {
   // Cron job entry point
   applyScheduledPromotions: async () => {
     try {
+      await ensurePromotionScheduleRetrySchema();
+
       const now = new Date().toISOString();
       const promotionsResult = await db.query(`
         SELECT * FROM promotion_schedule 
-        WHERE scheduled_date <= $1 AND status = 'scheduled'
+        WHERE scheduled_date <= $1
+          AND status = 'scheduled'
+          AND (next_retry_at IS NULL OR next_retry_at <= $1)
       `, [now]);
 
       for (const promo of promotionsResult.rows) {
         try {
-          const result = await module.exports._applyPromotionCore(promo);
+          const result = await executePromotionWithRetryPolicy(promo);
           if (result.success) {
             console.log(`✅ Promotion ${promo.id} applied: ${result.enrolledCount}/${result.totalEligible} students enrolled`);
           } else {
-            console.warn(`⚠️ Promotion ${promo.id} skipped: ${result.reason}`);
+            const retryHint = result.willRetry ? ' Retry already queued.' : ' Retry attempts exhausted.';
+            console.warn(`⚠️ Promotion ${promo.id} skipped: ${result.reason}.${retryHint}`);
           }
         } catch (innerErr) {
-          await db.query('ROLLBACK');
           console.error(`❌ Promotion ${promo.id} failed:`, innerErr.message);
         }
       }
@@ -507,6 +1502,8 @@ module.exports = {
     const organizationId = req.session.organizationId;
 
     try {
+      await ensurePromotionScheduleRetrySchema();
+
       const scheduleResult = await db.query(
         `SELECT * FROM promotion_schedule WHERE id = $1 AND organization_id = $2 AND status = 'scheduled'`,
         [scheduleId, organizationId]
@@ -517,16 +1514,17 @@ module.exports = {
         return res.redirect("/promotion/apply");
       }
 
-      const result = await module.exports._applyPromotionCore(scheduleResult.rows[0]);
+      const result = await executePromotionWithRetryPolicy(scheduleResult.rows[0]);
 
       if (result.success) {
         req.flash("success", `Promotion applied! ${result.enrolledCount} students enrolled into their new classes.`);
       } else {
-        req.flash("error", result.reason);
+        req.flash("error", result.willRetry
+          ? `${result.reason} Next retry will run automatically based on retry policy.`
+          : `${result.reason} Retry attempts exhausted.`);
       }
       res.redirect("/promotion/apply");
     } catch (err) {
-      await db.query('ROLLBACK');
       console.error("❌ Apply Now failed:", err);
       req.flash("error", "Failed to apply promotion: " + err.message);
       res.redirect("/promotion/apply");

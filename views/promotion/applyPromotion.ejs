@@ -299,9 +299,26 @@
 
     .collapsible-content.active {
       display: flex;
-      flex-direction: column;
-      justify-content: start;
+      flex-wrap: wrap;
+      justify-content: flex-start;
       gap: 6px;
+    }
+
+    .promotion-class-list .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      padding: 8px 12px;
+      border: 1px solid #d7dde5;
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(15, 45, 50, 0.06);
+      white-space: nowrap;
+    }
+
+    .promotion-class-list .checkbox-label input {
+      margin: 0;
     }
 
     .collapsible-btn {
@@ -395,6 +412,225 @@
       flex-wrap: wrap;
     }
 
+    .promotion-preview-box {
+      border: 1px solid #dbe3ea;
+      border-radius: 12px;
+      background: #f8fbfc;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .promotion-class-section {
+      margin-top: 14px;
+      border: 1px solid #dbe3ea;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .promotion-class-section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+      padding: 12px 14px;
+      background: rgba(15, 90, 102, 0.08);
+      border-bottom: 1px solid #dbe3ea;
+    }
+
+    .promotion-class-section-title {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: 0.96rem;
+      font-weight: 800;
+      color: #0f5a66;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .promotion-class-section-meta {
+      font-size: 0.8rem;
+      color: #475569;
+      font-weight: 600;
+    }
+
+    .promotion-class-section-message {
+      padding: 12px 14px 14px;
+      color: #475569;
+      line-height: 1.5;
+    }
+
+    .promotion-class-section-message a {
+      color: var(--org-primary-color, #0f5a66);
+      font-weight: 700;
+      text-decoration: underline;
+    }
+
+    .promotion-preview-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .promotion-preview-summary {
+      margin: 0 0 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(15, 90, 102, 0.07);
+      color: #0f2d32;
+      font-size: 0.9rem;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+
+    .selected-class-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+
+    .selected-class-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(15, 90, 102, 0.1);
+      color: #0f5a66;
+      border: 1px solid rgba(15, 90, 102, 0.2);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .promotion-class-section-head-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      justify-content: flex-end;
+      margin-left: auto;
+    }
+
+    .promotion-class-save-btn {
+      min-width: 66px;
+      padding: 6px 10px;
+      font-size: 0.76rem;
+      line-height: 1.1;
+      border-radius: 8px;
+      box-shadow: none;
+    }
+    .promotion-class-save-btn:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .promotion-class-save-status {
+      font-size: 0.78rem;
+      color: #64748b;
+      font-weight: 600;
+      min-height: 1em;
+    }
+
+    .selected-class-chip-order {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 18px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #0f5a66;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .promotion-preview-table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .preview-empty {
+      text-align: center;
+      color: #64748b;
+      font-style: italic;
+    }
+
+    .preview-available-list {
+      margin: 0;
+      padding-left: 18px;
+      color: #334155;
+    }
+
+    .preview-available-list li {
+      margin: 0;
+      padding: 0;
+    }
+
+    .promotion-preview-select {
+      min-width: 190px;
+    }
+
+    .promotion-subject-picker {
+      min-width: 220px;
+    }
+
+    .promotion-subject-toggle {
+      width: 100%;
+      text-align: left;
+      background: #f8fafc;
+      color: #0f2d32;
+      border: 1px solid #d7dde5;
+      box-shadow: none;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    .promotion-subject-toggle:hover {
+      background: #eef4f8;
+      color: #0f2d32;
+      transform: none;
+    }
+
+    .promotion-subject-menu {
+      margin-top: 6px;
+      border: 1px solid #d7dde5;
+      border-radius: 8px;
+      padding: 8px;
+      background: #fff;
+      max-height: 180px;
+      overflow-y: auto;
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+      gap: 6px 10px;
+      display: none;
+    }
+
+    .promotion-subject-menu.is-open {
+      display: grid;
+    }
+
+    .promotion-subject-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: #334155;
+      margin: 0;
+    }
+
+    .promotion-subject-row input {
+      margin: 0;
+    }
+
     .muted-text {
       font-size: 12px;
       color: #64748b;
@@ -443,6 +679,20 @@
         padding: 18px 14px 26px;
       }
 
+      .promotion-class-section-head {
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+
+      .promotion-class-section-title {
+        white-space: normal;
+      }
+
+      .promotion-class-section-head-right {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
       .form-grid {
         grid-template-columns: 1fr;
       }
@@ -481,6 +731,9 @@
       .history-card-content { padding: 8px 10px 12px; }
       #instructions-container { padding: 14px; }
       #instructions-container p { font-size: 0.88rem; }
+      .promotion-subject-menu {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -599,12 +852,40 @@
             <input type="checkbox" id="selectAllClasses"> Select All Classes
           </label>
         </div>
-        <div id="promotionClassCollapsibleContent" class="collapsible-content active">
+        <div id="promotionClassCollapsibleContent" class="collapsible-content promotion-class-list">
           <% allClasses.forEach(cls => { %>
             <label class="checkbox-label">
               <input type="checkbox" name="classIds[]" value="<%= cls.class_id %>" class="promotion-class-checkbox"> <%= cls.class_name %>
             </label>
           <% }) %>
+        </div>
+
+        <div class="promotion-preview-box">
+          <div id="selectedClassStrip" class="selected-class-strip"></div>
+          <div class="promotion-preview-meta">
+            <strong>Saved Student Decisions</strong>
+            <span id="promotionPreviewCount" class="muted-text">Choose a term to load saved promotion decisions.</span>
+          </div>
+          <div id="promotionPreviewSummary" class="promotion-preview-summary">Select source and target school year and term to preview this promotion movement.</div>
+          <div class="promotion-preview-table-wrap">
+            <table id="promotionPreviewTable">
+              <thead>
+                <tr>
+                  <th>Student ID</th>
+                  <th>Student</th>
+                  <th>Current Class</th>
+                  <th>Decision</th>
+                  <th>Assigned Destination</th>
+                  <th>New Class Subjects</th>
+                </tr>
+              </thead>
+              <tbody id="promotionPreviewBody">
+                <tr>
+                  <td colspan="6" class="preview-empty">Choose a term to load saved promotion decisions.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -693,6 +974,426 @@
   // onclick attributes are explicitly exposed on `window`.
   (function () {
     const currentSchoolYearId = <%= currentSchoolYear?.school_year_id || 0 %>;
+    const currentTermId = <%= currentTerm?.term_id || 0 %>;
+    let promotionClassSelectionOrder = [];
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getSelectedPromotionClassIds() {
+      return promotionClassSelectionOrder.filter(Number.isFinite);
+    }
+
+    function getClassNameById(classId) {
+      const checkbox = document.querySelector(`.promotion-class-checkbox[value="${String(classId)}"]`);
+      const label = checkbox && checkbox.closest('.checkbox-label');
+      if (!label) return `Class ${classId}`;
+      return label.textContent.replace(/\s+/g, ' ').trim();
+    }
+
+    function syncPromotionClassSelectionOrder() {
+      const checkedIds = Array.from(document.querySelectorAll('.promotion-class-checkbox:checked'))
+        .map((checkbox) => Number(checkbox.value))
+        .filter(Number.isFinite);
+      const stillChecked = promotionClassSelectionOrder.filter((id) => checkedIds.includes(id));
+      const newlyChecked = checkedIds.filter((id) => !stillChecked.includes(id));
+      promotionClassSelectionOrder = [...stillChecked, ...newlyChecked];
+    }
+
+    function renderSelectedClassStrip() {
+      const strip = document.getElementById('selectedClassStrip');
+      if (!strip) return;
+
+      if (promotionClassSelectionOrder.length === 0) {
+        strip.innerHTML = '<span class="muted-text">Select one or more classes above to load saved student decisions.</span>';
+        return;
+      }
+
+      strip.innerHTML = promotionClassSelectionOrder.map((classId, index) => `
+        <span class="selected-class-chip">
+          <span class="selected-class-chip-order">${index + 1}</span>
+          ${escapeHtml(getClassNameById(classId))}
+        </span>
+      `).join('');
+    }
+
+    function sortStudentsBySelectedClassOrder(students) {
+      if (!Array.isArray(students) || promotionClassSelectionOrder.length === 0) {
+        return Array.isArray(students) ? students : [];
+      }
+
+      const orderMap = new Map(promotionClassSelectionOrder.map((classId, index) => [Number(classId), index]));
+      return [...students].sort((left, right) => {
+        const leftOrder = orderMap.has(Number(left.currentClassId)) ? orderMap.get(Number(left.currentClassId)) : Number.MAX_SAFE_INTEGER;
+        const rightOrder = orderMap.has(Number(right.currentClassId)) ? orderMap.get(Number(right.currentClassId)) : Number.MAX_SAFE_INTEGER;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+        const leftName = String(left.studentName || '');
+        const rightName = String(right.studentName || '');
+        return leftName.localeCompare(rightName);
+      });
+    }
+
+    function renderPromotionPreviewMessage(message) {
+      const previewBody = document.getElementById('promotionPreviewBody');
+      const previewCount = document.getElementById('promotionPreviewCount');
+      if (previewBody) {
+        previewBody.innerHTML = `<tr><td colspan="6" class="preview-empty">${escapeHtml(message)}</td></tr>`;
+      }
+      if (previewCount) {
+        previewCount.textContent = message;
+      }
+      renderSelectedClassStrip();
+    }
+
+    function getSelectedOptionText(selectId, fallback) {
+      const select = document.getElementById(selectId);
+      if (!select) return fallback;
+      const selectedOption = select.options[select.selectedIndex];
+      const value = selectedOption && selectedOption.value ? selectedOption.textContent.trim() : '';
+      return value || fallback;
+    }
+
+    function renderPromotionPreviewSummary() {
+      const summary = document.getElementById('promotionPreviewSummary');
+      if (!summary) return;
+
+      const fromYear = getSelectedOptionText('fromSchoolYearId', 'source school year');
+      const fromTerm = getSelectedOptionText('fromTermId', 'source term');
+      const targetYear = getSelectedOptionText('targetYearId', 'target school year');
+      const targetTerm = getSelectedOptionText('targetTermId', 'target term');
+
+      summary.textContent = `Moving students from ${fromYear} / ${fromTerm} to ${targetYear} / ${targetTerm}.`;
+    }
+
+    function getClassSectionRoot(classId) {
+      return document.querySelector(`.promotion-class-section[data-class-id="${String(classId)}"]`);
+    }
+
+    function updateClassDirtyState(classId) {
+      const root = getClassSectionRoot(classId);
+      if (!root) return;
+      const selects = Array.from(root.querySelectorAll('.promotion-preview-select'));
+      const hasClassChanges = selects.some((select) => String(select.value) !== String(select.dataset.originalValue || ''));
+      const hasSubjectChanges = root.querySelectorAll('.promotion-subject-picker[data-subject-dirty="1"]').length > 0;
+      const hasChanges = hasClassChanges || hasSubjectChanges;
+      const saveBtn = root.querySelector('.promotion-class-save-btn');
+      const status = root.querySelector('.promotion-class-save-status');
+      if (saveBtn) {
+        saveBtn.disabled = !hasChanges;
+      }
+      if (status && !hasChanges && status.dataset.state !== 'saved') {
+        status.textContent = '';
+        status.dataset.state = 'idle';
+      }
+    }
+
+    async function savePromotionClassDecisions(classId) {
+      const root = getClassSectionRoot(classId);
+      const fromTermSelect = document.getElementById('fromTermId');
+      if (!root || !fromTermSelect || !fromTermSelect.value) return;
+
+      const selects = Array.from(root.querySelectorAll('.promotion-preview-select'));
+      const changedSelects = selects.filter((select) => String(select.value) !== String(select.dataset.originalValue || ''));
+      const subjectPickers = Array.from(root.querySelectorAll('.promotion-subject-picker'));
+      const saveBtn = root.querySelector('.promotion-class-save-btn');
+      const status = root.querySelector('.promotion-class-save-status');
+
+      const changedSubjectPickers = subjectPickers.filter((picker) => picker.dataset.subjectDirty === '1');
+
+      if (!changedSelects.length && !changedSubjectPickers.length) {
+        if (saveBtn) saveBtn.disabled = true;
+        return;
+      }
+
+      const overrides = changedSelects.reduce((accumulator, select) => {
+        const studentId = Number(select.dataset.studentId);
+        const classValue = Number(select.value);
+        if (Number.isFinite(studentId) && Number.isFinite(classValue)) {
+          accumulator[studentId] = classValue;
+        }
+        return accumulator;
+      }, {});
+
+      const subjectSelections = {};
+      const touchedStudentIds = [];
+      subjectPickers.forEach((picker) => {
+        const studentId = Number(picker.dataset.studentId);
+        const assignedClass = Number(picker.dataset.assignedClassId || 0);
+        if (!Number.isFinite(studentId) || !Number.isFinite(assignedClass)) return;
+        const classSubjectMap = JSON.parse(picker.dataset.classSubjects || '{}');
+        const selectedByClass = JSON.parse(picker.dataset.selectedByClass || '{}');
+        const selected = Array.isArray(selectedByClass[String(assignedClass)])
+          ? selectedByClass[String(assignedClass)].map(Number).filter(Number.isFinite)
+          : [];
+        const allowed = Array.isArray(classSubjectMap[String(assignedClass)])
+          ? classSubjectMap[String(assignedClass)].map((subject) => Number(subject.subjectId)).filter(Number.isFinite)
+          : [];
+
+        subjectSelections[studentId] = selected.filter((subjectId) => allowed.includes(subjectId));
+        touchedStudentIds.push(studentId);
+      });
+
+      if (saveBtn) saveBtn.disabled = true;
+      if (status) {
+        status.textContent = 'Saving...';
+        status.dataset.state = 'saving';
+      }
+
+      try {
+        const response = await fetch('/promotion/preview/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({
+            termId: Number(fromTermSelect.value),
+            overrides,
+            subjectSelections,
+            touchedStudentIds,
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to save changes.');
+        }
+
+        changedSelects.forEach((select) => {
+          select.dataset.originalValue = String(select.value);
+        });
+        subjectPickers.forEach((picker) => {
+          picker.dataset.subjectDirty = '0';
+          picker.dataset.originalAssignedClassId = picker.dataset.assignedClassId || '';
+          picker.dataset.originalSelectedByClass = picker.dataset.selectedByClass || '{}';
+        });
+        if (status) {
+          status.textContent = 'Saved';
+          status.dataset.state = 'saved';
+        }
+        updateClassDirtyState(classId);
+      } catch (error) {
+        if (status) {
+          status.textContent = error.message || 'Failed to save changes.';
+          status.dataset.state = 'error';
+        }
+        if (saveBtn) saveBtn.disabled = false;
+      }
+    }
+
+    function renderPromotionPreviewRows(classGroups) {
+      const previewBody = document.getElementById('promotionPreviewBody');
+      const previewCount = document.getElementById('promotionPreviewCount');
+      if (!previewBody) return;
+
+      if (!Array.isArray(classGroups) || classGroups.length === 0) {
+        renderPromotionPreviewMessage('No saved promotion decisions found for the selected term and classes.');
+        return;
+      }
+
+      const selectedGroupOrder = sortStudentsBySelectedClassOrder(classGroups.map((group) => ({ currentClassId: group.classId, studentName: '', group })))
+        .map((entry) => entry.group);
+
+      const totalSavedStudents = selectedGroupOrder.reduce((sum, group) => sum + Number(group.savedStudents || 0), 0);
+
+      previewBody.innerHTML = selectedGroupOrder.map((group) => {
+        const headerRow = `
+          <tr>
+            <td colspan="6" style="padding: 0; border: none; background: transparent;">
+              <div class="promotion-class-section" data-class-id="${Number(group.classId)}">
+                <div class="promotion-class-section-head">
+                  <div class="promotion-class-section-title">Results For Class: ${escapeHtml(group.className)}</div>
+                  <div class="promotion-class-section-head-right">
+                    <div class="promotion-class-section-meta">Saved ${Number(group.savedStudents || 0)} of ${Number(group.totalStudents || 0)} student${Number(group.totalStudents || 0) === 1 ? '' : 's'}</div>
+                    <span class="promotion-class-save-status" data-state="idle"></span>
+                    <button type="button" class="promotion-class-save-btn" data-class-id="${Number(group.classId)}" disabled>Save</button>
+                  </div>
+                </div>
+                ${group.state !== 'saved' || Number(group.savedStudents || 0) < Number(group.totalStudents || 0) ? `
+                  <div class="promotion-class-section-message">
+                    ${escapeHtml(group.message || '')}
+                    ${group.state === 'unsaved' || group.state === 'partial' ? ` <a href="${escapeHtml(group.reportUrl)}" target="_blank">Click here to edit and save the report for this class.</a>` : ''}
+                  </div>
+                ` : ''}
+                ${Array.isArray(group.students) && group.students.length > 0 ? `
+                  <div class="promotion-preview-table-wrap">
+                    <table style="margin: 0; border: none; box-shadow: none; border-radius: 0;">
+                      <thead>
+                        <tr>
+                          <th>Student ID</th>
+                          <th>Student</th>
+                          <th>Current Class</th>
+                          <th>Decision</th>
+                          <th>Assigned Destination</th>
+                          <th>New Class Subjects</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${group.students.map((student) => {
+                          const options = Array.isArray(student.availableOptions) ? student.availableOptions : [];
+                          const selectOptions = options.map((option) => `<option value="${Number(option.classId)}" ${Number(option.classId) === Number(student.assignedClassId) ? 'selected' : ''}>${escapeHtml(option.className)} (${escapeHtml(option.label)})</option>`).join('');
+                          const classSubjectOptions = student.classSubjectOptions && typeof student.classSubjectOptions === 'object'
+                            ? student.classSubjectOptions
+                            : {};
+                          const selectedSubjectIds = Array.isArray(student.selectedSubjectIds)
+                            ? student.selectedSubjectIds.map((value) => Number(value)).filter(Number.isFinite)
+                            : [];
+                          const selectedByClass = {
+                            [String(Number(student.assignedClassId))]: selectedSubjectIds,
+                          };
+
+                          return `
+                            <tr>
+                              <td>${escapeHtml(student.displayStudentIdText || '')}</td>
+                              <td>${escapeHtml(student.studentName)}</td>
+                              <td>${escapeHtml(student.currentClassName)}</td>
+                              <td>${escapeHtml(student.promotionStatus)}</td>
+                              <td>
+                                <select name="promotionOverride_${Number(student.studentId)}" class="promotion-preview-select" data-student-id="${Number(student.studentId)}" data-original-value="${Number(student.assignedClassId)}">
+                                  ${selectOptions}
+                                </select>
+                              </td>
+                              <td>
+                                <div
+                                  class="promotion-subject-picker"
+                                  data-student-id="${Number(student.studentId)}"
+                                  data-assigned-class-id="${Number(student.assignedClassId)}"
+                                  data-original-assigned-class-id="${Number(student.assignedClassId)}"
+                                  data-class-subjects='${escapeHtml(JSON.stringify(classSubjectOptions))}'
+                                  data-selected-by-class='${escapeHtml(JSON.stringify(selectedByClass))}'
+                                  data-original-selected-by-class='${escapeHtml(JSON.stringify(selectedByClass))}'
+                                  data-subject-dirty="0"
+                                >
+                                  <input type="hidden" name="promotionSubjectTouched_${Number(student.studentId)}" value="1">
+                                  <button type="button" class="promotion-subject-toggle">Subjects</button>
+                                  <div class="promotion-subject-menu"></div>
+                                </div>
+                              </td>
+                            </tr>
+                          `;
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+
+        return headerRow;
+      }).join('');
+
+      if (previewCount) {
+        previewCount.textContent = `${totalSavedStudents} saved student decision${totalSavedStudents === 1 ? '' : 's'} loaded across ${selectedGroupOrder.length} selected class${selectedGroupOrder.length === 1 ? '' : 'es'}.`;
+      }
+
+      renderPromotionPreviewSummary();
+      renderSelectedClassStrip();
+      hydratePromotionSubjectPickers();
+    }
+
+    function markSubjectPickerDirty(picker) {
+      if (!picker) return;
+      const originalClassId = String(picker.dataset.originalAssignedClassId || '');
+      const currentClassId = String(picker.dataset.assignedClassId || '');
+      const originalSelectedByClass = JSON.parse(picker.dataset.originalSelectedByClass || '{}');
+      const selectedByClass = JSON.parse(picker.dataset.selectedByClass || '{}');
+      const originalList = Array.isArray(originalSelectedByClass[currentClassId])
+        ? originalSelectedByClass[currentClassId].map(Number).filter(Number.isFinite).sort((a, b) => a - b)
+        : [];
+      const currentList = Array.isArray(selectedByClass[currentClassId])
+        ? selectedByClass[currentClassId].map(Number).filter(Number.isFinite).sort((a, b) => a - b)
+        : [];
+      const changedClass = originalClassId !== currentClassId;
+      const changedSubjects = JSON.stringify(originalList) !== JSON.stringify(currentList);
+      picker.dataset.subjectDirty = changedClass || changedSubjects ? '1' : '0';
+    }
+
+    function renderSubjectPickerMenu(picker) {
+      const menu = picker.querySelector('.promotion-subject-menu');
+      const toggle = picker.querySelector('.promotion-subject-toggle');
+      if (!menu || !toggle) return;
+
+      const classId = String(Number(picker.dataset.assignedClassId || 0));
+      const studentId = Number(picker.dataset.studentId || 0);
+      const classSubjects = JSON.parse(picker.dataset.classSubjects || '{}');
+      const selectedByClass = JSON.parse(picker.dataset.selectedByClass || '{}');
+      const subjects = Array.isArray(classSubjects[classId]) ? classSubjects[classId] : [];
+      let selected = Array.isArray(selectedByClass[classId])
+        ? selectedByClass[classId].map(Number).filter(Number.isFinite)
+        : subjects.map((subject) => Number(subject.subjectId)).filter(Number.isFinite);
+
+      selected = selected.filter((subjectId) => subjects.some((subject) => Number(subject.subjectId) === subjectId));
+      selectedByClass[classId] = selected;
+      picker.dataset.selectedByClass = JSON.stringify(selectedByClass);
+
+      toggle.textContent = `Subjects (${selected.length}/${subjects.length})`;
+
+      if (!subjects.length) {
+        menu.innerHTML = '<div class="muted-text">No subjects are assigned to this class.</div>';
+        markSubjectPickerDirty(picker);
+        return;
+      }
+
+      menu.innerHTML = subjects.map((subject) => {
+        const subjectId = Number(subject.subjectId);
+        const checked = selected.includes(subjectId) ? 'checked' : '';
+        return `
+          <label class="promotion-subject-row">
+            <input type="checkbox" class="promotion-subject-checkbox" name="promotionSubject_${studentId}" value="${subjectId}" ${checked}>
+            <span>${escapeHtml(subject.subjectName || `Subject ${subjectId}`)}</span>
+          </label>
+        `;
+      }).join('');
+
+      markSubjectPickerDirty(picker);
+    }
+
+    function hydratePromotionSubjectPickers() {
+      document.querySelectorAll('.promotion-subject-picker').forEach((picker) => {
+        renderSubjectPickerMenu(picker);
+      });
+    }
+
+    async function loadPromotionPreview() {
+      const fromTermSelect = document.getElementById('fromTermId');
+      if (!fromTermSelect || !fromTermSelect.value) {
+        renderPromotionPreviewSummary();
+        renderPromotionPreviewMessage('Choose a term to load saved promotion decisions.');
+        return;
+      }
+
+      const selectedClassIds = getSelectedPromotionClassIds();
+      if (selectedClassIds.length === 0) {
+        renderPromotionPreviewSummary();
+        renderPromotionPreviewMessage('Select one or more classes above to show students saved for those classes.');
+        return;
+      }
+
+      const searchParams = new URLSearchParams({ termId: fromTermSelect.value });
+      searchParams.set('classIds', selectedClassIds.join(','));
+
+      renderPromotionPreviewMessage('Loading saved promotion decisions...');
+
+      try {
+        const response = await fetch(`/promotion/preview?${searchParams.toString()}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to load saved promotion decisions.');
+        }
+        renderPromotionPreviewRows(result.classes || []);
+      } catch (error) {
+        renderPromotionPreviewMessage(error.message || 'Failed to load saved promotion decisions.');
+      }
+    }
 
     function keepCurrentAndFutureYears() {
       ['fromSchoolYearId', 'targetYearId'].forEach(id => {
@@ -772,31 +1473,127 @@
     keepCurrentAndFutureYears();
 
     const fromSchoolYearSelect = document.getElementById('fromSchoolYearId');
+    const fromTermSelect = document.getElementById('fromTermId');
     const targetYearSelect = document.getElementById('targetYearId');
     const allClassCheckboxes = document.querySelectorAll('.promotion-class-checkbox');
     const selectAllClasses = document.getElementById('selectAllClasses');
     const form = document.querySelector('#form-container form');
     const dateInput = document.getElementById('scheduledDate');
+    const classCollapsibleContent = document.getElementById('promotionClassCollapsibleContent');
+    const classArrow = document.getElementById('promotionClassArrow');
 
     if (currentSchoolYearId && fromSchoolYearSelect && targetYearSelect) {
       fromSchoolYearSelect.value = String(currentSchoolYearId);
       targetYearSelect.value = String(currentSchoolYearId);
     }
 
+    if (currentTermId && fromTermSelect) {
+      const currentTermOption = Array.from(fromTermSelect.options).find((option) => Number(option.value) === Number(currentTermId));
+      if (currentTermOption) {
+        fromTermSelect.value = String(currentTermId);
+      }
+    }
+
     syncTermOptions('fromSchoolYearId', 'fromTermId');
     syncTermOptions('targetYearId', 'targetTermId');
+
+    if (currentTermId && fromTermSelect) {
+      const currentTermOption = Array.from(fromTermSelect.options).find((option) => Number(option.value) === Number(currentTermId) && !option.hidden);
+      if (currentTermOption) {
+        fromTermSelect.value = String(currentTermId);
+      }
+    }
+
+    if (classCollapsibleContent && classArrow) {
+      classArrow.classList.toggle('expanded', classCollapsibleContent.classList.contains('active'));
+    }
 
     if (fromSchoolYearSelect) {
       fromSchoolYearSelect.addEventListener('change', function () {
         syncTermOptions('fromSchoolYearId', 'fromTermId');
+        loadPromotionPreview();
       });
+    }
+
+    if (fromTermSelect) {
+      fromTermSelect.addEventListener('change', loadPromotionPreview);
     }
 
     if (targetYearSelect) {
       targetYearSelect.addEventListener('change', function () {
         syncTermOptions('targetYearId', 'targetTermId');
+        renderPromotionPreviewSummary();
       });
     }
+
+    const targetTermSelect = document.getElementById('targetTermId');
+    if (targetTermSelect) {
+      targetTermSelect.addEventListener('change', renderPromotionPreviewSummary);
+    }
+
+    document.addEventListener('change', function (event) {
+      const select = event.target;
+      if (!(select instanceof HTMLSelectElement) || !select.classList.contains('promotion-preview-select')) {
+        return;
+      }
+      const root = select.closest('.promotion-class-section');
+      if (!root) return;
+
+      const row = select.closest('tr');
+      const picker = row && row.querySelector('.promotion-subject-picker');
+      if (picker) {
+        picker.dataset.assignedClassId = String(Number(select.value));
+        renderSubjectPickerMenu(picker);
+      }
+
+      const classId = Number(root.dataset.classId);
+      if (!Number.isFinite(classId)) return;
+      updateClassDirtyState(classId);
+    });
+
+    document.addEventListener('click', function (event) {
+      const toggle = event.target.closest('.promotion-subject-toggle');
+      if (!toggle) return;
+      const picker = toggle.closest('.promotion-subject-picker');
+      if (!picker) return;
+      const menu = picker.querySelector('.promotion-subject-menu');
+      if (!menu) return;
+      menu.classList.toggle('is-open');
+    });
+
+    document.addEventListener('change', function (event) {
+      const checkbox = event.target;
+      if (!(checkbox instanceof HTMLInputElement) || !checkbox.classList.contains('promotion-subject-checkbox')) {
+        return;
+      }
+
+      const picker = checkbox.closest('.promotion-subject-picker');
+      if (!picker) return;
+
+      const classId = String(Number(picker.dataset.assignedClassId || 0));
+      const selectedByClass = JSON.parse(picker.dataset.selectedByClass || '{}');
+      const selectedValues = Array.from(picker.querySelectorAll('.promotion-subject-checkbox:checked'))
+        .map((item) => Number(item.value))
+        .filter(Number.isFinite);
+      selectedByClass[classId] = selectedValues;
+      picker.dataset.selectedByClass = JSON.stringify(selectedByClass);
+
+      renderSubjectPickerMenu(picker);
+
+      const root = picker.closest('.promotion-class-section');
+      const classIdNumber = root ? Number(root.dataset.classId) : NaN;
+      if (Number.isFinite(classIdNumber)) {
+        updateClassDirtyState(classIdNumber);
+      }
+    });
+
+    document.addEventListener('click', function (event) {
+      const button = event.target.closest('.promotion-class-save-btn');
+      if (!button) return;
+      const classId = Number(button.dataset.classId);
+      if (!Number.isFinite(classId)) return;
+      savePromotionClassDecisions(classId);
+    });
 
     document.querySelectorAll('input[name="applyModeChoice"]').forEach(radio => {
       radio.addEventListener('change', updateApplyModeUI);
@@ -815,16 +1612,27 @@
         allClassCheckboxes.forEach(cb => {
           cb.checked = this.checked;
         });
+        promotionClassSelectionOrder = this.checked
+          ? Array.from(allClassCheckboxes).map((checkbox) => Number(checkbox.value)).filter(Number.isFinite)
+          : [];
+        loadPromotionPreview();
       });
     }
 
     allClassCheckboxes.forEach(cb => {
       cb.addEventListener('change', function () {
+        syncPromotionClassSelectionOrder();
         if (selectAllClasses) {
           selectAllClasses.checked = Array.from(allClassCheckboxes).every(c => c.checked);
         }
+        loadPromotionPreview();
       });
     });
+
+    syncPromotionClassSelectionOrder();
+    renderSelectedClassStrip();
+    renderPromotionPreviewSummary();
+    loadPromotionPreview();
 
     if (form) {
       form.addEventListener('submit', function (e) {

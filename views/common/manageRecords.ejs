@@ -611,6 +611,134 @@
         text-decoration: underline;
       }
 
+      .enroll-copy-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        padding: 16px;
+      }
+
+      .enroll-copy-modal.is-open {
+        display: flex;
+      }
+
+      .enroll-copy-modal-card {
+        width: min(620px, 100%);
+        max-height: 84vh;
+        overflow: hidden;
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        box-shadow: 0 20px 50px rgba(2, 6, 23, 0.25);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .enroll-copy-modal-head {
+        padding: 16px 18px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .enroll-copy-modal-head h3 {
+        margin: 0;
+        font-size: 18px;
+        color: #0f172a;
+      }
+
+      .enroll-copy-modal-head p {
+        margin: 6px 0 0;
+        color: #475569;
+        font-size: 13px;
+      }
+
+      .enroll-copy-modal-body {
+        padding: 12px 18px 16px;
+        overflow-y: auto;
+      }
+
+      .enroll-copy-class-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+        gap: 8px 10px;
+      }
+
+      .enroll-copy-class-item {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+      }
+
+      .enroll-copy-class-item small {
+        color: #64748b;
+        font-size: 11px;
+      }
+
+      .enroll-copy-modal-actions {
+        padding: 12px 18px 16px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      .enroll-copy-btn-secondary {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+
+      .enroll-copy-btn-secondary:hover {
+        background: #cbd5e1;
+      }
+
+      .enroll-decision-actions {
+        padding: 14px 18px 18px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      .enroll-mode-box {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        background: #f8fafc;
+      }
+
+      .enroll-mode-box h4 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        color: #0f172a;
+      }
+
+      .enroll-mode-choice {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        font-size: 13px;
+        color: #1f2937;
+      }
+
+      .enroll-mode-choice + .enroll-mode-choice {
+        margin-top: 8px;
+      }
+
+      .enroll-mode-choice small {
+        display: block;
+        color: #64748b;
+        font-size: 11px;
+        margin-top: 2px;
+      }
+
       .manage-records-page hr {
         display: none;
       }
@@ -737,6 +865,10 @@
               <input type="hidden" name="currentYear" class="current-year-hidden" value="<%= year.current ? year.id : '' %>" />
               <% const selectedCurrentTerm = (year.terms || []).find(function(t){ return t.current; }); %>
               <input type="hidden" name="currentTerm" class="current-term-hidden" value="<%= selectedCurrentTerm ? selectedCurrentTerm.term_id : '' %>" />
+              <input type="hidden" name="enrollPreviousTerm" class="enroll-previous-term-hidden" value="0" />
+              <input type="hidden" name="enrollPreviousTermMode" class="enroll-previous-term-mode-hidden" value="" />
+              <input type="hidden" name="previousCurrentTermId" class="previous-current-term-hidden" value="" />
+              <div class="enroll-class-inputs" style="display:none;"></div>
               <div
                 class="school-year-header"
                 onclick="toggleTerms('<%= year.id %>')"
@@ -890,7 +1022,7 @@
                 <% }); %>
               </div>
 
-              <a href="#" onclick="addTermToSchoolYear('<%= year.id %>')"
+              <a href="#" onclick="addTermToSchoolYear(event, '<%= year.id %>')"
                 class="add-term-link">Add Term / Semester</a
               >
 
@@ -910,7 +1042,185 @@
       </fieldset>
     </div>
 
+    <div id="enrollDecisionModal" class="enroll-copy-modal" role="dialog" aria-modal="true" aria-labelledby="enrollDecisionModalTitle">
+      <div class="enroll-copy-modal-card">
+        <div class="enroll-copy-modal-head">
+          <h3 id="enrollDecisionModalTitle">Apply Enrollment Update?</h3>
+          <p>Do you want to apply enrollment carry-over from the previous current term?</p>
+        </div>
+        <div class="enroll-decision-actions">
+          <button type="button" class="save-button enroll-copy-btn-secondary" id="enrollDecisionCancelBtn">Cancel</button>
+          <button type="button" class="save-button enroll-copy-btn-secondary" id="enrollDecisionNoBtn">No</button>
+          <button type="button" class="save-button" id="enrollDecisionYesBtn">Yes</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="enrollCopyModal" class="enroll-copy-modal" role="dialog" aria-modal="true" aria-labelledby="enrollCopyModalTitle">
+      <div class="enroll-copy-modal-card">
+        <div class="enroll-copy-modal-head">
+          <h3 id="enrollCopyModalTitle">Enroll Classes and Students</h3>
+          <p id="enrollCopyModalDesc">Choose classes to carry over from the previous current term.</p>
+        </div>
+        <div class="enroll-copy-modal-body">
+          <div class="enroll-mode-box">
+            <h4>Enrollment Option</h4>
+            <label class="enroll-mode-choice">
+              <input type="radio" name="enrollCopyMode" value="classes_only" checked>
+              <span>
+                Enroll classes only
+                <small>Create/attach selected classes only, without enrolling students.</small>
+              </span>
+            </label>
+            <label class="enroll-mode-choice">
+              <input type="radio" name="enrollCopyMode" value="classes_and_students">
+              <span>
+                Enroll classes and students
+                <small>Create/attach classes and move student enrollment for selected classes.</small>
+              </span>
+            </label>
+          </div>
+          <div id="enrollCopyClassGrid" class="enroll-copy-class-grid"></div>
+        </div>
+        <div class="enroll-copy-modal-actions">
+          <button type="button" class="save-button enroll-copy-btn-secondary" id="enrollCopyCancelBtn">Cancel</button>
+          <button type="button" class="save-button" id="enrollCopyConfirmBtn">Enroll and Save</button>
+        </div>
+      </div>
+    </div>
+
     <script>
+      const previousCurrentTermIdForEnrollment = <%= Number(previousCurrentTermId || 0) %>;
+      const previousCurrentTermNameForEnrollment = <%- JSON.stringify(previousCurrentTermName || '') %>;
+      const previousTermEnrollmentClasses = <%- JSON.stringify(previousTermEnrollmentClasses || []) %>;
+      let pendingEnrollmentSubmitForm = null;
+      let pendingEnrollmentPreviousTermId = null;
+
+      function getSelectedEnrollMode() {
+        const selectedModeInput = document.querySelector('#enrollCopyModal input[name="enrollCopyMode"]:checked');
+        return selectedModeInput ? String(selectedModeInput.value) : 'classes_only';
+      }
+
+      function renderEnrollCopyClassGrid(selectedMode) {
+        const grid = document.getElementById('enrollCopyClassGrid');
+        if (!grid) return;
+
+        const checkedClassIds = new Set(
+          Array.from(grid.querySelectorAll('.enroll-copy-class-checkbox:checked'))
+            .map((checkbox) => Number(checkbox.value))
+            .filter((value) => Number.isFinite(value))
+        );
+
+        const classes = Array.isArray(previousTermEnrollmentClasses)
+          ? previousTermEnrollmentClasses.filter((item) => Number.isFinite(Number(item.class_id)))
+          : [];
+
+        grid.innerHTML = classes.map((item) => {
+          const classId = Number(item.class_id);
+          const className = String(item.class_name || `Class ${classId}`);
+          const studentCount = Number(item.student_count || 0);
+          const isChecked = checkedClassIds.size > 0 ? checkedClassIds.has(classId) : true;
+          const subtitle = selectedMode === 'classes_and_students'
+            ? ` <small>(${studentCount} student${studentCount === 1 ? '' : 's'})</small>`
+            : '';
+
+          return `
+            <label class="enroll-copy-class-item">
+              <input type="checkbox" class="enroll-copy-class-checkbox" value="${classId}" ${isChecked ? 'checked' : ''}>
+              <span>${className}${subtitle}</span>
+            </label>
+          `;
+        }).join('');
+      }
+
+      function setEnrollmentCopyInputs(form, enabled, selectedClassIds, previousTermId, mode) {
+        const enrollHidden = form.querySelector('.enroll-previous-term-hidden');
+        const modeHidden = form.querySelector('.enroll-previous-term-mode-hidden');
+        const previousHidden = form.querySelector('.previous-current-term-hidden');
+        const classInputContainer = form.querySelector('.enroll-class-inputs');
+        if (!enrollHidden || !modeHidden || !previousHidden || !classInputContainer) return;
+
+        enrollHidden.value = enabled ? '1' : '0';
+        modeHidden.value = enabled ? String(mode || 'classes_and_students') : '';
+        previousHidden.value = enabled && Number.isFinite(Number(previousTermId)) ? String(Number(previousTermId)) : '';
+
+        classInputContainer.innerHTML = '';
+        if (!enabled) return;
+
+        (Array.isArray(selectedClassIds) ? selectedClassIds : []).forEach((classId) => {
+          const parsedClassId = Number(classId);
+          if (!Number.isFinite(parsedClassId)) return;
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = 'enrollClassIds[]';
+          input.value = String(parsedClassId);
+          classInputContainer.appendChild(input);
+        });
+      }
+
+      function closeEnrollCopyModal() {
+        const modal = document.getElementById('enrollCopyModal');
+        if (modal) {
+          modal.classList.remove('is-open');
+        }
+        pendingEnrollmentSubmitForm = null;
+        pendingEnrollmentPreviousTermId = null;
+      }
+
+      function closeEnrollDecisionModal() {
+        const modal = document.getElementById('enrollDecisionModal');
+        if (modal) {
+          modal.classList.remove('is-open');
+        }
+      }
+
+      function openEnrollDecisionModal(form, previousTermId) {
+        const modal = document.getElementById('enrollDecisionModal');
+        if (!modal) return false;
+
+        pendingEnrollmentSubmitForm = form;
+        pendingEnrollmentPreviousTermId = Number(previousTermId);
+        modal.classList.add('is-open');
+        return true;
+      }
+
+      function openEnrollCopyModal(form, previousTermId) {
+        const modal = document.getElementById('enrollCopyModal');
+        const description = document.getElementById('enrollCopyModalDesc');
+        const confirmButton = document.getElementById('enrollCopyConfirmBtn');
+        if (!modal || !description || !confirmButton) {
+          return false;
+        }
+
+        const classes = Array.isArray(previousTermEnrollmentClasses)
+          ? previousTermEnrollmentClasses.filter((item) => Number.isFinite(Number(item.class_id)))
+          : [];
+
+        if (!classes.length) {
+          alert('No enrolled classes were found in the previous current term to copy.');
+          return false;
+        }
+
+        description.textContent = `Select classes to enroll from ${previousCurrentTermNameForEnrollment || 'the previous current term'} into the newly selected current term.`;
+        const modeRadio = modal.querySelector('input[name="enrollCopyMode"][value="classes_only"]');
+        if (modeRadio) {
+          modeRadio.checked = true;
+        }
+        renderEnrollCopyClassGrid('classes_only');
+
+        pendingEnrollmentSubmitForm = form;
+        confirmButton.dataset.previousTermId = String(Number(previousTermId));
+        closeEnrollDecisionModal();
+        modal.classList.add('is-open');
+        return true;
+      }
+
+      function submitFormWithBypass(form) {
+        if (!form) return;
+        form.dataset.submitBypass = '1';
+        form.submit();
+      }
+
       function parseYearLabel(value) {
         const text = String(value || '').trim();
         const match = text.match(/^(\d{4})\s*-\s*(\d{4})$/);
@@ -1027,6 +1337,11 @@
 
       // Validation to ensure the current term belongs to the selected current school year
       function validateAndConfirmChanges(form) {
+        if (form.dataset.submitBypass === '1') {
+          form.dataset.submitBypass = '0';
+          return true;
+        }
+
         syncCurrentSelectionForForm(form);
 
         const yearInput = form.querySelector('input[name="year_label"]');
@@ -1154,6 +1469,17 @@
               );
               if (!proceed) return false;
             }
+
+            const hasCurrentTermChanged = Number.isFinite(previousCurrentTermIdForEnrollment)
+              && previousCurrentTermIdForEnrollment > 0
+              && Number.isFinite(selectedTermId)
+              && selectedTermId !== previousCurrentTermIdForEnrollment;
+
+            if (hasCurrentTermChanged) {
+              const opened = openEnrollDecisionModal(form, previousCurrentTermIdForEnrollment);
+              if (!opened) return false;
+              return false;
+            }
           } else {
             if (yearLabel) {
               alert(
@@ -1172,6 +1498,99 @@
           `You are about to save changes to the school year. Do you want to proceed?`
         );
       }
+
+      document.addEventListener('click', function (event) {
+        const modal = document.getElementById('enrollCopyModal');
+        const decisionModal = document.getElementById('enrollDecisionModal');
+        if (decisionModal && event.target === decisionModal) {
+          closeEnrollDecisionModal();
+          return;
+        }
+        if (modal && event.target === modal) {
+          closeEnrollCopyModal();
+          return;
+        }
+
+        const decisionCancelButton = event.target.closest('#enrollDecisionCancelBtn');
+        if (decisionCancelButton) {
+          closeEnrollDecisionModal();
+          pendingEnrollmentSubmitForm = null;
+          pendingEnrollmentPreviousTermId = null;
+          return;
+        }
+
+        const decisionNoButton = event.target.closest('#enrollDecisionNoBtn');
+        if (decisionNoButton) {
+          const form = pendingEnrollmentSubmitForm;
+          if (!form) {
+            closeEnrollDecisionModal();
+            return;
+          }
+          setEnrollmentCopyInputs(form, false, [], null, '');
+          closeEnrollDecisionModal();
+          submitFormWithBypass(form);
+          return;
+        }
+
+        const decisionYesButton = event.target.closest('#enrollDecisionYesBtn');
+        if (decisionYesButton) {
+          const form = pendingEnrollmentSubmitForm;
+          const previousTermId = pendingEnrollmentPreviousTermId;
+          if (!form || !Number.isFinite(Number(previousTermId))) {
+            closeEnrollDecisionModal();
+            pendingEnrollmentSubmitForm = null;
+            pendingEnrollmentPreviousTermId = null;
+            return;
+          }
+          const opened = openEnrollCopyModal(form, previousTermId);
+          if (!opened) {
+            closeEnrollDecisionModal();
+          }
+          return;
+        }
+
+        const cancelButton = event.target.closest('#enrollCopyCancelBtn');
+        if (cancelButton) {
+          closeEnrollCopyModal();
+          return;
+        }
+
+        const confirmButton = event.target.closest('#enrollCopyConfirmBtn');
+        if (!confirmButton) return;
+
+        const form = pendingEnrollmentSubmitForm;
+        if (!form) {
+          closeEnrollCopyModal();
+          return;
+        }
+
+        const selectedClassIds = Array.from((document.getElementById('enrollCopyClassGrid') || document).querySelectorAll('.enroll-copy-class-checkbox:checked'))
+          .map((checkbox) => Number(checkbox.value))
+          .filter((value) => Number.isFinite(value));
+
+        if (!selectedClassIds.length) {
+          alert('Select at least one class to enroll, or click Cancel.');
+          return;
+        }
+
+        const selectedMode = getSelectedEnrollMode();
+        if (!selectedMode) {
+          alert('Choose an enrollment option before continuing.');
+          return;
+        }
+
+        const previousTermId = Number(confirmButton.dataset.previousTermId);
+        setEnrollmentCopyInputs(form, true, selectedClassIds, previousTermId, selectedMode);
+        closeEnrollCopyModal();
+        submitFormWithBypass(form);
+      });
+
+      document.addEventListener('change', function(event) {
+        if (!event.target.matches('#enrollCopyModal input[name="enrollCopyMode"]')) {
+          return;
+        }
+        renderEnrollCopyClassGrid(getSelectedEnrollMode());
+      });
 
       function closeNote() {
         document.getElementById("noteSection").style.display = "none";
@@ -1420,14 +1839,34 @@
 
       document.addEventListener("DOMContentLoaded", initManageRecordsPage);
       window.addEventListener("spa:pageLoaded", initManageRecordsPage);
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          const decisionModal = document.getElementById('enrollDecisionModal');
+          if (decisionModal && decisionModal.classList.contains('is-open')) {
+            closeEnrollDecisionModal();
+            return;
+          }
+
+          const modal = document.getElementById('enrollCopyModal');
+          if (modal && modal.classList.contains('is-open')) {
+            closeEnrollCopyModal();
+          }
+        }
+      });
       if (document.readyState !== 'loading') {
         initManageRecordsPage();
       }
 
-      function addTermToSchoolYear(yearId) {
-        event.preventDefault();
-        const form = event.target.closest('form.school-year-form');
+      function addTermToSchoolYear(event, yearId) {
+        if (event) {
+          event.preventDefault();
+        }
+        const trigger = event && event.target ? event.target : null;
+        const form = trigger ? trigger.closest('form.school-year-form') : null;
         const termSection = document.getElementById(`termSection${yearId}`);
+        if (!termSection) {
+          return;
+        }
         const termDiv = document.createElement("fieldset");
         termDiv.innerHTML = `
           <legend>Term / Semester</legend>

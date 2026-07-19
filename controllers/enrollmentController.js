@@ -814,6 +814,8 @@ const enrollmentController = {
                                 s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
                                 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
                                 OR CONCAT(s.last_name, ', ', s.first_name) ILIKE $1 ESCAPE '\\'
+                                OR s.student_id::text ILIKE $1 ESCAPE '\\'
+                                OR COALESCE(s.custom_student_id, '') ILIKE $1 ESCAPE '\\'
                               )
                             LIMIT 20
                           `,
@@ -830,6 +832,8 @@ const enrollmentController = {
                                 s.first_name ILIKE $1 ESCAPE '\\' OR s.last_name ILIKE $1 ESCAPE '\\'
                                 OR CONCAT(s.first_name, ' ', s.last_name) ILIKE $1 ESCAPE '\\'
                                 OR CONCAT(s.last_name, ', ', s.first_name) ILIKE $1 ESCAPE '\\'
+                                OR s.student_id::text ILIKE $1 ESCAPE '\\'
+                                OR COALESCE(s.custom_student_id, '') ILIKE $1 ESCAPE '\\'
                               )
                             LIMIT 20
                           `,

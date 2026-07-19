@@ -15729,9 +15729,10 @@ NUMBERING:
 
   manageRecords: async (req, res, db) => {
     try {
+      const organizationId = req.session.organizationId;
       const schoolYearsResult = await db.query(
         "SELECT * FROM school_years WHERE organization_id = $1 ORDER BY current DESC, id ASC",
-        [req.session.organizationId]
+        [organizationId]
       );
       const termsResult = await db.query(
         `
@@ -15741,20 +15742,62 @@ NUMBERING:
                 WHERE t.organization_id = $1
                 GROUP BY t.term_id
             `,
-        [req.session.organizationId]
+        [organizationId]
       );
       const classesResult = await db.query(
         `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
-        [req.session.organizationId]
+        [organizationId]
       );
       const eventsResult = await db.query(
         "SELECT * FROM school_events WHERE organization_id = $1",
-        [req.session.organizationId]
+        [organizationId]
       );
       const announcementsResult = await db.query(
         "SELECT * FROM announcements WHERE organization_id = $1",
-        [req.session.organizationId]
+        [organizationId]
       );
+
+      const currentTermResult = await db.query(
+        `SELECT term_id, term_name, school_year_id
+         FROM terms
+         WHERE organization_id = $1
+           AND current = TRUE
+         ORDER BY term_id DESC
+         LIMIT 1`,
+        [organizationId]
+      );
+
+      const previousCurrentTermId = Number(currentTermResult.rows[0]?.term_id) || null;
+      const previousCurrentTermName = currentTermResult.rows[0]?.term_name || null;
+
+      let previousTermEnrollmentClasses = [];
+      if (previousCurrentTermId) {
+        const previousTermClassesResult = await db.query(
+          `SELECT
+              es.class_id,
+              c.class_name,
+              c.dashboard_sort_order,
+              COUNT(DISTINCT es.student_id)::int AS student_count
+           FROM enrollments e
+           JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+           JOIN classes c ON c.class_id = es.class_id
+           JOIN students s ON s.student_id = es.student_id
+           WHERE e.organization_id = $1
+             AND e.term_id = $2
+             AND c.organization_id = $1
+             AND s.organization_id = $1
+             AND COALESCE(s.graduated, FALSE) = FALSE
+           GROUP BY es.class_id, c.class_name, c.dashboard_sort_order
+           ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, es.class_id ASC`,
+          [organizationId, previousCurrentTermId]
+        );
+
+        previousTermEnrollmentClasses = previousTermClassesResult.rows.map((row) => ({
+          class_id: Number(row.class_id),
+          class_name: row.class_name,
+          student_count: Number(row.student_count) || 0,
+        }));
+      }
 
       // Attach classes to each term and map them to school years
       const schoolYears = schoolYearsResult.rows.map((schoolYear) => {
@@ -15778,10 +15821,14 @@ NUMBERING:
           success: req.flash("success"),
           error: req.flash("error"),
         },
+        previousCurrentTermId,
+        previousCurrentTermName,
+        previousTermEnrollmentClasses,
       });
     } catch (error) {
-            req.flash("error", "Error loading manage records page.");
-      res.redirect("/common/manageRecords");
+      console.error("[ManageRecords] Failed to load page:", error);
+      req.flash("error", "Error loading manage records page.");
+      res.redirect("/common/orgDashboard");
     }
   },
 
@@ -15796,6 +15843,10 @@ NUMBERING:
       endDates = [],
       currentTerm = [],
       termClasses = [],
+      enrollPreviousTerm,
+      enrollPreviousTermMode,
+      previousCurrentTermId,
+      enrollClassIds = [],
     } = req.body;
     const { organizationId } = req.session;
     const normalizedYearLabel = String(year_label || "").trim();
@@ -15806,6 +15857,13 @@ NUMBERING:
     const endDatesArr = Array.isArray(endDates) ? endDates : (endDates ? [endDates] : []);
     const termClassesArr = Array.isArray(termClasses) ? termClasses : (termClasses ? [termClasses] : []);
     const currentTermArr = Array.isArray(currentTerm) ? currentTerm.map(String) : (currentTerm ? [String(currentTerm)] : []);
+    const enrollClassIdsArr = Array.isArray(enrollClassIds) ? enrollClassIds : (enrollClassIds ? [enrollClassIds] : []);
+    const requestedEnrollClassIds = [...new Set(enrollClassIdsArr
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0))];
+    const normalizedEnrollMode = String(enrollPreviousTermMode || "classes_and_students").trim().toLowerCase() === "classes_only"
+      ? "classes_only"
+      : "classes_and_students";
 
     try {
       if (!yearMatch) {
@@ -15817,6 +15875,19 @@ NUMBERING:
         req.flash("error", "Please use consecutive years in School Year, such as 2026-2027.");
         return res.redirect("/common/manageRecords");
       }
+
+      const currentTermBeforeResult = await db.query(
+        `SELECT term_id, school_year_id
+         FROM terms
+         WHERE organization_id = $1
+           AND current = TRUE
+         ORDER BY term_id DESC
+         LIMIT 1`,
+        [organizationId]
+      );
+
+      const previousCurrentTermIdFromDb = Number(currentTermBeforeResult.rows[0]?.term_id) || null;
+      const previousCurrentTermIdFromRequest = Number(previousCurrentTermId) || null;
 
       // Validate current term selection if current year is set
       if (currentYear && (!currentTerm || currentTerm.length === 0)) {
@@ -15873,6 +15944,8 @@ NUMBERING:
       }
 
       await db.query("BEGIN");
+
+      let enrollmentCopySummary = null;
 
       // Update school year label
       await db.query(
@@ -15986,6 +16059,139 @@ NUMBERING:
         }
       }
 
+      const selectedCurrentTermId = currentTermArr.length > 0
+        ? Number(currentTermArr[0])
+        : null;
+      const shouldCopyPreviousEnrollment =
+        String(enrollPreviousTerm || "") === "1" &&
+        Number.isFinite(selectedCurrentTermId) &&
+        selectedCurrentTermId > 0 &&
+        Number.isFinite(previousCurrentTermIdFromDb) &&
+        selectedCurrentTermId !== previousCurrentTermIdFromDb;
+
+      if (shouldCopyPreviousEnrollment) {
+        if (previousCurrentTermIdFromRequest && previousCurrentTermIdFromRequest !== previousCurrentTermIdFromDb) {
+          throw new Error("Current term changed while preparing enrollment copy. Please try saving again.");
+        }
+
+        const targetTermResult = await db.query(
+          `SELECT term_id, school_year_id
+           FROM terms
+           WHERE term_id = $1
+             AND organization_id = $2
+           LIMIT 1`,
+          [selectedCurrentTermId, organizationId]
+        );
+
+        if (!targetTermResult.rows.length) {
+          throw new Error("Selected current term could not be found for enrollment copy.");
+        }
+
+        const targetSchoolYearId = Number(targetTermResult.rows[0].school_year_id);
+
+        const sourceClassResult = await db.query(
+          `SELECT DISTINCT es.class_id
+           FROM enrollments e
+           JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+           JOIN students s ON s.student_id = es.student_id
+           WHERE e.organization_id = $1
+             AND e.term_id = $2
+             AND s.organization_id = $1
+             AND COALESCE(s.graduated, FALSE) = FALSE`,
+          [organizationId, previousCurrentTermIdFromDb]
+        );
+
+        const sourceClassIds = [...new Set(sourceClassResult.rows
+          .map((row) => Number(row.class_id))
+          .filter((value) => Number.isFinite(value) && value > 0))];
+
+        const classFilterSet = new Set(sourceClassIds);
+        const effectiveClassIds = requestedEnrollClassIds.filter((classId) => classFilterSet.has(classId));
+
+        let targetEnrollmentId;
+        const targetEnrollmentResult = await db.query(
+          `SELECT enrollment_id
+           FROM enrollments
+           WHERE organization_id = $1
+             AND term_id = $2
+             AND school_year_id = $3
+           ORDER BY enrollment_id DESC
+           LIMIT 1`,
+          [organizationId, selectedCurrentTermId, targetSchoolYearId]
+        );
+
+        if (targetEnrollmentResult.rows.length) {
+          targetEnrollmentId = Number(targetEnrollmentResult.rows[0].enrollment_id);
+        } else {
+          const insertEnrollmentResult = await db.query(
+            `INSERT INTO enrollments (school_year_id, term_id, organization_id, created_at)
+             VALUES ($1, $2, $3, NOW())
+             RETURNING enrollment_id`,
+            [targetSchoolYearId, selectedCurrentTermId, organizationId]
+          );
+          targetEnrollmentId = Number(insertEnrollmentResult.rows[0].enrollment_id);
+        }
+
+        let insertedClassCount = 0;
+        if (effectiveClassIds.length > 0) {
+          const insertClassResult = await db.query(
+            `INSERT INTO enrolled_classes (enrollment_id, class_id)
+             SELECT $1, class_id
+             FROM UNNEST($2::int[]) AS src(class_id)
+             WHERE NOT EXISTS (
+               SELECT 1
+               FROM enrolled_classes ec
+               WHERE ec.enrollment_id = $1
+                 AND ec.class_id = src.class_id
+             )`,
+            [targetEnrollmentId, effectiveClassIds]
+          );
+          insertedClassCount = insertClassResult.rowCount || 0;
+        }
+
+        let insertedStudentCount = 0;
+        if (normalizedEnrollMode === "classes_and_students" && effectiveClassIds.length > 0) {
+          const sourceStudentResult = await db.query(
+            `SELECT DISTINCT es.student_id, es.class_id
+             FROM enrollments e
+             JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+             JOIN students s ON s.student_id = es.student_id
+             WHERE e.organization_id = $1
+               AND e.term_id = $2
+               AND es.class_id = ANY($3::int[])
+               AND s.organization_id = $1
+               AND COALESCE(s.graduated, FALSE) = FALSE`,
+            [organizationId, previousCurrentTermIdFromDb, effectiveClassIds]
+          );
+
+          for (const row of sourceStudentResult.rows) {
+            const studentId = Number(row.student_id);
+            const classId = Number(row.class_id);
+            if (!Number.isFinite(studentId) || !Number.isFinite(classId)) continue;
+
+            const insertStudentResult = await db.query(
+              `INSERT INTO enrolled_students (enrollment_id, student_id, class_id)
+               SELECT $1, $2, $3
+               WHERE NOT EXISTS (
+                 SELECT 1
+                 FROM enrolled_students es
+                 WHERE es.enrollment_id = $1
+                   AND es.student_id = $2
+               )`,
+              [targetEnrollmentId, studentId, classId]
+            );
+            insertedStudentCount += insertStudentResult.rowCount || 0;
+          }
+        }
+
+        enrollmentCopySummary = {
+          insertedClassCount,
+          insertedStudentCount,
+          selectedClassCount: effectiveClassIds.length,
+          mode: normalizedEnrollMode,
+        };
+      }
+
       await db.query("COMMIT");
 
       // H1 — broadcast term_changed notification (only fires if a current term was set above; harmless to fire every save)
@@ -15999,11 +16205,26 @@ NUMBERING:
         link: null,
       }).catch(err => console.error('[Notif] term_changed failed:', err.message));
 
-      req.flash("success", "School year and terms updated successfully.");
+      if (enrollmentCopySummary) {
+        if (enrollmentCopySummary.mode === "classes_only") {
+          req.flash(
+            "success",
+            `School year and terms updated successfully. Enrollment copied for ${enrollmentCopySummary.selectedClassCount} class(es): ${enrollmentCopySummary.insertedClassCount} new class record(s) added to the new current term (classes only).`
+          );
+        } else {
+          req.flash(
+            "success",
+            `School year and terms updated successfully. Enrollment copied for ${enrollmentCopySummary.selectedClassCount} class(es): ${enrollmentCopySummary.insertedClassCount} new class record(s) and ${enrollmentCopySummary.insertedStudentCount} student(s) added to the new current term.`
+          );
+        }
+      } else {
+        req.flash("success", "School year and terms updated successfully.");
+      }
       res.redirect("/common/manageRecords");
     } catch (error) {
       await db.query("ROLLBACK");
-            req.flash("error", "Failed to update school year and terms.");
+      console.error("[ManageRecords] Failed to update school year/terms:", error);
+      req.flash("error", "Failed to update school year and terms.");
       res.redirect("/common/manageRecords");
     }
   },

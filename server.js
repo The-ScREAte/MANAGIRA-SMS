@@ -11,7 +11,8 @@ if (suppressCronMissedExecutionLogs) {
   const originalWarn = console.warn.bind(console);
   console.warn = (...args) => {
     const firstMessage = typeof args[0] === "string" ? args[0] : String(args[0] || "");
-    if (firstMessage.includes("[NODE-CRON] [WARN] missed execution")) {
+    const normalized = firstMessage.toLowerCase();
+    if (normalized.includes("node-cron") && normalized.includes("missed execution")) {
       return;
     }
     originalWarn(...args);
@@ -45,11 +46,20 @@ const { fetchNotifCount } = require("./middleware/fetchNotifCount");
 const upload = multer();
 const app = express();
 const BASE_PORT = Number(process.env.PORT) || 4000;
-const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
-const MAX_PORT_RETRIES = Number(process.env.PORT_RETRY_LIMIT) || 10;
 
 const expressLayouts = require("express-ejs-layouts");
 const pgSession = require("connect-pg-simple")(session);
+const sessionStoreConfig = {
+  pool: db,
+  tableName: "user_sessions",
+  // Prune less aggressively to avoid competing with request traffic.
+  pruneSessionInterval: Number(process.env.SESSION_PRUNE_INTERVAL_SEC || 3600),
+  // Keep prune errors from crashing logs with noisy stack traces.
+  errorLog: (error) => {
+    const message = String(error?.message || error || "session prune failed");
+    console.warn(`[SessionStore] prune warning: ${message}`);
+  },
+};
 const setAllowedFeatures = require("./middleware/setAllowedFeatures");
 const setAllowedRoles = require("./middleware/setAllowedRoles");
 const setAllowedPermissions = require("./middleware/setAllowedPermissions");
@@ -534,7 +544,7 @@ if (process.env.NODE_ENV === "production") {
   // Production: subdomain sharing
   app.use(
     session({
-      store: new pgSession({ pool: db, tableName: "user_sessions" }),
+      store: new pgSession(sessionStoreConfig),
       secret: process.env.SESSION_SECRET || "YourSecret",
       resave: false,
       rolling: false,
@@ -551,7 +561,7 @@ if (process.env.NODE_ENV === "production") {
   // Localhost: no domain sharing
   app.use(
     session({
-      store: new pgSession({ pool: db, tableName: "user_sessions" }),
+      store: new pgSession(sessionStoreConfig),
       secret: process.env.SESSION_SECRET || "YourSecret",
       resave: false,
       rolling: false,
@@ -1008,6 +1018,11 @@ if (shouldRunScheduledHolds) {
 
 const { ensurePermissionsSchema } = require('./middleware/permissionMiddleware');
 
+const logServerHostInfo = (port) => {
+  const localHost = `http://localhost:${port}`;
+  console.log(`\x1b[32m[Server] running on ${localHost}\x1b[0m`);
+};
+
 const logStartupDbStatus = async () => {
   try {
     await db.query('SELECT 1');
@@ -1015,6 +1030,7 @@ const logStartupDbStatus = async () => {
     // singleton is already settled before any HTTP request arrives.
     // This prevents the double-log caused by two concurrent first callers.
     await ensurePermissionsSchema(db);
+    console.log('\x1b[32m[DB] connected\x1b[0m');
   } catch (error) {
     console.error(
       `[DB] ⚠️ Startup database check failed (${error.code || 'NO_CODE'}): ${error.message}. Verify DB_CONNECTION_STRING uses the full Render DB URL and DB_SSL matches Internal(false)/External(true).`
@@ -1022,24 +1038,17 @@ const logStartupDbStatus = async () => {
   }
 };
 
-// Start the server with dev fallback when the default port is busy
-const startServer = (port, attempt = 0) => {
+// Start the server on the configured port only.
+const startServer = (port) => {
   const server = app.listen(port, () => {
+    logServerHostInfo(port);
     logStartupDbStatus();
   });
 
   server.on("error", (error) => {
-    if (
-      error.code === "EADDRINUSE" &&
-      IS_DEVELOPMENT &&
-      attempt < MAX_PORT_RETRIES
-    ) {
-      const nextPort = port + 1;
-      console.warn(
-        `[Server] Port ${port} is already in use. Retrying on port ${nextPort}...`
-      );
-      setTimeout(() => startServer(nextPort, attempt + 1), 150);
-      return;
+    if (error.code === "EADDRINUSE") {
+      console.error(`[Server] Port ${port} is already in use. Stop the other process and restart.`);
+      process.exit(1);
     }
 
     console.error("[Server] Failed to start:", error);

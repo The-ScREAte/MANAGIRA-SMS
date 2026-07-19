@@ -6,6 +6,8 @@ const { requirePermission, PERMISSIONS } = require("../middleware/permissionMidd
 
 // View - Only for authenticated users
 router.get("/apply", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.applyPromotionPage);
+router.get("/preview", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.getPromotionPreview);
+router.post("/preview/save", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.savePromotionPreviewOverrides);
 router.post("/schedule", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.schedulePromotion);
 router.post("/cancel", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.cancelScheduledPromotion);
 router.post("/reverse", isAuthenticated, requirePermission(PERMISSIONS.APPROVE_PROMOTIONS), promotionController.reverseAppliedPromotion);
