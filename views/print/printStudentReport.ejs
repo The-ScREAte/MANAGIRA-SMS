@@ -277,9 +277,36 @@
         .attendance-info table {
             border-collapse: collapse;
             width: 100%;
+            table-layout: fixed;
             margin-bottom: 15px;
             border-radius: 6px;
             overflow: hidden;
+        }
+
+        .attendance-info {
+            width: 100%;
+            overflow-x: visible;
+        }
+
+        .attendance-info .promotion-table {
+            width: 100%;
+            table-layout: auto;
+            min-width: 0;
+        }
+
+        .info {
+            width: 100%;
+        }
+
+        .info table td:nth-child(1),
+        .info table td:nth-child(3) {
+            width: 20%;
+            font-weight: 600;
+        }
+
+        .info table td:nth-child(2),
+        .info table td:nth-child(4) {
+            width: 30%;
         }
 
         .info table tr:nth-child(even),
@@ -396,6 +423,7 @@
 /* Restore the dotted lines directly inside textarea */
 .remark-line textarea {
     position: relative;
+    top: 4px;
     flex-grow: 1;
     border: none;
     font-size: 14px;
@@ -405,6 +433,8 @@
     outline: none;
     width: 100%;
     height: 22px;
+    min-height: 22px;
+    padding-top: 0;
     max-height: 66px;
     line-height: 22px;
     text-align: left;
@@ -417,6 +447,7 @@
     transition: border 0.2s ease;
     color: #1a1a1a;
     font-weight: 500;
+    margin-top: 0;
     white-space: pre-wrap;
     word-wrap: break-word;
 }
@@ -500,6 +531,7 @@
     top: 0;
     width: 180px;
     min-width: 180px;
+    align-self: flex-end;
     text-align: center;
     display: flex;
     flex-direction: column;
@@ -706,7 +738,9 @@
                 padding: 0 !important;
             }
 
-            .student-report.last-report {
+            .student-report.last-report,
+            .student-report.temp-last-report,
+            .student-report-grid:last-of-type .student-report {
                 page-break-after: avoid !important;
                 break-after: avoid !important;
             }
@@ -1052,36 +1086,103 @@
         -webkit-overflow-scrolling: touch;
     }
 
+    .subjects {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .subjects table {
+        display: table;
+        width: max-content;
+        min-width: 100%;
+        table-layout: auto;
+    }
+
+    .subjects th,
+    .subjects td {
+        white-space: nowrap;
+        padding: 6px 8px;
+    }
+
+    .subjects th:first-child,
+    .subjects td:first-child {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: #fff;
+    }
+
+    .subjects th:first-child {
+        z-index: 3;
+        background: var(--org-primary-light);
+    }
+
+    .attendance-info {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .attendance-info .promotion-table {
+        display: table;
+        width: max-content;
+        min-width: 100%;
+        table-layout: auto;
+    }
+
+    .attendance-info .promotion-table td,
+    .attendance-info .promotion-table th {
+        white-space: nowrap;
+    }
+
     th, td {
         font-size: 11px;
         padding: 5px 4px;
     }
 
     .remarks-signature-wrapper {
-        flex-direction: column;
-        gap: 16px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 132px;
+        align-items: start;
+        gap: 14px;
+    }
+
+    .remarks {
+        min-width: 0;
     }
 
     .signature-info {
-        width: 100%;
-        min-width: unset;
+        width: 132px;
+        min-width: 132px;
         align-items: center;
+        justify-self: end;
+    }
+
+    .remark-line {
+        align-items: flex-start;
     }
 
     .remark-line label {
-        min-width: 120px;
-        width: 120px;
-        flex-basis: 120px;
+        min-width: 128px;
+        width: 128px;
+        flex-basis: 128px;
         font-size: 12px;
     }
 
     .remark-line textarea {
+        min-width: 0;
         font-size: 12px;
+        line-height: 20px;
     }
 
     .grade-interpretation {
         max-width: 100%;
         font-size: 10px;
+    }
+}
+
+@media screen and (min-width: 769px) {
+    .remarks .remark-line textarea {
+        top: 7px !important;
     }
 }
 
@@ -1112,6 +1213,22 @@
         font-size: 11px;
     }
 
+    .subjects table {
+        width: max-content;
+        min-width: 100%;
+    }
+
+    .attendance-info .promotion-table {
+        width: max-content;
+        min-width: 100%;
+    }
+
+    .subjects th,
+    .subjects td {
+        padding: 5px 7px;
+        font-size: 10px;
+    }
+
     th, td {
         font-size: 10px;
         padding: 4px 3px;
@@ -1121,19 +1238,30 @@
         font-size: 12px;
     }
 
+    .remarks-signature-wrapper {
+        grid-template-columns: minmax(0, 1fr) 112px;
+        gap: 10px;
+    }
+
+    .signature-info {
+        width: 112px;
+        min-width: 112px;
+    }
+
     .remark-line label {
-        min-width: 102px;
-        width: 102px;
-        flex-basis: 102px;
+        min-width: 110px;
+        width: 110px;
+        flex-basis: 110px;
         font-size: 11px;
     }
 
     .remark-line textarea {
         font-size: 11px;
+        line-height: 18px;
     }
 
     .signature-info img {
-        max-width: 100px;
+        max-width: 92px;
     }
 
     .signature-info h3 {
@@ -1149,10 +1277,10 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 0;
             flex-wrap: wrap;
             background: white;
-            padding: 20px;
+            padding: 10px 12px;
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
                         position: sticky;
@@ -1165,8 +1293,9 @@
                         color: #fff;
                         border: none;
                         border-radius: 6px;
-                        padding: 10px 14px;
+                        padding: 8px 12px;
                         font-weight: 600;
+                        font-size: 0.8rem;
                         cursor: pointer;
                         box-shadow: 0 2px 6px rgba(0,0,0,0.12);
                     }
@@ -1184,23 +1313,49 @@
           .actions-left,
           .actions-right {
             display: flex;
-            gap: 10px;
+                        gap: 8px;
             flex-wrap: wrap;
             align-items: center;
           }
+
+                    .actions-left {
+                        flex: 1 1 auto;
+                    }
+
+                    .actions-right {
+                        flex: 0 0 auto;
+                        justify-content: flex-end;
+                    }
+
+                    .actions-mobile-controls {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        flex: 0 0 auto;
+                    }
           
           .actions-no-print a {
-            margin: 5px;
+                        margin: 3px;
             display: inline-block;
-            padding: 10px 16px;
+                        padding: 8px 12px;
             background-color: var(--primary);
             color: #fff;
             text-decoration: none;
             border-radius: 6px;
             transition: all 0.3s ease;
             font-weight: 500;
+                        font-size: 0.82rem;
+                        line-height: 1.15;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
           }
+
+                    .actions-right .btn,
+                    .actions-left .btn {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        white-space: nowrap;
+                    }
           
           .actions-no-print a:hover {
             background-color: var(--primary-hover-fill, var(--primary-hover));
@@ -1214,27 +1369,125 @@
                         .actions-no-print {
                             flex-direction: column;
                             align-items: flex-start;
-                            gap: 12px;
+                            gap: 10px;
+                            padding: 9px 10px;
                         }
                         .actions-menu-toggle {
                             display: inline-flex;
                             align-items: center;
-                            gap: 6px;
+                            justify-content: center;
+                            width: 44px;
+                            min-width: 44px;
+                            height: 42px;
+                            padding: 0;
+                            font-size: 1rem;
+                            line-height: 1;
+                            flex: 0 0 44px;
                         }
                         .actions-no-print.collapsed .actions-left,
                         .actions-no-print.collapsed .actions-right {
                             display: none;
                         }
+                        .actions-mobile-controls {
+                            width: 100%;
+                            display: grid;
+                            grid-template-columns: 44px minmax(0, 1fr) auto;
+                            gap: 8px;
+                            align-items: center;
+                        }
                         .actions-left,
                         .actions-right {
                             width: 100%;
+                            margin: 0;
                         }
+
+                        .actions-left {
+                            display: grid;
+                            grid-template-columns: repeat(2, minmax(0, 1fr));
+                            gap: 8px;
+                            align-items: stretch;
+                        }
+
+                        .actions-right {
+                            display: grid;
+                            grid-template-columns: 1fr;
+                        }
+
                         .actions-no-print a {
                             width: 100%;
                             text-align: center;
+                            margin: 0;
                         }
+
+                        .actions-mobile-controls .search-box {
+                            grid-column: 2;
+                            grid-row: 1;
+                            width: 100%;
+                            max-width: none;
+                            min-width: 0;
+                            margin: 0;
+                        }
+
+                        .actions-mobile-controls .select-all-checkbox {
+                            grid-column: 3;
+                            grid-row: 1;
+                            width: auto;
+                            max-width: 100%;
+                            min-width: 0;
+                            margin: 0;
+                            padding: 0 10px;
+                            min-height: 42px;
+                            white-space: nowrap;
+                        }
+
                         .search-box input {
                             width: 100% !important;
+                            font-size: 16px;
+                            padding: 10px 12px 10px 34px;
+                            height: 42px;
+                        }
+
+                        .actions-right .btn {
+                            width: 100%;
+                        }
+                    }
+
+                    @media (max-width: 480px) {
+                        .actions-mobile-controls {
+                            grid-template-columns: 40px minmax(0, 1fr) auto;
+                            gap: 6px;
+                        }
+
+                        .actions-left {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .actions-menu-toggle {
+                            width: 40px;
+                            min-width: 40px;
+                            height: 40px;
+                            flex-basis: 40px;
+                            font-size: 0.95rem;
+                        }
+
+                        .actions-mobile-controls .search-box {
+                            min-width: 0;
+                        }
+
+                        .actions-mobile-controls .search-box input {
+                            height: 40px;
+                            font-size: 15px;
+                            padding: 9px 10px 9px 32px;
+                        }
+
+                        .select-all-checkbox {
+                            justify-content: center;
+                            min-height: 40px;
+                            padding: 0 8px;
+                        }
+
+                        .select-all-checkbox label {
+                            font-size: 0.74rem;
                         }
                     }
 
@@ -1248,7 +1501,7 @@
                     }
 
                     .email-btn .icon {
-                        font-size: 16px;
+                        font-size: 14px;
                     }
 
                     .email-btn:hover {
@@ -1629,17 +1882,20 @@
 
           .search-box {
             position: relative;
-            flex: 1;
-            min-width: 250px;
+                        flex: 1 1 240px;
+                        min-width: 220px;
+                        max-width: 280px;
+                        margin: 3px;
           }
 
           .search-box input {
             width: 100%;
-            padding: 10px 15px 10px 40px;
+                        padding: 9px 12px 9px 34px;
             border: 1px solid #e0e0e0;
             border-radius: 6px;
-            font-size: 14px;
+                        font-size: 13px;
             transition: all 0.2s ease;
+                        background: #fff;
           }
 
           .search-box input:focus {
@@ -1651,10 +1907,10 @@
           .search-box::before {
             content: '🔍';
             position: absolute;
-            left: 12px;
+                        left: 10px;
             top: 50%;
             transform: translateY(-50%);
-            font-size: 16px;
+                        font-size: 14px;
           }
 
           .filter-controls {
@@ -1686,19 +1942,23 @@
           }
 
           .select-all-checkbox {
-            display: flex;
+                        display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 10px 16px;
+                        min-height: 36px;
+                                                padding: 8px 12px;
             background-color: var(--org-primary-light);
             border-radius: 6px;
             cursor: pointer;
+                        box-sizing: border-box;
+                                                margin: 3px;
           }
 
           .select-all-checkbox input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+                        width: 16px;
+                        height: 16px;
             cursor: pointer;
+                        margin: 0;
           }
 
           .select-all-checkbox label {
@@ -1706,16 +1966,22 @@
             cursor: pointer;
             font-weight: 500;
             color: var(--primary);
+                        white-space: nowrap;
+                                                font-size: 0.8rem;
           }
 
           .student-checkbox {
             position: absolute;
-            top: 10px;
-            right: 10px;
+                        top: 0;
+                        right: 0;
+                        transform: translate(45%, -45%);
             width: 20px;
             height: 20px;
             cursor: pointer;
             z-index: 10;
+                        background: #fff;
+                        border-radius: 50%;
+                        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
           }
 
           .student-report.selected {
@@ -1765,21 +2031,23 @@
 
     <br>
         <div class="actions-no-print collapsed" id="actionsBar">
-                <button class="actions-menu-toggle" id="actionsMenuToggle" aria-expanded="false" aria-controls="actionsBar" onclick="toggleActionsMenu()">☰ Menu</button>
+                <div class="actions-mobile-controls">
+                <button class="actions-menu-toggle" id="actionsMenuToggle" aria-expanded="false" aria-controls="actionsBar" onclick="toggleActionsMenu()">☰</button>
+                    <div class="search-box">
+                        <input type="text" id="studentSearch" name="student-report-search" placeholder="Search student..." value="" readonly autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true">
+                    </div>
+                    <div class="select-all-checkbox">
+                        <input type="checkbox" id="selectAllStudents" onchange="toggleSelectAll()">
+                        <label for="selectAllStudents">Select All</label>
+                    </div>
+                </div>
                 <div class="actions-left">
                     <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary" data-no-spa>Settings & Signature</a>
                     <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary history-btn" data-no-spa>📜 History</a>
-          
-                    <div class="search-box" style="display: inline-block; margin-left: 10px;">
-                        <input type="text" id="studentSearch" name="student-report-search" placeholder="Search student..." value="" readonly autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" style="padding: 10px 15px 10px 35px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; width: 200px;">
-          </div>
-          
-          <div class="select-all-checkbox" style="display: inline-flex; margin-left: 10px;">
-            <input type="checkbox" id="selectAllStudents" onchange="toggleSelectAll()">
-            <label for="selectAllStudents">Select All</label>
-          </div>
-          
-          <a href="#" class="btn btn-primary" onclick="printSelected(); return false;" style="margin-left: 10px;">Print Selected</a>
+                    <% if (activatePromotion) { %>
+                    <a href="/promotion/apply" class="btn btn-primary" data-no-spa>Schedule Promotion</a>
+                    <% } %>
+                    <a href="#" class="btn btn-primary" onclick="printSelected(); return false;">Print Selected</a>
                     <a href="#" class="btn btn-primary email-btn" onclick="openEmailModal(); return false;"><span class="icon">📧</span>Send by Email</a>
         </div>
       
@@ -1795,10 +2063,10 @@
     <% if (students.length === 0) { %>
         <p>No students found for this class.</p>
     <% } else { %>
-        <% students.forEach((student) => { %>
+        <% students.forEach((student, studentIndex) => { %>
             <% const reportStudentDisplayName = student.display_name || (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
             <div class="student-report-grid">
-            <div class="student-report" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>" data-student-name="<%= reportStudentDisplayName %>">
+            <div class="student-report <%= studentIndex === students.length - 1 ? 'last-report' : '' %>" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>" data-student-name="<%= reportStudentDisplayName %>">
                 <input type="checkbox" class="student-checkbox" onchange="updateSelectedCount()" data-student-id="<%= student.student_id %>">
             <div class="student-report-background">
                     <% if (session.logo) { %>
@@ -2640,6 +2908,7 @@
 
             // Hide unchecked reports temporarily
             const allReports = document.querySelectorAll('.student-report');
+            allReports.forEach(report => report.classList.remove('temp-last-report'));
             allReports.forEach(report => {
                 const checkbox = report.querySelector('.student-checkbox');
                 if (!checkbox.checked) {
@@ -2647,6 +2916,15 @@
                     report.style.display = 'none';
                 }
             });
+
+            const visibleSelectedReports = Array.from(allReports).filter((report) => {
+                const checkbox = report.querySelector('.student-checkbox');
+                return checkbox && checkbox.checked;
+            });
+            const lastVisibleSelected = visibleSelectedReports[visibleSelectedReports.length - 1];
+            if (lastVisibleSelected) {
+                lastVisibleSelected.classList.add('temp-last-report');
+            }
             
             // Print
             window.print();
@@ -2657,6 +2935,7 @@
                     report.style.display = '';
                     report.removeAttribute('data-hidden-for-print');
                 }
+                report.classList.remove('temp-last-report');
             });
 
             isPrintSelectionInProgress = false;
@@ -3028,7 +3307,7 @@ function updateClass(studentId) {
         const btn = document.getElementById('actionsMenuToggle');
         const isCollapsed = bar.classList.toggle('collapsed');
         btn.setAttribute('aria-expanded', (!isCollapsed).toString());
-        btn.textContent = isCollapsed ? '☰ Menu' : '✕ Close';
+        btn.textContent = isCollapsed ? '☰' : '✕';
     }
 
     // Ensure correct initial state on load/resizes for mobile
@@ -3042,7 +3321,7 @@ function updateClass(studentId) {
         }
         // keep label consistent after toggle above
         const isCollapsed = bar.classList.contains('collapsed');
-        btn.textContent = isCollapsed ? '☰ Menu' : '✕ Close';
+        btn.textContent = isCollapsed ? '☰' : '✕';
         btn.setAttribute('aria-expanded', (!isCollapsed).toString());
     }
 

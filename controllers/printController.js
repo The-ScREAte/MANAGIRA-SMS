@@ -2076,7 +2076,6 @@ students
               )
             );
           await Promise.all(autoSavePromises);
-          console.log(`[printStudentReport] Auto-saved promotion status for ${autoSavePromises.length} students`);
         } catch (autoSaveErr) {
           console.error("[printStudentReport] Auto-save promotion status failed (non-blocking):", autoSaveErr.message);
         }

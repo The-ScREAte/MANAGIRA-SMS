@@ -1301,8 +1301,17 @@
         }
       });
 
-      document.addEventListener("DOMContentLoaded", function () {
+      function initManageRecordsPage() {
         const schoolYearsBlock = document.getElementById("schoolYearsBlock");
+        if (!schoolYearsBlock) {
+          return;
+        }
+
+        if (schoolYearsBlock.dataset.manageRecordsInitDone === '1') {
+          return;
+        }
+        schoolYearsBlock.dataset.manageRecordsInitDone = '1';
+
         if (schoolYearsBlock) {
           const toggleBtn = schoolYearsBlock.querySelector(".section-collapse-toggle");
           const setCollapsed = (collapsed) => {
@@ -1323,6 +1332,9 @@
         }
 
         let schoolYearContainer = document.getElementById("schoolYearContainer");
+        if (!schoolYearContainer) {
+          return;
+        }
 
         let schoolYearWrappers = Array.from(
           schoolYearContainer.getElementsByClassName("school-year-wrapper")
@@ -1404,7 +1416,13 @@
             arrow.innerHTML = '&#9660;';
           }
         });
-      });
+      }
+
+      document.addEventListener("DOMContentLoaded", initManageRecordsPage);
+      window.addEventListener("spa:pageLoaded", initManageRecordsPage);
+      if (document.readyState !== 'loading') {
+        initManageRecordsPage();
+      }
 
       function addTermToSchoolYear(yearId) {
         event.preventDefault();
