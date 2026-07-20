@@ -1784,7 +1784,7 @@ function buildStudentPricingBasisSummary({
   const thresholdWord = threshold === 1 ? "student" : "students";
   const billableWord = billableStudents === 1 ? "student" : "students";
 
-  return `Student pricing basis: ${totalStudents} ${totalWord} total, ${threshold} ${thresholdWord} included free, ${billableStudents} ${billableWord} billable.`;
+  return `Student pricing basis: ${totalStudents} ${totalWord} total, first ${threshold} ${thresholdWord} free, ${billableStudents} ${billableWord} billable.`;
 }
 
 function formatInvoicePdfDate(value) {
@@ -8068,7 +8068,7 @@ const accountController = {
           const statusDetail = pricing.pricingMode === 'dynamic'
             ? (withinFreeRange
                 ? `Your current student count is still covered by the ${pricing.threshold} free students on this plan.`
-                : `${pricing.threshold} students are included. ${pricing.extraStudents} extra student${pricing.extraStudents === 1 ? '' : 's'} add ${formatCurrencyAmount(pricing.termStudentCostUsd, 'USD')} per term (~${formatCurrencyAmount(pricing.studentMonthlyCostUsd, 'USD')}/mo).`)
+                : `First ${pricing.threshold} students are free. ${pricing.extraStudents} extra student${pricing.extraStudents === 1 ? '' : 's'} add ${formatCurrencyAmount(pricing.termStudentCostUsd, 'USD')} per term (~${formatCurrencyAmount(pricing.studentMonthlyCostUsd, 'USD')}/mo).`)
             : 'Dynamic student pricing is not configured for your region yet, so this plan uses flat monthly pricing.';
 
           return {

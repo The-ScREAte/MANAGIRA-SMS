@@ -845,11 +845,11 @@
           <div class="plan-price">
             <strong><%= plan.defaultLocalizedPriceDisplay || plan.localizedPriceDisplay || plan.defaultPriceUsdDisplay || plan.priceUsdDisplay || ('$' + plan.total_price.toFixed(2)) %></strong>
             <div class="price-caption">per month</div>
-            <% if (dynamicMeta) { %>
-              <div class="free-students-badge">First <%= Number(dynamicMeta.freeStudentThreshold || 0) %> students included</div>
-            <% } %>
             <% if (freeTrialEnabled && freeTrialLengthLabel) { %>
               <div class="price-after-trial">after trial ends</div>
+            <% } %>
+            <% if (dynamicMeta) { %>
+              <div class="free-students-badge">First <%= Number(dynamicMeta.freeStudentThreshold || 0) %> students are free</div>
             <% } %>
             <div class="price-local"></div>
           </div>
@@ -1245,7 +1245,7 @@
             var threshold = parseInt(card.getAttribute('data-price-free-threshold'), 10);
             var badgeEl = card.querySelector('.free-students-badge');
             if (badgeEl && Number.isInteger(threshold)) {
-              badgeEl.textContent = 'First ' + threshold + ' students included';
+              badgeEl.textContent = 'First ' + threshold + ' students are free';
             }
           });
         }
