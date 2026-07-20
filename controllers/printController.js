@@ -2924,11 +2924,20 @@ students
         );
 
         if (updateResult.rowCount === 0) {
-          await db.query(
-            `INSERT INTO status_settings (organization_id, class_id, term_id, activate_promotion)
-             VALUES ($1, $2, $3, $4)`,
+          const classScopedUpdateResult = await db.query(
+            `UPDATE status_settings
+             SET term_id = $3, activate_promotion = $4
+             WHERE organization_id = $1 AND class_id = $2`,
             [organizationId, parsedClassId, parsedTermId, apBool]
           );
+
+          if (classScopedUpdateResult.rowCount === 0) {
+            await db.query(
+              `INSERT INTO status_settings (organization_id, class_id, term_id, activate_promotion)
+               VALUES ($1, $2, $3, $4)`,
+              [organizationId, parsedClassId, parsedTermId, apBool]
+            );
+          }
         }
       }
       res.json({ success: true });
