@@ -450,20 +450,25 @@
     }
 
     .guardian-profile-card {
-      flex-direction: column;
-      text-align: center;
+      flex-direction: row;
+      text-align: left;
       padding: 20px;
       margin-bottom: 20px;
-      align-items: center;
+      align-items: flex-start;
     }
 
     .guardian-avatar-wrapper {
-      margin-bottom: 12px;
+      margin-bottom: 0;
+      flex-shrink: 0;
     }
 
     .guardian-avatar {
-      width: 90px;
-      height: 90px;
+      width: 74px;
+      height: 74px;
+    }
+
+    .guardian-details {
+      min-width: 0;
     }
 
     .guardian-name {
@@ -613,11 +618,13 @@
     .guardian-profile-card {
       padding: 16px;
       border-radius: 12px;
+      gap: 10px;
+      align-items: flex-start;
     }
 
     .guardian-avatar {
-      width: 80px;
-      height: 80px;
+      width: 64px;
+      height: 64px;
       border-width: 3px;
     }
 

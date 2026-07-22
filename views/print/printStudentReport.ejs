@@ -1361,6 +1361,13 @@
                         cursor: pointer;
                     }
 
+                    .desktop-actions-trigger-icon {
+                        font-size: 0.95rem;
+                        line-height: 1;
+                        opacity: 0.9;
+                        transform: translateY(-0.5px);
+                    }
+
                     .desktop-actions-trigger:hover {
                         transform: translateY(-1px);
                         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.16);
@@ -2182,6 +2189,7 @@
                 <div class="actions-left">
                     <div class="desktop-actions-popup" id="desktopActionsPopup">
                         <button type="button" class="desktop-actions-trigger" id="desktopActionsTrigger" aria-expanded="false" aria-controls="desktopActionsMenu">
+                            <span class="desktop-actions-trigger-icon" aria-hidden="true">☰</span>
                             Quick Actions
                         </button>
                         <div class="desktop-actions-menu" id="desktopActionsMenu" role="menu">
@@ -3410,6 +3418,7 @@ function updateClass(studentId) {
             const postBtn = document.getElementById('postReportCardsLink');
             if (!postBtn) return;
             const postBtnLabel = postBtn.querySelector('.post-btn-label');
+            const originalBtnText = postBtnLabel ? postBtnLabel.textContent : 'Post Report';
 
             const setPostingState = (isPosting) => {
                 postBtn.classList.toggle('is-posting', isPosting);
@@ -3417,8 +3426,23 @@ function updateClass(studentId) {
                 postBtn.style.opacity = isPosting ? '0.85' : '';
                 postBtn.setAttribute('aria-busy', isPosting ? 'true' : 'false');
                 if (postBtnLabel) {
-                    postBtnLabel.textContent = isPosting ? 'Posting...' : 'Post Report';
+                    postBtnLabel.textContent = isPosting ? 'Queueing...' : originalBtnText;
                 }
+            };
+
+            const setQueuedState = () => {
+                postBtn.classList.remove('is-posting');
+                postBtn.style.pointerEvents = '';
+                postBtn.style.opacity = '';
+                postBtn.setAttribute('aria-busy', 'false');
+                if (postBtnLabel) {
+                    postBtnLabel.textContent = 'Queued';
+                }
+                setTimeout(() => {
+                    if (postBtnLabel) {
+                        postBtnLabel.textContent = originalBtnText;
+                    }
+                }, 3000);
             };
 
             if (checkForUnsavedChanges()) {
@@ -3463,11 +3487,19 @@ function updateClass(studentId) {
                     return;
                 }
 
+                if (response.status === 202 || payload.background) {
+                    setQueuedState();
+                    alert(payload.message || 'Posting has started in the background. You can continue working; parents and teachers will be notified when done.');
+                    return;
+                }
+
                 alert(payload.message || 'Report cards posted successfully. Parents can now view PDF report cards in the portal.');
             } catch (error) {
                 alert('Failed to post report cards. Please try again.');
             } finally {
-                setPostingState(false);
+                if (postBtn.classList.contains('is-posting')) {
+                    setPostingState(false);
+                }
             }
         }
     // ===== EMAIL MODAL =====

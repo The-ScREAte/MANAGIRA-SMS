@@ -6493,55 +6493,6 @@ const printController = (db) => ({
       if (!organizationId || !classId || !termId) {
         return res.status(400).json({ success: false, message: "Missing classId or termId." });
       }
-
-      await ensurePostedReportCardsTable(db);
-
-      const termResult = await db.query(
-        `SELECT term_id, school_year_id, term_name
-         FROM terms
-         WHERE term_id = $1 AND organization_id = $2
-         LIMIT 1`,
-        [termId, organizationId]
-      );
-
-      if (!termResult.rows.length) {
-        return res.status(404).json({ success: false, message: "Term not found." });
-      }
-
-      const schoolYearId = Number(termResult.rows[0].school_year_id) || null;
-      const termName = String(termResult.rows[0].term_name || `Term ${termId}`).trim();
-
-      const classResult = await db.query(
-        `SELECT class_name
-         FROM classes
-         WHERE class_id = $1 AND organization_id = $2
-         LIMIT 1`,
-        [classId, organizationId]
-      );
-      const className = String(classResult.rows[0]?.class_name || `Class ${classId}`).trim();
-
-      const scopedStudentsResult = await db.query(
-        `SELECT DISTINCT es.student_id, s.first_name, s.last_name
-         FROM enrolled_students es
-         JOIN enrollments e ON e.enrollment_id = es.enrollment_id
-         JOIN students s ON s.student_id = es.student_id AND s.organization_id = e.organization_id
-         WHERE es.class_id = $1
-           AND e.term_id = $2
-           AND e.organization_id = $3
-           AND ($4::int IS NULL OR e.school_year_id = $4)
-           AND (
-             $5::int[] IS NULL
-             OR array_length($5::int[], 1) IS NULL
-             OR es.student_id = ANY($5::int[])
-           )
-         ORDER BY s.last_name ASC, s.first_name ASC, es.student_id ASC`,
-        [classId, termId, organizationId, schoolYearId, selectedStudentIds.length ? selectedStudentIds : null]
-      );
-
-      const studentsToPost = scopedStudentsResult.rows || [];
-      if (!studentsToPost.length) {
-        return res.status(404).json({ success: false, message: "No enrolled students found for posting." });
-      }
       const jobKey = `${organizationId}:${classId}:${termId}`;
       const existingJob = reportCardPostJobs.get(jobKey);
       if (existingJob && (existingJob.status === "queued" || existingJob.status === "running")) {
@@ -6574,6 +6525,10 @@ const printController = (db) => ({
         const failed = [];
         let generatedCount = 0;
         let reusedCount = 0;
+        let schoolYearId = null;
+        let termName = `Term ${termId}`;
+        let className = `Class ${classId}`;
+        let studentsToPost = [];
 
         try {
           reportCardPostJobs.set(jobKey, {
@@ -6581,6 +6536,55 @@ const printController = (db) => ({
             status: "running",
             queuedAt: new Date().toISOString(),
           });
+
+          await ensurePostedReportCardsTable(db);
+
+          const termResult = await db.query(
+            `SELECT term_id, school_year_id, term_name
+             FROM terms
+             WHERE term_id = $1 AND organization_id = $2
+             LIMIT 1`,
+            [termId, organizationId]
+          );
+
+          if (!termResult.rows.length) {
+            throw new Error("Term not found.");
+          }
+
+          schoolYearId = Number(termResult.rows[0].school_year_id) || null;
+          termName = String(termResult.rows[0].term_name || `Term ${termId}`).trim();
+
+          const classResult = await db.query(
+            `SELECT class_name
+             FROM classes
+             WHERE class_id = $1 AND organization_id = $2
+             LIMIT 1`,
+            [classId, organizationId]
+          );
+          className = String(classResult.rows[0]?.class_name || `Class ${classId}`).trim();
+
+          const scopedStudentsResult = await db.query(
+            `SELECT DISTINCT es.student_id, s.first_name, s.last_name
+             FROM enrolled_students es
+             JOIN enrollments e ON e.enrollment_id = es.enrollment_id
+             JOIN students s ON s.student_id = es.student_id AND s.organization_id = e.organization_id
+             WHERE es.class_id = $1
+               AND e.term_id = $2
+               AND e.organization_id = $3
+               AND ($4::int IS NULL OR e.school_year_id = $4)
+               AND (
+                 $5::int[] IS NULL
+                 OR array_length($5::int[], 1) IS NULL
+                 OR es.student_id = ANY($5::int[])
+               )
+             ORDER BY s.last_name ASC, s.first_name ASC, es.student_id ASC`,
+            [classId, termId, organizationId, schoolYearId, selectedStudentIds.length ? selectedStudentIds : null]
+          );
+
+          studentsToPost = scopedStudentsResult.rows || [];
+          if (!studentsToPost.length) {
+            throw new Error("No enrolled students found for posting.");
+          }
 
           const existingPostedResult = await db.query(
             `SELECT student_id, pdf_s3_key, pdf_url
@@ -6981,18 +6985,22 @@ const printController = (db) => ({
         }
       };
 
+      const responsePayload = {
+        success: true,
+        background: true,
+        message: "Posting started in background. Parents and teachers will be notified by email and portal notifications when reports are ready.",
+        jobKey,
+      };
+
+      res.status(202).json(responsePayload);
+
       setImmediate(() => {
         runBackgroundPosting().catch((error) => {
           console.error("[postReportCards] Background launch error:", error?.message || error);
         });
       });
 
-      return res.status(202).json({
-        success: true,
-        background: true,
-        message: "Posting started in background. Parents and teachers will be notified by email and portal notifications when reports are ready.",
-        jobKey,
-      });
+      return;
     } catch (error) {
       console.error("[postReportCards] Error:", error);
       return res.status(500).json({ success: false, message: "Failed to post report cards." });
@@ -7140,7 +7148,7 @@ const printController = (db) => ({
   getEmailHistory: asyncHandler(async (req, res) => {
     try {
       const organizationId = req.session.organizationId;
-      const { class_id, term_id } = req.query;
+      const { class_id, term_id, student_id, status } = req.query;
 
       if (!organizationId) {
         return res.status(401).json({ success: false, message: 'Not authorized' });
@@ -7148,24 +7156,61 @@ const printController = (db) => ({
       
       let query = `
         SELECT 
-          id, batch_id, student_name, recipient_emails, status, 
-          error_message, pdf_generated, sent_at, created_at
-        FROM email_history
-        WHERE organization_id = $1
+          eh.id,
+          eh.batch_id,
+          eh.class_id,
+          eh.term_id,
+          eh.student_id,
+          eh.student_name,
+          eh.recipient_emails,
+          eh.status,
+          eh.error_message,
+          eh.pdf_generated,
+          eh.sent_at,
+          eh.created_at,
+          c.class_name,
+          t.term_name,
+          sy.year_label,
+          prc.posted_at AS report_posted_at
+        FROM email_history eh
+        LEFT JOIN classes c
+          ON c.class_id = eh.class_id
+         AND c.organization_id = eh.organization_id
+        LEFT JOIN terms t
+          ON t.term_id = eh.term_id
+         AND t.organization_id = eh.organization_id
+        LEFT JOIN school_years sy
+          ON sy.id = t.school_year_id
+        LEFT JOIN posted_report_cards prc
+          ON prc.organization_id = eh.organization_id
+         AND prc.class_id = eh.class_id
+         AND prc.term_id = eh.term_id
+         AND prc.student_id = eh.student_id
+        WHERE eh.organization_id = $1
       `;
       const params = [organizationId];
       
       if (class_id) {
         params.push(class_id);
-        query += ` AND class_id = $${params.length}`;
+        query += ` AND eh.class_id = $${params.length}`;
       }
       
       if (term_id) {
         params.push(term_id);
-        query += ` AND term_id = $${params.length}`;
+        query += ` AND eh.term_id = $${params.length}`;
+      }
+
+      if (student_id) {
+        params.push(student_id);
+        query += ` AND eh.student_id = $${params.length}`;
+      }
+
+      if (status) {
+        params.push(String(status).trim().toLowerCase());
+        query += ` AND LOWER(eh.status) = $${params.length}`;
       }
       
-      query += ` ORDER BY created_at DESC LIMIT 500`;
+      query += ` ORDER BY eh.created_at DESC LIMIT 700`;
       
       const result = await db.query(query, params);
       res.json({ success: true, data: result.rows });

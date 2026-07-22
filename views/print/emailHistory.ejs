@@ -247,6 +247,9 @@
             <select id="termFilter">
                 <option value="">All Terms</option>
             </select>
+            <select id="studentFilter">
+                <option value="">All Students</option>
+            </select>
             <select id="statusFilter">
                 <option value="">All Statuses</option>
                 <option value="pending">Pending</option>
@@ -269,6 +272,7 @@
         const defaultClassId = '<%= classId || "" %>';
         const defaultTermId = '<%= termId || "" %>';
         let allEmails = [];
+        let selectedStudentId = '';
         
         // Load email history
         async function loadHistory() {
@@ -278,11 +282,14 @@
             try {
                 const classId = document.getElementById('classFilter').value;
                 const termId = document.getElementById('termFilter').value;
+                const studentId = document.getElementById('studentFilter').value;
                 const status = document.getElementById('statusFilter').value;
 
                 const params = new URLSearchParams();
                 if (classId) params.append('class_id', classId);
                 if (termId) params.append('term_id', termId);
+                if (studentId) params.append('student_id', studentId);
+                if (status) params.append('status', status);
                 const url = params.toString() ? `/print/emailHistory?${params.toString()}` : '/print/emailHistory';
                 
                 const response = await fetch(url);
@@ -290,11 +297,9 @@
                 
                 if (result.success) {
                     allEmails = result.data;
-                    
-                    // Apply status filter client-side
-                    const filtered = status ? allEmails.filter(e => e.status === status) : allEmails;
-                    
-                    renderList(filtered);
+
+                    populateStudentFilter(allEmails);
+                    renderList(allEmails);
                     updateStats(allEmails);
                 } else {
                     alert('Failed to load email history');
@@ -320,6 +325,11 @@
             list.innerHTML = emails.map(email => {
                 const statusClass = `badge-${email.status}`;
                 const sentDate = email.sent_at ? new Date(email.sent_at).toLocaleString() : 'Not sent yet';
+                const createdDate = email.created_at ? new Date(email.created_at).toLocaleString() : '-';
+                const postedDate = email.report_posted_at ? new Date(email.report_posted_at).toLocaleString() : 'Not posted yet';
+                const classLabel = email.class_name || `Class #${email.class_id || '-'}`;
+                const termLabel = [email.term_name, email.year_label].filter(Boolean).join(' - ') || `Term #${email.term_id || '-'}`;
+                const recipients = Array.isArray(email.recipient_emails) ? email.recipient_emails.join(', ') : '';
                 
                 let actions = '';
                 if (email.status === 'failed') {
@@ -334,11 +344,19 @@
                         <div class="email-info">
                             <div class="student-name">${email.student_name}</div>
                             <div class="email-details">
-                                <strong>To:</strong> ${email.recipient_emails.join(', ')}
+                                <strong>Class:</strong> ${classLabel} • <strong>Term:</strong> ${termLabel}
                             </div>
                             <div class="recipient-list">
-                                <strong>Sent:</strong> ${sentDate}
-                                ${email.pdf_generated ? ' • PDF ✅' : ' • PDF ❌'}
+                                <strong>Student:</strong> ${email.student_id || '-'} • <strong>Batch:</strong> ${email.batch_id || '-'}
+                            </div>
+                            <div class="recipient-list">
+                                <strong>Recipients:</strong> ${recipients || '-'}
+                            </div>
+                            <div class="recipient-list">
+                                <strong>Created:</strong> ${createdDate} • <strong>Sent:</strong> ${sentDate}
+                            </div>
+                            <div class="recipient-list">
+                                <strong>Report Posted:</strong> ${postedDate} ${email.pdf_generated ? ' • PDF ✅' : ' • PDF ❌'}
                             </div>
                             ${email.error_message ? `<div class="error-msg">Error: ${email.error_message}</div>` : ''}
                         </div>
@@ -360,6 +378,32 @@
             document.getElementById('totalCount').textContent = total;
             document.getElementById('sentCount').textContent = sent;
             document.getElementById('failedCount').textContent = failed;
+        }
+
+        function populateStudentFilter(emails) {
+            const studentFilter = document.getElementById('studentFilter');
+            const previousValue = selectedStudentId || studentFilter.value || '';
+            const map = new Map();
+            (emails || []).forEach((row) => {
+                const sid = String(row.student_id || '').trim();
+                if (!sid) return;
+                if (!map.has(sid)) {
+                    map.set(sid, String(row.student_name || `Student ${sid}`).trim());
+                }
+            });
+
+            const options = Array.from(map.entries())
+                .sort((a, b) => a[1].localeCompare(b[1]))
+                .map(([sid, name]) => `<option value="${sid}">${name} (ID: ${sid})</option>`)
+                .join('');
+
+            studentFilter.innerHTML = '<option value="">All Students</option>' + options;
+            if (previousValue && map.has(previousValue)) {
+                studentFilter.value = previousValue;
+            } else {
+                studentFilter.value = '';
+            }
+            selectedStudentId = studentFilter.value;
         }
         
         // Retry failed email
@@ -430,6 +474,10 @@
         document.getElementById('refreshBtn').addEventListener('click', loadHistory);
         document.getElementById('classFilter').addEventListener('change', loadHistory);
         document.getElementById('termFilter').addEventListener('change', loadHistory);
+        document.getElementById('studentFilter').addEventListener('change', function () {
+            selectedStudentId = this.value;
+            loadHistory();
+        });
         document.getElementById('statusFilter').addEventListener('change', loadHistory);
         
         // Initial load
