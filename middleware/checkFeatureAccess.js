@@ -62,6 +62,18 @@ const checkFeatureAccess = async (req, res, next) => {
   // Debug logs removed for production
   const routePath = req.originalUrl.split('?')[0];
   const isPublicDashboard = routePath === '/common/publicDashboard';
+  const isGuardianRelinkRoute = routePath === '/common/guardianRelinkStudent';
+
+  if (isGuardianRelinkRoute) {
+    console.log('[guardianRelink][feature] check-start', {
+      routePath,
+      method: req.method,
+      organizationId: req.session?.organizationId || req.query?.organizationId || req.schoolDetails?.organization_id || null,
+      userId: req.session?.userId || req.session?.user?.user_id || null,
+      userRole: req.session?.userRole || req.session?.user?.role || null,
+      hasSessionUser: Boolean(req.session?.user),
+    });
+  }
 
   // Best-effort: re-hydrate the organization context from the logged-in user
   // before evaluating any feature guard. This prevents page refreshes from
@@ -82,6 +94,9 @@ const checkFeatureAccess = async (req, res, next) => {
   const _adminRole = String(req.session?.userRole || '').trim().toLowerCase();
   const _adminSet = new Set(['admin', 'mini admin', 'internal worker']);
   if (_adminSet.has(_adminAccount) || _adminSet.has(_adminRole)) {
+    if (isGuardianRelinkRoute) {
+      console.log('[guardianRelink][feature] bypass-admin-role');
+    }
     return next();
   }
 
@@ -128,9 +143,15 @@ const checkFeatureAccess = async (req, res, next) => {
       req.headers['sec-fetch-dest'] === 'empty' ||
       req.headers['sec-fetch-mode'] === 'cors';
     if (isXhrLike) {
+      if (isGuardianRelinkRoute) {
+        console.warn('[guardianRelink][feature] blocked-missing-org-xhr-204');
+      }
       return res.status(204).end();
     }
 
+    if (isGuardianRelinkRoute) {
+      console.warn('[guardianRelink][feature] blocked-missing-org-redirect');
+    }
     req.flash('error', 'Your organization session is no longer valid. Please sign in again.');
     return destroySessionAndRedirect(req, res, '/');
   }
@@ -138,6 +159,9 @@ const checkFeatureAccess = async (req, res, next) => {
   try {
     const planContext = await resolvePlanForOrganization(db, organizationId);
     if (!planContext) {
+      if (isGuardianRelinkRoute) {
+        console.warn('[guardianRelink][feature] blocked-no-plan-context', { organizationId });
+      }
       req.flash('error', 'Organization not found.');
       return destroySessionAndRedirect(req, res, '/');
     }
@@ -282,6 +306,13 @@ const checkFeatureAccess = async (req, res, next) => {
 </body>
 </html>`);
         } else {
+          if (isGuardianRelinkRoute) {
+            console.warn('[guardianRelink][feature] blocked-plan-feature-denied', {
+              organizationId,
+              featureId,
+              planIdToCheck,
+            });
+          }
           req.flash('error', 'Your plan does not support this feature.');
           return res.redirect('/common/orgDashboard');
         }
@@ -300,6 +331,9 @@ const checkFeatureAccess = async (req, res, next) => {
       (!req.session.user &&
         !(req.session.superAdminOrgSwitch && req.session.userId && req.session.organizationId))
     ) {
+      if (isGuardianRelinkRoute) {
+        console.warn('[guardianRelink][feature] blocked-not-authenticated');
+      }
   // ...removed warn for clean background operation...
   // ...removed orphaned object from log removal...
       req.flash("error", "Please log in to continue.");
@@ -381,9 +415,17 @@ const checkFeatureAccess = async (req, res, next) => {
       }
     }
 
+    if (isGuardianRelinkRoute) {
+      console.log('[guardianRelink][feature] check-pass');
+    }
     next();
   } catch (err) {
     console.error('❌ Feature access check failed:', err);
+    if (isGuardianRelinkRoute) {
+      console.error('[guardianRelink][feature] check-error', {
+        message: err?.message || String(err),
+      });
+    }
     req.flash('error', 'An error occurred while checking your access.');
     res.redirect('/common/orgDashboard');
   }

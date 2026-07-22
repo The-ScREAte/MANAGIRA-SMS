@@ -20,6 +20,28 @@ const {
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { buildNameSortExpression, formatDisplayName } = require("../utils/organizationDisplayPreferences");
 
+function resolveScheduleWatermarkUrl(req) {
+  const rawLogo = String(
+    req?.schoolDetails?.logo ||
+    req?.schoolDetails?.logo_path ||
+    req?.session?.schoolLogo ||
+    req?.session?.logo ||
+    ""
+  ).trim();
+
+  if (!rawLogo) return "";
+  if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
+  if (rawLogo.startsWith("/")) return rawLogo;
+
+  const s3Bucket = String(process.env.S3_BUCKET_NAME || "").trim();
+  const s3Region = String(process.env.AWS_REGION || "").trim();
+  if (s3Bucket && s3Region) {
+    return `https://${s3Bucket}.s3.${s3Region}.amazonaws.com/${rawLogo.replace(/^\/+/, "")}`;
+  }
+
+  return `/uploads/${rawLogo.replace(/^\/+/, "")}`;
+}
+
 async function ensureGuardianReportReadSchema(db) {
   await db.query(
     `CREATE TABLE IF NOT EXISTS guardian_report_reads (
@@ -33,6 +55,37 @@ async function ensureGuardianReportReadSchema(db) {
       UNIQUE(report_id, guardian_id)
     )`
   );
+}
+
+let ensuredPostedReportCardsTable = false;
+async function ensurePostedReportCardsTable(db) {
+  if (ensuredPostedReportCardsTable) return;
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS posted_report_cards (
+        posted_report_card_id SERIAL PRIMARY KEY,
+        organization_id INT NOT NULL,
+        class_id INT NOT NULL,
+        term_id INT NOT NULL,
+        school_year_id INT NULL,
+        student_id INT NOT NULL,
+        pdf_s3_key TEXT NOT NULL,
+        pdf_url TEXT NOT NULL,
+        posted_by INT NULL,
+        posted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (organization_id, class_id, term_id, student_id)
+      )
+    `);
+    await db.query(`
+      CREATE INDEX IF NOT EXISTS posted_report_cards_student_idx
+      ON posted_report_cards (organization_id, student_id, posted_at DESC)
+    `);
+    ensuredPostedReportCardsTable = true;
+  } catch (error) {
+    console.error('[ensurePostedReportCardsTable] Failed:', error?.message || error);
+  }
 }
 
 async function getGuardianUnreadReportSummary(db, guardianId, organizationId) {
@@ -270,16 +323,27 @@ module.exports = {
       );
 
       const subjectsMap = new Map();
+      const subjectKeyById = new Map();
       subjectsResult.rows.forEach((subject) => {
-        subjectsMap.set(subject.subject_id, {
-          ...subject,
-          totalScore: 0,
-          totalMaxScore: 0,
-          totalPercentage: null,
-          grade: null,
-          position: null,
-          assessments: [],
-        });
+        const subjectKey = String(subject.subject_name || "").trim().toLowerCase();
+        subjectKeyById.set(subject.subject_id, subjectKey);
+
+        if (!subjectsMap.has(subjectKey)) {
+          subjectsMap.set(subjectKey, {
+            ...subject,
+            subjectIds: [subject.subject_id],
+            totalScore: 0,
+            totalMaxScore: 0,
+            totalPercentage: null,
+            grade: null,
+            position: null,
+            assessments: [],
+          });
+          return;
+        }
+
+        const existing = subjectsMap.get(subjectKey);
+        existing.subjectIds.push(subject.subject_id);
       });
 
       // Fetch assessments and scores for the student for the specified term
@@ -331,19 +395,20 @@ module.exports = {
       );
 
       assessmentsResult.rows.forEach((assessment) => {
-        if (subjectsMap.has(assessment.subject_id)) {
-          const subject = subjectsMap.get(assessment.subject_id);
-          subject.assessments.push(assessment);
-          if (assessment.score !== null) {
-            subject.totalScore += parseFloat(assessment.score);
-            subject.totalMaxScore += parseFloat(assessment.max_score);
-          }
-          if (assessment.total_percentage !== null) {
-            subject.totalPercentage = parseFloat(assessment.total_percentage);
-          }
-          if (assessment.grade) {
-            subject.grade = assessment.grade;
-          }
+        const subjectKey = subjectKeyById.get(assessment.subject_id);
+        if (!subjectKey || !subjectsMap.has(subjectKey)) return;
+
+        const subject = subjectsMap.get(subjectKey);
+        subject.assessments.push(assessment);
+        if (assessment.score !== null) {
+          subject.totalScore += parseFloat(assessment.score);
+          subject.totalMaxScore += parseFloat(assessment.max_score);
+        }
+        if (assessment.total_percentage !== null) {
+          subject.totalPercentage = parseFloat(assessment.total_percentage);
+        }
+        if (assessment.grade) {
+          subject.grade = assessment.grade;
         }
       });
 
@@ -538,16 +603,27 @@ module.exports = {
       );
 
       const subjectsMap = new Map();
+      const subjectKeyById = new Map();
       subjectsResult.rows.forEach((subject) => {
-        subjectsMap.set(subject.subject_id, {
-          ...subject,
-          totalScore: 0,
-          totalMaxScore: 0,
-          totalPercentage: null,
-          grade: null,
-          position: null,
-          assessments: [],
-        });
+        const subjectKey = String(subject.subject_name || '').trim().toLowerCase();
+        subjectKeyById.set(subject.subject_id, subjectKey);
+
+        if (!subjectsMap.has(subjectKey)) {
+          subjectsMap.set(subjectKey, {
+            ...subject,
+            subjectIds: [subject.subject_id],
+            totalScore: 0,
+            totalMaxScore: 0,
+            totalPercentage: null,
+            grade: null,
+            position: null,
+            assessments: [],
+          });
+          return;
+        }
+
+        const existing = subjectsMap.get(subjectKey);
+        existing.subjectIds.push(subject.subject_id);
       });
 
       // Assessments + scores for that term
@@ -1096,10 +1172,11 @@ module.exports = {
   academicDetailsGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const guardianId = req.session.guardianId;
-    const studentId = req.query.studentId;
-    const termId = req.query.termId || req.session.currentTermId;
+    const studentId = Number.parseInt(req.query.studentId, 10);
+    const requestedTermId = req.query.termId || req.session.currentTermId;
+    const termId = Number.parseInt(requestedTermId, 10);
 
-        if (!studentId || !termId) {
+        if (!Number.isFinite(studentId) || studentId <= 0 || !Number.isFinite(termId) || termId <= 0) {
       req.flash('error', 'Student ID and Term ID are required');
       return res.redirect('/guardian/dashboard');
     }
@@ -1136,7 +1213,7 @@ module.exports = {
 
       // Get term info
       const termResult = await db.query(
-        `SELECT t.term_name, t.term_id, sy.year_label
+        `SELECT t.term_name, t.term_id, t.school_year_id, sy.year_label
          FROM terms t
          INNER JOIN school_years sy ON t.school_year_id = sy.id
          WHERE t.term_id = $1 AND t.organization_id = $2`,
@@ -1144,20 +1221,28 @@ module.exports = {
       );
 
       const termNameForPage = termResult.rows[0]?.term_name || 'Unknown';
+      const termSchoolYearId = termResult.rows[0]?.school_year_id || null;
       const yearLabel = termResult.rows[0]?.year_label || '';
 
       // Get enrolled class for this term
       const enrolledClassResult = await db.query(
-        `SELECT c.class_name
-         FROM enrolled_students es
-         JOIN classes c ON es.class_id = c.class_id
-         JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-         WHERE es.student_id = $1 AND e.term_id = $2 AND e.organization_id = $3
+        `SELECT es.class_id, c.class_name
+         FROM enrollments e
+         JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+         JOIN classes c ON c.class_id = es.class_id
+         WHERE es.student_id = $1
+           AND e.term_id = $2
+           AND e.organization_id = $3
+           AND ($4::int IS NULL OR e.school_year_id = $4)
+         ORDER BY e.created_at DESC, e.enrollment_id DESC
          LIMIT 1`,
-        [studentId, termId, organizationId]
+        [studentId, termId, organizationId, termSchoolYearId]
       );
 
-      const enrolledClassForTerm = enrolledClassResult.rows[0]?.class_name || 'Not enrolled';
+      const effectiveClassId = enrolledClassResult.rows[0]?.class_id || classId;
+      const enrolledClassForTerm =
+        enrolledClassResult.rows[0]?.class_name ||
+        (effectiveClassId === classId ? student.class_name : 'Not enrolled');
 
       // Fetch main teacher
       const mainTeacherResult = await db.query(
@@ -1166,42 +1251,61 @@ module.exports = {
          JOIN users u ON u.user_id = uc.user_id
          WHERE uc.class_id = $1 AND uc.main = TRUE
          LIMIT 1`,
-        [classId]
+        [effectiveClassId]
       );
 
       // Fetch subjects student is enrolled in
       const subjectsResult = await db.query(
-        `SELECT s.subject_id, s.subject_name
+        `SELECT DISTINCT s.subject_id, s.subject_name
          FROM student_subjects ss
-         INNER JOIN subjects s ON ss.subject_id = s.subject_id
-         WHERE ss.student_id = $1 AND ss.organization_id = $2
-         ORDER BY s.subject_name`,
-        [studentId, organizationId]
+         INNER JOIN subjects s ON ss.subject_id = s.subject_id AND s.organization_id = ss.organization_id
+         WHERE ss.student_id = $1
+           AND ss.organization_id = $2
+           AND s.class_id = $3
+           AND (ss.term_id IS NULL OR ss.term_id = $4)
+           AND (s.term_id IS NULL OR s.term_id = $4)
+         ORDER BY s.subject_name, s.subject_id`,
+        [studentId, organizationId, effectiveClassId, termId]
       );
 
       // Fetch subject teachers only for subjects the student is enrolled in
       const subjectTeachersResult = await db.query(
-        `SELECT s.subject_id, s.subject_name, u.first_name, u.last_name, u.email
+        `SELECT DISTINCT s.subject_id, s.subject_name, u.first_name, u.last_name, u.email
          FROM student_subjects ss
-         INNER JOIN subjects s ON ss.subject_id = s.subject_id
+         INNER JOIN subjects s ON ss.subject_id = s.subject_id AND s.organization_id = ss.organization_id
          LEFT JOIN user_subjects us ON us.subject_id = s.subject_id
          LEFT JOIN users u ON u.user_id = us.user_id
-         WHERE ss.student_id = $1 AND ss.organization_id = $2
+         WHERE ss.student_id = $1
+           AND ss.organization_id = $2
+           AND s.class_id = $3
+           AND (ss.term_id IS NULL OR ss.term_id = $4)
+           AND (s.term_id IS NULL OR s.term_id = $4)
          ORDER BY s.subject_name`,
-        [studentId, organizationId]
+        [studentId, organizationId, effectiveClassId, termId]
       );
 
       const subjectsMap = new Map();
+      const subjectKeyById = new Map();
       subjectsResult.rows.forEach((subject) => {
-        subjectsMap.set(subject.subject_id, {
-          ...subject,
-          totalScore: 0,
-          totalMaxScore: 0,
-          totalPercentage: null,
-          grade: null,
-          position: null,
-          assessments: [],
-        });
+        const subjectKey = String(subject.subject_name || '').trim().toLowerCase();
+        subjectKeyById.set(subject.subject_id, subjectKey);
+
+        if (!subjectsMap.has(subjectKey)) {
+          subjectsMap.set(subjectKey, {
+            ...subject,
+            subjectIds: [subject.subject_id],
+            totalScore: 0,
+            totalMaxScore: 0,
+            totalPercentage: null,
+            grade: null,
+            position: null,
+            assessments: [],
+          });
+          return;
+        }
+
+        const existing = subjectsMap.get(subjectKey);
+        existing.subjectIds.push(subject.subject_id);
       });
 
       // Fetch assessments and scores for current term
@@ -1245,26 +1349,40 @@ module.exports = {
            ) AS grade
          FROM assessments a
          LEFT JOIN assessment_results ar ON a.assessment_id = ar.assessment_id AND ar.student_id = $1
-         WHERE a.subject_id IN (SELECT subject_id FROM student_subjects WHERE student_id = $1 AND organization_id = $3)
-           AND a.organization_id = $3 AND a.term_id = $2
+         INNER JOIN terms t ON t.term_id = a.term_id AND t.organization_id = a.organization_id
+         WHERE a.subject_id IN (
+             SELECT s2.subject_id
+             FROM student_subjects ss2
+             INNER JOIN subjects s2 ON ss2.subject_id = s2.subject_id AND s2.organization_id = ss2.organization_id
+             WHERE ss2.student_id = $1
+               AND ss2.organization_id = $3
+               AND s2.class_id = $4
+               AND (ss2.term_id IS NULL OR ss2.term_id = $2)
+               AND (s2.term_id IS NULL OR s2.term_id = $2)
+           )
+           AND a.organization_id = $3
+           AND a.term_id = $2
+           AND a.class_id = $4
+           AND ($5::int IS NULL OR t.school_year_id = $5)
          ORDER BY a.assessment_id`,
-        [studentId, termId, organizationId]
+        [studentId, termId, organizationId, effectiveClassId, termSchoolYearId]
       );
 
       assessmentsResult.rows.forEach((assessment) => {
-        if (subjectsMap.has(assessment.subject_id)) {
-          const subject = subjectsMap.get(assessment.subject_id);
-          subject.assessments.push(assessment);
-          if (assessment.score !== null) {
-            subject.totalScore += parseFloat(assessment.score);
-            subject.totalMaxScore += parseFloat(assessment.max_score);
-          }
-          if (assessment.total_percentage !== null) {
-            subject.totalPercentage = parseFloat(assessment.total_percentage);
-          }
-          if (assessment.grade) {
-            subject.grade = assessment.grade;
-          }
+        const subjectKey = subjectKeyById.get(assessment.subject_id);
+        if (!subjectKey || !subjectsMap.has(subjectKey)) return;
+
+        const subject = subjectsMap.get(subjectKey);
+        subject.assessments.push(assessment);
+        if (assessment.score !== null) {
+          subject.totalScore += parseFloat(assessment.score);
+          subject.totalMaxScore += parseFloat(assessment.max_score);
+        }
+        if (assessment.total_percentage !== null) {
+          subject.totalPercentage = parseFloat(assessment.total_percentage);
+        }
+        if (assessment.grade) {
+          subject.grade = assessment.grade;
         }
       });
 
@@ -1272,8 +1390,11 @@ module.exports = {
       const positionsResult = await db.query(
         `SELECT subject_id, position
          FROM student_positions
-         WHERE student_id = $1 AND organization_id = $2 AND term_id = $3`,
-        [studentId, organizationId, termId]
+         WHERE student_id = $1
+           AND organization_id = $2
+           AND term_id = $3
+           AND class_id = $4`,
+        [studentId, organizationId, termId, effectiveClassId]
       );
 
       const positions = positionsResult.rows.reduce((acc, position) => {
@@ -1282,8 +1403,13 @@ module.exports = {
       }, {});
 
       subjectsMap.forEach((subject) => {
-        subject.position = positions[subject.subject_id] ? 
-          `${positions[subject.subject_id]}${getOrdinalSuffix(positions[subject.subject_id])}` : '-';
+        const matchedPosition = (subject.subjectIds || [])
+          .map((id) => positions[id])
+          .find((value) => value !== undefined && value !== null);
+
+        subject.position = matchedPosition
+          ? `${matchedPosition}${getOrdinalSuffix(matchedPosition)}`
+          : '-';
       });
 
       const subjects = Array.from(subjectsMap.values());
@@ -1350,17 +1476,31 @@ module.exports = {
 
       // Fetch last 3 terms for dropdown
       const termsResult = await db.query(
-        `SELECT term_id, term_name 
-         FROM terms 
-         WHERE organization_id = $1 
-         ORDER BY start_date DESC
+        `SELECT t.term_id, t.term_name, sy.year_label
+         FROM terms t
+         LEFT JOIN school_years sy ON sy.id = t.school_year_id
+         WHERE t.organization_id = $1
+         ORDER BY t.start_date DESC
          LIMIT 3`,
         [organizationId]
       );
 
-      const classSchedule = classId
-        ? await getClassScheduleForTerm(db, { organizationId, classId, termId })
+      await ensurePostedReportCardsTable(db);
+      const postedReportCardsCountResult = await db.query(
+        `SELECT COUNT(*)::int AS count
+         FROM posted_report_cards
+         WHERE organization_id = $1
+           AND student_id = $2
+         LIMIT 1`,
+        [organizationId, studentId]
+      );
+      const hasPostedReportCards = (postedReportCardsCountResult.rows[0]?.count || 0) > 0;
+
+      const classSchedule = effectiveClassId
+        ? await getClassScheduleForTerm(db, { organizationId, classId: effectiveClassId, termId })
         : null;
+
+      const scheduleWatermarkUrl = resolveScheduleWatermarkUrl(req);
 
       return res.render('guardian/studentAcademicDetails', {
         title: `${student.first_name}'s Academic Details`,
@@ -1375,14 +1515,146 @@ module.exports = {
         terms: termsResult.rows,
         selectedTermId: termId,
         termNameForPage,
+        yearLabel,
+        hasPostedReportCards,
         enrolledClassForTerm,
         classSchedule,
+        scheduleWatermarkUrl,
         messages: req.flash(),
         req,
       });
     } catch (error) {
+      console.error('[Guardian Academic Details] Error:', error?.message || error);
+      console.error('[Guardian Academic Details] Context:', {
+        organizationId,
+        guardianId,
+        studentId,
+        termId,
+      });
             req.flash('error', 'Error loading academic details');
       return res.redirect('/guardian/dashboard');
+    }
+  },
+
+  studentReportCardsListGet: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const guardianId = req.session.guardianId;
+    const studentId = req.query.studentId;
+
+    try {
+      if (!studentId) {
+        return res.status(400).json({ success: false, message: 'Student ID is required.' });
+      }
+
+      const hasAccess = await guardianHasStudentAccess(db, guardianId, organizationId, studentId);
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Access denied.' });
+      }
+
+      await ensurePostedReportCardsTable(db);
+
+      const reportCardsResult = await db.query(
+        `SELECT prc.posted_report_card_id,
+          prc.class_id,
+                prc.term_id,
+          prc.student_id,
+                t.term_name,
+                sy.year_label,
+                prc.pdf_url,
+                prc.pdf_s3_key,
+                prc.posted_at
+         FROM posted_report_cards prc
+         LEFT JOIN terms t ON t.term_id = prc.term_id AND t.organization_id = prc.organization_id
+         LEFT JOIN school_years sy ON sy.id = prc.school_year_id
+         WHERE prc.organization_id = $1
+           AND prc.student_id = $2
+         ORDER BY t.start_date DESC NULLS LAST, prc.posted_at DESC`,
+        [organizationId, studentId]
+      );
+
+      const bucket = String(process.env.S3_BUCKET_NAME || '').trim();
+      const region = String(process.env.AWS_REGION || '').trim();
+      const reportCards = (reportCardsResult.rows || []).map((row) => {
+        const directUrl = String(row.pdf_url || '').trim();
+        const s3Key = String(row.pdf_s3_key || '').trim();
+        let resolvedPdfUrl = directUrl;
+        if (!resolvedPdfUrl && s3Key) {
+          const chosenBucket = bucket || String(process.env.S3_PUBLIC_BUCKET_NAME || '').trim() || 'oneplaces3';
+          const cleanKey = s3Key.replace(/^\/+/, '');
+          if (!region || region === 'us-east-1') {
+            resolvedPdfUrl = `https://${chosenBucket}.s3.amazonaws.com/${cleanKey}`;
+          } else {
+            resolvedPdfUrl = `https://${chosenBucket}.s3.${region}.amazonaws.com/${cleanKey}`;
+          }
+        }
+        const fallbackPdfRoute = `/guardian/student-report-cards/${row.posted_report_card_id}/pdf`;
+        return {
+          ...row,
+          resolved_pdf_url: resolvedPdfUrl || null,
+          fallback_pdf_route: fallbackPdfRoute,
+        };
+      });
+
+      return res.json({ success: true, reportCards });
+    } catch (error) {
+      console.error('[studentReportCardsListGet] Error:', error?.message || error);
+      return res.status(500).json({ success: false, message: 'Failed to load report cards.' });
+    }
+  },
+
+  studentReportCardPdfGet: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const guardianId = req.session.guardianId;
+    const postedReportCardId = req.params.id;
+
+    try {
+      const id = Number(postedReportCardId);
+      if (!Number.isFinite(id) || id <= 0) {
+        return res.status(400).send('Invalid report card ID.');
+      }
+
+      await ensurePostedReportCardsTable(db);
+
+      const recordResult = await db.query(
+        `SELECT posted_report_card_id, student_id, pdf_s3_key, pdf_url
+         FROM posted_report_cards
+         WHERE posted_report_card_id = $1
+           AND organization_id = $2
+         LIMIT 1`,
+        [id, organizationId]
+      );
+
+      if (!recordResult.rows.length) {
+        return res.status(404).send('Report card not found.');
+      }
+
+      const record = recordResult.rows[0];
+      const hasAccess = await guardianHasStudentAccess(db, guardianId, organizationId, record.student_id);
+      if (!hasAccess) {
+        return res.status(403).send('Access denied.');
+      }
+
+      const s3Key = String(record.pdf_s3_key || '').trim();
+      const directUrl = String(record.pdf_url || '').trim();
+      let targetUrl = directUrl;
+
+      if (!targetUrl && s3Key) {
+        const bucket = String(process.env.S3_BUCKET_NAME || '').trim();
+        const region = String(process.env.AWS_REGION || '').trim();
+        if (bucket && region) {
+          targetUrl = `https://${bucket}.s3.${region}.amazonaws.com/${s3Key.replace(/^\/+/, '')}`;
+        }
+      }
+
+      if (!targetUrl) {
+        return res.status(404).send('PDF file unavailable.');
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      return res.redirect(targetUrl);
+    } catch (error) {
+      console.error('[studentReportCardPdfGet] Error:', error?.message || error);
+      return res.status(500).send('Unable to open report card PDF.');
     }
   },
 

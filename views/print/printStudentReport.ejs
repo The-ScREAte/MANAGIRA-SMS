@@ -7,10 +7,10 @@
         --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
         --org-primary-light: color-mix(in srgb, var(--org-primary-color, #007bff) 15%, white);
       }
-
-
-        body {
-            font-family: var(--font-family);
+                            <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary" data-no-spa>Settings & Signature</a>
+                            <% if (activatePromotion) { %>
+                            <a href="/promotion/apply" class="btn btn-primary" data-no-spa>Schedule Promotion</a>
+                            <% } %>
             background-color: #f5f7fa;
             padding-top: 80px;
           }
@@ -1304,7 +1304,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
                         position: sticky;
-                        top: 0;
+                        top: 74px;
                         z-index: 20;
           }
                     .actions-menu-toggle {
@@ -1337,6 +1337,68 @@
             flex-wrap: wrap;
             align-items: center;
           }
+
+                    .desktop-actions-popup {
+                        position: relative;
+                    }
+
+                    .desktop-actions-trigger {
+                        margin: 3px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        padding: 8px 12px;
+                        min-height: 36px;
+                        background: linear-gradient(135deg, #1e293b, #334155);
+                        color: #fff;
+                        border: 1px solid #0f172a;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 0.82rem;
+                        line-height: 1.15;
+                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+                        cursor: pointer;
+                    }
+
+                    .desktop-actions-trigger:hover {
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.16);
+                    }
+
+                    .desktop-actions-menu {
+                        position: absolute;
+                        top: calc(100% + 8px);
+                        left: 0;
+                        min-width: 260px;
+                        max-width: min(90vw, 320px);
+                        background: #ffffff;
+                        border: 1px solid #dbe5ee;
+                        border-radius: 10px;
+                        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.2);
+                        padding: 8px;
+                        z-index: 60;
+                        display: none;
+                        flex-direction: column;
+                        gap: 6px;
+                    }
+
+                    .desktop-actions-popup.open .desktop-actions-menu {
+                        display: flex;
+                    }
+
+                    .desktop-actions-menu .btn {
+                        margin: 0;
+                        width: 100%;
+                        display: inline-flex !important;
+                        align-items: center;
+                        text-align: left;
+                        justify-content: flex-start !important;
+                    }
+
+                    .desktop-actions-menu #postReportCardsLink {
+                        justify-content: flex-start !important;
+                    }
 
                     .actions-left {
                         flex: 1 1 auto;
@@ -1437,6 +1499,35 @@
                             width: 100%;
                             text-align: center;
                             margin: 0;
+                        }
+
+                        .desktop-actions-popup {
+                            width: 100%;
+                        }
+
+                        .desktop-actions-trigger {
+                            display: none;
+                        }
+
+                        .desktop-actions-menu {
+                            position: static;
+                            display: grid;
+                            width: 100%;
+                            min-width: 0;
+                            max-width: none;
+                            border: none;
+                            border-radius: 0;
+                            box-shadow: none;
+                            padding: 0;
+                            gap: 8px;
+                            background: transparent;
+                        }
+
+                        .desktop-actions-menu .btn {
+                            display: inline-flex !important;
+                            align-items: center;
+                            text-align: left;
+                            justify-content: flex-start !important;
                         }
 
                         .actions-mobile-controls .search-box {
@@ -2047,6 +2138,33 @@
             .email-add-btn { padding: 7px 12px; font-size: 12px; height: 32px; }
           }
 
+                    .post-btn-spinner {
+                        width: 14px;
+                        height: 14px;
+                        border: 2px solid rgba(255, 255, 255, 0.45);
+                        border-top-color: #ffffff;
+                        border-radius: 50%;
+                        display: none;
+                        animation: post-btn-spin 0.75s linear infinite;
+                        flex-shrink: 0;
+                    }
+
+                    #postReportCardsLink {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    #postReportCardsLink.is-posting .post-btn-spinner {
+                        display: inline-block;
+                    }
+
+                    @keyframes post-btn-spin {
+                        to {
+                            transform: rotate(360deg);
+                        }
+                    }
+
     </style>
 
     <br>
@@ -2062,13 +2180,24 @@
                     </div>
                 </div>
                 <div class="actions-left">
-                    <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary" data-no-spa>Settings & Signature</a>
-                    <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary history-btn" data-no-spa>📜 History</a>
-                    <% if (activatePromotion) { %>
-                    <a href="/promotion/apply" class="btn btn-primary" data-no-spa>Schedule Promotion</a>
-                    <% } %>
-                    <a href="#" class="btn btn-primary" onclick="printSelected(); return false;">Print Selected</a>
-                    <a href="#" class="btn btn-primary email-btn" onclick="openEmailModal(); return false;"><span class="icon">📧</span>Send by Email</a>
+                    <div class="desktop-actions-popup" id="desktopActionsPopup">
+                        <button type="button" class="desktop-actions-trigger" id="desktopActionsTrigger" aria-expanded="false" aria-controls="desktopActionsMenu">
+                            Quick Actions
+                        </button>
+                        <div class="desktop-actions-menu" id="desktopActionsMenu" role="menu">
+                            <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary" data-no-spa>Settings & Signature</a>
+                            <a href="#" class="btn btn-primary" onclick="printSelected(); return false;">Print Selected</a>
+                            <a href="#" class="btn btn-primary email-btn" onclick="openEmailModal(); return false;"><span class="icon">📧</span>Send by Email</a>
+                            <a href="#" class="btn btn-success" id="postReportCardsLink" onclick="postReportCards(); return false;">
+                                <span class="post-btn-spinner" aria-hidden="true"></span>
+                                <span class="post-btn-label">Post Report</span>
+                            </a>
+                            <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary history-btn" data-no-spa>📜 History</a>
+                            <% if (activatePromotion) { %>
+                            <a href="/promotion/apply" class="btn btn-primary" data-no-spa>Schedule Promotion</a>
+                            <% } %>
+                        </div>
+                    </div>
         </div>
       
         <div class="actions-right">
@@ -3276,6 +3405,71 @@ function updateClass(studentId) {
               console.error('Error saving changes:', error);
             }
           });
+
+        async function postReportCards() {
+            const postBtn = document.getElementById('postReportCardsLink');
+            if (!postBtn) return;
+            const postBtnLabel = postBtn.querySelector('.post-btn-label');
+
+            const setPostingState = (isPosting) => {
+                postBtn.classList.toggle('is-posting', isPosting);
+                postBtn.style.pointerEvents = isPosting ? 'none' : '';
+                postBtn.style.opacity = isPosting ? '0.85' : '';
+                postBtn.setAttribute('aria-busy', isPosting ? 'true' : 'false');
+                if (postBtnLabel) {
+                    postBtnLabel.textContent = isPosting ? 'Posting...' : 'Post Report';
+                }
+            };
+
+            if (checkForUnsavedChanges()) {
+                const proceed = confirm('You have unsaved report changes. Click OK to continue posting as-is, or Cancel to save changes first.');
+                if (!proceed) return;
+            }
+
+            const selected = Array.from(document.querySelectorAll('.student-checkbox:checked'))
+                .map((cb) => parseInt(cb.getAttribute('data-student-id'), 10))
+                .filter((id) => Number.isFinite(id) && id > 0);
+
+            let studentIds = selected;
+            if (!studentIds.length) {
+                const postAll = confirm('No students selected. Post report cards for all students in this class and term?');
+                if (!postAll) return;
+                studentIds = Array.from(document.querySelectorAll('.student-report'))
+                    .map((report) => parseInt(report.getAttribute('data-student-id'), 10))
+                    .filter((id) => Number.isFinite(id) && id > 0);
+            }
+
+            if (!studentIds.length) {
+                alert('No students available for posting.');
+                return;
+            }
+
+            setPostingState(true);
+
+            try {
+                const response = await fetch('/print/postReportCards', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        classId: <%= classId %>,
+                        termId: <%= termId %>,
+                        studentIds,
+                    }),
+                });
+
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.success) {
+                    alert(payload.message || 'Failed to post report cards.');
+                    return;
+                }
+
+                alert(payload.message || 'Report cards posted successfully. Parents can now view PDF report cards in the portal.');
+            } catch (error) {
+                alert('Failed to post report cards. Please try again.');
+            } finally {
+                setPostingState(false);
+            }
+        }
     // ===== EMAIL MODAL =====
     function openEmailModal() {
         // Unsaved changes warning
@@ -3330,6 +3524,23 @@ function updateClass(studentId) {
         btn.textContent = isCollapsed ? '☰' : '✕';
     }
 
+    function closeDesktopActionsPopup() {
+        const popup = document.getElementById('desktopActionsPopup');
+        const trigger = document.getElementById('desktopActionsTrigger');
+        if (!popup || !trigger) return;
+        popup.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleDesktopActionsPopup() {
+        const popup = document.getElementById('desktopActionsPopup');
+        const trigger = document.getElementById('desktopActionsTrigger');
+        if (!popup || !trigger) return;
+        const opening = !popup.classList.contains('open');
+        popup.classList.toggle('open', opening);
+        trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    }
+
     // Ensure correct initial state on load/resizes for mobile
     function syncActionsMenuState() {
         const bar = document.getElementById('actionsBar');
@@ -3352,6 +3563,28 @@ function updateClass(studentId) {
     document.addEventListener('DOMContentLoaded', () => {
         syncActionsMenuState();
         captureReportInputSnapshot();
+
+            const desktopActionsPopup = document.getElementById('desktopActionsPopup');
+            const desktopActionsTrigger = document.getElementById('desktopActionsTrigger');
+            if (desktopActionsPopup && desktopActionsTrigger) {
+                desktopActionsTrigger.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    toggleDesktopActionsPopup();
+                });
+
+                document.addEventListener('click', function (event) {
+                    if (!desktopActionsPopup.contains(event.target)) {
+                        closeDesktopActionsPopup();
+                    }
+                });
+
+                document.addEventListener('keydown', function (event) {
+                    if (event.key === 'Escape') {
+                        closeDesktopActionsPopup();
+                    }
+                });
+            }
+
             if (isBillingManualMode) {
                 document.querySelectorAll('.paygira-edit-btn').forEach((btn) => {
                     btn.addEventListener('click', () => openBillingEditModal(btn.dataset.studentId));

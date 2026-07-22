@@ -19013,6 +19013,17 @@ NUMBERING:
         guardian,
       } = req.body || {};
 
+      console.log('[guardianRelink][controller] start', {
+        organizationId: organizationId || null,
+        source: source || null,
+        mode: mode || null,
+        currentGuardianId: currentGuardianId || null,
+        studentId: studentId || null,
+        targetGuardianId: targetGuardianId || null,
+        guardiansCount: Array.isArray(guardians) ? guardians.length : 0,
+        hasSingleGuardianPayload: Boolean(guardian && typeof guardian === 'object'),
+      });
+
       if (!organizationId) {
         return res.status(401).json({ success: false, error: 'Unauthorized' });
       }
@@ -19028,6 +19039,10 @@ NUMBERING:
         [parsedStudentId, organizationId]
       )).rows[0];
       if (!studentRow) {
+        console.warn('[guardianRelink][controller] student-not-found', {
+          organizationId,
+          studentId: parsedStudentId,
+        });
         return res.status(404).json({ success: false, error: 'Student not found.' });
       }
 
@@ -19053,6 +19068,10 @@ NUMBERING:
         )).rows[0] || null;
 
         if (!targetGuardianProfile) {
+          console.warn('[guardianRelink][controller] target-profile-not-found', {
+            organizationId,
+            targetGuardianId: parsedTargetGuardianId,
+          });
           await client.query('ROLLBACK');
           return res.status(404).json({ success: false, error: 'Selected guardian was not found.' });
         }
@@ -19141,6 +19160,11 @@ NUMBERING:
            WHERE guardian_id = $1 AND student_id = $2`,
           [parsedCurrentGuardianId, parsedStudentId]
         );
+        console.log('[guardianRelink][controller] profile-unlink-done', {
+          organizationId,
+          currentGuardianId: parsedCurrentGuardianId,
+          studentId: parsedStudentId,
+        });
 
         for (const targetProfile of targetGuardianProfiles) {
           await client.query(
@@ -19172,23 +19196,64 @@ NUMBERING:
           ]
         );
       } else {
-        const currentLegacy = (await client.query(
-          `SELECT guardian_id
+        const currentLegacyIdentity = (await client.query(
+          `SELECT first_name, last_name, phone, email
            FROM guardians
-           WHERE guardian_id = $1 AND student_id = $2 AND organization_id = $3
+           WHERE guardian_id = $1 AND organization_id = $2
            LIMIT 1`,
-          [parsedCurrentGuardianId, parsedStudentId, organizationId]
+          [parsedCurrentGuardianId, organizationId]
         )).rows[0] || null;
 
-        if (!currentLegacy) {
-          await client.query('ROLLBACK');
-          return res.status(404).json({ success: false, error: 'Current guardian link was not found.' });
-        }
-
-        await client.query(
-          `DELETE FROM guardians WHERE guardian_id = $1 AND student_id = $2 AND organization_id = $3`,
-          [parsedCurrentGuardianId, parsedStudentId, organizationId]
+        const deleteCurrentLegacy = await client.query(
+          `DELETE FROM guardians
+           WHERE organization_id = $1
+             AND student_id = $2
+             AND (
+               guardian_id = $3
+               OR (
+                 $4::text IS NOT NULL
+                 AND LOWER(TRIM(first_name)) = LOWER(TRIM($4::text))
+                 AND LOWER(TRIM(COALESCE(last_name, ''))) = LOWER(TRIM(COALESCE($5::text, '')))
+                 AND (
+                   COALESCE(NULLIF(TRIM(COALESCE(phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE($6::text, '')), ''), '__NO_PHONE__')
+                   OR COALESCE(NULLIF(TRIM(COALESCE(email, '')), ''), '__NO_EMAIL__') = COALESCE(NULLIF(TRIM(COALESCE($7::text, '')), ''), '__NO_EMAIL__')
+                 )
+               )
+             )`,
+          [
+            organizationId,
+            parsedStudentId,
+            parsedCurrentGuardianId,
+            currentLegacyIdentity?.first_name || null,
+            currentLegacyIdentity?.last_name || null,
+            currentLegacyIdentity?.phone || null,
+            currentLegacyIdentity?.email || null,
+          ]
         );
+
+        // Keep profile-backed relationship table in sync for legacy pages as well.
+        const deleteCurrentProfileLink = await client.query(
+          `DELETE FROM guardian_students WHERE guardian_id = $1 AND student_id = $2`,
+          [parsedCurrentGuardianId, parsedStudentId]
+        );
+
+        console.log('[guardianRelink][controller] legacy-unlink-result', {
+          organizationId,
+          currentGuardianId: parsedCurrentGuardianId,
+          studentId: parsedStudentId,
+          legacyRowsDeleted: deleteCurrentLegacy.rowCount,
+          profileRowsDeleted: deleteCurrentProfileLink.rowCount,
+        });
+
+        // Legacy data can be inconsistent (clustered guardian rows by identity).
+        // Treat missing old link as idempotent and still proceed with the new link.
+        if (!deleteCurrentLegacy.rowCount && !deleteCurrentProfileLink.rowCount) {
+          console.warn('[guardianRelinkStudent] No existing legacy/profile link found during relink', {
+            organizationId,
+            currentGuardianId: parsedCurrentGuardianId,
+            studentId: parsedStudentId,
+          });
+        }
 
         for (const targetProfile of targetGuardianProfiles) {
           await client.query(
@@ -19242,6 +19307,13 @@ NUMBERING:
       }
 
       await client.query('COMMIT');
+      console.log('[guardianRelink][controller] success', {
+        organizationId,
+        studentId: parsedStudentId,
+        source,
+        mode,
+        targetGuardianIds: targetGuardianProfiles.map((row) => Number(row.guardian_id)),
+      });
       return res.json({
         success: true,
         targetGuardianId: targetGuardianProfileId,
@@ -19249,6 +19321,10 @@ NUMBERING:
       });
     } catch (error) {
       try { await client.query('ROLLBACK'); } catch (_) {}
+      console.error('[guardianRelink][controller] error', {
+        message: error?.message || String(error),
+        stack: error?.stack || null,
+      });
       return res.status(500).json({ success: false, error: 'Error relinking student to guardian.' });
     } finally {
       client.release();

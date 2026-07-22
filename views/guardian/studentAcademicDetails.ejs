@@ -6,52 +6,145 @@
   }
 
   .student-header {
-    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, var(--org-primary-hover, #6fd3c4) 100%);
-    color: white;
-    padding: 20px;
-    border-radius: 12px;
+    position: relative;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.18), transparent 42%),
+      linear-gradient(140deg, var(--org-primary-color, #0f5a66) 0%, color-mix(in srgb, var(--org-primary-hover, #6fd3c4) 80%, #0b3f47) 100%);
+    color: #ffffff;
+    padding: 22px;
+    border-radius: 16px;
     margin-bottom: 24px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    box-shadow: 0 14px 30px rgba(2, 21, 28, 0.18);
+    overflow: hidden;
   }
 
   .student-header-content {
     display: flex;
-    gap: 20px;
-    align-items: center;
+    gap: 18px;
+    align-items: flex-start;
     flex-wrap: wrap;
     justify-content: space-between;
   }
 
+  .student-identity {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    min-width: min(100%, 460px);
+  }
+
   .student-avatar-large {
-    width: 90px;
-    height: 90px;
+    width: 92px;
+    height: 92px;
     border-radius: 50%;
     object-fit: cover;
-    border: 4px solid white;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    border: 3px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22);
+    flex-shrink: 0;
   }
 
   .student-header-info {
     flex: 1;
-    min-width: 250px;
+    min-width: 240px;
   }
 
   .student-header-info h1 {
-    margin: 0 0 8px 0;
-    font-size: 28px;
-    font-weight: 700;
+    margin: 0;
+    font-size: clamp(1.28rem, 2.1vw, 1.78rem);
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    text-align: left;
   }
 
-  .student-header-info p {
-    margin: 4px 0;
-    opacity: 0.95;
-    font-size: 15px;
+  .student-subtitle {
+    margin: 5px 0 0;
+    font-size: 0.83rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.84);
+  }
+
+  .student-meta-details {
+    margin-top: 12px;
+  }
+
+  .student-meta-summary {
+    display: none;
+  }
+
+  .student-meta-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .student-meta-summary::marker {
+    content: "";
+  }
+
+  .student-meta-summary-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.85);
+    transition: transform 0.2s ease;
+  }
+
+  .student-meta-details[open] .student-meta-summary-icon {
+    transform: rotate(90deg);
+  }
+
+  @media (min-width: 769px) {
+    .student-meta-details:not([open]) > .student-info-grid {
+      display: grid !important;
+    }
   }
 
   .student-info-grid {
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .student-term-context {
+    margin: 7px 0 0;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.86);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .student-term-context strong {
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .student-meta-chip {
+    margin: 0;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.26);
+    background: rgba(255, 255, 255, 0.16);
+    padding: 8px 10px;
+    backdrop-filter: blur(4px);
+  }
+
+  .student-meta-label {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.76);
+    margin-bottom: 3px;
+  }
+
+  .student-meta-value {
+    display: block;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.25;
   }
 
   .back-btn {
@@ -212,8 +305,8 @@
   }
 
   .assessment-table th {
-    background: #0f5a66;
-    color: white;
+    background: #f1f5f9;
+    color: #1e293b;
     font-weight: 600;
     padding: 12px 8px;
     vertical-align: middle;
@@ -266,57 +359,247 @@
   }
 
   .term-selector {
-    background: rgba(255, 255, 255, 0.15);
-    padding: 6px 10px;
-    border-radius: 8px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    backdrop-filter: none;
+    border: none;
+    min-width: 0;
+    box-shadow: none;
+    position: relative;
   }
 
   .term-selector form {
     display: flex;
-    gap: 8px;
     align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+  }
+
+  .term-selector form > * {
+    margin: 0;
   }
 
   .term-selector label {
-    font-weight: 600;
-    color: white;
+    display: inline-flex;
+    align-items: center;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
     margin: 0;
     white-space: nowrap;
-    font-size: 12px;
-    opacity: 0.95;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
   }
 
   .term-selector select {
-    padding: 6px 10px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 6px;
+    min-width: 220px;
+    padding: 7px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    border-radius: 8px;
     font-size: 13px;
-    font-weight: 500;
-    background: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.94);
     cursor: pointer;
-    min-width: 140px;
     color: #1e293b;
-    height: 32px;
+    height: 36px;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
   }
 
-  .term-selector button {
-    padding: 5px 10px;
-    background: rgba(255, 255, 255, 0.25);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 6px;
-    font-weight: 600;
+  .term-selector select:focus,
+  .term-selector select:focus-visible {
+    outline: none;
+    border-color: rgba(15, 90, 102, 0.45);
+    box-shadow: 0 0 0 3px rgba(15, 90, 102, 0.14);
+    background: #ffffff;
+  }
+
+  .term-selector .term-load-btn {
+    padding: 0;
+    width: 36px;
+    background: transparent;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 8px;
+    font-weight: 700;
     cursor: pointer;
-    white-space: nowrap;
-    font-size: 11px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0;
+    transition: transform 0.16s ease, background-color 0.16s ease, border-color 0.16s ease;
+  }
+
+  .term-selector .term-load-btn svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+  }
+
+  .term-selector .term-load-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.55);
+    transform: translateY(-1px);
+  }
+
+  .term-selector .term-load-btn:focus,
+  .term-selector .term-load-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+  }
+
+  .term-selector .report-cards-trigger {
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    margin-top: 0;
+    transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+  }
+
+  .term-selector .report-cards-trigger:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.55);
+    transform: translateY(-1px);
+  }
+
+  .term-selector-actions {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .term-selector-actions .report-cards-trigger {
+    margin-top: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .report-cards-modal {
+    position: fixed;
+    inset: auto;
+    background: transparent;
+    display: none;
+    z-index: 9999;
+    padding: 0;
+  }
+
+  .report-cards-modal.open {
+    display: block;
+  }
+
+  .report-cards-modal-card {
+    width: min(460px, calc(100vw - 16px));
+    max-height: min(72vh, 520px);
+    overflow: auto;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px solid #dbe5ee;
+    box-shadow: 0 20px 48px rgba(15, 23, 42, 0.3);
+  }
+
+  .report-cards-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .report-cards-modal-head h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #0f172a;
+  }
+
+  .report-cards-modal-close {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    width: 32px;
     height: 32px;
+    font-size: 18px;
     line-height: 1;
   }
 
-  .term-selector button:hover {
-    background: rgba(255, 255, 255, 0.35);
+  .report-cards-modal-body {
+    padding: 14px 16px 16px;
+  }
+
+  .report-cards-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .report-card-item {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .report-card-item-title {
+    margin: 0;
+    color: #0f172a;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .report-card-item-meta {
+    margin: 2px 0 0;
+    color: #64748b;
+    font-size: 0.78rem;
+  }
+
+  .report-card-open-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    padding: 0 11px;
+    border-radius: 8px;
+    text-decoration: none;
+    background: var(--org-primary-color, #0f5a66);
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .report-card-empty,
+  .report-card-loading {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+
+  .visually-hidden {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .schedule-grid {
@@ -380,34 +663,99 @@
       padding: 12px;
     }
 
+    .student-header {
+      padding: 16px;
+      border-radius: 14px;
+    }
+
     .student-header-content {
       flex-direction: column;
-      text-align: center;
+      text-align: left;
+    }
+
+    .student-identity {
+      width: 100%;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: flex-start;
+      gap: 12px;
     }
 
     .student-avatar-large {
-      width: 80px;
-      height: 80px;
+      width: 72px;
+      height: 72px;
+    }
+
+    .student-header-info {
+      min-width: 0;
     }
 
     .student-header-info h1 {
-      font-size: 22px;
+      font-size: 1.95rem;
+      line-height: 1.15;
     }
 
-    .student-header-info p {
-      font-size: 14px;
+    .student-subtitle {
+      margin-top: 4px;
+      font-size: 0.78rem;
+    }
+
+    .student-term-context {
+      margin-top: 5px;
+      font-size: 0.8rem;
     }
 
     .student-info-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px;
       margin-top: 8px;
     }
 
-    .student-info-grid p {
-      margin: 0;
-      font-size: 13px;
+    .student-meta-details {
+      width: fit-content;
+      max-width: 100%;
+      margin-top: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      border-radius: 12px;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .student-meta-summary {
+      list-style: none;
+      width: fit-content;
+      min-width: 190px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.92);
+      padding: 2px 4px;
+    }
+
+    .student-meta-details:not([open]) .student-info-grid {
+      display: none;
+    }
+
+    .student-meta-details[open] .student-info-grid {
+      margin-top: 8px;
+    }
+
+    .student-meta-chip {
+      padding: 7px 8px;
+    }
+
+    .student-meta-label {
+      font-size: 0.57rem;
+    }
+
+    .student-meta-value {
+      font-size: 0.78rem;
     }
 
     .section-card {
@@ -420,25 +768,26 @@
     }
 
     .term-selector {
-      padding: 12px;
+      width: 100%;
     }
 
     .term-selector form {
+      justify-content: flex-start;
       gap: 8px;
     }
 
-    .term-selector label {
-      font-size: 13px;
+    .term-selector-actions {
+      justify-content: flex-start;
     }
 
     .term-selector select {
       font-size: 13px;
       padding: 7px 10px;
+      min-width: 190px;
     }
 
-    .term-selector button {
-      font-size: 12px;
-      padding: 7px 10px;
+    .term-selector .term-load-btn {
+      width: 36px;
     }
 
     .assessment-table th,
@@ -466,6 +815,51 @@
     .info-grid {
       grid-template-columns: repeat(2, 1fr);
       gap: 10px;
+    }
+
+    .student-identity {
+      gap: 10px;
+      grid-template-columns: 64px minmax(0, 1fr);
+    }
+
+    .student-avatar-large {
+      width: 64px;
+      height: 64px;
+    }
+
+    .student-header-info h1 {
+      font-size: 1.55rem;
+    }
+
+    .student-subtitle {
+      font-size: 0.72rem;
+    }
+
+    .student-term-context {
+      font-size: 0.74rem;
+    }
+
+    .student-info-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .student-meta-details {
+      padding: 7px 9px;
+    }
+
+    .term-selector {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .term-selector form {
+      align-items: center;
+      gap: 8px;
+    }
+
+    .term-selector select {
+      min-width: 0;
+      flex: 1 1 180px;
     }
 
     .info-item {
@@ -501,6 +895,18 @@
   }
 
   /* Collapsible detail sections */
+  .staff-schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: start;
+  }
+
+  .staff-schedule-grid .section-details {
+    margin-bottom: 0;
+  }
+
   .section-details { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
   .section-summary { list-style: none; padding: 14px 18px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
   .section-summary::-webkit-details-marker { display: none; }
@@ -517,24 +923,272 @@
   .teacher-main-badge { background: #d1fae5; color: #059669; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; }
   .teacher-subjects { color: #64748b; font-size: 0.82rem; }
 
-  /* Schedule period grid */
-  .sched-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .sched-meta { font-size: 12px; color: #94a3b8; margin: 0 0 10px; }
-  .sched-table { border-collapse: collapse; min-width: 420px; width: 100%; font-size: 13px; }
-  .sched-day-th { background: #f8fafc; font-weight: 700; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 10px 12px; text-align: left; border: 1px solid #e2e8f0; white-space: nowrap; }
-  .sched-period-th { background: #f8fafc; padding: 8px 10px; text-align: center; border: 1px solid #e2e8f0; vertical-align: top; min-width: 80px; }
-  .sched-period-num { font-weight: 700; font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: .04em; }
-  .sched-period-time { font-size: 11px; color: #94a3b8; margin-top: 3px; line-height: 1.4; white-space: nowrap; }
-  .sched-day-td { background: #f8fafc; font-weight: 700; color: #1e293b; padding: 10px 12px; border: 1px solid #e2e8f0; white-space: nowrap; font-size: 13px; text-align: left; vertical-align: middle; }
-  .sched-cell { padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #334155; vertical-align: middle; }
-  .sched-cell.sched-custom { color: #94a3b8; font-style: italic; font-size: 12px; }
+  /* Classroom-style schedule shell */
+  .schedule-shell {
+    display: grid;
+    gap: 10px;
+    position: relative;
+  }
+
+  .schedule-shell.with-watermark::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--schedule-watermark-image);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: min(360px, 70%);
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .schedule-shell > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .schedule-summary-details {
+    margin-bottom: 8px;
+  }
+
+  .schedule-summary-toggle {
+    display: none;
+  }
+
+  .schedule-summary-content {
+    margin-top: 10px;
+  }
+
+  .schedule-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .schedule-summary-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 8px 10px;
+  }
+
+  .schedule-summary-card span {
+    display: block;
+    font-size: 10px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+  }
+
+  .schedule-summary-card strong {
+    display: block;
+    margin-top: 2px;
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .schedule-readonly-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid #dbeafe;
+    background: #f8fbff;
+    border-radius: 8px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .schedule-table-wrap {
+    --schedule-day-column-width: 92px;
+    --schedule-slot-column-width: 96px;
+    --schedule-cell-min-height: 44px;
+    overflow: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: calc(var(--schedule-day-column-width) + (var(--schedule-slot-column-width) * 5));
+    table-layout: fixed;
+  }
+
+  .schedule-table th,
+  .schedule-table td {
+    padding: 0;
+    border: 1px solid #d7dee8;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .schedule-table th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .schedule-table .schedule-day-cell {
+    width: var(--schedule-day-column-width);
+    min-width: var(--schedule-day-column-width);
+    padding: 8px 6px;
+    background: #f8fafc;
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 12px;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+  }
+
+  .schedule-day-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .schedule-day-label-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
+  .schedule-slot-header {
+    min-width: var(--schedule-slot-column-width);
+    background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+  }
+
+  .schedule-slot-header-inner {
+    padding: 6px 6px 7px;
+    display: grid;
+    gap: 3px;
+  }
+
+  .schedule-slot-period {
+    font-size: 10px;
+    color: #64748b;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+  }
+
+  .schedule-slot-time-display {
+    font-size: 10px;
+    color: #0f172a;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .schedule-readonly-cell {
+    min-width: var(--schedule-slot-column-width);
+    min-height: var(--schedule-cell-min-height);
+    padding: 5px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 11.5px;
+    line-height: 1.2;
+  }
+
+  .schedule-readonly-cell.is-custom-entry {
+    color: #c77700;
+    font-weight: 700;
+  }
+
+  .schedule-readonly-cell.is-empty {
+    color: #94a3b8;
+  }
+
+  @media (max-width: 640px) {
+    .schedule-summary-toggle {
+      display: block;
+      list-style: none;
+    }
+
+    .schedule-summary-toggle::-webkit-details-marker {
+      display: none;
+    }
+
+    .schedule-summary-toggle::marker {
+      content: "";
+    }
+
+    .schedule-summary-toggle-button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px 14px;
+      color: #0f172a;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .schedule-summary-toggle-label {
+      font-size: 14px;
+    }
+
+    .schedule-summary-toggle-icon {
+      color: #64748b;
+      font-size: 20px;
+      line-height: 1;
+      transition: transform 0.2s ease;
+    }
+
+    .schedule-summary-details[open] .schedule-summary-toggle-icon {
+      transform: rotate(90deg);
+    }
+
+    .schedule-summary-details:not([open]) .schedule-summary-content {
+      display: none;
+    }
+
+    .schedule-summary-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .schedule-table-wrap {
+      --schedule-day-column-width: 90px;
+      --schedule-slot-column-width: 96px;
+      --schedule-cell-min-height: 52px;
+    }
+
+    .schedule-readonly-banner {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .staff-schedule-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 
 <div class="academic-container">
   <!-- Student Header -->
   <div class="student-header">
     <div class="student-header-content">
-      <div style="display: flex; gap: 20px; align-items: center;">
+      <div class="student-identity">
         <% const academicStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
         <img 
           src="<%= student.image_url && student.image_url !== 'profilePlaceholder.png' ? student.image_url : '/images/profilePlaceholder.png' %>" 
@@ -543,11 +1197,37 @@
         />
         <div class="student-header-info">
           <h1><%= academicStudentDisplayName %></h1>
-          <div class="student-info-grid">
-            <p><strong>Class:</strong> <%= enrolledClassForTerm || 'Not enrolled' %></p>
-            <p><strong>Term:</strong> <%= termNameForPage %></p>
-            <p><strong>Student ID:</strong> <%= student.display_student_id || student.student_id %></p>
-          </div>
+          <p class="student-subtitle">Student Academic Profile</p>
+          <p class="student-term-context">
+            Viewing: <strong><%= termNameForPage || 'Unknown term' %></strong>
+            <% if (typeof yearLabel !== 'undefined' && yearLabel) { %>
+              · <strong><%= yearLabel %></strong>
+            <% } %>
+          </p>
+          <details class="student-meta-details">
+            <summary class="student-meta-summary">
+              Student Details
+              <span class="student-meta-summary-icon">›</span>
+            </summary>
+            <div class="student-info-grid">
+              <p class="student-meta-chip">
+                <span class="student-meta-label">Class</span>
+                <span class="student-meta-value"><%= enrolledClassForTerm || 'Not enrolled' %></span>
+              </p>
+              <p class="student-meta-chip">
+                <span class="student-meta-label">Term</span>
+                <span class="student-meta-value"><%= termNameForPage %></span>
+              </p>
+              <p class="student-meta-chip">
+                <span class="student-meta-label">School Year</span>
+                <span class="student-meta-value"><%= (typeof yearLabel !== 'undefined' && yearLabel) ? yearLabel : '-' %></span>
+              </p>
+              <p class="student-meta-chip">
+                <span class="student-meta-label">Student ID</span>
+                <span class="student-meta-value"><%= student.display_student_id || student.student_id %></span>
+              </p>
+            </div>
+          </details>
         </div>
       </div>
       
@@ -555,71 +1235,175 @@
       <div class="term-selector">
         <form method="GET" action="/guardian/academic-details">
           <input type="hidden" name="studentId" value="<%= student.student_id %>" />
-          <label>Term:</label>
-          <select name="termId" id="termSelect">
+          <select name="termId" id="termSelect" onchange="this.form.submit()">
             <% terms.forEach(term => { %>
               <option value="<%= term.term_id %>" <%= term.term_id == selectedTermId ? 'selected' : '' %>>
-                <%= term.term_name %>
+                <%= term.term_name %><%= term.year_label ? ' - ' + term.year_label : '' %>
               </option>
             <% }) %>
           </select>
-          <button type="submit">Load</button>
+          <button type="submit" class="term-load-btn" aria-label="Load selected term" title="Load selected term">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M20 12a8 8 0 1 1-2.35-5.65M20 4v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <span class="visually-hidden">Load</span>
+          </button>
         </form>
+        <div class="term-selector-actions">
+          <button type="button" class="report-cards-trigger" id="openReportCardsBtn">
+            Report Card
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Teacher Information -->
-  <details class="section-details">
-    <summary class="section-summary">
-      <span class="summary-label">👨‍🏫 Teaching Staff</span>
-      <span class="summary-chevron">›</span>
-    </summary>
-    <div class="section-body">
-      <%
-        var teacherMap = {};
-        var teacherOrder = [];
-        if (mainTeacher) {
-          var mtKey = String(mainTeacher.user_id || mainTeacher.first_name + mainTeacher.last_name);
-          teacherMap[mtKey] = { name: mainTeacher.first_name + ' ' + mainTeacher.last_name, email: mainTeacher.email || '', subjects: [], main: true };
-          teacherOrder.push(mtKey);
-        }
-        if (subjectTeachers && subjectTeachers.length > 0) {
-          subjectTeachers.forEach(function(t) {
-            if (!t.first_name) return;
-            var tKey = String(t.user_id || t.first_name + t.last_name);
-            if (!teacherMap[tKey]) {
-              teacherMap[tKey] = { name: t.first_name + ' ' + t.last_name, email: t.email || '', subjects: [], main: false };
-              teacherOrder.push(tKey);
-            }
-            if (t.subject_name) teacherMap[tKey].subjects.push(t.subject_name);
-          });
-        }
-        if (mainTeacher && subjectTeachers) {
-          var mtKey2 = String(mainTeacher.user_id || mainTeacher.first_name + mainTeacher.last_name);
-          subjectTeachers.forEach(function(t) {
-            var tKey = String(t.user_id || t.first_name + t.last_name);
-            if (tKey === mtKey2 && t.subject_name) {
-              var ex = teacherMap[mtKey2].subjects;
-              if (ex.indexOf(t.subject_name) === -1) ex.push(t.subject_name);
-            }
-          });
-        }
-        var teacherRows = teacherOrder.map(function(k) { return teacherMap[k]; });
-      %>
-      <% if (teacherRows.length > 0) { %>
-        <% teacherRows.forEach(function(t) { %>
-          <div class="teacher-row">
-            <span class="teacher-name"><%= t.name %></span>
-            <% if (t.main) { %><span class="teacher-main-badge">Class Teacher</span><% } %>
-            <% if (t.subjects.length > 0) { %><span class="teacher-subjects">— <%= t.subjects.join(' · ') %></span><% } %>
+  <div class="staff-schedule-grid">
+    <!-- Teacher Information -->
+    <details class="section-details">
+      <summary class="section-summary">
+        <span class="summary-label">👨‍🏫 Teaching Staff</span>
+        <span class="summary-chevron">›</span>
+      </summary>
+      <div class="section-body">
+        <%
+          var teacherMap = {};
+          var teacherOrder = [];
+          if (mainTeacher) {
+            var mtKey = String(mainTeacher.user_id || mainTeacher.first_name + mainTeacher.last_name);
+            teacherMap[mtKey] = { name: mainTeacher.first_name + ' ' + mainTeacher.last_name, email: mainTeacher.email || '', subjects: [], main: true };
+            teacherOrder.push(mtKey);
+          }
+          if (subjectTeachers && subjectTeachers.length > 0) {
+            subjectTeachers.forEach(function(t) {
+              if (!t.first_name) return;
+              var tKey = String(t.user_id || t.first_name + t.last_name);
+              if (!teacherMap[tKey]) {
+                teacherMap[tKey] = { name: t.first_name + ' ' + t.last_name, email: t.email || '', subjects: [], main: false };
+                teacherOrder.push(tKey);
+              }
+              if (t.subject_name) teacherMap[tKey].subjects.push(t.subject_name);
+            });
+          }
+          if (mainTeacher && subjectTeachers) {
+            var mtKey2 = String(mainTeacher.user_id || mainTeacher.first_name + mainTeacher.last_name);
+            subjectTeachers.forEach(function(t) {
+              var tKey = String(t.user_id || t.first_name + t.last_name);
+              if (tKey === mtKey2 && t.subject_name) {
+                var ex = teacherMap[mtKey2].subjects;
+                if (ex.indexOf(t.subject_name) === -1) ex.push(t.subject_name);
+              }
+            });
+          }
+          var teacherRows = teacherOrder.map(function(k) { return teacherMap[k]; });
+        %>
+        <% if (teacherRows.length > 0) { %>
+          <% teacherRows.forEach(function(t) { %>
+            <div class="teacher-row">
+              <span class="teacher-name"><%= t.name %></span>
+              <% if (t.main) { %><span class="teacher-main-badge">Class Teacher</span><% } %>
+              <% if (t.subjects.length > 0) { %><span class="teacher-subjects">— <%= t.subjects.join(' · ') %></span><% } %>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <p style="color:#94a3b8;font-size:14px;margin:0;">No teachers assigned yet.</p>
+        <% } %>
+      </div>
+    </details>
+
+    <details class="section-details">
+      <summary class="section-summary">
+        <span class="summary-label">🗓️ Class Schedule</span>
+        <span class="summary-chevron">›</span>
+      </summary>
+      <div class="section-body">
+        <% if (classSchedule && classSchedule.entries && classSchedule.entries.length > 0) { %>
+          <% 
+            var scheduleUpdatedAt = classSchedule.updatedAt ? new Date(classSchedule.updatedAt) : null;
+            var scheduleUpdatedLabel = (scheduleUpdatedAt && !Number.isNaN(scheduleUpdatedAt.getTime()))
+              ? scheduleUpdatedAt.toLocaleString()
+              : '-';
+          %>
+          <%
+            var slotMap = {};
+            var slotOrder = [];
+            (classSchedule.entries || []).forEach(function(e) {
+              var k = e.startTime;
+              if (!slotMap[k]) {
+                slotMap[k] = { startTime: e.startTime, endTime: e.endTime };
+                slotOrder.push(k);
+              }
+            });
+            slotOrder.sort();
+            var slots = slotOrder.map(function(k) { return slotMap[k]; });
+            var activeDays = classSchedule.groupedByDay.filter(function(d) { return d.items.length > 0; });
+          %>
+          <div class="schedule-shell<%= scheduleWatermarkUrl ? ' with-watermark' : '' %>"<% if (scheduleWatermarkUrl) { %> style="--schedule-watermark-image: url('<%= scheduleWatermarkUrl %>');"<% } %>>
+            <details class="schedule-summary-details" open>
+              <summary class="schedule-summary-toggle">
+                <span class="schedule-summary-toggle-button">
+                  <span class="schedule-summary-toggle-label">Schedule details</span>
+                  <span class="schedule-summary-toggle-icon" aria-hidden="true">›</span>
+                </span>
+              </summary>
+              <div class="schedule-summary-content">
+                <div class="schedule-summary-grid">
+                  <div class="schedule-summary-card"><span>School Year</span><strong><%= classSchedule.schoolYearLabel %></strong></div>
+                  <div class="schedule-summary-card"><span>Term</span><strong><%= classSchedule.termName %></strong></div>
+                  <div class="schedule-summary-card"><span>Columns</span><strong><%= slots.length %></strong></div>
+                  <div class="schedule-summary-card"><span>Updated</span><strong><%= scheduleUpdatedLabel %></strong></div>
+                </div>
+              </div>
+            </details>
+
+            <div class="schedule-table-wrap">
+              <table class="schedule-table">
+                <thead>
+                  <tr>
+                    <th class="schedule-day-cell">Day</th>
+                    <% slots.forEach(function(slot, si) { %>
+                      <th class="schedule-slot-header">
+                        <div class="schedule-slot-header-inner">
+                          <div class="schedule-slot-period">Period <%= si + 1 %></div>
+                          <div class="schedule-slot-time-display"><%= slot.startTime %><br><%= slot.endTime %></div>
+                        </div>
+                      </th>
+                    <% }); %>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% activeDays.forEach(function(day) { %>
+                    <tr>
+                      <th class="schedule-day-cell">
+                        <div class="schedule-day-label-row">
+                          <span class="schedule-day-label-text"><%= day.dayLabel %></span>
+                        </div>
+                      </th>
+                      <% slots.forEach(function(slot) {
+                        var entry = null;
+                        for (var i = 0; i < day.items.length; i++) {
+                          if (day.items[i].startTime === slot.startTime) { entry = day.items[i]; break; }
+                        }
+                        var cellLabel = entry ? (entry.customLabel || entry.subjectName || 'Empty') : 'Empty';
+                        var isCustom = !!(entry && entry.customLabel);
+                        var isEmpty = !entry || !cellLabel || cellLabel === 'Empty';
+                      %>
+                        <td>
+                          <div class="schedule-readonly-cell<% if (isCustom) { %> is-custom-entry<% } %><% if (isEmpty) { %> is-empty<% } %>"><%= cellLabel %></div>
+                        </td>
+                      <% }); %>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
           </div>
-        <% }); %>
-      <% } else { %>
-        <p style="color:#94a3b8;font-size:14px;margin:0;">No teachers assigned yet.</p>
-      <% } %>
-    </div>
-  </details>
+        <% } else { %>
+          <p style="color:#94a3b8;font-size:14px;margin:0;">The timetable for this term has not been set up yet.</p>
+        <% } %>
+      </div>
+    </details>
+  </div>
 
   <!-- Attendance Summary -->
   <div class="section-card">
@@ -650,20 +1434,16 @@
 
   <!-- Current Term Assessments -->
   <div class="section-card">
-    <h2>📊 Current Term Performance</h2>
+    <h2>Current Term Performance</h2>
     <% if (subjects && subjects.length > 0) { %>
       <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
         <table class="assessment-table">
           <thead>
             <tr>
-              <th style="position: sticky; left: 0; background: #0f5a66; z-index: 2;">Subject</th>
+              <th style="position: sticky; left: 0; background: #f1f5f9; z-index: 2;">Subject</th>
               <% uniqueAssessments.forEach(assessment => { %>
                 <th><%= assessment.title %><br><span style="font-size: 11px; opacity: 0.9;">(<%= assessment.max_score %>)</span></th>
               <% }) %>
-              <th>Total</th>
-              <th>%</th>
-              <th>Grade</th>
-              <th>Position</th>
             </tr>
           </thead>
           <tbody>
@@ -675,85 +1455,166 @@
                 %>
                   <td><%= assessment && assessment.score !== null ? assessment.score : '-' %></td>
                 <% }) %>
-                <td><strong><%= subject.totalScore || 0 %>/<%= subject.totalMaxScore || 0 %></strong></td>
-                <td><strong><%= subject.totalPercentage !== null ? subject.totalPercentage.toFixed(1) + '%' : '-' %></strong></td>
-                <td>
-                  <% if (subject.grade) { %>
-                    <span class="grade-badge grade-<%= subject.grade %>"><%= subject.grade %></span>
-                  <% } else { %>
-                    -
-                  <% } %>
-                </td>
-                <td><strong><%= subject.position || '-' %></strong></td>
               </tr>
             <% }) %>
           </tbody>
         </table>
       </div>
-      <p style="margin-top: 12px; font-size: 12px; color: #64748b; font-style: italic;">💡 Swipe left to see more columns</p>
     <% } else { %>
       <p class="no-data">No performance records yet.</p>
     <% } %>
   </div>
 
-  <details class="section-details">
-    <summary class="section-summary">
-      <span class="summary-label">🗓️ Class Schedule</span>
-      <span class="summary-chevron">›</span>
-    </summary>
-    <div class="section-body">
-      <% if (classSchedule && classSchedule.entries && classSchedule.entries.length > 0) { %>
-        <p class="sched-meta"><%= classSchedule.schoolYearLabel %> &middot; <%= classSchedule.termName %></p>
-        <%
-          var slotMap = {};
-          var slotOrder = [];
-          (classSchedule.entries || []).forEach(function(e) {
-            var k = e.startTime;
-            if (!slotMap[k]) {
-              slotMap[k] = { startTime: e.startTime, endTime: e.endTime };
-              slotOrder.push(k);
-            }
-          });
-          slotOrder.sort();
-          var slots = slotOrder.map(function(k) { return slotMap[k]; });
-          var activeDays = classSchedule.groupedByDay.filter(function(d) { return d.items.length > 0; });
-        %>
-        <div class="sched-wrap">
-          <table class="sched-table">
-            <thead>
-              <tr>
-                <th class="sched-day-th">Day</th>
-                <% slots.forEach(function(slot, si) { %>
-                  <th class="sched-period-th">
-                    <div class="sched-period-num">Period <%= si + 1 %></div>
-                    <div class="sched-period-time"><%= slot.startTime %><br><%= slot.endTime %></div>
-                  </th>
-                <% }); %>
-              </tr>
-            </thead>
-            <tbody>
-              <% activeDays.forEach(function(day) { %>
-                <tr>
-                  <th class="sched-day-td"><%= day.dayLabel %></th>
-                  <% slots.forEach(function(slot) {
-                    var entry = null;
-                    for (var i = 0; i < day.items.length; i++) {
-                      if (day.items[i].startTime === slot.startTime) { entry = day.items[i]; break; }
-                    }
-                    var cellLabel = entry ? (entry.customLabel || entry.subjectName || '') : '';
-                    var isCustom = !!(entry && entry.customLabel);
-                  %>
-                    <td class="sched-cell<% if(isCustom){ %> sched-custom<% } %>"><%= cellLabel %></td>
-                  <% }); %>
-                </tr>
-              <% }); %>
-            </tbody>
-          </table>
-        </div>
-      <% } else { %>
-        <p style="color:#94a3b8;font-size:14px;margin:0;">The timetable for this term has not been set up yet.</p>
-      <% } %>
-    </div>
-  </details>
-
 </div>
+
+<div class="report-cards-modal" id="reportCardsModal" aria-hidden="true">
+  <div class="report-cards-modal-card" role="dialog" aria-modal="true" aria-labelledby="reportCardsModalTitle">
+    <div class="report-cards-modal-head">
+      <h3 id="reportCardsModalTitle">Posted Report Cards</h3>
+      <button type="button" class="report-cards-modal-close" id="closeReportCardsModal" aria-label="Close report cards popup">×</button>
+    </div>
+    <div class="report-cards-modal-body">
+      <p class="report-card-loading" id="reportCardsLoading">Loading report cards...</p>
+      <p class="report-card-empty" id="reportCardsEmpty" style="display:none;">There is nothing to show.</p>
+      <div class="report-cards-list" id="reportCardsList" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const openBtn = document.getElementById('openReportCardsBtn');
+    const termSelectEl = document.getElementById('termSelect');
+    const modal = document.getElementById('reportCardsModal');
+    const modalCard = modal ? modal.querySelector('.report-cards-modal-card') : null;
+    const closeBtn = document.getElementById('closeReportCardsModal');
+    const listEl = document.getElementById('reportCardsList');
+    const loadingEl = document.getElementById('reportCardsLoading');
+    const emptyEl = document.getElementById('reportCardsEmpty');
+
+    if (!openBtn || !termSelectEl || !modal || !modalCard || !closeBtn || !listEl || !loadingEl || !emptyEl) {
+      return;
+    }
+
+    const studentId = '<%= student.student_id %>';
+
+    function positionModal() {
+      if (!modal.classList.contains('open')) return;
+
+      modalCard.style.visibility = 'hidden';
+      const anchorRect = termSelectEl.getBoundingClientRect();
+      const cardRect = modalCard.getBoundingClientRect();
+
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const cardWidth = Math.min(cardRect.width || 420, viewportWidth - 16);
+      const cardHeight = cardRect.height || 260;
+
+      const left = Math.max(8, Math.min(anchorRect.right - cardWidth, viewportWidth - cardWidth - 8));
+      const preferredTop = anchorRect.top - cardHeight - 8;
+      const top = preferredTop >= 8
+        ? preferredTop
+        : Math.min(anchorRect.bottom + 8, viewportHeight - cardHeight - 8);
+
+      modal.style.left = `${Math.round(left)}px`;
+      modal.style.top = `${Math.round(Math.max(8, top))}px`;
+      modalCard.style.visibility = '';
+    }
+
+    function openModal() {
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      positionModal();
+    }
+
+    function closeModal() {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function loadReportCards() {
+      loadingEl.style.display = 'block';
+      emptyEl.style.display = 'none';
+      listEl.style.display = 'none';
+      listEl.innerHTML = '';
+
+      try {
+        const response = await fetch(`/guardian/student-report-cards?studentId=${encodeURIComponent(studentId)}`, {
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin'
+        });
+
+        const data = await response.json();
+        const reportCards = (data && data.success && Array.isArray(data.reportCards)) ? data.reportCards : [];
+
+        if (!reportCards.length) {
+          emptyEl.textContent = 'There is nothing to show.';
+          emptyEl.style.display = 'block';
+          return;
+        }
+
+        const html = reportCards.map(function(card) {
+          const termName = escapeHtml(card.term_name || 'Term');
+          const yearLabel = escapeHtml(card.year_label || 'N/A');
+          const postedAt = card.posted_at ? new Date(card.posted_at).toLocaleString() : 'Unknown date';
+          const directPdfUrl = card.resolved_pdf_url && /^https?:\/\//i.test(String(card.resolved_pdf_url))
+            ? String(card.resolved_pdf_url)
+            : null;
+          const fallbackPdfRoute = card.fallback_pdf_route && /^\//.test(String(card.fallback_pdf_route))
+            ? String(card.fallback_pdf_route)
+            : `/guardian/student-report-cards/${card.posted_report_card_id}/pdf`;
+          const actionUrl = directPdfUrl || fallbackPdfRoute;
+          const actionHtml = `<a class="report-card-open-link" href="${escapeHtml(actionUrl)}" target="_blank" rel="noopener" data-no-spa>Open PDF</a>`;
+          return `
+            <div class="report-card-item">
+              <div>
+                <p class="report-card-item-title">${termName} - ${yearLabel}</p>
+                <p class="report-card-item-meta">Posted: ${escapeHtml(postedAt)}</p>
+              </div>
+              ${actionHtml}
+            </div>
+          `;
+        }).join('');
+
+        listEl.innerHTML = html;
+        listEl.style.display = 'grid';
+      } catch (error) {
+        emptyEl.textContent = 'There is nothing to show right now.';
+        emptyEl.style.display = 'block';
+      } finally {
+        loadingEl.style.display = 'none';
+      }
+    }
+
+    openBtn.addEventListener('click', function() {
+      openModal();
+      loadReportCards();
+    });
+
+    closeBtn.addEventListener('click', closeModal);
+
+    document.addEventListener('click', function(event) {
+      if (!modal.classList.contains('open')) return;
+      if (modal.contains(event.target) || openBtn.contains(event.target)) return;
+      closeModal();
+    });
+
+    window.addEventListener('resize', positionModal);
+    window.addEventListener('scroll', positionModal, true);
+
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape' && modal.classList.contains('open')) {
+        closeModal();
+      }
+    });
+  })();
+</script>

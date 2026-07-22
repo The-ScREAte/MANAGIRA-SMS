@@ -79,6 +79,7 @@ module.exports = (db) => {
         });
     });
    router.get('/getGuardianEmails', isAuthenticated, printController.getGuardianEmails);
+    router.post('/postReportCards', isAuthenticated, express.json(), printController.postReportCards);
    router.post('/emailReports', isAuthenticated, express.json(), printController.emailReports);
    router.get('/emailHistory', isAuthenticated, printController.getEmailHistory);
    router.post('/retryEmail', isAuthenticated, express.json(), printController.retryFailedEmail);

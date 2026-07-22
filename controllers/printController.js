@@ -15,16 +15,19 @@ const puppeteer = require("puppeteer");
 const fs = require("fs");
 const ejs = require("ejs");
 const axios = require("axios");
-const { sendEmailSafely } = require("../utils/emailHelper");
+const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { formatDisplayDate, formatDisplayName } = require("../utils/organizationDisplayPreferences");
+const notificationService = require("../utils/notificationService");
+const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
 const CACHE_DURATION = 10 * 60 * 1000; // Cache organization data for 10 minutes
 const NodeCache = require("node-cache");
 const cache = new NodeCache({ stdTTL: 600 }); // Cache for 10 minutes
+const reportCardPostJobs = new Map();
 
 // Ensure signature metadata columns exist (safe to call multiple times)
 let ensuredSignatureMeta = false;
@@ -219,6 +222,37 @@ async function ensureStudentReportCustomRemarksColumn(dbClient) {
     ensuredStudentReportCustomRemarksColumn = true;
   } catch (err) {
     console.error("[ensureStudentReportCustomRemarksColumn] Failed to add column", err);
+  }
+}
+
+let ensuredPostedReportCardsTable = false;
+async function ensurePostedReportCardsTable(dbClient) {
+  if (ensuredPostedReportCardsTable) return;
+  try {
+    await dbClient.query(`
+      CREATE TABLE IF NOT EXISTS posted_report_cards (
+        posted_report_card_id SERIAL PRIMARY KEY,
+        organization_id INT NOT NULL,
+        class_id INT NOT NULL,
+        term_id INT NOT NULL,
+        school_year_id INT NULL,
+        student_id INT NOT NULL,
+        pdf_s3_key TEXT NOT NULL,
+        pdf_url TEXT NOT NULL,
+        posted_by INT NULL,
+        posted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (organization_id, class_id, term_id, student_id)
+      )
+    `);
+    await dbClient.query(`
+      CREATE INDEX IF NOT EXISTS posted_report_cards_student_idx
+      ON posted_report_cards (organization_id, student_id, posted_at DESC)
+    `);
+    ensuredPostedReportCardsTable = true;
+  } catch (err) {
+    console.error("[ensurePostedReportCardsTable] Failed to ensure table", err);
   }
 }
 
@@ -1268,6 +1302,7 @@ const assignScoreRemark = async (percentage, organizationId, db) => {
 const printController = (db) => ({
   printStudentReport: async (req, res) => {
     const { classId, termId, studentId } = req.query;
+    const isPostingMode = String(req.query.postingMode || '').trim() === '1';
     const organizationId = req.session.organizationId;
     await ensureSignatureMetaColumns(db);
     await ensureScoreRemarkGradeColumn(db);
@@ -1483,20 +1518,23 @@ const printController = (db) => ({
           `SELECT student_id, COUNT(*) FILTER (WHERE status = 'Present') AS present_days
              FROM attendance_records
              WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
+               AND ($4::int IS NULL OR student_id = $4)
              GROUP BY student_id`,
-          [parsedClassId, parsedTermId, organizationId]
+          [parsedClassId, parsedTermId, organizationId, studentFilterId]
         ),
         db.query(
           `SELECT ar.student_id, ar.assessment_id, COALESCE(ar.score, 0) AS score
              FROM assessment_results ar
-             WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3`,
-          [parsedClassId, parsedTermId, organizationId]
+             WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3
+               AND ($4::int IS NULL OR ar.student_id = $4)`,
+          [parsedClassId, parsedTermId, organizationId, studentFilterId]
         ),
         db.query(
           `SELECT student_id, subject_id, position
              FROM student_positions
-             WHERE class_id = $1 AND term_id = $2 AND organization_id = $3`,
-          [parsedClassId, parsedTermId, organizationId]
+             WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
+               AND ($4::int IS NULL OR student_id = $4)`,
+          [parsedClassId, parsedTermId, organizationId, studentFilterId]
         ),
         db.query(
           `SELECT assessment_id, subject_id, title, category, max_score, COALESCE(scale_base, 100) AS scale_base
@@ -2021,49 +2059,44 @@ const printController = (db) => ({
           student.paygiraAutoRows = [];
         });
       }
-
-
-
       // Assign class position based on overall percentage
-// Assign class position based on overall percentage
-students
-  .filter((s) => !isNaN(parseFloat(s.overallPercentage)))
-  .sort(
-    (a, b) =>
-      parseFloat(b.overallPercentage) - parseFloat(a.overallPercentage)
-  )
-  .forEach((student, index, arr) => {
-    if (
-      index > 0 &&
-      parseFloat(student.overallPercentage) ===
-        parseFloat(arr[index - 1].overallPercentage)
-    ) {
-      student.class_position = arr[index - 1].class_position; // Tie: same position as previous
-    } else {
-      student.class_position = index + 1; // Otherwise assign current index + 1
-    }
+      students
+        .filter((s) => !isNaN(parseFloat(s.overallPercentage)))
+        .sort(
+          (a, b) =>
+            parseFloat(b.overallPercentage) - parseFloat(a.overallPercentage)
+        )
+        .forEach((student, index, arr) => {
+          if (
+            index > 0 &&
+            parseFloat(student.overallPercentage) ===
+              parseFloat(arr[index - 1].overallPercentage)
+          ) {
+            student.class_position = arr[index - 1].class_position; // Tie: same position as previous
+          } else {
+            student.class_position = index + 1; // Otherwise assign current index + 1
+          }
 
-    // Add ordinal suffix
-    student.positionInClass = `${student.class_position}${getOrdinalSuffix(student.class_position)} / ${classStudentCount} student${classStudentCount === 1 ? '' : 's'}`;
+          // Add ordinal suffix
+          student.positionInClass = `${student.class_position}${getOrdinalSuffix(student.class_position)} / ${classStudentCount} student${classStudentCount === 1 ? '' : 's'}`;
 
-    // ✅ INSERT PROMOTION CLASS ID SETTING HERE
-    const promotionMetric = promotionBasis === PROMOTION_BASIS_TOTAL_SCORE
-      ? Number(student.totalScoreSum || 0)
-      : Number.parseFloat(student.overallPercentage) || 0;
+          const promotionMetric = promotionBasis === PROMOTION_BASIS_TOTAL_SCORE
+            ? Number(student.totalScoreSum || 0)
+            : Number.parseFloat(student.overallPercentage) || 0;
 
-    if (promotionMetric >= cutOffPoint) {
-      student.promotionClass = promotedClassName;
-      student.promotionStatus = "Promoted";
-      student.promotionClassId = promotedClassId; // ✅ SET promotion class id
-    } else {
-      student.promotionClass = repeatedClassName;
-      student.promotionStatus = "Repeated";
-      student.promotionClassId = repeatedClassId; // ✅ SET repeated class id
-    }
-  });
+          if (promotionMetric >= cutOffPoint) {
+            student.promotionClass = promotedClassName;
+            student.promotionStatus = "Promoted";
+            student.promotionClassId = promotedClassId;
+          } else {
+            student.promotionClass = repeatedClassName;
+            student.promotionStatus = "Repeated";
+            student.promotionClassId = repeatedClassId;
+          }
+        });
 
       // ✅ Auto-save promotion status to student_reports so promotion scheduler has data
-      if (statusSettings.activate_promotion && cutOffPoint > 0) {
+      if (!isPostingMode && statusSettings.activate_promotion && cutOffPoint > 0) {
         try {
           const autoSavePromises = students
             .filter(s => s.promotionStatus && s.promotionClassId)
@@ -6446,6 +6479,523 @@ students
     } catch (error) {
             req.flash("error", "Failed to delete file.");
       res.redirect("/print/migration");
+    }
+  },
+
+  postReportCards: async (req, res) => {
+    try {
+      const organizationId = Number(req.session.organizationId);
+      const postedBy = Number(req.session.userId || req.session?.user?.user_id) || null;
+      const classId = Number(req.body?.classId);
+      const termId = Number(req.body?.termId);
+      const selectedStudentIds = parsePositiveIntArray(req.body?.studentIds);
+
+      if (!organizationId || !classId || !termId) {
+        return res.status(400).json({ success: false, message: "Missing classId or termId." });
+      }
+
+      await ensurePostedReportCardsTable(db);
+
+      const termResult = await db.query(
+        `SELECT term_id, school_year_id, term_name
+         FROM terms
+         WHERE term_id = $1 AND organization_id = $2
+         LIMIT 1`,
+        [termId, organizationId]
+      );
+
+      if (!termResult.rows.length) {
+        return res.status(404).json({ success: false, message: "Term not found." });
+      }
+
+      const schoolYearId = Number(termResult.rows[0].school_year_id) || null;
+      const termName = String(termResult.rows[0].term_name || `Term ${termId}`).trim();
+
+      const classResult = await db.query(
+        `SELECT class_name
+         FROM classes
+         WHERE class_id = $1 AND organization_id = $2
+         LIMIT 1`,
+        [classId, organizationId]
+      );
+      const className = String(classResult.rows[0]?.class_name || `Class ${classId}`).trim();
+
+      const scopedStudentsResult = await db.query(
+        `SELECT DISTINCT es.student_id, s.first_name, s.last_name
+         FROM enrolled_students es
+         JOIN enrollments e ON e.enrollment_id = es.enrollment_id
+         JOIN students s ON s.student_id = es.student_id AND s.organization_id = e.organization_id
+         WHERE es.class_id = $1
+           AND e.term_id = $2
+           AND e.organization_id = $3
+           AND ($4::int IS NULL OR e.school_year_id = $4)
+           AND (
+             $5::int[] IS NULL
+             OR array_length($5::int[], 1) IS NULL
+             OR es.student_id = ANY($5::int[])
+           )
+         ORDER BY s.last_name ASC, s.first_name ASC, es.student_id ASC`,
+        [classId, termId, organizationId, schoolYearId, selectedStudentIds.length ? selectedStudentIds : null]
+      );
+
+      const studentsToPost = scopedStudentsResult.rows || [];
+      if (!studentsToPost.length) {
+        return res.status(404).json({ success: false, message: "No enrolled students found for posting." });
+      }
+      const jobKey = `${organizationId}:${classId}:${termId}`;
+      const existingJob = reportCardPostJobs.get(jobKey);
+      if (existingJob && (existingJob.status === "queued" || existingJob.status === "running")) {
+        return res.status(202).json({
+          success: true,
+          background: true,
+          message: "Report posting is already running in the background. You will be notified when it is ready.",
+          jobKey,
+        });
+      }
+
+      const forceRegenerate = req.body?.forceRegenerate === true;
+      const protocol = req.protocol;
+      const host = req.get("host");
+      const cookieHeader = String(req.headers.cookie || "");
+
+      reportCardPostJobs.set(jobKey, {
+        status: "queued",
+        startedAt: new Date().toISOString(),
+        organizationId,
+        classId,
+        termId,
+        postedBy,
+      });
+
+      const runBackgroundPosting = async () => {
+        let browser = null;
+        const posted = [];
+        const postedRecords = [];
+        const failed = [];
+        let generatedCount = 0;
+        let reusedCount = 0;
+
+        try {
+          reportCardPostJobs.set(jobKey, {
+            ...reportCardPostJobs.get(jobKey),
+            status: "running",
+            queuedAt: new Date().toISOString(),
+          });
+
+          const existingPostedResult = await db.query(
+            `SELECT student_id, pdf_s3_key, pdf_url
+             FROM posted_report_cards
+             WHERE organization_id = $1
+               AND class_id = $2
+               AND term_id = $3
+               AND student_id = ANY($4::int[])`,
+            [
+              organizationId,
+              classId,
+              termId,
+              studentsToPost.map((student) => Number(student.student_id)).filter((id) => Number.isFinite(id) && id > 0),
+            ]
+          );
+
+          const existingByStudentId = new Map(
+            (existingPostedResult.rows || []).map((row) => [Number(row.student_id), row])
+          );
+
+          const bucketName = String(process.env.S3_BUCKET_NAME || process.env.S3_PUBLIC_BUCKET_NAME || "oneplaces3").trim();
+          const regionName = String(process.env.AWS_REGION || "").trim();
+          const parsedConcurrency = Number(process.env.POST_REPORT_CARDS_CONCURRENCY || 10);
+          const concurrency = Math.max(1, Math.min(12, Number.isFinite(parsedConcurrency) ? parsedConcurrency : 10));
+
+          const buildPdfUrl = (pdfKey) => {
+            const cleanKey = String(pdfKey || "").replace(/^\/+/, "");
+            if (!regionName || regionName === "us-east-1") {
+              return `https://${bucketName}.s3.amazonaws.com/${cleanKey}`;
+            }
+            return `https://${bucketName}.s3.${regionName}.amazonaws.com/${cleanKey}`;
+          };
+
+          const studentsToGenerate = [];
+          const studentNameById = new Map();
+          studentsToPost.forEach((student) => {
+            const studentIdNum = Number(student.student_id);
+            const studentName = `${student.first_name || ""} ${student.last_name || ""}`.trim() || `Student ${studentIdNum}`;
+            studentNameById.set(studentIdNum, studentName);
+            const existing = existingByStudentId.get(studentIdNum);
+            const existingKey = String(existing?.pdf_s3_key || "").trim();
+            const existingUrl = String(existing?.pdf_url || "").trim();
+            const resolvedUrl = existingUrl || (existingKey ? buildPdfUrl(existingKey) : "");
+
+            if (!forceRegenerate && existingKey && resolvedUrl) {
+              postedRecords.push({
+                organizationId,
+                classId,
+                termId,
+                schoolYearId,
+                studentId: studentIdNum,
+                pdfKey: existingKey,
+                pdfUrl: resolvedUrl,
+                postedBy,
+              });
+              posted.push({ studentId: studentIdNum, name: studentName });
+              reusedCount += 1;
+            } else {
+              studentsToGenerate.push(student);
+            }
+          });
+
+          const studentsQueue = [...studentsToGenerate];
+
+          const processStudentWithPage = async (page, student) => {
+            try {
+              const reportUrl = `${protocol}://${host}/print/printStudentReport?classId=${classId}&termId=${termId}&studentId=${student.student_id}&postingMode=1`;
+              await page.goto(reportUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+              await page.waitForSelector(".student-report", { timeout: 15000 });
+              await page.evaluate(() => {
+                document.querySelectorAll(".actions-no-print, .student-checkbox, hr, #emailModal").forEach((el) => {
+                  el.style.display = "none";
+                });
+              });
+
+              const pdfBuffer = await page.pdf({
+                format: "A4",
+                printBackground: true,
+                margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
+              });
+
+              const safeStudentName = `${student.first_name || "student"}_${student.last_name || student.student_id}`
+                .replace(/[^a-zA-Z0-9_-]+/g, "_")
+                .replace(/_+/g, "_")
+                .replace(/^_+|_+$/g, "");
+              const pdfKey = `report-cards/org_${organizationId}/term_${termId}/class_${classId}/student_${student.student_id}_${Date.now()}_${safeStudentName}.pdf`;
+
+              await s3Client.send(
+                new PutObjectCommand({
+                  Bucket: bucketName,
+                  Key: pdfKey,
+                  Body: pdfBuffer,
+                  ContentType: "application/pdf",
+                })
+              );
+
+              const pdfUrl = buildPdfUrl(pdfKey);
+
+              postedRecords.push({
+                organizationId,
+                classId,
+                termId,
+                schoolYearId,
+                studentId: Number(student.student_id),
+                pdfKey,
+                pdfUrl,
+                postedBy,
+              });
+
+              posted.push({ studentId: Number(student.student_id), name: studentNameById.get(Number(student.student_id)) || `Student ${student.student_id}` });
+              generatedCount += 1;
+            } catch (error) {
+              failed.push({ studentId: Number(student.student_id), message: error?.message || "Failed to post report card" });
+            }
+          };
+
+          if (studentsQueue.length > 0) {
+            const sessionCookieMatch = cookieHeader.match(/(?:^|;\s*)connect\.sid=([^;]+)/);
+            const sessionCookieValue = sessionCookieMatch ? sessionCookieMatch[1] : "";
+
+            if (!sessionCookieValue) {
+              throw new Error("Session cookie missing. Please refresh and try again.");
+            }
+
+            browser = await puppeteer.launch({
+              headless: true,
+              args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
+            });
+
+            const workerCount = Math.min(concurrency, studentsQueue.length);
+            await Promise.all(
+              Array.from({ length: workerCount }, async () => {
+                const page = await browser.newPage();
+                try {
+                  await page.setJavaScriptEnabled(false);
+                  await page.setCookie({
+                    name: "connect.sid",
+                    value: sessionCookieValue,
+                    domain: String(host || "").split(":")[0],
+                    path: "/",
+                  });
+
+                  while (studentsQueue.length > 0) {
+                    const student = studentsQueue.shift();
+                    if (!student) break;
+                    await processStudentWithPage(page, student);
+                  }
+                } finally {
+                  try {
+                    await page.close();
+                  } catch (_) {}
+                }
+              })
+            );
+          }
+
+          if (postedRecords.length) {
+            await db.query(
+              `INSERT INTO posted_report_cards (
+                 organization_id, class_id, term_id, school_year_id, student_id, pdf_s3_key, pdf_url, posted_by, posted_at, updated_at
+               )
+               SELECT *
+               FROM UNNEST(
+                 $1::int[],
+                 $2::int[],
+                 $3::int[],
+                 $4::int[],
+                 $5::int[],
+                 $6::text[],
+                 $7::text[],
+                 $8::int[]
+               ) AS batch(
+                 organization_id,
+                 class_id,
+                 term_id,
+                 school_year_id,
+                 student_id,
+                 pdf_s3_key,
+                 pdf_url,
+                 posted_by
+               )
+               ON CONFLICT (organization_id, class_id, term_id, student_id)
+               DO UPDATE SET
+                 school_year_id = EXCLUDED.school_year_id,
+                 pdf_s3_key = EXCLUDED.pdf_s3_key,
+                 pdf_url = EXCLUDED.pdf_url,
+                 posted_by = EXCLUDED.posted_by,
+                 posted_at = CURRENT_TIMESTAMP,
+                 updated_at = CURRENT_TIMESTAMP`,
+              [
+                postedRecords.map((item) => item.organizationId),
+                postedRecords.map((item) => item.classId),
+                postedRecords.map((item) => item.termId),
+                postedRecords.map((item) => item.schoolYearId),
+                postedRecords.map((item) => item.studentId),
+                postedRecords.map((item) => item.pdfKey),
+                postedRecords.map((item) => item.pdfUrl),
+                postedRecords.map((item) => item.postedBy),
+              ]
+            );
+          }
+
+          if (postedRecords.length) {
+            const readyLink = `/print/printStudentReport?classId=${classId}&termId=${termId}`;
+            const postedStudentIds = Array.from(new Set(postedRecords.map((item) => Number(item.studentId)).filter((id) => Number.isFinite(id) && id > 0)));
+
+            const staffRecipientsResult = await db.query(
+              `SELECT DISTINCT u.user_id, u.email, u.first_name, u.last_name
+               FROM users u
+               WHERE u.organization_id = $1
+                 AND COALESCE(u.on_hold, FALSE) = FALSE
+                 AND (
+                   u.account_type IN ('Teacher', 'Manager', 'Supervisor', 'Organization')
+                   OR EXISTS (
+                     SELECT 1 FROM user_classes uc
+                     WHERE uc.user_id = u.user_id
+                       AND uc.class_id = $2
+                   )
+                 )`,
+              [organizationId, classId]
+            );
+
+            const guardianRecipientsResult = postedStudentIds.length
+              ? await db.query(
+                  `SELECT DISTINCT gs.student_id,
+                          gp.guardian_id,
+                          gp.email,
+                          COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS guardian_name
+                   FROM guardian_students gs
+                   JOIN guardian_profiles gp
+                     ON gp.guardian_id = gs.guardian_id
+                    AND gp.organization_id = $1
+                   WHERE gs.student_id = ANY($2::int[])
+
+                   UNION
+
+                   SELECT DISTINCT g.student_id,
+                          g.guardian_id,
+                          g.email,
+                          COALESCE(NULLIF(TRIM(g.guardian_name), ''), 'Guardian') AS guardian_name
+                   FROM guardians g
+                   WHERE g.organization_id = $1
+                     AND g.student_id = ANY($2::int[])`,
+                  [organizationId, postedStudentIds]
+                )
+              : { rows: [] };
+
+            const studentNameById = new Map(posted.map((item) => [Number(item.studentId), item.name]));
+
+            const guardianNotifications = [];
+            const guardianEmailTargets = [];
+            const seenGuardianEmailKey = new Set();
+
+            (guardianRecipientsResult.rows || []).forEach((row) => {
+              const guardianId = Number(row.guardian_id);
+              const studentId = Number(row.student_id);
+              const studentName = studentNameById.get(studentId) || `Student ${studentId}`;
+              const guardianEmail = String(row.email || '').trim().toLowerCase();
+              const guardianName = String(row.guardian_name || 'Guardian').trim() || 'Guardian';
+
+              if (guardianId > 0) {
+                guardianNotifications.push({
+                  orgId: organizationId,
+                  recipientType: 'guardian',
+                  recipientId: guardianId,
+                  type: 'report_card_ready',
+                  title: 'Report card ready to view',
+                  body: `${studentName}'s report card for ${termName} is now ready in the parent portal.`,
+                  link: `/guardian/academic-details?studentId=${studentId}&termId=${termId}`,
+                  refId: studentId,
+                });
+              }
+
+              if (guardianEmail) {
+                const emailKey = `${guardianEmail}:${studentId}`;
+                if (!seenGuardianEmailKey.has(emailKey)) {
+                  seenGuardianEmailKey.add(emailKey);
+                  guardianEmailTargets.push({ guardianEmail, guardianName, studentId, studentName });
+                }
+              }
+            });
+
+            const staffNotifications = (staffRecipientsResult.rows || [])
+              .map((row) => Number(row.user_id))
+              .filter((userId) => Number.isFinite(userId) && userId > 0)
+              .map((userId) => ({
+                orgId: organizationId,
+                recipientType: 'staff',
+                recipientId: userId,
+                type: 'report_cards_ready',
+                title: 'Report cards are ready',
+                body: `${postedRecords.length} report card${postedRecords.length === 1 ? '' : 's'} for ${className} (${termName}) ${failed.length ? 'finished with some failures' : 'are now ready'}.`,
+                link: readyLink,
+                refId: classId,
+              }));
+
+            await notificationService.createNotifications(db, [...guardianNotifications, ...staffNotifications]);
+
+            for (const target of guardianEmailTargets) {
+              try {
+                const allowed = await isEmailEnabledForRecipient(db, target.guardianEmail, 'report_card_email');
+                if (!allowed) continue;
+              } catch (_) {
+                // Ignore preference lookup failures and continue best-effort.
+              }
+
+              const guardianEmailHtml = renderCleanEmail({
+                title: 'Report Card Ready',
+                greeting: `Dear ${target.guardianName},`,
+                paragraphs: [
+                  `${target.studentName}'s report card for ${termName} is now ready to view in your parent portal.`,
+                  `Class: ${className}`,
+                ],
+                details: [
+                  { label: 'Student', value: target.studentName },
+                  { label: 'Term', value: termName },
+                  { label: 'Class', value: className },
+                ],
+                note: 'Log in to the parent portal and open the report card section to view or download the PDF.',
+                noReply: true,
+              });
+
+              sendEmailInBackground({
+                to: target.guardianEmail,
+                subject: `Report Card Ready - ${target.studentName} (${termName})`,
+                html: guardianEmailHtml,
+              }, 'Report Card Ready Guardian');
+            }
+
+            const staffEmailRows = (staffRecipientsResult.rows || [])
+              .filter((row) => String(row.email || '').trim())
+              .map((row) => ({
+                email: String(row.email || '').trim().toLowerCase(),
+                name: String([row.first_name, row.last_name].filter(Boolean).join(' ') || 'Staff').trim(),
+              }));
+
+            const staffEmailSet = new Set();
+            for (const staff of staffEmailRows) {
+              if (!staff.email || staffEmailSet.has(staff.email)) continue;
+              staffEmailSet.add(staff.email);
+
+              const staffEmailHtml = renderCleanEmail({
+                title: 'Report Cards Ready',
+                greeting: `Hello ${staff.name},`,
+                paragraphs: [
+                  `Report card posting for ${className} (${termName}) has completed.`,
+                  `${postedRecords.length} report card${postedRecords.length === 1 ? '' : 's'} ready${failed.length ? `, ${failed.length} failed` : ''}.`,
+                ],
+                details: [
+                  { label: 'Class', value: className },
+                  { label: 'Term', value: termName },
+                  { label: 'Ready', value: String(postedRecords.length) },
+                  { label: 'Failed', value: String(failed.length) },
+                ],
+                note: `View details in the school portal: ${readyLink}`,
+                noReply: true,
+              });
+
+              sendEmailInBackground({
+                to: staff.email,
+                subject: `Report Cards Ready - ${className} (${termName})`,
+                html: staffEmailHtml,
+              }, 'Report Card Ready Staff');
+            }
+          }
+
+          reportCardPostJobs.set(jobKey, {
+            ...reportCardPostJobs.get(jobKey),
+            status: failed.length === 0 ? "completed" : "completed_with_errors",
+            completedAt: new Date().toISOString(),
+            postedCount: posted.length,
+            generatedCount,
+            reusedCount,
+            failedCount: failed.length,
+          });
+        } catch (error) {
+          console.error("[postReportCards][background] Error:", error?.message || error);
+          reportCardPostJobs.set(jobKey, {
+            ...reportCardPostJobs.get(jobKey),
+            status: "failed",
+            completedAt: new Date().toISOString(),
+            error: error?.message || "Failed to post report cards.",
+          });
+        } finally {
+          if (browser) {
+            try {
+              await browser.close();
+            } catch (_) {}
+          }
+
+          setTimeout(() => {
+            const current = reportCardPostJobs.get(jobKey);
+            if (!current) return;
+            if (["completed", "completed_with_errors", "failed"].includes(current.status)) {
+              reportCardPostJobs.delete(jobKey);
+            }
+          }, 30 * 60 * 1000);
+        }
+      };
+
+      setImmediate(() => {
+        runBackgroundPosting().catch((error) => {
+          console.error("[postReportCards] Background launch error:", error?.message || error);
+        });
+      });
+
+      return res.status(202).json({
+        success: true,
+        background: true,
+        message: "Posting started in background. Parents and teachers will be notified by email and portal notifications when reports are ready.",
+        jobKey,
+      });
+    } catch (error) {
+      console.error("[postReportCards] Error:", error);
+      return res.status(500).json({ success: false, message: "Failed to post report cards." });
     }
   },
 

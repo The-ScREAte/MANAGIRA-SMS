@@ -23,6 +23,14 @@ module.exports = (db) => {
     guardianController.studentDetailsCommonGet(req, res, db)
   );
 
+  router.get('/student-report-cards', isGuardianAuthenticated, (req, res) =>
+    guardianController.studentReportCardsListGet(req, res, db)
+  );
+
+  router.get('/student-report-cards/:id/pdf', isGuardianAuthenticated, (req, res) =>
+    guardianController.studentReportCardPdfGet(req, res, db)
+  );
+
   router.get("/settings", isGuardianAuthenticated, (req, res) =>
     guardianController.settingsGet(req, res, db)
   );

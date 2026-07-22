@@ -613,6 +613,7 @@ app.use((req, res, next) => {
   res.locals.session = req.session;
   res.locals.getFlash = (type) => req.flash(type);
   res.locals.BASE_URL = BASE_URL;
+  res.locals.yearLabel = "";
   res.locals.currentPath = req.path || "";
   res.locals.showFooterTopSection = false;
   res.locals.unresolvedCount = 0;

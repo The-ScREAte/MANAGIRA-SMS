@@ -1281,7 +1281,7 @@
     }
   }
 
-  const guardianActionState = {
+  var guardianActionState = window.__guardianActionState || {
     studentId: null,
     studentName: '',
     mode: 'existing',
@@ -1289,6 +1289,7 @@
     selectedGuardianName: '',
     debounceTimer: null,
   };
+  window.__guardianActionState = guardianActionState;
 
   function gdEsc(value) {
     return String(value || '').replace(/[&<>"']/g, function(ch) {
@@ -1399,7 +1400,7 @@
       '<div class="gd-link-panel" id="gdRelinkNewPanel">' +
         '<div id="gdNewGuardiansWrap"></div>' +
         '<button type="button" class="gd-link-btn" id="gdAddAnotherGuardianBtn">+ Add another guardian</button>' +
-      + '</div>' +
+      '</div>' +
       '<div class="gd-link-actions">' +
         '<span class="gd-link-error" id="gdRelinkErr"></span>' +
         '<button type="button" class="gd-link-btn" id="gdRelinkBackBtn">Back</button>' +
@@ -1613,12 +1614,27 @@
     btn.textContent = 'Relinking...';
 
     try {
+      console.log('[guardianRelink][client] request', {
+        endpoint: '/common/guardianRelinkStudent',
+        payload,
+      });
       const response = await fetch('/common/guardianRelinkStudent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const rawBody = await response.text();
+      let data = {};
+      try {
+        data = rawBody ? JSON.parse(rawBody) : {};
+      } catch (_) {
+        data = { error: rawBody || 'Non-JSON response from server.' };
+      }
+      console.log('[guardianRelink][client] response', {
+        status: response.status,
+        ok: response.ok,
+        data,
+      });
       if (!response.ok || !data.success) {
         err.textContent = data.error || 'Failed to relink student.';
         return;
@@ -1626,7 +1642,8 @@
       alert('Student relinked successfully.');
       closeGuardianActionModal();
       window.location.reload();
-    } catch (_) {
+    } catch (error) {
+      console.error('[guardianRelink][client] network/error', error);
       err.textContent = 'Network error. Please try again.';
     } finally {
       btn.disabled = false;

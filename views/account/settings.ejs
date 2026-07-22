@@ -3121,7 +3121,7 @@
                 <% const billingStatus = hasBillingInfo ? String(billingInfo.status || '').toLowerCase() : ''; %>
                 <% const isBillingSuccessful = ['active', 'paid', 'succeeded', 'success'].includes(billingStatus); %>
                 <% const hasFailureInfo = !!(typeof billingFailureInfo !== 'undefined' && billingFailureInfo); %>
-                <% const currentStudentCount = currentPlanPricing ? Number(currentPlanPricing.organizationStudentCount || 0) : 0; %>
+                <% const currentStudentCount = Number(organizationStudentCount || 0); %>
                 <% if (pendingPlan) { %>
                   <div class="current-plan-summary is-pending">
                     <div class="current-plan-summary-standout">
@@ -4278,7 +4278,7 @@
                   data-plan-name="<%= plan.plan_name %>"
                   data-base-usd="<%= plan.modalBaseUsd %>"
                   data-pricing-mode="<%= plan.pricingMode %>"
-                  data-student-count="<%= Number(plan.organizationStudentCount || 0) %>"
+                  data-student-count="<%= Number(organizationStudentCount || 0) %>"
                   data-threshold="<%= plan.freeStudentThreshold != null ? Number(plan.freeStudentThreshold) : '' %>"
                   data-extra-students="<%= Number(plan.extraStudents || 0) %>"
                   data-region-name="<%= plan.pricingRegionName || '' %>"

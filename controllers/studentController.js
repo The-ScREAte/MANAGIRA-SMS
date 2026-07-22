@@ -6,6 +6,28 @@ const STUDENT_TESTING_ROOM_FEATURE_NAMES = [
   "Assessment Questions",
 ];
 
+function resolveScheduleWatermarkUrl(req) {
+  const rawLogo = String(
+    req?.schoolDetails?.logo ||
+    req?.schoolDetails?.logo_path ||
+    req?.session?.schoolLogo ||
+    req?.session?.logo ||
+    ""
+  ).trim();
+
+  if (!rawLogo) return "";
+  if (/^https?:\/\//i.test(rawLogo)) return rawLogo;
+  if (rawLogo.startsWith("/")) return rawLogo;
+
+  const s3Bucket = String(process.env.S3_BUCKET_NAME || "").trim();
+  const s3Region = String(process.env.AWS_REGION || "").trim();
+  if (s3Bucket && s3Region) {
+    return `https://${s3Bucket}.s3.${s3Region}.amazonaws.com/${rawLogo.replace(/^\/+/, "")}`;
+  }
+
+  return `/uploads/${rawLogo.replace(/^\/+/, "")}`;
+}
+
 function canUseStudentTestingRoom(req) {
   const allowedFeatures = Array.isArray(req?.session?.allowedFeatures)
     ? req.session.allowedFeatures
@@ -445,6 +467,7 @@ module.exports = {
         organizationId,
         studentId
       );
+      const scheduleWatermarkUrl = resolveScheduleWatermarkUrl(req);
       if (!selectedTerm) {
         req.flash("error", "No school term is currently available.");
         return res.render("student/dashboard", {
@@ -460,6 +483,7 @@ module.exports = {
           attendanceSummary: { totalDays: 0, present: 0, absent: 0, late: 0, attendanceRate: 0 },
           classSchedule: null,
           scheduleTable: { periods: [], rows: [] },
+          scheduleWatermarkUrl,
           openAssessmentsCount: 0,
           testingRoomEnabled,
           messages: req.flash(),
@@ -732,6 +756,7 @@ module.exports = {
         attendanceSummary,
         classSchedule,
         scheduleTable,
+        scheduleWatermarkUrl,
         openAssessmentsCount: openAssessments.length,
         testingRoomEnabled,
         messages: req.flash(),
