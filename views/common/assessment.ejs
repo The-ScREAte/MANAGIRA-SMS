@@ -70,6 +70,9 @@ body {
   line-height: 30px;
   text-align: left;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .assessment-compact-heading {
@@ -78,7 +81,7 @@ body {
   gap: 8px;
   flex: 1 1 auto;
   min-width: 0;
-  white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 .assessment-gender-filter {
@@ -88,17 +91,44 @@ body {
   color: #334155;
   font-size: 0.78rem;
   font-weight: 600;
-  padding: 4px 8px;
+  padding: 4px 24px 4px 8px;
   height: 30px;
   margin: 0;
   align-self: center;
+  width: fit-content;
+  min-width: 60px;
+  max-width: max-content;
+  flex: 0 0 auto;
 }
 
 .assessment-compact-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
   flex-shrink: 0;
+}
+
+.assessment-compact-actions .teachers-popover-wrap,
+.assessment-compact-actions .teachers-btn,
+.assessment-compact-actions .header-action-btn,
+.assessment-compact-actions .header-save-btn {
+  width: auto;
+  max-width: fit-content;
+  flex: 0 0 auto;
+}
+
+@media screen and (max-width: 1100px) and (min-width: 769px) {
+  .assessment-header.compact {
+    gap: 10px;
+  }
+
+  .assessment-compact-actions {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
 }
 
 /* Teachers popover */
@@ -107,7 +137,7 @@ body {
 }
 
 .teachers-btn {
-  padding: 4px 10px;
+  padding: 4px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #f8fafc;
@@ -172,7 +202,7 @@ body {
 
 /* Save button in header */
 .header-save-btn {
-  padding: 5px 14px;
+  padding: 5px 9px;
   border: none;
   background: var(--primary);
   color: #fff;
@@ -193,7 +223,7 @@ body {
 }
 
 .header-action-btn {
-  padding: 5px 10px;
+  padding: 5px 8px;
   border: 1px solid var(--border);
   background: #fff;
   color: #334155;
@@ -294,17 +324,14 @@ body {
   border-radius: 8px;
   padding: 8px 14px;
   font-size: 0.82rem;
-  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
 }
-
 .qm-upload-btn:hover { background: #0f5a66; color: #fff; }
 .qm-upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .qm-upload-btn .qm-spinner {
-  width: 14px;
   height: 14px;
   border: 2px solid rgba(15,90,102,0.3);
   border-top-color: #0f5a66;
@@ -1315,10 +1342,47 @@ input[type="number"].score-input-invalid {
   .assessment-header.compact {
     gap: 8px;
     padding: 7px 10px;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .assessment-compact-title {
     font-size: 0.95rem;
+    line-height: 1.25;
+    order: 1;
+    flex: 0 0 100%;
+    margin-bottom: 2px;
+  }
+
+  .assessment-compact-heading {
+    display: contents;
+  }
+
+  .assessment-gender-filter {
+    order: 2;
+    margin-top: 0;
+    flex: 0 0 auto;
+  }
+
+  .assessment-compact-actions {
+    order: 3;
+    width: auto;
+    min-width: 0;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    gap: 6px;
+  }
+
+  .teachers-popover-wrap,
+  .teachers-btn,
+  .header-action-btn,
+  .header-save-btn {
+    flex: 0 0 auto;
+    min-height: 30px;
   }
 
   .assessment-compact-summary {
@@ -1335,6 +1399,19 @@ input[type="number"].score-input-invalid {
 }
 
 @media screen and (max-width: 480px) {
+  .assessment-compact-title {
+    font-size: 0.9rem;
+  }
+
+  .assessment-gender-filter {
+    width: auto;
+    max-width: 100%;
+  }
+
+  .assessment-compact-actions {
+    justify-content: flex-start;
+  }
+
   /* Student Name column: wrap text and reduce spacing */
   table td:nth-child(2),
   table th:nth-child(2) {
@@ -1435,7 +1512,7 @@ input[type="number"].score-input-invalid {
           >
             Edit Questions
           </button>
-          <button type="button" class="header-save-btn" id="header-save-scores-button" <%= hasEditableAssessments ? '' : 'disabled' %>>Save All Scores</button>
+          <button type="button" class="header-save-btn" id="header-save-scores-button" <%= hasEditableAssessments ? '' : 'disabled' %>>Save</button>
         </div>
       </div>
       <% } else { %>
@@ -1568,7 +1645,6 @@ input[type="number"].score-input-invalid {
               <div class="qm-topbar-icon">📋</div>
               <div>
                 <h2 class="qm-topbar-title" id="question-modal-title">Set Questions</h2>
-                <p class="qm-topbar-sub">Create and manage a structured question set for this assessment.</p>
               </div>
             </div>
             <div class="qm-topbar-right">

@@ -1034,7 +1034,6 @@ const logStartupDbStatus = async () => {
     // singleton is already settled before any HTTP request arrives.
     // This prevents the double-log caused by two concurrent first callers.
     await ensurePermissionsSchema(db);
-    console.log('\x1b[32m[DB] connected\x1b[0m');
   } catch (error) {
     console.error(
       `[DB] ⚠️ Startup database check failed (${error.code || 'NO_CODE'}): ${error.message}. Verify DB_CONNECTION_STRING uses the full Render DB URL and DB_SSL matches Internal(false)/External(true).`

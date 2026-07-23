@@ -706,7 +706,6 @@ async function sendEmailSafely(mailOptions, context = "Email") {
         try {
           const blocked = await isEmailSuppressed(db, recipient);
           if (blocked) {
-            console.warn(`[Email][${context}] Recipient "${recipient}" is on the suppression list — skipping.`);
             await notifyEmailFailure(db, {
               recipient,
               reason: "suppressed",
