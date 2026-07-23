@@ -62,6 +62,7 @@ const {
   FEEDBACK_STATUS_OPTIONS,
   normalizeFeedbackStatus,
 } = require("../utils/userFeedback");
+const { ensureEmailSuppressionSchema, unsuppressEmail } = require("../utils/emailSuppression");
 // Dynamic Pricing v2 (Beta) — parallel system, not used by any legacy pricing code path
 const {
   computeDynamicMonthlyPrice,
@@ -89,6 +90,10 @@ function parseOptionalInteger(value) {
 
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeEmailAddress(value) {
+  return String(value || "").trim().toLowerCase();
 }
 
 function isAjaxRequest(req) {
@@ -4596,6 +4601,82 @@ const adminController = {
     } catch (error) {
             req.flash("error", "Failed to load announcements.");
       res.redirect("/admin");
+    }
+  },
+
+  getEmailSuppressionsPage: async (req, res) => {
+    try {
+      await ensureEmailSuppressionSchema(db);
+
+      const searchTerm = String(req.query.q || "").trim();
+      const params = [];
+      let whereSql = "";
+
+      if (searchTerm) {
+        params.push(`%${searchTerm}%`);
+        whereSql = "WHERE s.email ILIKE $1 OR s.reason ILIKE $1";
+      }
+
+      const suppressionQuery = `
+        SELECT
+          s.email,
+          s.reason,
+          s.last_error,
+          s.failure_count,
+          s.first_seen,
+          s.last_seen,
+          o.organization_id,
+          o.organization_name
+        FROM email_suppression_list s
+        LEFT JOIN organizations o
+          ON LOWER(TRIM(o.email)) = s.email
+        ${whereSql}
+        ORDER BY s.last_seen DESC
+        LIMIT 500
+      `;
+
+      const countQuery = `
+        SELECT COUNT(*)::int AS total
+        FROM email_suppression_list s
+        ${whereSql}
+      `;
+
+      const [suppressionResult, countResult] = await Promise.all([
+        db.query(suppressionQuery, params),
+        db.query(countQuery, params),
+      ]);
+
+      return res.render("admin/emailSuppressions", {
+        title: "Email Suppression Manager",
+        suppressedEmails: suppressionResult.rows,
+        totalSuppressed: countResult.rows[0]?.total || 0,
+        searchTerm,
+        messages: req.flash(),
+      });
+    } catch (error) {
+      console.error("[admin] getEmailSuppressionsPage error:", error && error.message);
+      req.flash("error", "Failed to load suppression emails.");
+      return res.redirect("/admin");
+    }
+  },
+
+  removeEmailSuppression: async (req, res) => {
+    try {
+      const email = normalizeEmailAddress(req.body?.email || req.params?.email || "");
+      if (!email) {
+        req.flash("error", "Email is required.");
+        return res.redirect("/admin/email-suppressions");
+      }
+
+      await ensureEmailSuppressionSchema(db);
+      await unsuppressEmail(db, email);
+
+      req.flash("success", `${email} was removed from suppression.`);
+      return res.redirect("/admin/email-suppressions");
+    } catch (error) {
+      console.error("[admin] removeEmailSuppression error:", error && error.message);
+      req.flash("error", "Failed to remove suppression entry.");
+      return res.redirect("/admin/email-suppressions");
     }
   },
 

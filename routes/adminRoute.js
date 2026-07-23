@@ -248,6 +248,8 @@ module.exports = (db) => {
     router.post("/announcements", isAuthenticated, ensureAdmin, adminController.createAdminAnnouncement);
     router.post("/announcements/toggle/:id", isAuthenticated, ensureAdmin, adminController.toggleAdminAnnouncement);
     router.post("/announcements/delete/:id", isAuthenticated, ensureAdmin, adminController.deleteAdminAnnouncement);
+    router.get('/email-suppressions', isAuthenticated, ensureAdmin, adminController.getEmailSuppressionsPage);
+    router.post('/email-suppressions/remove', isAuthenticated, ensureAdmin, express.urlencoded({ extended: true }), adminController.removeEmailSuppression);
     // Available to Admin / Mini Admin / Internal Worker so they can dismiss
     // dashboard announcements that are flagged "show for admins".
     router.post("/announcements/seen/:id", isAuthenticated, ensureAdminOrInternal, adminController.markAdminAnnouncementSeen);
