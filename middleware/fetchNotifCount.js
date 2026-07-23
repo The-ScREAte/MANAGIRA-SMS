@@ -45,6 +45,28 @@ function setCached(recipientType, recipientId, orgId, count) {
   }
 }
 
+function getCachedNotifCount(context) {
+  if (!context) return null;
+  const { recipientType, recipientId, orgId } = context;
+  if (!recipientType || recipientId === undefined || recipientId === null || !orgId) return null;
+  return getCached(String(recipientType), Number(recipientId), Number(orgId));
+}
+
+function setCachedNotifCount(context, count) {
+  if (!context) return;
+  const { recipientType, recipientId, orgId } = context;
+  if (!recipientType || recipientId === undefined || recipientId === null || !orgId) return;
+  setCached(String(recipientType), Number(recipientId), Number(orgId), Number(count) || 0);
+}
+
+async function getNotifCountCachedOrFetch(dbClient, context) {
+  const cached = getCachedNotifCount(context);
+  if (cached !== null) return cached;
+  const count = await ns.getUnreadCount(dbClient, context);
+  setCachedNotifCount(context, count);
+  return count;
+}
+
 // Exported so other code (e.g. after marking notifications read) can bust the cache
 function invalidateNotifCountCache(recipientType, recipientId, orgId) {
   countCache.delete(cacheKey(recipientType, recipientId, orgId));
@@ -88,18 +110,12 @@ const fetchNotifCount = async (req, res, next) => {
       if (guardianId) {
         const gId  = Number(guardianId);
         const gOrg = Number(orgId);
-        const cached = getCached('guardian', gId, gOrg);
-        if (cached !== null) {
-          res.locals.notifUnreadCount = cached;
-        } else {
-          const count = await ns.getUnreadCount(db, {
-            recipientType: 'guardian',
-            recipientId:   gId,
-            orgId:         gOrg,
-          });
-          setCached('guardian', gId, gOrg, count);
-          res.locals.notifUnreadCount = count;
-        }
+        const count = await getNotifCountCachedOrFetch(db, {
+          recipientType: 'guardian',
+          recipientId:   gId,
+          orgId:         gOrg,
+        });
+        res.locals.notifUnreadCount = count;
       }
       return next();
     }
@@ -109,18 +125,12 @@ const fetchNotifCount = async (req, res, next) => {
     if (userId !== null) {
       const uId  = Number(userId);
       const uOrg = Number(orgId);
-      const cached = getCached('staff', uId, uOrg);
-      if (cached !== null) {
-        res.locals.notifUnreadCount = cached;
-      } else {
-        const count = await ns.getUnreadCount(db, {
-          recipientType: 'staff',
-          recipientId:   uId,
-          orgId:         uOrg,
-        });
-        setCached('staff', uId, uOrg, count);
-        res.locals.notifUnreadCount = count;
-      }
+      const count = await getNotifCountCachedOrFetch(db, {
+        recipientType: 'staff',
+        recipientId:   uId,
+        orgId:         uOrg,
+      });
+      res.locals.notifUnreadCount = count;
     }
   } catch (err) {
     const throttle = 5 * 60 * 1000;
@@ -135,4 +145,10 @@ const fetchNotifCount = async (req, res, next) => {
   next();
 };
 
-module.exports = { fetchNotifCount, invalidateNotifCountCache };
+module.exports = {
+  fetchNotifCount,
+  invalidateNotifCountCache,
+  getCachedNotifCount,
+  setCachedNotifCount,
+  getNotifCountCachedOrFetch,
+};

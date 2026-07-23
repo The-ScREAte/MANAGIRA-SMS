@@ -3,6 +3,10 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 const ns = require('../utils/notificationService');
+const {
+  getNotifCountCachedOrFetch,
+  invalidateNotifCountCache,
+} = require('../middleware/fetchNotifCount');
 
 let staffPopupSchemaReady = false;
 
@@ -288,7 +292,7 @@ router.get('/count', requireAuth, async (req, res) => {
       const count = items.filter((item) => !readIds.has(item.id) && !dismissedIds.has(item.id)).length;
       return res.json({ success: true, count });
     }
-    const count = await ns.getUnreadCount(db, req._notifCtx);
+    const count = await getNotifCountCachedOrFetch(db, req._notifCtx);
     res.json({ success: true, count });
   } catch (err) {
     res.json({ success: true, count: 0 });
@@ -334,6 +338,7 @@ router.post('/mark-read', requireAuth, express.json(), async (req, res) => {
         recipientType: req._notifCtx.recipientType,
         orgId: req._notifCtx.orgId,
       });
+      invalidateNotifCountCache(req._notifCtx.recipientType, req._notifCtx.recipientId, req._notifCtx.orgId);
       return res.json({ success: true });
     }
     const notifId = Number.parseInt(rawNotifId, 10);
@@ -349,6 +354,7 @@ router.post('/mark-read', requireAuth, express.json(), async (req, res) => {
       return res.status(403).json({ success: false, error: 'Not found' });
     }
     await ns.markRead(db, { notifId, readerId: req._notifCtx.recipientId });
+    invalidateNotifCountCache(req._notifCtx.recipientType, req._notifCtx.recipientId, req._notifCtx.orgId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false });
@@ -368,6 +374,7 @@ router.post('/mark-all-read', requireAuth, async (req, res) => {
       return res.json({ success: true });
     }
     await ns.markAllRead(db, req._notifCtx);
+    invalidateNotifCountCache(req._notifCtx.recipientType, req._notifCtx.recipientId, req._notifCtx.orgId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false });
@@ -395,6 +402,7 @@ router.post('/dismiss', requireAuth, express.json(), async (req, res) => {
         recipientType: req._notifCtx.recipientType,
         orgId: req._notifCtx.orgId,
       });
+      invalidateNotifCountCache(req._notifCtx.recipientType, req._notifCtx.recipientId, req._notifCtx.orgId);
       return res.json({ success: true });
     }
     const notifId = Number.parseInt(rawNotifId, 10);
@@ -410,6 +418,7 @@ router.post('/dismiss', requireAuth, express.json(), async (req, res) => {
       return res.status(403).json({ success: false, error: 'Not found' });
     }
     await ns.dismissNotification(db, { notifId, dismisserId: req._notifCtx.recipientId });
+    invalidateNotifCountCache(req._notifCtx.recipientType, req._notifCtx.recipientId, req._notifCtx.orgId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false });
@@ -427,6 +436,7 @@ router.post('/dismiss-all', requireAuth, async (req, res) => {
       return res.json({ success: true });
     }
     await ns.dismissAll(db, req._notifCtx);
+    invalidateNotifCountCache(req._notifCtx.recipientType, req._notifCtx.recipientId, req._notifCtx.orgId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false });

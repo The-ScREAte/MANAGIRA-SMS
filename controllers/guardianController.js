@@ -2018,7 +2018,9 @@ module.exports = {
     const guardianId = req.session.guardianId;
     const organizationId = req.session.organizationId;
     const reportId = req.params.id;
-    const { message } = req.body;
+    const rawMessage = (req.body && typeof req.body.message === 'string') ? req.body.message : '';
+    const message = rawMessage.trim();
+    const wantsJson = req.xhr || String(req.get('accept') || '').includes('application/json');
 
     try {
       // Verify ownership
@@ -2029,8 +2031,19 @@ module.exports = {
       );
 
       if (reportCheck.rows.length === 0) {
+        if (wantsJson) {
+          return res.status(404).json({ success: false, error: 'Report not found' });
+        }
         req.flash('error', 'Report not found');
         return res.redirect('/guardian/reports');
+      }
+
+      if (!message) {
+        if (wantsJson) {
+          return res.status(400).json({ success: false, error: 'Message is required' });
+        }
+        req.flash('error', 'Message is required');
+        return res.redirect(`/guardian/reports/${reportId}`);
       }
 
       // Get guardian name
@@ -2073,10 +2086,32 @@ module.exports = {
         [reportId]
       );
 
+      if (wantsJson) {
+        const createdAt = new Date();
+        return res.json({
+          success: true,
+          reply: {
+            sender_name: guardianInfo.rows[0].name || 'You',
+            sender_type: 'guardian',
+            message,
+            created_at: createdAt.toISOString(),
+            created_at_display: createdAt.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            }),
+          },
+        });
+      }
+
       req.flash('success', 'Reply added');
       res.redirect(`/guardian/reports/${reportId}`);
     } catch (error) {
-            req.flash('error', 'Error adding reply');
+      if (wantsJson) {
+        return res.status(500).json({ success: false, error: 'Error adding reply' });
+      }
+      req.flash('error', 'Error adding reply');
       res.redirect(`/guardian/reports/${reportId}`);
     }
   },

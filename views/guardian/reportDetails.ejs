@@ -300,7 +300,7 @@
     color: #94a3b8;
     white-space: nowrap;
     margin-top: 6px;
-    text-align: right;
+    text-align: left;
   }
 
   .rd-reply-msg {
@@ -386,15 +386,20 @@
 
   .rd-reply-form textarea {
     width: 100%;
-    min-height: 86px;
+    min-height: 42px;
+    max-height: 220px;
     padding: 10px 12px;
     border: 1px solid #d1d5db;
-    border-radius: 10px;
+    border-radius: 999px;
     font-size: 16px;
     font-family: inherit;
-    resize: vertical;
+    resize: none;
+    overflow: hidden;
+    line-height: 1.35;
     box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
     color: #111827;
+    margin: 0;
   }
 
   .rd-reply-form textarea:focus {
@@ -405,23 +410,57 @@
 
   .rd-reply-form .rd-form-actions {
     display: flex;
-    justify-content: flex-end;
-    margin-top: 10px;
+    align-items: center;
+    justify-content: flex-start;
+    margin-top: 8px;
   }
 
-  .rd-reply-form button {
+  .rd-reply-composer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rd-reply-composer textarea {
+    flex: 1;
+  }
+
+  .rd-reply-send-btn {
     background: var(--primary, #01535b);
     color: #fff;
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    padding: 0;
     border: 0;
-    border-radius: 10px;
-    padding: 9px 16px;
-    font-size: 0.84rem;
-    font-weight: 700;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
   }
 
-  .rd-reply-form button:hover {
-    filter: brightness(0.97);
+  .rd-reply-send-btn svg {
+    width: 16px;
+    height: 16px;
+    transform: translateX(1px);
+  }
+
+  .rd-reply-send-btn:hover {
+    background: var(--primary-hover-fill, var(--primary-hover));
+    transform: translateY(-1px);
+  }
+
+  .rd-reply-send-btn:active { transform: translateY(0); }
+
+  .rd-reply-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
   }
 
   @media (max-width: 640px) {
@@ -434,8 +473,7 @@
     .rd-meta-inline { align-items: flex-start; gap: 4px; }
     .rd-meta-sep { display: none; }
     .rd-reply-header { flex-direction: column; align-items: flex-start; gap: 2px; }
-    .rd-reply-form .rd-form-actions { justify-content: stretch; }
-    .rd-reply-form button { width: 100%; }
+    .rd-reply-form .rd-form-actions { justify-content: flex-start; }
   }
 </style>
 
@@ -476,7 +514,7 @@
 
     <div class="rd-section">
       <div class="rd-section-title">Conversation (<%= threadCount %>)</div>
-      <div class="rd-thread-scroll <%= threadSeverityCls %>">
+      <div class="rd-thread-scroll <%= threadSeverityCls %>" id="rdThreadList">
         <div class="rd-reply is-guardian is-mine">
           <div class="rd-msg-menu-wrap" id="msgMenu-report-root">
             <button type="button" class="rd-msg-menu-btn" onclick="toggleMsgMenu('report-root')" aria-label="Message actions">⋯</button>
@@ -527,11 +565,12 @@
       </div>
     </div>
 
-    <form action="/guardian/reports/<%= report.report_id %>/reply" method="POST" class="rd-reply-form">
-      <label for="guardianReplyMsg">Your Reply</label>
-      <textarea id="guardianReplyMsg" name="message" placeholder="Write your response to this report..." required></textarea>
-      <div class="rd-form-actions">
-        <button type="submit">Send Reply</button>
+    <form action="/guardian/reports/<%= report.report_id %>/reply" method="POST" class="rd-reply-form" id="rdReplyForm">
+      <div class="rd-reply-composer">
+        <textarea id="staffReplyMsg" name="message" rows="1" placeholder="Type a message..." oninput="autoResizeStaffReplyInput(this)" onkeydown="handleStaffReplyKeydown(event, <%= report.report_id %>)" style="height: 42px;" required></textarea>
+        <button id="staffReplyBtn" type="button" class="rd-reply-send-btn" onclick="submitStaffReply(<%= report.report_id %>)" aria-label="Send reply" title="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2L15 22L11 13L2 9L22 2Z"></path></svg>
+        </button>
       </div>
     </form>
   </div>
@@ -625,11 +664,137 @@
 
     document.addEventListener('click', onDocClick);
 
+    var replyForm = document.getElementById('rdReplyForm');
+    var replyMsg = document.getElementById('staffReplyMsg') || document.getElementById('guardianReplyMsg');
+    var replySubmitBtn = document.getElementById('staffReplyBtn') || document.getElementById('rdReplySubmitBtn');
+    var threadList = document.getElementById('rdThreadList');
+
+    function autoGrowReplyInput(textarea) {
+      var input = textarea || replyMsg;
+      if (!input) return;
+      input.style.height = 'auto';
+      var nextHeight = Math.min(input.scrollHeight, 220);
+      input.style.height = nextHeight + 'px';
+    }
+
+    window.autoResizeStaffReplyInput = function (textarea) {
+      autoGrowReplyInput(textarea);
+    };
+
+    window.submitStaffReply = function (_reportId) {
+      if (!replyForm) return;
+      if (typeof replyForm.requestSubmit === 'function') replyForm.requestSubmit();
+      else replyForm.submit();
+    };
+
+    window.handleStaffReplyKeydown = function (event, reportId) {
+      if (!event) return;
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        window.submitStaffReply(reportId);
+      }
+    };
+
+    function onReplyMsgInput() {
+      autoGrowReplyInput(replyMsg);
+    }
+
+    function formatLocalReplyTime(value) {
+      var date = value ? new Date(value) : new Date();
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    function appendGuardianReply(reply) {
+      if (!threadList || !reply) return;
+      var wrapper = document.createElement('div');
+      wrapper.className = 'rd-reply is-guardian is-mine';
+      wrapper.innerHTML = ''
+        + '<div class="rd-reply-header">'
+        +   '<span class="rd-reply-sender">'
+        +     '<span class="sender-dot guardian"></span>'
+        +     '<span class="sender-name"></span>'
+        +     '<span class="sender-label">Parent</span>'
+        +   '</span>'
+        + '</div>'
+        + '<p class="rd-reply-msg"></p>'
+        + '<span class="rd-reply-date"></span>';
+
+      var senderNode = wrapper.querySelector('.sender-name');
+      var msgNode = wrapper.querySelector('.rd-reply-msg');
+      var dateNode = wrapper.querySelector('.rd-reply-date');
+
+      senderNode.textContent = reply.sender_name || 'You';
+      msgNode.textContent = reply.message || '';
+      dateNode.textContent = reply.created_at_display || formatLocalReplyTime(reply.created_at);
+
+      threadList.appendChild(wrapper);
+      threadList.scrollTop = threadList.scrollHeight;
+    }
+
+    async function submitReplyAsync(e) {
+      e.preventDefault();
+      if (!replyForm || !replyMsg || !replySubmitBtn) return;
+
+      var trimmed = (replyMsg.value || '').trim();
+      if (!trimmed) {
+        replyMsg.focus();
+        return;
+      }
+
+      replySubmitBtn.disabled = true;
+
+      try {
+        var response = await fetch(replyForm.action, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Accept': 'application/json'
+          },
+          body: new URLSearchParams({ message: trimmed }).toString()
+        });
+
+        var payload = await response.json().catch(function () { return {}; });
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || 'Failed to send reply');
+        }
+
+        appendGuardianReply(payload.reply || { message: trimmed, sender_name: 'You' });
+        replyMsg.value = '';
+        autoGrowReplyInput(replyMsg);
+        replyMsg.focus();
+      } catch (_error) {
+        alert('Could not send reply. Please try again.');
+      } finally {
+        replySubmitBtn.disabled = false;
+      }
+    }
+
+    if (replyMsg) {
+      autoGrowReplyInput(replyMsg);
+      replyMsg.addEventListener('input', onReplyMsgInput);
+    }
+
+    if (replyForm) {
+      replyForm.addEventListener('submit', submitReplyAsync);
+    }
+
     if (!Array.isArray(window.__spaCleanup)) {
       window.__spaCleanup = [];
     }
     window.__spaCleanup.push(function () {
       document.removeEventListener('click', onDocClick);
+      if (replyMsg) {
+        replyMsg.removeEventListener('input', onReplyMsgInput);
+      }
+      if (replyForm) {
+        replyForm.removeEventListener('submit', submitReplyAsync);
+      }
     });
   })();
 </script>

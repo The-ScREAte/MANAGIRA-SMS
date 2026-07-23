@@ -1039,7 +1039,7 @@ main {
   color: #94a3b8;
   white-space: nowrap;
   margin-top: 6px;
-  text-align: right;
+  text-align: left;
 }
 .rd-reply-msg {
   font-size: 13px;
@@ -1130,13 +1130,16 @@ main {
 }
 .rd-reply-form textarea {
   width: 100%;
-  min-height: 86px;
+  min-height: 38px;
+  max-height: 220px;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
-  border-radius: 10px;
+  border-radius: 999px;
   font-size: 16px;
   font-family: inherit;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
+  line-height: 1.35;
   box-sizing: border-box;
   transition: border-color 0.15s, box-shadow 0.15s;
   color: var(--text);
@@ -1149,29 +1152,51 @@ main {
 .rd-reply-form textarea::placeholder { color: #9ca3af; }
 .rd-reply-form .rd-form-actions {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 8px;
 }
-.rd-reply-form button {
+
+.rd-reply-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.rd-reply-composer textarea {
+  flex: 1;
+}
+
+.rd-reply-send-btn {
   background: var(--primary);
   color: #fff;
-  padding: 9px 22px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  padding: 0;
   border: none;
-  border-radius: 10px;
+  border-radius: 999px;
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
 }
-.rd-reply-form button:hover {
+
+.rd-reply-send-btn svg {
+  width: 16px;
+  height: 16px;
+  transform: translateX(1px);
+}
+
+.rd-reply-send-btn:hover {
   background: var(--primary-hover-fill, var(--primary-hover));
   transform: translateY(-1px);
 }
-.rd-reply-form button:active { transform: translateY(0); }
-.rd-reply-form button:disabled {
+.rd-reply-send-btn:active { transform: translateY(0); }
+.rd-reply-send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
@@ -5236,7 +5261,7 @@ main {
           // Conversation
           var replyCount = d.replies ? d.replies.length : 0;
           var threadCount = replyCount + 1;
-          html += '<div class="rd-section"><div class="rd-section-title">Conversation (' + threadCount + ')</div><div class="rd-thread-scroll ' + threadSeverityCls + '">';
+          html += '<div class="rd-section"><div class="rd-section-title" id="rdConversationTitle">Conversation (' + threadCount + ')</div><div class="rd-thread-scroll ' + threadSeverityCls + '" id="rdThreadList">';
 
           // Original report message appears first in the thread
           html += '<div class="rd-reply is-guardian is-theirs">' +
@@ -5285,15 +5310,21 @@ main {
 
           // Reply form
           html += '<div class="rd-reply-form">' +
-            '<label for="staffReplyMsg">Your Reply</label>' +
-            '<textarea id="staffReplyMsg" placeholder="Write your response to this report..."></textarea>' +
-            '<div class="rd-form-actions">' +
-              '<button id="staffReplyBtn" onclick="submitStaffReply(' + rp.report_id + ')">Send Reply</button>' +
+            '<div class="rd-reply-composer">' +
+              '<textarea id="staffReplyMsg" rows="1" placeholder="Type a message..." oninput="autoResizeStaffReplyInput(this)" onkeydown="handleStaffReplyKeydown(event, ' + rp.report_id + ')"></textarea>' +
+              '<button id="staffReplyBtn" class="rd-reply-send-btn" onclick="submitStaffReply(' + rp.report_id + ')" aria-label="Send reply" title="Send">' +
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2L15 22L11 13L2 9L22 2Z"></path></svg>' +
+              '</button>' +
             '</div>' +
           '</div>';
 
           html += '</div>'; // close rd-modal-body
           content.innerHTML = html;
+          var replyInput = document.getElementById('staffReplyMsg');
+          if (replyInput) {
+            autoResizeStaffReplyInput(replyInput);
+            replyInput.focus();
+          }
         })
         .catch(function() {
           content.innerHTML = '<p style="color:#e74c3c;">Failed to load report.</p>';
@@ -5307,33 +5338,106 @@ main {
       if (e.target === this) closeReportModal();
     });
 
+    function autoResizeStaffReplyInput(textarea) {
+      if (!textarea) return;
+      textarea.style.height = 'auto';
+      var nextHeight = Math.min(textarea.scrollHeight, 220);
+      textarea.style.height = nextHeight + 'px';
+    }
+
+    function handleStaffReplyKeydown(event, reportId) {
+      if (!event) return;
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        submitStaffReply(reportId);
+      }
+    }
+
+    function appendStaffReplyToThread(reportId, reply) {
+      var thread = document.getElementById('rdThreadList');
+      if (!thread || !reply) return;
+
+      var isMine = Number(reply.sender_id || 0) === currentStaffUserId;
+      var bubbleCls = 'rd-reply is-staff ' + (isMine ? 'is-mine' : 'is-theirs');
+      var sender = esc(reply.display_name || reply.sender_name || 'Staff');
+      var msg = esc(reply.message || '');
+      var time = new Date(reply.created_at || Date.now()).toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+      var actions = '';
+
+      if (isMine && reply.reply_id) {
+        actions = '<div class="rd-msg-menu-wrap" id="rdMsgMenu-' + Number(reply.reply_id) + '">' +
+          '<button type="button" class="rd-msg-menu-btn" onclick="toggleReportMsgMenu(' + Number(reply.reply_id) + ')" aria-label="Message actions">⋯</button>' +
+          '<div class="rd-msg-menu-dropdown">' +
+            '<a href="#" class="rd-msg-menu-text" onclick="return deleteClassReply(' + Number(reportId) + ', ' + Number(reply.reply_id) + ')">Delete message</a>' +
+          '</div>' +
+        '</div>';
+      }
+
+      var html = '<div class="' + bubbleCls + '">' +
+        actions +
+        '<div class="rd-reply-header">' +
+          '<span class="rd-reply-sender">' +
+            '<span class="sender-dot staff"></span>' +
+            '<span class="sender-name">' + sender + '</span>' +
+            '<span class="sender-label">Staff</span>' +
+          '</span>' +
+        '</div>' +
+        '<p class="rd-reply-msg">' + msg + '</p>' +
+        '<span class="rd-reply-date">' + time + '</span>' +
+      '</div>';
+
+      thread.insertAdjacentHTML('beforeend', html);
+      thread.scrollTop = thread.scrollHeight;
+
+      var title = document.getElementById('rdConversationTitle');
+      if (title) {
+        var match = String(title.textContent || '').match(/\((\d+)\)/);
+        if (match) {
+          var next = Number(match[1]) + 1;
+          title.textContent = 'Conversation (' + next + ')';
+        }
+      }
+    }
+
     function submitStaffReply(reportId) {
-      var msg = document.getElementById('staffReplyMsg').value.trim();
+      var input = document.getElementById('staffReplyMsg');
+      if (!input) return;
+      var msg = input.value.trim();
       if (!msg) return;
       var btn = document.getElementById('staffReplyBtn');
       btn.disabled = true;
-      btn.textContent = 'Sending...';
 
       fetch('/common/staffReplyToReport', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ reportId: reportId, message: msg })
       })
         .then(function(r) { return r.json(); })
         .then(function(d) {
           if (d.success) {
-            openReportDetail(reportId); // refresh
+            appendStaffReplyToThread(reportId, d.reply || {
+              sender_id: currentStaffUserId,
+              display_name: 'You',
+              message: msg,
+              created_at: new Date().toISOString()
+            });
+            input.value = '';
+            autoResizeStaffReplyInput(input);
+            input.focus();
             loadClassReports(); // refresh list counts
           } else {
             alert(d.error || 'Error sending reply');
             btn.disabled = false;
-            btn.textContent = 'Send Reply';
+            input.focus();
           }
         })
         .catch(function() {
           alert('Error sending reply');
+          input.focus();
+        })
+        .finally(function() {
           btn.disabled = false;
-          btn.textContent = 'Send Reply';
         });
     }
 

@@ -19588,9 +19588,10 @@ NUMBERING:
       );
 
       // Insert reply
-      await db.query(
+      const insertReplyResult = await db.query(
         `INSERT INTO guardian_report_replies (report_id, sender_type, sender_id, sender_name, message)
-         VALUES ($1, 'staff', $2, $3, $4)`,
+         VALUES ($1, 'staff', $2, $3, $4)
+         RETURNING reply_id, report_id, sender_type, sender_id, sender_name, message, created_at`,
         [reportId, userId, staffName, trimmedMessage]
       );
 
@@ -19648,7 +19649,20 @@ NUMBERING:
         }).catch(err => console.error('[Notif] staff_reply failed:', err.message));
       }
 
-      return res.json({ success: true });
+      const reply = insertReplyResult.rows[0] || null;
+      return res.json({
+        success: true,
+        reply: reply ? {
+          reply_id: reply.reply_id,
+          report_id: reply.report_id,
+          sender_type: reply.sender_type,
+          sender_id: Number(reply.sender_id || 0),
+          sender_name: reply.sender_name || staffName,
+          display_name: reply.sender_name || staffName,
+          message: reply.message,
+          created_at: reply.created_at,
+        } : null,
+      });
     } catch (error) {
       console.error("Staff reply error:", error);
       return res.status(500).json({ success: false, error: "Error submitting reply." });
