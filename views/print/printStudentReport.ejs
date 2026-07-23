@@ -60,10 +60,16 @@
             flex-direction: column;
             justify-content: space-between;
             page-break-after: always;
+            break-after: page;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
             transition: all 0.3s ease;
             overflow: visible;
+        }
+
+        .student-report:last-of-type {
+            page-break-after: auto;
+            break-after: auto;
         }
 
         .paygira-print-block {
@@ -743,6 +749,11 @@
                 background: white;
                 position: relative;
                 min-height: auto;
+            }
+
+            .student-report:last-of-type {
+                page-break-after: auto !important;
+                break-after: auto !important;
             }
 
             .paygira-print-block {
@@ -3059,6 +3070,32 @@
                 alert('Please select at least one student to print.');
                 return;
             }
+
+            const selectedStudentIds = Array.from(selectedReports)
+                .map((cb) => parseInt(cb.getAttribute('data-student-id'), 10))
+                .filter((id) => Number.isFinite(id) && id > 0);
+            const printBatchId = `rprint_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+            try {
+                fetch('/print/logDeliveryEvent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    keepalive: true,
+                    body: JSON.stringify({
+                        eventDomain: 'report',
+                        eventName: 'report_printed',
+                        classId: <%= classId %>,
+                        termId: <%= termId %>,
+                        studentIds: selectedStudentIds,
+                        batchId: printBatchId,
+                        status: 'printed',
+                        notes: 'Report printed from printStudentReport page.',
+                    }),
+                }).catch(() => {});
+            } catch (_) {
+                // Logging should not block printing.
+            }
             
             isPrintSelectionInProgress = true;
             reportVisibilityMode = 'print';
@@ -3414,6 +3451,78 @@ function updateClass(studentId) {
             }
           });
 
+        let reportPostStatusPoller = null;
+
+        function stopReportPostStatusPolling() {
+            if (reportPostStatusPoller) {
+                clearInterval(reportPostStatusPoller);
+                reportPostStatusPoller = null;
+            }
+        }
+
+        function startReportPostStatusPolling(classId, termId, postBtnLabel, originalBtnText) {
+            stopReportPostStatusPolling();
+            let pollCount = 0;
+            const maxPollCount = 120; // 10 minutes at 5s interval
+
+            const applyLabel = (value) => {
+                if (postBtnLabel) postBtnLabel.textContent = value;
+            };
+
+            const pollOnce = async () => {
+                pollCount += 1;
+                if (pollCount > maxPollCount) {
+                    stopReportPostStatusPolling();
+                    applyLabel(originalBtnText);
+                    return;
+                }
+
+                try {
+                    const res = await fetch(`/print/postReportCardsStatus?classId=${encodeURIComponent(classId)}&termId=${encodeURIComponent(termId)}`);
+                    const payload = await res.json().catch(() => ({}));
+                    if (!res.ok || !payload.success) return;
+
+                    const status = String(payload.status || '').toLowerCase();
+
+                    if (status === 'queued') {
+                        applyLabel('Queued');
+                        return;
+                    }
+
+                    if (status === 'running') {
+                        applyLabel('Posting...');
+                        return;
+                    }
+
+                    if (status === 'completed' || status === 'completed_with_errors') {
+                        stopReportPostStatusPolling();
+                        applyLabel(originalBtnText);
+                        const readyCount = Number(payload.postedCount || 0);
+                        const failedCount = Number(payload.failedCount || 0);
+                        alert(`Background posting completed. Ready: ${readyCount}${failedCount > 0 ? `, Failed: ${failedCount}` : ''}.`);
+                        return;
+                    }
+
+                    if (status === 'failed') {
+                        stopReportPostStatusPolling();
+                        applyLabel(originalBtnText);
+                        alert(payload.error || 'Background posting failed. Please try again.');
+                        return;
+                    }
+
+                    if (status === 'not_found') {
+                        stopReportPostStatusPolling();
+                        applyLabel(originalBtnText);
+                    }
+                } catch (_) {
+                    // Keep polling on transient network errors.
+                }
+            };
+
+            pollOnce();
+            reportPostStatusPoller = setInterval(pollOnce, 5000);
+        }
+
         async function postReportCards() {
             const postBtn = document.getElementById('postReportCardsLink');
             if (!postBtn) return;
@@ -3490,6 +3599,7 @@ function updateClass(studentId) {
                 if (response.status === 202 || payload.background) {
                     setQueuedState();
                     alert(payload.message || 'Posting has started in the background. You can continue working; parents and teachers will be notified when done.');
+                    startReportPostStatusPolling(<%= classId %>, <%= termId %>, postBtnLabel, originalBtnText);
                     return;
                 }
 

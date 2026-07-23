@@ -23,11 +23,67 @@ async function ensureSignatureMetaColumns(dbClient) {
     }
 }
 
+let ensuredDeliveryAuditTable = false;
+let lastDeliveryRetentionCleanupAt = 0;
+async function ensureDeliveryAuditTable(dbClient) {
+    if (ensuredDeliveryAuditTable) return;
+    await dbClient.query(`
+        CREATE TABLE IF NOT EXISTS delivery_audit_history (
+            id SERIAL PRIMARY KEY,
+            organization_id INTEGER NOT NULL,
+            event_domain VARCHAR(32) NOT NULL,
+            event_name VARCHAR(64) NOT NULL,
+            class_id INTEGER,
+            term_id INTEGER,
+            student_id INTEGER,
+            student_name VARCHAR(255),
+            actor_user_id INTEGER,
+            actor_name VARCHAR(255),
+            recipient_emails TEXT[],
+            status VARCHAR(50),
+            batch_id VARCHAR(120),
+            pdf_url TEXT,
+            notes TEXT,
+            metadata JSONB DEFAULT '{}'::jsonb,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    await dbClient.query(
+        `CREATE INDEX IF NOT EXISTS idx_delivery_audit_org_created ON delivery_audit_history(organization_id, created_at DESC)`
+    );
+    await dbClient.query(
+        `CREATE INDEX IF NOT EXISTS idx_delivery_audit_domain_event ON delivery_audit_history(organization_id, event_domain, event_name)`
+    );
+    ensuredDeliveryAuditTable = true;
+}
+
+async function cleanupDeliveryHistoryRetention(dbClient) {
+    const now = Date.now();
+    if (now - lastDeliveryRetentionCleanupAt < 6 * 60 * 60 * 1000) return;
+
+    try {
+        await dbClient.query(
+            `DELETE FROM delivery_audit_history
+             WHERE created_at < (CURRENT_TIMESTAMP - INTERVAL '3 months')`
+        );
+        await dbClient.query(
+            `DELETE FROM email_history
+             WHERE created_at < (CURRENT_TIMESTAMP - INTERVAL '3 months')`
+        );
+    } catch (cleanupErr) {
+        console.error('[transcript] cleanupDeliveryHistoryRetention failed', cleanupErr?.message || cleanupErr);
+    } finally {
+        lastDeliveryRetentionCleanupAt = now;
+    }
+}
+
 const transcriptController = (db) => ({
     generateTranscript: async (req, res) => {
         const { studentId } = req.params;
         const organizationId = req.session.organizationId;
         await ensureSignatureMetaColumns(db);
+        await ensureDeliveryAuditTable(db);
+        await cleanupDeliveryHistoryRetention(db);
 
         if (!studentId || !organizationId) {
             return res.status(400).send('Invalid student or organization ID.');
@@ -72,6 +128,36 @@ const transcriptController = (db) => ({
             if (!student) {
                 return res.status(404).send('Student not found.');
             }
+
+            const actorUserId = Number(req.session.userId || (req.session.user && req.session.user.user_id)) || null;
+            const actorNameResult = actorUserId
+                ? await db.query(
+                    `SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown') AS actor_name
+                     FROM users
+                     WHERE user_id = $1 AND organization_id = $2
+                     LIMIT 1`,
+                    [actorUserId, organizationId]
+                )
+                : { rows: [] };
+            const actorName = String(actorNameResult.rows[0]?.actor_name || 'Unknown').trim() || 'Unknown';
+
+            await db.query(
+                `INSERT INTO delivery_audit_history (
+                    organization_id, event_domain, event_name, class_id, term_id, student_id,
+                    student_name, actor_user_id, actor_name, recipient_emails, status, notes, metadata
+                ) VALUES ($1, 'transcript', 'transcript_saved', $2, NULL, $3, $4, $5, $6, $7, 'saved', $8, $9::jsonb)`,
+                [
+                    organizationId,
+                    student.class_id || null,
+                    Number(student.student_id),
+                    `${student.first_name} ${student.last_name}`.trim(),
+                    actorUserId,
+                    actorName,
+                    student.guardian_email ? [String(student.guardian_email).trim().toLowerCase()] : [],
+                    'Transcript generated/opened from transcript page.',
+                    JSON.stringify({ source: 'generateTranscript' }),
+                ]
+            );
 
                         // Fetch total percentage and grade for each subject for ended semesters
                         const scoresQuery = `
@@ -177,8 +263,11 @@ const transcriptController = (db) => ({
         
         try {
             await ensureSignatureMetaColumns(db);
+            await ensureDeliveryAuditTable(db);
+            await cleanupDeliveryHistoryRetention(db);
             const { studentId, targetEmail, password } = req.body;
             const organizationId = req.session.organizationId;
+            const actorUserId = Number(req.session.userId || (req.session.user && req.session.user.user_id)) || null;
 
             console.log('[emailTranscript] Request received:', { studentId, targetEmail: targetEmail ? 'provided' : 'none', hasPassword: !!password });
 
@@ -315,6 +404,17 @@ const transcriptController = (db) => ({
             `;
             const fullStudentResult = await db.query(fullStudentQuery, [studentId, organizationId]);
             const fullStudent = fullStudentResult.rows[0];
+
+            const actorNameResult = actorUserId
+                ? await db.query(
+                    `SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown') AS actor_name
+                     FROM users
+                     WHERE user_id = $1 AND organization_id = $2
+                     LIMIT 1`,
+                    [actorUserId, organizationId]
+                )
+                : { rows: [] };
+            const actorName = String(actorNameResult.rows[0]?.actor_name || 'Unknown').trim() || 'Unknown';
 
                         const scoresQuery = `
                                                                 SELECT sub.subject_name,
@@ -497,10 +597,44 @@ const transcriptController = (db) => ({
 
             if (!emailSent) {
                 console.log('[emailTranscript] Email failed to send');
+                await db.query(
+                    `INSERT INTO delivery_audit_history (
+                        organization_id, event_domain, event_name, class_id, term_id, student_id,
+                        student_name, actor_user_id, actor_name, recipient_emails, status, notes, metadata
+                    ) VALUES ($1, 'transcript', 'transcript_email_failed', $2, NULL, $3, $4, $5, $6, $7, 'failed', $8, $9::jsonb)`,
+                    [
+                        organizationId,
+                        fullStudent.class_id || null,
+                        Number(fullStudent.student_id),
+                        `${fullStudent.first_name} ${fullStudent.last_name}`.trim(),
+                        actorUserId,
+                        actorName,
+                        [recipientEmail],
+                        'Transcript email sending failed.',
+                        JSON.stringify({ source: 'emailTranscript' }),
+                    ]
+                );
                 return res.status(500).json({ success: false, message: "Failed to send email. Please try again later." });
             }
 
             console.log('[emailTranscript] Email sent successfully');
+            await db.query(
+                `INSERT INTO delivery_audit_history (
+                    organization_id, event_domain, event_name, class_id, term_id, student_id,
+                    student_name, actor_user_id, actor_name, recipient_emails, status, notes, metadata
+                ) VALUES ($1, 'transcript', 'transcript_email_sent', $2, NULL, $3, $4, $5, $6, $7, 'sent', $8, $9::jsonb)`,
+                [
+                    organizationId,
+                    fullStudent.class_id || null,
+                    Number(fullStudent.student_id),
+                    `${fullStudent.first_name} ${fullStudent.last_name}`.trim(),
+                    actorUserId,
+                    actorName,
+                    [recipientEmail],
+                    'Transcript emailed successfully.',
+                    JSON.stringify({ source: 'emailTranscript' }),
+                ]
+            );
             return res.status(200).json({ success: true, message: `Transcript sent successfully to ${recipientEmail}` });
         } catch (error) {
             console.error('[emailTranscript] Error:', error);

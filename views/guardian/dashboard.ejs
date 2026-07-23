@@ -95,6 +95,10 @@
   }
 
   .guardian-avatar-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
     flex-shrink: 0;
   }
 
@@ -189,73 +193,59 @@
     width: 100%;
   }
 
-  .guardian-quick-actions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-
   .guardian-quick-link {
-    display: block;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
     text-decoration: none;
-    color: inherit;
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 18px 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    color: #0f2d32;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(9, 30, 66, 0.14);
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   }
 
   .guardian-quick-link:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(15, 90, 102, 0.12);
-    border-color: #b6d7dd;
+    box-shadow: 0 10px 24px rgba(15, 90, 102, 0.2);
+    border-color: rgba(255, 255, 255, 0.7);
   }
 
   .guardian-quick-link.unread {
     border-color: #0f5a66;
-    box-shadow: 0 6px 18px rgba(15, 90, 102, 0.14);
+    box-shadow: 0 10px 24px rgba(15, 90, 102, 0.26);
   }
 
-  .quick-link-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-
-  .quick-link-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f2d32;
+  .guardian-quick-link svg {
+    width: 22px;
+    height: 22px;
   }
 
   .quick-link-count {
-    min-width: 34px;
-    height: 34px;
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    min-width: 22px;
+    height: 22px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 999px;
     background: #e2e8f0;
     color: #334155;
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 700;
+    padding: 0 6px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
   }
 
   .guardian-quick-link.unread .quick-link-count {
     background: #0f5a66;
     color: white;
-  }
-
-  .quick-link-copy {
-    margin: 0;
-    color: #64748b;
-    font-size: 14px;
-    line-height: 1.5;
   }
 
   .children-grid {
@@ -454,12 +444,37 @@
       text-align: left;
       padding: 20px;
       margin-bottom: 20px;
-      align-items: flex-start;
+      align-items: stretch;
     }
 
     .guardian-avatar-wrapper {
       margin-bottom: 0;
       flex-shrink: 0;
+      align-items: flex-start;
+      align-self: stretch;
+      justify-content: space-between;
+      gap: 0;
+    }
+
+    .guardian-avatar-wrapper .guardian-quick-link {
+      margin-top: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+    }
+
+    .guardian-avatar-wrapper .guardian-quick-link svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .guardian-avatar-wrapper .quick-link-count {
+      min-width: 17px;
+      height: 17px;
+      font-size: 9px;
+      top: -5px;
+      right: -5px;
+      padding: 0 4px;
     }
 
     .guardian-avatar {
@@ -619,13 +634,34 @@
       padding: 16px;
       border-radius: 12px;
       gap: 10px;
-      align-items: flex-start;
+      align-items: stretch;
     }
 
     .guardian-avatar {
       width: 64px;
       height: 64px;
       border-width: 3px;
+    }
+
+    .guardian-avatar-wrapper .guardian-quick-link {
+      margin-top: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+    }
+
+    .guardian-avatar-wrapper .guardian-quick-link svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .guardian-avatar-wrapper .quick-link-count {
+      min-width: 15px;
+      height: 15px;
+      font-size: 8px;
+      top: -4px;
+      right: -4px;
+      padding: 0 4px;
     }
 
     .guardian-name {
@@ -678,6 +714,18 @@
         alt="<%= guardianDisplayName %>"
         class="guardian-avatar"
       />
+      <a
+        href="/guardian/reports"
+        class="guardian-quick-link <%= inboxSummary && inboxSummary.totalUnreadMessages > 0 ? 'unread' : '' %>"
+        aria-label="Inbox"
+        title="Inbox"
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 7.5C4 6.11929 5.11929 5 6.5 5H17.5C18.8807 5 20 6.11929 20 7.5V16.5C20 17.8807 18.8807 19 17.5 19H6.5C5.11929 19 4 17.8807 4 16.5V7.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M5 7L11.1056 11.274C11.6507 11.6556 12.3493 11.6556 12.8944 11.274L19 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="quick-link-count"><%= inboxSummary ? inboxSummary.totalUnreadMessages : 0 %></span>
+      </a>
     </div>
     <div class="guardian-details">
       <h1 class="guardian-name">Hello, <%= guardianDisplayName %>!</h1>
@@ -702,22 +750,6 @@
         </div>
       </div>
     </div>
-  </div>
-
-  <div class="guardian-quick-actions">
-    <a href="/guardian/reports" class="guardian-quick-link <%= inboxSummary && inboxSummary.totalUnreadMessages > 0 ? 'unread' : '' %>">
-      <div class="quick-link-top">
-        <span class="quick-link-title">Inbox</span>
-        <span class="quick-link-count"><%= inboxSummary ? inboxSummary.totalUnreadMessages : 0 %></span>
-      </div>
-      <p class="quick-link-copy">
-        <% if (inboxSummary && inboxSummary.totalUnreadMessages > 0) { %>
-          <%= inboxSummary.totalUnreadMessages %> unread message<%= inboxSummary.totalUnreadMessages !== 1 ? 's' : '' %> across <%= inboxSummary.unreadReportCount %> report<%= inboxSummary.unreadReportCount !== 1 ? 's' : '' %>.
-        <% } else { %>
-          No unread replies from the school right now.
-        <% } %>
-      </p>
-    </a>
   </div>
 
   <!-- Children Section -->

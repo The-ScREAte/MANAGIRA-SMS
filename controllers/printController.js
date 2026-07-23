@@ -28,6 +28,61 @@ const CACHE_DURATION = 10 * 60 * 1000; // Cache organization data for 10 minutes
 const NodeCache = require("node-cache");
 const cache = new NodeCache({ stdTTL: 600 }); // Cache for 10 minutes
 const reportCardPostJobs = new Map();
+let ensuredDeliveryAuditTable = false;
+let lastDeliveryRetentionCleanupAt = 0;
+
+async function ensureDeliveryAuditTable(dbClient) {
+  if (ensuredDeliveryAuditTable) return;
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS delivery_audit_history (
+      id SERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL,
+      event_domain VARCHAR(32) NOT NULL,
+      event_name VARCHAR(64) NOT NULL,
+      class_id INTEGER,
+      term_id INTEGER,
+      student_id INTEGER,
+      student_name VARCHAR(255),
+      actor_user_id INTEGER,
+      actor_name VARCHAR(255),
+      recipient_emails TEXT[],
+      status VARCHAR(50),
+      batch_id VARCHAR(120),
+      pdf_url TEXT,
+      notes TEXT,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await dbClient.query(
+    `CREATE INDEX IF NOT EXISTS idx_delivery_audit_org_created ON delivery_audit_history(organization_id, created_at DESC)`
+  );
+  await dbClient.query(
+    `CREATE INDEX IF NOT EXISTS idx_delivery_audit_domain_event ON delivery_audit_history(organization_id, event_domain, event_name)`
+  );
+  ensuredDeliveryAuditTable = true;
+}
+
+async function cleanupDeliveryHistoryRetention(dbClient) {
+  const now = Date.now();
+  // Run at most once every 6 hours per process.
+  if (now - lastDeliveryRetentionCleanupAt < 6 * 60 * 60 * 1000) return;
+
+  try {
+    await dbClient.query(
+      `DELETE FROM delivery_audit_history
+       WHERE created_at < (CURRENT_TIMESTAMP - INTERVAL '3 months')`
+    );
+    await dbClient.query(
+      `DELETE FROM email_history
+       WHERE created_at < (CURRENT_TIMESTAMP - INTERVAL '3 months')`
+    );
+  } catch (cleanupErr) {
+    console.error('[cleanupDeliveryHistoryRetention] Failed:', cleanupErr?.message || cleanupErr);
+  } finally {
+    lastDeliveryRetentionCleanupAt = now;
+  }
+}
 
 // Ensure signature metadata columns exist (safe to call multiple times)
 let ensuredSignatureMeta = false;
@@ -6039,6 +6094,8 @@ const printController = (db) => ({
     const { classId, termId } = req.query;
     const organizationId = req.session.organizationId;
     const { studentReports } = req.body;
+    const actorUserId = Number(req.session.userId || req.session?.user?.user_id) || null;
+    const activityBatchId = `rsave_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   
     if (!organizationId || !classId || !termId || !studentReports) {
       return res.status(400).send("Missing required fields.");
@@ -6048,6 +6105,10 @@ const printController = (db) => ({
       await ensureStudentReportManualAttendanceColumn(db);
       await ensureStudentReportPaygiraManualDataColumn(db);
       await ensureStudentReportCustomRemarksColumn(db);
+      await ensureDeliveryAuditTable(db);
+      await cleanupDeliveryHistoryRetention(db);
+      await cleanupDeliveryHistoryRetention(db);
+      await cleanupDeliveryHistoryRetention(db);
       const parsedClassId = parseInt(classId, 10);
       const parsedTermId = parseInt(termId, 10);
 
@@ -6073,6 +6134,29 @@ const printController = (db) => ({
         requestedStudentIds,
       );
       const validStudentIdSet = new Set(validStudentIds);
+
+      const actorNameResult = actorUserId
+        ? await db.query(
+            `SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown') AS actor_name
+             FROM users
+             WHERE user_id = $1 AND organization_id = $2
+             LIMIT 1`,
+            [actorUserId, organizationId]
+          )
+        : { rows: [] };
+      const actorName = String(actorNameResult.rows[0]?.actor_name || 'Unknown').trim() || 'Unknown';
+
+      const studentNamesResult = validStudentIds.length
+        ? await db.query(
+            `SELECT student_id, COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), CONCAT('Student ', student_id)) AS student_name
+             FROM students
+             WHERE organization_id = $1 AND student_id = ANY($2::int[])`,
+            [organizationId, validStudentIds]
+          )
+        : { rows: [] };
+      const studentNameById = new Map(
+        (studentNamesResult.rows || []).map((row) => [Number(row.student_id), String(row.student_name || '').trim()])
+      );
 
       if (requestedStudentIds.length !== validStudentIds.length) {
         return res.status(400).send("One or more students do not belong to the selected class and term.");
@@ -6176,6 +6260,26 @@ const printController = (db) => ({
             manualAttendanceProvided,
             manualAttendanceTotalProvided,
             paygiraManualDataProvided,
+          ]
+        );
+
+        await db.query(
+          `INSERT INTO delivery_audit_history (
+             organization_id, event_domain, event_name, class_id, term_id, student_id,
+             student_name, actor_user_id, actor_name, status, batch_id, notes, metadata
+           )
+           VALUES ($1, 'report', 'report_saved', $2, $3, $4, $5, $6, $7, 'saved', $8, $9, $10::jsonb)`,
+          [
+            organizationId,
+            parsedClassId,
+            parsedTermId,
+            Number(studentId),
+            studentNameById.get(Number(studentId)) || `Student ${studentId}`,
+            actorUserId,
+            actorName,
+            activityBatchId,
+            'Report data saved from printStudentReport page.',
+            JSON.stringify({ source: 'saveReportChanges' }),
           ]
         );
       }
@@ -6489,6 +6593,7 @@ const printController = (db) => ({
       const classId = Number(req.body?.classId);
       const termId = Number(req.body?.termId);
       const selectedStudentIds = parsePositiveIntArray(req.body?.studentIds);
+      const activityBatchId = `rpost_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
       if (!organizationId || !classId || !termId) {
         return res.status(400).json({ success: false, message: "Missing classId or termId." });
@@ -6537,6 +6642,8 @@ const printController = (db) => ({
             queuedAt: new Date().toISOString(),
           });
 
+          await ensureDeliveryAuditTable(db);
+          await cleanupDeliveryHistoryRetention(db);
           await ensurePostedReportCardsTable(db);
 
           const termResult = await db.query(
@@ -6658,11 +6765,26 @@ const printController = (db) => ({
                 document.querySelectorAll(".actions-no-print, .student-checkbox, hr, #emailModal").forEach((el) => {
                   el.style.display = "none";
                 });
+
+                // Ensure only real report pages are emitted and avoid a trailing blank page.
+                const reports = Array.from(document.querySelectorAll('.student-report'));
+                reports.forEach((report) => {
+                  report.classList.remove('temp-last-report');
+                  report.style.pageBreakAfter = 'always';
+                  report.style.breakAfter = 'page';
+                });
+                const lastReport = reports[reports.length - 1];
+                if (lastReport) {
+                  lastReport.classList.add('temp-last-report');
+                  lastReport.style.pageBreakAfter = 'auto';
+                  lastReport.style.breakAfter = 'auto';
+                }
               });
 
               const pdfBuffer = await page.pdf({
                 format: "A4",
                 printBackground: true,
+                preferCSSPageSize: true,
                 margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
               });
 
@@ -6867,6 +6989,73 @@ const printController = (db) => ({
               }
             });
 
+            const postActorResult = postedBy
+              ? await db.query(
+                  `SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown') AS actor_name
+                   FROM users
+                   WHERE user_id = $1 AND organization_id = $2
+                   LIMIT 1`,
+                  [postedBy, organizationId]
+                )
+              : { rows: [] };
+            const postActorName = String(postActorResult.rows[0]?.actor_name || 'Unknown').trim() || 'Unknown';
+
+            const guardianEmailsByStudent = new Map();
+            guardianEmailTargets.forEach((target) => {
+              const sid = Number(target.studentId);
+              if (!Number.isFinite(sid) || sid <= 0) return;
+              if (!guardianEmailsByStudent.has(sid)) {
+                guardianEmailsByStudent.set(sid, new Set());
+              }
+              if (target.guardianEmail) {
+                guardianEmailsByStudent.get(sid).add(String(target.guardianEmail).trim().toLowerCase());
+              }
+            });
+
+            if (postedRecords.length) {
+              await db.query(
+                `INSERT INTO delivery_audit_history (
+                   organization_id, event_domain, event_name, class_id, term_id, student_id,
+                   student_name, actor_user_id, actor_name, recipient_emails, status, batch_id, pdf_url, notes, metadata
+                 )
+                 SELECT *
+                 FROM UNNEST(
+                   $1::int[],
+                   $2::text[],
+                   $3::text[],
+                   $4::int[],
+                   $5::int[],
+                   $6::int[],
+                   $7::text[],
+                   $8::int[],
+                   $9::text[],
+                   $10::text[][],
+                   $11::text[],
+                   $12::text[],
+                   $13::text[],
+                   $14::text[],
+                   $15::jsonb[]
+                 )`,
+                [
+                  postedRecords.map(() => organizationId),
+                  postedRecords.map(() => 'report'),
+                  postedRecords.map(() => 'report_posted'),
+                  postedRecords.map(() => classId),
+                  postedRecords.map(() => termId),
+                  postedRecords.map((item) => Number(item.studentId)),
+                  postedRecords.map((item) => studentNameById.get(Number(item.studentId)) || `Student ${item.studentId}`),
+                  postedRecords.map(() => postedBy),
+                  postedRecords.map(() => postActorName),
+                  postedRecords.map((item) => Array.from(guardianEmailsByStudent.get(Number(item.studentId)) || [])),
+                  postedRecords.map(() => 'posted'),
+                  postedRecords.map(() => activityBatchId),
+                  postedRecords.map((item) => String(item.pdfUrl || '')),
+                  postedRecords.map(() => `Report posted for ${className} (${termName}).`),
+                  postedRecords.map(() => ({ source: 'postReportCards' })),
+                ]
+              );
+            }
+
             const staffNotifications = (staffRecipientsResult.rows || [])
               .map((row) => Number(row.user_id))
               .filter((userId) => Number.isFinite(userId) && userId > 0)
@@ -7007,6 +7196,211 @@ const printController = (db) => ({
     }
   },
 
+  getReportPostJobStatus: async (req, res) => {
+    try {
+      const organizationId = Number(req.session.organizationId);
+      const classId = Number(req.query?.classId);
+      const termId = Number(req.query?.termId);
+
+      if (!organizationId || !classId || !termId) {
+        return res.status(400).json({ success: false, message: "Missing classId or termId." });
+      }
+
+      const jobKey = `${organizationId}:${classId}:${termId}`;
+      const job = reportCardPostJobs.get(jobKey);
+
+      if (!job) {
+        return res.json({
+          success: true,
+          exists: false,
+          status: "not_found",
+          message: "No active background posting job for this class and term.",
+          jobKey,
+        });
+      }
+
+      return res.json({
+        success: true,
+        exists: true,
+        status: String(job.status || "unknown"),
+        jobKey,
+        startedAt: job.startedAt || null,
+        queuedAt: job.queuedAt || null,
+        completedAt: job.completedAt || null,
+        postedCount: Number(job.postedCount || 0),
+        generatedCount: Number(job.generatedCount || 0),
+        reusedCount: Number(job.reusedCount || 0),
+        failedCount: Number(job.failedCount || 0),
+        error: job.error || null,
+      });
+    } catch (error) {
+      console.error("[getReportPostJobStatus] Error:", error);
+      return res.status(500).json({ success: false, message: "Failed to fetch post status." });
+    }
+  },
+
+  logDeliveryEvent: async (req, res) => {
+    try {
+      const organizationId = Number(req.session.organizationId);
+      const actorUserId = Number(req.session.userId || req.session?.user?.user_id) || null;
+      if (!organizationId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      await ensureDeliveryAuditTable(db);
+
+      const eventDomain = String(req.body?.eventDomain || '').trim().toLowerCase();
+      const eventName = String(req.body?.eventName || '').trim().toLowerCase();
+      const classId = Number(req.body?.classId) || null;
+      const termId = Number(req.body?.termId) || null;
+      const singleStudentId = Number(req.body?.studentId) || null;
+      const studentIds = parsePositiveIntArray(req.body?.studentIds || []);
+      const payloadRecipientEmails = Array.isArray(req.body?.recipientEmails)
+        ? req.body.recipientEmails.map((v) => String(v || '').trim().toLowerCase()).filter(Boolean)
+        : [];
+      const status = String(req.body?.status || 'recorded').trim().toLowerCase() || 'recorded';
+      const batchId = String(req.body?.batchId || '').trim();
+      const notes = String(req.body?.notes || '').trim();
+
+      if (!eventDomain || !eventName) {
+        return res.status(400).json({ success: false, message: 'eventDomain and eventName are required.' });
+      }
+
+      const targetStudentIds = Array.from(new Set([
+        ...(studentIds || []),
+        ...(Number.isFinite(singleStudentId) && singleStudentId > 0 ? [singleStudentId] : []),
+      ])).filter((id) => Number.isFinite(id) && id > 0);
+
+      const actorNameResult = actorUserId
+        ? await db.query(
+            `SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown') AS actor_name
+             FROM users
+             WHERE user_id = $1 AND organization_id = $2
+             LIMIT 1`,
+            [actorUserId, organizationId]
+          )
+        : { rows: [] };
+      const actorName = String(actorNameResult.rows[0]?.actor_name || 'Unknown').trim() || 'Unknown';
+
+      const studentRows = targetStudentIds.length
+        ? (await db.query(
+            `SELECT student_id,
+                    class_id,
+                    COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), CONCAT('Student ', student_id)) AS student_name
+             FROM students
+             WHERE organization_id = $1 AND student_id = ANY($2::int[])`,
+            [organizationId, targetStudentIds]
+          )).rows
+        : [];
+
+      const studentNameById = new Map(studentRows.map((row) => [Number(row.student_id), String(row.student_name || '').trim()]));
+      const studentClassById = new Map(studentRows.map((row) => [Number(row.student_id), Number(row.class_id) || null]));
+
+      const resolvedStudentIds = targetStudentIds.length ? targetStudentIds.filter((id) => studentNameById.has(id)) : [];
+      const effectiveStudentIds = resolvedStudentIds.length ? resolvedStudentIds : [null];
+
+      const guardianEmailsByStudent = new Map();
+      if (resolvedStudentIds.length && payloadRecipientEmails.length === 0) {
+        const guardianRows = (await db.query(
+          `SELECT gs.student_id, gp.email
+             FROM guardian_students gs
+             JOIN guardian_profiles gp
+               ON gp.guardian_id = gs.guardian_id
+              AND gp.organization_id = $1
+            WHERE gs.student_id = ANY($2::int[])
+              AND gp.email IS NOT NULL
+           UNION
+           SELECT g.student_id, g.email
+             FROM guardians g
+            WHERE g.organization_id = $1
+              AND g.student_id = ANY($2::int[])
+              AND g.email IS NOT NULL`,
+          [organizationId, resolvedStudentIds]
+        )).rows;
+
+        guardianRows.forEach((row) => {
+          const sid = Number(row.student_id);
+          const email = String(row.email || '').trim().toLowerCase();
+          if (!Number.isFinite(sid) || sid <= 0 || !email) return;
+          if (!guardianEmailsByStudent.has(sid)) guardianEmailsByStudent.set(sid, new Set());
+          guardianEmailsByStudent.get(sid).add(email);
+        });
+      }
+
+      const rowsToInsert = effectiveStudentIds.map((sid) => {
+        const recipients = payloadRecipientEmails.length
+          ? payloadRecipientEmails
+          : (sid && guardianEmailsByStudent.has(sid) ? Array.from(guardianEmailsByStudent.get(sid)) : []);
+        return {
+          organizationId,
+          eventDomain,
+          eventName,
+          classId: Number.isFinite(classId) && classId > 0 ? classId : (sid ? studentClassById.get(sid) || null : null),
+          termId: Number.isFinite(termId) && termId > 0 ? termId : null,
+          studentId: sid,
+          studentName: sid ? (studentNameById.get(sid) || `Student ${sid}`) : null,
+          actorUserId,
+          actorName,
+          recipientEmails: recipients,
+          status,
+          batchId,
+          notes,
+          metadata: {
+            source: 'logDeliveryEvent',
+            providedRecipientCount: payloadRecipientEmails.length,
+          },
+        };
+      });
+
+      if (rowsToInsert.length) {
+        await db.query(
+          `INSERT INTO delivery_audit_history (
+             organization_id, event_domain, event_name, class_id, term_id, student_id,
+             student_name, actor_user_id, actor_name, recipient_emails, status, batch_id, notes, metadata
+           )
+           SELECT *
+           FROM UNNEST(
+             $1::int[],
+             $2::text[],
+             $3::text[],
+             $4::int[],
+             $5::int[],
+             $6::int[],
+             $7::text[],
+             $8::int[],
+             $9::text[],
+             $10::text[][],
+             $11::text[],
+             $12::text[],
+             $13::text[],
+             $14::jsonb[]
+           )`,
+          [
+            rowsToInsert.map((r) => r.organizationId),
+            rowsToInsert.map((r) => r.eventDomain),
+            rowsToInsert.map((r) => r.eventName),
+            rowsToInsert.map((r) => r.classId),
+            rowsToInsert.map((r) => r.termId),
+            rowsToInsert.map((r) => r.studentId),
+            rowsToInsert.map((r) => r.studentName),
+            rowsToInsert.map((r) => r.actorUserId),
+            rowsToInsert.map((r) => r.actorName),
+            rowsToInsert.map((r) => r.recipientEmails),
+            rowsToInsert.map((r) => r.status),
+            rowsToInsert.map((r) => r.batchId || null),
+            rowsToInsert.map((r) => r.notes || ''),
+            rowsToInsert.map((r) => r.metadata || {}),
+          ]
+        );
+      }
+
+      return res.json({ success: true, inserted: rowsToInsert.length });
+    } catch (error) {
+      console.error('[logDeliveryEvent] Error:', error);
+      return res.status(500).json({ success: false, message: 'Failed to log delivery event.' });
+    }
+  },
+
   // Get guardian emails for selected students
   getGuardianEmails: async (req, res) => {
     try {
@@ -7143,18 +7537,42 @@ const printController = (db) => ({
   },
 
   /**
-   * Email history endpoint - returns all email jobs
+   * Delivery history endpoint - unified report/transcript audit events.
    */
   getEmailHistory: asyncHandler(async (req, res) => {
     try {
       const organizationId = req.session.organizationId;
-      const { class_id, term_id, student_id, status } = req.query;
+      const {
+        class_id,
+        term_id,
+        student_id,
+        status,
+        batch_id,
+        date_from,
+        date_to,
+        q,
+        delivery_domain,
+      } = req.query;
 
       if (!organizationId) {
         return res.status(401).json({ success: false, message: 'Not authorized' });
       }
+
+      await ensureDeliveryAuditTable(db);
+
+      const filters = {
+        classId: class_id ? Number(class_id) : null,
+        termId: term_id ? Number(term_id) : null,
+        studentId: student_id ? Number(student_id) : null,
+        status: String(status || '').trim().toLowerCase(),
+        batchId: String(batch_id || '').trim(),
+        dateFrom: String(date_from || '').trim(),
+        dateTo: String(date_to || '').trim(),
+        query: String(q || '').trim().toLowerCase(),
+        domain: String(delivery_domain || '').trim().toLowerCase(),
+      };
       
-      let query = `
+      let emailQuery = `
         SELECT 
           eh.id,
           eh.batch_id,
@@ -7162,16 +7580,25 @@ const printController = (db) => ({
           eh.term_id,
           eh.student_id,
           eh.student_name,
+          eh.user_id,
           eh.recipient_emails,
           eh.status,
           eh.error_message,
           eh.pdf_generated,
           eh.sent_at,
           eh.created_at,
+          eh.updated_at,
           c.class_name,
           t.term_name,
           sy.year_label,
-          prc.posted_at AS report_posted_at
+          prc.posted_at AS report_posted_at,
+          prc.pdf_url AS report_pdf_url,
+          COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email, 'Unknown') AS queued_by_name,
+          CARDINALITY(COALESCE(eh.recipient_emails, ARRAY[]::text[])) AS recipient_count,
+          'report'::text AS delivery_domain,
+          'report_email'::text AS activity_type,
+          'email_history'::text AS source_type,
+          eh.id AS source_id
         FROM email_history eh
         LEFT JOIN classes c
           ON c.class_id = eh.class_id
@@ -7186,34 +7613,250 @@ const printController = (db) => ({
          AND prc.class_id = eh.class_id
          AND prc.term_id = eh.term_id
          AND prc.student_id = eh.student_id
+        LEFT JOIN users u
+          ON u.user_id = eh.user_id
+         AND u.organization_id = eh.organization_id
         WHERE eh.organization_id = $1
       `;
-      const params = [organizationId];
-      
-      if (class_id) {
-        params.push(class_id);
-        query += ` AND eh.class_id = $${params.length}`;
+      const emailParams = [organizationId];
+
+      if (Number.isFinite(filters.classId) && filters.classId > 0) {
+        emailParams.push(filters.classId);
+        emailQuery += ` AND eh.class_id = $${emailParams.length}`;
       }
-      
-      if (term_id) {
-        params.push(term_id);
-        query += ` AND eh.term_id = $${params.length}`;
+      if (Number.isFinite(filters.termId) && filters.termId > 0) {
+        emailParams.push(filters.termId);
+        emailQuery += ` AND eh.term_id = $${emailParams.length}`;
+      }
+      if (Number.isFinite(filters.studentId) && filters.studentId > 0) {
+        emailParams.push(filters.studentId);
+        emailQuery += ` AND eh.student_id = $${emailParams.length}`;
+      }
+      if (filters.status && ['pending', 'sending', 'sent', 'failed'].includes(filters.status)) {
+        emailParams.push(filters.status);
+        emailQuery += ` AND LOWER(eh.status) = $${emailParams.length}`;
+      }
+      if (filters.batchId) {
+        emailParams.push(filters.batchId);
+        emailQuery += ` AND eh.batch_id = $${emailParams.length}`;
+      }
+      if (filters.dateFrom) {
+        emailParams.push(filters.dateFrom);
+        emailQuery += ` AND eh.created_at >= $${emailParams.length}::date`;
+      }
+      if (filters.dateTo) {
+        emailParams.push(filters.dateTo);
+        emailQuery += ` AND eh.created_at < ($${emailParams.length}::date + INTERVAL '1 day')`;
+      }
+      if (filters.query) {
+        const normalized = `%${filters.query}%`;
+        emailParams.push(normalized);
+        emailQuery += `
+          AND (
+            LOWER(COALESCE(eh.student_name, '')) LIKE $${emailParams.length}
+            OR LOWER(COALESCE(eh.batch_id, '')) LIKE $${emailParams.length}
+            OR LOWER(COALESCE(array_to_string(eh.recipient_emails, ','), '')) LIKE $${emailParams.length}
+            OR LOWER(COALESCE(c.class_name, '')) LIKE $${emailParams.length}
+            OR LOWER(COALESCE(t.term_name, '')) LIKE $${emailParams.length}
+          )`;
       }
 
-      if (student_id) {
-        params.push(student_id);
-        query += ` AND eh.student_id = $${params.length}`;
+      emailQuery += ` ORDER BY eh.created_at DESC LIMIT 700`;
+
+      let postedQuery = `
+        SELECT
+          prc.student_id,
+          COALESCE(NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), ''), CONCAT('Student ', prc.student_id)) AS student_name,
+          prc.class_id,
+          prc.term_id,
+          prc.posted_by AS user_id,
+          NULL::text[] AS recipient_emails,
+          'posted'::text AS status,
+          NULL::text AS error_message,
+          true AS pdf_generated,
+          prc.posted_at AS sent_at,
+          prc.posted_at AS created_at,
+          prc.updated_at,
+          c.class_name,
+          t.term_name,
+          sy.year_label,
+          prc.posted_at AS report_posted_at,
+          prc.pdf_url AS report_pdf_url,
+          COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.email, 'Unknown') AS queued_by_name,
+          0::int AS recipient_count,
+          'report'::text AS delivery_domain,
+          'report_posted'::text AS activity_type,
+          'posted_report_cards'::text AS source_type,
+          prc.student_id AS source_id,
+          NULL::text AS batch_id,
+          NULL::int AS id
+        FROM posted_report_cards prc
+        LEFT JOIN students s ON s.student_id = prc.student_id AND s.organization_id = prc.organization_id
+        LEFT JOIN classes c ON c.class_id = prc.class_id AND c.organization_id = prc.organization_id
+        LEFT JOIN terms t ON t.term_id = prc.term_id AND t.organization_id = prc.organization_id
+        LEFT JOIN school_years sy ON sy.id = t.school_year_id
+        LEFT JOIN users u ON u.user_id = prc.posted_by AND u.organization_id = prc.organization_id
+        WHERE prc.organization_id = $1
+      `;
+      const postedParams = [organizationId];
+      if (Number.isFinite(filters.classId) && filters.classId > 0) {
+        postedParams.push(filters.classId);
+        postedQuery += ` AND prc.class_id = $${postedParams.length}`;
+      }
+      if (Number.isFinite(filters.termId) && filters.termId > 0) {
+        postedParams.push(filters.termId);
+        postedQuery += ` AND prc.term_id = $${postedParams.length}`;
+      }
+      if (Number.isFinite(filters.studentId) && filters.studentId > 0) {
+        postedParams.push(filters.studentId);
+        postedQuery += ` AND prc.student_id = $${postedParams.length}`;
+      }
+      if (filters.dateFrom) {
+        postedParams.push(filters.dateFrom);
+        postedQuery += ` AND prc.posted_at >= $${postedParams.length}::date`;
+      }
+      if (filters.dateTo) {
+        postedParams.push(filters.dateTo);
+        postedQuery += ` AND prc.posted_at < ($${postedParams.length}::date + INTERVAL '1 day')`;
+      }
+      if (filters.query) {
+        const normalized = `%${filters.query}%`;
+        postedParams.push(normalized);
+        postedQuery += `
+          AND (
+            LOWER(COALESCE(CONCAT(s.first_name, ' ', s.last_name), '')) LIKE $${postedParams.length}
+            OR LOWER(COALESCE(c.class_name, '')) LIKE $${postedParams.length}
+            OR LOWER(COALESCE(t.term_name, '')) LIKE $${postedParams.length}
+          )`;
+      }
+      postedQuery += ` ORDER BY prc.posted_at DESC LIMIT 700`;
+
+      let auditQuery = `
+        SELECT
+          dah.id,
+          dah.batch_id,
+          dah.class_id,
+          dah.term_id,
+          dah.student_id,
+          dah.student_name,
+          dah.actor_user_id AS user_id,
+          dah.recipient_emails,
+          COALESCE(NULLIF(dah.status, ''), 'recorded') AS status,
+          dah.notes AS error_message,
+          CASE WHEN dah.pdf_url IS NULL THEN false ELSE true END AS pdf_generated,
+          NULL::timestamp AS sent_at,
+          dah.created_at,
+          dah.created_at AS updated_at,
+          c.class_name,
+          t.term_name,
+          sy.year_label,
+          CASE WHEN dah.event_name = 'report_posted' THEN dah.created_at ELSE NULL::timestamp END AS report_posted_at,
+          dah.pdf_url AS report_pdf_url,
+          COALESCE(NULLIF(TRIM(dah.actor_name), ''), 'Unknown') AS queued_by_name,
+          CARDINALITY(COALESCE(dah.recipient_emails, ARRAY[]::text[])) AS recipient_count,
+          dah.event_domain AS delivery_domain,
+          dah.event_name AS activity_type,
+          'delivery_audit_history'::text AS source_type,
+          dah.id AS source_id
+        FROM delivery_audit_history dah
+        LEFT JOIN classes c ON c.class_id = dah.class_id AND c.organization_id = dah.organization_id
+        LEFT JOIN terms t ON t.term_id = dah.term_id AND t.organization_id = dah.organization_id
+        LEFT JOIN school_years sy ON sy.id = t.school_year_id
+        WHERE dah.organization_id = $1
+      `;
+      const auditParams = [organizationId];
+      if (Number.isFinite(filters.classId) && filters.classId > 0) {
+        auditParams.push(filters.classId);
+        auditQuery += ` AND dah.class_id = $${auditParams.length}`;
+      }
+      if (Number.isFinite(filters.termId) && filters.termId > 0) {
+        auditParams.push(filters.termId);
+        auditQuery += ` AND dah.term_id = $${auditParams.length}`;
+      }
+      if (Number.isFinite(filters.studentId) && filters.studentId > 0) {
+        auditParams.push(filters.studentId);
+        auditQuery += ` AND dah.student_id = $${auditParams.length}`;
+      }
+      if (filters.batchId) {
+        auditParams.push(filters.batchId);
+        auditQuery += ` AND dah.batch_id = $${auditParams.length}`;
+      }
+      if (filters.dateFrom) {
+        auditParams.push(filters.dateFrom);
+        auditQuery += ` AND dah.created_at >= $${auditParams.length}::date`;
+      }
+      if (filters.dateTo) {
+        auditParams.push(filters.dateTo);
+        auditQuery += ` AND dah.created_at < ($${auditParams.length}::date + INTERVAL '1 day')`;
+      }
+      if (filters.query) {
+        const normalized = `%${filters.query}%`;
+        auditParams.push(normalized);
+        auditQuery += `
+          AND (
+            LOWER(COALESCE(dah.student_name, '')) LIKE $${auditParams.length}
+            OR LOWER(COALESCE(dah.event_name, '')) LIKE $${auditParams.length}
+            OR LOWER(COALESCE(array_to_string(dah.recipient_emails, ','), '')) LIKE $${auditParams.length}
+            OR LOWER(COALESCE(c.class_name, '')) LIKE $${auditParams.length}
+            OR LOWER(COALESCE(t.term_name, '')) LIKE $${auditParams.length}
+          )`;
+      }
+      auditQuery += ` ORDER BY dah.created_at DESC LIMIT 700`;
+
+      const [emailResult, postedResult, auditResult] = await Promise.all([
+        db.query(emailQuery, emailParams),
+        db.query(postedQuery, postedParams),
+        db.query(auditQuery, auditParams),
+      ]);
+
+      let rows = [
+        ...(emailResult.rows || []),
+        ...(postedResult.rows || []),
+        ...(auditResult.rows || []),
+      ];
+
+      // Prefer richer audit rows when posted_report_cards and audit emit equivalent report_posted events.
+      const dedupeMap = new Map();
+      rows.forEach((row) => {
+        const key = [
+          String(row.delivery_domain || ''),
+          String(row.activity_type || ''),
+          String(row.class_id || ''),
+          String(row.term_id || ''),
+          String(row.student_id || ''),
+          String(row.report_pdf_url || ''),
+          String(new Date(row.created_at || 0).toISOString()).slice(0, 19),
+        ].join('|');
+
+        const existing = dedupeMap.get(key);
+        if (!existing) {
+          dedupeMap.set(key, row);
+          return;
+        }
+
+        const currentScore = (String(row.source_type || '') === 'delivery_audit_history' ? 2 : 0)
+          + (Number(row.recipient_count || 0) > 0 ? 1 : 0);
+        const existingScore = (String(existing.source_type || '') === 'delivery_audit_history' ? 2 : 0)
+          + (Number(existing.recipient_count || 0) > 0 ? 1 : 0);
+
+        if (currentScore > existingScore) {
+          dedupeMap.set(key, row);
+        }
+      });
+      rows = Array.from(dedupeMap.values());
+
+      if (filters.domain && ['report', 'transcript'].includes(filters.domain)) {
+        rows = rows.filter((row) => String(row.delivery_domain || '').toLowerCase() === filters.domain);
       }
 
-      if (status) {
-        params.push(String(status).trim().toLowerCase());
-        query += ` AND LOWER(eh.status) = $${params.length}`;
+      if (filters.status) {
+        rows = rows.filter((row) => String(row.status || '').toLowerCase() === filters.status);
       }
-      
-      query += ` ORDER BY eh.created_at DESC LIMIT 700`;
-      
-      const result = await db.query(query, params);
-      res.json({ success: true, data: result.rows });
+
+      rows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      rows = rows.slice(0, 1000);
+
+      return res.json({ success: true, data: rows });
     } catch (error) {
       console.error('[getEmailHistory] Error:', error);
       res.status(500).json({ success: false, message: 'Failed to fetch email history' });

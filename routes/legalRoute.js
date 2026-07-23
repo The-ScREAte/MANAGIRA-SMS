@@ -35,6 +35,9 @@ router.get('/help', legalController.getHelp);
 router.post('/help', legalController.postHelp);
 router.get('/privacy-policy', legalController.privacyPolicy);
 router.get('/terms-of-service', legalController.termsOfService);
+// Backward-compatible aliases used by older links and external references.
+router.get('/privacy', legalController.privacyPolicy);
+router.get('/terms', legalController.termsOfService);
 router.get('/employment', legalController.employmentPage);
 router.post('/employment/:id/apply', (req, res, next) => {
 	upload.fields([

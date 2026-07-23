@@ -635,7 +635,7 @@
     <!-- Controls -->
     <div class="transcript-controls">
       <button class="ctrl-btn ctrl-btn-back" onclick="history.back()">← Back</button>
-      <button class="ctrl-btn ctrl-btn-print" onclick="window.print()">🖨️ Print</button>
+      <button class="ctrl-btn ctrl-btn-print" onclick="trackTranscriptPrintAndPrint()">🖨️ Print</button>
       <button class="ctrl-btn ctrl-btn-email" onclick="openEmailModal()">✉️ Email</button>
     </div>
 
@@ -833,6 +833,29 @@
 
     <script>
       let emailRecipient = '';
+
+      function trackTranscriptPrintAndPrint() {
+        try {
+          fetch('/print/logDeliveryEvent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            keepalive: true,
+            body: JSON.stringify({
+              eventDomain: 'transcript',
+              eventName: 'transcript_printed',
+              classId: <%= student.class_id || 'null' %>,
+              studentId: <%= student.student_id %>,
+              status: 'printed',
+              notes: 'Transcript printed from transcript page.',
+            })
+          }).catch(() => {});
+        } catch (_) {
+          // Do not block printing if event logging fails.
+        }
+
+        window.print();
+      }
       
       function openEmailModal(){
         document.getElementById('emailStepStatus').textContent = '';

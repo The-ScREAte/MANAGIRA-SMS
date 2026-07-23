@@ -3,267 +3,632 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email History | Managira</title>
+    <title>Report and Transcript Delivery History | Managira</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" sizes="any" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <% const backQuery = (classId ? `?classId=${classId}${termId ? `&termId=${termId}` : ''}` : (termId ? `?termId=${termId}` : '')); %>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background: #f4f6f9;
-            color: #1f2933;
-            line-height: 1.6;
+        :root {
+            --bg: #f2f5f8;
+            --panel: #ffffff;
+            --line: #d8e1ea;
+            --text: #132233;
+            --muted: #5b6d82;
+            --brand-900: #0e4650;
+            --brand-700: #1f6f7d;
+            --brand-100: #e5f3f4;
+            --good: #0f7a4a;
+            --good-bg: #dcfce7;
+            --warn: #996500;
+            --warn-bg: #fff5cc;
+            --bad: #a11434;
+            --bad-bg: #ffe0e7;
+            --info: #0b5ea8;
+            --info-bg: #ddeefe;
+            --shadow: 0 12px 24px rgba(16, 35, 56, 0.08);
+            --radius: 14px;
         }
 
-        .container {
-            max-width: 1100px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Manrope', 'Segoe UI', sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 5% 5%, #dff2f4 0, transparent 35%),
+                radial-gradient(circle at 92% -8%, #d4e6f6 0, transparent 33%),
+                var(--bg);
+            min-height: 100vh;
+        }
+
+        .page-wrap {
+            max-width: 1280px;
             margin: 0 auto;
-            padding: 24px 16px;
-            display: flex;
-            flex-direction: column;
+            padding: 24px 16px 32px;
+            display: grid;
             gap: 16px;
         }
 
-        .page-header {
-            background: #fff;
-            padding: 16px 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            display: flex;
-            justify-content: space-between;
+        .hero {
+            background: linear-gradient(130deg, var(--brand-900), var(--brand-700));
+            border-radius: var(--radius);
+            padding: 18px;
+            box-shadow: var(--shadow);
+            color: #fff;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
             align-items: center;
-            width: 100%;
         }
 
-        h1 {
-            font-size: 22px;
-            color: #0f5a66;
-            font-weight: 700;
+        .hero h1 {
+            font-size: 24px;
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+
+        .hero p {
+            opacity: 0.92;
+            font-size: 13px;
         }
 
         .back-btn {
-            background: #0f5a66;
-            color: #fff;
-            padding: 8px 16px;
+            background: #ffffff;
+            color: var(--brand-900);
             text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        .back-btn:hover { background: #0d4d57; }
-
-        .stats-row {
-            width: 100%;
-        }
-        .stat-box {
-            background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            text-align: center;
-            margin-bottom: 12px;
-            width: 100%;
-        }
-        .stat-box:last-child {
-            margin-bottom: 0;
-        }
-        .stat-number {
-            font-size: 36px;
             font-weight: 700;
-            color: #0f5a66;
-            margin-bottom: 4px;
-        }
-        .stat-label {
-            font-size: 13px;
-            color: #5f6a7d;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .filters-bar {
-            background: #fff;
-            padding: 16px 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            align-items: flex-start;
-            width: 100%;
-        }
-
-        select, .refresh-btn {
             padding: 10px 14px;
-            border-radius: 8px;
-            border: 1px solid #d0d5dd;
-            font-size: 14px;
-            font-family: inherit;
-            width: 100%;
-        }
-        select { background: #f9fafb; color: #1f2933; }
-
-        .refresh-btn {
-            background: #6fd3c4;
-            color: #fff;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .refresh-btn:hover { background: #5bbfb0; }
-
-        .email-list {
-            background: #fff;
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            overflow: hidden;
-            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            transition: transform 0.2s ease;
         }
 
-        .email-item {
-            padding: 16px 20px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-        }
-        .email-item:last-child { border-bottom: none; }
-        .email-item:hover { background: #f8fafc; }
-
-        .email-info {
-            flex: 1;
-        }
-        .student-name {
-            font-size: 15px;
-            font-weight: 600;
-            color: #1f2933;
-            margin-bottom: 4px;
-        }
-        .email-details {
-            font-size: 13px;
-            color: #5f6a7d;
-        }
-        .recipient-list {
-            font-size: 13px;
-            color: #5f6a7d;
-            margin-top: 4px;
+        .back-btn:hover {
+            transform: translateY(-1px);
         }
 
-        .email-status {
-            display: flex;
-            align-items: center;
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 12px;
+        }
+
+        .stat-card {
+            background: var(--panel);
+            border-radius: var(--radius);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+            padding: 14px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            line-height: 1;
+            font-weight: 800;
+            color: var(--brand-900);
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .filters-panel {
+            padding: 14px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .filters-grid .full {
+            grid-column: span 2;
+        }
+
+        .input,
+        .select,
+        .btn {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: #f8fafc;
+            color: var(--text);
+            min-height: 40px;
+            padding: 8px 10px;
+            font: inherit;
+            font-size: 13px;
+        }
+
+        .input:focus,
+        .select:focus {
+            outline: none;
+            border-color: var(--brand-700);
+            box-shadow: 0 0 0 3px rgba(31, 111, 125, 0.15);
+        }
+
+        .actions-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn {
+            cursor: pointer;
+            font-weight: 700;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: linear-gradient(130deg, #1f6f7d, #0e4650);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: #eef3f8;
+            color: #213247;
+            border-color: var(--line);
+        }
+
+        .meta-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: var(--radius);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1150px;
+            background: #fff;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #f6fbfc;
+            color: #274257;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 800;
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        tbody td {
+            border-bottom: 1px solid #edf2f7;
+            padding: 12px 10px;
+            vertical-align: top;
+            font-size: 13px;
+        }
+
+        tbody tr:hover {
+            background: #fbfeff;
         }
 
         .badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 24px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 11px;
             text-transform: uppercase;
+            white-space: nowrap;
         }
-        .badge-sent { background: #d4edda; color: #155724; }
-        .badge-pending { background: #fff3cd; color: #856404; }
-        .badge-sending { background: #d1ecf1; color: #0c5460; }
-        .badge-failed { background: #f8d7da; color: #721c24; }
 
-        .action-btn {
-            padding: 8px 14px;
-            border-radius: 6px;
-            border: none;
-            font-size: 13px;
+        .badge-sent {
+            background: var(--good-bg);
+            color: var(--good);
+        }
+
+        .badge-pending {
+            background: var(--warn-bg);
+            color: var(--warn);
+        }
+
+        .badge-sending {
+            background: var(--info-bg);
+            color: var(--info);
+        }
+
+        .badge-failed {
+            background: var(--bad-bg);
+            color: var(--bad);
+        }
+
+        .badge-default {
+            background: #e8edf3;
+            color: #425466;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid #d8e3ed;
+            background: #f7fbff;
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 12px;
+            color: #30455f;
             font-weight: 600;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 12px;
+            color: #2e3f54;
+        }
+
+        .recipients {
+            max-width: 240px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .row-actions {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .tiny-btn {
+            border: 1px solid var(--line);
+            background: #fff;
+            color: #1d3348;
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s;
-        }
-        .retry-btn {
-            background: #ffc107;
-            color: #000;
-        }
-        .retry-btn:hover {
-            background: #e0a800;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
-        .edit-btn {
-            background: #6c757d;
-            color: #fff;
-        }
-        .edit-btn:hover {
-            background: #5a6268;
-        }
-
-        .empty-state {
-            padding: 48px;
-            text-align: center;
-            color: #5f6a7d;
-        }
-
-        .loading {
-            padding: 32px;
-            text-align: center;
-            color: #5f6a7d;
+        .tiny-btn.retry {
+            background: #fff7d6;
+            border-color: #f0df94;
+            color: #664400;
         }
 
         .error-msg {
+            margin-top: 6px;
+            color: var(--bad);
             font-size: 12px;
-            color: #d63939;
-            font-style: italic;
-            margin-top: 4px;
+            line-height: 1.4;
         }
 
-        @media (max-width: 768px) {
-            .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-            .email-item { flex-direction: column; align-items: flex-start; }
-            .email-status { width: 100%; justify-content: space-between; }
+        .loading,
+        .empty-state {
+            padding: 24px;
+            text-align: center;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .mobile-cards {
+            display: none;
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .mobile-card {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+            background: #fff;
+            display: grid;
+            gap: 8px;
+        }
+
+        .batch-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 6px;
+            border: 1px solid #cfe0ef;
+            background: #eef6ff;
+            color: #174a7c;
+            border-radius: 999px;
+            padding: 2px 9px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .delivery-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(9, 19, 35, 0.56);
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            z-index: 9999;
+            padding: 18px 12px;
+        }
+
+        .delivery-modal-card {
+            width: min(1020px, 100%);
+            max-height: min(78vh, 820px);
+            overflow: hidden;
+            border-radius: 14px;
+            border: 1px solid var(--line);
+            background: #fff;
+            box-shadow: 0 28px 50px rgba(4, 17, 33, 0.28);
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        .delivery-modal-head {
+            padding: 12px 14px;
+            border-bottom: 1px solid #e5edf5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .delivery-modal-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #173650;
+        }
+
+        .delivery-modal-close {
+            border: 1px solid #d8e3ed;
+            background: #f8fbff;
+            color: #24455f;
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .delivery-modal-body {
+            overflow: auto;
+            padding: 10px;
+        }
+
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 760px;
+        }
+
+        .detail-table th,
+        .detail-table td {
+            border-bottom: 1px solid #edf2f7;
+            padding: 8px;
+            font-size: 12px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .detail-table th {
+            background: #f7fbfe;
+            color: #23455f;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .mobile-row {
+            font-size: 12px;
+            color: #334a61;
+        }
+
+        .mobile-row strong {
+            color: #20364c;
+        }
+
+        @media (max-width: 1120px) {
+            .stats-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .filters-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .filters-grid .full {
+                grid-column: span 3;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .hero {
+                grid-template-columns: 1fr;
+            }
+
+            .hero h1 {
+                font-size: 20px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .filters-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filters-grid .full {
+                grid-column: span 1;
+            }
+
+            .actions-row {
+                grid-template-columns: 1fr;
+            }
+
+            .table-wrap {
+                display: none;
+            }
+
+            .mobile-cards {
+                display: grid;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="page-header">
-            <h1>📧 Email History</h1>
-            <a href="/print/printStudentReport<%= backQuery %>" class="back-btn" data-no-spa>← Back to Reports</a>
-        </div>
-
-        <div class="stats-row">
-            <div class="stat-box">
-                <div class="stat-number" id="totalCount">-</div>
-                <div class="stat-label">Total Emails</div>
+    <div class="page-wrap">
+        <section class="hero">
+            <div>
+                <h1>Report and Transcript Delivery History</h1>
+                <p>Track report saves, report postings, report email delivery, and transcript delivery with actor attribution.</p>
             </div>
-            <div class="stat-box">
-                <div class="stat-number" id="sentCount">-</div>
-                <div class="stat-label">Successfully Sent</div>
+            <a href="/print/printStudentReport<%= backQuery %>" class="back-btn" data-no-spa>Back to Report Page</a>
+        </section>
+
+        <section class="stats-grid">
+            <article class="stat-card">
+                <div class="stat-label">Total Jobs</div>
+                <div class="stat-value" id="totalCount">0</div>
+            </article>
+            <article class="stat-card">
+                <div class="stat-label">Sent</div>
+                <div class="stat-value" id="sentCount">0</div>
+            </article>
+            <article class="stat-card">
+                <div class="stat-label">Pending</div>
+                <div class="stat-value" id="pendingCount">0</div>
+            </article>
+            <article class="stat-card">
+                <div class="stat-label">Failed</div>
+                <div class="stat-value" id="failedCount">0</div>
+            </article>
+            <article class="stat-card">
+                <div class="stat-label">Report PDF Ready</div>
+                <div class="stat-value" id="pdfReadyCount">0</div>
+            </article>
+        </section>
+
+        <section class="panel filters-panel">
+            <div class="filters-grid">
+                <select id="classFilter" class="select">
+                    <option value="">All Classes</option>
+                </select>
+                <select id="termFilter" class="select">
+                    <option value="">All Terms</option>
+                </select>
+                <select id="studentFilter" class="select">
+                    <option value="">All Students</option>
+                </select>
+                <select id="statusFilter" class="select">
+                    <option value="">All Statuses</option>
+                    <option value="saved">Saved</option>
+                    <option value="posted">Posted</option>
+                    <option value="printed">Printed</option>
+                    <option value="pending">Pending</option>
+                    <option value="sending">Sending</option>
+                    <option value="sent">Sent</option>
+                    <option value="failed">Failed</option>
+                </select>
+                <select id="domainFilter" class="select">
+                    <option value="">Report + Transcript</option>
+                    <option value="report">Report only</option>
+                    <option value="transcript">Transcript only</option>
+                </select>
+                <input id="dateFromFilter" type="date" class="input" />
+                <input id="dateToFilter" type="date" class="input" />
+                <input id="batchFilter" type="text" class="input full" placeholder="Batch ID (exact)" />
+                <input id="searchFilter" type="text" class="input full" placeholder="Search student, recipient email, class, term, batch" />
             </div>
-            <div class="stat-box">
-                <div class="stat-number" id="failedCount">-</div>
-                <div class="stat-label">Failed to Send</div>
+            <div class="actions-row">
+                <button class="btn btn-primary" id="refreshBtn">Refresh</button>
+                <button class="btn btn-secondary" id="clearBtn">Clear Filters</button>
             </div>
-        </div>
+            <div class="meta-row">
+                <div id="resultMeta">No records loaded yet.</div>
+                <div id="lastLoadedMeta">Last loaded: --</div>
+            </div>
+        </section>
 
-        <div class="filters-bar">
-            <select id="classFilter">
-                <option value="">All Classes</option>
-            </select>
-            <select id="termFilter">
-                <option value="">All Terms</option>
-            </select>
-            <select id="studentFilter">
-                <option value="">All Students</option>
-            </select>
-            <select id="statusFilter">
-                <option value="">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="sending">Sending</option>
-                <option value="sent">Sent</option>
-                <option value="failed">Failed</option>
-            </select>
-            <button class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
-        </div>
+        <section class="panel" id="historyPanel">
+            <div id="loading" class="loading" style="display:none;">Loading email history...</div>
 
-        <div id="loading" class="loading" style="display: none;">Loading email history...</div>
+            <div class="table-wrap" id="tableWrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Activity</th>
+                            <th>Class / Term</th>
+                            <th>Created</th>
+                            <th>Sent</th>
+                            <th>Report Posted</th>
+                            <th>Status</th>
+                            <th>Recipients</th>
+                            <th>Batch</th>
+                            <th>Triggered By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyRows">
+                        <tr>
+                            <td colspan="11" class="empty-state">No delivery history found.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-        <div class="email-list" id="emailList">
-            <div class="empty-state">No email history found.</div>
+            <div class="mobile-cards" id="mobileCards">
+                <div class="empty-state">No delivery history found.</div>
+            </div>
+        </section>
+
+        <div class="delivery-modal-overlay" id="batchDetailsModal" role="dialog" aria-modal="true" aria-hidden="true">
+            <div class="delivery-modal-card">
+                <div class="delivery-modal-head">
+                    <div class="delivery-modal-title" id="batchDetailsTitle">Batch Details</div>
+                    <button class="delivery-modal-close" id="batchDetailsCloseBtn" type="button">Close</button>
+                </div>
+                <div class="delivery-modal-body" id="batchDetailsBody">
+                    <div class="loading">Loading batch details...</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -271,119 +636,251 @@
         const organizationId = '<%= organizationId %>';
         const defaultClassId = '<%= classId || "" %>';
         const defaultTermId = '<%= termId || "" %>';
-        let allEmails = [];
-        let selectedStudentId = '';
-        
-        // Load email history
-        async function loadHistory() {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('emailList').style.display = 'none';
-            
+        const state = {
+            allEmails: [],
+            displayRows: [],
+            selectedStudentId: '',
+        };
+
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function fmtDate(value) {
+            if (!value) return '-';
             try {
-                const classId = document.getElementById('classFilter').value;
-                const termId = document.getElementById('termFilter').value;
-                const studentId = document.getElementById('studentFilter').value;
-                const status = document.getElementById('statusFilter').value;
-
-                const params = new URLSearchParams();
-                if (classId) params.append('class_id', classId);
-                if (termId) params.append('term_id', termId);
-                if (studentId) params.append('student_id', studentId);
-                if (status) params.append('status', status);
-                const url = params.toString() ? `/print/emailHistory?${params.toString()}` : '/print/emailHistory';
-                
-                const response = await fetch(url);
-                const result = await response.json();
-                
-                if (result.success) {
-                    allEmails = result.data;
-
-                    populateStudentFilter(allEmails);
-                    renderList(allEmails);
-                    updateStats(allEmails);
-                } else {
-                    alert('Failed to load email history');
-                }
-            } catch (error) {
-                console.error('Error loading history:', error);
-                alert('Error loading email history');
-            } finally {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('emailList').style.display = 'block';
+                return new Date(value).toLocaleString();
+            } catch (_) {
+                return '-';
             }
         }
-        
-        // Render email list
-        function renderList(emails) {
-            const list = document.getElementById('emailList');
-            
-            if (!emails || emails.length === 0) {
-                list.innerHTML = '<div class="empty-state">No email history found.</div>';
+
+        function statusClass(status) {
+            const normalized = String(status || '').trim().toLowerCase();
+            if (normalized === 'sent') return 'badge-sent';
+            if (normalized === 'pending') return 'badge-pending';
+            if (normalized === 'sending') return 'badge-sending';
+            if (normalized === 'failed') return 'badge-failed';
+            return 'badge-default';
+        }
+
+        function statusLabel(status) {
+            const normalized = String(status || '').trim();
+            return normalized ? normalized : 'unknown';
+        }
+
+        function getFilters() {
+            return {
+                class_id: document.getElementById('classFilter').value.trim(),
+                term_id: document.getElementById('termFilter').value.trim(),
+                student_id: document.getElementById('studentFilter').value.trim(),
+                status: document.getElementById('statusFilter').value.trim(),
+                delivery_domain: document.getElementById('domainFilter').value.trim(),
+                date_from: document.getElementById('dateFromFilter').value.trim(),
+                date_to: document.getElementById('dateToFilter').value.trim(),
+                batch_id: document.getElementById('batchFilter').value.trim(),
+                q: document.getElementById('searchFilter').value.trim(),
+            };
+        }
+
+        function activityLabel(row) {
+            const map = {
+                report_email: 'Report Email',
+                report_posted: 'Report Posted',
+                report_saved: 'Report Saved',
+                report_printed: 'Report Printed',
+                transcript_saved: 'Transcript Saved',
+                transcript_email_sent: 'Transcript Sent',
+                transcript_email_failed: 'Transcript Failed',
+                transcript_printed: 'Transcript Printed'
+            };
+            const key = String(row.activity_type || '').trim();
+            return map[key] || key || 'Recorded Event';
+        }
+
+        function statusPriority(status) {
+            const normalized = String(status || '').toLowerCase();
+            if (normalized === 'failed') return 4;
+            if (normalized === 'sending') return 3;
+            if (normalized === 'pending') return 2;
+            if (normalized === 'printed') return 2;
+            if (normalized === 'saved') return 1;
+            if (normalized === 'posted') return 1;
+            if (normalized === 'sent') return 1;
+            return 0;
+        }
+
+        function buildDisplayRows(rows) {
+            const grouped = new Map();
+            const singles = [];
+
+            (rows || []).forEach((row) => {
+                const batchId = String(row.batch_id || '').trim();
+                const activity = String(row.activity_type || '').trim();
+                const domain = String(row.delivery_domain || '').trim();
+
+                // Collapse only real batch events to avoid flooding the page.
+                if (batchId && activity) {
+                    const key = `${domain}|${activity}|${batchId}`;
+                    const createdAt = new Date(row.created_at || 0).getTime();
+                    if (!grouped.has(key)) {
+                        grouped.set(key, {
+                            ...row,
+                            isBatchGroup: true,
+                            batchCount: 1,
+                            batchKey: key,
+                            batchRows: [row],
+                            batchLatestTs: createdAt,
+                            batchRecipientSet: new Set(Array.isArray(row.recipient_emails) ? row.recipient_emails : []),
+                            batchStatus: String(row.status || ''),
+                        });
+                    } else {
+                        const existing = grouped.get(key);
+                        existing.batchCount += 1;
+                        existing.batchRows.push(row);
+                        existing.batchLatestTs = Math.max(existing.batchLatestTs, createdAt);
+                        if (createdAt >= existing.batchLatestTs) {
+                            existing.created_at = row.created_at;
+                            existing.updated_at = row.updated_at;
+                            existing.report_posted_at = row.report_posted_at;
+                            existing.sent_at = row.sent_at;
+                        }
+                        (Array.isArray(row.recipient_emails) ? row.recipient_emails : []).forEach((email) => {
+                            if (email) existing.batchRecipientSet.add(email);
+                        });
+                        if (statusPriority(row.status) > statusPriority(existing.batchStatus)) {
+                            existing.batchStatus = String(row.status || existing.batchStatus);
+                        }
+                    }
+                } else {
+                    singles.push({ ...row, isBatchGroup: false });
+                }
+            });
+
+            const groupedRows = Array.from(grouped.values()).map((row) => {
+                const recipients = Array.from(row.batchRecipientSet || []);
+                return {
+                    ...row,
+                    status: row.batchStatus || row.status,
+                    recipient_emails: recipients,
+                    recipient_count: recipients.length,
+                    group_token: JSON.stringify({
+                        batch_id: row.batch_id,
+                        activity_type: row.activity_type,
+                        delivery_domain: row.delivery_domain,
+                    }),
+                };
+            });
+
+            const merged = [...groupedRows, ...singles];
+            merged.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+            return merged;
+        }
+
+        function closeBatchDetailsModal() {
+            const modal = document.getElementById('batchDetailsModal');
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        async function openBatchDetailsModal(groupToken) {
+            let token = null;
+            try {
+                token = JSON.parse(groupToken);
+            } catch (_) {
                 return;
             }
-            
-            list.innerHTML = emails.map(email => {
-                const statusClass = `badge-${email.status}`;
-                const sentDate = email.sent_at ? new Date(email.sent_at).toLocaleString() : 'Not sent yet';
-                const createdDate = email.created_at ? new Date(email.created_at).toLocaleString() : '-';
-                const postedDate = email.report_posted_at ? new Date(email.report_posted_at).toLocaleString() : 'Not posted yet';
-                const classLabel = email.class_name || `Class #${email.class_id || '-'}`;
-                const termLabel = [email.term_name, email.year_label].filter(Boolean).join(' - ') || `Term #${email.term_id || '-'}`;
-                const recipients = Array.isArray(email.recipient_emails) ? email.recipient_emails.join(', ') : '';
-                
-                let actions = '';
-                if (email.status === 'failed') {
-                    actions = `
-                        <button class="action-btn retry-btn" onclick="retryEmail(${email.id})">🔁 Retry</button>
-                        <button class="action-btn edit-btn" onclick="editEmail(${email.id})">✏️ Edit</button>
-                    `;
+            if (!token || !token.batch_id) return;
+
+            const modal = document.getElementById('batchDetailsModal');
+            const titleEl = document.getElementById('batchDetailsTitle');
+            const bodyEl = document.getElementById('batchDetailsBody');
+            titleEl.textContent = `${activityLabel({ activity_type: token.activity_type })} batch details`;
+            bodyEl.innerHTML = '<div class="loading">Loading batch details...</div>';
+            modal.style.display = 'flex';
+            modal.setAttribute('aria-hidden', 'false');
+
+            try {
+                const params = new URLSearchParams();
+                params.set('batch_id', token.batch_id);
+                if (token.delivery_domain) params.set('delivery_domain', token.delivery_domain);
+                const classId = document.getElementById('classFilter').value.trim();
+                const termId = document.getElementById('termFilter').value.trim();
+                if (classId) params.set('class_id', classId);
+                if (termId) params.set('term_id', termId);
+
+                const res = await fetch(`/print/emailHistory?${params.toString()}`);
+                const payload = await res.json().catch(() => ({}));
+                if (!res.ok || !payload.success) {
+                    bodyEl.innerHTML = '<div class="empty-state">Failed to load batch details.</div>';
+                    return;
                 }
-                
-                return `
-                    <div class="email-item">
-                        <div class="email-info">
-                            <div class="student-name">${email.student_name}</div>
-                            <div class="email-details">
-                                <strong>Class:</strong> ${classLabel} • <strong>Term:</strong> ${termLabel}
-                            </div>
-                            <div class="recipient-list">
-                                <strong>Student:</strong> ${email.student_id || '-'} • <strong>Batch:</strong> ${email.batch_id || '-'}
-                            </div>
-                            <div class="recipient-list">
-                                <strong>Recipients:</strong> ${recipients || '-'}
-                            </div>
-                            <div class="recipient-list">
-                                <strong>Created:</strong> ${createdDate} • <strong>Sent:</strong> ${sentDate}
-                            </div>
-                            <div class="recipient-list">
-                                <strong>Report Posted:</strong> ${postedDate} ${email.pdf_generated ? ' • PDF ✅' : ' • PDF ❌'}
-                            </div>
-                            ${email.error_message ? `<div class="error-msg">Error: ${email.error_message}</div>` : ''}
-                        </div>
-                        <div class="email-status">
-                            <span class="badge ${statusClass}">${email.status}</span>
-                            ${actions}
-                        </div>
-                    </div>
+
+                const rows = (Array.isArray(payload.data) ? payload.data : []).filter((row) => {
+                    return String(row.batch_id || '') === String(token.batch_id)
+                        && String(row.activity_type || '') === String(token.activity_type || row.activity_type);
+                }).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+                if (!rows.length) {
+                    bodyEl.innerHTML = '<div class="empty-state">No entries found for this batch.</div>';
+                    return;
+                }
+
+                bodyEl.innerHTML = `
+                    <table class="detail-table">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Status</th>
+                                <th>Recipients</th>
+                                <th>Created</th>
+                                <th>Actor</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows.map((row) => {
+                                const recipients = Array.isArray(row.recipient_emails) && row.recipient_emails.length
+                                    ? row.recipient_emails.join(', ')
+                                    : '-';
+                                return `
+                                    <tr>
+                                        <td>${escapeHtml(row.student_name || '-')}<div class="muted">ID: ${escapeHtml(row.student_id || '-')}</div></td>
+                                        <td><span class="badge ${statusClass(row.status)}">${escapeHtml(statusLabel(row.status))}</span></td>
+                                        <td>${escapeHtml(recipients)}</td>
+                                        <td>${escapeHtml(fmtDate(row.created_at))}</td>
+                                        <td>${escapeHtml(row.queued_by_name || '-')}</td>
+                                        <td>${escapeHtml(row.error_message || row.notes || '-')}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
                 `;
-            }).join('');
+            } catch (_) {
+                bodyEl.innerHTML = '<div class="empty-state">Failed to load batch details.</div>';
+            }
         }
-        
-        // Update stats
-        function updateStats(emails) {
-            const total = emails.length;
-            const sent = emails.filter(e => e.status === 'sent').length;
-            const failed = emails.filter(e => e.status === 'failed').length;
-            
-            document.getElementById('totalCount').textContent = total;
-            document.getElementById('sentCount').textContent = sent;
-            document.getElementById('failedCount').textContent = failed;
+
+        function buildUrlWithFilters() {
+            const filters = getFilters();
+            const params = new URLSearchParams();
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value) params.append(key, value);
+            });
+            return params.toString() ? `/print/emailHistory?${params.toString()}` : '/print/emailHistory';
         }
 
         function populateStudentFilter(emails) {
             const studentFilter = document.getElementById('studentFilter');
-            const previousValue = selectedStudentId || studentFilter.value || '';
+            const previousValue = state.selectedStudentId || studentFilter.value || '';
             const map = new Map();
+
             (emails || []).forEach((row) => {
                 const sid = String(row.student_id || '').trim();
                 if (!sid) return;
@@ -394,7 +891,7 @@
 
             const options = Array.from(map.entries())
                 .sort((a, b) => a[1].localeCompare(b[1]))
-                .map(([sid, name]) => `<option value="${sid}">${name} (ID: ${sid})</option>`)
+                .map(([sid, name]) => `<option value="${escapeHtml(sid)}">${escapeHtml(name)} (ID: ${escapeHtml(sid)})</option>`)
                 .join('');
 
             studentFilter.innerHTML = '<option value="">All Students</option>' + options;
@@ -403,84 +900,271 @@
             } else {
                 studentFilter.value = '';
             }
-            selectedStudentId = studentFilter.value;
+            state.selectedStudentId = studentFilter.value;
         }
-        
-        // Retry failed email
+
+        function updateStats(emails) {
+            const total = emails.length;
+            const sent = emails.filter((e) => String(e.status || '').toLowerCase() === 'sent').length;
+            const pending = emails.filter((e) => ['pending', 'sending'].includes(String(e.status || '').toLowerCase())).length;
+            const failed = emails.filter((e) => String(e.status || '').toLowerCase() === 'failed').length;
+            const pdfReady = emails.filter((e) => Boolean(e.report_pdf_url) || Boolean(e.pdf_generated)).length;
+
+            document.getElementById('totalCount').textContent = String(total);
+            document.getElementById('sentCount').textContent = String(sent);
+            document.getElementById('pendingCount').textContent = String(pending);
+            document.getElementById('failedCount').textContent = String(failed);
+            document.getElementById('pdfReadyCount').textContent = String(pdfReady);
+
+            document.getElementById('resultMeta').textContent = `${total} record${total === 1 ? '' : 's'} loaded`;
+            document.getElementById('lastLoadedMeta').textContent = `Last loaded: ${new Date().toLocaleTimeString()}`;
+        }
+
+        function renderTableRows(emails) {
+            const tbody = document.getElementById('historyRows');
+            if (!emails.length) {
+                tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No delivery history found for the selected filters.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = emails.map((row) => {
+                const cls = row.class_name || `Class #${row.class_id || '-'}`;
+                const term = [row.term_name, row.year_label].filter(Boolean).join(' - ') || `Term #${row.term_id || '-'}`;
+                const status = statusLabel(row.status);
+                const statusBadge = `<span class="badge ${statusClass(status)}">${escapeHtml(status)}</span>`;
+                const recipientsList = Array.isArray(row.recipient_emails) ? row.recipient_emails : [];
+                const recipients = recipientsList.length ? recipientsList.join(', ') : '-';
+                const reportPosted = fmtDate(row.report_posted_at);
+                const reportPdfButton = row.report_pdf_url
+                    ? `<a class="tiny-btn" href="${escapeHtml(row.report_pdf_url)}" target="_blank" rel="noopener">Open PDF</a>`
+                    : '<span class="pill">PDF pending</span>';
+
+                const retryButton = String(row.status || '').toLowerCase() === 'failed' && String(row.source_type || '') === 'email_history' && Number.isFinite(Number(row.id))
+                    ? `<button class="tiny-btn retry" onclick="retryEmail(${Number(row.id)})">Retry</button>`
+                    : '';
+
+                const isBatchGroup = row.isBatchGroup === true;
+                const encodedGroupToken = encodeURIComponent(String(row.group_token || ''));
+                const batchDetailBtn = isBatchGroup
+                    ? `<button class="tiny-btn" onclick="openBatchDetailsModal(decodeURIComponent('${encodedGroupToken}'))">View ${Number(row.batchCount || 0)} results</button>`
+                    : '';
+
+                const errorHtml = row.error_message ? `<div class="error-msg">${escapeHtml(row.error_message)}</div>` : '';
+
+                return `
+                    <tr>
+                        <td>
+                            <div><strong>${escapeHtml(row.student_name || '-')}</strong></div>
+                            <div class="muted">ID: ${escapeHtml(row.student_id || '-')}</div>
+                            ${isBatchGroup ? `<div class="batch-chip">Batch of ${Number(row.batchCount || 0)}</div>` : ''}
+                        </td>
+                        <td>
+                            <div class="pill">${escapeHtml(activityLabel(row))}</div>
+                            <div class="muted">${escapeHtml(String(row.delivery_domain || '-').toUpperCase())}</div>
+                        </td>
+                        <td>
+                            <div>${escapeHtml(cls)}</div>
+                            <div class="muted">${escapeHtml(term)}</div>
+                        </td>
+                        <td>${escapeHtml(fmtDate(row.created_at))}</td>
+                        <td>${escapeHtml(fmtDate(row.sent_at))}</td>
+                        <td>
+                            <div>${escapeHtml(reportPosted)}</div>
+                            <div class="muted">${row.pdf_generated ? 'Generated in queue' : 'Not generated in queue'}</div>
+                        </td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <div class="pill">${Number(row.recipient_count || recipientsList.length || 0)} recipient${Number(row.recipient_count || recipientsList.length || 0) === 1 ? '' : 's'}</div>
+                            <div class="recipients muted" title="${escapeHtml(recipients)}">${escapeHtml(recipients)}</div>
+                            ${errorHtml}
+                        </td>
+                        <td class="mono">${escapeHtml(row.batch_id || '-')}</td>
+                        <td>${escapeHtml(row.queued_by_name || '-')}</td>
+                        <td>
+                            <div class="row-actions">
+                                ${reportPdfButton}
+                                ${batchDetailBtn}
+                                ${retryButton}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderMobileCards(emails) {
+            const cards = document.getElementById('mobileCards');
+            if (!emails.length) {
+                cards.innerHTML = '<div class="empty-state">No delivery history found for the selected filters.</div>';
+                return;
+            }
+
+            cards.innerHTML = emails.map((row) => {
+                const cls = row.class_name || `Class #${row.class_id || '-'}`;
+                const term = [row.term_name, row.year_label].filter(Boolean).join(' - ') || `Term #${row.term_id || '-'}`;
+                const recipientsList = Array.isArray(row.recipient_emails) ? row.recipient_emails : [];
+                const recipients = recipientsList.length ? recipientsList.join(', ') : '-';
+                const retryButton = String(row.status || '').toLowerCase() === 'failed' && String(row.source_type || '') === 'email_history' && Number.isFinite(Number(row.id))
+                    ? `<button class="tiny-btn retry" onclick="retryEmail(${Number(row.id)})">Retry</button>`
+                    : '';
+                const reportButton = row.report_pdf_url
+                    ? `<a class="tiny-btn" href="${escapeHtml(row.report_pdf_url)}" target="_blank" rel="noopener">Open PDF</a>`
+                    : '<span class="pill">PDF pending</span>';
+                const isBatchGroup = row.isBatchGroup === true;
+                const encodedGroupToken = encodeURIComponent(String(row.group_token || ''));
+                const detailButton = isBatchGroup
+                    ? `<button class="tiny-btn" onclick="openBatchDetailsModal(decodeURIComponent('${encodedGroupToken}'))">View ${Number(row.batchCount || 0)} results</button>`
+                    : '';
+
+                return `
+                    <article class="mobile-card">
+                        <div class="mobile-row"><strong>${escapeHtml(row.student_name || '-')}</strong> (ID: ${escapeHtml(row.student_id || '-')})</div>
+                        <div class="mobile-row"><strong>Activity:</strong> ${escapeHtml(activityLabel(row))} (${escapeHtml(String(row.delivery_domain || '-').toUpperCase())})</div>
+                        ${isBatchGroup ? `<div class="mobile-row"><strong>Batch:</strong> ${Number(row.batchCount || 0)} records</div>` : ''}
+                        <div class="mobile-row"><strong>Class:</strong> ${escapeHtml(cls)}</div>
+                        <div class="mobile-row"><strong>Term:</strong> ${escapeHtml(term)}</div>
+                        <div class="mobile-row"><strong>Created:</strong> ${escapeHtml(fmtDate(row.created_at))}</div>
+                        <div class="mobile-row"><strong>Sent:</strong> ${escapeHtml(fmtDate(row.sent_at))}</div>
+                        <div class="mobile-row"><strong>Posted:</strong> ${escapeHtml(fmtDate(row.report_posted_at))}</div>
+                        <div class="mobile-row"><strong>Status:</strong> <span class="badge ${statusClass(row.status)}">${escapeHtml(statusLabel(row.status))}</span></div>
+                        <div class="mobile-row"><strong>Recipients:</strong> ${escapeHtml(recipients)}</div>
+                        <div class="mobile-row"><strong>Batch:</strong> <span class="mono">${escapeHtml(row.batch_id || '-')}</span></div>
+                        <div class="mobile-row"><strong>Triggered By:</strong> ${escapeHtml(row.queued_by_name || '-')}</div>
+                        <div class="row-actions">${reportButton}${detailButton}${retryButton}</div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        async function loadHistory() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('tableWrap').style.display = 'none';
+            document.getElementById('mobileCards').style.display = 'none';
+
+            try {
+                const response = await fetch(buildUrlWithFilters());
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    alert(result.message || 'Failed to load delivery history');
+                    return;
+                }
+
+                state.allEmails = Array.isArray(result.data) ? result.data : [];
+                state.displayRows = buildDisplayRows(state.allEmails);
+                populateStudentFilter(state.allEmails);
+                updateStats(state.allEmails);
+                renderTableRows(state.displayRows);
+                renderMobileCards(state.displayRows);
+                const groupedCount = state.displayRows.filter((row) => row.isBatchGroup === true).length;
+                document.getElementById('resultMeta').textContent = `${state.allEmails.length} record${state.allEmails.length === 1 ? '' : 's'} loaded • ${state.displayRows.length} row${state.displayRows.length === 1 ? '' : 's'} shown${groupedCount ? ` (${groupedCount} batch group${groupedCount === 1 ? '' : 's'})` : ''}`;
+            } catch (error) {
+                console.error('Error loading history:', error);
+                alert('Error loading delivery history');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('tableWrap').style.display = '';
+                document.getElementById('mobileCards').style.display = '';
+            }
+        }
+
         async function retryEmail(emailId) {
-            if (!confirm('Retry sending this email?')) return;
-            
+            if (!confirm('Retry sending this email now?')) return;
+
             try {
                 const response = await fetch('/print/retryEmail', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ emailIds: [emailId] })
                 });
-                
+
                 const result = await response.json();
-                
-                if (result.success) {
-                    alert(result.message);
-                    loadHistory();
-                } else {
-                    alert('Failed to retry email: ' + result.message);
+                if (!response.ok || !result.success) {
+                    alert(result.message || 'Failed to retry email');
+                    return;
                 }
+
+                alert(result.message || 'Retry queued');
+                await loadHistory();
             } catch (error) {
                 console.error('Error retrying email:', error);
                 alert('Error retrying email');
             }
         }
 
-        // Edit email (placeholder - you can add modal or redirect)
-        function editEmail(emailId) {
-            alert('Edit functionality: You can update recipient emails and resend. Coming soon!');
-            // TODO: Implement edit modal with email update form
-        }
-        
-        // Load classes and terms
         async function loadFilters() {
             try {
-                // Load classes
                 const classesResponse = await fetch(`/common/classes/${organizationId}/active`);
                 const classesResult = await classesResponse.json();
-                
-                if (classesResult.success) {
+
+                if (classesResult.success && Array.isArray(classesResult.classes)) {
                     const classFilter = document.getElementById('classFilter');
                     classFilter.innerHTML = '<option value="">All Classes</option>' +
-                        classesResult.classes.map(c => `<option value="${c.class_id}">${c.class_name}</option>`).join('');
-                    if (defaultClassId) {
-                        classFilter.value = defaultClassId;
-                    }
+                        classesResult.classes.map((c) => `<option value="${escapeHtml(c.class_id)}">${escapeHtml(c.class_name)}</option>`).join('');
+                    if (defaultClassId) classFilter.value = defaultClassId;
                 }
-                
-                // Load terms
+
                 const termsResponse = await fetch(`/common/terms/${organizationId}`);
                 const termsResult = await termsResponse.json();
-                
-                if (termsResult.success) {
+
+                if (termsResult.success && Array.isArray(termsResult.terms)) {
                     const termFilter = document.getElementById('termFilter');
                     termFilter.innerHTML = '<option value="">All Terms</option>' +
-                        termsResult.terms.map(t => `<option value="${t.term_id}">${t.term_name}</option>`).join('');
-                    if (defaultTermId) {
-                        termFilter.value = defaultTermId;
-                    }
+                        termsResult.terms.map((t) => `<option value="${escapeHtml(t.term_id)}">${escapeHtml(t.term_name)}</option>`).join('');
+                    if (defaultTermId) termFilter.value = defaultTermId;
                 }
             } catch (error) {
                 console.error('Error loading filters:', error);
             }
         }
-        
-        // Event listeners
+
+        function clearFilters() {
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('domainFilter').value = '';
+            document.getElementById('dateFromFilter').value = '';
+            document.getElementById('dateToFilter').value = '';
+            document.getElementById('batchFilter').value = '';
+            document.getElementById('searchFilter').value = '';
+
+            document.getElementById('classFilter').value = defaultClassId || '';
+            document.getElementById('termFilter').value = defaultTermId || '';
+            document.getElementById('studentFilter').value = '';
+            state.selectedStudentId = '';
+
+            loadHistory();
+        }
+
         document.getElementById('refreshBtn').addEventListener('click', loadHistory);
-        document.getElementById('classFilter').addEventListener('change', loadHistory);
-        document.getElementById('termFilter').addEventListener('change', loadHistory);
+        document.getElementById('clearBtn').addEventListener('click', clearFilters);
+        document.getElementById('batchDetailsCloseBtn').addEventListener('click', closeBatchDetailsModal);
+        document.getElementById('batchDetailsModal').addEventListener('click', (event) => {
+            if (event.target && event.target.id === 'batchDetailsModal') {
+                closeBatchDetailsModal();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeBatchDetailsModal();
+            }
+        });
+
+        ['classFilter', 'termFilter', 'statusFilter', 'domainFilter', 'dateFromFilter', 'dateToFilter'].forEach((id) => {
+            document.getElementById(id).addEventListener('change', loadHistory);
+        });
+
         document.getElementById('studentFilter').addEventListener('change', function () {
-            selectedStudentId = this.value;
+            state.selectedStudentId = this.value;
             loadHistory();
         });
-        document.getElementById('statusFilter').addEventListener('change', loadHistory);
-        
-        // Initial load
+
+        let filterInputDebounce = null;
+        ['batchFilter', 'searchFilter'].forEach((id) => {
+            document.getElementById(id).addEventListener('input', () => {
+                if (filterInputDebounce) clearTimeout(filterInputDebounce);
+                filterInputDebounce = setTimeout(loadHistory, 350);
+            });
+        });
+
         (async () => {
             await loadFilters();
             await loadHistory();
