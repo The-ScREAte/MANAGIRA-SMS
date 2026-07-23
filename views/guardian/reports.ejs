@@ -37,6 +37,7 @@
     margin: 5px 0 0;
     font-size: 0.9rem;
     color: rgba(255,255,255,0.88);
+    overflow-wrap: anywhere;
   }
 
   .btn-new-report {
@@ -57,6 +58,45 @@
   .btn-new-report:hover {
     transform: translateY(-1px);
     box-shadow: 0 8px 22px rgba(2, 6, 23, 0.22);
+  }
+
+  .reports-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn-email-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.42);
+    background: rgba(255,255,255,0.16);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-decoration: none;
+  }
+
+  .btn-email-indicator svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+  }
+
+  .btn-email-count {
+    background: #fff;
+    color: var(--primary, #0f5a66);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 800;
   }
 
   .reports-summary {
@@ -180,28 +220,13 @@
     font-weight: 700;
     color: #0f172a;
     margin: 0 0 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
-  .report-meta { display: flex; gap: 12px; font-size: 0.79rem; color: #64748b; flex-wrap: wrap; }
+  .report-meta { display: flex; gap: 12px; font-size: 0.79rem; color: #64748b; flex-wrap: wrap; overflow-wrap: anywhere; }
   .report-right { display: flex; align-items: center; gap: 9px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 
-  .status-badge {
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 0.69rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    white-space: nowrap;
-  }
-
-  .status-open { background: #fef3c7; color: #d97706; }
-  .status-in_progress { background: #dbeafe; color: #2563eb; }
-  .status-resolved { background: #d1fae5; color: #059669; }
-  .status-closed { background: #f3f4f6; color: #6b7280; }
   .reply-count { font-size: 0.76rem; color: #64748b; white-space: nowrap; font-weight: 600; }
   .unread-badge { background: #0f5a66; color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 0.69rem; font-weight: 700; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.06em; }
 
@@ -249,8 +274,6 @@
   .modal-overlay.active { display: flex; }
   .modal-box { background: #fff; border-radius: 10px; width: 100%; max-width: 560px; max-height: calc(100dvh - (env(safe-area-inset-top, 0px) + 124px)); overflow-y: auto; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative; }
   .modal-box h2 { font-size: 1.15rem; margin: 0 0 18px; color: #1e293b; }
-  .modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #94a3b8; line-height: 1; }
-  .modal-close:hover { color: #1e293b; }
   .fg { margin-bottom: 14px; }
   .fg label { display: block; font-weight: 600; font-size: 0.82rem; color: #334155; margin-bottom: 4px; }
   .fg label .req { color: #e74c3c; }
@@ -266,11 +289,20 @@
   .staff-role { color: #94a3b8; font-size: 0.75rem; }
   .staff-badge { font-size: 0.68rem; padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-weight: 600; background: #d1fae5; color: #059669; }
   .staff-loading { text-align: center; padding: 14px; color: #94a3b8; font-size: 0.82rem; }
-  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
-  .btn-submit { background: var(--primary, #27ae60); color: #fff; padding: 8px 20px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
-  .btn-submit:hover { background: var(--primary-hover, #229954); }
-  .btn-cancel { background: #e2e8f0; color: #475569; padding: 8px 20px; border: none; border-radius: 6px; font-weight: 500; font-size: 0.85rem; cursor: pointer; }
-  .btn-cancel:hover { background: #cbd5e1; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-start; margin-top: 16px; }
+  .btn-submit,
+  .btn-cancel {
+    background: var(--primary, #27ae60);
+    color: #fff;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .btn-submit:hover,
+  .btn-cancel:hover { background: var(--primary-hover, #229954); }
 
   @media (max-width: 920px) {
     .reports-summary {
@@ -292,7 +324,9 @@
     .reports-container { padding: 12px 10px 22px; }
     .reports-hero { padding: 16px; border-radius: 14px; }
     .reports-header { flex-direction: column; align-items: stretch; }
-    .btn-new-report { justify-content: center; }
+    .reports-header-actions { width: 100%; }
+    .btn-new-report { justify-content: center; flex: 1 1 auto; }
+    .btn-email-indicator { justify-content: center; }
     .mobile-collapse {
       margin-top: 10px;
       border: 1px solid rgba(255,255,255,0.32);
@@ -347,6 +381,7 @@
     .fg textarea {
       font-size: 16px;
     }
+    .modal-actions { gap: 8px; }
   }
 </style>
 
@@ -356,12 +391,11 @@
     const key = String(row.status || 'open');
     acc.total += 1;
     if (key === 'open') acc.open += 1;
-    if (key === 'in_progress') acc.inProgress += 1;
     if (key === 'resolved') acc.resolved += 1;
     if (key === 'closed') acc.closed += 1;
     acc.unread += Number(row.unread_count || 0);
     return acc;
-  }, { total: 0, open: 0, inProgress: 0, resolved: 0, closed: 0, unread: 0 });
+  }, { total: 0, open: 0, resolved: 0, closed: 0, unread: 0 });
 %>
 
 <div class="reports-container">
@@ -371,7 +405,17 @@
         <h1>Guardian Reports</h1>
         <p class="reports-subtitle">Track conversations with school staff and submit new concerns quickly.</p>
       </div>
-      <button class="btn-new-report" onclick="openModal()">+ New Report</button>
+      <div class="reports-header-actions">
+        <a href="/guardian/reports" class="btn-email-indicator" title="Unread report messages">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2" ry="2"></rect>
+            <path d="M3 7l9 6 9-6"></path>
+          </svg>
+          Messages
+          <span class="btn-email-count"><%= (typeof reportUnreadTotal !== 'undefined' ? reportUnreadTotal : statusTotals.unread) %></span>
+        </a>
+        <button class="btn-new-report" onclick="openModal()">+ New Report</button>
+      </div>
     </div>
 
     <details class="mobile-collapse">
@@ -379,8 +423,6 @@
       <div class="mobile-collapse-content">
         <div class="reports-summary">
           <div class="summary-pill"><strong><%= statusTotals.total %></strong><span>Total</span></div>
-          <div class="summary-pill"><strong><%= statusTotals.open %></strong><span>Open</span></div>
-          <div class="summary-pill"><strong><%= statusTotals.inProgress %></strong><span>In Progress</span></div>
           <div class="summary-pill"><strong><%= statusTotals.resolved %></strong><span>Resolved</span></div>
           <div class="summary-pill"><strong><%= statusTotals.unread %></strong><span>Unread</span></div>
         </div>
@@ -397,8 +439,6 @@
         </div>
         <select id="reportStatusFilter" class="toolbar-status">
           <option value="all">All statuses</option>
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
           <option value="resolved">Resolved</option>
           <option value="closed">Closed</option>
         </select>
@@ -410,7 +450,8 @@
   <% if (reportRows.length > 0) { %>
     <div class="reports-list" id="reportsList">
     <% reportRows.forEach(function(report) { %>
-      <div class="report-row" data-report-row data-status="<%= report.status %>" data-search="<%= String((report.subject || '') + ' ' + (report.student_name || '')).toLowerCase() %>">
+      <% const reportStatusUi = String(report.status || 'open') === 'in_progress' ? 'open' : String(report.status || 'open'); %>
+      <div class="report-row" data-report-row data-status="<%= reportStatusUi %>" data-search="<%= String((report.subject || '') + ' ' + (report.student_name || '')).toLowerCase() %>">
         <a href="/guardian/reports/<%= report.report_id %>" class="report-card">
           <div class="report-left">
             <h3 class="report-subject"><%= report.subject %></h3>
@@ -420,7 +461,6 @@
             </div>
           </div>
           <div class="report-right">
-            <span class="status-badge status-<%= report.status %>"><%= report.status.replace('_', ' ') %></span>
             <% if (Number(report.unread_count) > 0) { %>
               <span class="unread-badge"><%= report.unread_count %> unread</span>
             <% } %>
@@ -455,7 +495,6 @@
 <!-- New Report Modal -->
 <div class="modal-overlay" id="reportModal">
   <div class="modal-box">
-    <button class="modal-close" onclick="closeModal()">&times;</button>
     <h2>Submit a Report</h2>
     <form action="/guardian/reports/create" method="POST">
       <div class="fg">
@@ -492,8 +531,8 @@
         </div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
         <button type="submit" class="btn-submit">Submit Report</button>
+        <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
       </div>
     </form>
   </div>

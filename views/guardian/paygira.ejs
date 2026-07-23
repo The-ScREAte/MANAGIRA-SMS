@@ -42,12 +42,17 @@
     display:flex; justify-content:space-between; align-items:flex-start;
     gap:16px; flex-wrap:wrap; margin-bottom:22px;
   }
+  .pg-head > div {
+    text-align:left;
+    margin-right:auto;
+  }
   .pg-head h1 {
     margin:0; font-size:2.1rem; font-weight:800; letter-spacing:-.02em;
     font-family:'Space Grotesk',sans-serif;
+    text-align:left;
   }
   .pg-head h1 .accent { color:var(--pg-teal); font-style:italic; }
-  .pg-head p { margin:8px 0 0; color:var(--pg-muted); font-size:.92rem; max-width:56ch; line-height:1.55; }
+  .pg-head p { margin:8px 0 0; color:var(--pg-muted); font-size:.92rem; max-width:56ch; line-height:1.55; overflow-wrap:anywhere; }
 
   .paygira-secure-badge {
     display:inline-flex; align-items:center; gap:6px;
@@ -59,6 +64,10 @@
     text-transform:uppercase;
     font-family:'Space Grotesk',sans-serif;
     white-space:nowrap;
+  }
+
+  .paygira-secure-text {
+    display:inline;
   }
 
   .pg-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-bottom:24px; }
@@ -136,14 +145,6 @@
     font-family:'JetBrains Mono',monospace;
     font-size:.7rem;
   }
-  .pg-child-chevron {
-    color:var(--pg-muted);
-    font-size:1.05rem;
-    line-height:1;
-  }
-  .pg-child-collapsible[open] .pg-child-chevron {
-    transform:rotate(180deg);
-  }
 
   .pg-child-body {
     padding:0;
@@ -152,7 +153,9 @@
   .pg-bills-scroll {
     max-height:420px;
     overflow-y:auto;
-    overscroll-behavior:contain;
+    overscroll-behavior:auto;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
   }
   .pg-child-avatar {
     width:48px; height:48px; border-radius:50%; object-fit:cover;
@@ -160,7 +163,7 @@
     background:var(--pg-surface-2);
   }
   .pg-child-name { font-weight:700; font-size:1.05rem; }
-  .pg-child-meta { color:var(--pg-muted); font-size:.8rem; }
+  .pg-child-meta { color:var(--pg-muted); font-size:.8rem; overflow-wrap:anywhere; }
 
   .pg-child-copy { min-width:0; }
 
@@ -172,7 +175,7 @@
   }
   .pg-bill-row:hover { background:rgba(255,255,255,.03); }
   .pg-bill-row:last-child { border-bottom:none; }
-  .pg-bill-title { font-weight:600; }
+  .pg-bill-title { font-weight:600; overflow-wrap:anywhere; }
   .pg-bill-sub {
     color:var(--pg-muted);
     font-size:.77rem;
@@ -182,20 +185,34 @@
     -webkit-line-clamp:2;
     -webkit-box-orient:vertical;
     overflow:hidden;
+    overflow-wrap:anywhere;
   }
   .pg-amount { font-family:'JetBrains Mono',monospace; font-weight:600; }
   .pg-balance { font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--pg-gold); }
   .pg-bill-col { min-width:0; }
   .pg-bill-actions {
-    display:flex;
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 132px));
     align-items:center;
-    justify-content:flex-end;
-    gap:8px;
-    flex-wrap:nowrap;
+    justify-content:flex-start;
+    justify-items:stretch;
+    gap:6px;
   }
-  /* Keep the Pay + Invoice buttons the same height so they sit on one line. */
-  .pg-bill-actions .pg-btn { min-height:36px; }
-  .pg-bill-actions .pg-btn.sm { min-height:36px; padding:0 14px; font-size:.78rem; }
+  /* Keep Pay + Invoice compact and identical in size. */
+  .pg-bill-actions .pg-btn {
+    min-height:30px;
+    height:30px;
+    width:100%;
+    padding:0 8px;
+    font-size:.72rem;
+  }
+  .pg-bill-actions .pg-btn.sm {
+    min-height:30px;
+    height:30px;
+    width:100%;
+    padding:0 8px;
+    font-size:.72rem;
+  }
 
   .pg-status {
     display:inline-block; padding:3px 10px; border-radius:999px;
@@ -208,8 +225,8 @@
 
   .pg-btn {
     display:inline-flex; align-items:center; justify-content:center; gap:6px;
-    min-height:38px; padding:0 12px; border-radius:4px;
-    font-size:.82rem; font-weight:600; cursor:pointer;
+    min-height:34px; padding:0 10px; border-radius:4px;
+    font-size:.78rem; font-weight:600; cursor:pointer;
     border:1px solid transparent; transition:all .15s;
     text-decoration:none;
     background:var(--pg-org);
@@ -220,7 +237,7 @@
   .pg-btn.primary:hover { transform:none; box-shadow:none; background:var(--pg-org-hover); }
   .pg-btn.ghost { background:var(--pg-org); color:#fff; border:1px solid transparent; }
   .pg-btn.ghost:hover { background:var(--pg-org-hover); }
-  .pg-btn.sm { min-height:32px; padding:0 10px; font-size:.74rem; }
+  .pg-btn.sm { min-height:30px; padding:0 8px; font-size:.72rem; }
   .pg-btn.danger { background:var(--pg-red); color:#fff; border-color:transparent; }
   .pg-btn.danger::before { content:'🗑'; font-size:.82em; }
   .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
@@ -253,7 +270,14 @@
   .pg-field input, .pg-field select { min-height:38px; border-radius:4px; font-size:.9rem; }
   .pg-field input:disabled { background:rgba(255,255,255,.04); color:var(--pg-text); }
   .pg-field input:focus, .pg-field select:focus { outline:none; border-color:var(--pg-teal); }
-  .pg-modal-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:nowrap; margin-top:18px; overflow-x:auto; }
+  .pg-modal-actions {
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 148px));
+    gap:8px;
+    justify-content:flex-start;
+    align-items:center;
+    margin-top:18px;
+  }
   .pg-recurring-panel {
     border:1px solid rgba(0,212,170,.22);
     background:rgba(0,212,170,.06);
@@ -262,8 +286,8 @@
   }
   .pg-recurring-toolbar {
     display:grid;
-    grid-template-columns:minmax(0, 1fr) auto;
-    align-items:center;
+    grid-template-columns:minmax(0, 1fr);
+    align-items:start;
     gap:12px;
     margin-bottom:12px;
   }
@@ -284,6 +308,7 @@
     gap:8px;
     align-items:center;
     flex-wrap:nowrap;
+    justify-content:flex-start;
   }
   .pg-recurring-list {
     display:grid;
@@ -420,11 +445,11 @@
     margin-top:10px;
     overflow-x:auto;
   }
-    .pg-modal-actions .pg-btn {
-      flex:0 0 auto;
-      min-height:38px;
-      justify-content:center;
-    }
+  .pg-modal-actions .pg-btn {
+    width:100%;
+    min-height:34px;
+    justify-content:center;
+  }
   .pg-credit-toggle input {
     margin-top:2px;
     accent-color:var(--pg-teal);
@@ -452,7 +477,7 @@
   .pgv2-balance-top {
     display:flex;
     align-items:flex-start;
-    justify-content:space-between;
+    justify-content:flex-start;
     gap:14px;
     flex-wrap:wrap;
   }
@@ -474,13 +499,13 @@
     display:inline-flex;
     align-items:center;
     justify-content:center;
-    min-height:38px;
-    padding:0 12px;
+    min-height:34px;
+    padding:0 10px;
     border-radius:4px;
     border:1px solid transparent;
     background:var(--pg-org);
     color:#fff;
-    font-size:.82rem;
+    font-size:.78rem;
     font-weight:600;
     cursor:pointer;
     transition:transform .15s ease, box-shadow .15s ease, background .15s ease, color .15s ease;
@@ -778,15 +803,6 @@
     letter-spacing:.06em;
     text-transform:uppercase;
   }
-  .pg-history-summary::after {
-    content:'+';
-    margin-left:auto;
-    color:var(--pg-muted);
-    font-size:1rem;
-  }
-  .pg-history-panel[open] .pg-history-summary::after {
-    content:'-';
-  }
 
   .pg-history {
     background:transparent;
@@ -820,11 +836,29 @@
 
   @media (max-width:760px) {
     .pg-wrap { padding:14px 8px 26px; }
-    .pg-head { align-items:center; justify-content:center; text-align:center; margin-bottom:0; }
+    .pg-head {
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) auto;
+      align-items:start;
+      justify-content:space-between;
+      text-align:left;
+      margin-bottom:0;
+      gap:10px;
+    }
+    .pg-head > div { min-width:0; }
+    .pg-head > div { justify-self:start; }
     .pg-head h1 { font-size:1.4rem; }
-    .pg-head p { font-size:.84rem; max-width:40ch; }
-    .paygira-secure-badge { font-size:.64rem; padding:7px 11px; }
-    .pg-stats { grid-template-columns:1fr; }
+    .pg-head p { font-size:.84rem; max-width:none; }
+    .paygira-secure-badge {
+      font-size:.64rem;
+      padding:7px 11px;
+      margin-left:auto;
+      justify-self:end;
+      align-self:start;
+      gap:0;
+    }
+    .paygira-secure-text { display:none; }
+    .pg-stats { grid-template-columns:repeat(2, minmax(0, 1fr)); }
     .pg-stat { padding:16px; }
     .pg-stat .value { font-size:1.35rem; }
     .pg-child-head {
@@ -900,21 +934,24 @@
       flex-wrap:wrap;
     }
     .pg-modal-actions {
-      flex-direction:row;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
       align-items:center;
-      flex-wrap:nowrap;
     }
-    .pg-modal-actions .pg-btn { width:auto; }
+    .pg-modal-actions .pg-btn { width:100%; }
     .pgv2-amount-wrap { grid-template-columns:1fr; }
     .pgv2-method-cards { grid-template-columns:1fr; }
     .pgv2-balance-top { align-items:stretch; }
     .pgv2-apply-btn { width:auto; }
     .pg-field input,
     .pg-field select,
-    .pgv2-method-card,
-    .pg-btn,
-    .pg-btn.sm {
+    .pgv2-method-card {
       font-size:16px;
+    }
+
+    .pg-btn,
+    .pg-btn.sm,
+    .pgv2-apply-btn {
+      font-size:.78rem;
     }
     .pg-recurring-toolbar {
       grid-template-columns:1fr;
@@ -934,6 +971,16 @@
       width:42px;
       height:42px;
     }
+    .pg-stats {
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+    .pg-stat {
+      padding:14px 12px;
+    }
+    .pg-stat .value {
+      font-size:1.18rem;
+    }
     .pg-child-name { font-size:.98rem; }
     .pg-child-meta { font-size:.76rem; }
     .pg-history-row { grid-template-columns:1fr; }
@@ -942,8 +989,9 @@
       gap:3px;
     }
     .pg-bill-actions {
-      flex-wrap:wrap;
-      align-items:flex-start;
+      grid-template-columns:repeat(2, minmax(0, 132px));
+      align-items:center;
+      justify-content:flex-start;
       overflow:visible;
     }
     .pg-bill-actions .pg-btn {
@@ -953,6 +1001,10 @@
     }
     .pg-bills-scroll {
       max-height:320px;
+    }
+
+    .pg-modal-actions {
+      grid-template-columns:repeat(2, minmax(0, 1fr));
     }
   }
 </style>
@@ -974,7 +1026,7 @@
           <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/>
           <path d="M9 12l2 2 4-4" stroke="#080d1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        Secure
+        <span class="paygira-secure-text">Secure</span>
       </span>
     </div>
 
@@ -1008,7 +1060,6 @@
       <div class="pg-stat teal"><div class="label">Total Paid</div><div class="value"><%= money(totals.paid) %></div><div class="sub">Thank you</div></div>
       <div class="pg-stat gold"><div class="label">Outstanding</div><div class="value"><%= money(totals.outstanding) %></div><div class="sub">Pay now to stay current</div></div>
       <div class="pg-stat teal"><div class="label">Available Balance</div><div class="value"><%= money(totals.credit || 0) %></div><div class="sub"><%= Number(totals.credit || 0) > 0 ? (money(totals.net_outstanding || 0) + ' still due after balance') : 'No available balance yet' %></div></div>
-      <div class="pg-stat"><div class="label">Saved Cards</div><div class="value"><%= cards.length %></div><div class="sub"><a href="/guardian/settings#cards" style="color:var(--pg-teal);text-decoration:none;">Manage in Settings →</a></div></div>
     </div>
 
     <% if (!children.length) { %>
@@ -1024,7 +1075,7 @@
            const childOutstanding = kidAssignments.reduce((sum, item) => sum + balance(item), 0);
          const childDisplayName = child.display_name || _guardianNameFormat(child);
       %>
-        <details class="pg-child-card pg-child-collapsible" <%= childIndex === 0 ? 'open' : '' %>>
+        <details class="pg-child-card pg-child-collapsible">
           <summary class="pg-child-head pg-child-head-toggle">
             <img class="pg-child-avatar"
                  src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>"
@@ -1036,7 +1087,6 @@
             <div class="pg-child-head-right">
               <span class="pg-child-pill">Outstanding <strong><%= money(childOutstanding) %></strong></span>
               <span class="pg-child-pill">Bills <strong><%= kidAssignments.length %></strong></span>
-              <span class="pg-child-chevron">⌄</span>
             </div>
           </summary>
 
@@ -1101,15 +1151,16 @@
       </div>
     <% } %>
 
+    <% const recentPayments = Array.isArray(payments) ? payments.slice(0, 10) : []; %>
     <details class="pg-history-panel">
-      <summary class="pg-history-summary">Recent Payments <small><%= payments.length %> record<%= payments.length === 1 ? '' : 's' %></small></summary>
+      <summary class="pg-history-summary">Recent Payments <small><%= recentPayments.length %> of <%= payments.length %> record<%= payments.length === 1 ? '' : 's' %></small></summary>
       <div class="pg-history">
         <div class="pg-history-row head">
           <div>Date</div><div>Student</div><div>Bill</div><div>Amount</div>
         </div>
-        <% if (!payments.length) { %>
+        <% if (!recentPayments.length) { %>
           <div class="pg-history-row"><div style="grid-column:1/-1;text-align:center;color:var(--pg-muted);padding:18px;">No payments yet.</div></div>
-        <% } else { payments.forEach(p => { %>
+        <% } else { recentPayments.forEach(p => { %>
           <div class="pg-history-row">
             <div data-label="Date"><%= _guardianDateFormat(p.received_at) %></div>
             <div data-label="Student"><%= p.display_student_name || _guardianNameFormat(p) %></div>

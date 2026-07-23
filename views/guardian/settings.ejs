@@ -1,12 +1,18 @@
 <style>
   .settings-page {
-    max-width: 920px;
+    max-width: 1160px;
     margin: 0 auto;
-    padding: 24px;
+    padding: 24px 20px 34px;
   }
 
   .settings-intro {
-    margin-bottom: 20px;
+    margin-bottom: 22px;
+    padding: 18px 20px;
+    border-radius: 16px;
+    border: 1px solid #dbe7f5;
+    background:
+      radial-gradient(circle at 8% 20%, rgba(111, 211, 196, 0.2), transparent 38%),
+      linear-gradient(135deg, #f8fbff 0%, #f2f8ff 100%);
   }
 
   .settings-kicker {
@@ -39,6 +45,7 @@
     color: #64748b;
     font-size: 0.98rem;
     line-height: 1.6;
+    overflow-wrap: anywhere;
   }
 
   .settings-grid {
@@ -60,19 +67,12 @@
     border-radius: 18px;
     box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08);
     overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
-  .settings-card--dark {
-    background: linear-gradient(180deg, #0e1426, #131b33);
-    color: #e9eef8;
-    border-color: rgba(255,255,255,0.08);
-    box-shadow: 0 14px 40px rgba(2, 6, 23, 0.26);
-  }
-
-  .settings-card--dark,
-  .settings-card--dark > .accordion-summary,
-  .settings-card--dark > .accordion-body {
-    background-color: #10182d;
+  .settings-card:hover {
+    border-color: #cbdceb;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
   }
 
   .settings-card-header {
@@ -203,18 +203,11 @@
     font-size: 0.86rem;
     line-height: 1.45;
     margin-top: 3px;
+    overflow-wrap: anywhere;
   }
 
   .accordion-chevron {
-    color: #94a3b8;
-    font-size: 1.3rem;
-    line-height: 1;
-    transition: transform 0.2s ease;
-    flex-shrink: 0;
-  }
-
-  .settings-accordion[open] .accordion-chevron {
-    transform: rotate(180deg);
+    display: none;
   }
 
   .accordion-body {
@@ -224,7 +217,7 @@
 
   .form-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
   }
 
@@ -302,28 +295,43 @@
     color: #64748b;
     font-size: 0.84rem;
     line-height: 1.5;
+    overflow-wrap: anywhere;
   }
 
   .form-actions {
-    display: flex;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 172px));
+    gap: 10px;
     margin-top: 6px;
     padding-top: 20px;
     border-top: 2px solid #e2e8f0;
-    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+  }
+
+  .form-actions > .btn-primary,
+  .form-actions > .btn-secondary {
+    width: 100%;
+    margin: 0;
   }
 
   .btn-primary {
-    padding: 14px 28px;
+    padding: 8px 12px;
     background: var(--primary);
     color: #fff;
     border: none;
     border-radius: 10px;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 0.9rem;
+    line-height: 1.2;
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    min-height: 34px;
+    min-width: 132px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .btn-primary:hover {
@@ -333,19 +341,22 @@
   }
 
   .btn-secondary {
-    padding: 14px 28px;
+    padding: 8px 12px;
     background: #fff;
     color: #475569;
     border: 2px solid #e2e8f0;
     border-radius: 10px;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 0.9rem;
     text-decoration: none;
     cursor: pointer;
     transition: background 0.2s ease, border-color 0.2s ease;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    min-height: 34px;
+    min-width: 132px;
+    line-height: 1.2;
   }
 
   .btn-secondary:hover {
@@ -397,37 +408,7 @@
     font-size: 0.83rem;
     line-height: 1.45;
     color: #64748b;
-  }
-
-  .settings-card--dark .accordion-summary {
-    background: linear-gradient(180deg, #0e1426, #131b33);
-  }
-
-  .settings-card--dark .accordion-summary:hover {
-    background: linear-gradient(180deg, #14203c, #172240);
-  }
-
-  .settings-card--dark[open] > .accordion-summary {
-    background: linear-gradient(180deg, #14203c, #172240);
-    border-bottom-color: rgba(255,255,255,0.08);
-  }
-
-  .settings-card--dark .accordion-badge {
-    background: linear-gradient(135deg, rgba(0,212,170,0.18), rgba(0,212,170,0.08));
-    color: #00d4aa;
-  }
-
-  .settings-card--dark .accordion-title {
-    color: #f8fafc;
-  }
-
-  .settings-card--dark .accordion-subtitle,
-  .settings-card--dark .accordion-chevron {
-    color: #cbd5e1;
-  }
-
-  .settings-card--dark .accordion-body {
-    background: linear-gradient(180deg, #111a31, #141d36);
+    overflow-wrap: anywhere;
   }
 
   .paygira-secure-badge {
@@ -456,14 +437,15 @@
 
   .paygira-intro {
     margin: 0 0 18px;
-    color: #cbd5e1;
+    color: #64748b;
     font-size: 0.92rem;
     line-height: 1.6;
+    overflow-wrap: anywhere;
   }
 
   .paygira-cards-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
     margin-bottom: 22px;
   }
@@ -477,9 +459,9 @@
     gap: 14px;
     padding: 18px;
     border-radius: 16px;
-    background: linear-gradient(135deg, #1a2348, #0e1426);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #e9eef8;
+    background: #ffffff;
+    border: 1px solid #dbe6f4;
+    color: #0f172a;
   }
 
   .wallet-card-meta,
@@ -492,18 +474,22 @@
     flex-wrap: wrap;
   }
 
+  .wallet-card-actions {
+    justify-content: flex-start;
+  }
+
   .wallet-card-brand {
     font-size: 0.72rem;
-    color: #dbe4f5;
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 700;
   }
 
   .wallet-card-default {
-    background: rgba(0,212,170,0.18);
-    color: #00d4aa;
-    border: 1px solid rgba(0,212,170,0.4);
+    background: rgba(0,212,170,0.12);
+    color: #0f766e;
+    border: 1px solid rgba(15,118,110,0.28);
     padding: 2px 8px;
     border-radius: 999px;
     font-size: 0.62rem;
@@ -521,19 +507,21 @@
 
   .wallet-card-footer {
     font-size: 0.78rem;
-    color: #dbe4f5;
+    color: #64748b;
   }
 
   .wallet-action-btn {
     appearance: none;
     border-radius: 8px;
-    padding: 6px 11px;
-    font-size: 0.72rem;
+    padding: 5px 9px;
+    font-size: 0.7rem;
     font-weight: 700;
     cursor: pointer;
-    border: 1px solid rgba(255,255,255,0.1);
-    background: rgba(255,255,255,0.06);
-    color: #e9eef8;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #334155;
+    min-height: 30px;
+    min-width: 98px;
   }
 
   .wallet-action-btn--danger {
@@ -545,16 +533,16 @@
   .paygira-empty-state {
     text-align: center;
     padding: 24px;
-    color: #dbe4f5;
-    background: rgba(255,255,255,0.03);
-    border: 1px dashed rgba(255,255,255,0.08);
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
     border-radius: 12px;
     margin-bottom: 22px;
   }
 
   .paygira-form {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     border-radius: 16px;
     padding: 18px;
   }
@@ -562,13 +550,13 @@
   .paygira-form-title {
     margin: 0 0 14px;
     font-size: 1rem;
-    color: #e9eef8;
+    color: #0f172a;
     font-weight: 700;
   }
 
   .paygira-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     margin-bottom: 12px;
   }
@@ -576,7 +564,7 @@
   .paygira-label {
     display: block;
     font-size: 0.7rem;
-    color: #dbe4f5;
+    color: #475569;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -588,9 +576,9 @@
     width: 100%;
     padding: 11px 14px;
     border-radius: 10px;
-    background: #080d1a;
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #e9eef8;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #0f172a;
     font-size: 16px;
     font-family: inherit;
   }
@@ -604,7 +592,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #e9eef8;
+    color: #334155;
     font-size: 0.85rem;
     margin-bottom: 14px;
     cursor: pointer;
@@ -618,7 +606,7 @@
 
   .paygira-actions {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
@@ -629,7 +617,7 @@
     align-items: center;
     gap: 5px;
     font-size: 0.72rem;
-    color: #dbe4f5;
+    color: #64748b;
     line-height: 1.5;
   }
 
@@ -637,17 +625,22 @@
     background: linear-gradient(135deg, #00d4aa, #00b693);
     color: #062018;
     border: none;
-    padding: 10px 18px;
+    padding: 8px 12px;
     border-radius: 10px;
     font-weight: 800;
     cursor: pointer;
     letter-spacing: 0.04em;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    min-height: 34px;
+    min-width: 132px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .paygira-link-wrap {
     margin-top: 18px;
-    text-align: center;
+    text-align: left;
   }
 
   .paygira-link {
@@ -660,6 +653,15 @@
   @media (max-width: 768px) {
     .settings-page {
       padding: 16px;
+    }
+
+    .settings-intro {
+      padding: 14px;
+      border-radius: 14px;
+    }
+
+    .settings-grid {
+      grid-template-columns: 1fr;
     }
 
     .settings-card-header,
@@ -682,18 +684,21 @@
       grid-template-columns: 1fr;
     }
 
-    .form-actions,
-    .paygira-actions {
-      flex-direction: column;
-      align-items: stretch;
+    .paygira-cards-grid {
+      grid-template-columns: 1fr;
     }
 
-    .btn-primary,
-    .btn-secondary,
-    .paygira-submit {
-      width: 100%;
-      justify-content: center;
-      text-align: center;
+    .form-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .paygira-actions {
+      align-items: flex-start;
+    }
+
+    .paygira-actions .paygira-submit {
+      width: auto;
+      min-width: 132px;
     }
 
     .image-preview-container {
@@ -733,6 +738,14 @@
     .settings-card-description,
     .paygira-intro {
       font-size: 0.9rem;
+    }
+
+    .form-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .paygira-actions .paygira-submit {
+      width: auto;
     }
   }
 </style>
@@ -901,7 +914,7 @@
           <span class="accordion-chevron" aria-hidden="true">⌄</span>
         </summary>
         <div class="accordion-body">
-          <p class="helper-text" style="margin-bottom:16px;">Account-security and admission decision emails are always sent.</p>
+          <p class="helper-text" style="margin-bottom:16px;">Only parent notifications currently sent by the system are listed here. Account-security and admission decision emails are always sent.</p>
 
           <form action="/guardian/settings/notifications" method="POST" autocomplete="off">
             <ul class="notification-list">
@@ -925,7 +938,7 @@
       </details>
       <% } %>
 
-      <details id="cards" class="settings-card settings-accordion settings-card--dark">
+      <details id="cards" class="settings-card settings-accordion">
         <summary class="accordion-summary">
           <span class="accordion-badge">💳</span>
           <span class="accordion-copy">

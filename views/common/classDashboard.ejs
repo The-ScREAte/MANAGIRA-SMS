@@ -619,20 +619,6 @@ main {
 .rp-meta span { display: inline-flex; align-items: center; gap: 3px; }
 .rp-meta .rp-dot { width: 3px; height: 3px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; }
 .rp-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.rp-status {
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: capitalize;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-}
-.rp-status-open { background: #fef3c7; color: #b45309; }
-.rp-status-in_progress { background: #dbeafe; color: #1d4ed8; }
-.rp-status-resolved { background: #d1fae5; color: #047857; }
-.rp-status-closed { background: #f3f4f6; color: #6b7280; }
-.rp-status-pending { background: #fef3c7; color: #b45309; }
 .rp-replies {
   font-size: 11px;
   color: var(--muted);
@@ -690,10 +676,10 @@ main {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 1100;
+  z-index: 13000;
   justify-content: center;
   align-items: flex-start;
-  padding: 108px 16px 32px;
+  padding: calc(env(safe-area-inset-top, 0px) + 96px) 14px 18px;
   overflow-y: auto;
   backdrop-filter: blur(2px);
 }
@@ -702,11 +688,11 @@ main {
   background: #fff;
   border-radius: 14px;
   width: 100%;
-  max-width: 640px;
+  max-width: 760px;
   padding: 0;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
   position: relative;
-  max-height: calc(100vh - 152px);
+  max-height: calc(100dvh - (env(safe-area-inset-top, 0px) + 114px));
   overflow-y: auto;
   animation: modalSlideIn 0.2s ease-out;
 }
@@ -740,24 +726,141 @@ main {
 }
 
 /* Report detail content */
-.rd-modal-body { padding: 20px 24px 24px; }
+.rd-modal-body { padding: 14px 14px 16px; }
 .rd-title {
-  font-size: 18px;
+  font-size: 1.16rem;
   font-weight: 700;
   color: var(--text);
-  margin: 0 0 14px;
-  line-height: 1.35;
+  margin: 0 0 8px;
+  line-height: 1.26;
+  letter-spacing: -0.01em;
 }
+
+.rd-keyline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.rd-keyline-student {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.rd-meta-inline {
+  font-size: 0.84rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.rd-cc-hover {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+}
+
+.rd-cc-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  max-width: min(320px, 80vw);
+  padding: 8px;
+  border: 1px solid #dbe3ec;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  display: none;
+  z-index: 20;
+}
+
+.rd-cc-hover:hover .rd-cc-tooltip,
+.rd-cc-hover:focus-within .rd-cc-tooltip {
+  display: block;
+}
+
+.rd-cc-tooltip-title {
+  font-size: 0.72rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.rd-cc-tooltip-list {
+  display: grid;
+  gap: 6px;
+}
+
+.rd-cc-tooltip-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  padding: 6px 8px;
+  border-radius: 9px;
+  font-size: 0.79rem;
+}
+
+.rd-cc-tooltip-item .role {
+  color: #64748b;
+}
+
+.rd-cc-tooltip-state {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.rd-meta-sep {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #cbd5e1;
+}
+
+.rd-keyline-student .rd-meta-label {
+  color: #64748b;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rd-keyline-date {
+  font-size: 0.74rem;
+  color: #94a3b8;
+}
+
+.rd-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+
 .rd-info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
-  margin-bottom: 16px;
-  padding: 14px;
-  background: #f9fafb;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  background: transparent;
+  border-top: 1px solid #edf2f7;
 }
+
 .rd-info-label {
   font-size: 11px;
   font-weight: 600;
@@ -774,41 +877,56 @@ main {
 }
 .rd-badge {
   display: inline-block;
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 700;
   text-transform: capitalize;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.07em;
 }
 .rd-priority-urgent { background: #fef2f2; color: #dc2626; }
 .rd-priority-high { background: #fff7ed; color: #c2410c; }
 .rd-priority-normal { background: #eff6ff; color: #2563eb; }
 .rd-priority-low { background: #f9fafb; color: #6b7280; }
 
-.rd-message {
-  background: #f8fafc;
+.rd-message-box {
   border: 1px solid #e2e8f0;
-  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.rd-message-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  padding: 8px 10px;
+  border-bottom: 1px solid #edf2f7;
+  background: #f8fafc;
+}
+
+.rd-message {
+  padding: 12px 12px;
   border-radius: 10px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  line-height: 1.65;
+  margin-bottom: 0;
+  font-size: 0.88rem;
+  line-height: 1.58;
   color: #334155;
   white-space: pre-wrap;
   word-wrap: break-word;
 }
 
-.rd-section {
-  margin-bottom: 16px;
-}
+.rd-section { margin-bottom: 10px; }
 .rd-section-title {
-  font-size: 13px;
+  font-size: 0.76rem;
   font-weight: 700;
-  color: var(--text);
-  margin: 0 0 10px;
+  color: #64748b;
+  margin: 0 0 8px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -820,42 +938,79 @@ main {
   background: var(--border);
 }
 .rd-recipients {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 6px;
 }
 .rd-tag {
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  color: #0369a1;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  padding: 6px 8px;
+  border-radius: 9px;
+  font-size: 0.79rem;
   font-weight: 500;
+}
+
+.rd-thread-scroll {
+  max-height: 44vh;
+  overflow-y: auto;
+  overflow-x: visible;
+  position: relative;
+  padding-right: 2px;
+}
+
+.rd-thread-scroll.rd-severity-urgent .rd-reply {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.rd-thread-scroll.rd-severity-high .rd-reply {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.rd-thread-scroll.rd-severity-medium .rd-reply,
+.rd-thread-scroll.rd-severity-normal .rd-reply {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.rd-thread-scroll.rd-severity-low .rd-reply {
+  background: #f8fafc;
+  border-color: #e2e8f0;
 }
 
 /* Conversation thread */
 .rd-reply {
-  padding: 12px 14px;
-  border-radius: 10px;
+  padding: 10px 44px 10px 11px;
+  border-radius: 9px;
   margin-bottom: 8px;
-  border: 1px solid var(--border);
-  background: #fff;
+  border: 1px solid #edf2f7;
+  border-left: 3px solid #cbd5e1;
+  background: #fcfdff;
+  max-width: 88%;
+  position: relative;
+}
+.rd-reply.is-mine {
+  margin-left: auto;
+  border-left-color: #93c5fd;
+  background: #eff6ff;
+}
+.rd-reply.is-theirs {
+  margin-right: auto;
 }
 .rd-reply:last-child { margin-bottom: 0; }
 .rd-reply.is-guardian {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  border-left-color: #86efac;
 }
 .rd-reply.is-staff {
-  background: #eff6ff;
-  border-color: #bfdbfe;
+  border-left-color: #93c5fd;
 }
 .rd-reply-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .rd-reply-sender {
   font-weight: 600;
@@ -879,9 +1034,12 @@ main {
   color: var(--muted);
 }
 .rd-reply-date {
+  display: block;
   font-size: 11px;
   color: #94a3b8;
   white-space: nowrap;
+  margin-top: 6px;
+  text-align: right;
 }
 .rd-reply-msg {
   font-size: 13px;
@@ -890,6 +1048,63 @@ main {
   margin: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+.rd-msg-menu-wrap {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 70;
+}
+
+.rd-msg-menu-btn {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.rd-msg-menu-btn:hover {
+  color: #1f2937;
+  background: #f8fafc;
+}
+
+.rd-msg-menu-dropdown {
+  display: none;
+  position: absolute;
+  top: 28px;
+  right: 0;
+  min-width: 130px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: visible;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+  padding: 8px 10px;
+  z-index: 80;
+}
+
+.rd-msg-menu-wrap.open .rd-msg-menu-dropdown {
+  display: block;
+}
+
+.rd-msg-menu-text {
+  color: #dc2626;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.rd-msg-menu-text:hover {
+  text-decoration: underline;
 }
 .rd-no-replies {
   text-align: center;
@@ -902,9 +1117,9 @@ main {
 
 /* Reply form */
 .rd-reply-form {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 2px solid var(--border);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 .rd-reply-form label {
   display: block;
@@ -915,11 +1130,11 @@ main {
 }
 .rd-reply-form textarea {
   width: 100%;
-  min-height: 80px;
+  min-height: 86px;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   resize: vertical;
   box-sizing: border-box;
@@ -1497,9 +1712,15 @@ main {
 }
 
 @media (max-width: 640px) {
-  .report-modal-overlay { padding: 112px 12px 20px; }
+  .report-modal-overlay { padding: calc(env(safe-area-inset-top, 0px) + 90px) 10px 12px; }
   .rd-modal-body { padding: 16px; }
-  .rd-info-grid { grid-template-columns: 1fr 1fr; }
+  .rd-info-grid { grid-template-columns: 1fr; }
+  .rd-recipients { grid-template-columns: 1fr; }
+  .rd-thread-scroll { max-height: none; }
+  .rd-keyline { align-items: flex-start; }
+  .rd-keyline-date { width: 100%; }
+  .rd-meta-inline { align-items: flex-start; gap: 4px; }
+  .rd-meta-sep { display: none; }
   .rd-reply-header { flex-direction: column; align-items: flex-start; gap: 2px; }
   .rp-card { flex-direction: column; align-items: flex-start; }
   .rp-right { width: 100%; justify-content: space-between; }
@@ -4865,7 +5086,6 @@ main {
           }
           var html = '';
           d.reports.forEach(function(r) {
-            var statusCls = 'rp-status-' + (r.status || 'open');
             var replyLabel = (r.reply_count == 1) ? '1 reply' : (r.reply_count || 0) + ' replies';
             html += '<div class="rp-card" onclick="openReportDetail(' + r.report_id + ')">' +
               '<div class="rp-left">' +
@@ -4879,7 +5099,6 @@ main {
                 '</div>' +
               '</div>' +
               '<div class="rp-right">' +
-                '<span class="rp-status ' + statusCls + '">' + (r.status || 'open').replace('_',' ') + '</span>' +
                 '<span class="rp-replies">💬 ' + replyLabel + '</span>' +
               '</div>' +
             '</div>';
@@ -4919,6 +5138,65 @@ main {
       return String(displayHour) + ':' + minute + ' ' + suffix;
     }
 
+    var currentStaffUserId = Number('<%= Number((req.session && (req.session.userId || (req.session.user && req.session.user.user_id))) || 0) %>');
+
+    if (!window.__classReportCcState) {
+      window.__classReportCcState = { cache: {}, loading: {} };
+    }
+
+    function loadClassReportCcHover(reportId) {
+      var state = window.__classReportCcState;
+      if (state.cache[reportId] && Array.isArray(state.cache[reportId].recipients)) {
+        renderClassReportCcTooltip(state.cache[reportId].recipients);
+        return;
+      }
+      if (state.loading[reportId]) {
+        return;
+      }
+
+      state.loading[reportId] = true;
+      renderClassReportCcTooltipState('Loading staff...');
+
+      fetch('/common/classReportRecipients?reportId=' + reportId)
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.success) {
+            renderClassReportCcTooltipState('Unable to load CC staff.');
+            return;
+          }
+          var recipients = Array.isArray(d.recipients) ? d.recipients : [];
+          state.cache[reportId] = { recipients: recipients };
+          renderClassReportCcTooltip(recipients);
+        })
+        .catch(function () {
+          renderClassReportCcTooltipState('Unable to load CC staff.');
+        })
+        .finally(function () {
+          state.loading[reportId] = false;
+        });
+    }
+
+    function renderClassReportCcTooltip(recipients) {
+      var list = document.getElementById('rdCcTooltipList');
+      if (!list) return;
+      if (!recipients.length) {
+        renderClassReportCcTooltipState('No staff were CC\'d on this report.');
+        return;
+      }
+
+      var html = '';
+      recipients.forEach(function (item) {
+        html += '<div class="rd-cc-tooltip-item">' + esc(item.display_name || 'Staff') + ' <span class="role">· ' + esc(item.display_role || 'Staff') + '</span></div>';
+      });
+      list.innerHTML = html;
+    }
+
+    function renderClassReportCcTooltipState(text) {
+      var list = document.getElementById('rdCcTooltipList');
+      if (!list) return;
+      list.innerHTML = '<div class="rd-cc-tooltip-state">' + esc(text) + '</div>';
+    }
+
     function openReportDetail(reportId) {
       var modal = document.getElementById('reportDetailModal');
       var content = document.getElementById('reportDetailContent');
@@ -4930,58 +5208,80 @@ main {
         .then(function(d) {
           if (!d.success) { content.innerHTML = '<p style="color:#e74c3c;">Report not found.</p>'; return; }
           var rp = d.report;
-          var statusCls = 'rp-status-' + (rp.status || 'open');
           var prCls = 'rd-priority-' + (rp.priority || 'normal');
+          var priorityKey = String(rp.priority || 'normal').toLowerCase();
+          if (priorityKey === 'meduim') priorityKey = 'medium';
+          if (priorityKey === 'normal') priorityKey = 'medium';
+          var threadSeverityCls = 'rd-severity-' + priorityKey;
 
           var html = '<div class="rd-modal-body">';
           html += '<h2 class="rd-title">' + esc(rp.subject) + '</h2>';
 
-          // Info grid
-          html += '<div class="rd-info-grid">';
-          html += '<div class="rd-info-item"><p class="rd-info-label">Student</p><p class="rd-info-value">' + esc(rp.student_name) + '</p></div>';
-          html += '<div class="rd-info-item"><p class="rd-info-label">Guardian</p><p class="rd-info-value">' + esc(rp.guardian_name) + '</p></div>';
-          html += '<div class="rd-info-item"><p class="rd-info-label">Date</p><p class="rd-info-value">' + formatDashboardDate(rp.created_at) + '</p></div>';
-          html += '<div class="rd-info-item"><p class="rd-info-label">Status</p><p class="rd-info-value"><span class="rd-badge ' + statusCls + '">' + (rp.status || 'open').replace('_',' ') + '</span></p></div>';
-          html += '<div class="rd-info-item"><p class="rd-info-label">Priority</p><p class="rd-info-value"><span class="rd-badge ' + prCls + '">' + esc(rp.priority || 'normal') + '</span></p></div>';
-          html += '</div>';
-
-          // Original message
-          html += '<div class="rd-message">' + esc(rp.message) + '</div>';
-
-          // Recipients
-          if (d.recipients && d.recipients.length) {
-            html += '<div class="rd-section"><div class="rd-section-title">Copied Staff</div><div class="rd-recipients">';
-            d.recipients.forEach(function(rc) {
-              html += '<span class="rd-tag">' + esc(rc.display_name) + ' · ' + esc(rc.display_role) + '</span>';
-            });
-            html += '</div></div>';
-          }
+          // Key line + badges (important info first)
+          html += '<div class="rd-keyline">'
+            +   '<div class="rd-keyline-student"><span class="rd-meta-label">Student</span><strong>' + esc(rp.student_name) + '</strong></div>'
+            +   '<div class="rd-keyline-date">' + formatDashboardDate(rp.created_at) + '</div>'
+            + '</div>';
+          html += '<div class="rd-meta-inline">'
+            +   '<span>Parent: ' + esc(rp.guardian_name) + '</span>'
+            +   '<span class="rd-meta-sep"></span>'
+            +   '<span class="rd-cc-hover" tabindex="0" onmouseenter="loadClassReportCcHover(' + rp.report_id + ')" onfocus="loadClassReportCcHover(' + rp.report_id + ')">CC: ' + Number(rp.cc_count || 0) + ' staff'
+            +     '<span class="rd-cc-tooltip"><span class="rd-cc-tooltip-title">CC Staff</span><span class="rd-cc-tooltip-list" id="rdCcTooltipList"><span class="rd-cc-tooltip-state">Hover to load...</span></span></span>'
+            +   '</span>'
+            + '</div>';
+          html += '<div class="rd-badge-row">'
+            +   '<span class="rd-badge ' + prCls + '">' + esc(rp.priority || 'normal') + '</span>'
+            + '</div>';
 
           // Conversation
           var replyCount = d.replies ? d.replies.length : 0;
-          html += '<div class="rd-section"><div class="rd-section-title">Conversation (' + replyCount + ')</div>';
+          var threadCount = replyCount + 1;
+          html += '<div class="rd-section"><div class="rd-section-title">Conversation (' + threadCount + ')</div><div class="rd-thread-scroll ' + threadSeverityCls + '">';
+
+          // Original report message appears first in the thread
+          html += '<div class="rd-reply is-guardian is-theirs">' +
+            '<div class="rd-reply-header">' +
+              '<span class="rd-reply-sender">' +
+                '<span class="sender-dot guardian"></span>' +
+                '<span class="sender-name">' + esc(rp.guardian_name) + '</span>' +
+                '<span class="sender-label">Parent</span>' +
+              '</span>' +
+            '</div>' +
+            '<p class="rd-reply-msg">' + esc(rp.message) + '</p>' +
+            '<span class="rd-reply-date">' + new Date(rp.created_at).toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) + '</span>' +
+          '</div>';
+
           if (replyCount > 0) {
             d.replies.forEach(function(reply) {
               var isGuardian = reply.sender_type === 'guardian';
               var bubbleCls = isGuardian ? 'is-guardian' : 'is-staff';
+              var isMine = !isGuardian && Number(reply.sender_id || 0) === currentStaffUserId;
+              var sideCls = isMine ? 'is-mine' : 'is-theirs';
               var dotCls = isGuardian ? 'guardian' : 'staff';
               var label = isGuardian ? 'Parent' : 'Staff';
-              html += '<div class="rd-reply ' + bubbleCls + '">' +
+              html += '<div class="rd-reply ' + bubbleCls + ' ' + sideCls + '">';
+              if (!isGuardian && isMine) {
+                html += '<div class="rd-msg-menu-wrap" id="rdMsgMenu-' + reply.reply_id + '">' +
+                  '<button type="button" class="rd-msg-menu-btn" onclick="toggleReportMsgMenu(' + reply.reply_id + ')" aria-label="Message actions">⋯</button>' +
+                  '<div class="rd-msg-menu-dropdown">' +
+                    '<a href="#" class="rd-msg-menu-text" onclick="return deleteClassReply(' + rp.report_id + ', ' + reply.reply_id + ')">Delete message</a>' +
+                  '</div>' +
+                '</div>';
+              }
+              html +=
                 '<div class="rd-reply-header">' +
                   '<span class="rd-reply-sender">' +
                     '<span class="sender-dot ' + dotCls + '"></span>' +
                     '<span class="sender-name">' + esc(reply.display_name) + '</span>' +
                     '<span class="sender-label">' + label + '</span>' +
                   '</span>' +
-                  '<span class="rd-reply-date">' + new Date(reply.created_at).toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) + '</span>' +
                 '</div>' +
                 '<p class="rd-reply-msg">' + esc(reply.message) + '</p>' +
+                '<span class="rd-reply-date">' + new Date(reply.created_at).toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) + '</span>' +
               '</div>';
             });
-          } else {
-            html += '<div class="rd-no-replies">No replies yet. Start the conversation below.</div>';
           }
-          html += '</div>';
+          html += '</div></div>';
 
           // Reply form
           html += '<div class="rd-reply-form">' +
@@ -5036,6 +5336,42 @@ main {
           btn.textContent = 'Send Reply';
         });
     }
+
+    function toggleReportMsgMenu(replyId) {
+      var wrap = document.getElementById('rdMsgMenu-' + replyId);
+      if (!wrap) return;
+      var isOpen = wrap.classList.contains('open');
+      document.querySelectorAll('.rd-msg-menu-wrap.open').forEach(function(el) { el.classList.remove('open'); });
+      if (!isOpen) wrap.classList.add('open');
+    }
+
+    function deleteClassReply(reportId, replyId) {
+      if (!confirm('Delete this message?')) return false;
+      fetch('/common/classReportReplies/' + replyId + '/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId: reportId })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (!d.success) {
+            alert(d.error || 'Failed to delete message');
+            return;
+          }
+          openReportDetail(reportId);
+          loadClassReports();
+        })
+        .catch(function() {
+          alert('Failed to delete message');
+        });
+      return false;
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.rd-msg-menu-wrap')) {
+        document.querySelectorAll('.rd-msg-menu-wrap.open').forEach(function(el) { el.classList.remove('open'); });
+      }
+    });
 
     function toggleClassScheduleModal(e) {
       if (e) e.preventDefault();

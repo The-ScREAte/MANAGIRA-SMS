@@ -20,6 +20,19 @@ const {
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { buildNameSortExpression, formatDisplayName } = require("../utils/organizationDisplayPreferences");
 
+// Keep the settings list aligned with parent notification keys actively emitted in the app.
+const LIVE_GUARDIAN_NOTIFICATION_KEYS = new Set([
+  "parent_absence_alert",
+  "weekly_parent_digest",
+  "student_class_change",
+  "staff_report_to_guardian",
+  "staff_reply_to_guardian",
+  "report_card_email",
+  "broadcast_event_or_announcement",
+  "admission_application_received",
+  "guardian_additional_student_added",
+]);
+
 function resolveScheduleWatermarkUrl(req) {
   const rawLogo = String(
     req?.schoolDetails?.logo ||
@@ -797,7 +810,7 @@ module.exports = {
       let savedNotificationPrefs = {};
       try {
         await ensureEmailPreferencesSchema(db);
-        notificationPrefs = getGuardianPreferences();
+        notificationPrefs = getGuardianPreferences().filter((pref) => LIVE_GUARDIAN_NOTIFICATION_KEYS.has(pref.key));
         savedNotificationPrefs = await getGuardianPreferenceMap(db, guardianId);
       } catch (_) {
         notificationPrefs = [];
@@ -989,7 +1002,9 @@ module.exports = {
 
     try {
       await ensureEmailPreferencesSchema(db);
-      const allowed = getGuardianPreferences().map(p => p.key);
+      const allowed = getGuardianPreferences()
+        .filter((pref) => LIVE_GUARDIAN_NOTIFICATION_KEYS.has(pref.key))
+        .map((p) => p.key);
 
       const submittedRaw = req.body.preferences;
       const submitted = Array.isArray(submittedRaw)
@@ -1713,10 +1728,18 @@ module.exports = {
         [guardianId, organizationId]
       );
 
+      const reportUnreadTotal = reports.rows.reduce((sum, row) => {
+        return sum + (Number.parseInt(row.unread_count, 10) || 0);
+      }, 0);
+      const existingNotifUnread = Number.parseInt(res.locals?.notifUnreadCount, 10) || 0;
+      const mergedNotifUnread = Math.max(existingNotifUnread, reportUnreadTotal);
+
       res.render('guardian/reports', {
         title: 'My Reports',
         reports: reports.rows,
         students,
+        reportUnreadTotal,
+        notifUnreadCount: mergedNotifUnread,
         messages: req.flash(),
         req
       });
@@ -1874,7 +1897,12 @@ module.exports = {
 
       // Get report details
       const reportQuery = await db.query(
-        `SELECT r.*, s.first_name || ' ' || s.last_name as student_name
+        `SELECT r.*, s.first_name || ' ' || s.last_name as student_name,
+                (
+                  SELECT COUNT(*)::int
+                  FROM guardian_report_recipients grr
+                  WHERE grr.report_id = r.report_id
+                ) AS cc_count
          FROM guardian_reports r
          JOIN students s ON r.student_id = s.student_id
          WHERE r.report_id = $1 AND r.guardian_id = $2 AND r.organization_id = $3 AND r.deleted_at IS NULL`,
@@ -1896,6 +1924,19 @@ module.exports = {
         [reportId, guardianId, organizationId]
       );
 
+      const deletedColumnCheck = await db.query(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM information_schema.columns
+           WHERE table_schema = 'public'
+             AND table_name = 'guardian_report_replies'
+             AND column_name = 'deleted'
+         ) AS has_deleted`
+      );
+      const replyDeletedFilter = deletedColumnCheck.rows[0]?.has_deleted
+        ? 'AND COALESCE(rr.deleted, FALSE) = FALSE'
+        : '';
+
       // Get replies with real sender names
       const repliesQuery = await db.query(
         `SELECT rr.*,
@@ -1912,15 +1953,49 @@ module.exports = {
                 END AS display_name
          FROM guardian_report_replies rr
          WHERE rr.report_id = $1
+           ${replyDeletedFilter}
          ORDER BY rr.created_at ASC`,
         [reportId]
       );
 
-      // Get CC recipients with real names
-      const recipientsQuery = await db.query(
-        `SELECT grr.*,
+      res.render('guardian/reportDetails', {
+        title: 'Report Details',
+        report,
+        replies: repliesQuery.rows,
+        messages: req.flash(),
+        req
+      });
+    } catch (error) {
+            req.flash('error', 'Error loading report');
+      res.redirect('/guardian/reports');
+    }
+  },
+
+  reportCcRecipientsGet: async (req, res, db) => {
+    const guardianId = req.session.guardianId;
+    const organizationId = req.session.organizationId;
+    const reportId = req.params.id;
+
+    try {
+      const accessResult = await db.query(
+        `SELECT report_id
+         FROM guardian_reports
+         WHERE report_id = $1
+           AND guardian_id = $2
+           AND organization_id = $3
+           AND deleted_at IS NULL
+         LIMIT 1`,
+        [reportId, guardianId, organizationId]
+      );
+
+      if (!accessResult.rows.length) {
+        return res.status(404).json({ success: false, error: 'Report not found' });
+      }
+
+      const recipientsResult = await db.query(
+        `SELECT grr.user_id,
                 COALESCE(u.first_name || ' ' || u.last_name, grr.user_name) AS display_name,
-                COALESCE(u.account_type::text, grr.user_role) AS display_role
+                COALESCE(u.account_type::text, grr.user_role, 'Staff') AS display_role
          FROM guardian_report_recipients grr
          LEFT JOIN users u ON u.user_id = grr.user_id
          WHERE grr.report_id = $1
@@ -1928,39 +2003,14 @@ module.exports = {
         [reportId]
       );
 
-      // Get class teachers for this student
-      let classTeachers = [];
-      if (report.student_id) {
-        const studentClass = await db.query(
-          `SELECT class_id FROM students WHERE student_id = $1 AND organization_id = $2`,
-          [report.student_id, organizationId]
-        );
-        const classId = studentClass.rows[0]?.class_id;
-        if (classId) {
-          const teachersQuery = await db.query(
-            `SELECT u.first_name || ' ' || u.last_name AS name, u.account_type AS role, uc.main
-             FROM user_classes uc
-             JOIN users u ON uc.user_id = u.user_id
-             WHERE uc.class_id = $1 AND u.organization_id = $2 AND u.on_hold = FALSE
-             ORDER BY uc.main DESC, u.first_name ASC`,
-            [classId, organizationId]
-          );
-          classTeachers = teachersQuery.rows;
-        }
-      }
-
-      res.render('guardian/reportDetails', {
-        title: 'Report Details',
-        report,
-        replies: repliesQuery.rows,
-        recipients: recipientsQuery.rows,
-        classTeachers,
-        messages: req.flash(),
-        req
+      return res.json({
+        success: true,
+        recipients: recipientsResult.rows,
+        count: recipientsResult.rows.length,
       });
     } catch (error) {
-            req.flash('error', 'Error loading report');
-      res.redirect('/guardian/reports');
+      console.error('reportCcRecipientsGet error:', error);
+      return res.status(500).json({ success: false, error: 'Failed to load CC recipients.' });
     }
   },
 
@@ -2028,6 +2078,48 @@ module.exports = {
     } catch (error) {
             req.flash('error', 'Error adding reply');
       res.redirect(`/guardian/reports/${reportId}`);
+    }
+  },
+
+  reportReplyDeletePost: async (req, res, db) => {
+    const guardianId = req.session.guardianId;
+    const organizationId = req.session.organizationId;
+    const reportId = req.params.id;
+    const replyId = req.params.replyId;
+
+    try {
+      const reportCheck = await db.query(
+        `SELECT report_id
+         FROM guardian_reports
+         WHERE report_id = $1 AND guardian_id = $2 AND organization_id = $3 AND deleted_at IS NULL`,
+        [reportId, guardianId, organizationId]
+      );
+
+      if (reportCheck.rows.length === 0) {
+        req.flash('error', 'Report not found');
+        return res.redirect('/guardian/reports');
+      }
+
+      const deleted = await db.query(
+        `DELETE FROM guardian_report_replies
+         WHERE reply_id = $1
+           AND report_id = $2
+           AND sender_type = 'guardian'
+           AND sender_id = $3
+         RETURNING reply_id`,
+        [replyId, reportId, guardianId]
+      );
+
+      if (deleted.rows.length === 0) {
+        req.flash('error', 'Message not found');
+        return res.redirect(`/guardian/reports/${reportId}`);
+      }
+
+      req.flash('success', 'Message deleted');
+      return res.redirect(`/guardian/reports/${reportId}`);
+    } catch (error) {
+      req.flash('error', 'Error deleting message');
+      return res.redirect(`/guardian/reports/${reportId}`);
     }
   },
 

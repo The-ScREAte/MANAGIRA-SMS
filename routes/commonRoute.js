@@ -251,11 +251,17 @@ module.exports = (db) => {
   router.post("/staffReplyToReport", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.staffReplyToReport(req, res, db)
   );
+  router.post("/classReportReplies/:replyId/delete", checkFeatureAccess, isAuthenticated, express.json(), (req, res) =>
+    commonController.classReportReplyDelete(req, res, db)
+  );
   router.get("/classReports", isAuthenticated, (req, res) =>
     commonController.classReports(req, res, db)
   );
   router.get("/classReportDetail", isAuthenticated, (req, res) =>
     commonController.classReportDetail(req, res, db)
+  );
+  router.get("/classReportRecipients", isAuthenticated, (req, res) =>
+    commonController.classReportRecipients(req, res, db)
   );
   
   router.get("/check-student-id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_STUDENTS), (req, res) =>

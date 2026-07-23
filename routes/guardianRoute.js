@@ -77,8 +77,16 @@ module.exports = (db) => {
     guardianController.reportDetailsGet(req, res, db)
   );
 
+  router.get("/reports/:id/cc", isGuardianAuthenticated, (req, res) =>
+    guardianController.reportCcRecipientsGet(req, res, db)
+  );
+
   router.post("/reports/:id/reply", isGuardianAuthenticated, (req, res) =>
     guardianController.reportReplyPost(req, res, db)
+  );
+
+  router.post("/reports/:id/replies/:replyId/delete", isGuardianAuthenticated, (req, res) =>
+    guardianController.reportReplyDeletePost(req, res, db)
   );
 
   router.post("/reports/:id/delete", isGuardianAuthenticated, (req, res) =>

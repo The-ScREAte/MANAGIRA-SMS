@@ -1,354 +1,635 @@
 <style>
-  .report-details-container {
-    max-width: 980px;
+  .rd-page-shell {
+    max-width: 760px;
     margin: 0 auto;
-    padding: 16px;
+    padding: 14px;
   }
 
-  .back-link {
+  .rd-back-link {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: var(--primary, #27ae60);
+    color: var(--primary, #01535b);
     text-decoration: none;
-    margin-bottom: 14px;
+    margin-bottom: 10px;
     font-weight: 650;
-    font-size: 0.84rem;
-    border: 1px solid color-mix(in srgb, var(--primary, #27ae60) 28%, white);
+    font-size: 0.82rem;
+    border: 1px solid #dbe3ec;
     border-radius: 999px;
-    padding: 6px 11px;
+    padding: 5px 10px;
     background: #fff;
   }
 
-  .back-link:hover {
-    background: color-mix(in srgb, var(--primary, #27ae60) 8%, white);
+  .rd-back-link:hover {
+    background: #f8fafc;
   }
 
-  .report-header {
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  .rd-modal-body {
+    background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
-    padding: 18px;
-    margin-bottom: 12px;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.06);
+    padding: 14px 14px 16px;
   }
 
-  .report-title {
-    font-size: clamp(1.1rem, 2.2vw, 1.45rem);
+  .rd-title {
+    font-size: 1.16rem;
+    font-weight: 700;
     color: #0f172a;
-    margin: 0 0 12px;
+    margin: 0 0 8px;
+    line-height: 1.26;
     letter-spacing: -0.01em;
   }
 
-  .report-meta-row {
+  .rd-keyline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .rd-keyline-student {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.88rem;
+    color: #334155;
+  }
+
+  .rd-keyline-student .rd-meta-label {
+    color: #64748b;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .rd-keyline-date {
+    font-size: 0.74rem;
+    color: #94a3b8;
+  }
+
+  .rd-meta-inline {
+    font-size: 0.84rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .rd-cc-hover {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: default;
+  }
+
+  .rd-cc-tooltip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 220px;
+    max-width: min(320px, 80vw);
+    padding: 8px;
+    border: 1px solid #dbe3ec;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+    display: none;
+    z-index: 20;
+  }
+
+  .rd-cc-hover:hover .rd-cc-tooltip,
+  .rd-cc-hover:focus-within .rd-cc-tooltip {
+    display: block;
+  }
+
+  .rd-cc-tooltip-title {
+    font-size: 0.72rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+
+  .rd-cc-tooltip-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 10px;
-    margin-bottom: 2px;
+    gap: 6px;
+  }
+
+  .rd-cc-tooltip-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    padding: 6px 8px;
+    border-radius: 9px;
+    font-size: 0.79rem;
+  }
+
+  .rd-cc-tooltip-item .role {
+    color: #64748b;
+  }
+
+  .rd-cc-tooltip-state {
     font-size: 0.8rem;
     color: #64748b;
   }
 
-  .meta-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    min-width: 0;
-    background: #fff;
-    border: 1px solid #e8edf3;
-    border-radius: 10px;
-    padding: 8px 10px;
+  .rd-meta-sep {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #cbd5e1;
   }
 
-  .meta-label {
+  .rd-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .rd-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.69rem;
     font-weight: 700;
+    text-transform: capitalize;
+    letter-spacing: 0.07em;
+  }
+
+  .rd-priority-urgent { background: #fef2f2; color: #dc2626; }
+  .rd-priority-high { background: #fff7ed; color: #c2410c; }
+  .rd-priority-normal { background: #eff6ff; color: #2563eb; }
+  .rd-priority-low { background: #f9fafb; color: #6b7280; }
+
+
+  .rd-section {
+    margin-bottom: 10px;
+  }
+
+  .rd-section-title {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #64748b;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rd-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+  }
+
+  .rd-recipients {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 6px;
+  }
+
+  .rd-tag {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     color: #334155;
+    padding: 6px 8px;
+    border-radius: 9px;
+    font-size: 0.79rem;
+    font-weight: 500;
+  }
+
+  .rd-thread-scroll {
+    max-height: 56vh;
+    overflow-y: auto;
+    overflow-x: visible;
+    position: relative;
+    padding-right: 2px;
+  }
+
+  .rd-thread-scroll.rd-severity-urgent .rd-reply {
+    background: #fef2f2;
+    border-color: #fecaca;
+  }
+
+  .rd-thread-scroll.rd-severity-high .rd-reply {
+    background: #fff7ed;
+    border-color: #fed7aa;
+  }
+
+  .rd-thread-scroll.rd-severity-medium .rd-reply,
+  .rd-thread-scroll.rd-severity-normal .rd-reply {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+  }
+
+  .rd-thread-scroll.rd-severity-low .rd-reply {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+  }
+
+  .rd-reply {
+    padding: 10px 44px 10px 11px;
+    border-radius: 9px;
+    margin-bottom: 8px;
+    border: 1px solid #edf2f7;
+    border-left: 3px solid #cbd5e1;
+    background: #fcfdff;
+    position: relative;
+    max-width: 88%;
+  }
+
+  .rd-reply.is-mine {
+    margin-left: auto;
+  }
+
+  .rd-reply.is-theirs {
+    margin-right: auto;
+  }
+
+  .rd-reply:last-child { margin-bottom: 0; }
+
+  .rd-reply.is-guardian { border-left-color: #86efac; }
+  .rd-reply.is-staff { border-left-color: #93c5fd; }
+
+  .rd-reply-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  .rd-reply-sender {
+    font-weight: 600;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #1e293b;
+  }
+
+  .rd-reply-sender .sender-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
     flex-shrink: 0;
   }
 
-  .status-badge {
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    display: inline-block;
-    letter-spacing: 0.07em;
-  }
-  .status-open { background: #fef3c7; color: #d97706; }
-  .status-in_progress { background: #dbeafe; color: #2563eb; }
-  .status-resolved { background: #d1fae5; color: #059669; }
-  .status-closed { background: #f3f4f6; color: #6b7280; }
+  .rd-reply-sender .sender-dot.guardian { background: #10b981; }
+  .rd-reply-sender .sender-dot.staff { background: #3b82f6; }
 
-  .priority-badge {
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .priority-urgent { background: #fadbd8; color: #e74c3c; }
-  .priority-high { background: #fef3c7; color: #d97706; }
-  .priority-normal { background: #dbeafe; color: #2563eb; }
-  .priority-low { background: #f3f4f6; color: #95a5a6; }
-
-  .original-msg-item { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #edf2f7; }
-  .original-msg-item .reply-message { font-size: 0.88rem; }
-
-  .staff-notified-list { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
-  .staff-tag { display: inline-flex; align-items: center; gap: 5px; background: #f1f5f9; color: #334155; padding: 4px 11px; border-radius: 20px; font-size: 0.79rem; font-weight: 500; }
-  .staff-tag .staff-role { color: #94a3b8; font-size: 0.74rem; }
-  .staff-tag .main-badge { background: #d1fae5; color: #059669; border-radius: 8px; padding: 1px 6px; font-size: 0.68rem; font-weight: 700; margin-left: 2px; }
-
-  .meta-staff-details {
-    grid-column: 1 / -1;
-    border: 1px solid #e8edf3;
-    background: #fff;
-    border-radius: 10px;
-    padding: 8px 10px;
-  }
-  .meta-staff-details[open] { flex-basis: 100%; order: 999; }
-  .meta-staff-summary { display: flex; align-items: center; gap: 4px; cursor: pointer; list-style: none; font-size: 0.82rem; color: #64748b; padding: 0; }
-  .meta-staff-summary::-webkit-details-marker { display: none; }
-  .meta-staff-chevron { color: #94a3b8; font-size: 1rem; line-height: 1; transition: transform .18s; }
-  .meta-staff-details[open] > .meta-staff-summary > .meta-staff-chevron { transform: rotate(90deg); }
-
-  .conversation-section {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 14px;
-    margin-bottom: 12px;
+  .rd-reply-sender .sender-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #64748b;
   }
 
-  .conversation-section h3 {
-    font-size: 0.92rem;
-    color: #1e293b;
-    margin: 0 0 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-  }
-
-  .thread-scroll {
-    max-height: 56vh;
-    overflow-y: auto;
-    padding-right: 4px;
-  }
-
-  .reply-item {
-    margin-bottom: 11px;
-    padding: 10px 11px;
-    border: 1px solid #edf2f7;
-    border-left: 3px solid #cbd5e1;
-    border-radius: 10px;
-    background: #fcfdff;
-  }
-  .reply-item .sender-type-guardian { color: #059669; }
-  .reply-item .sender-type-staff { color: #2563eb; }
-  .reply-item:has(.sender-type-guardian) { border-left-color: #86efac; }
-  .reply-item:has(.sender-type-staff) { border-left-color: #93c5fd; }
-  .reply-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-  .reply-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .reply-sender { font-weight: 600; font-size: 0.85rem; color: #1e293b; }
-  .reply-date { font-size: 0.75rem; color: #94a3b8; }
-  .reply-message { color: #475569; line-height: 1.6; margin: 0; font-size: 0.85rem; }
-  .no-replies { text-align: center; color: #94a3b8; padding: 20px; font-size: 0.85rem; }
-
-  .reply-form {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 14px;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-  }
-  .reply-form h3 { font-size: 0.95rem; color: #1e293b; margin: 0 0 10px; }
-  .reply-form textarea {
-    width: 100%;
-    min-height: 90px;
-    padding: 11px;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    font-size: 0.88rem;
-    font-family: inherit;
-    resize: vertical;
-    box-sizing: border-box;
-    line-height: 1.45;
-  }
-  .reply-form textarea:focus { outline: none; border-color: var(--primary, #27ae60); }
-  .reply-form button {
-    background: var(--primary, #27ae60);
-    color: #fff;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 10px;
-    font-weight: 700;
-    font-size: 0.84rem;
-    cursor: pointer;
-    margin-top: 10px;
-  }
-  .reply-form button:hover { background: var(--primary-hover, #229954); }
-
-  .report-delete-wrap {
-    margin-top: 8px;
+  .rd-reply-date {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+    white-space: nowrap;
+    margin-top: 6px;
     text-align: right;
   }
 
-  .report-delete-btn {
-    background: none;
-    border: none;
-    color: #94a3b8;
-    font-size: 0.8rem;
-    cursor: pointer;
-    padding: 4px 0;
+  .rd-reply-msg {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.6;
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
   }
 
-  .report-delete-btn:hover {
-    color: #e74c3c;
+  .rd-msg-menu-wrap {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 70;
+  }
+
+  .rd-msg-menu-btn {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+
+  .rd-msg-menu-btn:hover {
+    color: #1f2937;
+    background: #f8fafc;
+  }
+
+  .rd-msg-menu-dropdown {
+    display: none;
+    position: absolute;
+    top: 28px;
+    right: 0;
+    min-width: 130px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: visible;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+    padding: 8px 10px;
+    z-index: 80;
+  }
+
+  .rd-msg-menu-wrap.open .rd-msg-menu-dropdown {
+    display: block;
+  }
+
+  .rd-msg-menu-text {
+    color: #dc2626;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .rd-msg-menu-text:hover {
+    text-decoration: underline;
+  }
+
+  .rd-reply-form {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .rd-reply-form label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 6px;
+  }
+
+  .rd-reply-form textarea {
+    width: 100%;
+    min-height: 86px;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 16px;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+    color: #111827;
+  }
+
+  .rd-reply-form textarea:focus {
+    outline: none;
+    border-color: var(--primary, #01535b);
+    box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.1);
+  }
+
+  .rd-reply-form .rd-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+
+  .rd-reply-form button {
+    background: var(--primary, #01535b);
+    color: #fff;
+    border: 0;
+    border-radius: 10px;
+    padding: 9px 16px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .rd-reply-form button:hover {
+    filter: brightness(0.97);
   }
 
   @media (max-width: 640px) {
-    .report-details-container { padding: 10px; }
-    .report-header { padding: 12px; border-radius: 12px; }
-    .report-title { font-size: 1rem; }
-    .report-meta-row { grid-template-columns: 1fr; gap: 6px; font-size: 0.8rem; }
-    .meta-item { font-size: 0.8rem; }
-    .status-badge, .priority-badge { font-size: 0.68rem; }
-    .meta-staff-summary { font-size: 0.8rem; }
-    .staff-tag { font-size: 0.76rem; padding: 3px 9px; }
-    .conversation-section { padding: 12px; border-radius: 12px; }
-    .thread-scroll { max-height: none; }
-    .conversation-section h3 { font-size: 0.88rem; }
-    .reply-sender { font-size: 0.82rem; }
-    .reply-date { font-size: 0.72rem; }
-    .reply-message { font-size: 0.82rem; }
-    .reply-header { flex-direction: column; align-items: flex-start; gap: 2px; }
-    .reply-form { padding: 12px; border-radius: 12px; }
-    .reply-form textarea {
-      font-size: 16px;
-      min-height: 78px;
-    }
-    .reply-form button { width: 100%; padding: 10px; font-size: 0.88rem; }
+    .rd-page-shell { padding: 10px; }
+    .rd-modal-body { padding: 16px; }
+    .rd-recipients { grid-template-columns: 1fr; }
+    .rd-thread-scroll { max-height: none; }
+    .rd-keyline { align-items: flex-start; }
+    .rd-keyline-date { width: 100%; }
+    .rd-meta-inline { align-items: flex-start; gap: 4px; }
+    .rd-meta-sep { display: none; }
+    .rd-reply-header { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .rd-reply-form .rd-form-actions { justify-content: stretch; }
+    .rd-reply-form button { width: 100%; }
   }
 </style>
 
-<div class="report-details-container">
-  <a href="/guardian/reports" class="back-link">← Back to Reports</a>
+<%
+  var prCls = 'rd-priority-' + (report.priority || 'normal');
+  var threadCount = 1 + ((replies && replies.length) ? replies.length : 0);
+  var priorityKey = String(report.priority || 'normal').toLowerCase();
+  if (priorityKey === 'meduim') priorityKey = 'medium';
+  if (priorityKey === 'normal') priorityKey = 'medium';
+  var threadSeverityCls = 'rd-severity-' + priorityKey;
+%>
 
-  <%
-    var allStaff = [];
-    var seenNames = {};
-    if (classTeachers && classTeachers.length > 0) {
-      classTeachers.forEach(function(t) {
-        var key = (t.name || '').toLowerCase().trim();
-        if (!seenNames[key]) { seenNames[key] = true; allStaff.push({ name: t.name, role: t.role, main: t.main }); }
-      });
-    }
-    if (recipients && recipients.length > 0) {
-      recipients.forEach(function(r) {
-        var key = (r.display_name || '').toLowerCase().trim();
-        if (!seenNames[key]) { seenNames[key] = true; allStaff.push({ name: r.display_name, role: r.display_role, main: false }); }
-      });
-    }
-  %>
+<div class="rd-page-shell">
+  <a href="/guardian/reports" class="rd-back-link">← Back to Reports</a>
 
-  <div class="report-header">
-    <h1 class="report-title"><%= report.subject %></h1>
+  <div class="rd-modal-body">
+    <h2 class="rd-title"><%= report.subject %></h2>
 
-    <div class="report-meta-row">
-      <div class="meta-item">
-        <span class="meta-label">Student:</span>
-        <span><%= report.student_name %></span>
+    <div class="rd-keyline">
+      <div class="rd-keyline-student">
+        <span class="rd-meta-label">Student</span>
+        <strong><%= report.student_name %></strong>
       </div>
-      <div class="meta-item">
-        <span class="meta-label">Date:</span>
-        <span><%= new Date(report.created_at).toLocaleString() %></span>
-      </div>
-      <% if (report.filed_by_name) { %>
-      <div class="meta-item">
-        <span class="meta-label">Filed by:</span>
-        <span><%= report.filed_by_name %></span>
-      </div>
-      <% } %>
-      <div class="meta-item">
-        <span class="meta-label">Status:</span>
-        <span class="status-badge status-<%= report.status %>">
-          <%= report.status.replace('_', ' ') %>
-        </span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Priority:</span>
-        <span class="priority-badge priority-<%= report.priority %>">
-          <%= report.priority %>
-        </span>
-      </div>
-      <% if (allStaff.length > 0) { %>
-      <details class="meta-staff-details">
-        <summary class="meta-staff-summary">
-          <span class="meta-label">Staff Notified:</span>
-          <span><%= allStaff.length %> <%= allStaff.length === 1 ? 'person' : 'people' %></span>
-          <span class="meta-staff-chevron">›</span>
-        </summary>
-        <div class="staff-notified-list">
-          <% allStaff.forEach(function(s) { %>
-            <span class="staff-tag">
-              <%= s.name %>
-              <span class="staff-role"><%= s.role %></span>
-              <% if (s.main) { %><span class="main-badge">Main</span><% } %>
-            </span>
-          <% }); %>
-        </div>
-      </details>
-      <% } %>
+      <div class="rd-keyline-date"><%= new Date(report.created_at).toLocaleDateString() %></div>
     </div>
 
-  </div>
-
-  <div class="conversation-section">
-    <h3>Conversation</h3>
-
-    <div class="thread-scroll">
-
-    <div class="reply-item original-msg-item">
-      <div class="reply-header">
-        <span class="reply-sender sender-type-guardian"><%= report.filed_by_name || 'You' %> (You)</span>
-        <span class="reply-date"><%= new Date(report.created_at).toLocaleString() %></span>
-      </div>
-      <p class="reply-message"><%= report.message %></p>
+    <div class="rd-meta-inline">
+      <span>Parent: <%= report.filed_by_name || 'You' %></span>
+      <span class="rd-meta-sep"></span>
+      <span class="rd-cc-hover" tabindex="0" onmouseenter="loadGuardianCcHover()" onfocus="loadGuardianCcHover()">CC: <%= Number(report.cc_count || 0) %> staff
+        <span class="rd-cc-tooltip"><span class="rd-cc-tooltip-title">CC Staff</span><span class="rd-cc-tooltip-list" id="rdCcTooltipList"><span class="rd-cc-tooltip-state">Hover to load...</span></span></span>
+      </span>
     </div>
 
-    <% if (replies && replies.length > 0) { %>
-      <% replies.forEach(reply => { %>
-        <div class="reply-item">
-          <div class="reply-header">
-            <span class="reply-sender sender-type-<%= reply.sender_type %>">
-              <%= reply.display_name %>
-              <% if (reply.sender_type === 'guardian') { %>(You)<% } %>
-            </span>
-            <span class="reply-date">
-              <%= new Date(reply.created_at).toLocaleString() %>
+    <div class="rd-badge-row">
+      <span class="rd-badge <%= prCls %>"><%= report.priority || 'normal' %></span>
+    </div>
+
+    <div class="rd-section">
+      <div class="rd-section-title">Conversation (<%= threadCount %>)</div>
+      <div class="rd-thread-scroll <%= threadSeverityCls %>">
+        <div class="rd-reply is-guardian is-mine">
+          <div class="rd-msg-menu-wrap" id="msgMenu-report-root">
+            <button type="button" class="rd-msg-menu-btn" onclick="toggleMsgMenu('report-root')" aria-label="Message actions">⋯</button>
+            <div class="rd-msg-menu-dropdown">
+              <form id="deleteReportForm" action="/guardian/reports/<%= report.report_id %>/delete" method="POST" onsubmit="return confirm('Delete this report and all its replies? This cannot be undone.')">
+                <a href="#" class="rd-msg-menu-text" onclick="return submitInlineForm('deleteReportForm')">Delete report</a>
+              </form>
+            </div>
+          </div>
+          <div class="rd-reply-header">
+            <span class="rd-reply-sender">
+              <span class="sender-dot guardian"></span>
+              <span class="sender-name"><%= report.filed_by_name || 'You' %></span>
+              <span class="sender-label">Parent</span>
             </span>
           </div>
-          <p class="reply-message"><%= reply.message %></p>
+          <p class="rd-reply-msg"><%= report.message %></p>
+          <span class="rd-reply-date"><%= new Date(report.created_at).toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) %></span>
         </div>
-      <% }); %>
-    <% } else { %>
-      <p class="no-replies">No replies yet. You can send the next message below.</p>
-    <% } %>
 
+        <% if (replies && replies.length > 0) { %>
+          <% replies.forEach(function(reply) { %>
+            <% var isGuardian = reply.sender_type === 'guardian'; %>
+            <div class="rd-reply <%= isGuardian ? 'is-guardian is-mine' : 'is-staff is-theirs' %>">
+              <% if (isGuardian) { %>
+                <div class="rd-msg-menu-wrap" id="msgMenu-<%= reply.reply_id %>">
+                  <button type="button" class="rd-msg-menu-btn" onclick="toggleMsgMenu('<%= reply.reply_id %>')" aria-label="Message actions">⋯</button>
+                  <div class="rd-msg-menu-dropdown">
+                    <form id="deleteReplyForm-<%= reply.reply_id %>" action="/guardian/reports/<%= report.report_id %>/replies/<%= reply.reply_id %>/delete" method="POST" onsubmit="return confirm('Delete this message?')">
+                      <a href="#" class="rd-msg-menu-text" onclick="return submitInlineForm('deleteReplyForm-<%= reply.reply_id %>')">Delete message</a>
+                    </form>
+                  </div>
+                </div>
+              <% } %>
+
+              <div class="rd-reply-header">
+                <span class="rd-reply-sender">
+                  <span class="sender-dot <%= isGuardian ? 'guardian' : 'staff' %>"></span>
+                  <span class="sender-name"><%= reply.display_name %></span>
+                  <span class="sender-label"><%= isGuardian ? 'Parent' : 'Staff' %></span>
+                </span>
+              </div>
+              <p class="rd-reply-msg"><%= reply.message %></p>
+              <span class="rd-reply-date"><%= new Date(reply.created_at).toLocaleString('en-US', {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) %></span>
+            </div>
+          <% }); %>
+        <% } %>
+      </div>
     </div>
-  </div>
-  
-  <form action="/guardian/reports/<%= report.report_id %>/reply" method="POST" class="reply-form">
-    <textarea 
-      name="message" 
-      placeholder="Write your message..."
-      required
-    ></textarea>
-    <button type="submit">Send Reply</button>
-  </form>
 
-  <form action="/guardian/reports/<%= report.report_id %>/delete" method="POST" class="report-delete-wrap" onsubmit="return confirm('Delete this report and all its replies? This cannot be undone.')">
-    <button type="submit" class="report-delete-btn">Delete this report</button>
-  </form>
+    <form action="/guardian/reports/<%= report.report_id %>/reply" method="POST" class="rd-reply-form">
+      <label for="guardianReplyMsg">Your Reply</label>
+      <textarea id="guardianReplyMsg" name="message" placeholder="Write your response to this report..." required></textarea>
+      <div class="rd-form-actions">
+        <button type="submit">Send Reply</button>
+      </div>
+    </form>
+  </div>
 </div>
+
+<script>
+  (function () {
+    var ccState = {
+      loaded: false,
+      loading: false,
+    };
+
+    function escHtml(value) {
+      var div = document.createElement('div');
+      div.textContent = value == null ? '' : String(value);
+      return div.innerHTML;
+    }
+
+    function renderGuardianCcTooltipState(text) {
+      var list = document.getElementById('rdCcTooltipList');
+      if (!list) return;
+      list.innerHTML = '<div class="rd-cc-tooltip-state">' + escHtml(text) + '</div>';
+    }
+
+    function renderGuardianCcTooltip(recipients) {
+      var list = document.getElementById('rdCcTooltipList');
+      if (!list) return;
+      if (!recipients.length) {
+        renderGuardianCcTooltipState('No staff were CC\'d on this report.');
+        return;
+      }
+      var html = '';
+      recipients.forEach(function (item) {
+        html += '<div class="rd-cc-tooltip-item">'
+          + escHtml(item.display_name || 'Staff')
+          + ' <span class="role">· ' + escHtml(item.display_role || 'Staff') + '</span>'
+          + '</div>';
+      });
+      list.innerHTML = html;
+    }
+
+    window.loadGuardianCcHover = function () {
+      if (ccState.loaded || ccState.loading) return;
+      ccState.loading = true;
+      renderGuardianCcTooltipState('Loading staff...');
+
+      fetch('/guardian/reports/<%= report.report_id %>/cc')
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.success) {
+            renderGuardianCcTooltipState('Unable to load CC staff.');
+            return;
+          }
+
+          var recipients = Array.isArray(d.recipients) ? d.recipients : [];
+          renderGuardianCcTooltip(recipients);
+          ccState.loaded = true;
+        })
+        .catch(function () {
+          renderGuardianCcTooltipState('Unable to load CC staff.');
+        })
+        .finally(function () {
+          ccState.loading = false;
+        });
+    };
+
+    window.toggleMsgMenu = function (id) {
+      var wrap = document.getElementById('msgMenu-' + id);
+      if (!wrap) return;
+      var isOpen = wrap.classList.contains('open');
+      document.querySelectorAll('.rd-msg-menu-wrap.open').forEach(function (el) { el.classList.remove('open'); });
+      if (!isOpen) wrap.classList.add('open');
+    };
+
+    window.submitInlineForm = function (formId) {
+      var form = document.getElementById(formId);
+      if (!form) return false;
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+      } else {
+        form.submit();
+      }
+      return false;
+    };
+
+    var onDocClick = function (e) {
+      if (!e.target.closest('.rd-msg-menu-wrap')) {
+        document.querySelectorAll('.rd-msg-menu-wrap.open').forEach(function (el) { el.classList.remove('open'); });
+      }
+    };
+
+    document.addEventListener('click', onDocClick);
+
+    if (!Array.isArray(window.__spaCleanup)) {
+      window.__spaCleanup = [];
+    }
+    window.__spaCleanup.push(function () {
+      document.removeEventListener('click', onDocClick);
+    });
+  })();
+</script>

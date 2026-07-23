@@ -19537,9 +19537,18 @@ NUMBERING:
   staffReplyToReport: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
-      const userId = req.session.userId;
+      const sessionUser = req.session.user || null;
+      const userId = req.session.userId
+        || sessionUser?.user_id
+        || sessionUser?.id
+        || req.user?.user_id
+        || req.user?.id;
       const { reportId, message } = req.body;
       const trimmedMessage = String(message || "").trim();
+
+      if (!userId) {
+        return res.status(401).json({ success: false, error: "Unable to identify staff account. Please sign in again." });
+      }
 
       if (!reportId || !trimmedMessage) {
         return res.status(400).json({ success: false, error: "Report ID and message are required." });
@@ -19699,7 +19708,12 @@ NUMBERING:
       const reportResult = await db.query(
         `SELECT r.report_id, r.subject, r.message, r.status, r.priority, r.created_at,
                 s.first_name || ' ' || s.last_name AS student_name,
-                COALESCE(gp.first_name || ' ' || gp.last_name, 'Parent') AS guardian_name
+                COALESCE(gp.first_name || ' ' || gp.last_name, 'Parent') AS guardian_name,
+                (
+                  SELECT COUNT(*)::int
+                  FROM guardian_report_recipients grr2
+                  WHERE grr2.report_id = r.report_id
+                ) AS cc_count
          FROM guardian_reports r
          JOIN students s ON r.student_id = s.student_id
          LEFT JOIN guardian_profiles gp ON gp.guardian_id = r.guardian_id AND gp.organization_id = r.organization_id
@@ -19717,6 +19731,19 @@ NUMBERING:
 
       const report = reportResult.rows[0];
 
+      const deletedColumnCheck = await db.query(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM information_schema.columns
+           WHERE table_schema = 'public'
+             AND table_name = 'guardian_report_replies'
+             AND column_name = 'deleted'
+         ) AS has_deleted`
+      );
+      const replyDeletedFilter = deletedColumnCheck.rows[0]?.has_deleted
+        ? 'AND COALESCE(rr.deleted, FALSE) = FALSE'
+        : '';
+
       // Get replies with display names
       const repliesResult = await db.query(
         `SELECT rr.*,
@@ -19733,15 +19760,52 @@ NUMBERING:
                 END AS display_name
          FROM guardian_report_replies rr
          WHERE rr.report_id = $1
+           ${replyDeletedFilter}
          ORDER BY rr.created_at ASC`,
         [reportId]
       );
 
-      // Get CC recipients
+      return res.json({
+        success: true,
+        report,
+        replies: repliesResult.rows,
+      });
+    } catch (error) {
+      console.error("classReportDetail error:", error);
+      return res.status(500).json({ success: false, error: "Error loading report." });
+    }
+  },
+
+  classReportRecipients: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const userId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
+      const reportId = req.query.reportId;
+
+      if (!reportId || !userId) {
+        return res.status(400).json({ success: false, error: "Missing reportId" });
+      }
+
+      const accessResult = await db.query(
+        `SELECT r.report_id
+         FROM guardian_reports r
+         JOIN students s ON r.student_id = s.student_id
+         LEFT JOIN guardian_report_recipients grr ON grr.report_id = r.report_id AND grr.user_id = $3
+         LEFT JOIN user_classes uc ON uc.class_id = s.class_id AND uc.user_id = $3
+         WHERE r.report_id = $1 AND r.organization_id = $2 AND r.deleted_at IS NULL
+           AND (grr.user_id IS NOT NULL OR uc.user_id IS NOT NULL)
+         LIMIT 1`,
+        [reportId, organizationId, userId]
+      );
+
+      if (!accessResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Report not found or access denied." });
+      }
+
       const recipientsResult = await db.query(
-        `SELECT grr.*,
+        `SELECT grr.user_id,
                 COALESCE(u.first_name || ' ' || u.last_name, grr.user_name) AS display_name,
-                COALESCE(u.account_type::text, grr.user_role) AS display_role
+                COALESCE(u.account_type::text, grr.user_role, 'Staff') AS display_role
          FROM guardian_report_recipients grr
          LEFT JOIN users u ON u.user_id = grr.user_id
          WHERE grr.report_id = $1
@@ -19751,13 +19815,70 @@ NUMBERING:
 
       return res.json({
         success: true,
-        report,
-        replies: repliesResult.rows,
         recipients: recipientsResult.rows,
+        count: recipientsResult.rows.length,
       });
     } catch (error) {
-      console.error("classReportDetail error:", error);
-      return res.status(500).json({ success: false, error: "Error loading report." });
+      console.error("classReportRecipients error:", error);
+      return res.status(500).json({ success: false, error: "Error loading CC recipients." });
+    }
+  },
+
+  classReportReplyDelete: async (req, res, db) => {
+    try {
+      const organizationId = req.session.organizationId;
+      const sessionUser = req.session.user || null;
+      const userId = req.session.userId
+        || sessionUser?.user_id
+        || sessionUser?.id
+        || req.user?.user_id
+        || req.user?.id;
+      const replyId = Number.parseInt(req.params.replyId, 10);
+      const reportId = Number.parseInt(req.body.reportId, 10);
+
+      if (!userId) {
+        return res.status(401).json({ success: false, error: 'Unable to identify staff account. Please sign in again.' });
+      }
+      if (!replyId || !reportId) {
+        return res.status(400).json({ success: false, error: 'reportId and replyId are required.' });
+      }
+
+      const accessResult = await db.query(
+        `SELECT r.report_id
+         FROM guardian_reports r
+         JOIN students s ON s.student_id = r.student_id
+         LEFT JOIN guardian_report_recipients grr ON grr.report_id = r.report_id AND grr.user_id = $3
+         LEFT JOIN user_classes uc ON uc.class_id = s.class_id AND uc.user_id = $3
+         WHERE r.report_id = $1
+           AND r.organization_id = $2
+           AND r.deleted_at IS NULL
+           AND (grr.user_id IS NOT NULL OR uc.user_id IS NOT NULL)
+         LIMIT 1`,
+        [reportId, organizationId, userId]
+      );
+
+      if (!accessResult.rows.length) {
+        return res.status(403).json({ success: false, error: 'Access denied.' });
+      }
+
+      const deleted = await db.query(
+        `DELETE FROM guardian_report_replies
+         WHERE reply_id = $1
+           AND report_id = $2
+           AND sender_type = 'staff'
+           AND sender_id = $3
+         RETURNING reply_id`,
+        [replyId, reportId, userId]
+      );
+
+      if (!deleted.rows.length) {
+        return res.status(404).json({ success: false, error: 'Message not found or not allowed to delete.' });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('classReportReplyDelete error:', error);
+      return res.status(500).json({ success: false, error: 'Failed to delete message.' });
     }
   },
 
