@@ -3307,14 +3307,15 @@ main {
     padding: 8px 10px;
   }
   .workspace-header-line {
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 8px;
   }
 
   .workspace-header-copy {
-    width: 100%;
+    width: auto;
+    min-width: 0;
   }
 
   .workspace-header-copy .eyebrow,
@@ -3325,8 +3326,8 @@ main {
   .workspace-title-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    width: 100%;
+    justify-content: flex-start;
+    width: auto;
     gap: 8px;
   }
 
@@ -3352,17 +3353,30 @@ main {
   .workspace-meta-inline {
     display: none;
     justify-content: flex-start;
-    width: 100%;
-    gap: 6px;
-    padding-top: 6px;
+    width: auto;
+    max-width: min(58vw, 330px);
+    gap: 4px;
+    padding-top: 0;
+    margin-left: 0;
+    align-self: start;
   }
 
   .workspace-header-card[data-meta-collapsed="false"] .workspace-meta-inline {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .workspace-meta-pair {
-    padding: 5px 8px;
+    padding: 4px 6px;
+    min-width: 0;
+  }
+
+  .workspace-meta-pair .meta-label {
+    font-size: 8px;
+  }
+
+  .workspace-meta-pair .meta-value {
+    font-size: 11px;
   }
   /* Tab bar stacks beneath compact header */
   .workspace-tabbar-shell { top: 78px; border-radius: 8px 8px 0 0; }
@@ -3604,7 +3618,7 @@ main {
                   <span class="workspace-cohort"><%= graduationYearGroup %></span>
                 <% } %>
                 <button type="button" class="workspace-meta-toggle" aria-expanded="false" aria-controls="workspace-meta-inline" aria-label="Show class details" title="Show class details" onclick="toggleWorkspaceMeta(this)">
-                  <svg class="workspace-meta-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  <svg class="workspace-meta-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="14" y2="6"/><circle cx="18" cy="6" r="2"/><line x1="4" y1="12" x2="10" y2="12"/><circle cx="14" cy="12" r="2"/><line x1="4" y1="18" x2="14" y2="18"/><circle cx="18" cy="18" r="2"/></svg>
                 </button>
               </span>
             </div>
@@ -4063,8 +4077,6 @@ main {
       function renderWorkspaceTabBar() {
         var tabBar = getWorkspaceTabBar();
         if (!tabBar) return;
-        var activeTab = getWorkspaceTabById(workspaceState.activeTabId);
-        var showTabAddButton = !(activeTab && typeof activeTab.id === 'string' && activeTab.id.indexOf('subject:') === 0);
         var tabsMarkup = workspaceState.tabs.map(function(tab) {
           var isActive = tab.id === workspaceState.activeTabId;
           return '' +
@@ -4075,7 +4087,7 @@ main {
               '<button type="button" class="workspace-tab-close" data-tab-id="' + esc(tab.id) + '" aria-label="Close ' + esc(tab.title) + '" onclick="closeWorkspaceTab(this.getAttribute(\'data-tab-id\'))">×</button>' +
             '</div>';
         }).join('');
-        tabBar.innerHTML = tabsMarkup + (showTabAddButton ? '<button type="button" class="workspace-tab-add" aria-label="Open another workspace tab" title="Open another workspace tab" onclick="openWorkspaceQuickAdd()">+</button>' : '');
+        tabBar.innerHTML = tabsMarkup;
       }
 
       function showWorkspacePanel(panelId) {

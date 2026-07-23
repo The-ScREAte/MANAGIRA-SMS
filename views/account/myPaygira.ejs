@@ -249,7 +249,7 @@
     .mp-head h1{ font-size:1.1rem; }
     .mp-head p{ font-size:.82rem; }
     .paygira-secure-badge{ font-size:.6rem; padding:6px 10px; }
-    .mp-stats{ grid-template-columns:1fr; }
+    .mp-stats{ grid-template-columns:<%= isEmbedded ? 'repeat(2, minmax(0, 1fr))' : '1fr' %>; }
     .mp-bill-grid{ grid-template-columns:1fr; }
     .mp-bill-card{ padding:12px; }
     .mp-bill-card .bc-title{ padding-right:0; }

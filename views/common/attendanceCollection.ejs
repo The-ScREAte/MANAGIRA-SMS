@@ -315,23 +315,6 @@
     }
     .day-name .day-full { display: inline; }
     .day-name .day-short { display: none; }
-    .excluded-day-tag {
-        display: inline-block;
-        margin-top: 3px;
-        font-size: 0.54rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        color: #64748b;
-        background: #f1f5f9;
-        border: 1px solid #cbd5e1;
-        border-radius: 999px;
-        padding: 0 5px;
-        letter-spacing: 0.03em;
-        white-space: normal;
-        line-height: 1.15;
-        max-width: 120px;
-        text-align: center;
-    }
     .edit-save-link,
     .cancel-link,
     .mark-all-link {
@@ -352,6 +335,55 @@
         color: gray;
         line-height: 1.1;
         margin-top: 2px;
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        max-width: none;
+        min-height: 0;
+        position: relative;
+    }
+
+    .last-edited.has-tooltip {
+        cursor: pointer;
+    }
+
+    .last-edited-icon {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        vertical-align: -1px;
+        margin-right: 3px;
+        color: #94a3b8;
+    }
+
+    .last-edited-text {
+        display: inline;
+    }
+
+    .last-edited-hover-date {
+        display: none;
+        position: absolute;
+        left: auto;
+        right: 0;
+        bottom: calc(100% + 5px);
+        transform: none;
+        background: #0f172a;
+        color: #fff;
+        padding: 4px 6px;
+        border-radius: 6px;
+        font-size: 0.58rem;
+        line-height: 1.2;
+        white-space: normal;
+        max-width: 130px;
+        text-align: left;
+        z-index: 30;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.22);
+        pointer-events: none;
+    }
+
+    .last-edited.has-tooltip:hover .last-edited-hover-date,
+    .last-edited.has-tooltip.is-open .last-edited-hover-date {
+        display: inline-block;
     }
 
     /* === Today Column Highlight === */
@@ -530,6 +562,7 @@
     .attendance-sheet td.inactive-day-cell {
         position: relative;
         background: #f8fafc;
+        overflow: hidden;
     }
     .inactive-watermark {
         position: absolute;
@@ -542,14 +575,23 @@
         letter-spacing: 0.08em;
         text-transform: uppercase;
         pointer-events: none;
-        white-space: nowrap;
+        white-space: normal;
+        text-align: center;
+        width: 90%;
+        line-height: 1.05;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
 
     .inactive-watermark.paired-watermark {
-        top: 100%;
-        font-size: 0.6rem;
+        top: 50%;
+        width: 92%;
+        transform: translate(-50%, -50%) rotate(-10deg);
+        font-size: 0.52rem;
         opacity: 0.95;
         z-index: 4;
+        letter-spacing: 0.03em;
+        line-height: 1.1;
     }
 
     .term-end-watermark {
@@ -570,10 +612,13 @@
     }
 
     .term-end-watermark.paired-watermark {
-        top: 100%;
-        width: 180%;
-        font-size: 0.58rem;
+        top: 50%;
+        width: 92%;
+        transform: translate(-50%, -50%) rotate(-10deg);
+        font-size: 0.52rem;
         z-index: 4;
+        letter-spacing: 0.03em;
+        line-height: 1.1;
     }
 
     .attendance-sheet th.term-end-col {
@@ -1102,6 +1147,94 @@
                     font-size: 0.5rem;
                 }
             }
+
+            /* Refined embedded attendance toolbar/filter layout */
+            .attendance-header-top.embedded-row {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .attendance-header-pills-center {
+                justify-content: flex-start;
+                align-items: center;
+                gap: 6px;
+                min-width: 0;
+                width: 100%;
+            }
+
+            .attendance-header-actions {
+                width: 100%;
+                display: flex;
+                justify-content: flex-start;
+            }
+
+            .attendance-header-actions .filter-toggle-btn {
+                margin: 0;
+                white-space: nowrap;
+            }
+
+            .cal-pill {
+                min-height: 26px;
+                padding: 4px 10px;
+                font-size: 0.72rem;
+            }
+
+            .filter-controls-content {
+                margin-top: 8px;
+            }
+
+            .filter-controls {
+                background: #ffffff;
+                border-color: #dbe3ea;
+                border-radius: 12px;
+                padding: 12px;
+            }
+
+            .filter-inner-container {
+                display: grid;
+                grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(180px, 1fr) auto;
+                align-items: end;
+                gap: 10px 12px;
+                width: 100%;
+                margin-bottom: 0;
+                overflow: visible;
+            }
+
+            .filter-controls label {
+                min-width: 0;
+                width: auto;
+                margin: 0;
+                gap: 5px;
+            }
+
+            .filter-controls select {
+                min-height: 34px;
+            }
+
+            .filter-inner-container > button {
+                width: auto;
+                min-width: 120px;
+                justify-self: end;
+                align-self: end;
+                white-space: nowrap;
+                margin-top: 0;
+            }
+
+            @media screen and (max-width: 1100px) and (min-width: 769px) {
+                .attendance-header-top.embedded-row {
+                    gap: 8px;
+                }
+
+                .filter-inner-container {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
+                .filter-inner-container > button {
+                    grid-column: 2;
+                }
+            }
     
 </style>
 </head>
@@ -1114,13 +1247,15 @@
                     <h1 class="attendance-header-title">Attendance</h1>
                     <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
                     <div class="attendance-header-pills-center">
+                        <% const _countryCode = String(attendanceCalendarSummary.countryCode || '').trim().toUpperCase(); %>
+                        <% const _countryFlag = _countryCode.length === 2 ? String.fromCodePoint(_countryCode.charCodeAt(0) + 127397, _countryCode.charCodeAt(1) + 127397) : '🌍'; %>
                         <div class="cal-pill-wrap">
                             <button type="button" class="cal-pill" data-pill="country">
-                                Country: <%= attendanceCalendarSummary.countryCode %>
+                                <%= _countryFlag %> <%= _countryCode %>
                             </button>
                             <div class="cal-pill-popover" id="popover-country">
                                 <p class="cal-popover-label">Country</p>
-                                <p class="cal-popover-value"><%= attendanceCalendarSummary.countryCode %></p>
+                                <p class="cal-popover-value"><%= _countryFlag %> <%= _countryCode %></p>
                             </div>
                         </div>
                         <div class="cal-pill-wrap">
@@ -1257,12 +1392,12 @@
                                         <div class="cancel-link" data-date="<%= date %>" style="display: none;" onclick="cancelEditMode('<%= date %>')">Cancel</div>
                                         <div class="mark-all-link" data-date="<%= date %>" style="display: none;" onclick="markAllPresentForDate('<%= date %>')">Mark All Present</div>
                                     <% } %>
-                                    <% if (!dateMeta.countable || dateMeta.isOfficialTermEnd) { %>
-                                        <div class="excluded-day-tag"><%= dateMeta.markerLabel || 'Excluded' %></div>
-                                    <% } %>
-                                    <div class="last-edited" id="last-edited-<%= date %>">
+                                    <div class="last-edited <%= (lastEditedMap && lastEditedMap[date]) ? 'has-tooltip' : '' %>" id="last-edited-<%= date %>">
                                         <% if (lastEditedMap && lastEditedMap[date]) { %>
-                                            Last edited: <%= new Date(lastEditedMap[date]).toLocaleString() %>
+                                            <span class="last-edited-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+                                            </span><span class="last-edited-text">Last edited</span>
+                                            <span class="last-edited-hover-date" role="tooltip"><%= new Date(lastEditedMap[date]).toLocaleString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) %></span>
                                         <% } %>
                                     </div>
                                 </div>
@@ -1463,6 +1598,28 @@
             }
         }
 
+        function formatLastEditedTime(value) {
+            return new Date(value).toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+        }
+
+        function renderLastEdited(element, value) {
+            if (!element || !value) return;
+            var hoverTime = formatLastEditedTime(value);
+            element.classList.add('has-tooltip');
+            element.innerHTML = ''
+                + '<span class="last-edited-icon" aria-hidden="true">'
+                + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="10" height="10"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
+                + '</span>'
+                + '<span class="last-edited-text">Last edited</span>'
+                + '<span class="last-edited-hover-date" role="tooltip">' + hoverTime + '</span>';
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const classId = '<%= classId %>';
             const termId = '<%= termId %>';
@@ -1471,6 +1628,24 @@
             const nameSortToggle = document.getElementById('nameSortToggle');
             const attendanceHeaderSortToggle = document.getElementById('attendanceHeaderSortToggle');
             const nameSortInput = document.getElementById('nameSort');
+
+            document.addEventListener('click', function (event) {
+                const trigger = event.target.closest('.last-edited.has-tooltip');
+                if (!trigger) {
+                    document.querySelectorAll('.last-edited.has-tooltip.is-open').forEach(function (node) {
+                        node.classList.remove('is-open');
+                    });
+                    return;
+                }
+
+                const alreadyOpen = trigger.classList.contains('is-open');
+                document.querySelectorAll('.last-edited.has-tooltip.is-open').forEach(function (node) {
+                    node.classList.remove('is-open');
+                });
+                if (!alreadyOpen) {
+                    trigger.classList.add('is-open');
+                }
+            });
 
             syncAttendanceSortToggle();
             if (nameSortToggle && nameSortInput) {
@@ -1529,7 +1704,7 @@
                         Object.keys(lastEditedMap).forEach(date => {
                             const lastEditedElement = document.getElementById(`last-edited-${date}`);
                             if (lastEditedElement) {
-                                lastEditedElement.textContent = `Last edited: ${new Date(lastEditedMap[date]).toLocaleString()}`;
+                                renderLastEdited(lastEditedElement, lastEditedMap[date]);
                             }
                         });
 
@@ -1606,7 +1781,7 @@
 
                     const lastEditedElement = document.getElementById(`last-edited-${date}`);
                     if (lastEditedElement) {
-                        lastEditedElement.textContent = `Last edited: ${new Date().toLocaleString()}`;
+                        renderLastEdited(lastEditedElement, new Date());
                     }
 
                     // Update attendance summary after saving
