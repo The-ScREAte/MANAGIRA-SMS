@@ -1,24 +1,99 @@
 <style>
-  .report-details-container { max-width: 800px; margin: 0 auto; padding: 16px; }
-  .back-link { display: inline-flex; align-items: center; color: var(--primary, #27ae60); text-decoration: none; margin-bottom: 14px; font-weight: 500; font-size: 0.85rem; }
-  .back-link:hover { text-decoration: underline; }
+  .report-details-container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 16px;
+  }
 
-  .report-header { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; }
-  .report-title { font-size: 1.15rem; color: #1e293b; margin: 0 0 10px; }
-  .report-meta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; font-size: 0.82rem; color: #64748b; }
-  .meta-item { display: flex; align-items: center; gap: 4px; }
-  .meta-label { font-weight: 600; color: #334155; }
-  .status-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; display: inline-block; }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--primary, #27ae60);
+    text-decoration: none;
+    margin-bottom: 14px;
+    font-weight: 650;
+    font-size: 0.84rem;
+    border: 1px solid color-mix(in srgb, var(--primary, #27ae60) 28%, white);
+    border-radius: 999px;
+    padding: 6px 11px;
+    background: #fff;
+  }
+
+  .back-link:hover {
+    background: color-mix(in srgb, var(--primary, #27ae60) 8%, white);
+  }
+
+  .report-header {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 12px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .report-title {
+    font-size: clamp(1.1rem, 2.2vw, 1.45rem);
+    color: #0f172a;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+
+  .report-meta-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+    margin-bottom: 2px;
+    font-size: 0.8rem;
+    color: #64748b;
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    background: #fff;
+    border: 1px solid #e8edf3;
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  .meta-label {
+    font-weight: 700;
+    color: #334155;
+    flex-shrink: 0;
+  }
+
+  .status-badge {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    display: inline-block;
+    letter-spacing: 0.07em;
+  }
   .status-open { background: #fef3c7; color: #d97706; }
   .status-in_progress { background: #dbeafe; color: #2563eb; }
   .status-resolved { background: #d1fae5; color: #059669; }
   .status-closed { background: #f3f4f6; color: #6b7280; }
-  .priority-badge { padding: 2px 8px; border-radius: 8px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+
+  .priority-badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
   .priority-urgent { background: #fadbd8; color: #e74c3c; }
   .priority-high { background: #fef3c7; color: #d97706; }
   .priority-normal { background: #dbeafe; color: #2563eb; }
   .priority-low { background: #f3f4f6; color: #95a5a6; }
-  .original-msg-item { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9; }
+
+  .original-msg-item { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #edf2f7; }
   .original-msg-item .reply-message { font-size: 0.88rem; }
 
   .staff-notified-list { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; }
@@ -26,49 +101,133 @@
   .staff-tag .staff-role { color: #94a3b8; font-size: 0.74rem; }
   .staff-tag .main-badge { background: #d1fae5; color: #059669; border-radius: 8px; padding: 1px 6px; font-size: 0.68rem; font-weight: 700; margin-left: 2px; }
 
-  .meta-staff-details { }
+  .meta-staff-details {
+    grid-column: 1 / -1;
+    border: 1px solid #e8edf3;
+    background: #fff;
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
   .meta-staff-details[open] { flex-basis: 100%; order: 999; }
   .meta-staff-summary { display: flex; align-items: center; gap: 4px; cursor: pointer; list-style: none; font-size: 0.82rem; color: #64748b; padding: 0; }
   .meta-staff-summary::-webkit-details-marker { display: none; }
   .meta-staff-chevron { color: #94a3b8; font-size: 1rem; line-height: 1; transition: transform .18s; }
   .meta-staff-details[open] > .meta-staff-summary > .meta-staff-chevron { transform: rotate(90deg); }
 
-  .conversation-section { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 18px; margin-bottom: 14px; }
-  .conversation-section h3 { font-size: 0.95rem; color: #1e293b; margin: 0 0 14px; }
-  .reply-item { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9; }
+  .conversation-section {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .conversation-section h3 {
+    font-size: 0.92rem;
+    color: #1e293b;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .thread-scroll {
+    max-height: 56vh;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .reply-item {
+    margin-bottom: 11px;
+    padding: 10px 11px;
+    border: 1px solid #edf2f7;
+    border-left: 3px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fcfdff;
+  }
+  .reply-item .sender-type-guardian { color: #059669; }
+  .reply-item .sender-type-staff { color: #2563eb; }
+  .reply-item:has(.sender-type-guardian) { border-left-color: #86efac; }
+  .reply-item:has(.sender-type-staff) { border-left-color: #93c5fd; }
   .reply-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
   .reply-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .reply-sender { font-weight: 600; font-size: 0.85rem; color: #1e293b; }
-  .sender-type-guardian { color: #059669; }
-  .sender-type-staff { color: #2563eb; }
   .reply-date { font-size: 0.75rem; color: #94a3b8; }
   .reply-message { color: #475569; line-height: 1.6; margin: 0; font-size: 0.85rem; }
   .no-replies { text-align: center; color: #94a3b8; padding: 20px; font-size: 0.85rem; }
 
-  .reply-form { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 18px; }
+  .reply-form {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  }
   .reply-form h3 { font-size: 0.95rem; color: #1e293b; margin: 0 0 10px; }
-  .reply-form textarea { width: 100%; min-height: 80px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.85rem; font-family: inherit; resize: vertical; box-sizing: border-box; }
+  .reply-form textarea {
+    width: 100%;
+    min-height: 90px;
+    padding: 11px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+    line-height: 1.45;
+  }
   .reply-form textarea:focus { outline: none; border-color: var(--primary, #27ae60); }
-  .reply-form button { background: var(--primary, #27ae60); color: #fff; padding: 8px 20px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer; margin-top: 10px; }
+  .reply-form button {
+    background: var(--primary, #27ae60);
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.84rem;
+    cursor: pointer;
+    margin-top: 10px;
+  }
   .reply-form button:hover { background: var(--primary-hover, #229954); }
+
+  .report-delete-wrap {
+    margin-top: 8px;
+    text-align: right;
+  }
+
+  .report-delete-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 4px 0;
+  }
+
+  .report-delete-btn:hover {
+    color: #e74c3c;
+  }
 
   @media (max-width: 640px) {
     .report-details-container { padding: 10px; }
-    .report-header { padding: 13px 14px; }
+    .report-header { padding: 12px; border-radius: 12px; }
     .report-title { font-size: 1rem; }
-    .report-meta-row { flex-direction: column; gap: 6px; font-size: 0.8rem; }
+    .report-meta-row { grid-template-columns: 1fr; gap: 6px; font-size: 0.8rem; }
     .meta-item { font-size: 0.8rem; }
     .status-badge, .priority-badge { font-size: 0.68rem; }
     .meta-staff-summary { font-size: 0.8rem; }
     .staff-tag { font-size: 0.76rem; padding: 3px 9px; }
-    .conversation-section { padding: 13px 14px; }
+    .conversation-section { padding: 12px; border-radius: 12px; }
+    .thread-scroll { max-height: none; }
     .conversation-section h3 { font-size: 0.88rem; }
     .reply-sender { font-size: 0.82rem; }
     .reply-date { font-size: 0.72rem; }
     .reply-message { font-size: 0.82rem; }
     .reply-header { flex-direction: column; align-items: flex-start; gap: 2px; }
-    .reply-form { padding: 13px 14px; }
-    .reply-form textarea { font-size: 0.82rem; min-height: 72px; }
+    .reply-form { padding: 12px; border-radius: 12px; }
+    .reply-form textarea {
+      font-size: 16px;
+      min-height: 78px;
+    }
     .reply-form button { width: 100%; padding: 10px; font-size: 0.88rem; }
   }
 </style>
@@ -148,6 +307,8 @@
   <div class="conversation-section">
     <h3>Conversation</h3>
 
+    <div class="thread-scroll">
+
     <div class="reply-item original-msg-item">
       <div class="reply-header">
         <span class="reply-sender sender-type-guardian"><%= report.filed_by_name || 'You' %> (You)</span>
@@ -171,7 +332,11 @@
           <p class="reply-message"><%= reply.message %></p>
         </div>
       <% }); %>
+    <% } else { %>
+      <p class="no-replies">No replies yet. You can send the next message below.</p>
     <% } %>
+
+    </div>
   </div>
   
   <form action="/guardian/reports/<%= report.report_id %>/reply" method="POST" class="reply-form">
@@ -183,7 +348,7 @@
     <button type="submit">Send Reply</button>
   </form>
 
-  <form action="/guardian/reports/<%= report.report_id %>/delete" method="POST" style="margin-top:10px;text-align:right;" onsubmit="return confirm('Delete this report and all its replies? This cannot be undone.')">
-    <button type="submit" style="background:none;border:none;color:#94a3b8;font-size:0.8rem;cursor:pointer;padding:4px 0;" onmouseover="this.style.color='#e74c3c'" onmouseout="this.style.color='#94a3b8'">Delete this report</button>
+  <form action="/guardian/reports/<%= report.report_id %>/delete" method="POST" class="report-delete-wrap" onsubmit="return confirm('Delete this report and all its replies? This cannot be undone.')">
+    <button type="submit" class="report-delete-btn">Delete this report</button>
   </form>
 </div>

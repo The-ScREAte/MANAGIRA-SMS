@@ -34,7 +34,7 @@
     color:var(--pg-text);
     min-height:calc(100vh - 80px);
     font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;
-    padding:clamp(30px, 5vw, 48px) clamp(12px, 2.5vw, 20px) 64px;
+    padding:clamp(20px, 3.5vw, 34px) clamp(10px, 2vw, 16px) 40px;
   }
   .pg-container { max-width:1200px; margin:0 auto; }
 
@@ -79,17 +79,80 @@
     margin:32px 0 14px;
   }
 
+  .pg-children-grid {
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(440px, 1fr));
+    gap:10px;
+  }
+
   .pg-child-card {
     background:var(--pg-surface);
     border:1px solid var(--pg-border);
     border-radius:16px;
     overflow:hidden;
-    margin-bottom:18px;
+    margin-bottom:0;
   }
+
+  .pg-child-collapsible > summary {
+    list-style:none;
+  }
+
+  .pg-child-collapsible > summary::-webkit-details-marker {
+    display:none;
+  }
+
   .pg-child-head {
     display:flex; align-items:center; gap:14px;
-    padding:18px 22px; border-bottom:1px solid var(--pg-border);
+    padding:14px 16px; border-bottom:1px solid var(--pg-border);
     background:rgba(255,255,255,.02);
+  }
+  .pg-child-head-toggle {
+    cursor:pointer;
+  }
+  .pg-child-head-right {
+    margin-left:auto;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .pg-child-pill {
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:.66rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    font-weight:700;
+    border:1px solid rgba(255,255,255,.14);
+    color:var(--pg-muted);
+    background:rgba(255,255,255,.05);
+  }
+  .pg-child-pill strong {
+    color:#fff;
+    font-family:'JetBrains Mono',monospace;
+    font-size:.7rem;
+  }
+  .pg-child-chevron {
+    color:var(--pg-muted);
+    font-size:1.05rem;
+    line-height:1;
+  }
+  .pg-child-collapsible[open] .pg-child-chevron {
+    transform:rotate(180deg);
+  }
+
+  .pg-child-body {
+    padding:0;
+  }
+
+  .pg-bills-scroll {
+    max-height:420px;
+    overflow-y:auto;
+    overscroll-behavior:contain;
   }
   .pg-child-avatar {
     width:48px; height:48px; border-radius:50%; object-fit:cover;
@@ -104,7 +167,7 @@
   .pg-bill-row {
     display:grid; grid-template-columns: minmax(0, 1.6fr) minmax(88px, .8fr) minmax(88px, .8fr) minmax(116px, 1fr) auto;
     gap:12px; align-items:center;
-    padding:16px 22px; border-bottom:1px solid var(--pg-border);
+    padding:12px 14px; border-bottom:1px solid var(--pg-border);
     cursor:pointer; transition:background .15s;
   }
   .pg-bill-row:hover { background:rgba(255,255,255,.03); }
@@ -685,8 +748,50 @@
     margin-top:4px;
   }
 
+  .pg-history-panel {
+    margin-top:16px;
+    border:1px solid var(--pg-border);
+    border-radius:16px;
+    overflow:hidden;
+    background:var(--pg-surface);
+  }
+  .pg-history-summary {
+    list-style:none;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:14px 16px;
+    color:var(--pg-text);
+    font-size:.9rem;
+    font-weight:700;
+    letter-spacing:.02em;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .pg-history-summary::-webkit-details-marker {
+    display:none;
+  }
+  .pg-history-summary small {
+    color:var(--pg-muted);
+    font-size:.74rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+  }
+  .pg-history-summary::after {
+    content:'+';
+    margin-left:auto;
+    color:var(--pg-muted);
+    font-size:1rem;
+  }
+  .pg-history-panel[open] .pg-history-summary::after {
+    content:'-';
+  }
+
   .pg-history {
-    background:var(--pg-surface); border:1px solid var(--pg-border); border-radius:16px;
+    background:transparent;
+    border:0;
+    border-radius:0;
     overflow:hidden;
   }
   .pg-history-row {
@@ -698,6 +803,9 @@
   .pg-history-row:last-child { border-bottom:none; }
 
   @media (max-width:1080px) {
+    .pg-children-grid {
+      grid-template-columns:1fr;
+    }
     .pg-stats { grid-template-columns:repeat(2, minmax(0, 1fr)); }
     .pg-bill-row {
       grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(92px, 1fr));
@@ -711,7 +819,7 @@
   }
 
   @media (max-width:760px) {
-    .pg-wrap { padding:22px 10px 40px; }
+    .pg-wrap { padding:14px 8px 26px; }
     .pg-head { align-items:center; justify-content:center; text-align:center; margin-bottom:0; }
     .pg-head h1 { font-size:1.4rem; }
     .pg-head p { font-size:.84rem; max-width:40ch; }
@@ -720,14 +828,21 @@
     .pg-stat { padding:16px; }
     .pg-stat .value { font-size:1.35rem; }
     .pg-child-head {
-      padding:14px;
+      padding:12px;
       align-items:flex-start;
       flex-wrap:wrap;
+    }
+    .pg-child-head-right {
+      width:100%;
+      justify-content:flex-start;
     }
     .pg-bill-row {
       grid-template-columns:1fr;
       gap:10px;
-      padding:14px;
+      padding:10px;
+    }
+    .pg-bills-scroll {
+      max-height:360px;
     }
     .pg-bill-col {
       display:grid;
@@ -794,6 +909,13 @@
     .pgv2-method-cards { grid-template-columns:1fr; }
     .pgv2-balance-top { align-items:stretch; }
     .pgv2-apply-btn { width:auto; }
+    .pg-field input,
+    .pg-field select,
+    .pgv2-method-card,
+    .pg-btn,
+    .pg-btn.sm {
+      font-size:16px;
+    }
     .pg-recurring-toolbar {
       grid-template-columns:1fr;
       align-items:stretch;
@@ -828,6 +950,9 @@
       width:100%;
       margin-left:0 !important;
       justify-content:center;
+    }
+    .pg-bills-scroll {
+      max-height:320px;
     }
   }
 </style>
@@ -893,12 +1018,14 @@
         </div>
       </div>
     <% } else { %>
-      <% children.forEach(child => {
+      <div class="pg-children-grid">
+      <% children.forEach((child, childIndex) => {
            const kidAssignments = assignments.filter(a => a.student_id === child.student_id);
+           const childOutstanding = kidAssignments.reduce((sum, item) => sum + balance(item), 0);
          const childDisplayName = child.display_name || _guardianNameFormat(child);
       %>
-        <div class="pg-child-card">
-          <div class="pg-child-head">
+        <details class="pg-child-card pg-child-collapsible" <%= childIndex === 0 ? 'open' : '' %>>
+          <summary class="pg-child-head pg-child-head-toggle">
             <img class="pg-child-avatar"
                  src="<%= child.image_url && child.image_url !== 'profilePlaceholder.png' ? child.image_url : '/images/profilePlaceholder.png' %>"
                  alt="<%= childDisplayName || child.first_name %>">
@@ -906,13 +1033,22 @@
               <div class="pg-child-name"><%= childDisplayName %></div>
               <div class="pg-child-meta"><%= child.class_name || 'Unassigned class' %> · <%= kidAssignments.length %> bill<%= kidAssignments.length !== 1 ? 's' : '' %> due<% if (Number(child.student_credit || 0) > 0) { %> · Balance available <%= money(child.student_credit) %><% } %></div>
             </div>
-          </div>
+            <div class="pg-child-head-right">
+              <span class="pg-child-pill">Outstanding <strong><%= money(childOutstanding) %></strong></span>
+              <span class="pg-child-pill">Bills <strong><%= kidAssignments.length %></strong></span>
+              <span class="pg-child-chevron">⌄</span>
+            </div>
+          </summary>
+
+          <div class="pg-child-body">
 
           <% if (!kidAssignments.length) { %>
             <div class="pg-empty" style="padding:28px;">
               <div>No outstanding bills for this child.<% if (Number(child.student_credit || 0) > 0) { %> Available balance: <%= money(child.student_credit) %>.<% } %></div>
             </div>
-          <% } else { kidAssignments.forEach(a => {
+          <% } else { %>
+          <div class="pg-bills-scroll">
+          <% kidAssignments.forEach(a => {
             const bal = balance(a);
             const recurring = String(a.bill_type || '') === 'recurring';
             const canPay = bal > 0;
@@ -956,30 +1092,36 @@
                 <a href="/guardian/paygira/invoice/<%= a.assignment_id %>" target="_blank" class="pg-btn ghost sm" title="View invoice">Invoice</a>
               </div>
             </div>
-          <% }); } %>
-        </div>
+          <% }); %>
+          </div>
+          <% } %>
+          </div>
+        </details>
       <% }); %>
+      </div>
     <% } %>
 
-    <div class="pg-section-title">Recent Payments</div>
-    <div class="pg-history">
-      <div class="pg-history-row head">
-        <div>Date</div><div>Student</div><div>Bill</div><div>Amount</div>
-      </div>
-      <% if (!payments.length) { %>
-        <div class="pg-history-row"><div style="grid-column:1/-1;text-align:center;color:var(--pg-muted);padding:18px;">No payments yet.</div></div>
-      <% } else { payments.forEach(p => { %>
-        <div class="pg-history-row">
-          <div data-label="Date"><%= _guardianDateFormat(p.received_at) %></div>
-          <div data-label="Student"><%= p.display_student_name || _guardianNameFormat(p) %></div>
-          <div data-label="Bill"><%= p.bill_title %> · <span style="color:var(--pg-muted);"><%= p.method %></span></div>
-          <div data-label="Amount" class="pg-amount" style="color:var(--pg-teal);display:flex;align-items:center;justify-content:space-between;gap:6px;">
-            <%= money(p.amount) %>
-            <% if (p.payment_id) { %><a href="/guardian/paygira/receipt/<%= p.payment_id %>" target="_blank" title="Receipt" style="color:var(--pg-muted);text-decoration:none;">Receipt</a><% } %>
-          </div>
+    <details class="pg-history-panel">
+      <summary class="pg-history-summary">Recent Payments <small><%= payments.length %> record<%= payments.length === 1 ? '' : 's' %></small></summary>
+      <div class="pg-history">
+        <div class="pg-history-row head">
+          <div>Date</div><div>Student</div><div>Bill</div><div>Amount</div>
         </div>
-      <% }); } %>
-    </div>
+        <% if (!payments.length) { %>
+          <div class="pg-history-row"><div style="grid-column:1/-1;text-align:center;color:var(--pg-muted);padding:18px;">No payments yet.</div></div>
+        <% } else { payments.forEach(p => { %>
+          <div class="pg-history-row">
+            <div data-label="Date"><%= _guardianDateFormat(p.received_at) %></div>
+            <div data-label="Student"><%= p.display_student_name || _guardianNameFormat(p) %></div>
+            <div data-label="Bill"><%= p.bill_title %> · <span style="color:var(--pg-muted);"><%= p.method %></span></div>
+            <div data-label="Amount" class="pg-amount" style="color:var(--pg-teal);display:flex;align-items:center;justify-content:space-between;gap:6px;">
+              <%= money(p.amount) %>
+              <% if (p.payment_id) { %><a href="/guardian/paygira/receipt/<%= p.payment_id %>" target="_blank" title="Receipt" style="color:var(--pg-muted);text-decoration:none;">Receipt</a><% } %>
+            </div>
+          </div>
+        <% }); } %>
+      </div>
+    </details>
 
   </div>
 </div>
