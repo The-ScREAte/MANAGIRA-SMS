@@ -426,6 +426,10 @@
     text-transform: uppercase;
   }
 
+  .paygira-secure-text {
+    display: inline;
+  }
+
   .paygira-topbar {
     display: flex;
     align-items: center;
@@ -740,6 +744,15 @@
       font-size: 0.9rem;
     }
 
+    .paygira-secure-badge {
+      gap: 0;
+      padding: 7px 10px;
+    }
+
+    .paygira-secure-text {
+      display: none;
+    }
+
     .form-actions {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -952,11 +965,11 @@
             <h2 style="margin:0;font-size:1.25rem;font-weight:800;letter-spacing:-0.01em;">💳 Pay<span style="color:#00d4aa;font-style:italic;">Gira</span> — Cards &amp; Billing</h2>
             <span class="paygira-secure-badge">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-              Secure
+              <span class="paygira-secure-text">Secure</span>
             </span>
           </div>
 
-          <p class="paygira-intro">Save payment cards to your wallet to pay your child's bills in one tap. Only the last 4 digits are stored and shown.</p>
+          <p class="paygira-intro">Save a card for faster payment. Only the last 4 digits are stored and shown.</p>
 
           <% if (_cards.length) { %>
             <div class="paygira-cards-grid">
