@@ -5927,6 +5927,7 @@ const accountController = {
   },
 
   logoutGet: async (req, res) => {
+    const sessionId = req.sessionID || null;
     const organizationId = req.session?.organizationId;
     const userId = req.session?.user?.user_id || req.session?.userId || null;
     const userName = `${req.session?.firstName || ""} ${req.session?.lastName || ""}`.trim() || req.session?.organizationName || req.session?.user?.email || "Unknown User";
@@ -5956,16 +5957,29 @@ const accountController = {
       });
     }
 
-    req.session.destroy((err) => {
+    req.session.destroy(async (err) => {
       if (err) {
                 req.flash("error", "Failed to log out. Please try again.");
 
         return res.redirect("/account/login");
       }
 
+      if (sessionId) {
+        try {
+          await db.query(
+            `DELETE FROM user_sessions WHERE sid = $1`,
+            [sessionId]
+          );
+        } catch (_) {
+          // Non-fatal defensive cleanup.
+        }
+      }
+
       // Clear client-side cookies
 
       res.clearCookie("connect.sid", { path: "/" });
+      res.clearCookie("connect.sid", { path: "/", domain: ".managira.com" });
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
 
       // Redirect based on environment
 

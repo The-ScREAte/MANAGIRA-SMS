@@ -120,6 +120,7 @@ const hubController = {
 
   // Hub Logout
   hubLogoutGet: async (req, res) => {
+    const sessionId = req.sessionID || null;
     const hubId = req.session.hubId;
     const hubName = req.session.hubName;
     
@@ -127,9 +128,25 @@ const hubController = {
       await logHubActivity(hubId, 'LOGOUT', `Hub ${hubName} logged out`);
     }
 
-    req.session.destroy((err) => {
+    req.session.destroy(async (err) => {
       if (err) {
-              }
+        return res.redirect('/hub/login');
+      }
+
+      if (sessionId) {
+        try {
+          await db.query(
+            `DELETE FROM user_sessions WHERE sid = $1`,
+            [sessionId]
+          );
+        } catch (_) {
+          // Non-fatal defensive cleanup.
+        }
+      }
+
+      res.clearCookie('connect.sid', { path: '/' });
+      res.clearCookie('connect.sid', { path: '/', domain: '.managira.com' });
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.redirect('/hub/login');
     });
   },

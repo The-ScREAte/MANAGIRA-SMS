@@ -179,6 +179,7 @@
   // Routes that should NEVER be SPA-handled (complex forms, file uploads, etc.)
   const EXCLUDED_PATTERNS = [
     '/account/logout',
+    '/hub/logout',
     '/admin/org/',
     '/admin/exit-org',
     '/admin/profile',
