@@ -25,6 +25,12 @@
         --pill-on-text: color-mix(in srgb, var(--primary) 68%, black);
         --pill-off-bg: color-mix(in srgb, var(--primary) 8%, white);
         --pill-off-text: color-mix(in srgb, var(--primary) 44%, white);
+        --lock-open-bg: #e7f7ee;
+        --lock-open-border: #8cd0aa;
+        --lock-open-text: #157347;
+        --lock-closed-bg: #fdeaea;
+        --lock-closed-border: #ef9a9a;
+        --lock-closed-text: #c62828;
         --icon-btn-bg: color-mix(in srgb, var(--primary) 7%, white);
         --icon-btn-border: color-mix(in srgb, var(--primary) 18%, white);
         --icon-btn-hover: color-mix(in srgb, var(--primary) 13%, white);
@@ -50,34 +56,152 @@
       }
       .card { background: var(--card-surface); border-radius: 14px; border: 1px solid var(--border-soft); box-shadow: 0 6px 22px var(--shadow-soft); overflow: hidden; }
       .table-scroll { overflow-x: auto; }
-      table { width: 100%; border-collapse: collapse; min-width: 860px; font-size: 0.86rem; }
+      table { width: 100%; border-collapse: collapse; min-width: 980px; font-size: 0.86rem; }
       thead th { background: var(--table-head-bg); color: var(--text-soft); font-weight: 700; padding: 12px 12px; text-align: left; letter-spacing: 0.2px; border-bottom: 1px solid var(--border-soft); white-space: nowrap; text-transform: uppercase; font-size: 0.73rem; }
       tbody tr { border-bottom: 1px solid var(--border-soft); }
       tbody tr:last-child { border-bottom: none; }
       tbody tr:nth-child(even) td { background: var(--row-even-bg); }
       tbody tr:hover td { background: var(--row-hover-bg); }
       td { padding: 11px 12px; vertical-align: middle; color: var(--text-main); }
-      .table-name { font-weight: 700; color: var(--text-main); }
-      .status-stack { display: flex; flex-wrap: wrap; gap: 6px; }
-      .state-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; line-height: 1; }
-      .state-pill svg { width: 12px; height: 12px; }
-      .state-lock-on { background: var(--pill-on-bg); color: var(--pill-on-text); }
-      .state-lock-off { background: var(--pill-off-bg); color: var(--pill-off-text); }
-      .state-edit-on { background: var(--pill-on-bg); color: var(--pill-on-text); }
-      .state-edit-off { background: var(--pill-off-bg); color: var(--pill-off-text); }
-      .state-q-on { background: var(--pill-on-bg); color: var(--pill-on-text); }
-      .state-q-off { background: var(--pill-off-bg); color: var(--pill-off-text); }
-      .window-info { font-size: 0.74rem; color: var(--text-soft); margin-top: 6px; line-height: 1.45; }
+      .table-name {
+        display: block;
+        font-weight: 700;
+        color: var(--text-main);
+        line-height: 1.35;
+        white-space: normal;
+        word-break: break-word;
+      }
+      .test-name-content {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .test-name-content .table-name {
+        flex: 0 1 auto;
+      }
+      .table-meta {
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding-left: 12px;
+        flex: 0 1 auto;
+      }
+      .lock-status-note {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border-radius: 9px;
+      }
+      .lock-status-note svg {
+        width: 16px;
+        height: 16px;
+      }
+      .lock-status-note.locked {
+        background: var(--lock-closed-bg);
+        color: var(--lock-closed-text);
+        border: 1px solid var(--lock-closed-border);
+      }
+      .lock-status-note.open {
+        background: var(--lock-open-bg);
+        color: var(--lock-open-text);
+        border: 1px solid var(--lock-open-border);
+      }
+      .editability-note {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-soft);
+      }
+      .editability-note svg {
+        width: 12px;
+        height: 12px;
+      }
+      .window-info { font-size: 0.74rem; color: var(--text-soft); line-height: 1.45; }
       .window-info span { display: block; }
       .collapse-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--primary); color: white; border: none; border-radius: 999px; font-size: 0.76rem; font-weight: 700; cursor: pointer; transition: background 0.17s; }
       .collapse-btn:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
       .collapse-btn svg { width: 12px; height: 12px; }
       .collapse-arrow { font-size: 10px; transition: transform 0.2s; }
-      .collapse-body { margin-top: 8px; background: var(--table-head-bg); border-radius: 8px; border: 1px solid var(--border-soft); padding: 10px 14px; }
-      .collapse-body ul { margin: 2px 0 0 14px; padding: 0; font-size: 0.83rem; color: var(--text-soft); }
-      .collapse-body li { margin-bottom: 2px; }
-      .collapse-class-name { font-size: 0.85rem; font-weight: 600; color: var(--text-main); margin-bottom: 2px; }
-      .actions-cell { display: flex; gap: 8px; align-items: center; }
+      .collapse-body {
+        margin-top: 8px;
+        background: var(--table-head-bg);
+        border-radius: 10px;
+        border: 1px solid var(--border-soft);
+        padding: 10px;
+      }
+      .assigned-class-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .assigned-class-card {
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid var(--border-soft);
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .collapse-class-name {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-bottom: 8px;
+      }
+      .subject-chip-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        font-size: 0.8rem;
+        color: var(--text-soft);
+      }
+      .subject-chip-list li {
+        margin: 0;
+        padding: 6px 8px;
+        border-radius: 999px;
+        background: white;
+        border: 1px solid var(--border-soft);
+        color: var(--text-main);
+        line-height: 1.25;
+      }
+      .actions-cell { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; justify-content: flex-start; }
+      .lock-action-btn {
+        width: 32px;
+        min-width: 32px;
+        height: 32px;
+        padding: 0;
+        gap: 0;
+        border-radius: 10px;
+        justify-content: center;
+      }
+      .lock-action-btn svg {
+        width: 15px;
+        height: 15px;
+        flex: 0 0 auto;
+      }
+      .lock-action-btn.locked {
+        background: var(--lock-closed-bg);
+        color: var(--lock-closed-text);
+        border-color: var(--lock-closed-border);
+      }
+      .lock-action-btn.open {
+        background: var(--lock-open-bg);
+        color: var(--lock-open-text);
+        border-color: var(--lock-open-border);
+      }
+      .lock-action-btn.locked:hover {
+        background: #f9d7d7;
+      }
+      .lock-action-btn.open:hover {
+        background: #d8f0e3;
+      }
       .action-icon-btn {
         width: 32px;
         height: 32px;
@@ -126,7 +250,8 @@
         table { min-width: 0; border-collapse: separate; border-spacing: 0 10px; }
         thead { display: none; }
         tbody tr {
-          display: block;
+          display: flex;
+          flex-wrap: wrap;
           background: white;
           border: 1px solid var(--border-soft);
           border-radius: 12px;
@@ -144,6 +269,18 @@
           border-bottom: 1px dashed var(--border-soft);
           padding: 10px 12px;
         }
+        tbody tr td:nth-child(2),
+        tbody tr td:nth-child(3) {
+          width: 50%;
+        }
+        tbody tr td:nth-child(2) {
+          border-right: 1px dashed var(--border-soft);
+        }
+        tbody tr td:nth-child(3),
+        tbody tr td:nth-child(3)::before,
+        tbody tr td:nth-child(3) > * {
+          white-space: nowrap;
+        }
         td:last-child { border-bottom: none; }
         td::before {
           content: attr(data-label);
@@ -155,13 +292,49 @@
           flex: 0 0 38%;
         }
         td > * { max-width: 62%; }
-        .status-stack,
-        .window-info,
+        td[data-label="Test Name"] {
+          display: block;
+        }
+        td[data-label="Test Name"]::before {
+          display: block;
+          margin-bottom: 4px;
+        }
+        td[data-label="Test Name"] > * {
+          max-width: none;
+        }
+        td[data-label="Assigned"] {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        td[data-label="Assigned"]::before {
+          display: inline-block;
+          margin-bottom: 0;
+          flex: 0 0 auto;
+        }
+        td[data-label="Assigned"] > * {
+          max-width: none;
+        }
+        .test-name-content {
+          display: grid;
+          grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+          align-items: start;
+          gap: 8px;
+        }
+        .test-name-content .table-name {
+          min-width: 0;
+        }
         .actions-cell,
         .collapse-body { width: 100%; }
-        .window-info { margin-top: 8px; }
-        .actions-cell { justify-content: flex-end; }
-        .collapse-btn { margin-left: auto; }
+        .table-meta,
+        .window-info { width: 100%; }
+        .actions-cell { justify-content: flex-start; }
+        .collapse-btn { margin-left: 0; width: fit-content; max-width: 100%; }
+        .collapse-body,
+        .assigned-class-list,
+        .assigned-class-card { width: 100%; }
 
         .empty-row { padding: 0; }
         .empty-row td {
@@ -179,11 +352,27 @@
         .top-bar h1 { font-size: 1.15rem; }
         .btn { padding: 7px 10px; font-size: 0.76rem; }
         td { padding: 9px 10px; }
+        .table-meta {
+          flex-direction: row;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px 10px;
+          padding-left: 8px;
+        }
+        .editability-note,
+        .window-info {
+          width: auto;
+        }
+        .window-info span {
+          display: inline;
+        }
         .window-info { font-size: 0.7rem; }
         .collapse-btn { padding: 5px 10px; font-size: 0.76rem; }
-        .collapse-body ul { font-size: 0.76rem; }
+        .subject-chip-list { grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 0.76rem; }
         .collapse-class-name { font-size: 0.78rem; }
         .action-icon-btn { width: 30px; height: 30px; }
+        .lock-action-btn { width: 30px; min-width: 30px; height: 30px; padding: 0; }
+        .lock-status-note { width: 28px; height: 28px; }
       }
       @media (max-width: 420px) {
         .top-bar { flex-direction: column; align-items: flex-start; }
@@ -227,68 +416,65 @@
             <th>Weight (%)</th>
             <th>Max Score</th>
             <th>Category</th>
-            <th>Status</th>
             <th>Assigned Classes</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <% if (!assessments || assessments.length === 0) { %>
-            <tr class="empty-row"><td colspan="7">No assessments created yet.</td></tr>
+            <tr class="empty-row"><td colspan="6">No assessments created yet.</td></tr>
           <% } %>
           <% (assessments || []).forEach(function(assessment, idx) { %>
             <tr>
-              <td data-label="Test Name"><strong><%= assessment.title %></strong></td>
+              <td data-label="Test Name">
+                <div class="test-name-content">
+                  <strong class="table-name"><%= assessment.title %></strong>
+                  <div class="table-meta">
+                    <span class="editability-note" title="Entry status">
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      <% if (assessment.can_edit_scores) { %>
+                        Entry Status: Open
+                      <% } else { %>
+                        Entry Status: Close
+                      <% } %>
+                    </span>
+                    <div class="window-info">
+                      <% if (assessment.edit_window_start || assessment.edit_window_end) { %>
+                        <% if (assessment.edit_window_start) { %>
+                          <span>Open from: <%= new Date(assessment.edit_window_start).toLocaleDateString() %></span>
+                        <% } %>
+                        <% if (assessment.edit_window_end) { %>
+                          <span>Open until: <%= new Date(assessment.edit_window_end).toLocaleDateString() %></span>
+                        <% } %>
+                      <% } else { %>
+                        <span>No edit window</span>
+                      <% } %>
+                    </div>
+                  </div>
+                </div>
+              </td>
               <td data-label="Weight"><%= assessment.weight %>%</td>
               <td data-label="Max Score"><%= assessment.max_score %></td>
               <td data-label="Category"><%= assessment.category %></td>
 
-              <!-- Status -->
-              <td data-label="Status">
-                <div class="status-stack">
-                  <span class="state-pill <%= assessment.is_locked ? 'state-lock-on' : 'state-lock-off' %>" title="Lock status">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 11V8a4 4 0 118 0v3m-9 0h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    <%= assessment.is_locked ? 'Locked' : 'Open' %>
-                  </span>
-                  <span class="state-pill <%= assessment.can_edit_scores ? 'state-edit-on' : 'state-edit-off' %>" title="Score edit status">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <%= assessment.can_edit_scores ? 'Editable' : 'Read only' %>
-                  </span>
-                  <% if (canUseQuestionSetIntegration) { %>
-                    <span class="state-pill <%= assessment.show_question_set_on_dashboard ? 'state-q-on' : 'state-q-off' %>" title="Teacher question set visibility">
-                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/></svg>
-                      <%= assessment.show_question_set_on_dashboard ? 'Q set on' : 'Q set off' %>
-                    </span>
-                  <% } %>
-                </div>
-                <div class="window-info">
-                  <% if (assessment.edit_window_start || assessment.edit_window_end) { %>
-                    <% if (assessment.edit_window_start) { %>
-                      <span>Start: <%= new Date(assessment.edit_window_start).toLocaleString() %></span>
-                    <% } %>
-                    <% if (assessment.edit_window_end) { %>
-                      <span>End: &nbsp;&nbsp;<%= new Date(assessment.edit_window_end).toLocaleString() %></span>
-                    <% } %>
-                  <% } else { %>
-                    <span style="color:var(--text-soft);">No window</span>
-                  <% } %>
-                </div>
-              </td>
-
               <!-- Assigned Classes -->
-              <td data-label="Assigned">
+              <td data-label="Assigned Classes">
                 <button type="button" class="collapse-btn" onclick="toggleClasses('<%= idx %>')" title="Show assigned classes and subjects">
                   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                   <%= (assessment.assigned_classes || []).length %>
                   <span class="collapse-arrow" id="arrow-<%= idx %>">▶</span>
                 </button>
                 <div class="collapse-body" id="col-<%= idx %>" style="display:none;">
-                  <% Object.values(assessment.assigned_classes).forEach(function(cls) { %>
-                    <div class="collapse-class-name"><%= cls.class_name %></div>
-                    <ul>
-                      <% cls.subjects.forEach(function(sub) { %><li><%= sub %></li><% }); %>
-                    </ul>
-                  <% }); %>
+                  <div class="assigned-class-list">
+                    <% Object.values(assessment.assigned_classes).forEach(function(cls) { %>
+                      <div class="assigned-class-card">
+                        <div class="collapse-class-name"><%= cls.class_name %></div>
+                        <ul class="subject-chip-list">
+                          <% cls.subjects.forEach(function(sub) { %><li><%= sub %></li><% }); %>
+                        </ul>
+                      </div>
+                    <% }); %>
+                  </div>
                 </div>
               </td>
 
@@ -297,16 +483,16 @@
                 <div class="actions-cell">
                   <button
                     type="button"
-                    class="action-icon-btn <%= assessment.is_locked ? 'action-icon-btn-unlock' : 'action-icon-btn-lock' %>"
+                    class="action-icon-btn lock-action-btn <%= assessment.is_locked ? 'locked action-icon-btn-unlock' : 'open action-icon-btn-lock' %>"
                     title="<%= assessment.is_locked ? 'Unlock assessment' : 'Lock assessment' %>"
                     aria-label="<%= assessment.is_locked ? 'Unlock assessment' : 'Lock assessment' %>"
                     onclick="updateControl('<%= assessment.group_id %>', '<%= organizationId %>', '<%= termId %>', '<%= assessment.is_locked ? 'unlock' : 'lock' %>')">
                     <% if (assessment.is_locked) { %>
-                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 11h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1z" stroke="currentColor" stroke-width="2"/><path d="M9 11V8a3 3 0 016 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 118 0v3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
                     <% } else { %>
-                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 11V8a4 4 0 118 0v3m-9 0h10a1 1 0 011 1v7a1 1 0 01-1 1H7a1 1 0 01-1-1v-7a1 1 0 011-1z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M16 11V8a4 4 0 0 0-7.2-2.4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M8.8 5.6L6.2 4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
                     <% } %>
-                    <span class="sr-only"><%= assessment.is_locked ? 'Unlock' : 'Lock' %></span>
+                    <span class="sr-only"><%= assessment.is_locked ? 'Locked' : 'Open' %></span>
                   </button>
                   <a href="/common/modifyAssessment?groupId=<%= assessment.group_id %>&termId=<%= termId %>&organizationId=<%= organizationId %>" class="action-icon-btn action-icon-btn-modify" title="Modify assessment" aria-label="Modify assessment">
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>

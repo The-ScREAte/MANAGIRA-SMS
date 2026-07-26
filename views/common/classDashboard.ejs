@@ -3,7 +3,7 @@
   const themeColors = {
     teal: { primary: '#01535b', hover: '#014a51' },
     blue: { primary: '#2563eb', hover: '#1d4ed8' },
-    green: { primary: '#2d5f4f', hover: '#245043' },
+    green: { primary: '#2e7d32', hover: '#1b5e20' },
     purple: { primary: '#7c3aed', hover: '#6d28d9' },
     indigo: { primary: '#4f46e5', hover: '#4338ca' },
     rose: { primary: '#8b2635', hover: '#7a212e' },
@@ -3568,6 +3568,14 @@ main {
             <% } %>
 
             <% if (hasAssessmentFeature) { %>
+              <% if (canAccessAssessmentQuestions) { %>
+              <li>
+                <button class="nav-link" type="button" data-nav-key="assessment-questions" onclick="openWorkspaceTabByKey('assessment-questions')">
+                  <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/><path d="M9 8h6"/><path d="M9 12h6"/></svg></span>
+                  <span class="nav-link-label">Assessment Questions</span>
+                </button>
+              </li>
+              <% } %>
               <li class="nav-section-collapsible">
                 <button class="nav-link nav-section-toggle" type="button" id="subjects-section-toggle" aria-expanded="false" aria-controls="subjects-section-list" onclick="toggleSubjectsNavSection(event)">
                   <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/></svg></span>
@@ -3942,11 +3950,13 @@ main {
         basePath: <%- JSON.stringify(typeof classWorkspaceBasePath !== 'undefined' ? classWorkspaceBasePath : (`/common/classDashboard/${classId}`)) %>,
         initialRoute: <%- JSON.stringify(typeof initialWorkspaceRoute !== 'undefined' ? initialWorkspaceRoute : { panel: 'overview', itemId: '' }) %>,
         attendanceUrl: <%- JSON.stringify(`/common/attendanceCollection?classId=${classId}&termId=${currentTerm.term_id}&embed=workspace`) %>,
+        assessmentQuestionsUrl: <%- JSON.stringify(`/common/allClassAssessmentExams?classId=${classId}&schoolYearId=${schoolYear.id}&termId=${currentTerm.term_id}&embed=workspace`) %>,
         docsUrl: <%- JSON.stringify(`/documents?classId=${classId}&embed=workspace`) %>,
         paygiraUrl: <%- JSON.stringify(`/account/settings/my-paygira?embed=workspace&classId=${classId}`) %>,
         students: <%- JSON.stringify(workspaceStudents) %>,
         subjects: <%- JSON.stringify(workspaceSubjects) %>,
         canOpenAttendance: <%= hasAttendanceFeature && (userRole !== "Teacher" || isMainTeacher) ? 'true' : 'false' %>,
+        canOpenAssessmentQuestions: <%= canAccessAssessmentQuestions ? 'true' : 'false' %>,
         canOpenSubjects: <%= hasAssessmentFeature ? 'true' : 'false' %>,
         canOpenDocs: <%= hasFilesFeature ? 'true' : 'false' %>,
         canOpenPaygira: true,
@@ -4339,6 +4349,21 @@ main {
         };
       }
 
+      function getWorkspaceAssessmentQuestionsTab() {
+        if (!workspaceContext.canOpenAssessmentQuestions) return getWorkspaceOverviewTab();
+        return {
+          id: 'assessment-questions',
+          title: 'Assessment Questions',
+          panelId: 'panel-frame-assessment-questions',
+          routePath: workspaceContext.basePath + '/assessment-questions',
+          sidebarKey: 'assessment-questions',
+          type: 'iframe',
+          noFrameHeader: true,
+          iframeSrc: workspaceContext.assessmentQuestionsUrl,
+          panelDescription: 'Assessment questions scoped to this class workspace.',
+        };
+      }
+
       function getWorkspaceAttendanceTab() {
         if (!workspaceContext.canOpenAttendance) return getWorkspaceOverviewTab();
         return {
@@ -4423,6 +4448,7 @@ main {
         if (tabKey === 'reports') return openWorkspaceTab(getWorkspaceReportsTab(), options || {});
         if (tabKey === 'schedule') return openWorkspaceTab(getWorkspaceScheduleTab(), options || {});
         if (tabKey === 'students') return openWorkspaceTab(getWorkspaceStudentsTab(), options || {});
+        if (tabKey === 'assessment-questions') return openWorkspaceTab(getWorkspaceAssessmentQuestionsTab(), options || {});
         if (tabKey === 'subjects') return openWorkspaceTab(getWorkspaceSubjectsTab(), options || {});
         if (tabKey === 'attendance') return openWorkspaceTab(getWorkspaceAttendanceTab(), options || {});
         if (tabKey === 'docs') return openWorkspaceTab(getWorkspaceDocsTab(), options || {});
@@ -4437,6 +4463,10 @@ main {
         }
         if (workspaceContext.canOpenAttendance && !getWorkspaceTabById('attendance')) {
           openWorkspaceTabByKey('attendance');
+          return;
+        }
+        if (workspaceContext.canOpenAssessmentQuestions && !getWorkspaceTabById('assessment-questions')) {
+          openWorkspaceTabByKey('assessment-questions');
           return;
         }
         if (workspaceContext.canOpenSubjects && !getWorkspaceTabById('subjects')) {
@@ -4890,6 +4920,7 @@ main {
         }
         if (safeRoute.panel === 'schedule') return openWorkspaceTabByKey('schedule', safeOptions);
         if (safeRoute.panel === 'students') return openWorkspaceTabByKey('students', safeOptions);
+        if (safeRoute.panel === 'assessment-questions') return openWorkspaceTabByKey('assessment-questions', safeOptions);
         if (safeRoute.panel === 'subjects') return openWorkspaceTabByKey('subjects', safeOptions);
         if (safeRoute.panel === 'paygira') return openWorkspaceTabByKey('paygira', safeOptions);
         if (safeRoute.panel === 'student' && safeRoute.itemId) return openStudentWorkspaceTab(safeRoute.itemId, safeOptions);

@@ -1,173 +1,512 @@
 <style>
-  .str-shell { max-width: 980px; margin: 0 auto; padding: 18px 16px 30px; }
-  .str-page-title { margin: 0 0 12px; font-size: 1.25rem; color: #0f172a; }
-  .str-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; box-shadow: 0 4px 14px rgba(15,23,42,0.06); margin-bottom: 10px; }
-  .str-list { display: grid; gap: 10px; }
-  .str-item { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-  .str-item h3 { margin: 0 0 3px; font-size: .92rem; color: #0f172a; line-height: 1.35; }
-  .str-item p { margin: 0; color: #64748b; font-size: .78rem; line-height: 1.4; }
-  .str-start {
+  .str-shell {
+    --str-org-base: var(--org-primary-color);
+    --str-org-strong: color-mix(in srgb, var(--str-org-base) 82%, black);
+    --str-org-soft: color-mix(in srgb, var(--str-org-base) 72%, white);
+    --str-surface: color-mix(in srgb, var(--str-org-base) 1%, white);
+    --str-surface-muted: color-mix(in srgb, var(--str-org-base) 4%, white);
+    --str-surface-strong: color-mix(in srgb, var(--str-org-base) 7%, white);
+    --str-border: color-mix(in srgb, var(--str-org-base) 14%, white);
+    --str-border-strong: color-mix(in srgb, var(--str-org-base) 24%, white);
+    --str-shadow-soft: color-mix(in srgb, var(--str-org-base) 10%, transparent);
+    --str-shadow-strong: color-mix(in srgb, var(--str-org-base) 16%, transparent);
+  }
+
+  .str-shell {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 22px 18px 34px;
+    color: var(--str-org-strong);
+    position: relative;
+  }
+
+  .str-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(900px 420px at 15% -10%, color-mix(in srgb, var(--str-org-base) 8%, transparent), transparent 62%),
+      radial-gradient(760px 360px at 90% 110%, color-mix(in srgb, var(--str-org-base) 9%, transparent), transparent 66%);
+  }
+
+  .str-shell > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .str-header {
+    border: 1px solid var(--str-border-strong);
+    border-radius: 16px;
+    background: linear-gradient(180deg, var(--str-surface) 0%, var(--str-surface-muted) 100%);
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 12px 28px var(--str-shadow-soft);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .str-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .str-page-tag {
+    margin: 0;
+    color: var(--str-org-soft);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+  }
+
+  .str-page-title {
+    margin: 4px 0 0;
+    font-size: 1.4rem;
+    color: var(--str-org-strong);
+    line-height: 1.15;
+  }
+
+  .str-term-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--str-border);
+    border-radius: 999px;
+    background: var(--str-surface);
+    color: var(--str-org-strong);
+    font-size: 0.73rem;
+    font-weight: 700;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+
+  .str-summary-grid {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .str-summary-card {
+    border: 1px solid var(--str-border);
+    border-radius: 12px;
+    background: var(--str-surface);
+    padding: 10px 12px;
+    box-shadow: 0 8px 16px color-mix(in srgb, var(--str-org-base) 8%, transparent);
+  }
+
+  .str-summary-card .k {
+    margin: 0;
+    color: var(--str-org-soft);
+    font-size: 0.63rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 800;
+  }
+
+  .str-summary-card .v {
+    margin: 4px 0 0;
+    color: var(--str-org-strong);
+    font-size: 1.08rem;
+    font-weight: 800;
+  }
+
+  .str-section {
+    border: 1px solid var(--str-border-strong);
+    border-radius: 14px;
+    background: var(--str-surface);
+    padding: 14px;
+    box-shadow: 0 4px 14px var(--str-shadow-soft);
+    margin-bottom: 12px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .str-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .str-section-title {
+    margin: 0;
+    color: var(--str-org-strong);
+    font-size: 1rem;
+    font-weight: 800;
+  }
+
+  .str-section-caption {
+    color: var(--str-org-soft);
+    font-size: 0.76rem;
+    font-weight: 600;
+  }
+
+  .str-list {
+    display: grid;
+    gap: 9px;
+  }
+
+  .str-item {
+    border: 1px solid var(--str-border);
+    border-radius: 12px;
+    padding: 11px 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    background: var(--str-surface);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background-color .18s ease;
+  }
+
+  .str-item:hover {
+    border-color: var(--str-border-strong);
+    background: var(--str-surface-strong);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px color-mix(in srgb, var(--str-org-base) 11%, transparent);
+  }
+
+  .str-item-title {
+    margin: 0;
+    color: var(--str-org-strong);
+    font-size: 0.92rem;
+    line-height: 1.35;
+    font-weight: 700;
+  }
+
+  .str-item-meta {
+    margin: 4px 0 0;
+    color: var(--str-org-soft);
+    font-size: 0.77rem;
+    line-height: 1.45;
+  }
+
+  .str-meta-row {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .str-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--str-border);
+    border-radius: 999px;
+    background: var(--str-surface-muted);
+    color: var(--str-org-strong);
+    padding: 3px 8px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .str-chip-locked {
+    border-color: var(--str-border-strong);
+    background: var(--str-surface-strong);
+    color: var(--str-org-base);
+  }
+
+  .str-chip-success {
+    border-color: var(--str-border-strong);
+    background: var(--str-surface-strong);
+    color: var(--str-org-base);
+  }
+
+  .str-cta {
     text-decoration: none;
     border: none;
-    background: var(--org-primary-color, #0f5a66);
-    color: #fff;
-    padding: 7px 10px;
+    background: var(--str-org-base);
+    color: var(--str-surface);
     border-radius: 10px;
-    font-weight: 700;
-    font-size: .74rem;
+    padding: 8px 12px;
+    font-weight: 800;
+    font-size: 0.75rem;
+    min-width: 88px;
+    text-align: center;
+    box-shadow: 0 8px 18px var(--str-shadow-strong);
+    transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease;
   }
-  .str-empty { color: #64748b; margin: 0; }
-  .str-badge {
+
+  .str-cta:hover {
+    background: color-mix(in srgb, var(--str-org-base) 85%, black);
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px var(--str-shadow-strong);
+  }
+
+  .str-cta:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--str-org-base) 34%, white);
+    outline-offset: 2px;
+  }
+
+  .str-state {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    border: 1px solid #d1fae5;
-    color: #065f46;
-    background: #ecfdf5;
+    gap: 6px;
+    border: 1px solid var(--str-border);
+    color: var(--str-org-strong);
+    background: var(--str-surface-muted);
     border-radius: 999px;
-    padding: 4px 8px;
-    font-size: .66rem;
+    padding: 4px 9px;
+    font-size: 0.66rem;
     font-weight: 800;
-    letter-spacing: .02em;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
   }
-  .str-badge-locked {
-    border: 1px solid #fcd5ce;
-    color: #9a3412;
-    background: #fff7ed;
+
+  .str-state-locked {
+    border-color: var(--str-border-strong);
+    color: var(--str-org-base);
+    background: var(--str-surface-strong);
   }
-  .str-mode-badge {
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid #dbe5ef;
-    border-radius: 999px;
-    background: #f8fafc;
-    color: #334155;
-    padding: 3px 7px;
-    font-size: .62rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: .02em;
-    margin-right: 5px;
-  }
+
   .str-lock {
     width: 12px;
     height: 12px;
-    color: #065f46;
     display: inline-flex;
   }
 
-  @media (max-width: 768px) {
-    .str-shell { padding: 12px 10px 18px; }
-    .str-page-title { font-size: .82rem; margin-bottom: 8px; }
-    .str-card { padding: 10px; border-radius: 11px; margin-bottom: 8px; }
-    .str-card h2 { font-size: .78rem !important; margin-bottom: 8px !important; }
-    .str-list { gap: 8px; }
-    .str-item { align-items: flex-start; padding: 9px 9px; border-radius: 10px; gap: 8px; }
-    .str-item h3 { font-size: .72rem; margin-bottom: 2px; }
-    .str-item p { font-size: .64rem; line-height: 1.34; }
-    .str-start { width: 100%; text-align: center; font-size: .64rem; padding: 7px 8px; border-radius: 8px; }
-    .str-badge { font-size: .58rem; padding: 3px 7px; gap: 4px; }
-    .str-lock { width: 11px; height: 11px; }
-    .str-empty { font-size: .66rem; }
+  .str-empty {
+    margin: 2px 0 0;
+    color: var(--str-org-soft);
+    font-size: 0.8rem;
   }
 
-  @media (max-width: 460px) {
-    .str-shell { padding: 10px 8px 16px; }
-    .str-page-title { font-size: .74rem; }
-    .str-card { padding: 8px; border-radius: 10px; }
-    .str-card h2 { font-size: .7rem !important; }
-    .str-item { padding: 8px; gap: 7px; }
-    .str-item h3 { font-size: .66rem; }
-    .str-item p { font-size: .58rem; }
-    .str-start { font-size: .58rem; padding: 6px 7px; }
-    .str-badge { font-size: .52rem; padding: 2px 6px; }
-    .str-empty { font-size: .6rem; }
+  @media (max-width: 900px) {
+    .str-summary-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .str-shell {
+      padding: 12px 10px 18px;
+    }
+
+    .str-header {
+      padding: 10px;
+      border-radius: 12px;
+      margin-bottom: 9px;
+    }
+
+    .str-page-title {
+      font-size: 0.92rem;
+    }
+
+    .str-page-tag {
+      font-size: 0.56rem;
+    }
+
+    .str-term-pill {
+      font-size: 0.6rem;
+      padding: 4px 7px;
+    }
+
+    .str-summary-card {
+      padding: 8px 9px;
+    }
+
+    .str-summary-card .k {
+      font-size: 0.52rem;
+    }
+
+    .str-summary-card .v {
+      font-size: 0.8rem;
+    }
+
+    .str-section {
+      padding: 10px;
+      border-radius: 11px;
+      margin-bottom: 8px;
+    }
+
+    .str-section-title {
+      font-size: 0.8rem;
+    }
+
+    .str-section-caption {
+      font-size: 0.62rem;
+    }
+
+    .str-item {
+      grid-template-columns: 1fr;
+      align-items: flex-start;
+      padding: 9px;
+      border-radius: 10px;
+      gap: 8px;
+    }
+
+    .str-item-title {
+      font-size: 0.72rem;
+    }
+
+    .str-item-meta {
+      font-size: 0.64rem;
+      margin-top: 3px;
+    }
+
+    .str-chip {
+      font-size: 0.54rem;
+      padding: 3px 7px;
+    }
+
+    .str-cta {
+      width: 100%;
+      font-size: 0.64rem;
+      padding: 8px 9px;
+      border-radius: 8px;
+    }
+
+    .str-state {
+      font-size: 0.56rem;
+      padding: 3px 8px;
+    }
+
+    .str-empty {
+      font-size: 0.66rem;
+    }
   }
 </style>
 
-<div class="str-shell">
-  <h1 class="str-page-title">Testing Room</h1>
+<%
+  const safeOpenAssessments = Array.isArray(openAssessments) ? openAssessments : [];
+  const safeCompletedAssessments = Array.isArray(completedAssessments) ? completedAssessments : [];
+  const lockedOpenCount = safeOpenAssessments.filter((item) => Boolean(item && item.is_locked)).length;
+  const readyOpenCount = Math.max(safeOpenAssessments.length - lockedOpenCount, 0);
+  const selectedTermLabel = selectedTerm ? `${selectedTerm.term_name}${selectedTerm.year_label ? ` • ${selectedTerm.year_label}` : ""}` : "Current term";
+%>
 
+<div class="str-shell">
   <%- include('../partials/flash') %>
 
-  <div class="str-card">
-    <h2 style="margin:0 0 10px;color:#0f172a;">Open Assessments and Exams</h2>
-    <% if (!openAssessments.length) { %>
+  <section class="str-header">
+    <div class="str-title-row">
+      <div>
+        <p class="str-page-tag">Student Workspace</p>
+        <h1 class="str-page-title">Testing Room</h1>
+      </div>
+      <span class="str-term-pill"><%= selectedTermLabel %></span>
+    </div>
+
+    <div class="str-summary-grid">
+      <article class="str-summary-card">
+        <p class="k">Open Assessments</p>
+        <p class="v"><%= safeOpenAssessments.length %></p>
+      </article>
+      <article class="str-summary-card">
+        <p class="k">Ready To Start</p>
+        <p class="v"><%= readyOpenCount %></p>
+      </article>
+      <article class="str-summary-card">
+        <p class="k">Completed This Term</p>
+        <p class="v"><%= safeCompletedAssessments.length %></p>
+      </article>
+    </div>
+  </section>
+
+  <section class="str-section">
+    <div class="str-section-head">
+      <h2 class="str-section-title">Open Assessments</h2>
+      <span class="str-section-caption"><%= lockedOpenCount %> locked</span>
+    </div>
+
+    <% if (!safeOpenAssessments.length) { %>
       <p class="str-empty">No assessments are currently open for you in this term.</p>
     <% } else { %>
       <div class="str-list">
-        <% openAssessments.forEach(item => { %>
-        <div class="str-item">
-          <div>
-            <h3><%= item.title %></h3>
-            <p>
-              <span class="str-mode-badge"><%= item.open_book ? 'Open Book' : 'Secure' %></span>
-              <% if (item.time_limit_minutes && Number(item.time_limit_minutes) > 0) { %>
-                <span class="str-mode-badge">Duration: <%= Number(item.time_limit_minutes) %> min</span>
-              <% } %>
-              <% if (item.edit_window_end) { %>
-                <% const deadlineDate = new Date(item.edit_window_end); %>
-                <% if (!Number.isNaN(deadlineDate.getTime())) { %>
-                  <span class="str-mode-badge">Deadline: <%= deadlineDate.toLocaleString() %></span>
+        <% safeOpenAssessments.forEach((item) => { %>
+          <div class="str-item">
+            <div>
+              <h3 class="str-item-title"><%= item.title %></h3>
+              <p class="str-item-meta">
+                <strong><%= item.subject_name %></strong>
+                · <%= item.category || 'Assessment' %>
+                · <%= item.question_count || 0 %> questions
+                · Max <%= Number(item.max_score || 0).toFixed(2) %>
+              </p>
+              <div class="str-meta-row">
+                <span class="str-chip"><%= item.open_book ? 'Open Book' : 'Secure' %></span>
+                <% if (item.time_limit_minutes && Number(item.time_limit_minutes) > 0) { %>
+                  <span class="str-chip">Duration <%= Number(item.time_limit_minutes) %> min</span>
                 <% } %>
-              <% } %>
-              <% if (item.is_locked) { %>
-                <span class="str-mode-badge">Locked</span>
-              <% } %>
-              <strong><%= item.subject_name %></strong> · <%= item.category || 'Assessment' %> · <%= item.question_count || 0 %> questions · Max <%= item.max_score %>
-            </p>
+                <% if (item.edit_window_end) { %>
+                  <% const deadlineDate = new Date(item.edit_window_end); %>
+                  <% if (!Number.isNaN(deadlineDate.getTime())) { %>
+                    <span class="str-chip">Deadline <%= deadlineDate.toLocaleString() %></span>
+                  <% } %>
+                <% } %>
+                <% if (item.is_locked) { %>
+                  <span class="str-chip str-chip-locked">Locked</span>
+                <% } %>
+              </div>
+            </div>
+
+            <% if (item.is_locked) { %>
+              <span class="str-state str-state-locked" title="This assessment is currently locked">
+                <span class="str-lock" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </span>
+                Locked
+              </span>
+            <% } else { %>
+              <a class="str-cta" href="/student/testing-room/<%= item.assessment_id %>">Take Now</a>
+            <% } %>
           </div>
-          <% if (item.is_locked) { %>
-            <span class="str-badge str-badge-locked" title="This assessment is currently locked">
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+
+  <section class="str-section">
+    <div class="str-section-head">
+      <h2 class="str-section-title">Completed Assessments</h2>
+      <span class="str-section-caption"><%= safeCompletedAssessments.length %> submitted</span>
+    </div>
+
+    <% if (!safeCompletedAssessments.length) { %>
+      <p class="str-empty">No completed assessments yet.</p>
+    <% } else { %>
+      <div class="str-list">
+        <% safeCompletedAssessments.forEach((item) => { %>
+          <div class="str-item">
+            <div>
+              <h3 class="str-item-title"><%= item.title %></h3>
+              <p class="str-item-meta">
+                <strong><%= item.subject_name %></strong>
+                · <%= item.category || 'Assessment' %>
+                · Score <%= Number(item.score || 0).toFixed(2) %> / <%= Number(item.attempt_max_score || item.max_score || 0).toFixed(2) %>
+              </p>
+              <div class="str-meta-row">
+                <span class="str-chip"><%= item.open_book ? 'Open Book' : 'Secure' %></span>
+                <% if (item.time_limit_minutes && Number(item.time_limit_minutes) > 0) { %>
+                  <span class="str-chip"><%= Number(item.time_limit_minutes) %> min</span>
+                <% } %>
+                <span class="str-chip str-chip-success">Submitted</span>
+              </div>
+            </div>
+
+            <span class="str-state" title="Submitted tests are locked">
               <span class="str-lock" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                   <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                 </svg>
               </span>
-              Locked
+              Completed
             </span>
-          <% } else { %>
-            <a class="str-start" href="/student/testing-room/<%= item.assessment_id %>">Take Now</a>
-          <% } %>
-        </div>
-        <% }) %>
-      </div>
-    <% } %>
-  </div>
-
-  <div class="str-card">
-    <h2 style="margin:0 0 10px;color:#0f172a;">Completed Assessments</h2>
-    <% if (!completedAssessments || !completedAssessments.length) { %>
-      <p class="str-empty">No completed assessments yet.</p>
-    <% } else { %>
-      <div class="str-list">
-        <% completedAssessments.forEach(item => { %>
-        <div class="str-item">
-          <div>
-            <h3><%= item.title %></h3>
-            <p>
-              <span class="str-mode-badge"><%= item.open_book ? 'Open Book' : 'Secure' %></span>
-              <% if (item.time_limit_minutes && Number(item.time_limit_minutes) > 0) { %>
-                <span class="str-mode-badge"><%= Number(item.time_limit_minutes) %> min</span>
-              <% } %>
-              <strong><%= item.subject_name %></strong> · <%= item.category || 'Assessment' %>
-              · Score <%= Number(item.score || 0).toFixed(2) %> / <%= Number(item.attempt_max_score || item.max_score || 0).toFixed(2) %>
-            </p>
           </div>
-          <span class="str-badge" title="Submitted tests are locked">
-            <span class="str-lock" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-              </svg>
-            </span>
-            Completed
-          </span>
-        </div>
         <% }) %>
       </div>
     <% } %>
-  </div>
+  </section>
 </div>

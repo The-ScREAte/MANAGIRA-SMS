@@ -147,9 +147,33 @@ async function getGuardianApprovedStudents(db, guardianId, organizationId, nameD
   const nameSortExpression = buildNameSortExpression(nameDisplayFormat, "s");
   return db.query(
     `
+    WITH current_term AS (
+      SELECT term_id
+      FROM terms
+      WHERE organization_id = $2 AND current = TRUE
+      ORDER BY start_date DESC, term_id DESC
+      LIMIT 1
+    ),
+    current_enrollment AS (
+      SELECT
+        es.student_id,
+        es.class_id,
+        ROW_NUMBER() OVER (
+          PARTITION BY es.student_id
+          ORDER BY e.created_at DESC, e.enrollment_id DESC
+        ) AS rn
+      FROM enrollments e
+      JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+      WHERE e.organization_id = $2
+        AND e.term_id = (SELECT term_id FROM current_term)
+    )
     SELECT DISTINCT s.student_id, s.custom_student_id, s.first_name, s.last_name, s.image_url,
-           c.class_name, c.class_id, 'approved' as status
+           COALESCE(cc.class_name, c.class_name) AS class_name,
+           COALESCE(ce.class_id, s.class_id) AS class_id,
+           'approved' as status
     FROM students s
+    LEFT JOIN current_enrollment ce ON ce.student_id = s.student_id AND ce.rn = 1
+    LEFT JOIN classes cc ON cc.class_id = ce.class_id
     LEFT JOIN classes c ON s.class_id = c.class_id
     WHERE s.organization_id = $2
       AND (
@@ -221,6 +245,57 @@ async function guardianHasStudentAccess(db, guardianId, organizationId, studentI
   );
 
   return ownership.rows.length > 0;
+}
+
+async function resolveEffectiveClassForStudentTerm(db, organizationId, studentId, preferredTermId = null) {
+  const parsedPreferredTermId = Number.parseInt(preferredTermId, 10);
+
+  const byTermQuery = async (termId) => {
+    if (!Number.isInteger(termId) || termId <= 0) return null;
+    const result = await db.query(
+      `SELECT es.class_id, c.class_name
+         FROM enrollments e
+         JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+         JOIN classes c ON c.class_id = es.class_id
+        WHERE e.organization_id = $1
+          AND e.term_id = $2
+          AND es.student_id = $3
+        ORDER BY e.created_at DESC, e.enrollment_id DESC
+        LIMIT 1`,
+      [organizationId, termId, studentId]
+    );
+    return result.rows[0] || null;
+  };
+
+  const currentTermResult = await db.query(
+    `SELECT term_id
+       FROM terms
+      WHERE organization_id = $1 AND current = TRUE
+      ORDER BY start_date DESC, term_id DESC
+      LIMIT 1`,
+    [organizationId]
+  );
+  const currentTermId = currentTermResult.rows[0]?.term_id || null;
+
+  let enrolledClass = await byTermQuery(parsedPreferredTermId);
+  if (!enrolledClass) {
+    enrolledClass = await byTermQuery(currentTermId);
+  }
+
+  if (enrolledClass?.class_id) {
+    return enrolledClass;
+  }
+
+  const fallback = await db.query(
+    `SELECT s.class_id, c.class_name
+       FROM students s
+       LEFT JOIN classes c ON c.class_id = s.class_id
+      WHERE s.organization_id = $1 AND s.student_id = $2
+      LIMIT 1`,
+    [organizationId, studentId]
+  );
+
+  return fallback.rows[0] || { class_id: null, class_name: null };
 }
 
 module.exports = {
@@ -321,7 +396,16 @@ module.exports = {
       }
 
       const student = studentResult.rows[0];
-      const classId = student.class_id;
+      const effectiveClass = await resolveEffectiveClassForStudentTerm(
+        db,
+        organizationId,
+        studentId,
+        termId
+      );
+      const classId = effectiveClass?.class_id || student.class_id;
+      const className = effectiveClass?.class_name || student.class_name;
+      student.class_id = classId;
+      student.class_name = className;
 
       // For guardians: show subjects the student is enrolled in
       const subjectsResult = await db.query(
@@ -497,23 +581,7 @@ module.exports = {
         }
       }
 
-      // Get enrolled class for this term
-      const enrolledClassResult = await db.query(
-        `
-          SELECT c.class_name
-          FROM enrolled_students es
-          JOIN enrolled_classes ec ON es.enrollment_id = ec.enrollment_id AND es.class_id = ec.class_id
-          JOIN classes c ON es.class_id = c.class_id
-          JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-          WHERE es.student_id = $1 AND e.term_id = $2 AND e.organization_id = $3
-          ORDER BY e.created_at DESC
-          LIMIT 1
-        `,
-        [studentId, termId, organizationId]
-      );
-
-      const enrolledClassForTerm =
-        enrolledClassResult.rows[0]?.class_name || "Not enrolled";
+      const enrolledClassForTerm = className || "Not enrolled";
 
       const termResult = await db.query(
         `
@@ -602,6 +670,17 @@ module.exports = {
         ...studentResult.rows[0],
         display_student_id: buildStudentDisplayId(studentResult.rows[0], studentIdSettings),
       };
+
+      const effectiveClass = await resolveEffectiveClassForStudentTerm(
+        db,
+        organizationId,
+        studentId,
+        termId
+      );
+      const effectiveClassId = effectiveClass?.class_id || student.class_id;
+      const effectiveClassName = effectiveClass?.class_name || student.class_name;
+      student.class_id = effectiveClassId;
+      student.class_name = effectiveClassName;
 
       // Subjects student is enrolled in
       const subjectsResult = await db.query(
@@ -736,7 +815,7 @@ module.exports = {
         WHERE uc.class_id = $1 AND uc.main = TRUE
         LIMIT 1
         `,
-        [student.class_id]
+        [effectiveClassId]
       );
 
       const subjectTeachersResult = await db.query(
@@ -748,7 +827,7 @@ module.exports = {
         WHERE s.class_id = $1 AND s.organization_id = $2
         ORDER BY s.subject_name
         `,
-        [student.class_id, organizationId]
+        [effectiveClassId, organizationId]
       );
 
       // Terms list for dropdown
@@ -757,8 +836,8 @@ module.exports = {
         [organizationId]
       );
 
-      const classSchedule = student.class_id
-        ? await getClassScheduleForTerm(db, { organizationId, classId: student.class_id, termId })
+      const classSchedule = effectiveClassId
+        ? await getClassScheduleForTerm(db, { organizationId, classId: effectiveClassId, termId })
         : null;
 
       return res.render("guardian/student", {
@@ -964,8 +1043,8 @@ module.exports = {
                SET first_name = $1, last_name = $2, phone = $3, email = $4,
                    address = $5, hometown = $6, image_url = $7
              WHERE organization_id = $8
-               AND LOWER(first_name) = LOWER($9)
-               AND LOWER(last_name)  = LOWER($10)`,
+               AND LOWER(TRIM(first_name)) = LOWER(TRIM($9))
+               AND LOWER(TRIM(last_name))  = LOWER(TRIM($10))`,
             [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail,
              normalizedAddress, normalizedHometown, guardianImageUrl,
              organizationId, oldProfileRow.first_name, oldProfileRow.last_name]
@@ -976,8 +1055,8 @@ module.exports = {
                SET first_name = $1, last_name = $2, phone = $3, email = $4,
                    address = $5, hometown = $6
              WHERE organization_id = $7
-               AND LOWER(first_name) = LOWER($8)
-               AND LOWER(last_name)  = LOWER($9)`,
+               AND LOWER(TRIM(first_name)) = LOWER(TRIM($8))
+               AND LOWER(TRIM(last_name))  = LOWER(TRIM($9))`,
             [normalizedFirstName, normalizedLastName, normalizedPhone, normalizedEmail,
              normalizedAddress, normalizedHometown,
              organizationId, oldProfileRow.first_name, oldProfileRow.last_name]
@@ -1771,13 +1850,13 @@ module.exports = {
         return res.json({ success: false, staff: [] });
       }
 
-      // Get the student's class_id
-      const studentResult = await db.query(
-        `SELECT class_id FROM students WHERE student_id = $1 AND organization_id = $2`,
-        [studentId, organizationId]
+      const effectiveClass = await resolveEffectiveClassForStudentTerm(
+        db,
+        organizationId,
+        studentId,
+        req.session.currentTermId || null
       );
-
-      const classId = studentResult.rows[0]?.class_id;
+      const classId = effectiveClass?.class_id || null;
       let staff = [];
 
       if (classId) {

@@ -7,13 +7,16 @@
   const headerThemeColors = {
     teal: { primary: '#01535b', hover: '#014a51' },
     blue: { primary: '#2563eb', hover: '#1d4ed8' },
-    green: { primary: '#2d5f4f', hover: '#245043' },
+    green: { primary: '#2e7d32', hover: '#1b5e20' },
     purple: { primary: '#7c3aed', hover: '#6d28d9' },
     indigo: { primary: '#4f46e5', hover: '#4338ca' },
     rose: { primary: '#8b2635', hover: '#7a212e' },
     amber: { primary: '#d97706', hover: '#b45309' },
     yellow: { primary: '#eab308', hover: '#ca8a04' },
     slate: { primary: '#334155', hover: '#1e293b' },
+    cyan: { primary: '#0891b2', hover: '#0e7490' },
+    orange: { primary: '#ea580c', hover: '#c2410c' },
+    charcoal: { primary: '#1f2937', hover: '#111827' },
     classic: { primary: '#01535b', hover: '#014a51' },
     bold: { primary: '#0b1020', hover: '#ffb703' },
     modern: { primary: '#2563eb', hover: '#1d4ed8' },
@@ -2014,6 +2017,13 @@
   <% const publicOrgNickname = (publicOrgData && (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname)) ? (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname) : ''; %>
   <% const publicOrgNicknameDisplay = (publicOrgData && publicOrgData.nickname_display && String(publicOrgData.nickname_display).trim()) ? publicOrgData.nickname_display : publicOrgNickname; %>
   <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : (req.session && req.session.userRole === 'Student' ? '/student/dashboard' : '/common/orgDashboard')); %>
+  <% const headerHost = (req && req.headers && req.headers.host) ? String(req.headers.host).toLowerCase() : ''; %>
+  <% const isLocalHeaderHost = headerHost.includes('localhost') || headerHost.startsWith('127.0.0.1'); %>
+  <% const schoolWebsiteHref = (session && session.orgNickName && !isLocalHeaderHost)
+    ? ('https://' + session.orgNickName + '.managira.com')
+    : ((req && req.session && req.session.organizationId)
+      ? ('/common/publicDashboard?organizationId=' + req.session.organizationId)
+      : '/common/publicDashboard'); %>
   <% const showMarketingMegaNav = !isLoggedIn && !isPublicDashboard && !isSchoolSubdomainContext; %>
   <% const publicMarketingNav = [
     {
@@ -2403,7 +2413,7 @@
           Dashboard
         </a></li>
         <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
-        <li class="nav-item"><a href="/" class="management-link" data-no-spa>
+        <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" data-no-spa>
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
           </svg>
@@ -2446,7 +2456,7 @@
           Dashboard
         </a></li>
         <% if (req.session && req.session.organizationId && Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
-        <li class="nav-item"><a href="/" class="management-link" data-no-spa>
+        <li class="nav-item"><a href="<%= schoolWebsiteHref %>" class="management-link" data-no-spa>
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
           </svg>
@@ -2509,7 +2519,7 @@
         <% } %>
         <% if (req.session && req.session.organizationId && Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'))) { %>
         <li class="nav-item">
-          <a href="/common/publicDashboard?organizationId=<%= req.session.organizationId %>" class="nav-item-link management-link">
+          <a href="<%= schoolWebsiteHref %>" class="nav-item-link management-link" data-no-spa>
             <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
             </svg>
@@ -3455,8 +3465,8 @@
   max-width: calc(100vw - 20px);
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(15,23,42,0.16), 0 2px 8px rgba(15,23,42,0.08);
-  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--org-primary-color, #01535b) 14%, rgba(15,23,42,0.16)), 0 2px 8px rgba(15,23,42,0.08);
+  border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 18%, #e5e7eb);
   z-index: 11050;
   overflow: hidden;
   animation: notif-panel-in 0.18s ease;
@@ -3473,13 +3483,14 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px 10px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 14%, #f0f0f0);
+  background: color-mix(in srgb, var(--org-primary-color, #01535b) 6%, #ffffff);
   flex-shrink: 0;
 }
 .notif-panel-title {
   font-size: 0.92rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--org-primary-color, #01535b);
 }
 .notif-header-actions { display: flex; align-items: center; gap: 2px; }
 .notif-mark-all-btn,
@@ -3497,9 +3508,9 @@
   transition: background 0.15s, color 0.15s;
 }
 .notif-mark-all-btn { color: var(--org-primary-color, #01535b); }
-.notif-mark-all-btn:hover { background: #e6f7f6; }
-.notif-clear-all-btn { color: #9ca3af; }
-.notif-clear-all-btn:hover { background: #fef2f2; color: #dc2626; }
+.notif-mark-all-btn:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, #ffffff); }
+.notif-clear-all-btn { color: color-mix(in srgb, var(--org-primary-color, #01535b) 78%, #64748b); }
+.notif-clear-all-btn:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, #ffffff); color: var(--org-primary-color, #01535b); }
 
 /* List */
 .notif-list {
@@ -3529,9 +3540,9 @@
   color: inherit;
 }
 .notif-item:last-child { border-bottom: none; }
-.notif-item:hover { background: #f8fafc; }
-.notif-item--unread { background: #f0faf9; }
-.notif-item--unread:hover { background: #e6f7f6; }
+.notif-item:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 5%, #f8fafc); }
+.notif-item--unread { background: color-mix(in srgb, var(--org-primary-color, #01535b) 9%, #ffffff); }
+.notif-item--unread:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 14%, #ffffff); }
 
 /* Per-item dismiss button */
 .notif-dismiss-btn {
@@ -3554,7 +3565,7 @@
   padding: 0;
 }
 .notif-item:hover .notif-dismiss-btn { opacity: 1; }
-.notif-dismiss-btn:hover { background: #fee2e2; color: #dc2626; }
+.notif-dismiss-btn:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, #ffffff); color: var(--org-primary-color, #01535b); }
 
 /* Type icon dot */
 .notif-icon {
@@ -3574,7 +3585,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #dc2626;
+  background: var(--org-primary-color, #01535b);
   flex-shrink: 0;
   margin-top: 6px;
   margin-left: auto;
@@ -3676,10 +3687,14 @@
     birthday_student:           { bg: '#fff7ed', stroke: '#ea580c', icon: '<path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"/>' },
     birthday_staff:             { bg: '#fdf2f8', stroke: '#db2777', icon: '<path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"/>' },
     birthday_guardian:          { bg: '#eef2ff', stroke: '#4f46e5', icon: '<path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"/>' },
-    term_changed:               { bg: '#eff6ff', stroke: '#2563eb', icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+    term_changed:               { bg: 'color-mix(in srgb, var(--org-primary-color, #01535b) 12%, #ffffff)', stroke: 'var(--org-primary-color, #01535b)', icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
     enrollment_added:           { bg: '#f0fdf4', stroke: '#16a34a', icon: '<path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM3 20a6 6 0 0 1 12 0v1H3v-1z"/>' },
   };
-  const DEFAULT_META = { bg: '#f3f4f6', stroke: '#6b7280', icon: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' };
+  const DEFAULT_META = {
+    bg: 'color-mix(in srgb, var(--org-primary-color, #01535b) 10%, #f8fafc)',
+    stroke: 'var(--org-primary-color, #01535b)',
+    icon: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'
+  };
 
   function getMeta(type) { return TYPE_META[type] || DEFAULT_META; }
 

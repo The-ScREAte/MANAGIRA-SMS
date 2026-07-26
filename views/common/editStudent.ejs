@@ -188,6 +188,51 @@
         box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.1);
       }
 
+      /* Compact personal information block */
+      .es-card--personal-compact {
+        padding: 18px;
+        border-radius: 14px;
+      }
+
+      .es-card--personal-compact .es-section-title {
+        font-size: 14px;
+        margin: 0 0 12px;
+        padding-bottom: 8px;
+        gap: 6px;
+      }
+
+      .es-card--personal-compact .es-id-widget {
+        gap: 3px;
+      }
+
+      .es-card--personal-compact .es-id-label {
+        font-size: 0.68rem;
+      }
+
+      .es-card--personal-compact .es-id-input {
+        font-size: 0.72rem;
+      }
+
+      .es-card--personal-compact .es-form-grid {
+        gap: 12px;
+      }
+
+      .es-card--personal-compact .es-field {
+        gap: 4px;
+      }
+
+      .es-card--personal-compact .es-field label {
+        font-size: 11px;
+        letter-spacing: 0.2px;
+      }
+
+      .es-card--personal-compact .es-field input,
+      .es-card--personal-compact .es-field select {
+        padding: 7px 10px;
+        font-size: 13px;
+        border-radius: 5px;
+      }
+
       /* Checkbox group */
       .es-checkbox-group {
         display: flex;
@@ -406,6 +451,10 @@
         padding: 10px 24px;
         font-size: 14px;
         font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
         border-radius: 8px;
         background: var(--btn-primary-bg, #01535b);
         color: var(--btn-primary-text, white);
@@ -413,6 +462,30 @@
         cursor: pointer;
         transition: all 0.2s;
         width: 100%;
+      }
+
+      .es-btn-spinner {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        border: 2px solid rgba(255, 255, 255, 0.42);
+        border-top-color: #ffffff;
+        animation: esSpin 0.45s linear infinite;
+        display: none;
+        flex: 0 0 auto;
+      }
+
+      @keyframes esSpin {
+        to { transform: rotate(360deg); }
+      }
+
+      .es-btn-primary.is-saving {
+        opacity: 0.95;
+        cursor: wait;
+      }
+
+      .es-btn-primary.is-saving .es-btn-spinner {
+        display: inline-block;
       }
 
       .es-btn-primary:hover {
@@ -566,10 +639,31 @@
       }
     </style>
     <script>
+        let updateFormSubmitting = false;
+
+        function setUpdateStudentSavingState(isSaving) {
+          const button = document.getElementById('esUpdateStudentBtn');
+          if (!button) return;
+
+          button.classList.toggle('is-saving', Boolean(isSaving));
+          button.disabled = Boolean(isSaving);
+          button.setAttribute('aria-busy', isSaving ? 'true' : 'false');
+        }
+
         function confirmUpdate(event) {
-            if (!confirm("Are you sure you want to update this student? Please double-check all details before proceeding.")) {
-                event.preventDefault();
+            if (updateFormSubmitting) {
+              event.preventDefault();
+              return false;
             }
+
+            if (!confirm("Are you sure you want to update this student? Please double-check all details before proceeding.")) {
+              event.preventDefault();
+              return false;
+            }
+
+            updateFormSubmitting = true;
+            setUpdateStudentSavingState(true);
+            return true;
         }
         function confirmDelete(message) { return confirm(message); }
 
@@ -856,6 +950,8 @@
 
   <form action="/common/editStudent/<%= student.student_id %>" method="POST" enctype="multipart/form-data" onsubmit="confirmUpdate(event)">
     <input type="hidden" name="keepExistingSubjectsOnClassChange" id="esKeepExistingSubjectsOnClassChange" value="">
+    <input type="hidden" name="returnClassId" value="<%= (typeof returnClassId !== 'undefined' && returnClassId) ? returnClassId : '' %>">
+    <input type="hidden" name="returnTermId" value="<%= (typeof returnTermId !== 'undefined' && returnTermId) ? returnTermId : '' %>">
     <div class="es-overview-grid">
     
     <!-- Student Image -->
@@ -896,7 +992,7 @@
     </div>
 
     <!-- Personal Information -->
-    <div class="es-card">
+    <div class="es-card es-card--personal-compact">
       <div class="es-section-title">
         <span>👤 Personal Information</span>
         <% if (studentIdSettings && studentIdSettings.use_custom_student_id) { %>
@@ -923,7 +1019,7 @@
         <div class="es-field">
           <label>Date of Birth *</label>
           <input type="date" id="esDateOfBirth" name="dateOfBirth" value="<%= student.date_of_birth ? (student.date_of_birth instanceof Date ? student.date_of_birth : new Date(student.date_of_birth)).toISOString().slice(0, 10) : '' %>" <%= student.date_of_birth_unknown ? '' : 'required' %>>
-          <label style="display:flex;align-items:center;gap:6px;font-size:0.75rem;margin:6px 0 0;color:#64748b;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.66rem;margin:4px 0 0;color:#64748b;">
             <input type="checkbox" id="esDateOfBirthUnknown" name="dateOfBirthUnknown" value="true" <%= student.date_of_birth_unknown ? 'checked' : '' %>>
             N/K (Date of birth not known)
           </label>
@@ -1023,7 +1119,10 @@
 
     <!-- Actions -->
     <div class="es-action-row">
-      <button type="submit" class="es-btn-primary">✅ Update Student</button>
+      <button type="submit" id="esUpdateStudentBtn" class="es-btn-primary">
+        <span class="es-btn-spinner" aria-hidden="true"></span>
+        <span class="es-btn-label">✅ Update Student</span>
+      </button>
 
       <div class="es-action-menu">
         <button type="button" class="es-menu-toggle" onclick="toggleActionMenu()" aria-label="More actions">:</button>

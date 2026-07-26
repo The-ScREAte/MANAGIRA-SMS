@@ -147,17 +147,17 @@
   .gd-edit-form {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px;
-    padding: 20px;
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
+    gap: 12px;
+    padding: 18px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
   }
 
   .gd-edit-form h3 {
     grid-column: 1 / -1;
     margin: 0 0 4px;
-    font-size: 16px;
+    font-size: 15px;
     color: #0f2d32;
     font-weight: 700;
   }
@@ -177,13 +177,18 @@
   }
 
   .gd-field input {
-    padding: 9px 12px;
+    padding: 8px 11px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 13px;
     font-family: inherit;
     background: white;
     transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .gd-field input[type="file"] {
+    padding: 7px 9px;
+    background: #fff;
   }
 
   .gd-field input:focus {
@@ -194,9 +199,41 @@
 
   .gd-edit-actions {
     grid-column: 1 / -1;
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 170px));
     gap: 8px;
     margin-top: 4px;
+    justify-content: start;
+  }
+
+  .gd-edit-actions .gd-btn {
+    width: 100%;
+    min-height: 36px;
+    justify-content: center;
+  }
+
+  .gd-btn-spinner {
+    width: 13px;
+    height: 13px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 255, 255, 0.42);
+    border-top-color: #ffffff;
+    display: none;
+    flex: 0 0 auto;
+    animation: gdBtnSpin 0.4s linear infinite;
+  }
+
+  @keyframes gdBtnSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  .gd-btn.gd-is-saving {
+    opacity: 0.94;
+    cursor: wait;
+  }
+
+  .gd-btn.gd-is-saving .gd-btn-spinner {
+    display: inline-block;
   }
 
   /* Students Grid */
@@ -939,6 +976,7 @@
     .gd-info-grid { grid-template-columns: 1fr; }
     .gd-actions { justify-content: center; }
     .gd-edit-form { grid-template-columns: 1fr; }
+    .gd-edit-actions { grid-template-columns: 1fr 1fr; }
     .gd-students-grid { grid-template-columns: 1fr; }
     .gd-top-bar { flex-direction: column; gap: 8px; text-align: center; }
   }
@@ -1044,7 +1082,10 @@
           <input type="file" name="guardianImage" accept="image/*">
         </div>
         <div class="gd-edit-actions">
-          <button type="submit" class="gd-btn gd-btn-primary">Save Changes</button>
+          <button type="submit" class="gd-btn gd-btn-primary" id="gdSaveGuardianBtn">
+            <span class="gd-btn-spinner" aria-hidden="true"></span>
+            <span class="gd-btn-label">Save Changes</span>
+          </button>
           <button type="button" onclick="toggleEditForm()" class="gd-btn gd-btn-secondary">Cancel</button>
         </div>
       </form>
@@ -1210,6 +1251,21 @@
   function toggleEditForm() {
     document.getElementById('editWrapper').classList.toggle('open');
   }
+
+  (function bindGuardianEditSubmitState() {
+    const form = document.getElementById('editForm');
+    const saveBtn = document.getElementById('gdSaveGuardianBtn');
+    if (!form || !saveBtn) return;
+
+    form.addEventListener('submit', function (event) {
+      if (event.defaultPrevented) return;
+      saveBtn.disabled = true;
+      saveBtn.classList.add('gd-is-saving');
+
+      const cancelBtn = form.querySelector('.gd-edit-actions .gd-btn-secondary');
+      if (cancelBtn) cancelBtn.disabled = true;
+    });
+  })();
 
   // Dots menu
   function toggleDotsMenu(btn) {

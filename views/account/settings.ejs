@@ -3,13 +3,16 @@
   const themeColors = {
     teal: { primary: '#01535b', hover: '#014a51' },
     blue: { primary: '#2563eb', hover: '#1d4ed8' },
-    green: { primary: '#2d5f4f', hover: '#245043' },
+    green: { primary: '#2e7d32', hover: '#1b5e20' },
     purple: { primary: '#7c3aed', hover: '#6d28d9' },
     indigo: { primary: '#4f46e5', hover: '#4338ca' },
     rose: { primary: '#8b2635', hover: '#7a212e' },
     amber: { primary: '#d97706', hover: '#b45309' },
     yellow: { primary: '#eab308', hover: '#ca8a04' },
     slate: { primary: '#334155', hover: '#1e293b' },
+    cyan: { primary: '#0891b2', hover: '#0e7490' },
+    orange: { primary: '#ea580c', hover: '#c2410c' },
+    charcoal: { primary: '#1f2937', hover: '#111827' },
     classic: { primary: '#01535b', hover: '#014a51' },
     bold: { primary: '#0b1020', hover: '#ffb703' },
     modern: { primary: '#2563eb', hover: '#1d4ed8' },
@@ -2513,10 +2516,10 @@
                   <span style="display:flex; flex-direction:column; gap:4px;">
                     <strong style="font-size:0.95rem;">Evergreen</strong>
                     <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#2d5f4f;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#245043;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#2e7d32;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1b5e20;"></span>
                     </span>
-                    <span class="text-muted-sm">Calm natural green.</span>
+                    <span class="text-muted-sm">Classic forest green.</span>
                   </span>
                 </label>
                 <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
@@ -2583,6 +2586,39 @@
                       <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1e293b;"></span>
                     </span>
                     <span class="text-muted-sm">Professional balanced slate.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="cyan" <%= selectedWebsiteTheme === 'cyan' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Cyan Breeze</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#06b6d4;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#0891b2;"></span>
+                    </span>
+                    <span class="text-muted-sm">Fresh, clean cyan accent.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="orange" <%= selectedWebsiteTheme === 'orange' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Sunset Orange</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#ea580c;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#c2410c;"></span>
+                    </span>
+                    <span class="text-muted-sm">Warm, energetic orange tone.</span>
+                  </span>
+                </label>
+                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                  <input type="radio" name="publicDashboardTheme" value="charcoal" <%= selectedWebsiteTheme === 'charcoal' ? 'checked' : '' %> />
+                  <span style="display:flex; flex-direction:column; gap:4px;">
+                    <strong style="font-size:0.95rem;">Charcoal Night</strong>
+                    <span style="display:flex; gap:6px;">
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1f2937;"></span>
+                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#111827;"></span>
+                    </span>
+                    <span class="text-muted-sm">Clean, executive dark neutral.</span>
                   </span>
                 </label>
               </div>

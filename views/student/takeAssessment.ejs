@@ -1,22 +1,72 @@
 <style>
   html, body { overflow-x: hidden; }
-  .ta-shell { max-width: 980px; margin: 0 auto; padding: 18px 16px 30px; }
+  .ta-shell { max-width: 1040px; margin: 0 auto; padding: 20px 16px 34px; }
   .ta-shell, .ta-card, .ta-question, .ta-entry-card { box-sizing: border-box; }
   .ta-shell { overflow-x: hidden; }
-  .ta-page-title { margin: 0 0 12px; font-size: 1.18rem; color: #0f172a; }
+  .ta-page-title { margin: 3px 0 0; font-size: 1.42rem; color: #0f172a; line-height: 1.15; }
+  .ta-page-eyebrow {
+    margin: 0;
+    color: #64748b;
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .ta-page-subtitle {
+    margin: 7px 0 0;
+    color: #64748b;
+    font-size: .82rem;
+    line-height: 1.45;
+    font-weight: 600;
+  }
+  .ta-header {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #dbe5ef;
+    border-radius: 16px;
+    padding: 14px;
+    box-shadow: 0 12px 28px rgba(15,23,42,.07);
+    margin-bottom: 12px;
+  }
+  .ta-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .ta-summary-row {
+    margin-top: 11px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .ta-summary-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #dbe5ef;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #334155;
+    padding: 4px 8px;
+    font-size: .66rem;
+    font-weight: 800;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+  }
   .ta-security-bar {
-    position: fixed;
-    top: 74px;
-    right: 12px;
-    z-index: 12030;
+    position: sticky;
+    top: 10px;
+    z-index: 12010;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.96);
+    background: rgba(255, 255, 255, 0.98);
     border: 1px solid #dbe5ef;
     border-radius: 999px;
     padding: 6px 8px;
     box-shadow: 0 8px 20px rgba(15,23,42,.14);
+    margin-bottom: 10px;
+    backdrop-filter: blur(4px);
   }
   .ta-security-bar.is-open-book {
     border-color: #bfdbfe;
@@ -83,8 +133,35 @@
   .ta-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 15px; margin-bottom: 12px; box-shadow: 0 4px 14px rgba(15,23,42,0.06); }
   .ta-card h2 { margin: 0 0 6px; color: #0f172a; }
   .ta-meta { margin: 0; color: #64748b; font-size: .9rem; }
-  .ta-question { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-top: 10px; }
-  .ta-question h3 { margin: 0 0 8px; font-size: .98rem; color: #0f172a; }
+  .ta-question { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-top: 10px; background: #ffffff; }
+  .ta-question-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .ta-question h3 { margin: 0; font-size: .98rem; color: #0f172a; line-height: 1.4; }
+  .ta-q-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    font-weight: 800;
+    font-size: .72rem;
+    flex: 0 0 auto;
+  }
+  .ta-question-title-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+  }
   .ta-mark { font-size: .78rem; color: #155e75; background: #ecfeff; border-radius: 999px; padding: 4px 8px; font-weight: 700; display: inline-block; }
   .ta-options { margin-top: 8px; display: grid; gap: 8px; }
   .ta-option { display: flex; align-items: flex-start; gap: 8px; color: #334155; }
@@ -114,12 +191,22 @@
     padding: 11px 14px;
     cursor: pointer;
   }
+  .ta-submit-row {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-end;
+    position: sticky;
+    bottom: 10px;
+    z-index: 12;
+    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.92) 34%, rgba(255,255,255,.98) 100%);
+    padding-top: 10px;
+  }
   .ta-submit[disabled] { opacity: .55; cursor: not-allowed; }
 
   .ta-entry-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.66);
+    background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 14%, transparent);
     z-index: 12040;
     display: flex;
     align-items: flex-start;
@@ -127,10 +214,12 @@
     padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px));
     overflow: auto;
     box-sizing: border-box;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
   .ta-entry-card {
     width: min(100%, 560px);
-    background: #fff;
+    background: color-mix(in srgb, white 86%, var(--org-primary-color, #0f5a66) 14%);
     border-radius: 14px;
     border: 1px solid #e2e8f0;
     box-shadow: 0 22px 48px rgba(15,23,42,.28);
@@ -210,15 +299,24 @@
 
   @media (max-width: 768px) {
     .ta-shell { padding: 12px 10px 18px; }
-    .ta-page-title { font-size: .82rem; margin-bottom: 8px; }
+    .ta-page-title { font-size: .86rem; }
+    .ta-page-eyebrow { font-size: .56rem; }
+    .ta-page-subtitle { font-size: .66rem; margin-top: 4px; }
+    .ta-header { padding: 10px; border-radius: 12px; }
+    .ta-summary-row { margin-top: 8px; gap: 5px; }
+    .ta-summary-chip { font-size: .56rem; padding: 3px 7px; }
     .ta-card { padding: 10px; border-radius: 11px; }
     .ta-card h2 { font-size: .78rem; }
     .ta-meta { font-size: .68rem; line-height: 1.38; }
     .ta-question { padding: 8px; border-radius: 9px; }
+    .ta-question-head { gap: 7px; }
+    .ta-question-title-wrap { gap: 6px; }
+    .ta-q-index { width: 20px; height: 20px; font-size: .62rem; }
     .ta-question h3 { font-size: .72rem; line-height: 1.38; }
     .ta-mark { font-size: .6rem; padding: 3px 7px; }
     .ta-input, .ta-textarea { font-size: .72rem; }
     .ta-textarea { min-height: 86px; }
+    .ta-submit-row { position: static; background: transparent; padding-top: 0; margin-top: 12px; }
     .ta-submit { width: 100%; }
     .ta-entry-card {
       width: 100%;
@@ -235,8 +333,7 @@
     .ta-save-status { font-size: .64rem; }
     .ta-entry-card li { margin: 4px 0; }
     .ta-security-bar {
-      top: 62px;
-      right: 8px;
+      top: 8px;
       gap: 5px;
       padding: 4px 6px;
     }
@@ -247,7 +344,7 @@
 
   @media (max-width: 460px) {
     .ta-shell { padding: 10px 8px 16px; }
-    .ta-page-title { font-size: .74rem; }
+    .ta-page-title { font-size: .78rem; }
     .ta-card { padding: 8px; border-radius: 10px; }
     .ta-card h2 { font-size: .7rem; }
     .ta-question { padding: 7px; }
@@ -258,7 +355,7 @@
     .ta-entry-consent { font-size: .62rem; }
     .ta-entry-overlay { padding: 8px; }
     .ta-entry-card { max-height: calc(100dvh - 16px); padding: 8px; }
-    .ta-security-bar { top: 58px; right: 6px; }
+    .ta-security-bar { top: 6px; }
     .ta-sec-label { display: none; }
     .ta-exit-btn { font-size: .5rem; padding: 3px 5px; }
     .ta-timer-chip { font-size: .5rem; padding: 2px 5px; }
@@ -267,6 +364,7 @@
 </style>
 
 <div class="ta-shell">
+  <% const totalQuestions = Array.isArray(questions) ? questions.length : 0; %>
   <div class="ta-security-bar <%= assessment.open_book ? 'is-open-book' : '' %>" aria-label="Assessment mode status">
     <span class="ta-sec-dot" aria-hidden="true"></span>
     <span class="ta-lock-icon" aria-hidden="true">
@@ -282,7 +380,21 @@
     <a class="ta-exit-btn js-exam-exit-link" href="/student/testing-room?termId=<%= assessment.term_id %>">Exit</a>
   </div>
 
-  <h1 class="ta-page-title">Assessment Session</h1>
+  <section class="ta-header">
+    <div class="ta-header-top">
+      <div>
+        <p class="ta-page-eyebrow">Student Testing Room</p>
+        <h1 class="ta-page-title">Assessment Session</h1>
+        <p class="ta-page-subtitle">Read each question carefully and submit only when you are satisfied with your responses.</p>
+      </div>
+    </div>
+    <div class="ta-summary-row">
+      <span class="ta-summary-chip"><%= assessment.subject_name %></span>
+      <span class="ta-summary-chip"><%= assessment.category || 'Assessment' %></span>
+      <span class="ta-summary-chip"><%= totalQuestions %> Questions</span>
+      <span class="ta-summary-chip">Max <%= Number(assessment.max_score || 0).toFixed(2) %></span>
+    </div>
+  </section>
 
   <%- include('../partials/flash') %>
 
@@ -304,8 +416,13 @@
       <% const fieldName = `responses[${question.question_id}]`; %>
       <% const savedValue = responsesByQuestionId[String(question.question_id)]; %>
       <section class="ta-question">
-        <h3>Q<%= index + 1 %>. <%= question.question_text %></h3>
-        <span class="ta-mark"><%= Number(question.marks || 0).toFixed(2) %> marks</span>
+        <div class="ta-question-head">
+          <div class="ta-question-title-wrap">
+            <span class="ta-q-index"><%= index + 1 %></span>
+            <h3><%= question.question_text %></h3>
+          </div>
+          <span class="ta-mark"><%= Number(question.marks || 0).toFixed(2) %> marks</span>
+        </div>
 
         <% if (['single_choice', 'true_false'].includes(String(question.question_type || '').toLowerCase())) { %>
           <div class="ta-options">
@@ -334,7 +451,7 @@
       </section>
     <% }) %>
 
-    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+    <div class="ta-submit-row">
       <button class="ta-submit" id="ta-submit-btn" type="submit">Submit Assessment</button>
     </div>
   </form>

@@ -1,5 +1,13 @@
 const { getClassScheduleForTerm } = require("../utils/classScheduleService");
 const { ensureStudentPortalSchema } = require("../utils/studentPortal");
+const {
+  ensureAttendanceCalendarSchema,
+  getAttendanceCalendarProfile,
+  getAttendanceCalendarDays,
+  buildCalendarDayMap,
+  toDateKey,
+  isAttendanceCountableForDate,
+} = require("../utils/attendanceCalendar");
 
 const STUDENT_TESTING_ROOM_FEATURE_NAMES = [
   "Set Assessment Questions",
@@ -229,19 +237,42 @@ async function resolveStudentContext(db, organizationId, studentId) {
   return studentResult.rows[0] || null;
 }
 
-async function resolveCurrentStudentTermContext(db, organizationId, studentId) {
-  const currentTermResult = await db.query(
-    `SELECT t.term_id, t.term_name, t.current, t.school_year_id, sy.year_label,
-            t.start_date, t.end_date
-       FROM terms t
-       JOIN school_years sy ON sy.id = t.school_year_id
-      WHERE t.organization_id = $1 AND t.current = TRUE
-      ORDER BY t.start_date DESC, t.term_id DESC
-      LIMIT 1`,
-    [organizationId]
-  );
+async function resolveCurrentStudentTermContext(db, organizationId, studentId, preferredTermId = null) {
+  const safePreferredTermId = Number.parseInt(preferredTermId, 10);
 
-  const selectedTerm = currentTermResult.rows[0] || null;
+  const loadTermById = async (termId) => {
+    if (!Number.isInteger(termId) || termId <= 0) return null;
+    const result = await db.query(
+      `SELECT t.term_id, t.term_name, t.current, t.school_year_id, sy.year_label,
+              t.start_date, t.end_date
+         FROM terms t
+         JOIN school_years sy ON sy.id = t.school_year_id
+        WHERE t.organization_id = $1 AND t.term_id = $2
+        LIMIT 1`,
+      [organizationId, termId]
+    );
+    return result.rows[0] || null;
+  };
+
+  const loadCurrentTerm = async () => {
+    const result = await db.query(
+      `SELECT t.term_id, t.term_name, t.current, t.school_year_id, sy.year_label,
+              t.start_date, t.end_date
+         FROM terms t
+         JOIN school_years sy ON sy.id = t.school_year_id
+        WHERE t.organization_id = $1 AND t.current = TRUE
+        ORDER BY t.start_date DESC, t.term_id DESC
+        LIMIT 1`,
+      [organizationId]
+    );
+    return result.rows[0] || null;
+  };
+
+  let selectedTerm = await loadTermById(safePreferredTermId);
+  if (!selectedTerm) {
+    selectedTerm = await loadCurrentTerm();
+  }
+
   if (!selectedTerm) {
     return { selectedTerm: null, enrolledClassId: null, enrolledClassName: null };
   }
@@ -259,11 +290,65 @@ async function resolveCurrentStudentTermContext(db, organizationId, studentId) {
     [organizationId, selectedTerm.term_id, studentId]
   );
 
+  let enrolledClassId = enrollmentResult.rows[0]?.class_id || null;
+  let enrolledClassName = enrollmentResult.rows[0]?.class_name || null;
+
+  if (!enrolledClassId && Number.isInteger(safePreferredTermId) && selectedTerm.term_id === safePreferredTermId) {
+    const currentTerm = await loadCurrentTerm();
+    if (currentTerm && currentTerm.term_id !== selectedTerm.term_id) {
+      const currentEnrollmentResult = await db.query(
+        `SELECT c.class_id, c.class_name
+           FROM enrollments e
+           JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+           JOIN classes c ON c.class_id = es.class_id
+          WHERE e.organization_id = $1
+            AND e.term_id = $2
+            AND es.student_id = $3
+          ORDER BY e.created_at DESC
+          LIMIT 1`,
+        [organizationId, currentTerm.term_id, studentId]
+      );
+
+      if (currentEnrollmentResult.rows[0]?.class_id) {
+        selectedTerm = currentTerm;
+        enrolledClassId = currentEnrollmentResult.rows[0].class_id;
+        enrolledClassName = currentEnrollmentResult.rows[0].class_name;
+      }
+    }
+  }
+
   return {
     selectedTerm,
-    enrolledClassId: enrollmentResult.rows[0]?.class_id || null,
-    enrolledClassName: enrollmentResult.rows[0]?.class_name || null,
+    enrolledClassId,
+    enrolledClassName,
   };
+}
+
+async function getStudentPortalTermOptions(db, organizationId, studentId) {
+  const termResult = await db.query(
+    `SELECT t.term_id,
+            t.term_name,
+            t.current,
+            t.school_year_id,
+            sy.year_label,
+            t.start_date,
+            t.end_date,
+            EXISTS (
+              SELECT 1
+                FROM enrollments e
+                JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+               WHERE e.organization_id = t.organization_id
+                 AND e.term_id = t.term_id
+                 AND es.student_id = $2
+            ) AS student_enrolled
+       FROM terms t
+       JOIN school_years sy ON sy.id = t.school_year_id
+      WHERE t.organization_id = $1
+      ORDER BY t.start_date DESC, t.term_id DESC`,
+    [organizationId, studentId]
+  );
+
+  return termResult.rows || [];
 }
 
 function buildScheduleTableModel(classSchedule) {
@@ -462,10 +547,14 @@ module.exports = {
         return res.redirect("/account/student-login");
       }
 
+      const availableTerms = await getStudentPortalTermOptions(db, organizationId, studentId);
+
+      const requestedTermId = req.query.termId || req.session.currentTermId || null;
       const { selectedTerm, enrolledClassId, enrolledClassName } = await resolveCurrentStudentTermContext(
         db,
         organizationId,
-        studentId
+        studentId,
+        requestedTermId
       );
       const scheduleWatermarkUrl = resolveScheduleWatermarkUrl(req);
       if (!selectedTerm) {
@@ -474,6 +563,7 @@ module.exports = {
           title: "Student Portal",
           student,
           selectedTerm: null,
+          availableTerms,
           enrolledClassName: null,
           mainTeacher: null,
           subjectTeachers: [],
@@ -612,12 +702,32 @@ module.exports = {
               [studentId, organizationId, effectiveClassId, selectedTerm.term_id]
             )
           : { rows: [] },
-        db.query(
-          `SELECT status
-             FROM attendance_records
-            WHERE organization_id = $1 AND student_id = $2 AND term_id = $3`,
-          [organizationId, studentId, selectedTerm.term_id]
-        ),
+        effectiveClassId
+          ? db.query(
+              `SELECT ar.date::text AS date, ar.status
+                 FROM attendance_records ar
+                 JOIN terms t
+                   ON t.term_id = ar.term_id
+                  AND t.organization_id = ar.organization_id
+                WHERE ar.organization_id = $1
+                  AND ar.student_id = $2
+                  AND ar.term_id = $3
+                  AND t.school_year_id = $4
+                  AND ar.class_id = $5`,
+              [organizationId, studentId, selectedTerm.term_id, selectedTerm.school_year_id, effectiveClassId]
+            )
+          : db.query(
+              `SELECT ar.date::text AS date, ar.status
+                 FROM attendance_records ar
+                 JOIN terms t
+                   ON t.term_id = ar.term_id
+                  AND t.organization_id = ar.organization_id
+                WHERE ar.organization_id = $1
+                  AND ar.student_id = $2
+                  AND ar.term_id = $3
+                  AND t.school_year_id = $4`,
+              [organizationId, studentId, selectedTerm.term_id, selectedTerm.school_year_id]
+            ),
         effectiveClassId
           ? getClassScheduleForTerm(db, {
               organizationId,
@@ -631,13 +741,69 @@ module.exports = {
       ]);
 
       const attendanceRows = attendanceResult.rows || [];
+      const attendanceByDate = new Map();
+      attendanceRows.forEach((row) => {
+        const dateKey = toDateKey(row.date);
+        if (!dateKey) return;
+        attendanceByDate.set(dateKey, String(row.status || "").toLowerCase());
+      });
+
       const attendanceSummary = {
-        totalDays: attendanceRows.length,
-        present: attendanceRows.filter((item) => String(item.status || "").toLowerCase() === "present").length,
-        absent: attendanceRows.filter((item) => String(item.status || "").toLowerCase() === "absent").length,
-        late: attendanceRows.filter((item) => String(item.status || "").toLowerCase() === "late").length,
+        totalDays: 0,
+        present: 0,
+        absent: 0,
+        late: 0,
         attendanceRate: 0,
       };
+
+      const termStartKey = toDateKey(selectedTerm.start_date);
+      const termEndKey = toDateKey(selectedTerm.end_date);
+      const todayKey = toDateKey(new Date());
+      const effectiveEndKey = termEndKey && termEndKey < todayKey ? termEndKey : todayKey;
+
+      if (termStartKey && effectiveEndKey && termStartKey <= effectiveEndKey) {
+        await ensureAttendanceCalendarSchema(db);
+        const attendanceCalendarProfile = await getAttendanceCalendarProfile(db, organizationId, selectedTerm.term_id);
+        const attendanceCalendarDays = attendanceCalendarProfile
+          ? await getAttendanceCalendarDays(
+              db,
+              attendanceCalendarProfile.calendar_id,
+              new Date(`${termStartKey}T00:00:00.000Z`),
+              new Date(`${effectiveEndKey}T23:59:59.999Z`)
+            )
+          : [];
+        const attendanceCalendarDayMap = buildCalendarDayMap(attendanceCalendarDays);
+
+        const cursor = new Date(`${termStartKey}T00:00:00.000Z`);
+        const lastDate = new Date(`${effectiveEndKey}T00:00:00.000Z`);
+
+        while (cursor <= lastDate) {
+          const dateKey = cursor.toISOString().slice(0, 10);
+          const isOfficialTermEnd = Boolean(termEndKey) && dateKey === termEndKey;
+          const countable = isOfficialTermEnd
+            ? true
+            : isAttendanceCountableForDate(dateKey, attendanceCalendarProfile, attendanceCalendarDayMap);
+
+          if (countable) {
+            attendanceSummary.totalDays += 1;
+            const normalizedStatus = attendanceByDate.get(dateKey);
+            if (normalizedStatus === "present") attendanceSummary.present += 1;
+            if (normalizedStatus === "late") attendanceSummary.late += 1;
+          }
+
+          cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+
+        attendanceSummary.absent = Math.max(
+          attendanceSummary.totalDays - attendanceSummary.present - attendanceSummary.late,
+          0
+        );
+      } else {
+        attendanceSummary.totalDays = attendanceRows.length;
+        attendanceSummary.present = attendanceRows.filter((item) => String(item.status || "").toLowerCase() === "present").length;
+        attendanceSummary.absent = attendanceRows.filter((item) => String(item.status || "").toLowerCase() === "absent").length;
+        attendanceSummary.late = attendanceRows.filter((item) => String(item.status || "").toLowerCase() === "late").length;
+      }
 
       if (attendanceSummary.totalDays > 0) {
         attendanceSummary.attendanceRate = Number(((attendanceSummary.present / attendanceSummary.totalDays) * 100).toFixed(1));
@@ -747,6 +913,7 @@ module.exports = {
         title: "Student Portal",
         student,
         selectedTerm,
+        availableTerms,
         enrolledClassName,
         mainTeacher: mainTeacherResult.rows[0] || null,
         subjectTeachers: subjectTeachersResult.rows || [],

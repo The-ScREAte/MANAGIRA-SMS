@@ -4,12 +4,15 @@
   const themeColors = {
     teal: { primary: '#01535b', hover: '#014a51' },
     blue: { primary: '#2563eb', hover: '#1d4ed8' },
-    green: { primary: '#2d5f4f', hover: '#245043' },
+    green: { primary: '#2e7d32', hover: '#1b5e20' },
     purple: { primary: '#7c3aed', hover: '#6d28d9' },
     indigo: { primary: '#4f46e5', hover: '#4338ca' },
     rose: { primary: '#8b2635', hover: '#7a212e' },
     amber: { primary: '#d97706', hover: '#b45309' },
     slate: { primary: '#334155', hover: '#1e293b' },
+    cyan: { primary: '#0891b2', hover: '#0e7490' },
+    orange: { primary: '#ea580c', hover: '#c2410c' },
+    charcoal: { primary: '#1f2937', hover: '#111827' },
     classic: { primary: '#01535b', hover: '#014a51' },
     bold: { primary: '#0b1020', hover: '#ffb703' },
     modern: { primary: '#2563eb', hover: '#1d4ed8' },
@@ -509,6 +512,14 @@
             <span>Assessments</span>
           </button>
         </li>
+        <% if (canAccessAssessmentQuestions) { %>
+        <li>
+          <button class="nav-link" data-section="assessment-questions">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 19.5V5a2 2 0 012-2h13v17H6.5A2.5 2.5 0 004 22.5"/><path d="M4 19.5A2.5 2.5 0 016.5 17H19"/><path d="M9 8h6M9 12h6"/></svg></span>
+            <span>Assessment Questions</span>
+          </button>
+        </li>
+        <% } %>
         <li>
           <button class="nav-link" data-section="enrollment">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><path d="M19 8v6M16 11h6"/></svg></span>
@@ -907,6 +918,71 @@
             </div>
           </div>
         </section>
+
+      <% if (canAccessAssessmentQuestions) { %>
+      <section id="assessment-questions" class="management-section">
+        <div class="section-header">
+          <h1>Assessment Questions</h1>
+          <p>Manage question sets across classes, terms, and school years.</p>
+        </div>
+        <div class="section-content">
+          <div class="section-card">
+            <h2>All Class Question Sets</h2>
+            <p>Open the centralized question-set workspace to create, review, reuse, and manage assessment question banks for every class. Use the in-page school-year and term filters to work across sessions, or start from the current term below.</p>
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Create Question Sets</h4>
+                  <p>Build class and subject scoped question banks</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Switch Terms & Years</h4>
+                  <p>Move between school years and terms dynamically</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h4m-4-8h6m6 8V8a2 2 0 00-2-2h-3.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0012.586 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2z"></path>
+                  </svg>
+                </div>
+                <div class="feature-content">
+                  <h4>Track Student Access</h4>
+                  <p>Monitor locks, attempts, and review status</p>
+                </div>
+              </div>
+            </div>
+            <% if (currentTerm) { %>
+            <a href="/common/allClassAssessmentExams?organizationId=<%= organizationId %>&termId=<%= currentTerm.term_id %>" class="action-btn">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
+              </svg>
+              Open Assessment Questions (<%= currentTerm.term_name %>)
+            </a>
+            <% } else { %>
+            <a href="/common/allClassAssessmentExams?organizationId=<%= organizationId %>" class="action-btn">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
+              </svg>
+              Open Assessment Questions
+            </a>
+            <% } %>
+          </div>
+        </div>
+      </section>
+      <% } %>
 
       <!-- Events Section -->
       <section id="events" class="management-section">

@@ -266,6 +266,10 @@
     }
 
     .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
       width: 100%;
       padding: 16px 24px;
       background: var(--primary);
@@ -284,8 +288,36 @@
       transform: translateY(-2px);
       box-shadow: 0 6px 20px rgba(1, 83, 91, 0.3);
     }
+
+    .btn-primary:disabled {
+      opacity: 0.78;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: ce-spin 0.75s linear infinite;
+      display: none;
+      flex-shrink: 0;
+    }
+
+    .btn-primary.is-loading .btn-spinner {
+      display: inline-block;
+    }
+
+    @keyframes ce-spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
   <script>
+    const subjectsCache = new Map();
+
     console.info('[CreateEmployee:Client] script_initialized', {
       timestamp: new Date().toISOString()
     });
@@ -315,17 +347,16 @@
     async function fetchSubjects(classId, containerId) {
       const startedAt = performance.now();
       console.info('[CreateEmployee:Client] fetch_subjects_start', { classId, containerId });
-      try {
-        const response = await fetch(`/common/getSubjectsByClass?classId=${classId}`);
-        const subjects = await response.json();
+
+      const renderSubjects = (subjects) => {
         const container = document.getElementById(containerId);
         container.innerHTML = "";
-        
+
         if (subjects.length > 0) {
           const selectAllDiv = document.createElement("div");
           selectAllDiv.className = "class-checkbox";
           selectAllDiv.innerHTML = `
-            <input type="checkbox" id="selectAllSubjects-${classId}" 
+            <input type="checkbox" id="selectAllSubjects-${classId}"
               onchange="document.querySelectorAll('#${containerId} input[type=checkbox]').forEach(cb => cb.checked = this.checked)">
             <label><strong>Select All Subjects</strong></label>
           `;
@@ -343,6 +374,18 @@
         } else {
           container.innerHTML = "<p style='color: #64748b; font-size: 0.9rem;'>No subjects available for this class.</p>";
         }
+      };
+
+      try {
+        if (subjectsCache.has(classId)) {
+          renderSubjects(subjectsCache.get(classId));
+          return;
+        }
+
+        const response = await fetch(`/common/getSubjectsByClass?classId=${classId}`);
+        const subjects = await response.json();
+        subjectsCache.set(classId, subjects);
+        renderSubjects(subjects);
 
         console.info('[CreateEmployee:Client] fetch_subjects_success', {
           classId,
@@ -399,7 +442,23 @@
 
       const form = document.querySelector("form[action='/common/createEmployee']");
       if (form) {
+        const submitButton = form.querySelector('button[type="submit"]');
+        const submitLabel = submitButton ? submitButton.querySelector('.btn-label') : null;
+
+        const setSubmittingState = () => {
+          if (!submitButton) return;
+          submitButton.disabled = true;
+          submitButton.classList.add('is-loading');
+          submitButton.setAttribute('aria-busy', 'true');
+          if (submitLabel) submitLabel.textContent = 'Creating Employee...';
+        };
+
         form.addEventListener("submit", function(e) {
+          if (form.dataset.submitting === 'true') {
+            e.preventDefault();
+            return;
+          }
+
           const selectedPermissions = document.querySelectorAll('input[name="permissions"]:checked').length;
           const selectedClasses = document.querySelectorAll('input[name="classes"]:checked').length;
           const selectedSubjects = document.querySelectorAll('input[name="subjects"]:checked').length;
@@ -412,7 +471,11 @@
 
           if (!confirm("Are you sure you want to create this employee?")) {
             e.preventDefault();
+            return;
           }
+
+          form.dataset.submitting = 'true';
+          setSubmittingState();
         });
       }
     });
@@ -508,7 +571,10 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-primary">Create Employee</button>
+        <button type="submit" class="btn-primary">
+          <span class="btn-spinner" aria-hidden="true"></span>
+          <span class="btn-label">Create Employee</span>
+        </button>
       </form>
     </div>
   </div>

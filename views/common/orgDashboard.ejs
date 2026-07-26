@@ -9,9 +9,9 @@
       gap: 8px;
       padding: 8px 10px;
       border-radius: 10px;
-      border: 1px solid #cbd5e1;
-      background: #f8fafc;
-      color: #0f5a66;
+      border: 1px solid color-mix(in srgb, var(--org-primary-color, #0f5a66) 24%, #cbd5e1);
+      background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 10%, #f8fafc);
+      color: var(--org-primary-color, #0f5a66);
       text-decoration: none;
       font-size: 0.86rem;
       font-weight: 600;
@@ -19,8 +19,8 @@
     }
 
     .next-term-cta:hover {
-      border-color: #0f5a66;
-      background: #eef7f8;
+      border-color: var(--org-primary-color, #0f5a66);
+      background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 16%, #f8fafc);
       transform: translateY(-1px);
     }
 
@@ -31,11 +31,21 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: #0f5a66;
+      background: var(--org-primary-color, #0f5a66);
       color: #fff;
       font-size: 0.72rem;
       font-weight: 700;
       line-height: 1;
+    }
+
+    .next-term-cta-target {
+      font-weight: 600;
+      color: color-mix(in srgb, var(--org-primary-color, #0f5a66) 62%, #0f172a);
+    }
+
+    .next-term-cta-note {
+      font-size: 0.78rem;
+      color: color-mix(in srgb, var(--org-primary-color, #0f5a66) 58%, #334155);
     }
   </style>
 
@@ -330,8 +340,8 @@
               >
                 <span class="next-term-icon">⏭</span>
                 Switch to
-                <span style="font-weight:500; color:#334155;">(<%= nextTermSuggestion.term_name %> - <%= nextTermSuggestion.year_label %>)</span>
-                <span style="font-size:0.78rem; color:#475569;">by selecting Current on <%= nextTermSuggestion.term_name %>.</span>
+                <span class="next-term-cta-target">(<%= nextTermSuggestion.term_name %> - <%= nextTermSuggestion.year_label %>)</span>
+                <span class="next-term-cta-note">by selecting Current on <%= nextTermSuggestion.term_name %>.</span>
               </a>
             </div>
             <% } %>

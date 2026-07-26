@@ -592,8 +592,6 @@ function renderCleanEmail({
 // yet available at module load, it is created lazily on first use.
 let _transporter = null;
 let _transporterConfig = null;
-let _warnedMissingBounceAddress = false;
-
 function resolveEnvelopeFrom(fromAddress) {
   const envelopeFrom = firstNonEmpty(
     process.env.EMAIL_BOUNCE_ADDRESS,
@@ -602,11 +600,6 @@ function resolveEnvelopeFrom(fromAddress) {
     process.env.EMAIL_RETURN_PATH,
     fromAddress
   );
-
-  if (!_warnedMissingBounceAddress && envelopeFrom === fromAddress) {
-    _warnedMissingBounceAddress = true;
-    console.warn('[Email] Dedicated bounce address is not configured. Mailer-Daemon replies may still go to the authenticated mailbox. Set EMAIL_BOUNCE_ADDRESS or SMTP_ENVELOPE_FROM to route bounces elsewhere.');
-  }
 
   return envelopeFrom;
 }
@@ -787,8 +780,6 @@ async function sendEmailSafely(mailOptions, context = "Email") {
 
     const recipientHeader = formatRecipientList(deliverableRecipients);
 
-    console.info(`[Email][${context}] sending via SMTP to ${recipientHeader}`);
-
     const messageIdDomain = (fromAddress.split('@')[1] || 'managira.com').trim();
     const messageId = `<managira-${Date.now()}-${Math.random().toString(36).slice(2, 10)}@${messageIdDomain}>`;
 
@@ -834,7 +825,6 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     const acceptedRecipients = toRecipientList(info?.accepted || []).validRecipients;
     const sendSucceeded = acceptedRecipients.length > 0 || rejectedRecipients.length === 0;
 
-    console.info(`[Email][${context}] SMTP sent OK in ${Date.now() - sendStart}ms`, info.messageId);
     return sendSucceeded;
   } catch (error) {
     _transporter = null;

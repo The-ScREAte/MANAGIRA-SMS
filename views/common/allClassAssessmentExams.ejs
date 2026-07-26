@@ -10,14 +10,24 @@
       --primary: var(--org-primary-color, #0f5a66);
       --primary-hover: var(--org-primary-hover, #0d4f59);
       --primary-soft: color-mix(in srgb, var(--primary) 12%, #ffffff);
-      --border: #d9e3ea;
-      --text: #132d35;
-      --muted: #607080;
-      --surface: #f4f6f9;
+      --border: #cedae3;
+      --text: #0b1720;
+      --muted: #415464;
+      --surface: #eff4f9;
     }
 
     *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; font-family: var(--font-family); background: var(--surface); color: var(--text); font-size: 14px; line-height: 1.35; }
+    body {
+      margin: 0;
+      font-family: var(--font-family);
+      background:
+        radial-gradient(1200px 520px at 8% -12%, #e0edf8 0%, rgba(224, 237, 248, 0) 62%),
+        radial-gradient(1000px 440px at 94% -18%, #e8f6f8 0%, rgba(232, 246, 248, 0) 58%),
+        linear-gradient(180deg, #f6f9fc 0%, #edf3f8 100%);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.35;
+    }
 
     .page-wrap { max-width: 1280px; margin: 0 auto; padding: 14px 12px 20px; }
     .top-bar {
@@ -87,10 +97,10 @@
     }
 
     .form-card {
-      background: #fff;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fcff 100%);
       border: 1px solid var(--border);
       border-radius: 10px;
-      box-shadow: 0 4px 14px rgba(15, 45, 50, 0.07);
+      box-shadow: 0 8px 22px rgba(15, 45, 50, 0.08);
       padding: 10px;
       margin-bottom: 10px;
     }
@@ -107,8 +117,51 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      padding: 10px;
+      padding: 12px 12px 10px;
       user-select: none;
+      background: linear-gradient(180deg, #f8fbfd 0%, #f4f8fb 100%);
+      transition: background 0.2s ease;
+    }
+
+    .workspace-filters-summary {
+      align-items: center;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+
+    .workspace-filters-main {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+      min-width: 0;
+    }
+
+    .workspace-filters-title {
+      margin: 0 !important;
+      white-space: nowrap;
+    }
+
+    .workspace-filter-summary-line {
+      margin: 0;
+      flex-wrap: nowrap;
+    }
+
+    .workspace-filter-summary-line .current-pill {
+      white-space: nowrap;
+    }
+
+    #workspace-filters-hint {
+      margin-left: auto;
+      flex: 0 0 auto;
+    }
+
+    .collapsible-summary:hover {
+      background: linear-gradient(180deg, #f3f8fc 0%, #eef5fa 100%);
+    }
+
+    .collapsible-card[open] .collapsible-summary {
+      background: linear-gradient(180deg, #f1f7fb 0%, #ecf4f9 100%);
     }
 
     .collapsible-summary::-webkit-details-marker {
@@ -116,16 +169,77 @@
     }
 
     .collapsible-content {
-      padding: 0 10px 10px;
+      padding: 0 12px 12px;
       border-top: 1px solid #e2e8f0;
     }
 
-    .workspace-inline {
+    .filter-summary-line {
+      margin: 2px 0 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .current-pill {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid #c9d7e1;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #f7fafc;
+      color: #244753;
+      font-size: 0.66rem;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: 0.01em;
+    }
+
+    .filter-panel {
+      margin-top: 10px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
       align-items: end;
-      margin-top: 8px;
+    }
+
+    .filter-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      flex-wrap: nowrap;
+      width: auto;
+      margin-top: 2px;
+      margin-left: 0;
+    }
+
+    #workspace-filters-card .filter-actions {
+      justify-self: start;
+      align-self: start;
+      width: auto !important;
+      margin-left: 0 !important;
+    }
+
+    .filter-actions .btn {
+      min-height: 25px;
+      min-width: 78px;
+      font-size: 0.6rem;
+      line-height: 1;
+      padding: 3px 8px;
+    }
+
+    #workspace-filters-card .filter-actions .btn {
+      min-height: 24px !important;
+      min-width: 72px !important;
+      padding: 2px 7px !important;
+      font-size: 0.58rem !important;
+      line-height: 1 !important;
     }
 
     .text-link-control {
@@ -155,6 +269,10 @@
       font-size: 0.66rem;
       font-weight: 700;
       color: #0f5a66;
+      border: 1px solid #c8d8e2;
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 2px 8px;
       white-space: nowrap;
     }
 
@@ -222,14 +340,110 @@
       min-height: 18px;
     }
 
-    .stack { display: grid; gap: 8px; overflow: visible; }
+    .exam-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 10px;
+      overflow: visible;
+      align-items: start;
+    }
+
+    .class-group {
+      margin-bottom: 16px;
+    }
+
+    .class-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 7px;
+      flex-wrap: wrap;
+    }
+
+    .class-group-title {
+      margin: 0;
+      font-size: 0.84rem;
+      color: #0f2d32;
+      letter-spacing: 0.01em;
+    }
+
+    .class-group-meta {
+      font-size: 0.66rem;
+      color: #5f7381;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .class-group-divider {
+      border-bottom: 1px dashed #c8d6df;
+      margin-bottom: 10px;
+    }
+
+    .subject-group {
+      margin-bottom: 14px;
+    }
+
+    .subject-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      margin-bottom: 6px;
+      padding-left: 2px;
+      flex-wrap: wrap;
+    }
+
+    .subject-group-title {
+      margin: 0;
+      font-size: 0.76rem;
+      font-weight: 800;
+      color: #13414a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .subject-group-meta {
+      font-size: 0.62rem;
+      color: #5f7381;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .subject-group-assessment-inline {
+      font-size: 0.66rem;
+      font-weight: 700;
+      color: #1f4f59;
+      border-left: 2px solid #c8d6df;
+      padding-left: 8px;
+      line-height: 1.3;
+      text-transform: none;
+      letter-spacing: 0.01em;
+    }
+
+    .assessment-group {
+      margin-bottom: 10px;
+    }
+
+    .assessment-group-head {
+      margin: 0 0 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #1f4f59;
+      border-left: 3px solid #b8ced8;
+      padding-left: 8px;
+      line-height: 1.3;
+    }
 
     .exam-card {
-      background: #fff;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbfe 100%);
       border: 1px solid var(--border);
       border-radius: 10px;
-      box-shadow: 0 4px 14px rgba(15, 45, 50, 0.07);
+      box-shadow: 0 8px 22px rgba(15, 45, 50, 0.08);
       overflow: visible;
+      min-height: 100%;
     }
 
     .exam-summary {
@@ -432,6 +646,32 @@
       font-size: 0.72rem;
     }
 
+    .set-preview-question {
+      background: #fff;
+      border: 1px solid #e3ebf1;
+      border-radius: 12px;
+      padding: 12px 13px;
+    }
+
+    .set-preview-question-head {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 7px;
+      color: #52697a;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .set-preview-question-text {
+      margin: 0;
+      color: #07131d;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
     .reuse-modal-overlay {
       position: fixed;
       inset: 0;
@@ -456,18 +696,87 @@
       padding: 14px;
       max-height: 90vh;
       overflow: auto;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
     }
 
     .reuse-modal-title {
-      margin: 0 0 10px;
+      margin: 0;
       color: #102f39;
       font-size: 1rem;
+      grid-column: 1 / -1;
     }
 
     .reuse-source {
-      margin: 0 0 8px;
+      margin: 0;
       color: #475569;
       font-size: 0.7rem;
+      grid-column: 1 / -1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #f8fbfd 0%, #f2f7fb 100%);
+      border: 1px solid #dbe6ee;
+    }
+
+    .reuse-modal-grid {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .reuse-modal-grid .field-group {
+      min-width: 0;
+    }
+
+    .reuse-modal-grid .field-group.full-span {
+      grid-column: 1 / -1;
+    }
+
+    .reuse-checkbox-row {
+      grid-column: 1 / -1;
+      margin-top: -2px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #dbe6ee;
+      background: #fbfdff;
+    }
+
+    .reuse-checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #294754;
+      cursor: pointer;
+    }
+
+    .reuse-checkbox-label input[type="checkbox"] {
+      width: auto;
+      min-height: auto;
+      margin: 0;
+    }
+
+    .reuse-modal .row-actions {
+      grid-column: 1 / -1;
+      margin-top: 0;
+      justify-content: flex-start;
+      align-items: center;
+      flex-wrap: nowrap;
+    }
+
+    .reuse-modal .row-actions .btn {
+      min-height: 30px;
+      padding: 6px 10px;
+      font-size: 0.72rem;
+      justify-content: center;
+    }
+
+    .reuse-modal .status-text {
+      grid-column: 1 / -1;
+      margin-top: -2px;
     }
 
     .students-modal-overlay {
@@ -496,6 +805,7 @@
       overflow: auto;
       display: grid;
       gap: 10px;
+      position: relative;
     }
 
     .students-modal-header {
@@ -503,6 +813,7 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 10px;
+      padding-right: 28px;
     }
 
     .students-modal-title {
@@ -522,10 +833,30 @@
       background: #fff;
       color: #334155;
       border-radius: 8px;
-      padding: 5px 8px;
-      font-size: 0.72rem;
+      width: 24px;
+      min-width: 24px;
+      height: 24px;
+      padding: 0;
+      font-size: 1rem;
+      line-height: 1;
       font-weight: 700;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+
+    .students-modal-close:hover,
+    .students-modal-close:focus-visible,
+    .students-modal-close:active {
+      background: #fff;
+      color: #334155;
+      border-color: #cbd5e1;
+      outline: none;
+      box-shadow: none;
     }
 
     .students-summary {
@@ -539,8 +870,47 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      justify-content: flex-start !important;
+      gap: 10px;
+    }
+
+    .students-modal .btn {
+      min-height: 24px;
+      padding: 4px 8px;
+      font-size: 0.66rem;
+      font-weight: 700;
+      line-height: 1;
+      border-radius: 7px;
+      justify-content: center;
+      text-align: center;
+    }
+
+    #students-unlock-all-btn {
+      min-height: 22px !important;
+      height: 22px;
+      padding: 2px 7px !important;
+      font-size: 0.62rem !important;
+      font-weight: 700;
+      line-height: 1;
+      border-radius: 6px;
+      border-width: 1px !important;
+      flex: 0 0 auto;
+      transition: none;
+      width: auto !important;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #students-unlock-all-btn:hover,
+    #students-unlock-all-btn:focus-visible,
+    #students-unlock-all-btn:active {
+      background: #fff !important;
+      color: var(--primary) !important;
+      border-color: var(--primary) !important;
+      transform: none !important;
+      box-shadow: none !important;
+      outline: none !important;
     }
 
     .students-table-wrap {
@@ -617,16 +987,18 @@
 
     .question-modal-overlay.show {
       display: flex;
+      align-items: stretch;
+      justify-content: flex-end;
     }
 
     .question-modal {
-      position: fixed;
-      top: 0;
-      right: 0;
+      position: relative;
       width: 100%;
-      max-width: 1120px;
-      height: 100dvh;
-      background: #f8fafc;
+      max-width: 1060px;
+      height: 100%;
+      min-height: 100%;
+      max-height: 100%;
+      background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
       display: flex;
       flex-direction: column;
       box-shadow: -8px 0 40px rgba(0,0,0,0.18);
@@ -648,7 +1020,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: calc(16px + env(safe-area-inset-top, 0px)) 24px 16px;
+      padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
       background: #fff;
       border-bottom: 1px solid #e2e8f0;
       flex-shrink: 0;
@@ -658,26 +1030,26 @@
     .qm-topbar-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
     .qm-topbar-right {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-shrink: 0;
     }
 
     .qm-upload-btn {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       border: 1.5px solid #0f5a66;
       background: #f0fafb;
       color: #0f5a66;
       border-radius: 8px;
-      padding: 8px 14px;
-      font-size: 0.82rem;
+      padding: 6px 11px;
+      font-size: 0.74rem;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.15s;
@@ -715,33 +1087,33 @@
     }
 
     .qm-topbar-icon {
-      width: 40px;
-      height: 40px;
+      width: 34px;
+      height: 34px;
       background: linear-gradient(135deg, #0f5a66 0%, #1a8fa0 100%);
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 15px;
       flex-shrink: 0;
     }
 
     .qm-topbar-title {
       margin: 0;
-      font-size: 1.05rem;
+      font-size: 0.95rem;
       font-weight: 700;
       color: #0f2d32;
     }
 
     .qm-topbar-sub {
       margin: 0;
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       color: #64748b;
     }
 
     .qm-close-btn {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       border-radius: 8px;
       border: 1px solid #e2e8f0;
       background: #fff;
@@ -763,10 +1135,10 @@
     .qm-body {
       flex: 1;
       overflow-y: auto;
-      padding: 20px 24px;
+      padding: 14px 16px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
     }
 
     .qm-draft-banner {
@@ -775,33 +1147,44 @@
       justify-content: flex-start;
       background: #fffbeb;
       border: 1px solid #fcd34d;
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 0.84rem;
+      border-radius: 9px;
+      padding: 8px 11px;
+      font-size: 0.76rem;
       color: #92400e;
-      gap: 10px;
+      gap: 8px;
     }
 
     .qm-section {
-      background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 18px;
+      background: linear-gradient(165deg, #ffffff 0%, #f6fbff 100%);
+      border: 1px solid #d3dfea;
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 6px 16px rgba(15, 35, 55, 0.06);
     }
 
     .qm-section-label {
-      font-size: 0.68rem;
+      font-size: 0.62rem;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: #64748b;
-      margin: 0 0 12px;
+      color: #1a3442;
+      margin: 0 0 8px;
     }
 
     .qm-grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
+      gap: 8px;
+    }
+
+    .question-modal .qm-grid-2 {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    @media (min-width: 1024px) {
+      .qm-grid-2 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
     }
 
     .qm-full { grid-column: 1 / -1; }
@@ -809,7 +1192,7 @@
     .qm-field {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 4px;
     }
 
     .qm-field.is-hidden {
@@ -817,9 +1200,9 @@
     }
 
     .qm-field label {
-      font-size: 0.76rem;
+      font-size: 0.68rem;
       font-weight: 800;
-      color: #1e3a42;
+      color: #0f2230;
       letter-spacing: 0.025em;
       text-transform: uppercase;
     }
@@ -827,15 +1210,21 @@
     .qm-field input,
     .qm-field select,
     .qm-field textarea {
-      border: 1.5px solid #e2e8f0;
+      border: 1.5px solid #c9d7e3;
       border-radius: 9px;
-      padding: 9px 11px;
-      font-size: 0.875rem;
+      padding: 7px 9px;
+      font-size: 0.78rem;
       font-family: inherit;
-      color: #0f172a;
-      background: #fff;
+      color: #050b11;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
       transition: border-color 0.15s, box-shadow 0.15s;
       width: 100%;
+    }
+
+    .qm-field input::placeholder,
+    .qm-field textarea::placeholder {
+      color: #5f7383;
+      opacity: 1;
     }
 
     .qm-field input:focus,
@@ -843,34 +1232,46 @@
     .qm-field textarea:focus {
       outline: none;
       border-color: #0f5a66;
-      box-shadow: 0 0 0 3px rgba(15, 90, 102, 0.1);
+      box-shadow: 0 0 0 3px rgba(15, 90, 102, 0.14);
     }
 
     .qm-rules-box {
       background: linear-gradient(135deg, #f0fafb 0%, #e6f4f6 100%);
       border: 1px solid #a5d8dd;
       border-left: 4px solid #0f5a66;
-      border-radius: 10px;
-      padding: 12px 16px;
-      font-size: 0.8rem;
+      border-radius: 9px;
+      padding: 9px 11px;
+      font-size: 0.72rem;
       color: #0f4a54;
-      line-height: 1.6;
+      line-height: 1.45;
       display: none;
     }
 
     .qm-question-count {
-      font-size: 0.78rem;
+      font-size: 0.7rem;
       font-weight: 700;
       background: #f1f5f9;
       color: #475569;
-      padding: 3px 10px;
+      padding: 2px 8px;
       border-radius: 999px;
+      white-space: nowrap;
     }
 
     .qm-question-header-actions {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+
+    .qm-questions-layout-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0;
+      border: 0;
+      background: transparent;
     }
 
     .qm-preview-trigger {
@@ -879,15 +1280,17 @@
       justify-content: center;
       border: 1px solid #cbd5e1;
       background: #fff;
-      color: #334155;
+      color: #1f2f3f;
       border-radius: 999px;
-      min-height: 28px;
-      padding: 0 12px;
-      font-size: 0.74rem;
+      min-height: 24px;
+      min-width: 56px;
+      padding: 0 9px;
+      font-size: 0.62rem;
       font-weight: 800;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       cursor: pointer;
+      white-space: nowrap;
     }
 
     .qm-preview-trigger:hover {
@@ -898,14 +1301,26 @@
 
     #question-items {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
+      grid-template-columns: 1fr;
+      gap: 9px;
+    }
+
+    #question-items.is-side-by-side {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .question-modal.is-edit-mode #question-items {
+      grid-template-columns: 1fr;
+    }
+
+    .question-modal.is-edit-mode #question-items.is-side-by-side {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .qm-question-card {
-      background: #fff;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      border: 1.5px solid #d2dfe9;
+      border-radius: 10px;
       overflow: hidden;
       margin-bottom: 0;
       transition: border-color 0.15s, box-shadow 0.15s;
@@ -919,26 +1334,69 @@
     .qm-question-card-header {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 9px 12px;
+      gap: 7px;
+      padding: 8px 10px;
       background: #f8fafc;
       border-bottom: 1px solid #e2e8f0;
+      flex-wrap: nowrap;
+      overflow-x: auto;
     }
 
     .qm-question-header-fields {
       display: flex;
-      gap: 10px;
+      gap: 7px;
       flex: 1;
-      align-items: flex-end;
+      align-items: center;
+      flex-wrap: nowrap;
+      min-width: 0;
+    }
+
+    .qm-question-header-fields .qm-field {
+      display: inline-flex;
+      flex-direction: row;
+      align-items: center;
+      width: auto;
+      min-width: 0;
+      gap: 6px;
+    }
+
+    .qm-question-header-fields .qm-field > label {
+      margin: 0;
+      white-space: nowrap;
+      font-size: 0.62rem;
+      letter-spacing: 0.04em;
+      color: #1b2b39;
+    }
+
+    .qm-question-card .qm-header-type-field {
+      flex: 0 0 auto;
+    }
+
+    .qm-question-card .qm-header-type-field .question-type {
+      width: 18ch;
+      min-width: 18ch;
+      max-width: 22ch;
+      padding-right: 20px;
+      text-overflow: clip;
+    }
+
+    .qm-question-card .qm-header-marks-field {
+      flex: 0 0 auto;
+    }
+
+    .qm-question-card .qm-header-marks-field .question-marks {
+      width: 7ch;
+      min-width: 7ch;
+      text-align: center;
     }
 
     .qm-question-badge {
-      width: 28px;
-      height: 28px;
+      width: 24px;
+      height: 24px;
       border-radius: 7px;
       background: linear-gradient(135deg, #0f5a66, #1a8fa0);
       color: #fff;
-      font-size: 0.68rem;
+      font-size: 0.62rem;
       font-weight: 900;
       display: flex;
       align-items: center;
@@ -947,9 +1405,40 @@
       letter-spacing: -0.01em;
     }
 
+    .qm-collapse-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 22px;
+      min-width: 0;
+      padding: 0 7px;
+      border-radius: 999px;
+      border: 1px solid #cfdbe6;
+      background: #f8fbff;
+      color: #334155;
+      font-size: 0.58rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+      width: auto !important;
+      max-width: max-content;
+      flex: 0 0 auto !important;
+      align-self: center;
+    }
+
+    .qm-collapse-toggle:hover,
+    .qm-collapse-toggle[aria-expanded="true"] {
+      border-color: #0f5a66;
+      color: #0f5a66;
+      background: #f0fafb;
+    }
+
     .qm-remove-btn {
-      width: 34px;
-      height: 34px;
+      width: 30px;
+      height: 30px;
       border-radius: 8px;
       border: 1px solid #fecaca;
       background: #fff;
@@ -959,7 +1448,7 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      margin-bottom: 2px;
+      margin-bottom: 0;
       transition: all 0.15s;
     }
 
@@ -969,24 +1458,29 @@
     }
 
     .qm-question-card-body {
-      padding: 10px 12px;
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
+    }
+
+    .qm-question-card.is-collapsed .qm-options-field,
+    .qm-question-card.is-collapsed .qm-answer-field {
+      display: none;
     }
 
     .qm-question-card .qm-field input,
     .qm-question-card .qm-field select,
     .qm-question-card .qm-field textarea {
-      padding: 7px 10px;
-      font-size: 0.82rem;
+      padding: 6px 8px;
+      font-size: 0.76rem;
     }
 
     .qm-question-card .qm-field label {
-      font-size: 0.72rem;
+      font-size: 0.65rem;
       font-weight: 700;
       letter-spacing: 0.02em;
-      color: #334155;
+      color: #0d1b28;
     }
 
     .qm-question-text-head {
@@ -994,6 +1488,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      flex-wrap: nowrap;
     }
 
     .qm-question-text-head > label {
@@ -1002,7 +1497,7 @@
 
     .qm-question-text-editor-wrap {
       border: 1.5px solid #e2e8f0;
-      border-radius: 9px;
+      border-radius: 8px;
       background: #fff;
       overflow: hidden;
     }
@@ -1013,16 +1508,18 @@
       gap: 6px;
       padding: 0;
       flex-wrap: nowrap;
+      margin-left: auto;
+      white-space: nowrap;
     }
 
     .qm-text-tool-btn {
-      width: 26px;
-      height: 26px;
+      width: 24px;
+      height: 24px;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       background: #fff;
       color: #334155;
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       font-weight: 700;
       cursor: pointer;
       line-height: 1;
@@ -1042,8 +1539,8 @@
     }
 
     .qm-text-color-wrap {
-      width: 26px;
-      height: 26px;
+      width: 24px;
+      height: 24px;
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       overflow: hidden;
@@ -1053,6 +1550,13 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    }
+
+    .qm-text-color-wrap:hover {
+      border-color: #0f5a66;
+      box-shadow: 0 0 0 2px rgba(15, 90, 102, 0.12);
     }
 
     .qm-text-color {
@@ -1081,12 +1585,12 @@
     }
 
     .question-text-editor {
-      min-height: 54px;
-      max-height: 120px;
-      padding: 8px 10px;
-      font-size: 0.82rem;
+      min-height: 44px;
+      max-height: 104px;
+      padding: 7px 8px;
+      font-size: 0.76rem;
       color: #0f172a;
-      line-height: 1.35;
+      line-height: 1.3;
       outline: none;
       overflow-wrap: break-word;
       white-space: pre-wrap;
@@ -1104,14 +1608,101 @@
     }
 
     .question-options-list {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: 1fr;
       gap: 6px;
+    }
+
+    .question-options-list.is-side-by-side {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 8px;
+      row-gap: 6px;
+    }
+
+    .qm-options-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .qm-options-layout-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .qm-options-layout-btn {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: transparent;
+      color: #64748b;
+      min-height: 22px;
+      min-width: 28px;
+      padding: 0 6px;
+      font-size: 0.58rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      cursor: pointer;
+      transition: border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .qm-options-layout-btn .qm-layout-icon {
+      width: 14px;
+      height: 12px;
+      display: grid;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .qm-options-layout-btn .qm-layout-icon span {
+      display: block;
+      border-radius: 999px;
+      background: currentColor;
+      opacity: 0.82;
+    }
+
+    .qm-options-layout-btn[data-layout="stacked"] .qm-layout-icon {
+      grid-template-rows: repeat(3, 1fr);
+      grid-template-columns: 1fr;
+    }
+
+    .qm-options-layout-btn[data-layout="side_by_side"] .qm-layout-icon {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+    }
+
+    .qm-options-layout-btn.is-active {
+      border-color: #0f5a66;
+      color: #0f5a66;
+      box-shadow: 0 0 0 1px rgba(15, 90, 102, 0.18);
+    }
+
+    .qm-options-layout-btn:focus-visible {
+      outline: none;
+      border-color: #0f5a66;
+      box-shadow: 0 0 0 2px rgba(15, 90, 102, 0.12);
+    }
+
+    .qm-options-layout-select {
+      display: none;
+    }
+
+    .qm-layout-label {
+      display: none;
     }
 
     .question-option-row {
       display: flex;
-      gap: 6px;
+      gap: 5px;
       align-items: center;
     }
 
@@ -1123,18 +1714,49 @@
 
     .question-answer-row {
       display: flex;
-      gap: 6px;
+      gap: 5px;
       align-items: center;
     }
 
+    .question-answer-select[multiple] {
+      min-height: 84px;
+    }
+
+    .question-answer-check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.76rem;
+      color: #1f2937;
+    }
+
+    .question-answer-check-row input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: #0f5a66;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .question-answer-check-label {
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .question-answer-empty {
+      font-size: 0.72rem;
+      color: #64748b;
+      font-style: italic;
+    }
+
     .question-option-remove {
-      width: 24px;
-      height: 24px;
+      width: 22px;
+      height: 22px;
       border-radius: 6px;
       border: 1px solid #e2e8f0;
       background: #fff;
       color: #64748b;
-      font-size: 0.8rem;
+      font-size: 0.74rem;
       font-weight: 700;
       cursor: pointer;
       line-height: 1;
@@ -1153,17 +1775,21 @@
       cursor: not-allowed;
     }
 
+    .question-option-length {
+      display: none !important;
+    }
+
     .qm-option-add-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
+      width: 22px;
+      height: 22px;
       border-radius: 999px;
       border: 1px solid #94a3b8;
       background: #fff;
       color: #334155;
-      font-size: 0.95rem;
+      font-size: 0.86rem;
       font-weight: 800;
       cursor: pointer;
       line-height: 1;
@@ -1180,13 +1806,13 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 24px;
-      height: 24px;
+      width: 22px;
+      height: 22px;
       border-radius: 999px;
       border: 1px solid #94a3b8;
       background: #fff;
       color: #334155;
-      font-size: 0.95rem;
+      font-size: 0.86rem;
       font-weight: 800;
       cursor: pointer;
       line-height: 1;
@@ -1202,42 +1828,71 @@
     .qm-footer {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 12px 20px;
+      justify-content: flex-start;
+      padding: 9px 14px;
       background: #fff;
       border-top: 1px solid #e2e8f0;
       flex-shrink: 0;
-      gap: 10px;
+      margin-top: auto;
+      gap: 8px;
+      flex-wrap: nowrap;
     }
 
     .qm-footer-right {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
+      justify-content: flex-start;
+      margin-left: auto;
     }
 
     .qm-btn-ghost,
     .qm-btn-clear,
     .qm-btn-save {
-      min-height: 36px;
-      min-width: 138px;
+      min-height: 30px;
       justify-content: center;
+    }
+
+    .qm-btn-clear,
+    .qm-btn-save {
+      min-width: 100px;
     }
 
     .qm-btn-ghost {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       border: 1.5px dashed #94a3b8;
       background: transparent;
       color: #334155;
-      border-radius: 8px;
-      padding: 8px 14px;
-      font-size: 0.82rem;
+      border-radius: 7px;
+      padding: 6px 10px;
+      font-size: 0.72rem;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.15s;
       letter-spacing: 0.01em;
+    }
+
+    #add-question-item {
+      min-height: 28px;
+      min-width: fit-content;
+      width: auto;
+      flex: 0 0 auto;
+      padding: 5px 9px;
+      font-size: 0.68rem;
+      border-style: solid;
+      border-color: #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    #add-question-item svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
     }
 
     .qm-btn-ghost:hover {
@@ -1254,13 +1909,13 @@
     .qm-btn-clear {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 4px;
       border: 1.5px solid #e2e8f0;
       background: #f8fafc;
       color: #64748b;
-      border-radius: 8px;
-      padding: 8px 14px;
-      font-size: 0.82rem;
+      border-radius: 7px;
+      padding: 6px 10px;
+      font-size: 0.72rem;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.15s;
@@ -1275,18 +1930,20 @@
     .qm-btn-save {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       background: linear-gradient(135deg, #0f5a66 0%, #1a8fa0 100%);
       color: #fff;
       border: none;
-      border-radius: 8px;
-      padding: 9px 20px;
-      font-size: 0.85rem;
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-size: 0.74rem;
       font-weight: 800;
       cursor: pointer;
       transition: opacity 0.15s, transform 0.1s;
-      box-shadow: 0 2px 10px rgba(15,90,102,0.3);
+      box-shadow: 0 2px 8px rgba(15,90,102,0.26);
       letter-spacing: 0.01em;
+      white-space: nowrap;
+      flex-wrap: nowrap;
     }
 
     .qm-btn-save:hover { opacity: 0.9; transform: translateY(-1px); }
@@ -1297,15 +1954,24 @@
       transform: none;
     }
 
+    .qm-btn-save .qm-spinner {
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: qmSpin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
     #question-modal-status {
-      margin: 0;
-      padding: 6px 20px 10px;
-      font-size: 0.76rem;
+      display: block;
+      min-height: 18px;
+      margin: 6px 14px 0;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      font-size: 0.69rem;
       font-weight: 600;
       color: #64748b;
-      background: #fff;
-      text-align: center;
-      flex-shrink: 0;
     }
 
     .qm-preview-overlay {
@@ -1400,6 +2066,63 @@
       background: #f8fafc;
     }
 
+    .qm-preview-doc-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      border-bottom: 2px solid #0f5a66;
+      padding-bottom: 10px;
+      margin-bottom: 2px;
+    }
+
+    .qm-preview-doc-left {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .qm-preview-doc-logo {
+      width: 46px;
+      height: 46px;
+      object-fit: contain;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #d8e3ed;
+      padding: 3px;
+    }
+
+    .qm-preview-doc-school {
+      margin: 0;
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: #0f2d32;
+      line-height: 1.25;
+    }
+
+    .qm-preview-doc-title {
+      margin: 2px 0 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #334155;
+      line-height: 1.35;
+    }
+
+    .qm-preview-doc-subline {
+      margin: 2px 0 0;
+      font-size: 0.73rem;
+      color: #475569;
+      line-height: 1.4;
+    }
+
+    .qm-preview-doc-meta {
+      text-align: right;
+      font-size: 0.72rem;
+      color: #64748b;
+      line-height: 1.45;
+      white-space: nowrap;
+    }
+
     .qm-preview-context {
       background: #fff;
       border: 1px solid #e2e8f0;
@@ -1448,6 +2171,22 @@
     .qm-preview-answer {
       font-size: 0.78rem;
       color: #64748b;
+    }
+
+    .qm-preview-cards {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .qm-preview-cards.is-side-by-side {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .qm-preview-options.is-side-by-side {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 10px;
+      row-gap: 6px;
     }
 
     .question-grid {
@@ -1541,12 +2280,29 @@
       .question-text { font-size: 0.68rem; }
       .set-action-link { font-size: 0.66rem; }
       .grid-two { grid-template-columns: 1fr; }
-      .workspace-inline { grid-template-columns: 1fr; }
+      .reuse-modal {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .reuse-modal-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .filters-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .collapsible-summary {
         align-items: flex-start;
       }
+      .workspace-filters-summary {
+        align-items: center !important;
+      }
       .collapsible-hint {
         margin-top: 2px;
+      }
+      .workspace-filters-summary .collapsible-hint {
+        margin-top: 0;
+      }
+      .current-pill {
+        font-size: 0.62rem;
       }
       .exam-summary {
         gap: 5px;
@@ -1567,6 +2323,15 @@
       }
     }
 
+    @media (max-width: 620px) {
+      .reuse-modal {
+        grid-template-columns: 1fr;
+      }
+      .reuse-modal-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 640px) {
       .question-modal {
         max-width: 100%;
@@ -1583,14 +2348,87 @@
         padding: 7px 10px;
         font-size: 0.76rem;
       }
+      .qm-question-header-actions {
+        gap: 5px;
+      }
+      .qm-questions-layout-toggle {
+        gap: 4px;
+      }
+      .qm-question-count {
+        font-size: 0.64rem;
+        padding: 2px 7px;
+      }
+      .qm-preview-trigger {
+        min-width: 48px;
+        min-height: 22px;
+        padding: 0 7px;
+        font-size: 0.56rem;
+      }
       .qm-grid-2 { grid-template-columns: 1fr; }
       #question-items { grid-template-columns: 1fr; }
-      .qm-footer { flex-direction: column; align-items: stretch; }
-      .qm-footer-right { justify-content: flex-end; }
+      .question-options-list.is-side-by-side {
+        grid-template-columns: 1fr;
+      }
+      .qm-options-layout-btn {
+        min-width: 32px;
+        justify-content: center;
+        padding: 0 7px;
+      }
+      .qm-question-card .qm-header-type-field .question-type {
+        width: 15.5ch;
+        min-width: 15.5ch;
+      }
+      .qm-question-card .qm-header-marks-field .question-marks {
+        width: 6ch;
+        min-width: 6ch;
+      }
+      .qm-preview-cards.is-side-by-side {
+        grid-template-columns: 1fr;
+      }
+      .qm-preview-options.is-side-by-side {
+        grid-template-columns: 1fr;
+      }
+      .qm-preview-doc-header {
+        gap: 9px;
+      }
+      .qm-preview-doc-logo {
+        width: 40px;
+        height: 40px;
+      }
+      .qm-preview-doc-school {
+        font-size: 0.88rem;
+      }
+      .qm-preview-doc-title {
+        font-size: 0.73rem;
+      }
+      .qm-preview-doc-meta {
+        font-size: 0.66rem;
+      }
+      .qm-footer {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+      .qm-footer-right {
+        justify-content: flex-start;
+        margin-left: 0;
+      }
       .set-actions-trigger {
         min-width: 28px;
         height: 22px;
         font-size: 12px;
+      }
+      .filters-grid { grid-template-columns: 1fr; }
+      .filter-actions .btn {
+        flex: 0 0 auto;
+        min-width: 78px;
+      }
+      #workspace-filters-card .filter-actions {
+        justify-content: flex-start !important;
+      }
+      #workspace-filters-card .filter-actions .btn {
+        min-width: 72px !important;
+        font-size: 0.56rem !important;
+        padding: 2px 6px !important;
       }
 
       .students-modal {
@@ -1661,44 +2499,195 @@
 
     <%- include('../partials/flash') %>
 
-    <details class="form-card collapsible-card">
-      <summary class="collapsible-summary">
-        <div>
-          <h2 class="section-title" style="margin-bottom:4px;">Term Filter</h2>
-          <p class="helper-text" style="margin:0;">Current: <strong><%= selectedTermName || ('Term ' + termId) %></strong>. Choose a school year and term to update this workspace.</p>
+    <details class="form-card collapsible-card" id="workspace-filters-card">
+      <summary class="collapsible-summary workspace-filters-summary">
+        <div class="workspace-filters-main">
+          <h2 class="section-title workspace-filters-title">Filters</h2>
+          <div class="filter-summary-line workspace-filter-summary-line">
+            <span class="current-pill">Current Term: <%= selectedTermName || ('Term ' + termId) %></span>
+          </div>
         </div>
-        <span class="collapsible-hint">Open</span>
+        <span class="collapsible-hint" id="workspace-filters-hint">Expand</span>
       </summary>
       <div class="collapsible-content">
-        <div class="workspace-inline">
-          <div class="field-group">
-            <label for="workspace-school-year">School Year</label>
-            <select id="workspace-school-year"></select>
+        <div class="filter-panel">
+          <div class="filters-grid">
+            <div class="field-group">
+              <label for="workspace-school-year">School Year</label>
+              <select id="workspace-school-year"></select>
+            </div>
+            <div class="field-group">
+              <label for="workspace-term">Term</label>
+              <select id="workspace-term"></select>
+            </div>
+            <div class="field-group">
+              <label for="filter-class">Class</label>
+              <select id="filter-class">
+                <option value="">All Classes</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="filter-subject">Subject</label>
+              <select id="filter-subject">
+                <option value="">All Subjects</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="filter-assessment">Assessment</label>
+              <select id="filter-assessment">
+                <option value="">All Assessments</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="filter-review-status">Review Status</label>
+              <select id="filter-review-status">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="filter-points-min">Min Points</label>
+              <input id="filter-points-min" type="number" min="0" step="1" placeholder="Any" />
+            </div>
+            <div class="field-group">
+              <label for="filter-points-max">Max Points</label>
+              <input id="filter-points-max" type="number" min="0" step="1" placeholder="Any" />
+            </div>
+            <div class="field-group">
+              <label for="filter-percent-min">Min %</label>
+              <input id="filter-percent-min" type="number" min="0" max="100" step="1" placeholder="Any" />
+            </div>
+            <div class="field-group">
+              <label for="filter-percent-max">Max %</label>
+              <input id="filter-percent-max" type="number" min="0" max="100" step="1" placeholder="Any" />
+            </div>
+            <div class="field-group">
+              <label for="filter-search">Search</label>
+              <input id="filter-search" type="text" placeholder="Title, class, subject, assessment" />
+            </div>
+            <div class="field-group">
+              <label for="filter-sort">Sort By</label>
+              <select id="filter-sort">
+                <option value="normal">Normal</option>
+                <option value="updated-desc">Updated: Newest First</option>
+                <option value="updated-asc">Updated: Oldest First</option>
+                <option value="points-desc">Points: High to Low</option>
+                <option value="points-asc">Points: Low to High</option>
+                <option value="percent-desc">Percentage: High to Low</option>
+                <option value="percent-asc">Percentage: Low to High</option>
+                <option value="questions-desc">Questions: High to Low</option>
+                <option value="questions-asc">Questions: Low to High</option>
+                <option value="subject-az">Subject: A to Z</option>
+                <option value="assessment-az">Assessment: A to Z</option>
+                <option value="class-az">Class: A to Z</option>
+                <option value="class-za">Class: Z to A</option>
+              </select>
+            </div>
           </div>
-          <div class="field-group">
-            <label for="workspace-term">Term</label>
-            <select id="workspace-term"></select>
-          </div>
-          <div class="row-actions">
-            <a href="#" class="text-link-control" id="open-term-workspace">Apply Selection</a>
+          <div class="filter-actions">
+            <button type="button" class="btn btn-primary" id="apply-set-filters">Apply</button>
+            <button type="button" class="btn btn-secondary" id="clear-set-filters">Clear</button>
           </div>
         </div>
       </div>
     </details>
 
     <h2 class="section-title" style="margin-bottom:6px;">Created Question Sets</h2>
-    <p class="helper-text" style="margin-top:0;">Sets are collapsed by default. Open a row to review details.</p>
 
+    <% const reviewRole = String((session && (session.userRole || (session.user && session.user.account_type))) || '').trim().toLowerCase(); %>
+    <% const canReviewQuestionSets = reviewRole === 'manager' || reviewRole === 'supervisor'; %>
     <% if (!questionSets || !questionSets.length) { %>
       <div class="empty-state">No question sets are available for this term.</div>
     <% } else { %>
-      <div class="stack">
-        <% questionSets.forEach(function(setItem) { %>
-          <% const reviewStatusKey = String(setItem.review_status || 'pending').toLowerCase(); %>
-          <details class="exam-card js-question-set-details">
-            <summary class="exam-summary">
+      <% const classSetMap = new Map(); %>
+      <% questionSets.forEach(function(setItem) { %>
+        <% const classKey = Number(setItem.class_id || 0); %>
+        <% if (!classSetMap.has(classKey)) { %>
+          <% classSetMap.set(classKey, {
+            classId: classKey,
+            className: setItem.class_name || ('Class ' + classKey),
+            sets: []
+          }); %>
+        <% } %>
+        <% classSetMap.get(classKey).sets.push(setItem); %>
+      <% }); %>
+      <% const classGroups = Array.from(classSetMap.values()).sort(function(a, b) {
+        return String(a.className || '').localeCompare(String(b.className || ''));
+      }); %>
+      <div id="question-set-groups">
+        <% classGroups.forEach(function(classGroup) { %>
+          <section class="class-group js-class-group" data-class-id="<%= classGroup.classId %>" data-class-name="<%= String(classGroup.className || '').toLowerCase() %>">
+            <div class="class-group-head">
+              <h3 class="class-group-title"><%= classGroup.className %></h3>
+              <span class="class-group-meta"><%= classGroup.sets.length %> set<%= classGroup.sets.length === 1 ? '' : 's' %></span>
+            </div>
+            <div class="class-group-divider"></div>
+            <% const subjectSetMap = new Map(); %>
+            <% classGroup.sets.forEach(function(setItem) { %>
+              <% const subjectKey = Number(setItem.subject_id || 0); %>
+              <% if (!subjectSetMap.has(subjectKey)) { %>
+                <% subjectSetMap.set(subjectKey, {
+                  subjectId: subjectKey,
+                  subjectName: setItem.subject_name || ('Subject ' + subjectKey),
+                  sets: []
+                }); %>
+              <% } %>
+              <% subjectSetMap.get(subjectKey).sets.push(setItem); %>
+            <% }); %>
+            <% const subjectGroups = Array.from(subjectSetMap.values()).sort(function(a, b) {
+              return String(a.subjectName || '').localeCompare(String(b.subjectName || ''));
+            }); %>
+            <div class="subject-group-list">
+              <% subjectGroups.forEach(function(subjectGroup) { %>
+                <section class="subject-group js-subject-group" data-subject-id="<%= subjectGroup.subjectId %>" data-subject-name="<%= String(subjectGroup.subjectName || '').toLowerCase() %>">
+                  <% const assessmentSetMap = new Map(); %>
+                  <% subjectGroup.sets.forEach(function(setItem) { %>
+                    <% const assessmentKey = Number(setItem.assessment_id || 0); %>
+                    <% if (!assessmentSetMap.has(assessmentKey)) { %>
+                      <% assessmentSetMap.set(assessmentKey, {
+                        assessmentId: assessmentKey,
+                        assessmentTitle: setItem.assessment_title || ('Assessment ' + assessmentKey),
+                        sets: []
+                      }); %>
+                    <% } %>
+                    <% assessmentSetMap.get(assessmentKey).sets.push(setItem); %>
+                  <% }); %>
+                  <% const assessmentGroups = Array.from(assessmentSetMap.values()).sort(function(a, b) {
+                    return String(a.assessmentTitle || '').localeCompare(String(b.assessmentTitle || ''));
+                  }); %>
+                  <div class="subject-group-head">
+                    <h4 class="subject-group-title"><%= subjectGroup.subjectName %></h4>
+                    <span class="subject-group-meta"><%= subjectGroup.sets.length %> set<%= subjectGroup.sets.length === 1 ? '' : 's' %></span>
+                    <% if (assessmentGroups.length === 1) { %>
+                      <span class="subject-group-assessment-inline"><%= assessmentGroups[0].assessmentTitle %></span>
+                    <% } %>
+                  </div>
+                  <div class="assessment-group-list">
+                    <% assessmentGroups.forEach(function(assessmentGroup) { %>
+                      <section class="assessment-group js-assessment-group" data-assessment-id="<%= assessmentGroup.assessmentId %>" data-assessment-name="<%= String(assessmentGroup.assessmentTitle || '').toLowerCase() %>">
+                        <% if (assessmentGroups.length > 1) { %>
+                          <h5 class="assessment-group-head"><%= assessmentGroup.assessmentTitle %></h5>
+                        <% } %>
+                        <div class="exam-grid">
+                          <% assessmentGroup.sets.forEach(function(setItem) { %>
+                <% const reviewStatusKey = String(setItem.review_status || 'pending').toLowerCase(); %>
+                <article class="exam-card js-question-set-details"
+                  data-class-id="<%= Number(setItem.class_id || 0) %>"
+                  data-class-name="<%= String(setItem.class_name || '').toLowerCase() %>"
+                  data-subject-id="<%= Number(setItem.subject_id || 0) %>"
+                  data-subject-name="<%= String(setItem.subject_name || '').toLowerCase() %>"
+                  data-assessment-id="<%= Number(setItem.assessment_id || 0) %>"
+                  data-assessment-title="<%= String(setItem.assessment_title || '').toLowerCase() %>"
+                  data-review-status="<%= reviewStatusKey %>"
+                  data-total-points="<%= Number(setItem.total_points || 0) %>"
+                  data-question-count="<%= Number(setItem.question_count || 0) %>"
+                  data-updated-at="<%= setItem.updated_at ? new Date(setItem.updated_at).getTime() : 0 %>"
+                  data-set-title="<%= String(setItem.set_title || '').toLowerCase() %>">
+            <div class="exam-summary">
               <div class="exam-title" title="<%= setItem.set_title %>">
-                <strong>Question Set</strong>
+                <strong><%= setItem.set_title || 'Question Set' %></strong>
                 <span><%= setItem.class_name %> • <%= setItem.subject_name %> • <%= setItem.assessment_title %></span>
               </div>
               <span class="exam-pill"><%= setItem.question_count %> question<%= Number(setItem.question_count) === 1 ? '' : 's' %></span>
@@ -1713,7 +2702,7 @@
                 <div class="set-actions-menu">
                   <a href="#" class="set-actions-trigger" aria-haspopup="true" aria-expanded="false" title="More actions">...</a>
                   <div class="set-actions-dropdown" role="menu">
-                    <% if ((setItem.review_status || '').toLowerCase() === 'pending') { %>
+                    <% if (canReviewQuestionSets && (setItem.review_status || '').toLowerCase() === 'pending') { %>
                       <a
                         href="#"
                         class="set-action-link review-set-btn"
@@ -1727,6 +2716,20 @@
                         data-review-action="reject"
                       >Reject</a>
                     <% } %>
+                    <a
+                      href="#"
+                      class="set-action-link preview-set-btn"
+                      data-question-set-id="<%= setItem.question_set_id %>"
+                      data-assessment-id="<%= setItem.assessment_id %>"
+                      data-class-id="<%= setItem.class_id %>"
+                      data-class-name="<%= String(setItem.class_name || '').replace(/"/g, '&quot;') %>"
+                      data-subject-id="<%= setItem.subject_id %>"
+                      data-subject-name="<%= String(setItem.subject_name || '').replace(/"/g, '&quot;') %>"
+                      data-term-id="<%= termId %>"
+                      data-school-year-id="<%= selectedSchoolYearId %>"
+                      data-set-title="<%= String(setItem.set_title || '').replace(/"/g, '&quot;') %>"
+                      data-assessment-title="<%= String(setItem.assessment_title || '').replace(/"/g, '&quot;') %>"
+                    >Preview</a>
                     <a
                       href="#"
                       class="set-action-link students-set-btn"
@@ -1759,42 +2762,20 @@
                   </div>
                 </div>
               </div>
-            </summary>
-            <div class="exam-questions">
-              <% if (setItem.set_description) { %>
-                <p class="helper-text" style="margin:0;"><strong>Description:</strong> <%= setItem.set_description %></p>
-              <% } %>
-              <p class="helper-text" style="margin:0;">
-                <strong>Review Status:</strong> <%= (setItem.review_status || 'pending').toUpperCase() %>
-                <% if (setItem.reviewed_by_name) { %>
-                  • <strong>Reviewed By:</strong> <%= setItem.reviewed_by_name %>
-                <% } %>
-                <% if (setItem.reviewed_at) { %>
-                  • <strong>Reviewed At:</strong> <%= new Date(setItem.reviewed_at).toLocaleString() %>
-                <% } %>
-              </p>
-              <% if (setItem.review_note) { %>
-                <p class="helper-text" style="margin:0;"><strong>Review Note:</strong> <%= setItem.review_note %></p>
-              <% } %>
-              <% if (!setItem.questions || !setItem.questions.length) { %>
-                <div class="question-row">
-                  <p class="question-text">No questions found in this set.</p>
-                </div>
-              <% } %>
-              <% (setItem.questions || []).forEach(function(question) { %>
-                <div class="question-row">
-                  <div class="question-meta">
-                    <span>#<%= question.positionIndex || 0 %></span>
-                    <span><%= question.questionType %></span>
-                    <span><%= question.marks %> mark<%= Number(question.marks) === 1 ? '' : 's' %></span>
+            </div>
+                </article>
+                          <% }); %>
+                        </div>
+                      </section>
+                    <% }); %>
                   </div>
-                  <p class="question-text"><%= question.questionText %></p>
-                </div>
+                </section>
               <% }); %>
             </div>
-          </details>
+          </section>
         <% }); %>
       </div>
+      <div class="empty-state" id="question-set-filter-empty" hidden>No question sets match the current filters.</div>
     <% } %>
   </div>
 
@@ -1880,24 +2861,20 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <p class="qm-section-label" style="margin:0;">Questions</p>
             <div class="qm-question-header-actions">
+              <div class="qm-questions-layout-toggle" id="qm-questions-layout-toggle" role="group" aria-label="Questions layout">
+                <button type="button" class="qm-options-layout-btn is-active" data-layout="stacked" aria-pressed="true" title="Stacked questions">
+                  <span class="qm-layout-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+                </button>
+                <button type="button" class="qm-options-layout-btn" data-layout="side_by_side" aria-pressed="false" title="Side-by-side questions">
+                  <span class="qm-layout-icon" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+                </button>
+              </div>
+              <input type="hidden" id="qm-questions-layout-mode" value="stacked" />
               <span class="qm-question-count" id="qm-question-count">0 questions</span>
               <button type="button" class="qm-preview-trigger" id="qm-preview-open">Preview</button>
             </div>
           </div>
           <div id="question-items"></div>
-        </div>
-      </div>
-
-      <div class="qm-preview-overlay" id="qm-preview-overlay" aria-hidden="true">
-        <div class="qm-preview-panel" role="dialog" aria-modal="true" aria-labelledby="qm-preview-title">
-          <div class="qm-preview-topbar">
-            <h3 class="qm-preview-title" id="qm-preview-title">Question Preview</h3>
-            <div class="qm-preview-actions">
-              <button type="button" class="qm-preview-print" id="qm-preview-print" title="Print preview">Print</button>
-              <button type="button" class="qm-preview-close" id="qm-preview-close" title="Close preview">×</button>
-            </div>
-          </div>
-          <div class="qm-preview-body" id="qm-preview-body"></div>
         </div>
       </div>
 
@@ -1919,11 +2896,25 @@
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
               <path d="M13 2H4L2 4v9a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1zM5 2v4h6V2M5 9h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            Save Question Set
+            Save Questions
           </button>
         </div>
       </div>
-      <p id="question-modal-status">Create a question set for this assessment.</p>
+      <div id="question-modal-status" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <div class="qm-preview-overlay" id="qm-preview-overlay" aria-hidden="true">
+    <div class="qm-preview-panel" role="dialog" aria-modal="true" aria-labelledby="qm-preview-title">
+      <div class="qm-preview-topbar">
+        <h3 class="qm-preview-title" id="qm-preview-title">Question Preview</h3>
+        <div class="qm-preview-actions">
+          <button type="button" class="qm-preview-print" id="qm-preview-edit" title="Edit set" style="display:none;">Edit</button>
+          <button type="button" class="qm-preview-print" id="qm-preview-print" title="Print preview">Print</button>
+          <button type="button" class="qm-preview-close" id="qm-preview-close" title="Close preview">×</button>
+        </div>
+      </div>
+      <div class="qm-preview-body" id="qm-preview-body"></div>
     </div>
   </div>
 
@@ -1932,7 +2923,7 @@
       <h3 class="reuse-modal-title" id="reuse-modal-title">Reuse Question Set</h3>
       <p class="reuse-source" id="reuse-source-summary"></p>
 
-      <div class="grid-two">
+      <div class="reuse-modal-grid">
         <div class="field-group">
           <label for="reuse-school-year">School Year</label>
           <select id="reuse-school-year"></select>
@@ -1963,9 +2954,9 @@
         </div>
       </div>
 
-      <div class="field-group" style="margin-top:8px;">
-        <label for="reuse-shuffle-options">
-          <input type="checkbox" id="reuse-shuffle-options" style="width:auto;min-height:auto;margin-right:6px;" />
+      <div class="reuse-checkbox-row">
+        <label for="reuse-shuffle-options" class="reuse-checkbox-label">
+          <input type="checkbox" id="reuse-shuffle-options" />
           Shuffle options inside each question
         </label>
       </div>
@@ -1985,7 +2976,7 @@
           <h3 class="students-modal-title" id="students-modal-title">Students Taking This Exam</h3>
           <p class="students-modal-subtitle" id="students-modal-subtitle">Class/term/subject scoped list.</p>
         </div>
-        <button type="button" class="students-modal-close" id="students-modal-close">Close</button>
+        <button type="button" class="students-modal-close" id="students-modal-close" aria-label="Close students modal" title="Close">×</button>
       </div>
 
       <div class="students-summary" id="students-summary"></div>
@@ -2024,8 +3015,11 @@
       var termClassSubjects = <%- JSON.stringify(termClassSubjects || []) %>;
       var assessmentsForOrg = <%- JSON.stringify(assessmentsForOrg || []) %>;
       var assessmentsForTermData = <%- JSON.stringify(assessmentsForTerm || []) %>;
+      var questionSetsData = <%- JSON.stringify(questionSets || []) %>;
       var selectedSchoolYearId = Number("<%= selectedSchoolYearId || 0 %>");
       var selectedTermId = Number("<%= termId %>");
+      var selectedClassId = Number("<%= (typeof selectedClassId !== 'undefined' ? selectedClassId : 0) %>");
+      var isEmbedded = <%= isEmbedded ? 'true' : 'false' %>;
       var organizationId = Number("<%= organizationId %>");
       var DRAFT_KEY = 'questionModalDraft_org' + organizationId;
       var previewSchoolName = <%- JSON.stringify((session && (session.organizationName || session.organization_name || session.schoolName || session.orgName)) || 'School') %>;
@@ -2033,9 +3027,25 @@
 
       var schoolYearSelect = document.getElementById('workspace-school-year');
       var termSelect = document.getElementById('workspace-term');
-      var openTermWorkspaceButton = document.getElementById('open-term-workspace');
+      var workspaceFiltersCard = document.getElementById('workspace-filters-card');
+      var workspaceFiltersHint = document.getElementById('workspace-filters-hint');
       var questionSetDetails = Array.prototype.slice.call(document.querySelectorAll('.js-question-set-details'));
-
+      var classGroupsRoot = document.getElementById('question-set-groups');
+      var classGroups = Array.prototype.slice.call(document.querySelectorAll('.js-class-group'));
+      var questionSetFilterEmpty = document.getElementById('question-set-filter-empty');
+      var classFilterSelect = document.getElementById('filter-class');
+      var subjectFilterSelect = document.getElementById('filter-subject');
+      var assessmentFilterSelect = document.getElementById('filter-assessment');
+      var reviewStatusFilterSelect = document.getElementById('filter-review-status');
+      var pointsMinInput = document.getElementById('filter-points-min');
+      var pointsMaxInput = document.getElementById('filter-points-max');
+      var percentMinInput = document.getElementById('filter-percent-min');
+      var percentMaxInput = document.getElementById('filter-percent-max');
+      var searchFilterInput = document.getElementById('filter-search');
+      var sortFilterSelect = document.getElementById('filter-sort');
+      var applySetFiltersButton = document.getElementById('apply-set-filters');
+      var clearSetFiltersButton = document.getElementById('clear-set-filters');
+      var setFilterStatus = document.getElementById('set-filter-status');
       var allClassSetQuestionsButton = document.getElementById('all-class-set-questions');
       var questionModalOverlay = document.getElementById('question-modal-overlay');
       var questionModalClose = document.getElementById('question-modal-close');
@@ -2058,8 +3068,12 @@
       var qmUploadPdfBtn = document.getElementById('qm-upload-pdf-btn');
       var qmPdfFileInput = document.getElementById('qm-pdf-file-input');
       var qmPreviewOpenButton = document.getElementById('qm-preview-open');
+      var qmQuestionsLayoutToggle = document.getElementById('qm-questions-layout-toggle');
+      var qmQuestionsLayoutModeInput = document.getElementById('qm-questions-layout-mode');
       var qmPreviewOverlay = document.getElementById('qm-preview-overlay');
+      var qmPreviewTitle = document.getElementById('qm-preview-title');
       var qmPreviewCloseButton = document.getElementById('qm-preview-close');
+      var qmPreviewEditButton = document.getElementById('qm-preview-edit');
       var qmPreviewPrintButton = document.getElementById('qm-preview-print');
       var qmPreviewBody = document.getElementById('qm-preview-body');
 
@@ -2091,6 +3105,8 @@
       var selectedAssessmentRule = null;
       var activeStudentsQuestionSetId = 0;
       var latestStudentsPayload = null;
+      var activeSetPreviewPayload = null;
+      var activeQuestionPreviewPayload = null;
       var assessmentRuleMap = new Map(
         assessmentsForOrg.map(function (assessment) {
           return [Number(assessment.assessment_id), {
@@ -2117,7 +3133,30 @@
       function setQuestionStatus(message, isError) {
         if (!questionModalStatus) return;
         questionModalStatus.textContent = message || '';
-        questionModalStatus.style.color = isError ? '#b91c1c' : '#64748b';
+        questionModalStatus.style.color = isError ? '#b91c1c' : '#0f5a66';
+      }
+
+      function getSaveButtonLabel() {
+        return questionModalMode === 'edit' ? 'Save Changes' : 'Save Questions';
+      }
+
+      function renderSaveButtonIdle() {
+        if (!saveQuestionSetButton) return;
+        saveQuestionSetButton.disabled = false;
+        saveQuestionSetButton.classList.remove('loading');
+        saveQuestionSetButton.innerHTML = [
+          '<svg width="14" height="14" viewBox="0 0 16 16" fill="none">',
+          '  <path d="M13 2H4L2 4v9a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1zM5 2v4h6V2M5 9h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+          '</svg>',
+          getSaveButtonLabel(),
+        ].join('');
+      }
+
+      function setSaveButtonLoading(labelText) {
+        if (!saveQuestionSetButton) return;
+        saveQuestionSetButton.disabled = true;
+        saveQuestionSetButton.classList.add('loading');
+        saveQuestionSetButton.innerHTML = '<span class="qm-spinner" aria-hidden="true"></span>' + String(labelText || 'Saving...');
       }
 
       function setReuseStatus(message, isError) {
@@ -2130,6 +3169,20 @@
         if (!studentsStatus) return;
         studentsStatus.textContent = String(message || '');
         studentsStatus.style.color = isError ? '#b91c1c' : '#607080';
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function setPreviewEditVisible(isVisible) {
+        if (!qmPreviewEditButton) return;
+        qmPreviewEditButton.style.display = isVisible ? 'inline-flex' : 'none';
       }
 
       function closeStudentsModal() {
@@ -2492,10 +3545,73 @@
         return String(selectElement.options[selectElement.selectedIndex].textContent || '').trim();
       }
 
-      function buildPreviewPayload() {
-        var questions = collectQuestionItems();
-        var contextBits = [];
+      function normalizePreviewQuestion(question, index) {
+        var questionType = String(question.questionType || question.question_type || 'short_text').toLowerCase();
+        var questionHtml = String(question.questionText || question.question_text || '').trim();
+        var options = Array.isArray(question.options)
+          ? question.options
+          : (Array.isArray(question.options_json) ? question.options_json : []);
+        var optionLayoutRaw = String(question.optionLayout || question.optionsLayout || question.options_layout || '').trim().toLowerCase();
+        var optionLayout = optionLayoutRaw === 'side_by_side' ? 'side_by_side' : 'stacked';
+        var answerKey = question.answerKey !== undefined && question.answerKey !== null
+          ? question.answerKey
+          : question.answer_key;
+        var marks = Number(question.marks || 0);
+        var questionIndex = Number(question.positionIndex || question.position_index || 0);
 
+        return {
+          questionType: questionType,
+          questionText: questionHtml,
+          options: options,
+          optionLayout: optionLayout,
+          answerKey: answerKey,
+          marks: Number.isFinite(marks) && marks > 0 ? marks : 1,
+          positionIndex: Number.isFinite(questionIndex) && questionIndex > 0 ? questionIndex : (index + 1),
+        };
+      }
+
+      function buildPreviewCardsMarkup(questions, emptyStateMessage) {
+        if (!Array.isArray(questions) || !questions.length) {
+          return '<div class="qm-preview-card"><div class="qm-preview-answer">' + escapeHtml(emptyStateMessage || 'No questions to preview.') + '</div></div>';
+        }
+
+        return questions.map(function (rawQuestion, index) {
+          var question = normalizePreviewQuestion(rawQuestion, index);
+          var hasHtml = /<\/?[a-z][\s\S]*>/i.test(question.questionText);
+          var safeQuestionHtml = hasHtml ? question.questionText : escapeHtml(question.questionText).replace(/\n/g, '<br/>');
+
+          var optionsMarkup = '';
+          var optionMarker = question.questionType === 'multiple_choice' ? '☐' : '◯';
+          if (Array.isArray(question.options) && question.options.length) {
+            var optionsClassName = question.optionLayout === 'side_by_side'
+              ? 'qm-preview-options is-side-by-side'
+              : 'qm-preview-options';
+            optionsMarkup = '<ul class="' + optionsClassName + '">' + question.options.map(function (opt) {
+              return '<li>' + optionMarker + ' ' + escapeHtml(opt) + '</li>';
+            }).join('') + '</ul>';
+          }
+
+          var answerValues = parseAnswerValues(question.answerKey);
+          var answersMarkup = answerValues.length
+            ? '<div class="qm-preview-answer"><strong>Answer:</strong> ' + answerValues.map(escapeHtml).join(', ') + '</div>'
+            : '';
+
+          return (
+            '<div class="qm-preview-card">' +
+              '<div class="qm-preview-qmeta">' +
+                '<span>Q' + String(question.positionIndex) + ' • ' + toDisplayQuestionType(question.questionType) + '</span>' +
+                '<span>' + String(question.marks) + ' mark' + (Number(question.marks) === 1 ? '' : 's') + '</span>' +
+              '</div>' +
+              '<div class="qm-preview-qtext">' + safeQuestionHtml + '</div>' +
+              optionsMarkup +
+              answersMarkup +
+            '</div>'
+          );
+        }).join('');
+      }
+
+      function buildPreviewPayloadFromQuestionModal() {
+        var questions = collectQuestionItems();
         var setTitle = questionSetTitleInput ? String(questionSetTitleInput.value || '').trim() : '';
         var assessmentLabel = getSelectedOptionLabel(questionAssessmentSelect);
         var classLabel = getSelectedOptionLabel(questionClassSelect);
@@ -2503,53 +3619,18 @@
         var termLabel = getSelectedOptionLabel(questionTermSelect);
         var schoolYearLabel = getSelectedOptionLabel(questionSchoolYearSelect);
 
-        if (setTitle) {
-          contextBits.push('<strong>Title:</strong> ' + escapeHtml(setTitle));
-        }
-        if (assessmentLabel) {
-          contextBits.push('<strong>Assessment:</strong> ' + escapeHtml(assessmentLabel));
-        }
+        var contextBits = [];
 
-        var cardsMarkup = '';
-        if (!questions.length) {
-          cardsMarkup = '<div class="qm-preview-card"><div class="qm-preview-answer">No questions to preview yet. Add and fill at least one question.</div></div>';
-        } else {
-          cardsMarkup = questions.map(function (question, index) {
-            var questionHtml = String(question.questionText || '').trim();
-            var hasHtml = /<\/?[a-z][\s\S]*>/i.test(questionHtml);
-            var safeQuestionHtml = hasHtml ? questionHtml : escapeHtml(questionHtml).replace(/\n/g, '<br/>');
-
-            var optionsMarkup = '';
-            var optionMarker = question.questionType === 'multiple_choice' ? '☐' : '◯';
-            if (Array.isArray(question.options) && question.options.length) {
-              optionsMarkup = '<ul class="qm-preview-options">' + question.options.map(function (opt) {
-                return '<li>' + optionMarker + ' ' + escapeHtml(opt) + '</li>';
-              }).join('') + '</ul>';
-            }
-
-            var answerValues = parseAnswerValues(question.answerKey);
-            var answersMarkup = answerValues.length
-              ? '<div class="qm-preview-answer"><strong>Answer:</strong> ' + answerValues.map(escapeHtml).join(', ') + '</div>'
-              : '';
-
-            return (
-              '<div class="qm-preview-card">' +
-                '<div class="qm-preview-qmeta">' +
-                  '<span>Q' + String(index + 1) + ' • ' + toDisplayQuestionType(question.questionType) + '</span>' +
-                  '<span>' + String(question.marks || 1) + ' mark' + (Number(question.marks || 1) === 1 ? '' : 's') + '</span>' +
-                '</div>' +
-                '<div class="qm-preview-qtext">' + safeQuestionHtml + '</div>' +
-                optionsMarkup +
-                answersMarkup +
-              '</div>'
-            );
-          }).join('');
-        }
+        var questionCardLayout = questionItems
+          ? String(questionItems.getAttribute('data-layout-mode') || 'stacked').toLowerCase()
+          : 'stacked';
+        questionCardLayout = questionCardLayout === 'side_by_side' ? 'side_by_side' : 'stacked';
 
         return {
           questions: questions,
           contextBits: contextBits,
-          cardsMarkup: cardsMarkup,
+          cardsMarkup: buildPreviewCardsMarkup(questions, 'No questions to preview yet. Add and fill at least one question.'),
+          questionCardLayout: questionCardLayout,
           meta: {
             title: setTitle,
             assessment: assessmentLabel,
@@ -2561,29 +3642,109 @@
         };
       }
 
-      function renderQuestionPreview() {
-        if (!qmPreviewBody) return;
-        var payload = buildPreviewPayload();
-        var chunks = [];
-        if (payload.contextBits.length) {
-          chunks.push('<div class="qm-preview-context">' + payload.contextBits.join(' • ') + '</div>');
-        }
-        chunks.push(payload.cardsMarkup);
-        qmPreviewBody.innerHTML = chunks.join('');
+      function buildPreviewPayloadFromQuestionSet(setData, fallbackScope) {
+        var scope = fallbackScope || {};
+        var setTitle = String(setData.setTitle || setData.set_title || scope.setTitle || 'Question Set').trim();
+        var assessmentLabel = String(setData.assessmentTitle || setData.assessment_title || scope.assessmentTitle || '').trim();
+        var classLabel = String(setData.className || setData.class_name || scope.className || '').trim();
+        var subjectLabel = String(setData.subjectName || setData.subject_name || scope.subjectName || '').trim();
+        var questionCardLayout = String(setData.questionCardLayout || setData.question_card_layout || 'stacked').trim().toLowerCase();
+        questionCardLayout = questionCardLayout === 'side_by_side' ? 'side_by_side' : 'stacked';
+
+        var contextBits = [];
+
+        var questions = Array.isArray(setData.questions) ? setData.questions : [];
+        return {
+          questions: questions,
+          contextBits: contextBits,
+          cardsMarkup: buildPreviewCardsMarkup(questions, 'No questions found in this set.'),
+          questionCardLayout: questionCardLayout,
+          meta: {
+            title: setTitle,
+            assessment: assessmentLabel,
+            className: classLabel,
+            subject: subjectLabel,
+            term: '',
+            schoolYear: '',
+          },
+        };
       }
 
-      function printQuestionPreview() {
-        var payload = buildPreviewPayload();
+      function buildAssessmentMetaLine(meta) {
+        var safeMeta = meta || {};
+        var assessmentLabel = String(safeMeta.assessment || '').trim();
+        var classLabel = String(safeMeta.className || '').trim();
+        var subjectLabel = String(safeMeta.subject || '').trim();
+        var termLabel = String(safeMeta.term || '').trim();
+        var yearLabel = String(safeMeta.schoolYear || '').trim();
+
+        var assessmentLower = assessmentLabel.toLowerCase();
+        var classLower = classLabel.toLowerCase();
+        var subjectLower = subjectLabel.toLowerCase();
+
+        var metaBits = [];
+        if (assessmentLabel) metaBits.push(assessmentLabel);
+        if (classLabel && (!assessmentLower || assessmentLower.indexOf(classLower) === -1)) {
+          metaBits.push(classLabel);
+        }
+        if (subjectLabel && (!assessmentLower || assessmentLower.indexOf(subjectLower) === -1)) {
+          metaBits.push(subjectLabel);
+        }
+        if (termLabel) metaBits.push('Term: ' + termLabel);
+        if (yearLabel) metaBits.push('Year: ' + yearLabel);
+
+        return metaBits.join(' • ');
+      }
+
+      function renderQuestionPreviewPayload(payload) {
+        if (!qmPreviewBody || !payload) return;
+        var chunks = [];
+
+        var now = new Date();
+        var metaLine = buildAssessmentMetaLine(payload.meta);
+        var previewTitleLine = String((payload.meta && payload.meta.title) || '').trim() || 'Question Set';
+
+        chunks.push(
+          '<div class="qm-preview-doc-header">' +
+            '<div class="qm-preview-doc-left">' +
+              (previewSchoolLogo ? ('<img src="' + escapeHtml(previewSchoolLogo) + '" alt="School Logo" class="qm-preview-doc-logo" />') : '') +
+              '<div>' +
+                '<p class="qm-preview-doc-school">' + escapeHtml(previewSchoolName || 'School') + '</p>' +
+                '<p class="qm-preview-doc-title">' + escapeHtml(previewTitleLine) + '</p>' +
+                (metaLine ? ('<p class="qm-preview-doc-subline">' + escapeHtml(metaLine) + '</p>') : '') +
+              '</div>' +
+            '</div>' +
+            '<div class="qm-preview-doc-meta">' +
+              '<div>Previewed: ' + escapeHtml(now.toLocaleString()) + '</div>' +
+              (payload.questions.length ? ('<div>Total Questions: ' + String(payload.questions.length) + '</div>') : '') +
+            '</div>' +
+          '</div>'
+        );
+        var cardsLayoutClass = String(payload.questionCardLayout || 'stacked').toLowerCase() === 'side_by_side'
+          ? 'qm-preview-cards is-side-by-side'
+          : 'qm-preview-cards';
+        chunks.push(
+          '<div class="' + cardsLayoutClass + '">' +
+            payload.cardsMarkup
+              .replace(/qm-preview-card/g, 'set-preview-question')
+              .replace(/qm-preview-qmeta/g, 'set-preview-question-head')
+              .replace(/qm-preview-qtext/g, 'set-preview-question-text') +
+          '</div>'
+        );
+        qmPreviewBody.innerHTML = chunks.join('');
+        activeQuestionPreviewPayload = payload;
+      }
+
+      function printQuestionPreview(payloadOverride) {
+        var payload = payloadOverride || activeQuestionPreviewPayload || buildPreviewPayloadFromQuestionModal();
         var now = new Date();
         var printedAt = now.toLocaleString();
+        var printCardsLayoutClass = String(payload.questionCardLayout || 'stacked').toLowerCase() === 'side_by_side'
+          ? 'print-cards is-side-by-side'
+          : 'print-cards';
 
-        var metaLine = [
-          payload.meta.assessment ? ('Assessment: ' + payload.meta.assessment) : '',
-          payload.meta.className ? ('Class: ' + payload.meta.className) : '',
-          payload.meta.subject ? ('Subject: ' + payload.meta.subject) : '',
-          payload.meta.term ? ('Term: ' + payload.meta.term) : '',
-          payload.meta.schoolYear ? ('Year: ' + payload.meta.schoolYear) : '',
-        ].filter(Boolean).join(' • ');
+        var metaLine = buildAssessmentMetaLine(payload.meta);
+        var printTitleLine = String((payload.meta && payload.meta.title) || '').trim() || 'Question Set';
 
         var watermarkHtml = previewSchoolLogo
           ? '<img src="' + escapeHtml(previewSchoolLogo) + '" alt="" class="print-watermark-logo" />'
@@ -2602,12 +3763,16 @@
           '.print-header-logo{width:56px;height:56px;object-fit:contain;border-radius:6px;}',
           '.print-school{font-size:1.05rem;font-weight:800;color:#0f2d32;margin:0;}',
           '.print-title{font-size:0.88rem;font-weight:700;color:#334155;margin:3px 0 0;}',
+          '.print-subtitle{font-size:0.78rem;color:#475569;margin:2px 0 0;line-height:1.4;}',
           '.print-meta{font-size:0.74rem;color:#64748b;text-align:right;line-height:1.45;}',
           '.print-context{font-size:0.8rem;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-bottom:10px;}',
+          '.print-cards{display:grid;grid-template-columns:1fr;gap:9px;}',
+          '.print-cards.is-side-by-side{grid-template-columns:repeat(2,minmax(0,1fr));}',
           '.print-card{border:1px solid #dbe4ee;border-radius:10px;padding:10px 11px;margin-bottom:9px;break-inside:avoid;page-break-inside:avoid;}',
           '.print-qmeta{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:0.76rem;font-weight:700;color:#475569;margin-bottom:6px;}',
           '.print-qtext{font-size:0.88rem;line-height:1.42;color:#0f172a;margin-bottom:7px;}',
           '.print-options{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:0.82rem;color:#334155;}',
+          '.print-options.is-side-by-side{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px;row-gap:4px;}',
           '.print-answer{margin-top:6px;font-size:0.76rem;color:#475569;}',
           '@media print{body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;} .print-shell{padding:12mm;} .print-watermark-logo{display:block;}}',
           '</style></head><body>',
@@ -2616,19 +3781,21 @@
           '<div class="print-header">',
           '<div class="print-header-left">',
           (previewSchoolLogo ? ('<img src="' + escapeHtml(previewSchoolLogo) + '" alt="School Logo" class="print-header-logo" />') : ''),
-          '<div><p class="print-school">' + escapeHtml(previewSchoolName || 'School') + '</p><p class="print-title">Assessment Question Preview</p></div>',
+          '<div><p class="print-school">' + escapeHtml(previewSchoolName || 'School') + '</p><p class="print-title">' + escapeHtml(printTitleLine) + '</p>' +
+          (metaLine ? ('<p class="print-subtitle">' + escapeHtml(metaLine) + '</p>') : '') + '</div>',
           '</div>',
           '<div class="print-meta"><div>Printed: ' + escapeHtml(printedAt) + '</div>' +
           (payload.questions.length ? ('<div>Total Questions: ' + String(payload.questions.length) + '</div>') : '') +
           '</div>',
           '</div>',
-          (metaLine ? ('<div class="print-context">' + escapeHtml(metaLine) + '</div>') : ''),
-          payload.cardsMarkup
-            .replace(/qm-preview-card/g, 'print-card')
-            .replace(/qm-preview-qmeta/g, 'print-qmeta')
-            .replace(/qm-preview-qtext/g, 'print-qtext')
-            .replace(/qm-preview-options/g, 'print-options')
-            .replace(/qm-preview-answer/g, 'print-answer'),
+          '<div class="' + printCardsLayoutClass + '">' +
+            payload.cardsMarkup
+              .replace(/qm-preview-card/g, 'print-card')
+              .replace(/qm-preview-qmeta/g, 'print-qmeta')
+              .replace(/qm-preview-qtext/g, 'print-qtext')
+              .replace(/qm-preview-options/g, 'print-options')
+              .replace(/qm-preview-answer/g, 'print-answer') +
+          '</div>',
           '</div></body></html>'
         ].join('');
 
@@ -2696,7 +3863,11 @@
 
       function openQuestionPreview() {
         if (!qmPreviewOverlay) return;
-        renderQuestionPreview();
+        setPreviewEditVisible(false);
+        if (qmPreviewTitle) {
+          qmPreviewTitle.textContent = 'Question Preview';
+        }
+        renderQuestionPreviewPayload(buildPreviewPayloadFromQuestionModal());
         qmPreviewOverlay.classList.add('show');
         qmPreviewOverlay.setAttribute('aria-hidden', 'false');
       }
@@ -2707,12 +3878,41 @@
         qmPreviewOverlay.setAttribute('aria-hidden', 'true');
       }
 
-      function updateQuestionCount() {
-        var count = document.querySelectorAll('#question-items .qm-question-card').length;
+      function updateQuestionHeaderActionLabels(count) {
+        var total = Number(count || 0);
+        var isCompactViewport = window.matchMedia('(max-width: 640px)').matches;
+
         var counter = document.getElementById('qm-question-count');
         if (counter) {
-          counter.textContent = count + ' question' + (count === 1 ? '' : 's');
+          counter.textContent = isCompactViewport
+            ? (String(total) + ' Q')
+            : (String(total) + ' question' + (total === 1 ? '' : 's'));
         }
+
+        if (qmPreviewOpenButton) {
+          qmPreviewOpenButton.textContent = isCompactViewport ? 'View' : 'Preview';
+        }
+      }
+
+      function updateQuestionCount() {
+        var count = document.querySelectorAll('#question-items .qm-question-card').length;
+        updateQuestionHeaderActionLabels(count);
+      }
+
+      function applyQuestionCardsLayoutMode(layoutMode) {
+        if (!questionItems) return;
+        var normalizedMode = String(layoutMode || 'stacked').toLowerCase() === 'side_by_side'
+          ? 'side_by_side'
+          : 'stacked';
+
+        if (qmQuestionsLayoutModeInput) {
+          qmQuestionsLayoutModeInput.value = normalizedMode;
+        }
+
+        questionItems.classList.toggle('is-side-by-side', normalizedMode === 'side_by_side');
+        questionItems.setAttribute('data-layout-mode', normalizedMode);
+
+        updateOptionsLayoutToggleUI(qmQuestionsLayoutToggle, normalizedMode);
       }
 
       function renumberQuestionCards() {
@@ -2728,15 +3928,16 @@
           var optionValues = Array.prototype.slice.call(card.querySelectorAll('.question-option-input'))
             .map(function (input) { return String(input.value || '').trim(); })
             .filter(Boolean);
-          var answerValues = Array.prototype.slice.call(card.querySelectorAll('.question-answer-input'))
-            .map(function (input) { return String(input.value || '').trim(); })
-            .filter(Boolean);
+          var answerValues = readAnswerValues(card);
           questions.push({
             type: card.querySelector('.question-type') ? card.querySelector('.question-type').value : '',
             marks: card.querySelector('.question-marks') ? card.querySelector('.question-marks').value : 1,
             text: card.querySelector('.question-text') ? card.querySelector('.question-text').value : '',
             options: optionValues,
             answers: answerValues,
+            optionLayout: card.querySelector('.qm-options-layout-select')
+              ? card.querySelector('.qm-options-layout-select').value
+              : 'stacked',
           });
         });
 
@@ -2748,6 +3949,9 @@
           assessmentId: questionAssessmentSelect ? questionAssessmentSelect.value : '',
           setTitle: questionSetTitleInput ? questionSetTitleInput.value : '',
           description: questionSetDescriptionInput ? questionSetDescriptionInput.value : '',
+          questionCardLayout: questionItems
+            ? String(questionItems.getAttribute('data-layout-mode') || 'stacked')
+            : 'stacked',
           questions: questions,
           savedAt: Date.now(),
         };
@@ -2780,6 +3984,8 @@
         if (questionSetTitleInput && draft.setTitle) questionSetTitleInput.value = draft.setTitle;
         if (questionSetDescriptionInput && draft.description) questionSetDescriptionInput.value = draft.description;
 
+        applyQuestionCardsLayoutMode(draft.questionCardLayout || 'stacked');
+
         if (questionItems && Array.isArray(draft.questions) && draft.questions.length) {
           questionItems.innerHTML = '';
           draft.questions.forEach(function (q) {
@@ -2794,6 +4000,7 @@
               marks: q.marks,
               questionText: q.text,
               options: restoredOptions,
+              optionLayout: q.optionLayout || 'stacked',
               answerKeys: Array.isArray(q.answers)
                 ? q.answers
                 : (q.answer ? [q.answer] : []),
@@ -2819,7 +4026,9 @@
         });
 
         if (!schoolYears.length) return;
-        var fallbackSchoolYearId = Number(schoolYearSelect ? schoolYearSelect.value : selectedSchoolYearId);
+        var currentSchoolYearId = Number(selectedSchoolYearId || 0);
+        var workspaceSchoolYearId = Number(schoolYearSelect ? schoolYearSelect.value : 0);
+        var fallbackSchoolYearId = currentSchoolYearId > 0 ? currentSchoolYearId : workspaceSchoolYearId;
         var exists = schoolYears.some(function (year) {
           return Number(year.schoolYearId) === Number(fallbackSchoolYearId);
         });
@@ -2877,6 +4086,15 @@
             opt.textContent = row.class_name;
             questionClassSelect.appendChild(opt);
           });
+
+        if (questionClassSelect.options.length) {
+          var hasSelectedClass = Array.from(questionClassSelect.options).some(function (opt) {
+            return Number(opt.value || 0) === selectedClassId;
+          });
+          if (hasSelectedClass) {
+            questionClassSelect.value = String(selectedClassId);
+          }
+        }
       }
 
       function renderQuestionModalSubjects() {
@@ -2912,6 +4130,7 @@
 
       async function renderQuestionModalAssessments() {
         if (!questionAssessmentSelect || !questionTermSelect || !questionSchoolYearSelect) return;
+        var previousAssessmentId = Number(questionAssessmentSelect.value || 0);
         questionAssessmentSelect.innerHTML = '';
 
         var selectedQuestionTermId = Number(questionTermSelect.value || 0);
@@ -2923,12 +4142,14 @@
           return;
         }
 
-        var requestUrl = '/common/assessment/options?schoolYearId=' + encodeURIComponent(String(selectedQuestionSchoolYearId)) +
-          '&termId=' + encodeURIComponent(String(selectedQuestionTermId));
-
-        if (selectedQuestionClassId > 0) {
-          requestUrl += '&classId=' + encodeURIComponent(String(selectedQuestionClassId));
+        if (selectedQuestionClassId <= 0) {
+          setQuestionStatus('Select a class to load assessments.', true);
+          return;
         }
+
+        var requestUrl = '/common/assessment/options?schoolYearId=' + encodeURIComponent(String(selectedQuestionSchoolYearId)) +
+          '&termId=' + encodeURIComponent(String(selectedQuestionTermId)) +
+          '&classId=' + encodeURIComponent(String(selectedQuestionClassId));
 
         if (selectedQuestionSubjectId > 0) {
           requestUrl += '&subjectId=' + encodeURIComponent(String(selectedQuestionSubjectId));
@@ -2949,7 +4170,19 @@
           return;
         }
 
-        var filtered = Array.isArray(payload.assessments) ? payload.assessments : [];
+        var assessments = Array.isArray(payload.assessments) ? payload.assessments : [];
+        var filtered = assessments.filter(function (assessment) {
+          var assessmentSchoolYearId = Number(assessment.school_year_id || 0);
+          var assessmentTermId = Number(assessment.term_id || 0);
+          var assessmentClassId = Number(assessment.class_id || 0);
+          var assessmentSubjectId = Number(assessment.subject_id || 0);
+
+          if (assessmentSchoolYearId !== selectedQuestionSchoolYearId) return false;
+          if (assessmentTermId !== selectedQuestionTermId) return false;
+          if (assessmentClassId !== selectedQuestionClassId) return false;
+          if (selectedQuestionSubjectId > 0 && assessmentSubjectId !== selectedQuestionSubjectId) return false;
+          return true;
+        });
 
         var seenAssessmentIds = new Set();
         filtered.forEach(function (assessment) {
@@ -2984,8 +4217,17 @@
           questionAssessmentSelect.appendChild(opt);
         });
 
+        if (questionAssessmentSelect.options.length) {
+          var hasPreviousAssessment = Array.prototype.slice.call(questionAssessmentSelect.options).some(function (opt) {
+            return Number(opt.value || 0) === previousAssessmentId;
+          });
+          if (hasPreviousAssessment) {
+            questionAssessmentSelect.value = String(previousAssessmentId);
+          }
+        }
+
         if (!questionAssessmentSelect.options.length) {
-          setQuestionStatus('No assessments found for the selected school year and term.', true);
+          setQuestionStatus('No assessments found for this School Year + Term + Class + Subject.', true);
         } else {
           setQuestionStatus('Select an assessment to continue.', false);
         }
@@ -3064,13 +4306,39 @@
 
       function setQuestionModalMode(mode) {
         questionModalMode = mode === 'edit' ? 'edit' : 'create';
+        if (questionModalOverlay) {
+          var modalRoot = questionModalOverlay.querySelector('.question-modal');
+          if (modalRoot) {
+            modalRoot.classList.add('is-edit-mode');
+          }
+        }
         var modalTitle = document.getElementById('question-modal-title');
         if (modalTitle) {
           modalTitle.textContent = questionModalMode === 'edit' ? 'Review and Edit Questions' : 'Create Questions';
         }
         if (saveQuestionSetButton) {
-          saveQuestionSetButton.textContent = questionModalMode === 'edit' ? 'Save Changes for Review' : 'Save Question Set';
+          renderSaveButtonIdle();
         }
+      }
+
+      function hasTypedQuestionContent(wrapper) {
+        if (!wrapper) return false;
+
+        var hiddenQuestionText = wrapper.querySelector('.question-text');
+        if (hiddenQuestionText && String(hiddenQuestionText.value || '').trim()) {
+          return true;
+        }
+
+        var optionInputs = Array.prototype.slice.call(wrapper.querySelectorAll('.question-option-input'));
+        if (optionInputs.some(function (input) { return String(input.value || '').trim(); })) {
+          return true;
+        }
+
+        if (readAnswerValues(wrapper).length) {
+          return true;
+        }
+
+        return false;
       }
 
       function closeQuestionModal() {
@@ -3110,6 +4378,29 @@
         return row;
       }
 
+      function applyOptionsLayoutMode(optionList, layoutMode) {
+        if (!optionList) return;
+        var mode = String(layoutMode || 'stacked').toLowerCase();
+        var normalizedMode = mode === 'side_by_side' ? 'side_by_side' : 'stacked';
+
+        optionList.classList.toggle('is-side-by-side', normalizedMode === 'side_by_side');
+        optionList.setAttribute('data-layout-mode', normalizedMode);
+      }
+
+      function updateOptionsLayoutToggleUI(toggleWrap, layoutMode) {
+        if (!toggleWrap) return;
+        var normalizedMode = String(layoutMode || 'stacked').toLowerCase() === 'side_by_side'
+          ? 'side_by_side'
+          : 'stacked';
+
+        Array.prototype.slice.call(toggleWrap.querySelectorAll('.qm-options-layout-btn')).forEach(function (btn) {
+          var btnMode = btn.getAttribute('data-layout') === 'side_by_side' ? 'side_by_side' : 'stacked';
+          var isActive = btnMode === normalizedMode;
+          btn.classList.toggle('is-active', isActive);
+          btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+      }
+
       function parseAnswerValues(raw) {
         if (Array.isArray(raw)) {
           return raw.map(function (item) { return String(item || '').trim(); }).filter(Boolean);
@@ -3143,6 +4434,36 @@
         return JSON.stringify(cleaned);
       }
 
+      function readAnswerValues(rootElement) {
+        if (!rootElement) return [];
+        var values = [];
+
+        Array.prototype.slice.call(rootElement.querySelectorAll('.question-answer-input')).forEach(function (input) {
+          if (!input) return;
+
+          if (input.type === 'checkbox') {
+            if (input.checked) {
+              var checkedValue = String(input.value || '').trim();
+              if (checkedValue) values.push(checkedValue);
+            }
+            return;
+          }
+
+          if (input.tagName === 'SELECT' && input.multiple) {
+            Array.prototype.slice.call(input.selectedOptions || []).forEach(function (option) {
+              var selectedValue = String(option.value || '').trim();
+              if (selectedValue) values.push(selectedValue);
+            });
+            return;
+          }
+
+          var value = String(input.value || '').trim();
+          if (value) values.push(value);
+        });
+
+        return values;
+      }
+
       function appendAnswerInput(answerList, answerValue) {
         if (!answerList) return;
         var row = document.createElement('div');
@@ -3174,6 +4495,127 @@
         return row;
       }
 
+      function appendAnswerCheckboxRows(answerList, optionValues, selectedValues) {
+        if (!answerList) return;
+        answerList.innerHTML = '';
+
+        var normalizedOptions = Array.isArray(optionValues)
+          ? optionValues.map(function (value) { return String(value || '').trim(); }).filter(Boolean)
+          : [];
+        var selectedSet = new Set(
+          Array.isArray(selectedValues)
+            ? selectedValues.map(function (value) { return String(value || '').trim(); }).filter(Boolean)
+            : []
+        );
+
+        if (!normalizedOptions.length) {
+          var emptyHint = document.createElement('div');
+          emptyHint.className = 'question-answer-empty';
+          emptyHint.textContent = 'Add options to choose the correct answers.';
+          answerList.appendChild(emptyHint);
+          return;
+        }
+
+        normalizedOptions.forEach(function (value, index) {
+          var row = document.createElement('label');
+          row.className = 'question-answer-check-row';
+
+          var checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'question-answer-input question-answer-checkbox';
+          checkbox.value = value;
+          checkbox.checked = selectedSet.has(value);
+          checkbox.setAttribute('aria-label', 'Correct answer option ' + String(index + 1));
+
+          var text = document.createElement('span');
+          text.className = 'question-answer-check-label';
+          text.textContent = value;
+
+          row.appendChild(checkbox);
+          row.appendChild(text);
+          answerList.appendChild(row);
+        });
+      }
+
+      function appendAnswerSelectInput(answerList, answerValue, optionValues, placeholderText, allowMultiSelect, selectedValues) {
+        if (!answerList) return;
+        var row = document.createElement('div');
+        row.className = 'question-answer-row';
+
+        var select = document.createElement('select');
+        select.className = 'question-answer-input question-answer-select';
+
+        var normalizedOptions = Array.isArray(optionValues)
+          ? optionValues.map(function (value) { return String(value || '').trim(); }).filter(Boolean)
+          : [];
+
+        var normalizedSelectedValues = Array.isArray(selectedValues)
+          ? selectedValues.map(function (value) { return String(value || '').trim(); }).filter(Boolean)
+          : [];
+
+        if (allowMultiSelect) {
+          select.multiple = true;
+          select.size = Math.min(Math.max(normalizedOptions.length || 2, 2), 6);
+          select.title = placeholderText || 'Select one or more correct options';
+        }
+
+        if (!allowMultiSelect) {
+          var placeholderOption = document.createElement('option');
+          placeholderOption.value = '';
+          placeholderOption.textContent = placeholderText || 'Select correct option';
+          select.appendChild(placeholderOption);
+        }
+
+        normalizedOptions.forEach(function (value) {
+          var option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          if (allowMultiSelect && normalizedSelectedValues.includes(value)) {
+            option.selected = true;
+          }
+          select.appendChild(option);
+        });
+
+        var normalizedAnswer = String(answerValue || '').trim();
+        if (allowMultiSelect) {
+          normalizedSelectedValues.forEach(function (value) {
+            if (!value || normalizedOptions.includes(value)) return;
+            var missingSelectedOption = document.createElement('option');
+            missingSelectedOption.value = value;
+            missingSelectedOption.textContent = value;
+            missingSelectedOption.selected = true;
+            select.appendChild(missingSelectedOption);
+          });
+        } else if (normalizedAnswer && !normalizedOptions.includes(normalizedAnswer)) {
+          var missingOption = document.createElement('option');
+          missingOption.value = normalizedAnswer;
+          missingOption.textContent = normalizedAnswer;
+          select.appendChild(missingOption);
+        }
+        if (!allowMultiSelect) {
+          select.value = normalizedAnswer;
+        }
+
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'question-option-remove';
+        removeBtn.title = 'Remove answer';
+        removeBtn.textContent = '−';
+
+        removeBtn.addEventListener('click', function () {
+          row.remove();
+          if (!answerList.querySelector('.question-answer-row')) {
+            appendAnswerSelectInput(answerList, '', optionValues, placeholderText, allowMultiSelect, selectedValues);
+          }
+          saveDraft();
+        });
+
+        row.appendChild(select);
+        row.appendChild(removeBtn);
+        answerList.appendChild(row);
+        return row;
+      }
+
       function setOptionRows(optionList, values, isReadOnly) {
         if (!optionList) return;
         optionList.innerHTML = '';
@@ -3193,13 +4635,26 @@
         });
       }
 
-      function setAnswerRows(answerList, values, allowMultiple, placeholderText) {
+      function setAnswerRows(answerList, values, allowMultiple, placeholderText, config) {
         if (!answerList) return;
         answerList.innerHTML = '';
+
+        var mode = config && (config.mode === 'option_select' || config.mode === 'option_checkboxes')
+          ? config.mode
+          : 'text';
+        var optionValues = config && Array.isArray(config.optionValues) ? config.optionValues : [];
+        var selectPlaceholder = config && config.selectPlaceholder
+          ? String(config.selectPlaceholder)
+          : (placeholderText || 'Select correct option');
 
         var normalizedValues = Array.isArray(values)
           ? values.map(function (value) { return String(value || '').trim(); }).filter(Boolean)
           : [];
+
+        if (mode === 'option_checkboxes') {
+          appendAnswerCheckboxRows(answerList, optionValues, normalizedValues);
+          return;
+        }
 
         if (!normalizedValues.length) {
           normalizedValues = [''];
@@ -3209,14 +4664,73 @@
           normalizedValues = [normalizedValues[0] || ''];
         }
 
+        if (mode === 'option_select' && allowMultiple) {
+          var multiSelectRow = appendAnswerSelectInput(
+            answerList,
+            '',
+            optionValues,
+            selectPlaceholder,
+            true,
+            normalizedValues
+          );
+          if (multiSelectRow) {
+            var multiRemoveBtn = multiSelectRow.querySelector('.question-option-remove');
+            if (multiRemoveBtn) multiRemoveBtn.style.display = 'none';
+          }
+          return;
+        }
+
         normalizedValues.forEach(function (value) {
-          var row = appendAnswerInput(answerList, value);
+          var row = mode === 'option_select'
+            ? appendAnswerSelectInput(answerList, value, optionValues, selectPlaceholder, false)
+            : appendAnswerInput(answerList, value);
           if (!row) return;
           var input = row.querySelector('.question-answer-input');
           var removeBtn = row.querySelector('.question-option-remove');
-          if (input && placeholderText) input.placeholder = placeholderText;
+          if (input && mode !== 'option_select' && placeholderText) input.placeholder = placeholderText;
           if (removeBtn) removeBtn.style.display = allowMultiple ? 'inline-flex' : 'none';
         });
+      }
+
+      function getOptionsBasedAnswerChoices(wrapper, type) {
+        if (!wrapper) return [];
+
+        if (type === 'true_false') {
+          return ['True', 'False'];
+        }
+
+        return Array.prototype.slice.call(wrapper.querySelectorAll('.question-option-input'))
+          .map(function (input) { return String(input.value || '').trim(); })
+          .filter(Boolean);
+      }
+
+      function syncOptionBasedAnswerRows(wrapper) {
+        if (!wrapper) return;
+
+        var typeSelect = wrapper.querySelector('.question-type');
+        var answerList = wrapper.querySelector('.question-answer-list');
+        if (!typeSelect || !answerList) return;
+
+        var type = String(typeSelect.value || 'short_text');
+        if (type !== 'multiple_choice' && type !== 'single_choice' && type !== 'true_false') return;
+
+        var optionValues = getOptionsBasedAnswerChoices(wrapper, type);
+        var selectedAnswers = readAnswerValues(answerList)
+          .filter(function (value) {
+            return optionValues.includes(value);
+          });
+
+        setAnswerRows(
+          answerList,
+          selectedAnswers,
+          type === 'multiple_choice',
+          type === 'true_false' ? 'Select True or False' : 'Select correct option',
+          {
+            mode: type === 'multiple_choice' ? 'option_checkboxes' : 'option_select',
+            optionValues: optionValues,
+            selectPlaceholder: type === 'true_false' ? 'Select True or False' : 'Select correct option',
+          }
+        );
       }
 
       function applyQuestionTypeBehavior(wrapper) {
@@ -3235,18 +4749,20 @@
         var currentOptions = Array.prototype.slice.call(wrapper.querySelectorAll('.question-option-input'))
           .map(function (input) { return String(input.value || '').trim(); })
           .filter(Boolean);
-        var currentAnswers = Array.prototype.slice.call(wrapper.querySelectorAll('.question-answer-input'))
-          .map(function (input) { return String(input.value || '').trim(); })
-          .filter(Boolean);
+        var currentAnswers = readAnswerValues(wrapper);
 
         if (type === 'multiple_choice') {
           if (optionsField) optionsField.classList.remove('is-hidden');
           if (addOptionButton) addOptionButton.style.display = 'inline-flex';
           if (answerLabel) answerLabel.textContent = 'Answer Key';
-          if (addAnswerButton) addAnswerButton.style.display = 'inline-flex';
+          if (addAnswerButton) addAnswerButton.style.display = 'none';
 
           setOptionRows(optionsList, currentOptions, false);
-          setAnswerRows(answerList, currentAnswers, true, 'Correct answer');
+          setAnswerRows(answerList, currentAnswers, true, 'Select correct option', {
+            mode: 'option_checkboxes',
+            optionValues: getOptionsBasedAnswerChoices(wrapper, type),
+            selectPlaceholder: 'Select correct option',
+          });
           return;
         }
 
@@ -3257,7 +4773,11 @@
           if (addAnswerButton) addAnswerButton.style.display = 'none';
 
           setOptionRows(optionsList, currentOptions, false);
-          setAnswerRows(answerList, currentAnswers, false, 'Only one correct answer');
+          setAnswerRows(answerList, currentAnswers, false, 'Select correct option', {
+            mode: 'option_select',
+            optionValues: getOptionsBasedAnswerChoices(wrapper, type),
+            selectPlaceholder: 'Select correct option',
+          });
           return;
         }
 
@@ -3268,17 +4788,26 @@
           if (addAnswerButton) addAnswerButton.style.display = 'none';
 
           setOptionRows(optionsList, ['True', 'False'], true);
-          setAnswerRows(answerList, currentAnswers, false, 'True or False');
+          setAnswerRows(answerList, currentAnswers, false, 'Select True or False', {
+            mode: 'option_select',
+            optionValues: ['True', 'False'],
+            selectPlaceholder: 'Select True or False',
+          });
           return;
         }
 
         if (optionsField) optionsField.classList.add('is-hidden');
         if (addOptionButton) addOptionButton.style.display = 'none';
         if (answerLabel) {
-          answerLabel.textContent = type === 'essay' ? 'Marking Guide' : 'Correct Answer';
+          answerLabel.textContent = type === 'essay' ? 'Marking Guide (Optional)' : 'Correct Answer (Optional)';
         }
         if (addAnswerButton) addAnswerButton.style.display = 'none';
-        setAnswerRows(answerList, currentAnswers, false, type === 'essay' ? 'Key points / rubric' : 'Expected short answer');
+        setAnswerRows(
+          answerList,
+          currentAnswers,
+          false,
+          type === 'essay' ? 'Key points / rubric (optional)' : 'Expected short answer (optional)'
+        );
       }
 
       function setQuestionEditorContent(editor, value) {
@@ -3310,6 +4839,16 @@
         }
       }
 
+      function updateTextColorSwatch(colorInput) {
+        if (!colorInput) return;
+        var swatchWrap = colorInput.closest('.qm-text-color-wrap');
+        if (!swatchWrap) return;
+
+        var color = String(colorInput.value || '#0f172a').trim() || '#0f172a';
+        swatchWrap.style.background = color;
+        swatchWrap.style.borderColor = '#94a3b8';
+      }
+
       function buildQuestionItem(question) {
         var wrapper = document.createElement('div');
         wrapper.className = 'qm-question-card';
@@ -3317,7 +4856,7 @@
           '<div class="qm-question-card-header">',
           '  <div class="qm-question-badge">Q<span class="qm-q-number"></span></div>',
           '  <div class="qm-question-header-fields">',
-          '    <div class="qm-field" style="flex:1;">',
+          '    <div class="qm-field qm-header-type-field">',
           '      <label>Type</label>',
           '      <select class="question-type">',
           '      <option value="multiple_choice">Multiple Choice</option>',
@@ -3327,11 +4866,12 @@
           '      <option value="essay">Essay</option>',
           '      </select>',
           '    </div>',
-          '    <div class="qm-field" style="width:110px;">',
+          '    <div class="qm-field qm-header-marks-field">',
           '      <label>Marks</label>',
           '      <input class="question-marks" type="number" min="1" step="0.5" value="1" />',
           '    </div>',
           '  </div>',
+          '  <button type="button" class="qm-collapse-toggle" aria-expanded="false" title="Show options and answers">Details</button>',
           '  <button type="button" class="qm-remove-btn question-remove" title="Remove question">',
           '    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">',
           '      <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -3356,11 +4896,24 @@
           '    <textarea class="question-text" rows="2"></textarea>',
           '  </div>',
           '  <div class="qm-field qm-options-field">',
-          '    <label>Options</label>',
+          '    <div class="qm-options-head">',
+          '      <label>Options</label>',
+          '      <div class="qm-options-layout-toggle" role="group" aria-label="Options layout">',
+          '        <button type="button" class="qm-options-layout-btn is-active" data-layout="stacked" aria-pressed="true" title="Stacked">',
+          '          <span class="qm-layout-icon" aria-hidden="true"><span></span><span></span><span></span></span>',
+          '          <span class="qm-layout-label">Stacked</span>',
+          '        </button>',
+          '        <button type="button" class="qm-options-layout-btn" data-layout="side_by_side" aria-pressed="false" title="Side by side">',
+          '          <span class="qm-layout-icon" aria-hidden="true"><span></span><span></span><span></span><span></span></span>',
+          '          <span class="qm-layout-label">Side by side</span>',
+          '        </button>',
+          '      </div>',
+          '      <input type="hidden" class="qm-options-layout-select" value="stacked" />',
+          '    </div>',
           '    <div class="question-options-list"></div>',
           '    <button type="button" class="qm-option-add-btn" title="Add option">+</button>',
           '  </div>',
-          '  <div class="qm-field">',
+          '  <div class="qm-field qm-answer-field">',
           '    <label class="question-answer-label">Answer Key</label>',
           '    <div class="question-answer-list"></div>',
           '    <button type="button" class="qm-answer-add-btn" title="Add correct answer">+</button>',
@@ -3373,9 +4926,12 @@
         var textInput = wrapper.querySelector('.question-text');
         var textEditor = wrapper.querySelector('.question-text-editor');
         var optionsList = wrapper.querySelector('.question-options-list');
+        var optionsLayoutSelect = wrapper.querySelector('.qm-options-layout-select');
+        var optionsLayoutToggle = wrapper.querySelector('.qm-options-layout-toggle');
         var addOptionButton = wrapper.querySelector('.qm-option-add-btn');
         var answerList = wrapper.querySelector('.question-answer-list');
         var addAnswerButton = wrapper.querySelector('.qm-answer-add-btn');
+        var collapseToggleButton = wrapper.querySelector('.qm-collapse-toggle');
         var formatButtons = wrapper.querySelectorAll('.qm-text-tool-btn');
         var textColorPicker = wrapper.querySelector('.qm-text-color');
 
@@ -3395,6 +4951,41 @@
           });
         }
 
+        if (optionsLayoutToggle) {
+          optionsLayoutToggle.addEventListener('click', function (event) {
+            var targetButton = event.target && event.target.closest
+              ? event.target.closest('.qm-options-layout-btn')
+              : null;
+            if (!targetButton) return;
+
+            var selectedMode = targetButton.getAttribute('data-layout') === 'side_by_side'
+              ? 'side_by_side'
+              : 'stacked';
+
+            if (optionsLayoutSelect) optionsLayoutSelect.value = selectedMode;
+            applyOptionsLayoutMode(optionsList, selectedMode);
+            updateOptionsLayoutToggleUI(optionsLayoutToggle, selectedMode);
+            saveDraft();
+          });
+        }
+
+        if (optionsList) {
+          optionsList.addEventListener('input', function (event) {
+            var target = event.target;
+            if (!target || !target.classList || !target.classList.contains('question-option-input')) return;
+            syncOptionBasedAnswerRows(wrapper);
+          });
+          optionsList.addEventListener('click', function (event) {
+            var target = event.target && event.target.closest
+              ? event.target.closest('.question-option-remove')
+              : null;
+            if (!target) return;
+            setTimeout(function () {
+              syncOptionBasedAnswerRows(wrapper);
+            }, 0);
+          });
+        }
+
         var initialAnswers = Array.isArray(question && question.answerKeys)
           ? question.answerKeys
           : parseAnswerValues(question ? question.answerKey : '');
@@ -3408,7 +4999,17 @@
 
         if (addAnswerButton) {
           addAnswerButton.addEventListener('click', function () {
-            appendAnswerInput(answerList, '');
+            var currentType = typeSelect ? String(typeSelect.value || 'short_text') : 'short_text';
+            if (currentType === 'multiple_choice' || currentType === 'single_choice' || currentType === 'true_false') {
+              appendAnswerSelectInput(
+                answerList,
+                '',
+                getOptionsBasedAnswerChoices(wrapper, currentType),
+                currentType === 'true_false' ? 'Select True or False' : 'Select correct option'
+              );
+            } else {
+              appendAnswerInput(answerList, '');
+            }
             saveDraft();
           });
         }
@@ -3418,12 +5019,20 @@
           marksInput.value = Number(question.marks || 1);
           setQuestionEditorContent(textEditor, question.questionText || '');
           syncQuestionEditorValue(textEditor, textInput);
+
+          if (optionsLayoutSelect) {
+            var initialLayout = String(question.optionsLayout || question.optionLayout || 'stacked');
+            optionsLayoutSelect.value = initialLayout === 'side_by_side' ? 'side_by_side' : 'stacked';
+          }
         }
 
         if (!question) {
           setQuestionEditorContent(textEditor, '');
           syncQuestionEditorValue(textEditor, textInput);
         }
+
+        applyOptionsLayoutMode(optionsList, optionsLayoutSelect ? optionsLayoutSelect.value : 'stacked');
+        updateOptionsLayoutToggleUI(optionsLayoutToggle, optionsLayoutSelect ? optionsLayoutSelect.value : 'stacked');
 
         formatButtons.forEach(function (button) {
           button.addEventListener('click', function () {
@@ -3436,8 +5045,10 @@
         });
 
         if (textColorPicker) {
+          updateTextColorSwatch(textColorPicker);
           textColorPicker.addEventListener('input', function () {
             applyEditorCommand(textEditor, 'foreColor', textColorPicker.value);
+            updateTextColorSwatch(textColorPicker);
             syncQuestionEditorValue(textEditor, textInput);
             saveDraft();
           });
@@ -3458,9 +5069,33 @@
           saveDraft();
         });
 
+        if (collapseToggleButton) {
+          collapseToggleButton.addEventListener('click', function () {
+            var isCollapsed = wrapper.classList.toggle('is-collapsed');
+            collapseToggleButton.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+            collapseToggleButton.textContent = isCollapsed ? 'Details' : 'Hide';
+          });
+        }
+
+        var shouldStartCollapsed = questionModalMode === 'edit';
+        if (shouldStartCollapsed) {
+          wrapper.classList.add('is-collapsed');
+          if (collapseToggleButton) {
+            collapseToggleButton.setAttribute('aria-expanded', 'false');
+            collapseToggleButton.textContent = 'Details';
+          }
+        } else if (collapseToggleButton) {
+          collapseToggleButton.setAttribute('aria-expanded', 'true');
+          collapseToggleButton.textContent = 'Hide';
+        }
+
         applyQuestionTypeBehavior(wrapper);
 
         wrapper.querySelector('.question-remove').addEventListener('click', function () {
+          if (hasTypedQuestionContent(wrapper)) {
+            var confirmed = window.confirm('This question has typed content. Remove it?');
+            if (!confirmed) return;
+          }
           wrapper.remove();
           renumberQuestionCards();
           updateQuestionCount();
@@ -3482,9 +5117,7 @@
           var options = Array.prototype.slice.call(item.querySelectorAll('.question-option-input'))
             .map(function (input) { return String(input.value || '').trim(); })
             .filter(Boolean);
-          var answers = Array.prototype.slice.call(item.querySelectorAll('.question-answer-input'))
-            .map(function (input) { return String(input.value || '').trim(); })
-            .filter(Boolean);
+          var answers = readAnswerValues(item);
 
           if (questionType === 'true_false') {
             options = ['True', 'False'];
@@ -3500,6 +5133,9 @@
             questionType: questionType,
             questionText: String(item.querySelector('.question-text') ? item.querySelector('.question-text').value : '').trim(),
             options: options,
+            optionLayout: item.querySelector('.qm-options-layout-select')
+              ? String(item.querySelector('.qm-options-layout-select').value || 'stacked')
+              : 'stacked',
             answerKey: serializeAnswerValues(answers),
             marks: Number(item.querySelector('.question-marks') ? item.querySelector('.question-marks').value : 1),
             positionIndex: index,
@@ -3507,7 +5143,7 @@
         }).filter(function (item) { return item.questionText; });
       }
 
-      async function loadQuestionSets() {
+      async function loadQuestionSets(questionSetId) {
         var selectedRule = resolveSelectedAssessmentRule();
         if (!selectedRule) {
           return { sets: [], assessment: null };
@@ -3516,6 +5152,11 @@
           '&subjectId=' + encodeURIComponent(String(selectedRule.subjectId)) +
           '&termId=' + encodeURIComponent(String(selectedRule.termId)) +
           '&assessmentId=' + encodeURIComponent(String(selectedRule.assessmentId));
+
+        var normalizedQuestionSetId = Number(questionSetId || 0);
+        if (normalizedQuestionSetId > 0) {
+          requestUrl += '&questionSetId=' + encodeURIComponent(String(normalizedQuestionSetId));
+        }
 
         var response = await fetch(requestUrl, { headers: { Accept: 'application/json' } });
         var payload = await response.json();
@@ -3528,13 +5169,87 @@
         };
       }
 
+      async function openQuestionSetPreview(payload) {
+        if (!payload || !payload.questionSetId) return;
+
+        activeSetPreviewPayload = payload;
+
+        setPreviewEditVisible(true);
+        if (qmPreviewTitle) {
+          qmPreviewTitle.textContent = 'Question Preview';
+        }
+        if (qmPreviewBody) {
+          qmPreviewBody.innerHTML = '<div class="set-preview-question"><p class="set-preview-question-text">Loading preview...</p></div>';
+        }
+        if (qmPreviewOverlay) {
+          qmPreviewOverlay.classList.add('show');
+          qmPreviewOverlay.setAttribute('aria-hidden', 'false');
+        }
+
+        try {
+          var requestUrl = '/common/assessment/questions?classId=' + encodeURIComponent(String(payload.classId))
+            + '&subjectId=' + encodeURIComponent(String(payload.subjectId))
+            + '&termId=' + encodeURIComponent(String(payload.termId))
+            + '&assessmentId=' + encodeURIComponent(String(payload.assessmentId))
+            + '&questionSetId=' + encodeURIComponent(String(payload.questionSetId));
+
+          var response = await fetch(requestUrl, { headers: { Accept: 'application/json' } });
+          var result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to load preview.');
+          }
+
+          var sets = Array.isArray(result.sets) ? result.sets : [];
+          var matchedSet = sets.find(function (row) {
+            return Number(row.questionSetId || row.question_set_id || 0) === Number(payload.questionSetId);
+          });
+
+          if (!matchedSet) {
+            throw new Error('Preview is unavailable for this question set right now.');
+          }
+
+          renderQuestionPreviewPayload(buildPreviewPayloadFromQuestionSet(matchedSet, payload));
+        } catch (error) {
+          if (qmPreviewBody) {
+            qmPreviewBody.innerHTML = '<div class="set-preview-question"><p class="set-preview-question-text">Preview unavailable.</p></div>';
+          }
+          setQuestionStatus(error.message || 'Failed to load preview.', true);
+        }
+      }
+
+      async function handleSetPreviewEdit(event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+
+        if (!activeSetPreviewPayload) {
+          setQuestionStatus('Preview data is unavailable for editing.', true);
+          return;
+        }
+
+        try {
+          await openEditQuestionSet({
+            questionSetId: Number(activeSetPreviewPayload.questionSetId || 0),
+            assessmentId: Number(activeSetPreviewPayload.assessmentId || 0),
+            classId: Number(activeSetPreviewPayload.classId || 0),
+            subjectId: Number(activeSetPreviewPayload.subjectId || 0),
+            termId: Number(activeSetPreviewPayload.termId || 0),
+            schoolYearId: Number(activeSetPreviewPayload.schoolYearId || 0),
+          });
+          closeQuestionPreview();
+        } catch (error) {
+          setQuestionStatus(error.message || 'Failed to open question set editor.', true);
+        }
+      }
+
       async function hydrateQuestionModalFromServer() {
         if (!questionItems) return;
         var loaded = { sets: [], assessment: null };
         var sets = [];
         if (questionModalMode === 'edit') {
           setQuestionStatus('Loading question sets...', false);
-          loaded = await loadQuestionSets();
+          loaded = await loadQuestionSets(currentQuestionSetId);
           sets = loaded.sets || [];
         }
         if (loaded.assessment && Number(loaded.assessment.assessmentId || 0) > 0) {
@@ -3579,10 +5294,14 @@
           return;
         }
 
-        var selectedSet = sets[0];
-        currentQuestionSetId = selectedSet.questionSetId || null;
+        var selectedSet = sets.find(function (setRow) {
+          return Number(setRow.questionSetId || 0) === Number(currentQuestionSetId || 0);
+        }) || sets[0];
+
+        currentQuestionSetId = selectedSet.questionSetId || currentQuestionSetId || null;
         if (questionSetTitleInput) questionSetTitleInput.value = selectedSet.setTitle || '';
         if (questionSetDescriptionInput) questionSetDescriptionInput.value = selectedSet.setDescription || '';
+        applyQuestionCardsLayoutMode(selectedSet.questionCardLayout || 'stacked');
 
         (selectedSet.questions || []).forEach(function (question) {
           questionItems.appendChild(buildQuestionItem(question));
@@ -3638,6 +5357,316 @@
 
         renderAssessmentRulesSummary();
         await hydrateQuestionModalFromServer();
+      }
+
+      function toNumberOrNull(value) {
+        if (value === null || value === undefined) return null;
+        var raw = String(value).trim();
+        if (!raw) return null;
+        var parsed = Number(raw);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+
+      function normalizeTextValue(value) {
+        return String(value || '').trim().toLowerCase();
+      }
+
+      function resolveAssessmentMaxScore(assessmentId) {
+        var normalizedId = Number(assessmentId || 0);
+        if (!normalizedId) return null;
+        var match = (assessmentsForTermData || []).find(function (row) {
+          return Number(row.assessment_id || row.assessmentId || 0) === normalizedId;
+        });
+        if (!match) return null;
+
+        var rawMax =
+          match.max_score !== undefined && match.max_score !== null
+            ? match.max_score
+            : (match.maxScore !== undefined && match.maxScore !== null ? match.maxScore : null);
+        var maxScore = Number(rawMax);
+        return Number.isFinite(maxScore) && maxScore > 0 ? maxScore : null;
+      }
+
+      function buildSetFilterOptions() {
+        if (!questionSetDetails.length) return;
+        if (!classFilterSelect || !subjectFilterSelect || !assessmentFilterSelect) return;
+
+        var classMap = new Map();
+        var subjectMap = new Map();
+        var assessmentMap = new Map();
+
+        questionSetDetails.forEach(function (detailsItem) {
+          var classId = String(detailsItem.getAttribute('data-class-id') || '').trim();
+          var className = String(detailsItem.getAttribute('data-class-name') || '').trim();
+          var subjectId = String(detailsItem.getAttribute('data-subject-id') || '').trim();
+          var subjectName = String(detailsItem.getAttribute('data-subject-name') || '').trim();
+          var assessmentId = String(detailsItem.getAttribute('data-assessment-id') || '').trim();
+          var assessmentTitle = String(detailsItem.getAttribute('data-assessment-title') || '').trim();
+
+          if (classId) classMap.set(classId, className);
+          if (subjectId) subjectMap.set(subjectId, subjectName);
+          if (assessmentId) assessmentMap.set(assessmentId, assessmentTitle);
+
+          var points = Number(detailsItem.getAttribute('data-total-points') || 0);
+          var maxScore = resolveAssessmentMaxScore(assessmentId);
+          if (Number.isFinite(points) && maxScore && maxScore > 0) {
+            detailsItem.setAttribute('data-percentage', String((points / maxScore) * 100));
+          } else {
+            detailsItem.setAttribute('data-percentage', '');
+          }
+        });
+
+        function refillSelect(selectEl, mapData, defaultLabel) {
+          var selectedValue = String(selectEl.value || '');
+          selectEl.innerHTML = '';
+
+          var defaultOption = document.createElement('option');
+          defaultOption.value = '';
+          defaultOption.textContent = defaultLabel;
+          selectEl.appendChild(defaultOption);
+
+          Array.from(mapData.entries())
+            .sort(function (a, b) {
+              return String(a[1] || '').localeCompare(String(b[1] || ''));
+            })
+            .forEach(function (entry) {
+              var opt = document.createElement('option');
+              opt.value = String(entry[0]);
+              opt.textContent = String(entry[1] || '').replace(/(^\w|\s\w)/g, function (m) { return m.toUpperCase(); });
+              selectEl.appendChild(opt);
+            });
+
+          if (selectedValue && Array.from(mapData.keys()).includes(selectedValue)) {
+            selectEl.value = selectedValue;
+          }
+        }
+
+        refillSelect(classFilterSelect, classMap, 'All Classes');
+        refillSelect(subjectFilterSelect, subjectMap, 'All Subjects');
+        refillSelect(assessmentFilterSelect, assessmentMap, 'All Assessments');
+
+        if (sortFilterSelect && !String(sortFilterSelect.value || '').trim()) {
+          sortFilterSelect.value = 'normal';
+        }
+      }
+
+      function sortQuestionSetCards(cards, sortBy) {
+        var list = cards.slice();
+
+        function compareNumber(a, b, key, direction) {
+          var av = Number(a.getAttribute(key) || 0);
+          var bv = Number(b.getAttribute(key) || 0);
+          return direction === 'asc' ? av - bv : bv - av;
+        }
+
+        function compareText(a, b, key) {
+          return String(a.getAttribute(key) || '').localeCompare(String(b.getAttribute(key) || ''));
+        }
+
+        list.sort(function (a, b) {
+          switch (sortBy) {
+            case 'normal':
+              return 0;
+            case 'class-az':
+            case 'class-za':
+            case 'subject-az':
+            case 'assessment-az':
+              return 0;
+            case 'updated-asc':
+              return compareNumber(a, b, 'data-updated-at', 'asc');
+            case 'points-desc':
+              return compareNumber(a, b, 'data-total-points', 'desc');
+            case 'points-asc':
+              return compareNumber(a, b, 'data-total-points', 'asc');
+            case 'percent-desc':
+              return compareNumber(a, b, 'data-percentage', 'desc');
+            case 'percent-asc':
+              return compareNumber(a, b, 'data-percentage', 'asc');
+            case 'questions-desc':
+              return compareNumber(a, b, 'data-question-count', 'desc');
+            case 'questions-asc':
+              return compareNumber(a, b, 'data-question-count', 'asc');
+            case 'subject-az':
+              return compareText(a, b, 'data-subject-name');
+            case 'assessment-az':
+              return compareText(a, b, 'data-assessment-title');
+            default:
+              return compareNumber(a, b, 'data-updated-at', 'desc');
+          }
+        });
+
+        return list;
+      }
+
+      function applyQuestionSetFilters() {
+        if (!questionSetDetails.length) return;
+
+        var classIdFilter = String(classFilterSelect ? classFilterSelect.value : '').trim();
+        var subjectIdFilter = String(subjectFilterSelect ? subjectFilterSelect.value : '').trim();
+        var assessmentIdFilter = String(assessmentFilterSelect ? assessmentFilterSelect.value : '').trim();
+        var reviewStatusFilter = normalizeTextValue(reviewStatusFilterSelect ? reviewStatusFilterSelect.value : '');
+        var searchText = normalizeTextValue(searchFilterInput ? searchFilterInput.value : '');
+        var sortBy = String(sortFilterSelect ? sortFilterSelect.value : 'normal').trim() || 'normal';
+
+        var minPoints = toNumberOrNull(pointsMinInput ? pointsMinInput.value : null);
+        var maxPoints = toNumberOrNull(pointsMaxInput ? pointsMaxInput.value : null);
+        var minPercent = toNumberOrNull(percentMinInput ? percentMinInput.value : null);
+        var maxPercent = toNumberOrNull(percentMaxInput ? percentMaxInput.value : null);
+
+        var visibleCount = 0;
+
+        classGroups.forEach(function (groupSection) {
+          var subjectSections = Array.prototype.slice.call(groupSection.querySelectorAll('.js-subject-group'));
+
+          subjectSections.forEach(function (subjectSection) {
+            var assessmentSections = Array.prototype.slice.call(subjectSection.querySelectorAll('.js-assessment-group'));
+
+            assessmentSections.forEach(function (assessmentSection) {
+              var cards = Array.prototype.slice.call(assessmentSection.querySelectorAll('.js-question-set-details'));
+
+              cards.forEach(function (card) {
+                var cardClassId = String(card.getAttribute('data-class-id') || '').trim();
+                var cardSubjectId = String(card.getAttribute('data-subject-id') || '').trim();
+                var cardAssessmentId = String(card.getAttribute('data-assessment-id') || '').trim();
+                var cardReviewStatus = normalizeTextValue(card.getAttribute('data-review-status') || '');
+                var cardPoints = Number(card.getAttribute('data-total-points') || 0);
+                var cardPercentRaw = card.getAttribute('data-percentage');
+                var cardPercent = cardPercentRaw === '' ? null : Number(cardPercentRaw);
+                var searchBlob = [
+                  card.getAttribute('data-set-title'),
+                  card.getAttribute('data-class-name'),
+                  card.getAttribute('data-subject-name'),
+                  card.getAttribute('data-assessment-title')
+                ].map(normalizeTextValue).join(' ');
+
+                var matches = true;
+
+                if (classIdFilter && cardClassId !== classIdFilter) matches = false;
+                if (subjectIdFilter && cardSubjectId !== subjectIdFilter) matches = false;
+                if (assessmentIdFilter && cardAssessmentId !== assessmentIdFilter) matches = false;
+                if (reviewStatusFilter && cardReviewStatus !== reviewStatusFilter) matches = false;
+                if (Number.isFinite(minPoints) && cardPoints < minPoints) matches = false;
+                if (Number.isFinite(maxPoints) && cardPoints > maxPoints) matches = false;
+                if (Number.isFinite(minPercent) && (!Number.isFinite(cardPercent) || cardPercent < minPercent)) matches = false;
+                if (Number.isFinite(maxPercent) && (!Number.isFinite(cardPercent) || cardPercent > maxPercent)) matches = false;
+                if (searchText && searchBlob.indexOf(searchText) === -1) matches = false;
+
+                card.hidden = !matches;
+                if (matches) visibleCount += 1;
+              });
+
+              var sortedCards = sortQuestionSetCards(cards, sortBy);
+              var grid = assessmentSection.querySelector('.exam-grid');
+              if (grid) {
+                sortedCards.forEach(function (card) {
+                  grid.appendChild(card);
+                });
+              }
+
+              var hasVisibleCard = cards.some(function (card) { return !card.hidden; });
+              assessmentSection.hidden = !hasVisibleCard;
+            });
+
+            if (sortBy === 'assessment-az') {
+              var assessmentContainer = subjectSection.querySelector('.assessment-group-list');
+              if (assessmentContainer) {
+                assessmentSections
+                  .slice()
+                  .sort(function (a, b) {
+                    var aName = String(a.getAttribute('data-assessment-name') || '');
+                    var bName = String(b.getAttribute('data-assessment-name') || '');
+                    return aName.localeCompare(bName);
+                  })
+                  .forEach(function (section) {
+                    assessmentContainer.appendChild(section);
+                  });
+              }
+            }
+
+            var hasVisibleAssessment = assessmentSections.some(function (section) { return !section.hidden; });
+            subjectSection.hidden = !hasVisibleAssessment;
+          });
+
+          if (sortBy === 'subject-az') {
+            var subjectContainer = groupSection.querySelector('.subject-group-list');
+            if (subjectContainer) {
+              subjectSections
+                .slice()
+                .sort(function (a, b) {
+                  var aName = String(a.getAttribute('data-subject-name') || '');
+                  var bName = String(b.getAttribute('data-subject-name') || '');
+                  return aName.localeCompare(bName);
+                })
+                .forEach(function (section) {
+                  subjectContainer.appendChild(section);
+                });
+            }
+          }
+
+          var hasVisibleSubject = subjectSections.some(function (section) { return !section.hidden; });
+          groupSection.hidden = !hasVisibleSubject;
+        });
+
+        if (classGroupsRoot && (sortBy === 'class-az' || sortBy === 'class-za')) {
+          var orderedGroups = classGroups.slice().sort(function (a, b) {
+            var aName = String(a.getAttribute('data-class-name') || '');
+            var bName = String(b.getAttribute('data-class-name') || '');
+            return sortBy === 'class-az' ? aName.localeCompare(bName) : bName.localeCompare(aName);
+          });
+          orderedGroups.forEach(function (group) {
+            classGroupsRoot.appendChild(group);
+          });
+        }
+
+        if (questionSetFilterEmpty) {
+          questionSetFilterEmpty.hidden = visibleCount > 0;
+        }
+
+        if (setFilterStatus) {
+          if (visibleCount <= 0) {
+            setFilterStatus.textContent = 'No question sets match the current filters.';
+          } else {
+            if (sortBy === 'normal') {
+              setFilterStatus.textContent = 'Normal view active. Showing ' + visibleCount + ' question set' + (visibleCount === 1 ? '' : 's') + '.';
+            } else {
+              setFilterStatus.textContent = 'Showing ' + visibleCount + ' question set' + (visibleCount === 1 ? '' : 's') + '.';
+            }
+          }
+        }
+      }
+
+      function resetQuestionSetFilters() {
+        if (classFilterSelect) classFilterSelect.value = '';
+        if (subjectFilterSelect) subjectFilterSelect.value = '';
+        if (assessmentFilterSelect) assessmentFilterSelect.value = '';
+        if (reviewStatusFilterSelect) reviewStatusFilterSelect.value = '';
+        if (pointsMinInput) pointsMinInput.value = '';
+        if (pointsMaxInput) pointsMaxInput.value = '';
+        if (percentMinInput) percentMinInput.value = '';
+        if (percentMaxInput) percentMaxInput.value = '';
+        if (searchFilterInput) searchFilterInput.value = '';
+        if (sortFilterSelect) sortFilterSelect.value = 'normal';
+      }
+
+      function applyNormalQuestionSetView() {
+        resetQuestionSetFilters();
+        applyQuestionSetFilters();
+      }
+
+      function buildTermRedirectUrl(chosenTermId) {
+        var redirectUrl = '/common/allClassAssessmentExams?organizationId=' + encodeURIComponent(String(organizationId)) + '&termId=' + encodeURIComponent(String(chosenTermId));
+        if (selectedClassId > 0) {
+          redirectUrl += '&classId=' + encodeURIComponent(String(selectedClassId));
+        }
+        if (isEmbedded) {
+          redirectUrl += '&embed=workspace';
+        }
+        return redirectUrl;
+      }
+
+      function updateWorkspaceFiltersHint() {
+        if (!workspaceFiltersCard || !workspaceFiltersHint) return;
+        workspaceFiltersHint.textContent = workspaceFiltersCard.open ? 'Collapse' : 'Expand';
       }
 
       function renderSchoolYears() {
@@ -3817,19 +5846,6 @@
 
       renderSchoolYears();
       renderTerms();
-      questionSetDetails.forEach(function (detailsItem) {
-        detailsItem.open = false;
-      });
-      questionSetDetails.forEach(function (detailsItem) {
-        detailsItem.addEventListener('toggle', function () {
-          if (!detailsItem.open) return;
-          questionSetDetails.forEach(function (otherItem) {
-            if (otherItem !== detailsItem) {
-              otherItem.open = false;
-            }
-          });
-        });
-      });
       renderQuestionModalSchoolYears();
       renderQuestionModalTerms();
       renderQuestionModalClasses();
@@ -3838,20 +5854,48 @@
         renderAssessmentRulesSummary();
       });
 
-      if (schoolYearSelect) {
-        schoolYearSelect.addEventListener('change', function () {
-          renderTerms();
+      buildSetFilterOptions();
+      applyNormalQuestionSetView();
+
+      if (workspaceFiltersCard) {
+        workspaceFiltersCard.open = false;
+      }
+
+      updateWorkspaceFiltersHint();
+
+      if (workspaceFiltersCard) {
+        workspaceFiltersCard.addEventListener('toggle', updateWorkspaceFiltersHint);
+      }
+
+      if (applySetFiltersButton) {
+        applySetFiltersButton.addEventListener('click', function () {
+          var chosenTermId = Number(termSelect ? termSelect.value : 0);
+          if (chosenTermId && chosenTermId !== Number(selectedTermId)) {
+            window.location.href = buildTermRedirectUrl(chosenTermId);
+            return;
+          }
+          applyQuestionSetFilters();
         });
       }
 
-      if (openTermWorkspaceButton) {
-        openTermWorkspaceButton.addEventListener('click', function (event) {
-          event.preventDefault();
-          var chosenTermId = Number(termSelect ? termSelect.value : 0);
-          if (!chosenTermId) {
-            return;
+      if (searchFilterInput) {
+        searchFilterInput.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            applyQuestionSetFilters();
           }
-          window.location.href = '/common/allClassAssessmentExams?organizationId=' + encodeURIComponent(String(organizationId)) + '&termId=' + encodeURIComponent(String(chosenTermId));
+        });
+      }
+
+      if (clearSetFiltersButton) {
+        clearSetFiltersButton.addEventListener('click', function () {
+          applyNormalQuestionSetView();
+        });
+      }
+
+      if (schoolYearSelect) {
+        schoolYearSelect.addEventListener('change', function () {
+          renderTerms();
         });
       }
 
@@ -3882,6 +5926,31 @@
         });
       });
 
+      document.querySelectorAll('.preview-set-btn').forEach(function (button) {
+        button.addEventListener('click', async function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          closeAllSetActionMenus();
+
+          try {
+            await openQuestionSetPreview({
+              questionSetId: Number(button.getAttribute('data-question-set-id') || 0),
+              assessmentId: Number(button.getAttribute('data-assessment-id') || 0),
+              classId: Number(button.getAttribute('data-class-id') || 0),
+              className: String(button.getAttribute('data-class-name') || ''),
+              subjectId: Number(button.getAttribute('data-subject-id') || 0),
+              subjectName: String(button.getAttribute('data-subject-name') || ''),
+              assessmentTitle: String(button.getAttribute('data-assessment-title') || ''),
+              termId: Number(button.getAttribute('data-term-id') || 0),
+              schoolYearId: Number(button.getAttribute('data-school-year-id') || 0),
+              setTitle: String(button.getAttribute('data-set-title') || ''),
+            });
+          } catch (error) {
+            setQuestionStatus(error.message || 'Failed to open preview.', true);
+          }
+        });
+      });
+
       document.addEventListener('click', function () {
         closeAllSetActionMenus();
       });
@@ -3896,6 +5965,7 @@
         allClassSetQuestionsButton.addEventListener('click', async function () {
           setQuestionModalMode('create');
           openQuestionModal();
+          applyQuestionCardsLayoutMode('stacked');
           renderQuestionModalSchoolYears();
           renderQuestionModalTerms();
           renderQuestionModalClasses();
@@ -4057,6 +6127,12 @@
         });
       }
 
+      if (qmPreviewEditButton) {
+        qmPreviewEditButton.addEventListener('click', function (event) {
+          handleSetPreviewEdit(event);
+        });
+      }
+
       if (qmPreviewOverlay) {
         qmPreviewOverlay.addEventListener('click', function (event) {
           if (event.target === qmPreviewOverlay) {
@@ -4064,6 +6140,10 @@
           }
         });
       }
+
+      window.addEventListener('resize', function () {
+        updateQuestionCount();
+      });
 
       if (questionAssessmentSelect) {
         questionAssessmentSelect.addEventListener('change', async function () {
@@ -4206,10 +6286,26 @@
         });
       }
 
+      if (qmQuestionsLayoutToggle) {
+        qmQuestionsLayoutToggle.addEventListener('click', function (event) {
+          var targetButton = event.target && event.target.closest
+            ? event.target.closest('.qm-options-layout-btn')
+            : null;
+          if (!targetButton) return;
+
+          var selectedMode = targetButton.getAttribute('data-layout') === 'side_by_side'
+            ? 'side_by_side'
+            : 'stacked';
+          applyQuestionCardsLayoutMode(selectedMode);
+          saveDraft();
+        });
+      }
+
       if (qmClearDraftButton) {
         qmClearDraftButton.addEventListener('click', function () {
           clearDraft();
           if (questionItems) questionItems.innerHTML = '';
+          applyQuestionCardsLayoutMode('stacked');
           if (questionSetTitleInput) questionSetTitleInput.value = '';
           if (questionSetDescriptionInput) questionSetDescriptionInput.value = '';
           if (questionItems) questionItems.appendChild(buildQuestionItem());
@@ -4253,6 +6349,9 @@
             subjectId: Number(selectedRule.subjectId),
             termId: Number(selectedRule.termId),
             assessmentId: Number(selectedRule.assessmentId),
+            questionCardLayout: questionItems
+              ? String(questionItems.getAttribute('data-layout-mode') || 'stacked')
+              : 'stacked',
             openBook: questionOpenBookSelect ? String(questionOpenBookSelect.value) === 'true' : false,
             timeLimitMinutes: questionTimeLimitInput ? String(questionTimeLimitInput.value || '').trim() : '',
             setTitle: String(questionSetTitleInput ? questionSetTitleInput.value : '').trim() || 'Question Set',
@@ -4261,6 +6360,7 @@
           };
 
           setQuestionStatus('Saving question set...', false);
+          setSaveButtonLoading('Saving...');
           try {
             var response = await fetch('/common/assessment/questions/upsert', {
               method: 'POST',
@@ -4282,6 +6382,7 @@
             window.location.reload();
           } catch (error) {
             setQuestionStatus(error.message || 'Failed to save question set.', true);
+            renderSaveButtonIdle();
           }
         });
       }
@@ -4486,7 +6587,16 @@
             }
 
             setReuseStatus(result.message || 'Question set reused successfully.', false);
-            window.location.href = '/common/allClassAssessmentExams?organizationId=' + encodeURIComponent(String(organizationId)) + '&termId=' + encodeURIComponent(String(targetTermId));
+            var nextUrl = '/common/allClassAssessmentExams?organizationId=' + encodeURIComponent(String(organizationId)) + '&termId=' + encodeURIComponent(String(targetTermId));
+            if (Number(targetClassId) > 0) {
+              nextUrl += '&classId=' + encodeURIComponent(String(targetClassId));
+            } else if (selectedClassId > 0) {
+              nextUrl += '&classId=' + encodeURIComponent(String(selectedClassId));
+            }
+            if (isEmbedded) {
+              nextUrl += '&embed=workspace';
+            }
+            window.location.href = nextUrl;
           } catch (error) {
             setReuseStatus(error.message || 'Failed to reuse question set.', true);
           } finally {

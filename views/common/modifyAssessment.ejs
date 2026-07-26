@@ -18,29 +18,29 @@
     main {
       text-align: center;
       margin: 0 auto;
-      width: 90%;
+      width: min(96%, 1280px);
       padding-bottom: 32px;
     }
     .center-link {
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
       align-items: center;
       margin-bottom: 20px;
     }
     .center-link button {
-      padding: 10px 28px;
+      padding: 7px 12px;
       border: none;
       background-color: var(--org-primary-color);
       color: white;
       cursor: pointer;
       border-radius: 6px;
-      font-size: 1rem;
-      font-weight: 500;
+      font-size: 0.9rem;
+      font-weight: 600;
       width: auto;
-      min-width: 120px;
+      min-width: 0;
       box-shadow: 0 2px 8px rgba(1,83,91,0.08);
       transition: background 0.2s;
-      margin: 0 auto;
+      margin: 0;
       display: inline-block;
     }
     .center-link button:hover {
@@ -69,15 +69,22 @@
     .modify-assessment-card {
       background: #fff;
       border: 1px solid #e0e0e0;
-      box-shadow: 0 2px 12px rgba(1,83,91,0.12);
+      box-shadow: 0 8px 28px rgba(15, 23, 42, 0.1);
       border-radius: 14px;
-      max-width: 440px;
+      max-width: 1180px;
       margin: 0 auto 24px auto;
-      padding: 28px 24px 22px 24px;
+      padding: 28px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 14px;
+      align-items: stretch;
+      gap: 16px;
+    }
+    .assessment-layout-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 18px;
+      width: 100%;
+      align-items: start;
     }
     .form-group {
       margin-bottom: 12px;
@@ -137,7 +144,7 @@
       gap: 8px;
       font-weight: 400;
       color: #222;
-      margin-bottom: 2px;
+      margin-bottom: 8px;
       width: 100%;
     }
     .class-checkbox input[type="checkbox"] {
@@ -146,17 +153,17 @@
       height: 18px;
     }
     .class-checkbox label {
-      font-weight: 400;
+      font-weight: 600;
       color: #222;
       font-size: 1rem;
       margin: 0;
       padding: 0;
     }
     .subject-container {
-      margin-left: 18px;
-      margin-top: 4px;
-      padding-left: 12px;
-      border-left: 2px solid #e0e0e0;
+      margin-left: 0;
+      margin-top: 8px;
+      padding-left: 0;
+      border-left: none;
       width: 100%;
       display: none;
     }
@@ -185,12 +192,32 @@
       padding: 0;
     }
     .form-actions {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 16px;
-      margin: 18px 0 28px 0;
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: flex-start !important;
+      flex-wrap: nowrap !important;
+      align-items: center !important;
+      gap: 10px;
+      margin: 18px 0 4px 0;
       width: 100%;
+      overflow-x: auto;
+    }
+    .form-actions > * {
+      flex: 0 0 auto !important;
+      margin: 0 !important;
+    }
+    .form-actions .submit-btn,
+    .form-actions .delete-button {
+      display: inline-flex !important;
+      width: auto !important;
+      min-width: 0 !important;
+      flex: 0 0 auto !important;
+      margin: 0 !important;
+      white-space: nowrap;
+    }
+    .form-actions .delete-button {
+      width: 42px !important;
+      min-width: 42px !important;
     }
     .submit-btn {
       display: inline-flex;
@@ -201,15 +228,16 @@
       color: #fff;
       border: none;
       border-radius: 6px;
-      padding: 10px 28px;
-      font-size: 1rem;
+      padding: 7px 12px;
+      font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
       box-shadow: 0 2px 8px rgba(1,83,91,0.08);
       transition: background 0.2s;
-      min-width: 120px;
+      min-width: 0;
       width: auto;
       margin-top: 0 !important;
+      min-height: 36px;
     }
     .submit-btn:hover {
       background: #013a40;
@@ -256,27 +284,36 @@
       color: #fff;
       border: none;
       border-radius: 6px;
-      padding: 10px 28px;
+      padding: 0;
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
       box-shadow: 0 2px 8px rgba(1,83,91,0.08);
       transition: background 0.2s;
-      min-width: 120px;
-      width: auto;
+      width: 42px;
+      min-width: 42px;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .delete-button svg {
+      width: 16px;
+      height: 16px;
     }
     .delete-button:hover {
       background-color: #b71c1c;
     }
     .collapsible-btn {
-      width: 70%;
-      margin: 0 auto 8px auto;
+      width: auto;
+      max-width: 100%;
+      margin: 0 0 8px 0;
       background: #01535b;
       color: #fff;
       border: none;
       outline: none;
-      padding: 7px 14px;
-      font-size: 15px;
+      padding: 7px 12px;
+      font-size: 0.9rem;
       text-align: left;
       display: flex;
       align-items: center;
@@ -291,11 +328,50 @@
       transition: transform 0.2s;
     }
     .collapsible-content {
-      background: #f9f9f9;
-      border-radius: 6px;
+      background: #f8fbfd;
+      border: 1px solid #dce6ec;
+      border-radius: 10px;
       margin-top: 6px;
-      padding: 16px 18px 16px 18px;
+      padding: 14px;
       width: 100%;
+    }
+    .classes-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      width: 100%;
+    }
+    .class-subject-card {
+      border: 1px solid #d8e3ea;
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      min-width: 0;
+    }
+    .class-subject-card .select-all-container {
+      margin-bottom: 8px;
+    }
+    .class-subject-card .select-all-container label {
+      font-size: 0.88rem;
+      color: #33566a;
+      font-weight: 600;
+    }
+    .subjects-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      width: 100%;
+    }
+    .subject-checkbox {
+      background: #fbfdff;
+      border: 1px solid #e5edf3;
+      border-radius: 8px;
+      padding: 6px 8px;
+      margin: 0;
+    }
+    .subject-checkbox label {
+      font-size: 0.92rem;
     }
     .collapsible-btn:hover,
     .collapsible-btn:focus {
@@ -373,21 +449,38 @@
     /* ── Date group ── */
     .date-group {
       width: 100%;
-      background: #f4f8fa;
-      border: 1px solid #dde4ec;
-      border-radius: 9px;
-      padding: 14px 16px;
+      background: linear-gradient(180deg, #f8fbfd 0%, #f2f7fb 100%);
+      border: 1px solid #d6e2eb;
+      border-radius: 10px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
     .date-group-title {
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #607080;
+      color: #526579;
       margin-bottom: 0;
+    }
+    .date-group-note {
+      margin-top: -4px;
+      margin-bottom: 2px;
+      color: #5b7288;
+      font-size: 0.84rem;
+      text-align: left;
+    }
+    .date-group-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+      width: 100%;
+    }
+    .date-group-grid .form-group {
+      margin-bottom: 0;
+      min-width: 0;
     }
 
     /* ── Responsive ── */
@@ -395,12 +488,26 @@
       main { width: 100%; padding: 0 12px 24px; }
       .main-heading { font-size: 1.25rem; margin: 14px 0 8px; }
       .modify-assessment-card { padding: 18px 14px 16px; border-radius: 10px; gap: 10px; }
-      .center-link button { font-size: 0.9rem; padding: 8px 18px; }
-      .collapsible-btn { width: 90%; font-size: 0.88rem; padding: 7px 12px; }
+      .assessment-layout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .assessment-layout-grid .test-name-field,
+      .assessment-layout-grid .test-weight-field {
+        grid-column: span 1;
+      }
+      .assessment-layout-grid > :not(.test-name-field):not(.test-weight-field) {
+        grid-column: 1 / -1;
+      }
+      .center-link button { font-size: 0.85rem; padding: 6px 10px; }
+      .collapsible-btn { width: auto; font-size: 0.85rem; padding: 6px 10px; }
       .collapsible-content { padding: 12px 12px; }
+      .classes-grid { grid-template-columns: 1fr; gap: 10px; }
+      .class-subject-card { padding: 9px; }
       .form-group label { font-size: 0.9rem; }
       .form-group input, .form-group select { font-size: 0.9rem; padding: 7px 8px; }
-      .submit-btn, .delete-button { font-size: 0.9rem; padding: 8px 20px; }
+      .date-group-grid { grid-template-columns: 1fr; gap: 8px; }
+      .date-group-note { font-size: 0.82rem; }
+      .form-actions { gap: 8px; justify-content: flex-start !important; flex-wrap: nowrap !important; flex-direction: row !important; }
+      .submit-btn { font-size: 0.85rem; padding: 6px 10px; }
+      .delete-button { width: 40px !important; min-width: 40px !important; }
       .check-row label { font-size: 0.88rem; }
       .modify-classes-heading { font-size: 0.98rem; }
     }
@@ -410,6 +517,11 @@
       .modify-assessment-card { padding: 14px 10px; }
       .collapsible-btn { width: 100%; font-size: 0.82rem; }
     }
+    @media (min-width: 1120px) {
+      .classes-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
     </style>
 </head>
 <body>
@@ -417,10 +529,6 @@
     <br />
     <%- include('../partials/flash') %>
 
-    <br>
-    <div class="center-link">
-        <button onclick="location.href='/common/manageAssessment?organizationId=<%= organizationId %>&termId=<%= termId %>'">Back to All Assessment</button>
-    </div>
 <hr>
     <form id="modifyAssessmentForm">
       <div class="modify-assessment-card">
@@ -428,69 +536,66 @@
         <input type="hidden" name="organizationId" value="<%= organizationId %>">
         <input type="hidden" name="termId" value="<%= termId %>">
         <input type="hidden" name="groupId" value="<%= groupId %>">
-        <div class="form-group">
-          <label for="testName">Test Name:</label>
-          <input type="text" name="testName" value="<%= assessment.title %>" required>
-        </div>
-        <div class="form-group">
-          <label for="testWeight">Test Weight (%):</label>
-          <input type="number" name="testWeight" step="0.1" value="<%= assessment.weight %>" required>
-        </div>
-        <div class="form-group">
-          <label for="maxScore">Score Out Of:</label>
-          <input type="number" name="maxScore" value="<%= assessment.max_score %>" required>
-        </div>
-        <div class="form-group">
-          <label for="scaleBase">Scale Base (scaled score out of):</label>
-          <input type="number" name="scaleBase" value="<%= assessment.scale_base || 100 %>" min="1" required>
-        </div>
-        <div class="form-group">
-          <label for="category">Category:</label>
-          <select name="category" required>
-            <option value="Class Assessment" <%= assessment.category === 'Class Assessment' ? 'selected' : '' %>>Class Assessment</option>
-            <option value="Exams Assessment" <%= assessment.category === 'Exams Assessment' ? 'selected' : '' %>>Exams Assessment</option>
-            <option value="Other" <%= assessment.category === 'Other' ? 'selected' : '' %>>Other</option>
-          </select>
-        </div>
-        <!-- Lock control -->
-        <div class="control-group">
-          <div class="control-group-title">Access Control</div>
-          <div class="check-row">
-            <input type="checkbox" id="isLockedCb" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> />
-            <label for="isLockedCb">Lock this assessment (prevents score entry)</label>
+        <div class="assessment-layout-grid">
+          <div class="form-group test-name-field">
+            <label for="testName">Test Name:</label>
+            <input type="text" name="testName" value="<%= assessment.title %>" required>
           </div>
-          <% if (canUseQuestionSetIntegration) { %>
-          <div class="check-row">
-            <input type="checkbox" id="showQuestionSetOnDashboardCb" name="showQuestionSetOnDashboard" <%= assessment.show_question_set_on_dashboard ? 'checked' : '' %> />
-            <label for="showQuestionSetOnDashboardCb">Show Set Questions in Class Dashboard</label>
+          <div class="form-group test-weight-field">
+            <label for="testWeight">Test Weight (%):</label>
+            <input type="number" name="testWeight" step="0.1" value="<%= assessment.weight %>" required>
           </div>
-          <% } %>
-          <div class="check-row">
-            <input type="checkbox" id="notifyTeachersCb" name="notifyTeachers" />
-            <label for="notifyTeachersCb">Email affected class teachers about this change</label>
+          <div class="form-group">
+            <label for="maxScore">Score Out Of:</label>
+            <input type="number" name="maxScore" value="<%= assessment.max_score %>" required>
           </div>
-        </div>
+          <div class="form-group">
+            <label for="scaleBase">Scale Base (scaled score out of):</label>
+            <input type="number" name="scaleBase" value="<%= assessment.scale_base || 100 %>" min="1" required>
+          </div>
+          <div class="form-group">
+            <label for="category">Category:</label>
+            <select name="category" required>
+              <option value="Class Assessment" <%= assessment.category === 'Class Assessment' ? 'selected' : '' %>>Class Assessment</option>
+              <option value="Exams Assessment" <%= assessment.category === 'Exams Assessment' ? 'selected' : '' %>>Exams Assessment</option>
+              <option value="Other" <%= assessment.category === 'Other' ? 'selected' : '' %>>Other</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <div class="control-group-title">Access Control</div>
+            <div class="check-row">
+              <input type="checkbox" id="isLockedCb" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> />
+              <label for="isLockedCb">Lock this assessment (prevents score entry)</label>
+            </div>
+            <div class="check-row">
+              <input type="checkbox" id="notifyTeachersCb" name="notifyTeachers" />
+              <label for="notifyTeachersCb">Email affected class teachers about this change</label>
+            </div>
+          </div>
 
-        <!-- Edit window dates -->
-        <div class="date-group">
-          <div class="date-group-title">Edit Window (optional)</div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="editWindowStart">Edit Start Date:</label>
-            <input
-              type="datetime-local"
-              id="editWindowStart"
-              name="editWindowStart"
-              value="<%= assessment.edit_window_start ? new Date(assessment.edit_window_start).toISOString().slice(0,16) : '' %>"
-            >
-          </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="editWindowEnd">Edit End Date:</label>
-            <input
-              type="datetime-local"
-              id="editWindowEnd"
-              name="editWindowEnd"
-              value="<%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toISOString().slice(0,16) : '' %>"
-            >
+          <div class="date-group">
+            <div class="date-group-title">Edit Window (optional)</div>
+            <div class="date-group-note">Leave both fields blank to allow editing anytime.</div>
+            <div class="date-group-grid">
+              <div class="form-group">
+                <label for="editWindowStart">Edit Start Date:</label>
+                <input
+                  type="datetime-local"
+                  id="editWindowStart"
+                  name="editWindowStart"
+                  value="<%= assessment.edit_window_start ? new Date(assessment.edit_window_start).toISOString().slice(0,16) : '' %>"
+                >
+              </div>
+              <div class="form-group">
+                <label for="editWindowEnd">Edit End Date:</label>
+                <input
+                  type="datetime-local"
+                  id="editWindowEnd"
+                  name="editWindowEnd"
+                  value="<%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toISOString().slice(0,16) : '' %>"
+                >
+              </div>
+            </div>
           </div>
         </div>
         <h4 class="modify-classes-heading">Modify Classes and Subjects</h4>
@@ -503,34 +608,47 @@
             <input type="checkbox" id="selectAllClasses" onclick="selectAllClassesAndSubjects()">
             <label for="selectAllClasses">Select All Classes and Subjects</label>
           </div>
-          <% classes.forEach(cls => { %>
-            <div class="class-checkbox">
-              <input type="checkbox" id="class_<%= cls.class_id %>" name="classes[]" value="<%= cls.class_id %>" <%= cls.selected ? 'checked' : '' %> onchange="toggleSubjects('<%= cls.class_id %>')">
-              <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
-            </div>
-            <div id="subjects_<%= cls.class_id %>" class="subject-container <%= cls.selected ? 'visible' : '' %>">
-              <div class="select-all-container">
-                <input type="checkbox" id="selectAllSubjects_<%= cls.class_id %>" onclick="selectAllSubjects('<%= cls.class_id %>')">
-                <label for="selectAllSubjects_<%= cls.class_id %>">Select All Subjects</label>
-              </div>
-              <% subjects.forEach(subject => { %>
-                <% if (subject.class_id === cls.class_id) { %>
-                  <div class="subject-checkbox">
-                    <input type="checkbox" id="subject_<%= subject.subject_id %>" name="subjects[]" value="<%= cls.class_id %>-<%= subject.subject_id %>" <%= subject.selected ? 'checked' : '' %>>
-                    <label for="subject_<%= subject.subject_id %>"><%= subject.subject_name %></label>
+          <div class="classes-grid">
+            <% classes.forEach(cls => { %>
+              <div class="class-subject-card">
+                <div class="class-checkbox">
+                  <input type="checkbox" id="class_<%= cls.class_id %>" name="classes[]" value="<%= cls.class_id %>" <%= cls.selected ? 'checked' : '' %> onchange="toggleSubjects('<%= cls.class_id %>')">
+                  <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
+                </div>
+                <div id="subjects_<%= cls.class_id %>" class="subject-container <%= cls.selected ? 'visible' : '' %>">
+                  <div class="select-all-container">
+                    <input type="checkbox" id="selectAllSubjects_<%= cls.class_id %>" onclick="selectAllSubjects('<%= cls.class_id %>')">
+                    <label for="selectAllSubjects_<%= cls.class_id %>">Select All Subjects</label>
                   </div>
-                <% } %>
-              <% }); %>
-            </div>
-          <% }); %>
+                  <div class="subjects-grid">
+                    <% subjects.forEach(subject => { %>
+                      <% if (subject.class_id === cls.class_id) { %>
+                        <div class="subject-checkbox">
+                          <input type="checkbox" id="subject_<%= subject.subject_id %>" name="subjects[]" value="<%= cls.class_id %>-<%= subject.subject_id %>" <%= subject.selected ? 'checked' : '' %>>
+                          <label for="subject_<%= subject.subject_id %>"><%= subject.subject_name %></label>
+                        </div>
+                      <% } %>
+                    <% }); %>
+                  </div>
+                </div>
+              </div>
+            <% }); %>
+          </div>
         </div>
-        <div class="submit-status" id="submitStatus" aria-live="polite"></div>
         <div class="form-actions">
           <button type="submit" class="submit-btn" id="saveAssessmentBtn">
             <span class="submit-spinner" aria-hidden="true"></span>
             <span class="submit-btn-text">Save Changes</span>
           </button>
-          <button type="button" class="delete-button" id="deleteAssessmentBtn" onclick="deleteAssessment()">Delete Assessment</button>
+          <button type="button" class="delete-button" id="deleteAssessmentBtn" onclick="deleteAssessment()" aria-label="Delete assessment" title="Delete assessment">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+              <path d="M10 11v6"></path>
+              <path d="M14 11v6"></path>
+              <path d="M9 6V4h6v2"></path>
+            </svg>
+          </button>
         </div>
       </div>
     </form>

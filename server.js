@@ -1023,8 +1023,7 @@ if (shouldRunScheduledHolds) {
 const { ensurePermissionsSchema } = require('./middleware/permissionMiddleware');
 
 const logServerHostInfo = (port) => {
-  const localHost = `http://localhost:${port}`;
-  console.log(`\x1b[32m[Server] running on ${localHost}\x1b[0m`);
+  void port;
 };
 
 const logStartupDbStatus = async () => {

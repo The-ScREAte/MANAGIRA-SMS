@@ -1104,6 +1104,8 @@
         }
       });
 
+      this._preloadClassDashboardsFromOrgDashboard();
+
       // Also warm any SPA-able link currently rendered on screen (nav menus,
       // sidebars, tabs). Scheduled on idle so it never competes with the user.
       const schedule = (cb) => ('requestIdleCallback' in window)
@@ -1128,6 +1130,56 @@
       // browser's connection pool so the user's actual click had to queue
       // behind it. Hover/mousedown + the priority + visible-link preloads
       // already keep the common pages hot without the request storm.
+    }
+
+    _preloadClassDashboardsFromOrgDashboard() {
+      if (this.userType !== 'organization') return;
+      if (!this.currentPath.startsWith('/common/orgDashboard')) return;
+
+      const classLinks = Array.from(
+        document.querySelectorAll('.classes-container a[href^="/common/classDashboard?classId="]')
+      );
+
+      if (classLinks.length === 0) return;
+
+      const queue = [];
+      const seen = new Set();
+
+      classLinks.forEach((link) => {
+        const href = link.getAttribute('href');
+        if (!href || seen.has(href)) return;
+        seen.add(href);
+        if (!this._shouldHandle(href) || this._isExcluded(href)) return;
+        const normalized = this._normalizePath(href);
+        if (this.cache.has(normalized) || this._preloadsInFlight.has(normalized)) return;
+        queue.push(href);
+      });
+
+      if (queue.length === 0) return;
+
+      const schedule = (cb) => ('requestIdleCallback' in window)
+        ? requestIdleCallback(cb, { timeout: 5000 })
+        : setTimeout(cb, 500);
+
+      const pump = () => {
+        if (queue.length === 0) return;
+        if (this.isNavigating) {
+          schedule(pump);
+          return;
+        }
+        if (this._preloadsInFlight.size >= CONFIG.MAX_CONCURRENT_PRELOADS) {
+          schedule(pump);
+          return;
+        }
+
+        const next = queue.shift();
+        if (next) {
+          this._preload(next);
+        }
+        schedule(pump);
+      };
+
+      schedule(pump);
     }
 
     /**

@@ -2132,7 +2132,13 @@ async function ensureAssessmentQuestionSetReviewSchema(dbClient) {
       ADD COLUMN IF NOT EXISTS review_note TEXT,
       ADD COLUMN IF NOT EXISTS reviewed_by INTEGER,
       ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
-      ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS question_card_layout VARCHAR(24) NOT NULL DEFAULT 'stacked'
+  `);
+
+  await dbClient.query(`
+    ALTER TABLE assessment_questions
+      ADD COLUMN IF NOT EXISTS options_layout VARCHAR(24) NOT NULL DEFAULT 'stacked'
   `);
 
   await dbClient.query(`
@@ -2280,7 +2286,7 @@ async function cloneQuestionSetForRetakeShuffle(client, options) {
   await ensureAssessmentQuestionSetReviewSchema(client);
   await ensureAssessmentQuestionSetRetakeSchema(client);
 
-  const cloneSetTitle = `${sourceSet.set_title || "Question Set"} (Retake Shuffle)`;
+  const cloneSetTitle = sourceSet.set_title || "Question Set";
   const insertQuestionSetResult = await client.query(
     `INSERT INTO assessment_question_sets (
        organization_id,
@@ -4132,6 +4138,15 @@ const commonController = {
             ]
           }
         : null;
+
+      const shouldBypassCache = Boolean(
+        req.session?.userId || req.query?.organizationId || req.query?.themeApplied
+      );
+      if (shouldBypassCache) {
+        res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.set("Pragma", "no-cache");
+        res.set("Expires", "0");
+      }
 
       res.render("common/publicDashboard", {
         layout: false,
@@ -8022,6 +8037,7 @@ const commonController = {
       res.render("common/editStudent", {
         title: "Edit Student",
         hideGlobalHeader: true,
+        hideGlobalFooter: true,
         student,
         classes: classResult.rows,
         graduationYearGroups: graduationYearGroups.rows,
@@ -8029,6 +8045,8 @@ const commonController = {
         studentGuardians: guardians.rows,
         studentSubjects: studentSubjects.rows.map((row) => row.subject_id),
         currentTerm, // ✅ Fix: Now always defined
+        returnClassId: resolvedClassId,
+        returnTermId: currentTerm ? currentTerm.term_id : null,
         studentIdSettings,
         messages: req.flash(),
       });
@@ -8060,6 +8078,8 @@ const commonController = {
         graduationYearGroupId,
         gender,
         customStudentId,
+        returnClassId,
+        returnTermId,
       } = req.body;
       const keepExistingSubjectsOnClassChange = parseKeepExistingSubjectsPreference(
         req.body && req.body.keepExistingSubjectsOnClassChange,
@@ -8225,6 +8245,8 @@ const commonController = {
       }
 
       // Update student details
+      const normalizedStudentEmail = normalizeOptionalEmail(studentEmail);
+
       const updateStudentQuery = `
             UPDATE students
             SET first_name = $1, 
@@ -8251,7 +8273,7 @@ const commonController = {
         height,
         hometown,
         studentAddress,
-        normalizeOptionalEmail(studentEmail),
+        normalizedStudentEmail,
         safeClassId,
         safeGraduationYearGroupId,
         gender,
@@ -8260,6 +8282,33 @@ const commonController = {
         sessionOrganizationId,
         normalizedCustomId || null,
       ]);
+
+      if (normalizedStudentEmail) {
+        const emailConflict = await client.query(
+          `SELECT 1
+             FROM student_accounts
+            WHERE organization_id = $1
+              AND student_id <> $2
+              AND LOWER(login_email) = $3
+            LIMIT 1`,
+          [sessionOrganizationId, studentId, normalizedStudentEmail.toLowerCase()]
+        );
+
+        if (emailConflict.rows.length > 0) {
+          await client.query('ROLLBACK');
+          req.flash('error', 'That student login email is already in use by another student account.');
+          return res.redirect('/common/editStudent?studentId=' + studentId);
+        }
+
+        await client.query(
+          `UPDATE student_accounts
+              SET login_email = $1,
+                  updated_at = NOW()
+            WHERE student_id = $2
+              AND organization_id = $3`,
+          [normalizedStudentEmail.toLowerCase(), studentId, sessionOrganizationId]
+        );
+      }
 
       if (hasClassChange && keepExistingSubjectsOnClassChange && subjectIdsToPersist.length === 0) {
         const carryoverResult = await carryStudentSubjectsToClass(client, {
@@ -8339,7 +8388,16 @@ const commonController = {
       if (subjectCarryoverNotice.message) successMessages.push(subjectCarryoverNotice.message);
       if (subjectCarryoverNotice.skippedMessage) successMessages.push(subjectCarryoverNotice.skippedMessage);
       req.flash("success", successMessages.join(' '));
-      res.redirect("/common/editStudent?studentId=" + studentId);
+
+      const effectiveReturnClassId = safeClassId || oldClassId || returnClassId || null;
+      const effectiveReturnTermId = returnTermId || null;
+      if (effectiveReturnClassId && effectiveReturnTermId) {
+        return res.redirect(
+          `/common/classDashboard/${effectiveReturnClassId}/student/${studentId}?termId=${effectiveReturnTermId}`
+        );
+      }
+
+      return res.redirect("/common/editStudent?studentId=" + studentId);
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});
       // ...removed error log for clean background operation...
@@ -8952,29 +9010,14 @@ const commonController = {
   },
 
   createEmployeeGet: async (req, res, db) => {
-    const requestId = `ceg-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const startedAt = Date.now();
-
-    const logStep = (step, extra = {}) => {
-      console.info(`[CreateEmployee:Get][${requestId}] ${step}`, {
-        elapsedMs: Date.now() - startedAt,
-        organizationId: req.session.organizationId,
-        userId: req.session.userId || req.session.user?.user_id || null,
-        ...extra,
-      });
-    };
-
     try {
-      logStep("start");
       await ensurePermissionsSchema(db);
       await ensureClassDashboardLayoutSchema(db);
-      logStep("permissions_schema_ready");
 
       const classesResult = await db.query(
         `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
-      logStep("classes_loaded", { classCount: classesResult.rows.length });
 
       const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
       const permissionOptions = setAssessmentQuestionsFeatureEnabled
@@ -9000,34 +9043,13 @@ const commonController = {
           error: req.flash("error"),
         },
       });
-      logStep("render_complete");
     } catch (error) {
-      console.error(`[CreateEmployee:Get][${requestId}] failed`, {
-        elapsedMs: Date.now() - startedAt,
-        message: error.message,
-        stack: error.stack,
-      });
       req.flash("error", "Failed to load classes.");
       res.redirect("/common/manageEmployees");
     }
   },
 
   createEmployeePost: async (req, res, db) => {
-    const postId = `cep-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const postStart = Date.now();
-    const elapsed = () => `${Date.now() - postStart}ms`;
-
-    console.info(`\n====== [CreateEmployee:POST][${postId}] START ======`);
-    console.info(`[CreateEmployee:POST][${postId}] body_received`, {
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      email: req.body.email,
-      account_type: req.body.account_type,
-      rawPermissions: req.body.permissions,
-      rawClasses: req.body.classes,
-      rawSubjects: req.body.subjects,
-    });
-
     const { firstName, lastName, email, account_type, dateOfBirth } = req.body;
 
     let classes = req.body.classes || [];
@@ -9048,18 +9070,10 @@ const commonController = {
       PERMISSIONS.MANAGE_BILLING,
     ]);
 
-    console.info(`[CreateEmployee:POST][${postId}] permissions_parsed`, {
-      requestedPermissions,
-      requestorRole,
-      requestorId,
-      organizationId,
-    });
-
     if (!Array.isArray(classes)) classes = [classes];
     if (!Array.isArray(subjects)) subjects = [subjects];
 
     if (!firstName || !lastName || !email || !account_type) {
-      console.warn(`[CreateEmployee:POST][${postId}] missing_required_fields`);
       req.flash("error", "All fields are required.");
       return res.redirect("/common/createEmployee");
     }
@@ -9069,7 +9083,6 @@ const commonController = {
       isManagerLikeRole(requestorRole) || requestorRoleName === "Manager";
 
     if (account_type === "Manager" && !canAssignSensitivePermissions) {
-      console.warn(`[CreateEmployee:POST][${postId}] manager_creation_blocked`, { requestorRole });
       req.flash("error", "Only managers can create manager accounts.");
       return res.redirect("/common/createEmployee");
     }
@@ -9082,61 +9095,35 @@ const commonController = {
     // so the permission page remains authoritative for every employee role.
     const effectivePermissions = sanitizedRequestedPermissions;
 
-    console.info(`[CreateEmployee:POST][${postId}] effective_permissions_computed`, {
-      sanitizedRequestedPermissions,
-      effectivePermissions,
-      account_type,
-      elapsed: elapsed(),
-    });
-
     // ─── Step 1: Ensure schema using the POOL (not a transaction client) to
     //             avoid locking issues that cause the request to hang. ────────
-    console.info(`[CreateEmployee:POST][${postId}] step1_ensure_schema_start`, { elapsed: elapsed() });
     try {
       await ensureUserBirthdaySchema(db);
       await ensurePermissionsSchema(db);
-      console.info(`[CreateEmployee:POST][${postId}] step1_ensure_schema_done`, { elapsed: elapsed() });
     } catch (schemaErr) {
-      console.error(`[CreateEmployee:POST][${postId}] step1_ensure_schema_FAILED`, {
-        message: schemaErr.message,
-        elapsed: elapsed(),
-      });
       req.flash("error", "Database schema error: " + schemaErr.message);
       return res.redirect("/common/createEmployee");
     }
 
     // ─── Step 2: Acquire a connection from the pool ──────────────────────────
-    console.info(`[CreateEmployee:POST][${postId}] step2_acquiring_db_client`, { elapsed: elapsed() });
     let client;
     try {
       client = await db.connect();
-      console.info(`[CreateEmployee:POST][${postId}] step2_db_client_acquired`, { elapsed: elapsed() });
     } catch (connErr) {
-      console.error(`[CreateEmployee:POST][${postId}] step2_db_connect_FAILED`, {
-        message: connErr.message,
-        elapsed: elapsed(),
-      });
       req.flash("error", "Could not connect to the database. Please try again.");
       return res.redirect("/common/createEmployee");
     }
 
     try {
-      await ensureUserBirthdaySchema(client);
       // ─── Step 3: Check for duplicate email ────────────────────────────────
-      console.info(`[CreateEmployee:POST][${postId}] step3_begin_transaction`, { elapsed: elapsed() });
       await client.query("BEGIN");
 
-      console.info(`[CreateEmployee:POST][${postId}] step3_check_email_start`, { email, elapsed: elapsed() });
       const emailCheckResult = await client.query(
         `SELECT email FROM users WHERE LOWER(email) = LOWER($1)
          UNION
          SELECT email FROM organizations WHERE LOWER(email) = LOWER($1)`,
         [email]
       );
-      console.info(`[CreateEmployee:POST][${postId}] step3_check_email_done`, {
-        duplicate: emailCheckResult.rows.length > 0,
-        elapsed: elapsed(),
-      });
 
       if (emailCheckResult.rows.length > 0) {
         req.flash("error", "This email is already in use by another user or organization.");
@@ -9148,10 +9135,8 @@ const commonController = {
       const token = crypto.randomBytes(32).toString("hex");
       const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
       const tokenExpiration = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-      console.info(`[CreateEmployee:POST][${postId}] step4_token_generated`, { elapsed: elapsed() });
 
       // ─── Step 5: Insert user ──────────────────────────────────────────────
-      console.info(`[CreateEmployee:POST][${postId}] step5_insert_user_start`, { elapsed: elapsed() });
       const result = await client.query(
         `INSERT INTO users (
            first_name, last_name, email, account_type, date_of_birth, organization_id,
@@ -9162,7 +9147,6 @@ const commonController = {
         [firstName, lastName, email, account_type, dateOfBirth || null, req.session.organizationId, hashedToken, tokenExpiration]
       );
       const userId = result.rows[0].user_id;
-      console.info(`[CreateEmployee:POST][${postId}] step5_insert_user_done`, { userId, elapsed: elapsed() });
 
       // ─── Step 6: Assign classes ───────────────────────────────────────────
       const normalizedClassIds = [...new Set(
@@ -9186,13 +9170,6 @@ const commonController = {
           )
         : { rows: [] };
       const safeSubjectIds = ownedSubjectsCE.rows.map(r => Number(r.subject_id));
-      console.info(`[CreateEmployee:POST][${postId}] step6_classes_subjects`, {
-        normalizedClassIds,
-        normalizedSubjectIds,
-        safeClassIds,
-        safeSubjectIds,
-        elapsed: elapsed(),
-      });
 
       if (safeClassIds.length > 0) {
         await client.query(
@@ -9200,7 +9177,6 @@ const commonController = {
            SELECT $1, unnest($2::int[]), FALSE`,
           [userId, safeClassIds]
         );
-        console.info(`[CreateEmployee:POST][${postId}] step6_classes_inserted`, { elapsed: elapsed() });
       }
 
       if (safeSubjectIds.length > 0) {
@@ -9210,113 +9186,45 @@ const commonController = {
            ON CONFLICT (user_id, subject_id) DO NOTHING`,
           [userId, safeSubjectIds]
         );
-        console.info(`[CreateEmployee:POST][${postId}] step6_subjects_inserted`, { elapsed: elapsed() });
       }
 
       // ─── Step 7: Save permissions ─────────────────────────────────────────
-      console.info(`[CreateEmployee:POST][${postId}] step7_permissions_start`, {
-        userId,
-        organizationId,
-        effectivePermissions,
-        effectivePermissionsCount: effectivePermissions.length,
-        elapsed: elapsed(),
-      });
-
       if (effectivePermissions.length > 0) {
-        const permInsertResult = await client.query(
+          await client.query(
           `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
            SELECT $1, $2, unnest($3::text[]), $4
            ON CONFLICT (user_id, organization_id, permission_key) DO UPDATE
            SET granted_by = EXCLUDED.granted_by
-           RETURNING permission_key`,
+             `,
           [userId, organizationId, effectivePermissions, requestorId]
         );
-        console.info(`[CreateEmployee:POST][${postId}] step7_permissions_inserted`, {
-          inserted: permInsertResult.rows.map((r) => r.permission_key),
-          rowCount: permInsertResult.rowCount,
-          elapsed: elapsed(),
-        });
-      } else {
-        console.warn(`[CreateEmployee:POST][${postId}] step7_permissions_SKIPPED — effectivePermissions is empty`, {
-          account_type,
-          sanitizedRequestedPermissions,
-          elapsed: elapsed(),
-        });
       }
 
-      // ─── Step 8: Verify permissions were written (within same transaction) ─
-      const verifyResult = await client.query(
-        `SELECT permission_key FROM user_permissions
-         WHERE user_id = $1 AND organization_id = $2
-         ORDER BY permission_key ASC`,
-        [userId, organizationId]
-      );
-      const persistedPermissions = verifyResult.rows.map((r) => r.permission_key);
-      const expectedPermissions = [...effectivePermissions].sort();
-
-      if (persistedPermissions.length === 0 && effectivePermissions.length > 0) {
-        console.error(`[CreateEmployee:POST][${postId}] step8_permissions_VERIFY_EMPTY — nothing in DB after INSERT`, {
-          userId,
-          organizationId,
-          effectivePermissions,
-          elapsed: elapsed(),
-        });
-      } else if (JSON.stringify(persistedPermissions) !== JSON.stringify(expectedPermissions)) {
-        console.warn(`[CreateEmployee:POST][${postId}] step8_permissions_MISMATCH`, {
-          userId,
-          organizationId,
-          expectedPermissions,
-          persistedPermissions,
-          elapsed: elapsed(),
-        });
-      } else {
-        console.info(`[CreateEmployee:POST][${postId}] step8_permissions_VERIFIED_OK`, {
-          userId,
-          organizationId,
-          permissionCount: persistedPermissions.length,
-          permissions: persistedPermissions,
-          elapsed: elapsed(),
-        });
-      }
-
-      // ─── Step 9: Commit ───────────────────────────────────────────────────
+      // ─── Step 8: Commit ───────────────────────────────────────────────────
       const baseUrl = req.protocol + "://" + req.get("host");
       const setPasswordUrl = `${baseUrl}/common/set-password?token=${token}`;
       const organizationName = req.session.organizationName;
 
-      console.info(`[CreateEmployee:POST][${postId}] step9_commit_start`, { elapsed: elapsed() });
       await client.query("COMMIT");
       invalidateUserPermissionCache(organizationId, userId);
-      console.info(`[CreateEmployee:POST][${postId}] step9_commit_done`, { userId, elapsed: elapsed() });
 
       setImmediate(async () => {
         try {
           const { classNames, subjectNames } = await resolveAssignmentNames(db, normalizedClassIds, normalizedSubjectIds);
-          const sent = await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, organizationId, classNames, subjectNames);
-          if (!sent) {
-            console.warn(`[CreateEmployee:POST][${postId}] email_send_FAILED for user ${userId} (${email})`);
-          } else {
-            console.info(`[CreateEmployee:POST][${postId}] email_sent for user ${userId}`);
-          }
-        } catch (err) {
-          console.warn(`[CreateEmployee:POST][${postId}] email_send_ERROR:`, err.message);
+          await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, organizationId, classNames, subjectNames);
+        } catch (_) {
+          // Best-effort email send should never block creation flow.
         }
       });
 
-      console.info(`[CreateEmployee:POST][${postId}] ====== COMPLETE — total ${elapsed()} ======\n`);
       req.flash("success", "Employee created successfully. Password invite is being sent now.");
       res.redirect("/common/createEmployee");
     } catch (error) {
-      console.error(`[CreateEmployee:POST][${postId}] ====== ERROR at ${elapsed()} ======`, {
-        message: error.message,
-        stack: error.stack,
-      });
       try { await client.query("ROLLBACK"); } catch (_) {}
       req.flash("error", "Failed to create employee: " + error.message);
       res.redirect("/common/createEmployee");
     } finally {
       client.release();
-      console.info(`[CreateEmployee:POST][${postId}] db_client_released`, { elapsed: elapsed() });
     }
   },
 
@@ -10036,6 +9944,23 @@ const commonController = {
     const requestorRole = req.session.userRole;
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
+    const wantsJson =
+      req.xhr ||
+      String(req.headers.accept || "").toLowerCase().includes("application/json");
+    const respondModifyEmployeeError = (statusCode, message, redirectPath) => {
+      if (wantsJson) {
+        return res.status(statusCode).json({ success: false, error: message });
+      }
+      req.flash("error", message);
+      return res.redirect(redirectPath || `/common/modifyEmployee?userId=${userId}`);
+    };
+    const respondModifyEmployeeSuccess = (message) => {
+      req.flash("success", message);
+      if (wantsJson) {
+        return res.status(200).json({ success: true, message });
+      }
+      return res.redirect("/common/manageEmployees");
+    };
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
     const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
     const featureFilteredPermissions = setAssessmentQuestionsFeatureEnabled
@@ -10054,13 +9979,11 @@ const commonController = {
       isManagerLikeRole(requestorRole) || requestorRoleName === "Manager";
 
     if (!accountType) {
-      req.flash("error", "Please select a role for this employee.");
-      return res.redirect(`/common/modifyEmployee?userId=${userId}`);
+      return respondModifyEmployeeError(400, "Please select a role for this employee.");
     }
 
     if (accountType === "Manager" && !canAssignSensitivePermissions) {
-      req.flash("error", "Only managers can assign manager role.");
-      return res.redirect(`/common/modifyEmployee?userId=${userId}`);
+      return respondModifyEmployeeError(403, "Only managers can assign manager role.");
     }
 
     const sanitizedRequestedPermissions = canAssignSensitivePermissions
@@ -10072,8 +9995,7 @@ const commonController = {
 
     // Guard: session must have organizationId or the INSERT will fail
     if (!organizationId) {
-      req.flash("error", "Session error: please log in again.");
-      return res.redirect("/account/login");
+      return respondModifyEmployeeError(401, "Session error: please log in again.", "/account/login");
     }
 
     const normalizedClassIds = [...new Set(
@@ -10102,8 +10024,7 @@ const commonController = {
       );
       if (currentUserResult.rows.length === 0) {
         await client.query("ROLLBACK");
-        req.flash("error", "Employee not found.");
-        return res.redirect("/common/manageEmployees");
+        return respondModifyEmployeeError(404, "Employee not found.", "/common/manageEmployees");
       }
 
       const currentEmail = currentUserResult.rows[0].email;
@@ -10117,8 +10038,10 @@ const commonController = {
         );
         if (emailCheckResult.rows.length > 0) {
           await client.query("ROLLBACK");
-          req.flash("error", "Email already in use by another user or organization. Please use a different email.");
-          return res.redirect(`/common/modifyEmployee?userId=${userId}`);
+          return respondModifyEmployeeError(
+            409,
+            "Email already in use by another user or organization. Please use a different email."
+          );
         }
       }
 
@@ -10203,12 +10126,13 @@ const commonController = {
         }
       }
 
-      req.flash("success", "Employee details updated successfully.");
-      res.redirect(`/common/modifyEmployee?userId=${userId}`);
+      return respondModifyEmployeeSuccess("Employee details updated successfully.");
     } catch (error) {
       try { await client.query("ROLLBACK"); } catch (_) {}
-      req.flash("error", "Failed to update employee details: " + error.message);
-      res.redirect(`/common/modifyEmployee?userId=${userId}`);
+      return respondModifyEmployeeError(
+        500,
+        "Failed to update employee details: " + error.message
+      );
     } finally {
       client.release();
     }
@@ -10849,6 +10773,7 @@ const commonController = {
 
   getAssessmentQuestionSets: async (req, res, db) => {
     const organizationId = req.session.organizationId;
+    const questionSetId = req.query.questionSetId ? Number(req.query.questionSetId) : null;
     const classId = Number(req.query.classId);
     const subjectId = Number(req.query.subjectId);
     const termId = Number(req.query.termId || req.session.currentTermId);
@@ -10920,23 +10845,34 @@ const commonController = {
         }
       }
 
-      const params = [organizationId, termId, classId, subjectId];
-      let whereClause = `
-        qs.organization_id = $1
-        AND qs.term_id = $2
-        AND qs.class_id = $3
-        AND qs.subject_id = $4
-        AND EXISTS (
-          SELECT 1
-          FROM assessments a2
-          WHERE a2.assessment_id = qs.assessment_id
-            AND a2.organization_id = qs.organization_id
-            AND COALESCE(a2.show_question_set_on_dashboard, FALSE) = TRUE
-        )
-      `;
-      if (Number.isInteger(assessmentId) && assessmentId > 0) {
-        params.push(assessmentId);
-        whereClause += ` AND qs.assessment_id = $5`;
+      let params;
+      let whereClause;
+
+      if (Number.isInteger(questionSetId) && questionSetId > 0) {
+        params = [organizationId, questionSetId];
+        whereClause = `
+          qs.organization_id = $1
+          AND qs.question_set_id = $2
+        `;
+      } else {
+        params = [organizationId, termId, classId, subjectId];
+        whereClause = `
+          qs.organization_id = $1
+          AND qs.term_id = $2
+          AND qs.class_id = $3
+          AND qs.subject_id = $4
+          AND EXISTS (
+            SELECT 1
+            FROM assessments a2
+            WHERE a2.assessment_id = qs.assessment_id
+              AND a2.organization_id = qs.organization_id
+              AND COALESCE(a2.show_question_set_on_dashboard, FALSE) = TRUE
+          )
+        `;
+        if (Number.isInteger(assessmentId) && assessmentId > 0) {
+          params.push(assessmentId);
+          whereClause += ` AND qs.assessment_id = $5`;
+        }
       }
 
       const setsResult = await db.query(
@@ -10946,6 +10882,7 @@ const commonController = {
            qs.group_id,
            qs.set_title,
            qs.set_description,
+           qs.question_card_layout,
            qs.total_points,
            qs.is_active,
            qs.review_status,
@@ -10973,6 +10910,7 @@ const commonController = {
                question_type,
                question_text,
                options_json,
+              options_layout,
                answer_key,
                marks,
                position_index
@@ -10992,6 +10930,7 @@ const commonController = {
           questionType: row.question_type,
           questionText: row.question_text,
           options: Array.isArray(row.options_json) ? row.options_json : [],
+          optionLayout: String(row.options_layout || 'stacked').toLowerCase() === 'side_by_side' ? 'side_by_side' : 'stacked',
           answerKey: row.answer_key || "",
           marks: Number(row.marks || 0),
           positionIndex: Number(row.position_index || 0),
@@ -11005,6 +10944,7 @@ const commonController = {
         groupId: row.group_id,
         setTitle: row.set_title,
         setDescription: row.set_description || "",
+        questionCardLayout: String(row.question_card_layout || 'stacked').toLowerCase() === 'side_by_side' ? 'side_by_side' : 'stacked',
         totalPoints: Number(row.total_points || 0),
         isActive: Boolean(row.is_active),
         reviewStatus: String(row.review_status || "pending").toLowerCase(),
@@ -11033,6 +10973,8 @@ const commonController = {
     const questionSetId = req.body.questionSetId ? Number(req.body.questionSetId) : null;
     const setTitle = String(req.body.setTitle || "").trim();
     const setDescription = String(req.body.setDescription || "").trim();
+    const questionCardLayoutRaw = String(req.body.questionCardLayout || "").trim().toLowerCase();
+    const questionCardLayout = questionCardLayoutRaw === 'side_by_side' ? 'side_by_side' : 'stacked';
     const hasOpenBookSetting = Object.prototype.hasOwnProperty.call(req.body || {}, "openBook");
     const hasTimeLimitSetting = Object.prototype.hasOwnProperty.call(req.body || {}, "timeLimitMinutes");
     const parsedOpenBookSetting = parseBooleanValue(req.body.openBook, false);
@@ -11076,9 +11018,13 @@ const commonController = {
       }
 
       const assessmentRow = assessmentResult.rows[0];
-      if (!assessmentRow.show_question_set_on_dashboard) {
+      const isEditingExistingSet = Number.isInteger(questionSetId) && questionSetId > 0;
+      if (!assessmentRow.show_question_set_on_dashboard && !isEditingExistingSet) {
         await client.query("ROLLBACK");
-        return res.status(403).json({ success: false, error: "Question sets are disabled for this assessment." });
+        return res.status(403).json({
+          success: false,
+          error: "Question sets are disabled for this assessment. Turn on question sets for this assessment to create a new set.",
+        });
       }
       const classId = Number(assessmentRow.class_id || requestedClassId || 0);
       const subjectId = Number(assessmentRow.subject_id || requestedSubjectId || 0);
@@ -11111,16 +11057,12 @@ const commonController = {
 
       if (Number.isInteger(questionSetId) && questionSetId > 0) {
         const existingTargetResult = await client.query(
-          `SELECT question_set_id
+          `SELECT question_set_id, review_status
            FROM assessment_question_sets
            WHERE question_set_id = $1
              AND organization_id = $2
-             AND term_id = $3
-             AND class_id = $4
-             AND subject_id = $5
-             AND assessment_id = $6
            LIMIT 1`,
-          [questionSetId, organizationId, termId, classId, subjectId, assessmentId]
+          [questionSetId, organizationId]
         );
 
         if (!existingTargetResult.rows.length) {
@@ -11128,21 +11070,66 @@ const commonController = {
           return res.status(404).json({ success: false, error: "Question set not found for this assessment." });
         }
 
+        const conflictingSetResult = await client.query(
+          `SELECT question_set_id, review_status
+           FROM assessment_question_sets
+           WHERE organization_id = $1
+             AND term_id = $2
+             AND class_id = $3
+             AND subject_id = $4
+             AND assessment_id = $5
+             AND question_set_id <> $6
+           ORDER BY question_set_id DESC
+           LIMIT 1`,
+          [organizationId, termId, classId, subjectId, assessmentId, questionSetId]
+        );
+
+        if (conflictingSetResult.rows.length > 0) {
+          const conflictingSet = conflictingSetResult.rows[0];
+          const conflictingStatus = String(conflictingSet.review_status || "pending").toLowerCase();
+          await client.query("ROLLBACK");
+          return res.status(409).json({
+            success: false,
+            error: `Questions already exist for this assessment (status: ${conflictingStatus}).`,
+            questionSetId: Number(conflictingSet.question_set_id),
+            reviewStatus: conflictingStatus,
+          });
+        }
+
         await client.query(
           `UPDATE assessment_question_sets
-           SET set_title = $1,
-               set_description = $2,
-               total_points = $3,
+           SET term_id = $1,
+               class_id = $2,
+               subject_id = $3,
+               assessment_id = $4,
+               group_id = $5,
+               set_title = $6,
+               set_description = $7,
+               question_card_layout = $8,
+               total_points = $9,
                review_status = 'pending',
                review_note = NULL,
                reviewed_by = NULL,
                reviewed_at = NULL,
                submitted_at = NOW(),
-               updated_by = $4,
+               updated_by = $10,
                updated_at = NOW()
-           WHERE question_set_id = $5
-             AND organization_id = $6`,
-          [setTitle, setDescription || null, totalPoints, actorUserId, questionSetId, organizationId]
+           WHERE question_set_id = $11
+             AND organization_id = $12`,
+          [
+            termId,
+            classId,
+            subjectId,
+            assessmentId,
+            assessmentRow.group_id || null,
+            setTitle,
+            setDescription || null,
+            questionCardLayout,
+            totalPoints,
+            actorUserId,
+            questionSetId,
+            organizationId,
+          ]
         );
 
         resolvedQuestionSetId = questionSetId;
@@ -11204,6 +11191,14 @@ const commonController = {
           ]
         );
 
+          await client.query(
+            `UPDATE assessment_question_sets
+             SET question_card_layout = $1
+             WHERE question_set_id = $2
+               AND organization_id = $3`,
+            [questionCardLayout, insertResult.rows[0].question_set_id, organizationId]
+          );
+
         resolvedQuestionSetId = insertResult.rows[0].question_set_id;
       }
 
@@ -11220,17 +11215,19 @@ const commonController = {
              question_type,
              question_text,
              options_json,
+             options_layout,
              answer_key,
              marks,
              position_index
            )
-           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)`,
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)`,
           [
             resolvedQuestionSetId,
             organizationId,
             question.questionType,
             question.questionText,
             JSON.stringify(question.options || []),
+            String(question.optionLayout || '').toLowerCase() === 'side_by_side' ? 'side_by_side' : 'stacked',
             question.answerKey || null,
             question.marks,
             question.positionIndex,
@@ -12026,12 +12023,15 @@ NUMBERING:
 
   allClassAssessmentExamsPage: async (req, res, db) => {
     const sessionOrganizationId = parseInt(req.session.organizationId, 10);
+    const isEmbedded = String((req.query && req.query.embed) || "").toLowerCase() === "workspace";
     const requestedOrganizationId = req.query.organizationId
       ? parseInt(req.query.organizationId, 10)
       : sessionOrganizationId;
     const organizationId = sessionOrganizationId;
     const rawTermId = req.query.termId || req.session.termId || req.session.currentTermId || null;
     const requestedTermId = rawTermId ? parseInt(rawTermId, 10) : null;
+    const rawClassId = req.query.classId || null;
+    const requestedClassId = rawClassId ? parseInt(rawClassId, 10) : null;
 
     if (!organizationId || Number.isNaN(organizationId)) {
       req.flash("error", "Organization ID is required.");
@@ -12062,6 +12062,57 @@ NUMBERING:
         },
         PERMISSIONS.MANAGE_SETTINGS
       );
+      const currentUserId = Number(req.session.userId || req.session.user?.user_id || 0) || null;
+      const normalizedRole = normalizeRoleKey(
+        req.session.userRole || req.session.user?.account_type || req.session.accountType
+      );
+      let allowedTeacherClassIds = null;
+      if (normalizedRole === "teacher" && currentUserId) {
+        try {
+          const teacherClassesResult = await db.query(
+            `SELECT uc.class_id
+             FROM user_classes uc
+             JOIN classes c ON c.class_id = uc.class_id
+             WHERE uc.user_id = $1
+               AND c.organization_id = $2`,
+            [currentUserId, organizationId]
+          );
+          allowedTeacherClassIds = teacherClassesResult.rows
+            .map((row) => Number(row.class_id))
+            .filter((value) => Number.isInteger(value) && value > 0);
+        } catch (scopeError) {
+          console.warn(
+            "[allClassAssessmentExamsPage] Teacher scope lookup failed; continuing without teacher-only class narrowing:",
+            scopeError?.message || scopeError
+          );
+          allowedTeacherClassIds = null;
+        }
+      }
+
+      let scopedClassId = Number.isInteger(requestedClassId) && requestedClassId > 0
+        ? Number(requestedClassId)
+        : null;
+      const allowedTeacherClassSet = Array.isArray(allowedTeacherClassIds)
+        ? new Set(allowedTeacherClassIds)
+        : null;
+
+      if (allowedTeacherClassSet) {
+        if (scopedClassId && !allowedTeacherClassSet.has(scopedClassId)) {
+          req.flash("error", "You can only access assessment questions for classes assigned to you.");
+          return res.status(403).send("Forbidden");
+        }
+        if (!scopedClassId && allowedTeacherClassIds.length) {
+          scopedClassId = allowedTeacherClassIds[0];
+        }
+      }
+
+      const isClassInScope = (classIdValue) => {
+        const numericClassId = Number(classIdValue || 0);
+        if (!Number.isInteger(numericClassId) || numericClassId <= 0) return false;
+        if (allowedTeacherClassSet && !allowedTeacherClassSet.has(numericClassId)) return false;
+        if (scopedClassId && numericClassId !== scopedClassId) return false;
+        return true;
+      };
 
       const termContextResult = await db.query(
         `SELECT
@@ -12112,18 +12163,21 @@ NUMBERING:
       const schoolYears = Array.from(schoolYearMap.values());
 
       const classesResult = await db.query(
-        `SELECT DISTINCT c.class_id, c.class_name
+        `SELECT c.class_id, c.class_name
          FROM enrolled_classes ec
          JOIN classes c ON c.class_id = ec.class_id
          JOIN enrollments e ON e.enrollment_id = ec.enrollment_id
          WHERE e.organization_id = $1
            AND e.term_id = $2
            AND c.organization_id = $1
+         GROUP BY c.class_id, c.class_name, c.dashboard_sort_order
          ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC`,
         [organizationId, termId]
       );
 
-      const classIds = classesResult.rows
+      const scopedClasses = classesResult.rows.filter((row) => isClassInScope(row.class_id));
+
+      const classIds = scopedClasses
         .map((row) => Number(row.class_id))
         .filter((value) => Number.isInteger(value) && value > 0);
 
@@ -12153,6 +12207,8 @@ NUMBERING:
          ORDER BY e.term_id ASC, c.class_name ASC, s.subject_name ASC NULLS LAST`,
         [organizationId]
       );
+
+      const scopedTermClassSubjects = termClassSubjectsResult.rows.filter((row) => isClassInScope(row.class_id));
 
       const assessmentsForOrgResult = await db.query(
         `SELECT
@@ -12206,7 +12262,9 @@ NUMBERING:
         [organizationId]
       );
 
-      const assessmentsForOrg = assessmentsForOrgResult.rows.map((row) => {
+      const scopedAssessmentRows = assessmentsForOrgResult.rows.filter((row) => isClassInScope(row.class_id));
+
+      const assessmentsForOrg = scopedAssessmentRows.map((row) => {
         const editability = computeAssessmentEditability(row);
         return {
           assessment_id: row.assessment_id,
@@ -12440,7 +12498,9 @@ NUMBERING:
         [organizationId, termId]
       );
 
-      const questionSetIds = questionSetsResult.rows
+      const scopedQuestionSetRows = questionSetsResult.rows.filter((row) => isClassInScope(row.class_id));
+
+      const questionSetIds = scopedQuestionSetRows
         .map((row) => Number(row.question_set_id))
         .filter((value) => Number.isInteger(value) && value > 0);
 
@@ -12475,7 +12535,7 @@ NUMBERING:
         });
       });
 
-      const questionSets = questionSetsResult.rows.map((row) => ({
+      const questionSets = scopedQuestionSetRows.map((row) => ({
         question_set_id: row.question_set_id,
         class_id: Number(row.class_id),
         subject_id: Number(row.subject_id),
@@ -12503,19 +12563,24 @@ NUMBERING:
       return res.render("common/allClassAssessmentExams", {
         title: "All Class Assessment Questions",
         organizationId,
+        isEmbedded,
         termId,
         selectedTermName: activeTermRow.term_name,
         selectedSchoolYearId: Number(activeTermRow.school_year_id),
+        selectedClassId: scopedClassId || 0,
         schoolYears,
-        classes: classesResult.rows,
+        classes: scopedClasses,
         subjects: subjectsResult.rows,
-        termClassSubjects: termClassSubjectsResult.rows,
+        termClassSubjects: scopedTermClassSubjects,
         assessmentsForOrg: [],
         assessmentsForTerm: enrichedAssessmentsForTerm,
         questionSets,
         canUseGoogleClassroom: googleIntegration.activated,
         canUseQuestionSetIntegration,
         canManageGoogleIntegration,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         messages: req.flash(),
       });
     } catch (error) {
@@ -13615,150 +13680,114 @@ NUMBERING:
             assessmentId,
           ]
         );
-
-        await client.query(
-          `
-            UPDATE assessment_results
-            SET title = $1,
-                subject_id = $2,
-                class_id = $3,
-                category = $4,
-                term_id = $5,
-                organization_id = $6
-            WHERE assessment_id = $7
-          `,
-          [
-            testName,
-            assignment.subjectId,
-            assignment.classId,
-            category,
-            termId,
-            organizationId,
-            assessmentId,
-          ]
-        );
       };
 
-      const recalculateAssignmentSummaries = async (assignment) => {
-        await client.query(
-          `
-            UPDATE assessment_results
-            SET total_subject_score = NULL,
-                total_percentage = NULL,
-                grade = '-'
-            WHERE subject_id = $1 AND class_id = $2 AND organization_id = $3 AND term_id = $4
-          `,
-          [assignment.subjectId, assignment.classId, organizationId, termId]
-        );
-
-        await client.query(
+      const recalculateAssignmentSummaries = async (queryable, assignment) => {
+        await queryable.query(
           `
             DELETE FROM category_scores
             WHERE subject_id = $1 AND class_id = $2 AND organization_id = $3 AND term_id = $4
           `,
           [assignment.subjectId, assignment.classId, organizationId, termId]
         );
-
-        const scoreRowsResult = await client.query(
+        await queryable.query(
           `
-            SELECT ar.student_id, ar.score, a.max_score, a.category
+            INSERT INTO category_scores (
+              student_id,
+              class_id,
+              subject_id,
+              organization_id,
+              category,
+              total_score,
+              term_id
+            )
+            SELECT
+              ar.student_id,
+              ar.class_id,
+              ar.subject_id,
+              ar.organization_id,
+              a.category,
+              SUM(ar.score)::numeric,
+              ar.term_id
             FROM assessment_results ar
             JOIN assessments a ON a.assessment_id = ar.assessment_id
             WHERE ar.subject_id = $1
               AND ar.class_id = $2
               AND ar.organization_id = $3
               AND ar.term_id = $4
+              AND ar.score IS NOT NULL
+            GROUP BY ar.student_id, ar.class_id, ar.subject_id, ar.organization_id, a.category, ar.term_id
+            ON CONFLICT (student_id, class_id, subject_id, organization_id, category, term_id)
+            DO UPDATE SET total_score = EXCLUDED.total_score
           `,
           [assignment.subjectId, assignment.classId, organizationId, termId]
         );
 
-        const studentSummaryMap = new Map();
+        await queryable.query(
+          `
+            WITH summarized AS (
+              SELECT
+                ar.student_id,
+                ar.subject_id,
+                ar.class_id,
+                ar.term_id,
+                SUM(CASE WHEN ar.score IS NULL THEN 0 ELSE ar.score END)::numeric AS total_subject_score,
+                SUM(CASE WHEN ar.score IS NULL THEN 0 ELSE a.max_score END)::numeric AS max_total_score
+              FROM assessment_results ar
+              JOIN assessments a ON a.assessment_id = ar.assessment_id
+              WHERE ar.subject_id = $1
+                AND ar.class_id = $2
+                AND ar.organization_id = $3
+                AND ar.term_id = $4
+              GROUP BY ar.student_id, ar.subject_id, ar.class_id, ar.term_id
+            ),
+            decorated AS (
+              SELECT
+                s.student_id,
+                s.subject_id,
+                s.class_id,
+                s.term_id,
+                s.total_subject_score,
+                CASE
+                  WHEN s.max_total_score > 0 THEN (s.total_subject_score / s.max_total_score) * 100
+                  ELSE NULL
+                END AS total_percentage
+              FROM summarized s
+            )
+            UPDATE assessment_results ar
+            SET total_subject_score = d.total_subject_score,
+                total_percentage = d.total_percentage,
+                grade = COALESCE(
+                  (
+                    SELECT NULLIF(TRIM(sr.grade_label), '')
+                    FROM score_remarks sr
+                    WHERE sr.organization_id = $3
+                      AND sr.class_id = $2
+                      AND sr.term_id = $4
+                      AND d.total_percentage IS NOT NULL
+                      AND d.total_percentage BETWEEN sr.from_percentage AND sr.to_percentage
+                    ORDER BY sr.from_percentage DESC
+                    LIMIT 1
+                  ),
+                  CASE
+                    WHEN d.total_percentage IS NULL THEN '-'
+                    WHEN d.total_percentage >= 90 THEN 'A'
+                    WHEN d.total_percentage >= 80 THEN 'B'
+                    WHEN d.total_percentage >= 70 THEN 'C'
+                    ELSE 'D'
+                  END
+                )
+            FROM decorated d
+            WHERE ar.student_id = d.student_id
+              AND ar.subject_id = d.subject_id
+              AND ar.class_id = d.class_id
+              AND ar.organization_id = $3
+              AND ar.term_id = d.term_id
+          `,
+          [assignment.subjectId, assignment.classId, organizationId, termId]
+        );
 
-        scoreRowsResult.rows.forEach((row) => {
-          const studentId = Number(row.student_id);
-          if (!Number.isInteger(studentId)) {
-            return;
-          }
-
-          if (!studentSummaryMap.has(studentId)) {
-            studentSummaryMap.set(studentId, {
-              totalScore: 0,
-              maxTotalScore: 0,
-              categoryScores: new Map(),
-            });
-          }
-
-          if (row.score === null || row.score === "") {
-            return;
-          }
-
-          const summary = studentSummaryMap.get(studentId);
-          const numericScore = Number(row.score);
-          const numericMaxScore = Number(row.max_score);
-          summary.totalScore += numericScore;
-          summary.maxTotalScore += numericMaxScore;
-
-          const currentCategoryTotal = summary.categoryScores.get(row.category) || 0;
-          summary.categoryScores.set(row.category, currentCategoryTotal + numericScore);
-        });
-
-        for (const [studentId, summary] of studentSummaryMap.entries()) {
-          const totalPercentage =
-            summary.maxTotalScore > 0 ? (summary.totalScore / summary.maxTotalScore) * 100 : null;
-          const grade = await getGradeLabelFromScoreRemark(
-            client,
-            organizationId,
-            assignment.classId,
-            termId,
-            totalPercentage
-          );
-
-          await client.query(
-            `
-              UPDATE assessment_results
-              SET total_subject_score = $1,
-                  total_percentage = $2,
-                  grade = $3
-              WHERE student_id = $4
-                AND subject_id = $5
-                AND class_id = $6
-                AND organization_id = $7
-                AND term_id = $8
-            `,
-            [
-              summary.totalScore,
-              totalPercentage,
-              grade,
-              studentId,
-              assignment.subjectId,
-              assignment.classId,
-              organizationId,
-              termId,
-            ]
-          );
-
-          for (const [categoryName, totalCategoryScore] of summary.categoryScores.entries()) {
-            await client.query(
-              `
-                INSERT INTO category_scores (student_id, class_id, subject_id, organization_id, category, total_score, term_id)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (student_id, class_id, subject_id, organization_id, category, term_id)
-                DO UPDATE SET total_score = EXCLUDED.total_score
-              `,
-              [
-                studentId,
-                assignment.classId,
-                assignment.subjectId,
-                organizationId,
-                categoryName,
-                totalCategoryScore,
-                termId,
-              ]
-            );
-          }
-        }
-
-        await client.query(
+        await queryable.query(
           `
             WITH ranked_scores AS (
               SELECT
@@ -13894,6 +13923,7 @@ NUMBERING:
         }
       }
 
+      let finalAssignmentsForRecalc = [];
       if (assignmentsChanged || scoreRelevantMetadataChanged) {
         const finalAssignmentsResult = await client.query(
           `
@@ -13904,75 +13934,111 @@ NUMBERING:
           [groupId, organizationId, termId]
         );
 
-        for (const row of finalAssignmentsResult.rows) {
-          await recalculateAssignmentSummaries({
-            classId: Number(row.class_id),
-            subjectId: Number(row.subject_id),
-          });
-        }
+        finalAssignmentsForRecalc = finalAssignmentsResult.rows.map((row) => ({
+          classId: Number(row.class_id),
+          subjectId: Number(row.subject_id),
+        }));
       }
-
-      // Fetch term name
-      const termQuery = `SELECT term_name FROM terms WHERE term_id = $1`;
-      const termResult = await client.query(termQuery, [termId]);
-      const termName = termResult.rows[0]?.term_name || "Unknown Term";
-
-      // Fetch class names
-      const classQuery = `
-            SELECT class_name
-            FROM classes
-            WHERE class_id = ANY($1::int[])
-        ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}
-        `;
-      const classResult = await client.query(classQuery, [normalizedClassIds]);
-      const classNames = classResult.rows.map((row) => row.class_name);
 
       await client.query("COMMIT"); // Commit transaction
 
-      if (shouldNotifyTeachers && normalizedClassIds.length > 0) {
-        await notifyTeachersForAssessmentControl({
-          database: db,
-          organizationId: Number(organizationId),
-          classIds: normalizedClassIds,
-          testTitle: testName,
-          termName,
-          lockState: locked,
-          activeState: active,
-          editWindowStart: parsedWindowStart,
-          editWindowEnd: parsedWindowEnd,
-        });
-      }
+      // Respond immediately after commit for the fastest UX.
+      res.status(200).json({
+        message: "Assessment updated successfully.",
+      });
 
-      // B2 — notify class teachers that an assessment was modified
-      if (normalizedClassIds.length) {
-        notifSvc.notifyPerClassTeachers(db, {
-          orgId: Number(organizationId),
-          classIds: normalizedClassIds,
-          type: 'assessment_modified',
-          title: `✏️ ${testName}`,
-          body: `Updated · ${termName}`,
-          linkTemplate: '/common/classDashboard/{classId}/subject',
-        }).catch(err => console.error('[Notif] assessment_modified failed:', err.message));
-      }
+      // Run expensive recalculation and notifications after response.
+      setImmediate(async () => {
+        try {
+          // Keep request latency low: align denormalized assessment_result metadata in background.
+          await db.query(
+            `
+              UPDATE assessment_results ar
+              SET title = a.title,
+                  subject_id = a.subject_id,
+                  class_id = a.class_id,
+                  category = a.category,
+                  term_id = a.term_id,
+                  organization_id = a.organization_id
+              FROM assessments a
+              WHERE ar.assessment_id = a.assessment_id
+                AND a.group_id = $1
+                AND a.organization_id = $2
+                AND a.term_id = $3
+                AND (
+                  ar.title IS DISTINCT FROM a.title OR
+                  ar.subject_id IS DISTINCT FROM a.subject_id OR
+                  ar.class_id IS DISTINCT FROM a.class_id OR
+                  ar.category IS DISTINCT FROM a.category OR
+                  ar.term_id IS DISTINCT FROM a.term_id OR
+                  ar.organization_id IS DISTINCT FROM a.organization_id
+                )
+            `,
+            [groupId, organizationId, termId]
+          );
 
-      try {
-        const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
-        if (googleIntegration.shouldShowFeatures) {
-          await markGoogleSync(
-            db,
-            organizationId,
-            "queued",
-            "Assessment updates detected. Google Classroom sync queued."
+          if (finalAssignmentsForRecalc.length > 0) {
+            for (const assignment of finalAssignmentsForRecalc) {
+              await recalculateAssignmentSummaries(db, assignment);
+            }
+          }
+
+          let termName = "Unknown Term";
+          if (normalizedClassIds.length > 0 || shouldNotifyTeachers) {
+            try {
+              const termResult = await db.query(
+                `SELECT term_name FROM terms WHERE term_id = $1`,
+                [termId]
+              );
+              termName = termResult.rows[0]?.term_name || "Unknown Term";
+            } catch (termErr) {
+              console.error("[ModifyAssessment] Failed to resolve term name:", termErr.message);
+            }
+          }
+
+          if (shouldNotifyTeachers && normalizedClassIds.length > 0) {
+            notifyTeachersForAssessmentControl({
+              database: db,
+              organizationId: Number(organizationId),
+              classIds: normalizedClassIds,
+              testTitle: testName,
+              termName,
+              lockState: locked,
+              activeState: active,
+              editWindowStart: parsedWindowStart,
+              editWindowEnd: parsedWindowEnd,
+            }).catch((notifyErr) => {
+              console.error("[Notify] modifyAssessment teacher email failed:", notifyErr.message);
+            });
+          }
+
+          if (normalizedClassIds.length) {
+            notifSvc.notifyPerClassTeachers(db, {
+              orgId: Number(organizationId),
+              classIds: normalizedClassIds,
+              type: "assessment_modified",
+              title: `✏️ ${testName}`,
+              body: `Updated · ${termName}`,
+              linkTemplate: "/common/classDashboard/{classId}/subject",
+            }).catch((err) =>
+              console.error("[Notif] assessment_modified failed:", err.message)
+            );
+          }
+
+          if (googleIntegration.shouldShowFeatures) {
+            markGoogleSync(
+              db,
+              organizationId,
+              "queued",
+              "Assessment updates detected. Google Classroom sync queued."
+            ).catch(() => {});
+          }
+        } catch (backgroundErr) {
+          console.error(
+            "[ModifyAssessment] Background post-save work failed:",
+            backgroundErr.message
           );
         }
-      } catch (_) {
-      }
-
-      // Respond with the success message
-      res.status(200).json({
-        message: `Assessment updated successfully for Term: ${termName} with Classes: ${classNames.join(
-          ", "
-        )}`,
       });
     } catch (error) {
             await client.query("ROLLBACK"); // Rollback transaction
@@ -14433,6 +14499,7 @@ NUMBERING:
 
     const organizationId = req.session.organizationId;
     const requesterUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
+    let replacementUser = null;
 
     try {
       await db.query("BEGIN");
@@ -14492,7 +14559,6 @@ NUMBERING:
             [organizationId, userId]
           );
 
-          let replacementUser = null;
           for (const candidate of replacementCandidatesResult.rows) {
             const candidateRole = String(candidate.account_type || "").toLowerCase();
             const candidatePermissions = toPermissionSet(candidate.permissions || []);
@@ -14616,15 +14682,6 @@ NUMBERING:
     } catch (error) {
       try { await db.query("ROLLBACK"); } catch (rollbackError) {}
 
-      console.error("[deleteEmployee] Failed:", {
-        message: error?.message,
-        code: error?.code,
-        detail: error?.detail,
-        constraint: error?.constraint,
-        userId,
-        organizationId,
-      });
-
       if (error?.code === "23503") {
         let detailedMessage = "Failed to delete employee: this user is linked to protected records.";
 
@@ -14697,6 +14754,23 @@ NUMBERING:
       await ensureStudentReportCustomRemarksColumn(db);
       await ensureGoogleIntegrationSchema(db);
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
+      const canUseQuestionSetIntegration =
+        Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
+      const canSetAssessmentQuestions = await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId: organizationId || null,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.SET_ASSESSMENT_QUESTIONS
+      );
+      const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
+      const canAccessAssessmentQuestions =
+        canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions;
       const canManageAllClassAssessmentExams = ["manager", "supervisor"].includes(normalizedRole);
 
       // Fetch the current school year and term
@@ -14956,10 +15030,12 @@ NUMBERING:
         initialWorkspaceRoute = { panel: 'schedule', itemId: '' };
       } else if (routePanel === 'students') {
         initialWorkspaceRoute = { panel: 'students', itemId: '' };
+      } else if (routePanel === 'assessment-questions') {
+        initialWorkspaceRoute = { panel: 'assessment-questions', itemId: '' };
       } else if (routePanel === 'subjects') {
         initialWorkspaceRoute = { panel: 'subjects', itemId: '' };
       } else if (routePanel === 'class-exams' && canManageAllClassAssessmentExams) {
-        initialWorkspaceRoute = { panel: 'class-exams', itemId: '' };
+        initialWorkspaceRoute = { panel: 'assessment-questions', itemId: '' };
       } else if (routePanel === 'paygira') {
         initialWorkspaceRoute = { panel: 'paygira', itemId: '' };
       } else if (routePanel === 'student' && routeItemId) {
@@ -15001,6 +15077,8 @@ NUMBERING:
         classroomRemarkTypes: configuredClassroomRemarkTypes,
         classroomCustomRemarkTypes: customRemarkTypes,
         studentTeacherRemarksMap,
+        canAccessAssessmentQuestions,
+        hideGlobalFooter: true,
       });
     } catch (err) {
             res.status(500).send("Error loading class dashboard");
@@ -17113,6 +17191,23 @@ NUMBERING:
         PERMISSIONS.MANAGE_EMPLOYEES
       );
       const googleIntegration = await getGoogleIntegrationStatus(db, req.session.organizationId);
+      const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, req.session.organizationId);
+      const canUseQuestionSetIntegration =
+        Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
+      const canSetAssessmentQuestions = await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId: req.session.organizationId || null,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.SET_ASSESSMENT_QUESTIONS
+      );
+      const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
+      const canAccessAssessmentQuestions =
+        canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions;
       const normalizedRole = normalizeRoleKey(
         req.session.userRole || req.session.user?.account_type || req.session.accountType
       );
@@ -17140,6 +17235,7 @@ NUMBERING:
         failedEmailCount,
         googleIntegration,
         canManageAllClassAssessmentExams,
+        canAccessAssessmentQuestions,
       });
     } catch (error) {
             res.status(500).send("Failed to load management data");
@@ -18522,8 +18618,66 @@ NUMBERING:
             lg.guardian_id,
             lg.first_name,
             lg.last_name,
-            lg.email,
-            lg.phone,
+            (
+              SELECT gp.guardian_id
+              FROM guardian_profiles gp
+              LEFT JOIN guardian_accounts ga
+                ON ga.guardian_id = gp.guardian_id
+               AND ga.organization_id = gp.organization_id
+              WHERE gp.organization_id = $1
+                AND (
+                  (lg.email IS NOT NULL AND LOWER(TRIM(COALESCE(gp.email, ''))) = LOWER(TRIM(lg.email)))
+                  OR (
+                    LOWER(TRIM(gp.first_name)) = lg.first_name_key
+                    AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = lg.last_name_key
+                    AND COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = lg.phone_key
+                  )
+                )
+              ORDER BY ga.updated_at DESC NULLS LAST, gp.guardian_id DESC
+              LIMIT 1
+            ) AS matched_profile_guardian_id,
+            COALESCE(
+              (
+                SELECT NULLIF(TRIM(COALESCE(ga.login_email, '')), '')
+                FROM guardian_profiles gp
+                LEFT JOIN guardian_accounts ga
+                  ON ga.guardian_id = gp.guardian_id
+                 AND ga.organization_id = gp.organization_id
+                WHERE gp.organization_id = $1
+                  AND (
+                    (lg.email IS NOT NULL AND LOWER(TRIM(COALESCE(gp.email, ''))) = LOWER(TRIM(lg.email)))
+                    OR (
+                      LOWER(TRIM(gp.first_name)) = lg.first_name_key
+                      AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = lg.last_name_key
+                      AND COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = lg.phone_key
+                    )
+                  )
+                ORDER BY ga.updated_at DESC NULLS LAST
+                LIMIT 1
+              ),
+              lg.email
+            ) AS email,
+            COALESCE(
+              (
+                SELECT NULLIF(TRIM(COALESCE(ga.login_phone, '')), '')
+                FROM guardian_profiles gp
+                LEFT JOIN guardian_accounts ga
+                  ON ga.guardian_id = gp.guardian_id
+                 AND ga.organization_id = gp.organization_id
+                WHERE gp.organization_id = $1
+                  AND (
+                    (lg.email IS NOT NULL AND LOWER(TRIM(COALESCE(gp.email, ''))) = LOWER(TRIM(lg.email)))
+                    OR (
+                      LOWER(TRIM(gp.first_name)) = lg.first_name_key
+                      AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = lg.last_name_key
+                      AND COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = lg.phone_key
+                    )
+                  )
+                ORDER BY ga.updated_at DESC NULLS LAST
+                LIMIT 1
+              ),
+              lg.phone
+            ) AS phone,
             lg.address,
             lg.hometown,
             lg.image_url,
@@ -18547,13 +18701,35 @@ NUMBERING:
             'legacy'::text AS source
           FROM legacy_guardians lg
         ),
+        legacy_collapsed AS (
+          SELECT
+            MAX(lga.guardian_id) AS guardian_id,
+            MIN(lga.first_name) AS first_name,
+            MIN(lga.last_name) AS last_name,
+            MAX(lga.email) AS email,
+            MAX(lga.phone) AS phone,
+            MAX(lga.address) AS address,
+            MAX(lga.hometown) AS hometown,
+            MAX(lga.image_url) AS image_url,
+            SUM(lga.student_count)::int AS student_count,
+            BOOL_OR(lga.has_portal_access) AS has_portal_access,
+            MAX(lga.matched_profile_guardian_id) AS matched_profile_guardian_id,
+            'legacy'::text AS source
+          FROM legacy_with_access lga
+          GROUP BY
+            CASE
+              WHEN lga.matched_profile_guardian_id IS NOT NULL
+                THEN 'profile:' || lga.matched_profile_guardian_id::text
+              ELSE 'legacy:' || lga.guardian_id::text
+            END
+        ),
         profile_guardians AS (
           SELECT
             gp.guardian_id,
             TRIM(gp.first_name) AS first_name,
             TRIM(COALESCE(gp.last_name, '')) AS last_name,
-            NULLIF(TRIM(COALESCE(gp.email, '')), '') AS email,
-            NULLIF(TRIM(COALESCE(gp.phone, '')), '') AS phone,
+            COALESCE(MAX(NULLIF(TRIM(COALESCE(ga.login_email, '')), '')), NULLIF(TRIM(COALESCE(gp.email, '')), '')) AS email,
+            COALESCE(MAX(NULLIF(TRIM(COALESCE(ga.login_phone, '')), '')), NULLIF(TRIM(COALESCE(gp.phone, '')), '')) AS phone,
             NULLIF(TRIM(COALESCE(gp.address, '')), '') AS address,
             NULLIF(TRIM(COALESCE(gp.hometown, '')), '') AS hometown,
             NULLIF(TRIM(COALESCE(gp.image_url, '')), '') AS image_url,
@@ -18566,6 +18742,9 @@ NUMBERING:
             ) AS has_portal_access,
             'profile'::text AS source
           FROM guardian_profiles gp
+          LEFT JOIN guardian_accounts ga
+            ON ga.guardian_id = gp.guardian_id
+           AND ga.organization_id = gp.organization_id
           LEFT JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
           WHERE gp.organization_id = $1
           GROUP BY
@@ -18588,10 +18767,38 @@ NUMBERING:
           lga.address,
           lga.hometown,
           lga.image_url,
-          lga.student_count,
+          CASE
+            WHEN lga.matched_profile_guardian_id IS NOT NULL THEN (
+              SELECT COUNT(DISTINCT linked.student_id)::int
+              FROM (
+                SELECT g.student_id
+                FROM guardians g
+                WHERE g.organization_id = $1
+                  AND (
+                    g.guardian_id = lga.guardian_id
+                    OR (
+                      LOWER(TRIM(COALESCE(g.first_name, ''))) = LOWER(TRIM(COALESCE(lga.first_name, '')))
+                      AND LOWER(TRIM(COALESCE(g.last_name, ''))) = LOWER(TRIM(COALESCE(lga.last_name, '')))
+                      AND (
+                        COALESCE(NULLIF(TRIM(COALESCE(g.phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE(lga.phone, '')), ''), '__NO_PHONE__')
+                        OR (
+                          lga.email IS NOT NULL
+                          AND LOWER(TRIM(COALESCE(g.email, ''))) = LOWER(TRIM(lga.email))
+                        )
+                      )
+                    )
+                  )
+                UNION
+                SELECT gs.student_id
+                FROM guardian_students gs
+                WHERE gs.guardian_id = lga.matched_profile_guardian_id
+              ) linked
+            )
+            ELSE lga.student_count
+          END AS student_count,
           lga.has_portal_access,
           lga.source
-        FROM legacy_with_access lga
+        FROM legacy_collapsed lga
         UNION ALL
         SELECT
           pg.guardian_id,
@@ -18608,8 +18815,11 @@ NUMBERING:
         FROM profile_guardians pg
         WHERE NOT EXISTS (
           SELECT 1
-          FROM legacy_with_access lga
+          FROM legacy_collapsed lga
           WHERE (
+            lga.matched_profile_guardian_id = pg.guardian_id
+          )
+          OR (
             pg.email IS NOT NULL
             AND lga.email IS NOT NULL
             AND LOWER(TRIM(pg.email)) = LOWER(TRIM(lga.email))
@@ -18735,44 +18945,134 @@ NUMBERING:
         guardian = guardianResult.rows[0];
         account = { login_email: guardian.email || null, login_phone: guardian.phone || null };
 
-        if (userRole === 'Teacher' && userId) {
-          studentsResult = await db.query(
-            `
-            SELECT s.student_id, s.first_name, s.last_name, s.image_url,
-                   c.class_name, c.class_id, 'Parent/Guardian' AS relationship
-            FROM guardians g
-            JOIN students s ON g.student_id = s.student_id
-            LEFT JOIN classes c ON s.class_id = c.class_id
-            WHERE g.first_name = $1 AND g.last_name = $2
-              AND (g.phone = $3 OR $3 IS NULL)
-              AND g.organization_id = $4
-              AND s.class_id IN (
-                SELECT uc.class_id FROM user_classes uc WHERE uc.user_id = $5
-                UNION
-                SELECT DISTINCT sub.class_id
-                FROM user_subjects us
-                JOIN subjects sub ON us.subject_id = sub.subject_id
-                WHERE us.user_id = $5 AND sub.organization_id = $4
+        const teacherFilter = userRole === 'Teacher' && userId
+          ? `
+            AND s.class_id IN (
+              SELECT uc.class_id FROM user_classes uc WHERE uc.user_id = $3
+              UNION
+              SELECT DISTINCT sub.class_id
+              FROM user_subjects us
+              JOIN subjects sub ON us.subject_id = sub.subject_id
+              WHERE us.user_id = $3 AND sub.organization_id = $2
+            )`
+          : '';
+
+        const studentParams = userRole === 'Teacher' && userId
+          ? [guardianId, organizationId, userId]
+          : [guardianId, organizationId];
+
+        studentsResult = await db.query(
+          `
+          WITH legacy_anchor AS (
+            SELECT
+              guardian_id,
+              LOWER(TRIM(COALESCE(first_name, ''))) AS first_name_key,
+              LOWER(TRIM(COALESCE(last_name, ''))) AS last_name_key,
+              LOWER(TRIM(COALESCE(email, ''))) AS email_key,
+              COALESCE(NULLIF(TRIM(COALESCE(phone, '')), ''), '__NO_PHONE__') AS phone_key
+            FROM guardians
+            WHERE guardian_id = $1 AND organization_id = $2
+            LIMIT 1
+          ),
+          matched_profile AS (
+            SELECT gp.guardian_id
+            FROM guardian_profiles gp
+            JOIN legacy_anchor la ON TRUE
+            WHERE gp.organization_id = $2
+              AND (
+                (la.email_key <> '' AND LOWER(TRIM(COALESCE(gp.email, ''))) = la.email_key)
+                OR (
+                  LOWER(TRIM(COALESCE(gp.first_name, ''))) = la.first_name_key
+                  AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = la.last_name_key
+                  AND COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = la.phone_key
+                )
               )
-            ORDER BY s.first_name ASC
-            `,
-            [guardian.first_name, guardian.last_name, guardian.phone, organizationId, userId]
-          );
-        } else {
-          studentsResult = await db.query(
-            `
-            SELECT s.student_id, s.first_name, s.last_name, s.image_url,
-                   c.class_name, c.class_id, 'Parent/Guardian' AS relationship
+            ORDER BY gp.updated_at DESC NULLS LAST, gp.guardian_id DESC
+            LIMIT 1
+          ),
+          linked_students AS (
+            SELECT DISTINCT g.student_id
             FROM guardians g
-            JOIN students s ON g.student_id = s.student_id
-            LEFT JOIN classes c ON s.class_id = c.class_id
-            WHERE g.first_name = $1 AND g.last_name = $2
-              AND (g.phone = $3 OR $3 IS NULL)
-              AND g.organization_id = $4
-            ORDER BY s.first_name ASC
-            `,
-            [guardian.first_name, guardian.last_name, guardian.phone, organizationId]
+            JOIN legacy_anchor la ON TRUE
+            WHERE g.organization_id = $2
+              AND (
+                g.guardian_id = la.guardian_id
+                OR (
+                  LOWER(TRIM(COALESCE(g.first_name, ''))) = la.first_name_key
+                  AND LOWER(TRIM(COALESCE(g.last_name, ''))) = la.last_name_key
+                  AND (
+                    COALESCE(NULLIF(TRIM(COALESCE(g.phone, '')), ''), '__NO_PHONE__') = la.phone_key
+                    OR (la.email_key <> '' AND LOWER(TRIM(COALESCE(g.email, ''))) = la.email_key)
+                  )
+                )
+              )
+            UNION
+            SELECT DISTINCT gs.student_id
+            FROM guardian_students gs
+            WHERE gs.guardian_id = (SELECT guardian_id FROM matched_profile)
+          )
+          SELECT DISTINCT s.student_id, s.first_name, s.last_name, s.image_url,
+                 c.class_name, c.class_id, 'Parent/Guardian' AS relationship
+          FROM linked_students ls
+          JOIN students s ON ls.student_id = s.student_id
+          LEFT JOIN classes c ON s.class_id = c.class_id
+          WHERE s.organization_id = $2
+          ${teacherFilter}
+          ORDER BY s.first_name ASC
+          `,
+          studentParams
+        );
+      }
+
+      if (studentsResult?.rows?.length) {
+        const studentIds = studentsResult.rows
+          .map((row) => Number.parseInt(row.student_id, 10))
+          .filter((id) => Number.isInteger(id) && id > 0);
+
+        if (studentIds.length) {
+          const effectiveClassResult = await db.query(
+            `WITH current_term AS (
+               SELECT term_id
+               FROM terms
+               WHERE organization_id = $1 AND current = TRUE
+               ORDER BY start_date DESC, term_id DESC
+               LIMIT 1
+             ),
+             ranked AS (
+               SELECT
+                 es.student_id,
+                 es.class_id,
+                 c.class_name,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY es.student_id
+                   ORDER BY e.created_at DESC, e.enrollment_id DESC
+                 ) AS rn
+               FROM enrollments e
+               JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+               JOIN classes c ON c.class_id = es.class_id
+               WHERE e.organization_id = $1
+                 AND e.term_id = (SELECT term_id FROM current_term)
+                 AND es.student_id = ANY($2::int[])
+             )
+             SELECT student_id, class_id, class_name
+             FROM ranked
+             WHERE rn = 1`,
+            [organizationId, studentIds]
           );
+
+          const effectiveClassByStudent = new Map(
+            effectiveClassResult.rows.map((row) => [Number.parseInt(row.student_id, 10), row])
+          );
+
+          studentsResult.rows = studentsResult.rows.map((row) => {
+            const mapped = effectiveClassByStudent.get(Number.parseInt(row.student_id, 10));
+            if (!mapped) return row;
+            return {
+              ...row,
+              class_id: mapped.class_id || row.class_id,
+              class_name: mapped.class_name || row.class_name,
+            };
+          });
         }
       }
 
@@ -18800,9 +19100,12 @@ NUMBERING:
              ON ga.guardian_id = gp.guardian_id
             AND ga.organization_id = gp.organization_id
            WHERE gp.organization_id = $1
-             AND gp.first_name = $2
-             AND gp.last_name  = $3
-             AND (gp.phone = $4 OR gp.email = $5)
+             AND LOWER(TRIM(COALESCE(gp.first_name, ''))) = LOWER(TRIM(COALESCE($2, '')))
+             AND LOWER(TRIM(COALESCE(gp.last_name, '')))  = LOWER(TRIM(COALESCE($3, '')))
+             AND (
+               COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE($4, '')), ''), '__NO_PHONE__')
+               OR LOWER(TRIM(COALESCE(gp.email, ''))) = LOWER(TRIM(COALESCE($5, '')))
+             )
            ORDER BY (ga.password_hash IS NOT NULL) DESC
            LIMIT 1`,
           [organizationId, guardian.first_name, guardian.last_name, guardian.phone || null, guardian.email || null]
@@ -18895,8 +19198,8 @@ NUMBERING:
             `UPDATE guardians
                SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6, date_of_birth = $7
              WHERE organization_id = $8
-               AND LOWER(first_name) = LOWER($9)
-               AND LOWER(last_name)  = LOWER($10)`,
+               AND LOWER(TRIM(first_name)) = LOWER(TRIM($9))
+               AND LOWER(TRIM(last_name))  = LOWER(TRIM($10))`,
             [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null,
              organizationId, oldProfileRow.first_name, oldProfileRow.last_name]
           );
@@ -18930,8 +19233,8 @@ NUMBERING:
             `UPDATE guardian_profiles
                SET first_name = $1, last_name = $2, email = $3, phone = $4, address = $5, hometown = $6, date_of_birth = $7, updated_at = NOW()
              WHERE organization_id = $8
-               AND LOWER(first_name) = LOWER($9)
-               AND LOWER(last_name)  = LOWER($10)`,
+               AND LOWER(TRIM(first_name)) = LOWER(TRIM($9))
+               AND LOWER(TRIM(last_name))  = LOWER(TRIM($10))`,
             [firstName, lastName, email || null, phone || null, address, hometown, dateOfBirth || null,
              organizationId, oldGuardianRow.first_name, oldGuardianRow.last_name]
           );
@@ -18942,8 +19245,8 @@ NUMBERING:
                AND guardian_id IN (
                  SELECT guardian_id FROM guardian_profiles
                  WHERE organization_id = $3
-                   AND LOWER(first_name) = LOWER($4)
-                   AND LOWER(last_name)  = LOWER($5)
+                   AND LOWER(TRIM(first_name)) = LOWER(TRIM($4))
+                   AND LOWER(TRIM(last_name))  = LOWER(TRIM($5))
                )`,
             [email || null, cleanedPhone, organizationId, firstName, lastName]
           );
@@ -19013,17 +19316,6 @@ NUMBERING:
         guardian,
       } = req.body || {};
 
-      console.log('[guardianRelink][controller] start', {
-        organizationId: organizationId || null,
-        source: source || null,
-        mode: mode || null,
-        currentGuardianId: currentGuardianId || null,
-        studentId: studentId || null,
-        targetGuardianId: targetGuardianId || null,
-        guardiansCount: Array.isArray(guardians) ? guardians.length : 0,
-        hasSingleGuardianPayload: Boolean(guardian && typeof guardian === 'object'),
-      });
-
       if (!organizationId) {
         return res.status(401).json({ success: false, error: 'Unauthorized' });
       }
@@ -19039,10 +19331,6 @@ NUMBERING:
         [parsedStudentId, organizationId]
       )).rows[0];
       if (!studentRow) {
-        console.warn('[guardianRelink][controller] student-not-found', {
-          organizationId,
-          studentId: parsedStudentId,
-        });
         return res.status(404).json({ success: false, error: 'Student not found.' });
       }
 
@@ -19068,10 +19356,6 @@ NUMBERING:
         )).rows[0] || null;
 
         if (!targetGuardianProfile) {
-          console.warn('[guardianRelink][controller] target-profile-not-found', {
-            organizationId,
-            targetGuardianId: parsedTargetGuardianId,
-          });
           await client.query('ROLLBACK');
           return res.status(404).json({ success: false, error: 'Selected guardian was not found.' });
         }
@@ -19160,11 +19444,6 @@ NUMBERING:
            WHERE guardian_id = $1 AND student_id = $2`,
           [parsedCurrentGuardianId, parsedStudentId]
         );
-        console.log('[guardianRelink][controller] profile-unlink-done', {
-          organizationId,
-          currentGuardianId: parsedCurrentGuardianId,
-          studentId: parsedStudentId,
-        });
 
         for (const targetProfile of targetGuardianProfiles) {
           await client.query(
@@ -19237,14 +19516,6 @@ NUMBERING:
           [parsedCurrentGuardianId, parsedStudentId]
         );
 
-        console.log('[guardianRelink][controller] legacy-unlink-result', {
-          organizationId,
-          currentGuardianId: parsedCurrentGuardianId,
-          studentId: parsedStudentId,
-          legacyRowsDeleted: deleteCurrentLegacy.rowCount,
-          profileRowsDeleted: deleteCurrentProfileLink.rowCount,
-        });
-
         // Legacy data can be inconsistent (clustered guardian rows by identity).
         // Treat missing old link as idempotent and still proceed with the new link.
         if (!deleteCurrentLegacy.rowCount && !deleteCurrentProfileLink.rowCount) {
@@ -19307,13 +19578,6 @@ NUMBERING:
       }
 
       await client.query('COMMIT');
-      console.log('[guardianRelink][controller] success', {
-        organizationId,
-        studentId: parsedStudentId,
-        source,
-        mode,
-        targetGuardianIds: targetGuardianProfiles.map((row) => Number(row.guardian_id)),
-      });
       return res.json({
         success: true,
         targetGuardianId: targetGuardianProfileId,
@@ -19321,10 +19585,7 @@ NUMBERING:
       });
     } catch (error) {
       try { await client.query('ROLLBACK'); } catch (_) {}
-      console.error('[guardianRelink][controller] error', {
-        message: error?.message || String(error),
-        stack: error?.stack || null,
-      });
+      console.error('[guardianRelinkStudent] Error:', error?.message || String(error));
       return res.status(500).json({ success: false, error: 'Error relinking student to guardian.' });
     } finally {
       client.release();

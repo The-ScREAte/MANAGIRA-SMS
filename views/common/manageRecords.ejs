@@ -215,13 +215,14 @@
       .school-year-wrapper {
         max-width: 100%;
         width: 100%;
-        margin: 0 0 20px 0;
+        margin: 0;
         background: #fff;
-        padding: 20px;
+        padding: 12px;
         border-radius: 10px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         border: 1px solid var(--border);
         position: relative;
+        overflow: hidden;
       }
 
       .school-year-wrapper.current-year-wrapper {
@@ -264,7 +265,12 @@
         letter-spacing: 1px;
         color: rgba(1, 83, 91, 0.16);
         text-transform: uppercase;
-        white-space: nowrap;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.15;
+        max-width: min(94%, 540px);
+        overflow-wrap: anywhere;
+        padding: 0 8px;
       }
 
       .school-year-completed.is-readonly .school-year-completed-watermark {
@@ -293,14 +299,15 @@
       .school-year-form {
         display: flex;
         flex-direction: column;
+        gap: 0;
       }
 
       .school-year-header {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
         cursor: pointer;
-        padding: 10px 0;
+        padding: 2px 0;
         flex-wrap: wrap;
         justify-content: flex-start;
       }
@@ -323,6 +330,7 @@
         max-width: 200px;
         font-size: 15px;
         padding: 8px 12px;
+        margin: 0 !important;
         border: 1px solid var(--border);
         border-radius: 6px;
       }
@@ -369,8 +377,9 @@
         border-radius: 10px;
         box-shadow: none;
         border: 1px solid var(--border);
-        padding: 16px;
-        margin-bottom: 16px;
+        padding: 10px;
+        margin: 0 0 8px 0;
+        overflow: hidden;
       }
 
       .term-section-header {
@@ -408,8 +417,8 @@
       .date-fields {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 16px;
-        margin-top: 12px;
+        gap: 12px;
+        margin-top: 10px;
       }
 
       .date-fields > div {
@@ -545,7 +554,12 @@
         letter-spacing: 0.8px;
         color: rgba(1, 83, 91, 0.16);
         text-transform: uppercase;
-        white-space: nowrap;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.15;
+        max-width: min(92%, 420px);
+        overflow-wrap: anywhere;
+        padding: 0 6px;
       }
 
       .term-completed.is-readonly .term-completed-watermark {
@@ -584,8 +598,8 @@
         display: block;
         width: fit-content;
         min-width: 150px;
-        margin-left: auto;
-        margin-right: auto;
+        margin-left: 0;
+        margin-right: 0;
       }
 
       .save-button:hover {
@@ -597,18 +611,41 @@
         cursor: not-allowed;
       }
 
-      .school-year-form a {
-        display: block;
-        margin-top: 12px;
-        color: var(--org-primary-color);
-        font-weight: 500;
-        font-size: 14px;
-        text-decoration: none;
-        text-align: center;
+      .year-form-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        margin: 0;
+        flex-wrap: wrap;
       }
 
-      .school-year-form a:hover {
-        text-decoration: underline;
+      .school-year-form .add-term-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 0;
+        color: var(--org-primary-color);
+        font-weight: 600;
+        font-size: 13px;
+        text-decoration: none;
+        text-align: left;
+        border: 1px solid rgba(1, 83, 91, 0.35);
+        border-radius: 8px;
+        padding: 7px 10px;
+        background: rgba(1, 83, 91, 0.05);
+      }
+
+      .school-year-form .add-term-link:hover {
+        background: rgba(1, 83, 91, 0.1);
+        text-decoration: none;
+      }
+
+      .school-year-form .save-button {
+        margin-top: 0;
+        min-width: 138px;
+        padding: 8px 12px;
+        font-size: 14px;
       }
 
       .enroll-copy-modal {
@@ -747,7 +784,7 @@
         width: 100%;
         display: flex;
         flex-direction: column;
-        gap: 0;
+        gap: 10px;
       }
 
       @media (max-width: 600px) {
@@ -768,13 +805,45 @@
         }
 
         .school-year-header {
-          flex-direction: column;
-          align-items: flex-start;
+          display: grid;
+          grid-template-columns: auto 1fr;
+          grid-template-areas:
+            "yearLabel yearInput"
+            "currentRow menuRow"
+            "badgeRow badgeRow";
+          align-items: center;
+          column-gap: 8px;
+          row-gap: 8px;
+          padding: 4px 0;
+        }
+
+        .school-year-header .year-label {
+          grid-area: yearLabel;
+          margin: 0;
         }
 
         .school-year-header input[type="text"] {
-          max-width: 100%;
+          grid-area: yearInput;
           width: 100%;
+          max-width: 100%;
+          min-width: 0;
+        }
+
+        .school-year-header .current-label {
+          grid-area: currentRow;
+          margin: 0;
+          justify-self: start;
+        }
+
+        .school-year-header .year-menu-container {
+          grid-area: menuRow;
+          margin-left: 0;
+          justify-self: end;
+        }
+
+        .school-year-header .school-year-completed-badge {
+          grid-area: badgeRow;
+          margin: 0;
         }
 
         .date-fields {
@@ -783,11 +852,24 @@
 
         .action-bar {
           flex-direction: column;
+          padding: 0 10px;
+          box-sizing: border-box;
         }
 
         .action-btn {
           width: 100%;
+          max-width: 260px;
+          margin: 0 auto;
           justify-content: center;
+          padding: 8px 12px;
+          font-size: 13px;
+          gap: 6px;
+          border-radius: 7px;
+        }
+
+        .action-btn svg {
+          width: 15px !important;
+          height: 15px !important;
         }
 
         .section-head {
@@ -796,6 +878,32 @@
 
         .section-head h1 {
           font-size: 20px;
+        }
+
+        .school-year-wrapper {
+          padding: 10px;
+          margin: 0;
+        }
+
+        #schoolYearContainer {
+          gap: 8px;
+        }
+
+        .term-section fieldset {
+          padding: 10px;
+          margin: 0 0 8px 0;
+        }
+
+        .year-form-actions {
+          gap: 8px;
+          margin: 0;
+        }
+
+        .school-year-form .add-term-link,
+        .school-year-form .save-button {
+          font-size: 12px;
+          padding: 7px 9px;
+          min-width: 120px;
         }
       }
     </style>
@@ -1022,17 +1130,19 @@
                 <% }); %>
               </div>
 
-              <a href="#" onclick="addTermToSchoolYear(event, '<%= year.id %>')"
-                class="add-term-link">Add Term / Semester</a
-              >
+              <div class="year-form-actions">
+                <a href="#" onclick="addTermToSchoolYear(event, '<%= year.id %>')"
+                  class="add-term-link">Add Term / Semester</a
+                >
+
+                <button type="submit" class="save-button">Save Changes</button>
+              </div>
 
               <% if (schoolYearIsCompleted && year.current) { %>
               <div class="school-year-ended-current-note">
                 This school year has ended. Select Current on the next term / semester or in another school year to continue activities.
               </div>
               <% } %>
-
-              <button type="submit" class="save-button">Save Changes</button>
             </form>
           </div>
           <hr />

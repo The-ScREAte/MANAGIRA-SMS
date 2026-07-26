@@ -18,12 +18,14 @@
         color: #721c24;
     }
     .link-button {
-        text-align: center;
+      text-align: left;
         margin-bottom: 20px;
     }
     .link-button a {
         display: inline-block;
-        padding: 10px 20px;
+      padding: 7px 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
         background-color: var(--org-primary-color);
         color: #fff;
         text-decoration: none;
@@ -40,24 +42,39 @@
   
     /* Add these new styles */
     .class-container {
-        margin-bottom: 10px;
+      margin-bottom: 10px;
     }
     .subject-container {
-        margin-left: 20px; /* Indent the subjects */
+      margin-left: 0;
     }
     .modify-employee-card {
-        max-width: 600px;
-        margin: 40px auto;
+        max-width: 1180px;
+        margin: 28px auto;
         background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        padding: 30px 32px 32px 32px;
+        border-radius: 14px;
+        box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+        border: 1px solid #e2e8f0;
+        padding: 30px;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        gap: 16px;
     }
     .modify-employee-card form {
         width: 100%;
+    }
+    .employee-edit-form {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .employee-fields-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 18px;
+      width: 100%;
+    }
+    .employee-section {
+      width: 100%;
     }
     .modify-employee-card label {
         display: block;
@@ -68,6 +85,7 @@
     }
     .modify-employee-card input[type="text"],
     .modify-employee-card input[type="email"],
+    .modify-employee-card input[type="date"],
     .modify-employee-card select {
         padding: 8px;
         width: 100%;
@@ -77,48 +95,262 @@
         box-sizing: border-box;
     }
     .modify-employee-card .btn {
-        display: block;
-        margin: 12px auto 0 auto;
-        width: 100%;
-        max-width: 280px;
+        display: inline-flex;
+        margin: 0;
+      width: auto;
+      max-width: 100%;
+      min-height: 36px;
+      padding: 7px 12px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        font-weight: 600;
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+    .modify-employee-card .btn.btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .employee-actions-row {
+      display: flex;
+      justify-content: flex-start !important;
+      flex-wrap: nowrap;
+      gap: 8px;
+      width: 100%;
+      align-items: stretch;
+      overflow-x: auto;
+    }
+    .employee-actions-row > * {
+      flex: 0 0 auto !important;
+      margin: 0 !important;
+    }
+    .employee-action-form {
+      margin: 0 !important;
+      width: auto !important;
+      display: inline-flex !important;
+      align-items: stretch;
+      flex: 0 0 auto !important;
+    }
+    .employee-actions-row .employee-action-form:last-child {
+      margin-left: 0 !important;
+    }
+    .employee-action-form .btn {
+      height: 100%;
+      padding: 0 10px;
+    }
+    #saveEmployeeBtn {
+      padding: 0 10px;
+    }
+    .employee-save-btn-text {
+      white-space: nowrap;
+    }
+    .btn-icon-only {
+      width: 40px !important;
+      min-width: 40px;
+      padding: 0;
+    }
+    .btn-icon-only svg {
+      width: 18px;
+      height: 18px;
+    }
+    .employee-save-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      display: none;
+      animation: employeeSaveSpin 0.75s linear infinite;
+    }
+    .btn.btn-primary.is-saving .employee-save-spinner {
+      display: inline-block;
+    }
+    .btn.btn-primary.is-saving {
+      opacity: 0.85;
+      cursor: wait;
+    }
+    .employee-save-status {
+      min-height: 20px;
+      margin-top: 10px;
+      color: #475569;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+    .employee-save-status.success {
+      color: #166534;
+      font-weight: 600;
+    }
+    .employee-save-status.error {
+      color: #b91c1c;
+      font-weight: 600;
+    }
+    @keyframes employeeSaveSpin {
+      to {
+      transform: rotate(360deg);
+      }
     }
     .modify-employee-card .btn-danger {
         background-color: var(--btn-danger-bg, #dc2626);
         color: var(--btn-danger-text, #fff);
         border-color: var(--btn-danger-bg, #dc2626);
     }
+    .modify-employee-card .btn-danger:hover {
+      background-color: #b91c1c;
+      border-color: #b91c1c;
+    }
+    .employee-actions-row .btn.btn-danger {
+      background-color: #dc2626 !important;
+      border-color: #dc2626 !important;
+      color: #fff !important;
+    }
+    .employee-actions-row .employee-delete-action {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 40px !important;
+      min-width: 40px !important;
+      min-height: 36px !important;
+      padding: 0 !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      background-color: #dc2626 !important;
+      border-color: #dc2626 !important;
+      color: #fff !important;
+    }
+    .employee-actions-row .employee-delete-action svg {
+      display: block;
+      width: 18px;
+      height: 18px;
+      stroke: #fff;
+    }
+    .employee-actions-row .btn.btn-danger:hover {
+      background-color: #b91c1c !important;
+      border-color: #b91c1c !important;
+    }
     .modify-employee-card .btn-warning {
         background-color: var(--btn-warning-bg, #f59e0b);
         color: var(--btn-warning-text, #fff);
         border-color: var(--btn-warning-bg, #f59e0b);
     }
+    .modify-employee-card .btn-warning:hover {
+      background-color: #d97706;
+      border-color: #d97706;
+    }
     .collapsible-btn {
         width: 100%;
-        background: #01535b;
-        color: #fff;
-        border: none;
+        background: #eaf2f7;
+        color: #0f3f49;
+        border: 1px solid #c7d8e2;
         outline: none;
-        padding: 12px 16px;
-        font-size: 16px;
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 600;
         text-align: left;
         display: flex;
         align-items: center;
         justify-content: space-between;
         cursor: pointer;
-        border-radius: 5px;
+        border-radius: 10px;
         margin-bottom: 6px;
-        transition: none;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
     }
-    /* Subject collapsible hierarchy styling */
-    .class-collapsible.subject-collapsible {
-        width: 90%;
-        margin-left: 5%;
-        background: #eaf6fa;
-        box-shadow: none;
+    .collapsible-btn:hover,
+    .collapsible-btn:focus {
+      background: #dceaf2;
+      border-color: #b2c8d6;
+      color: #0f3f49;
+      box-shadow: none;
     }
-    .class-collapsible.subject-collapsible .collapsible-btn {
-        background: #298ca7;
-        color: #fff;
+
+    .employee-section-classes {
+      background: #f8fbfd;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .class-selector-panel {
+      width: 100%;
+    }
+    .classes-master-toggle {
+      margin-bottom: 10px;
+      display: inline-flex;
+    }
+    .classes-grid-wrap {
+      width: 100%;
+    }
+    .classes-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .class-card {
+      background: #fff;
+      border: 1px solid #d8e3ea;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+    }
+    .class-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .class-name-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      font-size: 0.92rem;
+      color: #1f2937;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .class-name-row input {
+      margin: 0;
+    }
+    .subject-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #d1dbe2;
+      border-radius: 999px;
+      background: #f8fbfd;
+      color: #274a5a;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    .subject-toggle-btn:hover {
+      background: #e7f0f6;
+    }
+    .subjects-panel {
+      border-top: 1px solid #edf2f6;
+      padding-top: 8px;
+    }
+    .subject-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    .subject-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border: 1px solid #e5edf3;
+      border-radius: 8px;
+      background: #fbfdff;
+      font-size: 0.85rem;
+      color: #334155;
+      cursor: pointer;
     }
     .collapsible-btn .arrow {
         font-size: 18px;
@@ -126,39 +358,59 @@
         transition: transform 0.2s;
     }
 
+    @media (max-width: 1100px) {
+      .classes-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 960px) {
+      .modify-employee-card {
+        padding: 18px;
+      }
+      .employee-fields-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 768px) {
       .link-button {
         padding-top: 72px;
+      }
+      .classes-grid {
+        grid-template-columns: 1fr;
+      }
+      .btn-icon-only {
+        width: 40px !important;
+        min-width: 40px;
       }
     }
   </style>
   
 </head>
 <body>
-<div class="link-button">
-  <a href="/common/manageEmployees">Manage Employees</a>
-</div>
 <div class="separator"></div>
 <h1 style="text-align:center; color:#01535b; margin-bottom:24px;"><%= title %></h1>
 <div class="modify-employee-card">
-  <form action="/common/modifyEmployee/<%= user.user_id %>" method="post">
-    <div>
+  <form id="modifyEmployeeForm" class="employee-edit-form" action="/common/modifyEmployee/<%= user.user_id %>" method="post">
+    <div class="employee-fields-grid">
+      <div>
         <label for="firstName">First Name:</label>
         <input type="text" name="firstName" value="<%= user.first_name %>">
-    </div>
-    <div>
+      </div>
+      <div>
         <label for="lastName">Last Name:</label>
         <input type="text" name="lastName" value="<%= user.last_name %>">
-    </div>
-    <div>
+      </div>
+      <div>
         <label for="email">Email:</label>
         <input type="email" name="email" value="<%= user.email %>">
-    </div>
-    <div>
-      <label for="dateOfBirth">Date of Birth:</label>
-      <input type="date" name="dateOfBirth" value="<%= user.date_of_birth ? new Date(user.date_of_birth).toISOString().slice(0, 10) : '' %>">
-    </div>
-    <div>
+      </div>
+      <div>
+        <label for="dateOfBirth">Date of Birth:</label>
+        <input type="date" name="dateOfBirth" value="<%= user.date_of_birth ? new Date(user.date_of_birth).toISOString().slice(0, 10) : '' %>">
+      </div>
+      <div>
         <label for="accountType">Role:</label>
         <select name="accountType">
             <option value="">-- Select Role --</option>
@@ -166,8 +418,9 @@
             <option value="Supervisor" <%= user.account_type === 'Supervisor' ? 'selected' : '' %>>Supervisor</option>
             <option value="Teacher" <%= user.account_type === 'Teacher' ? 'selected' : '' %>>Teacher</option>
         </select>
+      </div>
     </div>
-    <div id="permission-assignment-group">
+    <div id="permission-assignment-group" class="employee-section">
       <label>Optional Extra Permissions:</label>
       <div style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:8px; padding:12px; margin-top:8px;">
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px 16px;">
@@ -186,50 +439,68 @@
         <div style="margin-top:8px; color:#64748b; font-size:12px;">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
       </div>
     </div>
-    <div>
-      <label>Classes:</label>
-      <div class="class-collapsible">
-        <button type="button" class="collapsible-btn" onclick="toggleClassCollapse('all-classes')">
+    <div class="employee-section employee-section-classes">
+      <label>Classes and Subjects:</label>
+      <div class="class-selector-panel">
+        <button type="button" class="collapsible-btn classes-master-toggle" onclick="toggleClassCollapse('all-classes')">
           <span>Show/Hide Classes</span>
           <span class="arrow" id="arrow-all-classes">&#9654;</span>
         </button>
-        <div class="class-checkboxes" id="collapse-all-classes" style="display: none;">
-          <% classes.forEach(cls => { %>
-            <div class="class-container">
-              <input type="checkbox" name="classIds[]" value="<%= cls.class_id %>" <%= enrolledClasses.includes(cls.class_id) ? 'checked' : '' %> style="margin-right:8px;">
-              <%= cls.class_name %>
-              <div class="class-collapsible subject-collapsible" style="margin-top:8px;">
-                <button type="button" class="collapsible-btn" onclick="toggleClassCollapse('subjects-<%= cls.class_id %>')">
-                  <span>Show/Hide Subjects</span>
-                  <span class="arrow" id="arrow-subjects-<%= cls.class_id %>">&#9654;</span>
-                </button>
-                <div class="class-checkboxes" id="collapse-subjects-<%= cls.class_id %>" style="display: none;">
-                  <div class="subject-container">
+        <div class="class-checkboxes classes-grid-wrap" id="collapse-all-classes" style="display: none;">
+          <div class="classes-grid">
+            <% classes.forEach(cls => { %>
+              <div class="class-container class-card">
+                <div class="class-card-header">
+                  <label class="class-name-row">
+                    <input type="checkbox" name="classIds[]" value="<%= cls.class_id %>" <%= enrolledClasses.includes(cls.class_id) ? 'checked' : '' %>>
+                    <span><%= cls.class_name %></span>
+                  </label>
+                  <button type="button" class="subject-toggle-btn" onclick="toggleClassCollapse('subjects-<%= cls.class_id %>')">
+                    <span>Subjects</span>
+                    <span class="arrow" id="arrow-subjects-<%= cls.class_id %>">&#9654;</span>
+                  </button>
+                </div>
+                <div class="class-checkboxes subjects-panel" id="collapse-subjects-<%= cls.class_id %>" style="display: none;">
+                  <div class="subject-container subject-grid">
                     <% if (cls.subjects && cls.subjects.length > 0) { %>
                       <% cls.subjects.forEach(sub => { %>
-                        <div>
-                          <input type="checkbox" name="subjects[]" value="<%= sub.subject_id %>" <%= enrolledSubjects.includes(sub.subject_id) ? 'checked' : '' %>> <%= sub.subject_name %>
-                        </div>
+                        <label class="subject-item">
+                          <input type="checkbox" name="subjects[]" value="<%= sub.subject_id %>" <%= enrolledSubjects.includes(sub.subject_id) ? 'checked' : '' %>>
+                          <span><%= sub.subject_name %></span>
+                        </label>
                       <% }); %>
                     <% } else { %>
-                      <div style="color:#888; margin:10px 0;">No subjects have been assigned to this class.</div>
+                      <div style="color:#888; margin:10px 0; font-size:0.85rem;">No subjects have been assigned to this class.</div>
                     <% } %>
                   </div>
                 </div>
               </div>
-            </div>
-          <% }); %>
+            <% }); %>
+          </div>
         </div>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary">Save Changes</button>
   </form>
-  <form action="/common/deleteEmployee/<%= user.user_id %>" method="post" onsubmit="return confirm('Are you sure you want to delete this employee?');">
-      <button type="submit" class="btn btn-danger">Delete Employee</button>
-  </form>
-  <form action="/common/toggleHoldEmployee/<%= user.user_id %>" method="post">
-      <button type="submit" class="btn btn-warning"><%= user.on_hold ? 'Resume' : 'Hold' %> Employee</button>
-  </form>
+  <div class="employee-actions-row">
+    <button type="submit" form="modifyEmployeeForm" class="btn btn-primary" id="saveEmployeeBtn">
+      <span class="employee-save-spinner" aria-hidden="true"></span>
+      <span class="employee-save-btn-text">Save Changes</span>
+    </button>
+    <form class="employee-action-form" action="/common/toggleHoldEmployee/<%= user.user_id %>" method="post">
+      <button type="submit" class="btn btn-warning"><%= user.on_hold ? 'Resume Employee' : 'Hold Employee' %></button>
+    </form>
+    <form class="employee-action-form" action="/common/deleteEmployee/<%= user.user_id %>" method="post" onsubmit="return confirm('Are you sure you want to delete this employee?');">
+      <button type="submit" class="btn btn-danger btn-icon-only employee-delete-action" aria-label="Delete employee" title="Delete employee">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+          <path d="M10 11v6"></path>
+          <path d="M14 11v6"></path>
+          <path d="M9 6V4h6v2"></path>
+        </svg>
+      </button>
+    </form>
+  </div>
 </div>
 
 <script id="role-default-permissions-data" type="application/json"><%- JSON.stringify(roleDefaultPermissionsMap || {}) %></script>
@@ -303,8 +574,8 @@
       const collapseAllClasses = document.getElementById('collapse-all-classes');
       const arrowAllClasses = document.getElementById('arrow-all-classes');
       if (collapseAllClasses && arrowAllClasses) {
-        collapseAllClasses.style.display = 'none';
-        arrowAllClasses.innerHTML = '&#9654;';
+        collapseAllClasses.style.display = 'block';
+        arrowAllClasses.innerHTML = '&#9660;';
       }
 
       document.querySelectorAll('input[name="classIds[]"]').forEach(classCheckbox => {
@@ -325,19 +596,75 @@
         }
       });
 
-      // Confirmation dialog for form submit
+      const saveButton = document.getElementById("saveEmployeeBtn");
+      const saveStatus = document.getElementById("employeeSaveStatus");
+
+      const setEmployeeSavingState = (isSaving, statusText, statusType) => {
+        if (saveButton) {
+          saveButton.disabled = isSaving;
+          saveButton.classList.toggle("is-saving", isSaving);
+        }
+
+        if (saveStatus) {
+          saveStatus.textContent = statusText || "";
+          saveStatus.classList.remove("success", "error");
+          if (statusType === "success") {
+            saveStatus.classList.add("success");
+          }
+          if (statusType === "error") {
+            saveStatus.classList.add("error");
+          }
+        }
+      };
+
+      // Confirmation dialog + async save with spinner
       const modifyForm = document.querySelector("form[action^='/common/modifyEmployee']");
       if (modifyForm) {
-        modifyForm.addEventListener("submit", function (e) {
+        modifyForm.addEventListener("submit", async function (e) {
+          e.preventDefault();
+
+          if (saveButton && saveButton.disabled) {
+            return;
+          }
+
           const confirmed = confirm("Are you sure you want to apply these changes?");
           if (!confirmed) {
-            e.preventDefault(); // Stop form submission
             return;
           }
 
           // Mark that SPA cache should be purged on the next page load,
           // ensuring header/menu access state is rebuilt from fresh server HTML.
           sessionStorage.setItem("managira:clear-spa-cache", "1");
+
+          setEmployeeSavingState(true, "Saving employee changes. Please wait...");
+
+          try {
+            const formData = new FormData(modifyForm);
+            const payload = new URLSearchParams();
+            formData.forEach((value, key) => {
+              payload.append(key, value);
+            });
+
+            const response = await fetch(modifyForm.action, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                Accept: "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+              },
+              body: payload.toString(),
+            });
+
+            const result = await response.json().catch(() => ({}));
+
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || "Failed to save employee changes.");
+            }
+
+            window.location.href = "/common/manageEmployees";
+          } catch (error) {
+            setEmployeeSavingState(false, error.message || "An unexpected error occurred.", "error");
+          }
         });
       }
     });

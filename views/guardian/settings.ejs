@@ -334,6 +334,36 @@
     justify-content: center;
   }
 
+  .btn-primary.is-loading,
+  .wallet-action-btn.is-loading,
+  .paygira-submit.is-loading {
+    cursor: wait;
+    opacity: 0.92;
+    pointer-events: none;
+  }
+
+  .btn-primary.is-loading .btn-inline-spinner,
+  .wallet-action-btn.is-loading .btn-inline-spinner,
+  .paygira-submit.is-loading .btn-inline-spinner {
+    display: inline-block;
+  }
+
+  .btn-inline-spinner {
+    width: 13px;
+    height: 13px;
+    border-radius: 999px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    display: none;
+    animation: guardianBtnSpin .38s linear infinite;
+    margin-right: 7px;
+    vertical-align: -2px;
+  }
+
+  @keyframes guardianBtnSpin {
+    to { transform: rotate(360deg); }
+  }
+
   .btn-primary:hover {
     background: var(--primary-hover-fill, var(--primary-hover));
     transform: translateY(-1px);
@@ -1101,5 +1131,41 @@ document.addEventListener('DOMContentLoaded', () => {
       cardsSection.scrollIntoView({ block: 'start' });
     }
   }
+
+  const toLoadingState = (button) => {
+    if (!button || button.dataset.loadingActive === '1') return;
+
+    const isInputSubmit = button.tagName === 'INPUT';
+    button.dataset.loadingActive = '1';
+    button.disabled = true;
+    button.classList.add('is-loading');
+
+    if (isInputSubmit) {
+      if (!button.dataset.originalValue) button.dataset.originalValue = button.value;
+      button.value = 'Processing...';
+      return;
+    }
+
+    if (!button.dataset.originalHtml) button.dataset.originalHtml = button.innerHTML;
+    const currentText = (button.textContent || '').trim() || 'Processing';
+    button.innerHTML = '<span class="btn-inline-spinner" aria-hidden="true"></span><span>' + currentText + '</span>';
+  };
+
+  document.querySelectorAll('.settings-page form').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      requestAnimationFrame(() => {
+        if (event.defaultPrevented) return;
+
+        const submitter = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
+        if (submitter) toLoadingState(submitter);
+
+        form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((control) => {
+          if (control !== submitter) {
+            control.disabled = true;
+          }
+        });
+      });
+    });
+  });
 });
 </script>

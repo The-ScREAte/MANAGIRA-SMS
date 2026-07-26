@@ -1,4 +1,19 @@
 <style>
+  :root {
+    --sp-org-base: var(--org-primary-color, #01535b);
+    --sp-org-strong: color-mix(in srgb, var(--sp-org-base) 72%, black);
+    --sp-org-soft: color-mix(in srgb, var(--sp-org-base) 48%, black);
+    --sp-org-muted: color-mix(in srgb, var(--sp-org-base) 38%, white);
+    --sp-surface: color-mix(in srgb, var(--sp-org-base) 4%, white);
+    --sp-surface-muted: color-mix(in srgb, var(--sp-org-base) 8%, white);
+    --sp-surface-strong: color-mix(in srgb, var(--sp-org-base) 13%, white);
+    --sp-border: color-mix(in srgb, var(--sp-org-base) 18%, white);
+    --sp-border-strong: color-mix(in srgb, var(--sp-org-base) 30%, white);
+    --sp-shadow-soft: color-mix(in srgb, var(--sp-org-base) 14%, transparent);
+    --sp-shadow-strong: color-mix(in srgb, var(--sp-org-base) 26%, transparent);
+    --sp-overlay: color-mix(in srgb, var(--sp-org-base) 12%, transparent);
+  }
+
   .sp-shell {
     max-width: 1240px;
     margin: 0 auto;
@@ -6,10 +21,10 @@
   }
 
   .sp-header {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--sp-border);
     border-radius: 14px;
     background: #fff;
-    box-shadow: 0 4px 14px rgba(15,23,42,0.06);
+    box-shadow: 0 4px 14px var(--sp-shadow-soft);
     margin-bottom: 12px;
     overflow: hidden;
   }
@@ -20,8 +35,8 @@
     justify-content: space-between;
     gap: 14px;
     padding: 12px 16px;
-    border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
+    border-bottom: 1px solid var(--sp-border);
+    background: var(--sp-surface-muted);
   }
 
   .sp-header-titleblock {
@@ -36,7 +51,7 @@
     font-size: .68rem;
     letter-spacing: .09em;
     text-transform: uppercase;
-    color: #64748b;
+    color: var(--sp-org-soft);
     font-weight: 800;
     margin: 0;
   }
@@ -58,10 +73,10 @@
   }
 
   .sp-header-brief {
-    border: 1px solid #dbe5ef;
+    border: 1px solid var(--sp-border);
     border-radius: 999px;
-    background: #f1f5f9;
-    color: #334155;
+    background: var(--sp-surface-muted);
+    color: var(--sp-org-strong);
     padding: 5px 12px;
     font-size: .72rem;
     font-weight: 700;
@@ -69,7 +84,7 @@
   }
 
   .sp-header-brief .k {
-    color: #94a3b8;
+    color: var(--sp-org-muted);
     margin-right: 5px;
     text-transform: uppercase;
     letter-spacing: .06em;
@@ -77,10 +92,10 @@
   }
 
   .sp-term-popup-btn {
-    border: 1px solid #bfdbfe;
+    border: 1px solid var(--sp-border-strong);
     border-radius: 999px;
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--sp-surface-strong);
+    color: var(--sp-org-base);
     font-size: .72rem;
     font-weight: 800;
     padding: 5px 14px;
@@ -90,7 +105,7 @@
   }
 
   .sp-term-popup-btn:hover {
-    background: #dbeafe;
+    background: var(--sp-surface-strong);
   }
 
   .sp-body { background: #fff; }
@@ -111,7 +126,7 @@
     border-radius: 50%;
     object-fit: cover;
     border: 3px solid #fff;
-    box-shadow: 0 6px 18px rgba(15,23,42,.13);
+    box-shadow: 0 6px 18px var(--sp-shadow-strong);
     display: block;
   }
 
@@ -124,22 +139,22 @@
 
   .sp-sub {
     margin: 4px 0 0;
-    color: #64748b;
+    color: var(--sp-org-soft);
     font-size: .86rem;
   }
 
   .sp-term-countdown {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--sp-surface-muted);
+    border: 1px solid var(--sp-border);
     border-radius: 10px;
     padding: 10px 14px;
     text-align: center;
     font-size: .84rem;
-    color: #334155;
+    color: var(--sp-org-strong);
   }
 
   .sp-term-countdown .line { margin-top: 4px; }
-  .sp-term-countdown .meta { color: #64748b; font-size: .78rem; }
+  .sp-term-countdown .meta { color: var(--sp-org-soft); font-size: .78rem; }
 
   .sp-tiles {
     display: grid;
@@ -149,9 +164,9 @@
   }
 
   .sp-tile {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--sp-border);
     border-radius: 10px;
-    background: #f8fafc;
+    background: var(--sp-surface-muted);
     padding: 10px 12px;
   }
 
@@ -159,7 +174,7 @@
     font-size: .64rem;
     text-transform: uppercase;
     letter-spacing: .06em;
-    color: #64748b;
+    color: var(--sp-org-soft);
     font-weight: 800;
   }
 
@@ -168,6 +183,13 @@
     font-size: 1.1rem;
     color: #0f172a;
     font-weight: 800;
+  }
+
+  .sp-tile-note {
+    margin-top: 4px;
+    color: var(--sp-org-soft);
+    font-size: .7rem;
+    font-weight: 600;
   }
 
   .sp-action-tiles {
@@ -185,9 +207,9 @@
   }
 
   .sp-action-tile {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--sp-border);
     border-radius: 10px;
-    background: #f8fafc;
+    background: var(--sp-surface-muted);
     padding: 10px 12px;
     cursor: pointer;
     text-align: left;
@@ -196,13 +218,13 @@
   }
 
   .sp-action-tile:hover {
-    border-color: #93c5fd;
-    background: #eff6ff;
+    border-color: var(--sp-border-strong);
+    background: var(--sp-surface-strong);
   }
 
   .sp-action-tile.sp-testing {
-    border-color: #bfdbfe;
-    background: #eff6ff;
+    border-color: var(--sp-border-strong);
+    background: var(--sp-surface-strong);
   }
 
   .sp-action-title {
@@ -214,18 +236,18 @@
 
   .sp-action-copy {
     margin: 3px 0 0;
-    color: #64748b;
+    color: var(--sp-org-soft);
     font-size: .76rem;
   }
 
   .sp-action-tile.sp-testing .sp-action-title,
   .sp-action-tile.sp-testing .sp-action-copy {
-    color: #1d4ed8;
+    color: var(--sp-org-base);
   }
 
   .sp-table-wrap {
     overflow-x: auto;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--sp-border);
     border-radius: 10px;
   }
 
@@ -236,7 +258,7 @@
   }
 
   .sp-table th, .sp-table td {
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--sp-border);
     padding: 9px 12px;
     text-align: left;
   }
@@ -244,8 +266,8 @@
   .sp-table tr:last-child td { border-bottom: none; }
 
   .sp-table th {
-    background: #f8fafc;
-    color: #64748b;
+    background: var(--sp-surface-muted);
+    color: var(--sp-org-soft);
     font-size: .68rem;
     text-transform: uppercase;
     letter-spacing: .05em;
@@ -257,7 +279,7 @@
   .sp-period-time {
     display: block;
     font-size: .7rem;
-    color: #94a3b8;
+    color: var(--sp-org-muted);
     margin-top: 2px;
   }
 
@@ -265,15 +287,15 @@
     display: inline-flex;
     align-items: center;
     border-radius: 999px;
-    border: 1px solid #e2e8f0;
-    background: #f1f5f9;
-    color: #334155;
+    border: 1px solid var(--sp-border);
+    background: var(--sp-surface-muted);
+    color: var(--sp-org-strong);
     padding: 2px 8px;
     font-size: .68rem;
     font-weight: 700;
   }
 
-  .sp-muted { color: #64748b; margin: 0; }
+  .sp-muted { color: var(--sp-org-soft); margin: 0; }
   .sp-section-title { margin: 0 0 10px; color: #0f172a; font-size: 1rem; font-weight: 700; }
 
   .schedule-shell {
@@ -322,7 +344,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--sp-border);
     border-radius: 14px;
     background: #fff;
     padding: 12px 14px;
@@ -337,7 +359,7 @@
   }
 
   .schedule-summary-toggle-icon {
-    color: #64748b;
+    color: var(--sp-org-soft);
     font-size: 20px;
     line-height: 1;
     transition: transform 0.2s ease;
@@ -358,7 +380,7 @@
   }
 
   .schedule-summary-card {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--sp-border);
     border-radius: 10px;
     background: #ffffff;
     padding: 8px 10px;
@@ -367,7 +389,7 @@
   .schedule-summary-card span {
     display: block;
     font-size: 10px;
-    color: #64748b;
+    color: var(--sp-org-soft);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     font-weight: 700;
@@ -387,10 +409,10 @@
     justify-content: space-between;
     gap: 8px;
     padding: 6px 10px;
-    border: 1px solid #dbeafe;
-    background: #f8fbff;
+    border: 1px solid var(--sp-surface-strong);
+    background: var(--sp-surface);
     border-radius: 8px;
-    color: #334155;
+    color: var(--sp-org-strong);
     font-size: 12px;
     font-weight: 600;
   }
@@ -400,7 +422,7 @@
     --schedule-slot-column-width: 96px;
     --schedule-cell-min-height: 44px;
     overflow: auto;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--sp-border);
     border-radius: 14px;
     background: #fff;
   }
@@ -415,14 +437,14 @@
   .schedule-table th,
   .schedule-table td {
     padding: 0;
-    border: 1px solid #d7dee8;
+    border: 1px solid var(--sp-border-strong);
     text-align: center;
     vertical-align: middle;
   }
 
   .schedule-table th {
-    background: #f8fafc;
-    color: #475569;
+    background: var(--sp-surface-muted);
+    color: var(--sp-org-soft);
     font-size: 10.5px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -432,7 +454,7 @@
     width: var(--schedule-day-column-width);
     min-width: var(--schedule-day-column-width);
     padding: 8px 6px;
-    background: #f8fafc;
+    background: var(--sp-surface-muted);
     font-weight: 700;
     color: #0f172a;
     font-size: 12px;
@@ -457,7 +479,7 @@
 
   .schedule-slot-header {
     min-width: var(--schedule-slot-column-width);
-    background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+    background: linear-gradient(180deg, #fff 0%, var(--sp-surface-muted) 100%);
   }
 
   .schedule-slot-header-inner {
@@ -468,7 +490,7 @@
 
   .schedule-slot-period {
     font-size: 10px;
-    color: #64748b;
+    color: var(--sp-org-soft);
     font-weight: 800;
     letter-spacing: 0.06em;
   }
@@ -495,12 +517,12 @@
   }
 
   .schedule-readonly-cell.is-custom-entry {
-    color: #c77700;
+    color: var(--sp-org-base);
     font-weight: 700;
   }
 
   .schedule-readonly-cell.is-empty {
-    color: #94a3b8;
+    color: var(--sp-org-muted);
   }
 
   .sp-term-meta-grid {
@@ -510,15 +532,15 @@
   }
 
   .sp-term-meta-card {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--sp-border);
     border-radius: 10px;
-    background: #f8fafc;
+    background: var(--sp-surface-muted);
     padding: 10px 12px;
   }
 
   .sp-term-meta-card .k {
     margin: 0;
-    color: #64748b;
+    color: var(--sp-org-soft);
     font-size: .64rem;
     letter-spacing: .06em;
     text-transform: uppercase;
@@ -535,12 +557,14 @@
   .sp-modal {
     position: fixed;
     inset: 0;
-    background: rgba(15,23,42,.5);
+    background: var(--sp-overlay);
     z-index: 9999;
     display: none;
     align-items: center;
     justify-content: center;
     padding: 14px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
 
   .sp-modal.is-open { display: flex; }
@@ -549,11 +573,13 @@
     width: min(96vw, 960px);
     max-height: 90vh;
     overflow-y: auto;
-    background: #fff;
-    border: 1px solid #e2e8f0;
+    background: color-mix(in srgb, white 84%, var(--sp-surface) 16%);
+    border: 1px solid var(--sp-border);
     border-radius: 14px;
-    box-shadow: 0 24px 52px rgba(15,23,42,.25);
+    box-shadow: 0 24px 52px var(--sp-shadow-strong);
     padding: 16px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
   .sp-modal-head {
@@ -563,15 +589,15 @@
     gap: 8px;
     margin-bottom: 12px;
     padding-bottom: 10px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--sp-border);
   }
 
   .sp-modal-title { margin: 0; color: #0f172a; font-size: 1rem; font-weight: 700; }
 
   .sp-modal-close {
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
-    color: #334155;
+    border: 1px solid var(--sp-border);
+    background: var(--sp-surface-muted);
+    color: var(--sp-org-strong);
     border-radius: 8px;
     width: 32px;
     height: 32px;
@@ -583,9 +609,9 @@
   .sp-teacher-subjects { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 
   .global-table-sort-btn {
-    border: 1px solid #dbe5ef;
+    border: 1px solid var(--sp-border);
     background: #ffffff;
-    color: #64748b;
+    color: var(--sp-org-soft);
     border-radius: 6px;
     width: 20px;
     height: 20px;
@@ -847,6 +873,7 @@
           <article class="sp-tile">
             <div class="l">Attendance Rate</div>
             <div class="v"><%= attendanceSummary.attendanceRate %>%</div>
+            <div class="sp-tile-note"><%= attendanceSummary.present %>/<%= attendanceSummary.totalDays %> term days</div>
           </article>
           <article class="sp-tile">
             <div class="l">Present</div>

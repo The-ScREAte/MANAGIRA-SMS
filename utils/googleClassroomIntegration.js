@@ -263,6 +263,8 @@ function normalizeQuestionPayload(rawQuestions = []) {
       const questionText = String(question.questionText || question.question_text || "").trim();
       const answerKey = String(question.answerKey || question.answer_key || "").trim();
       const marks = Number(question.marks || 1);
+      const optionLayoutRaw = String(question.optionLayout || question.optionsLayout || "").trim().toLowerCase();
+      const optionLayout = optionLayoutRaw === "side_by_side" ? "side_by_side" : "stacked";
 
       if (!questionText) return null;
 
@@ -271,6 +273,7 @@ function normalizeQuestionPayload(rawQuestions = []) {
         questionType: normalizeQuestionType(question.questionType || question.question_type),
         questionText,
         options: Array.isArray(options) ? options : [],
+        optionLayout,
         answerKey,
         marks: Number.isFinite(marks) && marks > 0 ? marks : 1,
         positionIndex: Number.isInteger(Number(question.positionIndex))

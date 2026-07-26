@@ -5764,11 +5764,20 @@ const accountController = {
   studentLoginPost: async (req, res, db) => {
     const email = normalizeStudentEmail(req.body.email);
     const { password } = req.body;
+    const clearStudentAuthSession = () => {
+      if (!req.session) return;
+      req.session.user = null;
+      req.session.userRole = null;
+      req.session.accountType = null;
+      req.session.studentId = null;
+      req.session.userId = null;
+      req.session.guardianId = null;
+    };
 
     try {
       await ensureStudentPortalSchema(db);
 
-      const studentAccountResult = await db.query(
+      const studentAccountsResult = await db.query(
         `SELECT sa.*, s.first_name, s.last_name, s.student_id,
                 o.organization_id, o.organization_name, o.nickname, o.nickname_display,
                 o.logo, o.font_style, o.theme_color, o.deleted, o.on_hold
@@ -5776,24 +5785,22 @@ const accountController = {
          JOIN students s ON s.student_id = sa.student_id AND s.organization_id = sa.organization_id
          JOIN organizations o ON o.organization_id = sa.organization_id
          WHERE LOWER(sa.login_email) = LOWER($1)
-         ORDER BY sa.updated_at DESC
-         LIMIT 1`,
+         ORDER BY sa.updated_at DESC`,
         [email]
       );
 
-      if (!studentAccountResult.rows.length) {
+      if (!studentAccountsResult.rows.length) {
+        clearStudentAuthSession();
         req.flash("error", "Invalid student email or password.");
         return res.redirect("/account/student-login");
       }
 
-      const studentAccount = studentAccountResult.rows[0];
-
-      if (studentAccount.deleted || studentAccount.on_hold) {
-        req.flash("error", "School account is suspended. Please contact support.");
-        return res.redirect("/account/student-login");
-      }
-
-      if (!studentAccount.password_hash) {
+      const candidateAccounts = studentAccountsResult.rows;
+      const anyWithPasswordSet = candidateAccounts.some(
+        (account) => account.password_hash && String(account.password_hash).trim()
+      );
+      if (!anyWithPasswordSet) {
+        clearStudentAuthSession();
         req.flash(
           "error",
           "Your account password has not been set yet. Ask your school to send you a password setup email."
@@ -5801,21 +5808,57 @@ const accountController = {
         return res.redirect("/account/student-login");
       }
 
-      const match = await bcrypt.compare(password, studentAccount.password_hash);
-      if (!match) {
+      const passwordMatchedAccounts = [];
+      for (const account of candidateAccounts) {
+        if (!account.password_hash || !String(account.password_hash).trim()) continue;
+        const match = await bcrypt.compare(password, account.password_hash);
+        if (match) passwordMatchedAccounts.push(account);
+      }
+
+      if (!passwordMatchedAccounts.length) {
+        clearStudentAuthSession();
         req.flash("error", "Invalid student email or password.");
         return res.redirect("/account/student-login");
       }
 
-      const studentPortalIntegration = await getStudentPortalIntegrationStatus(
-        db,
-        studentAccount.organization_id
-      );
-      if (!studentPortalIntegration.activated) {
+      let studentAccount = null;
+      let matchedSuspended = false;
+      let matchedPortalInactive = false;
+      for (const account of passwordMatchedAccounts) {
+        if (account.deleted || account.on_hold) {
+          matchedSuspended = true;
+          continue;
+        }
+        const studentPortalIntegration = await getStudentPortalIntegrationStatus(
+          db,
+          account.organization_id
+        );
+        if (!studentPortalIntegration.activated) {
+          matchedPortalInactive = true;
+          continue;
+        }
+        studentAccount = account;
+        break;
+      }
+
+      if (!studentAccount && matchedSuspended) {
+        clearStudentAuthSession();
+        req.flash("error", "School account is suspended. Please contact support.");
+        return res.redirect("/account/student-login");
+      }
+
+      if (!studentAccount && matchedPortalInactive) {
+        clearStudentAuthSession();
         req.flash(
           "error",
           "Student portal is deactivated for this organization. Please contact your school administrator."
         );
+        return res.redirect("/account/student-login");
+      }
+
+      if (!studentAccount) {
+        clearStudentAuthSession();
+        req.flash("error", "Invalid student email or password.");
         return res.redirect("/account/student-login");
       }
 
@@ -5877,6 +5920,7 @@ const accountController = {
         });
       });
     } catch (error) {
+      clearStudentAuthSession();
       req.flash("error", "Login failed. Please try again.");
       return res.redirect("/account/student-login");
     }
@@ -7406,7 +7450,10 @@ const accountController = {
       'rose': 'rose',
       'amber': 'amber',
       'yellow': 'yellow',
-      'slate': 'slate'
+      'slate': 'slate',
+      'cyan': 'cyan',
+      'orange': 'orange',
+      'charcoal': 'charcoal'
     };
     
     const allowedThemes = new Set(Object.keys(themeMapping));
@@ -7672,13 +7719,40 @@ const accountController = {
     const baseUrl = res.locals.BASE_URL;
 
     try {
-      // Search all loginable tables for this email
+      await ensureStudentPortalSchema(db);
+
+      // Parent/Student portal passwords are school-managed.
+      const portalAccountResult = await db.query(
+        `SELECT 'guardian_accounts' AS source
+           FROM guardian_accounts
+          WHERE LOWER(login_email) = LOWER($1)
+         UNION
+         SELECT 'student_accounts' AS source
+           FROM student_accounts
+          WHERE LOWER(login_email) = LOWER($1)`,
+        [email]
+      );
+
+      if (portalAccountResult.rows.length > 0) {
+        const hasParent = portalAccountResult.rows.some((row) => row.source === 'guardian_accounts');
+        const hasStudent = portalAccountResult.rows.some((row) => row.source === 'student_accounts');
+
+        let portalActor = "a student or a parent";
+        if (hasParent && !hasStudent) portalActor = "a parent";
+        if (hasStudent && !hasParent) portalActor = "a student";
+
+        req.flash(
+          "error",
+          `If you're ${portalActor}, please contact the school for help on setting up a new password.`
+        );
+        return res.redirect("/account/forget-password");
+      }
+
+      // Search staff/admin/hub login tables for this email
       const userResult = await db.query(
         `SELECT email, 'users' AS source FROM users WHERE LOWER(email) = LOWER($1)
          UNION
          SELECT email, 'organizations' AS source FROM organizations WHERE LOWER(email) = LOWER($1)
-         UNION
-         SELECT login_email AS email, 'guardian_accounts' AS source FROM guardian_accounts WHERE LOWER(login_email) = LOWER($1)
          UNION
          SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE LOWER(hub_email) = LOWER($1) AND deleted = false`,
         [email]
@@ -7703,11 +7777,6 @@ const accountController = {
         } else if (row.source === "organizations") {
           await db.query(
             `UPDATE organizations SET reset_password_token = $1, reset_password_expires = $2 WHERE LOWER(email) = LOWER($3)`,
-            [hashedToken, tokenExpiration, email]
-          );
-        } else if (row.source === "guardian_accounts") {
-          await db.query(
-            `UPDATE guardian_accounts SET reset_password_token = $1, reset_password_expires = $2 WHERE LOWER(login_email) = LOWER($3)`,
             [hashedToken, tokenExpiration, email]
           );
         } else if (row.source === "managira_hubs") {

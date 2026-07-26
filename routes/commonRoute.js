@@ -218,19 +218,9 @@ module.exports = (db) => {
   router.post("/guardianRemoveStudent", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.guardianRemoveStudent(req, res, db)
   );
-  router.post("/guardianRelinkStudent", checkFeatureAccess, isAuthenticated, (req, res) => {
-    const body = req.body || {};
-    console.log('[guardianRelink][route] hit', {
-      organizationId: req.session?.organizationId || null,
-      userId: req.session?.userId || req.session?.user?.user_id || null,
-      source: body.source || null,
-      mode: body.mode || null,
-      currentGuardianId: body.currentGuardianId || null,
-      studentId: body.studentId || null,
-      targetGuardianId: body.targetGuardianId || null,
-    });
-    return commonController.guardianRelinkStudent(req, res, db);
-  });
+  router.post("/guardianRelinkStudent", checkFeatureAccess, isAuthenticated, (req, res) =>
+    commonController.guardianRelinkStudent(req, res, db)
+  );
   router.post("/guardianRequestPasswordReset", checkFeatureAccess, isAuthenticated, (req, res) =>
     commonController.guardianRequestPasswordReset(req, res, db)
   );
