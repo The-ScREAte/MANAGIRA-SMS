@@ -42,7 +42,7 @@ async function ensureStudentPortalSchema(dbClient) {
       term_id INTEGER,
       class_id INTEGER,
       status VARCHAR(20) NOT NULL DEFAULT 'in_progress',
-      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      started_at TIMESTAMPTZ,
       submitted_at TIMESTAMPTZ,
       score NUMERIC(10,2),
       max_score NUMERIC(10,2),
@@ -55,6 +55,12 @@ async function ensureStudentPortalSchema(dbClient) {
   await dbClient.query(`
     CREATE INDEX IF NOT EXISTS idx_student_attempts_lookup
     ON student_assessment_attempts (organization_id, student_id, assessment_id, status)
+  `);
+
+  await dbClient.query(`
+    ALTER TABLE student_assessment_attempts
+      ALTER COLUMN started_at DROP NOT NULL,
+      ALTER COLUMN started_at DROP DEFAULT
   `);
 
   await dbClient.query(`

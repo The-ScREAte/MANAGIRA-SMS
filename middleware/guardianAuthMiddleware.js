@@ -39,6 +39,25 @@ const isGuardianAuthenticated = async (req, res, next) => {
         req.session.destroy(() => {});
         return res.redirect("/account/guardian-login");
       }
+
+      // Keep session greeting identity in sync with canonical guardian profile.
+      const guardianProfile = await db.query(
+        `SELECT first_name, last_name
+           FROM guardian_profiles
+          WHERE guardian_id = $1 AND organization_id = $2
+          LIMIT 1`,
+        [req.session.guardianId, req.session.organizationId]
+      );
+
+      if (guardianProfile.rows.length) {
+        const row = guardianProfile.rows[0];
+        req.session.firstName = row.first_name || req.session.firstName;
+        req.session.lastName = row.last_name || req.session.lastName;
+        if (req.session.user && typeof req.session.user === "object") {
+          req.session.user.first_name = row.first_name || req.session.user.first_name;
+          req.session.user.last_name = row.last_name || req.session.user.last_name;
+        }
+      }
     }
 
     next();

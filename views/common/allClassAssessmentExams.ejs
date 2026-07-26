@@ -2692,10 +2692,13 @@
               </div>
               <span class="exam-pill"><%= setItem.question_count %> question<%= Number(setItem.question_count) === 1 ? '' : 's' %></span>
               <span class="exam-pill"><%= setItem.total_points %> pts</span>
-              <span class="exam-pill"><%= setItem.open_book ? 'Open Book' : 'Secure' %></span>
+              <span class="exam-pill">Assessment Mode: <%= setItem.open_book ? 'Open Book' : 'Secure' %></span>
               <% if (setItem.time_limit_minutes && Number(setItem.time_limit_minutes) > 0) { %>
-                <span class="exam-pill"><%= Number(setItem.time_limit_minutes) %> min</span>
+                <span class="exam-pill">Duration <%= Number(setItem.time_limit_minutes) %> min</span>
+              <% } else { %>
+                <span class="exam-pill">Duration Unlimited</span>
               <% } %>
+              <span class="exam-pill">Attempts <%= Math.max(Number(setItem.max_attempts || 1), 1) %></span>
               <div class="exam-summary-actions">
                 <span class="exam-pill review-<%= reviewStatusKey %>">Review: <%= (setItem.review_status || 'pending').toUpperCase() %></span>
                 <span class="exam-updated">Updated: <%= setItem.updated_at ? new Date(setItem.updated_at).toLocaleString() : '-' %></span>
@@ -2834,7 +2837,7 @@
               <select id="question-assessment"></select>
             </div>
             <div class="qm-field">
-              <label>Exam Mode</label>
+              <label>Assessment Mode</label>
               <select id="question-open-book">
                 <option value="false">Secure (Closed Book)</option>
                 <option value="true">Open Book</option>
@@ -2842,7 +2845,17 @@
             </div>
             <div class="qm-field">
               <label>Time Limit (minutes)</label>
-              <input id="question-time-limit" type="number" min="1" step="1" placeholder="Leave empty for untimed" />
+              <div style="display:grid;grid-template-columns:150px 1fr;gap:8px;">
+                <select id="question-time-mode">
+                  <option value="timed">Timed</option>
+                  <option value="unlimited">Unlimited</option>
+                </select>
+                <input id="question-time-limit" type="number" min="1" step="1" placeholder="e.g. 45" />
+              </div>
+            </div>
+            <div class="qm-field">
+              <label>Max Attempts</label>
+              <input id="question-max-attempts" type="number" min="1" step="1" value="1" placeholder="1" />
             </div>
             <div class="qm-field">
               <label>Question Set Title</label>
@@ -3055,7 +3068,9 @@
       var questionSubjectSelect = document.getElementById('question-subject');
       var questionAssessmentSelect = document.getElementById('question-assessment');
       var questionOpenBookSelect = document.getElementById('question-open-book');
+      var questionTimeModeSelect = document.getElementById('question-time-mode');
       var questionTimeLimitInput = document.getElementById('question-time-limit');
+      var questionMaxAttemptsInput = document.getElementById('question-max-attempts');
       var questionSetTitleInput = document.getElementById('question-set-title');
       var questionSetDescriptionInput = document.getElementById('question-set-description');
       var questionAssessmentRules = document.getElementById('question-assessment-rules');
@@ -3103,6 +3118,7 @@
       var currentQuestionSetId = null;
       var questionModalMode = 'create';
       var selectedAssessmentRule = null;
+      var hasManualAssessmentModeEdits = false;
       var activeStudentsQuestionSetId = 0;
       var latestStudentsPayload = null;
       var activeSetPreviewPayload = null;
@@ -3124,6 +3140,7 @@
             timeLimitMinutes: assessment.time_limit_minutes !== null && assessment.time_limit_minutes !== undefined
               ? Number(assessment.time_limit_minutes)
               : null,
+            maxAttempts: Number(assessment.max_attempts || 1),
             canEditScores: Boolean(assessment.can_edit_scores),
             accessReason: assessment.access_reason || '',
           }];
@@ -3134,6 +3151,74 @@
         if (!questionModalStatus) return;
         questionModalStatus.textContent = message || '';
         questionModalStatus.style.color = isError ? '#b91c1c' : '#0f5a66';
+      }
+
+      function syncQuestionTimeLimitUi() {
+        if (!questionTimeModeSelect || !questionTimeLimitInput) return;
+        var mode = String(questionTimeModeSelect.value || 'timed').toLowerCase() === 'unlimited'
+          ? 'unlimited'
+          : 'timed';
+        var isTimed = mode === 'timed';
+        questionTimeLimitInput.disabled = !isTimed;
+        questionTimeLimitInput.placeholder = isTimed ? 'e.g. 45' : 'No limit';
+        if (!isTimed) {
+          questionTimeLimitInput.value = '';
+        }
+      }
+
+      function resetAssessmentModeInputsFromRule(rule) {
+        if (!rule) return;
+        if (questionOpenBookSelect) {
+          questionOpenBookSelect.value = rule.openBook ? 'true' : 'false';
+        }
+        if (questionTimeModeSelect) {
+          questionTimeModeSelect.value = rule.timeLimitMinutes && Number(rule.timeLimitMinutes) > 0
+            ? 'timed'
+            : 'unlimited';
+        }
+        if (questionTimeLimitInput) {
+          questionTimeLimitInput.value = rule.timeLimitMinutes && Number(rule.timeLimitMinutes) > 0
+            ? String(Number(rule.timeLimitMinutes))
+            : '';
+        }
+        if (questionMaxAttemptsInput) {
+          questionMaxAttemptsInput.value = String(Math.max(Number(rule.maxAttempts || 1), 1));
+        }
+        syncQuestionTimeLimitUi();
+      }
+
+      function getCurrentAssessmentModeSummaryText(rule) {
+        var modeLabel = 'Secure';
+        var timeLabel = 'Untimed';
+        var attemptsLabel = '1';
+
+        if (questionOpenBookSelect) {
+          modeLabel = String(questionOpenBookSelect.value) === 'true' ? 'Open Book' : 'Secure';
+        } else if (rule) {
+          modeLabel = rule.openBook ? 'Open Book' : 'Secure';
+        }
+
+        if (questionTimeModeSelect && String(questionTimeModeSelect.value || 'timed').toLowerCase() === 'unlimited') {
+          timeLabel = 'Untimed';
+        } else if (questionTimeLimitInput) {
+          var enteredLimit = Number.parseInt(String(questionTimeLimitInput.value || '').trim(), 10);
+          timeLabel = Number.isInteger(enteredLimit) && enteredLimit > 0 ? String(enteredLimit) + ' min' : 'Untimed';
+        } else if (rule && Number(rule.timeLimitMinutes) > 0) {
+          timeLabel = String(Number(rule.timeLimitMinutes)) + ' min';
+        }
+
+        if (questionMaxAttemptsInput) {
+          var enteredAttempts = Number.parseInt(String(questionMaxAttemptsInput.value || '').trim(), 10);
+          attemptsLabel = String(Number.isInteger(enteredAttempts) && enteredAttempts > 0 ? enteredAttempts : 1);
+        } else if (rule) {
+          attemptsLabel = String(Math.max(Number(rule.maxAttempts || 1), 1));
+        }
+
+        return {
+          modeLabel: modeLabel,
+          timeLabel: timeLabel,
+          attemptsLabel: attemptsLabel,
+        };
       }
 
       function getSaveButtonLabel() {
@@ -3618,8 +3703,18 @@
         var subjectLabel = getSelectedOptionLabel(questionSubjectSelect);
         var termLabel = getSelectedOptionLabel(questionTermSelect);
         var schoolYearLabel = getSelectedOptionLabel(questionSchoolYearSelect);
+        var isOpenBook = questionOpenBookSelect ? String(questionOpenBookSelect.value) === 'true' : false;
+        var isTimed = questionTimeModeSelect
+          ? String(questionTimeModeSelect.value || 'timed').toLowerCase() !== 'unlimited'
+          : true;
+        var timeLimitValue = questionTimeLimitInput ? Number.parseInt(String(questionTimeLimitInput.value || '').trim(), 10) : NaN;
+        var maxAttemptsValue = questionMaxAttemptsInput ? Number.parseInt(String(questionMaxAttemptsInput.value || '').trim(), 10) : 1;
+        maxAttemptsValue = Number.isInteger(maxAttemptsValue) && maxAttemptsValue > 0 ? maxAttemptsValue : 1;
 
         var contextBits = [];
+        contextBits.push('Assessment Mode: ' + (isOpenBook ? 'Open Book' : 'Secure (Closed Book)'));
+        contextBits.push('Duration: ' + (isTimed && Number.isInteger(timeLimitValue) && timeLimitValue > 0 ? (String(timeLimitValue) + ' min') : 'Unlimited'));
+        contextBits.push('Max Attempts: ' + String(maxAttemptsValue));
 
         var questionCardLayout = questionItems
           ? String(questionItems.getAttribute('data-layout-mode') || 'stacked').toLowerCase()
@@ -3648,10 +3743,26 @@
         var assessmentLabel = String(setData.assessmentTitle || setData.assessment_title || scope.assessmentTitle || '').trim();
         var classLabel = String(setData.className || setData.class_name || scope.className || '').trim();
         var subjectLabel = String(setData.subjectName || setData.subject_name || scope.subjectName || '').trim();
+        var openBookRaw = (setData.openBook !== undefined && setData.openBook !== null)
+          ? setData.openBook
+          : setData.open_book;
+        var isOpenBook = String(openBookRaw).toLowerCase() === 'true' || Number(openBookRaw) === 1;
+        var timeLimitRaw = (setData.timeLimitMinutes !== undefined && setData.timeLimitMinutes !== null)
+          ? setData.timeLimitMinutes
+          : setData.time_limit_minutes;
+        var timeLimitValue = Number.parseInt(String(timeLimitRaw === undefined || timeLimitRaw === null ? '' : timeLimitRaw), 10);
+        var maxAttemptsRaw = (setData.maxAttempts !== undefined && setData.maxAttempts !== null)
+          ? setData.maxAttempts
+          : setData.max_attempts;
+        var maxAttemptsValue = Number.parseInt(String(maxAttemptsRaw === undefined || maxAttemptsRaw === null ? '' : maxAttemptsRaw), 10);
+        maxAttemptsValue = Number.isInteger(maxAttemptsValue) && maxAttemptsValue > 0 ? maxAttemptsValue : 1;
         var questionCardLayout = String(setData.questionCardLayout || setData.question_card_layout || 'stacked').trim().toLowerCase();
         questionCardLayout = questionCardLayout === 'side_by_side' ? 'side_by_side' : 'stacked';
 
         var contextBits = [];
+        contextBits.push('Assessment Mode: ' + (isOpenBook ? 'Open Book' : 'Secure (Closed Book)'));
+        contextBits.push('Duration: ' + (Number.isInteger(timeLimitValue) && timeLimitValue > 0 ? (String(timeLimitValue) + ' min') : 'Unlimited'));
+        contextBits.push('Max Attempts: ' + String(maxAttemptsValue));
 
         var questions = Array.isArray(setData.questions) ? setData.questions : [];
         return {
@@ -3720,6 +3831,15 @@
             '</div>' +
           '</div>'
         );
+        if (Array.isArray(payload.contextBits) && payload.contextBits.length) {
+          chunks.push(
+            '<div class="qm-preview-context">' +
+              payload.contextBits.map(function (bit) {
+                return '<span>' + escapeHtml(String(bit || '')) + '</span>';
+              }).join('') +
+            '</div>'
+          );
+        }
         var cardsLayoutClass = String(payload.questionCardLayout || 'stacked').toLowerCase() === 'side_by_side'
           ? 'qm-preview-cards is-side-by-side'
           : 'qm-preview-cards';
@@ -3947,6 +4067,10 @@
           classId: questionClassSelect ? questionClassSelect.value : '',
           subjectId: questionSubjectSelect ? questionSubjectSelect.value : '',
           assessmentId: questionAssessmentSelect ? questionAssessmentSelect.value : '',
+          openBook: questionOpenBookSelect ? questionOpenBookSelect.value : 'false',
+          timeMode: questionTimeModeSelect ? questionTimeModeSelect.value : 'timed',
+          timeLimitMinutes: questionTimeLimitInput ? questionTimeLimitInput.value : '',
+          maxAttempts: questionMaxAttemptsInput ? questionMaxAttemptsInput.value : '1',
           setTitle: questionSetTitleInput ? questionSetTitleInput.value : '',
           description: questionSetDescriptionInput ? questionSetDescriptionInput.value : '',
           questionCardLayout: questionItems
@@ -3981,6 +4105,20 @@
         if (questionClassSelect && draft.classId) questionClassSelect.value = draft.classId;
         if (questionSubjectSelect && draft.subjectId) questionSubjectSelect.value = draft.subjectId;
         if (questionAssessmentSelect && draft.assessmentId) questionAssessmentSelect.value = draft.assessmentId;
+        if (questionOpenBookSelect && draft.openBook !== undefined && draft.openBook !== null) {
+          questionOpenBookSelect.value = String(draft.openBook) === 'true' ? 'true' : 'false';
+        }
+        if (questionTimeModeSelect && draft.timeMode) {
+          questionTimeModeSelect.value = String(draft.timeMode).toLowerCase() === 'unlimited' ? 'unlimited' : 'timed';
+        }
+        if (questionTimeLimitInput && draft.timeLimitMinutes !== undefined && draft.timeLimitMinutes !== null) {
+          questionTimeLimitInput.value = String(draft.timeLimitMinutes || '').trim();
+        }
+        if (questionMaxAttemptsInput && draft.maxAttempts !== undefined && draft.maxAttempts !== null) {
+          var draftAttempts = Number.parseInt(String(draft.maxAttempts || '').trim(), 10);
+          questionMaxAttemptsInput.value = String(Number.isInteger(draftAttempts) && draftAttempts > 0 ? draftAttempts : 1);
+        }
+        syncQuestionTimeLimitUi();
         if (questionSetTitleInput && draft.setTitle) questionSetTitleInput.value = draft.setTitle;
         if (questionSetDescriptionInput && draft.description) questionSetDescriptionInput.value = draft.description;
 
@@ -4207,6 +4345,7 @@
             timeLimitMinutes: assessment.time_limit_minutes !== null && assessment.time_limit_minutes !== undefined
               ? Number(assessment.time_limit_minutes)
               : null,
+            maxAttempts: Number(assessment.max_attempts || 1),
             canEditScores: Boolean(assessment.can_edit_scores),
             accessReason: assessment.access_reason || '',
           });
@@ -4250,7 +4389,8 @@
         });
       }
 
-      function renderAssessmentRulesSummary() {
+      function renderAssessmentRulesSummary(options) {
+        var forceHydrateModeInputs = Boolean(options && options.forceHydrateModeInputs);
         selectedAssessmentRule = resolveSelectedAssessmentRule();
         if (!questionAssessmentRules) return;
 
@@ -4258,20 +4398,22 @@
           questionAssessmentRules.style.display = 'none';
           questionAssessmentRules.textContent = 'Assessment rules unavailable for this selection.';
           if (questionOpenBookSelect) questionOpenBookSelect.value = 'false';
+          if (questionTimeModeSelect) questionTimeModeSelect.value = 'timed';
           if (questionTimeLimitInput) questionTimeLimitInput.value = '';
+          if (questionMaxAttemptsInput) questionMaxAttemptsInput.value = '1';
+          hasManualAssessmentModeEdits = false;
+          syncQuestionTimeLimitUi();
           return;
         }
 
         questionAssessmentRules.style.display = 'block';
 
-        if (questionOpenBookSelect) {
-          questionOpenBookSelect.value = selectedAssessmentRule.openBook ? 'true' : 'false';
+        if (forceHydrateModeInputs || !hasManualAssessmentModeEdits) {
+          resetAssessmentModeInputsFromRule(selectedAssessmentRule);
+          hasManualAssessmentModeEdits = false;
         }
-        if (questionTimeLimitInput) {
-          questionTimeLimitInput.value = selectedAssessmentRule.timeLimitMinutes && Number(selectedAssessmentRule.timeLimitMinutes) > 0
-            ? String(Number(selectedAssessmentRule.timeLimitMinutes))
-            : '';
-        }
+
+        var summary = getCurrentAssessmentModeSummaryText(selectedAssessmentRule);
 
         var statusLabel = selectedAssessmentRule.canEditScores
           ? 'Editable'
@@ -4282,8 +4424,9 @@
           ' | Weight: ' + selectedAssessmentRule.weight + '%' +
           ' | Max score: ' + selectedAssessmentRule.maxScore +
           ' | Scale: ' + selectedAssessmentRule.scaleBase +
-          ' | Mode: ' + (selectedAssessmentRule.openBook ? 'Open Book' : 'Secure') +
-          ' | Time: ' + (selectedAssessmentRule.timeLimitMinutes && Number(selectedAssessmentRule.timeLimitMinutes) > 0 ? (String(selectedAssessmentRule.timeLimitMinutes) + ' min') : 'Untimed') +
+          ' | Mode: ' + summary.modeLabel +
+          ' | Time: ' + summary.timeLabel +
+          ' | Attempts: ' + summary.attemptsLabel +
           ' | Status: ' + statusLabel;
 
         applyAssessmentMarksLimit(selectedAssessmentRule.maxScore);
@@ -5257,7 +5400,8 @@
         }
 
         questionItems.innerHTML = '';
-        renderAssessmentRulesSummary();
+        hasManualAssessmentModeEdits = false;
+        renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
 
         if (!selectedAssessmentRule) {
           setQuestionEditorEnabled(false);
@@ -5355,7 +5499,8 @@
           questionAssessmentSelect.value = String(Number(payload.assessmentId));
         }
 
-        renderAssessmentRulesSummary();
+        hasManualAssessmentModeEdits = false;
+        renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
         await hydrateQuestionModalFromServer();
       }
 
@@ -5851,7 +5996,8 @@
       renderQuestionModalClasses();
       renderQuestionModalSubjects();
       renderQuestionModalAssessments().then(function () {
-        renderAssessmentRulesSummary();
+        hasManualAssessmentModeEdits = false;
+        renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
       });
 
       buildSetFilterOptions();
@@ -5978,7 +6124,8 @@
             questionItems.innerHTML = '';
           }
           setQuestionEditorEnabled(true);
-          renderAssessmentRulesSummary();
+          hasManualAssessmentModeEdits = false;
+          renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
           setQuestionStatus('Create a question set for this assessment.', false);
           try {
             await hydrateQuestionModalFromServer();
@@ -6147,7 +6294,8 @@
 
       if (questionAssessmentSelect) {
         questionAssessmentSelect.addEventListener('change', async function () {
-          renderAssessmentRulesSummary();
+          hasManualAssessmentModeEdits = false;
+          renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
           if (questionModalMode === 'create') {
             if (questionSetTitleInput) questionSetTitleInput.value = '';
             if (questionSetDescriptionInput) questionSetDescriptionInput.value = '';
@@ -6175,7 +6323,8 @@
           renderQuestionModalClasses();
           renderQuestionModalSubjects();
           await renderQuestionModalAssessments();
-          renderAssessmentRulesSummary();
+          hasManualAssessmentModeEdits = false;
+          renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
           try {
             await hydrateQuestionModalFromServer();
           } catch (error) {
@@ -6189,7 +6338,8 @@
           renderQuestionModalClasses();
           renderQuestionModalSubjects();
           await renderQuestionModalAssessments();
-          renderAssessmentRulesSummary();
+          hasManualAssessmentModeEdits = false;
+          renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
           try {
             await hydrateQuestionModalFromServer();
           } catch (error) {
@@ -6202,7 +6352,8 @@
         questionClassSelect.addEventListener('change', async function () {
           renderQuestionModalSubjects();
           await renderQuestionModalAssessments();
-          renderAssessmentRulesSummary();
+          hasManualAssessmentModeEdits = false;
+          renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
           try {
             await hydrateQuestionModalFromServer();
           } catch (error) {
@@ -6214,7 +6365,8 @@
       if (questionSubjectSelect) {
         questionSubjectSelect.addEventListener('change', async function () {
           await renderQuestionModalAssessments();
-          renderAssessmentRulesSummary();
+          hasManualAssessmentModeEdits = false;
+          renderAssessmentRulesSummary({ forceHydrateModeInputs: true });
           try {
             await hydrateQuestionModalFromServer();
           } catch (error) {
@@ -6301,11 +6453,59 @@
         });
       }
 
+      if (questionTimeModeSelect) {
+        questionTimeModeSelect.addEventListener('change', function () {
+          hasManualAssessmentModeEdits = true;
+          syncQuestionTimeLimitUi();
+          renderAssessmentRulesSummary();
+          saveDraft();
+        });
+      }
+
+      if (questionOpenBookSelect) {
+        questionOpenBookSelect.addEventListener('change', function () {
+          hasManualAssessmentModeEdits = true;
+          renderAssessmentRulesSummary();
+          saveDraft();
+        });
+      }
+
+      if (questionTimeLimitInput) {
+        questionTimeLimitInput.addEventListener('input', function () {
+          hasManualAssessmentModeEdits = true;
+          renderAssessmentRulesSummary();
+        });
+        questionTimeLimitInput.addEventListener('change', function () {
+          hasManualAssessmentModeEdits = true;
+          renderAssessmentRulesSummary();
+          saveDraft();
+        });
+      }
+
+      if (questionMaxAttemptsInput) {
+        questionMaxAttemptsInput.addEventListener('input', function () {
+          hasManualAssessmentModeEdits = true;
+          renderAssessmentRulesSummary();
+        });
+        questionMaxAttemptsInput.addEventListener('change', function () {
+          hasManualAssessmentModeEdits = true;
+          var parsed = Number.parseInt(String(questionMaxAttemptsInput.value || '').trim(), 10);
+          questionMaxAttemptsInput.value = String(Number.isInteger(parsed) && parsed > 0 ? parsed : 1);
+          renderAssessmentRulesSummary();
+          saveDraft();
+        });
+      }
+
+      syncQuestionTimeLimitUi();
+
       if (qmClearDraftButton) {
         qmClearDraftButton.addEventListener('click', function () {
           clearDraft();
           if (questionItems) questionItems.innerHTML = '';
           applyQuestionCardsLayoutMode('stacked');
+          if (questionTimeModeSelect) questionTimeModeSelect.value = 'timed';
+          syncQuestionTimeLimitUi();
+          if (questionMaxAttemptsInput) questionMaxAttemptsInput.value = '1';
           if (questionSetTitleInput) questionSetTitleInput.value = '';
           if (questionSetDescriptionInput) questionSetDescriptionInput.value = '';
           if (questionItems) questionItems.appendChild(buildQuestionItem());
@@ -6322,8 +6522,8 @@
             return;
           }
 
-          renderAssessmentRulesSummary();
-          var selectedRule = selectedAssessmentRule;
+          var selectedRule = resolveSelectedAssessmentRule();
+          selectedAssessmentRule = selectedRule;
           if (!selectedRule) {
             setQuestionStatus('Select an assessment to apply question rules.', true);
             return;
@@ -6353,7 +6553,12 @@
               ? String(questionItems.getAttribute('data-layout-mode') || 'stacked')
               : 'stacked',
             openBook: questionOpenBookSelect ? String(questionOpenBookSelect.value) === 'true' : false,
-            timeLimitMinutes: questionTimeLimitInput ? String(questionTimeLimitInput.value || '').trim() : '',
+            timeLimitMinutes: (questionTimeModeSelect && questionTimeModeSelect.value === 'unlimited')
+              ? ''
+              : (questionTimeLimitInput ? String(questionTimeLimitInput.value || '').trim() : ''),
+            maxAttempts: questionMaxAttemptsInput
+              ? String(Math.max(Number.parseInt(String(questionMaxAttemptsInput.value || '').trim(), 10) || 1, 1))
+              : '1',
             setTitle: String(questionSetTitleInput ? questionSetTitleInput.value : '').trim() || 'Question Set',
             setDescription: String(questionSetDescriptionInput ? questionSetDescriptionInput.value : '').trim(),
             questions: questions,

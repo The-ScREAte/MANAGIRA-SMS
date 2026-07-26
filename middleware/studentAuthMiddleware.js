@@ -48,7 +48,7 @@ async function isStudentAuthenticated(req, res, next) {
     }
 
     const studentResult = await db.query(
-      `SELECT s.student_id, s.organization_id
+      `SELECT s.student_id, s.organization_id, s.first_name, s.last_name
          FROM students s
          WHERE s.student_id = $1 AND s.organization_id = $2
          LIMIT 1`,
@@ -57,6 +57,14 @@ async function isStudentAuthenticated(req, res, next) {
 
     if (!studentResult.rows.length) {
       return destroyAndRedirect("/account/student-login?reason=student_not_found");
+    }
+
+    const studentRow = studentResult.rows[0];
+    req.session.firstName = studentRow.first_name || req.session.firstName;
+    req.session.lastName = studentRow.last_name || req.session.lastName;
+    if (req.session.user && typeof req.session.user === "object") {
+      req.session.user.first_name = studentRow.first_name || req.session.user.first_name;
+      req.session.user.last_name = studentRow.last_name || req.session.user.last_name;
     }
 
     next();

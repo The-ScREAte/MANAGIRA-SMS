@@ -7,6 +7,8 @@
     "test": "node --test tests/*.test.js",
     "start": "node server.js",
     "dev": "nodemon",
+    "dev:status": "node -e \"const net=require('net');const port=Number(process.env.PORT||4000);const socket=net.createConnection({host:'127.0.0.1',port},()=>{console.log('[Status] Server is running on port '+port);socket.end();});socket.on('error',()=>{console.log('[Status] Server is NOT running on port '+port);process.exit(1);});\"",
+    "dev:stop": "sh -c \"port=${PORT:-4000}; pids=$(lsof -ti tcp:$port); if [ -n \\\"$pids\\\" ]; then kill $pids && echo \\\"[Dev] Stopped process on port $port\\\"; else echo \\\"[Dev] No process running on port $port\\\"; fi\"",
     "build:dev": "vite build --mode development"
   },
   "keywords": [],

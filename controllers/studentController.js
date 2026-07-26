@@ -62,7 +62,8 @@ async function ensureAssessmentModeSchema(dbClient) {
   await dbClient.query(`
     ALTER TABLE assessments
       ADD COLUMN IF NOT EXISTS open_book BOOLEAN DEFAULT FALSE,
-      ADD COLUMN IF NOT EXISTS time_limit_minutes INTEGER
+      ADD COLUMN IF NOT EXISTS time_limit_minutes INTEGER,
+      ADD COLUMN IF NOT EXISTS max_attempts INTEGER DEFAULT 1
   `);
   assessmentModeSchemaReady = true;
 }
@@ -82,6 +83,44 @@ async function ensureStudentAssessmentLockSchema(dbClient) {
       UNIQUE (organization_id, student_id, assessment_id)
     )
   `);
+
+  await dbClient.query(`
+    CREATE OR REPLACE FUNCTION validate_student_assessment_lock_override_set()
+    RETURNS trigger AS $$
+    BEGIN
+      IF NEW.question_set_id IS NULL THEN
+        RETURN NEW;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1
+        FROM assessment_question_sets qs
+        WHERE qs.question_set_id = NEW.question_set_id
+          AND qs.organization_id = NEW.organization_id
+          AND qs.assessment_id = NEW.assessment_id
+      ) THEN
+        RAISE EXCEPTION 'Invalid question_set_id % for assessment_id % in organization %',
+          NEW.question_set_id, NEW.assessment_id, NEW.organization_id;
+      END IF;
+
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+  `);
+
+  await dbClient.query(`
+    DROP TRIGGER IF EXISTS trg_validate_student_assessment_lock_override_set
+      ON student_assessment_lock_overrides;
+  `);
+
+  await dbClient.query(`
+    CREATE TRIGGER trg_validate_student_assessment_lock_override_set
+    BEFORE INSERT OR UPDATE OF question_set_id, assessment_id, organization_id
+    ON student_assessment_lock_overrides
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_student_assessment_lock_override_set();
+  `);
+
   studentAssessmentLockSchemaReady = true;
 }
 
@@ -412,8 +451,10 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
         COALESCE(a.open_book, FALSE) AS open_book,
         COALESCE(salo.is_locked, FALSE) AS is_locked,
         a.time_limit_minutes,
+      GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
         a.edit_window_end,
         s.subject_name,
+        COALESCE(sa.submitted_count, 0)::int AS submitted_attempts,
             qs.question_count,
             qs.updated_at AS latest_question_update
        FROM assessments a
@@ -431,15 +472,26 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
          WHERE qs.organization_id = a.organization_id
            AND qs.assessment_id = a.assessment_id
            AND LOWER(COALESCE(qs.review_status, 'pending')) = 'approved'
-           AND qs.retake_student_id IS NULL
-         GROUP BY qs.question_set_id, qs.updated_at
-         ORDER BY qs.updated_at DESC, qs.question_set_id DESC
+             AND (qs.retake_student_id IS NULL OR qs.retake_student_id = $4)
+         GROUP BY qs.question_set_id, qs.updated_at, qs.retake_student_id
+           ORDER BY
+             CASE WHEN qs.retake_student_id = $4 THEN 0 ELSE 1 END,
+             qs.updated_at DESC,
+             qs.question_set_id DESC
          LIMIT 1
        ) qs ON TRUE
        LEFT JOIN student_assessment_lock_overrides salo
          ON salo.organization_id = a.organization_id
         AND salo.student_id = $4
         AND salo.assessment_id = a.assessment_id
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS submitted_count
+         FROM student_assessment_attempts saa
+         WHERE saa.organization_id = a.organization_id
+           AND saa.student_id = $4
+           AND saa.assessment_id = a.assessment_id
+           AND saa.status = 'submitted'
+       ) sa ON TRUE
       WHERE a.organization_id = $1
         AND a.class_id = $2
         AND a.term_id = $3
@@ -453,18 +505,12 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
              AND ss.student_id = $4
              AND ss.subject_id = a.subject_id
         )
+        AND COALESCE(salo.is_locked, FALSE) = FALSE
         AND (
-          (COALESCE(salo.is_locked, FALSE) = FALSE AND salo.id IS NOT NULL)
-          OR NOT EXISTS (
-            SELECT 1
-              FROM student_assessment_attempts saa
-             WHERE saa.organization_id = $1
-               AND saa.student_id = $4
-               AND saa.assessment_id = a.assessment_id
-               AND saa.status = 'submitted'
-          )
+          COALESCE(sa.submitted_count, 0) < GREATEST(COALESCE(a.max_attempts, 1), 1)
+          OR (salo.id IS NOT NULL AND COALESCE(salo.is_locked, FALSE) = FALSE)
         )
-      GROUP BY a.assessment_id, a.title, a.max_score, a.category, a.open_book, salo.is_locked, a.time_limit_minutes, a.edit_window_end, s.subject_name, qs.question_count, qs.updated_at
+      GROUP BY a.assessment_id, a.title, a.max_score, a.category, a.open_book, salo.is_locked, a.time_limit_minutes, a.max_attempts, a.edit_window_end, s.subject_name, sa.submitted_count, qs.question_count, qs.updated_at
       ORDER BY s.subject_name ASC, a.title ASC`,
     [organizationId, classId, termId, studentId]
   );
@@ -502,6 +548,7 @@ async function getCompletedAssessments(db, organizationId, studentId, classId, t
          SELECT a.assessment_id, a.title, a.max_score, a.category,
            COALESCE(a.open_book, FALSE) AS open_book,
            a.time_limit_minutes,
+           GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
            s.subject_name,
             ls.score, ls.max_score AS attempt_max_score, ls.submitted_at,
             COUNT(q.question_id)::int AS question_count
@@ -520,7 +567,7 @@ async function getCompletedAssessments(db, organizationId, studentId, classId, t
       WHERE a.class_id = $3
         AND a.term_id = $4
         AND COALESCE(salo.is_locked, TRUE) = TRUE
-      GROUP BY a.assessment_id, a.title, a.max_score, a.category, a.open_book, a.time_limit_minutes, s.subject_name,
+      GROUP BY a.assessment_id, a.title, a.max_score, a.category, a.open_book, a.time_limit_minutes, a.max_attempts, s.subject_name,
                ls.score, ls.max_score, ls.submitted_at
       ORDER BY ls.submitted_at DESC NULLS LAST, a.title ASC`,
     [organizationId, studentId, classId, termId]
@@ -990,6 +1037,7 @@ module.exports = {
     const organizationId = req.session.organizationId;
     const studentId = req.session.studentId;
     const assessmentId = Number(req.params.assessmentId);
+    const requestedQuestionSetId = Number.parseInt(req.query.questionSetId, 10);
     const testingRoomEnabled = canUseStudentTestingRoom(req);
 
     if (!testingRoomEnabled) {
@@ -1024,6 +1072,9 @@ module.exports = {
         `SELECT a.assessment_id, a.title, a.max_score, a.category, a.term_id, a.class_id, a.subject_id,
           COALESCE(a.open_book, FALSE) AS open_book,
           a.time_limit_minutes,
+          GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
+          a.edit_window_start,
+          a.edit_window_end,
                 s.subject_name
            FROM assessments a
            JOIN subjects s ON s.subject_id = a.subject_id AND s.organization_id = a.organization_id
@@ -1062,15 +1113,20 @@ module.exports = {
       );
 
       const explicitUnlock = lockOverrideResult.rows.length && !Boolean(lockOverrideResult.rows[0].is_locked);
+      const maxAttempts = Number(assessment.max_attempts || 1);
 
       const submittedAttemptResult = await db.query(
-        `SELECT attempt_id FROM student_assessment_attempts
-          WHERE organization_id = $1 AND student_id = $2 AND assessment_id = $3 AND status = 'submitted'
-          LIMIT 1`,
+        `SELECT COUNT(*)::int AS submitted_count
+           FROM student_assessment_attempts
+          WHERE organization_id = $1
+            AND student_id = $2
+            AND assessment_id = $3
+            AND status = 'submitted'`,
         [organizationId, studentId, assessmentId]
       );
-      if (submittedAttemptResult.rows.length && !explicitUnlock) {
-        req.flash("success", "Assessment completed. This test is now locked and cannot be accessed again.");
+      const submittedAttemptCount = Number(submittedAttemptResult.rows[0]?.submitted_count || 0);
+      if (!explicitUnlock && submittedAttemptCount >= maxAttempts) {
+        req.flash("success", "Assessment attempt limit reached. This test is now locked unless your teacher unlocks it.");
         return res.redirect("/student/testing-room");
       }
 
@@ -1079,30 +1135,80 @@ module.exports = {
         return res.redirect("/student/testing-room");
       }
 
-      const questionSetResult = await db.query(
+      const preferredQuestionSetId =
+        Number.isInteger(requestedQuestionSetId) && requestedQuestionSetId > 0
+          ? requestedQuestionSetId
+          : (
+        lockOverrideResult.rows.length && lockOverrideResult.rows[0].question_set_id
+          ? Number(lockOverrideResult.rows[0].question_set_id)
+          : null
+          );
+
+      let questionSetResult = await db.query(
         `SELECT question_set_id, set_title, set_description
            FROM assessment_question_sets
           WHERE organization_id = $1
             AND assessment_id = $2
             AND (
-              $3::int IS NULL
-              OR question_set_id = $3
-            )
-            AND (
-              $3::int IS NOT NULL
-              OR retake_student_id IS NULL
+              ($3::int IS NOT NULL AND question_set_id = $3)
+              OR (
+                $3::int IS NULL
+                AND (retake_student_id IS NULL OR retake_student_id = $4)
+              )
             )
             AND LOWER(COALESCE(review_status, 'pending')) = 'approved'
-          ORDER BY updated_at DESC, question_set_id DESC
+          ORDER BY
+            CASE WHEN retake_student_id = $4 THEN 0 ELSE 1 END,
+            updated_at DESC,
+            question_set_id DESC
           LIMIT 1`,
         [
           organizationId,
           assessmentId,
-          lockOverrideResult.rows.length && lockOverrideResult.rows[0].question_set_id
-            ? Number(lockOverrideResult.rows[0].question_set_id)
-            : null,
+          preferredQuestionSetId,
+          studentId,
         ]
       );
+
+      // Recover from stale override mapping (e.g. override points to a set that
+      // belongs to another assessment or is no longer approved).
+      if (!questionSetResult.rows.length && preferredQuestionSetId) {
+        questionSetResult = await db.query(
+          `SELECT question_set_id, set_title, set_description
+             FROM assessment_question_sets
+            WHERE organization_id = $1
+              AND assessment_id = $2
+              AND (retake_student_id IS NULL OR retake_student_id = $3)
+              AND LOWER(COALESCE(review_status, 'pending')) = 'approved'
+            ORDER BY
+              CASE WHEN retake_student_id = $3 THEN 0 ELSE 1 END,
+              updated_at DESC,
+              question_set_id DESC
+            LIMIT 1`,
+          [organizationId, assessmentId, studentId]
+        );
+
+        if (questionSetResult.rows.length) {
+          try {
+            await db.query(
+              `UPDATE student_assessment_lock_overrides
+                  SET question_set_id = $4,
+                      updated_at = NOW()
+                WHERE organization_id = $1
+                  AND student_id = $2
+                  AND assessment_id = $3`,
+              [
+                organizationId,
+                studentId,
+                assessmentId,
+                Number(questionSetResult.rows[0].question_set_id),
+              ]
+            );
+          } catch (_) {
+            // Non-fatal: proceed with recovered question set even if self-heal update fails.
+          }
+        }
+      }
 
       if (!questionSetResult.rows.length) {
         req.flash("error", "Questions for this assessment are not available yet.");
@@ -1131,7 +1237,7 @@ module.exports = {
             AND student_id = $2
             AND assessment_id = $3
             AND status = 'in_progress'
-          ORDER BY started_at DESC
+          ORDER BY started_at DESC NULLS LAST, updated_at DESC NULLS LAST, attempt_id DESC
           LIMIT 1`,
         [organizationId, studentId, assessmentId]
       );
@@ -1142,7 +1248,7 @@ module.exports = {
           const createdAttempt = await db.query(
             `INSERT INTO student_assessment_attempts (
                organization_id, student_id, assessment_id, question_set_id, term_id, class_id, status, started_at, created_at, updated_at
-             ) VALUES ($1, $2, $3, $4, $5, $6, 'in_progress', NOW(), NOW(), NOW())
+             ) VALUES ($1, $2, $3, $4, $5, $6, 'in_progress', NULL, NOW(), NOW())
              RETURNING attempt_id`,
             [organizationId, studentId, assessmentId, questionSet.question_set_id, assessment.term_id, assessment.class_id]
           );
@@ -1193,6 +1299,9 @@ module.exports = {
         title: "Take Assessment",
         student,
         assessment,
+        maxAttempts,
+        submittedAttemptCount,
+        remainingAttempts: Math.max(maxAttempts - submittedAttemptCount, 0),
         questionSet,
         questions: questionsResult.rows,
         attemptId,
@@ -1206,6 +1315,253 @@ module.exports = {
       console.error("[TakeAssessment]", error.message || error);
       req.flash("error", "Could not open assessment.");
       return res.redirect("/student/testing-room");
+    }
+  },
+
+  startAssessmentAttemptPost: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const studentId = req.session.studentId;
+    const assessmentId = Number(req.params.assessmentId);
+    const attemptId = Number(req.body.attemptId);
+
+    if (!Number.isInteger(assessmentId) || assessmentId <= 0 || !Number.isInteger(attemptId) || attemptId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid assessment start request." });
+    }
+
+    const client = await db.connect();
+    try {
+      await ensureStudentPortalSchema(client);
+      await ensureAssessmentModeSchema(client);
+      await ensureStudentAssessmentLockSchema(client);
+      await client.query("BEGIN");
+
+      const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(client, organizationId, studentId);
+      const effectiveClassId = enrolledClassId || null;
+      if (!selectedTerm || !effectiveClassId) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, error: "Your current class or term could not be resolved." });
+      }
+
+      const attemptResult = await client.query(
+        `SELECT attempt_id, started_at, status
+           FROM student_assessment_attempts
+          WHERE attempt_id = $1
+            AND organization_id = $2
+            AND student_id = $3
+            AND assessment_id = $4
+          FOR UPDATE`,
+        [attemptId, organizationId, studentId, assessmentId]
+      );
+
+      if (!attemptResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Assessment attempt not found." });
+      }
+
+      const attempt = attemptResult.rows[0];
+      if (String(attempt.status || "").toLowerCase() !== "in_progress") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, error: "This attempt can no longer be started." });
+      }
+
+      const assessmentResult = await client.query(
+        `SELECT assessment_id,
+                term_id,
+                class_id,
+                subject_id,
+                time_limit_minutes,
+                GREATEST(COALESCE(max_attempts, 1), 1) AS max_attempts
+           FROM assessments
+          WHERE assessment_id = $1
+            AND organization_id = $2
+            AND class_id = $3
+            AND term_id = $4
+            AND COALESCE(is_active, TRUE) = TRUE
+            AND (edit_window_start IS NULL OR edit_window_start <= NOW())
+            AND (edit_window_end IS NULL OR edit_window_end >= NOW())
+            AND EXISTS (
+              SELECT 1
+              FROM student_subjects ss
+              WHERE ss.organization_id = $2
+                AND ss.student_id = $5
+                AND ss.subject_id = assessments.subject_id
+            )
+          LIMIT 1`,
+        [assessmentId, organizationId, effectiveClassId, selectedTerm.term_id, studentId]
+      );
+
+      if (!assessmentResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, error: "This assessment is not currently available." });
+      }
+
+      const assessment = assessmentResult.rows[0];
+      const maxAttempts = Number(assessment.max_attempts || 1);
+
+      const lockOverrideResult = await client.query(
+        `SELECT is_locked
+           FROM student_assessment_lock_overrides
+          WHERE organization_id = $1
+            AND student_id = $2
+            AND assessment_id = $3
+          LIMIT 1`,
+        [organizationId, studentId, assessmentId]
+      );
+
+      const explicitUnlock = lockOverrideResult.rows.length && !Boolean(lockOverrideResult.rows[0].is_locked);
+
+      if (lockOverrideResult.rows.length && Boolean(lockOverrideResult.rows[0].is_locked)) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ success: false, error: "This assessment is currently locked for you." });
+      }
+
+      const submittedCountResult = await client.query(
+        `SELECT COUNT(*)::int AS submitted_count
+           FROM student_assessment_attempts
+          WHERE organization_id = $1
+            AND student_id = $2
+            AND assessment_id = $3
+            AND status = 'submitted'`,
+        [organizationId, studentId, assessmentId]
+      );
+      const submittedAttemptCount = Number(submittedCountResult.rows[0]?.submitted_count || 0);
+      if (!explicitUnlock && submittedAttemptCount >= maxAttempts) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, error: "You have reached the maximum number of attempts for this assessment." });
+      }
+
+      const existingStartedAt = attempt.started_at ? new Date(attempt.started_at) : null;
+      const timeLimitMinutes = Number(assessment.time_limit_minutes || 0);
+      if (existingStartedAt && Number.isFinite(timeLimitMinutes) && timeLimitMinutes > 0) {
+        const expiresAtMs = existingStartedAt.getTime() + (timeLimitMinutes * 60 * 1000);
+        if (Date.now() > expiresAtMs) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ success: false, error: "Assessment time has elapsed. Further submissions are not allowed." });
+        }
+      }
+
+      const startedAtResult = await client.query(
+        `UPDATE student_assessment_attempts
+            SET started_at = COALESCE(started_at, NOW()),
+                updated_at = NOW()
+          WHERE attempt_id = $1
+        RETURNING started_at`,
+        [attemptId]
+      );
+
+      await client.query("COMMIT");
+      return res.json({
+        success: true,
+        startedAt: startedAtResult.rows[0]?.started_at || new Date().toISOString(),
+        timeLimitMinutes: Number.isFinite(timeLimitMinutes) && timeLimitMinutes > 0 ? Math.trunc(timeLimitMinutes) : 0,
+      });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return res.status(500).json({ success: false, error: "Could not start assessment." });
+    } finally {
+      client.release();
+    }
+  },
+
+  lockAssessmentAttemptPost: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const studentId = req.session.studentId;
+    const assessmentId = Number(req.params.assessmentId);
+    const attemptId = Number(req.body.attemptId);
+
+    if (!Number.isInteger(assessmentId) || assessmentId <= 0 || !Number.isInteger(attemptId) || attemptId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid assessment lock request." });
+    }
+
+    const client = await db.connect();
+    try {
+      await ensureStudentPortalSchema(client);
+      await ensureAssessmentModeSchema(client);
+      await ensureStudentAssessmentLockSchema(client);
+      await client.query("BEGIN");
+
+      const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(client, organizationId, studentId);
+      const effectiveClassId = enrolledClassId || null;
+      if (!selectedTerm || !effectiveClassId) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, error: "Your current class or term could not be resolved." });
+      }
+
+      const assessmentResult = await client.query(
+        `SELECT COALESCE(open_book, FALSE) AS open_book
+           FROM assessments
+          WHERE assessment_id = $1
+            AND organization_id = $2
+            AND class_id = $3
+            AND term_id = $4
+            AND EXISTS (
+              SELECT 1
+              FROM student_subjects ss
+              WHERE ss.organization_id = $2
+                AND ss.student_id = $5
+                AND ss.subject_id = assessments.subject_id
+            )
+          LIMIT 1`,
+        [assessmentId, organizationId, effectiveClassId, selectedTerm.term_id, studentId]
+      );
+
+      if (!assessmentResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Assessment not found." });
+      }
+
+      if (Boolean(assessmentResult.rows[0].open_book)) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, error: "Lock action is only available in secure mode." });
+      }
+
+      const attemptResult = await client.query(
+        `SELECT attempt_id, question_set_id, status
+           FROM student_assessment_attempts
+          WHERE attempt_id = $1
+            AND organization_id = $2
+            AND student_id = $3
+            AND assessment_id = $4
+          FOR UPDATE`,
+        [attemptId, organizationId, studentId, assessmentId]
+      );
+
+      if (!attemptResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Assessment attempt not found." });
+      }
+
+      const attempt = attemptResult.rows[0];
+      if (String(attempt.status || "").toLowerCase() !== "in_progress") {
+        await client.query("ROLLBACK");
+        return res.json({ success: true, alreadyClosed: true });
+      }
+
+      await client.query(
+        `INSERT INTO student_assessment_lock_overrides (
+           organization_id,
+           student_id,
+           assessment_id,
+           question_set_id,
+           is_locked,
+           created_at,
+           updated_at
+         ) VALUES ($1, $2, $3, $4, TRUE, NOW(), NOW())
+         ON CONFLICT (organization_id, student_id, assessment_id)
+         DO UPDATE SET
+           question_set_id = COALESCE(EXCLUDED.question_set_id, student_assessment_lock_overrides.question_set_id),
+           is_locked = TRUE,
+           updated_at = NOW()`,
+        [organizationId, studentId, assessmentId, attempt.question_set_id || null]
+      );
+
+      await client.query("COMMIT");
+      return res.json({ success: true, locked: true });
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      return res.status(500).json({ success: false, error: "Could not lock assessment." });
+    } finally {
+      client.release();
     }
   },
 
@@ -1269,6 +1625,7 @@ module.exports = {
           WHERE organization_id = $1
             AND student_id = $2
             AND assessment_id = $3
+            AND status = 'in_progress'
             AND attempt_id <> $4
           FOR UPDATE`,
         [organizationId, studentId, assessmentId, attemptId]
@@ -1277,7 +1634,8 @@ module.exports = {
       const assessmentResult = await client.query(
         `SELECT assessment_id, subject_id, term_id, class_id, category,
                 COALESCE(open_book, FALSE) AS open_book,
-                time_limit_minutes
+                time_limit_minutes,
+                GREATEST(COALESCE(max_attempts, 1), 1) AS max_attempts
            FROM assessments
           WHERE assessment_id = $1
             AND organization_id = $2
@@ -1297,15 +1655,32 @@ module.exports = {
       }
 
       const assessment = assessmentResult.rows[0];
+      const maxAttempts = Number(assessment.max_attempts || 1);
+
+      const submittedCountResult = await client.query(
+        `SELECT COUNT(*)::int AS submitted_count
+           FROM student_assessment_attempts
+          WHERE organization_id = $1
+            AND student_id = $2
+            AND assessment_id = $3
+            AND status = 'submitted'`,
+        [organizationId, studentId, assessmentId]
+      );
+      const submittedAttemptCount = Number(submittedCountResult.rows[0]?.submitted_count || 0);
 
       const attemptStartedAt = attempt.started_at ? new Date(attempt.started_at) : null;
       const timeLimitMinutes = Number(assessment.time_limit_minutes || 0);
-      if (attemptStartedAt && Number.isInteger(timeLimitMinutes) && timeLimitMinutes > 0) {
+      let timedOutAtSubmission = false;
+      if (Number.isFinite(timeLimitMinutes) && timeLimitMinutes > 0 && !attemptStartedAt) {
+        await client.query("ROLLBACK");
+        req.flash("error", "Start the assessment before submitting.");
+        return res.redirect(`/student/testing-room/${assessmentId}`);
+      }
+
+      if (attemptStartedAt && Number.isFinite(timeLimitMinutes) && timeLimitMinutes > 0) {
         const expiresAtMs = attemptStartedAt.getTime() + (timeLimitMinutes * 60 * 1000);
         if (Date.now() > expiresAtMs) {
-          await client.query("ROLLBACK");
-          req.flash("error", "Assessment time has elapsed. Further submissions are not allowed.");
-          return res.redirect("/student/testing-room");
+          timedOutAtSubmission = true;
         }
       }
 
@@ -1318,6 +1693,14 @@ module.exports = {
           LIMIT 1`,
         [organizationId, studentId, assessmentId]
       );
+
+      const explicitUnlock = lockOverrideResult.rows.length && !Boolean(lockOverrideResult.rows[0].is_locked);
+
+      if (!explicitUnlock && submittedAttemptCount >= maxAttempts) {
+        await client.query("ROLLBACK");
+        req.flash("error", "You have reached the maximum number of attempts for this assessment.");
+        return res.redirect("/student/testing-room");
+      }
 
       if (lockOverrideResult.rows.length && Boolean(lockOverrideResult.rows[0].is_locked)) {
         await client.query("ROLLBACK");
@@ -1426,11 +1809,27 @@ module.exports = {
         );
       }
 
+      const submittedCountAfterResult = await client.query(
+        `SELECT COUNT(*)::int AS submitted_count
+           FROM student_assessment_attempts
+          WHERE organization_id = $1
+            AND student_id = $2
+            AND assessment_id = $3
+            AND status = 'submitted'`,
+        [organizationId, studentId, assessmentId]
+      );
+      const submittedAfter = Number(submittedCountAfterResult.rows[0]?.submitted_count || 0);
+      const remainingAttempts = Math.max(maxAttempts - submittedAfter, 0);
+
       await client.query("COMMIT");
 
-      req.flash(
-        "success",
-        `Assessment completed successfully. Score: ${autoScore.toFixed(2)} / ${maxScore.toFixed(2)}. This test is now locked.`
+      const completionMessage = remainingAttempts > 0
+        ? `Assessment completed successfully. Score: ${autoScore.toFixed(2)} / ${maxScore.toFixed(2)}. Attempts left: ${remainingAttempts}.`
+        : `Assessment completed successfully. Score: ${autoScore.toFixed(2)} / ${maxScore.toFixed(2)}. Attempt limit reached.`;
+
+      req.flash("success", timedOutAtSubmission
+        ? `Time is up. Your assessment has been auto-submitted. ${completionMessage}`
+        : completionMessage
       );
       return res.redirect("/student/testing-room");
     } catch (error) {
@@ -1457,7 +1856,41 @@ module.exports = {
     const client = await db.connect();
     try {
       await ensureStudentPortalSchema(client);
+      await ensureAssessmentModeSchema(client);
       await client.query("BEGIN");
+
+      const { selectedTerm, enrolledClassId } = await resolveCurrentStudentTermContext(client, organizationId, studentId);
+      const effectiveClassId = enrolledClassId || null;
+      if (!selectedTerm || !effectiveClassId) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, error: "Your current class or term could not be resolved." });
+      }
+
+      const assessmentScopeResult = await client.query(
+        `SELECT assessment_id
+           FROM assessments
+          WHERE assessment_id = $1
+            AND organization_id = $2
+            AND class_id = $3
+            AND term_id = $4
+            AND COALESCE(is_active, TRUE) = TRUE
+            AND (edit_window_start IS NULL OR edit_window_start <= NOW())
+            AND (edit_window_end IS NULL OR edit_window_end >= NOW())
+            AND EXISTS (
+              SELECT 1
+              FROM student_subjects ss
+              WHERE ss.organization_id = $2
+                AND ss.student_id = $5
+                AND ss.subject_id = assessments.subject_id
+            )
+          LIMIT 1`,
+        [assessmentId, organizationId, effectiveClassId, selectedTerm.term_id, studentId]
+      );
+
+      if (!assessmentScopeResult.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ success: false, error: "This assessment is not available for your current class or term." });
+      }
 
       const attemptResult = await client.query(
         `SELECT attempt_id, question_set_id, status

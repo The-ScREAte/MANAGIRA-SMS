@@ -376,6 +376,8 @@
     <span class="ta-sec-label"><%= assessment.open_book ? 'Open Book Mode' : 'Secure Mode' %></span>
     <% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %>
       <span class="ta-timer-chip" id="ta-timer-chip" data-minutes="<%= Number(assessment.time_limit_minutes) %>">Time --:--</span>
+    <% } else { %>
+      <span class="ta-timer-chip is-ok" id="ta-timer-chip">Time Unlimited</span>
     <% } %>
     <a class="ta-exit-btn js-exam-exit-link" href="/student/testing-room?termId=<%= assessment.term_id %>">Exit</a>
   </div>
@@ -400,7 +402,10 @@
 
   <div class="ta-card ta-prestart-hidden" id="ta-assessment-meta">
     <h2><%= assessment.title %></h2>
-    <p class="ta-meta"><strong><%= assessment.subject_name %></strong> · <%= assessment.category || 'Assessment' %> · Max <%= assessment.max_score %> · <%= assessment.open_book ? 'Open Book' : 'Secure' %><% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %> · <%= Number(assessment.time_limit_minutes) %> min<% } %></p>
+    <p class="ta-meta"><strong><%= assessment.subject_name %></strong> · <%= assessment.category || 'Assessment' %> · Max <%= assessment.max_score %> · <%= assessment.open_book ? 'Open Book' : 'Secure' %> · <% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %><%= Number(assessment.time_limit_minutes) %> min<% } else { %>Unlimited time<% } %> · Attempts <%= Number(maxAttempts || 1) %></p>
+    <% if (assessment.edit_window_end) { %>
+      <p class="ta-meta" style="margin-top:6px;">Available until <%= new Date(assessment.edit_window_end).toLocaleString() %></p>
+    <% } %>
     <% if (questionSet && questionSet.set_description) { %>
       <p class="ta-meta" style="margin-top:6px;"><%= questionSet.set_description %></p>
     <% } %>
@@ -409,7 +414,7 @@
   <div class="ta-monitor-banner" id="ta-monitor-banner"></div>
   <p class="ta-save-status ta-prestart-hidden" id="ta-save-status"></p>
 
-  <form class="ta-card ta-prestart-hidden" id="ta-assessment-form" method="POST" action="/student/testing-room/<%= assessment.assessment_id %>/submit" onsubmit="return confirm('Submit your assessment now? You cannot retake it after submission.');">
+  <form class="ta-card ta-prestart-hidden" id="ta-assessment-form" method="POST" action="/student/testing-room/<%= assessment.assessment_id %>/submit" onsubmit="return confirm('Submit your assessment now? <% if (Number(maxAttempts || 1) > 1) { %>You may have attempts remaining based on your assessment limit.<% } else { %>You cannot retake it after submission.<% } %>');">
     <input type="hidden" name="attemptId" value="<%= attemptId %>" />
 
     <% questions.forEach((question, index) => { %>
@@ -459,6 +464,11 @@
   <div class="ta-entry-overlay" id="ta-entry-overlay" role="dialog" aria-label="Assessment instructions">
     <div class="ta-entry-card">
       <h3>Before You Start</h3>
+      <p class="ta-meta" style="margin:4px 0 10px; font-size:.72rem;">
+        Mode: <strong><%= assessment.open_book ? 'Open Book' : 'Secure (Closed Book)' %></strong>
+        · Time: <strong><% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %><%= Number(assessment.time_limit_minutes) %> minutes<% } else { %>Unlimited<% } %></strong>
+        · Attempts: <strong><%= Number(submittedAttemptCount || 0) %>/<%= Number(maxAttempts || 1) %> used</strong>
+      </p>
       <ul>
         <% if (assessment.open_book) { %>
           <li>This is an open-book assessment.</li>
@@ -472,11 +482,21 @@
         <% } %>
         <% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %>
           <li>Time limit: <%= Number(assessment.time_limit_minutes) %> minutes. Submission is automatic when time ends.</li>
+        <% } else { %>
+          <li>This attempt has no time limit, but once submitted it is locked immediately.</li>
+        <% } %>
+        <% if (assessment.edit_window_end) { %>
+          <li>This assessment window closes at <%= new Date(assessment.edit_window_end).toLocaleString() %>.</li>
+        <% } %>
+        <% if (Number(maxAttempts || 1) > 1) { %>
+          <li>You can submit up to <%= Number(maxAttempts || 1) %> attempts for this assessment. Remaining before this attempt: <%= Number(remainingAttempts || 0) %>.</li>
+        <% } else { %>
+          <li>You can submit only once. After submission, this test closes and cannot be reopened unless your teacher unlocks it.</li>
         <% } %>
       </ul>
       <label class="ta-entry-consent" for="ta-consent">
         <input type="checkbox" id="ta-consent" />
-        <span>I understand and I am ready to start this assessment now.</span>
+        <span>I understand these rules and I am ready to start this assessment now.</span>
       </label>
       <div class="ta-entry-actions">
         <a class="ta-btn js-exam-exit-link" href="/student/testing-room?termId=<%= assessment.term_id %>">Cancel</a>
@@ -504,13 +524,18 @@
     var attemptStartedAtIso = <%- JSON.stringify(attemptStartedAt ? new Date(attemptStartedAt).toISOString() : '') %>;
     var timerIntervalId = null;
 
-    var hasStarted = false;
+    var hasStarted = Boolean(attemptStartedAtIso);
     var focusViolations = 0;
     var autosaveTimer = null;
     var autosaveIntervalId = null;
     var autosaveDirty = false;
     var autosaveInFlight = false;
     var isSubmitting = false;
+    var securityLockTriggered = false;
+
+    function getTestingRoomUrl() {
+      return '/student/testing-room?termId=<%= assessment.term_id %>';
+    }
 
     function showMonitorMessage(text) {
       if (!monitorBanner) return;
@@ -602,11 +627,9 @@
     }
 
     function getTimerDeadlineMs() {
-      if (!Number.isInteger(timeLimitMinutes) || timeLimitMinutes <= 0) return null;
+      if (!Number.isFinite(timeLimitMinutes) || timeLimitMinutes <= 0) return null;
       var parsedStartedAt = attemptStartedAtIso ? new Date(attemptStartedAtIso) : null;
-      if (!parsedStartedAt || Number.isNaN(parsedStartedAt.getTime())) {
-        parsedStartedAt = new Date();
-      }
+      if (!parsedStartedAt || Number.isNaN(parsedStartedAt.getTime())) return null;
       return parsedStartedAt.getTime() + (timeLimitMinutes * 60 * 1000);
     }
 
@@ -624,6 +647,10 @@
     }
 
     function startTimerIfNeeded() {
+      if (timerIntervalId) {
+        window.clearInterval(timerIntervalId);
+        timerIntervalId = null;
+      }
       var deadlineMs = getTimerDeadlineMs();
       if (!timerChip || !deadlineMs) return;
 
@@ -650,39 +677,161 @@
       timerIntervalId = window.setInterval(tick, 1000);
     }
 
+    function applyStartedViewState() {
+      if (overlay) {
+        overlay.style.display = 'none';
+      }
+      document.body.classList.remove('ta-exam-lock');
+      if (metaCard) {
+        metaCard.classList.remove('ta-prestart-hidden');
+      }
+      if (form) {
+        form.classList.remove('ta-prestart-hidden');
+      }
+      if (saveStatus) {
+        saveStatus.classList.remove('ta-prestart-hidden');
+      }
+      if (submitBtn) {
+        submitBtn.disabled = false;
+      }
+    }
+
+    function startAutosaveLoop() {
+      if (autosaveIntervalId) {
+        window.clearInterval(autosaveIntervalId);
+      }
+      autosaveIntervalId = window.setInterval(function () {
+        performAutosave();
+      }, 15000);
+    }
+
+    async function startAttemptSession() {
+      var response = await fetch('/student/testing-room/<%= assessment.assessment_id %>/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          attemptId: <%= attemptId %>
+        })
+      });
+
+      var result = {};
+      try {
+        result = await response.json();
+      } catch (_) {
+        result = {};
+      }
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Could not start assessment. Please try again.');
+      }
+
+      var parsedMinutes = Number(result.timeLimitMinutes);
+      if (Number.isFinite(parsedMinutes) && parsedMinutes >= 0) {
+        timeLimitMinutes = Math.trunc(parsedMinutes);
+      }
+
+      if (result.startedAt) {
+        var parsedStartedAt = new Date(result.startedAt);
+        if (!Number.isNaN(parsedStartedAt.getTime())) {
+          attemptStartedAtIso = parsedStartedAt.toISOString();
+        }
+      }
+    }
+
     function onBeforeUnload(event) {
-      if (!hasStarted) return;
+      if (!hasStarted || isSubmitting || securityLockTriggered) return;
       event.preventDefault();
-      event.returnValue = 'This assessment is in progress. Leaving now may be flagged.';
+      event.returnValue = 'Leaving secure mode will lock this assessment immediately.';
+    }
+
+    function stopAllRunningTimers() {
+      if (autosaveTimer) {
+        window.clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+      }
+      if (autosaveIntervalId) {
+        window.clearInterval(autosaveIntervalId);
+        autosaveIntervalId = null;
+      }
+      if (timerIntervalId) {
+        window.clearInterval(timerIntervalId);
+        timerIntervalId = null;
+      }
+    }
+
+    function disableExamInputs() {
+      if (!form) return;
+      var controls = form.querySelectorAll('input, select, textarea, button');
+      controls.forEach(function (control) {
+        control.disabled = true;
+      });
+    }
+
+    function lockSecureAttempt(reason, shouldRedirect) {
+      if (!isSecureMode || !hasStarted || isSubmitting || securityLockTriggered) return;
+
+      securityLockTriggered = true;
+      stopAllRunningTimers();
+      disableExamInputs();
+      showMonitorMessage('Secure mode violation detected. This assessment has been locked.');
+
+      var lockPromise = fetch('/student/testing-room/<%= assessment.assessment_id %>/lock', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'same-origin',
+        keepalive: true,
+        body: JSON.stringify({
+          attemptId: <%= attemptId %>,
+          reason: String(reason || 'secure_mode_violation')
+        })
+      }).catch(function () {
+        return null;
+      });
+
+      if (shouldRedirect) {
+        Promise.resolve(lockPromise).finally(function () {
+          window.location.replace(getTestingRoomUrl());
+        });
+      }
     }
 
     function confirmExamExit(event) {
-      var shouldLeave = window.confirm('You are exiting your exam. Your savings may not be saved, and your exam may be locked. If you start a new test, you may get different questions. Do you still want to continue?');
-      if (!shouldLeave) {
-        event.preventDefault();
-      }
+      if (!hasStarted || isSubmitting || securityLockTriggered) return;
+      event.preventDefault();
+      lockSecureAttempt('manual_exit_click', true);
     }
 
     function registerMonitoring() {
       if (!isSecureMode) return;
       document.addEventListener('visibilitychange', function () {
-        if (!hasStarted) return;
+        if (!hasStarted || isSubmitting || securityLockTriggered) return;
         if (document.visibilityState === 'hidden') {
-          performAutosave();
-          focusViolations += 1;
-        } else if (focusViolations > 0) {
-          showMonitorMessage('You left the assessment window ' + focusViolations + ' time' + (focusViolations === 1 ? '' : 's') + '. This has been flagged.');
+          lockSecureAttempt('visibility_hidden', false);
+        } else if (securityLockTriggered) {
+          window.location.replace(getTestingRoomUrl());
         }
       });
 
       window.addEventListener('blur', function () {
-        if (!hasStarted) return;
-        focusViolations += 1;
+        if (!hasStarted || isSubmitting || securityLockTriggered) return;
+        lockSecureAttempt('window_blur', false);
       });
 
       window.addEventListener('focus', function () {
-        if (!hasStarted || focusViolations === 0) return;
-        showMonitorMessage('Focus warning: keep this page open and active until you submit.');
+        if (securityLockTriggered) {
+          window.location.replace(getTestingRoomUrl());
+        }
+      });
+
+      window.addEventListener('pagehide', function () {
+        if (!hasStarted || isSubmitting || securityLockTriggered) return;
+        lockSecureAttempt('pagehide', false);
       });
 
       window.addEventListener('beforeunload', onBeforeUnload);
@@ -690,6 +839,18 @@
       document.addEventListener('contextmenu', function (event) {
         if (!hasStarted) return;
         event.preventDefault();
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (!hasStarted || isSubmitting || securityLockTriggered) return;
+        var key = String(event.key || '').toLowerCase();
+        var isTabSwitch = key === 'tab' && (event.altKey || event.ctrlKey || event.metaKey);
+        var isWindowShortcut = (event.metaKey || event.ctrlKey) && ['w', 'n', 't', 'r', 'l'].includes(key);
+        var isAppSwitch = (event.metaKey || event.altKey) && key !== '';
+        if (isTabSwitch || isWindowShortcut || isAppSwitch) {
+          event.preventDefault();
+          lockSecureAttempt('keyboard_shortcut', true);
+        }
       });
     }
 
@@ -699,42 +860,48 @@
 
     document.body.classList.add('ta-exam-lock');
 
+    if (hasStarted) {
+      applyStartedViewState();
+      startTimerIfNeeded();
+      startAutosaveLoop();
+      if (isSecureMode) {
+        showMonitorMessage('Monitoring active. Keep this tab open until you submit.');
+      }
+    }
+
     if (consent && startBtn) {
       consent.addEventListener('change', function () {
         startBtn.disabled = !consent.checked;
       });
 
-      startBtn.addEventListener('click', function () {
+      startBtn.addEventListener('click', async function () {
         if (!consent.checked) return;
-        hasStarted = true;
-        if (overlay) {
-          overlay.style.display = 'none';
+        if (startBtn) {
+          startBtn.disabled = true;
+          startBtn.textContent = 'Starting...';
         }
-        document.body.classList.remove('ta-exam-lock');
-        if (metaCard) {
-          metaCard.classList.remove('ta-prestart-hidden');
-        }
-        if (form) {
-          form.classList.remove('ta-prestart-hidden');
-        }
-        if (saveStatus) {
-          saveStatus.classList.remove('ta-prestart-hidden');
-        }
-        if (submitBtn) {
-          submitBtn.disabled = false;
-        }
-        if (autosaveIntervalId) {
-          window.clearInterval(autosaveIntervalId);
-        }
-        startTimerIfNeeded();
-        autosaveIntervalId = window.setInterval(function () {
-          performAutosave();
-        }, 15000);
-        requestFullscreenSafe();
-        if (isSecureMode) {
-          showMonitorMessage('Monitoring active. Keep this tab open until you submit.');
-        } else {
-          showMonitorMessage('Assessment started. Keep track of your remaining time.');
+
+        try {
+          await startAttemptSession();
+          hasStarted = true;
+          applyStartedViewState();
+          startTimerIfNeeded();
+          startAutosaveLoop();
+          requestFullscreenSafe();
+          if (isSecureMode) {
+            showMonitorMessage('Monitoring active. Keep this tab open until you submit.');
+          } else {
+            showMonitorMessage(timeLimitMinutes > 0
+              ? 'Assessment started. Keep track of your remaining time.'
+              : 'Assessment started. No time limit is set for this attempt.');
+          }
+        } catch (error) {
+          showMonitorMessage(error && error.message ? error.message : 'Could not start assessment. Please try again.');
+          if (startBtn) {
+            startBtn.disabled = !consent.checked;
+            startBtn.textContent = 'Start';
+          }
+          return;
         }
       });
     }

@@ -57,6 +57,14 @@ module.exports = (db) => {
     studentController.saveAssessmentDraftPost(req, res, db)
   );
 
+  router.post("/testing-room/:assessmentId/start", isStudentAuthenticated, requireStudentTestingRoomFeature, express.json(), (req, res) =>
+    studentController.startAssessmentAttemptPost(req, res, db)
+  );
+
+  router.post("/testing-room/:assessmentId/lock", isStudentAuthenticated, requireStudentTestingRoomFeature, express.json(), (req, res) =>
+    studentController.lockAssessmentAttemptPost(req, res, db)
+  );
+
   router.post("/testing-room/:assessmentId/submit", isStudentAuthenticated, requireStudentTestingRoomFeature, express.urlencoded({ extended: true }), (req, res) =>
     studentController.submitAssessmentPost(req, res, db)
   );

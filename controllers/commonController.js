@@ -2104,6 +2104,7 @@ async function ensureAssessmentControlSchema(database = require("../config/db"))
         ADD COLUMN IF NOT EXISTS show_question_set_on_dashboard BOOLEAN DEFAULT FALSE,
         ADD COLUMN IF NOT EXISTS open_book BOOLEAN DEFAULT FALSE,
         ADD COLUMN IF NOT EXISTS time_limit_minutes INTEGER,
+        ADD COLUMN IF NOT EXISTS max_attempts INTEGER DEFAULT 1,
         ADD COLUMN IF NOT EXISTS edit_window_start TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS edit_window_end TIMESTAMPTZ
       `);
@@ -2178,6 +2179,43 @@ async function ensureStudentAssessmentLockSchema(dbClient) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (organization_id, student_id, assessment_id)
     )
+  `);
+
+  await dbClient.query(`
+    CREATE OR REPLACE FUNCTION validate_student_assessment_lock_override_set()
+    RETURNS trigger AS $$
+    BEGIN
+      IF NEW.question_set_id IS NULL THEN
+        RETURN NEW;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1
+        FROM assessment_question_sets qs
+        WHERE qs.question_set_id = NEW.question_set_id
+          AND qs.organization_id = NEW.organization_id
+          AND qs.assessment_id = NEW.assessment_id
+      ) THEN
+        RAISE EXCEPTION 'Invalid question_set_id % for assessment_id % in organization %',
+          NEW.question_set_id, NEW.assessment_id, NEW.organization_id;
+      END IF;
+
+      RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+  `);
+
+  await dbClient.query(`
+    DROP TRIGGER IF EXISTS trg_validate_student_assessment_lock_override_set
+      ON student_assessment_lock_overrides;
+  `);
+
+  await dbClient.query(`
+    CREATE TRIGGER trg_validate_student_assessment_lock_override_set
+    BEFORE INSERT OR UPDATE OF question_set_id, assessment_id, organization_id
+    ON student_assessment_lock_overrides
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_student_assessment_lock_override_set();
   `);
 
   studentAssessmentLockSchemaReady = true;
@@ -10784,6 +10822,7 @@ const commonController = {
     }
 
     try {
+      await ensureAssessmentControlSchema(db);
       await ensureGoogleIntegrationSchema(db);
       await ensureAssessmentQuestionSetReviewSchema(db);
 
@@ -10799,6 +10838,7 @@ const commonController = {
              COALESCE(scale_base, 100) AS scale_base,
              COALESCE(open_book, FALSE) AS open_book,
              time_limit_minutes,
+             GREATEST(COALESCE(max_attempts, 1), 1) AS max_attempts,
              COALESCE(is_locked, FALSE) AS is_locked,
              COALESCE(is_active, TRUE) AS is_active,
              COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard,
@@ -10834,6 +10874,7 @@ const commonController = {
             timeLimitMinutes: row.time_limit_minutes !== null && row.time_limit_minutes !== undefined
               ? Number(row.time_limit_minutes)
               : null,
+            maxAttempts: Number(row.max_attempts || 1),
             canEditScores: Boolean(editability.canEdit),
             accessReason: editability.reason || "",
             isLocked: Boolean(row.is_locked),
@@ -10977,11 +11018,16 @@ const commonController = {
     const questionCardLayout = questionCardLayoutRaw === 'side_by_side' ? 'side_by_side' : 'stacked';
     const hasOpenBookSetting = Object.prototype.hasOwnProperty.call(req.body || {}, "openBook");
     const hasTimeLimitSetting = Object.prototype.hasOwnProperty.call(req.body || {}, "timeLimitMinutes");
+    const hasMaxAttemptsSetting = Object.prototype.hasOwnProperty.call(req.body || {}, "maxAttempts");
     const parsedOpenBookSetting = parseBooleanValue(req.body.openBook, false);
     const parsedTimeLimitValue = Number.parseInt(req.body.timeLimitMinutes, 10);
     const parsedTimeLimitSetting = Number.isInteger(parsedTimeLimitValue) && parsedTimeLimitValue > 0
       ? parsedTimeLimitValue
       : null;
+    const parsedMaxAttemptsValue = Number.parseInt(req.body.maxAttempts, 10);
+    const parsedMaxAttemptsSetting = Number.isInteger(parsedMaxAttemptsValue) && parsedMaxAttemptsValue > 0
+      ? parsedMaxAttemptsValue
+      : 1;
     const questions = normalizeQuestionPayload(req.body.questions || []);
 
     if (!organizationId || !Number.isInteger(assessmentId)) {
@@ -10996,6 +11042,7 @@ const commonController = {
 
     const client = await db.connect();
     try {
+      await ensureAssessmentControlSchema(client);
       await ensureGoogleIntegrationSchema(client);
       await ensureAssessmentQuestionSetReviewSchema(client);
       await client.query("BEGIN");
@@ -11004,6 +11051,7 @@ const commonController = {
         `SELECT assessment_id, group_id, class_id, subject_id, term_id,
                 COALESCE(open_book, FALSE) AS open_book,
                 time_limit_minutes,
+                GREATEST(COALESCE(max_attempts, 1), 1) AS max_attempts,
                 COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard
          FROM assessments
          WHERE assessment_id = $1
@@ -11030,21 +11078,36 @@ const commonController = {
       const subjectId = Number(assessmentRow.subject_id || requestedSubjectId || 0);
       const termId = Number(assessmentRow.term_id || requestedTermId || 0);
 
+      if (Number.isInteger(requestedClassId) && requestedClassId > 0 && requestedClassId !== classId) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Selected class does not match this assessment." });
+      }
+      if (Number.isInteger(requestedSubjectId) && requestedSubjectId > 0 && requestedSubjectId !== subjectId) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Selected subject does not match this assessment." });
+      }
+      if (Number.isInteger(requestedTermId) && requestedTermId > 0 && requestedTermId !== termId) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Selected school year/term does not match this assessment." });
+      }
+
       if (!Number.isInteger(classId) || classId <= 0 || !Number.isInteger(subjectId) || subjectId <= 0 || !Number.isInteger(termId) || termId <= 0) {
         await client.query("ROLLBACK");
         return res.status(400).json({ success: false, error: "Assessment scope is incomplete." });
       }
 
-      if (hasOpenBookSetting || hasTimeLimitSetting) {
+      if (hasOpenBookSetting || hasTimeLimitSetting || hasMaxAttemptsSetting) {
         await client.query(
           `UPDATE assessments
            SET open_book = $1,
-               time_limit_minutes = $2
-           WHERE assessment_id = $3
-             AND organization_id = $4`,
+               time_limit_minutes = $2,
+               max_attempts = $3
+           WHERE assessment_id = $4
+             AND organization_id = $5`,
           [
             hasOpenBookSetting ? parsedOpenBookSetting : Boolean(assessmentRow.open_book),
             hasTimeLimitSetting ? parsedTimeLimitSetting : assessmentRow.time_limit_minutes,
+            hasMaxAttemptsSetting ? parsedMaxAttemptsSetting : Number(assessmentRow.max_attempts || 1),
             assessmentId,
             organizationId,
           ]
@@ -11061,39 +11124,18 @@ const commonController = {
            FROM assessment_question_sets
            WHERE question_set_id = $1
              AND organization_id = $2
+             AND assessment_id = $3
+             AND class_id = $4
+             AND subject_id = $5
+             AND term_id = $6
+             AND retake_student_id IS NULL
            LIMIT 1`,
-          [questionSetId, organizationId]
+          [questionSetId, organizationId, assessmentId, classId, subjectId, termId]
         );
 
         if (!existingTargetResult.rows.length) {
           await client.query("ROLLBACK");
           return res.status(404).json({ success: false, error: "Question set not found for this assessment." });
-        }
-
-        const conflictingSetResult = await client.query(
-          `SELECT question_set_id, review_status
-           FROM assessment_question_sets
-           WHERE organization_id = $1
-             AND term_id = $2
-             AND class_id = $3
-             AND subject_id = $4
-             AND assessment_id = $5
-             AND question_set_id <> $6
-           ORDER BY question_set_id DESC
-           LIMIT 1`,
-          [organizationId, termId, classId, subjectId, assessmentId, questionSetId]
-        );
-
-        if (conflictingSetResult.rows.length > 0) {
-          const conflictingSet = conflictingSetResult.rows[0];
-          const conflictingStatus = String(conflictingSet.review_status || "pending").toLowerCase();
-          await client.query("ROLLBACK");
-          return res.status(409).json({
-            success: false,
-            error: `Questions already exist for this assessment (status: ${conflictingStatus}).`,
-            questionSetId: Number(conflictingSet.question_set_id),
-            reviewStatus: conflictingStatus,
-          });
         }
 
         await client.query(
@@ -11107,11 +11149,6 @@ const commonController = {
                set_description = $7,
                question_card_layout = $8,
                total_points = $9,
-               review_status = 'pending',
-               review_note = NULL,
-               reviewed_by = NULL,
-               reviewed_at = NULL,
-               submitted_at = NOW(),
                updated_by = $10,
                updated_at = NOW()
            WHERE question_set_id = $11
@@ -11142,6 +11179,7 @@ const commonController = {
              AND class_id = $3
              AND subject_id = $4
              AND assessment_id = $5
+             AND retake_student_id IS NULL
            ORDER BY question_set_id DESC
            LIMIT 1`,
           [organizationId, termId, classId, subjectId, assessmentId]
@@ -11149,57 +11187,75 @@ const commonController = {
 
         if (existingSetResult.rows.length > 0) {
           const existing = existingSetResult.rows[0];
-          const existingStatus = String(existing.review_status || "pending").toLowerCase();
-          await client.query("ROLLBACK");
-          return res.status(409).json({
-            success: false,
-            error: `Questions already exist for this assessment (status: ${existingStatus}).`,
-            questionSetId: Number(existing.question_set_id),
-            reviewStatus: existingStatus,
-          });
-        }
-
-        const insertResult = await client.query(
-          `INSERT INTO assessment_question_sets (
-             organization_id,
-             term_id,
-             class_id,
-             subject_id,
-             assessment_id,
-             group_id,
-             set_title,
-             set_description,
-             total_points,
-             review_status,
-             submitted_at,
-             created_by,
-             updated_by
-           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', NOW(), $10, $10)
-           RETURNING question_set_id`,
-          [
-            organizationId,
-            termId,
-            classId,
-            subjectId,
-            assessmentId,
-            assessmentRow.group_id || null,
-            setTitle,
-            setDescription || null,
-            totalPoints,
-            actorUserId,
-          ]
-        );
+          const existingQuestionSetId = Number(existing.question_set_id);
 
           await client.query(
             `UPDATE assessment_question_sets
-             SET question_card_layout = $1
-             WHERE question_set_id = $2
-               AND organization_id = $3`,
-            [questionCardLayout, insertResult.rows[0].question_set_id, organizationId]
+             SET group_id = $1,
+                 set_title = $2,
+                 set_description = $3,
+                 question_card_layout = $4,
+                 total_points = $5,
+                 updated_by = $6,
+                 updated_at = NOW()
+             WHERE question_set_id = $7
+               AND organization_id = $8`,
+            [
+              assessmentRow.group_id || null,
+              setTitle,
+              setDescription || null,
+              questionCardLayout,
+              totalPoints,
+              actorUserId,
+              existingQuestionSetId,
+              organizationId,
+            ]
           );
 
-        resolvedQuestionSetId = insertResult.rows[0].question_set_id;
+          resolvedQuestionSetId = existingQuestionSetId;
+        } else {
+          const insertResult = await client.query(
+            `INSERT INTO assessment_question_sets (
+               organization_id,
+               term_id,
+               class_id,
+               subject_id,
+               assessment_id,
+               group_id,
+               set_title,
+               set_description,
+               total_points,
+               review_status,
+               submitted_at,
+               created_by,
+               updated_by
+             )
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', NOW(), $10, $10)
+             RETURNING question_set_id`,
+            [
+              organizationId,
+              termId,
+              classId,
+              subjectId,
+              assessmentId,
+              assessmentRow.group_id || null,
+              setTitle,
+              setDescription || null,
+              totalPoints,
+              actorUserId,
+            ]
+          );
+
+            await client.query(
+              `UPDATE assessment_question_sets
+               SET question_card_layout = $1
+               WHERE question_set_id = $2
+                 AND organization_id = $3`,
+              [questionCardLayout, insertResult.rows[0].question_set_id, organizationId]
+            );
+
+          resolvedQuestionSetId = insertResult.rows[0].question_set_id;
+        }
       }
 
       await client.query(
@@ -12225,6 +12281,7 @@ NUMBERING:
            COALESCE(a.scale_base, 100) AS scale_base,
            COALESCE(a.open_book, FALSE) AS open_book,
            a.time_limit_minutes,
+           GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
            COALESCE(a.is_locked, FALSE) AS is_locked,
            COALESCE(a.is_active, TRUE) AS is_active,
            a.edit_window_start,
@@ -12282,6 +12339,7 @@ NUMBERING:
           time_limit_minutes: row.time_limit_minutes !== null && row.time_limit_minutes !== undefined
             ? Number(row.time_limit_minutes)
             : null,
+          max_attempts: Number(row.max_attempts || 1),
           is_locked: Boolean(row.is_locked),
           is_active: Boolean(row.is_active),
           class_name: row.class_name || "Class",
@@ -12464,6 +12522,7 @@ NUMBERING:
            a.title AS assessment_title,
            COALESCE(a.open_book, FALSE) AS open_book,
            a.time_limit_minutes,
+           GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
            CONCAT(COALESCE(ru.first_name, ''), CASE WHEN ru.last_name IS NOT NULL AND ru.last_name <> '' THEN ' ' || ru.last_name ELSE '' END) AS reviewed_by_name,
            COUNT(q.question_id)::int AS question_count
          FROM assessment_question_sets qs
@@ -12492,6 +12551,7 @@ NUMBERING:
            a.title,
            a.open_book,
            a.time_limit_minutes,
+           a.max_attempts,
            ru.first_name,
            ru.last_name
          ORDER BY qs.updated_at DESC, qs.question_set_id DESC`,
@@ -12499,8 +12559,17 @@ NUMBERING:
       );
 
       const scopedQuestionSetRows = questionSetsResult.rows.filter((row) => isClassInScope(row.class_id));
+      const dedupedQuestionSetRows = [];
+      const seenAssessmentQuestionSets = new Set();
+      scopedQuestionSetRows.forEach((row) => {
+        const assessmentKey = Number(row.assessment_id || 0);
+        if (!assessmentKey) return;
+        if (seenAssessmentQuestionSets.has(assessmentKey)) return;
+        seenAssessmentQuestionSets.add(assessmentKey);
+        dedupedQuestionSetRows.push(row);
+      });
 
-      const questionSetIds = scopedQuestionSetRows
+      const questionSetIds = dedupedQuestionSetRows
         .map((row) => Number(row.question_set_id))
         .filter((value) => Number.isInteger(value) && value > 0);
 
@@ -12535,7 +12604,7 @@ NUMBERING:
         });
       });
 
-      const questionSets = scopedQuestionSetRows.map((row) => ({
+      const questionSets = dedupedQuestionSetRows.map((row) => ({
         question_set_id: row.question_set_id,
         class_id: Number(row.class_id),
         subject_id: Number(row.subject_id),
@@ -12547,6 +12616,7 @@ NUMBERING:
         time_limit_minutes: row.time_limit_minutes !== null && row.time_limit_minutes !== undefined
           ? Number(row.time_limit_minutes)
           : null,
+        max_attempts: Number(row.max_attempts || 1),
         set_title: row.set_title || "Question Set",
         set_description: row.set_description || "",
         total_points: Number(row.total_points || 0),
@@ -13019,6 +13089,7 @@ NUMBERING:
     }
 
     try {
+      await ensureAssessmentControlSchema(db);
       const params = [organizationId, termId, schoolYearId];
       let additionalWhere = "";
 
@@ -13047,6 +13118,7 @@ NUMBERING:
            COALESCE(a.scale_base, 100) AS scale_base,
            COALESCE(a.open_book, FALSE) AS open_book,
            a.time_limit_minutes,
+           GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
            COALESCE(a.is_locked, FALSE) AS is_locked,
            COALESCE(a.is_active, TRUE) AS is_active,
            a.edit_window_start,
@@ -13095,6 +13167,7 @@ NUMBERING:
           time_limit_minutes: row.time_limit_minutes !== null && row.time_limit_minutes !== undefined
             ? Number(row.time_limit_minutes)
             : null,
+          max_attempts: Number(row.max_attempts || 1),
           class_name: row.class_name || "Class",
           subject_name: row.subject_name || "Subject",
           can_edit_scores: Boolean(editability.canEdit),

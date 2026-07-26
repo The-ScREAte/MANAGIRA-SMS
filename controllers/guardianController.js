@@ -1034,6 +1034,15 @@ module.exports = {
         [normalizedEmail || null, cleanedPhone, guardianId, organizationId]
       );
 
+      // Keep header/session identity in sync for immediate UI updates.
+      req.session.firstName = normalizedFirstName || req.session.firstName;
+      req.session.lastName = normalizedLastName || req.session.lastName;
+      if (req.session.user && typeof req.session.user === 'object') {
+        req.session.user.first_name = normalizedFirstName;
+        req.session.user.last_name = normalizedLastName;
+        req.session.user.email = normalizedEmail || req.session.user.email;
+      }
+
       // Sync to legacy guardians table by old name match
       // (guardian_profiles.guardian_id != guardians.guardian_id so we cannot use ID)
       if (oldProfileRow) {

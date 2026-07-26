@@ -214,6 +214,12 @@
     color: var(--str-org-base);
   }
 
+  .str-chip-openbook {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
   .str-chip-success {
     border-color: var(--str-border-strong);
     background: var(--str-surface-strong);
@@ -432,10 +438,15 @@
                 · Max <%= Number(item.max_score || 0).toFixed(2) %>
               </p>
               <div class="str-meta-row">
-                <span class="str-chip"><%= item.open_book ? 'Open Book' : 'Secure' %></span>
+                <span class="str-chip <%= item.open_book ? 'str-chip-openbook' : '' %>">Assessment Mode: <%= item.open_book ? 'Open Book' : 'Secure' %></span>
                 <% if (item.time_limit_minutes && Number(item.time_limit_minutes) > 0) { %>
                   <span class="str-chip">Duration <%= Number(item.time_limit_minutes) %> min</span>
+                <% } else { %>
+                  <span class="str-chip">Duration Unlimited</span>
                 <% } %>
+                <% const maxAttempts = Math.max(Number(item.max_attempts || 1), 1); %>
+                <% const submittedAttempts = Math.max(Number(item.submitted_attempts || 0), 0); %>
+                <span class="str-chip">Attempts <%= submittedAttempts %>/<%= maxAttempts %></span>
                 <% if (item.edit_window_end) { %>
                   <% const deadlineDate = new Date(item.edit_window_end); %>
                   <% if (!Number.isNaN(deadlineDate.getTime())) { %>
@@ -459,7 +470,7 @@
                 Locked
               </span>
             <% } else { %>
-              <a class="str-cta" href="/student/testing-room/<%= item.assessment_id %>">Take Now</a>
+              <a class="str-cta" href="/student/testing-room/<%= item.assessment_id %>?questionSetId=<%= Number(item.question_set_id || 0) %>">Take Now</a>
             <% } %>
           </div>
         <% }) %>
@@ -487,10 +498,14 @@
                 · Score <%= Number(item.score || 0).toFixed(2) %> / <%= Number(item.attempt_max_score || item.max_score || 0).toFixed(2) %>
               </p>
               <div class="str-meta-row">
-                <span class="str-chip"><%= item.open_book ? 'Open Book' : 'Secure' %></span>
+                <span class="str-chip">Assessment Mode: <%= item.open_book ? 'Open Book' : 'Secure' %></span>
                 <% if (item.time_limit_minutes && Number(item.time_limit_minutes) > 0) { %>
-                  <span class="str-chip"><%= Number(item.time_limit_minutes) %> min</span>
+                  <span class="str-chip">Duration <%= Number(item.time_limit_minutes) %> min</span>
+                <% } else { %>
+                  <span class="str-chip">Duration Unlimited</span>
                 <% } %>
+                <% const completedMaxAttempts = Math.max(Number(item.max_attempts || 1), 1); %>
+                <span class="str-chip">Max Attempts <%= completedMaxAttempts %></span>
                 <span class="str-chip str-chip-success">Submitted</span>
               </div>
             </div>

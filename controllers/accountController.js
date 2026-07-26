@@ -5620,10 +5620,10 @@ const accountController = {
 
       const guardianAcc = await db.query(
         `
-        SELECT ga.*, gp.first_name, gp.last_name,
+        SELECT ga.*, gp.first_name AS guardian_first_name, gp.last_name AS guardian_last_name,
                o.organization_id, o.organization_name, o.nickname, o.nickname_display, o.logo, o.font_style, o.theme_color, o.deleted, o.on_hold
         FROM guardian_accounts ga
-        JOIN guardian_profiles gp ON gp.guardian_id = ga.guardian_id
+        JOIN guardian_profiles gp ON gp.guardian_id = ga.guardian_id AND gp.organization_id = ga.organization_id
         JOIN organizations o ON o.organization_id = ga.organization_id
         WHERE
           (ga.login_email IS NOT NULL AND LOWER(ga.login_email) = LOWER($1))
@@ -5683,8 +5683,8 @@ const accountController = {
 
         req.session.user = {
           user_id: null,
-          first_name: ga.first_name,
-          last_name: ga.last_name,
+          first_name: ga.guardian_first_name,
+          last_name: ga.guardian_last_name,
           email: ga.login_email || null,
           account_type: "Guardian",
         };
@@ -5701,20 +5701,20 @@ const accountController = {
         req.session.fontStyle = ga.font_style;
         req.session.themeColor = ga.theme_color || 'teal';
 
-        req.session.firstName = ga.first_name;
-        req.session.lastName = ga.last_name;
+        req.session.firstName = ga.guardian_first_name;
+        req.session.lastName = ga.guardian_last_name;
 
         logOrganizationActivity({
           organizationId: ga.organization_id,
           userId: ga.guardian_id,
-          userName: `${ga.first_name || ""} ${ga.last_name || ""}`.trim() || ga.login_email || ga.login_phone,
+          userName: `${ga.guardian_first_name || ""} ${ga.guardian_last_name || ""}`.trim() || ga.login_email || ga.login_phone,
           userRole: "Guardian",
           actionType: "Login",
           moduleName: "Authentication",
           pagePath: "/account/guardian-login",
           recordType: "Session",
           recordLabel: `${ga.organization_name} guardian login`,
-          description: `${ga.first_name || "Guardian"} signed in to the guardian portal.`,
+          description: `${ga.guardian_first_name || "Guardian"} signed in to the guardian portal.`,
           changedFields: [],
           ipAddress: req.ip,
         }).catch((error) => {
@@ -6156,13 +6156,14 @@ const accountController = {
           }
         } catch (_) { /* non-critical */ }
 
-        // ✅ Update session
-
-        req.session.user.first_name = firstName;
-
-        req.session.user.last_name = lastName;
-
-        req.session.user.email = email;
+        // Keep session identity in sync so header updates immediately.
+        req.session.firstName = firstName;
+        req.session.lastName = lastName;
+        if (req.session.user && typeof req.session.user === "object") {
+          req.session.user.first_name = firstName;
+          req.session.user.last_name = lastName;
+          req.session.user.email = email;
+        }
 
         req.session.save();
       } else {
@@ -6186,13 +6187,14 @@ const accountController = {
 
         await db.query(updateQuery, params);
 
-        // ✅ Update session
-
-        req.session.user.first_name = firstName;
-
-        req.session.user.last_name = lastName;
-
-        req.session.user.email = email;
+        // Keep session identity in sync so header updates immediately.
+        req.session.firstName = firstName;
+        req.session.lastName = lastName;
+        if (req.session.user && typeof req.session.user === "object") {
+          req.session.user.first_name = firstName;
+          req.session.user.last_name = lastName;
+          req.session.user.email = email;
+        }
 
         req.session.save();
       }
