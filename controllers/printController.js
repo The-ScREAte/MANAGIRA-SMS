@@ -875,10 +875,13 @@ function selectScoresByMode(values, count, mode, seedToken) {
   if (!source.length || limit <= 0) return [];
 
   if (mode === 'best') {
-    return [...source].sort((a, b) => b - a).slice(0, Math.min(limit, source.length));
+    // Grade numeric uses lower-is-better semantics (A1 < B2 < C3...),
+    // so "best/top" must pick the lowest numeric values.
+    return [...source].sort((a, b) => a - b).slice(0, Math.min(limit, source.length));
   }
   if (mode === 'poor') {
-    return [...source].sort((a, b) => a - b).slice(0, Math.min(limit, source.length));
+    // "poor" is the reverse of best for low-is-better grading.
+    return [...source].sort((a, b) => b - a).slice(0, Math.min(limit, source.length));
   }
   return selectDeterministicRandomValues(source, limit, seedToken);
 }
@@ -939,7 +942,8 @@ function calculateTotalGradeNumericScore(subjectRows, gradePresentation, seedTok
     ? numericRows.filter((entry) => entry.subjectId && coreSet.has(entry.subjectId))
     : numericRows;
   const fallbackCoreRows = configuredCoreRows.length ? configuredCoreRows : numericRows;
-  const rankedRows = [...fallbackCoreRows].sort((a, b) => b.score - a.score);
+  // Lower numeric grade is better, so core ranking should be ascending.
+  const rankedRows = [...fallbackCoreRows].sort((a, b) => a.score - b.score);
   const baseCount = Math.min(
     Math.max(0, Number.isFinite(Number(gradeConfig.gradeBaseSubjectCount)) ? Number(gradeConfig.gradeBaseSubjectCount) : 0),
     rankedRows.length
