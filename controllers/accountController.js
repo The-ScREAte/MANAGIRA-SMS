@@ -11335,10 +11335,10 @@ const accountController = {
       const tokenResult = await exchangeEmbeddedSignupCodeForToken(authCode);
 
       const resolvedIds = await resolveWhatsappSignupIdentifiers(tokenResult.accessToken, {
-        wabaId,
-        phoneNumberId,
-        businessName,
-        displayPhoneNumber,
+        wabaId: wabaId || String(integrationStatus.wabaId || "").trim(),
+        phoneNumberId: phoneNumberId || String(integrationStatus.phoneNumberId || "").trim(),
+        businessName: businessName || String(integrationStatus.businessName || "").trim(),
+        displayPhoneNumber: displayPhoneNumber || String(integrationStatus.displayPhoneNumber || "").trim(),
       });
 
       await registerPhoneNumberForCloudApi(tokenResult.accessToken, resolvedIds.phoneNumberId, registrationPin || null);

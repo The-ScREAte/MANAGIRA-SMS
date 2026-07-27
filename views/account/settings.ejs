@@ -5538,6 +5538,53 @@
           return new Promise((resolve, reject) => {
             let signupPayload = {};
 
+            const extractWhatsappSignupFields = (source, depth = 0) => {
+              if (!source || typeof source !== "object" || depth > 6) return {};
+
+              const out = {};
+              const directWabaId = String(
+                source.waba_id || source.wabaId || source.whatsapp_business_account_id || ""
+              ).trim();
+              const directPhoneId = String(
+                source.phone_number_id || source.phoneNumberId || source.whatsapp_phone_number_id || ""
+              ).trim();
+              const directDisplayPhone = String(
+                source.display_phone_number || source.displayPhoneNumber || ""
+              ).trim();
+              const directBusinessName = String(
+                source.business_name || source.businessName || source.business_display_name || ""
+              ).trim();
+              const directTimezone = String(source.timezone || "").trim();
+
+              if (directWabaId) out.wabaId = directWabaId;
+              if (directPhoneId) out.phoneNumberId = directPhoneId;
+              if (directDisplayPhone) out.displayPhoneNumber = directDisplayPhone;
+              if (directBusinessName) out.businessName = directBusinessName;
+              if (directTimezone) out.timezone = directTimezone;
+
+              Object.keys(source).forEach((key) => {
+                const value = source[key];
+                if (!value || typeof value !== "object") return;
+                const nested = extractWhatsappSignupFields(value, depth + 1);
+                if (nested.wabaId && !out.wabaId) out.wabaId = nested.wabaId;
+                if (nested.phoneNumberId && !out.phoneNumberId) out.phoneNumberId = nested.phoneNumberId;
+                if (nested.displayPhoneNumber && !out.displayPhoneNumber) out.displayPhoneNumber = nested.displayPhoneNumber;
+                if (nested.businessName && !out.businessName) out.businessName = nested.businessName;
+                if (nested.timezone && !out.timezone) out.timezone = nested.timezone;
+              });
+
+              return out;
+            };
+
+            const mergeSignupFields = (source) => {
+              const parsed = extractWhatsappSignupFields(source);
+              if (parsed.wabaId) signupPayload.wabaId = parsed.wabaId;
+              if (parsed.phoneNumberId) signupPayload.phoneNumberId = parsed.phoneNumberId;
+              if (parsed.displayPhoneNumber) signupPayload.displayPhoneNumber = parsed.displayPhoneNumber;
+              if (parsed.businessName) signupPayload.businessName = parsed.businessName;
+              if (parsed.timezone) signupPayload.timezone = parsed.timezone;
+            };
+
             const consumeMessage = (event) => {
               if (!event || !event.data) return;
               let data = event.data;
@@ -5561,41 +5608,41 @@
 
               if (!looksLikeWhatsapp) return;
 
-              signupPayload = {
-                ...signupPayload,
-                ...raw,
-              };
+              mergeSignupFields(raw);
+              mergeSignupFields(data);
             };
 
             window.addEventListener("message", consumeMessage);
 
             FB.login((response) => {
-              window.removeEventListener("message", consumeMessage);
-
               if (!response || !response.authResponse) {
+                window.removeEventListener("message", consumeMessage);
                 reject(new Error("Meta signup was cancelled or did not complete."));
                 return;
               }
 
               const code = String(response.authResponse.code || "").trim();
               if (!code) {
+                window.removeEventListener("message", consumeMessage);
                 reject(new Error("Meta did not return an authorization code."));
                 return;
               }
 
-              const merged = {
-                ...signupPayload,
-                ...(response.extraData && typeof response.extraData === "object" ? response.extraData : {}),
-              };
+              mergeSignupFields(response.extraData && typeof response.extraData === "object" ? response.extraData : {});
+              mergeSignupFields(response.authResponse && typeof response.authResponse === "object" ? response.authResponse : {});
 
-              resolve({
-                code,
-                wabaId: String(merged.waba_id || merged.wabaId || merged.whatsapp_business_account_id || "").trim(),
-                phoneNumberId: String(merged.phone_number_id || merged.phoneNumberId || "").trim(),
-                displayPhoneNumber: String(merged.display_phone_number || merged.displayPhoneNumber || "").trim(),
-                businessName: String(merged.business_name || merged.businessName || merged.business_display_name || "").trim(),
-                timezone: String(merged.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "").trim(),
-              });
+              // Meta postMessage payload can arrive just after the login callback on mobile Safari.
+              setTimeout(() => {
+                window.removeEventListener("message", consumeMessage);
+                resolve({
+                  code,
+                  wabaId: String(signupPayload.wabaId || "").trim(),
+                  phoneNumberId: String(signupPayload.phoneNumberId || "").trim(),
+                  displayPhoneNumber: String(signupPayload.displayPhoneNumber || "").trim(),
+                  businessName: String(signupPayload.businessName || "").trim(),
+                  timezone: String(signupPayload.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "").trim(),
+                });
+              }, 900);
             }, {
               config_id: configId,
               response_type: "code",
