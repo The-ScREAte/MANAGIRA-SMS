@@ -3424,7 +3424,7 @@
               <div class="google-integration-summary">
                 <span class="google-integration-copy">Google Classroom status</span>
                 <span class="pill" style="background:<%= giReady ? '#dcfce7' : '#fef3c7' %>;color:<%= giReady ? '#166534' : '#92400e' %>">
-                  <%= giReady ? 'Active & Connected' : (giActivated ? 'Activated (Connection Required)' : 'Inactive') %>
+                  <%= giReady ? 'Active & Connected' : (giActivated ? 'Connection Required' : 'Inactive') %>
                 </span>
                 <% if (gi.lastSyncStatus) { %>
                 <span class="text-muted-sm">Last sync status: <strong><%= gi.lastSyncStatus %></strong></span>
@@ -3490,7 +3490,7 @@
                 <div class="google-integration-summary">
                   <span class="google-integration-copy">WhatsApp status</span>
                   <span class="pill" id="whatsapp-status-pill" data-activated="<%= wiActivated ? '1' : '0' %>" data-connected="<%= wiConnected ? '1' : '0' %>" style="background:<%= wiReady ? '#dcfce7' : '#fef3c7' %>;color:<%= wiReady ? '#166534' : '#92400e' %>">
-                    <%= wiReady ? 'Active & Connected' : (wiActivated ? 'Activated (Connection Required)' : 'Inactive') %>
+                    <%= wiReady ? 'Active & Connected' : (wiActivated ? 'Connection Required' : 'Inactive') %>
                   </span>
                   <% if (wi.businessName) { %>
                   <span class="text-muted-sm">Business: <strong><%= wi.businessName %></strong></span>
@@ -5385,7 +5385,7 @@
               whatsappStatusPill.style.background = "#dcfce7";
               whatsappStatusPill.style.color = "#166534";
             } else if (isActive) {
-              whatsappStatusPill.textContent = "Activated (Connection Required)";
+              whatsappStatusPill.textContent = "Connection Required";
               whatsappStatusPill.style.background = "#fef3c7";
               whatsappStatusPill.style.color = "#92400e";
             } else {
