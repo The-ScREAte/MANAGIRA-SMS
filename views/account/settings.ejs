@@ -771,9 +771,9 @@
 
       .google-integration-toolbar {
         margin-top: 14px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        column-gap: 12px;
         align-items: center;
       }
 
@@ -786,8 +786,23 @@
         flex-wrap: wrap;
         gap: 8px;
         align-items: center;
-        margin-left: auto;
+        margin-left: 0;
         justify-content: flex-end;
+        flex: 0 0 auto;
+        align-self: center;
+        justify-self: end;
+        width: auto;
+        white-space: nowrap;
+      }
+
+      .google-integration-summary {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .google-integration-summary .google-integration-copy,
+      .google-integration-summary .pill {
+        white-space: nowrap;
       }
 
       .google-actions-menu {
@@ -875,12 +890,13 @@
 
       @media (max-width: 780px) {
         .google-integration-toolbar {
-          align-items: flex-start;
+          align-items: center;
+          gap: 10px;
         }
 
-        .google-integration-actions {
-          width: 100%;
-          margin-left: 0;
+        .google-integration-summary {
+          min-width: 0;
+          flex: 1 1 auto;
         }
 
         .google-classroom-logo,
@@ -2233,6 +2249,35 @@
         .card h4 { font-size: 11px; }
         .card small { font-size: 9.5px; }
       }
+
+      /* Force integration status row + action menu to remain on one line at all sizes. */
+      #integrations .google-integration-toolbar {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        flex-wrap: nowrap !important;
+        gap: 12px !important;
+      }
+
+      #integrations .google-integration-summary {
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+      }
+
+      #integrations .google-integration-actions {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        flex: 0 0 auto !important;
+        width: auto !important;
+        margin-left: auto !important;
+        white-space: nowrap !important;
+      }
+
+      #integrations .google-actions-menu {
+        display: inline-flex !important;
+        align-items: center !important;
+      }
     </style>
     <link rel="stylesheet" href="/css/workspace-shell.css" />
   </head>
@@ -3420,8 +3465,8 @@
               <% if (gi.clientEmail) { %><br>Connected account: <strong><%= gi.clientEmail %></strong><% } %>
             </small>
 
-            <div class="google-integration-toolbar">
-              <div class="google-integration-summary">
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
                 <span class="google-integration-copy">Google Classroom status</span>
                 <span class="pill" style="background:<%= giReady ? '#dcfce7' : '#fef3c7' %>;color:<%= giReady ? '#166534' : '#92400e' %>">
                   <%= giReady ? 'Active & Connected' : (giActivated ? 'Connection Required' : 'Inactive') %>
@@ -3431,8 +3476,8 @@
                 <% } %>
               </div>
 
-              <div class="google-integration-actions">
-                <details class="google-actions-menu">
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
                   <summary class="google-actions-toggle" aria-label="Google Classroom actions">⋮</summary>
                   <div class="google-actions-menu-list">
                     <% if (!giActivated) { %>
@@ -3486,8 +3531,8 @@
                 <% if (wi.displayPhoneNumber) { %><br>Connected number: <strong><%= wi.displayPhoneNumber %></strong><% } %>
               </small>
 
-              <div class="google-integration-toolbar">
-                <div class="google-integration-summary">
+              <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
+                <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
                   <span class="google-integration-copy">WhatsApp status</span>
                   <span class="pill" id="whatsapp-status-pill" data-activated="<%= wiActivated ? '1' : '0' %>" data-connected="<%= wiConnected ? '1' : '0' %>" style="background:<%= wiReady ? '#dcfce7' : '#fef3c7' %>;color:<%= wiReady ? '#166534' : '#92400e' %>">
                     <%= wiReady ? 'Active & Connected' : (wiActivated ? 'Connection Required' : 'Inactive') %>
@@ -3502,8 +3547,8 @@
                   <% } %>
                 </div>
 
-                <div class="google-integration-actions">
-                  <details class="google-actions-menu">
+                <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
+                  <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
                     <summary class="google-actions-toggle" aria-label="WhatsApp actions">⋮</summary>
                     <div class="google-actions-menu-list">
                       <a class="google-action-item" href="#" id="open-whatsapp-activate-modal" style="display:<%= wiActivated ? 'none' : 'block' %>">Activate</a>
@@ -3571,8 +3616,8 @@
               Activate Student Portal to control school-level access to student-facing portal features and flows.
             </small>
 
-            <div class="google-integration-toolbar">
-              <div class="google-integration-summary">
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
                 <span class="google-integration-copy">Student Portal status</span>
                 <span
                   class="pill"
@@ -3583,8 +3628,8 @@
                 </span>
               </div>
 
-              <div class="google-integration-actions">
-                <details class="google-actions-menu">
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
                   <summary class="google-actions-toggle" aria-label="Student Portal actions">⋮</summary>
                   <div class="google-actions-menu-list">
                     <a
@@ -3619,8 +3664,8 @@
               Activate Transportation to unlock bus, route, stop assignment, and live tracking dashboards for students, guardians, and staff.
             </small>
 
-            <div class="google-integration-toolbar">
-              <div class="google-integration-summary">
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
                 <span class="google-integration-copy">Transportation status</span>
                 <span
                   class="pill"
@@ -3632,8 +3677,8 @@
                 <span class="text-muted-sm">Map provider: <strong><%= ti.mapProvider || 'openstreetmap' %></strong></span>
               </div>
 
-              <div class="google-integration-actions">
-                <details class="google-actions-menu">
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
                   <summary class="google-actions-toggle" aria-label="Transportation actions">⋮</summary>
                   <div class="google-actions-menu-list">
                     <a
