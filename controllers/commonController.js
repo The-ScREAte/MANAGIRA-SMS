@@ -93,6 +93,15 @@ const {
   normalizeStudentEmail,
   getStudentPortalIntegrationStatus,
 } = require("../utils/studentPortal");
+const {
+  ensureTransportationSchema,
+  getTransportationIntegrationStatus,
+  suggestNearestStop,
+} = require("../utils/transportation");
+const {
+  getStudentTransportationSnapshot,
+  getClassTransportationSnapshot,
+} = require("./transportationController");
 
 const SET_ASSESSMENT_QUESTION_FEATURE_NAMES = [
   "Set Assessment Questions",
@@ -158,6 +167,63 @@ async function getActivePaystackConfig(dbClient) {
     publicKey: settings.activePublicKey || process.env.PAYSTACK_PUBLIC_KEY || "",
     mode: settings.mode,
   };
+}
+
+function parseNumberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function upsertStudentTransportationAssignment(dbClient, {
+  organizationId,
+  studentId,
+  homeAddress,
+  homeLatitude,
+  homeLongitude,
+}) {
+  if (!organizationId || !studentId) return;
+
+  await ensureTransportationSchema(dbClient);
+
+  const normalizedAddress = String(homeAddress || "").trim() || null;
+  const latitude = parseNumberOrNull(homeLatitude);
+  const longitude = parseNumberOrNull(homeLongitude);
+
+  let nearest = null;
+  if (latitude !== null && longitude !== null) {
+    nearest = await suggestNearestStop(dbClient, organizationId, latitude, longitude);
+  }
+
+  const routeId = nearest ? nearest.routeId : null;
+  const stopId = nearest ? nearest.stopId : null;
+  const distanceKm = nearest ? Number(nearest.distanceKm.toFixed(3)) : null;
+
+  await dbClient.query(
+    `INSERT INTO transport_student_assignments (
+       organization_id, student_id, route_id, stop_id,
+       home_address, home_latitude, home_longitude, distance_km, active
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
+     ON CONFLICT (organization_id, student_id)
+     DO UPDATE SET
+       route_id = COALESCE(EXCLUDED.route_id, transport_student_assignments.route_id),
+       stop_id = COALESCE(EXCLUDED.stop_id, transport_student_assignments.stop_id),
+       home_address = COALESCE(EXCLUDED.home_address, transport_student_assignments.home_address),
+       home_latitude = COALESCE(EXCLUDED.home_latitude, transport_student_assignments.home_latitude),
+       home_longitude = COALESCE(EXCLUDED.home_longitude, transport_student_assignments.home_longitude),
+       distance_km = COALESCE(EXCLUDED.distance_km, transport_student_assignments.distance_km),
+       active = TRUE,
+       updated_at = NOW()`,
+    [
+      organizationId,
+      studentId,
+      routeId,
+      stopId,
+      normalizedAddress,
+      latitude,
+      longitude,
+      distanceKm,
+    ]
+  );
 }
 
 let publicRegistrationSchemaReady = false;
@@ -4574,6 +4640,8 @@ const commonController = {
           height: getStudentField('height'),
           hometown: getStudentField('hometown'),
           studentAddress: getStudentField('studentAddress'),
+          homeLatitude: getStudentField('homeLatitude') || getStudentField('studentHomeLatitude') || getStudentField('transportHomeLatitude'),
+          homeLongitude: getStudentField('homeLongitude') || getStudentField('studentHomeLongitude') || getStudentField('transportHomeLongitude'),
           studentEmail: normalizeOptionalEmail(getStudentField('studentEmail')),
           classId: getStudentField('classId'),
           graduationYearGroupId: getStudentField('graduationYearGroupId'),
@@ -4767,6 +4835,14 @@ const commonController = {
           throw new Error("Student insert failed.");
         const studentId = studentInsert.rows[0].student_id;
         studentsSavedCount += 1;
+
+        await upsertStudentTransportationAssignment(client, {
+          organizationId,
+          studentId,
+          homeAddress: student.studentAddress,
+          homeLatitude: student.homeLatitude,
+          homeLongitude: student.homeLongitude,
+        });
 
         // Insert guardians (NEW MASTER + LINK) + ALSO keep existing guardians table insert (compat)
         for (let i = 0; i < student.guardians.length; i++) {
@@ -7624,6 +7700,12 @@ const commonController = {
       const studentPortalActionLabel = studentPortalSetupComplete
         ? "Reset Student Portal Password"
         : "Send Student Portal Request";
+      await ensureTransportationSchema(db);
+      const transportationSnapshot = await getStudentTransportationSnapshot(
+        db,
+        organizationId,
+        Number(studentId)
+      ).catch(() => null);
 
       // **Check if user is the main teacher of the class**
       let isMainTeacher = false;
@@ -7908,6 +7990,7 @@ const commonController = {
         studentPortalAction,
         studentPortalActionLabel,
         canSendStudentPortalRequest,
+        transportationSnapshot,
         messages: req.flash(),
         hideGlobalHeader: true,
         hideGlobalFooter: true,
@@ -8111,6 +8194,12 @@ const commonController = {
         height,
         hometown,
         studentAddress,
+        homeLatitude,
+        homeLongitude,
+        studentHomeLatitude,
+        studentHomeLongitude,
+        transportHomeLatitude,
+        transportHomeLongitude,
         studentEmail,
         classId,
         graduationYearGroupId,
@@ -8401,6 +8490,14 @@ const commonController = {
           );
         }
       }
+
+      await upsertStudentTransportationAssignment(client, {
+        organizationId: sessionOrganizationId,
+        studentId: Number(studentId),
+        homeAddress: studentAddress,
+        homeLatitude: homeLatitude || studentHomeLatitude || transportHomeLatitude,
+        homeLongitude: homeLongitude || studentHomeLongitude || transportHomeLongitude,
+      });
 
       await client.query("COMMIT");
 
@@ -14948,6 +15045,32 @@ NUMBERING:
         .map((studentRow) => Number(studentRow.student_id))
         .filter((studentIdValue) => Number.isInteger(studentIdValue) && studentIdValue > 0);
 
+      const transportationIntegration = await getTransportationIntegrationStatus(db, organizationId).catch(
+        () => ({ activated: false })
+      );
+      const classTransportationSnapshot = transportationIntegration.activated
+        ? await getClassTransportationSnapshot(
+            db,
+            organizationId,
+            Number(classId),
+            Number(currentTerm.term_id),
+            Number(schoolYear.id)
+          ).catch(() => [])
+        : [];
+      const classTransportationSchoolDestination = transportationIntegration.activated
+        ? await db.query(
+            `SELECT organization_address, geo_lat, geo_lng
+               FROM organizations
+              WHERE organization_id = $1
+              LIMIT 1`,
+            [organizationId]
+          ).then((result) => ({
+            address: String(result.rows[0]?.organization_address || '').trim() || null,
+            latitude: result.rows[0]?.geo_lat !== null && result.rows[0]?.geo_lat !== undefined ? Number(result.rows[0].geo_lat) : null,
+            longitude: result.rows[0]?.geo_lng !== null && result.rows[0]?.geo_lng !== undefined ? Number(result.rows[0].geo_lng) : null,
+          })).catch(() => ({ address: null, latitude: null, longitude: null }))
+        : { address: null, latitude: null, longitude: null };
+
       const configuredClassroomRemarkTypes = await getConfiguredClassroomRemarkTypes(
         db,
         organizationId,
@@ -15101,6 +15224,8 @@ NUMBERING:
         initialWorkspaceRoute = { panel: queryReportId ? 'report-detail' : 'reports', itemId: queryReportId };
       } else if (routePanel === 'schedule') {
         initialWorkspaceRoute = { panel: 'schedule', itemId: '' };
+      } else if (routePanel === 'transportation') {
+        initialWorkspaceRoute = { panel: 'transportation', itemId: '' };
       } else if (routePanel === 'students') {
         initialWorkspaceRoute = { panel: 'students', itemId: '' };
       } else if (routePanel === 'assessment-questions') {
@@ -15151,6 +15276,9 @@ NUMBERING:
         classroomCustomRemarkTypes: customRemarkTypes,
         studentTeacherRemarksMap,
         canAccessAssessmentQuestions,
+        transportationIntegration,
+        classTransportationSnapshot,
+        classTransportationSchoolDestination,
         hideGlobalFooter: true,
       });
     } catch (err) {
@@ -15245,6 +15373,58 @@ NUMBERING:
       });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Failed to load remark options." });
+    }
+  },
+
+  getClassDashboardStudentTransportSnapshot: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const currentUserRole = req.session.userRole;
+    const currentUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
+    const normalizedRole = normalizeRoleKey(currentUserRole || req.session.accountType);
+    const classId = Number.parseInt(req.query.classId, 10);
+    const studentId = Number.parseInt(req.query.studentId, 10);
+
+    if (!organizationId || !Number.isInteger(classId) || !Number.isInteger(studentId)) {
+      return res.status(400).json({ success: false, error: 'Missing or invalid class/student.' });
+    }
+
+    try {
+      const isElevatedRole = ["manager", "supervisor", "admin", "organization", "mini admin"].includes(normalizedRole);
+      if (!isElevatedRole && normalizedRole === 'teacher' && currentUserId) {
+        const teacherAccessResult = await db.query(
+          `SELECT 1
+             FROM user_classes
+            WHERE user_id = $1
+              AND class_id = $2
+            LIMIT 1`,
+          [currentUserId, classId]
+        );
+        if (!teacherAccessResult.rows.length) {
+          return res.status(403).json({ success: false, error: 'Unauthorized.' });
+        }
+      }
+
+      const studentScopedResult = await db.query(
+        `SELECT 1
+           FROM enrolled_students es
+           JOIN enrollments e ON e.enrollment_id = es.enrollment_id
+           JOIN students s ON s.student_id = es.student_id
+          WHERE e.organization_id = $1
+            AND es.class_id = $2
+            AND s.student_id = $3
+            AND COALESCE(s.graduated, FALSE) = FALSE
+          LIMIT 1`,
+        [organizationId, classId, studentId]
+      );
+
+      if (!studentScopedResult.rows.length) {
+        return res.status(404).json({ success: false, error: 'Student not found in this class.' });
+      }
+
+      const snapshot = await getStudentTransportationSnapshot(db, organizationId, studentId).catch(() => null);
+      return res.json({ success: true, snapshot });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: 'Unable to load student transportation details.' });
     }
   },
 
@@ -17265,6 +17445,7 @@ NUMBERING:
       );
       const googleIntegration = await getGoogleIntegrationStatus(db, req.session.organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, req.session.organizationId);
+      const transportationIntegration = await getTransportationIntegrationStatus(db, req.session.organizationId);
       const canUseQuestionSetIntegration =
         Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
       const canSetAssessmentQuestions = await userHasPermission(
@@ -17307,6 +17488,7 @@ NUMBERING:
         canSeeEmailIssues,
         failedEmailCount,
         googleIntegration,
+        transportationIntegration,
         canManageAllClassAssessmentExams,
         canAccessAssessmentQuestions,
       });
@@ -19583,11 +19765,47 @@ NUMBERING:
           ]
         );
 
+        const matchingCurrentProfileGuardianIds = currentLegacyIdentity
+          ? await client.query(
+              `SELECT DISTINCT gp.guardian_id
+                 FROM guardian_profiles gp
+                 JOIN guardian_students gs
+                   ON gs.guardian_id = gp.guardian_id
+                WHERE gp.organization_id = $1
+                  AND gs.student_id = $2
+                  AND LOWER(TRIM(COALESCE(gp.first_name, ''))) = LOWER(TRIM($3::text))
+                  AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = LOWER(TRIM(COALESCE($4::text, '')))
+                  AND (
+                    COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE($5::text, '')), ''), '__NO_PHONE__')
+                    OR COALESCE(NULLIF(LOWER(TRIM(COALESCE(gp.email, ''))), ''), '__NO_EMAIL__') = COALESCE(NULLIF(LOWER(TRIM(COALESCE($6::text, ''))), ''), '__NO_EMAIL__')
+                    OR (
+                      COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = '__NO_PHONE__'
+                      AND COALESCE(NULLIF(LOWER(TRIM(COALESCE(gp.email, ''))), ''), '__NO_EMAIL__') = '__NO_EMAIL__'
+                    )
+                  )`,
+              [
+                organizationId,
+                parsedStudentId,
+                currentLegacyIdentity.first_name || null,
+                currentLegacyIdentity.last_name || null,
+                currentLegacyIdentity.phone || null,
+                currentLegacyIdentity.email || null,
+              ]
+            )
+          : { rows: [] };
+
         // Keep profile-backed relationship table in sync for legacy pages as well.
-        const deleteCurrentProfileLink = await client.query(
-          `DELETE FROM guardian_students WHERE guardian_id = $1 AND student_id = $2`,
-          [parsedCurrentGuardianId, parsedStudentId]
-        );
+        const profileGuardianIdsToDelete = matchingCurrentProfileGuardianIds.rows
+          .map((row) => Number(row.guardian_id))
+          .filter((guardianId) => Number.isInteger(guardianId) && guardianId > 0);
+        const deleteCurrentProfileLink = profileGuardianIdsToDelete.length
+          ? await client.query(
+              `DELETE FROM guardian_students
+                WHERE student_id = $1
+                  AND guardian_id = ANY($2::int[])`,
+              [parsedStudentId, profileGuardianIdsToDelete]
+            )
+          : { rowCount: 0 };
 
         // Legacy data can be inconsistent (clustered guardian rows by identity).
         // Treat missing old link as idempotent and still proceed with the new link.
@@ -19613,12 +19831,17 @@ NUMBERING:
         const existingLegacyForTarget = await client.query(
           `SELECT guardian_id
            FROM guardians
-           WHERE organization_id = $1 AND student_id = $2
+           WHERE organization_id = $1
+             AND student_id = $2
              AND LOWER(TRIM(first_name)) = LOWER(TRIM($3))
              AND LOWER(TRIM(COALESCE(last_name, ''))) = LOWER(TRIM(COALESCE($4, '')))
              AND (
                COALESCE(NULLIF(TRIM(COALESCE(phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE($5, '')), ''), '__NO_PHONE__')
-               OR COALESCE(NULLIF(TRIM(COALESCE(email, '')), ''), '__NO_EMAIL__') = COALESCE(NULLIF(TRIM(COALESCE($6, '')), ''), '__NO_EMAIL__')
+               OR COALESCE(NULLIF(LOWER(TRIM(COALESCE(email, ''))), ''), '__NO_EMAIL__') = COALESCE(NULLIF(LOWER(TRIM(COALESCE($6, ''))), ''), '__NO_EMAIL__')
+               OR (
+                 COALESCE(NULLIF(TRIM(COALESCE(phone, '')), ''), '__NO_PHONE__') = '__NO_PHONE__'
+                 AND COALESCE(NULLIF(LOWER(TRIM(COALESCE(email, ''))), ''), '__NO_EMAIL__') = '__NO_EMAIL__'
+               )
              )
            LIMIT 1`,
           [

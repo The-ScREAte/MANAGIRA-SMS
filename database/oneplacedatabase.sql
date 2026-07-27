@@ -1131,7 +1131,7 @@ Safaricom Kenya (MPESA)	254708374149	12345	Kenya-based testing number
 test OTP code (often 12345 or 123456)
 Ensure the provider is selected correctly in your form (bankOrProvider = MTN, VDF, etc.)
 
-🇬🇭 Ghana – GHS Bank Account
+�� Ghana – GHS Bank Account
 Field	Value
 Account Number	1234567890
 Account Name	Flutterwave Ghana Demo

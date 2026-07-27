@@ -293,6 +293,12 @@ router.post(
   accountController.studentPortalActivationPost
 );
 router.post(
+  "/transportation/activate",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.transportationActivationPost
+);
+router.post(
   "/whatsapp/activate",
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),

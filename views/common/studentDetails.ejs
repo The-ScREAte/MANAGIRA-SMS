@@ -618,6 +618,43 @@
           </div>
         </div>
       </div>
+      <% if (transportationSnapshot) { %>
+      <h3>Transportation</h3>
+      <div class="table-container">
+        <table>
+          <tbody>
+            <tr>
+              <th>Bus</th>
+              <td><%= transportationSnapshot.bus && transportationSnapshot.bus.busNumber ? transportationSnapshot.bus.busNumber : '-' %></td>
+              <th>Route</th>
+              <td><%= transportationSnapshot.route && transportationSnapshot.route.routeName ? transportationSnapshot.route.routeName : '-' %></td>
+            </tr>
+            <tr>
+              <th>Stop</th>
+              <td><%= transportationSnapshot.stop && transportationSnapshot.stop.stopName ? transportationSnapshot.stop.stopName : '-' %></td>
+              <th>Stop Address</th>
+              <td><%= transportationSnapshot.stop && transportationSnapshot.stop.stopAddress ? transportationSnapshot.stop.stopAddress : '-' %></td>
+            </tr>
+            <tr>
+              <th>Pickup</th>
+              <td><%= transportationSnapshot.pickupTime || '-' %></td>
+              <th>Dropoff</th>
+              <td><%= transportationSnapshot.dropoffTime || '-' %></td>
+            </tr>
+            <tr>
+              <th>Home Address</th>
+              <td><%= transportationSnapshot.homeAddress || '-' %></td>
+              <th>Distance to Stop</th>
+              <td><%= transportationSnapshot.distanceKm !== null && transportationSnapshot.distanceKm !== undefined ? Number(transportationSnapshot.distanceKm).toFixed(2) + ' km' : '-' %></td>
+            </tr>
+            <tr>
+              <th>Live Status</th>
+              <td colspan="3"><%= transportationSnapshot.live && transportationSnapshot.live.recordedAt ? ('Last bus update: ' + new Date(transportationSnapshot.live.recordedAt).toLocaleString()) : 'No live trip update yet.' %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
       <h3>Grades</h3>
       <div class="table-container">
         <table>

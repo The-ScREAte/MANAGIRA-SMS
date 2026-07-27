@@ -334,6 +334,141 @@
     border: 1px solid #fbbf24;
   }
 
+  .child-actions-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .child-transport-btn {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    border: 1px solid #cfe0eb;
+    background: #f8fbff;
+    color: var(--org-primary-color, #0f5a66);
+    font-size: 19px;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  }
+
+  .child-transport-btn:hover,
+  .child-transport-btn:focus-visible {
+    background: #eef7fb;
+    box-shadow: 0 8px 18px rgba(15, 90, 102, 0.16);
+    transform: translateY(-1px);
+    outline: none;
+  }
+
+  .guardian-transport-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.46);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: calc(env(safe-area-inset-top, 0px) + 88px) 16px 16px;
+    z-index: 1800;
+    overflow-y: auto;
+  }
+
+  .guardian-transport-modal-overlay.active { display: flex; }
+
+  .guardian-transport-modal-box {
+    width: min(500px, 100%);
+    max-height: min(70vh, 600px);
+    overflow: auto;
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #dbe5ef;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+  }
+
+  .guardian-transport-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .guardian-transport-modal-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .guardian-transport-modal-close {
+    border: none;
+    background: transparent;
+    font-size: 28px;
+    line-height: 1;
+    color: #64748b;
+    cursor: pointer;
+  }
+
+  .guardian-transport-modal-body {
+    padding: 12px 14px 14px;
+    display: grid;
+    gap: 8px;
+  }
+
+  .guardian-transport-summary-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(15, 90, 102, 0.08);
+    color: var(--org-primary-color, #0f5a66);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .guardian-transport-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .guardian-transport-card {
+    border: 1px solid #dbe5ef;
+    border-radius: 10px;
+    background: #f8fbfc;
+    padding: 8px 10px;
+  }
+
+  .guardian-transport-card .k {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+
+  .guardian-transport-card .v {
+    font-size: 12px;
+    color: #0f172a;
+    font-weight: 600;
+  }
+
+  .guardian-transport-map {
+    width: 100%;
+    height: 160px;
+    border: 1px solid #dbe5ef;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #eef5fb;
+  }
+
   .child-card.pending {
     opacity: 0.9;
     border: 2px dashed #fbbf24;
@@ -771,6 +906,7 @@
       <div class="children-grid">
         <% children.forEach((child) => { %>
           <% const childDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(child) : [child.first_name, child.last_name].filter(Boolean).join(' ').trim()); %>
+          <% const childTransport = childTransportationMap ? childTransportationMap[String(child.student_id || '')] : null; %>
           <div class="child-card <%= child.status === 'pending' ? 'pending' : '' %>">
             <div class="child-header">
               <img 
@@ -805,11 +941,25 @@
                 </button>
               </div>
             <% } else { %>
-              <a 
-                class="view-progress-btn"
-                href="/guardian/academic-details?studentId=<%= child.student_id || child.pending_id %>&termId=<%= currentTermId || '' %>">
-                📊 View Academic Details
-              </a>
+              <div class="child-actions-row">
+                <% if (childTransport) { %>
+                <button
+                  class="child-transport-btn"
+                  type="button"
+                  title="Transportation details"
+                  aria-label="Transportation details for <%= childDisplayName %>"
+                  data-child-name="<%= childDisplayName %>"
+                  data-transport-snapshot='<%- JSON.stringify(childTransport || null) %>'
+                  onclick="openGuardianTransportModal(this, event)">
+                  🚌
+                </button>
+                <% } %>
+                <a 
+                  class="view-progress-btn"
+                  href="/guardian/academic-details?studentId=<%= child.student_id || child.pending_id %>&termId=<%= currentTermId || '' %>">
+                  📊 View Academic Details
+                </a>
+              </div>
             <% } %>
           </div>
         <% }) %>
@@ -817,7 +967,240 @@
     <% } %>
   </div>
 </div>
+<div class="guardian-transport-modal-overlay" id="guardianTransportModal" onclick="handleGuardianTransportModalOverlayClick(event)">
+  <div class="guardian-transport-modal-box" role="dialog" aria-modal="true" aria-labelledby="guardianTransportModalTitle">
+    <div class="guardian-transport-modal-head">
+      <h3 class="guardian-transport-modal-title" id="guardianTransportModalTitle">Transportation Details</h3>
+      <button type="button" class="guardian-transport-modal-close" onclick="closeGuardianTransportModal()" aria-label="Close">×</button>
+    </div>
+    <div class="guardian-transport-modal-body">
+      <div id="guardianTransportModalStatus" class="guardian-subtitle" style="margin:0;color:#64748b;">Current transportation assignment</div>
+      <div id="guardianTransportModalSummary"></div>
+      <div id="guardianTransportModalGrid" class="guardian-transport-grid"></div>
+      <div id="guardianTransportModalMap" class="guardian-transport-map"></div>
+    </div>
+  </div>
+</div>
 <script>
+  function ensureGuardianLeafletAssets() {
+    if (!document.getElementById('leaflet-css-guardian-dashboard')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css-guardian-dashboard';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+    if (window.L) return Promise.resolve(window.L);
+    if (window.__guardianDashboardLeafletPromise) return window.__guardianDashboardLeafletPromise;
+    window.__guardianDashboardLeafletPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => resolve(window.L);
+      script.onerror = reject;
+      document.body.appendChild(script);
+    });
+    return window.__guardianDashboardLeafletPromise;
+  }
+
+  const guardianTransportState = {
+    modalMap: null,
+    modalLayer: null,
+  };
+
+  function normalizeGuardianCoord(value, axis) {
+    if (value === null || value === undefined) return null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return null;
+    if (axis === 'lat' && (parsed < -90 || parsed > 90)) return null;
+    if (axis === 'lng' && (parsed < -180 || parsed > 180)) return null;
+    return parsed;
+  }
+
+  function closeGuardianTransportModal() {
+    const modal = document.getElementById('guardianTransportModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+  }
+
+  function handleGuardianTransportModalOverlayClick(event) {
+    if (event && event.target && event.target.id === 'guardianTransportModal') {
+      closeGuardianTransportModal();
+    }
+  }
+
+  function renderGuardianTransportMap(snapshot) {
+    ensureGuardianLeafletAssets().then((L) => {
+      const el = document.getElementById('guardianTransportModalMap');
+      if (!el || !snapshot) return;
+      if (!guardianTransportState.modalMap) {
+        guardianTransportState.modalMap = L.map(el, { scrollWheelZoom: false, zoomControl: true }).setView([40.767304, -111.939857], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(guardianTransportState.modalMap);
+        guardianTransportState.modalLayer = L.layerGroup().addTo(guardianTransportState.modalMap);
+      }
+      const map = guardianTransportState.modalMap;
+      const layer = guardianTransportState.modalLayer;
+      layer.clearLayers();
+
+      const points = [];
+      const addMarker = (lat, lng, label) => {
+        const latNum = normalizeGuardianCoord(lat, 'lat');
+        const lngNum = normalizeGuardianCoord(lng, 'lng');
+        if (latNum === null || lngNum === null) return null;
+        points.push([latNum, lngNum]);
+        return L.marker([latNum, lngNum]).addTo(layer).bindPopup(label || 'Location');
+      };
+      const fetchRoadGeometry = (latlngs) => {
+        if (!Array.isArray(latlngs) || latlngs.length < 2) return Promise.resolve(latlngs || []);
+        const coordinates = latlngs.map((entry) => `${Number(entry[1]).toFixed(7)},${Number(entry[0]).toFixed(7)}`).join(';');
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
+        return fetch(url)
+          .then((response) => response.json())
+          .then((payload) => {
+            const geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
+            const resolved = Array.isArray(geometry && geometry.coordinates)
+              ? geometry.coordinates.map((entry) => [Number(entry[1]), Number(entry[0])])
+              : null;
+            return resolved && resolved.length >= 2 ? resolved : latlngs;
+          })
+          .catch(() => latlngs);
+      };
+
+      const school = snapshot.school || null;
+      const stop = snapshot.stop || null;
+      const live = snapshot.live || null;
+      const routeStops = snapshot.route && Array.isArray(snapshot.route.stops)
+        ? snapshot.route.stops.filter((entry) => normalizeGuardianCoord(entry && entry.latitude, 'lat') !== null && normalizeGuardianCoord(entry && entry.longitude, 'lng') !== null)
+        : [];
+
+      addMarker(school && school.latitude, school && school.longitude, school && school.address ? 'School: ' + school.address : 'School');
+      addMarker(stop && stop.latitude, stop && stop.longitude, stop && stop.stopName ? 'Stop: ' + stop.stopName : 'Stop');
+      addMarker(live && live.latitude, live && live.longitude, 'Live bus position');
+
+      const routeLatLngs = [];
+      const schoolLat = school ? normalizeGuardianCoord(school.latitude, 'lat') : null;
+      const schoolLng = school ? normalizeGuardianCoord(school.longitude, 'lng') : null;
+      if (schoolLat !== null && schoolLng !== null) {
+        routeLatLngs.push([schoolLat, schoolLng]);
+      }
+      routeStops.forEach((entry) => {
+        routeLatLngs.push([normalizeGuardianCoord(entry.latitude, 'lat'), normalizeGuardianCoord(entry.longitude, 'lng')]);
+      });
+      if (schoolLat !== null && schoolLng !== null && routeStops.length) {
+        routeLatLngs.push([schoolLat, schoolLng]);
+      }
+
+      routeStops.forEach((entry) => {
+        const routeStopLat = normalizeGuardianCoord(entry.latitude, 'lat');
+        const routeStopLng = normalizeGuardianCoord(entry.longitude, 'lng');
+        if (routeStopLat === null || routeStopLng === null) return;
+        L.circleMarker([routeStopLat, routeStopLng], {
+          radius: 5,
+          color: '#2563eb',
+          fillColor: '#93c5fd',
+          fillOpacity: 0.9,
+          weight: 2,
+        }).bindPopup(entry.stopName || 'Route stop').addTo(layer);
+      });
+
+      const stopLat = stop ? normalizeGuardianCoord(stop.latitude, 'lat') : null;
+      const stopLng = stop ? normalizeGuardianCoord(stop.longitude, 'lng') : null;
+      const liveLat = live ? normalizeGuardianCoord(live.latitude, 'lat') : null;
+      const liveLng = live ? normalizeGuardianCoord(live.longitude, 'lng') : null;
+      if (stopLat !== null && stopLng !== null && liveLat !== null && liveLng !== null) {
+        L.polyline([[stopLat, stopLng], [liveLat, liveLng]], {
+          color: '#d97706',
+          weight: 3,
+          opacity: 0.8,
+          dashArray: '6,6',
+        }).addTo(layer);
+      }
+
+      if (stopLat !== null && stopLng !== null) {
+        L.circleMarker([stopLat, stopLng], {
+          radius: 8,
+          color: '#b91c1c',
+          fillColor: '#ef4444',
+          fillOpacity: 0.95,
+          weight: 2,
+        }).bindPopup((stop && stop.stopName ? stop.stopName : 'Assigned stop') + ' (Assigned)').addTo(layer);
+      }
+
+      fetchRoadGeometry(routeLatLngs).then((roadLatLngs) => {
+        const geometry = roadLatLngs.length ? roadLatLngs : routeLatLngs;
+        if (geometry.length >= 2) {
+          L.polyline(geometry, {
+            color: '#0f5a66',
+            weight: 4,
+            opacity: 0.85,
+          }).addTo(layer);
+        }
+        const boundsSource = geometry.length ? geometry.slice() : (routeLatLngs.length ? routeLatLngs.slice() : points.slice());
+        setTimeout(() => {
+          map.invalidateSize();
+          if (boundsSource.length) {
+            map.fitBounds(L.latLngBounds(boundsSource).pad(0.2));
+          }
+        }, 80);
+      });
+    }).catch(() => {
+      const el = document.getElementById('guardianTransportModalMap');
+      if (el) {
+        el.innerHTML = '<div style="padding:18px;color:#64748b;font-size:12px;">Map could not load right now.</div>';
+      }
+    });
+  }
+
+  function openGuardianTransportModal(trigger, event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const modal = document.getElementById('guardianTransportModal');
+    const titleEl = document.getElementById('guardianTransportModalTitle');
+    const statusEl = document.getElementById('guardianTransportModalStatus');
+    const summaryEl = document.getElementById('guardianTransportModalSummary');
+    const gridEl = document.getElementById('guardianTransportModalGrid');
+    if (!modal || !titleEl || !statusEl || !summaryEl || !gridEl || !trigger) return;
+
+    let snapshot = null;
+    try {
+      snapshot = JSON.parse(trigger.getAttribute('data-transport-snapshot') || 'null');
+    } catch (_) {
+      snapshot = null;
+    }
+    const childName = String(trigger.getAttribute('data-child-name') || 'Student').trim();
+    titleEl.textContent = 'Transportation: ' + childName;
+
+    if (!snapshot) {
+      statusEl.textContent = 'No transportation assignment found.';
+      summaryEl.innerHTML = '';
+      gridEl.innerHTML = '';
+      modal.classList.add('active');
+      return;
+    }
+
+    statusEl.textContent = 'Current transportation assignment';
+    summaryEl.innerHTML = '<span class="guardian-transport-summary-chip">🚌 ' + [snapshot.bus && snapshot.bus.busNumber, snapshot.route && snapshot.route.routeName, snapshot.stop && snapshot.stop.stopName].filter(Boolean).join(' | ') + '</span>';
+    const details = [
+      ['Bus', snapshot.bus && snapshot.bus.busNumber ? snapshot.bus.busNumber : '-'],
+      ['Driver', snapshot.driverName || '-'],
+      ['Route', snapshot.route && snapshot.route.routeName ? snapshot.route.routeName : '-'],
+      ['Stop', snapshot.stop && snapshot.stop.stopName ? snapshot.stop.stopName : '-'],
+      ['Pickup', snapshot.pickupTime || '-'],
+      ['Dropoff', snapshot.dropoffTime || '-'],
+      ['Live', snapshot.live && snapshot.live.recordedAt ? new Date(snapshot.live.recordedAt).toLocaleString() : 'No live update yet'],
+      ['School', snapshot.school && snapshot.school.address ? snapshot.school.address : '-']
+    ];
+    gridEl.innerHTML = details.map((entry) => '<div class="guardian-transport-card"><span class="k">' + entry[0] + '</span><span class="v">' + entry[1] + '</span></div>').join('');
+    modal.classList.add('active');
+    renderGuardianTransportMap(snapshot);
+  }
+
   function withdrawApplication(pendingId, studentName) {
     if (confirm(`⚠️ WITHDRAW APPLICATION\n\nAre you sure you want to withdraw the application for ${studentName}?\n\n❗ IMPORTANT: Any payment made is NON-REFUNDABLE.\n\nThis action cannot be undone.`)) {
       // Show loading indicator
@@ -850,4 +1233,8 @@
       });
     }
   }
+
+  window.openGuardianTransportModal = openGuardianTransportModal;
+  window.closeGuardianTransportModal = closeGuardianTransportModal;
+  window.handleGuardianTransportModalOverlayClick = handleGuardianTransportModalOverlayClick;
 </script>

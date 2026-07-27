@@ -222,6 +222,16 @@
     background: var(--sp-surface-strong);
   }
 
+  .sp-transport-map {
+    width: 100%;
+    height: 260px;
+    border: 1px solid var(--sp-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #eef5fb;
+    margin-top: 12px;
+  }
+
   .sp-action-tile.sp-testing {
     border-color: var(--sp-border-strong);
     background: var(--sp-surface-strong);
@@ -904,6 +914,10 @@
             <h4 class="sp-action-title">Grades</h4>
             <p class="sp-action-copy">Open current-term subject grades.</p>
           </button>
+          <button class="sp-action-tile" type="button" data-panel="transport">
+            <h4 class="sp-action-title">Transportation</h4>
+            <p class="sp-action-copy"><%= transportationSnapshot && transportationSnapshot.bus && transportationSnapshot.bus.busNumber ? transportationSnapshot.bus.busNumber : 'Not assigned' %><%= transportationSnapshot && transportationSnapshot.route && transportationSnapshot.route.routeName ? ' • ' + transportationSnapshot.route.routeName : '' %></p>
+          </button>
           <% if (testingRoomEnabled) { %>
           <a class="sp-action-tile sp-testing" href="/student/testing-room">
             <h4 class="sp-action-title">Testing Room</h4>
@@ -911,6 +925,32 @@
           </a>
           <% } %>
         </div>
+      </section>
+
+      <section class="sp-panel" id="panel-transport" hidden>
+        <h3 class="sp-section-title">Transportation</h3>
+        <% if (transportationSnapshot) { %>
+        <div class="sp-table-wrap">
+          <table class="sp-table">
+            <tbody>
+              <tr><th>Bus</th><td><%= transportationSnapshot.bus && transportationSnapshot.bus.busNumber ? transportationSnapshot.bus.busNumber : '-' %></td></tr>
+              <tr><th>Route</th><td><%= transportationSnapshot.route && transportationSnapshot.route.routeName ? transportationSnapshot.route.routeName : '-' %></td></tr>
+              <tr><th>Stop</th><td><%= transportationSnapshot.stop && transportationSnapshot.stop.stopName ? transportationSnapshot.stop.stopName : '-' %></td></tr>
+              <tr><th>Stop Address</th><td><%= transportationSnapshot.stop && transportationSnapshot.stop.stopAddress ? transportationSnapshot.stop.stopAddress : '-' %></td></tr>
+              <tr><th>Pickup</th><td><%= transportationSnapshot.pickupTime || '-' %></td></tr>
+              <tr><th>Dropoff</th><td><%= transportationSnapshot.dropoffTime || '-' %></td></tr>
+              <tr><th>Live Update</th><td><%= transportationSnapshot.live && transportationSnapshot.live.recordedAt ? new Date(transportationSnapshot.live.recordedAt).toLocaleString() : 'No live update yet' %></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div
+          class="sp-transport-map"
+          data-transport-map
+          data-transport-snapshot='<%- JSON.stringify(transportationSnapshot || null) %>'
+        ></div>
+        <% } else { %>
+        <p class="sp-muted">No transportation assignment has been set for your account yet.</p>
+        <% } %>
       </section>
 
       <section class="sp-panel" id="panel-teachers" hidden>
@@ -1133,6 +1173,138 @@
     modalTitle.textContent = label || 'Details';
     modal.classList.add('is-open');
     document.body.style.overflow = 'hidden';
+    hydrateTransportMaps(modalBody);
+  }
+
+  function ensureLeafletAssets() {
+    if (!document.getElementById('leaflet-css-student-dashboard')) {
+      var link = document.createElement('link');
+      link.id = 'leaflet-css-student-dashboard';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+    if (window.L) return Promise.resolve(window.L);
+    if (window.__studentDashboardLeafletPromise) return window.__studentDashboardLeafletPromise;
+    window.__studentDashboardLeafletPromise = new Promise(function(resolve, reject) {
+      var script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = function() { resolve(window.L); };
+      script.onerror = reject;
+      document.body.appendChild(script);
+    });
+    return window.__studentDashboardLeafletPromise;
+  }
+
+  function renderTransportMap(el, snapshot) {
+    if (!el || !snapshot) return;
+    ensureLeafletAssets().then(function(L) {
+      if (el.__leafletMap) {
+        el.__leafletMap.remove();
+        el.__leafletMap = null;
+      }
+      var map = L.map(el, { scrollWheelZoom: false, zoomControl: true }).setView([40.767304, -111.939857], 12);
+      el.__leafletMap = map;
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      var points = [];
+      function normalizeCoord(value, axis) {
+        if (value === null || value === undefined) return null;
+        var raw = String(value).trim();
+        if (!raw) return null;
+        var parsed = Number(raw);
+        if (!Number.isFinite(parsed)) return null;
+        if (axis === 'lat' && (parsed < -90 || parsed > 90)) return null;
+        if (axis === 'lng' && (parsed < -180 || parsed > 180)) return null;
+        return parsed;
+      }
+      function addMarker(lat, lng, label) {
+        var latNum = normalizeCoord(lat, 'lat');
+        var lngNum = normalizeCoord(lng, 'lng');
+        if (latNum === null || lngNum === null) return null;
+        points.push([latNum, lngNum]);
+        return L.marker([latNum, lngNum]).addTo(map).bindPopup(label || 'Location');
+      }
+      function fetchRoadGeometry(latlngs) {
+        if (!Array.isArray(latlngs) || latlngs.length < 2) return Promise.resolve(latlngs || []);
+        var coordinates = latlngs.map(function(entry) {
+          return Number(entry[1]).toFixed(7) + ',' + Number(entry[0]).toFixed(7);
+        }).join(';');
+        var url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson&steps=false';
+        return fetch(url)
+          .then(function(response) { return response.json(); })
+          .then(function(payload) {
+            var geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
+            var resolved = Array.isArray(geometry && geometry.coordinates)
+              ? geometry.coordinates.map(function(entry) { return [Number(entry[1]), Number(entry[0])]; })
+              : null;
+            return resolved && resolved.length >= 2 ? resolved : latlngs;
+          })
+          .catch(function() {
+            return latlngs;
+          });
+      }
+      var school = snapshot.school || null;
+      var stop = snapshot.stop || null;
+      var live = snapshot.live || null;
+      var routeStops = snapshot.route && Array.isArray(snapshot.route.stops)
+        ? snapshot.route.stops.filter(function(entry) {
+            return normalizeCoord(entry && entry.latitude, 'lat') !== null && normalizeCoord(entry && entry.longitude, 'lng') !== null;
+          })
+        : [];
+      addMarker(school && school.latitude, school && school.longitude, school && school.address ? 'School: ' + school.address : 'School');
+      addMarker(stop && stop.latitude, stop && stop.longitude, stop && stop.stopName ? 'Stop: ' + stop.stopName : 'Stop');
+      addMarker(live && live.latitude, live && live.longitude, 'Live bus position');
+      var routeLatLngs = [];
+      var schoolLat = school ? normalizeCoord(school.latitude, 'lat') : null;
+      var schoolLng = school ? normalizeCoord(school.longitude, 'lng') : null;
+      if (schoolLat !== null && schoolLng !== null) {
+        routeLatLngs.push([schoolLat, schoolLng]);
+      }
+      routeStops.forEach(function(entry) {
+        routeLatLngs.push([normalizeCoord(entry.latitude, 'lat'), normalizeCoord(entry.longitude, 'lng')]);
+      });
+      if (schoolLat !== null && schoolLng !== null && routeStops.length) {
+        routeLatLngs.push([schoolLat, schoolLng]);
+      }
+      var stopLat = stop ? normalizeCoord(stop.latitude, 'lat') : null;
+      var stopLng = stop ? normalizeCoord(stop.longitude, 'lng') : null;
+      var liveLat = live ? normalizeCoord(live.latitude, 'lat') : null;
+      var liveLng = live ? normalizeCoord(live.longitude, 'lng') : null;
+      if (stopLat !== null && stopLng !== null && liveLat !== null && liveLng !== null) {
+        L.polyline([[stopLat, stopLng], [liveLat, liveLng]], {
+          color: '#d97706', weight: 3, opacity: 0.8, dashArray: '6,6',
+        }).addTo(map);
+      }
+      fetchRoadGeometry(routeLatLngs).then(function(roadLatLngs) {
+        var geometry = roadLatLngs.length ? roadLatLngs : routeLatLngs;
+        if (geometry.length >= 2) {
+          L.polyline(geometry, {
+            color: '#0f5a66', weight: 4, opacity: 0.85,
+          }).addTo(map);
+        }
+        var boundsSource = geometry.length ? geometry.slice() : (routeLatLngs.length ? routeLatLngs.slice() : points.slice());
+        setTimeout(function() {
+          map.invalidateSize();
+          if (boundsSource.length) {
+            map.fitBounds(L.latLngBounds(boundsSource).pad(0.2));
+          }
+        }, 80);
+      });
+    }).catch(function() {
+      el.innerHTML = '<div style="padding:18px;color:#64748b;font-size:12px;">Map could not load right now.</div>';
+    });
+  }
+
+  function hydrateTransportMaps(root) {
+    Array.prototype.forEach.call((root || document).querySelectorAll('[data-transport-map]'), function(el) {
+      var raw = el.getAttribute('data-transport-snapshot') || 'null';
+      var snapshot = null;
+      try { snapshot = JSON.parse(raw); } catch (_) { snapshot = null; }
+      if (snapshot) renderTransportMap(el, snapshot);
+    });
   }
 
   function valueForSort(cellText) {
@@ -1197,6 +1369,8 @@
     });
   }
 
+
+  hydrateTransportMaps(document);
   if (closeBtn) closeBtn.addEventListener('click', closeModal);
   if (modal) {
     modal.addEventListener('click', function (e) {

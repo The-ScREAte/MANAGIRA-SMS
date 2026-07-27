@@ -23,6 +23,15 @@
     id: subject.subject_id,
     name: subject.subject_name,
   }));
+  const classTransportRows = Array.isArray(classTransportationSnapshot) ? classTransportationSnapshot : [];
+  const transportActive = !!(transportationIntegration && transportationIntegration.activated);
+  const classTransportationMapRows = classTransportRows.filter((row) => row && row.stopLatitude !== null && row.stopLongitude !== null);
+  const classTransportByStudentId = classTransportRows.reduce((acc, row) => {
+    const key = Number(row && row.studentId);
+    if (!Number.isInteger(key) || acc[key]) return acc;
+    acc[key] = row;
+    return acc;
+  }, {});
 %>
 <style>
 :root {
@@ -2164,6 +2173,7 @@ main {
 .students-numbered-list li {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   border-bottom: 1px solid var(--border);
   background: transparent !important;
@@ -2302,6 +2312,126 @@ main {
   font-size: 10.5px;
   font-weight: 700;
   color: var(--muted);
+}
+.student-transport-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(1, 83, 91, 0.16);
+  border-radius: 7px;
+  background: rgba(1, 83, 91, 0.05);
+  color: var(--primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.student-transport-btn:hover,
+.student-transport-btn:focus-visible {
+  background: rgba(1, 83, 91, 0.12);
+  border-color: rgba(1, 83, 91, 0.28);
+  outline: none;
+  transform: translateY(-1px);
+}
+.transport-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(1, 83, 91, 0.08);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.transport-mini-map {
+  width: 100%;
+  height: 240px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #eef5fb;
+}
+.transport-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.46);
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 88px) 16px 16px;
+  z-index: 1800;
+  overflow-y: auto;
+}
+.transport-modal-overlay.active { display: flex; }
+.transport-modal-box {
+  width: min(500px, 100%);
+  max-height: min(70vh, 600px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+}
+.transport-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.transport-modal-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.transport-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+}
+.transport-modal-body {
+  padding: 12px 14px 14px;
+  display: grid;
+  gap: 8px;
+}
+.transport-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.transport-detail-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8fbfc;
+  padding: 8px 10px;
+}
+.transport-detail-card .k {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.transport-detail-card .v {
+  font-size: 12px;
+  color: #0f172a;
+  font-weight: 600;
+}
+.transport-modal-map {
+  width: 100%;
+  height: 160px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #eef5fb;
 }
 .student-remark-input,
 .student-remark-select {
@@ -3551,6 +3681,15 @@ main {
                 <span class="nav-link-label">Class Schedule</span>
               </button>
             </li>
+            <% if (transportActive) { %>
+            <li>
+              <button class="nav-link" type="button" data-nav-key="transportation" onclick="openWorkspaceTabByKey('transportation')">
+                <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M16 6v6"/><path d="M4 6h16l1 7H3z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span>
+                <span class="nav-link-label">Transportation</span>
+                <span class="nav-count-pill"><%= classTransportRows.filter(function(row) { return row.busNumber || row.routeName || row.stopName; }).length %></span>
+              </button>
+            </li>
+            <% } %>
             <li>
               <button class="nav-link" type="button" data-nav-key="paygira" onclick="openWorkspaceTabByKey('paygira')">
                 <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18"/><path d="M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/></svg></span>
@@ -3713,7 +3852,6 @@ main {
                     <% }); %>
                   </div>
                 </div>
-
                 <div class="overview-split">
                   <div class="section-card students-overview-section">
                     <% const sortedOverviewStudents = (students || []).slice().sort(function(a, b) {
@@ -3733,12 +3871,26 @@ main {
                       <% if (students.length > 0) { %>
                         <% sortedOverviewStudents.forEach(function(student, i) { %>
                           <% const studentFullName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
+                          <% const transportRow = classTransportByStudentId[Number(student.student_id)] || null; %>
+                          <% const hasTransportAccess = !!(transportRow && (transportRow.busNumber || transportRow.routeName || transportRow.stopName)); %>
+                          <% const transportSummary = transportRow ? [transportRow.busNumber, transportRow.routeName, transportRow.stopName].filter(Boolean).join(' | ') : ''; %>
+                          <% const transportSchedule = transportRow ? [transportRow.scheduleDayOfWeek, transportRow.scheduleStartTime, transportRow.scheduleEndTime].filter(Boolean).join(' ') : ''; %>
                           <li data-student-name="<%= studentFullName.toLowerCase() %>" data-student-id="<%= student.student_id %>">
                             <button class="student-row" type="button" onclick="openStudentWorkspaceTab(<%= student.student_id %>)">
                               <span class="student-index"><%= i + 1 %></span>
                               <span class="student-name"><%= studentFullName %></span>
                               <span class="student-arrow" aria-hidden="true">›</span>
                             </button>
+                            <% if (hasTransportAccess) { %>
+                            <button
+                              class="student-transport-btn"
+                              type="button"
+                              title="Transportation details"
+                              aria-label="Transportation details for <%= studentFullName %>"
+                              onclick="openStudentTransportModal(<%= student.student_id %>, '<%= studentFullName.replace(/'/g, "\\'") %>', event)">
+                              🚌
+                            </button>
+                            <% } %>
                             <button
                               class="student-remark-btn"
                               type="button"
@@ -3827,6 +3979,59 @@ main {
               </div>
             </section>
 
+            <% if (transportActive) { %>
+            <section class="workspace-panel" id="panel-transportation" data-panel-key="transportation">
+              <div class="workspace-panel-head">
+                <div>
+                  <h2 class="card-title">Transportation Snapshot</h2>
+                  <p class="card-subtext">Student transport assignments, bus routes, stops, drivers, and live activity for this class.</p>
+                </div>
+              </div>
+              <% if (classTransportRows.length) { %>
+              <div class="table-scroll" style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
+                <table style="width:100%;border-collapse:collapse;font-size:12px;" data-global-sort-ready="true">
+                  <thead>
+                    <tr style="background:#f8fafc;">
+                      <th style="padding:8px;text-align:left;">Student</th>
+                      <th style="padding:8px;text-align:left;">Bus</th>
+                      <th style="padding:8px;text-align:left;">Route</th>
+                      <th style="padding:8px;text-align:left;">Stop</th>
+                      <th style="padding:8px;text-align:left;">Driver</th>
+                      <th style="padding:8px;text-align:left;">Schedule</th>
+                      <th style="padding:8px;text-align:left;">Pickup</th>
+                      <th style="padding:8px;text-align:left;">Dropoff</th>
+                      <th style="padding:8px;text-align:left;">Live</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% classTransportRows.forEach(function(row) { %>
+                    <tr>
+                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.studentName || '-' %></td>
+                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.busNumber || '-' %></td>
+                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.routeName || '-' %></td>
+                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.stopName || '-' %></td>
+                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.driverName || '-' %></td>
+                      <td style="padding:8px;border-top:1px solid var(--border);"><%= [row.scheduleDayOfWeek, row.scheduleStartTime, row.scheduleEndTime].filter(Boolean).join(' ') || '-' %></td>
+                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.pickupTime || '-' %></td>
+                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.dropoffTime || '-' %></td>
+                      <td style="padding:8px;border-top:1px solid var(--border);"><%= row.liveRecordedAt ? new Date(row.liveRecordedAt).toLocaleTimeString() : '-' %></td>
+                    </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+              <% if (classTransportationMapRows.length) { %>
+              <div style="margin-top:14px;display:grid;gap:8px;">
+                <div class="card-subtext">Class transportation map</div>
+                <div id="classDashboardTransportMap" class="transport-mini-map"></div>
+              </div>
+              <% } %>
+              <% } else { %>
+              <p class="card-subtext">No transportation assignments in this class yet.</p>
+              <% } %>
+            </section>
+            <% } %>
+
             <section class="workspace-panel" id="panel-students" data-panel-key="students">
               <div class="workspace-panel-head">
                 <div>
@@ -3902,6 +4107,21 @@ main {
             <div class="student-remark-modal-actions">
               <button type="button" class="btn btn-secondary" onclick="closeStudentTeacherRemarkModal()">Cancel</button>
               <button type="button" class="btn" id="studentTeacherRemarkSaveBtn" onclick="saveStudentTeacherRemark()">Save Remark</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="transport-modal-overlay" id="studentTransportModal" onclick="handleStudentTransportModalOverlayClick(event)">
+          <div class="transport-modal-box" role="dialog" aria-modal="true" aria-labelledby="studentTransportModalTitle">
+            <div class="transport-modal-head">
+              <h3 class="transport-modal-title" id="studentTransportModalTitle">Transportation Details</h3>
+              <button type="button" class="transport-modal-close" onclick="closeStudentTransportModal()" aria-label="Close">×</button>
+            </div>
+            <div class="transport-modal-body">
+              <div id="studentTransportModalStatus" class="card-subtext">Loading transportation details...</div>
+              <div id="studentTransportModalSummary"></div>
+              <div id="studentTransportModalGrid" class="transport-detail-grid"></div>
+              <div id="studentTransportModalMap" class="transport-modal-map"></div>
             </div>
           </div>
         </div>
@@ -4329,6 +4549,16 @@ main {
         };
       }
 
+      function getWorkspaceTransportationTab() {
+        return {
+          id: 'transportation',
+          title: 'Transportation',
+          panelId: 'panel-transportation',
+          routePath: workspaceContext.basePath + '/transportation',
+          sidebarKey: 'transportation',
+        };
+      }
+
       function getWorkspaceStudentsTab() {
         return {
           id: 'students',
@@ -4447,6 +4677,7 @@ main {
         if (tabKey === 'overview') return openWorkspaceTab(getWorkspaceOverviewTab(), options || {});
         if (tabKey === 'reports') return openWorkspaceTab(getWorkspaceReportsTab(), options || {});
         if (tabKey === 'schedule') return openWorkspaceTab(getWorkspaceScheduleTab(), options || {});
+        if (tabKey === 'transportation') return openWorkspaceTab(getWorkspaceTransportationTab(), options || {});
         if (tabKey === 'students') return openWorkspaceTab(getWorkspaceStudentsTab(), options || {});
         if (tabKey === 'assessment-questions') return openWorkspaceTab(getWorkspaceAssessmentQuestionsTab(), options || {});
         if (tabKey === 'subjects') return openWorkspaceTab(getWorkspaceSubjectsTab(), options || {});
@@ -4467,6 +4698,10 @@ main {
         }
         if (workspaceContext.canOpenAssessmentQuestions && !getWorkspaceTabById('assessment-questions')) {
           openWorkspaceTabByKey('assessment-questions');
+          return;
+        }
+        if (document.getElementById('panel-transportation') && !getWorkspaceTabById('transportation')) {
+          openWorkspaceTabByKey('transportation');
           return;
         }
         if (workspaceContext.canOpenSubjects && !getWorkspaceTabById('subjects')) {
@@ -4492,6 +4727,278 @@ main {
         var tab = buildStudentWorkspaceTab(studentId);
         if (!tab) return openWorkspaceTabByKey('students', options || {});
         return openWorkspaceTab(tab, options || {});
+      }
+      var studentTransportState = {
+        classId: Number(<%- JSON.stringify(Number(classId)) %>) || 0,
+        school: <%- JSON.stringify(classTransportationSchoolDestination || { address: null, latitude: null, longitude: null }) %>,
+        modalMap: null,
+        modalLayers: null,
+        classMap: null,
+        classLayers: null,
+        geometryCache: {},
+      };
+
+      function normalizeCoord(value, axis) {
+        if (value === null || value === undefined) return null;
+        var raw = String(value).trim();
+        if (!raw) return null;
+        var parsed = Number(raw);
+        if (!Number.isFinite(parsed)) return null;
+        if (axis === 'lat' && (parsed < -90 || parsed > 90)) return null;
+        if (axis === 'lng' && (parsed < -180 || parsed > 180)) return null;
+        return parsed;
+      }
+
+      function buildGeometryCacheKey(latlngs) {
+        return (Array.isArray(latlngs) ? latlngs : []).map(function(entry) {
+          return [Number(entry[0]).toFixed(5), Number(entry[1]).toFixed(5)].join(',');
+        }).join('|');
+      }
+
+      function fetchRoadGeometry(latlngs) {
+        if (!Array.isArray(latlngs) || latlngs.length < 2) return Promise.resolve(latlngs || []);
+        var cacheKey = buildGeometryCacheKey(latlngs);
+        if (studentTransportState.geometryCache[cacheKey]) {
+          return Promise.resolve(studentTransportState.geometryCache[cacheKey]);
+        }
+        var coordinates = latlngs.map(function(entry) {
+          return Number(entry[1]).toFixed(7) + ',' + Number(entry[0]).toFixed(7);
+        }).join(';');
+        var url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson&steps=false';
+        return fetch(url)
+          .then(function(response) { return response.json(); })
+          .then(function(payload) {
+            var geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
+            var points = Array.isArray(geometry && geometry.coordinates)
+              ? geometry.coordinates.map(function(entry) { return [Number(entry[1]), Number(entry[0])]; })
+              : null;
+            var resolved = points && points.length >= 2 ? points : latlngs;
+            studentTransportState.geometryCache[cacheKey] = resolved;
+            return resolved;
+          })
+          .catch(function() {
+            studentTransportState.geometryCache[cacheKey] = latlngs;
+            return latlngs;
+          });
+      }
+
+      function ensureLeafletAssets() {
+        if (!document.getElementById('leaflet-css-class-dashboard')) {
+          var link = document.createElement('link');
+          link.id = 'leaflet-css-class-dashboard';
+          link.rel = 'stylesheet';
+          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(link);
+        }
+        if (window.L) return Promise.resolve(window.L);
+        if (window.__classDashboardLeafletPromise) return window.__classDashboardLeafletPromise;
+        window.__classDashboardLeafletPromise = new Promise(function(resolve, reject) {
+          var script = document.createElement('script');
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.onload = function() { resolve(window.L); };
+          script.onerror = reject;
+          document.body.appendChild(script);
+        });
+        return window.__classDashboardLeafletPromise;
+      }
+
+      function buildTransportMapPoints(snapshot) {
+        var points = [];
+        var school = snapshot && snapshot.school ? snapshot.school : studentTransportState.school;
+        var schoolLat = school ? normalizeCoord(school.latitude, 'lat') : null;
+        var schoolLng = school ? normalizeCoord(school.longitude, 'lng') : null;
+        if (schoolLat !== null && schoolLng !== null) {
+          points.push({ type: 'school', lat: schoolLat, lng: schoolLng, label: school.address || 'School' });
+        }
+        var stopLat = snapshot && snapshot.stop ? normalizeCoord(snapshot.stop.latitude, 'lat') : null;
+        var stopLng = snapshot && snapshot.stop ? normalizeCoord(snapshot.stop.longitude, 'lng') : null;
+        if (stopLat !== null && stopLng !== null) {
+          points.push({ type: 'stop', lat: stopLat, lng: stopLng, label: snapshot.stop.stopName || 'Stop' });
+        }
+        var liveLat = snapshot && snapshot.live ? normalizeCoord(snapshot.live.latitude, 'lat') : null;
+        var liveLng = snapshot && snapshot.live ? normalizeCoord(snapshot.live.longitude, 'lng') : null;
+        if (liveLat !== null && liveLng !== null) {
+          points.push({ type: 'live', lat: liveLat, lng: liveLng, label: 'Live bus position' });
+        }
+        var homeLat = snapshot ? normalizeCoord(snapshot.homeLatitude, 'lat') : null;
+        var homeLng = snapshot ? normalizeCoord(snapshot.homeLongitude, 'lng') : null;
+        if (homeLat !== null && homeLng !== null) {
+          points.push({ type: 'home', lat: homeLat, lng: homeLng, label: snapshot.homeAddress || 'Home' });
+        }
+        return points;
+      }
+
+      function buildTransportRouteLatLngs(snapshot) {
+        var latlngs = [];
+        var school = snapshot && snapshot.school ? snapshot.school : studentTransportState.school;
+        var schoolLat = school ? normalizeCoord(school.latitude, 'lat') : null;
+        var schoolLng = school ? normalizeCoord(school.longitude, 'lng') : null;
+        if (schoolLat !== null && schoolLng !== null) {
+          latlngs.push([schoolLat, schoolLng]);
+        }
+        var routeStops = snapshot && snapshot.route && Array.isArray(snapshot.route.stops)
+          ? snapshot.route.stops.filter(function(stop) {
+              return normalizeCoord(stop && stop.latitude, 'lat') !== null && normalizeCoord(stop && stop.longitude, 'lng') !== null;
+            }).map(function(stop) {
+              return [normalizeCoord(stop.latitude, 'lat'), normalizeCoord(stop.longitude, 'lng')];
+            })
+          : [];
+        routeStops.forEach(function(latlng) { latlngs.push(latlng); });
+        if (schoolLat !== null && schoolLng !== null && routeStops.length) {
+          latlngs.push([schoolLat, schoolLng]);
+        }
+        return latlngs;
+      }
+
+      function renderTransportMap(targetId, snapshot, reuseClassMap) {
+        return ensureLeafletAssets().then(function(L) {
+          var el = document.getElementById(targetId);
+          if (!el) return;
+          var mapKey = reuseClassMap ? 'classMap' : 'modalMap';
+          var layersKey = reuseClassMap ? 'classLayers' : 'modalLayers';
+          if (!studentTransportState[mapKey]) {
+            studentTransportState[mapKey] = L.map(el, { scrollWheelZoom: false, zoomControl: true }).setView([40.767304, -111.939857], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              maxZoom: 19,
+              attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(studentTransportState[mapKey]);
+            studentTransportState[layersKey] = L.layerGroup().addTo(studentTransportState[mapKey]);
+          }
+          var map = studentTransportState[mapKey];
+          var layerGroup = studentTransportState[layersKey];
+          layerGroup.clearLayers();
+          var points = buildTransportMapPoints(snapshot);
+          var routeStops = snapshot && snapshot.route && Array.isArray(snapshot.route.stops)
+            ? snapshot.route.stops.filter(function(stop) {
+                return Number.isFinite(Number(stop && stop.latitude)) && Number.isFinite(Number(stop && stop.longitude));
+              })
+            : [];
+          if (!points.length) {
+            map.setView([40.767304, -111.939857], 11);
+            return;
+          }
+          points.forEach(function(point) {
+            var marker = L.marker([point.lat, point.lng]).addTo(layerGroup);
+            marker.bindPopup(point.label || point.type);
+          });
+          routeStops.forEach(function(stop) {
+            var routeStopLat = normalizeCoord(stop.latitude, 'lat');
+            var routeStopLng = normalizeCoord(stop.longitude, 'lng');
+            if (routeStopLat === null || routeStopLng === null) return;
+            L.circleMarker([routeStopLat, routeStopLng], {
+              radius: 5,
+              color: '#2563eb',
+              fillColor: '#93c5fd',
+              fillOpacity: 0.9,
+              weight: 2,
+            }).bindPopup(stop.stopName || 'Route stop').addTo(layerGroup);
+          });
+          var routeLatLngs = buildTransportRouteLatLngs(snapshot);
+          var schoolPoint = points.find(function(point) { return point.type === 'school'; });
+          var stopPoint = points.find(function(point) { return point.type === 'stop'; });
+          var livePoint = points.find(function(point) { return point.type === 'live'; });
+          if (stopPoint && livePoint) {
+            L.polyline([[stopPoint.lat, stopPoint.lng], [livePoint.lat, livePoint.lng]], {
+              color: '#d97706', weight: 3, opacity: 0.8, dashArray: '6,6',
+            }).addTo(layerGroup);
+          }
+          var assignedStopLat = snapshot && snapshot.stop ? normalizeCoord(snapshot.stop.latitude, 'lat') : null;
+          var assignedStopLng = snapshot && snapshot.stop ? normalizeCoord(snapshot.stop.longitude, 'lng') : null;
+          if (assignedStopLat !== null && assignedStopLng !== null) {
+            L.circleMarker([assignedStopLat, assignedStopLng], {
+              radius: 8,
+              color: '#b91c1c',
+              fillColor: '#ef4444',
+              fillOpacity: 0.95,
+              weight: 2,
+            }).bindPopup((snapshot.stop.stopName || 'Assigned stop') + ' (Assigned)').addTo(layerGroup);
+          }
+          return fetchRoadGeometry(routeLatLngs).then(function(roadLatLngs) {
+            if (roadLatLngs.length >= 2) {
+              L.polyline(roadLatLngs, {
+                color: '#0f5a66',
+                weight: reuseClassMap ? 3 : 4,
+                opacity: 0.85,
+              }).addTo(layerGroup);
+            }
+            var boundsSource = roadLatLngs.length ? roadLatLngs.slice() : (routeLatLngs.length ? routeLatLngs.slice() : points.map(function(point) { return [point.lat, point.lng]; }));
+            setTimeout(function() {
+              map.invalidateSize();
+              if (boundsSource.length) {
+                var bounds = L.latLngBounds(boundsSource);
+                map.fitBounds(bounds.pad(0.2));
+              }
+            }, reuseClassMap ? 0 : 80);
+          });
+        }).catch(function() {
+          var el = document.getElementById(targetId);
+          if (el) el.innerHTML = '<div style="padding:18px;color:#64748b;font-size:12px;">Map could not load right now.</div>';
+        });
+      }
+
+      function closeStudentTransportModal() {
+        var modal = document.getElementById('studentTransportModal');
+        if (!modal) return;
+        modal.classList.remove('active');
+      }
+
+      function handleStudentTransportModalOverlayClick(event) {
+        if (event && event.target && event.target.id === 'studentTransportModal') {
+          closeStudentTransportModal();
+        }
+      }
+
+      async function openStudentTransportModal(studentId, studentName, event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        var modal = document.getElementById('studentTransportModal');
+        var titleEl = document.getElementById('studentTransportModalTitle');
+        var statusEl = document.getElementById('studentTransportModalStatus');
+        var summaryEl = document.getElementById('studentTransportModalSummary');
+        var gridEl = document.getElementById('studentTransportModalGrid');
+        if (!modal || !titleEl || !statusEl || !summaryEl || !gridEl) return;
+
+        titleEl.textContent = 'Transportation: ' + String(studentName || 'Student');
+        statusEl.textContent = 'Loading transportation details...';
+        summaryEl.innerHTML = '';
+        gridEl.innerHTML = '';
+        modal.classList.add('active');
+
+        try {
+          var params = new URLSearchParams({ classId: String(studentTransportState.classId), studentId: String(studentId) });
+          var response = await fetch('/common/classDashboardStudentTransport?' + params.toString(), { credentials: 'same-origin' });
+          var result = await response.json();
+          if (!response.ok || !result || !result.success) {
+            throw new Error((result && result.error) || 'Unable to load transportation details.');
+          }
+          var snapshot = result.snapshot || null;
+          if (!snapshot) {
+            statusEl.textContent = 'No transportation assignment found.';
+            return;
+          }
+          statusEl.textContent = 'Current transportation assignment';
+          summaryEl.innerHTML = '<span class="transport-summary-chip">🚌 ' + [snapshot.bus && snapshot.bus.busNumber, snapshot.route && snapshot.route.routeName, snapshot.stop && snapshot.stop.stopName].filter(Boolean).join(' | ') + '</span>';
+          var details = [
+            ['Driver', snapshot.driverName || '-'],
+            ['Route', snapshot.route && snapshot.route.routeName ? snapshot.route.routeName : '-'],
+            ['Stop', snapshot.stop && snapshot.stop.stopName ? snapshot.stop.stopName : '-'],
+            ['Pickup', snapshot.pickupTime || '-'],
+            ['Dropoff', snapshot.dropoffTime || '-'],
+            ['Live', snapshot.live && snapshot.live.recordedAt ? new Date(snapshot.live.recordedAt).toLocaleString() : 'No live update yet'],
+            ['School', snapshot.school && snapshot.school.address ? snapshot.school.address : '-'],
+            ['Home', snapshot.homeAddress || '-']
+          ];
+          gridEl.innerHTML = details.map(function(entry) {
+            return '<div class="transport-detail-card"><span class="k">' + entry[0] + '</span><span class="v">' + entry[1] + '</span></div>';
+          }).join('');
+          setTimeout(function() {
+            renderTransportMap('studentTransportModalMap', snapshot, false);
+          }, 60);
+        } catch (error) {
+          statusEl.textContent = error && error.message ? error.message : 'Unable to load transportation details.';
+        }
       }
 
       function setStudentTeacherRemarkStatus(message, tone) {
@@ -4919,6 +5426,7 @@ main {
           return;
         }
         if (safeRoute.panel === 'schedule') return openWorkspaceTabByKey('schedule', safeOptions);
+        if (safeRoute.panel === 'transportation') return openWorkspaceTabByKey('transportation', safeOptions);
         if (safeRoute.panel === 'students') return openWorkspaceTabByKey('students', safeOptions);
         if (safeRoute.panel === 'assessment-questions') return openWorkspaceTabByKey('assessment-questions', safeOptions);
         if (safeRoute.panel === 'subjects') return openWorkspaceTabByKey('subjects', safeOptions);
@@ -4937,6 +5445,9 @@ main {
 
       window.openWorkspaceTabByKey = openWorkspaceTabByKey;
       window.openStudentWorkspaceTab = openStudentWorkspaceTab;
+      window.openStudentTransportModal = openStudentTransportModal;
+      window.closeStudentTransportModal = closeStudentTransportModal;
+      window.handleStudentTransportModalOverlayClick = handleStudentTransportModalOverlayClick;
       window.openStudentTeacherRemarkModal = openStudentTeacherRemarkModal;
       window.closeStudentTeacherRemarkModal = closeStudentTeacherRemarkModal;
       window.handleStudentTeacherRemarkOverlayClick = handleStudentTeacherRemarkOverlayClick;
@@ -4969,6 +5480,76 @@ main {
         card.setAttribute('data-meta-collapsed', collapsed ? 'false' : 'true');
         btn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
       };
+
+      <% if (transportActive && classTransportationMapRows.length) { %>
+      renderTransportMap('classDashboardTransportMap', {
+        school: <%- JSON.stringify(classTransportationSchoolDestination || { address: null, latitude: null, longitude: null }) %>,
+        stop: null,
+        live: null,
+        homeAddress: null,
+        homeLatitude: null,
+        homeLongitude: null,
+      }, true).then(function() {
+        ensureLeafletAssets().then(function(L) {
+          var map = studentTransportState.classMap;
+          var layerGroup = studentTransportState.classLayers;
+          if (!map || !layerGroup) return;
+          var rows = <%- JSON.stringify(classTransportationMapRows || []) %>;
+          var school = <%- JSON.stringify(classTransportationSchoolDestination || { address: null, latitude: null, longitude: null }) %>;
+          var schoolLat = school ? normalizeCoord(school.latitude, 'lat') : null;
+          var schoolLng = school ? normalizeCoord(school.longitude, 'lng') : null;
+          var rowsByRoute = {};
+          rows.forEach(function(row) {
+            var routeId = Number(row.routeId || 0);
+            if (!Number.isInteger(routeId) || routeId <= 0) return;
+            if (!rowsByRoute[routeId]) rowsByRoute[routeId] = [];
+            rowsByRoute[routeId].push(row);
+          });
+          var boundsSource = [];
+          var routePromises = Object.keys(rowsByRoute).map(function(routeIdKey) {
+            var routeRows = rowsByRoute[routeIdKey] || [];
+            var firstRow = routeRows[0] || null;
+            var routeStops = firstRow && Array.isArray(firstRow.routeStops)
+              ? firstRow.routeStops.filter(function(stop) {
+                  return normalizeCoord(stop && stop.latitude, 'lat') !== null && normalizeCoord(stop && stop.longitude, 'lng') !== null;
+                }).map(function(stop) {
+                  return [normalizeCoord(stop.latitude, 'lat'), normalizeCoord(stop.longitude, 'lng')];
+                })
+              : [];
+            var routeLatLngs = [];
+            if (schoolLat !== null && schoolLng !== null) routeLatLngs.push([schoolLat, schoolLng]);
+            routeStops.forEach(function(latlng) { routeLatLngs.push(latlng); });
+            if (schoolLat !== null && schoolLng !== null && routeStops.length) routeLatLngs.push([schoolLat, schoolLng]);
+
+            routeRows.forEach(function(row) {
+              var stopLat = normalizeCoord(row.stopLatitude, 'lat');
+              var stopLng = normalizeCoord(row.stopLongitude, 'lng');
+              if (stopLat === null || stopLng === null) return;
+              boundsSource.push([stopLat, stopLng]);
+              L.circleMarker([stopLat, stopLng], { radius: 6, color: '#2563eb', fillColor: '#2563eb', fillOpacity: 0.92, weight: 2 })
+                .bindPopup((row.studentName || 'Student') + '<br/>' + (row.stopName || 'Stop') + '<br/>Driver: ' + (row.driverName || '-'))
+                .addTo(layerGroup);
+            });
+
+            return fetchRoadGeometry(routeLatLngs).then(function(roadLatLngs) {
+              var geometry = roadLatLngs.length ? roadLatLngs : routeLatLngs;
+              geometry.forEach(function(latlng) { boundsSource.push(latlng); });
+              if (geometry.length >= 2) {
+                L.polyline(geometry, { color: '#0f5a66', weight: 3, opacity: 0.65 }).addTo(layerGroup);
+              }
+            });
+          });
+
+          Promise.all(routePromises).then(function() {
+            if (schoolLat !== null && schoolLng !== null) boundsSource.push([schoolLat, schoolLng]);
+            if (boundsSource.length) {
+              map.invalidateSize();
+              map.fitBounds(L.latLngBounds(boundsSource).pad(0.2));
+            }
+          });
+        });
+      });
+      <% } %>
 
       window.setMainEmployee = function (classId, userId) {
         const confirmationMessage = "Are you sure you want to set this teacher as the main teacher for this class? The main teacher will have full access and is the only teacher who can mark attendance.";

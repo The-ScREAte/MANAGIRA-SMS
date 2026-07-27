@@ -17,6 +17,7 @@ const {
   getGuardianPreferenceMap,
   setGuardianPreferences,
 } = require("../utils/emailPreferences");
+const { getStudentTransportationSnapshot } = require("./transportationController");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { buildNameSortExpression, formatDisplayName } = require("../utils/organizationDisplayPreferences");
 
@@ -333,11 +334,28 @@ module.exports = {
         display_student_id: buildStudentDisplayId(child, studentIdSettings),
       }));
       const allChildren = [...approvedChildren, ...pendingKids.rows];
+      const childTransportationMap = {};
+
+      await Promise.all(
+        approvedChildren.map(async (child) => {
+          const resolvedStudentId = Number(child.student_id || 0);
+          if (!Number.isInteger(resolvedStudentId) || resolvedStudentId <= 0) return;
+          const snapshot = await getStudentTransportationSnapshot(
+            db,
+            organizationId,
+            resolvedStudentId
+          ).catch(() => null);
+          if (snapshot) {
+            childTransportationMap[String(resolvedStudentId)] = snapshot;
+          }
+        })
+      );
 
             return res.render("guardian/dashboard", {
         title: "Parent Portal",
         guardian: guardian,
         children: allChildren,
+        childTransportationMap,
         inboxSummary,
         currentTermId: req.session.currentTermId || null,
         messages: req.flash(),

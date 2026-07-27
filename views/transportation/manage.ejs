@@ -1,0 +1,2780 @@
+<%- include('../partials/flash') %>
+
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+
+<style>
+  :root {
+    --tm-bg: #f3f7fb;
+    --tm-surface: #ffffff;
+    --tm-border: #d8e3ee;
+    --tm-text: #0f172a;
+    --tm-muted: #5f7085;
+    --tm-accent: var(--org-primary-color, #0f5a66);
+    --tm-accent-hover: var(--org-primary-hover, #0b4f59);
+  }
+
+  body {
+    background: #f5f7fb;
+  }
+
+  .tm-app {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 20px 24px 24px;
+    min-height: calc(100vh - 72px);
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .tm-sidebar {
+    border: 1px solid var(--tm-border);
+    border-radius: 16px;
+    background: var(--tm-surface);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    padding: 16px;
+    position: sticky;
+    top: 80px;
+    height: fit-content;
+  }
+
+  .tm-brand {
+    display: flex;
+    gap: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    margin-bottom: 14px;
+  }
+
+  .tm-logo {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .tm-status {
+    margin: 6px 6px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    background: <%= integration && integration.activated ? '#dcfce7' : '#fef3c7' %>;
+    color: <%= integration && integration.activated ? '#166534' : '#92400e' %>;
+  }
+
+  .tm-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .tm-nav {
+    display: grid;
+    gap: 4px;
+  }
+
+  .tm-nav-btn {
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #1f2937;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    padding: 11px 12px;
+    cursor: pointer;
+    transition: none;
+  }
+
+  .tm-nav-btn:focus,
+  .tm-nav-btn:focus-visible,
+  .tm-nav-btn:active {
+    outline: none;
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .tm-nav-btn.active {
+    background: #f8fbff;
+    color: var(--tm-accent);
+    border-color: #cfe0ee;
+  }
+
+  .tm-main {
+    border: 1px solid var(--tm-border);
+    border-radius: 16px;
+    background: var(--tm-surface);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+    overflow: visible;
+    min-height: calc(100vh - 86px);
+  }
+
+  .tm-pane {
+    display: none;
+    padding: 20px;
+  }
+
+  .tm-pane.active {
+    display: block;
+  }
+
+  .tm-head {
+    margin-bottom: 12px;
+  }
+
+  .tm-head--split {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .tm-head h2 {
+    margin: 0;
+    font-size: 24px;
+    color: var(--tm-text);
+  }
+
+  .tm-stats {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .tm-stat {
+    border: 1px solid var(--tm-border);
+    border-radius: 12px;
+    background: #fbfdff;
+    padding: 10px;
+  }
+
+  .tm-stat-k {
+    margin: 0;
+    font-size: 11px;
+    color: var(--tm-muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .tm-stat-v {
+    margin: 3px 0 0;
+    font-size: 21px;
+    font-weight: 800;
+    color: var(--tm-text);
+  }
+
+  .tm-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .tm-card {
+    border: 1px solid var(--tm-border);
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .tm-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .tm-btn {
+    border: 1px solid #c7d7e6;
+    border-radius: 7px;
+    padding: 5px 10px;
+    background: #fff;
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+    min-height: 30px;
+    width: auto;
+    cursor: pointer;
+  }
+
+  .tm-btn--primary {
+    background: linear-gradient(135deg, var(--tm-accent), #184a64);
+    border-color: transparent;
+    color: #fff;
+  }
+
+  .tm-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1600;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(2, 10, 23, 0.45);
+  }
+
+  .tm-modal.is-open {
+    display: flex;
+  }
+
+  .tm-modal-card {
+    width: min(920px, 96vw);
+    max-height: 90vh;
+    overflow: auto;
+    border-radius: 14px;
+    border: 1px solid #d8e3ee;
+    background: #fff;
+    box-shadow: 0 24px 60px rgba(2, 10, 23, 0.26);
+    padding: 14px;
+  }
+
+  .tm-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .tm-modal-title {
+    margin: 0;
+    font-size: 19px;
+    color: #0f172a;
+  }
+
+  .tm-modal-sect {
+    margin-top: 8px;
+    border: 1px solid #e0e8f1;
+    border-radius: 10px;
+    padding: 10px;
+    background: #fbfdff;
+  }
+
+  .tm-modal-sect h4 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: #0f172a;
+  }
+
+  .tm-card h3 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    color: var(--tm-text);
+  }
+
+  .span-12 { grid-column: span 12; }
+  .span-8 { grid-column: span 8; }
+  .span-6 { grid-column: span 6; }
+  .span-4 { grid-column: span 4; }
+
+  .tm-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tm-row {
+    display: grid;
+    gap: 5px;
+  }
+
+  .tm-row label {
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .tm-row input,
+  .tm-row select,
+  .tm-row button {
+    border: 1px solid #c7d7e6;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 12px;
+    background: #fff;
+  }
+
+  .tm-row input:focus,
+  .tm-row select:focus {
+    outline: none;
+    border-color: #7fb1d6;
+    box-shadow: 0 0 0 3px rgba(75, 144, 189, .15);
+  }
+
+  .tm-row button {
+    background: linear-gradient(135deg, var(--tm-accent), #184a64);
+    border-color: transparent;
+    color: #fff;
+    font-weight: 600;
+    padding: 6px 10px;
+    min-height: 32px;
+    width: auto;
+    cursor: pointer;
+  }
+
+  .tm-row button:hover {
+    background: linear-gradient(135deg, var(--tm-accent-hover), #123e53);
+  }
+
+  .tm-list {
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 6px;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .tm-list li {
+    border: 1px solid #dae6f1;
+    border-radius: 8px;
+    background: #fbfdff;
+    padding: 8px;
+    font-size: 13px;
+    color: #1f2937;
+  }
+
+  .tm-item-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .tm-item-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tm-actions {
+    position: relative;
+    flex-shrink: 0;
+    z-index: 30;
+  }
+
+  .tm-kebab {
+    width: 28px;
+    min-height: 28px;
+    border-radius: 8px;
+    border: 1px solid #c8d8e8;
+    background: #fff;
+    color: #374151;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .tm-actions-menu {
+    position: absolute;
+    top: 32px;
+    right: 0;
+    min-width: 112px;
+    border: 1px solid #d4e1ec;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+    padding: 6px;
+    display: none;
+    z-index: 4000;
+  }
+
+  .tm-actions.open .tm-actions-menu {
+    display: grid;
+    gap: 4px;
+  }
+
+  .tm-actions-item {
+    border: 1px solid #d6e3ef;
+    background: #fff;
+    color: #1f2937;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .tm-actions-item[data-action^="delete"] {
+    color: #991b1b;
+    border-color: #f1d0d0;
+    background: #fffafa;
+  }
+
+  .tm-driver-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 9px;
+    align-items: center;
+  }
+
+  .tm-driver-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 1px solid #d7e2ec;
+    background: #edf3f9;
+  }
+
+  .tm-map-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .tm-map-toolbar input,
+  .tm-map-toolbar button {
+    border: 1px solid #c7d7e6;
+    border-radius: 8px;
+    font-size: 12px;
+    padding: 8px 10px;
+    background: #fff;
+  }
+
+  .tm-map-toolbar button {
+    background: #0f5a66;
+    border-color: #0f5a66;
+    color: #fff;
+    font-weight: 600;
+    padding: 5px 10px;
+    min-height: 30px;
+    width: auto;
+    cursor: pointer;
+  }
+
+  .tm-map-note {
+    font-size: 11px;
+    color: var(--tm-muted);
+    margin: 8px 0 0;
+  }
+
+  .tm-class-group {
+    border: 1px solid #dae6f1;
+    border-radius: 8px;
+    background: #fbfdff;
+    padding: 8px;
+  }
+
+  .tm-class-group summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: #0f172a;
+    outline: none;
+  }
+
+  .tm-class-group-list {
+    margin-top: 8px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .tm-class-toolbar {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .tm-class-toolbar .tm-btn {
+    min-height: 28px;
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+
+  .tm-class-toolbar .tm-map-note {
+    margin: 0;
+  }
+
+  .tm-student-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    border: 1px solid #e2ebf3;
+    border-radius: 8px;
+    background: #fff;
+    padding: 7px 8px;
+  }
+
+  .tm-student-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .tm-student-check {
+    margin-top: 2px;
+    display: none;
+  }
+
+  .tm-class-group.is-editing .tm-student-check {
+    display: inline-block;
+  }
+
+  .tm-student-access-tag {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 7px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+  }
+
+  .tm-student-access-tag--yes {
+    border: 1px solid #cde9d6;
+    color: #166534;
+    background: #f0fdf4;
+  }
+
+  .tm-student-access-tag--no {
+    border: 1px solid #eed4d4;
+    color: #991b1b;
+    background: #fff7f7;
+  }
+
+  .tm-class-edit-controls {
+    display: none;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .tm-class-group.is-editing .tm-class-edit-controls {
+    display: inline-flex;
+  }
+
+  .tm-stop-picker-map {
+    width: 100%;
+    height: 220px;
+    border-radius: 10px;
+    border: 1px solid #d6e3ef;
+    background: #eef5fb;
+  }
+
+  #tm-route-map {
+    width: 100%;
+    height: 500px;
+    border-radius: 10px;
+    border: 1px solid #d6e3ef;
+    background: #eef5fb;
+  }
+
+  .tm-map-legend {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11px;
+    color: #334155;
+  }
+
+  .tm-map-pill {
+    border: 1px solid #d2e0ec;
+    background: #f8fbff;
+    border-radius: 999px;
+    padding: 4px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .tm-map-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    display: inline-block;
+    background: #334155;
+  }
+
+  .tm-bus-pin {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 2px solid #0f172a;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2);
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  .tm-school-pin {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff7ed;
+    border: 2px solid #b45309;
+    box-shadow: 0 4px 10px rgba(120, 53, 15, 0.22);
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  .tm-kv {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #475569;
+  }
+
+  @media (max-width: 1180px) {
+    .tm-app {
+      grid-template-columns: 1fr;
+    }
+
+    .tm-sidebar {
+      position: static;
+    }
+
+    .tm-nav {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .tm-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .span-8,
+    .span-6,
+    .span-4 {
+      grid-column: span 12;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .tm-app {
+      padding: 10px;
+      min-height: auto;
+    }
+
+    .tm-nav {
+      grid-template-columns: 1fr;
+    }
+
+    .tm-head--split {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .tm-logo {
+      width: 96px;
+      height: 96px;
+    }
+
+    .tm-form-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .tm-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #tm-route-map {
+      height: 360px;
+    }
+  }
+</style>
+
+<div class="tm-app">
+  <aside class="tm-sidebar">
+    <div class="tm-brand">
+      <img class="tm-logo" src="/images/transportation-logo.png" alt="Transportation logo" />
+    </div>
+
+    <span class="tm-status">
+      <span class="tm-status-dot" aria-hidden="true"></span>
+      <%= integration && integration.activated ? 'Integration Active' : 'Integration Inactive' %>
+    </span>
+
+    <nav class="tm-nav" aria-label="Transportation sections">
+      <button class="tm-nav-btn active" type="button" data-pane="overview">Overview</button>
+      <button class="tm-nav-btn" type="button" data-pane="buses">Buses</button>
+      <button class="tm-nav-btn" type="button" data-pane="drivers">Drivers</button>
+      <button class="tm-nav-btn" type="button" data-pane="schedule">Schedule</button>
+      <button class="tm-nav-btn" type="button" data-pane="students">Students</button>
+      <button class="tm-nav-btn" type="button" data-pane="settings">Settings</button>
+    </nav>
+  </aside>
+
+  <main class="tm-main">
+    <section class="tm-pane active" data-pane-id="overview">
+      <div class="tm-head">
+        <h2>Transportation Overview</h2>
+      </div>
+
+      <div class="tm-stats">
+        <article class="tm-stat"><p class="tm-stat-k">Buses</p><p class="tm-stat-v"><%= (buses || []).length %></p></article>
+        <article class="tm-stat"><p class="tm-stat-k">Drivers</p><p class="tm-stat-v"><%= (drivers || []).length %></p></article>
+        <article class="tm-stat"><p class="tm-stat-k">Routes</p><p class="tm-stat-v"><%= (routes || []).length %></p></article>
+        <article class="tm-stat"><p class="tm-stat-k">Stops</p><p class="tm-stat-v"><%= (stops || []).length %></p></article>
+        <article class="tm-stat"><p class="tm-stat-k">Assignments</p><p class="tm-stat-v"><%= (assignments || []).length %></p></article>
+        <article class="tm-stat"><p class="tm-stat-k">Students</p><p class="tm-stat-v"><%= (students || []).length %></p></article>
+      </div>
+
+      <div class="tm-grid">
+        <article class="tm-card span-12">
+          <h3>Operations Map</h3>
+          <div class="tm-map-toolbar" style="margin-top:8px;">
+            <select id="tm-route-filter">
+              <option value="">All Routes</option>
+              <% (routes || []).forEach(function(route) { %>
+                <option value="<%= route.route_id %>"><%= route.route_name %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="tm-map-legend">
+            <span class="tm-map-pill"><span class="tm-map-dot" style="background:#2563eb;"></span>Route Stops</span>
+            <span class="tm-map-pill"><span class="tm-map-dot" style="background:#0f172a;"></span>Bus Positions</span>
+            <span class="tm-map-pill"><span class="tm-map-dot" style="background:#b45309;"></span>School Hub 🏫</span>
+            <span class="tm-map-pill"><span class="tm-map-dot" style="background:#334155;"></span>School Loop (School -> Stops -> School)</span>
+            <span class="tm-map-pill">Zoom: Use + and - controls on map</span>
+            <span class="tm-map-pill">Tip: Use Route filter or 3-dot View On Map</span>
+          </div>
+          <div id="tm-route-map"></div>
+        </article>
+
+        <article class="tm-card span-6">
+          <h3>Recent Assignments</h3>
+          <ul class="tm-list">
+            <% (assignments || []).slice(0, 12).forEach(function(assignment) { %>
+              <li>
+                <strong><%= assignment.last_name %> <%= assignment.first_name %></strong>
+                | Bus: <%= assignment.bus_number || '-' %>
+                | Route: <%= assignment.route_name || '-' %>
+              </li>
+            <% }) %>
+          </ul>
+        </article>
+
+        <article class="tm-card span-6">
+          <h3>Operations Snapshot</h3>
+          <% const weekdayNow = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][new Date().getDay()]; %>
+          <% const todaySchedules = (schedules || []).filter(function(s) { return String(s.day_of_week || '').toLowerCase() === weekdayNow && String(s.status || '').toLowerCase() === 'active'; }); %>
+          <% const assignedStudentCount = (assignments || []).length; %>
+          <% const activeStudentCount = (students || []).length; %>
+          <% const mappedStops = (stops || []).filter(function(s) { return s.latitude !== null && s.longitude !== null; }).length; %>
+          <% const avgStopsPerRoute = (routes || []).length ? ((stops || []).length / (routes || []).length) : 0; %>
+          <ul class="tm-list">
+            <li><strong>Map Provider:</strong> <%= integration && integration.mapProvider ? integration.mapProvider : 'openstreetmap' %></li>
+            <li><strong>Today Schedules:</strong> <%= todaySchedules.length %> (<%= weekdayNow.charAt(0).toUpperCase() + weekdayNow.slice(1) %>)</li>
+            <li><strong>Student Coverage:</strong> <%= assignedStudentCount %> / <%= activeStudentCount %> assigned</li>
+            <li><strong>Mapped Stop Quality:</strong> <%= mappedStops %> / <%= (stops || []).length %> with coordinates</li>
+            <li><strong>Avg Stops Per Route:</strong> <%= avgStopsPerRoute.toFixed(1) %></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="tm-pane" data-pane-id="drivers">
+      <div class="tm-head tm-head--split">
+        <h2>Drivers</h2>
+        <button class="tm-btn tm-btn--primary" type="button" id="open-add-driver-modal">+ Add Driver</button>
+      </div>
+
+      <div class="tm-grid">
+        <article class="tm-card span-12">
+          <h3>Driver List</h3>
+          <ul class="tm-list" id="driver-list">
+            <% (drivers || []).forEach(function(driver) { %>
+              <li>
+                <div class="tm-item-row">
+                  <div class="tm-item-body tm-driver-row">
+                    <img class="tm-driver-avatar" src="<%= driver.image_url || '/images/profilePlaceholder.png' %>" alt="Driver image" />
+                    <div>
+                      <strong><%= driver.driver_name %></strong> | <%= driver.phone || '-' %> | <%= driver.email || '-' %> | Status: <%= String(driver.status || '').replaceAll('_', ' ') || '-' %>
+                      <br/>
+                      License: <%= driver.license_number || '-' %> | Bus: <%= driver.bus_number || '-' %> | Route: <%= driver.route_name || '-' %> | Schedules: <%= Number(driver.schedule_count || 0) %>
+                    </div>
+                  </div>
+                  <div class="tm-actions" data-actions>
+                    <button class="tm-kebab" type="button" aria-label="Driver actions">...</button>
+                    <div class="tm-actions-menu">
+                      <button class="tm-actions-item" type="button" data-action="edit-driver"
+                        data-driver-id="<%= driver.driver_id %>"
+                        data-driver-name="<%= driver.driver_name || '' %>"
+                        data-phone="<%= driver.phone || '' %>"
+                        data-email="<%= driver.email || '' %>"
+                        data-license-number="<%= driver.license_number || '' %>"
+                        data-status="<%= driver.status || 'active' %>"
+                        data-assigned-bus-id="<%= driver.assigned_bus_id || '' %>"
+                        data-assigned-route-id="<%= driver.assigned_route_id || '' %>">
+                        Edit
+                      </button>
+                      <button class="tm-actions-item" type="button" data-action="delete-driver" data-driver-id="<%= driver.driver_id %>" data-driver-name="<%= driver.driver_name || '' %>">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            <% }) %>
+          </ul>
+        </article>
+      </div>
+
+      <div class="tm-modal" id="add-driver-modal" aria-hidden="true">
+        <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-driver-title">
+          <div class="tm-modal-head">
+            <h3 class="tm-modal-title" id="add-driver-title">Add Driver</h3>
+            <button class="tm-btn" type="button" id="close-add-driver-modal">Close</button>
+          </div>
+
+          <form id="add-driver-form" enctype="multipart/form-data">
+            <input type="hidden" name="driverId" id="driver-id-field" />
+            <section class="tm-modal-sect">
+              <h4>Basic Information</h4>
+              <div class="tm-form-grid">
+                <div class="tm-row"><label>Driver Name</label><input name="driverName" required /></div>
+                <div class="tm-row"><label>Phone</label><input name="phone" /></div>
+                <div class="tm-row"><label>Email</label><input name="email" type="email" /></div>
+                <div class="tm-row"><label>License Number</label><input name="licenseNumber" /></div>
+                <div class="tm-row"><label>Status</label><select name="status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+                <div class="tm-row"><label>Assigned Bus</label><select name="assignedBusId"><option value="">None</option><% (buses || []).forEach(function(bus) { %><option value="<%= bus.bus_id %>"><%= bus.bus_number %></option><% }) %></select></div>
+                <div class="tm-row"><label>Assigned Route</label><select name="assignedRouteId"><option value="">None</option><% (routes || []).forEach(function(route) { %><option value="<%= route.route_id %>"><%= route.route_name %></option><% }) %></select></div>
+                <div class="tm-row"><label>Driver Image</label><input name="driverImage" type="file" accept="image/*" /></div>
+              </div>
+            </section>
+
+            <div class="tm-toolbar" style="margin-top:10px;">
+              <span id="add-driver-feedback" class="tm-map-note"></span>
+              <button class="tm-btn tm-btn--primary" type="submit" id="submit-add-driver">Save Driver</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="tm-pane" data-pane-id="buses">
+      <div class="tm-head tm-head--split">
+        <h2>Buses</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="tm-btn tm-btn--primary" type="button" id="open-import-city-stops-modal">+ Import City Stops</button>
+          <button class="tm-btn tm-btn--primary" type="button" id="open-add-route-modal">+ Add Route</button>
+          <button class="tm-btn tm-btn--primary" type="button" id="open-add-stop-modal">+ Add Stop</button>
+          <button class="tm-btn tm-btn--primary" type="button" id="open-add-bus-modal">+ Add Bus</button>
+        </div>
+      </div>
+
+      <div class="tm-grid">
+        <article class="tm-card span-12">
+          <h3>Bus List</h3>
+          <ul class="tm-list" id="bus-list">
+            <% (buses || []).forEach(function(bus) { %>
+              <li>
+                <div class="tm-item-row">
+                  <div class="tm-item-body">
+                    <strong><%= bus.bus_number %></strong> (<%= bus.bus_name || '-' %>) | Plate: <%= bus.license_plate || '-' %> | Status: <%= String(bus.status || '').replaceAll('_', ' ') || '-' %> | Capacity: <%= bus.capacity || '-' %>
+                    <br/>
+                    Make: <%= bus.vehicle_make || '-' %> | Model: <%= bus.vehicle_model || '-' %> | Year: <%= bus.vehicle_year || '-' %> | Color: <%= bus.vehicle_color || '-' %>
+                    <br/>
+                    VIN: <%= bus.vin || '-' %> | Fuel: <%= bus.fuel_type || '-' %> | Odometer: <%= bus.odometer || '-' %>
+                  </div>
+                  <div class="tm-actions" data-actions>
+                    <button class="tm-kebab" type="button" aria-label="Bus actions">...</button>
+                    <div class="tm-actions-menu">
+                      <button class="tm-actions-item" type="button" data-action="edit-bus"
+                        data-bus-id="<%= bus.bus_id %>"
+                        data-bus-number="<%= bus.bus_number || '' %>"
+                        data-bus-name="<%= bus.bus_name || '' %>"
+                        data-license-plate="<%= bus.license_plate || '' %>"
+                        data-capacity="<%= bus.capacity || '' %>"
+                        data-status="<%= bus.status || 'active' %>"
+                        data-vehicle-make="<%= bus.vehicle_make || '' %>"
+                        data-vehicle-model="<%= bus.vehicle_model || '' %>"
+                        data-vehicle-year="<%= bus.vehicle_year || '' %>"
+                        data-vehicle-color="<%= bus.vehicle_color || '' %>"
+                        data-vin="<%= bus.vin || '' %>"
+                        data-fuel-type="<%= bus.fuel_type || '' %>"
+                        data-odometer="<%= bus.odometer || '' %>">
+                        Edit
+                      </button>
+                      <button class="tm-actions-item" type="button" data-action="delete-bus" data-bus-id="<%= bus.bus_id %>" data-bus-number="<%= bus.bus_number || '' %>">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            <% }) %>
+          </ul>
+        </article>
+
+        <article class="tm-card span-6">
+          <h3>Route List</h3>
+          <ul class="tm-list">
+            <% (routes || []).forEach(function(route) { %>
+              <li>
+                <div class="tm-item-row">
+                  <div class="tm-item-body">
+                    <strong><%= route.route_name %></strong> | Code: <%= route.route_code || '-' %> | <%= route.route_status || 'active' %>
+                    <br/>
+                      Destination: <%= route.use_school_destination ? 'School Destination' : 'Custom Destination' %> | <%= route.destination_address || schoolAddress || '-' %>
+                  </div>
+                  <div class="tm-actions" data-actions>
+                    <button class="tm-kebab" type="button" aria-label="Route actions">...</button>
+                    <div class="tm-actions-menu">
+                      <button class="tm-actions-item" type="button" data-action="view-route-map" data-route-id="<%= route.route_id %>">View On Map</button>
+                      <button class="tm-actions-item" type="button" data-action="edit-route"
+                        data-route-id="<%= route.route_id %>"
+                        data-route-name="<%= route.route_name || '' %>"
+                        data-route-code="<%= route.route_code || '' %>"
+                        data-route-status="<%= route.route_status || 'active' %>"
+                        data-map-provider="<%= route.map_provider || 'openstreetmap' %>"
+                        data-use-school-destination="<%= route.use_school_destination ? '1' : '0' %>"
+                        data-destination-address="<%= route.destination_address || '' %>"
+                        data-destination-latitude="<%= route.destination_latitude || '' %>"
+                        data-destination-longitude="<%= route.destination_longitude || '' %>">
+                        Edit
+                      </button>
+                      <button class="tm-actions-item" type="button" data-action="delete-route" data-route-id="<%= route.route_id %>" data-route-name="<%= route.route_name || '' %>">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            <% }) %>
+          </ul>
+        </article>
+
+        <article class="tm-card span-6">
+          <h3>Stop List</h3>
+          <ul class="tm-list">
+            <% (stops || []).forEach(function(stop) { %>
+              <li>
+                <div class="tm-item-row">
+                  <div class="tm-item-body">
+                    <strong><%= stop.stop_name %></strong>
+                    | <%= stop.stop_address || '-' %>
+                    | Route #<%= stop.route_id %>
+                    | Order: <%= stop.stop_order || 0 %>
+                    | <%= stop.latitude || '-' %>, <%= stop.longitude || '-' %>
+                  </div>
+                  <div class="tm-actions" data-actions>
+                    <button class="tm-kebab" type="button" aria-label="Stop actions">...</button>
+                    <div class="tm-actions-menu">
+                      <button class="tm-actions-item" type="button" data-action="view-stop-map" data-route-id="<%= stop.route_id || '' %>" data-latitude="<%= stop.latitude || '' %>" data-longitude="<%= stop.longitude || '' %>">View On Map</button>
+                      <button class="tm-actions-item" type="button" data-action="edit-stop"
+                        data-stop-id="<%= stop.stop_id %>"
+                        data-route-id="<%= stop.route_id || '' %>"
+                        data-stop-name="<%= stop.stop_name || '' %>"
+                        data-stop-address="<%= stop.stop_address || '' %>"
+                        data-latitude="<%= stop.latitude || '' %>"
+                        data-longitude="<%= stop.longitude || '' %>"
+                        data-pickup-time="<%= stop.pickup_time || '' %>"
+                        data-dropoff-time="<%= stop.dropoff_time || '' %>"
+                        data-stop-order="<%= stop.stop_order || 0 %>">
+                        Edit
+                      </button>
+                      <button class="tm-actions-item" type="button" data-action="delete-stop" data-stop-id="<%= stop.stop_id %>" data-stop-name="<%= stop.stop_name || '' %>">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            <% }) %>
+          </ul>
+        </article>
+      </div>
+
+      <div class="tm-modal" id="add-route-modal" aria-hidden="true">
+        <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-route-title">
+          <div class="tm-modal-head">
+            <h3 class="tm-modal-title" id="add-route-title">Add Route</h3>
+            <button class="tm-btn" type="button" id="close-add-route-modal">Close</button>
+          </div>
+
+          <form id="add-route-form">
+            <section class="tm-modal-sect">
+              <div class="tm-form-grid">
+                <div class="tm-row"><label>Route Name</label><input name="routeName" required /></div>
+                <div class="tm-row"><label>Route Code</label><input name="routeCode" /></div>
+                <div class="tm-row"><label>Status</label><select name="routeStatus"><option value="active">active</option><option value="inactive">inactive</option></select></div>
+                <div class="tm-row"><label>Map Provider</label><select name="mapProvider"><% (mapProviders || []).forEach(function(provider) { %><option value="<%= provider %>"><%= provider %></option><% }) %></select></div>
+                <div class="tm-row"><label><input type="checkbox" name="useSchoolDestination" value="1" checked /> Use School Destination</label></div>
+                <div class="tm-row"><label>Destination Address</label><input name="destinationAddress" placeholder="Defaults to school address" value="<%= schoolAddress || '' %>" /></div>
+                <div class="tm-row"><label>Destination Latitude</label><input name="destinationLatitude" value="<%= schoolLatitude !== null && schoolLatitude !== undefined ? schoolLatitude : '' %>" /></div>
+                <div class="tm-row"><label>Destination Longitude</label><input name="destinationLongitude" value="<%= schoolLongitude !== null && schoolLongitude !== undefined ? schoolLongitude : '' %>" /></div>
+              </div>
+            </section>
+
+            <div class="tm-toolbar" style="margin-top:10px;">
+              <span id="add-route-feedback" class="tm-map-note"></span>
+              <button class="tm-btn tm-btn--primary" type="submit" id="submit-add-route">Save Route</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="tm-modal" id="add-stop-modal" aria-hidden="true">
+        <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-stop-title">
+          <div class="tm-modal-head">
+            <h3 class="tm-modal-title" id="add-stop-title">Add Stop</h3>
+            <button class="tm-btn" type="button" id="close-add-stop-modal">Close</button>
+          </div>
+
+          <form id="add-stop-form">
+            <section class="tm-modal-sect">
+              <div class="tm-form-grid">
+                <div class="tm-row"><label>Route</label><select name="routeId" required><option value="">Select Route</option><% (routes || []).forEach(function(route) { %><option value="<%= route.route_id %>"><%= route.route_name %></option><% }) %></select></div>
+                <div class="tm-row"><label>Stop Name</label><input name="stopName" required /></div>
+                <div class="tm-row"><label>Stop Address</label><input name="stopAddress" /></div>
+                <div class="tm-row"><label>Latitude</label><input name="latitude" /></div>
+                <div class="tm-row"><label>Longitude</label><input name="longitude" /></div>
+                <div class="tm-row"><label>Pickup Time</label><input type="time" name="pickupTime" /></div>
+                <div class="tm-row"><label>Dropoff Time</label><input type="time" name="dropoffTime" /></div>
+                <div class="tm-row"><label>Stop Order</label><input name="stopOrder" type="number" min="0" /></div>
+              </div>
+              <p class="tm-map-note" id="add-stop-pin-hint">Click the map to pin this stop location.</p>
+              <div id="add-stop-picker-map" class="tm-stop-picker-map"></div>
+            </section>
+
+            <div class="tm-toolbar" style="margin-top:10px;">
+              <span id="add-stop-feedback" class="tm-map-note"></span>
+              <button class="tm-btn tm-btn--primary" type="submit" id="submit-add-stop">Save Stop</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="tm-modal" id="import-city-stops-modal" aria-hidden="true">
+        <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="import-city-stops-title">
+          <div class="tm-modal-head">
+            <h3 class="tm-modal-title" id="import-city-stops-title">Import Stops By City</h3>
+            <button class="tm-btn" type="button" id="close-import-city-stops-modal">Close</button>
+          </div>
+
+          <form id="import-city-stops-form">
+            <section class="tm-modal-sect">
+              <div class="tm-form-grid">
+                <div class="tm-row"><label>Route</label><select name="routeId" required><option value="">Select Route</option><% (routes || []).forEach(function(route) { %><option value="<%= route.route_id %>"><%= route.route_name %></option><% }) %></select></div>
+                <div class="tm-row"><label>City</label><input name="city" required placeholder="Salt Lake City" /></div>
+                <div class="tm-row"><label>Max Stops</label><input name="maxStops" type="number" min="1" max="120" value="40" /></div>
+              </div>
+            </section>
+
+            <div class="tm-toolbar" style="margin-top:10px;">
+              <span id="import-city-stops-feedback" class="tm-map-note">Pulls bus stop candidates from map data, then you can edit/clean them.</span>
+              <button class="tm-btn tm-btn--primary" type="submit" id="submit-import-city-stops">Import Stops</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="tm-modal" id="add-bus-modal" aria-hidden="true">
+        <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-bus-title">
+          <div class="tm-modal-head">
+            <h3 class="tm-modal-title" id="add-bus-title">Add Bus</h3>
+            <button class="tm-btn" type="button" id="close-add-bus-modal">Close</button>
+          </div>
+
+          <form id="add-bus-form">
+            <input type="hidden" name="busId" id="bus-id-field" />
+            <section class="tm-modal-sect">
+              <h4>Basic Information</h4>
+              <div class="tm-form-grid">
+                <div class="tm-row"><label>Bus Number</label><input name="busNumber" required placeholder="BUS-001" /></div>
+                <div class="tm-row"><label>Bus Name</label><input name="busName" placeholder="North Route Bus" /></div>
+                <div class="tm-row"><label>Vehicle Registration / License Plate</label><input name="licensePlate" placeholder="GT-1234-25" /></div>
+                <div class="tm-row"><label>Capacity</label><input name="capacity" type="number" min="1" /></div>
+                <div class="tm-row"><label>Status</label><select name="status"><option value="active">Active</option><option value="in_service">In Service</option><option value="maintenance">Maintenance</option><option value="out_of_service">Out of Service</option></select></div>
+              </div>
+            </section>
+
+            <section class="tm-modal-sect">
+              <h4>Vehicle Details</h4>
+              <div class="tm-form-grid">
+                <div class="tm-row"><label>Vehicle Make</label><input name="vehicleMake" placeholder="Ford" /></div>
+                <div class="tm-row"><label>Model</label><input name="vehicleModel" placeholder="Transit" /></div>
+                <div class="tm-row"><label>Year</label><input name="vehicleYear" type="number" min="1950" max="2100" /></div>
+                <div class="tm-row"><label>Color</label><input name="vehicleColor" placeholder="Yellow" /></div>
+                <div class="tm-row"><label>VIN</label><input name="vin" /></div>
+                <div class="tm-row"><label>Fuel Type</label><select name="fuelType"><option value="">Select</option><option value="diesel">Diesel</option><option value="petrol">Petrol</option><option value="electric">Electric</option><option value="hybrid">Hybrid</option><option value="cng">CNG</option></select></div>
+                <div class="tm-row"><label>Odometer</label><input name="odometer" type="number" min="0" step="0.1" /></div>
+              </div>
+            </section>
+
+            <div class="tm-toolbar" style="margin-top:10px;">
+              <span id="add-bus-feedback" class="tm-map-note"></span>
+              <button class="tm-btn tm-btn--primary" type="submit" id="submit-add-bus">Save Bus</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="tm-pane" data-pane-id="schedule">
+      <div class="tm-head tm-head--split">
+        <h2>Schedule</h2>
+        <button class="tm-btn tm-btn--primary" type="button" id="open-add-schedule-modal">+ Add Schedule</button>
+      </div>
+
+      <div class="tm-grid">
+        <article class="tm-card span-12">
+          <h3>Schedule List</h3>
+          <ul class="tm-list" id="schedule-list">
+            <% (schedules || []).forEach(function(schedule) { %>
+              <li>
+                <div class="tm-item-row">
+                  <div class="tm-item-body">
+                    <strong><%= schedule.bus_number || '-' %></strong>
+                    | Driver: <%= schedule.driver_name || '-' %>
+                    | Route: <%= schedule.route_name || '-' %>
+                    | Day: <%= schedule.day_of_week || '-' %>
+                    | Time: <%= schedule.start_time || '-' %> - <%= schedule.end_time || '-' %>
+                    | Status: <%= String(schedule.status || '').replaceAll('_', ' ') || '-' %>
+                  </div>
+                  <div class="tm-actions" data-actions>
+                    <button class="tm-kebab" type="button" aria-label="Schedule actions">...</button>
+                    <div class="tm-actions-menu">
+                      <button class="tm-actions-item" type="button" data-action="edit-schedule"
+                        data-schedule-id="<%= schedule.schedule_id %>"
+                        data-bus-id="<%= schedule.bus_id || '' %>"
+                        data-driver-id="<%= schedule.driver_id || '' %>"
+                        data-route-id="<%= schedule.route_id || '' %>"
+                        data-day-of-week="<%= schedule.day_of_week || 'monday' %>"
+                        data-start-time="<%= schedule.start_time || '' %>"
+                        data-end-time="<%= schedule.end_time || '' %>"
+                        data-status="<%= schedule.status || 'active' %>"
+                        data-notes="<%= schedule.notes || '' %>">
+                        Edit
+                      </button>
+                      <button class="tm-actions-item" type="button" data-action="delete-schedule" data-schedule-id="<%= schedule.schedule_id %>">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            <% }) %>
+          </ul>
+        </article>
+      </div>
+
+      <div class="tm-modal" id="add-schedule-modal" aria-hidden="true">
+        <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="add-schedule-title">
+          <div class="tm-modal-head">
+            <h3 class="tm-modal-title" id="add-schedule-title">Add Schedule</h3>
+            <button class="tm-btn" type="button" id="close-add-schedule-modal">Close</button>
+          </div>
+
+          <form id="add-schedule-form">
+            <input type="hidden" name="scheduleId" id="schedule-id-field" />
+            <section class="tm-modal-sect">
+              <h4>Assignment</h4>
+              <div class="tm-form-grid">
+                <div class="tm-row"><label>Bus</label><select name="busId" required><option value="">Select Bus</option><% (buses || []).forEach(function(bus) { %><option value="<%= bus.bus_id %>"><%= bus.bus_number %></option><% }) %></select></div>
+                <div class="tm-row"><label>Driver</label><select name="driverId"><option value="">Select Driver</option><% (drivers || []).forEach(function(driver) { %><option value="<%= driver.driver_id %>"><%= driver.driver_name %></option><% }) %></select></div>
+                <div class="tm-row"><label>Route</label><select name="routeId"><option value="">Select Route</option><% (routes || []).forEach(function(route) { %><option value="<%= route.route_id %>"><%= route.route_name %></option><% }) %></select></div>
+                <div class="tm-row"><label>Day</label><select name="dayOfWeek"><option value="monday">Monday</option><option value="tuesday">Tuesday</option><option value="wednesday">Wednesday</option><option value="thursday">Thursday</option><option value="friday">Friday</option><option value="saturday">Saturday</option><option value="sunday">Sunday</option></select></div>
+                <div class="tm-row"><label>Start Time</label><input type="time" name="startTime" /></div>
+                <div class="tm-row"><label>End Time</label><input type="time" name="endTime" /></div>
+                <div class="tm-row"><label>Status</label><select name="status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+                <div class="tm-row"><label>Notes</label><input name="notes" /></div>
+              </div>
+            </section>
+
+            <div class="tm-toolbar" style="margin-top:10px;">
+              <span id="add-schedule-feedback" class="tm-map-note"></span>
+              <button class="tm-btn tm-btn--primary" type="submit" id="submit-add-schedule">Save Schedule</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="tm-pane" data-pane-id="settings">
+      <div class="tm-head">
+        <h2>Settings</h2>
+      </div>
+
+      <div class="tm-grid">
+        <article class="tm-card span-6">
+          <h3>Map Settings</h3>
+          <div class="tm-map-toolbar">
+            <input id="tm-city-input" type="text" placeholder="Enter city (e.g. Salt Lake City)" />
+            <button id="tm-center-city" type="button">Center City</button>
+            <button id="tm-fit-stops" type="button">Fit Bus Stops</button>
+          </div>
+          <p class="tm-map-note" id="tm-map-status">Map is centered on available stop coordinates.</p>
+        </article>
+
+        <article class="tm-card span-6">
+          <h3>Map Provider</h3>
+          <form method="POST" action="/transportation/manage/map-provider">
+            <div class="tm-form-grid">
+              <div class="tm-row">
+                <label for="mapProvider">Provider</label>
+                <select id="mapProvider" name="mapProvider">
+                  <% (mapProviders || []).forEach(function(provider) { %>
+                    <option value="<%= provider %>" <%= integration && integration.mapProvider === provider ? 'selected' : '' %>><%= provider %></option>
+                  <% }) %>
+                </select>
+              </div>
+              <div class="tm-row">
+                <label>&nbsp;</label>
+                <button type="submit">Save Provider</button>
+              </div>
+            </div>
+          </form>
+        </article>
+
+        <article class="tm-card span-12">
+          <h3>School Destination</h3>
+          <p class="tm-map-note">This is the final destination for school-linked routes. Changing it can sync linked routes automatically.</p>
+          <form method="POST" action="/transportation/manage/school-destination">
+            <div class="tm-form-grid">
+              <div class="tm-row">
+                <label for="schoolAddress">School Address</label>
+                <input id="schoolAddress" name="schoolAddress" required value="<%= schoolAddress || '' %>" placeholder="1746 W 400 N, Salt Lake City, UT" />
+              </div>
+              <div class="tm-row">
+                <label for="schoolLatitude">School Latitude</label>
+                <input id="schoolLatitude" name="schoolLatitude" value="<%= schoolLatitude !== null && schoolLatitude !== undefined ? schoolLatitude : '' %>" placeholder="40.7673" />
+              </div>
+              <div class="tm-row">
+                <label for="schoolLongitude">School Longitude</label>
+                <input id="schoolLongitude" name="schoolLongitude" value="<%= schoolLongitude !== null && schoolLongitude !== undefined ? schoolLongitude : '' %>" placeholder="-111.9397" />
+              </div>
+              <div class="tm-row">
+                <label><input type="checkbox" name="applyToSchoolRoutes" value="1" checked /> Apply to all routes now</label>
+              </div>
+              <div class="tm-row">
+                <label>&nbsp;</label>
+                <button type="submit">Save School Destination</button>
+              </div>
+            </div>
+          </form>
+        </article>
+
+      </div>
+
+      <div class="tm-modal" id="edit-route-modal" aria-hidden="true">
+        <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-route-title">
+          <div class="tm-modal-head">
+            <h3 class="tm-modal-title" id="edit-route-title">Edit Route</h3>
+            <button class="tm-btn" type="button" id="close-edit-route-modal">Close</button>
+          </div>
+
+          <form id="edit-route-form">
+            <input type="hidden" name="routeId" id="edit-route-id" />
+            <section class="tm-modal-sect">
+              <div class="tm-form-grid">
+                <div class="tm-row"><label>Route Name</label><input name="routeName" required /></div>
+                <div class="tm-row"><label>Route Code</label><input name="routeCode" /></div>
+                <div class="tm-row"><label>Status</label><select name="routeStatus"><option value="active">active</option><option value="inactive">inactive</option></select></div>
+                <div class="tm-row"><label>Map Provider</label><select name="mapProvider"><% (mapProviders || []).forEach(function(provider) { %><option value="<%= provider %>"><%= provider %></option><% }) %></select></div>
+                <div class="tm-row"><label><input type="checkbox" name="useSchoolDestination" value="1" checked /> Use School Destination</label></div>
+                <div class="tm-row"><label>Destination Address</label><input name="destinationAddress" placeholder="Defaults to school address" /></div>
+                <div class="tm-row"><label>Destination Latitude</label><input name="destinationLatitude" /></div>
+                <div class="tm-row"><label>Destination Longitude</label><input name="destinationLongitude" /></div>
+              </div>
+            </section>
+
+            <div class="tm-toolbar" style="margin-top:10px;">
+              <span id="edit-route-feedback" class="tm-map-note"></span>
+              <button class="tm-btn tm-btn--primary" type="submit" id="submit-edit-route">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="tm-modal" id="edit-stop-modal" aria-hidden="true">
+        <div class="tm-modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-stop-title">
+          <div class="tm-modal-head">
+            <h3 class="tm-modal-title" id="edit-stop-title">Edit Stop</h3>
+            <button class="tm-btn" type="button" id="close-edit-stop-modal">Close</button>
+          </div>
+
+          <form id="edit-stop-form">
+            <input type="hidden" name="stopId" id="edit-stop-id" />
+            <section class="tm-modal-sect">
+              <div class="tm-form-grid">
+                <div class="tm-row"><label>Route</label><select name="routeId" required><option value="">Select Route</option><% (routes || []).forEach(function(route) { %><option value="<%= route.route_id %>"><%= route.route_name %></option><% }) %></select></div>
+                <div class="tm-row"><label>Stop Name</label><input name="stopName" required /></div>
+                <div class="tm-row"><label>Stop Address</label><input name="stopAddress" /></div>
+                <div class="tm-row"><label>Latitude</label><input name="latitude" /></div>
+                <div class="tm-row"><label>Longitude</label><input name="longitude" /></div>
+                <div class="tm-row"><label>Pickup Time</label><input type="time" name="pickupTime" /></div>
+                <div class="tm-row"><label>Dropoff Time</label><input type="time" name="dropoffTime" /></div>
+                <div class="tm-row"><label>Stop Order</label><input name="stopOrder" type="number" min="0" /></div>
+              </div>
+              <p class="tm-map-note" id="edit-stop-pin-hint">Click the map to update this stop location.</p>
+              <div id="edit-stop-picker-map" class="tm-stop-picker-map"></div>
+            </section>
+
+            <div class="tm-toolbar" style="margin-top:10px;">
+              <span id="edit-stop-feedback" class="tm-map-note"></span>
+              <button class="tm-btn tm-btn--primary" type="submit" id="submit-edit-stop">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="tm-pane" data-pane-id="students">
+      <div class="tm-head">
+        <h2>Students</h2>
+      </div>
+
+      <div class="tm-grid">
+        <article class="tm-card span-12">
+          <h3>Student Transportation Status</h3>
+          <p class="tm-map-note">Home pickup is supported. You can assign students with home address/coordinates and the system can map to nearest stop automatically.</p>
+          <ul class="tm-list">
+            <% const assignmentByStudentId = Object.fromEntries((assignments || []).map(function(a) { return [Number(a.student_id), a]; })); %>
+            <% const groupedByClass = {}; %>
+            <% (students || []).forEach(function(student) { %>
+              <% const className = (student.class_name || 'Unassigned').trim() || 'Unassigned'; %>
+              <% const classKey = student.class_id ? String(student.class_id) : '__unassigned__'; %>
+              <% if (!groupedByClass[classKey]) groupedByClass[classKey] = { className: className, classId: student.class_id || null, students: [] }; %>
+              <% groupedByClass[classKey].students.push(student); %>
+            <% }) %>
+            <% Object.keys(groupedByClass).forEach(function(classKey) { %>
+              <% const classGroup = groupedByClass[classKey]; %>
+              <% const sortedStudents = classGroup.students.slice().sort(function(a, b) {
+                const aAssigned = assignmentByStudentId[Number(a.student_id)] ? 1 : 0;
+                const bAssigned = assignmentByStudentId[Number(b.student_id)] ? 1 : 0;
+                if (aAssigned !== bAssigned) return bAssigned - aAssigned;
+                const aLast = String(a.last_name || '').toLowerCase();
+                const bLast = String(b.last_name || '').toLowerCase();
+                if (aLast !== bLast) return aLast.localeCompare(bLast);
+                return String(a.first_name || '').toLowerCase().localeCompare(String(b.first_name || '').toLowerCase());
+              }); %>
+              <% const accessCount = sortedStudents.filter(function(s) { return !!assignmentByStudentId[Number(s.student_id)]; }).length; %>
+              <li class="tm-class-group" data-class-group data-class-id="<%= classGroup.classId ? classGroup.classId : '__unassigned__' %>">
+                <details>
+                  <summary>Class: <%= classGroup.className %> (<%= sortedStudents.length %>) | With Bus Access: <%= accessCount %></summary>
+                  <div class="tm-class-toolbar">
+                    <button class="tm-btn" type="button" data-action="edit-class-access">Edit</button>
+                    <span class="tm-class-edit-controls">
+                      <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#334155;">
+                        <input type="checkbox" data-action="select-all-class" /> Select all
+                      </label>
+                      <button class="tm-btn tm-btn--primary" type="button" data-action="save-class-access">Save</button>
+                      <button class="tm-btn" type="button" data-action="cancel-class-access">Cancel</button>
+                    </span>
+                    <span class="tm-map-note" data-class-feedback></span>
+                  </div>
+                  <div class="tm-class-group-list">
+                    <% sortedStudents.forEach(function(student) { %>
+                      <% const assigned = assignmentByStudentId[Number(student.student_id)] || null; %>
+                      <div class="tm-student-row" data-student-row>
+                        <div class="tm-student-main">
+                          <input
+                            class="tm-student-check"
+                            type="checkbox"
+                            data-student-access-checkbox
+                            value="<%= student.student_id %>"
+                            data-initial-checked="<%= assigned ? '1' : '0' %>"
+                            <%= assigned ? 'checked' : '' %>
+                          />
+                          <div>
+                            <strong><%= student.last_name %> <%= student.first_name %></strong>
+                            <span class="tm-student-access-tag <%= assigned ? 'tm-student-access-tag--yes' : 'tm-student-access-tag--no' %>"><%= assigned ? 'Bus access' : 'No bus access' %></span>
+                            <br/>
+                            Address: <%= student.address || '-' %>
+                            | Bus: <%= assigned ? (assigned.bus_number || '-') : '-' %>
+                            | Route: <%= assigned ? (assigned.route_name || '-') : '-' %>
+                            | Stop: <%= assigned ? (assigned.stop_name || '-') : '-' %>
+                          </div>
+                        </div>
+                      </div>
+                    <% }) %>
+                  </div>
+                </details>
+              </li>
+            <% }) %>
+          </ul>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<script>
+  (function () {
+    const navButtons = Array.from(document.querySelectorAll('.tm-nav-btn'));
+    const panes = Array.from(document.querySelectorAll('.tm-pane'));
+
+    function openPane(targetPane) {
+      navButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.pane === targetPane));
+      panes.forEach((pane) => pane.classList.toggle('active', pane.dataset.paneId === targetPane));
+    }
+
+    navButtons.forEach((btn) => {
+      btn.addEventListener('click', () => openPane(btn.dataset.pane));
+    });
+
+    const routes = <%- JSON.stringify((routes || []).map((route) => ({
+      routeId: Number(route.route_id),
+      routeName: route.route_name || 'Route',
+      useSchoolDestination: Boolean(route.use_school_destination),
+      destinationAddress: route.destination_address || '',
+      destinationLatitude: route.destination_latitude !== null && route.destination_latitude !== undefined ? Number(route.destination_latitude) : null,
+      destinationLongitude: route.destination_longitude !== null && route.destination_longitude !== undefined ? Number(route.destination_longitude) : null,
+    }))) %>;
+
+    const stops = <%- JSON.stringify((stops || []).map((stop) => ({
+      stopId: Number(stop.stop_id),
+      routeId: Number(stop.route_id),
+      stopName: stop.stop_name || '',
+      stopAddress: stop.stop_address || '',
+      latitude: stop.latitude !== null && stop.latitude !== undefined ? Number(stop.latitude) : null,
+      longitude: stop.longitude !== null && stop.longitude !== undefined ? Number(stop.longitude) : null,
+      stopOrder: stop.stop_order !== null && stop.stop_order !== undefined ? Number(stop.stop_order) : 0,
+    }))) %>;
+
+    const busesForMap = <%- JSON.stringify((buses || []).map((bus) => ({
+      busId: Number(bus.bus_id),
+      busNumber: bus.bus_number || '',
+      busName: bus.bus_name || '',
+      status: bus.status || 'active',
+    }))) %>;
+
+    const schedulesForMap = <%- JSON.stringify((schedules || []).map((schedule) => ({
+      scheduleId: Number(schedule.schedule_id),
+      busId: schedule.bus_id !== null && schedule.bus_id !== undefined ? Number(schedule.bus_id) : null,
+      routeId: schedule.route_id !== null && schedule.route_id !== undefined ? Number(schedule.route_id) : null,
+      driverName: schedule.driver_name || '',
+      dayOfWeek: schedule.day_of_week || '',
+      startTime: schedule.start_time || '',
+      endTime: schedule.end_time || '',
+      status: schedule.status || 'active',
+    }))) %>;
+
+    const mapStatus = document.getElementById('tm-map-status');
+    const cityInput = document.getElementById('tm-city-input');
+    const centerCityBtn = document.getElementById('tm-center-city');
+    const fitStopsBtn = document.getElementById('tm-fit-stops');
+    const routeFilterSelect = document.getElementById('tm-route-filter');
+    const mapEl = document.getElementById('tm-route-map');
+
+    if (!window.L || !mapEl || !mapStatus || !cityInput || !centerCityBtn || !fitStopsBtn) return;
+
+    const routeNameById = Object.fromEntries(routes.map((r) => [r.routeId, r.routeName]));
+    const routeMetaById = Object.fromEntries(routes.map((r) => [r.routeId, r]));
+    const schoolDestination = {
+      address: <%- JSON.stringify(schoolAddress || '') %>,
+      latitude: <%- JSON.stringify(schoolLatitude !== null && schoolLatitude !== undefined ? Number(schoolLatitude) : null) %>,
+      longitude: <%- JSON.stringify(schoolLongitude !== null && schoolLongitude !== undefined ? Number(schoolLongitude) : null) %>,
+    };
+    const US_DEFAULT_CENTER = [39.8283, -98.5795];
+    const mapDefaultCenter = (Number.isFinite(schoolDestination.latitude) && Number.isFinite(schoolDestination.longitude))
+      ? [schoolDestination.latitude, schoolDestination.longitude]
+      : US_DEFAULT_CENTER;
+    const mapDefaultZoom = (Number.isFinite(schoolDestination.latitude) && Number.isFinite(schoolDestination.longitude)) ? 11 : 4;
+
+    function colorForRoute(routeId) {
+      const palette = ['#0f766e', '#2563eb', '#ea580c', '#9333ea', '#be123c', '#0284c7', '#4d7c0f'];
+      const normalized = Number(routeId) || 0;
+      return palette[Math.abs(normalized) % palette.length];
+    }
+
+    const roadGeometryCache = new Map();
+    let drawRevision = 0;
+
+    function makeRouteGeometryKey(latlngs) {
+      return latlngs
+        .map((entry) => `${Number(entry[0]).toFixed(5)},${Number(entry[1]).toFixed(5)}`)
+        .join('|');
+    }
+
+    async function fetchRoadGeometry(latlngs) {
+      if (!Array.isArray(latlngs) || latlngs.length < 2) return latlngs;
+      const key = makeRouteGeometryKey(latlngs);
+      if (roadGeometryCache.has(key)) return roadGeometryCache.get(key);
+
+      const coordinates = latlngs
+        .map((entry) => `${Number(entry[1]).toFixed(7)},${Number(entry[0]).toFixed(7)}`)
+        .join(';');
+      const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
+
+      try {
+        const response = await fetch(url);
+        const payload = await response.json();
+        const geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
+        const points = Array.isArray(geometry && geometry.coordinates)
+          ? geometry.coordinates.map((entry) => [Number(entry[1]), Number(entry[0])])
+          : null;
+
+        if (points && points.length >= 2) {
+          roadGeometryCache.set(key, points);
+          return points;
+        }
+      } catch (_error) {
+        // Fallback to direct segment when road routing is unavailable.
+      }
+
+      roadGeometryCache.set(key, latlngs);
+      return latlngs;
+    }
+
+    const map = L.map(mapEl, {
+      zoomControl: true,
+      scrollWheelZoom: false,
+      touchZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      minZoom: 4,
+      maxZoom: 18,
+    }).setView(mapDefaultCenter, mapDefaultZoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const mapLayer = L.layerGroup().addTo(map);
+    const busLayer = L.layerGroup().addTo(map);
+    const geoStops = stops.filter((stop) => Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude));
+
+    const busById = Object.fromEntries(busesForMap.map((bus) => [bus.busId, bus]));
+
+    function buildBusPopup(schedule, bus, routeName) {
+      const parts = [];
+      parts.push(`<strong>${bus && bus.busNumber ? bus.busNumber : 'Bus'}</strong>`);
+      if (bus && bus.busName) parts.push(`Name: ${bus.busName}`);
+      if (routeName) parts.push(`Route: ${routeName}`);
+      if (schedule && schedule.driverName) parts.push(`Driver: ${schedule.driverName}`);
+      if (schedule && schedule.dayOfWeek) parts.push(`Day: ${schedule.dayOfWeek}`);
+      if (schedule && (schedule.startTime || schedule.endTime)) {
+        parts.push(`Time: ${schedule.startTime || '-'} - ${schedule.endTime || '-'}`);
+      }
+      return parts.join('<br/>');
+    }
+
+    const addBusModal = document.getElementById('add-bus-modal');
+    const openAddBusModalBtn = document.getElementById('open-add-bus-modal');
+    const closeAddBusModalBtn = document.getElementById('close-add-bus-modal');
+    const addBusForm = document.getElementById('add-bus-form');
+    const addBusFeedback = document.getElementById('add-bus-feedback');
+    const submitAddBusBtn = document.getElementById('submit-add-bus');
+    const addDriverModal = document.getElementById('add-driver-modal');
+    const openAddDriverModalBtn = document.getElementById('open-add-driver-modal');
+    const closeAddDriverModalBtn = document.getElementById('close-add-driver-modal');
+    const addDriverForm = document.getElementById('add-driver-form');
+    const addDriverFeedback = document.getElementById('add-driver-feedback');
+    const submitAddDriverBtn = document.getElementById('submit-add-driver');
+    const addScheduleModal = document.getElementById('add-schedule-modal');
+    const openAddScheduleModalBtn = document.getElementById('open-add-schedule-modal');
+    const closeAddScheduleModalBtn = document.getElementById('close-add-schedule-modal');
+    const addScheduleForm = document.getElementById('add-schedule-form');
+    const addScheduleFeedback = document.getElementById('add-schedule-feedback');
+    const submitAddScheduleBtn = document.getElementById('submit-add-schedule');
+    const addRouteModal = document.getElementById('add-route-modal');
+    const openAddRouteModalBtn = document.getElementById('open-add-route-modal');
+    const closeAddRouteModalBtn = document.getElementById('close-add-route-modal');
+    const addRouteForm = document.getElementById('add-route-form');
+    const addRouteFeedback = document.getElementById('add-route-feedback');
+    const submitAddRouteBtn = document.getElementById('submit-add-route');
+    const addStopModal = document.getElementById('add-stop-modal');
+    const openAddStopModalBtn = document.getElementById('open-add-stop-modal');
+    const closeAddStopModalBtn = document.getElementById('close-add-stop-modal');
+    const addStopForm = document.getElementById('add-stop-form');
+    const addStopFeedback = document.getElementById('add-stop-feedback');
+    const submitAddStopBtn = document.getElementById('submit-add-stop');
+    const addStopPinHint = document.getElementById('add-stop-pin-hint');
+    const importCityStopsModal = document.getElementById('import-city-stops-modal');
+    const openImportCityStopsModalBtn = document.getElementById('open-import-city-stops-modal');
+    const closeImportCityStopsModalBtn = document.getElementById('close-import-city-stops-modal');
+    const importCityStopsForm = document.getElementById('import-city-stops-form');
+    const importCityStopsFeedback = document.getElementById('import-city-stops-feedback');
+    const submitImportCityStopsBtn = document.getElementById('submit-import-city-stops');
+    const busIdField = document.getElementById('bus-id-field');
+    const driverIdField = document.getElementById('driver-id-field');
+    const scheduleIdField = document.getElementById('schedule-id-field');
+    const addBusTitle = document.getElementById('add-bus-title');
+    const addDriverTitle = document.getElementById('add-driver-title');
+    const addScheduleTitle = document.getElementById('add-schedule-title');
+
+    const editRouteModal = document.getElementById('edit-route-modal');
+    const closeEditRouteModalBtn = document.getElementById('close-edit-route-modal');
+    const editRouteForm = document.getElementById('edit-route-form');
+    const editRouteFeedback = document.getElementById('edit-route-feedback');
+    const submitEditRouteBtn = document.getElementById('submit-edit-route');
+
+    const editStopModal = document.getElementById('edit-stop-modal');
+    const closeEditStopModalBtn = document.getElementById('close-edit-stop-modal');
+    const editStopForm = document.getElementById('edit-stop-form');
+    const editStopFeedback = document.getElementById('edit-stop-feedback');
+    const submitEditStopBtn = document.getElementById('submit-edit-stop');
+    const editStopPinHint = document.getElementById('edit-stop-pin-hint');
+
+    function bindRouteDestinationMode(formEl) {
+      if (!formEl) return;
+      const toggle = formEl.elements.useSchoolDestination;
+      const address = formEl.elements.destinationAddress;
+      const latitude = formEl.elements.destinationLatitude;
+      const longitude = formEl.elements.destinationLongitude;
+      if (!toggle || !address || !latitude || !longitude) return;
+
+      const updateMode = () => {
+        const useSchool = Boolean(toggle.checked);
+        address.disabled = useSchool;
+        latitude.disabled = useSchool;
+        longitude.disabled = useSchool;
+        if (useSchool) {
+          address.value = schoolDestination.address || '';
+          latitude.value = schoolDestination.latitude ?? '';
+          longitude.value = schoolDestination.longitude ?? '';
+        }
+      };
+
+      toggle.addEventListener('change', updateMode);
+      updateMode();
+    }
+
+    bindRouteDestinationMode(addRouteForm);
+    bindRouteDestinationMode(editRouteForm);
+
+    function getSelectedRouteFilterId() {
+      const raw = String(routeFilterSelect && routeFilterSelect.value ? routeFilterSelect.value : '').trim();
+      if (!raw) return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function createStopPicker(mapContainerId, formEl, hintEl) {
+      const mapContainer = document.getElementById(mapContainerId);
+      let pickerMap = null;
+      let pickerMarker = null;
+
+      function ensureMap() {
+        if (pickerMap || !mapContainer || !window.L) return;
+        pickerMap = L.map(mapContainer, { zoomControl: true }).setView(mapDefaultCenter, mapDefaultZoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(pickerMap);
+
+        pickerMap.on('click', async (event) => {
+          const lat = Number(event.latlng.lat.toFixed(7));
+          const lng = Number(event.latlng.lng.toFixed(7));
+          if (!formEl) return;
+
+          formEl.elements.latitude.value = String(lat);
+          formEl.elements.longitude.value = String(lng);
+
+          if (!pickerMarker) {
+            pickerMarker = L.marker([lat, lng]).addTo(pickerMap);
+          } else {
+            pickerMarker.setLatLng([lat, lng]);
+          }
+
+          if (hintEl) hintEl.textContent = `Pinned at ${lat.toFixed(5)}, ${lng.toFixed(5)}.`;
+
+          if (!String(formEl.elements.stopAddress.value || '').trim()) {
+            try {
+              const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`);
+              const payload = await response.json();
+              const address = String(payload?.display_name || '').trim();
+              if (address) formEl.elements.stopAddress.value = address;
+            } catch (_) {
+              // Reverse geocoding is optional.
+            }
+          }
+        });
+      }
+
+      function syncFromFields() {
+        ensureMap();
+        if (!pickerMap || !formEl) return;
+
+        const lat = Number(formEl.elements.latitude.value);
+        const lng = Number(formEl.elements.longitude.value);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          if (!pickerMarker) {
+            pickerMarker = L.marker([lat, lng]).addTo(pickerMap);
+          } else {
+            pickerMarker.setLatLng([lat, lng]);
+          }
+          pickerMap.setView([lat, lng], 14);
+          if (hintEl) hintEl.textContent = `Pinned at ${lat.toFixed(5)}, ${lng.toFixed(5)}.`;
+        } else if (pickerMarker) {
+          pickerMap.removeLayer(pickerMarker);
+          pickerMarker = null;
+          if (hintEl) hintEl.textContent = 'Click the map to pin this stop location.';
+        }
+
+        setTimeout(() => {
+          pickerMap.invalidateSize();
+        }, 100);
+      }
+
+      return { syncFromFields };
+    }
+
+    const addStopPicker = createStopPicker('add-stop-picker-map', addStopForm, addStopPinHint);
+    const editStopPicker = createStopPicker('edit-stop-picker-map', editStopForm, editStopPinHint);
+
+    function normalizeTimeValue(value) {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      if (/^\d{2}:\d{2}$/.test(raw)) return raw;
+      if (/^\d{2}:\d{2}:\d{2}$/.test(raw)) return raw.slice(0, 5);
+      return raw;
+    }
+
+    function toUrlEncodedBody(formData) {
+      const body = new URLSearchParams();
+      formData.forEach((value, key) => {
+        body.append(key, String(value));
+      });
+      return body.toString();
+    }
+
+    async function postForm(url, formData, options = {}) {
+      const isMultipart = options.multipart === true;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: isMultipart
+          ? {
+              Accept: 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+            }
+          : {
+              Accept: 'application/json',
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+        body: isMultipart ? formData : toUrlEncodedBody(formData),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.message || options.defaultError || 'Request failed.');
+      }
+
+      return payload;
+    }
+
+    async function deleteWithConfirm(url, label) {
+      if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+      const formData = new FormData();
+      await postForm(url, formData, { defaultError: `Unable to delete ${label}.` });
+      window.location.reload();
+    }
+
+    function closeAllActionMenus() {
+      document.querySelectorAll('[data-actions].open').forEach((el) => el.classList.remove('open'));
+    }
+
+    document.addEventListener('click', (event) => {
+      const kebab = event.target.closest('.tm-kebab');
+      if (kebab) {
+        const root = kebab.closest('[data-actions]');
+        if (!root) return;
+        const willOpen = !root.classList.contains('open');
+        closeAllActionMenus();
+        if (willOpen) root.classList.add('open');
+        return;
+      }
+
+      const actionBtn = event.target.closest('.tm-actions-item');
+      if (!actionBtn) {
+        closeAllActionMenus();
+        return;
+      }
+
+      const action = actionBtn.dataset.action;
+      closeAllActionMenus();
+
+      if (action === 'edit-bus') {
+        if (addBusForm) addBusForm.reset();
+        if (busIdField) busIdField.value = actionBtn.dataset.busId || '';
+        if (addBusTitle) addBusTitle.textContent = 'Edit Bus';
+        if (submitAddBusBtn) submitAddBusBtn.textContent = 'Save Changes';
+        if (addBusForm) {
+          addBusForm.elements.busNumber.value = actionBtn.dataset.busNumber || '';
+          addBusForm.elements.busName.value = actionBtn.dataset.busName || '';
+          addBusForm.elements.licensePlate.value = actionBtn.dataset.licensePlate || '';
+          addBusForm.elements.capacity.value = actionBtn.dataset.capacity || '';
+          addBusForm.elements.status.value = actionBtn.dataset.status || 'active';
+          addBusForm.elements.vehicleMake.value = actionBtn.dataset.vehicleMake || '';
+          addBusForm.elements.vehicleModel.value = actionBtn.dataset.vehicleModel || '';
+          addBusForm.elements.vehicleYear.value = actionBtn.dataset.vehicleYear || '';
+          addBusForm.elements.vehicleColor.value = actionBtn.dataset.vehicleColor || '';
+          addBusForm.elements.vin.value = actionBtn.dataset.vin || '';
+          addBusForm.elements.fuelType.value = actionBtn.dataset.fuelType || '';
+          addBusForm.elements.odometer.value = actionBtn.dataset.odometer || '';
+        }
+        openBusModal();
+        return;
+      }
+
+      if (action === 'delete-bus') {
+        const busId = actionBtn.dataset.busId;
+        const busNumber = actionBtn.dataset.busNumber || 'bus';
+        deleteWithConfirm(`/transportation/manage/buses/${encodeURIComponent(busId)}/delete`, `bus ${busNumber}`)
+          .catch((error) => window.alert(error.message || 'Unable to delete bus.'));
+        return;
+      }
+
+      if (action === 'edit-driver') {
+        if (addDriverForm) addDriverForm.reset();
+        if (driverIdField) driverIdField.value = actionBtn.dataset.driverId || '';
+        if (addDriverTitle) addDriverTitle.textContent = 'Edit Driver';
+        if (submitAddDriverBtn) submitAddDriverBtn.textContent = 'Save Changes';
+        if (addDriverForm) {
+          addDriverForm.elements.driverName.value = actionBtn.dataset.driverName || '';
+          addDriverForm.elements.phone.value = actionBtn.dataset.phone || '';
+          addDriverForm.elements.email.value = actionBtn.dataset.email || '';
+          addDriverForm.elements.licenseNumber.value = actionBtn.dataset.licenseNumber || '';
+          addDriverForm.elements.status.value = actionBtn.dataset.status || 'active';
+          addDriverForm.elements.assignedBusId.value = actionBtn.dataset.assignedBusId || '';
+          addDriverForm.elements.assignedRouteId.value = actionBtn.dataset.assignedRouteId || '';
+        }
+        openDriverModal();
+        return;
+      }
+
+      if (action === 'delete-driver') {
+        const driverId = actionBtn.dataset.driverId;
+        const driverName = actionBtn.dataset.driverName || 'driver';
+        deleteWithConfirm(`/transportation/manage/drivers/${encodeURIComponent(driverId)}/delete`, `driver ${driverName}`)
+          .catch((error) => window.alert(error.message || 'Unable to delete driver.'));
+        return;
+      }
+
+      if (action === 'edit-schedule') {
+        if (addScheduleForm) addScheduleForm.reset();
+        if (scheduleIdField) scheduleIdField.value = actionBtn.dataset.scheduleId || '';
+        if (addScheduleTitle) addScheduleTitle.textContent = 'Edit Schedule';
+        if (submitAddScheduleBtn) submitAddScheduleBtn.textContent = 'Save Changes';
+        if (addScheduleForm) {
+          addScheduleForm.elements.busId.value = actionBtn.dataset.busId || '';
+          addScheduleForm.elements.driverId.value = actionBtn.dataset.driverId || '';
+          addScheduleForm.elements.routeId.value = actionBtn.dataset.routeId || '';
+          addScheduleForm.elements.dayOfWeek.value = actionBtn.dataset.dayOfWeek || 'monday';
+          addScheduleForm.elements.startTime.value = normalizeTimeValue(actionBtn.dataset.startTime || '');
+          addScheduleForm.elements.endTime.value = normalizeTimeValue(actionBtn.dataset.endTime || '');
+          addScheduleForm.elements.status.value = actionBtn.dataset.status || 'active';
+          addScheduleForm.elements.notes.value = actionBtn.dataset.notes || '';
+        }
+        openScheduleModal();
+        return;
+      }
+
+      if (action === 'delete-schedule') {
+        const scheduleId = actionBtn.dataset.scheduleId;
+        deleteWithConfirm(`/transportation/manage/schedules/${encodeURIComponent(scheduleId)}/delete`, 'schedule')
+          .catch((error) => window.alert(error.message || 'Unable to delete schedule.'));
+        return;
+      }
+
+      if (action === 'view-route-map') {
+        const routeId = String(actionBtn.dataset.routeId || '').trim();
+        if (routeFilterSelect) routeFilterSelect.value = routeId;
+        openPane('overview');
+        setTimeout(() => {
+          map.invalidateSize();
+          void fitToStops();
+        }, 120);
+        return;
+      }
+
+      if (action === 'view-stop-map') {
+        const routeId = String(actionBtn.dataset.routeId || '').trim();
+        const lat = Number(actionBtn.dataset.latitude);
+        const lng = Number(actionBtn.dataset.longitude);
+        if (routeFilterSelect) routeFilterSelect.value = routeId;
+        openPane('overview');
+        setTimeout(() => {
+          map.invalidateSize();
+          void fitToStops();
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            map.setView([lat, lng], 15);
+            L.popup().setLatLng([lat, lng]).setContent('Pinned stop location').openOn(map);
+          }
+        }, 120);
+        return;
+      }
+
+      if (action === 'edit-route') {
+        if (!editRouteForm) return;
+        editRouteForm.reset();
+        editRouteForm.elements.routeId.value = actionBtn.dataset.routeId || '';
+        editRouteForm.elements.routeName.value = actionBtn.dataset.routeName || '';
+        editRouteForm.elements.routeCode.value = actionBtn.dataset.routeCode || '';
+        editRouteForm.elements.routeStatus.value = actionBtn.dataset.routeStatus || 'active';
+        editRouteForm.elements.mapProvider.value = actionBtn.dataset.mapProvider || 'openstreetmap';
+        editRouteForm.elements.useSchoolDestination.checked = (actionBtn.dataset.useSchoolDestination || '0') === '1';
+        editRouteForm.elements.destinationAddress.value = actionBtn.dataset.destinationAddress || schoolDestination.address || '';
+        editRouteForm.elements.destinationLatitude.value = actionBtn.dataset.destinationLatitude || (schoolDestination.latitude ?? '');
+        editRouteForm.elements.destinationLongitude.value = actionBtn.dataset.destinationLongitude || (schoolDestination.longitude ?? '');
+        if (typeof editRouteForm.elements.useSchoolDestination.dispatchEvent === 'function') {
+          editRouteForm.elements.useSchoolDestination.dispatchEvent(new Event('change'));
+        }
+        editRouteModal.classList.add('is-open');
+        editRouteModal.setAttribute('aria-hidden', 'false');
+        return;
+      }
+
+      if (action === 'delete-route') {
+        const routeId = actionBtn.dataset.routeId;
+        const routeName = actionBtn.dataset.routeName || 'route';
+        deleteWithConfirm(`/transportation/manage/routes/${encodeURIComponent(routeId)}/delete`, `route ${routeName}`)
+          .catch((error) => window.alert(error.message || 'Unable to delete route.'));
+        return;
+      }
+
+      if (action === 'edit-stop') {
+        if (!editStopForm) return;
+        editStopForm.reset();
+        editStopForm.elements.stopId.value = actionBtn.dataset.stopId || '';
+        editStopForm.elements.routeId.value = actionBtn.dataset.routeId || '';
+        editStopForm.elements.stopName.value = actionBtn.dataset.stopName || '';
+        editStopForm.elements.stopAddress.value = actionBtn.dataset.stopAddress || '';
+        editStopForm.elements.latitude.value = actionBtn.dataset.latitude || '';
+        editStopForm.elements.longitude.value = actionBtn.dataset.longitude || '';
+        editStopForm.elements.pickupTime.value = normalizeTimeValue(actionBtn.dataset.pickupTime || '');
+        editStopForm.elements.dropoffTime.value = normalizeTimeValue(actionBtn.dataset.dropoffTime || '');
+        editStopForm.elements.stopOrder.value = actionBtn.dataset.stopOrder || 0;
+        editStopModal.classList.add('is-open');
+        editStopModal.setAttribute('aria-hidden', 'false');
+        editStopPicker.syncFromFields();
+        return;
+      }
+
+      if (action === 'delete-stop') {
+        const stopId = actionBtn.dataset.stopId;
+        const stopName = actionBtn.dataset.stopName || 'stop';
+        deleteWithConfirm(`/transportation/manage/stops/${encodeURIComponent(stopId)}/delete`, `stop ${stopName}`)
+          .catch((error) => window.alert(error.message || 'Unable to delete stop.'));
+      }
+    });
+
+    function closeBusModal() {
+      if (!addBusModal) return;
+      addBusModal.classList.remove('is-open');
+      addBusModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openBusModal() {
+      if (!addBusModal) return;
+      addBusModal.classList.add('is-open');
+      addBusModal.setAttribute('aria-hidden', 'false');
+    }
+
+    if (openAddBusModalBtn) {
+      openAddBusModalBtn.addEventListener('click', () => {
+        if (addBusForm) addBusForm.reset();
+        if (busIdField) busIdField.value = '';
+        if (addBusTitle) addBusTitle.textContent = 'Add Bus';
+        if (submitAddBusBtn) submitAddBusBtn.textContent = 'Save Bus';
+        if (addBusFeedback) addBusFeedback.textContent = '';
+        openBusModal();
+      });
+    }
+    if (closeAddBusModalBtn) {
+      closeAddBusModalBtn.addEventListener('click', closeBusModal);
+    }
+    if (addBusModal) {
+      addBusModal.addEventListener('click', (event) => {
+        if (event.target === addBusModal) {
+          closeBusModal();
+        }
+      });
+    }
+
+    if (addBusForm) {
+      addBusForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitAddBusBtn) return;
+
+        submitAddBusBtn.disabled = true;
+        if (addBusFeedback) addBusFeedback.textContent = 'Saving bus...';
+
+        try {
+          const formData = new FormData(addBusForm);
+          const busId = String(busIdField && busIdField.value ? busIdField.value : '').trim();
+          const url = busId
+            ? `/transportation/manage/buses/${encodeURIComponent(busId)}/update`
+            : '/transportation/manage/buses';
+          await postForm(url, formData, { defaultError: busId ? 'Unable to update bus.' : 'Unable to save bus.' });
+
+          if (addBusFeedback) addBusFeedback.textContent = busId ? 'Bus updated. Refreshing list...' : 'Bus saved. Refreshing list...';
+          window.location.reload();
+        } catch (error) {
+          if (addBusFeedback) addBusFeedback.textContent = error.message || 'Unable to save bus.';
+        } finally {
+          submitAddBusBtn.disabled = false;
+        }
+      });
+    }
+
+    function closeAddRouteModal() {
+      if (!addRouteModal) return;
+      addRouteModal.classList.remove('is-open');
+      addRouteModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openAddRouteModal() {
+      if (!addRouteModal) return;
+      addRouteModal.classList.add('is-open');
+      addRouteModal.setAttribute('aria-hidden', 'false');
+    }
+
+    if (openAddRouteModalBtn) {
+      openAddRouteModalBtn.addEventListener('click', () => {
+        if (addRouteForm) addRouteForm.reset();
+        if (addRouteForm && addRouteForm.elements.useSchoolDestination) {
+          addRouteForm.elements.useSchoolDestination.checked = true;
+          addRouteForm.elements.destinationAddress.value = schoolDestination.address || '';
+          addRouteForm.elements.destinationLatitude.value = schoolDestination.latitude ?? '';
+          addRouteForm.elements.destinationLongitude.value = schoolDestination.longitude ?? '';
+          addRouteForm.elements.useSchoolDestination.dispatchEvent(new Event('change'));
+        }
+        if (addRouteFeedback) addRouteFeedback.textContent = '';
+        openAddRouteModal();
+      });
+    }
+    if (closeAddRouteModalBtn) {
+      closeAddRouteModalBtn.addEventListener('click', closeAddRouteModal);
+    }
+    if (addRouteModal) {
+      addRouteModal.addEventListener('click', (event) => {
+        if (event.target === addRouteModal) {
+          closeAddRouteModal();
+        }
+      });
+    }
+
+    if (addRouteForm) {
+      addRouteForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitAddRouteBtn) return;
+
+        submitAddRouteBtn.disabled = true;
+        if (addRouteFeedback) addRouteFeedback.textContent = 'Saving route...';
+
+        try {
+          const formData = new FormData(addRouteForm);
+          await postForm('/transportation/manage/routes', formData, {
+            defaultError: 'Unable to save route.',
+          });
+          if (addRouteFeedback) addRouteFeedback.textContent = 'Route saved. Refreshing list...';
+          window.location.reload();
+        } catch (error) {
+          if (addRouteFeedback) addRouteFeedback.textContent = error.message || 'Unable to save route.';
+        } finally {
+          submitAddRouteBtn.disabled = false;
+        }
+      });
+    }
+
+    function closeAddStopModal() {
+      if (!addStopModal) return;
+      addStopModal.classList.remove('is-open');
+      addStopModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openAddStopModal() {
+      if (!addStopModal) return;
+      addStopModal.classList.add('is-open');
+      addStopModal.setAttribute('aria-hidden', 'false');
+    }
+
+    if (openAddStopModalBtn) {
+      openAddStopModalBtn.addEventListener('click', () => {
+        if (addStopForm) addStopForm.reset();
+        if (addStopFeedback) addStopFeedback.textContent = '';
+        openAddStopModal();
+        addStopPicker.syncFromFields();
+      });
+    }
+    if (closeAddStopModalBtn) {
+      closeAddStopModalBtn.addEventListener('click', closeAddStopModal);
+    }
+    if (addStopModal) {
+      addStopModal.addEventListener('click', (event) => {
+        if (event.target === addStopModal) {
+          closeAddStopModal();
+        }
+      });
+    }
+
+    if (addStopForm) {
+      addStopForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitAddStopBtn) return;
+
+        submitAddStopBtn.disabled = true;
+        if (addStopFeedback) addStopFeedback.textContent = 'Saving stop...';
+
+        try {
+          const formData = new FormData(addStopForm);
+          await postForm('/transportation/manage/stops', formData, {
+            defaultError: 'Unable to save stop.',
+          });
+          if (addStopFeedback) addStopFeedback.textContent = 'Stop saved. Refreshing list...';
+          window.location.reload();
+        } catch (error) {
+          if (addStopFeedback) addStopFeedback.textContent = error.message || 'Unable to save stop.';
+        } finally {
+          submitAddStopBtn.disabled = false;
+        }
+      });
+    }
+
+    function closeImportCityStopsModal() {
+      if (!importCityStopsModal) return;
+      importCityStopsModal.classList.remove('is-open');
+      importCityStopsModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openImportCityStopsModal() {
+      if (!importCityStopsModal) return;
+      importCityStopsModal.classList.add('is-open');
+      importCityStopsModal.setAttribute('aria-hidden', 'false');
+    }
+
+    if (openImportCityStopsModalBtn) {
+      openImportCityStopsModalBtn.addEventListener('click', () => {
+        if (importCityStopsForm) importCityStopsForm.reset();
+        if (importCityStopsFeedback) importCityStopsFeedback.textContent = 'Pulls bus stop candidates from map data, then you can edit/clean them.';
+        openImportCityStopsModal();
+      });
+    }
+    if (closeImportCityStopsModalBtn) {
+      closeImportCityStopsModalBtn.addEventListener('click', closeImportCityStopsModal);
+    }
+    if (importCityStopsModal) {
+      importCityStopsModal.addEventListener('click', (event) => {
+        if (event.target === importCityStopsModal) {
+          closeImportCityStopsModal();
+        }
+      });
+    }
+
+    if (importCityStopsForm) {
+      importCityStopsForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitImportCityStopsBtn) return;
+
+        submitImportCityStopsBtn.disabled = true;
+        if (importCityStopsFeedback) importCityStopsFeedback.textContent = 'Importing stop candidates...';
+
+        try {
+          const formData = new FormData(importCityStopsForm);
+          await postForm('/transportation/manage/stops/import-city', formData, {
+            defaultError: 'Unable to import city stops.',
+          });
+          if (importCityStopsFeedback) importCityStopsFeedback.textContent = 'Stops imported. Refreshing list...';
+          window.location.reload();
+        } catch (error) {
+          if (importCityStopsFeedback) importCityStopsFeedback.textContent = error.message || 'Unable to import city stops.';
+        } finally {
+          submitImportCityStopsBtn.disabled = false;
+        }
+      });
+    }
+
+    function closeDriverModal() {
+      if (!addDriverModal) return;
+      addDriverModal.classList.remove('is-open');
+      addDriverModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openDriverModal() {
+      if (!addDriverModal) return;
+      addDriverModal.classList.add('is-open');
+      addDriverModal.setAttribute('aria-hidden', 'false');
+    }
+
+    if (openAddDriverModalBtn) {
+      openAddDriverModalBtn.addEventListener('click', () => {
+        if (addDriverForm) addDriverForm.reset();
+        if (driverIdField) driverIdField.value = '';
+        if (addDriverTitle) addDriverTitle.textContent = 'Add Driver';
+        if (submitAddDriverBtn) submitAddDriverBtn.textContent = 'Save Driver';
+        if (addDriverFeedback) addDriverFeedback.textContent = '';
+        openDriverModal();
+      });
+    }
+    if (closeAddDriverModalBtn) {
+      closeAddDriverModalBtn.addEventListener('click', closeDriverModal);
+    }
+    if (addDriverModal) {
+      addDriverModal.addEventListener('click', (event) => {
+        if (event.target === addDriverModal) {
+          closeDriverModal();
+        }
+      });
+    }
+
+    if (addDriverForm) {
+      addDriverForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitAddDriverBtn) return;
+
+        submitAddDriverBtn.disabled = true;
+        if (addDriverFeedback) addDriverFeedback.textContent = 'Saving driver...';
+
+        try {
+          const formData = new FormData(addDriverForm);
+          const driverId = String(driverIdField && driverIdField.value ? driverIdField.value : '').trim();
+          const url = driverId
+            ? `/transportation/manage/drivers/${encodeURIComponent(driverId)}/update`
+            : '/transportation/manage/drivers';
+          await postForm(url, formData, {
+            multipart: true,
+            defaultError: driverId ? 'Unable to update driver.' : 'Unable to save driver.',
+          });
+
+          if (addDriverFeedback) addDriverFeedback.textContent = driverId ? 'Driver updated. Refreshing list...' : 'Driver saved. Refreshing list...';
+          window.location.reload();
+        } catch (error) {
+          if (addDriverFeedback) addDriverFeedback.textContent = error.message || 'Unable to save driver.';
+        } finally {
+          submitAddDriverBtn.disabled = false;
+        }
+      });
+    }
+
+    function closeScheduleModal() {
+      if (!addScheduleModal) return;
+      addScheduleModal.classList.remove('is-open');
+      addScheduleModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openScheduleModal() {
+      if (!addScheduleModal) return;
+      addScheduleModal.classList.add('is-open');
+      addScheduleModal.setAttribute('aria-hidden', 'false');
+    }
+
+    if (openAddScheduleModalBtn) {
+      openAddScheduleModalBtn.addEventListener('click', () => {
+        if (addScheduleForm) addScheduleForm.reset();
+        if (scheduleIdField) scheduleIdField.value = '';
+        if (addScheduleTitle) addScheduleTitle.textContent = 'Add Schedule';
+        if (submitAddScheduleBtn) submitAddScheduleBtn.textContent = 'Save Schedule';
+        if (addScheduleFeedback) addScheduleFeedback.textContent = '';
+        openScheduleModal();
+      });
+    }
+    if (closeAddScheduleModalBtn) {
+      closeAddScheduleModalBtn.addEventListener('click', closeScheduleModal);
+    }
+    if (addScheduleModal) {
+      addScheduleModal.addEventListener('click', (event) => {
+        if (event.target === addScheduleModal) {
+          closeScheduleModal();
+        }
+      });
+    }
+
+    if (addScheduleForm) {
+      addScheduleForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitAddScheduleBtn) return;
+
+        submitAddScheduleBtn.disabled = true;
+        if (addScheduleFeedback) addScheduleFeedback.textContent = 'Saving schedule...';
+
+        try {
+          const formData = new FormData(addScheduleForm);
+          const scheduleId = String(scheduleIdField && scheduleIdField.value ? scheduleIdField.value : '').trim();
+          const url = scheduleId
+            ? `/transportation/manage/schedules/${encodeURIComponent(scheduleId)}/update`
+            : '/transportation/manage/schedules';
+          await postForm(url, formData, {
+            defaultError: scheduleId ? 'Unable to update schedule.' : 'Unable to save schedule.',
+          });
+
+          if (addScheduleFeedback) addScheduleFeedback.textContent = scheduleId ? 'Schedule updated. Refreshing list...' : 'Schedule saved. Refreshing list...';
+          window.location.reload();
+        } catch (error) {
+          if (addScheduleFeedback) addScheduleFeedback.textContent = error.message || 'Unable to save schedule.';
+        } finally {
+          submitAddScheduleBtn.disabled = false;
+        }
+      });
+    }
+
+    function closeRouteModal() {
+      if (!editRouteModal) return;
+      editRouteModal.classList.remove('is-open');
+      editRouteModal.setAttribute('aria-hidden', 'true');
+    }
+
+    function closeStopModal() {
+      if (!editStopModal) return;
+      editStopModal.classList.remove('is-open');
+      editStopModal.setAttribute('aria-hidden', 'true');
+    }
+
+    if (closeEditRouteModalBtn) {
+      closeEditRouteModalBtn.addEventListener('click', closeRouteModal);
+    }
+    if (editRouteModal) {
+      editRouteModal.addEventListener('click', (event) => {
+        if (event.target === editRouteModal) closeRouteModal();
+      });
+    }
+
+    if (closeEditStopModalBtn) {
+      closeEditStopModalBtn.addEventListener('click', closeStopModal);
+    }
+    if (editStopModal) {
+      editStopModal.addEventListener('click', (event) => {
+        if (event.target === editStopModal) closeStopModal();
+      });
+    }
+
+    if (editRouteForm) {
+      editRouteForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitEditRouteBtn) return;
+        submitEditRouteBtn.disabled = true;
+        if (editRouteFeedback) editRouteFeedback.textContent = 'Saving route...';
+
+        try {
+          const formData = new FormData(editRouteForm);
+          const routeId = String(editRouteForm.elements.routeId.value || '').trim();
+          await postForm(`/transportation/manage/routes/${encodeURIComponent(routeId)}/update`, formData, {
+            defaultError: 'Unable to update route.',
+          });
+          if (editRouteFeedback) editRouteFeedback.textContent = 'Route updated. Refreshing list...';
+          window.location.reload();
+        } catch (error) {
+          if (editRouteFeedback) editRouteFeedback.textContent = error.message || 'Unable to update route.';
+        } finally {
+          submitEditRouteBtn.disabled = false;
+        }
+      });
+    }
+
+    if (editStopForm) {
+      editStopForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!submitEditStopBtn) return;
+        submitEditStopBtn.disabled = true;
+        if (editStopFeedback) editStopFeedback.textContent = 'Saving stop...';
+
+        try {
+          const formData = new FormData(editStopForm);
+          const stopId = String(editStopForm.elements.stopId.value || '').trim();
+          await postForm(`/transportation/manage/stops/${encodeURIComponent(stopId)}/update`, formData, {
+            defaultError: 'Unable to update stop.',
+          });
+          if (editStopFeedback) editStopFeedback.textContent = 'Stop updated. Refreshing list...';
+          window.location.reload();
+        } catch (error) {
+          if (editStopFeedback) editStopFeedback.textContent = error.message || 'Unable to update stop.';
+        } finally {
+          submitEditStopBtn.disabled = false;
+        }
+      });
+    }
+
+    const classGroups = Array.from(document.querySelectorAll('[data-class-group]'));
+
+    function resetClassGroupSelection(classGroup) {
+      const checkboxes = Array.from(classGroup.querySelectorAll('[data-student-access-checkbox]'));
+      checkboxes.forEach((checkbox) => {
+        checkbox.checked = checkbox.dataset.initialChecked === '1';
+      });
+    }
+
+    function syncSelectAllCheckbox(classGroup) {
+      const selectAll = classGroup.querySelector('[data-action="select-all-class"]');
+      if (!selectAll) return;
+      const checkboxes = Array.from(classGroup.querySelectorAll('[data-student-access-checkbox]'));
+      if (!checkboxes.length) {
+        selectAll.checked = false;
+        return;
+      }
+      selectAll.checked = checkboxes.every((checkbox) => checkbox.checked);
+    }
+
+    classGroups.forEach((classGroup) => {
+      const feedback = classGroup.querySelector('[data-class-feedback]');
+      const editBtn = classGroup.querySelector('[data-action="edit-class-access"]');
+      const selectAll = classGroup.querySelector('[data-action="select-all-class"]');
+      const saveBtn = classGroup.querySelector('[data-action="save-class-access"]');
+      const cancelBtn = classGroup.querySelector('[data-action="cancel-class-access"]');
+      const checkboxes = Array.from(classGroup.querySelectorAll('[data-student-access-checkbox]'));
+
+      if (editBtn) {
+        editBtn.addEventListener('click', () => {
+          classGroup.classList.add('is-editing');
+          if (feedback) feedback.textContent = 'Edit mode enabled. Check students with bus access and save.';
+          syncSelectAllCheckbox(classGroup);
+        });
+      }
+
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          resetClassGroupSelection(classGroup);
+          classGroup.classList.remove('is-editing');
+          if (feedback) feedback.textContent = '';
+          syncSelectAllCheckbox(classGroup);
+        });
+      }
+
+      if (selectAll) {
+        selectAll.addEventListener('change', () => {
+          checkboxes.forEach((checkbox) => {
+            checkbox.checked = selectAll.checked;
+          });
+        });
+      }
+
+      checkboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+          syncSelectAllCheckbox(classGroup);
+        });
+      });
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+          if (feedback) feedback.textContent = 'Saving student access...';
+          saveBtn.disabled = true;
+
+          try {
+            const classId = classGroup.dataset.classId || '';
+            const selectedIds = checkboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+            const allIds = checkboxes.map((checkbox) => checkbox.value);
+
+            const formData = new FormData();
+            formData.append('classId', classId);
+            allIds.forEach((id) => formData.append('allStudentIds', id));
+            selectedIds.forEach((id) => formData.append('selectedStudentIds', id));
+
+            await postForm('/transportation/manage/students/access', formData, {
+              defaultError: 'Unable to update student bus access.',
+            });
+
+            if (feedback) feedback.textContent = 'Student access updated. Refreshing...';
+            window.location.reload();
+          } catch (error) {
+            if (feedback) feedback.textContent = error.message || 'Unable to update student bus access.';
+          } finally {
+            saveBtn.disabled = false;
+          }
+        });
+      }
+    });
+
+    async function drawLayers() {
+      const currentRevision = ++drawRevision;
+      mapLayer.clearLayers();
+      busLayer.clearLayers();
+      const points = [];
+      const grouped = {};
+      const routeDrawTasks = [];
+      const currentZoom = map.getZoom();
+      const routeFilterId = getSelectedRouteFilterId();
+      const allRoutesMode = !routeFilterId;
+      const strokeScale = currentZoom >= 15 ? 1.8 : currentZoom >= 13 ? 1.5 : currentZoom >= 11 ? 1.25 : 1;
+      const mainRouteInnerWeight = 3.4 * strokeScale;
+      const mainRouteCasingWeight = mainRouteInnerWeight + 2.8;
+      const customLegWeight = 2.6 * strokeScale;
+      const stopRadius = allRoutesMode && currentZoom < 12
+        ? Math.max(4, Math.min(8, Math.round(4.5 * strokeScale)))
+        : Math.max(6, Math.min(11, Math.round(5.5 * strokeScale)));
+      const stopFillOpacity = allRoutesMode && currentZoom < 12 ? 0.72 : 0.9;
+      const schoolLat = Number.isFinite(schoolDestination.latitude) ? schoolDestination.latitude : null;
+      const schoolLng = Number.isFinite(schoolDestination.longitude) ? schoolDestination.longitude : null;
+
+      if (schoolLat !== null && schoolLng !== null) {
+        const schoolMarker = L.marker([schoolLat, schoolLng], {
+          icon: L.divIcon({
+            className: '',
+            html: '<div class="tm-school-pin" title="School Hub">🏫</div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+            popupAnchor: [0, -10],
+          }),
+        });
+
+        schoolMarker.bindPopup(
+          '<strong>School Hub</strong>' +
+          '<br/>Address: ' + (schoolDestination.address || '-')
+        );
+        schoolMarker.addTo(mapLayer);
+        points.push([schoolLat, schoolLng]);
+      }
+      const filteredStops = routeFilterId
+        ? geoStops.filter((stop) => Number(stop.routeId) === Number(routeFilterId))
+        : geoStops;
+
+      filteredStops.forEach((stop) => {
+        const latlng = [stop.latitude, stop.longitude];
+        points.push(latlng);
+
+        const routeColor = colorForRoute(stop.routeId);
+        const marker = L.circleMarker(latlng, {
+          radius: stopRadius,
+          color: routeColor,
+          fillColor: routeColor,
+          fillOpacity: stopFillOpacity,
+          weight: 2,
+        });
+
+        marker.bindPopup(
+          '<strong>' + (stop.stopName || 'Stop') + '</strong>' +
+          '<br/>Route: ' + (routeNameById[stop.routeId] || ('#' + String(stop.routeId || ''))) +
+          '<br/>Address: ' + (stop.stopAddress || '-')
+        );
+
+        marker.addTo(mapLayer);
+
+        if (!grouped[stop.routeId]) grouped[stop.routeId] = [];
+        grouped[stop.routeId].push(stop);
+      });
+
+      Object.keys(grouped).forEach((routeId) => {
+        const routeStops = grouped[routeId]
+          .slice()
+          .sort((a, b) => (a.stopOrder || 0) - (b.stopOrder || 0));
+        const latlngs = routeStops
+          .filter((entry) => Number.isFinite(entry.latitude) && Number.isFinite(entry.longitude))
+          .map((entry) => [entry.latitude, entry.longitude]);
+
+        const numericRouteId = Number(routeId);
+        const routeMeta = routeMetaById[numericRouteId] || null;
+        const useSchoolDestination = routeMeta ? Boolean(routeMeta.useSchoolDestination) : false;
+
+        if (latlngs.length >= 2) {
+          routeDrawTasks.push(
+            (async () => {
+              const routeGeometrySource = useSchoolDestination && schoolLat !== null && schoolLng !== null
+                ? [[schoolLat, schoolLng], ...latlngs, [schoolLat, schoolLng]]
+                : latlngs;
+              const roadLatlngs = await fetchRoadGeometry(routeGeometrySource);
+              if (currentRevision !== drawRevision) return;
+              L.polyline(roadLatlngs, {
+                color: '#ffffff',
+                weight: mainRouteCasingWeight,
+                opacity: 0.95,
+              }).addTo(mapLayer);
+              L.polyline(roadLatlngs, {
+                color: colorForRoute(routeId),
+                weight: mainRouteInnerWeight,
+                opacity: 0.98,
+              }).addTo(mapLayer);
+            })()
+          );
+        }
+
+        const destinationLat = routeMeta && !useSchoolDestination && Number.isFinite(routeMeta.destinationLatitude)
+          ? routeMeta.destinationLatitude
+          : (Number.isFinite(schoolDestination.latitude) ? schoolDestination.latitude : null);
+        const destinationLng = routeMeta && !useSchoolDestination && Number.isFinite(routeMeta.destinationLongitude)
+          ? routeMeta.destinationLongitude
+          : (Number.isFinite(schoolDestination.longitude) ? schoolDestination.longitude : null);
+        const destinationAddress = (routeMeta && !useSchoolDestination && routeMeta.destinationAddress)
+          ? routeMeta.destinationAddress
+          : (schoolDestination.address || 'School address');
+
+        if (latlngs.length && destinationLat !== null && destinationLng !== null) {
+          const lastStop = latlngs[latlngs.length - 1];
+          const destinationPoint = [destinationLat, destinationLng];
+
+          if (!useSchoolDestination) {
+            const destinationPath = [lastStop, destinationPoint];
+            routeDrawTasks.push(
+              (async () => {
+                const roadLeg = await fetchRoadGeometry(destinationPath);
+                if (currentRevision !== drawRevision) return;
+
+                L.polyline(roadLeg, {
+                  color: '#ffffff',
+                  weight: customLegWeight + 2,
+                  opacity: 0.9,
+                }).addTo(mapLayer);
+
+                L.polyline(roadLeg, {
+                  color: colorForRoute(routeId),
+                  weight: customLegWeight,
+                  opacity: 0.92,
+                  dashArray: '6,6',
+                }).addTo(mapLayer);
+
+                L.circleMarker(destinationPoint, {
+                  radius: 7,
+                  color: '#0f172a',
+                  fillColor: '#ffffff',
+                  fillOpacity: 1,
+                  weight: 2,
+                })
+                  .bindPopup(
+                    '<strong>Route Destination</strong>' +
+                    '<br/>Route: ' + (routeNameById[numericRouteId] || ('#' + String(numericRouteId))) +
+                    '<br/>Address: ' + destinationAddress
+                  )
+                  .addTo(mapLayer);
+              })()
+            );
+          }
+
+          points.push([destinationLat, destinationLng]);
+        }
+      });
+
+      const routeIdsWithStops = new Set(Object.keys(grouped).map((id) => Number(id)));
+      const activeSchedules = schedulesForMap.filter((schedule) => {
+        if (!schedule || !schedule.routeId || !schedule.busId) return false;
+        if (String(schedule.status || '').toLowerCase() !== 'active') return false;
+        if (routeFilterId && Number(schedule.routeId) !== Number(routeFilterId)) return false;
+        return routeIdsWithStops.has(Number(schedule.routeId));
+      });
+
+      const renderedBusKeys = new Set();
+      activeSchedules.forEach((schedule, idx) => {
+        const routeStops = grouped[schedule.routeId] || grouped[String(schedule.routeId)] || [];
+        if (!routeStops.length) return;
+
+        const key = `${schedule.busId}-${schedule.routeId}`;
+        if (renderedBusKeys.has(key)) return;
+        renderedBusKeys.add(key);
+
+        const anchorStop = routeStops[Math.min(routeStops.length - 1, idx % routeStops.length)];
+        const lat = Number(anchorStop.latitude);
+        const lng = Number(anchorStop.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const bus = busById[schedule.busId] || null;
+        const routeName = routeNameById[schedule.routeId] || '';
+        const marker = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: '',
+            html: '<div class="tm-bus-pin" title="Bus">' + '🚌' + '</div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+            popupAnchor: [0, -10],
+          }),
+        });
+
+        marker.bindPopup(buildBusPopup(schedule, bus, routeName));
+        marker.addTo(busLayer);
+      });
+
+      await Promise.allSettled(routeDrawTasks);
+      if (currentRevision !== drawRevision) {
+        return {
+          points: [],
+          busCount: 0,
+        };
+      }
+
+      return {
+        points,
+        busCount: busLayer.getLayers().length,
+      };
+    }
+
+    async function fitToStops() {
+      const drawState = await drawLayers();
+      if (!drawState.points.length) {
+        mapStatus.textContent = 'No stop coordinates found for the selected route filter.';
+        return;
+      }
+      const bounds = L.latLngBounds(drawState.points);
+      map.fitBounds(bounds.pad(0.2));
+      const routeFilterId = getSelectedRouteFilterId();
+      const selectedRouteName = routeFilterId ? (routeNameById[routeFilterId] || `Route #${routeFilterId}`) : null;
+      mapStatus.textContent = selectedRouteName
+        ? `Map fitted to ${selectedRouteName}. Route loop shows School -> Stops -> School. ${drawState.busCount} bus marker(s).`
+        : `Map fitted to active route loops, stops, and school hub 🏫. ${drawState.busCount} bus marker(s).`;
+    }
+
+    async function centerByCity() {
+      const city = String(cityInput.value || '').trim();
+      if (!city) {
+        mapStatus.textContent = 'Enter a city to center the map.';
+        return;
+      }
+
+      mapStatus.textContent = 'Locating city...';
+      try {
+        const response = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(city));
+        const payload = await response.json();
+
+        if (!Array.isArray(payload) || !payload.length) {
+          mapStatus.textContent = 'City not found. Try a more specific city or area name.';
+          return;
+        }
+
+        const result = payload[0];
+        const lat = Number(result.lat);
+        const lon = Number(result.lon);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          mapStatus.textContent = 'City lookup did not return valid coordinates.';
+          return;
+        }
+
+        map.setView([lat, lon], 12);
+        mapStatus.textContent = 'Centered on ' + city + '.';
+      } catch (_error) {
+        mapStatus.textContent = 'Unable to center by city right now. Check internet access and retry.';
+      }
+    }
+
+    void fitToStops();
+    centerCityBtn.addEventListener('click', centerByCity);
+    fitStopsBtn.addEventListener('click', () => {
+      void fitToStops();
+    });
+    if (routeFilterSelect) {
+      routeFilterSelect.addEventListener('change', () => {
+        void fitToStops();
+      });
+    }
+
+    const guessedCity = geoStops.find((stop) => stop.stopAddress && stop.stopAddress.includes(','));
+    if (guessedCity) {
+      const segments = guessedCity.stopAddress.split(',').map((part) => part.trim()).filter(Boolean);
+      if (segments.length) {
+        cityInput.value = segments[segments.length - 1];
+      }
+    }
+
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 120);
+
+    map.on('zoomend', () => {
+      void drawLayers();
+    });
+
+    navButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        setTimeout(() => {
+          map.invalidateSize();
+          if (btn.dataset.pane === 'overview') {
+            void fitToStops();
+          }
+        }, 120);
+      });
+    });
+  })();
+</script>

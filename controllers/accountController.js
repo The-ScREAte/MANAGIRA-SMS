@@ -450,6 +450,10 @@ const {
   getStudentPortalIntegrationStatus,
   setStudentPortalActivation,
 } = require("../utils/studentPortal");
+const {
+  getTransportationIntegrationStatus,
+  setTransportationIntegrationActivation,
+} = require("../utils/transportation");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
 const cacheManager = require("../utils/cacheManager");
@@ -506,13 +510,6 @@ const {
   syncGoogleClassroomForOrganization,
   pushPendingAssessmentsForOrganization,
 } = require("../utils/googleClassroomSync");
-
-const WHATSAPP_SERVER_TEST_DEFAULTS = {
-  phoneNumberId: "1149779811558777",
-  recipient: "13854521960",
-  accessToken:
-    "EAAZBr7Wh6kf4BRZBpij1Sb2oGLP3jpPfEbvPGZCKkXwR8tleChLXyq8cReIGNecrNWvP0qVgj8ZByPf5ZBImiwwsD94h2W0IC7thGI2nDlOripEpQNuH0saoHlU04EEpspZBu7aICuD4F9RnZBBTelYxGscpb7yHF5ZAPrecY0sVLbHecJ8g0YxVZBX4Swpe8l5iASF27MzPNiCZAUZB9G4n4rqljLpB2pYlOjMy2v7a0w5NAuABlNyQAZDZD",
-};
 
 const GOOGLE_CLASSROOM_SCOPES = [
   "https://www.googleapis.com/auth/classroom.courses",
@@ -2305,7 +2302,7 @@ const accountController = {
 
   listPaystackBanks: async (req, res) => {
     try {
-      const country = (req.query.country || "ghana").toLowerCase();
+      const country = (req.query.country || "united states").toLowerCase();
       const paystackSecretKey = await getActivePaystackSecretKey();
       const headers = {
         headers: { Authorization: `Bearer ${paystackSecretKey}` },
@@ -2655,7 +2652,7 @@ const accountController = {
     const registerDefaultCountry =
       (formData?.orgCountry && String(formData.orgCountry).trim().toUpperCase()) ||
       (COUNTRY_NAME_LOOKUP[detectedCountryCode] ? detectedCountryCode : '') ||
-      'GH';
+      'US';
 
     res.render("account/register", {
       title: "Register Your Organization",
@@ -8671,6 +8668,11 @@ const accountController = {
         connected: false,
         shouldShowFeatures: false,
       };
+      let transportationIntegration = {
+        activated: false,
+        mapProvider: "openstreetmap",
+        shouldShowFeatures: false,
+      };
       const [settingsPermission, billingPermission, paygiraPermission] = await Promise.all([
         userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_SETTINGS).catch(() => false),
         userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_BILLING).catch(() => false),
@@ -8685,14 +8687,21 @@ const accountController = {
         localPermissionSet.has(PERMISSIONS.MANAGE_PAYGIRA);
 
       if (canAccessCustomizeSettings && orgId) {
-        const [resolvedGoogleIntegration, initialWhatsappIntegration, resolvedStudentPortalIntegration] = await Promise.all([
+        const [
+          resolvedGoogleIntegration,
+          initialWhatsappIntegration,
+          resolvedStudentPortalIntegration,
+          resolvedTransportationIntegration,
+        ] = await Promise.all([
           getGoogleIntegrationStatus(db, orgId),
           getWhatsappIntegrationStatus(db, orgId),
           getStudentPortalIntegrationStatus(db, orgId),
+          getTransportationIntegrationStatus(db, orgId),
         ]);
         googleIntegration = resolvedGoogleIntegration;
         whatsappIntegration = initialWhatsappIntegration;
         studentPortalIntegration = resolvedStudentPortalIntegration;
+        transportationIntegration = resolvedTransportationIntegration;
 
         if (
           whatsappIntegration &&
@@ -8711,16 +8720,16 @@ const accountController = {
         graphApiVersion: metaConfig.graphApiVersion || "v21.0",
       };
       const resolvedServerTestAccessToken =
-        String(process.env.WHATSAPP_TEST_ACCESS_TOKEN || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.accessToken;
+        String(process.env.WHATSAPP_TEST_ACCESS_TOKEN || "").trim();
       const resolvedServerTestPhoneNumberId =
-        String(process.env.WHATSAPP_TEST_PHONE_NUMBER_ID || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.phoneNumberId;
+        String(process.env.WHATSAPP_TEST_PHONE_NUMBER_ID || "").trim();
       const whatsappServerTestConfig = {
         enabled: Boolean(
           resolvedServerTestAccessToken &&
           resolvedServerTestPhoneNumberId
         ),
         defaultRecipient:
-          String(process.env.WHATSAPP_TEST_RECIPIENT || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.recipient,
+          String(process.env.WHATSAPP_TEST_RECIPIENT || "").trim(),
       };
 
       const payoutDestinationUtils = require("../utils/payoutDestination");
@@ -8778,6 +8787,7 @@ const accountController = {
         whatsappFrontendConfig,
         whatsappServerTestConfig,
         studentPortalIntegration,
+        transportationIntegration,
         feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
         feedbackAreaOptions: FEEDBACK_AREA_OPTIONS,
         feedbackPriorityOptions: FEEDBACK_PRIORITY_OPTIONS,
@@ -9925,7 +9935,7 @@ const accountController = {
 
     const safeBankOrProvider = String(bank_or_provider || "").trim();
 
-    const safeCountry = country || "GH";
+    const safeCountry = country || "US";
 
     const safePaymentType = account_type || "bank";
 
@@ -10126,7 +10136,7 @@ const accountController = {
 
       const safeBankOrProvider = String(bank_or_provider || "").trim();
 
-      const safeCountry = country || "GH";
+      const safeCountry = country || "US";
 
       const safeAccountType = account_type || "bank";
 
@@ -10525,7 +10535,7 @@ const accountController = {
       );
       const orgCountryCode = /^[A-Z]{2}$/.test(explicitCountryCode)
         ? explicitCountryCode
-        : (inferredCountryCode || 'GH');
+        : (inferredCountryCode || 'US');
       const currency = getCurrencyForCountry(orgCountryCode) || 'USD';
 
       // Try to get Paystack secret key — if unavailable, save locally
@@ -10541,7 +10551,7 @@ const accountController = {
         if (paystackHeaders) {
           // Resolve bank code from Paystack bank list
           try {
-            const countryParam = { GHS: 'ghana', NGN: 'nigeria', KES: 'kenya', ZAR: 'south africa', XOF: 'ivory coast' }[currency] || 'ghana';
+            const countryParam = { GHS: 'ghana', NGN: 'nigeria', KES: 'kenya', ZAR: 'south africa', XOF: 'ivory coast', USD: 'united states' }[currency] || 'united states';
             const banksResp = await axios.get(`https://api.paystack.co/bank?country=${encodeURIComponent(countryParam)}&perPage=200`, paystackHeaders);
             const banks = banksResp.data?.data || [];
             const match = banks.find(b => String(b.code).toLowerCase() === String(bank_code || '').toLowerCase())
@@ -11403,9 +11413,9 @@ const accountController = {
 
       if (useServerTestCredentials) {
         accessToken =
-          String(process.env.WHATSAPP_TEST_ACCESS_TOKEN || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.accessToken;
+          String(process.env.WHATSAPP_TEST_ACCESS_TOKEN || "").trim();
         phoneNumberId =
-          String(process.env.WHATSAPP_TEST_PHONE_NUMBER_ID || "").trim() || WHATSAPP_SERVER_TEST_DEFAULTS.phoneNumberId;
+          String(process.env.WHATSAPP_TEST_PHONE_NUMBER_ID || "").trim();
 
         if (!accessToken || !phoneNumberId) {
           return res.status(400).json({
@@ -11572,6 +11582,74 @@ const accountController = {
       return respond(500, {
         success: false,
         message: "Unable to update Student Portal activation right now.",
+      });
+    }
+  },
+
+  transportationActivationPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    const acceptsHeader = String(req.get("accept") || "").toLowerCase();
+    const wantsJson =
+      req.xhr ||
+      acceptsHeader.includes("application/json") ||
+      String(req.get("x-requested-with") || "").toLowerCase() === "xmlhttprequest";
+
+    const respond = (statusCode, payload) => {
+      if (wantsJson) {
+        return res.status(statusCode).json(payload);
+      }
+
+      if (!payload.success && payload.message) {
+        req.flash("error", payload.message);
+      } else if (payload.success && payload.message) {
+        req.flash("success", payload.message);
+      }
+
+      return res.redirect("/account/settings?section=integrations");
+    };
+
+    try {
+      const shouldActivate = String(req.body.activate || "").trim() === "1";
+
+      const integrationPassword = String(
+        req.body.integrationPassword || req.body.deactivationPassword || ""
+      );
+      if (!integrationPassword.trim()) {
+        return respond(400, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? "Enter your password to activate Transportation integration."
+            : "Enter your password to deactivate Transportation integration.",
+        });
+      }
+
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      if (!isPasswordValid) {
+        return respond(401, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? "Incorrect password. Transportation integration was not activated."
+            : "Incorrect password. Transportation integration was not deactivated.",
+        });
+      }
+
+      await setTransportationIntegrationActivation(db, orgId, shouldActivate);
+
+      return respond(200, {
+        success: true,
+        activated: shouldActivate,
+        message: shouldActivate
+          ? "Transportation integration is now activated."
+          : "Transportation integration has been deactivated.",
+      });
+    } catch (error) {
+      return respond(500, {
+        success: false,
+        message: "Unable to update Transportation activation right now.",
       });
     }
   },

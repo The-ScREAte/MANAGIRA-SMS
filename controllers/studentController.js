@@ -8,6 +8,7 @@ const {
   toDateKey,
   isAttendanceCountableForDate,
 } = require("../utils/attendanceCalendar");
+const { getStudentTransportationSnapshot } = require("./transportationController");
 
 const STUDENT_TESTING_ROOM_FEATURE_NAMES = [
   "Set Assessment Questions",
@@ -593,6 +594,11 @@ module.exports = {
         req.flash("error", "Student profile not found.");
         return res.redirect("/account/student-login");
       }
+      const transportationSnapshot = await getStudentTransportationSnapshot(
+        db,
+        organizationId,
+        Number(studentId)
+      ).catch(() => null);
 
       const availableTerms = await getStudentPortalTermOptions(db, organizationId, studentId);
 
@@ -621,6 +627,7 @@ module.exports = {
           classSchedule: null,
           scheduleTable: { periods: [], rows: [] },
           scheduleWatermarkUrl,
+          transportationSnapshot,
           openAssessmentsCount: 0,
           testingRoomEnabled,
           messages: req.flash(),
@@ -971,6 +978,7 @@ module.exports = {
         classSchedule,
         scheduleTable,
         scheduleWatermarkUrl,
+        transportationSnapshot,
         openAssessmentsCount: openAssessments.length,
         testingRoomEnabled,
         messages: req.flash(),

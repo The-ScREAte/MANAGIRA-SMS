@@ -756,6 +756,14 @@
         filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
       }
 
+      .transportation-logo {
+        width: 58px;
+        height: 44px;
+        object-fit: contain;
+        display: inline-block;
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
+      }
+
       .google-integration-summary {
         display: flex;
         flex-wrap: wrap;
@@ -883,6 +891,11 @@
         }
 
         .student-portal-logo {
+          width: 44px;
+          height: 34px;
+        }
+
+        .transportation-logo {
           width: 44px;
           height: 34px;
         }
@@ -3383,6 +3396,8 @@
           <% const hasWhatsappServerTestMode = !!wst.enabled; %>
           <% const spi = (typeof studentPortalIntegration !== 'undefined' && studentPortalIntegration) ? studentPortalIntegration : {}; %>
           <% const spiActivated = !!spi.activated; %>
+          <% const ti = (typeof transportationIntegration !== 'undefined' && transportationIntegration) ? transportationIntegration : {}; %>
+          <% const tiActivated = !!ti.activated; %>
 
           <div class="card">
             <h4>
@@ -3588,6 +3603,56 @@
             <form id="student-portal-activation-form" action="/account/student-portal/activate" method="POST" style="display:none;">
               <input type="hidden" name="activate" id="student-portal-activation-value" value="0" />
               <input type="hidden" name="integrationPassword" id="student-portal-activation-password" />
+            </form>
+          </div>
+
+          <div class="card" style="margin-top:14px;">
+            <h4>
+              <span class="student-portal-title">
+                <img class="transportation-logo" src="/images/transportation-logo.png" alt="Transportation logo" />
+                <span>Transportation</span>
+              </span>
+            </h4>
+            <small class="google-integration-description">
+              Activate Transportation to unlock bus, route, stop assignment, and live tracking dashboards for students, guardians, and staff.
+            </small>
+
+            <div class="google-integration-toolbar">
+              <div class="google-integration-summary">
+                <span class="google-integration-copy">Transportation status</span>
+                <span
+                  class="pill"
+                  id="transportation-status-pill"
+                  data-activated="<%= tiActivated ? '1' : '0' %>"
+                  style="background:<%= tiActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= tiActivated ? '#166534' : '#92400e' %>">
+                  <%= tiActivated ? 'Active' : 'Inactive' %>
+                </span>
+                <span class="text-muted-sm">Map provider: <strong><%= ti.mapProvider || 'openstreetmap' %></strong></span>
+              </div>
+
+              <div class="google-integration-actions">
+                <details class="google-actions-menu">
+                  <summary class="google-actions-toggle" aria-label="Transportation actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-transportation-activate-modal"
+                      style="display:<%= tiActivated ? 'none' : 'block' %>;"><%= tiActivated ? '' : 'Activate' %></a>
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-transportation-deactivate-modal"
+                      style="display:<%= tiActivated ? 'block' : 'none' %>;"><%= tiActivated ? 'Deactivate' : '' %></a>
+                    <a class="google-action-item" href="/transportation/manage" style="display:<%= tiActivated ? 'block' : 'none' %>;">Open Transportation Manager</a>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="transportation-activation-form" action="/account/transportation/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="transportation-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="transportation-activation-password" />
             </form>
           </div>
         </section>
@@ -3923,6 +3988,28 @@
           <p class="error-text" id="student-portal-activation-error"></p>
           <div class="form-actions">
             <button class="btn-primary btn-link" id="student-portal-activation-submit" type="button">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="transportation-activation-modal">
+      <div class="modal-card password-modal">
+        <button class="modal-close" type="button" id="transportation-activation-close">x</button>
+        <h2>Confirm Password</h2>
+        <p id="transportation-activation-copy">Please confirm your password to continue with Transportation changes.</p>
+        <div class="content-row">
+          <div class="field-group">
+            <label class="form-label" for="transportation-activation-input">Password</label>
+            <input
+              type="password"
+              id="transportation-activation-input"
+              placeholder="Enter your password"
+              class="form-input"
+            />
+          </div>
+          <p class="error-text" id="transportation-activation-error"></p>
+          <div class="form-actions">
+            <button class="btn-primary btn-link" id="transportation-activation-submit" type="button">Continue</button>
           </div>
         </div>
       </div>
@@ -4462,6 +4549,18 @@
         const studentPortalActivationPassword = document.getElementById("student-portal-activation-password");
         const studentPortalActivationForm = document.getElementById("student-portal-activation-form");
         const studentPortalStatusPill = document.getElementById("student-portal-status-pill");
+        const transportationActivationModal = document.getElementById("transportation-activation-modal");
+        const transportationActivateOpen = document.getElementById("open-transportation-activate-modal");
+        const transportationDeactivateOpen = document.getElementById("open-transportation-deactivate-modal");
+        const transportationActivationClose = document.getElementById("transportation-activation-close");
+        const transportationActivationSubmit = document.getElementById("transportation-activation-submit");
+        const transportationActivationInput = document.getElementById("transportation-activation-input");
+        const transportationActivationError = document.getElementById("transportation-activation-error");
+        const transportationActivationCopy = document.getElementById("transportation-activation-copy");
+        const transportationActivationValue = document.getElementById("transportation-activation-value");
+        const transportationActivationPassword = document.getElementById("transportation-activation-password");
+        const transportationActivationForm = document.getElementById("transportation-activation-form");
+        const transportationStatusPill = document.getElementById("transportation-status-pill");
         const whatsappActivationModal = document.getElementById("whatsapp-activation-modal");
         const whatsappActivateOpen = document.getElementById("open-whatsapp-activate-modal");
         const whatsappDeactivateOpen = document.getElementById("open-whatsapp-deactivate-modal");
@@ -4482,6 +4581,7 @@
         const whatsappLastError = document.getElementById("whatsapp-last-error");
         const whatsappDefaultTestButton = document.getElementById("whatsapp-default-test-button");
         const whatsappTestMessageStatus = document.getElementById("whatsapp-test-message-status");
+        const whatsappCanonicalBaseUrl = <%- JSON.stringify(String(typeof BASE_URL === "string" ? BASE_URL : "").trim()) %>;
         const planModal = document.getElementById("plan-modal");
         const planModalOpen = document.getElementById("open-plan-modal");
         const planModalClose = document.getElementById("plan-modal-close");
@@ -5120,6 +5220,128 @@
           });
         }
 
+        function openTransportationPasswordModal(mode) {
+          if (!transportationActivationModal) return;
+          const isActivate = mode === "activate";
+          if (transportationActivationCopy) {
+            transportationActivationCopy.textContent = isActivate
+              ? "Please confirm your password to activate Transportation."
+              : "Please confirm your password to deactivate Transportation.";
+          }
+          if (transportationActivationValue) {
+            transportationActivationValue.value = isActivate ? "1" : "0";
+          }
+          if (transportationActivationInput) {
+            transportationActivationInput.value = "";
+          }
+          if (transportationActivationError) {
+            transportationActivationError.textContent = "";
+          }
+          openModal(transportationActivationModal);
+        }
+
+        function setTransportationUiState(isActive) {
+          if (transportationStatusPill) {
+            transportationStatusPill.textContent = isActive ? "Active" : "Inactive";
+            transportationStatusPill.style.background = isActive ? "#dcfce7" : "#fef3c7";
+            transportationStatusPill.style.color = isActive ? "#166534" : "#92400e";
+            transportationStatusPill.dataset.activated = isActive ? "1" : "0";
+          }
+
+          if (transportationActivateOpen) {
+            transportationActivateOpen.style.display = isActive ? "none" : "block";
+          }
+
+          if (transportationDeactivateOpen) {
+            transportationDeactivateOpen.style.display = isActive ? "block" : "none";
+          }
+        }
+
+        if (transportationActivateOpen && transportationActivationModal) {
+          transportationActivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openTransportationPasswordModal("activate");
+          });
+        }
+
+        if (transportationDeactivateOpen && transportationActivationModal) {
+          transportationDeactivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openTransportationPasswordModal("deactivate");
+          });
+        }
+
+        if (transportationActivationClose && transportationActivationModal) {
+          transportationActivationClose.addEventListener("click", () => closeModal(transportationActivationModal));
+        }
+
+        if (transportationActivationModal) {
+          transportationActivationModal.addEventListener("click", (event) => {
+            if (event.target === transportationActivationModal) {
+              closeModal(transportationActivationModal);
+            }
+          });
+        }
+
+        if (transportationStatusPill) {
+          setTransportationUiState(transportationStatusPill.dataset.activated === "1");
+        }
+
+        if (transportationActivationSubmit && transportationActivationInput && transportationActivationValue) {
+          transportationActivationSubmit.addEventListener("click", async () => {
+            const password = transportationActivationInput.value.trim();
+            if (!password) {
+              if (transportationActivationError) {
+                transportationActivationError.textContent = "Password is required.";
+              }
+              return;
+            }
+
+            const activateValue = String(transportationActivationValue.value || "0").trim();
+
+            if (transportationActivationError) {
+              transportationActivationError.textContent = "";
+            }
+
+            transportationActivationSubmit.disabled = true;
+            const previousLabel = transportationActivationSubmit.textContent;
+            transportationActivationSubmit.textContent = "Processing...";
+
+            try {
+              const response = await fetch("/account/transportation/activate", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: new URLSearchParams({
+                  activate: activateValue,
+                  integrationPassword: password,
+                }),
+              });
+
+              const result = await response.json();
+              if (!response.ok || !result || !result.success) {
+                if (transportationActivationError) {
+                  transportationActivationError.textContent = (result && result.message) || "Unable to update Transportation integration.";
+                }
+                return;
+              }
+
+              setTransportationUiState(Boolean(result.activated));
+              closeModal(transportationActivationModal);
+            } catch (error) {
+              if (transportationActivationError) {
+                transportationActivationError.textContent = "Unable to update Transportation integration right now.";
+              }
+            } finally {
+              transportationActivationSubmit.disabled = false;
+              transportationActivationSubmit.textContent = previousLabel || "Continue";
+            }
+          });
+        }
+
         function openWhatsappPasswordModal(mode) {
           if (!whatsappActivationModal) return;
           const isActivate = mode === "activate";
@@ -5206,6 +5428,30 @@
           if (!whatsappTestMessageStatus) return;
           whatsappTestMessageStatus.textContent = String(message || "").trim();
           whatsappTestMessageStatus.style.color = type === "error" ? "#b91c1c" : (type === "success" ? "#166534" : "#64748b");
+        }
+
+        function redirectWhatsappConnectToCanonicalHost() {
+          const configuredBaseUrl = String(whatsappCanonicalBaseUrl || "").trim();
+          if (!configuredBaseUrl || !/^https?:\/\//i.test(configuredBaseUrl)) {
+            return false;
+          }
+
+          let targetUrl;
+          try {
+            targetUrl = new URL(configuredBaseUrl);
+          } catch (_) {
+            return false;
+          }
+
+          if (window.location.origin === targetUrl.origin) {
+            return false;
+          }
+
+          const nextUrl = new URL(window.location.href);
+          nextUrl.protocol = targetUrl.protocol;
+          nextUrl.host = targetUrl.host;
+          window.location.assign(nextUrl.toString());
+          return true;
         }
 
         if (whatsappStatusPill) {
@@ -5367,6 +5613,10 @@
             const msg = "WhatsApp connect is not configured on this server yet. Missing META_APP_ID, META_APP_SECRET, or WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID.";
             setWhatsappInlineError(msg);
             window.alert(msg);
+            return;
+          }
+
+          if (redirectWhatsappConnectToCanonicalHost()) {
             return;
           }
 
@@ -6079,7 +6329,17 @@
           const select = document.getElementById("sa-bank-select");
           const nameInput = document.getElementById("sa-bank-name-input");
           const errEl = document.getElementById("sa-bank-load-error");
-          fetch("/account/paystack-banks?country=ghana")
+          const orgCountryCode = String(<%- JSON.stringify((org && org.organization_country) ? String(org.organization_country).toUpperCase() : 'US') %> || 'US').toUpperCase();
+          const countryByCode = {
+            GH: 'ghana',
+            NG: 'nigeria',
+            KE: 'kenya',
+            ZA: 'south africa',
+            CI: 'ivory coast',
+            US: 'united states',
+          };
+          const bankCountry = countryByCode[orgCountryCode] || 'united states';
+          fetch(`/account/paystack-banks?country=${encodeURIComponent(bankCountry)}`)
             .then((r) => r.json())
             .then((data) => {
               const banks = data.banks || [];

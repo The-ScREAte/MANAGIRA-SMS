@@ -432,6 +432,12 @@ module.exports = (db) => {
     isAuthenticated,
     (req, res) => commonController.getStudentTeacherRemarkOptions(req, res, db)
   );
+  router.get(
+    "/classDashboardStudentTransport",
+    checkFeatureAccess,
+    isAuthenticated,
+    (req, res) => commonController.getClassDashboardStudentTransportSnapshot(req, res, db)
+  );
   router.post(
     "/saveStudentTeacherRemark",
     checkFeatureAccess,

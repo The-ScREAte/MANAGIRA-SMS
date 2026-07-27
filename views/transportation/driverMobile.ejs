@@ -1,0 +1,191 @@
+<%- include('../partials/flash') %>
+
+<style>
+  .driver-shell {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    gap: 12px;
+  }
+  .driver-card {
+    border: 1px solid #dbe5ef;
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px;
+    display: grid;
+    gap: 8px;
+  }
+  .driver-card h1,
+  .driver-card h2 {
+    margin: 0;
+    font-size: 18px;
+  }
+  .driver-row {
+    display: grid;
+    gap: 6px;
+  }
+  .driver-row label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+  }
+  .driver-row select,
+  .driver-row input,
+  .driver-row button {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 13px;
+  }
+  .driver-row button {
+    background: var(--org-primary-color, #0f5a66);
+    color: #fff;
+    border-color: var(--org-primary-color, #0f5a66);
+    font-weight: 700;
+  }
+  .muted { font-size: 12px; color: #64748b; margin: 0; }
+</style>
+
+<div class="driver-shell">
+  <section class="driver-card">
+    <h1>Driver Transportation</h1>
+    <p class="muted">Start trip, then location updates will be posted every 15 seconds while allowed by your browser.</p>
+  </section>
+
+  <section class="driver-card">
+    <h2>Trip Control</h2>
+    <div class="driver-row">
+      <label for="routeId">Route</label>
+      <select id="routeId">
+        <option value="">Select route</option>
+        <% (routes || []).forEach(function(route) { %>
+        <option value="<%= route.route_id %>"><%= route.route_name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="driver-row">
+      <label for="busId">Bus</label>
+      <select id="busId">
+        <option value="">Select bus</option>
+        <% (buses || []).forEach(function(bus) { %>
+        <option value="<%= bus.bus_id %>"><%= bus.bus_number %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="driver-row">
+      <button type="button" id="startTripBtn">Start Trip</button>
+      <button type="button" id="stopTripBtn" style="display:none;background:#991b1b;border-color:#991b1b;">End Trip</button>
+    </div>
+    <p class="muted" id="tripStatusText">No active trip.</p>
+  </section>
+</div>
+
+<script>
+  (function() {
+    let activeTripId = <%= activeTrip && activeTrip.trip_id ? Number(activeTrip.trip_id) : 'null' %>;
+    let locationTimer = null;
+
+    const startTripBtn = document.getElementById('startTripBtn');
+    const stopTripBtn = document.getElementById('stopTripBtn');
+    const routeIdInput = document.getElementById('routeId');
+    const busIdInput = document.getElementById('busId');
+    const tripStatusText = document.getElementById('tripStatusText');
+
+    function setUiForTripState(active) {
+      startTripBtn.style.display = active ? 'none' : 'inline-block';
+      stopTripBtn.style.display = active ? 'inline-block' : 'none';
+      tripStatusText.textContent = active
+        ? 'Trip active. Live location posting every 15 seconds.'
+        : 'No active trip.';
+    }
+
+    async function postLiveLocation() {
+      if (!activeTripId || !navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(async function(position) {
+        const payload = new URLSearchParams({
+          tripId: String(activeTripId),
+          latitude: String(position.coords.latitude),
+          longitude: String(position.coords.longitude),
+          speedKmh: position.coords.speed ? String(Number(position.coords.speed) * 3.6) : '',
+          headingDeg: position.coords.heading ? String(position.coords.heading) : '',
+        });
+
+        await fetch('/transportation/driver/live-location', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: payload,
+        }).catch(function() {});
+      });
+    }
+
+    function startLocationLoop() {
+      if (locationTimer) window.clearInterval(locationTimer);
+      postLiveLocation();
+      locationTimer = window.setInterval(postLiveLocation, 15000);
+    }
+
+    function stopLocationLoop() {
+      if (!locationTimer) return;
+      window.clearInterval(locationTimer);
+      locationTimer = null;
+    }
+
+    startTripBtn.addEventListener('click', async function() {
+      const routeId = String(routeIdInput.value || '').trim();
+      const busId = String(busIdInput.value || '').trim();
+      if (!routeId || !busId) {
+        tripStatusText.textContent = 'Select both route and bus.';
+        return;
+      }
+
+      const response = await fetch('/transportation/driver/trips/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: new URLSearchParams({ routeId: routeId, busId: busId }),
+      });
+      const result = await response.json().catch(function() { return null; });
+      if (!response.ok || !result || !result.success || !result.trip) {
+        tripStatusText.textContent = (result && result.message) || 'Unable to start trip.';
+        return;
+      }
+
+      activeTripId = Number(result.trip.trip_id);
+      setUiForTripState(true);
+      startLocationLoop();
+    });
+
+    stopTripBtn.addEventListener('click', async function() {
+      if (!activeTripId) return;
+      const response = await fetch('/transportation/driver/trips/end', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: new URLSearchParams({ tripId: String(activeTripId) }),
+      });
+      const result = await response.json().catch(function() { return null; });
+      if (!response.ok || !result || !result.success) {
+        tripStatusText.textContent = (result && result.message) || 'Unable to end trip.';
+        return;
+      }
+
+      activeTripId = null;
+      stopLocationLoop();
+      setUiForTripState(false);
+    });
+
+    setUiForTripState(Boolean(activeTripId));
+    if (activeTripId) startLocationLoop();
+  })();
+</script>

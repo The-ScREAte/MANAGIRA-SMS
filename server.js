@@ -789,6 +789,7 @@ const chatbotRoute = require("./routes/chatbotRoute");
 const guardianRoute = require("./routes/guardianRoute")(db);
 const studentRoute = require("./routes/studentRoute")(db);
 const documentRoute = require("./routes/documentRoute")(db);
+const transportationRoute = require("./routes/transportationRoute")(db);
 
 // Debug middleware for admin routes in production
 if (process.env.NODE_ENV === "production") {
@@ -816,6 +817,7 @@ app.use("/api/chatbot", chatbotRoute);
 app.use("/guardian", guardianRoute);
 app.use("/student", studentRoute);
 app.use("/documents", documentRoute);
+app.use("/transportation", transportationRoute);
 app.use("/hub", require("./routes/hubRoute")); // Hub routes
 
 app.get("/school-index.json", async (req, res, next) => {

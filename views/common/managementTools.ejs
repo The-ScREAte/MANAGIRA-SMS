@@ -24,6 +24,7 @@
   const currentTheme = themeColors[themeColor] || themeColors.teal;
   const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets'));
   const hasPublicWebsiteFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite') || allowedFeatures.includes('Public Dashboard') || allowedFeatures.includes('School Public Dashboard'));
+  const hasTransportationIntegration = !!(transportationIntegration && transportationIntegration.activated);
 %>
 
 <style>
@@ -137,6 +138,13 @@
     width: 16px;
     height: 16px;
     stroke: currentColor;
+  }
+
+  .nav-link .nav-link-icon img {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    display: block;
   }
 
   .nav-link:hover {
@@ -298,6 +306,18 @@
     height: 16px;
     color: var(--primary);
     stroke: var(--primary);
+  }
+
+  .feature-icon img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .feature-icon.transport-logo-icon {
+    background: transparent;
+    border: none;
   }
 
   .feature-content h4 {
@@ -544,6 +564,14 @@
             <span>Parents/Guardian</span>
           </button>
         </li>
+        <% if (hasTransportationIntegration) { %>
+        <li>
+          <button class="nav-link" data-section="transportation">
+            <span class="nav-link-icon"><img src="/images/transportation-logo.png" alt="Transportation" /></span>
+            <span>Transportation</span>
+          </button>
+        </li>
+        <% } %>
         <li>
           <button class="nav-link" data-section="announcements-events">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 11v2a2 2 0 002 2h2l5 4V5L7 9H5a2 2 0 00-2 2z"/><path d="M16 8a5 5 0 010 8"/></svg></span>
@@ -1260,6 +1288,51 @@
           </div>
         </div>
       </section>
+
+      <% if (hasTransportationIntegration) { %>
+      <section id="transportation" class="management-section">
+        <div class="section-header">
+          <h1>Transportation Management</h1>
+          <p>Configure buses, drivers, routes, stops, and student assignments.</p>
+        </div>
+        <div class="section-content">
+          <div class="section-card">
+            <h2>Manage Transportation Operations</h2>
+            <p>Set map provider, maintain route structures, and track live movement from one workspace.</p>
+            <div class="features-grid">
+              <div class="feature-item">
+                <div class="feature-icon transport-logo-icon">
+                  <img src="/images/transportation-logo.png" alt="Transportation fleet" />
+                </div>
+                <div class="feature-content">
+                  <h4>Fleet & Drivers</h4>
+                  <p>Register buses and link operational drivers.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon transport-logo-icon">
+                  <img src="/images/transportation-logo.png" alt="Transportation routes" />
+                </div>
+                <div class="feature-content">
+                  <h4>Routes & Stops</h4>
+                  <p>Build pickup/dropoff lines for each class area.</p>
+                </div>
+              </div>
+              <div class="feature-item">
+                <div class="feature-icon transport-logo-icon">
+                  <img src="/images/transportation-logo.png" alt="Transportation live tracking" />
+                </div>
+                <div class="feature-content">
+                  <h4>Live Tracking</h4>
+                  <p>Monitor active trip location updates in real time.</p>
+                </div>
+              </div>
+            </div>
+            <a href="/transportation/manage" class="action-btn">Manage Transportation</a>
+          </div>
+        </div>
+      </section>
+      <% } %>
 
       <!-- Enrollment Management Section -->
       <section id="enrollment" class="management-section">
