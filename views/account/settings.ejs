@@ -5643,9 +5643,6 @@
 
           try {
             const signupResult = await openWhatsappEmbeddedSignupPopup();
-            if (!signupResult.wabaId || !signupResult.phoneNumberId) {
-              throw new Error("Meta did not return the WhatsApp Business Account and phone number IDs.");
-            }
 
             const response = await fetch("/account/whatsapp/connect", {
               method: "POST",
