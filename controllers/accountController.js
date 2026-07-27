@@ -498,6 +498,7 @@ const {
   setWhatsappIntegrationActivation,
   exchangeEmbeddedSignupCodeForToken,
   registerPhoneNumberForCloudApi,
+  ensureWhatsappCloudReady,
   subscribeAppToWaba,
   saveWhatsappConnection,
   markWhatsappConnectionError,
@@ -11327,11 +11328,20 @@ const accountController = {
       const businessName = String(req.body.businessName || req.body.business_name || "").trim();
       const displayPhoneNumber = String(req.body.displayPhoneNumber || req.body.display_phone_number || "").trim();
       const timezone = String(req.body.timezone || "").trim();
-      const registrationPin = String(req.body.registrationPin || req.body.pin || "").trim();
+      const requestRegistrationPin = String(req.body.registrationPin || req.body.pin || "").trim();
+      const envRegistrationPin = String(process.env.WHATSAPP_CLOUD_API_REGISTRATION_PIN || "").trim();
+      const registrationPin = requestRegistrationPin || envRegistrationPin;
       const payloadSeed = extractSignupSeedFromPayload(req.body.signupPayload || req.body.metaPayload || req.body);
 
       if (!authCode) {
         return res.status(400).json({ success: false, message: "Meta authorization code is required." });
+      }
+
+      if (registrationPin && !/^\d{6}$/.test(registrationPin)) {
+        return res.status(400).json({
+          success: false,
+          message: "WhatsApp registration PIN must be exactly 6 digits.",
+        });
       }
 
       const tokenResult = await exchangeEmbeddedSignupCodeForToken(authCode);
@@ -11343,8 +11353,12 @@ const accountController = {
         displayPhoneNumber: displayPhoneNumber || payloadSeed.displayPhoneNumber || String(integrationStatus.displayPhoneNumber || "").trim(),
       });
 
-      await registerPhoneNumberForCloudApi(tokenResult.accessToken, resolvedIds.phoneNumberId, registrationPin || null);
-      await subscribeAppToWaba(tokenResult.accessToken, resolvedIds.wabaId);
+      await ensureWhatsappCloudReady(
+        tokenResult.accessToken,
+        resolvedIds.wabaId,
+        resolvedIds.phoneNumberId,
+        registrationPin || null
+      );
 
       await saveWhatsappConnection(db, orgId, {
         wabaId: resolvedIds.wabaId,
@@ -11454,6 +11468,23 @@ const accountController = {
           });
         }
 
+        const runtimeRegistrationPin = String(
+          req.body.registrationPin || req.body.pin || process.env.WHATSAPP_CLOUD_API_REGISTRATION_PIN || ""
+        ).trim();
+        if (runtimeRegistrationPin && !/^\d{6}$/.test(runtimeRegistrationPin)) {
+          return res.status(400).json({
+            success: false,
+            message: "WhatsApp registration PIN must be exactly 6 digits.",
+          });
+        }
+
+        await ensureWhatsappCloudReady(
+          credentials.accessToken,
+          integrationStatus.wabaId,
+          credentials.phoneNumberId,
+          runtimeRegistrationPin || null
+        );
+
         accessToken = credentials.accessToken;
         phoneNumberId = credentials.phoneNumberId;
       }
@@ -11555,6 +11586,23 @@ const accountController = {
           message: "The stored WhatsApp access token has expired. Reconnect WhatsApp to refresh it, then retry diagnosis.",
         });
       }
+
+      const runtimeRegistrationPin = String(
+        req.body.registrationPin || req.body.pin || process.env.WHATSAPP_CLOUD_API_REGISTRATION_PIN || ""
+      ).trim();
+      if (runtimeRegistrationPin && !/^\d{6}$/.test(runtimeRegistrationPin)) {
+        return res.status(400).json({
+          success: false,
+          message: "WhatsApp registration PIN must be exactly 6 digits.",
+        });
+      }
+
+      await ensureWhatsappCloudReady(
+        credentials.accessToken,
+        integrationStatus.wabaId,
+        credentials.phoneNumberId,
+        runtimeRegistrationPin || null
+      );
 
       const recipient = normalizePhoneDigits(req.body.recipient || req.body.to || "");
       if (!recipient) {

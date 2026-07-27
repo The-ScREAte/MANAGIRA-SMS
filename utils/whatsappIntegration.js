@@ -204,24 +204,58 @@ async function registerPhoneNumberForCloudApi(accessToken, phoneNumberId, pin) {
   };
 
   const normalizedPin = safeString(pin);
+  if (normalizedPin && !/^\d{6}$/.test(normalizedPin)) {
+    throw new Error("WhatsApp registration PIN must be exactly 6 digits.");
+  }
   if (normalizedPin) {
     payload.pin = normalizedPin;
   }
 
   const url = `${getMetaGraphBaseUrl()}/${encodeURIComponent(normalizedPhoneNumberId)}/register`;
 
+  const isAlreadyRegisteredResponse = (message) => {
+    const normalizedMessage = safeString(message).toLowerCase();
+    if (!normalizedMessage) return false;
+    return normalizedMessage.includes("already registered")
+      || normalizedMessage.includes("is registered")
+      || normalizedMessage.includes("duplicate registration");
+  };
+
   try {
-    await axios.post(url, payload, {
+    const response = await axios.post(url, payload, {
       params: { access_token: accessToken },
       timeout: 30000,
     });
+
+    const successValue = response?.data?.success;
+    const responseErrorMessage = safeString(response?.data?.error?.message);
+
+    // Meta usually returns { success: true } when registration is complete.
+    // If success is explicitly false, treat as a real onboarding failure.
+    if (successValue === false) {
+      if (isAlreadyRegisteredResponse(responseErrorMessage)) return;
+      throw new Error(responseErrorMessage || "Meta registration did not complete successfully.");
+    }
   } catch (error) {
-    const code = Number(error?.response?.status || 0);
-    if (code === 400 || code === 409) {
+    const statusCode = Number(error?.response?.status || 0);
+    const apiMessage = safeString(error?.response?.data?.error?.message || error?.message);
+
+    // 409 and specific 400 responses may indicate a number that is already registered.
+    if (statusCode === 409 || (statusCode === 400 && isAlreadyRegisteredResponse(apiMessage))) {
       return;
     }
-    throw error;
+
+    const registrationError = new Error(
+      apiMessage || "Failed to register WhatsApp phone number for Cloud API."
+    );
+    registrationError.cause = error;
+    throw registrationError;
   }
+}
+
+async function ensureWhatsappCloudReady(accessToken, wabaId, phoneNumberId, pin) {
+  await registerPhoneNumberForCloudApi(accessToken, phoneNumberId, pin);
+  await subscribeAppToWaba(accessToken, wabaId);
 }
 
 async function saveWhatsappConnection(dbClient, organizationId, payload = {}) {
@@ -777,6 +811,7 @@ module.exports = {
   setWhatsappIntegrationActivation,
   exchangeEmbeddedSignupCodeForToken,
   registerPhoneNumberForCloudApi,
+  ensureWhatsappCloudReady,
   subscribeAppToWaba,
   saveWhatsappConnection,
   markWhatsappConnectionError,

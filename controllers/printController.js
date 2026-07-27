@@ -24,6 +24,7 @@ const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const {
   getWhatsappIntegrationStatus,
   getWhatsappMessagingCredentials,
+  ensureWhatsappCloudReady,
   sendWhatsappTextMessage,
   sendWhatsappDocumentMessage,
 } = require("../utils/whatsappIntegration");
@@ -7912,6 +7913,21 @@ const printController = (db) => ({
           message: "WhatsApp credentials are incomplete. Reconnect WhatsApp in Settings.",
         });
       }
+
+      const envRegistrationPin = String(process.env.WHATSAPP_CLOUD_API_REGISTRATION_PIN || "").trim();
+      if (envRegistrationPin && !/^\d{6}$/.test(envRegistrationPin)) {
+        return res.status(400).json({
+          success: false,
+          message: "WHATSAPP_CLOUD_API_REGISTRATION_PIN must be exactly 6 digits in server config.",
+        });
+      }
+
+      await ensureWhatsappCloudReady(
+        credentials.accessToken,
+        integrationStatus.wabaId,
+        credentials.phoneNumberId,
+        envRegistrationPin || null
+      );
 
       const [orgResult, classResult, termResult] = await Promise.all([
         db.query(
