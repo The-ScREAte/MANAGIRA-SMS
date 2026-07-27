@@ -5665,6 +5665,9 @@
             const integration = result.integration || {};
             setWhatsappUiState(Boolean(integration.activated), Boolean(integration.connected));
             setWhatsappInlineError("");
+            const redirectUrl = "/account/settings?section=integrations&whatsappConnected=1";
+            window.location.assign(redirectUrl);
+            return;
           } catch (error) {
             const message = error?.message || "Unable to connect WhatsApp right now.";
             setWhatsappInlineError(message);

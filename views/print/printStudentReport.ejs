@@ -2718,7 +2718,9 @@
                                 <span class="download-btn-label">Download PDF</span>
                             </a>
                             <a href="#" class="btn btn-primary email-btn" onclick="openEmailModal(); return false;"><span class="icon">📧</span>Send by Email</a>
+                            <% if (canSendByWhatsapp) { %>
                             <a href="#" class="btn btn-primary email-btn" onclick="openWhatsappModal(); return false;"><span class="icon">💬</span>Send by WhatsApp</a>
+                            <% } %>
                             <a href="#" class="btn btn-success" id="postReportCardsLink" onclick="postReportCards(); return false;">
                                 <span class="post-btn-spinner" aria-hidden="true"></span>
                                 <span class="post-btn-label">Post Report</span>

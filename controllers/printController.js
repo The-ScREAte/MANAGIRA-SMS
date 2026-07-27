@@ -2319,6 +2319,12 @@ const printController = (db) => ({
         }
       }
 
+      const whatsappIntegrationStatus = await getWhatsappIntegrationStatus(db, organizationId).catch(() => ({
+        activated: false,
+        connected: false,
+      }));
+      const canSendByWhatsapp = Boolean(whatsappIntegrationStatus.activated && whatsappIntegrationStatus.connected);
+
       // Render the report
       res.render("print/printStudentReport", {
         title: "Student Final Report",
@@ -2375,6 +2381,7 @@ const printController = (db) => ({
         hasSchoolWebsite: websiteInfo.hasWebsite,
         schoolWebsiteHost: websiteInfo.websiteHost,
         reportYear: new Date().getFullYear(),
+        canSendByWhatsapp,
       });
     } catch (error) {
             res.status(500).send("Failed to generate student report.");

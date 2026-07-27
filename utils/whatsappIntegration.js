@@ -340,6 +340,117 @@ async function getWhatsappMessagingCredentials(dbClient, organizationId) {
   };
 }
 
+function pickFirstWhatsappAccountPayload(data) {
+  const directAccounts = Array.isArray(data?.data) ? data.data : [];
+  if (directAccounts.length) return directAccounts;
+
+  const inlineAccounts = Array.isArray(data?.whatsapp_business_accounts?.data)
+    ? data.whatsapp_business_accounts.data
+    : [];
+  if (inlineAccounts.length) return inlineAccounts;
+
+  const businesses = Array.isArray(data?.businesses?.data) ? data.businesses.data : [];
+  const nested = [];
+  businesses.forEach((business) => {
+    const owned = Array.isArray(business?.owned_whatsapp_business_accounts?.data)
+      ? business.owned_whatsapp_business_accounts.data
+      : [];
+    owned.forEach((entry) => nested.push(entry));
+  });
+  return nested;
+}
+
+function pickPhoneRecord(phoneContainer) {
+  const rows = Array.isArray(phoneContainer?.data)
+    ? phoneContainer.data
+    : (Array.isArray(phoneContainer) ? phoneContainer : []);
+  return rows.find((row) => safeString(row?.id)) || null;
+}
+
+async function resolveWhatsappSignupIdentifiers(accessToken, seed = {}) {
+  const normalizedAccessToken = safeString(accessToken);
+  const seededWabaId = safeString(seed.wabaId);
+  const seededPhoneNumberId = safeString(seed.phoneNumberId);
+  const seededBusinessName = safeString(seed.businessName);
+  const seededDisplayPhoneNumber = safeString(seed.displayPhoneNumber);
+
+  if (!normalizedAccessToken) {
+    throw new Error("Meta access token is missing while resolving WhatsApp identifiers.");
+  }
+
+  if (seededWabaId && seededPhoneNumberId) {
+    return {
+      wabaId: seededWabaId,
+      phoneNumberId: seededPhoneNumberId,
+      businessName: seededBusinessName,
+      displayPhoneNumber: seededDisplayPhoneNumber,
+    };
+  }
+
+  const headers = {
+    Authorization: `Bearer ${normalizedAccessToken}`,
+  };
+  const baseUrl = getMetaGraphBaseUrl();
+  const discoveryUrls = [
+    `${baseUrl}/me/whatsapp_business_accounts?fields=id,name,phone_numbers{id,display_phone_number,verified_name}`,
+    `${baseUrl}/me?fields=whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name}}`,
+    `${baseUrl}/me?fields=businesses{owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name}}}`,
+  ];
+
+  let discoveredAccounts = [];
+  for (const url of discoveryUrls) {
+    try {
+      const response = await axios.get(url, {
+        headers,
+        timeout: 30000,
+      });
+      discoveredAccounts = pickFirstWhatsappAccountPayload(response?.data || {});
+      if (discoveredAccounts.length) break;
+    } catch (_) {
+      // Try the next discovery shape.
+    }
+  }
+
+  const selectedAccount = discoveredAccounts.find((entry) => {
+    const accountId = safeString(entry?.id);
+    if (seededWabaId) return accountId === seededWabaId;
+    return Boolean(accountId);
+  }) || null;
+
+  let resolvedWabaId = seededWabaId || safeString(selectedAccount?.id);
+  let resolvedBusinessName = seededBusinessName || safeString(selectedAccount?.name);
+  let selectedPhone = pickPhoneRecord(selectedAccount?.phone_numbers);
+
+  if (!selectedPhone && resolvedWabaId) {
+    try {
+      const phoneResponse = await axios.get(
+        `${baseUrl}/${encodeURIComponent(resolvedWabaId)}/phone_numbers?fields=id,display_phone_number,verified_name`,
+        {
+          headers,
+          timeout: 30000,
+        }
+      );
+      selectedPhone = pickPhoneRecord(phoneResponse?.data?.data || phoneResponse?.data);
+    } catch (_) {
+      // Keep going; we may still have seeded identifiers.
+    }
+  }
+
+  const resolvedPhoneNumberId = seededPhoneNumberId || safeString(selectedPhone?.id);
+  const resolvedDisplayPhoneNumber = seededDisplayPhoneNumber || safeString(selectedPhone?.display_phone_number);
+
+  if (!resolvedWabaId || !resolvedPhoneNumberId) {
+    throw new Error("Meta signup completed but WhatsApp IDs were not returned. Please reconnect and ensure account selection is completed in Meta.");
+  }
+
+  return {
+    wabaId: resolvedWabaId,
+    phoneNumberId: resolvedPhoneNumberId,
+    businessName: resolvedBusinessName,
+    displayPhoneNumber: resolvedDisplayPhoneNumber,
+  };
+}
+
 async function sendWhatsappTemplateMessage(accessToken, phoneNumberId, payload = {}) {
   const normalizedPhoneNumberId = safeString(phoneNumberId);
   const normalizedAccessToken = safeString(accessToken);
@@ -513,6 +624,7 @@ module.exports = {
   isTransientWhatsappErrorMessage,
   disconnectWhatsappIntegration,
   getWhatsappMessagingCredentials,
+  resolveWhatsappSignupIdentifiers,
   normalizePhoneDigits,
   sendWhatsappTemplateMessage,
   sendWhatsappTextMessage,

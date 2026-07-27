@@ -503,6 +503,7 @@ const {
   clearWhatsappConnectionError,
   isTransientWhatsappErrorMessage,
   disconnectWhatsappIntegration,
+  resolveWhatsappSignupIdentifiers,
   normalizePhoneDigits,
   sendWhatsappTemplateMessage,
 } = require("../utils/whatsappIntegration");
@@ -11331,23 +11332,23 @@ const accountController = {
         return res.status(400).json({ success: false, message: "Meta authorization code is required." });
       }
 
-      if (!wabaId || !phoneNumberId) {
-        return res.status(400).json({
-          success: false,
-          message: "Missing WhatsApp business identifiers from Meta. Please try Connect WhatsApp again.",
-        });
-      }
-
       const tokenResult = await exchangeEmbeddedSignupCodeForToken(authCode);
 
-      await registerPhoneNumberForCloudApi(tokenResult.accessToken, phoneNumberId, registrationPin || null);
-      await subscribeAppToWaba(tokenResult.accessToken, wabaId);
-
-      await saveWhatsappConnection(db, orgId, {
+      const resolvedIds = await resolveWhatsappSignupIdentifiers(tokenResult.accessToken, {
         wabaId,
         phoneNumberId,
         businessName,
         displayPhoneNumber,
+      });
+
+      await registerPhoneNumberForCloudApi(tokenResult.accessToken, resolvedIds.phoneNumberId, registrationPin || null);
+      await subscribeAppToWaba(tokenResult.accessToken, resolvedIds.wabaId);
+
+      await saveWhatsappConnection(db, orgId, {
+        wabaId: resolvedIds.wabaId,
+        phoneNumberId: resolvedIds.phoneNumberId,
+        businessName: resolvedIds.businessName,
+        displayPhoneNumber: resolvedIds.displayPhoneNumber,
         timezone,
         accessToken: tokenResult.accessToken,
         expiresIn: tokenResult.expiresIn,
