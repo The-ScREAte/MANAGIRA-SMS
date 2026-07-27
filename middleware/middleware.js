@@ -24,17 +24,29 @@ function destroySessionAndRedirect(req, res, redirectTo) {
     });
 }
 
+function expectsJsonResponse(req) {
+    const accept = String(req.headers?.accept || '').toLowerCase();
+    const requestedWith = String(req.headers?.['x-requested-with'] || '').toLowerCase();
+    return req.xhr || requestedWith === 'xmlhttprequest' || accept.includes('application/json');
+}
+
 // Middleware to check if the user is authenticated
 async function isAuthenticated(req, res, next) {
     try {
         await hydrateOrganizationSession(req);
 
         if (req.session && req.session.userRole === 'Student') {
+            if (expectsJsonResponse(req)) {
+                return res.status(403).json({ success: false, message: 'You do not have permission to access this resource.' });
+            }
             req.flash('error', 'You do not have permission to access that page.');
             return res.redirect('/student/dashboard');
         }
 
         if (!req.session || (!req.session.organizationId && !req.session.userId)) {
+            if (expectsJsonResponse(req)) {
+                return res.status(401).json({ success: false, message: 'Your session has expired. Please log in again.' });
+            }
             return res.redirect('/account/login');
         }
 
@@ -45,6 +57,9 @@ async function isAuthenticated(req, res, next) {
             );
 
             if (orgResult.rows.length === 0 || orgResult.rows[0].deleted) {
+                if (expectsJsonResponse(req)) {
+                    return res.status(403).json({ success: false, message: 'Your organization is no longer available.' });
+                }
                 req.flash('error', 'Your organization is no longer available.');
                 return destroySessionAndRedirect(req, res, '/');
             }
@@ -57,6 +72,9 @@ async function isAuthenticated(req, res, next) {
             );
 
             if (userResult.rows.length === 0 || userResult.rows[0].on_hold) {
+                if (expectsJsonResponse(req)) {
+                    return res.status(401).json({ success: false, message: 'Your account is no longer active. Please log in again.' });
+                }
                 req.flash('error', 'Your account is no longer active. Please log in again.');
                 return destroySessionAndRedirect(req, res, '/account/login');
             }
@@ -65,6 +83,9 @@ async function isAuthenticated(req, res, next) {
         return next();
     } catch (error) {
         console.error('Auth validation error:', error);
+        if (expectsJsonResponse(req)) {
+            return res.status(401).json({ success: false, message: 'Session validation failed. Please log in again.' });
+        }
         req.flash('error', 'Session validation failed. Please log in again.');
         return destroySessionAndRedirect(req, res, '/account/login');
     }

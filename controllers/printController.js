@@ -21,6 +21,12 @@ const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../
 const { formatDisplayDate, formatDisplayName } = require("../utils/organizationDisplayPreferences");
 const notificationService = require("../utils/notificationService");
 const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
+const {
+  getWhatsappIntegrationStatus,
+  getWhatsappMessagingCredentials,
+  sendWhatsappTextMessage,
+  sendWhatsappDocumentMessage,
+} = require("../utils/whatsappIntegration");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
@@ -373,6 +379,74 @@ function parsePositiveIntArray(value) {
   return [...new Set(value
     .map((entry) => parseInt(entry, 10))
     .filter((entry) => Number.isFinite(entry) && entry > 0))];
+}
+
+const COUNTRY_DIALING_CODES = {
+  US: "1",
+  CA: "1",
+  GB: "44",
+  GH: "233",
+  NG: "234",
+  KE: "254",
+  ZA: "27",
+  RW: "250",
+  UG: "256",
+  TZ: "255",
+  IN: "91",
+  AU: "61",
+  NZ: "64",
+  AE: "971",
+};
+
+function normalizeWhatsappPhoneNumber(value, countryCode = "") {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return { normalized: "", valid: false, reason: "Phone number is required." };
+  }
+
+  let hadInternationalPrefix = false;
+  let candidate = raw;
+
+  if (candidate.startsWith("+")) {
+    hadInternationalPrefix = true;
+    candidate = candidate.slice(1);
+  } else if (candidate.startsWith("00")) {
+    hadInternationalPrefix = true;
+    candidate = candidate.slice(2);
+  }
+
+  let digits = candidate.replace(/\D+/g, "");
+  if (!digits) {
+    return { normalized: "", valid: false, reason: "Phone number must contain digits." };
+  }
+
+  if (!hadInternationalPrefix) {
+    const normalizedCountry = String(countryCode || "").trim().toUpperCase();
+    const dialCode = COUNTRY_DIALING_CODES[normalizedCountry] || "";
+    if (dialCode) {
+      if (!digits.startsWith(dialCode)) {
+        if (digits.startsWith("0")) {
+          digits = `${dialCode}${digits.slice(1)}`;
+        } else {
+          digits = `${dialCode}${digits}`;
+        }
+      }
+    }
+  }
+
+  if (!/^\d{8,15}$/.test(digits)) {
+    return {
+      normalized: digits,
+      valid: false,
+      reason: "Phone number must be in WhatsApp international format (8 to 15 digits).",
+    };
+  }
+
+  return {
+    normalized: digits,
+    valid: true,
+    reason: "",
+  };
 }
 
 function normalizeClassroomRemarkTypes(value) {
@@ -1483,10 +1557,10 @@ const printController = (db) => ({
 
       // Fetch saved reports (filtered by studentId if provided)
       const savedReportsQuery = parsedStudentId
-        ? `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
+        ? `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json, promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
          FROM student_reports
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id = $4`
-        : `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
+        : `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json, promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
          FROM student_reports
          WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`;
 
@@ -1818,6 +1892,27 @@ const printController = (db) => ({
           0
         );
 
+      const getSavedPromotionOverride = (savedReport) => {
+        const savedStatus = String(savedReport?.promotion_status || "").trim();
+        const normalizedStatus = savedStatus === "Promoted" || savedStatus === "Repeated"
+          ? savedStatus
+          : "";
+        if (!normalizedStatus) return null;
+
+        const savedClassIdRaw = Number(savedReport?.promotion_class_id);
+        const statusClassId = normalizedStatus === "Promoted" ? Number(promotedClassId) : Number(repeatedClassId);
+        const resolvedClassId = Number.isFinite(savedClassIdRaw) && savedClassIdRaw > 0
+          ? savedClassIdRaw
+          : (Number.isFinite(statusClassId) && statusClassId > 0 ? statusClassId : null);
+        const resolvedClassName = normalizedStatus === "Promoted" ? promotedClassName : repeatedClassName;
+
+        return {
+          status: normalizedStatus,
+          classId: resolvedClassId,
+          className: resolvedClassName,
+        };
+      };
+
       students.forEach((student) => {
         const savedReport = savedReportsMap[student.student_id] || {};
 
@@ -1956,6 +2051,15 @@ const printController = (db) => ({
             : repeatedClassName;
         student.promotionStatus =
           promotionMetric >= cutOffPoint ? "Promoted" : "Repeated";
+        student.promotionClassId =
+          promotionMetric >= cutOffPoint ? promotedClassId : repeatedClassId;
+
+        const savedPromotionOverride = getSavedPromotionOverride(savedReport);
+        if (savedPromotionOverride) {
+          student.promotionStatus = savedPromotionOverride.status;
+          student.promotionClassId = savedPromotionOverride.classId;
+          student.promotionClass = savedPromotionOverride.className;
+        }
       });
 
       if (displaySettings.sections.paygiraBills.enabled && displaySettings.sections.paygiraBills.mode === 'auto' && students.length) {
@@ -2143,7 +2247,12 @@ const printController = (db) => ({
             ? Number(student.totalScoreSum || 0)
             : Number.parseFloat(student.overallPercentage) || 0;
 
-          if (promotionMetric >= cutOffPoint) {
+          const savedPromotionOverride = getSavedPromotionOverride(savedReportsMap[student.student_id]);
+          if (savedPromotionOverride) {
+            student.promotionStatus = savedPromotionOverride.status;
+            student.promotionClassId = savedPromotionOverride.classId;
+            student.promotionClass = savedPromotionOverride.className;
+          } else if (promotionMetric >= cutOffPoint) {
             student.promotionClass = promotedClassName;
             student.promotionStatus = "Promoted";
             student.promotionClassId = promotedClassId;
@@ -7243,6 +7352,161 @@ const printController = (db) => ({
     }
   },
 
+  downloadReports: async (req, res) => {
+    let browser = null;
+    try {
+      const organizationId = Number(req.session.organizationId);
+      const classId = Number(req.query?.classId || req.body?.classId);
+      const termId = Number(req.query?.termId || req.body?.termId);
+      const selectedStudentIds = parsePositiveIntArray(req.body?.studentIds || []);
+
+      if (!organizationId || !classId || !termId) {
+        return res.status(400).json({ success: false, message: "Missing classId or termId." });
+      }
+
+      const [termResult, classResult] = await Promise.all([
+        db.query(
+          `SELECT term_id, school_year_id, term_name
+           FROM terms
+           WHERE term_id = $1 AND organization_id = $2
+           LIMIT 1`,
+          [termId, organizationId]
+        ),
+        db.query(
+          `SELECT class_name
+           FROM classes
+           WHERE class_id = $1 AND organization_id = $2
+           LIMIT 1`,
+          [classId, organizationId]
+        ),
+      ]);
+
+      if (!termResult.rows.length || !classResult.rows.length) {
+        return res.status(404).json({ success: false, message: "Class or term not found." });
+      }
+
+      const schoolYearId = Number(termResult.rows[0].school_year_id) || null;
+      const className = String(classResult.rows[0].class_name || `Class ${classId}`).trim();
+      const termName = String(termResult.rows[0].term_name || `Term ${termId}`).trim();
+
+      const scopedStudentsResult = await db.query(
+        `SELECT DISTINCT es.student_id
+         FROM enrolled_students es
+         JOIN enrollments e ON e.enrollment_id = es.enrollment_id
+         JOIN students s ON s.student_id = es.student_id AND s.organization_id = e.organization_id
+         WHERE es.class_id = $1
+           AND e.term_id = $2
+           AND e.organization_id = $3
+           AND ($4::int IS NULL OR e.school_year_id = $4)
+           AND (
+             $5::int[] IS NULL
+             OR array_length($5::int[], 1) IS NULL
+             OR es.student_id = ANY($5::int[])
+           )
+         ORDER BY es.student_id ASC`,
+        [classId, termId, organizationId, schoolYearId, selectedStudentIds.length ? selectedStudentIds : null]
+      );
+
+      const targetStudentIds = (scopedStudentsResult.rows || [])
+        .map((row) => Number(row.student_id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+
+      if (!targetStudentIds.length) {
+        return res.status(404).json({ success: false, message: "No students found for download." });
+      }
+
+      const protocol = req.protocol;
+      const host = req.get("host");
+      const cookieHeader = String(req.headers.cookie || "");
+      const sessionCookieMatch = cookieHeader.match(/(?:^|;\s*)connect\.sid=([^;]+)/);
+      const sessionCookieValue = sessionCookieMatch ? sessionCookieMatch[1] : "";
+
+      if (!sessionCookieValue) {
+        return res.status(401).json({ success: false, message: "Session cookie missing. Refresh the page and try again." });
+      }
+
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
+      });
+
+      const page = await browser.newPage();
+      const hostName = String(host || "").split(":")[0];
+      await page.setCookie({
+        name: "connect.sid",
+        value: sessionCookieValue,
+        domain: hostName,
+        path: "/",
+      });
+
+      const reportUrl = `${protocol}://${host}/print/printStudentReport?classId=${classId}&termId=${termId}&postingMode=1`;
+      await page.goto(reportUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
+      await page.waitForSelector(".student-report", { timeout: 20000 });
+
+      await page.evaluate((ids) => {
+        const allowed = new Set((Array.isArray(ids) ? ids : []).map((id) => String(id)));
+
+        document.querySelectorAll(".actions-no-print, .student-checkbox, hr, #emailModal, #whatsappModal").forEach((el) => {
+          el.style.display = "none";
+        });
+
+        const reports = Array.from(document.querySelectorAll(".student-report"));
+        reports.forEach((report) => {
+          const sid = String(report.getAttribute("data-student-id") || "");
+          if (allowed.size > 0 && !allowed.has(sid)) {
+            report.remove();
+          }
+        });
+
+        const kept = Array.from(document.querySelectorAll(".student-report"));
+        kept.forEach((report) => {
+          report.classList.remove("temp-last-report", "last-report");
+          report.style.pageBreakAfter = "always";
+          report.style.breakAfter = "page";
+        });
+        const lastReport = kept[kept.length - 1];
+        if (lastReport) {
+          lastReport.classList.add("temp-last-report");
+          lastReport.style.pageBreakAfter = "auto";
+          lastReport.style.breakAfter = "auto";
+        }
+      }, targetStudentIds);
+
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
+      });
+      const pdfBinary = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
+
+      const safeClassName = className
+        .replace(/[^a-zA-Z0-9_-]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "") || `class_${classId}`;
+      const safeTermName = termName
+        .replace(/[^a-zA-Z0-9_-]+/g, "_")
+        .replace(/_+/g, "_")
+        .replace(/^_+|_+$/g, "") || `term_${termId}`;
+      const scopeLabel = selectedStudentIds.length ? `${targetStudentIds.length}_selected` : "all";
+      const fileName = `report_cards_${safeClassName}_${safeTermName}_${scopeLabel}.pdf`;
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      res.setHeader("Content-Length", String(pdfBinary.length));
+      return res.send(pdfBinary);
+    } catch (error) {
+      console.error("[downloadReports] Error:", error);
+      return res.status(500).json({ success: false, message: "Failed to download reports." });
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (_) {}
+      }
+    }
+  },
+
   logDeliveryEvent: async (req, res) => {
     try {
       const organizationId = Number(req.session.organizationId);
@@ -7465,6 +7729,433 @@ const printController = (db) => ({
     } catch (error) {
       console.error('[getGuardianEmails] Error:', error);
       return res.status(500).json({ success: false, message: "Failed to fetch emails." });
+    }
+  },
+
+  // Get guardian WhatsApp numbers for selected students
+  getGuardianWhatsappNumbers: async (req, res) => {
+    try {
+      const organizationId = Number(req.session.organizationId || 0);
+      const { studentIds } = req.query;
+
+      if (!organizationId || !studentIds) {
+        return res.status(400).json({ success: false, message: "Missing parameters." });
+      }
+
+      const ids = String(studentIds || "")
+        .split(",")
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isFinite(id) && id > 0);
+
+      if (!ids.length) {
+        return res.status(400).json({ success: false, message: "No valid student IDs." });
+      }
+
+      const orgResult = await db.query(
+        `SELECT organization_country
+         FROM organizations
+         WHERE organization_id = $1
+         LIMIT 1`,
+        [organizationId]
+      );
+      const organizationCountryCode = String(orgResult.rows[0]?.organization_country || "").trim().toUpperCase();
+
+      const result = await db.query(
+        `SELECT s.student_id,
+                s.first_name,
+                s.last_name,
+                c.class_name,
+                COALESCE(
+                  jsonb_agg(DISTINCT jsonb_build_object('phone', gpv.phone, 'relationship', gpv.relationship))
+                  FILTER (WHERE gpv.phone IS NOT NULL),
+                  '[]'::jsonb
+                ) AS phones
+         FROM students s
+         LEFT JOIN classes c ON s.class_id = c.class_id
+         LEFT JOIN (
+           SELECT gs.student_id,
+                  gp.phone,
+                  COALESCE(gs.relationship, 'Guardian') AS relationship
+           FROM guardian_students gs
+           JOIN guardian_profiles gp
+             ON gp.guardian_id = gs.guardian_id
+            AND gp.organization_id = $2
+           WHERE gp.phone IS NOT NULL
+
+           UNION ALL
+
+           SELECT g.student_id,
+                  g.phone,
+                  'Guardian' AS relationship
+           FROM guardians g
+           WHERE g.organization_id = $2
+             AND g.phone IS NOT NULL
+         ) gpv ON gpv.student_id = s.student_id
+         WHERE s.student_id = ANY($1)
+           AND s.organization_id = $2
+         GROUP BY s.student_id, s.first_name, s.last_name, c.class_name
+         ORDER BY s.last_name, s.first_name`,
+        [ids, organizationId]
+      );
+
+      const students = (result.rows || []).map((row) => {
+        const seen = new Set();
+        const phones = (Array.isArray(row.phones) ? row.phones : [])
+          .map((entry) => {
+            const rawPhone = String(entry?.phone || "").trim();
+            const normalized = normalizeWhatsappPhoneNumber(rawPhone, organizationCountryCode);
+            if (!rawPhone) return null;
+            const dedupeKey = normalized.normalized || rawPhone;
+            if (seen.has(dedupeKey)) return null;
+            seen.add(dedupeKey);
+            return {
+              phone: rawPhone,
+              relationship: String(entry?.relationship || "Guardian").trim() || "Guardian",
+              normalizedPhone: normalized.normalized || "",
+              valid: normalized.valid,
+            };
+          })
+          .filter(Boolean);
+
+        return {
+          student_id: row.student_id,
+          first_name: row.first_name,
+          last_name: row.last_name,
+          class_name: row.class_name,
+          phones,
+        };
+      });
+
+      return res.json({ success: true, students, organizationCountryCode });
+    } catch (error) {
+      console.error('[getGuardianWhatsappNumbers] Error:', error);
+      return res.status(500).json({ success: false, message: "Failed to fetch WhatsApp numbers." });
+    }
+  },
+
+  // Send reports to guardians by WhatsApp (message + PDF document)
+  whatsappReports: async (req, res) => {
+    let browser = null;
+    try {
+      const organizationId = Number(req.session.organizationId || 0);
+      const { classId, termId, password, whatsappData } = req.body || {};
+
+      if (!organizationId || !password || !Array.isArray(whatsappData) || !classId || !termId) {
+        return res.status(400).json({ success: false, message: "Missing required fields." });
+      }
+
+      const parsedClassId = Number(classId);
+      const parsedTermId = Number(termId);
+      if (!Number.isFinite(parsedClassId) || parsedClassId <= 0 || !Number.isFinite(parsedTermId) || parsedTermId <= 0) {
+        return res.status(400).json({ success: false, message: "Invalid class or term." });
+      }
+
+      let passwordMatch = false;
+      const userId = req.session.userId || (req.session.user && req.session.user.user_id);
+
+      if (userId) {
+        const userResult = await db.query(
+          'SELECT password FROM users WHERE user_id = $1 AND organization_id = $2',
+          [userId, organizationId]
+        );
+        if (userResult.rows.length > 0 && userResult.rows[0].password) {
+          passwordMatch = await bcrypt.compare(password, userResult.rows[0].password);
+        }
+      }
+      if (!passwordMatch) {
+        const orgResult = await db.query(
+          'SELECT password FROM organizations WHERE organization_id = $1',
+          [organizationId]
+        );
+        if (orgResult.rows.length > 0) {
+          passwordMatch = await bcrypt.compare(password, orgResult.rows[0].password);
+        }
+      }
+      if (!passwordMatch) {
+        return res.status(401).json({ success: false, message: "Incorrect password." });
+      }
+
+      const integrationStatus = await getWhatsappIntegrationStatus(db, organizationId);
+      if (!integrationStatus.activated || !integrationStatus.connected) {
+        return res.status(400).json({
+          success: false,
+          message: "WhatsApp is not fully connected for this school. Activate and reconnect WhatsApp in Settings.",
+        });
+      }
+
+      const credentials = await getWhatsappMessagingCredentials(db, organizationId);
+      if (!credentials?.configured || !credentials.phoneNumberId || !credentials.accessToken) {
+        return res.status(400).json({
+          success: false,
+          message: "WhatsApp credentials are incomplete. Reconnect WhatsApp in Settings.",
+        });
+      }
+
+      const [orgResult, classResult, termResult] = await Promise.all([
+        db.query(
+          `SELECT organization_name, organization_country
+           FROM organizations
+           WHERE organization_id = $1
+           LIMIT 1`,
+          [organizationId]
+        ),
+        db.query(
+          `SELECT class_name
+           FROM classes
+           WHERE class_id = $1 AND organization_id = $2
+           LIMIT 1`,
+          [parsedClassId, organizationId]
+        ),
+        db.query(
+          `SELECT term_name
+           FROM terms
+           WHERE term_id = $1 AND organization_id = $2
+           LIMIT 1`,
+          [parsedTermId, organizationId]
+        ),
+      ]);
+
+      const orgName = String(orgResult.rows[0]?.organization_name || "Your School").trim() || "Your School";
+      const organizationCountryCode = String(orgResult.rows[0]?.organization_country || "").trim().toUpperCase();
+      const className = String(classResult.rows[0]?.class_name || `Class ${parsedClassId}`).trim();
+      const termName = String(termResult.rows[0]?.term_name || `Term ${parsedTermId}`).trim();
+
+      const requestedStudentIds = parsePositiveIntArray(whatsappData.map((entry) => entry?.studentId));
+      if (!requestedStudentIds.length) {
+        return res.status(400).json({ success: false, message: "No valid students selected for WhatsApp send." });
+      }
+
+      const validStudentIds = await getScopedStudentIdsForClassTerm(
+        db,
+        organizationId,
+        parsedClassId,
+        parsedTermId,
+        requestedStudentIds
+      );
+      const validStudentIdSet = new Set(validStudentIds);
+
+      if (!validStudentIds.length) {
+        return res.status(400).json({ success: false, message: "None of the selected students are in this class and term." });
+      }
+
+      const studentRowsResult = await db.query(
+        `SELECT student_id, first_name, last_name
+         FROM students
+         WHERE organization_id = $1
+           AND student_id = ANY($2::int[])`,
+        [organizationId, validStudentIds]
+      );
+      const studentNameById = new Map(
+        (studentRowsResult.rows || []).map((row) => {
+          const full = `${row.first_name || ""} ${row.last_name || ""}`.trim() || `Student ${row.student_id}`;
+          return [Number(row.student_id), full];
+        })
+      );
+
+      const postedRowsResult = await db.query(
+        `SELECT student_id, pdf_url
+         FROM posted_report_cards
+         WHERE organization_id = $1
+           AND class_id = $2
+           AND term_id = $3
+           AND student_id = ANY($4::int[])`,
+        [organizationId, parsedClassId, parsedTermId, validStudentIds]
+      );
+      const pdfUrlByStudentId = new Map(
+        (postedRowsResult.rows || []).map((row) => [Number(row.student_id), String(row.pdf_url || "").trim()])
+      );
+
+      const cookieHeader = String(req.headers.cookie || "");
+      const sessionCookieMatch = cookieHeader.match(/(?:^|;\s*)connect\.sid=([^;]+)/);
+      const sessionCookieValue = sessionCookieMatch ? sessionCookieMatch[1] : "";
+      const host = String(req.get('host') || '').trim();
+      const protocol = String(req.protocol || 'https').trim();
+      const bucketName = String(process.env.S3_BUCKET_NAME || process.env.S3_PUBLIC_BUCKET_NAME || "oneplaces3").trim();
+      const regionName = String(process.env.AWS_REGION || "").trim();
+
+      const buildPdfUrl = (pdfKey) => {
+        const cleanKey = String(pdfKey || "").replace(/^\/+/, "");
+        if (!regionName || regionName === "us-east-1") {
+          return `https://${bucketName}.s3.amazonaws.com/${cleanKey}`;
+        }
+        return `https://${bucketName}.s3.${regionName}.amazonaws.com/${cleanKey}`;
+      };
+
+      const ensureStudentPdfUrl = async (studentId) => {
+        const existing = String(pdfUrlByStudentId.get(studentId) || "").trim();
+        if (existing) return existing;
+
+        if (!sessionCookieValue) {
+          throw new Error(`Session cookie missing for PDF generation (student ${studentId}). Refresh the page and retry.`);
+        }
+
+        if (!browser) {
+          browser = await puppeteer.launch({
+            headless: true,
+            args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
+          });
+        }
+
+        const page = await browser.newPage();
+        try {
+          await page.setJavaScriptEnabled(false);
+          await page.setCookie({
+            name: "connect.sid",
+            value: sessionCookieValue,
+            domain: host.split(":")[0],
+            path: "/",
+          });
+
+          const reportUrl = `${protocol}://${host}/print/printStudentReport?classId=${parsedClassId}&termId=${parsedTermId}&studentId=${studentId}&postingMode=1`;
+          await page.goto(reportUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+          await page.waitForSelector(".student-report", { timeout: 15000 });
+          await page.evaluate(() => {
+            document.querySelectorAll(".actions-no-print, .student-checkbox, hr, #emailModal, #whatsappModal").forEach((el) => {
+              el.style.display = "none";
+            });
+            const reports = Array.from(document.querySelectorAll('.student-report'));
+            reports.forEach((report) => {
+              report.classList.remove('temp-last-report');
+              report.style.pageBreakAfter = 'always';
+              report.style.breakAfter = 'page';
+            });
+            const lastReport = reports[reports.length - 1];
+            if (lastReport) {
+              lastReport.classList.add('temp-last-report');
+              lastReport.style.pageBreakAfter = 'auto';
+              lastReport.style.breakAfter = 'auto';
+            }
+          });
+
+          const pdfBuffer = await page.pdf({
+            format: "A4",
+            printBackground: true,
+            preferCSSPageSize: true,
+            margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
+          });
+
+          const studentName = studentNameById.get(studentId) || `student_${studentId}`;
+          const safeStudentName = String(studentName)
+            .replace(/[^a-zA-Z0-9_-]+/g, "_")
+            .replace(/_+/g, "_")
+            .replace(/^_+|_+$/g, "");
+          const pdfKey = `report-cards/org_${organizationId}/term_${parsedTermId}/class_${parsedClassId}/student_${studentId}_${Date.now()}_${safeStudentName}.pdf`;
+
+          await s3Client.send(
+            new PutObjectCommand({
+              Bucket: bucketName,
+              Key: pdfKey,
+              Body: pdfBuffer,
+              ContentType: "application/pdf",
+            })
+          );
+
+          const pdfUrl = buildPdfUrl(pdfKey);
+          pdfUrlByStudentId.set(studentId, pdfUrl);
+          return pdfUrl;
+        } finally {
+          try {
+            await page.close();
+          } catch (_) {}
+        }
+      };
+
+      const sent = [];
+      const failed = [];
+
+      for (const entry of whatsappData) {
+        const studentId = Number(entry?.studentId || 0);
+        if (!Number.isFinite(studentId) || studentId <= 0 || !validStudentIdSet.has(studentId)) {
+          continue;
+        }
+
+        const studentName = studentNameById.get(studentId) || `Student ${studentId}`;
+        const phones = Array.isArray(entry?.phones)
+          ? entry.phones.map((phone) => String(phone || "").trim()).filter(Boolean)
+          : [];
+
+        if (!phones.length) {
+          failed.push({ studentId, studentName, phone: "", message: "No phone numbers provided." });
+          continue;
+        }
+
+        let pdfUrl;
+        try {
+          pdfUrl = await ensureStudentPdfUrl(studentId);
+        } catch (error) {
+          failed.push({
+            studentId,
+            studentName,
+            phone: "",
+            message: error?.message || "Failed to generate report PDF.",
+          });
+          continue;
+        }
+
+        for (const phone of phones) {
+          const normalized = normalizeWhatsappPhoneNumber(phone, organizationCountryCode);
+          if (!normalized.valid || !normalized.normalized) {
+            failed.push({
+              studentId,
+              studentName,
+              phone,
+              message: normalized.reason || "Invalid WhatsApp number format.",
+            });
+            continue;
+          }
+
+          try {
+            const shortMessage = `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is attached.`;
+            await sendWhatsappTextMessage(credentials.accessToken, credentials.phoneNumberId, {
+              to: normalized.normalized,
+              text: shortMessage,
+            });
+
+            const fileName = `${studentName.replace(/[^a-zA-Z0-9_-]+/g, '_')}_Report.pdf`;
+            const documentResult = await sendWhatsappDocumentMessage(credentials.accessToken, credentials.phoneNumberId, {
+              to: normalized.normalized,
+              documentLink: pdfUrl,
+              filename: fileName,
+              caption: `${studentName} report card (${termName})`,
+            });
+
+            sent.push({
+              studentId,
+              studentName,
+              phone: normalized.normalized,
+              messageId: documentResult?.messages?.[0]?.id || null,
+            });
+          } catch (error) {
+            const apiMessage = error?.response?.data?.error?.message || error?.message || "Failed to send WhatsApp message.";
+            failed.push({
+              studentId,
+              studentName,
+              phone: normalized.normalized,
+              message: apiMessage,
+            });
+          }
+        }
+      }
+
+      return res.json({
+        success: failed.length === 0,
+        message: failed.length
+          ? `WhatsApp sent to ${sent.length} number(s) with ${failed.length} failure(s).`
+          : `WhatsApp sent successfully to ${sent.length} number(s).`,
+        sentCount: sent.length,
+        failedCount: failed.length,
+        sent,
+        failed,
+      });
+    } catch (error) {
+      console.error('[whatsappReports] Error:', error);
+      return res.status(500).json({ success: false, message: "Failed to send reports by WhatsApp." });
+    } finally {
+      if (browser) {
+        try {
+          await browser.close();
+        } catch (_) {}
+      }
     }
   },
 

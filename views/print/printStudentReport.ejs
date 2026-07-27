@@ -1970,6 +1970,413 @@
                         font-size: 16px;
                     }
 
+                    /* Email modal compact style mirrors WhatsApp modal behavior. */
+                    #emailModal .email-modal-card {
+                        max-width: 660px;
+                        display: flex;
+                        flex-direction: column;
+                        overflow: hidden;
+                    }
+
+                    #emailModal .email-modal-header {
+                        padding: 18px 22px 14px 22px;
+                    }
+
+                    #emailModal .email-modal-title {
+                        font-size: 15px;
+                    }
+
+                    #emailModal .email-modal-subtitle {
+                        font-size: 11px;
+                    }
+
+                    #emailModal .email-modal-body {
+                        padding: 16px 22px 18px 22px;
+                        gap: 14px;
+                        display: flex;
+                        flex-direction: column;
+                        min-height: 0;
+                        overflow: hidden;
+                    }
+
+                    #emailModal .email-hint {
+                        padding: 11px 14px;
+                        font-size: 11px;
+                        line-height: 1.4;
+                    }
+
+                    #emailModal .email-student-list {
+                        gap: 10px;
+                        flex: 1 1 auto;
+                        min-height: 120px;
+                        overflow-y: auto;
+                        padding-right: 4px;
+                    }
+
+                    #emailModal .email-student-row {
+                        padding: 12px 14px;
+                        border-radius: 10px;
+                    }
+
+                    #emailModal .email-student-name {
+                        font-size: 14px;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                    }
+
+                    #emailModal .email-student-meta {
+                        font-size: 12px;
+                    }
+
+                    #emailModal .email-student-header {
+                        margin-bottom: 10px;
+                        padding-bottom: 8px;
+                        align-items: center;
+                        justify-content: flex-start;
+                    }
+
+                    #emailModal .email-student-header > div {
+                        flex: 1 1 auto;
+                        min-width: 0;
+                    }
+
+                    #emailModal .email-fields {
+                        gap: 8px;
+                    }
+
+                    #emailModal .email-field-row {
+                        gap: 8px;
+                    }
+
+                    #emailModal .email-input {
+                        height: 38px;
+                        padding: 8px 10px;
+                        font-size: 12px;
+                    }
+
+                    #emailModal .email-remove-btn {
+                        width: 32px;
+                        min-width: 32px;
+                        height: 32px;
+                        font-size: 12px;
+                        border-radius: 7px;
+                    }
+
+                    #emailModal .email-pill {
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #4a5568;
+                        background: #f4f6f8;
+                        border: 1px solid #e4e7eb;
+                        border-radius: 999px;
+                        padding: 3px 8px;
+                        white-space: nowrap;
+                    }
+
+                    #emailModal #emailPasswordSection {
+                        display: none;
+                        border-top: none;
+                        padding-top: 0;
+                        margin-top: 0;
+                        flex: 1;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    #emailModal #emailPasswordSection label {
+                        margin: 0;
+                        font-size: 12px;
+                        white-space: nowrap;
+                    }
+
+                    #emailModal #emailPasswordSection input {
+                        flex: 1;
+                        height: 38px;
+                        padding: 8px 10px;
+                        font-size: 12px;
+                    }
+
+                    #emailModal .email-action-wrap {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin-top: 4px;
+                    }
+
+                    #emailModal .email-footer {
+                        margin-top: 0;
+                        padding-top: 8px;
+                        border-top: 1px solid #f0f1f3;
+                    }
+
+                    #emailModal .email-add-btn {
+                        height: 26px !important;
+                        min-height: 26px;
+                        padding: 0 10px !important;
+                        font-size: 10px !important;
+                        line-height: 1.2;
+                        border-radius: 7px;
+                        margin-left: auto;
+                        background: linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
+                        border: none;
+                        color: #fff;
+                        font-weight: 600;
+                        display: inline-flex;
+                        align-items: center;
+                        flex: 0 0 auto;
+                        width: auto !important;
+                        max-width: max-content;
+                        gap: 4px;
+                        box-shadow: 0 2px 6px rgba(0, 123, 255, 0.22) !important;
+                        white-space: nowrap;
+                    }
+
+                    #emailModal .email-add-btn::before {
+                        content: '+';
+                        font-size: 12px;
+                        font-weight: 700;
+                    }
+
+                    #emailModal .email-add-btn:hover {
+                        transform: translateY(-1px);
+                        text-decoration: none;
+                        box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3) !important;
+                    }
+
+                    #emailModal .email-send-btn {
+                        height: 32px;
+                        padding: 0 10px;
+                        font-size: 11px;
+                        letter-spacing: 0;
+                        border-radius: 6px;
+                        text-transform: none;
+                        width: auto;
+                        min-width: 0;
+                        box-shadow: none;
+                    }
+
+                    #emailModal .email-send-btn::before {
+                        font-size: 13px;
+                    }
+
+                    #emailModal .email-footer-left {
+                        display: flex;
+                        gap: 10px;
+                        align-items: center;
+                        min-width: 0;
+                    }
+
+                    #emailModal .email-history-btn {
+                        padding: 6px 10px;
+                        background: #6c757d;
+                        color: #fff;
+                        text-decoration: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 11px;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 5px;
+                        transition: background 0.2s;
+                        white-space: nowrap;
+                    }
+
+                    #emailModal .email-history-btn:hover {
+                        background: #5b636a;
+                    }
+
+                    /* WhatsApp modal uses a compact layout to keep the flow simple and dense. */
+                    #whatsappModal .email-modal-card {
+                        max-width: 660px;
+                        display: flex;
+                        flex-direction: column;
+                        overflow: hidden;
+                    }
+
+                    #whatsappModal .email-modal-header {
+                        padding: 18px 22px 14px 22px;
+                    }
+
+                    #whatsappModal .email-modal-title {
+                        font-size: 15px;
+                    }
+
+                    #whatsappModal .email-modal-subtitle {
+                        font-size: 11px;
+                    }
+
+                    #whatsappModal .email-modal-body {
+                        padding: 16px 22px 18px 22px;
+                        gap: 14px;
+                        display: flex;
+                        flex-direction: column;
+                        min-height: 0;
+                        overflow: hidden;
+                    }
+
+                    #whatsappModal .email-hint {
+                        padding: 11px 14px;
+                        font-size: 11px;
+                        line-height: 1.4;
+                    }
+
+                    #whatsappModal .email-student-list {
+                        gap: 10px;
+                        flex: 1 1 auto;
+                        min-height: 120px;
+                        overflow-y: auto;
+                        padding-right: 4px;
+                    }
+
+                    #whatsappModal .email-student-row {
+                        padding: 12px 14px;
+                        border-radius: 10px;
+                    }
+
+                    #whatsappModal .email-student-name {
+                        font-size: 14px;
+                        white-space: nowrap;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                    }
+
+                    #whatsappModal .email-student-meta {
+                        font-size: 12px;
+                    }
+
+                    #whatsappModal .email-student-header {
+                        margin-bottom: 10px;
+                        padding-bottom: 8px;
+                        align-items: center;
+                        justify-content: flex-start;
+                    }
+
+                    #whatsappModal .email-student-header > div {
+                        flex: 1 1 auto;
+                        min-width: 0;
+                    }
+
+                    #whatsappModal .email-fields {
+                        gap: 8px;
+                    }
+
+                    #whatsappModal .email-field-row {
+                        gap: 8px;
+                    }
+
+                    #whatsappModal .email-input {
+                        height: 38px;
+                        padding: 8px 10px;
+                        font-size: 12px;
+                    }
+
+                    #whatsappModal .email-remove-btn {
+                        width: 32px;
+                        min-width: 32px;
+                        height: 32px;
+                        font-size: 12px;
+                        border-radius: 7px;
+                    }
+
+                    #whatsappModal .email-pill {
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: #4a5568;
+                        background: #f4f6f8;
+                        border: 1px solid #e4e7eb;
+                        border-radius: 999px;
+                        padding: 3px 8px;
+                        white-space: nowrap;
+                    }
+
+                    #whatsappModal #whatsappPasswordSection {
+                        display: none;
+                        border-top: none;
+                        padding-top: 0;
+                        margin-top: 0;
+                        flex: 1;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    #whatsappModal #whatsappPasswordSection label {
+                        margin: 0;
+                        font-size: 12px;
+                        white-space: nowrap;
+                    }
+
+                    #whatsappModal #whatsappPasswordSection input {
+                        flex: 1;
+                        height: 38px;
+                        padding: 8px 10px;
+                        font-size: 12px;
+                    }
+
+                    #whatsappModal .whatsapp-action-wrap {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        margin-top: 4px;
+                    }
+
+                    #whatsappModal .email-footer {
+                        margin-top: 0;
+                        padding-top: 8px;
+                        border-top: 1px solid #f0f1f3;
+                    }
+
+                    #whatsappModal .whatsapp-add-btn {
+                        height: 26px !important;
+                        min-height: 26px;
+                        padding: 0 10px !important;
+                        font-size: 10px !important;
+                        line-height: 1.2;
+                        border-radius: 7px;
+                        margin-left: auto;
+                        background: linear-gradient(135deg, var(--primary), var(--primary-hover)) !important;
+                        border: none;
+                        color: #fff;
+                        font-weight: 600;
+                        display: inline-flex;
+                        align-items: center;
+                        flex: 0 0 auto;
+                        width: auto !important;
+                        max-width: max-content;
+                        gap: 4px;
+                        box-shadow: 0 2px 6px rgba(0, 123, 255, 0.22) !important;
+                        white-space: nowrap;
+                    }
+
+                    #whatsappModal .whatsapp-add-btn::before {
+                        content: '+';
+                        font-size: 12px;
+                        font-weight: 700;
+                    }
+
+                    #whatsappModal .whatsapp-add-btn:hover {
+                        transform: translateY(-1px);
+                        text-decoration: none;
+                        box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3) !important;
+                    }
+
+                    #whatsappModal .whatsapp-send-btn {
+                        height: 32px;
+                        padding: 0 10px;
+                        font-size: 11px;
+                        letter-spacing: 0;
+                        border-radius: 6px;
+                        text-transform: none;
+                        width: auto;
+                        min-width: 0;
+                        box-shadow: none;
+                    }
+
+                    #whatsappModal .whatsapp-send-btn::before {
+                        content: '💬';
+                        font-size: 13px;
+                    }
+
           @media print {
             #emailModal,
             .email-modal-overlay {
@@ -2138,6 +2545,30 @@
             .print-options-header h3 { font-size: 15px; }
             .search-filter-wrapper { width: 100%; }
             .search-box { min-width: unset; width: 100%; }
+
+                        #whatsappModal .email-student-header {
+                            flex-direction: row;
+                            align-items: flex-start;
+                        }
+
+                        #emailModal .email-student-header {
+                            flex-direction: row;
+                            align-items: flex-start;
+                        }
+
+                        #whatsappModal .whatsapp-add-btn {
+                            margin-left: auto;
+                            align-self: flex-start;
+                            width: auto !important;
+                            flex: 0 0 auto;
+                        }
+
+                        #emailModal .email-add-btn {
+                            margin-left: auto;
+                            align-self: flex-start;
+                            width: auto !important;
+                            flex: 0 0 auto;
+                        }
           }
 
           @media (max-width: 480px) {
@@ -2154,6 +2585,40 @@
             .email-password input { height: 40px; font-size: 16px; }
             .email-close-btn { width: 32px; height: 32px; font-size: 15px; }
             .email-add-btn { padding: 7px 12px; font-size: 12px; height: 32px; }
+
+                        #whatsappModal .whatsapp-add-btn {
+                            padding: 0 8px !important;
+                            height: 24px !important;
+                            font-size: 10px !important;
+                        }
+
+                        #whatsappModal .email-pill {
+                            font-size: 11px;
+                            padding: 2px 7px;
+                        }
+
+                        #whatsappModal .email-remove-btn {
+                            width: 30px;
+                            min-width: 30px;
+                            height: 30px;
+                        }
+
+                        #emailModal .email-add-btn {
+                            padding: 0 8px !important;
+                            height: 24px !important;
+                            font-size: 10px !important;
+                        }
+
+                        #emailModal .email-pill {
+                            font-size: 11px;
+                            padding: 2px 7px;
+                        }
+
+                        #emailModal .email-remove-btn {
+                            width: 30px;
+                            min-width: 30px;
+                            height: 30px;
+                        }
           }
 
                     .post-btn-spinner {
@@ -2174,6 +2639,48 @@
                     }
 
                     #postReportCardsLink.is-posting .post-btn-spinner {
+                        display: inline-block;
+                    }
+
+                    .download-btn-spinner {
+                        width: 14px;
+                        height: 14px;
+                        border: 2px solid rgba(255, 255, 255, 0.45);
+                        border-top-color: #ffffff;
+                        border-radius: 50%;
+                        display: none;
+                        animation: post-btn-spin 0.75s linear infinite;
+                        flex-shrink: 0;
+                    }
+
+                    #downloadReportsLink {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    #downloadReportsLink.is-downloading .download-btn-spinner {
+                        display: inline-block;
+                    }
+
+                    .save-btn-spinner {
+                        width: 14px;
+                        height: 14px;
+                        border: 2px solid rgba(255, 255, 255, 0.45);
+                        border-top-color: #ffffff;
+                        border-radius: 50%;
+                        display: none;
+                        animation: post-btn-spin 0.75s linear infinite;
+                        flex-shrink: 0;
+                    }
+
+                    #saveChangesLink {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    #saveChangesLink.is-saving .save-btn-spinner {
                         display: inline-block;
                     }
 
@@ -2206,7 +2713,12 @@
                         <div class="desktop-actions-menu" id="desktopActionsMenu" role="menu">
                             <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary" data-no-spa>Settings & Signature</a>
                             <a href="#" class="btn btn-primary" onclick="printSelected(); return false;">Print Selected</a>
+                            <a href="#" class="btn btn-primary" id="downloadReportsLink" onclick="downloadSelectedReports(); return false;">
+                                <span class="download-btn-spinner" aria-hidden="true"></span>
+                                <span class="download-btn-label">Download PDF</span>
+                            </a>
                             <a href="#" class="btn btn-primary email-btn" onclick="openEmailModal(); return false;"><span class="icon">📧</span>Send by Email</a>
+                            <a href="#" class="btn btn-primary email-btn" onclick="openWhatsappModal(); return false;"><span class="icon">💬</span>Send by WhatsApp</a>
                             <a href="#" class="btn btn-success" id="postReportCardsLink" onclick="postReportCards(); return false;">
                                 <span class="post-btn-spinner" aria-hidden="true"></span>
                                 <span class="post-btn-label">Post Report</span>
@@ -2220,7 +2732,10 @@
         </div>
       
         <div class="actions-right">
-          <a href="#" class="btn btn-success" id="saveChangesLink">Save Changes</a>
+                    <a href="#" class="btn btn-success" id="saveChangesLink">
+                        <span class="save-btn-spinner" aria-hidden="true"></span>
+                        <span class="save-btn-label">Save Changes</span>
+                    </a>
         </div>
       </div>
       <hr>
@@ -3136,6 +3651,92 @@
             updateReportVisibilityModeFromSearch();
         }
 
+        async function downloadSelectedReports() {
+            const downloadBtn = document.getElementById('downloadReportsLink');
+            const downloadBtnLabel = downloadBtn ? downloadBtn.querySelector('.download-btn-label') : null;
+
+            const setDownloadingState = (isDownloading) => {
+                if (!downloadBtn) return;
+                downloadBtn.classList.toggle('is-downloading', isDownloading);
+                downloadBtn.style.pointerEvents = isDownloading ? 'none' : '';
+                downloadBtn.style.opacity = isDownloading ? '0.85' : '';
+                if (downloadBtnLabel) {
+                    downloadBtnLabel.textContent = isDownloading ? 'Preparing PDF...' : 'Download PDF';
+                }
+            };
+
+            const selectedStudentIds = Array.from(document.querySelectorAll('.student-checkbox:checked'))
+                .map((cb) => parseInt(cb.getAttribute('data-student-id'), 10))
+                .filter((id) => Number.isFinite(id) && id > 0);
+
+            if (!selectedStudentIds.length) {
+                const shouldDownloadAll = confirm('No students selected. Download report cards for all students in this class and term?');
+                if (!shouldDownloadAll) return;
+            }
+
+            setDownloadingState(true);
+            try {
+                const response = await fetch(`/print/downloadReports?classId=<%= classId %>&termId=<%= termId %>`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/pdf, application/json',
+                    },
+                    body: JSON.stringify({ studentIds: selectedStudentIds }),
+                });
+
+                const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+                if (!response.ok || !contentType.includes('application/pdf')) {
+                    let message = 'Failed to download report PDF.';
+                    if (contentType.includes('application/json')) {
+                        const payload = await response.json().catch(() => ({}));
+                        message = payload.message || message;
+                    } else {
+                        const textMessage = await response.text().catch(() => '');
+                        if (textMessage && textMessage.length < 200) {
+                            message = textMessage;
+                        }
+                    }
+                    throw new Error(message);
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const bytes = new Uint8Array(arrayBuffer);
+                const header = String.fromCharCode(...bytes.slice(0, 5));
+                if (header !== '%PDF-') {
+                    const rawText = new TextDecoder().decode(bytes);
+                    let message = 'Downloaded file is not a valid PDF. Please try again.';
+                    try {
+                        const parsed = JSON.parse(rawText);
+                        message = parsed?.message || message;
+                    } catch (_) {
+                        if (rawText && rawText.length < 220) {
+                            message = rawText;
+                        }
+                    }
+                    throw new Error(message);
+                }
+
+                const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+                const disposition = String(response.headers.get('content-disposition') || '');
+                const fileNameMatch = disposition.match(/filename="([^"]+)"/i);
+                const fileName = fileNameMatch ? fileNameMatch[1] : `report_cards_class_<%= classId %>_term_<%= termId %>.pdf`;
+
+                const blobUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                alert(error?.message || 'Failed to download report PDF.');
+            } finally {
+                setDownloadingState(false);
+            }
+        }
+
         function restoreReportsIfUnexpectedlyHidden(source = 'unknown') {
             if (isPrintSelectionInProgress) return;
             if (reportVisibilityMode !== 'default') return;
@@ -3371,9 +3972,23 @@ function updateClass(studentId) {
         document.getElementById('saveChangesLink').addEventListener('click', async (e) => {
             e.preventDefault(); // prevent link navigation
 
+            const saveBtn = document.getElementById('saveChangesLink');
+            const saveBtnLabel = saveBtn.querySelector('.save-btn-label');
+            const setSavingState = (isSaving) => {
+                saveBtn.classList.toggle('is-saving', isSaving);
+                saveBtn.style.pointerEvents = isSaving ? 'none' : '';
+                saveBtn.style.opacity = isSaving ? '0.85' : '';
+                if (saveBtnLabel) {
+                    saveBtnLabel.textContent = isSaving ? 'Saving...' : 'Save Changes';
+                }
+            };
+
+            setSavingState(true);
+
             if (isBillingManualMode && billingDraftDirty) {
                 const savedBilling = await saveBillingOverrides({ reloadOnSuccess: false });
                 if (!savedBilling) {
+                    setSavingState(false);
                     alert('Billing changes were not saved. Please fix and try again.');
                     return;
                 }
@@ -3429,6 +4044,7 @@ function updateClass(studentId) {
             }).filter(Boolean);
         
             if (studentReports.length === 0) {
+                            setSavingState(false);
               alert('No valid reports to save.');
               return;
             }
@@ -3448,6 +4064,9 @@ function updateClass(studentId) {
               }
             } catch (error) {
               console.error('Error saving changes:', error);
+                            alert('Failed to save changes.');
+                        } finally {
+                            setSavingState(false);
             }
           });
 
@@ -3646,7 +4265,7 @@ function updateClass(studentId) {
                     return;
                 }
                 renderEmailList(data.students);
-                document.getElementById('emailPasswordSection').style.display = 'block';
+                document.getElementById('emailPasswordSection').style.display = 'flex';
                 document.getElementById('emailSendBtn').style.display = 'inline-flex';
                 
                 // Restore from localStorage
@@ -3902,7 +4521,7 @@ function updateClass(studentId) {
     // Save email inputs to localStorage
     function saveEmailsToStorage() {
         const emailData = {};
-        document.querySelectorAll('.email-student-row').forEach(row => {
+        document.querySelectorAll('#emailStudentList .email-student-row').forEach(row => {
             const studentId = row.getAttribute('data-student-id');
             const inputs = row.querySelectorAll('.email-input');
             const emails = Array.from(inputs).map(inp => inp.value.trim()).filter(e => e);
@@ -3925,7 +4544,7 @@ function updateClass(studentId) {
         try {
             const emailData = JSON.parse(saved);
             
-            document.querySelectorAll('.email-student-row').forEach(row => {
+            document.querySelectorAll('#emailStudentList .email-student-row').forEach(row => {
                 const studentId = row.getAttribute('data-student-id');
                 if (emailData[studentId]) {
                     const inputs = row.querySelectorAll('.email-input');
@@ -4045,7 +4664,7 @@ function updateClass(studentId) {
         const missingEmails = [];
         const invalidEmails = [];
 
-        document.querySelectorAll('.email-student-row').forEach(row => {
+        document.querySelectorAll('#emailStudentList .email-student-row').forEach(row => {
             const studentId = row.getAttribute('data-student-id');
             const studentName = (row.querySelector('.email-student-name')?.textContent || '').trim();
             const inputs = row.querySelectorAll('.email-input');
@@ -4125,6 +4744,299 @@ function updateClass(studentId) {
             sendBtn.textContent = 'Send Reports';
         }
     }
+
+    // ===== WHATSAPP MODAL =====
+    function openWhatsappModal() {
+        const hasUnsavedChanges = checkForUnsavedChanges();
+        if (hasUnsavedChanges) {
+            const proceed = confirm('⚠️ WARNING: You may have unsaved changes to the report cards.\n\nPlease save report changes before sending to WhatsApp.\n\nClick OK to continue, or Cancel to return.');
+            if (!proceed) return;
+        }
+
+        const selected = document.querySelectorAll('.student-checkbox:checked');
+        if (selected.length === 0) {
+            alert('Please select at least one student to send by WhatsApp.');
+            return;
+        }
+
+        const studentIds = Array.from(selected).map((cb) => cb.getAttribute('data-student-id'));
+
+        document.getElementById('whatsappModal').style.display = 'flex';
+        document.getElementById('whatsappRecipientCount').textContent = `${selected.length} student${selected.length === 1 ? '' : 's'} selected`;
+        document.getElementById('whatsappStudentList').innerHTML = '<p style="color:#666;">Loading guardian numbers...</p>';
+        document.getElementById('whatsappPasswordSection').style.display = 'none';
+        document.getElementById('whatsappSendBtn').style.display = 'none';
+
+        fetch(`/print/getGuardianWhatsappNumbers?classId=<%= classId %>&termId=<%= termId %>&studentIds=${studentIds.join(',')}`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then(async (r) => {
+                const contentType = String(r.headers.get('content-type') || '').toLowerCase();
+                if (!contentType.includes('application/json')) {
+                    if (r.status === 401 || r.status === 403 || r.redirected) {
+                        throw new Error('Session expired. Refresh this page and log in again.');
+                    }
+                    throw new Error('Unexpected server response while loading WhatsApp numbers.');
+                }
+
+                const data = await r.json();
+                if (!r.ok || !data.success) {
+                    throw new Error(data.message || 'Failed to load WhatsApp numbers.');
+                }
+                return data;
+            })
+            .then((data) => {
+                renderWhatsappList(data.students || []);
+                document.getElementById('whatsappPasswordSection').style.display = 'flex';
+                document.getElementById('whatsappSendBtn').style.display = 'inline-flex';
+                restoreWhatsAppFromStorage();
+            })
+            .catch((error) => {
+                const message = error?.message || 'Error fetching WhatsApp numbers.';
+                document.getElementById('whatsappStudentList').innerHTML = `<p style="color:red;">${message}</p>`;
+            });
+    }
+
+    function saveWhatsAppToStorage() {
+        const data = {};
+        document.querySelectorAll('#whatsappStudentList .whatsapp-student-row').forEach((row) => {
+            const studentId = row.getAttribute('data-student-id');
+            const numbers = Array.from(row.querySelectorAll('.whatsapp-input'))
+                .map((inp) => inp.value.trim())
+                .filter((val) => val);
+            if (numbers.length) {
+                data[studentId] = numbers;
+            }
+        });
+
+        const storageKey = `whatsappData_class<%= classId %>_term<%= termId %>`;
+        localStorage.setItem(storageKey, JSON.stringify(data));
+    }
+
+    function restoreWhatsAppFromStorage() {
+        const storageKey = `whatsappData_class<%= classId %>_term<%= termId %>`;
+        const saved = localStorage.getItem(storageKey);
+        if (!saved) return;
+
+        try {
+            const parsed = JSON.parse(saved);
+            document.querySelectorAll('#whatsappStudentList .whatsapp-student-row').forEach((row) => {
+                const studentId = row.getAttribute('data-student-id');
+                if (!parsed[studentId]) return;
+
+                const listContainer = row.querySelector('.whatsapp-fields');
+                if (!listContainer) return;
+                listContainer.innerHTML = '';
+                parsed[studentId].forEach((phone) => {
+                    listContainer.appendChild(buildWhatsappFieldRow(studentId, phone, 'Manual'));
+                });
+            });
+        } catch (_) {
+        }
+    }
+
+    function clearWhatsAppStorage() {
+        const storageKey = `whatsappData_class<%= classId %>_term<%= termId %>`;
+        localStorage.removeItem(storageKey);
+    }
+
+    function buildWhatsappFieldRow(studentId, value = '', badge = 'Guardian') {
+        const row = document.createElement('div');
+        row.className = 'email-field-row';
+        const escapedValue = String(value || '').replace(/"/g, '&quot;');
+        row.innerHTML = `
+            <input type="tel" ${escapedValue ? `value="${escapedValue}"` : 'placeholder="Enter WhatsApp number (with country code)"'} class="email-input whatsapp-input" data-student-id="${studentId}">
+            <span class="email-pill">${badge}</span>
+            <button type="button" class="email-remove-btn">✕</button>
+        `;
+
+        const removeBtn = row.querySelector('.email-remove-btn');
+        removeBtn.addEventListener('click', () => {
+            row.remove();
+            saveWhatsAppToStorage();
+        });
+
+        const input = row.querySelector('.whatsapp-input');
+        input.addEventListener('input', () => saveWhatsAppToStorage());
+
+        return row;
+    }
+
+    function renderWhatsappList(students) {
+        const container = document.getElementById('whatsappStudentList');
+        if (!students || students.length === 0) {
+            container.innerHTML = '<p style="color:#999;">No students selected yet.</p>';
+            return;
+        }
+
+        document.getElementById('whatsappRecipientCount').textContent = `${students.length} student${students.length === 1 ? '' : 's'} selected (guardian numbers pre-filled)`;
+
+        let html = '';
+        students.forEach((s) => {
+            const unique = [];
+            (s.phones || []).forEach((entry) => {
+                const rawPhone = (entry.phone || '').trim();
+                if (!rawPhone) return;
+                if (!unique.some((x) => (x.phone || '').toLowerCase() === rawPhone.toLowerCase())) {
+                    unique.push({
+                        phone: entry.normalizedPhone || rawPhone,
+                        relationship: entry.relationship || 'Guardian',
+                    });
+                }
+            });
+
+            if (!unique.length) {
+                unique.push({ phone: '', relationship: 'Manual' });
+            }
+
+            html += `<div class="email-student-row whatsapp-student-row" data-student-id="${s.student_id}">
+                <div class="email-student-header">
+                    <div>
+                        <div class="email-student-name">${s.display_name || `${s.first_name || ''} ${s.last_name || ''}`.trim()}</div>
+                        <div class="email-student-meta">${s.class_name || ''}</div>
+                    </div>
+                    <button type="button" class="email-add-btn whatsapp-add-btn" onclick="addWhatsappField(${s.student_id})">Add Number</button>
+                </div>
+                <div class="email-fields whatsapp-fields" id="whatsappFields-${s.student_id}"></div>
+            </div>`;
+        });
+
+        container.innerHTML = html;
+
+        students.forEach((s) => {
+            const fieldsWrap = document.getElementById(`whatsappFields-${s.student_id}`);
+            const unique = [];
+            (s.phones || []).forEach((entry) => {
+                const phone = (entry.normalizedPhone || entry.phone || '').trim();
+                if (!phone) return;
+                if (!unique.some((x) => x.phone === phone)) {
+                    unique.push({ phone, relationship: entry.relationship || 'Guardian' });
+                }
+            });
+            if (!unique.length) unique.push({ phone: '', relationship: 'Manual' });
+            unique.forEach((entry, index) => {
+                const badge = index === 0 ? 'Primary' : (entry.relationship || 'Guardian');
+                fieldsWrap.appendChild(buildWhatsappFieldRow(s.student_id, entry.phone, badge));
+            });
+        });
+    }
+
+    function addWhatsappField(studentId) {
+        const container = document.getElementById(`whatsappFields-${studentId}`);
+        if (!container) return;
+        container.appendChild(buildWhatsappFieldRow(studentId, '', 'Manual'));
+        saveWhatsAppToStorage();
+    }
+
+    function closeWhatsappModal() {
+        document.getElementById('whatsappModal').style.display = 'none';
+        document.getElementById('whatsappPassword').value = '';
+        document.getElementById('whatsappStatus').textContent = '';
+    }
+
+    function isValidWhatsAppNumber(value) {
+        const normalized = String(value || '').trim().replace(/[\s().-]+/g, '');
+        return /^\+?[1-9]\d{7,14}$/.test(normalized);
+    }
+
+    async function sendReportWhatsApp() {
+        const password = document.getElementById('whatsappPassword').value;
+        if (!password) {
+            alert('Please enter your password to confirm.');
+            return;
+        }
+
+        const statusEl = document.getElementById('whatsappStatus');
+        const sendBtn = document.getElementById('whatsappSendBtn');
+        statusEl.textContent = '';
+
+        const whatsappData = [];
+        const missingNumbers = [];
+        const invalidNumbers = [];
+
+        document.querySelectorAll('#whatsappStudentList .whatsapp-student-row').forEach((row) => {
+            const studentId = row.getAttribute('data-student-id');
+            const studentName = (row.querySelector('.email-student-name')?.textContent || '').trim();
+            const numbers = [];
+
+            row.querySelectorAll('.whatsapp-input').forEach((input) => {
+                const raw = input.value.trim();
+                if (!raw) return;
+                numbers.push(raw);
+                if (!isValidWhatsAppNumber(raw)) {
+                    invalidNumbers.push({ studentName, phone: raw });
+                }
+            });
+
+            if (!numbers.length) {
+                missingNumbers.push(studentName || `ID ${studentId}`);
+            } else {
+                whatsappData.push({ studentId: parseInt(studentId, 10), phones: numbers });
+            }
+        });
+
+        if (invalidNumbers.length > 0) {
+            const list = invalidNumbers.map((n) => `${n.studentName || 'Student'}: ${n.phone}`).join('; ');
+            statusEl.textContent = `⚠️ Fix invalid phone numbers before sending: ${list}`;
+            statusEl.style.color = '#d97706';
+            return;
+        }
+
+        if (missingNumbers.length > 0) {
+            const proceed = window.confirm(`The following students have no phone numbers: ${missingNumbers.join(', ')}. Continue anyway?`);
+            if (!proceed) {
+                statusEl.textContent = 'Send cancelled. Please add numbers or deselect those students.';
+                statusEl.style.color = '#d97706';
+                return;
+            }
+        }
+
+        if (!whatsappData.length) {
+            alert('No valid WhatsApp numbers provided.');
+            return;
+        }
+
+        sendBtn.disabled = true;
+        sendBtn.textContent = 'Sending...';
+        statusEl.textContent = 'Sending reports by WhatsApp, please wait...';
+        statusEl.style.color = '#666';
+
+        try {
+            const response = await fetch('/print/whatsappReports', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    classId: <%= classId %>,
+                    termId: <%= termId %>,
+                    password,
+                    whatsappData,
+                }),
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                statusEl.textContent = `✅ ${result.message}`;
+                statusEl.style.color = '#27ae60';
+                clearWhatsAppStorage();
+                setTimeout(() => closeWhatsappModal(), 3200);
+            } else {
+                const failedSummary = Array.isArray(result.failed)
+                    ? result.failed.slice(0, 4).map((item) => `${item.studentName || 'Student'} (${item.phone || 'no number'}): ${item.message || 'failed'}`).join('; ')
+                    : '';
+                statusEl.textContent = `❌ ${result.message}${failedSummary ? ` ${failedSummary}` : ''}`;
+                statusEl.style.color = '#dc3545';
+            }
+        } catch (_) {
+            statusEl.textContent = '❌ Network error. Please try again.';
+            statusEl.style.color = '#dc3545';
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send Reports';
+        }
+    }
     </script>
 
         <script>
@@ -4148,22 +5060,53 @@ function updateClass(studentId) {
                 <button class="email-close-btn" onclick="closeEmailModal()">✕</button>
             </div>
             <div class="email-modal-body">
-                <div class="email-hint"><strong>Guardian emails auto-selected.</strong> Review, add, or override before sending.</div>
+                <div class="email-hint"><strong>Guardian emails auto-filled.</strong> Review or edit before sending.</div>
                 <div id="emailStudentList" class="email-student-list"></div>
                 
-                <div id="emailPasswordSection" class="email-password" style="display:none;">
-                    <label>🔒 Confirm Password</label>
-                    <input type="password" id="emailPassword" placeholder="Enter your password">
+                <div class="email-action-wrap">
+                    <div id="emailPasswordSection" class="email-password" style="display:none;">
+                        <label>🔒 Confirm Password</label>
+                        <input type="password" id="emailPassword" placeholder="Enter your password">
+                    </div>
+                    <button id="emailSendBtn" class="email-send-btn" onclick="sendReportEmails()">Send Reports</button>
                 </div>
 
                 <div class="email-footer">
-                    <div style="display: flex; gap: 12px; align-items: center;">
-                        <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" style="padding: 10px 18px; background: #6c757d; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s;">
+                    <div class="email-footer-left">
+                        <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" class="email-history-btn">
                             📜 History
                         </a>
                         <span id="emailStatus" style="font-size:13px;"></span>
                     </div>
-                    <button id="emailSendBtn" class="email-send-btn" onclick="sendReportEmails()">Send Reports</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WhatsApp Modal -->
+    <div id="whatsappModal" class="email-modal-overlay">
+        <div class="email-modal-card">
+            <div class="email-modal-header">
+                <div>
+                    <p id="whatsappRecipientCount" class="email-modal-subtitle">Preparing recipients...</p>
+                    <h3 class="email-modal-title">Send Reports by WhatsApp</h3>
+                </div>
+                <button class="email-close-btn" onclick="closeWhatsappModal()">✕</button>
+            </div>
+            <div class="email-modal-body">
+                <div class="email-hint"><strong>Guardian numbers auto-filled.</strong> Review or edit before sending.</div>
+                <div id="whatsappStudentList" class="email-student-list"></div>
+
+                <div class="whatsapp-action-wrap">
+                    <div id="whatsappPasswordSection" class="email-password" style="display:none;">
+                        <label>🔒 Confirm Password</label>
+                        <input type="password" id="whatsappPassword" placeholder="Enter your password">
+                    </div>
+                    <button id="whatsappSendBtn" class="email-send-btn whatsapp-send-btn" onclick="sendReportWhatsApp()">Send Reports</button>
+                </div>
+
+                <div class="email-footer">
+                    <span id="whatsappStatus" style="font-size:13px;"></span>
                 </div>
             </div>
         </div>

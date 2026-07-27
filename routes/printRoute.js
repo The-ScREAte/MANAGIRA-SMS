@@ -79,10 +79,13 @@ module.exports = (db) => {
         });
     });
    router.get('/getGuardianEmails', isAuthenticated, printController.getGuardianEmails);
+    router.get('/getGuardianWhatsappNumbers', isAuthenticated, printController.getGuardianWhatsappNumbers);
     router.post('/postReportCards', isAuthenticated, express.json(), printController.postReportCards);
+    router.post('/downloadReports', isAuthenticated, express.json(), printController.downloadReports);
     router.get('/postReportCardsStatus', isAuthenticated, printController.getReportPostJobStatus);
     router.post('/logDeliveryEvent', isAuthenticated, express.json(), printController.logDeliveryEvent);
    router.post('/emailReports', isAuthenticated, express.json(), printController.emailReports);
+    router.post('/whatsappReports', isAuthenticated, express.json(), printController.whatsappReports);
    router.get('/emailHistory', isAuthenticated, printController.getEmailHistory);
    router.post('/retryEmail', isAuthenticated, express.json(), printController.retryFailedEmail);
    

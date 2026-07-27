@@ -403,6 +403,101 @@ async function sendWhatsappTemplateMessage(accessToken, phoneNumberId, payload =
   return response.data || {};
 }
 
+async function sendWhatsappTextMessage(accessToken, phoneNumberId, payload = {}) {
+  const normalizedPhoneNumberId = safeString(phoneNumberId);
+  const normalizedAccessToken = safeString(accessToken);
+  const recipient = normalizePhoneDigits(payload.to);
+  const text = safeString(payload.text);
+
+  if (!normalizedAccessToken) {
+    throw new Error("WhatsApp access token is missing. Reconnect WhatsApp and try again.");
+  }
+
+  if (!normalizedPhoneNumberId) {
+    throw new Error("WhatsApp phone number ID is missing. Reconnect WhatsApp and try again.");
+  }
+
+  if (!recipient) {
+    throw new Error("Recipient phone number is required.");
+  }
+
+  if (!text) {
+    throw new Error("Text message body is required.");
+  }
+
+  const url = `${getMetaGraphBaseUrl()}/${encodeURIComponent(normalizedPhoneNumberId)}/messages`;
+  const response = await axios.post(
+    url,
+    {
+      messaging_product: "whatsapp",
+      to: recipient,
+      type: "text",
+      text: {
+        preview_url: false,
+        body: text,
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${normalizedAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 30000,
+    }
+  );
+
+  return response.data || {};
+}
+
+async function sendWhatsappDocumentMessage(accessToken, phoneNumberId, payload = {}) {
+  const normalizedPhoneNumberId = safeString(phoneNumberId);
+  const normalizedAccessToken = safeString(accessToken);
+  const recipient = normalizePhoneDigits(payload.to);
+  const documentLink = safeString(payload.documentLink);
+  const caption = safeString(payload.caption);
+  const filename = safeString(payload.filename);
+
+  if (!normalizedAccessToken) {
+    throw new Error("WhatsApp access token is missing. Reconnect WhatsApp and try again.");
+  }
+
+  if (!normalizedPhoneNumberId) {
+    throw new Error("WhatsApp phone number ID is missing. Reconnect WhatsApp and try again.");
+  }
+
+  if (!recipient) {
+    throw new Error("Recipient phone number is required.");
+  }
+
+  if (!documentLink) {
+    throw new Error("Document link is required.");
+  }
+
+  const url = `${getMetaGraphBaseUrl()}/${encodeURIComponent(normalizedPhoneNumberId)}/messages`;
+  const response = await axios.post(
+    url,
+    {
+      messaging_product: "whatsapp",
+      to: recipient,
+      type: "document",
+      document: {
+        link: documentLink,
+        ...(caption ? { caption } : {}),
+        ...(filename ? { filename } : {}),
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${normalizedAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      timeout: 30000,
+    }
+  );
+
+  return response.data || {};
+}
+
 module.exports = {
   getMetaConfig,
   ensureWhatsappIntegrationSchema,
@@ -420,4 +515,6 @@ module.exports = {
   getWhatsappMessagingCredentials,
   normalizePhoneDigits,
   sendWhatsappTemplateMessage,
+  sendWhatsappTextMessage,
+  sendWhatsappDocumentMessage,
 };
