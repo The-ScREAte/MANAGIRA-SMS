@@ -322,6 +322,12 @@ router.post(
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountController.whatsappTestMessagePost
 );
+router.post(
+  "/whatsapp/diagnose-recipient",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.whatsappDiagnoseRecipientPost
+);
 router.get(
   "/google-classroom/connect",
   isAuthenticated,

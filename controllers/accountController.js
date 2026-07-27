@@ -11517,6 +11517,89 @@ const accountController = {
     }
   },
 
+  whatsappDiagnoseRecipientPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) {
+      return res.status(401).json({ success: false, message: "Not authenticated." });
+    }
+
+    try {
+      await ensureWhatsappIntegrationSchema(db);
+
+      const integrationStatus = await getWhatsappIntegrationStatus(db, orgId);
+      if (!integrationStatus.activated || !integrationStatus.connected) {
+        return res.status(400).json({
+          success: false,
+          message: "Activate and connect WhatsApp before running recipient diagnostics.",
+        });
+      }
+
+      const credentials = await getWhatsappMessagingCredentials(db, orgId);
+      if (!credentials.configured || !credentials.phoneNumberId || !credentials.accessToken) {
+        return res.status(400).json({
+          success: false,
+          message: "WhatsApp access credentials are incomplete. Reconnect WhatsApp and try again.",
+        });
+      }
+
+      if (
+        credentials.tokenExpiresAt &&
+        Number(new Date(credentials.tokenExpiresAt).getTime()) > 0 &&
+        Number(new Date(credentials.tokenExpiresAt).getTime()) <= Date.now()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "The stored WhatsApp access token has expired. Reconnect WhatsApp to refresh it, then retry diagnosis.",
+        });
+      }
+
+      const recipient = normalizePhoneDigits(req.body.recipient || req.body.to || "");
+      if (!recipient) {
+        return res.status(400).json({ success: false, message: "Enter the recipient number in international format (e.g. +13854521960)." });
+      }
+
+      const templateName = String(req.body.templateName || "jaspers_market_order_confirmation_v1").trim() || "jaspers_market_order_confirmation_v1";
+      const languageCode = String(req.body.languageCode || "en_US").trim() || "en_US";
+
+      const result = await sendWhatsappTemplateMessage(
+        credentials.accessToken,
+        credentials.phoneNumberId,
+        {
+          to: recipient,
+          templateName,
+          languageCode,
+          bodyParameters: ["Managira", "DIAG-RECIPIENT", new Date().toISOString().slice(0, 10)],
+        }
+      );
+
+      return res.json({
+        success: true,
+        reachable: true,
+        message: "Recipient check passed. Meta accepted this number for the current sender line.",
+        recipient,
+        senderPhoneNumberId: credentials.phoneNumberId,
+        messageId: result?.messages?.[0]?.id || "",
+      });
+    } catch (error) {
+      const apiError = error?.response?.data?.error || {};
+      const apiCode = Number(apiError?.code || 0) || null;
+      const apiMessage = String(apiError?.message || error?.message || "Unable to diagnose recipient.").trim();
+
+      const resolvedMessage = apiCode === 133010
+        ? "Meta rejected this number for the currently connected sender line (code 133010). Verify this exact number is allowed/reachable in WhatsApp API Setup for this sender. If this WABA is in test mode, add and verify this number as a test recipient."
+        : (apiCode === 131030
+            ? "This recipient is not approved as a WhatsApp test recipient for the current app/sender context. Add and verify it in Meta API Setup, then retry."
+            : apiMessage);
+
+      return res.status(400).json({
+        success: false,
+        reachable: false,
+        message: resolvedMessage,
+        errorCode: apiCode,
+      });
+    }
+  },
+
   studentPortalActivationPost: async (req, res) => {
     const orgId = req.session.organizationId;
     if (!orgId) return res.redirect("/account/login");

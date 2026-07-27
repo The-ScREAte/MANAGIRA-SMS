@@ -8142,11 +8142,15 @@ const printController = (db) => ({
             });
           } catch (error) {
             const apiMessage = error?.response?.data?.error?.message || error?.message || "Failed to send WhatsApp message.";
+            const errorCode = Number(error?.response?.data?.error?.code || 0);
+            const enhancedMessage = errorCode === 133010
+              ? `Meta could not route to this recipient number (${normalized.normalized}). Confirm this number can receive WhatsApp in Meta API Setup for the currently connected sender line, and if this sender is still in test/development mode add this number as an allowed test recipient. Reconnect WhatsApp if you recently changed the connected business line.`
+              : apiMessage;
             failed.push({
               studentId,
               studentName,
               phone: normalized.normalized,
-              message: apiMessage,
+              message: enhancedMessage,
             });
           }
         }
