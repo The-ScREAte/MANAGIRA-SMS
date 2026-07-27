@@ -494,6 +494,7 @@ const {
   ensureWhatsappIntegrationSchema,
   getWhatsappIntegrationStatus,
   getWhatsappMessagingCredentials,
+  extractSignupSeedFromPayload,
   setWhatsappIntegrationActivation,
   exchangeEmbeddedSignupCodeForToken,
   registerPhoneNumberForCloudApi,
@@ -11327,6 +11328,7 @@ const accountController = {
       const displayPhoneNumber = String(req.body.displayPhoneNumber || req.body.display_phone_number || "").trim();
       const timezone = String(req.body.timezone || "").trim();
       const registrationPin = String(req.body.registrationPin || req.body.pin || "").trim();
+      const payloadSeed = extractSignupSeedFromPayload(req.body.signupPayload || req.body.metaPayload || req.body);
 
       if (!authCode) {
         return res.status(400).json({ success: false, message: "Meta authorization code is required." });
@@ -11335,10 +11337,10 @@ const accountController = {
       const tokenResult = await exchangeEmbeddedSignupCodeForToken(authCode);
 
       const resolvedIds = await resolveWhatsappSignupIdentifiers(tokenResult.accessToken, {
-        wabaId: wabaId || String(integrationStatus.wabaId || "").trim(),
-        phoneNumberId: phoneNumberId || String(integrationStatus.phoneNumberId || "").trim(),
-        businessName: businessName || String(integrationStatus.businessName || "").trim(),
-        displayPhoneNumber: displayPhoneNumber || String(integrationStatus.displayPhoneNumber || "").trim(),
+        wabaId: wabaId || payloadSeed.wabaId || String(integrationStatus.wabaId || "").trim(),
+        phoneNumberId: phoneNumberId || payloadSeed.phoneNumberId || String(integrationStatus.phoneNumberId || "").trim(),
+        businessName: businessName || payloadSeed.businessName || String(integrationStatus.businessName || "").trim(),
+        displayPhoneNumber: displayPhoneNumber || payloadSeed.displayPhoneNumber || String(integrationStatus.displayPhoneNumber || "").trim(),
       });
 
       await registerPhoneNumberForCloudApi(tokenResult.accessToken, resolvedIds.phoneNumberId, registrationPin || null);

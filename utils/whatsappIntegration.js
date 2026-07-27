@@ -367,6 +367,113 @@ function pickPhoneRecord(phoneContainer) {
   return rows.find((row) => safeString(row?.id)) || null;
 }
 
+function extractSignupSeedFromPayload(payload, depth = 0) {
+  if (!payload || depth > 8) {
+    return {
+      wabaId: "",
+      phoneNumberId: "",
+      displayPhoneNumber: "",
+      businessName: "",
+    };
+  }
+
+  const state = {
+    wabaId: "",
+    phoneNumberId: "",
+    displayPhoneNumber: "",
+    businessName: "",
+  };
+
+  const merge = (candidate = {}) => {
+    if (!state.wabaId && safeString(candidate.wabaId)) state.wabaId = safeString(candidate.wabaId);
+    if (!state.phoneNumberId && safeString(candidate.phoneNumberId)) state.phoneNumberId = safeString(candidate.phoneNumberId);
+    if (!state.displayPhoneNumber && safeString(candidate.displayPhoneNumber)) state.displayPhoneNumber = safeString(candidate.displayPhoneNumber);
+    if (!state.businessName && safeString(candidate.businessName)) state.businessName = safeString(candidate.businessName);
+  };
+
+  const parseJsonString = (raw) => {
+    const text = safeString(raw);
+    if (!text) return null;
+    if (!text.startsWith("{") && !text.startsWith("[")) return null;
+    try {
+      return JSON.parse(text);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const walk = (node, path = "", level = 0) => {
+    if (!node || level > 8) return;
+
+    if (typeof node === "string") {
+      const parsed = parseJsonString(node);
+      if (parsed) walk(parsed, `${path}.json`, level + 1);
+      return;
+    }
+
+    if (Array.isArray(node)) {
+      node.forEach((entry, index) => walk(entry, `${path}[${index}]`, level + 1));
+      return;
+    }
+
+    if (typeof node !== "object") {
+      return;
+    }
+
+    const directWabaId = safeString(node.waba_id || node.wabaId || node.whatsapp_business_account_id);
+    const directPhoneId = safeString(node.phone_number_id || node.phoneNumberId || node.whatsapp_phone_number_id);
+    const directDisplayPhone = safeString(node.display_phone_number || node.displayPhoneNumber);
+    const directBusinessName = safeString(node.business_name || node.businessName || node.business_display_name || node.verified_name);
+
+    merge({
+      wabaId: directWabaId,
+      phoneNumberId: directPhoneId,
+      displayPhoneNumber: directDisplayPhone,
+      businessName: directBusinessName,
+    });
+
+    const nodeId = safeString(node.id);
+    if (nodeId && !state.wabaId && (node.phone_numbers || path.toLowerCase().includes("whatsapp_business_account"))) {
+      state.wabaId = nodeId;
+    }
+
+    const phoneRecord = pickPhoneRecord(node.phone_numbers);
+    if (phoneRecord) {
+      merge({
+        phoneNumberId: safeString(phoneRecord.id),
+        displayPhoneNumber: safeString(phoneRecord.display_phone_number),
+        businessName: safeString(phoneRecord.verified_name),
+      });
+    }
+
+    Object.entries(node).forEach(([key, value]) => {
+      const lowerKey = key.toLowerCase();
+      const valueAsString = safeString(value);
+
+      if (!state.wabaId && /(waba|whatsapp_business_account)/i.test(lowerKey) && valueAsString && /^\d+$/.test(valueAsString)) {
+        state.wabaId = valueAsString;
+      }
+
+      if (!state.phoneNumberId && /(phone_number_id|phoneid|whatsapp_phone)/i.test(lowerKey) && valueAsString && /^\d+$/.test(valueAsString)) {
+        state.phoneNumberId = valueAsString;
+      }
+
+      if (!state.displayPhoneNumber && /(display_phone_number|displayphonenumber)/i.test(lowerKey) && valueAsString) {
+        state.displayPhoneNumber = valueAsString;
+      }
+
+      if (!state.businessName && /(business_name|businessname|verified_name)/i.test(lowerKey) && valueAsString) {
+        state.businessName = valueAsString;
+      }
+
+      walk(value, `${path}.${key}`, level + 1);
+    });
+  };
+
+  walk(payload, "payload", depth);
+  return state;
+}
+
 async function resolveWhatsappSignupIdentifiers(accessToken, seed = {}) {
   const normalizedAccessToken = safeString(accessToken);
   const seededWabaId = safeString(seed.wabaId);
@@ -677,6 +784,7 @@ module.exports = {
   isTransientWhatsappErrorMessage,
   disconnectWhatsappIntegration,
   getWhatsappMessagingCredentials,
+  extractSignupSeedFromPayload,
   resolveWhatsappSignupIdentifiers,
   normalizePhoneDigits,
   sendWhatsappTemplateMessage,
