@@ -3546,19 +3546,6 @@
                   Disconnect WhatsApp
                 </button>
               </div>
-              <div style="margin-top:12px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;">
-                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                  <input
-                    type="tel"
-                    id="whatsapp-recipient-diagnostic-input"
-                    placeholder="Recipient number (e.g. +13854521960)"
-                    style="flex:1;min-width:220px;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;"
-                    value="+13854521960"
-                  />
-                  <button class="btn-link" id="whatsapp-recipient-diagnostic-button" type="button">Diagnose Recipient</button>
-                </div>
-                <small id="whatsapp-recipient-diagnostic-status" style="display:block;margin-top:8px;color:#64748b;">Checks whether Meta can route to this number using your currently connected sender line.</small>
-              </div>
               <% if (false) { %>
               <div style="margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -4596,9 +4583,6 @@
         const whatsappLastError = document.getElementById("whatsapp-last-error");
         const whatsappDefaultTestButton = document.getElementById("whatsapp-default-test-button");
         const whatsappTestMessageStatus = document.getElementById("whatsapp-test-message-status");
-        const whatsappRecipientDiagnosticInput = document.getElementById("whatsapp-recipient-diagnostic-input");
-        const whatsappRecipientDiagnosticButton = document.getElementById("whatsapp-recipient-diagnostic-button");
-        const whatsappRecipientDiagnosticStatus = document.getElementById("whatsapp-recipient-diagnostic-status");
         const whatsappCanonicalBaseUrl = <%- JSON.stringify(String(typeof BASE_URL === "string" ? BASE_URL : "").trim()) %>;
         const planModal = document.getElementById("plan-modal");
         const planModalOpen = document.getElementById("open-plan-modal");
@@ -5437,17 +5421,8 @@
             whatsappDefaultTestButton.style.pointerEvents = canUseTestButton ? "" : "none";
             whatsappDefaultTestButton.style.cursor = canUseTestButton ? "" : "not-allowed";
           }
-          if (whatsappRecipientDiagnosticButton) {
-            const canDiagnose = Boolean(isConnected);
-            whatsappRecipientDiagnosticButton.style.opacity = canDiagnose ? "" : "0.6";
-            whatsappRecipientDiagnosticButton.style.pointerEvents = canDiagnose ? "" : "none";
-            whatsappRecipientDiagnosticButton.style.cursor = canDiagnose ? "" : "not-allowed";
-          }
           if (whatsappTestMessageStatus && !isConnected) {
             whatsappTestMessageStatus.style.color = "#64748b";
-          }
-          if (!isConnected) {
-            setWhatsappRecipientDiagnosticStatus("Connect WhatsApp first, then run recipient diagnostics.", "info");
           }
         }
 
@@ -5455,12 +5430,6 @@
           if (!whatsappTestMessageStatus) return;
           whatsappTestMessageStatus.textContent = String(message || "").trim();
           whatsappTestMessageStatus.style.color = type === "error" ? "#b91c1c" : (type === "success" ? "#166534" : "#64748b");
-        }
-
-        function setWhatsappRecipientDiagnosticStatus(message, type) {
-          if (!whatsappRecipientDiagnosticStatus) return;
-          whatsappRecipientDiagnosticStatus.textContent = String(message || "").trim();
-          whatsappRecipientDiagnosticStatus.style.color = type === "error" ? "#b91c1c" : (type === "success" ? "#166534" : "#64748b");
         }
 
         function redirectWhatsappConnectToCanonicalHost() {
@@ -5957,51 +5926,6 @@
             } finally {
               whatsappDefaultTestButton.disabled = false;
               whatsappDefaultTestButton.textContent = previousLabel || "Test WhatsApp Message";
-            }
-          });
-        }
-
-        if (whatsappRecipientDiagnosticButton && whatsappRecipientDiagnosticInput) {
-          whatsappRecipientDiagnosticButton.addEventListener("click", async () => {
-            const isConnected = Boolean(whatsappStatusPill && whatsappStatusPill.dataset.connected === "1");
-            if (!isConnected) {
-              setWhatsappRecipientDiagnosticStatus("Connect WhatsApp first, then run recipient diagnostics.", "error");
-              return;
-            }
-
-            const recipient = String(whatsappRecipientDiagnosticInput.value || "").trim();
-            if (!recipient) {
-              setWhatsappRecipientDiagnosticStatus("Enter a recipient number to diagnose.", "error");
-              return;
-            }
-
-            setWhatsappRecipientDiagnosticStatus("Running recipient diagnostics...", "info");
-            whatsappRecipientDiagnosticButton.disabled = true;
-            const previousLabel = whatsappRecipientDiagnosticButton.textContent;
-            whatsappRecipientDiagnosticButton.textContent = "Checking...";
-
-            try {
-              const response = await fetch("/account/whatsapp/diagnose-recipient", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Accept": "application/json",
-                  "X-Requested-With": "XMLHttpRequest",
-                },
-                body: JSON.stringify({ recipient }),
-              });
-
-              const result = await response.json().catch(() => ({}));
-              if (!response.ok || !result.success) {
-                throw new Error(result.message || "Recipient diagnosis failed.");
-              }
-
-              setWhatsappRecipientDiagnosticStatus(`Recipient is reachable. Meta accepted ${result.recipient || recipient}.`, "success");
-            } catch (error) {
-              setWhatsappRecipientDiagnosticStatus(error?.message || "Recipient diagnosis failed.", "error");
-            } finally {
-              whatsappRecipientDiagnosticButton.disabled = false;
-              whatsappRecipientDiagnosticButton.textContent = previousLabel || "Diagnose Recipient";
             }
           });
         }
