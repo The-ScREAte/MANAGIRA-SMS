@@ -1461,6 +1461,16 @@ const printController = (db) => ({
     const parsedTermId = parseInt(termId, 10);
     const parsedStudentId =
       studentId && !isNaN(studentId) ? parseInt(studentId, 10) : null;
+    const parsedStudentIds = parsePositiveIntArray(
+      String(req.query?.studentIds || "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+    );
+    const requestedStudentIds = parsedStudentIds.length
+      ? parsedStudentIds
+      : (parsedStudentId ? [parsedStudentId] : []);
+    const studentFilterIds = requestedStudentIds.length ? requestedStudentIds : null;
 
     try {
       // Fetch organization details
@@ -1555,18 +1565,17 @@ const printController = (db) => ({
           : "No Repeated Class",
       ]);
 
-      // Fetch saved reports (filtered by studentId if provided)
-      const savedReportsQuery = parsedStudentId
-        ? `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json, promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
+      // Fetch saved reports (filtered by selected student IDs if provided)
+      const savedReportsQuery = `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json, promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
          FROM student_reports
-         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id = $4`
-        : `SELECT student_id, conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json, promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
-         FROM student_reports
-         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`;
+         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3
+           AND (
+             $4::int[] IS NULL
+             OR array_length($4::int[], 1) IS NULL
+             OR student_id = ANY($4::int[])
+           )`;
 
-      const savedReportsParams = parsedStudentId
-        ? [organizationId, parsedClassId, parsedTermId, parsedStudentId]
-        : [organizationId, parsedClassId, parsedTermId];
+      const savedReportsParams = [organizationId, parsedClassId, parsedTermId, studentFilterIds];
 
       const savedReportsResult = await db.query(
         savedReportsQuery,
@@ -1589,7 +1598,6 @@ const printController = (db) => ({
       const customRemarkTypes = await getOrganizationCustomRemarkTypes(db, organizationId);
 
       // Fetch students, subjects, remarks, and scores
-      const studentFilterId = parsedStudentId || null;
 
       const [
         studentsResult,
@@ -1612,8 +1620,12 @@ const printController = (db) => ({
              JOIN classes c ON es.class_id = c.class_id
              WHERE es.class_id = $1 AND e.term_id = $2 AND e.organization_id = $3
                AND e.school_year_id = $5
-               AND ($4::int IS NULL OR es.student_id = $4)`,
-          [parsedClassId, parsedTermId, organizationId, studentFilterId, Number(term.school_year_id)]
+               AND (
+                 $4::int[] IS NULL
+                 OR array_length($4::int[], 1) IS NULL
+                 OR es.student_id = ANY($4::int[])
+               )`,
+          [parsedClassId, parsedTermId, organizationId, studentFilterIds, Number(term.school_year_id)]
         ),
         db.query(
           `SELECT COUNT(DISTINCT es.student_id)::int AS total_students
@@ -1651,23 +1663,35 @@ const printController = (db) => ({
           `SELECT student_id, COUNT(*) FILTER (WHERE status = 'Present') AS present_days
              FROM attendance_records
              WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
-               AND ($4::int IS NULL OR student_id = $4)
+               AND (
+                 $4::int[] IS NULL
+                 OR array_length($4::int[], 1) IS NULL
+                 OR student_id = ANY($4::int[])
+               )
              GROUP BY student_id`,
-          [parsedClassId, parsedTermId, organizationId, studentFilterId]
+          [parsedClassId, parsedTermId, organizationId, studentFilterIds]
         ),
         db.query(
           `SELECT ar.student_id, ar.assessment_id, COALESCE(ar.score, 0) AS score
              FROM assessment_results ar
              WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3
-               AND ($4::int IS NULL OR ar.student_id = $4)`,
-          [parsedClassId, parsedTermId, organizationId, studentFilterId]
+               AND (
+                 $4::int[] IS NULL
+                 OR array_length($4::int[], 1) IS NULL
+                 OR ar.student_id = ANY($4::int[])
+               )`,
+          [parsedClassId, parsedTermId, organizationId, studentFilterIds]
         ),
         db.query(
           `SELECT student_id, subject_id, position
              FROM student_positions
              WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
-               AND ($4::int IS NULL OR student_id = $4)`,
-          [parsedClassId, parsedTermId, organizationId, studentFilterId]
+               AND (
+                 $4::int[] IS NULL
+                 OR array_length($4::int[], 1) IS NULL
+                 OR student_id = ANY($4::int[])
+               )`,
+          [parsedClassId, parsedTermId, organizationId, studentFilterIds]
         ),
         db.query(
           `SELECT assessment_id, subject_id, title, category, max_score, COALESCE(scale_base, 100) AS scale_base
@@ -7439,23 +7463,14 @@ const printController = (db) => ({
         path: "/",
       });
 
-      const reportUrl = `${protocol}://${host}/print/printStudentReport?classId=${classId}&termId=${termId}&postingMode=1`;
+      const studentIdsParam = targetStudentIds.join(",");
+      const reportUrl = `${protocol}://${host}/print/printStudentReport?classId=${classId}&termId=${termId}&postingMode=1${studentIdsParam ? `&studentIds=${encodeURIComponent(studentIdsParam)}` : ""}`;
       await page.goto(reportUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
       await page.waitForSelector(".student-report", { timeout: 20000 });
 
-      await page.evaluate((ids) => {
-        const allowed = new Set((Array.isArray(ids) ? ids : []).map((id) => String(id)));
-
+      await page.evaluate(() => {
         document.querySelectorAll(".actions-no-print, .student-checkbox, hr, #emailModal, #whatsappModal").forEach((el) => {
           el.style.display = "none";
-        });
-
-        const reports = Array.from(document.querySelectorAll(".student-report"));
-        reports.forEach((report) => {
-          const sid = String(report.getAttribute("data-student-id") || "");
-          if (allowed.size > 0 && !allowed.has(sid)) {
-            report.remove();
-          }
         });
 
         const kept = Array.from(document.querySelectorAll(".student-report"));
@@ -7470,7 +7485,7 @@ const printController = (db) => ({
           lastReport.style.pageBreakAfter = "auto";
           lastReport.style.breakAfter = "auto";
         }
-      }, targetStudentIds);
+      });
 
       const pdfBuffer = await page.pdf({
         format: "A4",
