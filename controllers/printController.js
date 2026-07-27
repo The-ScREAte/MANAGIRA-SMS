@@ -24,6 +24,7 @@ const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const {
   getWhatsappIntegrationStatus,
   getWhatsappMessagingCredentials,
+  getWhatsappRegistrationPinFromEnv,
   ensureWhatsappCloudReady,
   sendWhatsappTextMessage,
   sendWhatsappDocumentMessage,
@@ -7914,7 +7915,7 @@ const printController = (db) => ({
         });
       }
 
-      const envRegistrationPin = String(process.env.WHATSAPP_CLOUD_API_REGISTRATION_PIN || "").trim();
+      const envRegistrationPin = getWhatsappRegistrationPinFromEnv();
       if (envRegistrationPin && !/^\d{6}$/.test(envRegistrationPin)) {
         return res.status(400).json({
           success: false,

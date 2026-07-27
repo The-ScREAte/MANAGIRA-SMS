@@ -491,6 +491,7 @@ const {
 } = require("../utils/googleClassroomIntegration");
 const {
   getMetaConfig,
+  getWhatsappRegistrationPinFromEnv,
   ensureWhatsappIntegrationSchema,
   getWhatsappIntegrationStatus,
   getWhatsappMessagingCredentials,
@@ -3860,6 +3861,40 @@ const accountController = {
     }
 
     res.json({ received: true });
+  },
+
+  whatsappWebhookVerifyGet: async (req, res) => {
+    try {
+      const mode = String(req.query["hub.mode"] || "").trim();
+      const verifyToken = String(req.query["hub.verify_token"] || "").trim();
+      const challenge = String(req.query["hub.challenge"] || "").trim();
+      const expectedToken = String(
+        process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ||
+        process.env.WEBHOOK_VERIFY_TOKEN ||
+        "managira_whatsapp_verify_2026"
+      ).trim();
+
+      if (!expectedToken) {
+        return res.status(500).send("WHATSAPP_WEBHOOK_VERIFY_TOKEN is not configured.");
+      }
+
+      if (mode === "subscribe" && verifyToken === expectedToken) {
+        return res.status(200).send(challenge);
+      }
+
+      return res.sendStatus(403);
+    } catch (_) {
+      return res.sendStatus(500);
+    }
+  },
+
+  whatsappWebhookPost: async (req, res) => {
+    try {
+      // Respond quickly so Meta does not retry. Event processing can be added later.
+      return res.status(200).json({ received: true });
+    } catch (_) {
+      return res.status(200).json({ received: true });
+    }
   },
 
   processSuccessfulPayment: async (
@@ -11329,7 +11364,7 @@ const accountController = {
       const displayPhoneNumber = String(req.body.displayPhoneNumber || req.body.display_phone_number || "").trim();
       const timezone = String(req.body.timezone || "").trim();
       const requestRegistrationPin = String(req.body.registrationPin || req.body.pin || "").trim();
-      const envRegistrationPin = String(process.env.WHATSAPP_CLOUD_API_REGISTRATION_PIN || "").trim();
+      const envRegistrationPin = getWhatsappRegistrationPinFromEnv();
       const registrationPin = requestRegistrationPin || envRegistrationPin;
       const payloadSeed = extractSignupSeedFromPayload(req.body.signupPayload || req.body.metaPayload || req.body);
 
@@ -11469,7 +11504,7 @@ const accountController = {
         }
 
         const runtimeRegistrationPin = String(
-          req.body.registrationPin || req.body.pin || process.env.WHATSAPP_CLOUD_API_REGISTRATION_PIN || ""
+          req.body.registrationPin || req.body.pin || getWhatsappRegistrationPinFromEnv() || ""
         ).trim();
         if (runtimeRegistrationPin && !/^\d{6}$/.test(runtimeRegistrationPin)) {
           return res.status(400).json({
@@ -11588,7 +11623,7 @@ const accountController = {
       }
 
       const runtimeRegistrationPin = String(
-        req.body.registrationPin || req.body.pin || process.env.WHATSAPP_CLOUD_API_REGISTRATION_PIN || ""
+        req.body.registrationPin || req.body.pin || getWhatsappRegistrationPinFromEnv() || ""
       ).trim();
       if (runtimeRegistrationPin && !/^\d{6}$/.test(runtimeRegistrationPin)) {
         return res.status(400).json({

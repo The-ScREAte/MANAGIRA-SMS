@@ -42,6 +42,21 @@ function getMetaGraphBaseUrl() {
   return `https://graph.facebook.com/${getMetaGraphApiVersion()}`;
 }
 
+function getWhatsappRegistrationPinFromEnv() {
+  const candidates = [
+    process.env.WHATSAPP_CLOUD_API_REGISTRATION_PIN,
+    process.env.WHATSAPP_REGISTRATION_PIN,
+    process.env.WHATSAPP_PIN,
+  ];
+
+  for (const rawValue of candidates) {
+    const normalized = safeString(rawValue);
+    if (normalized) return normalized;
+  }
+
+  return "";
+}
+
 async function ensureWhatsappIntegrationSchema(dbClient) {
   if (whatsappSchemaReady) return;
 
@@ -239,6 +254,16 @@ async function registerPhoneNumberForCloudApi(accessToken, phoneNumberId, pin) {
   } catch (error) {
     const statusCode = Number(error?.response?.status || 0);
     const apiMessage = safeString(error?.response?.data?.error?.message || error?.message);
+
+    if (
+      statusCode === 400 &&
+      (apiMessage.includes("parameter pin is required") || apiMessage.includes("The parameter pin is required"))
+    ) {
+      throw new Error(
+        "Meta requires a 6-digit WhatsApp registration PIN for this sender line. " +
+          "Provide registrationPin in the request or set WHATSAPP_CLOUD_API_REGISTRATION_PIN in server environment."
+      );
+    }
 
     // 409 and specific 400 responses may indicate a number that is already registered.
     if (statusCode === 409 || (statusCode === 400 && isAlreadyRegisteredResponse(apiMessage))) {
@@ -805,6 +830,7 @@ async function sendWhatsappDocumentMessage(accessToken, phoneNumberId, payload =
 
 module.exports = {
   getMetaConfig,
+  getWhatsappRegistrationPinFromEnv,
   ensureWhatsappIntegrationSchema,
   buildWhatsappIntegrationStatus,
   getWhatsappIntegrationStatus,

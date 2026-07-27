@@ -454,6 +454,14 @@ router.post("/update-plan", isAuthenticated, requirePermission(PERMISSIONS.MANAG
 );
 
 // Webhook Route for Stripe Events (Legacy)
+router.get("/whatsapp/webhook", (req, res) =>
+  accountController.whatsappWebhookVerifyGet(req, res)
+);
+router.post("/whatsapp/webhook", express.json({ type: "application/json" }), (req, res) =>
+  accountController.whatsappWebhookPost(req, res)
+);
+
+// Webhook Route for Stripe Events (Legacy)
 router.post("/webhook", express.raw({ type: "application/json" }), (req, res) =>
   accountController.webhookPost(req, res)
 );
