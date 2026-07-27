@@ -5564,7 +5564,23 @@
 
               Object.keys(source).forEach((key) => {
                 const value = source[key];
-                if (!value || typeof value !== "object") return;
+                if (!value) return;
+                if (typeof value === "string") {
+                  const trimmed = value.trim();
+                  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                    try {
+                      const parsedValue = JSON.parse(trimmed);
+                      const nestedFromString = extractWhatsappSignupFields(parsedValue, depth + 1);
+                      if (nestedFromString.wabaId && !out.wabaId) out.wabaId = nestedFromString.wabaId;
+                      if (nestedFromString.phoneNumberId && !out.phoneNumberId) out.phoneNumberId = nestedFromString.phoneNumberId;
+                      if (nestedFromString.displayPhoneNumber && !out.displayPhoneNumber) out.displayPhoneNumber = nestedFromString.displayPhoneNumber;
+                      if (nestedFromString.businessName && !out.businessName) out.businessName = nestedFromString.businessName;
+                      if (nestedFromString.timezone && !out.timezone) out.timezone = nestedFromString.timezone;
+                    } catch (_) {}
+                  }
+                  return;
+                }
+                if (typeof value !== "object") return;
                 const nested = extractWhatsappSignupFields(value, depth + 1);
                 if (nested.wabaId && !out.wabaId) out.wabaId = nested.wabaId;
                 if (nested.phoneNumberId && !out.phoneNumberId) out.phoneNumberId = nested.phoneNumberId;
@@ -5642,7 +5658,7 @@
                   businessName: String(signupPayload.businessName || "").trim(),
                   timezone: String(signupPayload.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "").trim(),
                 });
-              }, 900);
+              }, 2500);
             }, {
               config_id: configId,
               response_type: "code",
