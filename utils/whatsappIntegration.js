@@ -219,7 +219,10 @@ async function registerPhoneNumberForCloudApi(accessToken, phoneNumberId, pin) {
   };
 
   const normalizedPin = safeString(pin);
-  if (/^\d{6}$/.test(normalizedPin)) {
+  if (normalizedPin && !/^\d{6}$/.test(normalizedPin)) {
+    throw new Error("WHATSAPP_CLOUD_API_REGISTRATION_PIN must be exactly 6 digits.");
+  }
+  if (normalizedPin) {
     payload.pin = normalizedPin;
   }
 
@@ -256,8 +259,10 @@ async function registerPhoneNumberForCloudApi(accessToken, phoneNumberId, pin) {
       statusCode === 400 &&
       (apiMessage.includes("parameter pin is required") || apiMessage.includes("The parameter pin is required"))
     ) {
-      // Keep onboarding non-blocking for tenant admins who do not manage sender-level PIN state.
-      return;
+      throw new Error(
+        "Meta requires a 6-digit WhatsApp registration PIN for this sender line. " +
+          "Set WHATSAPP_CLOUD_API_REGISTRATION_PIN in server environment and reconnect WhatsApp."
+      );
     }
 
     // 409 and specific 400 responses may indicate a number that is already registered.
