@@ -5762,28 +5762,53 @@
 
           try {
             const signupResult = await openWhatsappEmbeddedSignupPopup();
+            const requiresPinRegex = /(6-digit\s+whatsapp\s+registration\s+pin|parameter pin is required|registration pin must be exactly 6 digits)/i;
+            let registrationPin = "";
+            let attemptedPinRetry = false;
 
-            const response = await fetch("/account/whatsapp/connect", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "X-Requested-With": "XMLHttpRequest",
-              },
-              body: JSON.stringify(signupResult),
-            });
+            while (true) {
+              const response = await fetch("/account/whatsapp/connect", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: JSON.stringify({
+                  ...signupResult,
+                  ...(registrationPin ? { registrationPin } : {}),
+                }),
+              });
 
-            const result = await response.json().catch(() => ({}));
-            if (!response.ok || !result.success) {
-              throw new Error(result.message || "Unable to finish WhatsApp setup.");
+              const result = await response.json().catch(() => ({}));
+              if (response.ok && result.success) {
+                const integration = result.integration || {};
+                setWhatsappUiState(Boolean(integration.activated), Boolean(integration.connected));
+                setWhatsappInlineError("");
+                const redirectUrl = "/account/settings?section=integrations&whatsappConnected=1";
+                window.location.assign(redirectUrl);
+                return;
+              }
+
+              const failureMessage = String(result.message || "Unable to finish WhatsApp setup.").trim();
+              if (requiresPinRegex.test(failureMessage) && !attemptedPinRetry) {
+                const enteredPin = window.prompt("Meta requires a 6-digit registration PIN for this sender line. Enter PIN to complete WhatsApp setup:", "");
+                if (enteredPin === null) {
+                  throw new Error("WhatsApp setup was cancelled before entering the required registration PIN.");
+                }
+
+                const normalizedPin = String(enteredPin || "").replace(/\D+/g, "");
+                if (!/^\d{6}$/.test(normalizedPin)) {
+                  throw new Error("Registration PIN must be exactly 6 digits.");
+                }
+
+                registrationPin = normalizedPin;
+                attemptedPinRetry = true;
+                continue;
+              }
+
+              throw new Error(failureMessage || "Unable to finish WhatsApp setup.");
             }
-
-            const integration = result.integration || {};
-            setWhatsappUiState(Boolean(integration.activated), Boolean(integration.connected));
-            setWhatsappInlineError("");
-            const redirectUrl = "/account/settings?section=integrations&whatsappConnected=1";
-            window.location.assign(redirectUrl);
-            return;
           } catch (error) {
             const message = error?.message || "Unable to connect WhatsApp right now.";
             setWhatsappInlineError(message);
