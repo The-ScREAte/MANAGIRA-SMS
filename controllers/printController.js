@@ -8230,12 +8230,6 @@ const printController = (db) => ({
           }
 
           try {
-            const shortMessage = `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is attached.`;
-            await sendWhatsappTextMessage(credentials.accessToken, credentials.phoneNumberId, {
-              to: normalized.normalized,
-              text: shortMessage,
-            });
-
             const fileName = `${studentName.replace(/[^a-zA-Z0-9_-]+/g, '_')}_Report.pdf`;
             const documentResult = await sendWhatsappDocumentMessage(credentials.accessToken, credentials.phoneNumberId, {
               to: normalized.normalized,
@@ -8266,41 +8260,88 @@ const printController = (db) => ({
                 recipientPhone: normalized.normalized,
                 messageId,
                 pdfUrl,
+                deliveryMode: 'document',
                 senderPhoneNumberId: credentials.phoneNumberId,
               },
             });
-          } catch (error) {
-            const apiMessage = error?.response?.data?.error?.message || error?.message || "Failed to send WhatsApp message.";
-            const errorCode = Number(error?.response?.data?.error?.code || 0);
-            const enhancedMessage = errorCode === 133010
-              ? `Meta could not route to this recipient number (${normalized.normalized}). Confirm this number can receive WhatsApp in Meta API Setup for the currently connected sender line, and if this sender is still in test/development mode add this number as an allowed test recipient. Reconnect WhatsApp if you recently changed the connected business line.`
-              : apiMessage;
-            failed.push({
-              studentId,
-              studentName,
-              phone: normalized.normalized,
-              message: enhancedMessage,
-            });
+          } catch (documentError) {
+            const documentApiMessage = documentError?.response?.data?.error?.message || documentError?.message || "Failed to send WhatsApp document.";
+            const documentErrorCode = Number(documentError?.response?.data?.error?.code || 0);
 
-            appendDeliveryAuditRow({
-              studentId,
-              studentName,
-              status: 'failed',
-              notes: `WhatsApp send failed for ${normalized.normalized}.`,
-              metadata: {
-                channel: 'whatsapp',
-                reportType: 'report_card',
-                className,
-                termName,
-                recipientPhone: normalized.normalized,
-                failureReason: enhancedMessage,
-                failedStage: 'meta_send',
-                metaErrorCode: errorCode || null,
-                metaErrorType: error?.response?.data?.error?.type || null,
-                metaErrorSubcode: error?.response?.data?.error?.error_subcode || null,
-                senderPhoneNumberId: credentials.phoneNumberId,
-              },
-            });
+            try {
+              const fallbackMessage = `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is ready. Download it here: ${pdfUrl}`;
+              const fallbackResult = await sendWhatsappTextMessage(credentials.accessToken, credentials.phoneNumberId, {
+                to: normalized.normalized,
+                text: fallbackMessage,
+              });
+
+              const fallbackMessageId = fallbackResult?.messages?.[0]?.id || null;
+              sent.push({
+                studentId,
+                studentName,
+                phone: normalized.normalized,
+                messageId: fallbackMessageId,
+              });
+
+              appendDeliveryAuditRow({
+                studentId,
+                studentName,
+                status: 'sent',
+                notes: `Document send failed; fallback text with report link sent to ${normalized.normalized}.`,
+                metadata: {
+                  channel: 'whatsapp',
+                  reportType: 'report_card',
+                  className,
+                  termName,
+                  recipientPhone: normalized.normalized,
+                  messageId: fallbackMessageId,
+                  pdfUrl,
+                  deliveryMode: 'text_link_fallback',
+                  documentFailureReason: documentApiMessage,
+                  documentMetaErrorCode: documentErrorCode || null,
+                  documentMetaErrorType: documentError?.response?.data?.error?.type || null,
+                  documentMetaErrorSubcode: documentError?.response?.data?.error?.error_subcode || null,
+                  senderPhoneNumberId: credentials.phoneNumberId,
+                },
+              });
+            } catch (fallbackError) {
+              const fallbackApiMessage = fallbackError?.response?.data?.error?.message || fallbackError?.message || "Failed to send WhatsApp message.";
+              const fallbackErrorCode = Number(fallbackError?.response?.data?.error?.code || 0);
+              const enhancedMessage = fallbackErrorCode === 133010
+                ? `Meta could not route to this recipient number (${normalized.normalized}). Confirm this number can receive WhatsApp in Meta API Setup for the currently connected sender line, and if this sender is still in test/development mode add this number as an allowed test recipient. Reconnect WhatsApp if you recently changed the connected business line.`
+                : fallbackApiMessage;
+
+              failed.push({
+                studentId,
+                studentName,
+                phone: normalized.normalized,
+                message: enhancedMessage,
+              });
+
+              appendDeliveryAuditRow({
+                studentId,
+                studentName,
+                status: 'failed',
+                notes: `WhatsApp document and fallback text send both failed for ${normalized.normalized}.`,
+                metadata: {
+                  channel: 'whatsapp',
+                  reportType: 'report_card',
+                  className,
+                  termName,
+                  recipientPhone: normalized.normalized,
+                  failureReason: enhancedMessage,
+                  failedStage: 'meta_send_and_fallback',
+                  documentFailureReason: documentApiMessage,
+                  documentMetaErrorCode: documentErrorCode || null,
+                  documentMetaErrorType: documentError?.response?.data?.error?.type || null,
+                  documentMetaErrorSubcode: documentError?.response?.data?.error?.error_subcode || null,
+                  fallbackMetaErrorCode: fallbackErrorCode || null,
+                  fallbackMetaErrorType: fallbackError?.response?.data?.error?.type || null,
+                  fallbackMetaErrorSubcode: fallbackError?.response?.data?.error?.error_subcode || null,
+                  senderPhoneNumberId: credentials.phoneNumberId,
+                },
+              });
+            }
           }
         }
       }
