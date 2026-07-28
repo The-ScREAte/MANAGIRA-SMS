@@ -1761,7 +1761,7 @@ module.exports = {
         const offset = index * 4;
         const targetClassId = finalEnrollments.find((entry) => Number(entry.student_id) === Number(row.studentId))?.target_class_id || null;
         values.push(row.studentId, row.subjectId, organization_id, targetClassId == null ? null : Number(targetClassId));
-        placeholders.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`);
+        placeholders.push(`($${offset + 1}::int, $${offset + 2}::int, $${offset + 3}::int, $${offset + 4}::int)`);
       });
 
       const insertedSubjectResult = await db.query(
@@ -1769,7 +1769,7 @@ module.exports = {
            VALUES ${placeholders.join(', ')}
          )
          INSERT INTO student_subjects (student_id, subject_id, organization_id)
-         SELECT student_id, subject_id, organization_id
+         SELECT student_id::int, subject_id::int, organization_id::int
          FROM source_rows
          ON CONFLICT DO NOTHING
          RETURNING student_id, subject_id`,
