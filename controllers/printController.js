@@ -7874,6 +7874,21 @@ const printController = (db) => ({
         return res.status(400).json({ success: false, message: "Invalid class or term." });
       }
 
+      await ensureDeliveryAuditTable(db);
+
+      const activityBatchId = `rwa_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const actorUserId = Number(req.session.userId || (req.session.user && req.session.user.user_id)) || null;
+      const actorNameResult = actorUserId
+        ? await db.query(
+            `SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown') AS actor_name
+             FROM users
+             WHERE user_id = $1 AND organization_id = $2
+             LIMIT 1`,
+            [actorUserId, organizationId]
+          )
+        : { rows: [] };
+      const actorName = String(actorNameResult.rows[0]?.actor_name || 'Unknown').trim() || 'Unknown';
+
       let passwordMatch = false;
       const userId = req.session.userId || (req.session.user && req.session.user.user_id);
 
@@ -8095,6 +8110,36 @@ const printController = (db) => ({
 
       const sent = [];
       const failed = [];
+      const deliveryAuditRows = [];
+
+      const appendDeliveryAuditRow = ({
+        studentId = null,
+        studentName = null,
+        status = 'failed',
+        notes = '',
+        metadata = {},
+      }) => {
+        deliveryAuditRows.push({
+          organizationId,
+          eventDomain: 'whatsapp',
+          eventName: 'report_whatsapp_sent',
+          classId: parsedClassId,
+          termId: parsedTermId,
+          studentId: Number.isFinite(Number(studentId)) && Number(studentId) > 0 ? Number(studentId) : null,
+          studentName: studentName || null,
+          actorUserId,
+          actorName,
+          recipientEmails: [],
+          status,
+          batchId: activityBatchId,
+          pdfUrl: null,
+          notes,
+          metadata: {
+            source: 'whatsappReports',
+            ...metadata,
+          },
+        });
+      };
 
       for (const entry of whatsappData) {
         const studentId = Number(entry?.studentId || 0);
@@ -8109,6 +8154,21 @@ const printController = (db) => ({
 
         if (!phones.length) {
           failed.push({ studentId, studentName, phone: "", message: "No phone numbers provided." });
+          appendDeliveryAuditRow({
+            studentId,
+            studentName,
+            status: 'failed',
+            notes: 'No phone numbers provided for student.',
+            metadata: {
+              channel: 'whatsapp',
+              reportType: 'report_card',
+              className,
+              termName,
+              recipientPhone: null,
+              failureReason: 'No phone numbers provided.',
+              failedStage: 'phone_validation',
+            },
+          });
           continue;
         }
 
@@ -8116,11 +8176,27 @@ const printController = (db) => ({
         try {
           pdfUrl = await ensureStudentPdfUrl(studentId);
         } catch (error) {
+          const pdfError = error?.message || "Failed to generate report PDF.";
           failed.push({
             studentId,
             studentName,
             phone: "",
-            message: error?.message || "Failed to generate report PDF.",
+            message: pdfError,
+          });
+          appendDeliveryAuditRow({
+            studentId,
+            studentName,
+            status: 'failed',
+            notes: 'Failed to generate student report PDF before WhatsApp send.',
+            metadata: {
+              channel: 'whatsapp',
+              reportType: 'report_card',
+              className,
+              termName,
+              recipientPhone: null,
+              failureReason: pdfError,
+              failedStage: 'pdf_generation',
+            },
           });
           continue;
         }
@@ -8128,11 +8204,27 @@ const printController = (db) => ({
         for (const phone of phones) {
           const normalized = normalizeWhatsappPhoneNumber(phone, organizationCountryCode);
           if (!normalized.valid || !normalized.normalized) {
+            const invalidReason = normalized.reason || "Invalid WhatsApp number format.";
             failed.push({
               studentId,
               studentName,
               phone,
-              message: normalized.reason || "Invalid WhatsApp number format.",
+              message: invalidReason,
+            });
+            appendDeliveryAuditRow({
+              studentId,
+              studentName,
+              status: 'failed',
+              notes: 'Phone normalization failed before WhatsApp API send.',
+              metadata: {
+                channel: 'whatsapp',
+                reportType: 'report_card',
+                className,
+                termName,
+                recipientPhone: String(phone || '').trim() || null,
+                failureReason: invalidReason,
+                failedStage: 'phone_normalization',
+              },
             });
             continue;
           }
@@ -8152,11 +8244,30 @@ const printController = (db) => ({
               caption: `${studentName} report card (${termName})`,
             });
 
+            const messageId = documentResult?.messages?.[0]?.id || null;
+
             sent.push({
               studentId,
               studentName,
               phone: normalized.normalized,
-              messageId: documentResult?.messages?.[0]?.id || null,
+              messageId,
+            });
+
+            appendDeliveryAuditRow({
+              studentId,
+              studentName,
+              status: 'sent',
+              notes: `Report card sent by WhatsApp to ${normalized.normalized}.`,
+              metadata: {
+                channel: 'whatsapp',
+                reportType: 'report_card',
+                className,
+                termName,
+                recipientPhone: normalized.normalized,
+                messageId,
+                pdfUrl,
+                senderPhoneNumberId: credentials.phoneNumberId,
+              },
             });
           } catch (error) {
             const apiMessage = error?.response?.data?.error?.message || error?.message || "Failed to send WhatsApp message.";
@@ -8170,8 +8281,72 @@ const printController = (db) => ({
               phone: normalized.normalized,
               message: enhancedMessage,
             });
+
+            appendDeliveryAuditRow({
+              studentId,
+              studentName,
+              status: 'failed',
+              notes: `WhatsApp send failed for ${normalized.normalized}.`,
+              metadata: {
+                channel: 'whatsapp',
+                reportType: 'report_card',
+                className,
+                termName,
+                recipientPhone: normalized.normalized,
+                failureReason: enhancedMessage,
+                failedStage: 'meta_send',
+                metaErrorCode: errorCode || null,
+                metaErrorType: error?.response?.data?.error?.type || null,
+                metaErrorSubcode: error?.response?.data?.error?.error_subcode || null,
+                senderPhoneNumberId: credentials.phoneNumberId,
+              },
+            });
           }
         }
+      }
+
+      if (deliveryAuditRows.length) {
+        await db.query(
+          `INSERT INTO delivery_audit_history (
+             organization_id, event_domain, event_name, class_id, term_id, student_id,
+             student_name, actor_user_id, actor_name, recipient_emails, status, batch_id, pdf_url, notes, metadata
+           )
+           SELECT *
+           FROM UNNEST(
+             $1::int[],
+             $2::text[],
+             $3::text[],
+             $4::int[],
+             $5::int[],
+             $6::int[],
+             $7::text[],
+             $8::int[],
+             $9::text[],
+             $10::text[][],
+             $11::text[],
+             $12::text[],
+             $13::text[],
+             $14::text[],
+             $15::jsonb[]
+           )`,
+          [
+            deliveryAuditRows.map((row) => row.organizationId),
+            deliveryAuditRows.map((row) => row.eventDomain),
+            deliveryAuditRows.map((row) => row.eventName),
+            deliveryAuditRows.map((row) => row.classId),
+            deliveryAuditRows.map((row) => row.termId),
+            deliveryAuditRows.map((row) => row.studentId),
+            deliveryAuditRows.map((row) => row.studentName),
+            deliveryAuditRows.map((row) => row.actorUserId),
+            deliveryAuditRows.map((row) => row.actorName),
+            deliveryAuditRows.map((row) => row.recipientEmails),
+            deliveryAuditRows.map((row) => row.status),
+            deliveryAuditRows.map((row) => row.batchId),
+            deliveryAuditRows.map((row) => row.pdfUrl),
+            deliveryAuditRows.map((row) => row.notes),
+            deliveryAuditRows.map((row) => row.metadata || {}),
+          ]
+        );
       }
 
       return res.json({
@@ -8181,6 +8356,8 @@ const printController = (db) => ({
           : `WhatsApp sent successfully to ${sent.length} number(s).`,
         sentCount: sent.length,
         failedCount: failed.length,
+        batchId: activityBatchId,
+        trackedCount: deliveryAuditRows.length,
         sent,
         failed,
       });
