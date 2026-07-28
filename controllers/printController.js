@@ -8305,48 +8305,54 @@ const printController = (db) => ({
         }
       }
 
+      let auditWriteError = "";
       if (deliveryAuditRows.length) {
-        await db.query(
-          `INSERT INTO delivery_audit_history (
-             organization_id, event_domain, event_name, class_id, term_id, student_id,
-             student_name, actor_user_id, actor_name, recipient_emails, status, batch_id, pdf_url, notes, metadata
-           )
-           SELECT *
-           FROM UNNEST(
-             $1::int[],
-             $2::text[],
-             $3::text[],
-             $4::int[],
-             $5::int[],
-             $6::int[],
-             $7::text[],
-             $8::int[],
-             $9::text[],
-             $10::text[][],
-             $11::text[],
-             $12::text[],
-             $13::text[],
-             $14::text[],
-             $15::jsonb[]
-           )`,
-          [
-            deliveryAuditRows.map((row) => row.organizationId),
-            deliveryAuditRows.map((row) => row.eventDomain),
-            deliveryAuditRows.map((row) => row.eventName),
-            deliveryAuditRows.map((row) => row.classId),
-            deliveryAuditRows.map((row) => row.termId),
-            deliveryAuditRows.map((row) => row.studentId),
-            deliveryAuditRows.map((row) => row.studentName),
-            deliveryAuditRows.map((row) => row.actorUserId),
-            deliveryAuditRows.map((row) => row.actorName),
-            deliveryAuditRows.map((row) => row.recipientEmails),
-            deliveryAuditRows.map((row) => row.status),
-            deliveryAuditRows.map((row) => row.batchId),
-            deliveryAuditRows.map((row) => row.pdfUrl),
-            deliveryAuditRows.map((row) => row.notes),
-            deliveryAuditRows.map((row) => row.metadata || {}),
-          ]
-        );
+        try {
+          await db.query(
+            `INSERT INTO delivery_audit_history (
+               organization_id, event_domain, event_name, class_id, term_id, student_id,
+               student_name, actor_user_id, actor_name, recipient_emails, status, batch_id, pdf_url, notes, metadata
+             )
+             SELECT *
+             FROM UNNEST(
+               $1::int[],
+               $2::text[],
+               $3::text[],
+               $4::int[],
+               $5::int[],
+               $6::int[],
+               $7::text[],
+               $8::int[],
+               $9::text[],
+               $10::text[][],
+               $11::text[],
+               $12::text[],
+               $13::text[],
+               $14::text[],
+               $15::jsonb[]
+             )`,
+            [
+              deliveryAuditRows.map((row) => row.organizationId),
+              deliveryAuditRows.map((row) => row.eventDomain),
+              deliveryAuditRows.map((row) => row.eventName),
+              deliveryAuditRows.map((row) => row.classId),
+              deliveryAuditRows.map((row) => row.termId),
+              deliveryAuditRows.map((row) => row.studentId),
+              deliveryAuditRows.map((row) => row.studentName),
+              deliveryAuditRows.map((row) => row.actorUserId),
+              deliveryAuditRows.map((row) => row.actorName),
+              deliveryAuditRows.map((row) => row.recipientEmails),
+              deliveryAuditRows.map((row) => row.status),
+              deliveryAuditRows.map((row) => row.batchId),
+              deliveryAuditRows.map((row) => row.pdfUrl),
+              deliveryAuditRows.map((row) => row.notes),
+              deliveryAuditRows.map((row) => row.metadata || {}),
+            ]
+          );
+        } catch (auditError) {
+          auditWriteError = String(auditError?.message || "").trim();
+          console.error('[whatsappReports] Audit insert failed:', auditWriteError || auditError);
+        }
       }
 
       return res.json({
@@ -8358,12 +8364,17 @@ const printController = (db) => ({
         failedCount: failed.length,
         batchId: activityBatchId,
         trackedCount: deliveryAuditRows.length,
+        trackingWarning: auditWriteError || null,
         sent,
         failed,
       });
     } catch (error) {
       console.error('[whatsappReports] Error:', error);
-      return res.status(500).json({ success: false, message: "Failed to send reports by WhatsApp." });
+      const details = String(error?.message || "").trim();
+      return res.status(500).json({
+        success: false,
+        message: details ? `Failed to send reports by WhatsApp. ${details}` : "Failed to send reports by WhatsApp.",
+      });
     } finally {
       if (browser) {
         try {

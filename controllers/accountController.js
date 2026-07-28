@@ -11514,6 +11514,42 @@ const accountController = {
           }
         );
 
+        try {
+          await db.query(
+            `INSERT INTO delivery_audit_history (
+               organization_id, event_domain, event_name, actor_user_id, actor_name,
+               status, notes, metadata
+             )
+             VALUES (
+               $1, 'whatsapp', 'settings_whatsapp_test_message', $2,
+               COALESCE(
+                 (SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown')
+                  FROM users
+                  WHERE user_id = $2 AND organization_id = $1
+                  LIMIT 1),
+                 'Unknown'
+               ),
+               'sent',
+               'WhatsApp test text message sent from integrations settings.',
+               $3::jsonb
+             )`,
+            [
+              orgId,
+              Number(req.session.userId || (req.session.user && req.session.user.user_id)) || null,
+              JSON.stringify({
+                channel: 'whatsapp',
+                source: 'settings_whatsapp_test',
+                recipientPhone: recipient,
+                messageId: sendResult?.messages?.[0]?.id || null,
+                senderPhoneNumberId: phoneNumberId,
+                contentType: 'text',
+              }),
+            ]
+          );
+        } catch (auditError) {
+          console.error('[whatsappTestMessagePost] Audit insert failed:', auditError?.message || auditError);
+        }
+
         return res.json({
           success: true,
           message: "Test WhatsApp text message sent.",
@@ -11533,6 +11569,44 @@ const accountController = {
           bodyParameters,
         }
       );
+
+      try {
+        await db.query(
+          `INSERT INTO delivery_audit_history (
+             organization_id, event_domain, event_name, actor_user_id, actor_name,
+             status, notes, metadata
+           )
+           VALUES (
+             $1, 'whatsapp', 'settings_whatsapp_test_message', $2,
+             COALESCE(
+               (SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown')
+                FROM users
+                WHERE user_id = $2 AND organization_id = $1
+                LIMIT 1),
+               'Unknown'
+             ),
+             'sent',
+             'WhatsApp test template sent from integrations settings.',
+             $3::jsonb
+           )`,
+          [
+            orgId,
+            Number(req.session.userId || (req.session.user && req.session.user.user_id)) || null,
+            JSON.stringify({
+              channel: 'whatsapp',
+              source: 'settings_whatsapp_test',
+              recipientPhone: recipient,
+              messageId: sendResult?.messages?.[0]?.id || null,
+              senderPhoneNumberId: phoneNumberId,
+              contentType: 'template',
+              templateName,
+              languageCode,
+            }),
+          ]
+        );
+      } catch (auditError) {
+        console.error('[whatsappTestMessagePost] Audit insert failed:', auditError?.message || auditError);
+      }
 
       return res.json({
         success: true,
