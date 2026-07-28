@@ -509,6 +509,7 @@ const {
   resolveWhatsappSignupIdentifiers,
   normalizePhoneDigits,
   sendWhatsappTemplateMessage,
+  sendWhatsappTextMessage,
 } = require("../utils/whatsappIntegration");
 const {
   syncGoogleClassroomForOrganization,
@@ -11477,6 +11478,7 @@ const accountController = {
       const phoneNumberId = credentials.phoneNumberId;
 
       const recipient = normalizePhoneDigits(req.body.recipient || req.body.to || "");
+      const textMessage = String(req.body.textMessage || req.body.message || "").trim();
       const templateName = String(req.body.templateName || "").trim();
       const languageCode = String(req.body.languageCode || "en_US").trim() || "en_US";
       const rawBodyParameters = req.body.bodyParameters;
@@ -11498,8 +11500,27 @@ const accountController = {
         return res.status(400).json({ success: false, message: "Enter the recipient number in international format digits only." });
       }
 
-      if (!templateName) {
+      if (!textMessage && !templateName) {
         return res.status(400).json({ success: false, message: "Enter the approved WhatsApp template name to send." });
+      }
+
+      if (textMessage) {
+        const sendResult = await sendWhatsappTextMessage(
+          accessToken,
+          phoneNumberId,
+          {
+            to: recipient,
+            text: textMessage,
+          }
+        );
+
+        return res.json({
+          success: true,
+          message: "Test WhatsApp text message sent.",
+          recipient,
+          messageId: sendResult?.messages?.[0]?.id || "",
+          raw: sendResult,
+        });
       }
 
       const sendResult = await sendWhatsappTemplateMessage(

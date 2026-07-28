@@ -3589,14 +3589,33 @@
                   Disconnect WhatsApp
                 </button>
               </div>
-              <% if (false) { %>
               <div style="margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;">
-                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                  <button class="btn-link" id="whatsapp-default-test-button" type="button" style="<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>">Test Message</button>
-                  <small id="whatsapp-test-message-status" style="color:#64748b;">Click Test Message to send the WhatsApp test template.</small>
+                <div style="display:grid;gap:10px;">
+                  <label class="form-label" for="whatsapp-test-recipient-input" style="margin-bottom:0;">Test recipient number</label>
+                  <input
+                    id="whatsapp-test-recipient-input"
+                    class="form-input"
+                    type="tel"
+                    inputmode="numeric"
+                    placeholder="e.g. 233551234567"
+                    autocomplete="off"
+                  />
+
+                  <label class="form-label" for="whatsapp-test-message-input" style="margin-bottom:0;">Test message</label>
+                  <textarea
+                    id="whatsapp-test-message-input"
+                    class="form-input"
+                    rows="3"
+                    maxlength="500"
+                    placeholder="Type a short WhatsApp test message"
+                  >Managira test message from Integrations settings.</textarea>
+
+                  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                    <button class="btn-link" id="whatsapp-default-test-button" type="button" style="<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>">Send Test Message</button>
+                    <small id="whatsapp-test-message-status" style="color:#64748b;">Enter recipient + message, then click Send Test Message.</small>
+                  </div>
                 </div>
               </div>
-              <% } %>
 
               <% if (!hasWhatsappMetaConfig) { %>
               <small style="display:block;margin-top:10px;color:#b45309;">Meta app credentials are missing on this server. Set <strong>META_APP_ID</strong>, <strong>META_APP_SECRET</strong>, and <strong>WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID</strong> for Embedded Signup connect.</small>
@@ -4625,6 +4644,8 @@
         const whatsappStatusPill = document.getElementById("whatsapp-status-pill");
         const whatsappLastError = document.getElementById("whatsapp-last-error");
         const whatsappDefaultTestButton = document.getElementById("whatsapp-default-test-button");
+        const whatsappTestRecipientInput = document.getElementById("whatsapp-test-recipient-input");
+        const whatsappTestMessageInput = document.getElementById("whatsapp-test-message-input");
         const whatsappTestMessageStatus = document.getElementById("whatsapp-test-message-status");
         const whatsappCanonicalBaseUrl = <%- JSON.stringify(String(typeof BASE_URL === "string" ? BASE_URL : "").trim()) %>;
         const planModal = document.getElementById("plan-modal");
@@ -5999,7 +6020,22 @@
               return;
             }
 
-            const recipient = String(whatsappServerTestConfig.defaultRecipient || "13854521960").replace(/\D+/g, "") || "13854521960";
+            const recipient = String(whatsappTestRecipientInput?.value || whatsappServerTestConfig.defaultRecipient || "")
+              .replace(/\D+/g, "")
+              .trim();
+            const textMessage = String(whatsappTestMessageInput?.value || "").trim();
+
+            if (!recipient) {
+              setWhatsappTestMessageStatus("Enter a recipient number in international format digits only.", "error");
+              if (whatsappTestRecipientInput) whatsappTestRecipientInput.focus();
+              return;
+            }
+
+            if (!textMessage) {
+              setWhatsappTestMessageStatus("Enter a test message before sending.", "error");
+              if (whatsappTestMessageInput) whatsappTestMessageInput.focus();
+              return;
+            }
 
             setWhatsappTestMessageStatus("Sending test WhatsApp message...", "info");
             whatsappDefaultTestButton.disabled = true;
@@ -6016,9 +6052,7 @@
                 },
                 body: JSON.stringify({
                   recipient,
-                  templateName: "jaspers_market_order_confirmation_v1",
-                  languageCode: "en_US",
-                  bodyParameters: ["Managira Support", "MGR-20260629", "June 30, 2026"],
+                  textMessage,
                 }),
               });
 
@@ -6028,12 +6062,17 @@
               }
 
               const messageId = String(result.messageId || "").trim();
-              setWhatsappTestMessageStatus("Sent", "success");
+              setWhatsappTestMessageStatus(
+                messageId
+                  ? `Sent successfully (message ID: ${messageId}).`
+                  : "Sent successfully.",
+                "success"
+              );
             } catch (error) {
               setWhatsappTestMessageStatus(error?.message || "Unable to send the WhatsApp test message.", "error");
             } finally {
               whatsappDefaultTestButton.disabled = false;
-              whatsappDefaultTestButton.textContent = previousLabel || "Test WhatsApp Message";
+              whatsappDefaultTestButton.textContent = previousLabel || "Send Test Message";
             }
           });
         }
