@@ -7916,12 +7916,6 @@ const printController = (db) => ({
       }
 
       const envRegistrationPin = getWhatsappRegistrationPinFromEnv();
-      if (envRegistrationPin && !/^\d{6}$/.test(envRegistrationPin)) {
-        return res.status(400).json({
-          success: false,
-          message: "WHATSAPP_CLOUD_API_REGISTRATION_PIN must be exactly 6 digits in server config.",
-        });
-      }
 
       await ensureWhatsappCloudReady(
         credentials.accessToken,

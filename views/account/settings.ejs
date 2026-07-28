@@ -3439,8 +3439,6 @@
           <% const wiReady = !!wi.shouldShowFeatures; %>
           <% const wf = (typeof whatsappFrontendConfig !== 'undefined' && whatsappFrontendConfig) ? whatsappFrontendConfig : {}; %>
           <% const hasWhatsappMetaConfig = !!(wf.appId && wf.embeddedSignupConfigId); %>
-          <% const wst = (typeof whatsappServerTestConfig !== 'undefined' && whatsappServerTestConfig) ? whatsappServerTestConfig : {}; %>
-          <% const hasWhatsappServerTestMode = !!wst.enabled; %>
           <% const spi = (typeof studentPortalIntegration !== 'undefined' && studentPortalIntegration) ? studentPortalIntegration : {}; %>
           <% const spiActivated = !!spi.activated; %>
           <% const ti = (typeof transportationIntegration !== 'undefined' && transportationIntegration) ? transportationIntegration : {}; %>
@@ -3555,7 +3553,7 @@
                       <a class="google-action-item" href="#" id="open-whatsapp-deactivate-modal" style="display:<%= wiActivated ? 'block' : 'none' %>">Deactivate</a>
 
                       <% if (wiActivated) { %>
-                      <button class="google-action-item" type="button" id="whatsapp-connect-link" style="<%= (hasWhatsappMetaConfig || hasWhatsappServerTestMode) ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"><%= wiConfigured ? 'Reconnect WhatsApp' : 'Connect WhatsApp' %></button>
+                      <button class="google-action-item" type="button" id="whatsapp-connect-link" style="<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"><%= wiConfigured ? 'Reconnect WhatsApp' : 'Connect WhatsApp' %></button>
                       <% } %>
 
                       <% if (wiConfigured) { %>
@@ -3578,7 +3576,7 @@
                   class="btn-link"
                   type="button"
                   id="whatsapp-connect-cta"
-                  style="display:<%= wiActivated ? 'inline-flex' : 'none' %>;align-items:center;<%= (hasWhatsappMetaConfig || hasWhatsappServerTestMode) ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"
+                  style="display:<%= wiActivated ? 'inline-flex' : 'none' %>;align-items:center;<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"
                 >
                   <%= wiConnected ? 'Reconnect WhatsApp' : 'Connect WhatsApp' %>
                 </button>
@@ -3594,14 +3592,14 @@
               <% if (false) { %>
               <div style="margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                  <button class="btn-link" id="whatsapp-default-test-button" type="button" style="<%= (hasWhatsappMetaConfig || hasWhatsappServerTestMode) ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>">Test Message</button>
+                  <button class="btn-link" id="whatsapp-default-test-button" type="button" style="<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>">Test Message</button>
                   <small id="whatsapp-test-message-status" style="color:#64748b;">Click Test Message to send the WhatsApp test template.</small>
                 </div>
               </div>
               <% } %>
 
               <% if (!hasWhatsappMetaConfig) { %>
-              <small style="display:block;margin-top:10px;color:#b45309;">Meta app credentials are missing on this server. Set <strong>META_APP_ID</strong>, <strong>META_APP_SECRET</strong>, and <strong>WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID</strong> for Embedded Signup connect. <% if (hasWhatsappServerTestMode) { %>Server test mode is enabled, so Test Message can still be used.<% } %></small>
+              <small style="display:block;margin-top:10px;color:#b45309;">Meta app credentials are missing on this server. Set <strong>META_APP_ID</strong>, <strong>META_APP_SECRET</strong>, and <strong>WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID</strong> for Embedded Signup connect.</small>
               <% } %>
             </div>
 
@@ -4534,12 +4532,12 @@
       const orgPhone = <%- JSON.stringify(org?.organization_phone || "") %>;
       const orgName = <%- JSON.stringify(org?.organization_name || "") %>;
       const whatsappFrontendConfig = <%- JSON.stringify(whatsappFrontendConfig || {}) %>;
-      const whatsappServerTestConfig = <%- JSON.stringify(whatsappServerTestConfig || {}) %>;
+      const whatsappServerTestConfig = { enabled: false, defaultRecipient: "" };
       const hasWhatsappMetaConfig = Boolean(
         String(whatsappFrontendConfig.appId || "").trim() &&
         String(whatsappFrontendConfig.embeddedSignupConfigId || "").trim()
       );
-      const hasWhatsappServerTestConfig = Boolean(whatsappServerTestConfig && whatsappServerTestConfig.enabled);
+      const hasWhatsappServerTestConfig = false;
       const paymentProvider = <%- JSON.stringify(paymentProvider || "paystack") %>;
       const stripePublishableKey = <%- JSON.stringify(resolvedStripePublishableKey) %>;
       let passwordVerified = <%= passwordVerified ? "true" : "false" %>;
@@ -5729,12 +5727,6 @@
         async function connectWhatsappIntegration() {
           if (!whatsappConnectLink && !whatsappConnectCta) return;
           if (!hasWhatsappMetaConfig) {
-            if (hasWhatsappServerTestConfig) {
-              const msg = "Server test mode is active. You can use Test Message now. Set META_APP_ID, META_APP_SECRET, and WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID when you are ready to connect via Embedded Signup.";
-              setWhatsappInlineError(msg);
-              setWhatsappTestMessageStatus("Server test mode is active. Use Test Message to send texts.", "success");
-              return;
-            }
             const msg = "WhatsApp connect is not configured on this server yet. Missing META_APP_ID, META_APP_SECRET, or WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID.";
             setWhatsappInlineError(msg);
             window.alert(msg);
@@ -5762,53 +5754,27 @@
 
           try {
             const signupResult = await openWhatsappEmbeddedSignupPopup();
-            const requiresPinRegex = /(6-digit\s+whatsapp\s+registration\s+pin|parameter pin is required|registration pin must be exactly 6 digits)/i;
-            let registrationPin = "";
-            let attemptedPinRetry = false;
+            const response = await fetch("/account/whatsapp/connect", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+              },
+              body: JSON.stringify(signupResult),
+            });
 
-            while (true) {
-              const response = await fetch("/account/whatsapp/connect", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  "Accept": "application/json",
-                  "X-Requested-With": "XMLHttpRequest",
-                },
-                body: JSON.stringify({
-                  ...signupResult,
-                  ...(registrationPin ? { registrationPin } : {}),
-                }),
-              });
-
-              const result = await response.json().catch(() => ({}));
-              if (response.ok && result.success) {
-                const integration = result.integration || {};
-                setWhatsappUiState(Boolean(integration.activated), Boolean(integration.connected));
-                setWhatsappInlineError("");
-                const redirectUrl = "/account/settings?section=integrations&whatsappConnected=1";
-                window.location.assign(redirectUrl);
-                return;
-              }
-
-              const failureMessage = String(result.message || "Unable to finish WhatsApp setup.").trim();
-              if (requiresPinRegex.test(failureMessage) && !attemptedPinRetry) {
-                const enteredPin = window.prompt("Meta requires a 6-digit registration PIN for this sender line. Enter PIN to complete WhatsApp setup:", "");
-                if (enteredPin === null) {
-                  throw new Error("WhatsApp setup was cancelled before entering the required registration PIN.");
-                }
-
-                const normalizedPin = String(enteredPin || "").replace(/\D+/g, "");
-                if (!/^\d{6}$/.test(normalizedPin)) {
-                  throw new Error("Registration PIN must be exactly 6 digits.");
-                }
-
-                registrationPin = normalizedPin;
-                attemptedPinRetry = true;
-                continue;
-              }
-
-              throw new Error(failureMessage || "Unable to finish WhatsApp setup.");
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+              throw new Error(result.message || "Unable to finish WhatsApp setup.");
             }
+
+            const integration = result.integration || {};
+            setWhatsappUiState(Boolean(integration.activated), Boolean(integration.connected));
+            setWhatsappInlineError("");
+            const redirectUrl = "/account/settings?section=integrations&whatsappConnected=1";
+            window.location.assign(redirectUrl);
+            return;
           } catch (error) {
             const message = error?.message || "Unable to connect WhatsApp right now.";
             setWhatsappInlineError(message);
@@ -6022,14 +5988,13 @@
           whatsappDefaultTestButton.addEventListener("click", async () => {
             const isActivated = Boolean(whatsappStatusPill && whatsappStatusPill.dataset.activated === "1");
             const isConnected = Boolean(whatsappStatusPill && whatsappStatusPill.dataset.connected === "1");
-            const useServerTestCredentials = Boolean(hasWhatsappServerTestConfig);
 
-            if (!useServerTestCredentials && !isActivated) {
+            if (!isActivated) {
               setWhatsappTestMessageStatus("Activate WhatsApp first, then click Test Message again.", "error");
               return;
             }
 
-            if (!useServerTestCredentials && !isConnected) {
+            if (!isConnected) {
               setWhatsappTestMessageStatus("Connect WhatsApp once before sending this test message.", "error");
               return;
             }
@@ -6054,7 +6019,6 @@
                   templateName: "jaspers_market_order_confirmation_v1",
                   languageCode: "en_US",
                   bodyParameters: ["Managira Support", "MGR-20260629", "June 30, 2026"],
-                  useServerTestCredentials,
                 }),
               });
 

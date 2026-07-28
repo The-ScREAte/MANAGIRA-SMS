@@ -67,13 +67,6 @@ Key variables required in .env:
 - WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID  Meta Embedded Signup configuration ID
 - META_GRAPH_API_VERSION  Optional Meta Graph API version override; defaults to v21.0
 
-WhatsApp review-only variables:
-- WHATSAPP_TEST_ACCESS_TOKEN  Optional server-side test token for review/demo flows
-- WHATSAPP_TEST_PHONE_NUMBER_ID  Optional server-side test phone number ID for review/demo flows
-- WHATSAPP_TEST_RECIPIENT  Optional default recipient for the review/demo test form
-
-Leave the WHATSAPP_TEST_* variables unset in normal production unless you intentionally want server-side test mode enabled.
-
 ## Deployment
 
 The app is deployed as a standard Node.js server. Ensure all environment variables are set on your hosting provider and run:
