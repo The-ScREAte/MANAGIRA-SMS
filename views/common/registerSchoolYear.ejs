@@ -425,10 +425,11 @@
 
       [startInput, endInput, nameInput].forEach((input) => {
         input.addEventListener('change', applyTermDateConstraints);
-        input.addEventListener('input', () => {
-          if (input === nameInput) smartSortTermCards();
-        });
       });
+
+      if (nameInput) {
+        nameInput.addEventListener('blur', () => smartSortTermCards());
+      }
     }
 
     function addTerm() {

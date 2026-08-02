@@ -1454,11 +1454,9 @@
           [startInput, endInput, nameInput].forEach((input) => {
             if (!input) return;
             input.addEventListener('change', () => applySequentialDateRules(termSection));
-            input.addEventListener('input', () => {
-              if (input === nameInput) {
-                smartSortTermFieldsets(termSection);
-              }
-            });
+            if (input === nameInput) {
+              input.addEventListener('blur', () => smartSortTermFieldsets(termSection));
+            }
           });
         });
       }
@@ -1795,6 +1793,12 @@
         wrapper.querySelectorAll('.term-completed.is-readonly').forEach((fieldset) => {
           fieldset.classList.remove('is-readonly');
         });
+
+        const termSection = wrapper.querySelector('.term-section, [id^="termSection"]');
+        if (termSection && window.getComputedStyle(termSection).display === 'none') {
+          const yearId = termSection.id.replace('termSection', '');
+          toggleTerms(yearId);
+        }
 
         alert('Editing has been enabled for this completed school year. Please save your changes when done.');
       }
