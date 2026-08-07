@@ -2016,7 +2016,7 @@
   <% const publicOrgFullName = (publicOrgData && publicOrgData.organization_name) ? publicOrgData.organization_name : ''; %>
   <% const publicOrgNickname = (publicOrgData && (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname)) ? (publicOrgData.nickname || publicOrgData.org_nickname || publicOrgData.organization_nickname) : ''; %>
   <% const publicOrgNicknameDisplay = (publicOrgData && publicOrgData.nickname_display && String(publicOrgData.nickname_display).trim()) ? publicOrgData.nickname_display : publicOrgNickname; %>
-  <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : (req.session && req.session.userRole === 'Student' ? '/student/dashboard' : '/common/orgDashboard')); %>
+  <% const dashboardHref = req.session && req.session.accountType === 'Hub' ? '/hub/dashboard' : (req.session && req.session.userRole === 'Guardian' ? '/guardian/dashboard' : (req.session && req.session.userRole === 'Student' ? '/student/dashboard' : (req.session && req.session.userRole === 'Driver' ? '/driver/dashboard' : '/common/orgDashboard'))); %>
   <% const headerHost = (req && req.headers && req.headers.host) ? String(req.headers.host).toLowerCase() : ''; %>
   <% const isLocalHeaderHost = headerHost.includes('localhost') || headerHost.startsWith('127.0.0.1'); %>
   <% const schoolWebsiteHref = (session && session.orgNickName && !isLocalHeaderHost)
@@ -2471,6 +2471,27 @@
           Testing Room
         </a></li>
         <% } %>
+        <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+          </svg>
+          Logout
+        </a></li>
+      <% } else if (req.session && req.session.userRole === 'Driver') { %>
+        <!-- Driver-only menu -->
+        <li class="nav-item"><a href="/driver/dashboard" class="management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+          </svg>
+          Dashboard
+        </a></li>
+        <li class="nav-item"><a href="/driver/settings" class="nav-item-link management-link">
+          <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          Settings
+        </a></li>
         <li class="nav-item"><a href="/account/logout" class="logout management-link" style="color:#dc2626;" data-no-spa>
           <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
@@ -3649,6 +3670,47 @@
       max-width: calc(100vw - 20px) !important;
       right: 0 !important;
       left: auto !important;
+    }
+  }
+
+  /* Small-screen app header: logo pinned far left, hamburger pinned far
+     right, nothing wraps or squeezes between them. Scoped to the signed-in
+     app header (not the public marketing header) so it can't affect the
+     logged-out site. */
+  @media (max-width: 768px) {
+    header#top-header:not(.public-header-mode) .header-mobile-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      width: 100% !important;
+    }
+
+    header#top-header:not(.public-header-mode) .header-mobile-left {
+      width: auto !important;
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      overflow: hidden;
+    }
+
+    header#top-header:not(.public-header-mode) .header-mobile-left .org-names {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    header#top-header:not(.public-header-mode) #tools {
+      display: flex !important;
+      align-items: center !important;
+      flex: 0 0 auto !important;
+      margin-left: 8px !important;
+    }
+
+    header#top-header:not(.public-header-mode) .hamburger-container {
+      order: 999 !important;
+      margin-left: 10px !important;
+      flex-shrink: 0 !important;
     }
   }
 </style>

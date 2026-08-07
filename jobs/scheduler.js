@@ -16,6 +16,7 @@ const {
   syncQueuedGoogleClassroomOrganizations,
   pullGradesFromGoogleClassroom,
 } = require('../utils/googleClassroomSync');
+const { runTransportArrivalSweep } = require('../utils/transportArrivalNotifier');
 
 const shouldRunScheduler = process.env.NODE_ENV === 'production' || process.env.ENABLE_BILLING_SCHEDULER === 'true';
 const shouldRunNotifications = process.env.NODE_ENV === 'production' || process.env.ENABLE_NOTIFICATION_SCHEDULER === 'true';
@@ -72,6 +73,20 @@ if (shouldRunNotifications) {
       );
     } catch (error) {
       console.error('[Notification Scheduler] Weekly digest sweep failed:', error.message);
+    }
+  });
+  // Every minute: check active bus trips against student home/stop locations
+  // and fire "approaching" (~5 min out) / "arrived" parent notifications.
+  cron.schedule('* * * * *', async () => {
+    try {
+      const summary = await runTransportArrivalSweep();
+      if (summary.approachingSent > 0 || summary.arrivedSent > 0) {
+        console.log(
+          `[Transport Arrival Sweep] trips=${summary.tripsChecked}, approaching=${summary.approachingSent}, arrived=${summary.arrivedSent}`
+        );
+      }
+    } catch (error) {
+      console.error('[Transport Arrival Sweep] Failed:', error.message);
     }
   });
 } else {

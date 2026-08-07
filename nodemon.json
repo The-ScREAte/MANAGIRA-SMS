@@ -3,7 +3,7 @@
   "ext": "js,ejs,css",
   "ignore": ["node_modules/*", "uploads/*"],
   "quiet": false,
-  "exec": "node --no-deprecation server.js",
+  "exec": "node --no-deprecation --use-system-ca server.js",
   "events": {
     "start": "echo '[Nodemon] watching files and starting server'",
     "restart": "echo '[Nodemon] restarted due to changes'",

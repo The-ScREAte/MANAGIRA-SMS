@@ -531,6 +531,24 @@
       transform: none;
       box-shadow: none;
     }
+    .btn-spinner {
+      display: inline-block;
+      width: 0.85em;
+      height: 0.85em;
+      border: 2px solid rgba(255, 255, 255, 0.55);
+      border-top-color: #fff;
+      border-radius: 50%;
+      vertical-align: -0.15em;
+      margin-right: 6px;
+      animation: btn-spin 0.7s linear infinite;
+    }
+    @keyframes btn-spin {
+      to { transform: rotate(360deg); }
+    }
+    button.is-busy {
+      cursor: wait !important;
+      opacity: 0.85;
+    }
     .promotion-class-save-status {
       font-size: 0.78rem;
       color: #64748b;
@@ -953,7 +971,7 @@
     </div>
 
     <div class="submit-row">
-      <button type="submit" id="submitPromotionBtn">Schedule Promotion</button>
+      <button type="submit" id="submitPromotionBtn" data-busy-text="Submitting...">Schedule Promotion</button>
     </div>
   </form>
 </div>
@@ -984,28 +1002,38 @@
                   <%= allTerms.find(t => t.term_id == schedule.target_term_id)?.term_name || 'Unknown Term' %>
                 </td>
                 <td><%= schedule.classes.length ? schedule.classes.join(', ') : 'None' %></td>
-                <td><%= schedule.status %></td>
+                <td>
+                  <%= schedule.status %>
+                  <% if (schedule.status === 'failed' && schedule.last_error) { %>
+                    <div class="promotion-history-note" style="margin-top:4px;color:#b3261e;">
+                      <%= schedule.last_error %>
+                      <% if (schedule.failed_at) { %>
+                        (failed <%= new Date(schedule.failed_at).toLocaleString() %>)
+                      <% } %>
+                    </div>
+                  <% } %>
+                </td>
                 <td class="promotion-table-actions">
                   <% if (schedule.status === 'scheduled') { %>
                     <form method="POST" action="/promotion/applyNow" style="display:inline;">
                       <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                      <button type="submit" onclick="return confirm('Apply this promotion now? Students will be moved to their new classes immediately.');">Apply Now</button>
+                      <button type="submit" data-busy-text="Applying..." onclick="return confirm('Apply this promotion now? Students will be moved to their new classes immediately.');">Apply Now</button>
                     </form>
                     <form method="POST" action="/promotion/cancel" style="display:inline;">
                       <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                      <button type="submit" class="btn-cancel">Cancel</button>
+                      <button type="submit" class="btn-cancel" data-busy-text="Cancelling...">Cancel</button>
                     </form>
                   <% } %>
                   <% if (schedule.canReverseExact && (new Date() - new Date(schedule.scheduled_date)) <= 15*24*60*60*1000) { %>
                     <form method="POST" action="/promotion/reverse" style="display:inline;">
                       <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                      <button type="submit" class="btn-reverse">Reverse</button>
+                      <button type="submit" class="btn-reverse" data-busy-text="Reversing..." onclick="return confirm('Reverse this promotion? This will undo the enrollments, classes, and subjects it created.');">Reverse</button>
                     </form>
                   <% } %>
                   <% if (schedule.status === 'reversed') { %>
                     <form method="POST" action="/promotion/deleteReversed" style="display:inline;">
                       <input type="hidden" name="scheduleId" value="<%= schedule.id %>">
-                      <button type="submit" class="btn-cancel">Delete</button>
+                      <button type="submit" class="btn-cancel" data-busy-text="Deleting...">Delete</button>
                     </form>
                   <% } %>
                 </td>
@@ -1031,7 +1059,17 @@
                           <div class="promotion-history-note">Exact reverse is unavailable for this record.</div>
                         <% } %>
                       <% } else { %>
-                        <div class="promotion-history-note">Detailed action audit is unavailable for this older promotion record. New promotions will record every action so Reverse can undo exactly what was done.</div>
+                        <% if (schedule.status === 'failed') { %>
+                          <div class="promotion-history-note">
+                            <% if (schedule.last_error) { %>
+                              This promotion failed: <strong><%= schedule.last_error %></strong><% if (schedule.failed_at) { %> (at <%= new Date(schedule.failed_at).toLocaleString() %>)<% } %>.
+                            <% } else { %>
+                              This promotion failed before detailed error capture was added to this system, so no error message was recorded for it. New failed promotions will show the exact reason here.
+                            <% } %>
+                          </div>
+                        <% } else { %>
+                          <div class="promotion-history-note">Detailed action audit is unavailable for this older promotion record. New promotions will record every action so Reverse can undo exactly what was done.</div>
+                        <% } %>
                       <% } %>
                     </div>
                   </details>
@@ -1228,7 +1266,12 @@
         touchedStudentIds.push(studentId);
       });
 
-      if (saveBtn) saveBtn.disabled = true;
+      if (saveBtn) {
+        saveBtn.dataset.originalHtml = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.classList.add('is-busy');
+        saveBtn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span>Saving';
+      }
       if (status) {
         status.textContent = 'Saving...';
         status.dataset.state = 'saving';
@@ -1265,13 +1308,21 @@
           status.textContent = 'Saved';
           status.dataset.state = 'saved';
         }
+        if (saveBtn) {
+          saveBtn.classList.remove('is-busy');
+          saveBtn.innerHTML = saveBtn.dataset.originalHtml || 'Save';
+        }
         updateClassDirtyState(classId);
       } catch (error) {
         if (status) {
           status.textContent = error.message || 'Failed to save changes.';
           status.dataset.state = 'error';
         }
-        if (saveBtn) saveBtn.disabled = false;
+        if (saveBtn) {
+          saveBtn.classList.remove('is-busy');
+          saveBtn.innerHTML = saveBtn.dataset.originalHtml || 'Save';
+          saveBtn.disabled = false;
+        }
       }
     }
 
@@ -1526,10 +1577,12 @@
 
       if (selectedMode === 'applyNow') {
         submitBtn.textContent = 'Apply Now';
+        submitBtn.dataset.busyText = 'Applying...';
         dateGroup.style.display = 'none';
         if (dateInput) dateInput.required = false;
       } else {
         submitBtn.textContent = 'Schedule Promotion';
+        submitBtn.dataset.busyText = 'Scheduling...';
         dateGroup.style.display = 'block';
         if (dateInput) dateInput.required = true;
       }
@@ -1732,6 +1785,27 @@
         }
       });
     }
+
+    // Show a spinner and disable the submit button on every promotion form
+    // (schedule, apply now, cancel, reverse, delete) so users get feedback
+    // that their click registered instead of wondering if it worked.
+    function setButtonBusy(button, busyLabel) {
+      if (!button || button.classList.contains('is-busy')) return;
+      button.dataset.originalHtml = button.innerHTML;
+      button.classList.add('is-busy');
+      button.disabled = true;
+      button.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span>' + busyLabel;
+    }
+
+    document.querySelectorAll('form').forEach((promotionForm) => {
+      promotionForm.addEventListener('submit', function (e) {
+        if (e.defaultPrevented) return;
+        const submitButton = promotionForm.querySelector('button[type="submit"]');
+        if (!submitButton) return;
+        const busyLabel = submitButton.dataset.busyText || 'Working...';
+        setButtonBusy(submitButton, busyLabel);
+      });
+    });
   })();
   </script>
   </main>

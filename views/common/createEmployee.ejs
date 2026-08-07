@@ -405,17 +405,31 @@
     function toggleSubjects(classId, containerId) {
       const container = document.getElementById(containerId);
       const checkbox = document.querySelector(`input[name="classes"][value="${classId}"]`);
-      if (checkbox.checked) {
-        fetchSubjects(classId, containerId);
-        container.style.display = "block";
-      } else {
+      const accountTypeSelect = document.getElementById("account_type");
+      const isDriver = accountTypeSelect && accountTypeSelect.value === "Driver";
+
+      if (!checkbox.checked) {
         container.style.display = "none";
+        return;
       }
+
+      if (isDriver) {
+        container.innerHTML = "<p style='color: #64748b; font-size: 0.85rem;'>Drivers are not assigned subjects.</p>";
+        container.style.display = "block";
+        return;
+      }
+
+      fetchSubjects(classId, containerId);
+      container.style.display = "block";
     }
 
     document.addEventListener("DOMContentLoaded", () => {
       const accountTypeSelect = document.getElementById("account_type");
       const permissionGroup = document.getElementById("permission-assignment-group");
+      const permissionsGrid = document.getElementById("permissionsGrid");
+      const permissionsNote = document.getElementById("permissionsNote");
+      const driverPermissionsNote = document.getElementById("driverPermissionsNote");
+      const driverSubjectsNote = document.getElementById("driverSubjectsNote");
 
       // Role → default permission keys map (injected server-side)
       const ROLE_DEFAULT_PERMISSIONS_MAP = <%- JSON.stringify(roleDefaultPermissionsMap || {}) %>;
@@ -424,12 +438,32 @@
         if (!accountTypeSelect || !permissionGroup) return;
         permissionGroup.style.display = "block";
 
-        // Pre-check boxes that match the selected role's built-in defaults.
-        // The user can still add/remove any checkboxes before submitting.
         const selectedRole = accountTypeSelect.value;
+        const isDriver = selectedRole === "Driver";
         const defaults = ROLE_DEFAULT_PERMISSIONS_MAP[selectedRole] || [];
-        document.querySelectorAll('input[name="permissions"]').forEach(cb => {
-          cb.checked = defaults.includes(cb.value);
+
+        // Drivers only ever get "Manage Students" — hide every other
+        // permission checkbox instead of letting an admin grant more.
+        document.querySelectorAll('input[name="permissions"]').forEach((cb) => {
+          const item = cb.closest(".permission-item");
+          if (isDriver) {
+            const allowed = cb.value === "manage_students";
+            if (item) item.style.display = allowed ? "" : "none";
+            cb.checked = allowed;
+          } else {
+            if (item) item.style.display = "";
+            cb.checked = defaults.includes(cb.value);
+          }
+        });
+
+        if (permissionsNote) permissionsNote.style.display = isDriver ? "none" : "block";
+        if (driverPermissionsNote) driverPermissionsNote.style.display = isDriver ? "block" : "none";
+        if (driverSubjectsNote) driverSubjectsNote.style.display = isDriver ? "block" : "none";
+
+        // Re-render any already-open subject containers for the new role.
+        document.querySelectorAll('input[name="classes"]:checked').forEach((cb) => {
+          const containerId = `subjects-container-${cb.value}`;
+          toggleSubjects(cb.value, containerId);
         });
       };
 
@@ -532,36 +566,39 @@
             <option value="Manager">Manager</option>
             <option value="Supervisor">Supervisor</option>
             <option value="Teacher">Teacher</option>
+            <option value="Driver">Driver</option>
           </select>
         </div>
 
         <div class="form-group" id="permission-assignment-group">
           <label class="form-label">Optional Extra Permissions</label>
-          <div class="permissions-box">
-            <div class="permissions-grid">
+          <div class="permissions-box" id="permissionsBox">
+            <div class="permissions-grid" id="permissionsGrid">
               <% (permissionOptions || []).forEach(function(permission) { %>
-                <label class="permission-item">
+                <label class="permission-item" data-permission-key="<%= permission.key %>">
                   <input type="checkbox" name="permissions" value="<%= permission.key %>">
                   <span><%= permission.label %></span>
                 </label>
               <% }) %>
             </div>
-            <div class="permissions-note">Permissions are pre-selected based on the chosen role. You can add or remove any before saving. High-risk permissions (Billing, Settings) require a Manager account.</div>
+            <div class="permissions-note" id="permissionsNote">Permissions are pre-selected based on the chosen role. You can add or remove any before saving. High-risk permissions (Billing, Settings) require a Manager account.</div>
+            <div class="permissions-note" id="driverPermissionsNote" style="display:none;">Drivers automatically get access to view and manage the student roster only — no other permissions can be granted from this form.</div>
           </div>
         </div>
 
         <div class="classes-section">
           <h3 class="section-title">📚 Assign Classes & Subjects</h3>
-          
+          <p class="permissions-note" id="driverSubjectsNote" style="display:none;">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
+
           <button type="button" class="collapsible-btn" onclick="toggleClassCollapse('all-classes')">
             <span>Show/Hide Classes</span>
             <span id="arrow-all-classes">▸</span>
           </button>
-          
+
           <div class="collapsible-content" id="collapse-all-classes" style="display: none;">
             <% classes.forEach(cls => { %>
             <div class="class-checkbox">
-              <input type="checkbox" name="classes" value="<%= cls.class_id %>" 
+              <input type="checkbox" name="classes" value="<%= cls.class_id %>"
                 id="class_<%= cls.class_id %>"
                 onchange="toggleSubjects('<%= cls.class_id %>', 'subjects-container-<%= cls.class_id %>')">
               <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>

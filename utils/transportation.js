@@ -52,7 +52,8 @@ async function ensureTransportationSchema(dbClient) {
   await dbClient.query(`
     ALTER TABLE organizations
       ADD COLUMN IF NOT EXISTS transportation_activated BOOLEAN NOT NULL DEFAULT FALSE,
-      ADD COLUMN IF NOT EXISTS transportation_map_provider TEXT NOT NULL DEFAULT 'openstreetmap'
+      ADD COLUMN IF NOT EXISTS transportation_map_provider TEXT NOT NULL DEFAULT 'openstreetmap',
+      ADD COLUMN IF NOT EXISTS transportation_distance_unit TEXT NOT NULL DEFAULT 'km'
   `);
 
   await dbClient.query(`
@@ -147,7 +148,7 @@ async function ensureTransportationSchema(dbClient) {
     CREATE TABLE IF NOT EXISTS transport_stops (
       stop_id SERIAL PRIMARY KEY,
       organization_id INTEGER NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
-      route_id INTEGER NOT NULL REFERENCES transport_routes(route_id) ON DELETE CASCADE,
+      route_id INTEGER REFERENCES transport_routes(route_id) ON DELETE SET NULL,
       stop_name TEXT NOT NULL,
       stop_address TEXT,
       latitude NUMERIC(10,7),
@@ -159,6 +160,21 @@ async function ensureTransportationSchema(dbClient) {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+  // Stops now live in an org-wide pool and are attached to routes (not the
+  // other way around) — relax any pre-existing NOT NULL/CASCADE from before
+  // this table supported unattached stops.
+  await dbClient.query(`
+    ALTER TABLE transport_stops ALTER COLUMN route_id DROP NOT NULL
+  `).catch(() => {});
+  await dbClient.query(`
+    ALTER TABLE transport_stops DROP CONSTRAINT IF EXISTS transport_stops_route_id_fkey
+  `).catch(() => {});
+  await dbClient.query(`
+    ALTER TABLE transport_stops
+      ADD CONSTRAINT transport_stops_route_id_fkey
+      FOREIGN KEY (route_id) REFERENCES transport_routes(route_id) ON DELETE SET NULL
+  `).catch(() => {});
 
   await dbClient.query(`
     CREATE TABLE IF NOT EXISTS transport_student_assignments (
@@ -252,6 +268,22 @@ async function ensureTransportationSchema(dbClient) {
   await dbClient.query(`
     ALTER TABLE transport_drivers
       ADD COLUMN IF NOT EXISTS assigned_route_id INTEGER REFERENCES transport_routes(route_id) ON DELETE SET NULL
+  `);
+
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS transport_notification_events (
+      id BIGSERIAL PRIMARY KEY,
+      organization_id INTEGER NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+      trip_id INTEGER NOT NULL REFERENCES transport_trip_sessions(trip_id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL,
+      event_type TEXT NOT NULL CHECK (event_type IN ('approaching', 'arrived')),
+      sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (trip_id, student_id, event_type)
+    )
+  `);
+  await dbClient.query(`
+    CREATE INDEX IF NOT EXISTS idx_transport_notif_events_trip
+      ON transport_notification_events (trip_id)
   `);
 
   transportationSchemaReady = true;

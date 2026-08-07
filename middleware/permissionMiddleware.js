@@ -76,6 +76,11 @@ const ROLE_DEFAULT_PERMISSIONS = {
     PERMISSIONS.GENERATE_TRANSCRIPTS,
     PERMISSIONS.MANAGE_PROMOTIONS,
   ],
+  // Drivers only need to see/manage the student roster (e.g. confirming who
+  // rides their bus, across classes). No employee/finance/settings access.
+  Driver: [
+    PERMISSIONS.MANAGE_STUDENTS,
+  ],
 };
 
 // Store the singleton on `global` so it is shared even if this module is

@@ -634,6 +634,7 @@ UNIQUE (term_id, class_id, subject_id, organization_id, title);
 ALTER TYPE user_role ADD VALUE 'super_admin';
 ALTER TABLE users ADD COLUMN username VARCHAR(255);
 ALTER TABLE users ADD CONSTRAINT unique_username UNIQUE (username);
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'Driver';
 
 CREATE TABLE IF NOT EXISTS student_reports (
     id SERIAL PRIMARY KEY,

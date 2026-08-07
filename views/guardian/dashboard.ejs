@@ -949,6 +949,7 @@
                   title="Transportation details"
                   aria-label="Transportation details for <%= childDisplayName %>"
                   data-child-name="<%= childDisplayName %>"
+                  data-student-id="<%= child.student_id %>"
                   data-transport-snapshot='<%- JSON.stringify(childTransport || null) %>'
                   onclick="openGuardianTransportModal(this, event)">
                   🚌
@@ -1005,7 +1006,57 @@
   const guardianTransportState = {
     modalMap: null,
     modalLayer: null,
+    liveMarker: null,
+    pollTimer: null,
   };
+
+  function stopGuardianTransportPolling() {
+    if (guardianTransportState.pollTimer) {
+      window.clearInterval(guardianTransportState.pollTimer);
+      guardianTransportState.pollTimer = null;
+    }
+  }
+
+  function startGuardianTransportPolling(studentId) {
+    stopGuardianTransportPolling();
+    if (!studentId) return;
+    guardianTransportState.pollTimer = window.setInterval(() => {
+      fetch('/transportation/live/student/' + encodeURIComponent(studentId), {
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+      }).then((r) => r.json()).then((payload) => {
+        const live = payload && payload.success && payload.data ? payload.data.live : null;
+        if (!live || !guardianTransportState.modalMap || !guardianTransportState.modalLayer || !window.L) return;
+        const lat = normalizeGuardianCoord(live.latitude, 'lat');
+        const lng = normalizeGuardianCoord(live.longitude, 'lng');
+        if (lat === null || lng === null) return;
+        if (!guardianTransportState.liveMarker) {
+          guardianTransportState.liveMarker = window.L.marker([lat, lng], {
+            icon: window.L.divIcon({
+              className: '',
+              html: '<div style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));">🚌</div>',
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            }),
+          }).addTo(guardianTransportState.modalLayer).bindPopup('Live bus position');
+        } else {
+          guardianTransportState.liveMarker.setLatLng([lat, lng]);
+        }
+        // Keep the stop<->bus connector snapped to real roads as the bus
+        // moves, instead of leaving a stale straight line through buildings.
+        if (guardianTransportState.stopLatLng && typeof guardianTransportState.fetchRoadGeometry === 'function') {
+          guardianTransportState.fetchRoadGeometry([guardianTransportState.stopLatLng, [lat, lng]]).then((roadPoints) => {
+            if (guardianTransportState.stopToBusLine) {
+              guardianTransportState.stopToBusLine.setLatLngs(roadPoints);
+            } else {
+              guardianTransportState.stopToBusLine = window.L.polyline(roadPoints, {
+                color: '#d97706', weight: 3, opacity: 0.8, dashArray: '6,6',
+              }).addTo(guardianTransportState.modalLayer);
+            }
+          });
+        }
+      }).catch(() => {});
+    }, 12000);
+  }
 
   function normalizeGuardianCoord(value, axis) {
     if (value === null || value === undefined) return null;
@@ -1022,6 +1073,7 @@
     const modal = document.getElementById('guardianTransportModal');
     if (!modal) return;
     modal.classList.remove('active');
+    stopGuardianTransportPolling();
   }
 
   function handleGuardianTransportModalOverlayClick(event) {
@@ -1040,19 +1092,31 @@
           maxZoom: 19,
           attribution: '&copy; OpenStreetMap contributors'
         }).addTo(guardianTransportState.modalMap);
+        guardianTransportState.modalMap.attributionControl.setPrefix(false);
         guardianTransportState.modalLayer = L.layerGroup().addTo(guardianTransportState.modalMap);
       }
       const map = guardianTransportState.modalMap;
       const layer = guardianTransportState.modalLayer;
       layer.clearLayers();
+      guardianTransportState.liveMarker = null;
+      guardianTransportState.stopToBusLine = null;
 
+      const emojiIcon = (emoji, size) => {
+        size = size || 26;
+        return L.divIcon({
+          className: '',
+          html: '<div style="font-size:' + Math.round(size * 0.75) + 'px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));">' + emoji + '</div>',
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+        });
+      };
       const points = [];
-      const addMarker = (lat, lng, label) => {
+      const addMarker = (lat, lng, label, icon) => {
         const latNum = normalizeGuardianCoord(lat, 'lat');
         const lngNum = normalizeGuardianCoord(lng, 'lng');
         if (latNum === null || lngNum === null) return null;
         points.push([latNum, lngNum]);
-        return L.marker([latNum, lngNum]).addTo(layer).bindPopup(label || 'Location');
+        return L.marker([latNum, lngNum], icon ? { icon } : {}).addTo(layer).bindPopup(label || 'Location');
       };
       const fetchRoadGeometry = (latlngs) => {
         if (!Array.isArray(latlngs) || latlngs.length < 2) return Promise.resolve(latlngs || []);
@@ -1077,9 +1141,9 @@
         ? snapshot.route.stops.filter((entry) => normalizeGuardianCoord(entry && entry.latitude, 'lat') !== null && normalizeGuardianCoord(entry && entry.longitude, 'lng') !== null)
         : [];
 
-      addMarker(school && school.latitude, school && school.longitude, school && school.address ? 'School: ' + school.address : 'School');
-      addMarker(stop && stop.latitude, stop && stop.longitude, stop && stop.stopName ? 'Stop: ' + stop.stopName : 'Stop');
-      addMarker(live && live.latitude, live && live.longitude, 'Live bus position');
+      addMarker(school && school.latitude, school && school.longitude, school && school.address ? 'School: ' + school.address : 'School', emojiIcon('🏫'));
+      addMarker(stop && stop.latitude, stop && stop.longitude, stop && stop.stopName ? 'Stop: ' + stop.stopName : 'Stop', emojiIcon('🚏'));
+      guardianTransportState.liveMarker = addMarker(live && live.latitude, live && live.longitude, 'Live bus position', emojiIcon('🚌'));
 
       const routeLatLngs = [];
       const schoolLat = school ? normalizeGuardianCoord(school.latitude, 'lat') : null;
@@ -1111,13 +1175,17 @@
       const stopLng = stop ? normalizeGuardianCoord(stop.longitude, 'lng') : null;
       const liveLat = live ? normalizeGuardianCoord(live.latitude, 'lat') : null;
       const liveLng = live ? normalizeGuardianCoord(live.longitude, 'lng') : null;
+      guardianTransportState.stopLatLng = (stopLat !== null && stopLng !== null) ? [stopLat, stopLng] : null;
+      guardianTransportState.fetchRoadGeometry = fetchRoadGeometry;
       if (stopLat !== null && stopLng !== null && liveLat !== null && liveLng !== null) {
-        L.polyline([[stopLat, stopLng], [liveLat, liveLng]], {
-          color: '#d97706',
-          weight: 3,
-          opacity: 0.8,
-          dashArray: '6,6',
-        }).addTo(layer);
+        fetchRoadGeometry([[stopLat, stopLng], [liveLat, liveLng]]).then((roadPoints) => {
+          guardianTransportState.stopToBusLine = L.polyline(roadPoints, {
+            color: '#d97706',
+            weight: 3,
+            opacity: 0.8,
+            dashArray: '6,6',
+          }).addTo(layer);
+        });
       }
 
       if (stopLat !== null && stopLng !== null) {
@@ -1199,6 +1267,7 @@
     gridEl.innerHTML = details.map((entry) => '<div class="guardian-transport-card"><span class="k">' + entry[0] + '</span><span class="v">' + entry[1] + '</span></div>').join('');
     modal.classList.add('active');
     renderGuardianTransportMap(snapshot);
+    startGuardianTransportPolling(trigger.getAttribute('data-student-id'));
   }
 
   function withdrawApplication(pendingId, studentName) {

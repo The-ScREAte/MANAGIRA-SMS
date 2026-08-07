@@ -6,6 +6,7 @@ const {
   suggestNearestStop,
 } = require("../utils/transportation");
 const { uploadToS3 } = require("../middleware/s3Upload");
+const { geocodeAddress } = require("../utils/geocode");
 
 function normalizeStatus(value, fallback = "active") {
   const normalized = String(value || "").trim().toLowerCase();
@@ -432,7 +433,24 @@ const transportationController = {
       await ensureTransportationSchema(db);
       const integration = await getTransportationIntegrationStatus(db, organizationId);
 
-      const [buses, drivers, routes, stops, assignments, schedules, organizationMeta] = await Promise.all([
+      // Keep the transportation profile table in sync with Manage Employees:
+      // any Driver-role employee created there (with no profile row yet)
+      // gets one auto-provisioned here, so they immediately show up below
+      // and can be picked for schedules/buses without a separate step.
+      await db.query(
+        `INSERT INTO transport_drivers (organization_id, user_id, driver_name, email, status)
+         SELECT u.organization_id, u.user_id, TRIM(u.first_name || ' ' || u.last_name), u.email, 'active'
+           FROM users u
+          WHERE u.organization_id = $1
+            AND u.account_type = 'Driver'
+            AND NOT EXISTS (
+              SELECT 1 FROM transport_drivers d
+               WHERE d.user_id = u.user_id AND d.organization_id = u.organization_id
+            )`,
+        [organizationId]
+      );
+
+      const [buses, drivers, routes, stops, assignments, schedules, organizationMeta, driverUsers] = await Promise.all([
         db.query(
           `SELECT b.bus_id, b.bus_number, b.bus_name, b.license_plate,
             b.capacity, b.status, b.driver_user_id,
@@ -446,28 +464,41 @@ const transportationController = {
           [organizationId]
         ),
         db.query(
-          `SELECT d.driver_id, d.driver_name, d.phone, d.email, d.license_number, d.image_url,
-            d.status, d.user_id,
-                  d.assigned_bus_id, d.assigned_route_id,
-                  b.bus_number,
+          // Drivers are sourced from the `users` table (account_type='Driver')
+          // — the same identity created/edited via Manage Employees — with
+          // transport_drivers as an optional profile extension (phone/license/
+          // photo) and transport_buses.driver_user_id as the assigned-bus link.
+          `SELECT u.user_id, u.first_name, u.last_name, u.email,
+                  d.driver_id, d.phone, d.license_number, d.image_url,
+                  COALESCE(d.status, 'active') AS status,
+                  d.assigned_route_id,
+                  bus.bus_id AS assigned_bus_id, bus.bus_number,
                   tr.route_name,
                   COALESCE(ds.schedule_count, 0) AS schedule_count
-             FROM transport_drivers d
-             LEFT JOIN transport_buses b
-               ON b.bus_id = d.assigned_bus_id
-              AND b.organization_id = d.organization_id
+             FROM users u
+             LEFT JOIN transport_drivers d
+               ON d.user_id = u.user_id
+              AND d.organization_id = u.organization_id
+             LEFT JOIN LATERAL (
+               SELECT bus_id, bus_number
+                 FROM transport_buses
+                WHERE driver_user_id = u.user_id
+                  AND organization_id = u.organization_id
+                LIMIT 1
+             ) bus ON TRUE
              LEFT JOIN transport_routes tr
                ON tr.route_id = d.assigned_route_id
-              AND tr.organization_id = d.organization_id
+              AND tr.organization_id = u.organization_id
              LEFT JOIN (
                SELECT organization_id, driver_id, COUNT(*)::INT AS schedule_count
                  FROM transport_bus_schedules
                 GROUP BY organization_id, driver_id
              ) ds
-               ON ds.organization_id = d.organization_id
+               ON ds.organization_id = u.organization_id
               AND ds.driver_id = d.driver_id
-            WHERE d.organization_id = $1
-            ORDER BY d.driver_name ASC`,
+            WHERE u.organization_id = $1
+              AND u.account_type = 'Driver'
+            ORDER BY u.first_name ASC, u.last_name ASC`,
           [organizationId]
         ),
         db.query(
@@ -534,10 +565,18 @@ const transportationController = {
           [organizationId]
         ),
         db.query(
-          `SELECT organization_address, geo_lat, geo_lng
+          `SELECT organization_address, geo_lat, geo_lng, transportation_distance_unit
              FROM organizations
             WHERE organization_id = $1
             LIMIT 1`,
+          [organizationId]
+        ),
+        db.query(
+          `SELECT user_id, first_name, last_name, email
+             FROM users
+            WHERE organization_id = $1
+              AND account_type = 'Driver'
+            ORDER BY first_name ASC, last_name ASC`,
           [organizationId]
         ),
       ]);
@@ -585,6 +624,7 @@ const transportationController = {
         title: "Transportation Management",
         integration,
         buses: buses.rows,
+        driverUsers: driverUsers.rows,
         drivers: drivers.rows,
         routes: routes.rows,
         stops: stops.rows,
@@ -594,6 +634,7 @@ const transportationController = {
         schoolAddress: String(organizationMeta.rows[0]?.organization_address || "").trim() || null,
         schoolLatitude: toFloat(organizationMeta.rows[0]?.geo_lat),
         schoolLongitude: toFloat(organizationMeta.rows[0]?.geo_lng),
+        distanceUnit: organizationMeta.rows[0]?.transportation_distance_unit === "mi" ? "mi" : "km",
         mapProviders: ["google", "mapbox", "openstreetmap"],
         messages: req.flash(),
       });
@@ -617,6 +658,24 @@ const transportationController = {
     return res.redirect("/transportation/manage");
   },
 
+  updateDistanceUnitPost: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    if (!organizationId) return res.redirect("/account/login");
+
+    const unit = String(req.body.distanceUnit || "").trim() === "mi" ? "mi" : "km";
+    try {
+      await ensureTransportationSchema(db);
+      await db.query(
+        `UPDATE organizations SET transportation_distance_unit = $1 WHERE organization_id = $2`,
+        [unit, organizationId]
+      );
+      req.flash("success", "Units updated.");
+    } catch (error) {
+      req.flash("error", "Unable to update units.");
+    }
+    return res.redirect("/transportation/manage");
+  },
+
   updateSchoolDestinationPost: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     if (!organizationId) {
@@ -625,10 +684,6 @@ const transportationController = {
     }
 
     const schoolAddress = String(req.body.schoolAddress || "").trim();
-    const requestedLatitudeRaw = String(req.body.schoolLatitude || "").trim();
-    const requestedLongitudeRaw = String(req.body.schoolLongitude || "").trim();
-    const requestedLatitude = toFloat(requestedLatitudeRaw);
-    const requestedLongitude = toFloat(requestedLongitudeRaw);
     const applyToRoutes = String(req.body.applyToSchoolRoutes || "").trim() === "1";
 
     if (!schoolAddress) {
@@ -641,8 +696,26 @@ const transportationController = {
     try {
       await ensureTransportationSchema(db);
       const currentDestination = await getOrganizationDestination(db, organizationId);
-      const schoolLatitude = requestedLatitudeRaw ? requestedLatitude : currentDestination.latitude;
-      const schoolLongitude = requestedLongitudeRaw ? requestedLongitude : currentDestination.longitude;
+
+      // Drivers/admins just type an address — coordinates are resolved
+      // automatically so non-technical users never have to touch lat/lng.
+      let schoolLatitude = currentDestination.latitude;
+      let schoolLongitude = currentDestination.longitude;
+      if (schoolAddress !== currentDestination.address || schoolLatitude === null || schoolLongitude === null) {
+        const orgMeta = await db.query(
+          `SELECT organization_province, organization_country FROM organizations WHERE organization_id = $1`,
+          [organizationId]
+        );
+        const geocoded = await geocodeAddress(
+          schoolAddress,
+          orgMeta.rows[0]?.organization_province,
+          orgMeta.rows[0]?.organization_country
+        ).catch(() => null);
+        if (geocoded) {
+          schoolLatitude = geocoded.lat;
+          schoolLongitude = geocoded.lng;
+        }
+      }
 
       await db.query(
         `UPDATE organizations
@@ -699,7 +772,7 @@ const transportationController = {
     const busName = String(req.body.busName || "").trim() || null;
     const licensePlate = String(req.body.licensePlate || "").trim() || null;
     const capacity = toInt(req.body.capacity);
-    const driverUserId = toInt(req.body.driverUserId);
+    let driverUserId = toInt(req.body.driverUserId);
     const status = normalizeBusStatus(req.body.status, "active");
     const vehicleMake = String(req.body.vehicleMake || "").trim() || null;
     const vehicleModel = String(req.body.vehicleModel || "").trim() || null;
@@ -719,6 +792,13 @@ const transportationController = {
 
     try {
       await ensureTransportationSchema(db);
+      if (driverUserId) {
+        const driverCheck = await db.query(
+          `SELECT user_id FROM users WHERE user_id = $1 AND organization_id = $2 AND account_type = 'Driver'`,
+          [driverUserId, organizationId]
+        );
+        if (driverCheck.rows.length === 0) driverUserId = null;
+      }
       const saveResult = await db.query(
         `INSERT INTO transport_buses (
            organization_id, bus_number, bus_name, license_plate,
@@ -786,7 +866,7 @@ const transportationController = {
     const busName = String(req.body.busName || "").trim() || null;
     const licensePlate = String(req.body.licensePlate || "").trim() || null;
     const capacity = toInt(req.body.capacity);
-    const driverUserId = toInt(req.body.driverUserId);
+    let driverUserId = toInt(req.body.driverUserId);
     const status = normalizeBusStatus(req.body.status, "active");
     const vehicleMake = String(req.body.vehicleMake || "").trim() || null;
     const vehicleModel = String(req.body.vehicleModel || "").trim() || null;
@@ -805,6 +885,13 @@ const transportationController = {
 
     try {
       await ensureTransportationSchema(db);
+      if (driverUserId) {
+        const driverCheck = await db.query(
+          `SELECT user_id FROM users WHERE user_id = $1 AND organization_id = $2 AND account_type = 'Driver'`,
+          [driverUserId, organizationId]
+        );
+        if (driverCheck.rows.length === 0) driverUserId = null;
+      }
       const result = await db.query(
         `UPDATE transport_buses
             SET bus_number = $3,
@@ -899,61 +986,190 @@ const transportationController = {
     return res.redirect("/transportation/manage");
   },
 
+  // Shared by createDriverPost/updateDriverPost: upserts the transport_drivers
+  // profile row (phone/license/photo) and syncs transport_buses.driver_user_id
+  // — the single field the trip/GPS flow trusts — for a Driver-role user.
+  async _syncDriverProfileAndBus(db, {
+    organizationId, userId, firstName, lastName, phone, email,
+    licenseNumber, assignedBusId, assignedRouteId, status, imageUrl,
+  }) {
+    const driverName = `${firstName} ${lastName}`.trim();
+    const existingProfile = await db.query(
+      `SELECT driver_id FROM transport_drivers WHERE organization_id = $1 AND user_id = $2`,
+      [organizationId, userId]
+    );
+
+    let driverId;
+    if (existingProfile.rows.length) {
+      driverId = existingProfile.rows[0].driver_id;
+      await db.query(
+        `UPDATE transport_drivers
+            SET driver_name = $3, phone = $4, email = $5, license_number = $6,
+                assigned_bus_id = $7, assigned_route_id = $8, status = $9,
+                image_url = COALESCE($10, image_url), updated_at = NOW()
+          WHERE organization_id = $1 AND user_id = $2`,
+        [organizationId, userId, driverName, phone, email, licenseNumber, assignedBusId, assignedRouteId, status, imageUrl]
+      );
+    } else {
+      const inserted = await db.query(
+        `INSERT INTO transport_drivers (
+           organization_id, user_id, driver_name, phone, email, license_number,
+           image_url, assigned_bus_id, assigned_route_id, status
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING driver_id`,
+        [organizationId, userId, driverName, phone, email, licenseNumber, imageUrl, assignedBusId, assignedRouteId, status]
+      );
+      driverId = inserted.rows[0].driver_id;
+    }
+
+    // Clear this driver from any bus they were previously linked to (other
+    // than the one just chosen), then assign the newly selected bus, if any.
+    await db.query(
+      `UPDATE transport_buses
+          SET driver_user_id = NULL, updated_at = NOW()
+        WHERE organization_id = $1
+          AND driver_user_id = $2
+          AND bus_id IS DISTINCT FROM $3`,
+      [organizationId, userId, assignedBusId]
+    );
+    if (assignedBusId) {
+      await db.query(
+        `UPDATE transport_buses
+            SET driver_user_id = $2, updated_at = NOW()
+          WHERE organization_id = $1 AND bus_id = $3`,
+        [organizationId, userId, assignedBusId]
+      );
+    }
+
+    return driverId;
+  },
+
+  // Replaces this driver's weekly schedule with exactly the selected days —
+  // lets an admin set up the recurring run right from the driver edit form
+  // instead of needing a separate trip to the Schedule tab.
+  async _syncDriverSchedule(db, { organizationId, driverId, busId, routeId, days, startTime, endTime }) {
+    await db.query(
+      `DELETE FROM transport_bus_schedules WHERE organization_id = $1 AND driver_id = $2`,
+      [organizationId, driverId]
+    );
+
+    const selectedDays = Array.isArray(days) ? days : (days ? [days] : []);
+    const validDays = new Set(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
+    const normalizedDays = selectedDays.map((d) => String(d || "").toLowerCase()).filter((d) => validDays.has(d));
+
+    if (!normalizedDays.length || !busId) return;
+
+    for (const day of normalizedDays) {
+      await db.query(
+        `INSERT INTO transport_bus_schedules (organization_id, bus_id, driver_id, route_id, day_of_week, start_time, end_time, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')`,
+        [organizationId, busId, driverId, routeId, day, startTime || null, endTime || null]
+      );
+    }
+  },
+
   createDriverPost: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     if (!organizationId) return res.redirect("/account/login");
 
-    const driverName = String(req.body.driverName || "").trim();
-    const phone = String(req.body.phone || "").trim();
-    const email = String(req.body.email || "").trim() || null;
+    const firstName = String(req.body.firstName || "").trim();
+    const lastName = String(req.body.lastName || "").trim();
+    const email = String(req.body.email || "").trim();
+    const phone = String(req.body.phone || "").trim() || null;
     const licenseNumber = String(req.body.licenseNumber || "").trim() || null;
-    const userId = toInt(req.body.userId);
     const assignedBusId = toInt(req.body.assignedBusId);
     const assignedRouteId = toInt(req.body.assignedRouteId);
     const status = normalizeScheduleStatus(req.body.status, "active");
+    const scheduleDays = req.body.scheduleDays;
+    const scheduleStartTime = String(req.body.scheduleStartTime || "").trim() || null;
+    const scheduleEndTime = String(req.body.scheduleEndTime || "").trim() || null;
 
-    if (!driverName) {
-      if (wantsJson(req)) {
-        return res.status(400).json({ ok: false, message: "Driver name is required." });
-      }
-      req.flash("error", "Driver name is required.");
+    if (!firstName || !lastName || !email) {
+      const message = "First name, last name, and email are required.";
+      if (wantsJson(req)) return res.status(400).json({ ok: false, message });
+      req.flash("error", message);
       return res.redirect("/transportation/manage");
     }
 
     try {
       await ensureTransportationSchema(db);
+
+      // Driver identity is created through the exact same pipeline as
+      // Manage Employees (users table, account_type='Driver', invite email) —
+      // this form is just a convenient shortcut, never a second data source.
+      const existingUser = await db.query(
+        `SELECT user_id, account_type FROM users WHERE organization_id = $1 AND LOWER(email) = LOWER($2)`,
+        [organizationId, email]
+      );
+
+      let userId;
+      let isNewUser = false;
+
+      if (existingUser.rows.length) {
+        const existing = existingUser.rows[0];
+        if (String(existing.account_type || "") !== "Driver") {
+          const message = `${email} already belongs to an employee with the "${existing.account_type}" role. Change their role in Manage Employees first.`;
+          if (wantsJson(req)) return res.status(409).json({ ok: false, message });
+          req.flash("error", message);
+          return res.redirect("/transportation/manage");
+        }
+        userId = existing.user_id;
+        await db.query(
+          `UPDATE users SET first_name = $1, last_name = $2, updated_at = NOW() WHERE user_id = $3`,
+          [firstName, lastName, userId]
+        );
+      } else {
+        const crypto = require("crypto");
+        const token = crypto.randomBytes(32).toString("hex");
+        const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+        const tokenExpiration = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
+        const inserted = await db.query(
+          `INSERT INTO users (
+             first_name, last_name, email, account_type, organization_id,
+             created_at, updated_at, reset_password_token, reset_password_expires
+           ) VALUES ($1, $2, $3, 'Driver', $4, NOW(), NOW(), $5, $6)
+           RETURNING user_id`,
+          [firstName, lastName, email, organizationId, hashedToken, tokenExpiration]
+        );
+        userId = inserted.rows[0].user_id;
+        isNewUser = true;
+
+        const baseUrl = `${req.protocol}://${req.get("host")}`;
+        const setPasswordUrl = `${baseUrl}/common/set-password?token=${token}`;
+        const organizationName = req.session.organizationName;
+        setImmediate(async () => {
+          try {
+            const { sendInviteEmail } = require("./commonController");
+            await sendInviteEmail(email, firstName, lastName, setPasswordUrl, organizationName, organizationId, [], []);
+          } catch (_) {
+            // Best-effort — the driver account still exists even if the email fails.
+          }
+        });
+      }
+
       let imageUrl = null;
       if (req.file) {
         const key = `images/transportation/drivers/${organizationId}/${Date.now()}_${req.file.originalname}`;
         imageUrl = await uploadToS3(req.file, key);
       }
 
-      await db.query(
-        `INSERT INTO transport_drivers (
-           organization_id, user_id, driver_name, phone, email, license_number, image_url,
-           assigned_bus_id, assigned_route_id, status
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          organizationId,
-          userId,
-          driverName,
-          phone || null,
-          email,
-          licenseNumber,
-          imageUrl,
-          assignedBusId,
-          assignedRouteId,
-          status,
-        ]
-      );
-      if (wantsJson(req)) {
-        return res.json({ ok: true, message: "Driver saved." });
-      }
-      req.flash("success", "Driver saved.");
+      const driverId = await transportationController._syncDriverProfileAndBus(db, {
+        organizationId, userId, firstName, lastName, phone, email,
+        licenseNumber, assignedBusId, assignedRouteId, status, imageUrl,
+      });
+      await transportationController._syncDriverSchedule(db, {
+        organizationId, driverId, busId: assignedBusId, routeId: assignedRouteId,
+        days: scheduleDays, startTime: scheduleStartTime, endTime: scheduleEndTime,
+      });
+
+      const message = isNewUser
+        ? "Driver created — an invite email has been sent so they can set up their login."
+        : "Driver saved.";
+      if (wantsJson(req)) return res.json({ ok: true, message });
+      req.flash("success", message);
     } catch (error) {
-      if (wantsJson(req)) {
-        return res.status(500).json({ ok: false, message: "Unable to save driver." });
-      }
+      if (wantsJson(req)) return res.status(500).json({ ok: false, message: "Unable to save driver." });
       req.flash("error", "Unable to save driver.");
     }
 
@@ -967,18 +1183,21 @@ const transportationController = {
       return res.redirect("/account/login");
     }
 
-    const driverId = toInt(req.params.driverId || req.body.driverId);
-    const driverName = String(req.body.driverName || "").trim();
+    const userId = toInt(req.params.userId || req.body.userId);
+    const firstName = String(req.body.firstName || "").trim();
+    const lastName = String(req.body.lastName || "").trim();
+    const email = String(req.body.email || "").trim();
     const phone = String(req.body.phone || "").trim() || null;
-    const email = String(req.body.email || "").trim() || null;
     const licenseNumber = String(req.body.licenseNumber || "").trim() || null;
-    const userId = toInt(req.body.userId);
     const assignedBusId = toInt(req.body.assignedBusId);
     const assignedRouteId = toInt(req.body.assignedRouteId);
     const status = normalizeScheduleStatus(req.body.status, "active");
+    const scheduleDays = req.body.scheduleDays;
+    const scheduleStartTime = String(req.body.scheduleStartTime || "").trim() || null;
+    const scheduleEndTime = String(req.body.scheduleEndTime || "").trim() || null;
 
-    if (!driverId || !driverName) {
-      const message = !driverId ? "Driver id is required." : "Driver name is required.";
+    if (!userId || !firstName || !lastName || !email) {
+      const message = !userId ? "Driver is required." : "First name, last name, and email are required.";
       if (wantsJson(req)) return res.status(400).json({ ok: false, message });
       req.flash("error", message);
       return res.redirect("/transportation/manage");
@@ -987,50 +1206,46 @@ const transportationController = {
     try {
       await ensureTransportationSchema(db);
 
-      let imageSql = "";
-      const params = [
-        organizationId,
-        driverId,
-        driverName,
-        phone,
-        email,
-        licenseNumber,
-        userId,
-        assignedBusId,
-        assignedRouteId,
-        status,
-      ];
-
-      if (req.file) {
-        const key = `images/transportation/drivers/${organizationId}/${Date.now()}_${req.file.originalname}`;
-        const imageUrl = await uploadToS3(req.file, key);
-        params.push(imageUrl);
-        imageSql = ", image_url = $11";
-      }
-
-      const result = await db.query(
-        `UPDATE transport_drivers
-            SET driver_name = $3,
-                phone = $4,
-                email = $5,
-                license_number = $6,
-                user_id = $7,
-                assigned_bus_id = $8,
-                assigned_route_id = $9,
-                status = $10,
-                updated_at = NOW()
-                ${imageSql}
-          WHERE organization_id = $1
-            AND driver_id = $2
-          RETURNING driver_id`,
-        params
+      const userCheck = await db.query(
+        `SELECT user_id FROM users WHERE user_id = $1 AND organization_id = $2 AND account_type = 'Driver'`,
+        [userId, organizationId]
       );
-
-      if (!result.rows.length) {
+      if (!userCheck.rows.length) {
         if (wantsJson(req)) return res.status(404).json({ ok: false, message: "Driver not found." });
         req.flash("error", "Driver not found.");
         return res.redirect("/transportation/manage");
       }
+
+      const emailOwner = await db.query(
+        `SELECT user_id FROM users WHERE organization_id = $1 AND LOWER(email) = LOWER($2) AND user_id != $3`,
+        [organizationId, email, userId]
+      );
+      if (emailOwner.rows.length) {
+        const message = "Another employee already uses this email address.";
+        if (wantsJson(req)) return res.status(409).json({ ok: false, message });
+        req.flash("error", message);
+        return res.redirect("/transportation/manage");
+      }
+
+      await db.query(
+        `UPDATE users SET first_name = $1, last_name = $2, email = $3, updated_at = NOW() WHERE user_id = $4`,
+        [firstName, lastName, email, userId]
+      );
+
+      let imageUrl = null;
+      if (req.file) {
+        const key = `images/transportation/drivers/${organizationId}/${Date.now()}_${req.file.originalname}`;
+        imageUrl = await uploadToS3(req.file, key);
+      }
+
+      const driverId = await transportationController._syncDriverProfileAndBus(db, {
+        organizationId, userId, firstName, lastName, phone, email,
+        licenseNumber, assignedBusId, assignedRouteId, status, imageUrl,
+      });
+      await transportationController._syncDriverSchedule(db, {
+        organizationId, driverId, busId: assignedBusId, routeId: assignedRouteId,
+        days: scheduleDays, startTime: scheduleStartTime, endTime: scheduleEndTime,
+      });
 
       if (wantsJson(req)) return res.json({ ok: true, message: "Driver updated." });
       req.flash("success", "Driver updated.");
@@ -1049,34 +1264,44 @@ const transportationController = {
       return res.redirect("/account/login");
     }
 
-    const driverId = toInt(req.params.driverId || req.body.driverId);
-    if (!driverId) {
-      if (wantsJson(req)) return res.status(400).json({ ok: false, message: "Driver id is required." });
-      req.flash("error", "Driver id is required.");
+    const userId = toInt(req.params.userId || req.body.userId);
+    if (!userId) {
+      if (wantsJson(req)) return res.status(400).json({ ok: false, message: "Driver is required." });
+      req.flash("error", "Driver is required.");
       return res.redirect("/transportation/manage");
     }
 
     try {
       await ensureTransportationSchema(db);
+
+      // This removes the driver from transportation (profile + bus link)
+      // only. The employee account itself is managed from Manage Employees,
+      // so login access isn't silently revoked from this screen.
+      await db.query(
+        `UPDATE transport_buses SET driver_user_id = NULL, updated_at = NOW()
+          WHERE organization_id = $1 AND driver_user_id = $2`,
+        [organizationId, userId]
+      );
       const result = await db.query(
         `DELETE FROM transport_drivers
-          WHERE organization_id = $1
-            AND driver_id = $2
+          WHERE organization_id = $1 AND user_id = $2
           RETURNING driver_id`,
-        [organizationId, driverId]
+        [organizationId, userId]
       );
 
       if (!result.rows.length) {
-        if (wantsJson(req)) return res.status(404).json({ ok: false, message: "Driver not found." });
-        req.flash("error", "Driver not found.");
+        // No profile row existed yet, but the bus link was still cleared —
+        // treat as a successful removal either way.
+        if (wantsJson(req)) return res.json({ ok: true, message: "Driver removed from transportation." });
+        req.flash("success", "Driver removed from transportation.");
         return res.redirect("/transportation/manage");
       }
 
-      if (wantsJson(req)) return res.json({ ok: true, message: "Driver deleted." });
-      req.flash("success", "Driver deleted.");
+      if (wantsJson(req)) return res.json({ ok: true, message: "Driver removed from transportation." });
+      req.flash("success", "Driver removed from transportation. To fully delete their account, use Manage Employees.");
     } catch (error) {
-      if (wantsJson(req)) return res.status(500).json({ ok: false, message: "Unable to delete driver." });
-      req.flash("error", "Unable to delete driver.");
+      if (wantsJson(req)) return res.status(500).json({ ok: false, message: "Unable to remove driver." });
+      req.flash("error", "Unable to remove driver.");
     }
 
     return res.redirect("/transportation/manage");
@@ -1259,6 +1484,31 @@ const transportationController = {
     return res.redirect("/transportation/manage");
   },
 
+  // Stops belong to routes, not the other way around: this attaches exactly
+  // the submitted stop ids to the route and detaches any stop that used to
+  // belong to it but was unchecked, so a stop can freely move between
+  // routes (or sit unattached in the pool) as the admin edits the route.
+  async _syncRouteStops(db, organizationId, routeId, rawStopIds) {
+    const stopIds = (Array.isArray(rawStopIds) ? rawStopIds : rawStopIds ? [rawStopIds] : [])
+      .map((v) => toInt(v))
+      .filter((v) => Number.isInteger(v) && v > 0);
+
+    await db.query(
+      `UPDATE transport_stops
+          SET route_id = NULL, updated_at = NOW()
+        WHERE organization_id = $1 AND route_id = $2 AND NOT (stop_id = ANY($3::int[]))`,
+      [organizationId, routeId, stopIds]
+    );
+    if (stopIds.length) {
+      await db.query(
+        `UPDATE transport_stops
+            SET route_id = $2, updated_at = NOW()
+          WHERE organization_id = $1 AND stop_id = ANY($3::int[])`,
+        [organizationId, routeId, stopIds]
+      );
+    }
+  },
+
   createRoutePost: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     if (!organizationId) {
@@ -1287,13 +1537,31 @@ const transportationController = {
       const destinationAddress = useSchoolDestination
         ? orgDestination.address
         : (requestedDestinationAddress || orgDestination.address);
-      const destinationLatitude = useSchoolDestination
+      let destinationLatitude = useSchoolDestination
         ? orgDestination.latitude
         : (requestedDestinationLatitude !== null ? requestedDestinationLatitude : orgDestination.latitude);
-      const destinationLongitude = useSchoolDestination
+      let destinationLongitude = useSchoolDestination
         ? orgDestination.longitude
         : (requestedDestinationLongitude !== null ? requestedDestinationLongitude : orgDestination.longitude);
-      await db.query(
+
+      // A custom destination address with no coordinates yet gets geocoded
+      // automatically — admins just type an address, no lat/lng needed.
+      if (!useSchoolDestination && requestedDestinationAddress && requestedDestinationLatitude === null && requestedDestinationLongitude === null) {
+        const orgMeta = await db.query(
+          `SELECT organization_province, organization_country FROM organizations WHERE organization_id = $1`,
+          [organizationId]
+        );
+        const geocoded = await geocodeAddress(
+          requestedDestinationAddress,
+          orgMeta.rows[0]?.organization_province,
+          orgMeta.rows[0]?.organization_country
+        ).catch(() => null);
+        if (geocoded) {
+          destinationLatitude = geocoded.lat;
+          destinationLongitude = geocoded.lng;
+        }
+      }
+      const saveResult = await db.query(
         `INSERT INTO transport_routes (
            organization_id, route_name, route_code, route_status, map_provider,
            use_school_destination, destination_address, destination_latitude, destination_longitude
@@ -1308,7 +1576,8 @@ const transportationController = {
            destination_address = EXCLUDED.destination_address,
            destination_latitude = EXCLUDED.destination_latitude,
            destination_longitude = EXCLUDED.destination_longitude,
-           updated_at = NOW()`,
+           updated_at = NOW()
+         RETURNING route_id`,
         [
           organizationId,
           routeName,
@@ -1321,6 +1590,10 @@ const transportationController = {
           destinationLongitude,
         ]
       );
+      const savedRouteId = saveResult.rows[0]?.route_id;
+      if (savedRouteId) {
+        await transportationController._syncRouteStops(db, organizationId, savedRouteId, req.body.stopIds);
+      }
       if (wantsJson(req)) return res.json({ ok: true, message: "Route saved." });
       req.flash("success", "Route saved.");
     } catch (error) {
@@ -1361,12 +1634,28 @@ const transportationController = {
       const destinationAddress = useSchoolDestination
         ? orgDestination.address
         : (requestedDestinationAddress || orgDestination.address);
-      const destinationLatitude = useSchoolDestination
+      let destinationLatitude = useSchoolDestination
         ? orgDestination.latitude
         : (requestedDestinationLatitude !== null ? requestedDestinationLatitude : orgDestination.latitude);
-      const destinationLongitude = useSchoolDestination
+      let destinationLongitude = useSchoolDestination
         ? orgDestination.longitude
         : (requestedDestinationLongitude !== null ? requestedDestinationLongitude : orgDestination.longitude);
+
+      if (!useSchoolDestination && requestedDestinationAddress && requestedDestinationLatitude === null && requestedDestinationLongitude === null) {
+        const orgMeta = await db.query(
+          `SELECT organization_province, organization_country FROM organizations WHERE organization_id = $1`,
+          [organizationId]
+        );
+        const geocoded = await geocodeAddress(
+          requestedDestinationAddress,
+          orgMeta.rows[0]?.organization_province,
+          orgMeta.rows[0]?.organization_country
+        ).catch(() => null);
+        if (geocoded) {
+          destinationLatitude = geocoded.lat;
+          destinationLongitude = geocoded.lng;
+        }
+      }
       const result = await db.query(
         `UPDATE transport_routes
             SET route_name = $3,
@@ -1400,6 +1689,8 @@ const transportationController = {
         req.flash("error", "Route not found.");
         return res.redirect("/transportation/manage");
       }
+
+      await transportationController._syncRouteStops(db, organizationId, routeId, req.body.stopIds);
 
       if (wantsJson(req)) return res.json({ ok: true, message: "Route updated." });
       req.flash("success", "Route updated.");
@@ -1467,9 +1758,9 @@ const transportationController = {
     const dropoffTime = String(req.body.dropoffTime || "").trim() || null;
     const stopOrder = toInt(req.body.stopOrder) || 0;
 
-    if (!routeId || !stopName) {
-      if (wantsJson(req)) return res.status(400).json({ ok: false, message: "Route and stop name are required." });
-      req.flash("error", "Route and stop name are required.");
+    if (!stopName) {
+      if (wantsJson(req)) return res.status(400).json({ ok: false, message: "Stop name is required." });
+      req.flash("error", "Stop name is required.");
       return res.redirect("/transportation/manage");
     }
 
@@ -1662,12 +1953,8 @@ const transportationController = {
     const dropoffTime = String(req.body.dropoffTime || "").trim() || null;
     const stopOrder = toInt(req.body.stopOrder) || 0;
 
-    if (!stopId || !routeId || !stopName) {
-      const message = !stopId
-        ? "Stop id is required."
-        : !routeId
-          ? "Route is required."
-          : "Stop name is required.";
+    if (!stopId || !stopName) {
+      const message = !stopId ? "Stop id is required." : "Stop name is required.";
       if (wantsJson(req)) return res.status(400).json({ ok: false, message });
       req.flash("error", message);
       return res.redirect("/transportation/manage");
@@ -1858,6 +2145,7 @@ const transportationController = {
 
     const allStudentIds = toUniqueIntArray(req.body.allStudentIds);
     const selectedStudentIdsRaw = toUniqueIntArray(req.body.selectedStudentIds);
+    const makeStopStudentIds = toUniqueIntArray(req.body.makeStopStudentIds);
 
     if (!isUnassignedClass && !classId) {
       if (wantsJson(req)) return res.status(400).json({ ok: false, message: "Class is required." });
@@ -1928,15 +2216,96 @@ const transportationController = {
         throw error;
       }
 
+      // Best-effort, outside the main transaction: turn each checked
+      // student's home address into an (unattached) stop the driver can be
+      // routed through, geocoding it automatically so no one has to type
+      // coordinates by hand.
+      const stopTargets = makeStopStudentIds.filter((id) => selectedSet.has(id));
+      let stopsCreated = 0;
+      let stopsFailed = 0;
+      if (stopTargets.length) {
+        const orgMeta = await db.query(
+          `SELECT organization_province, organization_country FROM organizations WHERE organization_id = $1`,
+          [organizationId]
+        );
+        const province = orgMeta.rows[0]?.organization_province;
+        const country = orgMeta.rows[0]?.organization_country;
+
+        const studentsResult = await db.query(
+          `SELECT student_id, first_name, last_name, address
+             FROM students
+            WHERE organization_id = $1 AND student_id = ANY($2::int[]) AND address IS NOT NULL AND TRIM(address) <> ''`,
+          [organizationId, stopTargets]
+        );
+
+        const foundStudentIds = new Set(studentsResult.rows.map((row) => row.student_id));
+        stopsFailed += stopTargets.filter((id) => !foundStudentIds.has(id)).length;
+
+        for (const student of studentsResult.rows) {
+          try {
+            const geocoded = await geocodeAddress(student.address, province, country);
+            if (!geocoded) {
+              stopsFailed += 1;
+              console.warn(`[Transportation] Could not geocode address for student ${student.student_id}: "${student.address}"`);
+              continue;
+            }
+
+            const studentName = [student.first_name, student.last_name].filter(Boolean).join(" ").trim();
+            const existingStop = await db.query(
+              `SELECT tsa.stop_id FROM transport_student_assignments tsa
+                WHERE tsa.organization_id = $1 AND tsa.student_id = $2 AND tsa.stop_id IS NOT NULL`,
+              [organizationId, student.student_id]
+            );
+
+            let stopId = existingStop.rows[0]?.stop_id || null;
+            if (stopId) {
+              await db.query(
+                `UPDATE transport_stops
+                    SET stop_name = $3, stop_address = $4, latitude = $5, longitude = $6, updated_at = NOW()
+                  WHERE stop_id = $1 AND organization_id = $2`,
+                [stopId, organizationId, `${studentName}'s Stop`, student.address, geocoded.lat, geocoded.lng]
+              );
+            } else {
+              const insertedStop = await db.query(
+                `INSERT INTO transport_stops (organization_id, route_id, stop_name, stop_address, latitude, longitude, stop_order)
+                 VALUES ($1, NULL, $2, $3, $4, $5, 0)
+                 RETURNING stop_id`,
+                [organizationId, `${studentName}'s Stop`, student.address, geocoded.lat, geocoded.lng]
+              );
+              stopId = insertedStop.rows[0].stop_id;
+            }
+
+            await db.query(
+              `UPDATE transport_student_assignments
+                  SET stop_id = $3, home_address = $4, home_latitude = $5, home_longitude = $6, updated_at = NOW()
+                WHERE organization_id = $1 AND student_id = $2`,
+              [organizationId, student.student_id, stopId, student.address, geocoded.lat, geocoded.lng]
+            );
+            stopsCreated += 1;
+          } catch (error) {
+            // Best-effort per student — one failed geocode shouldn't block the rest.
+            stopsFailed += 1;
+            console.error(`[Transportation] Failed to create stop for student ${student.student_id}:`, error.message);
+          }
+        }
+      }
+
+      const stopSummary = stopTargets.length
+        ? ` ${stopsCreated} stop${stopsCreated === 1 ? "" : "s"} created from address${stopTargets.length === 1 ? "" : "es"}.` +
+          (stopsFailed ? ` ${stopsFailed} address${stopsFailed === 1 ? "" : "es"} could not be located — check they're spelled correctly.` : "")
+        : "";
+
       if (wantsJson(req)) {
         return res.json({
           ok: true,
-          message: "Student bus access updated.",
+          message: "Student bus access updated." + stopSummary,
           activeCount: selectedStudentIds.length,
           inactiveCount: uncheckedStudentIds.length,
+          stopsCreated,
+          stopsFailed,
         });
       }
-      req.flash("success", "Student bus access updated.");
+      req.flash("success", "Student bus access updated." + stopSummary);
     } catch (error) {
       if (wantsJson(req)) {
         return res.status(500).json({ ok: false, message: "Unable to update student bus access." });
@@ -2015,6 +2384,42 @@ const transportationController = {
 
     try {
       await ensureTransportationSchema(db);
+
+      // Only the bus's assigned driver may start a trip on it — closes the
+      // gap where any authenticated staff member could drive any bus.
+      const busCheck = await db.query(
+        `SELECT bus_id FROM transport_buses
+          WHERE bus_id = $1 AND organization_id = $2 AND driver_user_id = $3`,
+        [busId, organizationId, userId]
+      );
+      if (!busCheck.rows.length) {
+        return res.status(403).json({ success: false, message: "You are not the assigned driver for this bus." });
+      }
+
+      const routeCheck = await db.query(
+        `SELECT route_id FROM transport_routes WHERE route_id = $1 AND organization_id = $2`,
+        [routeId, organizationId]
+      );
+      if (!routeCheck.rows.length) {
+        return res.status(400).json({ success: false, message: "Route not found." });
+      }
+
+      // A driver may only start a trip on a route actually assigned to them
+      // (their profile's assigned route, or any route in their weekly
+      // schedule) — not just any active route in the organization.
+      const assignedRouteCheck = await db.query(
+        `SELECT 1 FROM transport_drivers
+          WHERE organization_id = $1 AND user_id = $2 AND assigned_route_id = $3
+         UNION
+         SELECT 1 FROM transport_bus_schedules s
+           JOIN transport_drivers d ON d.driver_id = s.driver_id AND d.organization_id = s.organization_id
+          WHERE s.organization_id = $1 AND d.user_id = $2 AND s.route_id = $3`,
+        [organizationId, userId, routeId]
+      );
+      if (!assignedRouteCheck.rows.length) {
+        return res.status(403).json({ success: false, message: "This route is not assigned to you." });
+      }
+
       const result = await db.query(
         `INSERT INTO transport_trip_sessions (organization_id, route_id, bus_id, driver_user_id, status)
          VALUES ($1, $2, $3, $4, 'active')
@@ -2094,11 +2499,19 @@ const transportationController = {
     const tripId = toInt(req.body.tripId);
     const latitude = toFloat(req.body.latitude);
     const longitude = toFloat(req.body.longitude);
-    const speedKmh = toFloat(req.body.speedKmh);
+    let speedKmh = toFloat(req.body.speedKmh);
     const headingDeg = toFloat(req.body.headingDeg);
 
     if (!tripId || latitude === null || longitude === null) {
       return res.status(400).json({ success: false, message: "Trip and coordinates are required." });
+    }
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return res.status(400).json({ success: false, message: "Coordinates out of range." });
+    }
+    // A school bus won't realistically exceed ~180km/h — treat anything
+    // above that as a bad GPS reading rather than feed it into ETA math.
+    if (speedKmh !== null && (speedKmh < 0 || speedKmh > 180)) {
+      speedKmh = null;
     }
 
     try {

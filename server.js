@@ -790,6 +790,7 @@ const guardianRoute = require("./routes/guardianRoute")(db);
 const studentRoute = require("./routes/studentRoute")(db);
 const documentRoute = require("./routes/documentRoute")(db);
 const transportationRoute = require("./routes/transportationRoute")(db);
+const driverRoute = require("./routes/driverRoute")(db);
 
 // Debug middleware for admin routes in production
 if (process.env.NODE_ENV === "production") {
@@ -818,6 +819,7 @@ app.use("/guardian", guardianRoute);
 app.use("/student", studentRoute);
 app.use("/documents", documentRoute);
 app.use("/transportation", transportationRoute);
+app.use("/driver", driverRoute);
 app.use("/hub", require("./routes/hubRoute")); // Hub routes
 
 app.get("/school-index.json", async (req, res, next) => {
@@ -1037,6 +1039,8 @@ const logStartupDbStatus = async () => {
     // singleton is already settled before any HTTP request arrives.
     // This prevents the double-log caused by two concurrent first callers.
     await ensurePermissionsSchema(db);
+    // Idempotent: adds the 'Driver' user_role enum value if it isn't there yet.
+    await db.query(`ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'Driver'`);
   } catch (error) {
     console.error(
       `[DB] ⚠️ Startup database check failed (${error.code || 'NO_CODE'}): ${error.message}. Verify DB_CONNECTION_STRING uses the full Render DB URL and DB_SSL matches Internal(false)/External(true).`

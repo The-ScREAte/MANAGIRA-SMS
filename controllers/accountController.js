@@ -5408,25 +5408,33 @@ const accountController = {
                 req.session.hubLogo = organization.hub_logo;
               }
 
-              const redirectUrl =
-                process.env.NODE_ENV === "production"
-                  ? `https://${req.session.orgNickName}.managira.com/common/orgDashboard`
-                  : "/common/orgDashboard?organizationId=" +
-                    req.session.organizationId;
+              const isDriverAccount = String(user.account_type || "").trim() === "Driver";
+              const redirectUrl = isDriverAccount
+                ? (process.env.NODE_ENV === "production"
+                    ? `https://${req.session.orgNickName}.managira.com/driver/dashboard`
+                    : "/driver/dashboard")
+                : (process.env.NODE_ENV === "production"
+                    ? `https://${req.session.orgNickName}.managira.com/common/orgDashboard`
+                    : "/common/orgDashboard?organizationId=" +
+                      req.session.organizationId);
               const requestedReturnTo = req.session.returnTo;
               delete req.session.returnTo;
-              const finalRedirectUrl = await resolveSafeLoginRedirect(
-                db,
-                {
-                  userId: user.user_id,
-                  userRole: user.account_type,
-                  organizationId: user.organization_id,
-                  accountType: user.account_type,
-                  userEmail: user.email,
-                },
-                requestedReturnTo,
-                redirectUrl
-              );
+              // Drivers always land on their dedicated dashboard — never honor
+              // a deep-link returnTo into the generic admin console.
+              const finalRedirectUrl = isDriverAccount
+                ? redirectUrl
+                : await resolveSafeLoginRedirect(
+                    db,
+                    {
+                      userId: user.user_id,
+                      userRole: user.account_type,
+                      organizationId: user.organization_id,
+                      accountType: user.account_type,
+                      userEmail: user.email,
+                    },
+                    requestedReturnTo,
+                    redirectUrl
+                  );
 
               req.session.save((err) => {
                 if (err) {

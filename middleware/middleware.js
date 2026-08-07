@@ -91,7 +91,8 @@ async function isAuthenticated(req, res, next) {
     }
 }
 
-// Middleware to block guardians from accessing staff routes
+// Middleware to block guardians (and other non-admin portal roles) from
+// accessing the generic staff/admin routes.
 function blockGuardians(req, res, next) {
     if (req.session.userRole === 'Guardian') {
         req.flash('error', 'You do not have permission to access this page.');
@@ -100,6 +101,10 @@ function blockGuardians(req, res, next) {
     if (req.session.userRole === 'Student') {
         req.flash('error', 'You do not have permission to access this page.');
         return res.redirect('/student/dashboard');
+    }
+    if (req.session.userRole === 'Driver') {
+        req.flash('error', 'You do not have permission to access this page.');
+        return res.redirect('/driver/dashboard');
     }
     next();
 }

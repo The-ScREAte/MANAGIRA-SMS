@@ -9172,6 +9172,7 @@ const commonController = {
           Manager: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
           Teacher: stripUnavailablePermissions(mergePermissionsForRole("Teacher", [])),
           Supervisor: stripUnavailablePermissions(mergePermissionsForRole("Supervisor", [])),
+          Driver: stripUnavailablePermissions(mergePermissionsForRole("Driver", [])),
         },
         messages: {
           success: req.flash("success"),
@@ -9189,6 +9190,9 @@ const commonController = {
 
     let classes = req.body.classes || [];
     let subjects = req.body.subjects || [];
+    // Drivers can be assigned classes (e.g. which routes/classes they cover)
+    // but must never be assigned subjects.
+    if (account_type === "Driver") subjects = [];
     const requestorRole = req.session.userRole;
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
@@ -9228,7 +9232,11 @@ const commonController = {
 
     // Persist exactly what was selected in the form (after safety filtering)
     // so the permission page remains authoritative for every employee role.
-    const effectivePermissions = sanitizedRequestedPermissions;
+    // Drivers are restricted to the student roster only — no other
+    // permission can be granted to them from this form, even if requested.
+    const effectivePermissions = account_type === "Driver"
+      ? sanitizedRequestedPermissions.filter((permission) => permission === PERMISSIONS.MANAGE_STUDENTS)
+      : sanitizedRequestedPermissions;
 
     // ─── Step 1: Ensure schema using the POOL (not a transaction client) to
     //             avoid locking issues that cause the request to hang. ────────
@@ -10056,6 +10064,7 @@ const commonController = {
           Manager: stripUnavailablePermissions(mergePermissionsForRole("Manager", [])),
           Teacher: stripUnavailablePermissions(mergePermissionsForRole("Teacher", [])),
           Supervisor: stripUnavailablePermissions(mergePermissionsForRole("Supervisor", [])),
+          Driver: stripUnavailablePermissions(mergePermissionsForRole("Driver", [])),
         },
         selectedPermissions,
         messages: req.flash(),
@@ -10074,8 +10083,10 @@ const commonController = {
       accountType,
       dateOfBirth,
       classIds = [],
-      subjects = [],
+      subjects: rawSubjects = [],
     } = req.body;
+    // Drivers can be assigned classes but must never be assigned subjects.
+    const subjects = accountType === "Driver" ? [] : rawSubjects;
     const requestorRole = req.session.userRole;
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
@@ -10126,7 +10137,10 @@ const commonController = {
       : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
     // Persist exactly what was selected in the form (after safety filtering).
-    const effectivePermissions = sanitizedRequestedPermissions;
+    // Drivers are restricted to the student roster only.
+    const effectivePermissions = accountType === "Driver"
+      ? sanitizedRequestedPermissions.filter((permission) => permission === PERMISSIONS.MANAGE_STUDENTS)
+      : sanitizedRequestedPermissions;
 
     // Guard: session must have organizationId or the INSERT will fail
     if (!organizationId) {

@@ -1544,8 +1544,10 @@ const printController = (db) => ({
         ? formatDisplayDate(statusSettings.term_end_date, orgDateDisplayFormat)
         : formatDisplayDate(term.end_date, orgDateDisplayFormat);
 
-      const promotedClassId = statusSettings.promoted_class;
-      const repeatedClassId = statusSettings.repeated_class;
+      const parsedPromotedClassId = parseInt(statusSettings.promoted_class, 10);
+      const parsedRepeatedClassId = parseInt(statusSettings.repeated_class, 10);
+      const promotedClassId = Number.isFinite(parsedPromotedClassId) ? parsedPromotedClassId : null;
+      const repeatedClassId = Number.isFinite(parsedRepeatedClassId) ? parsedRepeatedClassId : null;
 
       // Fetch promoted/repeated class names
       const [promotedClassName, repeatedClassName] = await Promise.all([
@@ -2293,13 +2295,13 @@ const printController = (db) => ({
       if (!isPostingMode && statusSettings.activate_promotion && cutOffPoint > 0) {
         try {
           const autoSavePromises = students
-            .filter(s => s.promotionStatus && s.promotionClassId)
+            .filter(s => s.promotionStatus && Number.isFinite(Number(s.promotionClassId)))
             .map(student =>
               db.query(
                 `INSERT INTO student_reports (
                   organization_id, class_id, term_id, student_id,
                   promotion_status, promotion_class_id
-                ) VALUES ($1, $2, $3, $4, $5, $6)
+                ) VALUES ($1, $2, $3, $4, $5, $6::int)
                 ON CONFLICT (organization_id, class_id, term_id, student_id)
                 DO UPDATE SET
                   promotion_status = EXCLUDED.promotion_status,
@@ -2309,9 +2311,9 @@ const printController = (db) => ({
                   organizationId,
                   parsedClassId,
                   parsedTermId,
-                  student.student_id,
+                  Number(student.student_id),
                   student.promotionStatus,
-                  student.promotionClassId,
+                  Number(student.promotionClassId),
                 ]
               )
             );

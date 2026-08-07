@@ -31,6 +31,11 @@ const isAuthenticated = async (req, res, next) => {
             return res.redirect('/student/dashboard');
         }
 
+        if (req.session && req.session.userRole === 'Driver') {
+            safeFlash(req, 'error', 'You do not have permission to access that page.');
+            return res.redirect('/driver/dashboard');
+        }
+
         // Debug log removed for production
         // Allow super admin org switch session
         if (req.session.superAdminOrgSwitch && req.session.userId && req.session.organizationId) {

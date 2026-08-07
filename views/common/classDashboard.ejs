@@ -5481,6 +5481,30 @@ main {
         btn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
       };
 
+      var classRouteLiveMarkers = {};
+      function startClassRouteLivePolling(routeId, layerGroup, L) {
+        if (!Number.isInteger(routeId) || routeId <= 0) return;
+        var tick = function () {
+          fetch('/transportation/live/route/' + routeId, {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+          }).then(function (r) { return r.json(); }).then(function (payload) {
+            var live = payload && payload.success ? payload.data : null;
+            if (!live || live.latitude === null || live.latitude === undefined) return;
+            var marker = classRouteLiveMarkers[routeId];
+            var popupText = 'Bus ' + (live.bus_number || '') + ' — live position';
+            if (!marker) {
+              marker = L.marker([live.latitude, live.longitude], { title: popupText }).bindPopup(popupText);
+              marker.addTo(layerGroup);
+              classRouteLiveMarkers[routeId] = marker;
+            } else {
+              marker.setLatLng([live.latitude, live.longitude]);
+            }
+          }).catch(function () {});
+        };
+        tick();
+        window.setInterval(tick, 12000);
+      }
+
       <% if (transportActive && classTransportationMapRows.length) { %>
       renderTransportMap('classDashboardTransportMap', {
         school: <%- JSON.stringify(classTransportationSchoolDestination || { address: null, latitude: null, longitude: null }) %>,
@@ -5537,6 +5561,7 @@ main {
               if (geometry.length >= 2) {
                 L.polyline(geometry, { color: '#0f5a66', weight: 3, opacity: 0.65 }).addTo(layerGroup);
               }
+              startClassRouteLivePolling(Number(routeIdKey), layerGroup, L);
             });
           });
 

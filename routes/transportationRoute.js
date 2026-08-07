@@ -1,11 +1,57 @@
 const express = require("express");
 const router = express.Router();
-const { isAuthenticated } = require("../middleware/middleware");
+const { isAuthenticated, blockGuardians } = require("../middleware/middleware");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const { transportationController } = require("../controllers/transportationController");
 const { upload } = require("../middleware/s3Upload");
 
 module.exports = (db) => {
+  // Live bus location for a single student is staff-only by default, but a
+  // guardian may fetch it for their own linked child, and a student may
+  // fetch it for themself — each strictly scoped, everyone else 401/403s.
+  async function authorizeStudentLiveAccess(req, res, next) {
+    const session = req.session || {};
+    const role = session.userRole;
+
+    if (role === "Guardian" || role === "Student") {
+      const organizationId = session.organizationId;
+      const studentId = Number.parseInt(req.params.studentId || req.query.studentId, 10);
+
+      if (!organizationId || !Number.isInteger(studentId)) {
+        return res.status(400).json({ success: false, message: "Student is required." });
+      }
+
+      if (role === "Student") {
+        if (Number(session.studentId) === studentId) return next();
+        return res.status(403).json({ success: false, message: "Forbidden." });
+      }
+
+      try {
+        const ownership = await db.query(
+          `SELECT 1 FROM students s
+            WHERE s.student_id = $1 AND s.organization_id = $2
+              AND (
+                EXISTS (SELECT 1 FROM guardians g WHERE g.student_id = s.student_id AND g.guardian_id = $3 AND g.organization_id = $2)
+                OR EXISTS (SELECT 1 FROM guardian_students gs WHERE gs.student_id = s.student_id AND gs.guardian_id = $3)
+              )
+            LIMIT 1`,
+          [studentId, organizationId, session.guardianId]
+        );
+        if (ownership.rows.length) return next();
+        return res.status(403).json({ success: false, message: "Forbidden." });
+      } catch (error) {
+        return res.status(500).json({ success: false, message: "Authorization check failed." });
+      }
+    }
+
+    return isAuthenticated(req, res, next);
+  }
+
+  // Drivers get their own dedicated /driver/dashboard portal — the admin
+  // console below (bus/route/driver-profile CRUD) is staff-only even though
+  // Drivers are granted the manage_students permission for the roster pages.
+  router.use("/manage", blockGuardians);
+
   router.get(
     "/manage",
     isAuthenticated,
@@ -18,6 +64,13 @@ module.exports = (db) => {
     isAuthenticated,
     requirePermission(PERMISSIONS.MANAGE_SETTINGS),
     (req, res) => transportationController.updateMapProviderPost(req, res, db)
+  );
+
+  router.post(
+    "/manage/units",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+    (req, res) => transportationController.updateDistanceUnitPost(req, res, db)
   );
 
   router.post(
@@ -57,7 +110,7 @@ module.exports = (db) => {
   );
 
   router.post(
-    "/manage/drivers/:driverId/update",
+    "/manage/drivers/:userId/update",
     isAuthenticated,
     requirePermission(PERMISSIONS.MANAGE_STUDENTS),
     upload.single("driverImage"),
@@ -65,7 +118,7 @@ module.exports = (db) => {
   );
 
   router.post(
-    "/manage/drivers/:driverId/delete",
+    "/manage/drivers/:userId/delete",
     isAuthenticated,
     requirePermission(PERMISSIONS.MANAGE_STUDENTS),
     (req, res) => transportationController.deleteDriverPost(req, res, db)
@@ -173,7 +226,7 @@ module.exports = (db) => {
     transportationController.postLiveLocation(req, res, db)
   );
 
-  router.get("/live/student/:studentId", isAuthenticated, (req, res) =>
+  router.get("/live/student/:studentId", authorizeStudentLiveAccess, (req, res) =>
     transportationController.getLiveByStudent(req, res, db)
   );
 

@@ -1,0 +1,1080 @@
+<%- include('../partials/flash') %>
+
+<style>
+  .drv-page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+    display: grid;
+    gap: 20px;
+  }
+
+  .drv-hero {
+    background: linear-gradient(135deg, var(--org-primary-color, #01535b) 0%, var(--org-primary-hover, #014a51) 100%);
+    color: #fff;
+    border-radius: 14px;
+    padding: 22px 26px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .drv-hero h1 {
+    margin: 0 0 4px;
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .drv-hero p {
+    margin: 0;
+    opacity: 0.92;
+    font-size: 0.9rem;
+  }
+
+  .drv-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .drv-status-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #94a3b8;
+  }
+
+  .drv-status-dot.is-moving { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25); }
+  .drv-status-dot.is-stopped { background: #f59e0b; }
+
+  .drv-grid {
+    display: grid;
+    grid-template-columns: minmax(300px, 400px) 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 960px) {
+    .drv-grid { grid-template-columns: 1fr; }
+  }
+
+  .drv-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  }
+
+  .drv-card h2 {
+    margin: 0 0 14px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .drv-field { margin-bottom: 14px; }
+
+  .drv-field label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 6px;
+  }
+
+  .drv-field select,
+  .drv-field input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    box-sizing: border-box;
+  }
+
+  .drv-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+
+  .drv-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .drv-btn--start { background: var(--org-primary-color, #01535b); color: #fff; }
+  .drv-btn--end { background: #b91c1c; color: #fff; }
+
+  .drv-note { font-size: 0.8rem; color: #64748b; margin: 10px 0 0; }
+
+  .drv-empty {
+    padding: 16px;
+    border: 1.5px dashed #e2e8f0;
+    border-radius: 10px;
+    color: #64748b;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  .drv-map-wrap {
+    position: relative;
+  }
+
+  .drv-locate-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
+    line-height: 1;
+    background: #fff;
+    text-decoration: none;
+  }
+
+  .drv-locate-btn:hover {
+    background: #f1f5f9;
+  }
+
+  .drv-locate-btn.is-locating {
+    color: var(--org-primary-color, #2563eb);
+    animation: drv-locate-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes drv-locate-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  .drv-my-location-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: #2563eb;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4), 0 2px 6px rgba(15, 23, 42, 0.3);
+  }
+
+  .drv-map-maximize {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 600;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #1e293b;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+  }
+
+  .drv-map-wrap.is-fullscreen {
+    position: fixed;
+    top: var(--header-height, 64px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 900;
+    background: #fff;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+
+  .drv-map-wrap.is-fullscreen #drv-map {
+    height: 100% !important;
+  }
+
+  #drv-map {
+    width: 100%;
+    height: 380px;
+    border-radius: 12px;
+    background: #f1f5f9;
+  }
+
+  .drv-map-legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: #475569;
+  }
+
+  .drv-map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .drv-legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  .drv-next-stop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);
+    border: 1.5px solid #fcd34d;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+
+  .drv-next-stop-label { font-size: 0.75rem; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.03em; }
+  .drv-next-stop-name { font-size: 1rem; font-weight: 700; color: #1e293b; margin-top: 2px; }
+  .drv-next-stop-distance { font-size: 1.3rem; font-weight: 800; color: #b45309; white-space: nowrap; text-align: right; }
+  .drv-next-stop-eta { font-size: 0.78rem; font-weight: 700; color: #92622a; white-space: nowrap; text-align: right; margin-top: 2px; }
+
+  .drv-route-eta {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #f0fdfa;
+    border: 1.5px solid #99f6e4;
+    font-size: 0.82rem;
+    color: #0f766e;
+  }
+  .drv-route-eta strong { font-size: 0.98rem; }
+
+  .drv-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    font-size: 0.85rem;
+  }
+
+  .drv-info-item { color: #64748b; }
+  .drv-info-item strong { display: block; color: #1e293b; font-size: 0.92rem; }
+
+  .drv-student-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  .drv-student-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid #eef1f4;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  .drv-student-name { font-weight: 600; color: #1e293b; font-size: 0.9rem; }
+  .drv-student-meta { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+
+  .drv-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--org-primary-hover-fill, rgba(1, 83, 91, 0.1));
+    color: var(--org-primary-color, #01535b);
+    white-space: nowrap;
+  }
+
+  /* On small screens, the map takes over like a navigation app: it shows
+     first, fills most of the screen, and the key stats (next stop, ETA)
+     float directly on top of it instead of living in separate cards. */
+  @media (max-width: 640px) {
+    .drv-page { padding: 0 0 24px; gap: 12px; }
+    .drv-hero { border-radius: 0; margin: 0 0 4px; padding: 16px; }
+    .drv-grid { gap: 12px; }
+    .drv-map-card {
+      order: -1;
+      padding: 0;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      box-shadow: none;
+    }
+    .drv-map-title { padding: 12px 16px 0; margin: 0 0 8px; }
+    #drv-map {
+      height: 62vh;
+      border-radius: 0;
+    }
+    .drv-map-legend { padding: 0 16px; }
+    .drv-next-stop {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 500;
+      margin-bottom: 0;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    }
+    .drv-route-eta {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 500;
+      margin-top: 0;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    }
+    .drv-page > .drv-grid > div:first-child {
+      order: 1;
+      padding: 0 16px;
+    }
+  }
+</style>
+
+<div class="drv-page">
+  <div class="drv-hero">
+    <div>
+      <h1>Welcome, <%= session.firstName || 'Driver' %></h1>
+      <p>
+        <% if (driverBus) { %>
+          Assigned Bus: <strong><%= driverBus.bus_number %></strong><% if (driverBus.license_plate) { %> · <%= driverBus.license_plate %><% } %>
+        <% } else { %>
+          No bus assigned yet — contact your administrator.
+        <% } %>
+      </p>
+    </div>
+    <div class="drv-status-pill">
+      <span class="drv-status-dot" id="drv-status-dot"></span>
+      <span id="drv-status-text">
+        <% if (!driverBus) { %>Unassigned<% } else if (activeTrip) { %>Trip Active<% } else { %>Not Driving<% } %>
+      </span>
+    </div>
+  </div>
+
+  <div class="drv-grid">
+    <div style="display:grid; gap:20px;">
+      <div class="drv-card">
+        <h2>Trip Control</h2>
+
+        <% if (!driverBus) { %>
+          <p class="drv-empty">You haven't been assigned a bus yet. Once your administrator links you to a bus in Transportation Management, trip controls will appear here.</p>
+        <% } else if (!(assignedRoutes || []).length) { %>
+          <p class="drv-empty">You don't have a route assigned yet. Ask your administrator to set your "Assigned Route" in Transportation Management, or add you to a schedule.</p>
+        <% } else { %>
+          <div class="drv-field" id="drv-route-field" style="<%= activeTrip ? 'display:none;' : '' %>">
+            <label for="drv-route-select">Your Assigned Route</label>
+            <select id="drv-route-select">
+              <% (assignedRoutes || []).forEach(function(route, idx) { %>
+                <option value="<%= route.route_id %>" <%= idx === 0 ? 'selected' : '' %>><%= route.route_name %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <button type="button" class="drv-btn drv-btn--start" id="drv-start-btn" style="<%= activeTrip ? 'display:none;' : '' %>">
+            Start Trip
+          </button>
+          <button type="button" class="drv-btn drv-btn--end" id="drv-end-btn" style="<%= activeTrip ? '' : 'display:none;' %>">
+            End Trip
+          </button>
+
+          <p class="drv-note" id="drv-trip-note">
+            <% if (activeTrip) { %>Trip in progress — your location is being shared every 15 seconds.<% } else { %>Select your route and start your trip when you begin driving.<% } %>
+          </p>
+        <% } %>
+      </div>
+
+      <% if (driverBus) { %>
+      <div class="drv-card">
+        <h2>Your Bus</h2>
+        <div class="drv-info-grid">
+          <div class="drv-info-item">Bus Number<strong><%= driverBus.bus_number || '-' %></strong></div>
+          <div class="drv-info-item">Status<strong><%= String(driverBus.status || '-').replaceAll('_', ' ') %></strong></div>
+          <div class="drv-info-item">Plate<strong><%= driverBus.license_plate || '-' %></strong></div>
+          <div class="drv-info-item">Capacity<strong><%= driverBus.capacity || '-' %></strong></div>
+          <% if (driverBus.vehicle_make || driverBus.vehicle_model) { %>
+          <div class="drv-info-item">Vehicle<strong><%= [driverBus.vehicle_make, driverBus.vehicle_model].filter(Boolean).join(' ') || '-' %></strong></div>
+          <div class="drv-info-item">Color<strong><%= driverBus.vehicle_color || '-' %></strong></div>
+          <% } %>
+        </div>
+      </div>
+      <% } %>
+
+      <div class="drv-card">
+        <h2>My Students (<%= (students || []).length %>)</h2>
+        <% if (!(students || []).length) { %>
+          <p class="drv-empty">No students are assigned to your bus or classes yet.</p>
+        <% } else { %>
+          <ul class="drv-student-list">
+            <% students.forEach(function(student) { %>
+              <li class="drv-student-item">
+                <div>
+                  <div class="drv-student-name"><%= [student.first_name, student.last_name].filter(Boolean).join(' ') %></div>
+                  <div class="drv-student-meta">
+                    <%= student.class_name || 'No class' %>
+                    <% if (student.stop_name) { %> · Stop: <%= student.stop_name %><% } else if (student.home_address) { %> · <%= student.home_address %><% } %>
+                  </div>
+                </div>
+                <% if (student.stop_latitude || student.home_latitude) { %>
+                  <span class="drv-badge">On Route</span>
+                <% } %>
+              </li>
+            <% }) %>
+          </ul>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="drv-card drv-map-card" id="drv-map-card">
+      <h2 class="drv-map-title">Live Map</h2>
+      <div class="drv-map-wrap" id="drv-map-wrap">
+        <div class="drv-next-stop" id="drv-next-stop-card" style="display:none;">
+          <div>
+            <div class="drv-next-stop-label">Next Stop</div>
+            <div class="drv-next-stop-name" id="drv-next-stop-name">-</div>
+          </div>
+          <div>
+            <div class="drv-next-stop-distance" id="drv-next-stop-distance">-</div>
+            <div class="drv-next-stop-eta" id="drv-next-stop-eta">-</div>
+          </div>
+        </div>
+        <button type="button" class="drv-map-maximize" id="drv-map-maximize" aria-label="Maximize map" title="Maximize map">⛶</button>
+        <div id="drv-map"></div>
+        <div class="drv-route-eta" id="drv-route-eta">
+          <span>Estimated time to final stop</span>
+          <strong id="drv-route-eta-value">-</strong>
+        </div>
+      </div>
+      <div class="drv-map-legend">
+        <span><span class="drv-legend-dot" id="drv-legend-you"></span> You</span>
+        <span><span class="drv-legend-dot" id="drv-legend-route"></span> Remaining route</span>
+        <span><span class="drv-legend-dot" style="background:#94a3b8;"></span> Already covered</span>
+        <span><span class="drv-legend-dot" id="drv-legend-stop" style="border:2px solid #fff;"></span> Student stop</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var driverBus = <%- JSON.stringify(driverBus || null) %>;
+    var students = <%- JSON.stringify(students || []) %>;
+    var lastLocation = <%- JSON.stringify(lastLocation || null) %>;
+    var schoolLat = <%- JSON.stringify(schoolLatitude) %>;
+    var schoolLng = <%- JSON.stringify(schoolLongitude) %>;
+    var assignedRoutes = <%- JSON.stringify(assignedRoutes || []) %>;
+    var activeTrip = <%- JSON.stringify(activeTrip || null) %>;
+    var driverPhotoUrl = <%- JSON.stringify(driverPhotoUrl || null) %>;
+    var distanceUnit = <%- JSON.stringify(distanceUnit === 'mi' ? 'mi' : 'km') %>;
+    var routeColor = (getComputedStyle(document.documentElement).getPropertyValue('--org-primary-color') || '').trim() || '#01535b';
+
+    ['drv-legend-you', 'drv-legend-route', 'drv-legend-stop'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.style.background = routeColor;
+    });
+    var legendStopDot = document.getElementById('drv-legend-stop');
+    if (legendStopDot) legendStopDot.style.boxShadow = '0 0 0 1px ' + routeColor;
+    var activeTripId = activeTrip && activeTrip.trip_id ? Number(activeTrip.trip_id) : null;
+    var locationTimer = null;
+    var roadGeometryCache = {};
+    var roadGeometryRequestId = 0;
+
+    // Snaps a list of [lat,lng] points to the actual road network so the
+    // route line follows streets instead of cutting straight through
+    // buildings. Falls back to the straight-line points on any failure.
+    function fetchRoadGeometry(latlngs) {
+      if (!Array.isArray(latlngs) || latlngs.length < 2) return Promise.resolve(latlngs || []);
+      var key = latlngs.map(function (p) { return p[0].toFixed(5) + ',' + p[1].toFixed(5); }).join(';');
+      if (roadGeometryCache[key]) return Promise.resolve(roadGeometryCache[key]);
+
+      var coordinates = latlngs.map(function (p) { return p[1].toFixed(7) + ',' + p[0].toFixed(7); }).join(';');
+      var url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson&steps=false';
+
+      return fetch(url)
+        .then(function (response) { return response.json(); })
+        .then(function (payload) {
+          var geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
+          var points = Array.isArray(geometry && geometry.coordinates)
+            ? geometry.coordinates.map(function (entry) { return [Number(entry[1]), Number(entry[0])]; })
+            : null;
+          var resolved = points && points.length >= 2 ? points : latlngs;
+          roadGeometryCache[key] = resolved;
+          return resolved;
+        })
+        .catch(function () { return latlngs; });
+    }
+    var map = null;
+    var busMarker = null;
+    var routeLayer = null;
+    var currentRouteStops = [];
+    var currentRouteDestination = null;
+    var lastPassedStopOrder = -Infinity;
+    var ASSUMED_SPEED_KMH = 25; // fallback used when stopped/no speed reading yet
+    var ARRIVED_KM = 0.15;
+
+    var routeSelect = document.getElementById('drv-route-select');
+    var routeField = document.getElementById('drv-route-field');
+    var startBtn = document.getElementById('drv-start-btn');
+    var endBtn = document.getElementById('drv-end-btn');
+    var tripNote = document.getElementById('drv-trip-note');
+    var statusDot = document.getElementById('drv-status-dot');
+    var statusText = document.getElementById('drv-status-text');
+    var nextStopCard = document.getElementById('drv-next-stop-card');
+    var nextStopName = document.getElementById('drv-next-stop-name');
+    var nextStopDistance = document.getElementById('drv-next-stop-distance');
+    var nextStopEta = document.getElementById('drv-next-stop-eta');
+    var routeEtaRow = document.getElementById('drv-route-eta');
+    var routeEtaValue = document.getElementById('drv-route-eta-value');
+    var lastSpeedKmh = null;
+
+    function findRoute(routeId) {
+      var idNum = Number(routeId);
+      return assignedRoutes.find(function (r) { return Number(r.route_id) === idNum; }) || null;
+    }
+
+    function haversineKm(lat1, lng1, lat2, lng2) {
+      if ([lat1, lng1, lat2, lng2].some(function (v) { return v === null || v === undefined || Number.isNaN(Number(v)); })) return null;
+      var toRad = function (v) { return (Number(v) * Math.PI) / 180; };
+      var R = 6371;
+      var dLat = toRad(lat2 - lat1);
+      var dLng = toRad(lng2 - lng1);
+      var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function formatDistance(km) {
+      if (distanceUnit === 'mi') {
+        var miles = km * 0.621371;
+        return miles < 0.1 ? Math.round(miles * 5280) + ' ft' : miles.toFixed(1) + ' mi';
+      }
+      return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km';
+    }
+
+    function formatEtaMinutes(minutes) {
+      if (!Number.isFinite(minutes) || minutes < 0) return '-';
+      if (minutes < 1) return '<1 min';
+      var rounded = Math.round(minutes);
+      if (rounded < 60) return rounded + ' min';
+      var hrs = Math.floor(rounded / 60);
+      var mins = rounded % 60;
+      return hrs + 'h ' + mins + 'm';
+    }
+
+    // Replaces the default +/- zoom buttons with a single "smart" locate
+    // control: tap once to fly in on the device's actual GPS position, tap
+    // again to zoom back out to the overview.
+    function attachSmartMapControls(mapInstance, LeafletRef, options) {
+      options = options || {};
+      var overviewState = { center: mapInstance.getCenter(), zoom: mapInstance.getZoom() };
+      var isZoomedIn = false;
+      var myLocationMarker = null;
+
+      var LocateControl = LeafletRef.Control.extend({
+        options: { position: 'bottomleft' },
+        onAdd: function () {
+          var container = LeafletRef.DomUtil.create('div', 'leaflet-bar drv-locate-control');
+          var button = LeafletRef.DomUtil.create('a', 'drv-locate-btn', container);
+          button.href = '#';
+          button.title = 'Zoom to my location';
+          button.setAttribute('role', 'button');
+          button.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2 L19 20 L12 16.5 L5 20 Z"/></svg>';
+          LeafletRef.DomEvent.disableClickPropagation(container);
+          LeafletRef.DomEvent.on(button, 'click', function (event) {
+            LeafletRef.DomEvent.preventDefault(event);
+            if (isZoomedIn) {
+              mapInstance.flyTo(overviewState.center, overviewState.zoom);
+              isZoomedIn = false;
+              return;
+            }
+            overviewState.center = mapInstance.getCenter();
+            overviewState.zoom = mapInstance.getZoom();
+
+            if (!navigator.geolocation) {
+              var fallbackTarget = typeof options.getLiveLatLng === 'function' ? options.getLiveLatLng() : null;
+              mapInstance.flyTo(fallbackTarget || overviewState.center, 16);
+              isZoomedIn = true;
+              return;
+            }
+
+            button.classList.add('is-locating');
+            navigator.geolocation.getCurrentPosition(
+              function (position) {
+                button.classList.remove('is-locating');
+                var here = [position.coords.latitude, position.coords.longitude];
+                if (myLocationMarker) myLocationMarker.remove();
+                myLocationMarker = LeafletRef.marker(here, {
+                  icon: LeafletRef.divIcon({
+                    className: '',
+                    html: '<div class="drv-my-location-dot"></div>',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8],
+                  }),
+                }).addTo(mapInstance).bindPopup('You are here');
+                mapInstance.flyTo(here, 16);
+                isZoomedIn = true;
+              },
+              function () {
+                button.classList.remove('is-locating');
+                var fallbackTarget = typeof options.getLiveLatLng === 'function' ? options.getLiveLatLng() : null;
+                mapInstance.flyTo(fallbackTarget || overviewState.center, 16);
+                isZoomedIn = true;
+              },
+              { enableHighAccuracy: true, timeout: 8000 }
+            );
+          });
+          return container;
+        },
+      });
+
+      mapInstance.addControl(new LocateControl());
+    }
+
+    function ensureLeafletAssets() {
+      if (!document.getElementById('leaflet-css-driver-dashboard')) {
+        var link = document.createElement('link');
+        link.id = 'leaflet-css-driver-dashboard';
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+      }
+      if (window.L) return Promise.resolve(window.L);
+      if (window.__driverDashboardLeafletPromise) return window.__driverDashboardLeafletPromise;
+      window.__driverDashboardLeafletPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.onload = function () { resolve(window.L); };
+        script.onerror = reject;
+        document.body.appendChild(script);
+      });
+      return window.__driverDashboardLeafletPromise;
+    }
+
+    // Selecting a new route (or ending a trip) resets progress tracking —
+    // we only ever move lastPassedStopOrder forward, never back, so the
+    // "already covered" portion of the line never flickers as GPS jitters.
+    function setActiveRoute(route) {
+      currentRouteStops = [];
+      currentRouteDestination = null;
+      lastPassedStopOrder = -Infinity;
+
+      if (!route) {
+        if (routeLayer) { routeLayer.remove(); routeLayer = null; }
+        if (routeEtaRow) routeEtaRow.style.display = 'none';
+        if (nextStopCard) nextStopCard.style.display = 'none';
+        return;
+      }
+
+      currentRouteStops = (route.stops || [])
+        .filter(function (s) { return s.latitude && s.longitude; })
+        .sort(function (a, b) { return Number(a.stop_order || 0) - Number(b.stop_order || 0); });
+
+      if (route.use_school_destination && schoolLat && schoolLng) {
+        currentRouteDestination = { latitude: schoolLat, longitude: schoolLng, label: 'School' };
+      } else if (route.destination_latitude && route.destination_longitude) {
+        currentRouteDestination = {
+          latitude: Number(route.destination_latitude),
+          longitude: Number(route.destination_longitude),
+          label: route.destination_address || 'Final destination',
+        };
+      }
+
+      redrawRoute(busMarker ? busMarker.getLatLng().lat : null, busMarker ? busMarker.getLatLng().lng : null);
+    }
+
+    // Draws the route as two segments: the deep, bold "remaining" path from
+    // wherever the driver is right now, through every stop still ahead, to
+    // the final destination — and a lighter "already covered" path behind
+    // them, so the plan visibly clears as they progress.
+    function redrawRoute(lat, lng) {
+      if (!map || !window.L) return;
+      if (routeLayer) { routeLayer.remove(); routeLayer = null; }
+      if (!currentRouteStops.length) return;
+
+      var hasPosition = lat !== null && lat !== undefined && lng !== null && lng !== undefined;
+
+      if (hasPosition) {
+        currentRouteStops.forEach(function (stop) {
+          var d = haversineKm(lat, lng, stop.latitude, stop.longitude);
+          var order = Number(stop.stop_order || 0);
+          if (d !== null && d <= ARRIVED_KM && order > lastPassedStopOrder) {
+            lastPassedStopOrder = order;
+          }
+        });
+      }
+
+      var passedStops = currentRouteStops.filter(function (s) { return Number(s.stop_order || 0) <= lastPassedStopOrder; });
+      var remainingStops = currentRouteStops.filter(function (s) { return Number(s.stop_order || 0) > lastPassedStopOrder; });
+
+      routeLayer = window.L.layerGroup().addTo(map);
+      var bounds = [];
+      var thisRequestId = ++roadGeometryRequestId;
+
+      if (passedStops.length) {
+        var passedLatLngs = passedStops.map(function (s) { return [Number(s.latitude), Number(s.longitude)]; });
+        if (hasPosition) passedLatLngs.push([lat, lng]);
+        fetchRoadGeometry(passedLatLngs).then(function (roadPoints) {
+          if (thisRequestId !== roadGeometryRequestId) return;
+          window.L.polyline(roadPoints, { color: '#94a3b8', weight: 4, opacity: 0.6, dashArray: '1,8' }).addTo(routeLayer);
+        });
+      }
+
+      var remainingLatLngs = [];
+      if (hasPosition) remainingLatLngs.push([lat, lng]);
+      remainingStops.forEach(function (s) { remainingLatLngs.push([Number(s.latitude), Number(s.longitude)]); });
+      if (currentRouteDestination) remainingLatLngs.push([currentRouteDestination.latitude, currentRouteDestination.longitude]);
+      if (remainingLatLngs.length >= 2) {
+        // Deep, bold, and unmistakable — this is the path still ahead, in
+        // the organization's own brand color so it feels native to the app.
+        // Snapped to the actual road network so it never cuts through buildings.
+        fetchRoadGeometry(remainingLatLngs).then(function (roadPoints) {
+          if (thisRequestId !== roadGeometryRequestId) return;
+          window.L.polyline(roadPoints, { color: routeColor, weight: 7, opacity: 0.92, lineCap: 'round' }).addTo(routeLayer);
+        });
+      }
+
+      currentRouteStops.forEach(function (s, idx) {
+        var isPassed = Number(s.stop_order || 0) <= lastPassedStopOrder;
+        var stopSize = isPassed ? 20 : 26;
+        window.L.marker([Number(s.latitude), Number(s.longitude)], {
+          icon: window.L.divIcon({
+            className: '',
+            html: '<div style="width:' + stopSize + 'px;height:' + stopSize + 'px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:' + (isPassed ? '#e2e8f0' : '#ffffff') + ';border:2px solid ' + (isPassed ? '#94a3b8' : routeColor) + ';box-shadow:0 3px 8px rgba(15,23,42,0.2);font-size:' + Math.round(stopSize * 0.55) + 'px;line-height:1;">🚏</div>',
+            iconSize: [stopSize, stopSize],
+            iconAnchor: [stopSize / 2, stopSize / 2],
+          }),
+        })
+          .addTo(routeLayer)
+          .bindTooltip((idx + 1) + '. ' + (s.stop_name || 'Stop') + (isPassed ? ' (visited)' : ''), { direction: 'top', offset: [0, -stopSize / 2] })
+          .bindPopup((idx + 1) + '. ' + (s.stop_name || 'Stop') + (isPassed ? ' (visited)' : ''));
+        bounds.push([Number(s.latitude), Number(s.longitude)]);
+      });
+
+      if (currentRouteDestination) {
+        window.L.marker([currentRouteDestination.latitude, currentRouteDestination.longitude], {
+          icon: window.L.divIcon({
+            className: 'drv-school-icon',
+            html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));">🏫</div>',
+            iconSize: [26, 26],
+            iconAnchor: [13, 13],
+          }),
+        }).addTo(routeLayer).bindPopup('Final: ' + currentRouteDestination.label);
+        bounds.push([currentRouteDestination.latitude, currentRouteDestination.longitude]);
+      }
+
+      if (hasPosition) bounds.push([lat, lng]);
+      if (bounds.length) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+
+      updateStats(hasPosition ? lat : null, hasPosition ? lng : null);
+    }
+
+    function buildRemainingWaypoints(lat, lng, remainingStops) {
+      var points = [];
+      if (lat !== null && lng !== null) points.push({ latitude: lat, longitude: lng });
+      remainingStops.forEach(function (s) { points.push({ latitude: Number(s.latitude), longitude: Number(s.longitude), name: s.stop_name }); });
+      if (currentRouteDestination) points.push({ latitude: currentRouteDestination.latitude, longitude: currentRouteDestination.longitude });
+      return points;
+    }
+
+    // Updates the "Next Stop" card (name/distance/ETA) and the overall
+    // "Estimated time to final stop" strip beneath the map.
+    function updateStats(lat, lng) {
+      var remainingStops = currentRouteStops.filter(function (s) { return Number(s.stop_order || 0) > lastPassedStopOrder; });
+
+      if (!remainingStops.length || lat === null || lng === null) {
+        if (nextStopCard) nextStopCard.style.display = 'none';
+        if (routeEtaRow) routeEtaRow.style.display = 'none';
+        return;
+      }
+
+      var effectiveSpeed = (lastSpeedKmh && lastSpeedKmh > 3) ? lastSpeedKmh : ASSUMED_SPEED_KMH;
+      var nextStop = remainingStops[0];
+      var distanceToNext = haversineKm(lat, lng, nextStop.latitude, nextStop.longitude);
+
+      if (nextStopCard && distanceToNext !== null) {
+        nextStopCard.style.display = 'flex';
+        if (nextStopName) nextStopName.textContent = nextStop.stop_name || 'Upcoming stop';
+        if (nextStopDistance) nextStopDistance.textContent = formatDistance(distanceToNext);
+        if (nextStopEta) nextStopEta.textContent = 'ETA ' + formatEtaMinutes((distanceToNext / effectiveSpeed) * 60);
+      }
+
+      var waypoints = buildRemainingWaypoints(lat, lng, remainingStops);
+      var totalDistance = 0;
+      var hasGap = false;
+      for (var i = 0; i < waypoints.length - 1; i++) {
+        var seg = haversineKm(waypoints[i].latitude, waypoints[i].longitude, waypoints[i + 1].latitude, waypoints[i + 1].longitude);
+        if (seg === null) { hasGap = true; break; }
+        totalDistance += seg;
+      }
+
+      if (routeEtaRow) {
+        if (!hasGap && waypoints.length >= 2) {
+          routeEtaRow.style.display = 'flex';
+          if (routeEtaValue) routeEtaValue.textContent = formatEtaMinutes((totalDistance / effectiveSpeed) * 60) + ' (' + formatDistance(totalDistance) + ')';
+        } else {
+          routeEtaRow.style.display = 'none';
+        }
+      }
+    }
+
+    function initMap() {
+      var mapEl = document.getElementById('drv-map');
+      if (!mapEl) return;
+      ensureLeafletAssets().then(function (L) {
+        var initialCenter = [
+          (lastLocation && lastLocation.latitude) || schoolLat || 0,
+          (lastLocation && lastLocation.longitude) || schoolLng || 0
+        ];
+        map = L.map(mapEl, { scrollWheelZoom: false, zoomControl: false }).setView(initialCenter, 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        // Keep the required OpenStreetMap credit, drop Leaflet's own branding flag.
+        map.attributionControl.setPrefix(false);
+        attachSmartMapControls(map, L, {
+          getLiveLatLng: function () { return busMarker ? busMarker.getLatLng() : null; },
+        });
+
+        var bounds = [];
+
+        if (lastLocation && lastLocation.latitude && lastLocation.longitude) {
+          busMarker = L.marker([lastLocation.latitude, lastLocation.longitude], { title: 'Your bus', icon: buildDriverIcon(L) })
+            .addTo(map).bindPopup('Your current position');
+          bounds.push([lastLocation.latitude, lastLocation.longitude]);
+        }
+
+        students.forEach(function (student) {
+          var lat = student.stop_latitude || student.home_latitude;
+          var lng = student.stop_longitude || student.home_longitude;
+          if (!lat || !lng) return;
+          var label = [student.first_name, student.last_name].filter(Boolean).join(' ');
+          L.circleMarker([lat, lng], { radius: 6, color: routeColor, fillColor: routeColor, fillOpacity: 0.6 })
+            .addTo(map)
+            .bindTooltip(label + (student.stop_name ? ' — ' + student.stop_name : ''), { direction: 'top' })
+            .bindPopup(label + (student.stop_name ? ' — ' + student.stop_name : ''));
+          bounds.push([lat, lng]);
+        });
+
+        // If a trip is already active, the route itself (stops + destination)
+        // is the thing to focus on — not every student's home across the
+        // whole city — so only fall back to the wide roster view when there's
+        // no route to show yet.
+        // Show the driver's first assigned route by default so the map and
+        // trip controls aren't blank until they manually pick one — they can
+        // still switch routes via the dropdown before starting a trip.
+        var activeRoute = activeTrip ? findRoute(activeTrip.route_id) : (assignedRoutes[0] || null);
+        if (activeRoute) {
+          setActiveRoute(activeRoute);
+        } else if (bounds.length > 1) {
+          map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+        } else if (bounds.length === 1) {
+          map.setView(bounds[0], 14);
+        }
+
+        // The map can be laid out inside a hidden/zero-size container at the
+        // moment fitBounds first runs (e.g. inside a modal not yet shown),
+        // which bakes in a wrong zoom that invalidateSize() alone won't fix —
+        // so redo the same fit once the container has its real dimensions.
+        setTimeout(function () {
+          map.invalidateSize();
+          if (activeRoute && currentRouteStops.length) {
+            redrawRoute(busMarker ? busMarker.getLatLng().lat : null, busMarker ? busMarker.getLatLng().lng : null);
+          } else if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+          } else if (bounds.length === 1) {
+            map.setView(bounds[0], 14);
+          }
+        }, 150);
+      }).catch(function () {
+        mapEl.innerHTML = '<div style="padding:18px;color:#64748b;font-size:12px;">Map could not load right now.</div>';
+      });
+    }
+
+    function buildDriverIcon(L) {
+      // A small, unmistakable "you are here" badge — the driver's own photo
+      // in a tiny ring if they've uploaded one, otherwise a plain dot.
+      var size = 30;
+      var inner = driverPhotoUrl
+        ? '<img src="' + driverPhotoUrl + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="" />'
+        : '';
+      var html = '<div style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + routeColor + ';' +
+        'border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;overflow:hidden;">' +
+        inner + '</div>';
+      return L.divIcon({ className: 'drv-driver-icon', html: html, iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+    }
+
+    function updateBusMarkerPosition(lat, lng) {
+      if (!map || !window.L) return;
+      if (!busMarker) {
+        busMarker = window.L.marker([lat, lng], { title: 'Your bus', icon: buildDriverIcon(window.L) }).addTo(map).bindPopup('Your current position');
+      } else {
+        busMarker.setLatLng([lat, lng]);
+      }
+      redrawRoute(lat, lng);
+    }
+
+    if (routeSelect) {
+      routeSelect.addEventListener('change', function () {
+        setActiveRoute(findRoute(routeSelect.value));
+      });
+    }
+
+    function setTripUiState(active) {
+      if (routeField) routeField.style.display = active ? 'none' : '';
+      if (startBtn) startBtn.style.display = active ? 'none' : '';
+      if (endBtn) endBtn.style.display = active ? '' : 'none';
+      if (tripNote) {
+        tripNote.textContent = active
+          ? 'Trip in progress — your location is being shared every 15 seconds.'
+          : 'Select your route and start your trip when you begin driving.';
+      }
+      if (statusText) statusText.textContent = active ? 'Trip Active' : 'Not Driving';
+      if (statusDot) statusDot.className = 'drv-status-dot' + (active ? ' is-moving' : '');
+      if (!active && nextStopCard) nextStopCard.style.display = 'none';
+      if (!active && routeEtaRow) routeEtaRow.style.display = 'none';
+    }
+
+    async function postLiveLocation() {
+      if (!activeTripId || !navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(async function (position) {
+        var speedKmh = position.coords.speed ? Number(position.coords.speed) * 3.6 : null;
+        lastSpeedKmh = speedKmh;
+        var payload = new URLSearchParams({
+          tripId: String(activeTripId),
+          latitude: String(position.coords.latitude),
+          longitude: String(position.coords.longitude),
+          speedKmh: speedKmh !== null ? String(speedKmh) : '',
+          headingDeg: position.coords.heading ? String(position.coords.heading) : '',
+        });
+
+        updateBusMarkerPosition(position.coords.latitude, position.coords.longitude);
+        if (statusDot) {
+          var moving = speedKmh !== null && speedKmh > 2;
+          statusDot.className = 'drv-status-dot ' + (moving ? 'is-moving' : 'is-stopped');
+        }
+
+        await fetch('/transportation/driver/live-location', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: payload,
+        }).catch(function () {});
+      }, function () {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 10000 });
+    }
+
+    function startLocationLoop() {
+      if (locationTimer) window.clearInterval(locationTimer);
+      postLiveLocation();
+      locationTimer = window.setInterval(postLiveLocation, 15000);
+    }
+
+    function stopLocationLoop() {
+      if (!locationTimer) return;
+      window.clearInterval(locationTimer);
+      locationTimer = null;
+    }
+
+    if (startBtn) {
+      startBtn.addEventListener('click', async function () {
+        var routeId = routeSelect ? String(routeSelect.value || '').trim() : '';
+        if (!routeId || !driverBus) {
+          if (tripNote) tripNote.textContent = 'Select your route to start your trip.';
+          return;
+        }
+
+        startBtn.disabled = true;
+        try {
+          var response = await fetch('/transportation/driver/trips/start', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: new URLSearchParams({ routeId: routeId, busId: String(driverBus.bus_id) }),
+          });
+          var result = await response.json().catch(function () { return null; });
+          if (!response.ok || !result || !result.success || !result.trip) {
+            if (tripNote) tripNote.textContent = (result && result.message) || 'Unable to start trip.';
+            return;
+          }
+
+          activeTripId = Number(result.trip.trip_id);
+          setActiveRoute(findRoute(routeId));
+          setTripUiState(true);
+          startLocationLoop();
+        } finally {
+          startBtn.disabled = false;
+        }
+      });
+    }
+
+    if (endBtn) {
+      endBtn.addEventListener('click', async function () {
+        if (!activeTripId) return;
+        endBtn.disabled = true;
+        try {
+          var response = await fetch('/transportation/driver/trips/end', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: new URLSearchParams({ tripId: String(activeTripId) }),
+          });
+          var result = await response.json().catch(function () { return null; });
+          if (!response.ok || !result || !result.success) {
+            if (tripNote) tripNote.textContent = (result && result.message) || 'Unable to end trip.';
+            return;
+          }
+
+          activeTripId = null;
+          stopLocationLoop();
+          setTripUiState(false);
+          setActiveRoute(null);
+        } finally {
+          endBtn.disabled = false;
+        }
+      });
+    }
+
+    var drvMapWrap = document.getElementById('drv-map-wrap');
+    var drvMapMaximizeBtn = document.getElementById('drv-map-maximize');
+    if (drvMapWrap && drvMapMaximizeBtn) {
+      drvMapMaximizeBtn.addEventListener('click', function () {
+        var goingFullscreen = !drvMapWrap.classList.contains('is-fullscreen');
+        drvMapWrap.classList.toggle('is-fullscreen', goingFullscreen);
+        drvMapMaximizeBtn.textContent = goingFullscreen ? '✕' : '⛶';
+        drvMapMaximizeBtn.title = goingFullscreen ? 'Exit fullscreen' : 'Maximize map';
+        document.body.style.overflow = goingFullscreen ? 'hidden' : '';
+        setTimeout(function () { if (map) map.invalidateSize(); }, 80);
+      });
+    }
+
+    initMap();
+    setTripUiState(Boolean(activeTripId));
+    if (activeTripId) startLocationLoop();
+  })();
+</script>

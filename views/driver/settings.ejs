@@ -1,0 +1,138 @@
+<%- include('../partials/flash') %>
+
+<style>
+  .drv-settings-page {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  .drv-settings-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+  }
+
+  .drv-settings-head {
+    background: linear-gradient(135deg, var(--org-primary-color, #01535b) 0%, var(--org-primary-hover, #014a51) 100%);
+    color: #fff;
+    padding: 26px 28px;
+  }
+
+  .drv-settings-head h1 { margin: 0 0 4px; font-size: 1.35rem; font-weight: 700; }
+  .drv-settings-head p { margin: 0; opacity: 0.9; font-size: 0.88rem; }
+
+  .drv-settings-body { padding: 26px 28px; }
+
+  .drv-avatar-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+
+  .drv-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e2e8f0;
+    background: #f1f5f9;
+  }
+
+  .drv-field { margin-bottom: 18px; }
+
+  .drv-field label {
+    display: block;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 8px;
+    font-size: 0.88rem;
+  }
+
+  .drv-field input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+  }
+
+  .drv-field input[readonly] {
+    background: #f8fafc;
+    color: #64748b;
+  }
+
+  .drv-field-note { font-size: 0.78rem; color: #94a3b8; margin-top: 6px; }
+
+  .drv-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 13px 16px;
+    border-radius: 10px;
+    border: none;
+    background: var(--org-primary-color, #01535b);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+
+  .drv-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+    color: var(--org-primary-color, #01535b);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+</style>
+
+<div class="drv-settings-page">
+  <a class="drv-back-link" href="/driver/dashboard">&larr; Back to Dashboard</a>
+
+  <div class="drv-settings-card">
+    <div class="drv-settings-head">
+      <h1>Driver Settings</h1>
+      <p>Manage your photo and contact details.</p>
+    </div>
+
+    <div class="drv-settings-body">
+      <form action="/driver/settings" method="post" enctype="multipart/form-data">
+        <div class="drv-avatar-row">
+          <img class="drv-avatar" src="<%= user.profile_image_url || '/images/profilePlaceholder.png' %>" alt="Your photo" />
+          <div style="flex:1;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:6px;">Profile Photo</label>
+            <input type="file" name="photo" accept="image/*" />
+          </div>
+        </div>
+
+        <div class="drv-field">
+          <label>Full Name</label>
+          <input type="text" value="<%= [user.first_name, user.last_name].filter(Boolean).join(' ') %>" readonly />
+          <div class="drv-field-note">To change your name, contact your school administrator via Manage Employees.</div>
+        </div>
+
+        <div class="drv-field">
+          <label>Email Address</label>
+          <input type="email" value="<%= user.email || '' %>" readonly />
+          <div class="drv-field-note">Your login email. Contact your administrator to change it.</div>
+        </div>
+
+        <div class="drv-field">
+          <label for="phone">Phone Number</label>
+          <input type="tel" id="phone" name="phone" value="<%= driverProfile && driverProfile.phone ? driverProfile.phone : '' %>" placeholder="e.g. +233 555 123 456" />
+        </div>
+
+        <button type="submit" class="drv-btn-primary">Save Changes</button>
+      </form>
+    </div>
+  </div>
+</div>

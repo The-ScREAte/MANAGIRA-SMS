@@ -417,6 +417,7 @@
             <option value="Manager" <%= user.account_type === 'Manager' ? 'selected' : '' %>>Manager</option>
             <option value="Supervisor" <%= user.account_type === 'Supervisor' ? 'selected' : '' %>>Supervisor</option>
             <option value="Teacher" <%= user.account_type === 'Teacher' ? 'selected' : '' %>>Teacher</option>
+            <option value="Driver" <%= user.account_type === 'Driver' ? 'selected' : '' %>>Driver</option>
         </select>
       </div>
     </div>
@@ -425,7 +426,7 @@
       <div style="border:1px solid #e2e8f0; background:#f8fafc; border-radius:8px; padding:12px; margin-top:8px;">
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px 16px;">
           <% (permissionOptions || []).forEach(function(permission) { %>
-            <label style="display:flex; align-items:center; gap:8px; font-size:14px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:14px;" class="permission-item" data-permission-key="<%= permission.key %>">
               <input
                 type="checkbox"
                 name="permissions"
@@ -436,11 +437,13 @@
             </label>
           <% }) %>
         </div>
-        <div style="margin-top:8px; color:#64748b; font-size:12px;">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
+        <div style="margin-top:8px; color:#64748b; font-size:12px;" id="permissionsNote">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
+        <div style="margin-top:8px; color:#64748b; font-size:12px; display:none;" id="driverPermissionsNote">Drivers automatically get access to view and manage the student roster only — no other permissions can be granted from this form.</div>
       </div>
     </div>
     <div class="employee-section employee-section-classes">
       <label>Classes and Subjects:</label>
+      <p style="color:#64748b; font-size:12px; margin: 4px 0 0; display:none;" id="driverSubjectsNote">Drivers can be assigned classes (e.g. routes they cover) but are never assigned subjects.</p>
       <div class="class-selector-panel">
         <button type="button" class="collapsible-btn classes-master-toggle" onclick="toggleClassCollapse('all-classes')">
           <span>Show/Hide Classes</span>
@@ -552,6 +555,40 @@
         });
       };
 
+      const permissionsNote = document.getElementById("permissionsNote");
+      const driverPermissionsNote = document.getElementById("driverPermissionsNote");
+      const driverSubjectsNote = document.getElementById("driverSubjectsNote");
+
+      // Drivers only ever get "Manage Students" and are never assigned
+      // subjects — hide the inapplicable UI instead of merely defaulting it.
+      const applyDriverModeUI = (isDriver) => {
+        document.querySelectorAll('input[name="permissions"]').forEach((cb) => {
+          const item = cb.closest(".permission-item");
+          if (isDriver) {
+            const allowed = cb.value === "manage_students";
+            if (item) item.style.display = allowed ? "" : "none";
+            cb.checked = allowed;
+          } else if (item) {
+            item.style.display = "";
+          }
+        });
+        if (permissionsNote) permissionsNote.style.display = isDriver ? "none" : "block";
+        if (driverPermissionsNote) driverPermissionsNote.style.display = isDriver ? "block" : "none";
+        if (driverSubjectsNote) driverSubjectsNote.style.display = isDriver ? "block" : "none";
+
+        document.querySelectorAll(".subject-toggle-btn").forEach((btn) => {
+          btn.style.display = isDriver ? "none" : "";
+        });
+        if (isDriver) {
+          document.querySelectorAll('input[name="subjects[]"]').forEach((cb) => {
+            cb.checked = false;
+          });
+          document.querySelectorAll(".subjects-panel").forEach((panel) => {
+            panel.style.display = "none";
+          });
+        }
+      };
+
       const syncPermissionVisibility = () => {
         if (!accountTypeSelect || !permissionGroup) return;
         permissionGroup.style.display = "block";
@@ -561,11 +598,13 @@
         accountTypeSelect.addEventListener("change", (e) => {
           syncPermissionVisibility();
           applyRoleDefaults(e.target.value);
+          applyDriverModeUI(e.target.value === "Driver");
         });
       }
       syncPermissionVisibility();
+      applyDriverModeUI(accountTypeSelect && accountTypeSelect.value === "Driver");
 
-      if (accountTypeSelect && accountTypeSelect.value) {
+      if (accountTypeSelect && accountTypeSelect.value && accountTypeSelect.value !== "Driver") {
         document.querySelectorAll('input[name="permissions"]').forEach(cb => {
           cb.checked = CURRENT_SAVED_PERMISSIONS.includes(cb.value);
         });
