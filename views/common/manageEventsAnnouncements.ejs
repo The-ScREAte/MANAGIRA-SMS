@@ -124,7 +124,7 @@
     }
 
     /* ── Flash messages ── */
-    .flash-wrap { max-width: 1140px; margin: 20px auto 0; padding: 0 24px; }
+    .flash-wrap { max-width: none; margin: 20px 0 0; padding: 0 24px; box-sizing: border-box; }
     .flash {
       padding: 12px 16px;
       border-radius: 8px;
@@ -137,8 +137,10 @@
 
     /* ── Content ── */
     .ea-content {
-      max-width: 1140px;
-      margin: 0 auto;
+      max-width: none;
+      margin: 0;
+      width: 100%;
+      box-sizing: border-box;
       padding: 32px 24px 0;
     }
 
@@ -396,20 +398,6 @@
 </head>
 <body>
 <div class="ea-page">
-
-  <!-- ── Hero ── -->
-  <div class="ea-hero">
-    <div class="ea-hero-inner">
-      <a href="/common/management" class="ea-back-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-          <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-        </svg>
-        Back to Management
-      </a>
-      <h1>Events &amp; Announcements</h1>
-      <p>Create, edit, and manage school events and announcements for the current term.</p>
-    </div>
-  </div>
 
   <!-- ── Flash ── -->
   <div class="flash-wrap">

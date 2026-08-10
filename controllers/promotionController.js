@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
+const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const notifSvc = require("../utils/notificationService");
 
 let promotionSubjectSelectionSchemaReady = false;
@@ -937,6 +938,7 @@ module.exports = {
   // Page to view and schedule promotions
   applyPromotionPage: async (req, res) => {
     const organizationId = req.session.organizationId;
+    const isEmbedded = isEmbeddedRequest(req, "applyPromotion");
 
     try {
       await ensurePromotionScheduleRetrySchema();
@@ -1016,6 +1018,10 @@ module.exports = {
 
       res.render("promotion/applyPromotion", {
         title: "Promotion Scheduler",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         currentTerm: currentTermResult.rows[0],
         currentSchoolYear: currentSchoolYearResult.rows[0],
         allTerms: allTermsResult.rows,

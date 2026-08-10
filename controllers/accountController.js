@@ -361,6 +361,7 @@ const bcryptjs = require("bcryptjs");
 
 const db = require("../config/db");
 const { deriveOrgNickname, normalizeDisplayName } = require("../utils/orgNicknameSlug");
+const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const crypto = require("crypto");
 
 const path = require("path");
@@ -7248,6 +7249,7 @@ const accountController = {
 
   managePublicContentGet: async (req, res) => {
     const { organizationId } = req.session;
+    const isEmbedded = isEmbeddedRequest(req, "managePublicContent");
 
     const url = req.url;
 
@@ -7392,6 +7394,10 @@ const accountController = {
 
       res.render("account/managePublicContent", {
         title: "Manage Public Content",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
 
         images: imagesResult.rows,
 
@@ -8055,6 +8061,7 @@ const accountController = {
       ]);
 
       const activeSettingsSection = String(req.query.section || "").trim().toLowerCase();
+      const isEmbedded = isEmbeddedRequest(req, "settings");
 
       const sessionUserId = req.session.user?.user_id || req.session.userId;
       const userId = req.query.userId || sessionUserId;
@@ -8783,6 +8790,10 @@ const accountController = {
 
       res.render("account/settings", {
         title: "Settings",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         org: orgRow,
         user: user || {},
         planName: currentPlan ? currentPlan.plan_name : "",

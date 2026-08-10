@@ -31,13 +31,17 @@
             margin: 0 auto;
             width: 100%;
             box-sizing: border-box;
+            <% if (!((typeof disableMainZoom !== 'undefined' && disableMainZoom) || (typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader))) { %>
             zoom: 0.9;
+            <% } %>
         }
 
         .managira-footer {
             margin-top: auto;
             flex-shrink: 0;
+            <% if (!((typeof disableMainZoom !== 'undefined' && disableMainZoom) || (typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader))) { %>
             zoom: 0.9;
+            <% } %>
         }
 
         /* ── Mobile: disable zoom so browsers don't miscalculate

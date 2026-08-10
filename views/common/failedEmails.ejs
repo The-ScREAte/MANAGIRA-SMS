@@ -22,9 +22,11 @@
 
   /* ─────────────────────────── Layout ─────────────────────────── */
   .fe-page {
-    max-width: 1060px;
-    margin: 0 auto;
-    padding: 20px 16px 64px;
+    max-width: none;
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 20px 24px 64px;
   }
 
   /* ─────────────────────────── Header ─────────────────────────── */
@@ -220,7 +222,7 @@
   }
 
   /* ─────────────────────────── Email + edit cell ──────────────── */
-  .fe-email-cell { min-width: 300px; max-width: 420px; }
+  .fe-email-cell { min-width: 300px; max-width: 560px; }
 
   /* The failed address tag */
   .fe-failed-tag {

@@ -20,9 +20,28 @@
   }
 
   .pending-page {
-    max-width: 1200px;
-    margin: 0 auto;
+    max-width: none;
+    width: 100%;
+    margin: 0;
     padding: 24px 16px 60px;
+    box-sizing: border-box;
+  }
+
+  /* manageClassSubjectAndGradYr.css (loaded globally in the shared <head>
+     partial) sets an unscoped `button, select, input[type="text"], ...`
+     rule with padding:8px and margin-top:5px. It leaks onto every button,
+     select, and text/date input on this page and inside the review drawer.
+     Our own selectors already win the padding fight on specificity, but
+     margin-top isn't something we set elsewhere, so it still leaks through
+     — reset it here instead of touching the shared file (which other pages
+     rely on). */
+  .pending-page button,
+  .pending-page select,
+  .pending-page input[type="text"],
+  .pending-page input[type="date"],
+  .pending-page input[type="month"],
+  .pending-page input[type="datetime-local"] {
+    margin-top: 0;
   }
 
   .page-header {
@@ -133,32 +152,70 @@
     transform: translateY(-1px);
   }
 
-  /* Student Details Modal */
+  /* Student Details drawer — same slide-in-from-right pattern used by the
+     "Create School Year" panel on the Management hub's School Years page. */
+  .pd-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 30, 0.55);
+    backdrop-filter: blur(3px);
+    display: none;
+    z-index: 10000;
+    animation: pdFadeIn 0.2s ease;
+  }
+
+  .pd-drawer-overlay.is-open {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+  }
+
+  @keyframes pdFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes pdSlideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+
   #studentDetailsContainer {
-    max-width: 700px;
-    margin: 0 auto 40px;
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    height: 100%;
     background: var(--bg-card);
     padding: 0;
-    border-radius: 16px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-    border: 1px solid var(--border);
+    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
+    animation: pdSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   #studentDetailsContainer main {
     position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
   }
 
   #studentDetailsContainer h1 {
     background: linear-gradient(135deg, var(--primary, #01535b) 0%, #0a7a86 100%);
     color: white;
     margin: 0;
-    padding: 24px 28px;
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 28px 20px;
     font-size: 1.25rem;
+    flex-shrink: 0;
   }
 
   #studentDetailsContainer form {
     padding: 28px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
   }
 
   #studentDetailsContainer .form-group {
@@ -213,10 +270,18 @@
 
   #studentDetailsContainer .guardian-section {
     background: #f8fafc;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    margin: 24px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    padding: 20px 28px;
+    margin: 24px -28px;
+    width: auto;
+  }
+
+  #studentDetailsContainer .guardian-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
   }
 
   #studentDetailsContainer .guardian-section legend {
@@ -232,45 +297,138 @@
     border-radius: 10px;
     padding: 16px;
     margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    transition: box-shadow 0.2s, border-color 0.2s;
+  }
+
+  #studentDetailsContainer .guardian:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  }
+
+  #studentDetailsContainer .guardian:last-child {
+    margin-bottom: 0;
+  }
+
+  #studentDetailsContainer .guardian-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  #studentDetailsContainer .guardian-card-head h4 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  #studentDetailsContainer .guardian-remove-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  #studentDetailsContainer .guardian-remove-btn:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: var(--error);
+  }
+
+  #studentDetailsContainer .guardian-remove-btn svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  #studentDetailsContainer .add-guardian-btn {
+    display: inline-flex;
+    width: auto;
+    align-items: center;
+    gap: 5px;
+    margin-top: 12px;
+    background: #fff;
+    color: var(--text-primary);
+    border: 2px solid #94a3b8;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.82rem;
+    line-height: 1.3;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  #studentDetailsContainer .add-guardian-btn:hover {
+    background: #f8fafc;
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
   }
 
   #studentDetailsContainer .form-actions {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-top: 24px;
-    padding-top: 24px;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    padding: 14px 28px calc(14px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--border);
+    background: var(--bg-card);
   }
 
   #studentDetailsContainer .form-actions button {
-    padding: 12px 24px;
-    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    width: auto;
+    padding: 9px 16px;
+    border-radius: 8px;
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s;
-    border: none;
+    white-space: nowrap;
+    background: #fff;
+    color: var(--text-primary);
+    border: 2px solid #94a3b8;
   }
 
-  #studentDetailsContainer button[onclick*="saveChanges"] {
-    background: var(--info);
-    color: white;
-  }
-
-  #studentDetailsContainer button[type="submit"] {
-    background: var(--success);
-    color: white;
-  }
-
-  #studentDetailsContainer .delete-button {
-    background: var(--error);
-    color: white;
+  /* buttons.css (loaded globally) sets button[type="submit"] colors with
+     !important, which otherwise beats this rule regardless of specificity —
+     match it with !important + a more specific selector so the Approve
+     button (the only type="submit" here) matches its siblings instead of
+     falling back to the site-wide solid theme-color submit style. */
+  #studentDetailsContainer .form-actions button[type="submit"] {
+    background: #fff !important;
+    color: var(--text-primary) !important;
+    border-color: #94a3b8 !important;
   }
 
   #studentDetailsContainer .form-actions button:hover {
+    background: #f8fafc;
+    border-color: var(--primary);
+    color: var(--primary);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  #studentDetailsContainer .form-actions button[type="submit"]:hover {
+    background: #f8fafc !important;
+    color: var(--primary) !important;
+    border-color: var(--primary) !important;
   }
 
   .close-btn {
@@ -294,6 +452,10 @@
   }
 
   @media (max-width: 768px) {
+    #studentDetailsContainer {
+      max-width: 100%;
+    }
+
     .pending-table, .pending-table thead, .pending-table tbody,
     .pending-table th, .pending-table td, .pending-table tr {
       display: block;
@@ -331,12 +493,9 @@
 <%- include('../partials/flash') %>
 
 <div class="pending-page">
-  <div class="page-header">
-    <h1>📋 Pending Admissions</h1>
-    <p>Review and approve student applications</p>
+  <div id="studentDetailsOverlay" class="pd-drawer-overlay" role="dialog" aria-modal="true" aria-labelledby="studentDetailsTitle">
+    <div id="studentDetailsContainer"></div>
   </div>
-
-  <div id="studentDetailsContainer" style="display: none;"></div>
 
   <div class="pending-table-card">
     <table class="pending-table">
@@ -443,11 +602,31 @@ let hasChanges = false;
   });
 })();
 
+function initStudentDetailsDrawer() {
+  if (document.body.dataset.pdDrawerInitDone === '1') return;
+  document.body.dataset.pdDrawerInitDone = '1';
+
+  const overlay = document.getElementById('studentDetailsOverlay');
+  if (overlay) {
+    overlay.addEventListener('click', function (event) {
+      if (event.target === overlay) closeStudentForm();
+    });
+  }
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && overlay && overlay.classList.contains('is-open')) {
+      closeStudentForm();
+    }
+  });
+}
+initStudentDetailsDrawer();
+
 async function loadStudentDetails(id) {
+  const overlay = document.getElementById('studentDetailsOverlay');
   const container = document.getElementById('studentDetailsContainer');
   container.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;">Loading...</div>';
-  container.style.display = 'block';
-  container.scrollIntoView({ behavior: 'smooth' });
+  overlay.classList.add('is-open');
+  document.body.style.overflow = 'hidden';
 
   try {
     const res = await fetch(`/common/getPendingStudentDetails/${id}`);
@@ -466,7 +645,7 @@ async function loadStudentDetails(id) {
     container.innerHTML = `
       <main>
         <button type="button" class="close-btn" onclick="closeStudentForm()">×</button>
-        <h1>📝 Review Student Application</h1>
+        <h1 id="studentDetailsTitle">📝 Review Student Application</h1>
         <form id="pendingReviewForm" method="POST" enctype="multipart/form-data">
           <div class="form-group">
             <label>Enrollment Type:</label>
@@ -571,26 +750,31 @@ async function loadStudentDetails(id) {
             <div id="guardiansContainer">
               ${guardians.map((g, i) => `
                 <div class="guardian">
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="guardian-card-head">
+                    <h4>Guardian ${i + 1}</h4>
+                    <button type="button" class="guardian-remove-btn" onclick="this.closest('.guardian').remove(); hasChanges=true;" title="Remove guardian" aria-label="Remove guardian">
+                      <svg viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                  </div>
+                  <div class="guardian-fields">
                     <div><label>First Name:</label><input type="text" name="guardianFirstName${i}" value="${g.first_name || ''}" onchange="hasChanges=true"></div>
                     <div><label>Last Name:</label><input type="text" name="guardianLastName${i}" value="${g.last_name || ''}" onchange="hasChanges=true"></div>
                     <div><label>Phone:</label><input type="text" name="guardianPhone${i}" value="${g.phone || ''}" onchange="hasChanges=true"></div>
                     <div><label>Email:</label><input type="text" name="guardianEmail${i}" value="${g.email || ''}" onchange="hasChanges=true"></div>
                   </div>
                   <div style="margin-top: 12px;"><label>Hometown:</label><input type="text" name="guardianHometown${i}" value="${g.hometown || ''}" onchange="hasChanges=true"></div>
-                  <button type="button" onclick="this.closest('.guardian').remove()" style="margin-top: 12px; background: #fee2e2; color: #dc2626; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Remove</button>
                 </div>
               `).join('')}
             </div>
-            <button type="button" onclick="addGuardian()" style="margin-top: 12px; background: #01535b; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer;">+ Add Guardian</button>
+            <button type="button" class="add-guardian-btn" onclick="addGuardian()">➕ Add Guardian</button>
           </fieldset>
-
-          <div class="form-actions">
-            <button type="button" onclick="saveChanges(${student.pending_id})">💾 Save Changes</button>
-            <button type="submit" onclick="return confirmApprove(event, ${student.pending_id})">✅ Approve</button>
-            <button type="button" onclick="rejectStudent(${student.pending_id})" class="delete-button">❌ Reject</button>
-          </div>
         </form>
+
+        <div class="form-actions">
+          <button type="button" onclick="saveChanges(${student.pending_id})">💾 Save Changes</button>
+          <button type="submit" form="pendingReviewForm" onclick="return confirmApprove(event, ${student.pending_id})">✅ Approve</button>
+          <button type="button" onclick="rejectStudent(${student.pending_id})">❌ Reject</button>
+        </div>
       </main>
     `;
 
@@ -664,9 +848,11 @@ function saveChanges(id) {
 }
 
 function closeStudentForm() {
+  const overlay = document.getElementById("studentDetailsOverlay");
   const container = document.getElementById("studentDetailsContainer");
+  overlay.classList.remove('is-open');
+  document.body.style.overflow = '';
   container.innerHTML = '';
-  container.style.display = 'none';
   hasChanges = false;
 }
 
@@ -676,14 +862,19 @@ function addGuardian() {
   const div = document.createElement("div");
   div.className = "guardian";
   div.innerHTML = `
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    <div class="guardian-card-head">
+      <h4>Guardian ${index + 1}</h4>
+      <button type="button" class="guardian-remove-btn" onclick="this.closest('.guardian').remove(); hasChanges=true;" title="Remove guardian" aria-label="Remove guardian">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="guardian-fields">
       <div><label>First Name:</label><input type="text" name="guardianFirstName${index}" onchange="hasChanges=true"></div>
       <div><label>Last Name:</label><input type="text" name="guardianLastName${index}" onchange="hasChanges=true"></div>
       <div><label>Phone:</label><input type="text" name="guardianPhone${index}" onchange="hasChanges=true"></div>
       <div><label>Email:</label><input type="text" name="guardianEmail${index}" onchange="hasChanges=true"></div>
     </div>
     <div style="margin-top: 12px;"><label>Hometown:</label><input type="text" name="guardianHometown${index}" onchange="hasChanges=true"></div>
-    <button type="button" onclick="this.closest('.guardian').remove()" style="margin-top: 12px; background: #fee2e2; color: #dc2626; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">Remove</button>
   `;
   container.appendChild(div);
 }

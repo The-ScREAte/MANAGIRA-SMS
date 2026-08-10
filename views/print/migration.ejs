@@ -21,9 +21,11 @@
       }
 
       .migration-wrapper {
-        max-width: 900px;
-        margin: 0 auto;
-        padding: 0 20px 60px;
+        max-width: none;
+        width: 100%;
+        margin: 0;
+        padding: 24px 20px 60px;
+        box-sizing: border-box;
       }
 
       .page-banner {
@@ -337,11 +339,6 @@
   </head>
   <body>
     <%- include('../partials/flash') %>
-
-    <div class="page-banner">
-      <h1>📁 Data Migration</h1>
-      <p>Upload, store, and manage files from your previous platform</p>
-    </div>
 
     <div class="migration-wrapper">
       <!-- Notice Section -->

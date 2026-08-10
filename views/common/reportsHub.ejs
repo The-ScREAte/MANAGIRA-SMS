@@ -26,6 +26,7 @@
     allowedFeatures.includes('Class Base Merit Sheet') ||
     allowedFeatures.includes('Class Base Merrit sheet')
   );
+  const hasOrgStats = Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights');
 %>
 
 <style>
@@ -35,10 +36,10 @@
     --bg: #f9fafb;
     --primary: <%= currentTheme.primary %>;
     --primary-hover: <%= currentTheme.hover %>;
-        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
+    --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
     --org-primary-color: <%= currentTheme.primary %>;
     --org-primary-hover: <%= currentTheme.hover %>;
-        --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 88%, white);
+    --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 88%, white);
   }
 
   body {
@@ -52,28 +53,35 @@
 
   .hub-wrapper {
     width: 100%;
-    min-height: calc(100vh - 68px);
+    height: calc(100vh - 68px);
+    overflow: hidden;
   }
 
   .hub-layout {
     display: grid;
     grid-template-columns: 260px 1fr;
     gap: 24px;
-    max-width: 1200px;
-    margin: 12px auto 40px;
-    padding: 0 20px;
+    max-width: none;
+    margin: 12px 0 0;
+    padding: 0 20px 12px;
     align-items: start;
+    height: calc(100% - 12px);
+    min-height: 0;
   }
 
-  .hub-nav {
+  /* workspace-shell.css (loaded after this block) also targets .hub-nav and
+     .hub-section.active with rules that would win on source order at equal
+     specificity — scope these under .hub-layout so they win on specificity
+     instead, keeping the flex chain that lets the iframe below fill the
+     panel's real height and scroll internally instead of the outer page. */
+  .hub-layout .hub-nav {
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 16px 12px;
     background: #fff;
-    height: fit-content;
-    position: sticky;
-    top: 80px;
+    height: 100%;
     box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+    overflow-y: auto;
   }
 
   .hub-nav-header {
@@ -123,6 +131,7 @@
     transition: all 0.2s ease;
     flex-direction: row;
     justify-content: flex-start;
+    box-sizing: border-box;
   }
 
   .nav-link:hover {
@@ -144,6 +153,103 @@
     color: inherit;
   }
 
+  .nav-link-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .nav-link-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Expandable group (Term Reports) */
+  .nav-group-toggle {
+    justify-content: space-between;
+  }
+
+  .nav-caret {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-left: auto;
+    opacity: 0.65;
+    transition: transform 0.18s ease;
+  }
+
+  .nav-caret svg {
+    width: 12px;
+    height: 12px;
+    display: block;
+  }
+
+  .nav-group-toggle[aria-expanded="true"] .nav-caret {
+    transform: rotate(180deg);
+  }
+
+  /* Sub-menu — forced to a single vertical column and styled just like the
+     top-level items (icon + label), only indented slightly to show nesting. */
+  .nav-submenu {
+    list-style: none !important;
+    margin: 2px 0 4px !important;
+    padding: 0 !important;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease;
+    display: block !important;
+    grid-template-columns: none !important;
+    column-count: 1 !important;
+    width: 100% !important;
+  }
+
+  .nav-submenu.open {
+    max-height: 600px;
+  }
+
+  .nav-submenu li {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .nav-sublink {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    width: 100% !important;
+    box-sizing: border-box;
+    padding: 9px 14px 9px 34px !important;
+    margin: 1px 0;
+    border-radius: 10px;
+    color: #111827;
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.3;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .nav-sublink:hover {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+  }
+
+  .nav-sublink.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+
+  .nav-sublink.active:hover {
+    background: var(--primary-hover-fill, var(--primary-hover));
+  }
+
+  .nav-sublink .nav-link-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
   .hub-main {
     padding: 0;
     background: #fff;
@@ -151,125 +257,121 @@
     border: 1px solid var(--border);
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
     overflow: hidden;
-  }
-
-  .section-header {
-    padding: 24px 28px 20px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(135deg, #f9fafb 0%, #fff 100%);
-  }
-
-  .section-header h1 {
-    margin: 0 0 6px 0;
-    font-size: 24px;
-    color: #111827;
-    font-weight: 700;
-  }
-
-  .section-header p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 15px;
-  }
-
-  .section-content {
-    padding: 24px 28px;
-  }
-
-  .hub-section {
-    display: none;
-  }
-
-  .hub-section.active {
-    display: block;
-  }
-
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-
-  .feature-item {
+    height: 100%;
+    min-height: 0;
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 18px;
-    background: #f9fafb;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    transition: all 0.2s ease;
+    flex-direction: column;
   }
 
-  .feature-item:hover {
-    border-color: var(--primary);
-    background: #fff;
+  .hub-layout .hub-section {
+    display: none;
+    flex: 1;
+    min-height: 0;
   }
 
-  .feature-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 10px;
-    background: var(--primary);
+  .hub-layout .hub-section.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .embed-panel-body {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .embed-overlay-spinner {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .feature-icon svg {
-    width: 22px;
-    height: 22px;
-    color: #fff;
-    stroke: #fff;
-  }
-
-  .feature-content h4 {
-    margin: 0 0 4px 0;
-    font-size: 15px;
-    color: #111827;
-    font-weight: 600;
-  }
-
-  .feature-content p {
-    margin: 0;
-    font-size: 13px;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.82);
     color: var(--muted);
-    line-height: 1.5;
+    font-size: 14px;
+    z-index: 5;
   }
 
-  .action-btn {
-    display: inline-flex;
+  .embed-overlay-spinner[hidden] {
+    display: none;
+  }
+
+  .embed-iframe {
+    width: 100%;
+    border: 0;
+    display: block;
+    /* Fills the panel and scrolls its own content internally — the outer
+       hub page never grows past the viewport, so there's only ever one
+       scrollbar (the iframe's), not two. */
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .embed-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+    padding: 60px 24px;
+    color: var(--muted);
+  }
+
+  .embed-placeholder svg {
+    width: 32px;
+    height: 32px;
+    color: var(--primary);
+    opacity: 0.7;
+  }
+
+  .embed-placeholder p {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .embed-loading {
+    flex: 1;
+    display: flex;
     align-items: center;
     gap: 10px;
-    padding: 12px 24px !important;
-    background: var(--primary);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 15px;
+    padding: 60px 20px;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .embed-error {
+    padding: 24px;
+    color: #b3261e;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .embed-error a {
+    color: var(--primary);
     font-weight: 600;
-    text-decoration: none;
-    cursor: pointer;
-    transition: all 0.2s ease;
   }
 
-  .action-btn:hover {
-    background: var(--primary-hover-fill, var(--primary-hover));
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    color: #fff;
+  .btn-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(1, 83, 91, 0.2);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: embed-spin 0.7s linear infinite;
   }
 
-  .action-btn svg {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-  }
-
-  .section-content .action-btn + .action-btn {
-    margin-top: 10px;
+  @keyframes embed-spin {
+    to { transform: rotate(360deg); }
   }
 
   /* Mobile navigation */
@@ -376,60 +478,20 @@
     }
     .hub-nav-close { display: none; }
 
-    .section-header {
-      padding: 10px 14px;
-    }
-
-    .section-content {
-      padding: 12px 14px 16px;
-    }
-
-    .section-header h1 {
-      font-size: 14px;
-    }
-
-    .section-header p {
-      font-size: 12.5px;
-    }
-  }
-
-  @media (max-width: 600px) {
-    .features-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .feature-item {
-      gap: 10px;
-      padding: 12px;
-      border-radius: 8px;
-    }
-
-    .feature-icon {
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-    }
-
-    .feature-icon svg {
-      width: 16px;
-      height: 16px;
-    }
-
-    .feature-content h4 {
-      font-size: 13px;
-      margin-bottom: 2px;
-    }
-
-    .feature-content p {
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
-    .action-btn {
-      width: 100%;
-      justify-content: center;
-      font-size: 13px;
-      padding: 10px 18px;
+    /* Same collapse pattern as the class dashboard: the sidebar becomes a
+       hamburger-triggered overlay and the content column takes the full
+       width below it, instead of squeezing both into a cramped row.
+       .hub-nav is display:none on mobile (it becomes an overlay), so the
+       grid only has 2 visible children here — the toggle button and
+       .hub-main — which stack into two ROWS instead of sitting side-by-side
+       in one row like on desktop. Without an explicit row size, the
+       toggle's row sizes to its content and the leftover space in the
+       fixed-height .hub-layout is never handed to .hub-main's row,
+       collapsing the iframe inside it to near nothing and leaving a blank
+       gap. Give the second row the rest. */
+    .hub-layout {
+      grid-template-columns: 1fr !important;
+      grid-template-rows: auto 1fr !important;
     }
   }
 </style>
@@ -454,252 +516,93 @@
         <button class="hub-nav-close" id="hub-nav-close">&times;</button>
       </div>
       <ul class="nav-list">
+        <% if (hasOrgStats) { %>
         <li>
-          <button class="nav-link active" data-section="term-management">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-            <span>Term Reports</span>
-          </button>
-        </li>
-        <li>
-          <button class="nav-link" data-section="data-migration">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span>
-            <span>Data Migration</span>
-          </button>
-        </li>
-        <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights')) { %>
-        <li>
-          <button class="nav-link" data-section="org-stats">
+          <a class="nav-link active" href="/stats/organization" data-no-spa data-section="org-stats" data-embed-url="/stats/organization" data-embed-label="View Statistics">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg></span>
             <span>Organization Stats</span>
-          </button>
+          </a>
         </li>
         <% } %>
         <li>
-          <button class="nav-link" data-section="activity-logs">
+          <button class="nav-link nav-group-toggle<%= hasOrgStats ? '' : ' active' %>" data-section="term-management" aria-expanded="<%= hasOrgStats ? 'false' : 'true' %>">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+            <span>Term Reports</span>
+            <span class="nav-caret" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg></span>
+          </button>
+          <ul class="nav-submenu<%= hasOrgStats ? '' : ' open' %>">
+            <li>
+              <a class="nav-sublink" href="/common/closeSchoolYear" data-no-spa data-group="term-management" data-embed-url="/common/closeSchoolYear" data-embed-label="<%= hasMeritFeature ? 'Terminal Report & Merit Sheet' : 'Terminal Report' %>">
+                <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+                <span><%= hasMeritFeature ? 'Terminal Report & Merit Sheet' : 'Terminal Report' %></span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-sublink" href="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-no-spa data-group="term-management" data-embed-url="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-embed-label="Report Settings">
+                <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
+                <span>Report Settings</span>
+              </a>
+            </li>
+            <li>
+              <a class="nav-sublink" href="/common/closeGraduationYearGroup" data-no-spa data-group="term-management" data-embed-url="/common/closeGraduationYearGroup" data-embed-label="Close Graduation Year Group">
+                <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 14l2 2 4-4m0 0V5a2 2 0 00-2-2H8a2 2 0 00-2 2v7m10 0H6"/></svg></span>
+                <span>Close Graduation Year Group</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+        <li>
+          <a class="nav-link" href="/print/migration" data-no-spa data-section="data-migration" data-embed-url="/print/migration" data-embed-label="Manage Data Migration">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span>
+            <span>Data Migration</span>
+          </a>
+        </li>
+        <li>
+          <a class="nav-link" href="/common/activityLogs" data-no-spa data-section="activity-logs" data-embed-url="/common/activityLogs" data-embed-label="View Activity Logs">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg></span>
             <span>Activity Logs</span>
-          </button>
+          </a>
         </li>
       </ul>
     </nav>
 
     <!-- Main Content -->
     <main class="hub-main">
-      <!-- Term Reports Section -->
-      <section class="hub-section active" id="term-management">
-        <div class="section-header" data-eyebrow="Reports Workspace">
-          <h1>Term Reports</h1>
-          <p>Generate and manage term-based academic reports.</p>
-        </div>
-        <div class="section-content">
-          <div class="features-grid">
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Report Cards</h4>
-                <p>Generate student report cards for any term.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Grade Analytics</h4>
-                <p>View class and subject performance statistics.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Bulk Printing</h4>
-                <p>Print multiple reports at once.</p>
-              </div>
-            </div>
+      <% if (hasOrgStats) { %>
+      <section class="hub-section active" id="org-stats">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <p>Loading Organization Stats…</p>
           </div>
-          <a href="/print/reportSettings" class="action-btn" data-no-spa>
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 1.105-.895 2-2 2s-2-.895-2-2 .895-2 2-2 2 .895 2 2zm0 0l8-5m-8 5l8 5m-8-5v9m-4 0h8"></path>
-            </svg>
-            Report Settings
-          </a>
-          <a href="/common/closeSchoolYear" class="action-btn">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-            </svg>
-            <%= hasMeritFeature ? 'Terminal Report & Merit Sheet' : 'Terminal Report' %>
-          </a>
-          <a href="/common/closeGraduationYearGroup" class="action-btn">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2 2 4-4m0 0V5a2 2 0 00-2-2H8a2 2 0 00-2 2v7m10 0H6"></path>
-            </svg>
-            Close Graduation Year Group
-          </a>
-        </div>
-      </section>
-
-      <!-- Data Migration Section -->
-      <section class="hub-section" id="data-migration">
-        <div class="section-header" data-eyebrow="Reports Workspace">
-          <h1>Data Migration</h1>
-          <p>Import legacy documents from your previous system into Managira.</p>
-        </div>
-        <div class="section-content">
-          <div class="features-grid">
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Upload Legacy Documents</h4>
-                <p>Upload old records, reports, and files from your previous system to preserve them in Managira.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Search & Extract</h4>
-                <p>Search within uploaded documents to quickly find and extract specific student or record data.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Export Data</h4>
-                <p>Need to move to another platform? Email us at <a href="mailto:info@managira.com" style="color: var(--primary); font-weight: 600;">info@managira.com</a> or use the <a href="/legal/help" style="color: var(--primary); font-weight: 600;">Seek Help</a> page to request a full data export.</p>
-              </div>
-            </div>
-          </div>
-          <a href="/print/migration" class="action-btn">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-            </svg>
-            Manage Data Migration
-          </a>
-        </div>
-      </section>
-
-      <!-- Organization Stats Section -->
-      <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights')) { %>
-      <section class="hub-section" id="org-stats">
-        <div class="section-header" data-eyebrow="Reports Workspace">
-          <h1>Organization Statistics</h1>
-          <p>View comprehensive analytics and insights about your school.</p>
-        </div>
-        <div class="section-content">
-          <div class="features-grid">
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Enrollment Trends</h4>
-                <p>Track student enrollment over time.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Performance Metrics</h4>
-                <p>View academic performance across all classes.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Attendance Rates</h4>
-                <p>Monitor overall school attendance statistics.</p>
-              </div>
-            </div>
-          </div>
-          <a href="/stats/organization" class="action-btn" data-no-spa>
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
-            View Statistics
-          </a>
         </div>
       </section>
       <% } %>
 
-      <!-- Activity Logs Section -->
-      <section class="hub-section" id="activity-logs">
-        <div class="section-header" data-eyebrow="Reports Workspace">
-          <h1>Activity Logs</h1>
-          <p>Audit every meaningful action performed across your organization.</p>
-        </div>
-        <div class="section-content">
-          <div class="features-grid">
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Full Audit Trail</h4>
-                <p>See who did what, when, and on which record.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Advanced Filters</h4>
-                <p>Narrow by user, action, module, date or keyword.</p>
-              </div>
-            </div>
-            <div class="feature-item">
-              <div class="feature-icon">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              </div>
-              <div class="feature-content">
-                <h4>Long-Term Retention</h4>
-                <p>Recent activity is kept for quick review while older records stay safely in the database.</p>
-              </div>
-            </div>
+      <section class="hub-section<%= hasOrgStats ? '' : ' active' %>" id="term-management">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <p>Choose a report from the menu on the left.</p>
           </div>
-          <a href="/common/activityLogs" class="action-btn" data-no-spa>
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-            </svg>
-            View Activity Logs
-          </a>
+        </div>
+      </section>
+
+      <section class="hub-section" id="data-migration">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <p>Loading Data Migration…</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="hub-section" id="activity-logs">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            <p>Loading Activity Logs…</p>
+          </div>
         </div>
       </section>
     </main>
@@ -714,13 +617,6 @@
     const nav = document.getElementById('hub-nav');
     const navClose = document.getElementById('hub-nav-close');
     const overlay = document.getElementById('hub-nav-overlay');
-    const navCurrent = document.getElementById('hub-nav-current');
-
-    const syncToggleLabel = activeLink => {
-      if (!navCurrent || !activeLink) return;
-      const label = activeLink.querySelector('span:last-child');
-      navCurrent.textContent = label ? label.textContent.trim() : activeLink.textContent.trim();
-    };
 
     const setNavOpen = isOpen => {
       nav.classList.toggle('open', isOpen);
@@ -728,37 +624,393 @@
       navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     };
 
-    // Only initialize if elements exist
     if (!navToggle || !nav || !overlay) return;
 
-    // Bind once per DOM instance. The SPA re-executes page scripts and
-    // re-dispatches DOMContentLoaded on every navigation; without this guard
-    // the toggle accumulates duplicate handlers and the menu opens then
-    // immediately closes ("doesn't open").
     if (navToggle.dataset.spaMenuBound === '1') return;
     navToggle.dataset.spaMenuBound = '1';
 
-    syncToggleLabel(document.querySelector('.nav-link.active'));
+    // Tracks whichever panel is currently on-screen, so the load handler
+    // below knows it's safe to update the address bar when that panel's
+    // iframe navigates internally (e.g. clicking a link inside it) — a
+    // background-preloaded panel's internal navigation must never touch
+    // the URL, since the user isn't looking at it.
+    let activeGroup = null;
 
-    // Section navigation
-    navLinks.forEach(link => {
-      link.addEventListener('click', function() {
-        const sectionId = this.getAttribute('data-section');
-        
-        navLinks.forEach(l => l.classList.remove('active'));
-        this.classList.add('active');
-        syncToggleLabel(this);
-        
-        sections.forEach(s => s.classList.remove('active'));
-        const targetSection = document.getElementById(sectionId);
-        if (targetSection) targetSection.classList.add('active');
+    // Marks the given section + its sidebar entry active, and (for the
+    // expandable Term Reports group) opens/closes its submenu to match.
+    function activateSectionOnly(sectionId) {
+      activeGroup = sectionId;
+      const navLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
 
-        if (window.innerWidth <= 900) {
-          setNavOpen(false);
+      navLinks.forEach(l => l.classList.remove('active'));
+      if (navLink) navLink.classList.add('active');
+
+      sections.forEach(s => s.classList.remove('active'));
+      const targetSection = document.getElementById(sectionId);
+      if (targetSection) targetSection.classList.add('active');
+
+      document.querySelectorAll('.nav-group-toggle').forEach(toggle => {
+        const isThisGroup = toggle === navLink;
+        toggle.setAttribute('aria-expanded', isThisGroup ? 'true' : 'false');
+        const submenu = toggle.parentElement.querySelector('.nav-submenu');
+        if (submenu) submenu.classList.toggle('open', isThisGroup);
+      });
+
+      if (window.innerWidth <= 900) {
+        setNavOpen(false);
+      }
+    }
+
+    function setEmbedLinkActive(url) {
+      document.querySelectorAll('.nav-link, .nav-sublink').forEach(l => l.classList.remove('active'));
+      document.querySelectorAll(`[data-embed-url="${CSS.escape(url)}"]`).forEach(l => l.classList.add('active'));
+    }
+
+    // Each destination is its own full standalone page with its own <head>
+    // styles and breakpoints (not a fragment meant to be pasted into another
+    // page). Loading it in a same-origin iframe — instead of fetching the
+    // HTML and injecting it into this page — means it renders exactly as it
+    // would in its own tab: its CSS/JS never collides with ours, and its
+    // responsive layout reacts to its own real rendering width instead of
+    // getting confused by being squeezed into a foreign container.
+    // Adds ?embed=workspace to the target URL. The destination controllers
+    // recognize this flag (same convention already used elsewhere in the
+    // app) and skip rendering the global header/footer/chatbot for that
+    // request, since this page already has its own.
+    function withEmbedFlag(url) {
+      const separator = url.includes('?') ? '&' : '?';
+      return url + separator + 'embed=workspace';
+    }
+
+    // Inverse of withEmbedFlag — used to read back the iframe's *current*
+    // location (after it has navigated internally, e.g. following a link)
+    // as a clean, storable URL, stripped of the embed marker we added.
+    // Guards against "about:blank" (the browser's own placeholder for an
+    // iframe that hasn't finished navigating yet) so a load event racing
+    // ahead of the real navigation can never get captured as a real page.
+    function stripEmbedFlag(href) {
+      if (!href || href === 'about:blank') return null;
+      try {
+        const parsed = new URL(href, window.location.href);
+        parsed.searchParams.delete('embed');
+        return parsed.pathname + parsed.search + parsed.hash;
+      } catch (err) {
+        return null;
+      }
+    }
+
+    // Full-page dashboards were never designed to render squeezed inside a
+    // hub panel — if an embedded page's own navigation (a redirect, a link)
+    // ever lands on one of these, break all the way out to a real top-level
+    // page load instead of leaving it stuck inside the iframe. Returns true
+    // if it fired, so the caller can skip its own iframe-specific handling.
+    function escapeIframeForFullPageDashboard(href) {
+      if (!href) return false;
+      if (/^\/common\/(orgDashboard|publicDashboard)(?:[/?]|$)/.test(href)) {
+        window.top.location.href = href;
+        return true;
+      }
+      return false;
+    }
+
+    // Same-origin — nudge the loaded page to sit flush left instead of
+    // centered with wide side margins, now that it has the full panel
+    // width to itself and no longer needs to leave room for a header.
+    function leftAlignEmbeddedDoc(iframe) {
+      try {
+        const doc = iframe.contentDocument;
+        if (doc && doc.head && !doc.getElementById('__hub-left-align')) {
+          const style = doc.createElement('style');
+          style.id = '__hub-left-align';
+          style.textContent = 'body{margin-left:0 !important;} main{margin-left:0 !important; margin-right:0 !important;}';
+          doc.head.appendChild(style);
+        }
+      } catch (err) {
+        // Cross-origin — nothing more we can do.
+      }
+    }
+
+    // Watches for the iframe navigating to a NEW document — same-origin
+    // pages inside it (Save buttons, switching classes, etc.) trigger real
+    // navigations we don't otherwise get a callback for. pagehide fires
+    // right as that starts, so we can show the spinner again immediately
+    // instead of leaving a frozen-looking page until the next one arrives.
+    // (Deliberately NOT beforeunload: a beforeunload listener on ANY frame
+    // — including a subframe like this iframe — disqualifies the whole
+    // top-level hub page from the browser's back-forward cache, forcing a
+    // full reload every time a user leaves for a full-page destination and
+    // clicks Back.)
+    function watchForInternalNavigation(iframe, overlay) {
+      try {
+        const win = iframe.contentWindow;
+        if (!win) return;
+        win.addEventListener('pagehide', function() {
+          overlay.hidden = false;
+        });
+      } catch (err) {
+        // Cross-origin — nothing more we can do.
+      }
+    }
+
+    // Keeps track of which URL is currently loaded (and cached, ready to
+    // reuse) in each panel's iframe, so switching between sections you've
+    // already visited is instant instead of re-fetching and re-rendering
+    // every single time.
+    const loadedPanelUrls = {};
+
+    // Remembers the sidebar label for whichever URL is currently loaded in
+    // each panel, so the polling backstop below can rebuild a proper hub
+    // URL (with a human-readable label) without having to guess one.
+    const panelLabels = {};
+
+    // Backstop that keeps the address bar honest even when a single 'load'
+    // event isn't enough to catch it — multi-step redirects inside the
+    // embedded page, or a browser quirk around the timing of that event,
+    // can otherwise leave the URL pointing at a stale page. This just
+    // samples the truth every second: if the panel you're actually looking
+    // at has navigated somewhere new (same-origin, so we can read it),
+    // sync the address bar to match. Background-preloaded panels are never
+    // touched since activeGroup only ever names the one on-screen.
+    setInterval(function () {
+      if (!activeGroup) return;
+      const panel = document.querySelector('#' + activeGroup + ' .embed-panel-body');
+      if (!panel) return;
+      const iframe = panel.querySelector('.embed-iframe');
+      if (!iframe) return;
+
+      let currentHref;
+      try {
+        currentHref = stripEmbedFlag(iframe.contentWindow.location.href);
+      } catch (err) {
+        return; // Cross-origin — nothing more we can do.
+      }
+      if (!currentHref || loadedPanelUrls[activeGroup] === currentHref) return;
+      if (escapeIframeForFullPageDashboard(currentHref)) return;
+
+      loadedPanelUrls[activeGroup] = currentHref;
+      const label = panelLabels[activeGroup];
+      const hubUrl = '/common/reports?panel=' + encodeURIComponent(activeGroup)
+        + '&page=' + encodeURIComponent(currentHref)
+        + (label ? '&label=' + encodeURIComponent(label) : '');
+      history.replaceState({ embedGroup: activeGroup, embedUrl: currentHref, embedLabel: label }, '', hubUrl);
+    }, 1000);
+
+    function loadEmbed(group, url, label, pushHistory, background) {
+      if (escapeIframeForFullPageDashboard(url)) return;
+      if (label) panelLabels[group] = label;
+      const panel = document.querySelector('#' + group + ' .embed-panel-body');
+      if (!panel) {
+        if (!background) window.location.href = url;
+        return;
+      }
+
+      // Already loaded in this panel — just make sure it's the visible/
+      // active one and skip straight past the fetch + spinner entirely.
+      if (loadedPanelUrls[group] === url && panel.querySelector('.embed-iframe')) {
+        if (!background) {
+          setEmbedLinkActive(url);
+          if (pushHistory !== false) {
+            const hubUrl = '/common/reports?panel=' + encodeURIComponent(group)
+              + '&page=' + encodeURIComponent(url)
+              + (label ? '&label=' + encodeURIComponent(label) : '');
+            history.pushState({ embedGroup: group, embedUrl: url, embedLabel: label }, '', hubUrl);
+          }
+        }
+        return;
+      }
+
+      // A silent background preload only ever needs to happen once per
+      // panel — if something's already mid-flight (or finished) in there,
+      // leave it alone instead of restarting the load.
+      if (background && panel.querySelector('.embed-iframe')) return;
+
+      // A load for this exact URL in this exact panel is already in flight
+      // — most often the background preload queue got to it but hasn't
+      // finished yet, and the user clicked over before it did. Its own
+      // 'load' listener (already attached) will finish the job: hide the
+      // spinner, reveal the iframe, and record it in loadedPanelUrls.
+      // Tearing it down here to "start fresh" would throw away that
+      // progress and force a whole second fetch — exactly what made
+      // switching to a panel feel like it never learned to cache itself.
+      // Just surface it and let it land. (Scoped to the same target URL
+      // only — if the panel's existing iframe has since navigated
+      // somewhere else internally, e.g. drilled into a sub-page, this nav
+      // click should still reset it back to its own canonical page like
+      // normal, not leave the sub-page showing.)
+      const inFlightIframe = panel.querySelector('.embed-iframe');
+      const inFlightMatchesTarget = inFlightIframe
+        && inFlightIframe.src === new URL(withEmbedFlag(url), window.location.href).href;
+      if (inFlightMatchesTarget) {
+        if (!background) {
+          setEmbedLinkActive(url);
+          if (pushHistory !== false) {
+            const hubUrl = '/common/reports?panel=' + encodeURIComponent(group)
+              + '&page=' + encodeURIComponent(url)
+              + (label ? '&label=' + encodeURIComponent(label) : '');
+            history.pushState({ embedGroup: group, embedUrl: url, embedLabel: label }, '', hubUrl);
+          }
+          if (inFlightIframe.style.display === 'none') {
+            const overlay = panel.querySelector('.embed-overlay-spinner');
+            if (overlay) overlay.hidden = false;
+          }
+        }
+        return;
+      }
+
+      if (background) {
+        // Clear out the static placeholder without showing a spinner —
+        // nothing here is visible yet, it's just warming up for later.
+        panel.innerHTML = '';
+      } else {
+        setEmbedLinkActive(url);
+        panel.innerHTML = '<div class="embed-loading"><span class="btn-spinner" aria-hidden="true"></span>Loading ' + (label || 'page') + '…</div>';
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.className = 'embed-iframe';
+      iframe.title = label || 'Embedded page';
+      iframe.style.display = 'none';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'embed-overlay-spinner';
+      overlay.hidden = true;
+      overlay.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span>Loading…';
+
+      iframe.addEventListener('load', function onLoad() {
+        // The very first "load" a freshly-inserted iframe fires can be for
+        // the browser's own "about:blank" placeholder, racing ahead of the
+        // real navigation we asked for — ignore it completely so it never
+        // gets treated as the real page (it has no relation to `url`).
+        if (iframe.contentWindow && iframe.contentWindow.location.href === 'about:blank') {
+          return;
         }
 
-        history.replaceState(null, null, '#' + sectionId);
+        try {
+          if (escapeIframeForFullPageDashboard(stripEmbedFlag(iframe.contentWindow.location.href))) return;
+        } catch (err) {
+          // Cross-origin — nothing more we can do.
+        }
+
+        const loading = panel.querySelector('.embed-loading');
+        if (loading) loading.remove();
+        iframe.style.display = 'block';
+        overlay.hidden = true;
+        leftAlignEmbeddedDoc(iframe);
+        watchForInternalNavigation(iframe, overlay);
+
+        // The iframe may have landed here via its OWN internal navigation
+        // (a link clicked inside the embedded page), not just our initial
+        // load — same-origin, so we can read its real current location.
+        // Re-sync our URL/cache to wherever it actually ended up, so a
+        // refresh of the hub page lands back on THIS page instead of
+        // snapping back to whatever was first opened in this panel.
+        try {
+          const currentHref = stripEmbedFlag(iframe.contentWindow.location.href);
+          if (currentHref && currentHref !== url) {
+            url = currentHref;
+            if (!background && group === activeGroup) {
+              const hubUrl = '/common/reports?panel=' + encodeURIComponent(group)
+                + '&page=' + encodeURIComponent(url)
+                + (label ? '&label=' + encodeURIComponent(label) : '');
+              history.replaceState({ embedGroup: group, embedUrl: url, embedLabel: label }, '', hubUrl);
+            }
+          }
+        } catch (err) {
+          // Cross-origin — nothing more we can do, keep the original url.
+        }
+
+        // Only cache it as "ready to reuse" once it's actually finished
+        // loading successfully — never on a page that's still in flight.
+        loadedPanelUrls[group] = url;
       });
+
+      iframe.addEventListener('error', function() {
+        delete loadedPanelUrls[group];
+        panel.innerHTML = '<div class="embed-error">Could not load this here. '
+          + '<a href="' + url + '" data-no-spa>Open it directly instead</a>.</div>';
+      });
+
+      // Set the real destination BEFORE inserting the iframe into the
+      // document — appending a src-less iframe first is what queues that
+      // spurious "about:blank" load in some browsers; giving it a src up
+      // front means the only navigation that ever happens is the real one.
+      iframe.src = withEmbedFlag(url);
+      panel.appendChild(iframe);
+      panel.appendChild(overlay);
+
+      if (pushHistory !== false) {
+        // Keep the visible address on /common/reports (with the open panel
+        // encoded as query params) instead of the real destination URL —
+        // otherwise a refresh reloads that destination as its own bare
+        // top-level page instead of staying inside the Reports hub.
+        const hubUrl = '/common/reports?panel=' + encodeURIComponent(group)
+          + '&page=' + encodeURIComponent(url)
+          + (label ? '&label=' + encodeURIComponent(label) : '');
+        history.pushState({ embedGroup: group, embedUrl: url, embedLabel: label }, '', hubUrl);
+      }
+    }
+
+    // Top-level items: the ones with a single destination (Organization
+    // Stats, Data Migration, Activity Logs) are plain links — clicking
+    // activates their panel and loads the page straight into it. Term
+    // Reports has no destination of its own — clicking it only expands or
+    // collapses its submenu and never touches the right panel; whatever
+    // was showing there stays exactly as it was until one of the three
+    // items underneath it is actually clicked.
+    navLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        if (this.classList.contains('nav-group-toggle')) {
+          e.preventDefault();
+          const submenu = this.parentElement.querySelector('.nav-submenu');
+          if (!submenu) return;
+          const nowOpen = !submenu.classList.contains('open');
+          submenu.classList.toggle('open', nowOpen);
+          this.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
+          return;
+        }
+
+        e.preventDefault();
+        const sectionId = this.getAttribute('data-section');
+        const embedUrl = this.getAttribute('data-embed-url');
+        const embedLabel = this.getAttribute('data-embed-label');
+        activateSectionOnly(sectionId);
+        if (embedUrl) {
+          loadEmbed(sectionId, embedUrl, embedLabel);
+        }
+      });
+    });
+
+    document.querySelectorAll('.nav-sublink').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const url = this.getAttribute('data-embed-url') || this.getAttribute('href');
+        const group = this.getAttribute('data-group');
+        const label = this.getAttribute('data-embed-label') || this.textContent.trim();
+        if (!url || !group) return;
+
+        activateSectionOnly(group);
+        loadEmbed(group, url, label);
+      });
+    });
+
+    // Warm the connection (and let the server start working) the moment a
+    // pointer hovers or a link gets keyboard focus, so the click itself
+    // feels instant instead of waiting for the full round trip to start
+    // only after it's clicked. Each URL is only ever prefetched once.
+    const prefetchedUrls = new Set();
+    function prefetchEmbedUrl(url) {
+      if (!url || prefetchedUrls.has(url)) return;
+      prefetchedUrls.add(url);
+      fetch(withEmbedFlag(url), { credentials: 'same-origin' }).catch(function () {
+        // Best-effort only — the real click will just do the full request.
+        prefetchedUrls.delete(url);
+      });
+    }
+    document.querySelectorAll('[data-embed-url]').forEach(link => {
+      const url = link.getAttribute('data-embed-url');
+      if (!url) return;
+      link.addEventListener('mouseenter', function () { prefetchEmbedUrl(url); }, { once: true });
+      link.addEventListener('focus', function () { prefetchEmbedUrl(url); }, { once: true });
     });
 
     // Mobile navigation toggle
@@ -783,17 +1035,131 @@
       setNavOpen(false);
     });
 
-    // Handle initial hash
-    if (window.location.hash) {
-      const sectionId = window.location.hash.substring(1);
-      const targetLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
-      if (targetLink) {
-        targetLink.click();
-      }
-    }
-
     window.addEventListener('resize', function() {
       if (window.innerWidth > 900) setNavOpen(false);
     });
+
+    window.addEventListener('popstate', function(e) {
+      const state = e.state;
+      if (state && state.embedGroup && state.embedUrl) {
+        activateSectionOnly(state.embedGroup);
+        loadEmbed(state.embedGroup, state.embedUrl, state.embedLabel, false);
+        return;
+      }
+
+      // Back past the first panel we opened — fall back to whatever the
+      // URL's own query params say, or the default section if there are
+      // none, rather than leaving the old panel showing.
+      const params = new URLSearchParams(window.location.search);
+      const panel = params.get('panel');
+      const page = params.get('page');
+      if (panel && page && document.getElementById(panel)) {
+        activateSectionOnly(panel);
+        loadEmbed(panel, page, params.get('label'), false);
+      } else {
+        const defaultLink = document.querySelector('.nav-link[data-embed-url]');
+        if (defaultLink) {
+          activateSectionOnly(defaultLink.getAttribute('data-section'));
+          loadEmbed(
+            defaultLink.getAttribute('data-section'),
+            defaultLink.getAttribute('data-embed-url'),
+            defaultLink.getAttribute('data-embed-label'),
+            false
+          );
+        }
+      }
+    });
+
+    // Restoring this page from the browser's back-forward cache (e.g. after
+    // leaving for a full page and clicking Back) resumes every panel iframe
+    // exactly as frozen — including any async UI state one of them had
+    // mid-flight (a row action showing its own inline "Loading…", a fetch()
+    // that was in progress when the tab froze, etc). That request doesn't
+    // get a chance to resolve, so the stuck state just comes back looking
+    // like it's "loading forever." Throw away every cached panel and force
+    // a genuinely fresh reload of whichever one is on screen — the rest
+    // will simply reload on demand the next time their nav item is clicked,
+    // same as a normal cold visit.
+    window.addEventListener('pageshow', function (e) {
+      if (!e.persisted) return;
+      const activeUrl = activeGroup ? loadedPanelUrls[activeGroup] : null;
+      Object.keys(loadedPanelUrls).forEach(function (group) {
+        delete loadedPanelUrls[group];
+        const panel = document.querySelector('#' + group + ' .embed-panel-body');
+        if (panel) panel.innerHTML = '';
+      });
+      if (activeGroup && activeUrl) {
+        loadEmbed(activeGroup, activeUrl, panelLabels[activeGroup], false);
+      }
+    });
+
+    // On a fresh load (including a refresh), restore whichever panel was
+    // open — encoded in the URL's own query params — instead of always
+    // falling back to the default section. This is what makes refreshing
+    // land back on the Reports hub with the same panel open, rather than
+    // on the destination page's own bare, standalone view.
+    const restoreParams = new URLSearchParams(window.location.search);
+    const restorePanel = restoreParams.get('panel');
+    const restorePage = restoreParams.get('page');
+
+    let initialSection = null;
+    if (restorePanel && restorePage && document.getElementById(restorePanel)) {
+      activateSectionOnly(restorePanel);
+      loadEmbed(restorePanel, restorePage, restoreParams.get('label'), false);
+      initialSection = restorePanel;
+    } else {
+      // Load whichever section is active by default on first render.
+      const initialActive = document.querySelector('.nav-link.active[data-embed-url]');
+      if (initialActive) {
+        initialSection = initialActive.getAttribute('data-section');
+        loadEmbed(
+          initialActive.getAttribute('data-section'),
+          initialActive.getAttribute('data-embed-url'),
+          initialActive.getAttribute('data-embed-label'),
+          false
+        );
+      }
+    }
+
+    // Background-preload every other panel behind the scenes, staggered so
+    // we don't fire a dozen requests at once. Sublinks inside a group (like
+    // Term Reports' three destinations) all share a single panel, so only
+    // the first one found is queued — the other two would just overwrite
+    // each other's cache in the same shared panel anyway. Each preload
+    // lands in its own hidden section (loadEmbed only flips a section
+    // visible when its own nav link is clicked), so by the time the user
+    // actually clicks over, loadedPanelUrls already has it cached and it
+    // shows instantly instead of waiting on a fresh iframe load.
+    const backgroundQueue = [];
+    const seenSections = new Set(initialSection ? [initialSection] : []);
+    document.querySelectorAll('.nav-link[data-embed-url], .nav-sublink[data-embed-url]').forEach(function (link) {
+      const sectionId = link.getAttribute('data-section') || link.getAttribute('data-group');
+      if (!sectionId || seenSections.has(sectionId)) return;
+      seenSections.add(sectionId);
+      backgroundQueue.push({
+        sectionId: sectionId,
+        url: link.getAttribute('data-embed-url'),
+        label: link.getAttribute('data-embed-label'),
+      });
+    });
+
+    // Two at a time keeps this from ever competing with the panel the user
+    // is actually looking at, while still getting everything warmed up in
+    // roughly half the time a strictly one-by-one queue would take.
+    const BACKGROUND_PRELOAD_CONCURRENCY = 2;
+    function preloadNextInBackground() {
+      const next = backgroundQueue.shift();
+      if (!next) return;
+      loadEmbed(next.sectionId, next.url, next.label, false, true);
+      setTimeout(preloadNextInBackground, 250);
+    }
+
+    if (backgroundQueue.length) {
+      setTimeout(function () {
+        for (let i = 0; i < BACKGROUND_PRELOAD_CONCURRENCY; i++) {
+          preloadNextInBackground();
+        }
+      }, 400);
+    }
   })();
 </script>

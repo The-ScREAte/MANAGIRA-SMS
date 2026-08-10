@@ -25,24 +25,37 @@
   const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets'));
   const hasPublicWebsiteFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite') || allowedFeatures.includes('Public Dashboard') || allowedFeatures.includes('School Public Dashboard'));
   const hasTransportationIntegration = !!(transportationIntegration && transportationIntegration.activated);
+  const hasPaygiraFeature = Array.isArray(allowedFeatures) && allowedFeatures.some((featureName) => {
+    const normalizedFeatureName = String(featureName || '').trim().toLowerCase();
+    return normalizedFeatureName === 'paygira'
+      || normalizedFeatureName === 'pay gira'
+      || normalizedFeatureName === 'paygira & payments'
+      || normalizedFeatureName === 'paygira and payments';
+  });
+  const assessmentUrl = currentTerm
+    ? `/common/manageAssessment?organizationId=${organizationId}&termId=${currentTerm.term_id}`
+    : `/common/manageAssessment?organizationId=${organizationId}`;
+  const assessmentQuestionsUrl = currentTerm
+    ? `/common/allClassAssessmentExams?organizationId=${organizationId}&termId=${currentTerm.term_id}`
+    : `/common/allClassAssessmentExams?organizationId=${organizationId}`;
+  const assessmentQuestionsLabel = currentTerm ? `Assessment Questions (${currentTerm.term_name})` : 'Assessment Questions';
 %>
 
 <style>
   :root {
     --border: #e5e7eb;
     --muted: #6b7280;
-    --text: #0f172a;
-    --bg: #f8fafc;
+    --bg: #f9fafb;
     --primary: <%= currentTheme.primary %>;
     --primary-hover: <%= currentTheme.hover %>;
-        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
+    --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
     --org-primary-color: <%= currentTheme.primary %>;
     --org-primary-hover: <%= currentTheme.hover %>;
-        --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 88%, white);
+    --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 88%, white);
   }
 
   body {
-    background: #f8fafc;
+    background: #f9fafb;
   }
 
   main {
@@ -52,45 +65,49 @@
 
   .management-wrapper {
     width: 100%;
-    min-height: calc(100vh - 68px);
+    height: calc(100vh - 68px);
+    overflow: hidden;
   }
 
   .management-layout {
     display: grid;
-    grid-template-columns: 232px 1fr;
-    gap: 14px;
+    grid-template-columns: 260px 1fr;
+    gap: 24px;
     max-width: none;
-    margin: 0;
-    padding: 12px 16px 24px;
+    margin: 12px 0 0;
+    padding: 0 20px 12px;
     align-items: start;
+    height: calc(100% - 12px);
+    min-height: 0;
   }
 
-  .management-nav {
+  /* Specificity bump for the same reason as .management-layout
+     .management-section above — workspace-shell.css's shared nav rule
+     (height:fit-content, position:sticky, overflow:hidden) loads after this
+     block and would otherwise win on source order. */
+  .management-layout .management-nav {
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 10px 8px;
+    padding: 16px 12px;
     background: #fff;
-    height: fit-content;
-    position: sticky;
-    top: 12px;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+    height: 100%;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08);
+    overflow-y: auto;
   }
 
   .management-nav-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin: 4px 8px 8px;
-    width: auto;
+    margin: 4px 12px 12px;
+    width: 100%;
   }
 
   .management-nav h3 {
     margin: 0;
-    font-size: 11px;
-    color: var(--muted);
+    font-size: 18px;
+    color: var(--primary);
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
   }
 
   .nav-list {
@@ -101,238 +118,195 @@
     gap: 2px;
   }
 
-  .nav-list li { margin: 0; }
+  .nav-list li {
+    margin: 0;
+  }
 
   .nav-link {
-    position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 10px 7px 12px;
-    border-radius: 8px;
-    color: #1f2937;
+    gap: 8px;
+    padding: 10px 14px !important;
+    min-height: 42px;
+    border-radius: 10px;
+    color: #111827;
     text-decoration: none;
-    border: none;
+    border: 1px solid transparent;
     width: 100%;
     background: transparent;
     cursor: pointer;
     font: inherit;
     text-align: left;
-    font-weight: 500;
-    font-size: 13px;
-    line-height: 1.2;
-    transition: background 0.15s ease, color 0.15s ease;
-  }
-
-  .nav-link .nav-link-icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    color: #64748b;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .nav-link .nav-link-icon svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-  }
-
-  .nav-link .nav-link-icon img {
-    width: 16px;
-    height: 16px;
-    object-fit: contain;
-    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    flex-direction: row;
+    justify-content: flex-start;
+    box-sizing: border-box;
   }
 
   .nav-link:hover {
-    background: #f1f5f9;
-    color: var(--text);
+    background: #f3f4f6;
+    border-color: #e5e7eb;
   }
-  .nav-link:hover .nav-link-icon { color: var(--primary); }
 
   .nav-link.active {
-    background: rgba(1, 83, 91, 0.08);
-    color: var(--primary);
-    font-weight: 600;
-  }
-
-  .nav-link.active::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 6px;
-    bottom: 6px;
-    width: 3px;
-    border-radius: 0 3px 3px 0;
     background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
   }
 
-  .nav-link.active .nav-link-icon { color: var(--primary); }
+  .nav-link.active:hover {
+    background: var(--primary-hover-fill, var(--primary-hover));
+  }
+
+  .nav-link svg {
+    color: inherit;
+  }
+
+  .nav-link-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .nav-link-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .nav-link-icon img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+  }
 
   .management-main {
     padding: 0;
     background: #fff;
     border-radius: 14px;
     border: 1px solid var(--border);
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
     overflow: hidden;
-  }
-
-  .section-header {
-    padding: 12px 18px 12px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-    text-align: left;
-  }
-
-  .section-header * { text-align: left; }
-
-  .section-header h1 {
-    margin: 0 0 2px 0;
-    font-size: 16px;
-    color: var(--text);
-    font-weight: 700;
-  }
-
-  .section-header p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
-  .section-content {
-    padding: 14px 18px 18px;
-  }
-
-  .management-section { display: none; }
-  .management-section.active { display: block; }
-
-  .section-card {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 16px;
-    background: #fff;
-    margin-bottom: 12px;
-  }
-
-  .section-card h2 {
-    margin: 0 0 4px 0;
-    font-size: 14px;
-    color: var(--text);
-    font-weight: 700;
-  }
-
-  .section-card > p {
-    margin: 0 0 12px 0;
-    color: var(--muted);
-    font-size: 12.5px;
-    line-height: 1.5;
-    display: block;
-    -webkit-line-clamp: unset;
-    line-clamp: unset;
-    overflow: visible;
-  }
-
-  .action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    background: var(--primary);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 12.5px;
-    font-weight: 600;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background 0.15s ease;
-  }
-
-  .action-btn:hover {
-    background: var(--primary-hover-fill, var(--primary-hover));
-    color: #fff;
-  }
-
-  .action-btn svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  .features-grid .feature-item:nth-child(n + 3) {
+    height: 100%;
+    min-height: 0;
     display: flex;
+    flex-direction: column;
   }
 
-  .feature-item {
+  /* workspace-shell.css (loaded after this block) also targets
+     .management-section.active with display:block for the plain hub/settings
+     case — scope these selectors under .management-layout so they win on
+     specificity instead of load order, keeping the flex chain that lets the
+     iframe below fill the panel's real height. */
+  .management-layout .management-section {
+    display: none;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .management-layout .management-section.active {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px 12px;
-    background: #f8fafc;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    transition: border-color 0.15s ease, background 0.15s ease;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
 
-  .feature-item:hover {
-    border-color: var(--primary);
-    background: #fff;
+  .embed-panel-body {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
-  .feature-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    background: rgba(1, 83, 91, 0.08);
+  .embed-overlay-spinner {
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.82);
+    color: var(--muted);
+    font-size: 14px;
+    z-index: 5;
   }
 
-  .feature-icon svg {
+  .embed-overlay-spinner[hidden] {
+    display: none;
+  }
+
+  .embed-iframe {
+    width: 100%;
+    border: 0;
+    display: block;
+    /* Fills the panel and scrolls its own content internally — the outer
+       hub page never grows past the viewport, so there's only ever one
+       scrollbar (the iframe's), not two. */
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .embed-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 10px;
+    padding: 60px 24px;
+    color: var(--muted);
+  }
+
+  .embed-placeholder svg {
+    width: 32px;
+    height: 32px;
+    color: var(--primary);
+    opacity: 0.7;
+  }
+
+  .embed-placeholder p {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .embed-loading {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 60px 20px;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .embed-error {
+    padding: 24px;
+    color: #b3261e;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .embed-error a {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .btn-spinner {
+    display: inline-block;
     width: 16px;
     height: 16px;
-    color: var(--primary);
-    stroke: var(--primary);
+    border: 2px solid rgba(1, 83, 91, 0.2);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: embed-spin 0.7s linear infinite;
   }
 
-  .feature-icon img {
-    width: 18px;
-    height: 18px;
-    object-fit: contain;
-    display: block;
-  }
-
-  .feature-icon.transport-logo-icon {
-    background: transparent;
-    border: none;
-  }
-
-  .feature-content h4 {
-    margin: 0 0 2px 0;
-    font-size: 12.5px;
-    color: var(--text);
-    font-weight: 600;
-    line-height: 1.2;
-  }
-
-  .feature-content p {
-    margin: 0;
-    font-size: 11.5px;
-    color: var(--muted);
-    line-height: 1.35;
+  @keyframes embed-spin {
+    to { transform: rotate(360deg); }
   }
 
   /* Mobile navigation */
@@ -341,7 +315,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 8px 12px !important;
     border-radius: 8px;
     border: 1px solid var(--border);
     background: #fff;
@@ -355,66 +329,48 @@
     box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
   }
 
-  .management-nav-toggle-label,
-  .management-nav-toggle-text {
+  .management-nav-toggle-label {
     display: inline-flex;
     align-items: center;
     gap: 8px;
   }
 
-  .management-nav-toggle-current {
-    color: #64748b;
-    font-weight: 500;
-  }
-
-  .management-nav-toggle-caret {
-    width: 10px;
-    height: 10px;
-    border-right: 2px solid currentColor;
-    border-bottom: 2px solid currentColor;
-    transform: rotate(45deg);
-    transition: transform 0.2s ease;
-    margin-top: -2px;
-  }
-
-  .management-nav-toggle[aria-expanded="true"] .management-nav-toggle-caret {
-    transform: rotate(-135deg);
-    margin-top: 4px;
-  }
-
-  .management-nav-toggle .hub-hamburger-icon {
+  .hub-hamburger-icon {
     position: relative;
-    width: 16px;
+    width: 18px;
     height: 2px;
     background: var(--primary);
     display: inline-block;
+    flex-shrink: 0;
   }
 
-  .management-nav-toggle .hub-hamburger-icon::before,
-  .management-nav-toggle .hub-hamburger-icon::after {
+  .hub-hamburger-icon::before,
+  .hub-hamburger-icon::after {
     content: "";
     position: absolute;
     left: 0;
-    width: 16px;
+    width: 18px;
     height: 2px;
     background: var(--primary);
   }
 
-  .management-nav-toggle .hub-hamburger-icon::before { top: -5px; }
-  .management-nav-toggle .hub-hamburger-icon::after { top: 5px; }
+  .hub-hamburger-icon::before { top: -6px; }
+  .hub-hamburger-icon::after { top: 6px; }
 
   .management-nav-close {
     display: none;
     background: transparent;
     border: none;
-    font-size: 22px;
+    font-size: 24px;
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 4px 8px;
     color: #6b7280;
     line-height: 1;
   }
 
-  .management-nav-close:hover { color: var(--text); }
+  .management-nav-close:hover {
+    color: #111827;
+  }
 
   .management-nav-overlay {
     position: fixed;
@@ -432,65 +388,26 @@
   }
 
   @media (max-width: 900px) {
-    .management-layout {
-      position: relative;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      padding: 10px;
-    }
-
     .management-nav-toggle {
       display: flex;
     }
+    .management-nav-close { display: none; }
 
-    /* Nav is pulled out of grid flow entirely – workspace-shell.css handles the hard overrides */
-    @keyframes mgNavIn {
-      from { opacity: 0; transform: translateY(-6px); }
-      to   { opacity: 1; transform: translateY(0); }
+    /* Same collapse pattern used across every hub: the sidebar becomes a
+       hamburger-triggered overlay and the content column takes the full
+       width below it, instead of squeezing both into a cramped row.
+       .management-nav is display:none on mobile (it becomes an overlay),
+       so the grid only has 2 visible children here — the toggle button and
+       .management-main — which stack into two ROWS instead of sitting
+       side-by-side in one row like on desktop. Without an explicit row
+       size, the toggle's row sizes to its content and the leftover space
+       in the fixed-height .management-layout is never handed to
+       .management-main's row, collapsing the iframe inside it to near
+       nothing and leaving a blank gap. Give the second row the rest. */
+    .management-layout {
+      grid-template-columns: 1fr !important;
+      grid-template-rows: auto 1fr !important;
     }
-
-    .management-nav-header {
-      position: relative;
-      margin: 0;
-      padding-right: 14px;
-      align-items: center;
-    }
-
-    .management-nav-close {
-      display: none;
-    }
-
-    .section-header { padding: 10px 14px; }
-    .section-content { padding: 12px 14px 16px; }
-    .section-header h1 { font-size: 14px; }
-    .section-header p { font-size: 11.5px; }
-  }
-
-  @media (max-width: 600px) {
-    .features-grid { grid-template-columns: 1fr; }
-    .feature-item { gap: 8px; padding: 8px 10px; border-radius: 8px; }
-    .feature-icon { width: 26px; height: 26px; border-radius: 7px; }
-    .feature-icon svg { width: 14px; height: 14px; }
-    .feature-content h4 { font-size: 12px; }
-    .feature-content p { font-size: 11px; line-height: 1.3; }
-    .action-btn { width: 100%; justify-content: center; }
-    .section-card { padding: 12px; }
-  }
-
-  @media (max-width: 480px) {
-    .management-layout { padding: 8px 8px 16px; gap: 8px; }
-    .management-nav-toggle { font-size: 12px; padding: 6px 10px; }
-    .section-header { padding: 8px 12px; }
-    .section-header h1 { font-size: 13px; }
-    .section-header p { font-size: 11px; }
-    .section-content { padding: 10px 12px 14px; }
-    .section-card { padding: 10px 12px; }
-    .section-card h2 { font-size: 13px; }
-    .section-card > p { font-size: 11.5px; }
-    .action-btn { font-size: 12px; padding: 6px 12px; }
-    .feature-item { gap: 7px; padding: 7px 8px; }
-    .feature-content h4 { font-size: 11.5px; }
-    .feature-content p { font-size: 10.5px; }
   }
 </style>
 <link rel="stylesheet" href="/css/workspace-shell.css" />
@@ -515,91 +432,107 @@
       </div>
       <ul class="nav-list">
         <li>
-          <button class="nav-link active" data-section="school-year">
+          <a class="nav-link active" href="/common/manageRecords" data-no-spa data-section="school-year" data-embed-url="/common/manageRecords" data-embed-label="School Years">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
             <span>School Year</span>
-          </button>
+          </a>
         </li>
         <li>
-          <button class="nav-link" data-section="graduation">
+          <a class="nav-link" href="/common/manageClassSubjectAndGradYr" data-no-spa data-section="graduation" data-embed-url="/common/manageClassSubjectAndGradYr" data-embed-label="Classes, Subjects &amp; Grad Years">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/></svg></span>
-            <span>Class, Subject & Grad Year</span>
-          </button>
+            <span>Class, Subject &amp; Grad Year</span>
+          </a>
         </li>
         <li>
-          <button class="nav-link" data-section="assessment-scores">
+          <a class="nav-link" href="<%= assessmentUrl %>" data-no-spa data-section="assessment-scores" data-embed-url="<%= assessmentUrl %>" data-embed-label="Assessments">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h6M8 12h8M8 17h5"/></svg></span>
             <span>Assessments</span>
-          </button>
+          </a>
         </li>
         <% if (canAccessAssessmentQuestions) { %>
         <li>
-          <button class="nav-link" data-section="assessment-questions">
+          <a class="nav-link" href="<%= assessmentQuestionsUrl %>" data-no-spa data-section="assessment-questions" data-embed-url="<%= assessmentQuestionsUrl %>" data-embed-label="<%= assessmentQuestionsLabel %>">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 19.5V5a2 2 0 012-2h13v17H6.5A2.5 2.5 0 004 22.5"/><path d="M4 19.5A2.5 2.5 0 016.5 17H19"/><path d="M9 8h6M9 12h6"/></svg></span>
             <span>Assessment Questions</span>
-          </button>
+          </a>
         </li>
         <% } %>
         <li>
-          <button class="nav-link" data-section="enrollment">
+          <a class="nav-link" href="/enrollment/manageEnrollment" data-no-spa data-section="enrollment" data-embed-url="/enrollment/manageEnrollment" data-embed-label="Enrollment">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><path d="M19 8v6M16 11h6"/></svg></span>
             <span>Enrollment</span>
-          </button>
+          </a>
         </li>
         <li>
-          <button class="nav-link" data-section="promotion">
+          <a class="nav-link" href="/promotion/apply" data-no-spa data-section="promotion" data-embed-url="/promotion/apply" data-embed-label="Promotion">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l4-4 4 4M12 16V8"/></svg></span>
             <span>Promotion</span>
-          </button>
+          </a>
         </li>
+        <% if (canManageEmployees) { %>
         <li>
-          <button class="nav-link" data-section="employees">
+          <a class="nav-link" href="/common/manageEmployees" data-no-spa data-section="employees" data-embed-url="/common/manageEmployees" data-embed-label="Employees">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><circle cx="17" cy="7" r="3"/><path d="M22 19c0-2.5-1.8-4.5-5-5"/></svg></span>
             <span>Employee</span>
-          </button>
+          </a>
         </li>
+        <% } %>
         <li>
-          <button class="nav-link" data-section="guardians">
+          <a class="nav-link" href="/common/guardians" data-no-spa data-section="guardians" data-embed-url="/common/guardians" data-embed-label="Guardians">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/></svg></span>
             <span>Parents/Guardian</span>
-          </button>
+          </a>
         </li>
         <% if (hasTransportationIntegration) { %>
         <li>
-          <button class="nav-link" data-section="transportation">
+          <a class="nav-link" href="/transportation/manage" data-no-spa data-section="transportation" data-embed-url="/transportation/manage" data-embed-label="Transportation">
             <span class="nav-link-icon"><img src="/images/transportation-logo.png" alt="Transportation" /></span>
             <span>Transportation</span>
-          </button>
+          </a>
         </li>
         <% } %>
         <li>
-          <button class="nav-link" data-section="announcements-events">
+          <a class="nav-link" href="/common/manageEventsAnnouncements" data-no-spa data-section="announcements-events" data-embed-url="/common/manageEventsAnnouncements" data-embed-label="Announcements &amp; Events">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 11v2a2 2 0 002 2h2l5 4V5L7 9H5a2 2 0 00-2 2z"/><path d="M16 8a5 5 0 010 8"/></svg></span>
-            <span>Announcements & Events</span>
-          </button>
+            <span>Announcements &amp; Events</span>
+          </a>
         </li>
         <% if (hasPublicWebsiteFeature) { %>
         <li>
-          <button class="nav-link" data-section="public-website">
+          <a class="nav-link" href="/account/managePublicContent" data-no-spa data-section="public-website" data-embed-url="/account/managePublicContent" data-embed-label="School Website">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg></span>
             <span>School Website</span>
-          </button>
+          </a>
         </li>
         <% } %>
         <% if (hasFilesFeature) { %>
         <li>
-          <button class="nav-link" data-section="documents">
+          <a class="nav-link" href="/documents?create=1" data-no-spa data-section="documents" data-embed-url="/documents?create=1" data-embed-label="Docs/Sheets">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg></span>
             <span>Docs/Sheets</span>
-          </button>
+          </a>
         </li>
         <% } %>
+        <% if (hasPaygiraFeature) { %>
+        <li>
+          <a class="nav-link" href="/account/settings/finance" data-no-spa>
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12M8.5 9.5c0-1.381 1.567-2.5 3.5-2.5s3.5 1.119 3.5 2.5-1.567 2.5-3.5 2.5S8.5 13.381 8.5 14.5 10.067 17 12 17s3.5-1.119 3.5-2.5"/></svg></span>
+            <span>PayGira</span>
+          </a>
+        </li>
+        <% } %>
+        <li>
+          <a class="nav-link" href="/account/settings?section=integrations" data-no-spa data-section="integrations" data-embed-url="/account/settings?section=integrations" data-embed-label="Integrations">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 12h8"/><path d="M12 8v8"/><circle cx="12" cy="12" r="9"/></svg></span>
+            <span>Integrations</span>
+          </a>
+        </li>
         <% if (canSeeEmailIssues) { %>
         <li>
-          <button class="nav-link" data-section="email-issues">
+          <a class="nav-link" href="/common/failedEmails" data-no-spa data-section="email-issues" data-embed-url="/common/failedEmails" data-embed-label="Email Issues">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
             <span>Email Issues<% if (failedEmailCount > 0) { %> <span style="display:inline-block;background:#dc2626;color:#fff;font-size:0.7rem;font-weight:700;border-radius:20px;padding:0 6px;vertical-align:middle;line-height:1.6"><%=failedEmailCount%></span><% } %></span>
-          </button>
+          </a>
         </li>
         <% } %>
       </ul>
@@ -607,1023 +540,139 @@
 
     <!-- Main Content -->
     <main class="management-main">
-      <!-- School Year Section -->
-      <section id="school-year" class="management-section active">
-        <div class="section-header">
-          <h1>School Year Management</h1>
-          <p>Configure academic terms and schedules for your organization</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage School Years & Terms</h2>
-            <p>Set up academic years, define terms/semesters, and configure academic calendars. This is fundamental for organizing your school's timeline.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Create Academic Years</h4>
-                  <p>Define start and end dates for each school year</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Define Terms</h4>
-                  <p>Create semesters, quarters, or custom terms</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Set Current Term</h4>
-                  <p>Mark the active academic term for all operations</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/manageRecords" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-              </svg>
-              Manage School Years
-            </a>
+      <section class="management-section active" id="school-year">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <p>Loading School Years…</p>
           </div>
         </div>
       </section>
 
-      <!-- Classes Section -->
-      <section id="classes" class="management-section">
-        <div class="section-header">
-          <h1>Class Management</h1>
-          <p>Create and organize classes for your school</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Classes</h2>
-            <p>Set up classes, assign teachers, and organize student groups. Essential for structuring your school's learning environment.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Create Classes</h4>
-                  <p>Add new classes with grade levels</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Assign Teachers</h4>
-                  <p>Link teachers to their classes</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Edit Classes</h4>
-                  <p>Update class information anytime</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/manageClassSubjectAndGradYr" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-              </svg>
-              Manage Classes
-            </a>
+      <section class="management-section" id="graduation">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/></svg>
+            <p>Loading Classes, Subjects &amp; Grad Years…</p>
           </div>
         </div>
       </section>
 
-      <!-- Subjects Section -->
-      <section id="subjects" class="management-section">
-        <div class="section-header">
-          <h1>Subject Management</h1>
-          <p>Define subjects and curriculum for your school</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Subjects</h2>
-            <p>Create and organize subjects/courses offered in your school. Link subjects to classes and define their properties.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Add Subjects</h4>
-                  <p>Create new subjects with codes</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Assign to Classes</h4>
-                  <p>Link subjects to specific classes</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Track Performance</h4>
-                  <p>Monitor subject-level statistics</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/manageClassSubjectAndGradYr" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-              </svg>
-              Manage Subjects
-            </a>
+      <section class="management-section" id="assessment-scores">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h6M8 12h8M8 17h5"/></svg>
+            <p>Loading Assessments…</p>
           </div>
         </div>
       </section>
-
-      <!-- Classes, Subjects & Graduation Years Section -->
-      <section id="graduation" class="management-section">
-        <div class="section-header">
-          <h1>Classes, Subjects & Graduation Years</h1>
-          <p>Manage your school's classes, subjects, and graduation year groups</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Organize Academic Structure</h2>
-            <p>Create and manage classes, assign subjects to each class, and define graduation year groups to track student cohorts through their academic journey.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Manage Classes</h4>
-                  <p>Create, rename, and organize your school's classes</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Assign Subjects</h4>
-                  <p>Add subjects and link them to specific classes</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 14l9-5-9-5-9 5 9 5z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Graduation Groups</h4>
-                  <p>Define graduation year groups for student cohorts</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/manageClassSubjectAndGradYr" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-              </svg>
-              Manage Classes, Subjects & Grad Years
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <!-- Grading System Section -->
-      <section id="grading" class="management-section">
-        <div class="section-header">
-          <h1>Grading System</h1>
-          <p>Configure grading scales and assessment methods</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Grading System</h2>
-            <p>Set up grading scales, define grade boundaries, and configure assessment methods to match your school's evaluation standards.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Define Scales</h4>
-                  <p>Create A-F, numerical, or custom scales</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Set Boundaries</h4>
-                  <p>Define pass/fail thresholds</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Assessment Types</h4>
-                  <p>Configure tests, quizzes, projects</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/gradingSystem" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-              </svg>
-              Configure Grading System
-            </a>
-            <% if (currentTerm) { %>
-            <a href="/common/manageAssessment?organizationId=<%= organizationId %>&termId=<%= currentTerm.term_id %>" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
-              </svg>
-              Manage Assessment
-            </a>
-            <% } %>
-          </div>
-        </div>
-      </section>
-        <!-- Assessment Scores Section -->
-        <section id="assessment-scores" class="management-section">
-          <div class="section-header">
-            <h1>Assessment Scores</h1>
-            <p>Create tests and manage assessment scores for your organization.</p>
-          </div>
-          <div class="section-content">
-            <div class="section-card">
-              <h2>Manage Assessment</h2>
-              <p>Set up tests, record scores, and keep assessments aligned with your grading standards.</p>
-              <div class="features-grid">
-                <div class="feature-item">
-                  <div class="feature-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
-                    </svg>
-                  </div>
-                  <div class="feature-content">
-                    <h4>Create Tests</h4>
-                    <p>Set up assessments for classes and subjects</p>
-                  </div>
-                </div>
-                <div class="feature-item">
-                  <div class="feature-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h4m-4-8h6m6 8V8a2 2 0 00-2-2h-3.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0012.586 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2z"></path>
-                    </svg>
-                  </div>
-                  <div class="feature-content">
-                    <h4>Record Scores</h4>
-                    <p>Capture assessment marks quickly</p>
-                  </div>
-                </div>
-                <div class="feature-item">
-                  <div class="feature-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"></path>
-                    </svg>
-                  </div>
-                  <div class="feature-content">
-                    <h4>Align to Terms</h4>
-                    <p>Keep assessments in sync with term settings</p>
-                  </div>
-                </div>
-              </div>
-              <% if (currentTerm) { %>
-              <a href="/common/manageAssessment?organizationId=<%= organizationId %>&termId=<%= currentTerm.term_id %>" class="action-btn">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
-                </svg>
-                Manage Assessment
-              </a>
-              <% } %>
-            </div>
-          </div>
-        </section>
 
       <% if (canAccessAssessmentQuestions) { %>
-      <section id="assessment-questions" class="management-section">
-        <div class="section-header">
-          <h1>Assessment Questions</h1>
-          <p>Manage question sets across classes, terms, and school years.</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>All Class Question Sets</h2>
-            <p>Open the centralized question-set workspace to create, review, reuse, and manage assessment question banks for every class. Use the in-page school-year and term filters to work across sessions, or start from the current term below.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Create Question Sets</h4>
-                  <p>Build class and subject scoped question banks</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Switch Terms & Years</h4>
-                  <p>Move between school years and terms dynamically</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h4m-4-8h6m6 8V8a2 2 0 00-2-2h-3.586a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 0012.586 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Track Student Access</h4>
-                  <p>Monitor locks, attempts, and review status</p>
-                </div>
-              </div>
-            </div>
-            <% if (currentTerm) { %>
-            <a href="/common/allClassAssessmentExams?organizationId=<%= organizationId %>&termId=<%= currentTerm.term_id %>" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
-              </svg>
-              Open Assessment Questions (<%= currentTerm.term_name %>)
-            </a>
-            <% } else { %>
-            <a href="/common/allClassAssessmentExams?organizationId=<%= organizationId %>" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
-              </svg>
-              Open Assessment Questions
-            </a>
-            <% } %>
+      <section class="management-section" id="assessment-questions">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 19.5V5a2 2 0 012-2h13v17H6.5A2.5 2.5 0 004 22.5"/><path d="M4 19.5A2.5 2.5 0 016.5 17H19"/><path d="M9 8h6M9 12h6"/></svg>
+            <p>Loading Assessment Questions…</p>
           </div>
         </div>
       </section>
       <% } %>
 
-      <!-- Events Section -->
-      <section id="events" class="management-section">
-        <div class="section-header">
-          <h1>School Events</h1>
-          <p>Manage and schedule school events and activities</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Events</h2>
-            <p>Create, schedule, and manage school events, activities, and special occasions. Keep your school community informed and engaged.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Create Events</h4>
-                  <p>Add new events with dates and details</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Send Reminders</h4>
-                  <p>Notify participants about events</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Calendar View</h4>
-                  <p>View events in monthly calendar</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/manageEventsAnnouncements" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15.546c-.523 0-1.046.151-1.5.454a2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0 2.704 2.704 0 00-3 0 2.704 2.704 0 01-3 0 2.701 2.701 0 00-1.5-.454M9 6v2m3-2v2m3-2v2M9 3h.01M12 3h.01M15 3h.01M21 21v-7a2 2 0 00-2-2H5a2 2 0 00-2 2v7h18zm-3-9v-2a2 2 0 00-2-2H8a2 2 0 00-2 2v2h12z"></path>
-              </svg>
-              Open Announcements & Events
-            </a>
+      <section class="management-section" id="enrollment">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><path d="M19 8v6M16 11h6"/></svg>
+            <p>Loading Enrollment…</p>
           </div>
         </div>
       </section>
 
-      <!-- Announcements Section -->
-      <section id="announcements" class="management-section">
-        <div class="section-header">
-          <h1>School Announcements</h1>
-          <p>Broadcast important messages to your school community</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Announcements</h2>
-            <p>Create and publish announcements to keep students, parents, and staff informed about important school news and updates.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Post Messages</h4>
-                  <p>Share news and updates</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Target Audience</h4>
-                  <p>Send to specific groups</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Schedule Posts</h4>
-                  <p>Publish at specific times</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/manageEventsAnnouncements" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
-              </svg>
-              Open Announcements & Events
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <!-- Attendance Section -->
-      <section id="attendance" class="management-section">
-        <div class="section-header">
-          <h1>Attendance Management</h1>
-          <p>Track and manage student attendance records</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Attendance</h2>
-            <p>Record daily attendance, generate reports, and monitor attendance patterns. Ensure accurate tracking of student presence.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Daily Marking</h4>
-                  <p>Record student presence easily</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Generate Reports</h4>
-                  <p>View attendance statistics</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Alert Parents</h4>
-                  <p>Notify about absences</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/attendance" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-              </svg>
-              Manage Attendance
-            </a>
+      <section class="management-section" id="promotion">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l4-4 4 4M12 16V8"/></svg>
+            <p>Loading Promotion…</p>
           </div>
         </div>
       </section>
 
       <% if (canManageEmployees) { %>
-      <!-- Employee Management Section -->
-      <section id="employees" class="management-section">
-        <div class="section-header">
-          <h1>Employee Management</h1>
-          <p>Manage teachers, staff, and employee records</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Employees</h2>
-            <p>Add, update, and manage employee profiles including teachers, administrators, and support staff. Track roles and responsibilities.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Add Employees</h4>
-                  <p>Create new employee profiles</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Assign Roles</h4>
-                  <p>Define permissions and access</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Update Employee Records</h4>
-                  <p>Edit employee information and details</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/manageEmployees" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-              </svg>
-              Manage Employees
-            </a>
+      <section class="management-section" id="employees">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><circle cx="17" cy="7" r="3"/><path d="M22 19c0-2.5-1.8-4.5-5-5"/></svg>
+            <p>Loading Employees…</p>
           </div>
         </div>
       </section>
       <% } %>
 
-      <!-- Guardian Management Section -->
-      <section id="guardians" class="management-section">
-        <div class="section-header">
-          <h1>Guardian Management</h1>
-          <p>Manage parent and guardian accounts</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Guardians</h2>
-            <p>Create and manage guardian/parent accounts, link them to students, and control their portal access.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Add Guardians</h4>
-                  <p>Create parent accounts</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Link Students</h4>
-                  <p>Connect guardians to children</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Portal Access</h4>
-                  <p>Control guardian login rights</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/guardians" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-              </svg>
-              Manage Guardians
-            </a>
+      <section class="management-section" id="guardians">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/></svg>
+            <p>Loading Guardians…</p>
           </div>
         </div>
       </section>
 
       <% if (hasTransportationIntegration) { %>
-      <section id="transportation" class="management-section">
-        <div class="section-header">
-          <h1>Transportation Management</h1>
-          <p>Configure buses, drivers, routes, stops, and student assignments.</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Transportation Operations</h2>
-            <p>Set map provider, maintain route structures, and track live movement from one workspace.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon transport-logo-icon">
-                  <img src="/images/transportation-logo.png" alt="Transportation fleet" />
-                </div>
-                <div class="feature-content">
-                  <h4>Fleet & Drivers</h4>
-                  <p>Register buses and link operational drivers.</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon transport-logo-icon">
-                  <img src="/images/transportation-logo.png" alt="Transportation routes" />
-                </div>
-                <div class="feature-content">
-                  <h4>Routes & Stops</h4>
-                  <p>Build pickup/dropoff lines for each class area.</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon transport-logo-icon">
-                  <img src="/images/transportation-logo.png" alt="Transportation live tracking" />
-                </div>
-                <div class="feature-content">
-                  <h4>Live Tracking</h4>
-                  <p>Monitor active trip location updates in real time.</p>
-                </div>
-              </div>
-            </div>
-            <a href="/transportation/manage" class="action-btn">Manage Transportation</a>
+      <section class="management-section" id="transportation">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+            <p>Loading Transportation…</p>
           </div>
         </div>
       </section>
       <% } %>
 
-      <!-- Enrollment Management Section -->
-      <section id="enrollment" class="management-section">
-        <div class="section-header">
-          <h1>Enrollment Management</h1>
-          <p>Manage student class enrollments and registrations</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Enrollments</h2>
-            <p>Enroll students in classes, manage registrations, and track enrollment status across terms.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Enroll Students</h4>
-                  <p>Add students to classes</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Manage Terms</h4>
-                  <p>Enrollment by academic term</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Track Status</h4>
-                  <p>Monitor enrollment progress</p>
-                </div>
-              </div>
-            </div>
-            <a href="/enrollment/manageEnrollment" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-              </svg>
-              Manage Enrollments
-            </a>
+      <section class="management-section" id="announcements-events">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 11v2a2 2 0 002 2h2l5 4V5L7 9H5a2 2 0 00-2 2z"/><path d="M16 8a5 5 0 010 8"/></svg>
+            <p>Loading Announcements &amp; Events…</p>
           </div>
         </div>
       </section>
 
-      <!-- Promotion/Repetition Manager Section -->
-      <section id="promotion" class="management-section">
-        <div class="section-header">
-          <h1>Promotion/Repetition Manager</h1>
-          <p>Promote students or manage grade repetitions</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Promotions & Repetitions</h2>
-            <p>Promote students to the next grade level or manage grade repetitions based on academic performance and policies.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Promote Students</h4>
-                  <p>Advance to next grade</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Manage Repetition</h4>
-                  <p>Handle grade repetitions</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Set Criteria</h4>
-                  <p>Define promotion rules</p>
-                </div>
-              </div>
-            </div>
-            <a href="/promotion/apply" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-              </svg>
-              Manage Promotions
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section id="announcements-events" class="management-section">
-        <div class="section-header">
-          <h1>Announcements & Events</h1>
-          <p>Create and manage school announcements and events from one page.</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Announcements & Events</h2>
-            <p>Post updates and schedule events in one place. This contains the same event and announcement actions previously done under Manage Public Content.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Events</h4>
-                  <p>Create, edit, and delete school events</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Announcements</h4>
-                  <p>Create, edit, and delete announcements</p>
-                </div>
-              </div>
-            </div>
-            <a href="/common/manageEventsAnnouncements" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path>
-              </svg>
-              Open Announcements & Events
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <!-- Edit Public/Organization Website Section -->
       <% if (hasPublicWebsiteFeature) { %>
-      <section id="public-website" class="management-section">
-        <div class="section-header">
-          <h1>School Website</h1>
-          <p>Manage your school's public website content</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Manage Public Website</h2>
-            <p>Update and customize your school's public-facing website content including galleries, articles, events, and announcements.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Manage Gallery</h4>
-                  <p>Upload and organize photos</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Edit Content</h4>
-                  <p>Update articles and pages</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Customize Theme</h4>
-                  <p>Change colors and layout</p>
-                </div>
-              </div>
-            </div>
-            <a href="/account/managePublicContent" class="action-btn">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
-              </svg>
-              Website Settings
-            </a>
+      <section class="management-section" id="public-website">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+            <p>Loading School Website…</p>
           </div>
         </div>
       </section>
       <% } %>
 
       <% if (hasFilesFeature) { %>
-      <!-- Files Section -->
-      <section id="documents" class="management-section">
-        <div class="section-header">
-          <h1>Docs/Sheets</h1>
-          <p>Create and manage collaborative files and sheets</p>
-        </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Docs/Sheets Hub</h2>
-            <p>Create rich text files and sheets with formulas. Assign to classes and teachers with view, edit, or comment permissions. All changes auto-save in real time.</p>
-            <div class="features-grid">
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Docs</h4>
-                  <p>Rich text editor with formatting and tables</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Spreadsheets</h4>
-                  <p>Tables with SUM, AVERAGE, MIN, MAX formulas</p>
-                </div>
-              </div>
-              <div class="feature-item">
-                <div class="feature-icon">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  </svg>
-                </div>
-                <div class="feature-content">
-                  <h4>Permissions</h4>
-                  <p>Assign view, edit, or comment access</p>
-                </div>
-              </div>
-            </div>
-            <a href="/documents?create=1" class="action-btn" data-no-spa>
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>
-              Open Docs/Sheets
-            </a>
+      <section class="management-section" id="documents">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+            <p>Loading Docs/Sheets…</p>
           </div>
         </div>
       </section>
       <% } %>
 
-      <% if (canSeeEmailIssues) { %>
-      <section id="email-issues" class="management-section">
-        <div class="section-header">
-          <h1>Email Issues</h1>
-          <p>Users with undeliverable email addresses that require correction</p>
+      <section class="management-section" id="integrations">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M8 12h8"/><path d="M12 8v8"/><circle cx="12" cy="12" r="9"/></svg>
+            <p>Loading Integrations…</p>
+          </div>
         </div>
-        <div class="section-content">
-          <div class="section-card">
-            <h2>Incorrect Email Addresses</h2>
-            <p>
-              <% if (failedEmailCount > 0) { %>
-                <span style="color:#dc2626;font-weight:600;"><%=failedEmailCount%> user<%= failedEmailCount !== 1 ? 's have' : ' has' %> an undeliverable email address.</span>
-                Review and correct them below. Once a test email goes through the record is cleared automatically.
-              <% } else { %>
-                No email delivery failures on record. This section updates automatically when a failure is detected.
-              <% } %>
-            </p>
-            <a href="/common/failedEmails" class="action-btn" data-no-spa>
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" style="width:16px;height:16px">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
-              </svg>
-              View &amp; Fix Email Issues<% if (failedEmailCount > 0) { %> (<%=failedEmailCount%>)<% } %>
-            </a>
+      </section>
+
+      <% if (canSeeEmailIssues) { %>
+      <section class="management-section" id="email-issues">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <p>Loading Email Issues…</p>
           </div>
         </div>
       </section>
@@ -1640,14 +689,6 @@
     const nav = document.getElementById('management-nav');
     const navClose = document.getElementById('management-nav-close');
     const overlay = document.getElementById('management-nav-overlay');
-    const navCurrent = document.getElementById('management-nav-current');
-
-    const syncToggleLabel = activeLink => {
-      if (!navCurrent || !activeLink) return;
-
-      const label = activeLink.querySelector('span:last-child');
-      navCurrent.textContent = label ? label.textContent.trim() : activeLink.textContent.trim();
-    };
 
     const setNavOpen = isOpen => {
       nav.classList.toggle('open', isOpen);
@@ -1655,37 +696,356 @@
       navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     };
 
-    // Only initialize if elements exist
     if (!navToggle || !nav || !overlay) return;
 
-    // Bind once per DOM instance. The SPA re-executes page scripts and
-    // re-dispatches DOMContentLoaded on every navigation; without this guard
-    // the toggle accumulates duplicate handlers and the menu opens then
-    // immediately closes ("doesn't open").
     if (navToggle.dataset.spaMenuBound === '1') return;
     navToggle.dataset.spaMenuBound = '1';
 
-    syncToggleLabel(document.querySelector('.nav-link.active'));
+    // Tracks whichever panel is currently on-screen, so the load handler
+    // below knows it's safe to update the address bar when that panel's
+    // iframe navigates internally (e.g. clicking a link inside it) — a
+    // background-preloaded panel's internal navigation must never touch
+    // the URL, since the user isn't looking at it.
+    let activeGroup = null;
 
-    // Section navigation
-    navLinks.forEach(link => {
-      link.addEventListener('click', function() {
-        const sectionId = this.getAttribute('data-section');
-        
-        navLinks.forEach(l => l.classList.remove('active'));
-        this.classList.add('active');
-        syncToggleLabel(this);
-        
-        sections.forEach(s => s.classList.remove('active'));
-        const targetSection = document.getElementById(sectionId);
-        if (targetSection) targetSection.classList.add('active');
+    function activateSectionOnly(sectionId) {
+      activeGroup = sectionId;
+      const navLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
 
-        if (window.innerWidth <= 900) {
-          setNavOpen(false);
+      navLinks.forEach(l => l.classList.remove('active'));
+      if (navLink) navLink.classList.add('active');
+
+      sections.forEach(s => s.classList.remove('active'));
+      const targetSection = document.getElementById(sectionId);
+      if (targetSection) targetSection.classList.add('active');
+
+      if (window.innerWidth <= 900) {
+        setNavOpen(false);
+      }
+    }
+
+    function setEmbedLinkActive(url) {
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      document.querySelectorAll(`[data-embed-url="${CSS.escape(url)}"]`).forEach(l => l.classList.add('active'));
+    }
+
+    // Each destination is its own full standalone page with its own <head>
+    // styles and breakpoints. Loading it in a same-origin iframe — instead
+    // of fetching the HTML and injecting it into this page — means it
+    // renders exactly as it would in its own tab: its CSS/JS never collides
+    // with ours, and its responsive layout reacts to its own real
+    // rendering width instead of getting confused by a foreign container.
+    // Adds ?embed=workspace to the target URL. The destination controllers
+    // recognize this flag (same convention used across the app) and skip
+    // rendering the global header/footer/chatbot for that request, since
+    // this page already has its own.
+    function withEmbedFlag(url) {
+      const separator = url.includes('?') ? '&' : '?';
+      return url + separator + 'embed=workspace';
+    }
+
+    // Inverse of withEmbedFlag — used to read back the iframe's *current*
+    // location (after it has navigated internally, e.g. following a link)
+    // as a clean, storable URL, stripped of the embed marker we added.
+    // Guards against "about:blank" (the browser's own placeholder for an
+    // iframe that hasn't finished navigating yet) so a load event racing
+    // ahead of the real navigation can never get captured as a real page.
+    function stripEmbedFlag(href) {
+      if (!href || href === 'about:blank') return null;
+      try {
+        const parsed = new URL(href, window.location.href);
+        parsed.searchParams.delete('embed');
+        return parsed.pathname + parsed.search + parsed.hash;
+      } catch (err) {
+        return null;
+      }
+    }
+
+    // Full-page dashboards were never designed to render squeezed inside a
+    // hub panel — if an embedded page's own navigation (a redirect, a link)
+    // ever lands on one of these, break all the way out to a real top-level
+    // page load instead of leaving it stuck inside the iframe. Returns true
+    // if it fired, so the caller can skip its own iframe-specific handling.
+    function escapeIframeForFullPageDashboard(href) {
+      if (!href) return false;
+      if (/^\/common\/(orgDashboard|publicDashboard)(?:[/?]|$)/.test(href)) {
+        window.top.location.href = href;
+        return true;
+      }
+      return false;
+    }
+
+    // Same-origin — nudge the loaded page to sit flush left instead of
+    // centered with wide side margins, now that it has the full panel
+    // width to itself and no longer needs to leave room for a header.
+    function leftAlignEmbeddedDoc(iframe) {
+      try {
+        const doc = iframe.contentDocument;
+        if (doc && doc.head && !doc.getElementById('__hub-left-align')) {
+          const style = doc.createElement('style');
+          style.id = '__hub-left-align';
+          style.textContent = 'body{margin-left:0 !important;} main{margin-left:0 !important; margin-right:0 !important;}';
+          doc.head.appendChild(style);
+        }
+      } catch (err) {
+        // Cross-origin — nothing more we can do.
+      }
+    }
+
+    // Watches for the iframe navigating to a NEW document — same-origin
+    // pages inside it (Save buttons, etc.) trigger real navigations we
+    // don't otherwise get a callback for. pagehide fires right as that
+    // starts, so we can show the spinner again immediately instead of
+    // leaving a frozen-looking page until the next one arrives.
+    // (Deliberately NOT beforeunload: a beforeunload listener on ANY
+    // frame — including a subframe like this iframe — disqualifies the
+    // whole top-level hub page from the browser's back-forward cache.
+    // With one of these attached to every panel iframe, leaving the hub
+    // for a full-page destination like PayGira and clicking Back could
+    // never restore instantly — it always forced a full reload, which is
+    // what made returning to the hub feel like it "loads forever.")
+    function watchForInternalNavigation(iframe, overlay) {
+      try {
+        const win = iframe.contentWindow;
+        if (!win) return;
+        win.addEventListener('pagehide', function() {
+          overlay.hidden = false;
+        });
+      } catch (err) {
+        // Cross-origin — nothing more we can do.
+      }
+    }
+
+    // Keeps track of which URL is currently loaded (and cached, ready to
+    // reuse) in each panel's iframe, so switching between sections you've
+    // already visited is instant instead of re-fetching and re-rendering
+    // every single time.
+    const loadedPanelUrls = {};
+
+    // Remembers the sidebar label for whichever URL is currently loaded in
+    // each panel, so the polling backstop below can rebuild a proper hub
+    // URL (with a human-readable label) without having to guess one.
+    const panelLabels = {};
+
+    // Backstop that keeps the address bar honest even when a single 'load'
+    // event isn't enough to catch it — multi-step redirects inside the
+    // embedded page, or a browser quirk around the timing of that event,
+    // can otherwise leave the URL pointing at a stale page. This just
+    // samples the truth every second: if the panel you're actually looking
+    // at has navigated somewhere new (same-origin, so we can read it),
+    // sync the address bar to match. Background-preloaded panels are never
+    // touched since activeGroup only ever names the one on-screen.
+    setInterval(function () {
+      if (!activeGroup) return;
+      const panel = document.querySelector('#' + activeGroup + ' .embed-panel-body');
+      if (!panel) return;
+      const iframe = panel.querySelector('.embed-iframe');
+      if (!iframe) return;
+
+      let currentHref;
+      try {
+        currentHref = stripEmbedFlag(iframe.contentWindow.location.href);
+      } catch (err) {
+        return; // Cross-origin — nothing more we can do.
+      }
+      if (!currentHref || loadedPanelUrls[activeGroup] === currentHref) return;
+      if (escapeIframeForFullPageDashboard(currentHref)) return;
+
+      loadedPanelUrls[activeGroup] = currentHref;
+      const label = panelLabels[activeGroup];
+      const hubUrl = '/common/management?panel=' + encodeURIComponent(activeGroup)
+        + '&page=' + encodeURIComponent(currentHref)
+        + (label ? '&label=' + encodeURIComponent(label) : '');
+      history.replaceState({ embedGroup: activeGroup, embedUrl: currentHref, embedLabel: label }, '', hubUrl);
+    }, 1000);
+
+    function loadEmbed(group, url, label, pushHistory, background) {
+      if (escapeIframeForFullPageDashboard(url)) return;
+      if (label) panelLabels[group] = label;
+      const panel = document.querySelector('#' + group + ' .embed-panel-body');
+      if (!panel) {
+        if (!background) window.location.href = url;
+        return;
+      }
+
+      // Already loaded in this panel — just make sure it's the visible/
+      // active one and skip straight past the fetch + spinner entirely.
+      if (loadedPanelUrls[group] === url && panel.querySelector('.embed-iframe')) {
+        if (!background) {
+          setEmbedLinkActive(url);
+          if (pushHistory !== false) {
+            const hubUrl = '/common/management?panel=' + encodeURIComponent(group)
+              + '&page=' + encodeURIComponent(url)
+              + (label ? '&label=' + encodeURIComponent(label) : '');
+            history.pushState({ embedGroup: group, embedUrl: url, embedLabel: label }, '', hubUrl);
+          }
+        }
+        return;
+      }
+
+      // A silent background preload only ever needs to happen once per
+      // panel — if something's already mid-flight (or finished) in there,
+      // leave it alone instead of restarting the load.
+      if (background && panel.querySelector('.embed-iframe')) return;
+
+      // A load for this exact URL in this exact panel is already in flight
+      // — most often the background preload queue got to it but hasn't
+      // finished yet, and the user clicked over before it did. Its own
+      // 'load' listener (already attached) will finish the job: hide the
+      // spinner, reveal the iframe, and record it in loadedPanelUrls.
+      // Tearing it down here to "start fresh" would throw away that
+      // progress and force a whole second fetch — exactly what made
+      // switching to a panel feel like it never learned to cache itself.
+      // Just surface it and let it land. (Scoped to the same target URL
+      // only — if the panel's existing iframe has since navigated
+      // somewhere else internally, e.g. drilled into a sub-page, this nav
+      // click should still reset it back to its own canonical page like
+      // normal, not leave the sub-page showing.)
+      const inFlightIframe = panel.querySelector('.embed-iframe');
+      const inFlightMatchesTarget = inFlightIframe
+        && inFlightIframe.src === new URL(withEmbedFlag(url), window.location.href).href;
+      if (inFlightMatchesTarget) {
+        if (!background) {
+          setEmbedLinkActive(url);
+          if (pushHistory !== false) {
+            const hubUrl = '/common/management?panel=' + encodeURIComponent(group)
+              + '&page=' + encodeURIComponent(url)
+              + (label ? '&label=' + encodeURIComponent(label) : '');
+            history.pushState({ embedGroup: group, embedUrl: url, embedLabel: label }, '', hubUrl);
+          }
+          if (inFlightIframe.style.display === 'none') {
+            const overlay = panel.querySelector('.embed-overlay-spinner');
+            if (overlay) overlay.hidden = false;
+          }
+        }
+        return;
+      }
+
+      if (background) {
+        // Clear out the static placeholder without showing a spinner —
+        // nothing here is visible yet, it's just warming up for later.
+        panel.innerHTML = '';
+      } else {
+        setEmbedLinkActive(url);
+        panel.innerHTML = '<div class="embed-loading"><span class="btn-spinner" aria-hidden="true"></span>Loading ' + (label || 'page') + '…</div>';
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.className = 'embed-iframe';
+      iframe.title = label || 'Embedded page';
+      iframe.style.display = 'none';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'embed-overlay-spinner';
+      overlay.hidden = true;
+      overlay.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span>Loading…';
+
+      iframe.addEventListener('load', function onLoad() {
+        // The very first "load" a freshly-inserted iframe fires can be for
+        // the browser's own "about:blank" placeholder, racing ahead of the
+        // real navigation we asked for — ignore it completely so it never
+        // gets treated as the real page (it has no relation to `url`).
+        if (iframe.contentWindow && iframe.contentWindow.location.href === 'about:blank') {
+          return;
         }
 
-        history.replaceState(null, null, '#' + sectionId);
+        try {
+          if (escapeIframeForFullPageDashboard(stripEmbedFlag(iframe.contentWindow.location.href))) return;
+        } catch (err) {
+          // Cross-origin — nothing more we can do.
+        }
+
+        const loading = panel.querySelector('.embed-loading');
+        if (loading) loading.remove();
+        iframe.style.display = 'block';
+        overlay.hidden = true;
+        leftAlignEmbeddedDoc(iframe);
+        watchForInternalNavigation(iframe, overlay);
+
+        // The iframe may have landed here via its OWN internal navigation
+        // (a link clicked inside the embedded page), not just our initial
+        // load — same-origin, so we can read its real current location.
+        // Re-sync our URL/cache to wherever it actually ended up, so a
+        // refresh of the hub page lands back on THIS page instead of
+        // snapping back to whatever was first opened in this panel.
+        try {
+          const currentHref = stripEmbedFlag(iframe.contentWindow.location.href);
+          if (currentHref && currentHref !== url) {
+            url = currentHref;
+            if (!background && group === activeGroup) {
+              const hubUrl = '/common/management?panel=' + encodeURIComponent(group)
+                + '&page=' + encodeURIComponent(url)
+                + (label ? '&label=' + encodeURIComponent(label) : '');
+              history.replaceState({ embedGroup: group, embedUrl: url, embedLabel: label }, '', hubUrl);
+            }
+          }
+        } catch (err) {
+          // Cross-origin — nothing more we can do, keep the original url.
+        }
+
+        // Only cache it as "ready to reuse" once it's actually finished
+        // loading successfully — never on a page that's still in flight.
+        loadedPanelUrls[group] = url;
       });
+
+      iframe.addEventListener('error', function() {
+        delete loadedPanelUrls[group];
+        panel.innerHTML = '<div class="embed-error">Could not load this here. '
+          + '<a href="' + url + '" data-no-spa>Open it directly instead</a>.</div>';
+      });
+
+      // Set the real destination BEFORE inserting the iframe into the
+      // document — appending a src-less iframe first is what queues that
+      // spurious "about:blank" load in some browsers; giving it a src up
+      // front means the only navigation that ever happens is the real one.
+      iframe.src = withEmbedFlag(url);
+      panel.appendChild(iframe);
+      panel.appendChild(overlay);
+
+      if (pushHistory !== false) {
+        // Keep the visible address on /common/management (with the open
+        // panel encoded as query params) instead of the real destination
+        // URL — otherwise a refresh reloads that destination as its own
+        // bare top-level page instead of staying inside the Management hub.
+        const hubUrl = '/common/management?panel=' + encodeURIComponent(group)
+          + '&page=' + encodeURIComponent(url)
+          + (label ? '&label=' + encodeURIComponent(label) : '');
+        history.pushState({ embedGroup: group, embedUrl: url, embedLabel: label }, '', hubUrl);
+      }
+    }
+
+    // Every item is a plain link — clicking activates its panel and loads
+    // the page straight into it. A nav item with no data-embed-url (e.g.
+    // PayGira) isn't part of the panel system at all — let it navigate
+    // away normally instead of intercepting the click.
+    navLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        const embedUrl = this.getAttribute('data-embed-url');
+        if (!embedUrl) return;
+        e.preventDefault();
+        const sectionId = this.getAttribute('data-section');
+        const embedLabel = this.getAttribute('data-embed-label');
+        activateSectionOnly(sectionId);
+        loadEmbed(sectionId, embedUrl, embedLabel);
+      });
+    });
+
+    // Warm the connection (and let the server start working) the moment a
+    // pointer hovers or a link gets keyboard focus, so the click itself
+    // feels instant. Each URL is only ever prefetched once.
+    const prefetchedUrls = new Set();
+    function prefetchEmbedUrl(url) {
+      if (!url || prefetchedUrls.has(url)) return;
+      prefetchedUrls.add(url);
+      fetch(withEmbedFlag(url), { credentials: 'same-origin' }).catch(function () {
+        prefetchedUrls.delete(url);
+      });
+    }
+    document.querySelectorAll('[data-embed-url]').forEach(link => {
+      const url = link.getAttribute('data-embed-url');
+      if (!url) return;
+      link.addEventListener('mouseenter', function () { prefetchEmbedUrl(url); }, { once: true });
+      link.addEventListener('focus', function () { prefetchEmbedUrl(url); }, { once: true });
     });
 
     // Mobile navigation toggle
@@ -1705,30 +1065,127 @@
     });
 
     document.addEventListener('click', function(e) {
-      if (window.innerWidth > 900 || !nav.classList.contains('open')) {
-        return;
-      }
-
-      if (nav.contains(e.target) || navToggle.contains(e.target)) {
-        return;
-      }
-
+      if (window.innerWidth > 900 || !nav.classList.contains('open')) return;
+      if (nav.contains(e.target) || navToggle.contains(e.target)) return;
       setNavOpen(false);
     });
 
-    // Handle initial hash
-    if (window.location.hash) {
-      const sectionId = window.location.hash.substring(1);
-      const targetLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
-      if (targetLink) {
-        targetLink.click();
+    window.addEventListener('resize', function() {
+      if (window.innerWidth > 900) setNavOpen(false);
+    });
+
+    window.addEventListener('popstate', function(e) {
+      const state = e.state;
+      if (state && state.embedGroup && state.embedUrl) {
+        activateSectionOnly(state.embedGroup);
+        loadEmbed(state.embedGroup, state.embedUrl, state.embedLabel, false);
+        return;
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const panel = params.get('panel');
+      const page = params.get('page');
+      if (panel && page && document.getElementById(panel)) {
+        activateSectionOnly(panel);
+        loadEmbed(panel, page, params.get('label'), false);
+      } else {
+        const defaultLink = document.querySelector('.nav-link[data-embed-url]');
+        if (defaultLink) {
+          activateSectionOnly(defaultLink.getAttribute('data-section'));
+          loadEmbed(
+            defaultLink.getAttribute('data-section'),
+            defaultLink.getAttribute('data-embed-url'),
+            defaultLink.getAttribute('data-embed-label'),
+            false
+          );
+        }
+      }
+    });
+
+    // Restoring this page from the browser's back-forward cache (e.g. after
+    // leaving for a full page like PayGira and clicking Back) resumes every
+    // panel iframe exactly as frozen — including any async UI state one of
+    // them had mid-flight (a row action showing its own inline "Loading…",
+    // a fetch() that was in progress when the tab froze, etc). That request
+    // doesn't get a chance to resolve, so the stuck state just comes back
+    // looking like it's "loading forever." Throw away every cached panel and
+    // force a genuinely fresh reload of whichever one is on screen — the
+    // rest will simply reload on demand the next time their nav item is
+    // clicked, same as a normal cold visit.
+    window.addEventListener('pageshow', function (e) {
+      if (!e.persisted) return;
+      const activeUrl = activeGroup ? loadedPanelUrls[activeGroup] : null;
+      Object.keys(loadedPanelUrls).forEach(function (group) {
+        delete loadedPanelUrls[group];
+        const panel = document.querySelector('#' + group + ' .embed-panel-body');
+        if (panel) panel.innerHTML = '';
+      });
+      if (activeGroup && activeUrl) {
+        loadEmbed(activeGroup, activeUrl, panelLabels[activeGroup], false);
+      }
+    });
+
+    // On a fresh load (including a refresh), restore whichever panel was
+    // open — encoded in the URL's own query params — instead of always
+    // falling back to the default section.
+    const restoreParams = new URLSearchParams(window.location.search);
+    const restorePanel = restoreParams.get('panel');
+    const restorePage = restoreParams.get('page');
+
+    let initialSection = null;
+    if (restorePanel && restorePage && document.getElementById(restorePanel)) {
+      activateSectionOnly(restorePanel);
+      loadEmbed(restorePanel, restorePage, restoreParams.get('label'), false);
+      initialSection = restorePanel;
+    } else {
+      const initialActive = document.querySelector('.nav-link.active[data-embed-url]');
+      if (initialActive) {
+        initialSection = initialActive.getAttribute('data-section');
+        loadEmbed(
+          initialActive.getAttribute('data-section'),
+          initialActive.getAttribute('data-embed-url'),
+          initialActive.getAttribute('data-embed-label'),
+          false
+        );
       }
     }
 
-    window.addEventListener('resize', function() {
-      if (window.innerWidth > 900) {
-        setNavOpen(false);
-      }
+    // Background-preload every other panel behind the scenes, staggered so
+    // we don't fire a dozen requests at once. Each one lands in its own
+    // hidden section (loadEmbed only flips a section visible when its own
+    // nav link is clicked), so by the time the user actually clicks over,
+    // loadedPanelUrls already has it cached and it shows instantly instead
+    // of waiting on a fresh iframe load.
+    const backgroundQueue = [];
+    const seenSections = new Set(initialSection ? [initialSection] : []);
+    document.querySelectorAll('.nav-link[data-embed-url]').forEach(function (link) {
+      const sectionId = link.getAttribute('data-section');
+      if (!sectionId || seenSections.has(sectionId)) return;
+      seenSections.add(sectionId);
+      backgroundQueue.push({
+        sectionId: sectionId,
+        url: link.getAttribute('data-embed-url'),
+        label: link.getAttribute('data-embed-label'),
+      });
     });
+
+    // Two at a time keeps this from ever competing with the panel the user
+    // is actually looking at, while still getting everything warmed up in
+    // roughly half the time a strictly one-by-one queue would take.
+    const BACKGROUND_PRELOAD_CONCURRENCY = 2;
+    function preloadNextInBackground() {
+      const next = backgroundQueue.shift();
+      if (!next) return;
+      loadEmbed(next.sectionId, next.url, next.label, false, true);
+      setTimeout(preloadNextInBackground, 250);
+    }
+
+    if (backgroundQueue.length) {
+      setTimeout(function () {
+        for (let i = 0; i < BACKGROUND_PRELOAD_CONCURRENCY; i++) {
+          preloadNextInBackground();
+        }
+      }, 400);
+    }
   })();
 </script>

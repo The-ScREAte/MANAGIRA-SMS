@@ -10,7 +10,7 @@
       }
 
 
-        body {
+    body {
       font-family: var(--font-family);
       background: #fff;
       margin: 0;
@@ -19,7 +19,29 @@
       text-align: center;
       margin: 0 auto;
       width: min(96%, 1280px);
-      padding-bottom: 32px;
+      padding-bottom: 96px;
+    }
+    /* Flat, full-bleed toolbar fixed to the bottom of the drawer's own
+       viewport — deliberately NOT styled as a rounded/bordered card like
+       .modify-assessment-card above it, so it reads as a persistent action
+       dock rather than a second floating card sitting on the page background. */
+    .ma-footer-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      background: #fff;
+      border-top: 1px solid #e5e7eb;
+      box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.06);
+      padding: 14px 0 calc(14px + env(safe-area-inset-bottom, 0px));
+    }
+    .ma-footer-bar-inner {
+      width: min(96%, 1280px);
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 28px;
+      box-sizing: border-box;
     }
     .center-link {
       display: flex;
@@ -198,9 +220,8 @@
       flex-wrap: nowrap !important;
       align-items: center !important;
       gap: 10px;
-      margin: 18px 0 4px 0;
-      width: 100%;
       overflow-x: auto;
+      width: 100%;
     }
     .form-actions > * {
       flex: 0 0 auto !important;
@@ -485,7 +506,8 @@
 
     /* ── Responsive ── */
     @media (max-width: 640px) {
-      main { width: 100%; padding: 0 12px 24px; }
+      main { width: 100%; padding: 0 12px 110px; }
+      .ma-footer-bar-inner { width: 100%; max-width: none; padding: 0 12px; }
       .main-heading { font-size: 1.25rem; margin: 14px 0 8px; }
       .modify-assessment-card { padding: 18px 14px 16px; border-radius: 10px; gap: 10px; }
       .assessment-layout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -505,14 +527,20 @@
       .form-group input, .form-group select { font-size: 0.9rem; padding: 7px 8px; }
       .date-group-grid { grid-template-columns: 1fr; gap: 8px; }
       .date-group-note { font-size: 0.82rem; }
-      .form-actions { gap: 8px; justify-content: flex-start !important; flex-wrap: nowrap !important; flex-direction: row !important; }
+      .form-actions {
+        gap: 8px;
+        justify-content: flex-start !important;
+        flex-wrap: nowrap !important;
+        flex-direction: row !important;
+      }
+      .ma-footer-bar { padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)); }
       .submit-btn { font-size: 0.85rem; padding: 6px 10px; }
       .delete-button { width: 40px !important; min-width: 40px !important; }
       .check-row label { font-size: 0.88rem; }
       .modify-classes-heading { font-size: 0.98rem; }
     }
     @media (max-width: 400px) {
-      main { padding: 0 8px 20px; }
+      main { padding: 0 8px 110px; }
       .main-heading { font-size: 1.1rem; }
       .modify-assessment-card { padding: 14px 10px; }
       .collapsible-btn { width: 100%; font-size: 0.82rem; }
@@ -635,24 +663,27 @@
             <% }); %>
           </div>
         </div>
-        <div class="form-actions">
-          <button type="submit" class="submit-btn" id="saveAssessmentBtn">
-            <span class="submit-spinner" aria-hidden="true"></span>
-            <span class="submit-btn-text">Save Changes</span>
-          </button>
-          <button type="button" class="delete-button" id="deleteAssessmentBtn" onclick="deleteAssessment()" aria-label="Delete assessment" title="Delete assessment">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-              <path d="M10 11v6"></path>
-              <path d="M14 11v6"></path>
-              <path d="M9 6V4h6v2"></path>
-            </svg>
-          </button>
-        </div>
       </div>
     </form>
 </main>
+
+<div class="ma-footer-bar">
+  <div class="ma-footer-bar-inner form-actions">
+    <button type="submit" class="submit-btn" id="saveAssessmentBtn" form="modifyAssessmentForm">
+      <span class="submit-spinner" aria-hidden="true"></span>
+      <span class="submit-btn-text">Save Changes</span>
+    </button>
+    <button type="button" class="delete-button" id="deleteAssessmentBtn" onclick="deleteAssessment()" aria-label="Delete assessment" title="Delete assessment">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+        <path d="M10 11v6"></path>
+        <path d="M14 11v6"></path>
+        <path d="M9 6V4h6v2"></path>
+      </svg>
+    </button>
+  </div>
+</div>
 
 <script>
   function setModifyAssessmentSavingState(isSaving) {

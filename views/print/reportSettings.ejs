@@ -19,6 +19,10 @@
 
     * { box-sizing: border-box; }
 
+    /* Bumps every rem-based font size on this page up a notch — most of
+       the labels/badges/helper text here were sized quite small. */
+    html { font-size: 112.5%; }
+
     body {
       margin: 0;
       font-family: var(--font-family);
@@ -27,9 +31,9 @@
     }
 
     main {
-      width: min(98vw, 1520px);
-      max-width: 1520px;
-      margin: 24px auto 48px;
+      width: 100%;
+      max-width: none;
+      margin: 20px 0 48px;
       padding: 0 12px;
       box-sizing: border-box;
     }
@@ -1605,7 +1609,7 @@
 
     @media (max-width: 960px) { .class-layout { grid-template-columns: 1fr; } .class-button { display: inline-flex; width: auto; } }
     @media (max-width: 640px) {
-      main { padding: 70px 8px 0; margin-top: 16px; }
+      main { padding: <%= (typeof isEmbedded !== 'undefined' && isEmbedded) ? '0 8px' : '70px 8px 0' %>; margin-top: 16px; }
       .hero { padding: 16px 16px; border-radius: 0; }
       .hero h1 { font-size: 1.3rem; }
       .hero p { font-size: 0.88rem; }
@@ -2262,11 +2266,6 @@
   </div>
   <%- include('../partials/flash') %>
   <main>
-    <div class="hero">
-      <h1>Report Settings</h1>
-      <p>Manage global report remarks, signatures, and class-specific promotion rules in one place.</p>
-    </div>
-
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
     <% const classOrderIndexMap = {}; (enrolledClasses || []).forEach((cls, idx) => { classOrderIndexMap[String(cls.class_id)] = idx; }); %>
     <% const hasTranscriptFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Official School Transcript') || allowedFeatures.includes('Official Transcript')); %>

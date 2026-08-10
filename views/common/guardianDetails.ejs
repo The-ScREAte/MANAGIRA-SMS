@@ -1009,12 +1009,12 @@
 </style>
 
 <div class="gd-page">
+  <% if (typeof hideGlobalHeader === 'undefined' || !hideGlobalHeader) { %>
   <div class="gd-top-bar">
     <h1>Guardian Details</h1>
-    <% if (typeof hideGlobalHeader === 'undefined' || !hideGlobalHeader) { %>
     <a href="/common/guardians" class="gd-back-btn">← Back to Guardians</a>
-    <% } %>
   </div>
+  <% } %>
 
   <!-- Profile Card -->
   <div class="gd-card">
@@ -1697,6 +1697,7 @@
       }
       alert('Student relinked successfully.');
       closeGuardianActionModal();
+      notifyParentDrawerSaved();
       window.location.reload();
     } catch (error) {
       console.error('[guardianRelink][client] network/error', error);
@@ -1723,6 +1724,7 @@
       }
       alert('Student removed successfully.');
       closeGuardianActionModal();
+      notifyParentDrawerSaved();
       window.location.reload();
       return true;
     } catch (_) {
@@ -1767,5 +1769,21 @@
     });
 
     window.__guardianActionModalBound = true;
+  }
+
+  function notifyParentDrawerSaved() {
+    if (window.parent && window.parent !== window) {
+      try {
+        window.parent.postMessage({ managiraDrawerSaved: true }, window.location.origin);
+      } catch (err) { /* ignore */ }
+    }
+  }
+
+  // The edit-profile form is a plain POST that redirects back to this same
+  // page with a flash message — if we land back here (inside the drawer)
+  // with a success flash showing, that redirect just happened, so let the
+  // parent know a save actually went through.
+  if (window.parent && window.parent !== window && document.querySelector('.flash-message.success')) {
+    notifyParentDrawerSaved();
   }
 </script>

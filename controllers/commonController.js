@@ -9,6 +9,7 @@ const { uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 const axios = require("axios");
 const he = require("he");
 const { buildFailureNotification, sendEmailSafely, sendEmailInBackground, renderCleanEmail, recordEmailDeliveryFailure } = require("../utils/emailHelper");
+const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
@@ -4349,6 +4350,7 @@ const commonController = {
   addStudentGet: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
+      const isEmbedded = isEmbeddedRequest(req, "addStudent");
 
       // Fetch classes
       const classQuery = `
@@ -4441,6 +4443,10 @@ const commonController = {
 
       res.render("common/addStudent", {
         title: "Add New Student",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         classes: classResult.rows,
         graduationYearGroups: graduationYearGroupResult.rows,
         subjects: subjectResult.rows,
@@ -7079,6 +7085,7 @@ const commonController = {
   viewPendingAdmissions: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
+      const isEmbedded = isEmbeddedRequest(req, "admissionPending");
 
       const result = await db.query(
         `
@@ -7094,6 +7101,10 @@ const commonController = {
 
       res.render("common/admissionPending", {
         title: "Admission Pending",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         pendingStudents: result.rows,
         messages: req.flash(),
       });
@@ -8770,7 +8781,7 @@ const commonController = {
 
   attendanceCollection: async (req, res, db) => {
     const { classId, termId } = req.query;
-    const isEmbedded = String(req.query.embed || '').toLowerCase() === 'workspace';
+    const isEmbedded = isEmbeddedRequest(req, "attendanceCollection");
 
     if (!classId || !termId) {
       return res.status(400).send("Class ID and Term ID are required.");
@@ -9748,6 +9759,7 @@ const commonController = {
 
   manageEmployees: async (req, res, db) => {
     try {
+      const isEmbedded = isEmbeddedRequest(req, "manageEmployees");
       await ensurePermissionsSchema(db);
       await ensureClassDashboardLayoutSchema(db);
 
@@ -9910,6 +9922,10 @@ const commonController = {
 
       res.render("common/manageEmployees", {
         title: "Manage Employees",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         employees: employees,
         permissionLabelMap,
         messages: {
@@ -12023,6 +12039,7 @@ NUMBERING:
   },
 
   manageAssessment: async (req, res, db) => {
+    const isEmbedded = isEmbeddedRequest(req, "manageAssessment");
     const sessionOrganizationId = parseInt(req.session.organizationId, 10);
     const requestedOrganizationId = req.query.organizationId
       ? parseInt(req.query.organizationId, 10)
@@ -12170,6 +12187,10 @@ NUMBERING:
 
       res.render("common/manageAssessment", {
         title: "Manage Assessments",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         organizationId,
         termId,
         assessments,
@@ -12190,7 +12211,7 @@ NUMBERING:
 
   allClassAssessmentExamsPage: async (req, res, db) => {
     const sessionOrganizationId = parseInt(req.session.organizationId, 10);
-    const isEmbedded = String((req.query && req.query.embed) || "").toLowerCase() === "workspace";
+    const isEmbedded = isEmbeddedRequest(req, "allClassAssessmentExams");
     const requestedOrganizationId = req.query.organizationId
       ? parseInt(req.query.organizationId, 10)
       : sessionOrganizationId;
@@ -13697,6 +13718,8 @@ NUMBERING:
         canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
         canUseQuestionSetIntegration,
         messages: req.flash(),
+        hideGlobalHeader: true,
+        hideGlobalFooter: true,
       });
     } catch (error) {
             req.flash("error", "Failed to load assessment details.");
@@ -14473,6 +14496,8 @@ NUMBERING:
         canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
         canUseQuestionSetIntegration,
         messages: req.flash(),
+        hideGlobalHeader: true,
+        hideGlobalFooter: true,
       });
     } catch (error) {
       req.flash("error", "Failed to load create test form.");
@@ -16026,6 +16051,8 @@ NUMBERING:
         title: "Register School Year",
         classes: classesResult.rows, // Pass classes to the view
         messages: req.flash(),
+        hideGlobalHeader: true,
+        hideGlobalFooter: true,
       });
     } catch (error) {
             req.flash(
@@ -16111,6 +16138,7 @@ NUMBERING:
   manageRecords: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
+      const isEmbedded = isEmbeddedRequest(req, "manageRecords");
       const schoolYearsResult = await db.query(
         "SELECT * FROM school_years WHERE organization_id = $1 ORDER BY current DESC, id ASC",
         [organizationId]
@@ -16194,6 +16222,10 @@ NUMBERING:
       // Pass messages to the view
       res.render("common/manageRecords", {
         title: "Manage Records",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         schoolYears,
         classes: classesResult.rows,
         events: eventsResult.rows,
@@ -16777,6 +16809,7 @@ NUMBERING:
   // Manage Events & Announcements (GET)
   manageEventsAnnouncementsGet: async (req, res, db) => {
     try {
+      const isEmbedded = isEmbeddedRequest(req, "manageEventsAnnouncements");
       // Fetch the current school year and term
       const currentSchoolYearTerm = await db.query(
         `
@@ -16807,6 +16840,10 @@ NUMBERING:
 
       res.render("common/manageEventsAnnouncements", {
         title: "Manage Events & Announcements",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         events: events.rows,
         announcements: announcements.rows,
         messages: req.flash(),
@@ -16886,6 +16923,7 @@ NUMBERING:
   addClassSubject: async (req, res, db) => {
     try {
       const { organizationId } = req.session;
+      const isEmbedded = isEmbeddedRequest(req, "addClassSubject");
 
       await ensureClassDashboardLayoutSchema(db);
 
@@ -16944,6 +16982,10 @@ NUMBERING:
         assignableSubjects,
         availableGradYearGroups,
         messages: req.flash(),
+        isEmbedded,
+        hideGlobalHeader: true,
+        hideGlobalFooter: true,
+        hideGlobalChatbot: isEmbedded,
       });
     } catch (error) {
             req.flash(
@@ -17290,6 +17332,7 @@ NUMBERING:
 
   manageClassSubjectAndGradYr: async (req, res, db) => {
     try {
+      const isEmbedded = isEmbeddedRequest(req, "manageClassSubjectAndGradYr");
       await ensureClassDashboardLayoutSchema(db);
 
       const graduationYearsResult = await db.query(
@@ -17381,6 +17424,10 @@ NUMBERING:
 
       res.render("common/manageClassSubjectAndGradYr", {
         title: "Modify Class, Subject & Grad Year",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         graduationYearGroups: graduationYearsResult.rows,
         classes,
         subjects,
@@ -17496,6 +17543,7 @@ NUMBERING:
 
       res.render("common/managementTools", {
         title: "Management Tools",
+        disableMainZoom: true,
         organizationId: req.session.organizationId,
         currentTerm: currentTerm,
         canManageEmployees,
@@ -17517,6 +17565,7 @@ NUMBERING:
     try {
       const orgId = req.session.organizationId;
       if (!orgId) return res.status(401).send('Unauthorized');
+      const isEmbedded = isEmbeddedRequest(req, "failedEmails");
 
       // Only managers and supervisors may access this page
       const role = String(
@@ -17580,6 +17629,10 @@ NUMBERING:
 
       res.render('common/failedEmails', {
         title: 'Email Issues',
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         failures: rows,
         messages: req.flash(),
       });
@@ -17588,6 +17641,10 @@ NUMBERING:
       // Render an empty page rather than a hard error
       res.render('common/failedEmails', {
         title: 'Email Issues',
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         failures: [],
         messages: {},
       });
@@ -18430,6 +18487,7 @@ NUMBERING:
   closeSchoolYear: async (req, res, db) => {
     try {
       const { organizationId } = req.session;
+      const isEmbedded = isEmbeddedRequest(req, "closeSchoolYear");
 
       // Fetch the current school year and its terms
       const currentSchoolYearResult = await db.query(
@@ -18486,6 +18544,10 @@ NUMBERING:
       // Render the page
       res.render("common/closeSchoolYear", {
         title: "Close School Year",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         currentSchoolYear,
         otherSchoolYears,
       });
@@ -18498,6 +18560,7 @@ NUMBERING:
   termDetails: async (req, res, db) => {
     const { termId } = req.params;
     const organizationId = req.session.organizationId;
+    const isEmbedded = isEmbeddedRequest(req, "termDetails");
 
     try {
       // Best-effort: ensure dashboard arrangement columns exist and are seeded.
@@ -18565,6 +18628,10 @@ NUMBERING:
       // Pass title, termId, and classes to the view
       res.render("common/termDetails", {
         title: "Term Details",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         term,
         classes,
         termId,
@@ -18583,6 +18650,7 @@ NUMBERING:
 
   closeGraduationYearGroup: async (req, res, db) => {
     try {
+      const isEmbedded = isEmbeddedRequest(req, "closeGraduationYearGroup");
       const gradYearGroupsResult = await db.query(
         "SELECT * FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name",
         [req.session.organizationId]
@@ -18602,6 +18670,10 @@ NUMBERING:
 
       res.render("common/closeGraduationYearGroup", {
         title: "Close Graduation Year Group",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         gradYearGroups,
       });
     } catch (error) {
@@ -18858,6 +18930,7 @@ NUMBERING:
   guardiansListGet: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
+      const isEmbedded = isEmbeddedRequest(req, "guardians");
 
       const guardiansResult = await db.query(
         `
@@ -19106,6 +19179,10 @@ NUMBERING:
 
             return res.render("common/guardians", {
         title: "Guardian Management",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         guardians: guardiansResult.rows,
         messages: req.flash(),
         req,
@@ -19122,6 +19199,7 @@ NUMBERING:
       const organizationId = req.session.organizationId;
       const guardianId = req.query.guardianId;
       const guardianSource = req.query.source === 'profile' ? 'profile' : 'legacy';
+      const isEmbedded = isEmbeddedRequest(req, "guardianDetails");
 
       if (!guardianId) {
         req.flash('error', 'Guardian ID is required');
@@ -19401,6 +19479,10 @@ NUMBERING:
 
       return res.render("common/guardianDetails", {
         title: "Guardian Details",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         guardian: guardian,
         students: studentsResult.rows,
         currentTermId: currentTermId,
@@ -21064,6 +21146,7 @@ NUMBERING:
     try {
       res.render("common/admissionsHub", {
         title: "Admissions",
+        disableMainZoom: true,
       });
     } catch (error) {
             res.status(500).send("Failed to load admissions page");
@@ -21074,6 +21157,7 @@ NUMBERING:
   allStudents: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
+      const isEmbedded = isEmbeddedRequest(req, "allStudents");
       const userId = req.session.user?.user_id || req.session.userId || null;
       const userRole = req.session.userRole || req.session.user?.account_type || null;
       const accountType = req.session.accountType || req.session.user?.account_type || null;
@@ -21175,6 +21259,10 @@ NUMBERING:
 
       res.render("common/allStudents", {
         title: "All Students",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         students,
         classes: classesResult.rows,
         schoolYears: schoolYearsResult.rows,
@@ -21977,8 +22065,38 @@ NUMBERING:
   // Reports Hub
   reportsHub: async (req, res, db) => {
     try {
+      const organizationId = req.session.organizationId;
+
+      // Report Settings needs a classId/termId and otherwise redirects to
+      // fill in defaults itself — precomputing the common case here means
+      // clicking it from the hub goes straight to the real page instead of
+      // paying for that extra redirect round trip inside the iframe.
+      let defaultReportSettingsUrl = "/print/reportSettings";
+      try {
+        const [defaultClassResult, defaultTermResult] = await Promise.all([
+          db.query(
+            "SELECT class_id FROM classes WHERE organization_id = $1 ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC LIMIT 1",
+            [organizationId]
+          ),
+          db.query(
+            "SELECT term_id FROM terms WHERE organization_id = $1 AND current = TRUE ORDER BY start_date DESC LIMIT 1",
+            [organizationId]
+          ),
+        ]);
+        const defaultClassId = defaultClassResult.rows[0]?.class_id;
+        const defaultTermId = defaultTermResult.rows[0]?.term_id;
+        if (defaultClassId && defaultTermId) {
+          defaultReportSettingsUrl = `/print/reportSettings?classId=${defaultClassId}&termId=${defaultTermId}`;
+        }
+      } catch (precomputeError) {
+        // Fall back to the bare URL — reportSettingsPage will still resolve
+        // its own defaults via its normal redirect, just with one extra hop.
+      }
+
       res.render("common/reportsHub", {
         title: "Reports",
+        disableMainZoom: true,
+        defaultReportSettingsUrl,
         messages: req.flash(),
       });
     } catch (error) {
@@ -21990,6 +22108,7 @@ NUMBERING:
   activityLogs: async (req, res, db) => {
     try {
       const organizationId = req.session.organizationId;
+      const isEmbedded = isEmbeddedRequest(req, "activityLogs");
       await ensureOrganizationActivityLogSchema(db);
 
       const filters = {
@@ -22015,6 +22134,10 @@ NUMBERING:
 
       res.render("common/activityLogs", {
         title: "Activity Logs",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         logs: logsBundle.rows,
         filters,
         filterOptions,

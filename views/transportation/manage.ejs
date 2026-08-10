@@ -27,10 +27,10 @@
     max-width: none;
     margin: 0;
     padding: 20px 24px 24px;
-    min-height: calc(100vh - 72px);
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr);
     gap: 16px;
+    align-items: start;
   }
 
   .tm-sidebar {
@@ -40,7 +40,7 @@
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
     padding: 16px;
     position: sticky;
-    top: 80px;
+    top: 20px;
     height: fit-content;
   }
 
@@ -147,7 +147,6 @@
     background: var(--tm-surface);
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
     overflow: visible;
-    min-height: calc(100vh - 86px);
   }
 
   .tm-pane {
@@ -2070,6 +2069,29 @@
     }).addTo(map);
     // Keep the required OpenStreetMap credit, drop Leaflet's own branding flag.
     map.attributionControl.setPrefix(false);
+
+    // This page can be background-preloaded (hidden, display:none) by the
+    // Management hub before its tab is ever clicked. Leaflet measures the
+    // container at init time, so a map built while hidden thinks it has
+    // zero size and its zoom math stays wrong even after it's shown —
+    // watch for the container actually getting real dimensions and fix it
+    // up then, instead of only on the few explicit spots that already call
+    // invalidateSize().
+    if (typeof ResizeObserver !== 'undefined') {
+      let lastKnownSize = 0;
+      const mapResizeObserver = new ResizeObserver(function (entries) {
+        const entry = entries[0];
+        if (!entry) return;
+        const size = entry.contentRect.width + entry.contentRect.height;
+        if (size > 0 && size !== lastKnownSize) {
+          lastKnownSize = size;
+          map.invalidateSize();
+        }
+      });
+      mapResizeObserver.observe(mapEl);
+      window.addEventListener('pagehide', () => mapResizeObserver.disconnect(), { once: true });
+    }
+
     attachSmartMapControls(map, L, {
       getLiveLatLng: () => (busLayer && busLayer.getLayers().length ? busLayer.getLayers()[0].getLatLng() : null),
     });
@@ -3329,12 +3351,31 @@
 
     async function fitToStops() {
       const drawState = await drawLayers();
-      if (!drawState.points.length) {
-        mapStatus.textContent = 'No stop coordinates found for the selected route filter.';
+      const points = drawState.points.slice();
+      // Fall back to whatever's actually on the map (live/scheduled bus
+      // markers) when there are no stop/school coordinates to fit to, so
+      // the view never gets stuck at the whole-country default zoom while
+      // a real bus pin is sitting there.
+      busLayer.eachLayer((layer) => {
+        if (typeof layer.getLatLng === 'function') points.push(layer.getLatLng());
+      });
+
+      if (!points.length) {
+        mapStatus.textContent = 'No stop or bus coordinates found for the selected route filter.';
         return;
       }
-      const bounds = L.latLngBounds(drawState.points);
-      map.fitBounds(bounds.pad(0.08), { maxZoom: 16 });
+
+      const bounds = L.latLngBounds(points);
+      const hasSpread = bounds.getNorthEast().distanceTo(bounds.getSouthWest()) > 50;
+      if (hasSpread) {
+        map.fitBounds(bounds.pad(0.18), { maxZoom: 16 });
+      } else {
+        // A single point (or several on top of each other) — fitBounds on
+        // that alone can leave Leaflet at its default/minimum zoom, so
+        // center directly with a sensible close-in zoom instead.
+        map.setView(bounds.getCenter(), 15);
+      }
+
       const routeFilterId = getSelectedRouteFilterId();
       const selectedRouteName = routeFilterId ? (routeNameById[routeFilterId] || `Route #${routeFilterId}`) : null;
       mapStatus.textContent = selectedRouteName
@@ -3395,7 +3436,7 @@
       }
     }
 
-    void pollLiveBuses();
+    const initialLiveBusPoll = pollLiveBuses();
     const liveBusPollTimer = window.setInterval(pollLiveBuses, 10000);
     window.addEventListener('pagehide', () => window.clearInterval(liveBusPollTimer), { once: true });
 
@@ -3432,7 +3473,12 @@
       }
     }
 
-    void fitToStops();
+    // Wait for the first live-GPS poll (capped so a slow/offline bus
+    // tracker can never delay the initial view) so a moving bus is already
+    // on the map before we decide what to fit/zoom to.
+    Promise.race([initialLiveBusPoll, new Promise((resolve) => setTimeout(resolve, 1500))])
+      .catch(() => {})
+      .then(() => void fitToStops());
     centerCityBtn.addEventListener('click', centerByCity);
     fitStopsBtn.addEventListener('click', () => {
       void fitToStops();

@@ -184,10 +184,26 @@ main { padding: 0 !important; max-width: none !important; }
   overflow: hidden;
 }
 
+/* Settings, embedded inside the Management hub's iframe, already sits inside
+   the hub's own .management-main card — skip the card styling here so it
+   doesn't render as a card-within-a-card. */
+.settings-layout.is-embedded-hub .settings-main {
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
 /* Settings page has no .section-header wrapper, content sits directly in .settings-main */
 .settings-main { padding: 24px 28px !important; }
 @media (max-width: 768px) {
   .settings-main { padding: 16px !important; }
+}
+
+/* Embedded inside the Management hub — the hub's own panel label already
+   identifies the section, so skip the redundant "Account Settings" eyebrow. */
+.settings-layout.is-embedded-hub .settings-main .settings-section > h1::before {
+  content: none;
 }
 
 /* Section header: left-aligned with eyebrow */

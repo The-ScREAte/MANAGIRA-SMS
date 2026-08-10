@@ -7,12 +7,10 @@
         --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
         --org-primary-light: color-mix(in srgb, var(--org-primary-color, #007bff) 15%, white);
       }
-                            <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary" data-no-spa>Settings & Signature</a>
-                            <% if (activatePromotion) { %>
-                            <a href="/promotion/apply" class="btn btn-primary" data-no-spa>Schedule Promotion</a>
-                            <% } %>
+
+      body {
             background-color: #f5f7fa;
-            padding-top: 80px;
+            padding-top: <%= (typeof isEmbedded !== 'undefined' && isEmbedded) ? '0' : '80px' %>;
           }
         .actions {
             text-align: center;
@@ -1315,7 +1313,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
                         position: sticky;
-                        top: 74px;
+                        top: <%= (typeof isEmbedded !== 'undefined' && isEmbedded) ? '0' : '74px' %>;
                         z-index: 20;
           }
                     .actions-menu-toggle {
@@ -2711,7 +2709,6 @@
                             Quick Actions
                         </button>
                         <div class="desktop-actions-menu" id="desktopActionsMenu" role="menu">
-                            <a href="/print/reportSettings?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary" data-no-spa>Settings & Signature</a>
                             <a href="#" class="btn btn-primary" onclick="printSelected(); return false;">Print Selected</a>
                             <a href="#" class="btn btn-primary" id="downloadReportsLink" onclick="downloadSelectedReports(); return false;">
                                 <span class="download-btn-spinner" aria-hidden="true"></span>

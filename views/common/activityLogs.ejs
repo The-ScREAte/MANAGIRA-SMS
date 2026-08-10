@@ -68,19 +68,11 @@
   body { background: #f9fafb; }
   main { padding: 0 !important; max-width: none !important; }
 
-  .logs-page { max-width: 1240px; margin: 12px auto 40px; width: 100%; padding: 0 20px; display: grid; gap: 12px; }
+  .logs-page { max-width: none; margin: 12px 0 40px; width: 100%; padding: 0 20px; display: grid; gap: 12px; }
 
   .logs-page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .logs-page-head h1 { margin: 0; font-size: 22px; color: #111827; }
-  .logs-page-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
-  .back-link {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 14px; border-radius: 8px;
-    border: 1px solid var(--border);
-    background: #fff; color: var(--primary) !important;
-    font-size: 0.82rem; font-weight: 600; text-decoration: none;
-  }
-  .back-link:hover { background: #f3f4f6; }
+  .logs-page-head h1 { margin: 0; font-size: 26px; color: #111827; }
+  .logs-page-head p { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
 
   .filters-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
   .filters-row { display: flex; flex-wrap: nowrap; gap: 6px; align-items: end; }
@@ -143,20 +135,20 @@
   .logs-list li { margin: 0; padding: 0; }
   .logs-head, .log-item {
     display: grid;
-    grid-template-columns: 154px 62px minmax(180px,1.4fr) 108px minmax(110px,1fr) minmax(180px,2fr);
-    gap: 8px; padding: 4px 16px; align-items: center;
+    grid-template-columns: 168px 72px minmax(190px,1.4fr) 118px minmax(120px,1fr) minmax(190px,2fr);
+    gap: 8px; padding: 6px 16px; align-items: center;
   }
   .logs-head {
     position: sticky; top: 0; z-index: 1;
     background: #f4f6f8; border-bottom: 2px solid var(--border);
-    font-size: 0.65rem; font-weight: 700; color: #9aa8ba;
+    font-size: 0.74rem; font-weight: 700; color: #9aa8ba;
     text-transform: uppercase; letter-spacing: 0.08em;
-    padding: 6px 16px; align-items: center;
+    padding: 8px 16px; align-items: center;
   }
   .log-item {
     border-top: 1px solid #f0f2f5;
     font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
-    font-size: 0.75rem; line-height: 1.45; color: #334155;
+    font-size: 0.86rem; line-height: 1.5; color: #334155;
   }
   /* Very faint stripe — odd rows plain white, even rows barely tinted */
   .log-item:nth-child(odd)  { background: #ffffff; }
@@ -165,19 +157,19 @@
   .log-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* Timestamp */
-  .log-stamp { color: #a7b2c0; font-variant-numeric: tabular-nums; font-size: 0.76rem; }
+  .log-stamp { color: #a7b2c0; font-variant-numeric: tabular-nums; font-size: 0.85rem; }
 
   /* Action — plain bold text, no badge box */
   .log-action {
     font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
-    font-size: 0.7rem; font-weight: 700;
+    font-size: 0.8rem; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.07em;
     color: #64748b;
   }
 
   /* User column — single line */
-  .log-user { font-weight: 600; color: #1e293b; }
-  .log-role { color: #a4afbd; font-size: 0.7rem; }
+  .log-user { font-weight: 600; color: #1e293b; font-size: 0.86rem; }
+  .log-role { color: #a4afbd; font-size: 0.8rem; }
   .log-role::before { content: ' · '; color: #dde1e7; }
 
   /* Module */
@@ -272,7 +264,7 @@
     font: inherit; cursor: pointer; text-align: left;
     width: 100%; display: block;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    color: #94a3b8; font-size: 0.76rem;
+    color: #94a3b8; font-size: 0.85rem;
     text-decoration: underline dotted #d1d5db;
     text-underline-offset: 2px;
     box-shadow: none !important; outline: none;
@@ -347,10 +339,6 @@
       <h1>Activity Logs</h1>
       <p>Meaningful actions across your organization. Filter to audit large activity volumes quickly.</p>
     </div>
-    <a href="/common/reports#activity-logs" class="back-link" data-no-spa>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-      Back to Reports
-    </a>
   </div>
 
   <form class="filters-panel" method="get" action="/common/activityLogs">

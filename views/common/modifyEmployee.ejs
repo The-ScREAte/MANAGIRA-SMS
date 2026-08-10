@@ -1,6 +1,8 @@
 <style>
   body {
     min-height: 100%;
+    padding-bottom: 100px;
+    box-sizing: border-box;
   }
 
     .flash-message {
@@ -99,14 +101,14 @@
         margin: 0;
       width: auto;
       max-width: 100%;
-      min-height: 36px;
-      padding: 7px 12px;
+      min-height: 32px;
+      padding: 6px 10px;
         align-items: center;
         justify-content: center;
         border: 1px solid transparent;
-        border-radius: 10px;
+        border-radius: 8px;
         font-weight: 600;
-      font-size: 0.88rem;
+      font-size: 0.84rem;
       white-space: nowrap;
     }
     .modify-employee-card .btn.btn-primary {
@@ -115,14 +117,31 @@
       justify-content: center;
       gap: 8px;
     }
+    /* Flat, full-bleed toolbar fixed to the bottom of the drawer's own
+       viewport — deliberately NOT styled as a rounded/bordered card like
+       .modify-employee-card above it, so it reads as a persistent action
+       dock rather than a second floating card sitting on the page background. */
+    .employee-actions-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      background: #fff;
+      border-top: 1px solid #e2e8f0;
+      box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.06);
+      padding: 10px 20px calc(10px + env(safe-area-inset-bottom, 0px));
+    }
+
     .employee-actions-row {
       display: flex;
       justify-content: flex-start !important;
       flex-wrap: nowrap;
       gap: 8px;
-      width: 100%;
       align-items: stretch;
       overflow-x: auto;
+      max-width: 1180px;
+      margin: 0 auto;
     }
     .employee-actions-row > * {
       flex: 0 0 auto !important;
@@ -140,22 +159,22 @@
     }
     .employee-action-form .btn {
       height: 100%;
-      padding: 0 10px;
+      padding: 0 8px;
     }
     #saveEmployeeBtn {
-      padding: 0 10px;
+      padding: 0 8px;
     }
     .employee-save-btn-text {
       white-space: nowrap;
     }
     .btn-icon-only {
-      width: 40px !important;
-      min-width: 40px;
+      width: 34px !important;
+      min-width: 34px;
       padding: 0;
     }
     .btn-icon-only svg {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
     }
     .employee-save-spinner {
       width: 14px;
@@ -211,9 +230,9 @@
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
-      width: 40px !important;
-      min-width: 40px !important;
-      min-height: 36px !important;
+      width: 34px !important;
+      min-width: 34px !important;
+      min-height: 32px !important;
       padding: 0 !important;
       opacity: 1 !important;
       visibility: visible !important;
@@ -223,8 +242,8 @@
     }
     .employee-actions-row .employee-delete-action svg {
       display: block;
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       stroke: #fff;
     }
     .employee-actions-row .btn.btn-danger:hover {
@@ -371,6 +390,9 @@
       .employee-fields-grid {
         grid-template-columns: 1fr;
       }
+      .employee-actions-bar {
+        padding: 8px 14px calc(8px + env(safe-area-inset-bottom, 0px));
+      }
     }
 
     @media (max-width: 768px) {
@@ -381,16 +403,19 @@
         grid-template-columns: 1fr;
       }
       .btn-icon-only {
-        width: 40px !important;
-        min-width: 40px;
+        width: 32px !important;
+        min-width: 32px;
+      }
+      .modify-employee-card .btn {
+        min-height: 30px;
+        padding: 5px 8px;
+        font-size: 0.8rem;
       }
     }
   </style>
   
 </head>
 <body>
-<div class="separator"></div>
-<h1 style="text-align:center; color:#01535b; margin-bottom:24px;"><%= title %></h1>
 <div class="modify-employee-card">
   <form id="modifyEmployeeForm" class="employee-edit-form" action="/common/modifyEmployee/<%= user.user_id %>" method="post">
     <div class="employee-fields-grid">
@@ -484,6 +509,9 @@
       </div>
     </div>
   </form>
+</div>
+
+<div class="employee-actions-bar">
   <div class="employee-actions-row">
     <button type="submit" form="modifyEmployeeForm" class="btn btn-primary" id="saveEmployeeBtn">
       <span class="employee-save-spinner" aria-hidden="true"></span>

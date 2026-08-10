@@ -45,8 +45,8 @@
     }
 
     .promo-hero-inner {
-      max-width: 1100px;
-      margin: 0 auto;
+      max-width: none;
+      margin: 0;
       position: relative;
       z-index: 1;
     }
@@ -107,9 +107,11 @@
     }
 
     .promotion-page {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 24px 20px 36px;
+      max-width: none;
+      width: 100%;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 24px 24px 36px;
     }
 
     .card {
@@ -821,12 +823,6 @@
   <main>
   <div class="promo-hero">
     <div class="promo-hero-inner">
-      <a href="/common/management" class="promo-back-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
-          <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-        </svg>
-        Back to Management
-      </a>
       <h1>Promotion Scheduler</h1>
       <p>Schedule and manage student promotions across classes, school years, and terms.</p>
       <div class="promo-meta">

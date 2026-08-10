@@ -1,4 +1,5 @@
 const notifSvc = require("../utils/notificationService");
+const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const { userHasPermission, PERMISSIONS } = require('../middleware/permissionMiddleware');
 const { formatDisplayName } = require("../utils/organizationDisplayPreferences");
 
@@ -277,6 +278,7 @@ const enrollmentController = {
     manageEnrollmentGet: async (req, res, db) => {
         try {
           const organizationId = req.session.organizationId;
+          const isEmbedded = isEmbeddedRequest(req, "manageEnrollment");
           await ensureClassDashboardLayoutSchema(db);
       
           // Fetch all enrollments (school year + term)
@@ -330,6 +332,10 @@ const enrollmentController = {
       
           res.render('enrollment/manageEnrollment', {
             title: 'Manage Enrollments',
+            isEmbedded,
+            hideGlobalHeader: isEmbedded,
+            hideGlobalFooter: isEmbedded,
+            hideGlobalChatbot: isEmbedded,
             enrollments,
             noEnrollmentForCurrentSemester,
             currentSemesterName: currentSemester
@@ -348,6 +354,7 @@ const enrollmentController = {
         try {
             const { enrollmentId } = req.params; // Extract enrollmentId from the route
             const organizationId = req.session.organizationId;
+            const isEmbedded = isEmbeddedRequest(req, "modifyEnrollment");
         await ensureClassDashboardLayoutSchema(db);
     
             // Fetch the existing enrollment
@@ -421,6 +428,10 @@ const enrollmentController = {
             // Pass enrollmentId to the template
             res.render('enrollment/modifyEnrollment', {
                 title: 'Modify Enrollment',
+                isEmbedded,
+                hideGlobalHeader: isEmbedded,
+                hideGlobalFooter: isEmbedded,
+                hideGlobalChatbot: isEmbedded,
                 enrollmentId, // Include the enrollmentId
                 schoolYears,
                 currentTerms,

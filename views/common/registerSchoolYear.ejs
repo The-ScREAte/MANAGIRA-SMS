@@ -35,32 +35,15 @@
     }
 
     .register-school-year-page {
-      padding: 24px 16px 24px;
+      padding: 24px 24px 24px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .page-container {
-      max-width: 700px;
-      margin: 0 auto;
-    }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 20px;
-      background: var(--primary);
-      color: white;
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: all 0.2s;
-      margin-bottom: 24px;
-    }
-
-    .back-link:hover {
-      background: var(--primary-hover-fill, var(--primary-hover));
-      transform: translateY(-1px);
+      max-width: none;
+      width: 100%;
+      margin: 0;
     }
 
     .page-card {
@@ -279,10 +262,6 @@
   
   <div class="register-school-year-page">
   <div class="page-container">
-    <a href="/common/manageRecords" class="back-link">
-      ← Back to Manage Records
-    </a>
-
     <div class="page-card">
       <div class="page-header">
         <h1>📅 Register School Year</h1>

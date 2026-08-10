@@ -1,4 +1,4 @@
-<div class="student-management-system" style="padding: 24px; max-width: 1400px; margin: 0 auto;">
+<div class="student-management-system" style="padding: 24px; max-width: none; margin: 0; width: 100%; box-sizing: border-box;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
     <h1 style="margin: 0; color: #0f2d32; font-size: 28px;">Guardian Management</h1>
   </div>
@@ -61,11 +61,9 @@
                   <% } %>
                 </td>
                 <td style="padding: 14px 12px; text-align: center;">
-                  <a href="/common/guardianDetails?guardianId=<%= guardian.guardian_id %>&source=<%= guardian.source || 'legacy' %>" 
-                     class="secondary-button" 
-                     style="padding: 10px 20px; font-size: 14px; display: inline-block;">
+                  <button type="button" class="secondary-button" style="padding: 10px 20px; font-size: 14px;" onclick="openGuardianDetailsModal('<%= guardian.guardian_id %>', '<%= guardian.source || 'legacy' %>')">
                     View Details
-                  </a>
+                  </button>
                 </td>
               </tr>
             <% }) %>
@@ -74,6 +72,32 @@
       </div>
     </div>
   <% } %>
+</div>
+
+<div class="gdm-modal-overlay" id="gdmModalOverlay" aria-hidden="true">
+  <div class="gdm-modal">
+    <div class="gdm-modal-header">
+      <div class="gdm-modal-header-left">
+        <div class="gdm-modal-header-icon">👪</div>
+        <div>
+          <h2 id="gdmModalTitle">Guardian Details</h2>
+          <p>View and manage this guardian's information</p>
+        </div>
+      </div>
+      <button type="button" class="gdm-modal-close" id="gdmModalClose" title="Close">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+          <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="gdm-modal-body">
+      <div class="gdm-modal-loading" id="gdmModalLoading">
+        <span class="gdm-modal-spinner" aria-hidden="true"></span>
+        Loading…
+      </div>
+      <iframe class="gdm-modal-iframe" id="gdmModalIframe" title="Guardian Details" style="display:none;"></iframe>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -110,6 +134,110 @@
   .guardian-row:hover {
     background: #e0f7f4 !important;
     cursor: pointer;
+  }
+
+  /* ---- Guardian Details drawer (AJAX, same slide-in-from-right pattern
+     used by the Assessment Question Sets "Set Questions" panel) ---- */
+  .gdm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 30, 0.55);
+    backdrop-filter: blur(3px);
+    display: none;
+    z-index: 10000;
+    animation: gdmFadeIn 0.2s ease;
+  }
+  .gdm-modal-overlay.is-open {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+  }
+  .gdm-modal {
+    position: relative;
+    width: 100%;
+    max-width: 1140px;
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
+    background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
+    display: flex;
+    flex-direction: column;
+    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
+    animation: gdmSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    overflow: hidden;
+  }
+  @keyframes gdmSlideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  @keyframes gdmFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .gdm-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+    gap: 12px;
+  }
+  .gdm-modal-header-left { display: flex; align-items: center; gap: 10px; }
+  .gdm-modal-header-icon {
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, #1a8fa0 100%);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .gdm-modal-header h2 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f2d32; }
+  .gdm-modal-header p { margin: 0; font-size: 0.72rem; color: #64748b; }
+  .gdm-modal-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .gdm-modal-close:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+  .gdm-modal-body { flex: 1; position: relative; overflow: hidden; }
+  .gdm-modal-iframe { width: 100%; height: 100%; border: none; display: block; }
+  .gdm-modal-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #475569;
+    font-size: 0.85rem;
+  }
+  .gdm-modal-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(15, 90, 102, 0.25);
+    border-top-color: #0f5a66;
+    border-radius: 50%;
+    animation: gdmSpin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes gdmSpin { to { transform: rotate(360deg); } }
+  @media (max-width: 500px) {
+    .gdm-modal-overlay { padding: 0; }
+    .gdm-modal { border-radius: 0; }
   }
 
   @media (max-width: 768px) {
@@ -173,5 +301,66 @@
         row.style.display = 'none';
       }
     });
+  });
+
+  /* ---- Guardian Details drawer (AJAX, no page navigation) ---- */
+  let gdmModalDirty = false;
+
+  function openGuardianDetailsModal(guardianId, source) {
+    const overlay = document.getElementById('gdmModalOverlay');
+    const iframe = document.getElementById('gdmModalIframe');
+    const loading = document.getElementById('gdmModalLoading');
+    if (!overlay || !iframe) return;
+
+    // Each row is a different guardian, so reload the iframe fresh on
+    // every open instead of caching a single load.
+    iframe.style.display = 'none';
+    if (loading) loading.style.display = 'flex';
+
+    iframe.onload = function onLoad() {
+      if (loading) loading.style.display = 'none';
+      iframe.style.display = 'block';
+    };
+    iframe.src = '/common/guardianDetails?guardianId=' + encodeURIComponent(guardianId)
+      + '&source=' + encodeURIComponent(source || 'legacy') + '&embed=workspace';
+
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeGuardianDetailsModal() {
+    const overlay = document.getElementById('gdmModalOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+
+    // guardianDetails.ejs stays on itself (reloading in place) after edits
+    // instead of redirecting back here, so there's no navigation signal to
+    // detect completion — it posts a message to us instead. Only refresh
+    // the list if that actually happened; a plain cancel/close shouldn't
+    // reload anything.
+    if (gdmModalDirty) {
+      gdmModalDirty = false;
+      window.location.reload();
+    }
+  }
+
+  window.addEventListener('message', function (event) {
+    if (event.origin !== window.location.origin) return;
+    if (event.data && event.data.managiraDrawerSaved) {
+      gdmModalDirty = true;
+    }
+  });
+
+  document.getElementById('gdmModalClose').addEventListener('click', closeGuardianDetailsModal);
+  document.getElementById('gdmModalOverlay').addEventListener('click', function (event) {
+    if (event.target === this) closeGuardianDetailsModal();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    const overlay = document.getElementById('gdmModalOverlay');
+    if (overlay && overlay.classList.contains('is-open')) closeGuardianDetailsModal();
   });
 </script>

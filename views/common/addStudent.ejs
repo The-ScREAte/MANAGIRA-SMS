@@ -18,9 +18,11 @@
       }
 
       .student-management-system {
-        max-width: 1240px;
-        margin: 0 auto;
-        padding: 12px 24px 40px;
+        max-width: none;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
 
       .student-management-system h1 {
@@ -48,8 +50,7 @@
         -webkit-overflow-scrolling: touch;
       }
 
-      .student-forms-grid.is-empty,
-      .student-forms-grid.single-form {
+      .student-forms-grid.is-empty {
         justify-content: center;
       }
 
@@ -706,7 +707,7 @@
       /* Bulk Import Styles */
       .page-header-wrapper {
         position: sticky;
-        top: var(--header-height, 64px);
+        top: 0;
         z-index: 50;
         display: flex;
         flex-direction: row;
@@ -715,9 +716,10 @@
         gap: 12px;
         flex-wrap: nowrap;
         width: 100%;
-        max-width: 1080px;
-        margin: 0 auto 12px;
+        max-width: none;
+        margin: 0 0 12px;
         padding: 8px 12px;
+        box-sizing: border-box;
         background: rgba(255, 255, 255, 0.92);
         backdrop-filter: saturate(180%) blur(10px);
         -webkit-backdrop-filter: saturate(180%) blur(10px);
@@ -1244,7 +1246,7 @@
         background: rgba(255,255,255,0.94);
         border-color: var(--line);
         box-shadow: var(--shadow-sm);
-        max-width: 1180px;
+        max-width: none;
       }
       .page-header-title {
         display: flex;
@@ -1374,7 +1376,7 @@
         gap: 18px;
       }
       .student-forms-grid.single-form {
-        justify-content: center;
+        justify-content: flex-start;
         padding-left: 4px;
         padding-right: 4px;
       }

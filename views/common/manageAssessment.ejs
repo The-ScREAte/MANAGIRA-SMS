@@ -10,14 +10,14 @@
         --primary: var(--org-primary-color, #0f5a66);
         --primary-hover: var(--org-primary-hover, #0d4f59);
         --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
-        --surface: color-mix(in srgb, var(--primary) 8%, white);
+        --surface: #ffffff;
         --card-surface: white;
-        --border-soft: color-mix(in srgb, var(--primary) 16%, white);
+        --border-soft: #e5e7eb;
         --text-main: color-mix(in srgb, var(--primary) 72%, black);
         --text-soft: color-mix(in srgb, var(--primary) 46%, white);
-        --table-head-bg: color-mix(in srgb, var(--primary) 10%, white);
-        --row-even-bg: color-mix(in srgb, var(--primary) 3%, white);
-        --row-hover-bg: color-mix(in srgb, var(--primary) 8%, white);
+        --table-head-bg: #f5f6f7;
+        --row-even-bg: #fafafa;
+        --row-hover-bg: #f1f2f3;
         --btn-disabled-bg: color-mix(in srgb, var(--primary) 10%, white);
         --btn-disabled-border: color-mix(in srgb, var(--primary) 20%, white);
         --btn-disabled-text: color-mix(in srgb, var(--primary) 36%, white);
@@ -37,8 +37,8 @@
         --shadow-soft: color-mix(in srgb, var(--primary) 15%, transparent);
       }
       *, *::before, *::after { box-sizing: border-box; }
-      body { font-family: var(--font-family); background: var(--surface); margin: 0; color: var(--text-main); }
-      .page-wrap { max-width: 1260px; margin: 0 auto; padding: 22px 20px 40px; }
+      body { font-family: var(--font-family); background: #fff; margin: 0; color: var(--text-main); }
+      .page-wrap { max-width: none; width: 100%; margin: 0; padding: 22px 24px 40px; box-sizing: border-box; }
       .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
       .top-bar h1 { font-size: 1.38rem; font-weight: 700; margin: 0; color: var(--text-main); }
       .top-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -47,6 +47,205 @@
       .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); transform: translateY(-1px); }
       .btn-outline { background: white; color: var(--primary); border: 2px solid var(--primary); }
       .btn-outline:hover { background: var(--table-head-bg); transform: translateY(-1px); }
+
+      /* ---- Create Test drawer (AJAX, same slide-in-from-right pattern
+         used by the Assessment Question Sets "Set Questions" panel) ---- */
+      .ct-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 20, 30, 0.55);
+        backdrop-filter: blur(3px);
+        display: none;
+        z-index: 10000;
+        animation: ctFadeIn 0.2s ease;
+      }
+      .ct-modal-overlay.is-open {
+        display: flex;
+        align-items: stretch;
+        justify-content: flex-end;
+      }
+      .ct-modal {
+        position: relative;
+        width: 100%;
+        max-width: 1200px;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
+        display: flex;
+        flex-direction: column;
+        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
+        animation: ctSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        overflow: hidden;
+      }
+      @keyframes ctSlideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to   { transform: translateX(0);    opacity: 1; }
+      }
+      @keyframes ctFadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      .ct-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        flex-shrink: 0;
+        gap: 12px;
+      }
+      .ct-modal-header-left { display: flex; align-items: center; gap: 10px; }
+      .ct-modal-header-icon {
+        width: 34px;
+        height: 34px;
+        background: linear-gradient(135deg, var(--primary) 0%, #1a8fa0 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+      .ct-modal-header h2 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f2d32; }
+      .ct-modal-header p { margin: 0; font-size: 0.72rem; color: #64748b; }
+      .ct-modal-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #64748b;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        flex-shrink: 0;
+      }
+      .ct-modal-close:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+      .ct-modal-body { flex: 1; position: relative; overflow: hidden; }
+      .ct-modal-iframe { width: 100%; height: 100%; border: none; display: block; }
+      .ct-modal-loading {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #475569;
+        font-size: 0.85rem;
+      }
+      .ct-modal-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(15, 90, 102, 0.25);
+        border-top-color: #0f5a66;
+        border-radius: 50%;
+        animation: ctSpin 0.7s linear infinite;
+        flex-shrink: 0;
+      }
+      @keyframes ctSpin { to { transform: rotate(360deg); } }
+      @media (max-width: 500px) {
+        .ct-modal-overlay { padding: 0; }
+        .ct-modal { border-radius: 0; }
+      }
+
+      /* ---- Modify Assessment drawer (AJAX, same slide-in-from-right
+         pattern as the Create Test drawer above) ---- */
+      .ma-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 20, 30, 0.55);
+        backdrop-filter: blur(3px);
+        display: none;
+        z-index: 10000;
+        animation: ctFadeIn 0.2s ease;
+      }
+      .ma-modal-overlay.is-open {
+        display: flex;
+        align-items: stretch;
+        justify-content: flex-end;
+      }
+      .ma-modal {
+        position: relative;
+        width: 100%;
+        max-width: 900px;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
+        display: flex;
+        flex-direction: column;
+        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
+        animation: ctSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        overflow: hidden;
+      }
+      .ma-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        flex-shrink: 0;
+        gap: 12px;
+      }
+      .ma-modal-header-left { display: flex; align-items: center; gap: 10px; }
+      .ma-modal-header-icon {
+        width: 34px;
+        height: 34px;
+        background: linear-gradient(135deg, var(--primary) 0%, #1a8fa0 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+      .ma-modal-header h2 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f2d32; }
+      .ma-modal-header p { margin: 0; font-size: 0.72rem; color: #64748b; }
+      .ma-modal-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #64748b;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        flex-shrink: 0;
+      }
+      .ma-modal-close:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+      .ma-modal-body { flex: 1; position: relative; overflow: hidden; }
+      .ma-modal-iframe { width: 100%; height: 100%; border: none; display: block; }
+      .ma-modal-loading {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #475569;
+        font-size: 0.85rem;
+      }
+      .ma-modal-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(15, 90, 102, 0.25);
+        border-top-color: #0f5a66;
+        border-radius: 50%;
+        animation: ctSpin 0.7s linear infinite;
+        flex-shrink: 0;
+      }
+      @media (max-width: 500px) {
+        .ma-modal-overlay { padding: 0; }
+        .ma-modal { border-radius: 0; }
+      }
       .btn-disabled {
         background: var(--btn-disabled-bg);
         color: var(--btn-disabled-text);
@@ -240,10 +439,9 @@
       /* ── Small screen ── */
       @media (max-width: 760px) {
         .page-wrap { padding: 14px 12px 28px; }
-        .top-bar { gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-        .top-bar h1 { font-size: 1.12rem; }
-        .top-bar-actions { width: 100%; }
-        .btn { flex: 1 1 calc(50% - 6px); justify-content: center; padding: 8px 10px; font-size: 0.78rem; }
+        .top-bar { gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+        .top-bar h1 { font-size: 1.2rem; }
+        .btn { flex: 0 0 auto; width: auto; justify-content: center; padding: 8px 10px; font-size: 0.78rem; }
 
         .card { background: transparent; border: none; box-shadow: none; }
         .table-scroll { overflow: visible; }
@@ -348,9 +546,9 @@
 
       @media (max-width: 640px) {
         .page-wrap { padding: 14px 12px 28px; }
-        .top-bar { gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
-        .top-bar h1 { font-size: 1.15rem; }
-        .btn { padding: 7px 10px; font-size: 0.76rem; }
+        .top-bar { gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+        .top-bar h1 { font-size: 1.22rem; }
+        .btn { flex: 0 0 auto; width: auto; padding: 7px 10px; font-size: 0.76rem; }
         td { padding: 9px 10px; }
         .table-meta {
           flex-direction: row;
@@ -375,10 +573,9 @@
         .lock-status-note { width: 28px; height: 28px; }
       }
       @media (max-width: 420px) {
-        .top-bar { flex-direction: column; align-items: flex-start; }
-        .top-bar h1 { font-size: 1.05rem; }
+        .top-bar h1 { font-size: 1.15rem; }
         .top-bar-actions { gap: 6px; }
-        .btn { flex: 1 1 100%; font-size: 0.75rem; padding: 6px 9px; }
+        .btn { flex: 0 0 auto; width: auto; font-size: 0.75rem; padding: 6px 9px; }
         td::before { flex-basis: 42%; font-size: 0.69rem; }
         td > * { max-width: 58%; }
       }
@@ -391,16 +588,7 @@
   <div class="top-bar">
     <h1>Manage Assessments</h1>
     <div class="top-bar-actions">
-      <% if (canAccessAssessmentQuestions) { %>
-      <a href="/common/allClassAssessmentExams?organizationId=<%= organizationId %>&termId=<%= termId %>" class="btn btn-outline" title="Open all class assessment questions">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" width="15" height="15"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Assessment Questions
-      </a>
-      <% } %>
-      <a href="/common/createTest?organizationId=<%= organizationId %>&termId=<%= termId %>" class="btn btn-primary" title="Create new test">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" width="15" height="15"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        New Test
-      </a>
+      <button type="button" class="btn btn-outline" title="Create new test" onclick="openCreateTestModal()"> + New Test</button>
     </div>
   </div>
 
@@ -494,10 +682,10 @@
                     <% } %>
                     <span class="sr-only"><%= assessment.is_locked ? 'Locked' : 'Open' %></span>
                   </button>
-                  <a href="/common/modifyAssessment?groupId=<%= assessment.group_id %>&termId=<%= termId %>&organizationId=<%= organizationId %>" class="action-icon-btn action-icon-btn-modify" title="Modify assessment" aria-label="Modify assessment">
+                  <button type="button" class="action-icon-btn action-icon-btn-modify" title="Modify assessment" aria-label="Modify assessment" onclick="openModifyAssessmentModal('<%= assessment.group_id %>')">
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     <span class="sr-only">Modify</span>
-                  </a>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -507,6 +695,58 @@
     </div>
   </div>
 
+</div>
+
+<div class="ct-modal-overlay" id="ctModalOverlay" aria-hidden="true">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <div class="ct-modal-header-left">
+        <div class="ct-modal-header-icon">📝</div>
+        <div>
+          <h2 id="ctModalTitle">Create Test</h2>
+          <p>Add one or more tests for this term</p>
+        </div>
+      </div>
+      <button type="button" class="ct-modal-close" id="ctModalClose" title="Close">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+          <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-modal-loading" id="ctModalLoading">
+        <span class="ct-modal-spinner" aria-hidden="true"></span>
+        Loading…
+      </div>
+      <iframe class="ct-modal-iframe" id="ctModalIframe" title="Create Test" style="display:none;"></iframe>
+    </div>
+  </div>
+</div>
+
+<div class="ma-modal-overlay" id="maModalOverlay" aria-hidden="true">
+  <div class="ma-modal">
+    <div class="ma-modal-header">
+      <div class="ma-modal-header-left">
+        <div class="ma-modal-header-icon">✏️</div>
+        <div>
+          <h2 id="maModalTitle">Modify Assessment</h2>
+          <p>Edit this test's details</p>
+        </div>
+      </div>
+      <button type="button" class="ma-modal-close" id="maModalClose" title="Close">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+          <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div class="ma-modal-body">
+      <div class="ma-modal-loading" id="maModalLoading">
+        <span class="ma-modal-spinner" aria-hidden="true"></span>
+        Loading…
+      </div>
+      <iframe class="ma-modal-iframe" id="maModalIframe" title="Modify Assessment" style="display:none;"></iframe>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -533,6 +773,116 @@
     body.style.display = open ? 'none' : 'block';
     arrow.textContent  = open ? '▶' : '▼';
   }
+
+  /* ---- Create Test drawer (AJAX, no page navigation) ---- */
+  const ctOrganizationId = <%= Number(organizationId) %>;
+  const ctTermId = <%= Number(termId) %>;
+  let ctModalIframeLoaded = false;
+
+  function openCreateTestModal() {
+    const overlay = document.getElementById('ctModalOverlay');
+    const iframe = document.getElementById('ctModalIframe');
+    const loading = document.getElementById('ctModalLoading');
+    if (!overlay || !iframe) return;
+
+    if (!ctModalIframeLoaded) {
+      iframe.addEventListener('load', function onLoad() {
+        // createTest.ejs redirects itself to manageAssessment on a
+        // successful save — when that happens inside our iframe, the test
+        // is already saved, so close the drawer and refresh the list
+        // instead of showing the list page a second time inside itself.
+        let path = null;
+        try { path = iframe.contentWindow.location.pathname; } catch (err) { /* cross-origin, ignore */ }
+        if (path === '/common/manageAssessment') {
+          window.location.reload();
+          return;
+        }
+
+        ctModalIframeLoaded = true;
+        if (loading) loading.style.display = 'none';
+        iframe.style.display = 'block';
+      });
+      iframe.src = '/common/createTest?organizationId=' + ctOrganizationId + '&termId=' + ctTermId + '&embed=workspace';
+    }
+
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCreateTestModal() {
+    const overlay = document.getElementById('ctModalOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('ctModalClose').addEventListener('click', closeCreateTestModal);
+  document.getElementById('ctModalOverlay').addEventListener('click', function (event) {
+    if (event.target === this) closeCreateTestModal();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    const overlay = document.getElementById('ctModalOverlay');
+    if (overlay && overlay.classList.contains('is-open')) closeCreateTestModal();
+  });
+
+  /* ---- Modify Assessment drawer (AJAX, no page navigation) ---- */
+  let maModalIframe = null;
+
+  function openModifyAssessmentModal(groupId) {
+    const overlay = document.getElementById('maModalOverlay');
+    const iframe = document.getElementById('maModalIframe');
+    const loading = document.getElementById('maModalLoading');
+    if (!overlay || !iframe) return;
+
+    // Each row edits a different assessment group, so unlike the other
+    // drawers this one reloads its iframe fresh on every open instead of
+    // caching a single load.
+    iframe.style.display = 'none';
+    if (loading) loading.style.display = 'flex';
+
+    iframe.onload = function onLoad() {
+      // modifyAssessment.ejs redirects itself to manageAssessment on a
+      // successful save — when that happens inside our iframe, the change
+      // is already saved, so close the drawer and refresh the list instead
+      // of showing the list page a second time inside itself.
+      let path = null;
+      try { path = iframe.contentWindow.location.pathname; } catch (err) { /* cross-origin, ignore */ }
+      if (path === '/common/manageAssessment') {
+        window.location.reload();
+        return;
+      }
+
+      if (loading) loading.style.display = 'none';
+      iframe.style.display = 'block';
+    };
+    iframe.src = '/common/modifyAssessment?groupId=' + encodeURIComponent(groupId)
+      + '&termId=' + ctTermId + '&organizationId=' + ctOrganizationId + '&embed=workspace';
+
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModifyAssessmentModal() {
+    const overlay = document.getElementById('maModalOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('maModalClose').addEventListener('click', closeModifyAssessmentModal);
+  document.getElementById('maModalOverlay').addEventListener('click', function (event) {
+    if (event.target === this) closeModifyAssessmentModal();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    const overlay = document.getElementById('maModalOverlay');
+    if (overlay && overlay.classList.contains('is-open')) closeModifyAssessmentModal();
+  });
 </script>
 </body>
 </html>

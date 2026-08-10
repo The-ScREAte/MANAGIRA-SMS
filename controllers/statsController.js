@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { isEmbeddedRequest } = require("../utils/embeddedMode");
 
 const statsController = {
   //  Get Classes By Term
@@ -59,6 +60,7 @@ const statsController = {
     if (!organizationId) return res.status(403).send("Unauthorized access.");
 
     const { selectedSchoolYearId, selectedTermId } = req.query;
+    const isEmbedded = isEmbeddedRequest(req, "organizationStats");
 
     try {
       const schoolYearsResult = await db.query(
@@ -108,6 +110,10 @@ const statsController = {
         req.flash("error", "No term is available for the selected school year yet.");
         return res.render("stats/organizationStats", {
           title: "Organization Stats",
+          isEmbedded,
+          hideGlobalHeader: isEmbedded,
+          hideGlobalFooter: isEmbedded,
+          hideGlobalChatbot: isEmbedded,
           schoolYears,
           selectedSchoolYear,
           currentTerm: null,
@@ -239,6 +245,10 @@ const studentCountPerClass = await db.query(`
 
       res.render("stats/organizationStats", {
         title: "Organization Stats",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         schoolYears,
         selectedSchoolYear,
         currentTerm,

@@ -12,56 +12,61 @@
 
     main {
       text-align: center;
-      margin: 0 auto;
+      margin: 0;
       width: 100%;
-      max-width: 100vw;
-      padding-bottom: 32px;
+      max-width: none;
+      padding-bottom: 96px;
+      box-sizing: border-box;
     }
     body {
       font-family: var(--font-family);
-      background: #fff;
+      background: #f4f6f7;
       margin: 0;
-      /* padding: 32px 32px 0 32px; */
       box-sizing: border-box;
     }
     .main-content {
       width: 100%;
-      max-width: 2200px;
-      margin: 0 auto;
+      max-width: none;
+      margin: 0;
+      padding: 0 20px;
       box-sizing: border-box;
     }
     #test-forms {
       display: flex;
-      flex-wrap: wrap;
-      gap: 18px;
-      overflow-x: visible;
-      padding: 10px 16px 0 16px;
-      justify-content: center;
+      flex-wrap: nowrap;
+      gap: 20px;
+      overflow-x: auto;
+      padding: 6px 4px 24px 0;
+      justify-content: flex-start;
       align-items: stretch;
       width: 100%;
+      box-sizing: border-box;
+      scroll-behavior: smooth;
     }
       .test-form {
-        flex: 1 1 700px;
-        max-width: 780px;
+        flex: 1 0 480px;
+        max-width: none;
         box-sizing: border-box;
         background-color: #fff;
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 2px 12px rgba(1,83,91,0.12);
-        padding: 28px 28px 22px 28px;
+        border: 1px solid #e6ebed;
+        box-shadow: 0 6px 20px rgba(15, 45, 50, 0.07);
+        padding: 28px 28px 24px 28px;
         margin-bottom: 10px;
         min-width: 320px;
-        border-radius: 14px;
+        border-radius: 16px;
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 0;
-        margin-left: auto;
-        margin-right: auto;
+        transition: box-shadow 0.2s ease;
+    }
+    .test-form:hover {
+      box-shadow: 0 10px 28px rgba(15, 45, 50, 0.1);
     }
     .form-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px 20px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px 18px;
       width: 100%;
     }
     .form-grid .full-width {
@@ -72,7 +77,7 @@
       border-color: #e0e0e0;
     }
     .form-group {
-      margin-bottom: 12px;
+      margin-bottom: 4px;
       width: 100%;
       display: flex;
       flex-direction: column;
@@ -80,26 +85,45 @@
     }
     .form-group label {
       margin-bottom: 6px;
-      font-weight: 500;
-      font-size: 1rem;
-      color: #222;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #48565a;
+      letter-spacing: 0.2px;
     }
     .form-group input,
     .form-group select {
       width: 100%;
-      padding: 8px 10px;
-      border: 1px solid #cfd8dc;
-      border-radius: 5px;
-      font-size: 1rem;
-      background: #f7f7f7;
+      padding: 10px 12px;
+      border: 1px solid #dde3e6;
+      border-radius: 8px;
+      font-size: 0.98rem;
+      background: #fbfcfc;
       box-sizing: border-box;
-      color: #222;
+      color: #1c2528;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+    .form-group select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2348565a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+      cursor: pointer;
+    }
+    .form-group input:hover,
+    .form-group select:hover {
+      border-color: #c3ced1;
     }
     .form-group input:focus,
     .form-group select:focus {
       border-color: var(--org-primary-color, #01535b);
-      box-shadow: 0 0 0 2px rgba(1, 83, 91, 0.2);
+      box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.12);
       outline: none;
+      background: #fff;
+    }
+    .form-group input[type="datetime-local"] {
+      color: #1c2528;
     }
     .collapsible-btn {
       width: 100%;
@@ -108,85 +132,130 @@
       color: #fff;
       border: none;
       outline: none;
-      padding: 7px 14px;
-      font-size: 15px;
+      padding: 11px 16px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      letter-spacing: 0.2px;
       text-align: left;
       display: flex;
       align-items: center;
-      justify-content: flex-start;
+      justify-content: space-between;
       cursor: pointer;
-      border-radius: 5px;
-      transition: background 0.2s ease;
+      border-radius: 8px;
+      box-shadow: 0 3px 10px rgba(1, 83, 91, 0.16);
+      transition: background 0.2s ease, box-shadow 0.2s ease;
     }
     .collapsible-btn .arrow {
-      font-size: 18px;
+      font-size: 14px;
       margin-left: 8px;
       transition: transform 0.2s;
     }
     .collapsible-content {
-      background: #f9f9f9;
-      border-radius: 6px;
-      margin-top: 6px;
+      background: #f7f9f9;
+      border: 1px solid #e8edef;
+      border-radius: 10px;
+      margin-top: 8px;
       padding: 16px 18px 16px 18px;
       width: 100%;
+      box-sizing: border-box;
     }
     .collapsible-btn:hover,
     .collapsible-btn:focus {
       background: var(--org-primary-hover-fill, var(--org-primary-hover, #014a51));
       color: #fff;
-      box-shadow: none;
+      box-shadow: 0 4px 14px rgba(1, 83, 91, 0.22);
     }
     .class-container {
-      margin-bottom: 10px;
+      margin-bottom: 4px;
       width: 100%;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 2px;
     }
     .class-checkbox {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       font-weight: 600;
-      color: #222;
-      margin-bottom: 2px;
+      color: #1c2528;
+      padding: 7px 8px;
+      border-radius: 6px;
+      transition: background 0.15s ease;
+    }
+    .class-checkbox:hover {
+      background: #eef3f3;
     }
     .class-checkbox input[type="checkbox"] {
-      margin: 0 0 0 2px;
-      /* accent-color: #01535b; */
-      width: 18px;
-      height: 18px;
+      margin: 0;
+      width: 17px;
+      height: 17px;
+      cursor: pointer;
+      accent-color: var(--org-primary-color, #01535b);
+      flex-shrink: 0;
     }
     .class-checkbox label {
-      font-weight: 400;
-      color: #222;
-      font-size: 1rem;
+      font-weight: 500;
+      color: #1c2528;
+      font-size: 0.95rem;
       margin: 0;
       padding: 0;
+      cursor: pointer;
+    }
+    .subject-container {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin: 2px 0 6px 14px;
+      padding-left: 16px;
+      border-left: 2px solid #dde7e8;
+    }
+    .subject-container > div {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 6px;
+      border-radius: 5px;
+      transition: background 0.15s ease;
+    }
+    .subject-container > div:hover {
+      background: #eef3f3;
+    }
+    .subject-container input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      accent-color: var(--org-primary-color, #01535b);
+      flex-shrink: 0;
     }
     .subject-container label {
       font-weight: 400;
-      color: #222;
-      font-size: 1rem;
+      color: #48565a;
+      font-size: 0.9rem;
       margin: 0;
       padding: 0;
+      cursor: pointer;
     }
     .form-group.checkbox-group {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 6px;
+      margin-bottom: 0;
       justify-content: flex-start;
       width: 100%;
-      padding: 8px 10px;
+      padding: 10px 12px;
       flex-direction: row;
       background: #f8fafa;
-      border-radius: 6px;
+      border-radius: 8px;
       border: 1px solid #e8edef;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .form-group.checkbox-group:hover {
+      border-color: #d3dde0;
+      background: #f4f8f8;
     }
     .form-group.checkbox-group input[type="checkbox"] {
-      width: 20px;
-      height: 20px;
+      width: 19px;
+      height: 19px;
       margin: 0;
       flex-shrink: 0;
       cursor: pointer;
@@ -195,11 +264,22 @@
     .form-group.checkbox-group label {
       font-weight: 500;
       color: var(--org-primary-color, #01535b);
-      font-size: 0.95rem;
+      font-size: 0.88rem;
       margin: 0;
       padding: 0;
       cursor: pointer;
-      line-height: 1.2;
+      line-height: 1.25;
+    }
+    .section-divider {
+      width: 100%;
+      text-align: left;
+      margin: 18px 0 12px 0;
+      padding-top: 16px;
+      border-top: 1px solid #eef1f2;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1c2528;
+      box-sizing: border-box;
     }
     .center-link {
       display: flex;
@@ -227,19 +307,12 @@
       background-color: var(--org-primary-hover-fill, var(--org-primary-hover));
     }
     .main-heading {
-      text-align: center;
+      text-align: left;
       font-size: 1.6rem;
         margin: 12px 0 10px 0;
       color: var(--org-primary-color, #01535b);
       font-weight: 600;
     }
-      .page-actions {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-        margin-bottom: 16px;
-        flex-wrap: wrap;
-      }
       .action-button {
         padding: 10px 22px;
         border: none;
@@ -255,26 +328,133 @@
       .action-button:hover {
         background: var(--org-primary-hover-fill, var(--org-primary-hover, #014a51));
       }
+    .test-footer-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: nowrap;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: saturate(180%) blur(10px);
+      -webkit-backdrop-filter: saturate(180%) blur(10px);
+      border-top: 1px solid #e2e8ec;
+      box-shadow: 0 -8px 22px rgba(15, 45, 50, 0.06);
+    }
+    /* .test-footer-bar button[...] beats the global button[type="submit"]
+       rule from style.css (equal-specificity attribute selector, loaded
+       after this page's own <style>) which otherwise injects its own
+       margin-top/padding and visibly shifts this bar around. */
+    .test-footer-bar .add-form-btn,
+    .test-footer-bar .save-form-btn,
+    .test-footer-bar button.add-form-btn,
+    .test-footer-bar button.save-form-btn,
+    .test-footer-bar button[type="submit"].save-form-btn {
+      margin: 0 !important;
+      width: auto;
+      white-space: nowrap;
+      height: 32px;
+      padding: 0 14px !important;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      line-height: 1;
+      cursor: pointer;
+      white-space: nowrap;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      box-sizing: border-box;
+      flex: 0 0 auto;
+    }
+    .add-form-btn {
+      background: #f8fafc;
+      color: #334155;
+      border-color: #cbd5e0;
+      box-shadow: 0 3px 8px rgba(15, 23, 42, 0.05);
+    }
+    .add-form-btn:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+      transform: translateY(-1px);
+      box-shadow: 0 5px 12px rgba(15, 23, 42, 0.1);
+    }
+    .test-footer-bar button[type="submit"].save-form-btn {
+      background: var(--org-primary-color, #01535b) !important;
+      border-color: var(--org-primary-color, #01535b) !important;
+      color: #fff !important;
+      box-shadow: 0 3px 8px rgba(1, 83, 91, 0.18) !important;
+    }
+    .test-footer-bar button[type="submit"].save-form-btn:hover {
+      background: var(--org-primary-hover-fill, var(--org-primary-hover, #014a51)) !important;
+      transform: translateY(-1px);
+      box-shadow: 0 5px 12px rgba(1, 83, 91, 0.3) !important;
+    }
+    .save-form-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.85;
+      transform: none;
+    }
+    .test-footer-bar .action-btn-icon {
+      width: 15px;
+      height: 15px;
+      flex: 0 0 auto;
+      display: block;
+    }
+    .test-footer-bar .action-btn-label {
+      font-size: 0.88rem;
+      line-height: 1;
+    }
+    @media (max-width: 768px) {
+      .test-footer-bar {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+      }
+      .test-footer-bar .add-form-btn,
+      .test-footer-bar .save-form-btn {
+        flex: 1 1 auto !important;
+        justify-content: center;
+        height: 30px;
+        padding: 0 10px !important;
+        font-size: 0.8rem;
+      }
+    }
+    .notice p {
+      margin: 0;
+    }
     .notice {
       background-color: #e7f3fe;
       color: #0c5460;
       border: 1px solid #bee5eb;
       border-radius: 7px;
-      padding: 15px 18px;
-      margin: 0 auto 20px auto;
-      max-width: 480px;
+      padding: 10px 18px;
+      margin: 0;
+      max-width: none;
       word-break: break-word;
-      text-align: center;
+      text-align: left;
       font-size: 1rem;
       box-shadow: 0 2px 8px rgba(1,83,91,0.07);
     }
     .add-remove-btn-row {
       display: flex;
-      justify-content: center;
+      justify-content: flex-start;
       align-items: center;
       gap: 16px;
-      margin: 30px 0 20px 0;
-      padding: 20px 0;
+      flex-wrap: wrap;
+      margin: 0 0 20px 0;
+      padding: 12px 0;
     }
 
     .add-test-link {
@@ -341,8 +521,7 @@
       cursor: pointer;
       box-shadow: 0 4px 12px rgba(0,0,0,0.12);
       transition: all 0.3s ease;
-      margin: 20px auto 32px auto;
-      display: block;
+      margin: 0;
       min-width: 220px;
       width: auto;
       letter-spacing: 0.5px;
@@ -379,7 +558,8 @@
       animation: submit-btn-spin 0.7s linear infinite;
       flex: 0 0 auto;
     }
-    .submit-btn.is-loading .submit-btn-spinner {
+    .submit-btn.is-loading .submit-btn-spinner,
+    .save-form-btn.is-loading .submit-btn-spinner {
       display: inline-block;
     }
     @keyframes submit-btn-spin {
@@ -481,6 +661,10 @@
     @media (max-width: 768px) {
       body {
         padding: 0;
+      }
+
+      main {
+        padding-bottom: 120px;
       }
 
       .main-content {
@@ -649,18 +833,10 @@
   </style>
 </head>
 <body>
-    <div class="main-content">
-      <main>
-        <br />
-        <%- include('../partials/flash') %>
-        <div class="page-actions">
-          <button
-            class="action-button"
-            onclick="location.href='/common/manageAssessment?organizationId=<%= organizationId %>&termId=<%= termId %>'"
-          >Manage Assessment</button>
-        </div>
-        <hr />
-        <h3 class="main-heading" style="color:#222;">Add New Test</h3>
+    <main>
+      <br />
+      <%- include('../partials/flash') %>
+      <div class="main-content">
         <div class="notice">
           <p>
             You must enroll classes for this term before you can create assessment scores, as scores are applied to enrolled classes.
@@ -672,7 +848,7 @@
           <input type="hidden" name="termId" value="<%= termId %>" />
           <div id="test-forms">
             <!-- Initial Test Form -->
-            <div class="test-form" id="test-form-1" style="margin-left:auto; margin-right:auto;">
+            <div class="test-form" id="test-form-1">
               <div class="test-name-with-menu">
                 <div class="form-group">
                   <label>Test Name:</label>
@@ -737,15 +913,15 @@
                 </div>
                 <% } %>
               </div>
-              <h4 style="text-align:center; margin:12px 0 8px 0; width:100%;">Assign Test to Classes and Subjects</h4>
+              <h4 class="section-divider">Assign Test to Classes and Subjects</h4>
               <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-1', 'arrow-class-list-1')">
                 Show/Hide Classes
                 <span class="arrow" id="arrow-class-list-1">&#9654;</span>
               </button>
               <div class="collapsible-content" id="class-list-1" style="display:none;">
-                <div class="class-checkbox">
+                <div class="class-checkbox" style="border-bottom:1px solid #e2e9ea; margin-bottom:6px; border-radius:0;">
                   <input type="checkbox" id="selectAllClassesAndSubjects-1" onchange="toggleSelectAllClassesAndSubjects(1)" />
-                  <label for="selectAllClassesAndSubjects-1">Select All</label>
+                  <label for="selectAllClassesAndSubjects-1" style="font-weight:700;">Select All</label>
                 </div>
                 <div class="class-container">
                   <% classes.forEach((cls) => { %>
@@ -768,17 +944,29 @@
               </div>
             </div>
           </div>
-          <div class="add-remove-btn-row">
-            <a href="javascript:void(0)" class="add-test-link" onclick="addTestForm()">+ Add Another Form</a>
-          </div>
-          <button type="submit" class="submit-btn" id="submitTestsBtn">
-            <span class="submit-btn-spinner" aria-hidden="true"></span>
-            <span class="submit-btn-label">Add Tests</span>
-          </button>
         </form>
-      </main>
-    </div>
- 
+      </div>
+
+      <div class="test-footer-bar">
+        <button type="button" class="add-form-btn" onclick="addTestForm()">
+          <svg class="action-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+          <span class="action-btn-label">Add Form</span>
+        </button>
+        <button type="submit" class="save-form-btn" form="addTestForm" id="submitTestsBtn">
+          <span class="submit-btn-spinner" aria-hidden="true"></span>
+          <svg class="action-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          <span class="action-btn-label submit-btn-label">Create Test</span>
+        </button>
+      </div>
+    </main>
+
   <script>
     let testFormCount = 1;
     const canUseQuestionSetIntegration = <%= canUseQuestionSetIntegration ? 'true' : 'false' %>;
@@ -860,9 +1048,9 @@
           <span class="arrow" id="arrow-class-list-${testFormCount}">&#9654;</span>
         </button>
         <div class="collapsible-content" id="class-list-${testFormCount}" style="display:none;">
-          <div class="form-group">
+          <div class="class-checkbox" style="border-bottom:1px solid #e2e9ea; margin-bottom:6px; border-radius:0;">
             <input type="checkbox" id="selectAllClassesAndSubjects-${testFormCount}" onchange="toggleSelectAllClassesAndSubjects(${testFormCount})">
-            <label>Select All</label>
+            <label style="font-weight:700;">Select All</label>
           </div>
           <div class="class-container">
             <% classes.forEach((cls) => { %>
@@ -884,6 +1072,7 @@
           </div>
         </div>`;
       testFormsContainer.appendChild(newTestForm);
+      newTestForm.scrollIntoView({ behavior: "smooth", inline: "end", block: "nearest" });
     }
 
     function toggleTestMenu(event, button) {
@@ -942,7 +1131,7 @@
         submitBtn.classList.toggle("is-loading", isSubmitting);
         submitBtn.disabled = isSubmitting;
         if (submitLabel) {
-          submitLabel.textContent = isSubmitting ? "Adding Tests..." : "Add Tests";
+          submitLabel.textContent = isSubmitting ? "Creating Test..." : "Create Test";
         }
       }
 

@@ -23,9 +23,30 @@
     }
 
     .create-employee-page {
-      max-width: 600px;
+      max-width: 960px;
       margin: 0 auto;
-      padding: 24px 16px 60px;
+      padding: 24px 16px 96px;
+    }
+
+    /* Flat, full-bleed toolbar fixed to the bottom of the drawer's own
+       viewport — deliberately NOT styled as a rounded/bordered card like
+       .form-card above it, so it reads as a persistent action dock rather
+       than a second floating card sitting on the page background. */
+    .ce-footer-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 50;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.06);
+      padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .ce-footer-bar-inner {
+      max-width: 960px;
+      margin: 0 auto;
     }
 
     .back-link {
@@ -56,24 +77,6 @@
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
       border: 1px solid var(--border);
       overflow: hidden;
-    }
-
-    .form-header {
-      background: var(--primary);
-      color: white;
-      padding: 28px 32px;
-    }
-
-    .form-header h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin: 0 0 6px 0;
-    }
-
-    .form-header p {
-      opacity: 0.9;
-      font-size: 0.9rem;
-      margin: 0;
     }
 
     .form-content {
@@ -129,22 +132,17 @@
     }
 
     @media (max-width: 480px) {
-      .form-header {
-        padding: 18px 20px;
-      }
-
-      .form-header h1 {
-        font-size: 1.2rem;
-      }
-
       .form-content {
         padding: 18px 16px;
       }
 
       .btn-primary {
-        padding: 12px 18px;
-        font-size: 0.9rem;
-        margin-top: 16px;
+        padding: 9px 14px;
+        font-size: 0.85rem;
+      }
+
+      .ce-footer-bar {
+        padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
       }
 
       .collapsible-btn {
@@ -271,17 +269,17 @@
       justify-content: center;
       gap: 10px;
       width: 100%;
-      padding: 16px 24px;
+      padding: 11px 20px;
       background: var(--primary);
       color: white;
       border: none;
       border-radius: 10px;
-      font-size: 1rem;
+      font-size: 0.92rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
       box-shadow: 0 2px 8px rgba(1, 83, 91, 0.2);
-      margin-top: 24px;
+      margin: 0;
     }
 
     .btn-primary:hover {
@@ -476,7 +474,7 @@
 
       const form = document.querySelector("form[action='/common/createEmployee']");
       if (form) {
-        const submitButton = form.querySelector('button[type="submit"]');
+        const submitButton = document.querySelector('button[type="submit"][form="createEmployeeForm"]');
         const submitLabel = submitButton ? submitButton.querySelector('.btn-label') : null;
 
         const setSubmittingState = () => {
@@ -518,26 +516,11 @@
 <body>
   <div class="create-employee-page">
   <%- include('../partials/flash') %>
-  
-  <% if (req.session && req.session.userRole !== 'Teacher' && req.session.userRole !== 'Supervisor') { %>
-  <div style="text-align: center; margin-bottom: 20px;">
-    <a href="/common/manageEmployees" class="back-link">
-      <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-      </svg>
-      Back
-    </a>
-  </div>
-  <% } %>
 
   <div class="form-card">
-    <div class="form-header">
-      <h1>👤 Create Employee</h1>
-      <p>Add a new staff member to your organization</p>
-    </div>
 
     <div class="form-content">
-      <form action="/common/createEmployee" method="post">
+      <form id="createEmployeeForm" action="/common/createEmployee" method="post">
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="firstName">First Name</label>
@@ -608,12 +591,29 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-primary">
-          <span class="btn-spinner" aria-hidden="true"></span>
-          <span class="btn-label">Create Employee</span>
-        </button>
       </form>
     </div>
   </div>
   </div>
+
+  <div class="ce-footer-bar">
+    <div class="ce-footer-bar-inner">
+      <button type="submit" form="createEmployeeForm" class="btn-primary">
+        <span class="btn-spinner" aria-hidden="true"></span>
+        <span class="btn-label">Create Employee</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // createEmployee.ejs is a plain POST that redirects back to itself with
+    // a flash message — if we land back here (inside the drawer) with a
+    // success flash showing, that redirect just happened, so let the
+    // parent know a save actually went through (as opposed to a cancel).
+    if (window.parent && window.parent !== window && document.querySelector('.flash-message.success')) {
+      try {
+        window.parent.postMessage({ managiraDrawerSaved: true }, window.location.origin);
+      } catch (err) { /* ignore */ }
+    }
+  </script>
 </body>

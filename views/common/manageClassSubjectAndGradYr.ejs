@@ -30,76 +30,218 @@
         align-items: stretch;
       }
 
-      .class-subject-page .page-banner {
-        background: var(--org-primary-color, #01535b);
-        color: white;
-        padding: 30px 24px;
-        text-align: center;
-        margin-bottom: 0;
-        position: relative;
-        left: 50%;
-        transform: translateX(-50%);
-        margin-left: 0;
-        margin-right: 0;
-        border-radius: 0;
-        box-sizing: border-box;
-      }
-
-      .class-subject-page .page-banner h1 {
-        margin: 0 0 6px 0;
-        font-size: 24px;
-        font-weight: 700;
-      }
-
-      .class-subject-page .page-banner p {
-        margin: 0;
-        opacity: 0.9;
-        font-size: 14px;
-      }
-
       .class-subject-page .action-bar {
         display: flex;
-        justify-content: center;
+        justify-content: space-between;
         align-items: center;
         gap: 12px;
-        margin: 24px auto;
-        flex-wrap: wrap;
+        margin: 0;
+        padding: 10px 24px 0;
+        flex-wrap: nowrap;
         width: 100%;
-        max-width: 1280px;
-        padding: 0 clamp(20px, 4vw, 44px);
+        max-width: none;
         box-sizing: border-box;
+      }
+
+      .class-subject-page .action-bar h1 {
+        margin: 0;
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: #111827;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
       }
 
       .action-btn {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 12px 24px;
-        background: var(--org-primary-color, #01535b);
-        color: #fff;
-        border: none;
+        justify-content: center;
+        gap: 6px;
+        min-height: 30px;
+        padding: 5px 8px;
+        background: #fff;
+        color: #1e293b;
+        border: 2px solid #94a3b8;
         border-radius: 8px;
-        font-size: 15px;
-        font-weight: 600;
+        font-size: 0.72rem;
+        font-weight: 700;
         text-decoration: none;
         cursor: pointer;
-        transition: all 0.2s ease;
+        white-space: nowrap;
+        flex: 0 0 auto;
+        width: auto;
+        transition: all 0.2s;
       }
 
       .action-btn:hover {
-        background: var(--org-primary-hover-fill, var(--org-primary-hover, #014a51));
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        color: #fff;
+        background: #f8fafc;
+        border-color: var(--org-primary-color, #01535b);
+        color: var(--org-primary-color, #01535b);
+      }
+
+      /* ---- Add New Items drawer (AJAX, same slide-in-from-right pattern
+         used by the Assessment Question Sets "Set Questions" panel) ---- */
+      .acs-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 20, 30, 0.55);
+        backdrop-filter: blur(3px);
+        display: none;
+        z-index: 10000;
+        animation: acsFadeIn 0.2s ease;
+      }
+
+      .acs-modal-overlay.is-open {
+        display: flex;
+        align-items: stretch;
+        justify-content: flex-end;
+      }
+
+      .acs-modal {
+        position: relative;
+        width: 100%;
+        max-width: 1400px;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
+        display: flex;
+        flex-direction: column;
+        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
+        animation: acsSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        overflow: hidden;
+      }
+
+      @keyframes acsSlideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to   { transform: translateX(0);    opacity: 1; }
+      }
+
+      @keyframes acsFadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+
+      .acs-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        flex-shrink: 0;
+        gap: 12px;
+      }
+
+      .acs-modal-header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .acs-modal-header-icon {
+        width: 34px;
+        height: 34px;
+        background: linear-gradient(135deg, var(--org-primary-color, #01535b) 0%, #0a7a86 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+
+      .acs-modal-header h2 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f2d32;
+      }
+
+      .acs-modal-header p {
+        margin: 0;
+        font-size: 0.72rem;
+        color: #64748b;
+      }
+
+      .acs-modal-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #64748b;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        flex-shrink: 0;
+      }
+
+      .acs-modal-close:hover {
+        background: #fef2f2;
+        border-color: #fca5a5;
+        color: #dc2626;
+      }
+
+      .acs-modal-body {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .acs-modal-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+      }
+
+      .acs-modal-loading {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #475569;
+        font-size: 0.85rem;
+      }
+
+      .acs-modal-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(15, 90, 102, 0.25);
+        border-top-color: #0f5a66;
+        border-radius: 50%;
+        animation: acsSpin 0.7s linear infinite;
+        flex-shrink: 0;
+      }
+
+      @keyframes acsSpin {
+        to { transform: rotate(360deg); }
+      }
+
+      @media (max-width: 500px) {
+        .acs-modal-overlay {
+          padding: 0;
+        }
+
+        .acs-modal {
+          border-radius: 0;
+        }
       }
 
       .class-subject-page .container {
-        width: min(1320px, 100%);
-        margin: 0 auto 48px;
-        padding: 0 clamp(20px, 4vw, 44px) 70px;
+        width: 100%;
+        margin: 0 0 48px;
+        padding: 0 24px 70px;
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-        justify-content: center;
+        justify-content: flex-start;
         gap: 24px;
         align-items: start;
         box-sizing: border-box;
@@ -211,9 +353,11 @@
         justify-content: flex-start;
       }
       .class-subject-page .icon-btn {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
+        width: auto;
+        flex: 0 0 auto;
         border: none;
         background: var(--org-primary-color, #01535b);
         color: #fff;
@@ -223,6 +367,7 @@
         cursor: pointer;
         font-size: 14px;
         font-weight: 600;
+        white-space: nowrap;
         transition: all 0.2s;
         text-decoration: none;
       }
@@ -231,11 +376,23 @@
         color: #fff;
         border: none;
       }
-      .class-subject-page .icon-btn.update-btn:hover {
-        background: var(--org-primary-hover-fill, var(--org-primary-hover, #014a51));
-      }
       .class-subject-page .icon-btn.delete-btn:hover {
         background: #b71c1c;
+      }
+
+      /* buttons.css (loaded globally) sets button[type="submit"] colors with
+         !important, which otherwise beats this rule regardless of specificity
+         — match it with !important so these render white with a visible
+         border instead of the site-wide solid theme-color submit style. */
+      .class-subject-page .icon-btn.update-btn {
+        background: #fff !important;
+        color: #1e293b !important;
+        border: 2px solid #94a3b8 !important;
+      }
+      .class-subject-page .icon-btn.update-btn:hover {
+        background: #f8fafc !important;
+        border-color: var(--org-primary-color, #01535b) !important;
+        color: var(--org-primary-color, #01535b) !important;
       }
       .class-subject-page .collapsible-wrapper {
         display: none !important;
@@ -422,8 +579,8 @@
         margin-top: 14px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 10px;
+        justify-content: flex-start;
+        gap: 14px;
         flex-wrap: wrap;
       }
 
@@ -652,10 +809,6 @@
       }
 
       @media (max-width: 768px) {
-        .class-subject-page .page-banner h1 {
-          font-size: 20px;
-        }
-        
         .class-subject-page .container {
           padding: 0 16px 40px;
           grid-template-columns: minmax(0, 760px);
@@ -663,10 +816,14 @@
         }
         
         .class-subject-page .action-bar {
-          justify-content: center;
-          padding: 0 16px;
+          justify-content: space-between;
+          padding: 10px 16px 0;
         }
-        
+
+        .class-subject-page .action-bar h1 {
+          font-size: 1rem;
+        }
+
         .class-subject-page fieldset {
           width: 100%;
           margin: 0 auto;
@@ -675,11 +832,6 @@
 
         .class-subject-page fieldset.graduation-fieldset {
           grid-column: auto;
-        }
-
-        .action-btn {
-          padding: 10px 18px;
-          font-size: 13.5px;
         }
 
         .section-collapse-toggle {
@@ -704,8 +856,7 @@
         .class-subject-page .page-banner { padding: 16px 14px; }
         .class-subject-page .page-banner h1 { font-size: 17px; }
         .class-subject-page .page-banner p { font-size: 12px; }
-        .class-subject-page .action-bar { gap: 8px; margin: 16px auto; }
-        .action-btn { padding: 9px 14px; font-size: 12.5px; }
+        .class-subject-page .action-bar { gap: 8px; }
         .class-subject-page .container { padding: 0 12px 28px; gap: 14px; grid-template-columns: minmax(0, 1fr); justify-content: center; }
         .class-subject-page fieldset { padding: 14px 12px; }
         .class-subject-page legend { font-size: 14px; }
@@ -725,18 +876,9 @@
     </script>
 
     <div class="page-shell">
-    <div class="page-banner">
-      <h1>Manage Classes & Subjects</h1>
-      <p>Edit classes, subjects, and graduation groups</p>
-    </div>
-
     <div class="action-bar">
-      <a href="/common/addClassSubject" class="action-btn">
-        <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-        </svg>
-        Add New Items
-      </a>
+      <h1>Classes, Subjects &amp; Grad Years</h1>
+      <button type="button" class="action-btn" title="Add new classes, subjects or graduation groups" onclick="openAddClassSubjectModal()"> + Add New Items</button>
     </div>
 
     <% if (classes.length === 0 && graduationYearGroups.length === 0) { %>
@@ -998,6 +1140,32 @@
       <% } %>
     </div>
 
+    <div class="acs-modal-overlay" id="acsModalOverlay" aria-hidden="true">
+      <div class="acs-modal">
+        <div class="acs-modal-header">
+          <div class="acs-modal-header-left">
+            <div class="acs-modal-header-icon">➕</div>
+            <div>
+              <h2 id="acsModalTitle"> Add New Items</h2>
+              <p>Add classes, subjects, or graduation year groups</p>
+            </div>
+          </div>
+          <button type="button" class="acs-modal-close" id="acsModalClose" title="Close">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+              <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="acs-modal-body">
+          <div class="acs-modal-loading" id="acsModalLoading">
+            <span class="acs-modal-spinner" aria-hidden="true"></span>
+            Loading…
+          </div>
+          <iframe class="acs-modal-iframe" id="acsModalIframe" title=" Add New Items" style="display:none;"></iframe>
+        </div>
+      </div>
+    </div>
+
     <script>
       function confirmDelete(url) {
         const confirmation = confirm(
@@ -1255,6 +1423,83 @@
           fieldset.dataset.collapseReady = '1';
         });
       });
+
+      /* ---- Add New Items drawer (AJAX, no page navigation) ---- */
+      let acsModalDirty = false;
+      let acsModalIframeLoaded = false;
+
+      function openAddClassSubjectModal() {
+        const overlay = document.getElementById('acsModalOverlay');
+        const iframe = document.getElementById('acsModalIframe');
+        const loading = document.getElementById('acsModalLoading');
+        if (!overlay || !iframe) return;
+
+        if (!acsModalIframeLoaded) {
+          iframe.addEventListener('load', function onLoad() {
+            acsModalIframeLoaded = true;
+            if (loading) loading.style.display = 'none';
+            iframe.style.display = 'block';
+          });
+          iframe.src = '/common/addClassSubject?embed=workspace';
+        }
+
+        overlay.classList.add('is-open');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeAddClassSubjectModal() {
+        const overlay = document.getElementById('acsModalOverlay');
+        if (!overlay) return;
+        overlay.classList.remove('is-open');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+
+        // Only refresh the list if a save actually went through inside the
+        // drawer (Save Class / Save Subject / Assign / Save Graduation
+        // Group) — a plain cancel/close shouldn't reload anything.
+        if (acsModalDirty) {
+          acsModalDirty = false;
+          window.location.reload();
+        }
+      }
+
+      window.addEventListener('message', function (event) {
+        if (event.origin !== window.location.origin) return;
+        if (event.data && event.data.managiraDrawerSaved) {
+          acsModalDirty = true;
+        }
+      });
+
+      function initAcsModal() {
+        if (document.body.dataset.acsModalInitDone === '1') return;
+        document.body.dataset.acsModalInitDone = '1';
+
+        const closeBtn = document.getElementById('acsModalClose');
+        if (closeBtn) closeBtn.addEventListener('click', closeAddClassSubjectModal);
+
+        const overlay = document.getElementById('acsModalOverlay');
+        if (overlay) {
+          overlay.addEventListener('click', function (event) {
+            if (event.target === overlay) closeAddClassSubjectModal();
+          });
+        }
+
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            const overlayEl = document.getElementById('acsModalOverlay');
+            if (overlayEl && overlayEl.classList.contains('is-open')) {
+              closeAddClassSubjectModal();
+            }
+          }
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', initAcsModal);
+      window.addEventListener('spa:pageLoaded', initAcsModal);
+      if (document.readyState !== 'loading') {
+        initAcsModal();
+      }
     </script>
     </div>
   </body>

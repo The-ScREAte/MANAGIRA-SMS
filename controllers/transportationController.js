@@ -6,6 +6,7 @@ const {
   suggestNearestStop,
 } = require("../utils/transportation");
 const { uploadToS3 } = require("../middleware/s3Upload");
+const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const { geocodeAddress } = require("../utils/geocode");
 
 function normalizeStatus(value, fallback = "active") {
@@ -428,6 +429,7 @@ const transportationController = {
   manageGet: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     if (!organizationId) return res.redirect("/account/login");
+    const isEmbedded = isEmbeddedRequest(req, "transportationManage");
 
     try {
       await ensureTransportationSchema(db);
@@ -622,6 +624,10 @@ const transportationController = {
 
       return res.render("transportation/manage", {
         title: "Transportation Management",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         integration,
         buses: buses.rows,
         driverUsers: driverUsers.rows,

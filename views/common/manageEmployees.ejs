@@ -20,31 +20,11 @@
     }
 
     .employees-page {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 24px 16px 60px;
-    }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 20px;
-      background: #fff;
-      color: var(--primary);
-      border: 2px solid var(--primary);
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: all 0.2s;
-      margin-bottom: 20px;
-    }
-
-    .back-link:hover {
-      background: var(--primary);
-      color: white;
-      transform: translateY(-1px);
+      max-width: none;
+      margin: 0;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 24px 24px 60px;
     }
 
     .page-header-bar {
@@ -71,22 +51,228 @@
     .add-btn {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 12px 24px;
-      background: var(--primary);
-      color: white;
+      justify-content: center;
+      gap: 6px;
+      min-height: 30px;
+      padding: 5px 8px;
+      background: #fff;
+      color: var(--primary);
+      border: 2px solid var(--primary);
       text-decoration: none;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      transition: all 0.2s;
-      box-shadow: 0 2px 8px rgba(1, 83, 91, 0.2);
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.72rem;
+      cursor: pointer;
+      white-space: nowrap;
+      flex: 0 0 auto;
+      width: auto;
+      transition: none;
     }
 
     .add-btn:hover {
-      background: var(--primary-hover-fill, var(--primary-hover));
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(1, 83, 91, 0.25);
+      background: #fff;
+      color: var(--primary);
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* ---- Add Employee drawer (AJAX, same slide-in-from-right pattern
+       used by the Assessment Question Sets "Set Questions" panel) ---- */
+    .emp-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 20, 30, 0.55);
+      backdrop-filter: blur(3px);
+      display: none;
+      z-index: 10000;
+      animation: empFadeIn 0.2s ease;
+    }
+    .emp-modal-overlay.is-open {
+      display: flex;
+      align-items: stretch;
+      justify-content: flex-end;
+    }
+    .emp-modal {
+      position: relative;
+      width: 100%;
+      max-width: 1160px;
+      height: 100%;
+      min-height: 100%;
+      max-height: 100%;
+      background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
+      animation: empSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      overflow: hidden;
+    }
+    @keyframes empSlideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+    @keyframes empFadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .emp-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .emp-modal-header-left { display: flex; align-items: center; gap: 10px; }
+    .emp-modal-header-icon {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, var(--primary) 0%, #0a7a86 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .emp-modal-header h2 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f2d32; }
+    .emp-modal-header p { margin: 0; font-size: 0.72rem; color: #64748b; }
+    .emp-modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .emp-modal-close:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+    .emp-modal-body { flex: 1; position: relative; overflow: hidden; }
+    .emp-modal-iframe { width: 100%; height: 100%; border: none; display: block; }
+    .emp-modal-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #475569;
+      font-size: 0.85rem;
+    }
+    .emp-modal-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(1, 83, 91, 0.25);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: empSpin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes empSpin { to { transform: rotate(360deg); } }
+    @media (max-width: 500px) {
+      .emp-modal-overlay { padding: 0; }
+      .emp-modal { border-radius: 0; }
+    }
+
+    /* ---- Modify Employee drawer (AJAX, same slide-in-from-right pattern
+       as the Add Employee drawer above) ---- */
+    .mfe-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 20, 30, 0.55);
+      backdrop-filter: blur(3px);
+      display: none;
+      z-index: 10000;
+      animation: empFadeIn 0.2s ease;
+    }
+    .mfe-modal-overlay.is-open {
+      display: flex;
+      align-items: stretch;
+      justify-content: flex-end;
+    }
+    .mfe-modal {
+      position: relative;
+      width: 100%;
+      max-width: 1060px;
+      height: 100%;
+      min-height: 100%;
+      max-height: 100%;
+      background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
+      animation: empSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      overflow: hidden;
+    }
+    .mfe-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .mfe-modal-header-left { display: flex; align-items: center; gap: 10px; }
+    .mfe-modal-header-icon {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, var(--primary) 0%, #0a7a86 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .mfe-modal-header h2 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f2d32; }
+    .mfe-modal-header p { margin: 0; font-size: 0.72rem; color: #64748b; }
+    .mfe-modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .mfe-modal-close:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+    .mfe-modal-body { flex: 1; position: relative; overflow: hidden; }
+    .mfe-modal-iframe { width: 100%; height: 100%; border: none; display: block; }
+    .mfe-modal-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #475569;
+      font-size: 0.85rem;
+    }
+    .mfe-modal-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(1, 83, 91, 0.25);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: empSpin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @media (max-width: 500px) {
+      .mfe-modal-overlay { padding: 0; }
+      .mfe-modal { border-radius: 0; }
     }
 
     .employees-table {
@@ -219,9 +405,12 @@
       background: var(--success);
       color: white;
       text-decoration: none;
+      border: none;
       border-radius: 6px;
       font-size: 0.85rem;
       font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
       transition: all 0.2s;
     }
 
@@ -288,16 +477,6 @@
         font-size: 1.15rem;
       }
 
-      .add-btn {
-        padding: 9px 16px;
-        font-size: 0.85rem;
-      }
-
-      .back-link {
-        padding: 8px 14px;
-        font-size: 0.85rem;
-      }
-
       .modify-link {
         padding: 7px 12px;
         font-size: 0.8rem;
@@ -309,16 +488,9 @@
   <%- include('../partials/flash') %>
   <div class="employees-page">
 
-  <a href="/common/management#employees" class="back-link">
-    <svg style="width:16px;height:16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-    </svg>
-    Back
-  </a>
-  
   <div class="page-header-bar">
     <h1 class="page-title">👥 <%= title %></h1>
-    <a href="/common/createEmployee" class="add-btn">➕ Add Employee</a>
+    <button type="button" class="add-btn" title="Add new employee" onclick="openAddEmployeeModal()">Add Employee</button>
   </div>
 
   <div class="employees-table">
@@ -408,7 +580,7 @@
             </div>
           </td>
           <td data-label="Actions">
-            <a href="/common/modifyEmployee?userId=<%= employee.user_id %>" class="modify-link">✏️ Modify</a>
+            <button type="button" class="modify-link" onclick="openModifyEmployeeModal('<%= employee.user_id %>')">✏️ Modify</button>
             <% if (employee.on_hold) { %>
             <span class="hold-badge">ON HOLD</span>
             <% } %>
@@ -417,6 +589,58 @@
         <% }); %>
       </tbody>
     </table>
+  </div>
+
+  <div class="emp-modal-overlay" id="empModalOverlay" aria-hidden="true">
+    <div class="emp-modal">
+      <div class="emp-modal-header">
+        <div class="emp-modal-header-left">
+          <div class="emp-modal-header-icon">👥</div>
+          <div>
+            <h2 id="empModalTitle">Add Employee</h2>
+            <p>Create a new employee account</p>
+          </div>
+        </div>
+        <button type="button" class="emp-modal-close" id="empModalClose" title="Close">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="emp-modal-body">
+        <div class="emp-modal-loading" id="empModalLoading">
+          <span class="emp-modal-spinner" aria-hidden="true"></span>
+          Loading…
+        </div>
+        <iframe class="emp-modal-iframe" id="empModalIframe" title="Add Employee" style="display:none;"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div class="mfe-modal-overlay" id="mfeModalOverlay" aria-hidden="true">
+    <div class="mfe-modal">
+      <div class="mfe-modal-header">
+        <div class="mfe-modal-header-left">
+          <div class="mfe-modal-header-icon">✏️</div>
+          <div>
+            <h2 id="mfeModalTitle">Modify Employee</h2>
+            <p>Edit this employee's details</p>
+          </div>
+        </div>
+        <button type="button" class="mfe-modal-close" id="mfeModalClose" title="Close">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="mfe-modal-body">
+        <div class="mfe-modal-loading" id="mfeModalLoading">
+          <span class="mfe-modal-spinner" aria-hidden="true"></span>
+          Loading…
+        </div>
+        <iframe class="mfe-modal-iframe" id="mfeModalIframe" title="Modify Employee" style="display:none;"></iframe>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -433,6 +657,117 @@
         }
       }
     }
+
+    /* ---- Add Employee drawer (AJAX, no page navigation) ---- */
+    let empModalIframeLoaded = false;
+    let empModalDirty = false;
+
+    function openAddEmployeeModal() {
+      const overlay = document.getElementById('empModalOverlay');
+      const iframe = document.getElementById('empModalIframe');
+      const loading = document.getElementById('empModalLoading');
+      if (!overlay || !iframe) return;
+
+      if (!empModalIframeLoaded) {
+        iframe.addEventListener('load', function onLoad() {
+          empModalIframeLoaded = true;
+          if (loading) loading.style.display = 'none';
+          iframe.style.display = 'block';
+        });
+        iframe.src = '/common/createEmployee?embed=workspace';
+      }
+
+      overlay.classList.add('is-open');
+      overlay.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeAddEmployeeModal() {
+      const overlay = document.getElementById('empModalOverlay');
+      if (!overlay) return;
+      overlay.classList.remove('is-open');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+
+      // createEmployee.ejs redirects back to itself after a successful
+      // save instead of navigating here, so it posts a message to us
+      // instead. Only refresh the list if that actually happened; a plain
+      // cancel/close shouldn't reload anything.
+      if (empModalDirty) {
+        empModalDirty = false;
+        window.location.reload();
+      }
+    }
+
+    window.addEventListener('message', function (event) {
+      if (event.origin !== window.location.origin) return;
+      if (event.data && event.data.managiraDrawerSaved) {
+        empModalDirty = true;
+      }
+    });
+
+    document.getElementById('empModalClose').addEventListener('click', closeAddEmployeeModal);
+    document.getElementById('empModalOverlay').addEventListener('click', function (event) {
+      if (event.target === this) closeAddEmployeeModal();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape') return;
+      const overlay = document.getElementById('empModalOverlay');
+      if (overlay && overlay.classList.contains('is-open')) closeAddEmployeeModal();
+    });
+
+    /* ---- Modify Employee drawer (AJAX, no page navigation) ---- */
+    function openModifyEmployeeModal(userId) {
+      const overlay = document.getElementById('mfeModalOverlay');
+      const iframe = document.getElementById('mfeModalIframe');
+      const loading = document.getElementById('mfeModalLoading');
+      if (!overlay || !iframe) return;
+
+      // Each row edits a different employee, so unlike the Add Employee
+      // drawer this one reloads its iframe fresh on every open instead of
+      // caching a single load.
+      iframe.style.display = 'none';
+      if (loading) loading.style.display = 'flex';
+
+      iframe.onload = function onLoad() {
+        // modifyEmployee.ejs redirects itself to manageEmployees on a
+        // successful save — when that happens inside our iframe, the
+        // change is already saved, so close the drawer and refresh the
+        // list instead of showing the list page a second time inside itself.
+        let path = null;
+        try { path = iframe.contentWindow.location.pathname; } catch (err) { /* cross-origin, ignore */ }
+        if (path === '/common/manageEmployees') {
+          window.location.reload();
+          return;
+        }
+
+        if (loading) loading.style.display = 'none';
+        iframe.style.display = 'block';
+      };
+      iframe.src = '/common/modifyEmployee?userId=' + encodeURIComponent(userId) + '&embed=workspace';
+
+      overlay.classList.add('is-open');
+      overlay.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModifyEmployeeModal() {
+      const overlay = document.getElementById('mfeModalOverlay');
+      if (!overlay) return;
+      overlay.classList.remove('is-open');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    document.getElementById('mfeModalClose').addEventListener('click', closeModifyEmployeeModal);
+    document.getElementById('mfeModalOverlay').addEventListener('click', function (event) {
+      if (event.target === this) closeModifyEmployeeModal();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape') return;
+      const overlay = document.getElementById('mfeModalOverlay');
+      if (overlay && overlay.classList.contains('is-open')) closeModifyEmployeeModal();
+    });
   </script>
   </div>
 </body>

@@ -6,6 +6,7 @@ const {
 } = require("@aws-sdk/client-s3");
 const { s3Client } = require("../config/s3");
 const db = require("../config/db");
+const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const pdfParse = require("pdf-parse");
 const Papa = require("papaparse");
 const { Readable } = require("stream");
@@ -2330,8 +2331,13 @@ const printController = (db) => ({
       const canSendByWhatsapp = Boolean(whatsappIntegrationStatus.activated && whatsappIntegrationStatus.connected);
 
       // Render the report
+      const isEmbedded = isEmbeddedRequest(req, "printStudentReport");
       res.render("print/printStudentReport", {
         title: "Student Final Report",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         students,
         orgName: organization.organization_name || "Default School Name",
         orgAddress: organization.organization_address,
@@ -2395,6 +2401,7 @@ const printController = (db) => ({
   reportSettingsPage: async (req, res) => {
     const { classId, termId } = req.query;
     const organizationId = req.session.organizationId;
+    const isEmbedded = isEmbeddedRequest(req, "reportSettings");
     await ensureSignatureMetaColumns(db);
     await ensureScoreRemarkGradeColumn(db);
     await ensureScoreRemarkDefaultStateTable(db);
@@ -2428,6 +2435,10 @@ const printController = (db) => ({
       if (organizationClasses.length === 0 || !fallbackTermId) {
         return res.render("print/reportSettings", {
           title: "Report Settings",
+          isEmbedded,
+          hideGlobalHeader: isEmbedded,
+          hideGlobalFooter: isEmbedded,
+          hideGlobalChatbot: isEmbedded,
           statusSettings: {},
           groupedStatusSettings: [],
           remarks: [],
@@ -2457,7 +2468,7 @@ const printController = (db) => ({
 
       if (!resolvedClassId || isNaN(resolvedClassId) || !resolvedTermId || isNaN(resolvedTermId)) {
         return res.redirect(
-          `/print/reportSettings?classId=${organizationClasses[0].class_id}&termId=${fallbackTermId}`,
+          `/print/reportSettings?classId=${organizationClasses[0].class_id}&termId=${fallbackTermId}${isEmbedded ? "&embed=workspace" : ""}`,
         );
       }
 
@@ -2471,7 +2482,7 @@ const printController = (db) => ({
       );
       if (classCheck.rows.length === 0) {
         // ClassId doesn't belong to this org, redirect to fallback
-        return res.redirect(`/print/reportSettings?classId=${organizationClasses[0].class_id}&termId=${parsedTermId}`);
+        return res.redirect(`/print/reportSettings?classId=${organizationClasses[0].class_id}&termId=${parsedTermId}${isEmbedded ? "&embed=workspace" : ""}`);
       }
   
       // Fetch all classes with saved status settings for the given term
@@ -2888,6 +2899,10 @@ const printController = (db) => ({
 
       res.render("print/reportSettings", {
         title: "Report Settings",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         statusSettings: {},
         groupedStatusSettings,
         remarks,
@@ -5919,8 +5934,13 @@ const printController = (db) => ({
       );
 
       // Render the page with organization name and logo
+      const isEmbedded = isEmbeddedRequest(req, "meritSheetPage");
       res.render("print/meritSheetPage", {
         title: "Merit Sheet Page",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         classId,
         termId,
         className,
@@ -5985,7 +6005,6 @@ const printController = (db) => ({
       termId = termId || last.termId;
       if (!selectedSubjects) selectedSubjects = last.selectedSubjectIds;
       if (!selectedAssessments) selectedAssessments = last.selectedAssessmentIds;
-      console.log('[generateMeritSheet] Using cached session data:', { classId, termId, selectedSubjects, selectedAssessments });
     }
 
     const subjectIds = normalizeIds(selectedSubjects);
@@ -5994,7 +6013,6 @@ const printController = (db) => ({
     try {
       if (!classId || !termId || !organizationId || !subjectIds.length || !assessmentIds.length) {
         // Redirect to the base page if we don't have enough info (e.g., first load without form submit)
-        console.log('[generateMeritSheet] Missing required data, redirecting to base page');
         return res.redirect('/print/meritSheetPage');
       }
 
@@ -6003,12 +6021,9 @@ const printController = (db) => ({
       const parsedTermId = parseInt(termId, 10);
 
       if (isNaN(parsedClassId) || isNaN(parsedTermId)) {
-        console.log('[generateMeritSheet] Invalid IDs after parsing:', { parsedClassId, parsedTermId });
         req.flash('error', 'Invalid class or term ID.');
         return res.redirect('/print/meritSheetPage');
       }
-
-      console.log('[generateMeritSheet] Proceeding with:', { parsedClassId, parsedTermId, subjectIds, assessmentIds });
 
       // Fetch organization details
       const organizationResult = await db.query(
@@ -6222,8 +6237,13 @@ const printController = (db) => ({
         selectedAssessmentIds: assessmentIds,
       };
 
+      const isEmbedded = isEmbeddedRequest(req, "meritSheetPage");
       res.render("print/meritSheetPage", {
         title: "Merit Sheet",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         orgName: organization.organization_name,
         logoUrl,
         className,
@@ -6233,7 +6253,6 @@ const printController = (db) => ({
         meritSheet: meritSheetData,
       });
     } catch (error) {
-            console.error('[generateMeritSheet] Failed:', error);
             res.status(500).send("Failed to generate merit sheet.");
     }
   },
@@ -6559,6 +6578,7 @@ const printController = (db) => ({
   migrationPage: async (req, res) => {
     try {
       const organizationId = req.session.organizationId;
+      const isEmbedded = isEmbeddedRequest(req, "migration");
       if (!organizationId) {
         req.flash("error", "Organization ID is missing.");
         return res.redirect("/dashboard");
@@ -6578,6 +6598,10 @@ const printController = (db) => ({
 
       res.render("print/migration", {
         title: "Data Migration",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
         uploadedFiles,
         results: [],
         query: "",
@@ -7652,7 +7676,10 @@ const printController = (db) => ({
              organization_id, event_domain, event_name, class_id, term_id, student_id,
              student_name, actor_user_id, actor_name, recipient_emails, status, batch_id, notes, metadata
            )
-           SELECT *
+           SELECT organization_id, event_domain, event_name, class_id, term_id, student_id,
+                  student_name, actor_user_id, actor_name,
+                  CASE WHEN recipient_emails_csv = '' THEN ARRAY[]::text[] ELSE string_to_array(recipient_emails_csv, ',') END,
+                  status, batch_id, notes, metadata
            FROM UNNEST(
              $1::int[],
              $2::text[],
@@ -7663,11 +7690,14 @@ const printController = (db) => ({
              $7::text[],
              $8::int[],
              $9::text[],
-             $10::text[][],
+             $10::text[],
              $11::text[],
              $12::text[],
              $13::text[],
              $14::jsonb[]
+           ) AS t(
+             organization_id, event_domain, event_name, class_id, term_id, student_id,
+             student_name, actor_user_id, actor_name, recipient_emails_csv, status, batch_id, notes, metadata
            )`,
           [
             rowsToInsert.map((r) => r.organizationId),
@@ -7679,7 +7709,10 @@ const printController = (db) => ({
             rowsToInsert.map((r) => r.studentName),
             rowsToInsert.map((r) => r.actorUserId),
             rowsToInsert.map((r) => r.actorName),
-            rowsToInsert.map((r) => r.recipientEmails),
+            // Comma-joined instead of a nested text[][] — UNNEST needs a
+            // strictly rectangular array for a nested column, which broke
+            // whenever rows had a different number of recipients each.
+            rowsToInsert.map((r) => (r.recipientEmails || []).join(',')),
             rowsToInsert.map((r) => r.status),
             rowsToInsert.map((r) => r.batchId || null),
             rowsToInsert.map((r) => r.notes || ''),
@@ -7690,7 +7723,6 @@ const printController = (db) => ({
 
       return res.json({ success: true, inserted: rowsToInsert.length });
     } catch (error) {
-      console.error('[logDeliveryEvent] Error:', error);
       return res.status(500).json({ success: false, message: 'Failed to log delivery event.' });
     }
   },

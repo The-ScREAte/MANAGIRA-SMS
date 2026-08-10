@@ -17,9 +17,10 @@
             }
 
             .page-shell {
-                max-width: 1100px;
-                margin: 28px auto 48px;
+                max-width: none;
+                margin: 20px 0 48px;
                 padding: 0 18px;
+                box-sizing: border-box;
             }
 
             .hero {
@@ -192,11 +193,6 @@
 </head>
 <body>
         <div class="page-shell">
-            <div class="hero">
-                <h1><%= title %></h1>
-                <p>Review terms, close school years, and jump into term details in one place.</p>
-            </div>
-
             <% if (currentSchoolYear) { %>
             <div class="card">
                 <div class="section-title">Current School Year</div>
@@ -204,7 +200,7 @@
                 <ul class="term-list">
                     <% currentSchoolYear.terms.forEach(term => { %>
                         <li>
-                            <a href="/common/termDetails/<%= term.term_id %>" class="btn" data-no-spa>View <%= term.term_name %></a>
+                            <a href="/common/termDetails/<%= term.term_id %><%= (typeof isEmbedded !== 'undefined' && isEmbedded) ? '?embed=workspace' : '' %>" class="btn" data-no-spa>View <%= term.term_name %></a>
                         </li>
                     <% }) %>
                 </ul>

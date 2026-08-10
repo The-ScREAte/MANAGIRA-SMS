@@ -68,9 +68,10 @@
         width: 100%;
       }
       .main-content {
-        max-width: 1200px;
-        margin: 0 auto 32px;
-        padding: 0 20px;
+        max-width: none;
+        width: 100%;
+        margin: 0 0 32px;
+        padding: 0 24px;
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
@@ -78,6 +79,162 @@
       }
       body {
         font-family: var(--font-family);
+      }
+
+      .action-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: nowrap;
+        width: 100%;
+        padding: 10px 24px 0;
+        box-sizing: border-box;
+      }
+
+      .action-bar h1 {
+        margin: 0;
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: #111827;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+
+      .action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 30px;
+        padding: 5px 8px;
+        background: #fff;
+        color: var(--org-primary-color, #0f5a66);
+        border: 2px solid var(--org-primary-color, #0f5a66);
+        border-radius: 8px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-decoration: none;
+        cursor: pointer;
+        white-space: nowrap;
+        flex: 0 0 auto;
+        width: auto;
+      }
+
+      .action-btn:hover {
+        background: #fff;
+        color: var(--org-primary-color, #0f5a66);
+      }
+
+      @media (max-width: 480px) {
+        .action-bar { gap: 8px; }
+        .action-bar h1 { font-size: 1rem; }
+      }
+
+      /* ---- Add Enrollment drawer (AJAX, same slide-in-from-right pattern
+         used by the Assessment Question Sets "Set Questions" panel) ---- */
+      .en-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 20, 30, 0.55);
+        backdrop-filter: blur(3px);
+        display: none;
+        z-index: 10000;
+        animation: enFadeIn 0.2s ease;
+      }
+      .en-modal-overlay.is-open {
+        display: flex;
+        align-items: stretch;
+        justify-content: flex-end;
+      }
+      .en-modal {
+        position: relative;
+        width: 100%;
+        max-width: 1060px;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
+        display: flex;
+        flex-direction: column;
+        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
+        animation: enSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        overflow: hidden;
+      }
+      @keyframes enSlideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to   { transform: translateX(0);    opacity: 1; }
+      }
+      @keyframes enFadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      .en-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: calc(13px + env(safe-area-inset-top, 0px)) 18px 12px;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        flex-shrink: 0;
+        gap: 12px;
+      }
+      .en-modal-header-left { display: flex; align-items: center; gap: 10px; }
+      .en-modal-header-icon {
+        width: 34px;
+        height: 34px;
+        background: linear-gradient(135deg, var(--org-primary-color, #0f5a66) 0%, #1a8fa0 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+      .en-modal-header h2 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f2d32; }
+      .en-modal-header p { margin: 0; font-size: 0.72rem; color: #64748b; }
+      .en-modal-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #64748b;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        flex-shrink: 0;
+      }
+      .en-modal-close:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+      .en-modal-body { flex: 1; position: relative; overflow: hidden; }
+      .en-modal-iframe { width: 100%; height: 100%; border: none; display: block; }
+      .en-modal-loading {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #475569;
+        font-size: 0.85rem;
+      }
+      .en-modal-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(15, 90, 102, 0.25);
+        border-top-color: #0f5a66;
+        border-radius: 50%;
+        animation: enSpin 0.7s linear infinite;
+        flex-shrink: 0;
+      }
+      @keyframes enSpin { to { transform: rotate(360deg); } }
+      @media (max-width: 500px) {
+        .en-modal-overlay { padding: 0; }
+        .en-modal { border-radius: 0; }
       }
     </style>
     <style>
@@ -320,14 +477,10 @@
     </style>
   </head>
   <body class="manage-enrollment-page">
-    <br />
-    <div class="link-to-next-back">
-      <a href="/enrollment/enroll" class="link-button">Add Enrollment</a>
+    <div class="action-bar">
+      <h1>Enrollment</h1>
+      <button type="button" class="action-btn" title="Add new enrollment" onclick="openAddEnrollmentModal()">Add Enrollment</button>
     </div>
-
-    <hr />
-
-    <h1 class="center">Manage Enrollments</h1>
 
     <% if (noEnrollmentForCurrentSemester) { %>
     <div class="notice-message">
@@ -387,15 +540,42 @@
             </div>
           </td>
           <td>
-            <a
-              href="/enrollment/modifyEnrollment/<%= enrollment.enrollment_id %>"
+            <button
+              type="button"
               class="modify-btn"
-            >Modify</a>
+              onclick="openModifyEnrollmentModal(<%= enrollment.enrollment_id %>)"
+            >Modify</button>
           </td>
         </tr>
         <% }); %>
       </tbody>
   </table>
+    </div>
+  </div>
+
+  <div class="en-modal-overlay" id="enModalOverlay" aria-hidden="true">
+    <div class="en-modal">
+      <div class="en-modal-header">
+        <div class="en-modal-header-left">
+          <div class="en-modal-header-icon" id="enModalIcon">📋</div>
+          <div>
+            <h2 id="enModalTitle">Add Enrollment</h2>
+            <p id="enModalSubtitle">Enroll classes and students for a term</p>
+          </div>
+        </div>
+        <button type="button" class="en-modal-close" id="enModalClose" title="Close">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="en-modal-body">
+        <div class="en-modal-loading" id="enModalLoading">
+          <span class="en-modal-spinner" aria-hidden="true"></span>
+          Loading…
+        </div>
+        <iframe class="en-modal-iframe" id="enModalIframe" title="Add Enrollment" style="display:none;"></iframe>
+      </div>
     </div>
   </div>
 
@@ -433,6 +613,98 @@
               }
             });
           });
+      });
+
+      /* ---- Add / Modify Enrollment drawer (AJAX, no page navigation) ----
+         One shared right-side drawer, its iframe src swapped depending on
+         whether "Add Enrollment" or a row's "Modify" button opened it. */
+      let enModalDirty = false;
+
+      function openEnrollmentDrawer(url, opts) {
+        const overlay = document.getElementById('enModalOverlay');
+        const iframe = document.getElementById('enModalIframe');
+        const loading = document.getElementById('enModalLoading');
+        const titleEl = document.getElementById('enModalTitle');
+        const subtitleEl = document.getElementById('enModalSubtitle');
+        const iconEl = document.getElementById('enModalIcon');
+        if (!overlay || !iframe) return;
+
+        if (titleEl) titleEl.textContent = opts.title;
+        if (subtitleEl) subtitleEl.textContent = opts.subtitle;
+        if (iconEl) iconEl.textContent = opts.icon;
+        iframe.title = opts.title;
+
+        iframe.style.display = 'none';
+        if (loading) loading.style.display = 'flex';
+        iframe.onload = function () {
+          if (loading) loading.style.display = 'none';
+          iframe.style.display = 'block';
+        };
+        iframe.src = url;
+
+        overlay.classList.add('is-open');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function openAddEnrollmentModal() {
+        openEnrollmentDrawer('/enrollment/enroll?embed=workspace', {
+          title: 'Add Enrollment',
+          subtitle: 'Enroll classes and students for a term',
+          icon: '📋'
+        });
+      }
+
+      function openModifyEnrollmentModal(enrollmentId) {
+        openEnrollmentDrawer('/enrollment/modifyEnrollment/' + enrollmentId + '?embed=workspace', {
+          title: 'Modify Enrollment',
+          subtitle: 'Update the term, classes, or students for this enrollment',
+          icon: '✏️'
+        });
+      }
+
+      function closeAddEnrollmentModal() {
+        const overlay = document.getElementById('enModalOverlay');
+        const iframe = document.getElementById('enModalIframe');
+        if (!overlay) return;
+        overlay.classList.remove('is-open');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        if (iframe) iframe.src = 'about:blank';
+
+        // The embedded page stays on itself (reloading in place) after a
+        // successful save instead of redirecting back here, so there's no
+        // navigation signal to detect completion — it posts a message to
+        // us instead. Only refresh the list if that actually happened; a
+        // plain cancel/close shouldn't reload anything.
+        if (enModalDirty) {
+          enModalDirty = false;
+          window.location.reload();
+        }
+      }
+
+      window.addEventListener('message', function (event) {
+        if (event.origin !== window.location.origin) return;
+        if (!event.data) return;
+        if (event.data.managiraDrawerSaved) {
+          enModalDirty = true;
+        }
+        // Deleting an enrollment leaves nothing behind for the drawer's
+        // iframe to keep showing, so it asks us to close it immediately
+        // instead of waiting for the user to close it manually.
+        if (event.data.managiraDrawerClose) {
+          closeAddEnrollmentModal();
+        }
+      });
+
+      document.getElementById('enModalClose').addEventListener('click', closeAddEnrollmentModal);
+      document.getElementById('enModalOverlay').addEventListener('click', function (event) {
+        if (event.target === this) closeAddEnrollmentModal();
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        const overlay = document.getElementById('enModalOverlay');
+        if (overlay && overlay.classList.contains('is-open')) closeAddEnrollmentModal();
       });
     </script>
   </body>
