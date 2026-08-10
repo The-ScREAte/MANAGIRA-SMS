@@ -2079,13 +2079,25 @@
     // invalidateSize().
     if (typeof ResizeObserver !== 'undefined') {
       let lastKnownSize = 0;
+      let hasFitSinceVisible = false;
       const mapResizeObserver = new ResizeObserver(function (entries) {
         const entry = entries[0];
         if (!entry) return;
         const size = entry.contentRect.width + entry.contentRect.height;
         if (size > 0 && size !== lastKnownSize) {
+          const wasZero = lastKnownSize === 0;
           lastKnownSize = size;
           map.invalidateSize();
+          // The very first time the container goes from zero size (hidden
+          // background preload) to real size, the initial fitToStops() call
+          // ran against that zero-size box and computed a useless fit (or
+          // fell back to the whole-country default). Re-run it once now
+          // that the map can actually measure itself, so the view lands on
+          // the org's real stops/routes instead of staying stuck zoomed out.
+          if (wasZero && !hasFitSinceVisible) {
+            hasFitSinceVisible = true;
+            void fitToStops();
+          }
         }
       });
       mapResizeObserver.observe(mapEl);

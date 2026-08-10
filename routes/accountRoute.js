@@ -302,6 +302,18 @@ router.post(
   accountController.transportationActivationPost
 );
 router.post(
+  "/transportation/google-maps-nav/activate",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.googleMapsNavActivationPost
+);
+router.post(
+  "/transportation/apple-maps-nav/activate",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.appleMapsNavActivationPost
+);
+router.post(
   "/whatsapp/activate",
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),

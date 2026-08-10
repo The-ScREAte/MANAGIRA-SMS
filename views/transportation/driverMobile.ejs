@@ -1,5 +1,7 @@
 <%- include('../partials/flash') %>
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
 <style>
   .driver-shell {
     max-width: 640px;
@@ -45,6 +47,82 @@
     font-weight: 700;
   }
   .muted { font-size: 12px; color: #64748b; margin: 0; }
+  .nav-stop-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .nav-stop-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .nav-stop-item .nav-stop-label { font-size: 13px; color: #0f172a; }
+  .nav-stop-item .nav-stop-label small { display: block; color: #64748b; font-size: 11px; }
+  .nav-stop-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 16px;
+    text-decoration: none;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+  }
+  .nav-full-route-btn {
+    display: inline-block;
+    text-decoration: none;
+    text-align: center;
+    background: #1a73e8;
+    color: #fff;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid #1a73e8;
+  }
+  .nav-full-route-hint {
+    font-size: 11px;
+    color: #94a3b8;
+    margin: -2px 0 0;
+  }
+  #driverMapWrap {
+    height: 280px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    position: relative;
+  }
+  #driverMap { height: 100%; width: 100%; }
+  .driver-map-status {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.92);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: #334155;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .tm-driver-stop-pin {
+    background: #fff;
+    border: 2px solid #0f5a66;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f5a66;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .tm-driver-bus-pin { font-size: 22px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
 </style>
 
 <div class="driver-shell">
@@ -79,7 +157,27 @@
     </div>
     <p class="muted" id="tripStatusText">No active trip.</p>
   </section>
+
+  <section class="driver-card" id="mapSection" style="display:none;">
+    <h2>Route Map</h2>
+    <div id="driverMapWrap">
+      <div id="driverMap"></div>
+      <div class="driver-map-status" id="driverMapStatus">Loading route…</div>
+    </div>
+  </section>
+
+  <% if (googleMapsNavActivated || appleMapsNavActivated) { %>
+  <section class="driver-card" id="navSection" style="display:none;">
+    <h2>Navigation</h2>
+    <p class="muted">Stops in order, ending at the school. Tap a pin to open that leg, or open the whole route at once in Google Maps.</p>
+    <div id="navFullRouteWrap"></div>
+    <p class="nav-full-route-hint" id="navFullRouteHint"></p>
+    <ul class="nav-stop-list" id="navStopList"></ul>
+  </section>
+  <% } %>
 </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
   (function() {
@@ -187,5 +285,317 @@
 
     setUiForTripState(Boolean(activeTripId));
     if (activeTripId) startLocationLoop();
+
+    // --- Driver navigation: open the route (stops in order, ending at the
+    // school) in whichever external maps app the organization has enabled,
+    // instead of the driver having to build the trip themselves. ---
+    const googleMapsNavActivated = <%- googleMapsNavActivated ? 'true' : 'false' %>;
+    const appleMapsNavActivated = <%- appleMapsNavActivated ? 'true' : 'false' %>;
+    const stopsByRouteId = <%- JSON.stringify(stopsByRouteId || {}) %>;
+    const schoolDestination = <%- JSON.stringify(schoolDestination || {}) %>;
+    const navSection = document.getElementById('navSection');
+    const navStopList = document.getElementById('navStopList');
+    const navFullRouteWrap = document.getElementById('navFullRouteWrap');
+
+    function googleMapsSingleLegUrl(lat, lng) {
+      return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(lat + ',' + lng) + '&travelmode=driving';
+    }
+
+    function appleMapsSingleLegUrl(lat, lng) {
+      return 'https://maps.apple.com/?daddr=' + encodeURIComponent(lat + ',' + lng) + '&dirflg=d';
+    }
+
+    // Google Maps' web/app deep link accepts a documented, ordered
+    // `waypoints` list — this is the one provider we can send the FULL
+    // ordered route to in a single tap. Apple Maps' URL scheme has no
+    // equivalent documented multi-stop waypoints param, so it only ever
+    // gets single-leg links below (per stop) rather than pretending it
+    // supports something it doesn't.
+    // Google's consumer maps deep link isn't documented to reliably carry
+    // an unlimited waypoint chain — beyond ~23 intermediate stops some
+    // clients silently drop the tail. Real school routes are nowhere near
+    // that, but cap it defensively and say so rather than hand the driver
+    // a link that quietly loses stops.
+    const GOOGLE_MAPS_WAYPOINT_CAP = 23;
+
+    function googleMapsFullRouteUrl(stops, destination) {
+      if (!stops.length) return { url: null, truncated: false };
+      const cappedStops = stops.slice(0, GOOGLE_MAPS_WAYPOINT_CAP + 1);
+      const truncated = cappedStops.length < stops.length;
+      const last = cappedStops[cappedStops.length - 1];
+      const waypoints = cappedStops.slice(0, -1).map(function(s) { return s.latitude + ',' + s.longitude; });
+      const hasDestination = destination && Number.isFinite(destination.latitude) && Number.isFinite(destination.longitude);
+      const destLat = hasDestination ? destination.latitude : last.latitude;
+      const destLng = hasDestination ? destination.longitude : last.longitude;
+      if (hasDestination) waypoints.push(last.latitude + ',' + last.longitude);
+      const params = new URLSearchParams({
+        api: '1',
+        destination: destLat + ',' + destLng,
+        travelmode: 'driving',
+      });
+      if (waypoints.length) params.set('waypoints', waypoints.join('|'));
+      return { url: 'https://www.google.com/maps/dir/?' + params.toString(), truncated };
+    }
+
+    function renderNavForRoute(routeId) {
+      if (!navSection || !navStopList) return;
+      const stops = stopsByRouteId[routeId] || stopsByRouteId[String(routeId)] || [];
+      if (!routeId || !stops.length) {
+        navSection.style.display = 'none';
+        return;
+      }
+      navSection.style.display = 'grid';
+      navStopList.innerHTML = '';
+      navFullRouteWrap.innerHTML = '';
+
+      const navFullRouteHint = document.getElementById('navFullRouteHint');
+      if (navFullRouteHint) navFullRouteHint.textContent = '';
+      if (googleMapsNavActivated) {
+        const fullRoute = googleMapsFullRouteUrl(stops, schoolDestination);
+        if (fullRoute.url) {
+          const link = document.createElement('a');
+          link.href = fullRoute.url;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.className = 'nav-full-route-btn';
+          link.textContent = '🗺️ Open Full Route in Google Maps (' + stops.length + ' stop' + (stops.length === 1 ? '' : 's') + ')';
+          navFullRouteWrap.appendChild(link);
+          if (fullRoute.truncated && navFullRouteHint) {
+            navFullRouteHint.textContent = 'This route has more stops than Google Maps can chain in one link — open stops individually below past #' + GOOGLE_MAPS_WAYPOINT_CAP + '.';
+          }
+        }
+      }
+
+      stops.forEach(function(stop, idx) {
+        const li = document.createElement('li');
+        li.className = 'nav-stop-item';
+
+        const label = document.createElement('span');
+        label.className = 'nav-stop-label';
+        label.innerHTML = (idx + 1) + '. ' + (stop.stopName || 'Stop') + (stop.stopAddress ? '<small>' + stop.stopAddress + '</small>' : '');
+        li.appendChild(label);
+
+        const actions = document.createElement('span');
+        actions.className = 'nav-stop-actions';
+        if (googleMapsNavActivated) {
+          const gBtn = document.createElement('a');
+          gBtn.href = googleMapsSingleLegUrl(stop.latitude, stop.longitude);
+          gBtn.target = '_blank';
+          gBtn.rel = 'noopener';
+          gBtn.className = 'nav-btn';
+          gBtn.title = 'Open in Google Maps';
+          gBtn.textContent = '🧭';
+          actions.appendChild(gBtn);
+        }
+        if (appleMapsNavActivated) {
+          const aBtn = document.createElement('a');
+          aBtn.href = appleMapsSingleLegUrl(stop.latitude, stop.longitude);
+          aBtn.target = '_blank';
+          aBtn.rel = 'noopener';
+          aBtn.className = 'nav-btn';
+          aBtn.title = 'Open in Apple Maps';
+          aBtn.textContent = '📍';
+          actions.appendChild(aBtn);
+        }
+        li.appendChild(actions);
+        navStopList.appendChild(li);
+      });
+
+      if (schoolDestination && Number.isFinite(schoolDestination.latitude) && Number.isFinite(schoolDestination.longitude)) {
+        const li = document.createElement('li');
+        li.className = 'nav-stop-item';
+        const label = document.createElement('span');
+        label.className = 'nav-stop-label';
+        label.innerHTML = (stops.length + 1) + '. 🏫 School' + (schoolDestination.address ? '<small>' + schoolDestination.address + '</small>' : '');
+        li.appendChild(label);
+
+        const actions = document.createElement('span');
+        actions.className = 'nav-stop-actions';
+        if (googleMapsNavActivated) {
+          const gBtn = document.createElement('a');
+          gBtn.href = googleMapsSingleLegUrl(schoolDestination.latitude, schoolDestination.longitude);
+          gBtn.target = '_blank';
+          gBtn.rel = 'noopener';
+          gBtn.className = 'nav-btn';
+          gBtn.title = 'Open in Google Maps';
+          gBtn.textContent = '🧭';
+          actions.appendChild(gBtn);
+        }
+        if (appleMapsNavActivated) {
+          const aBtn = document.createElement('a');
+          aBtn.href = appleMapsSingleLegUrl(schoolDestination.latitude, schoolDestination.longitude);
+          aBtn.target = '_blank';
+          aBtn.rel = 'noopener';
+          aBtn.className = 'nav-btn';
+          aBtn.title = 'Open in Apple Maps';
+          aBtn.textContent = '📍';
+          actions.appendChild(aBtn);
+        }
+        li.appendChild(actions);
+        navStopList.appendChild(li);
+      }
+    }
+
+    if (googleMapsNavActivated || appleMapsNavActivated) {
+      routeIdInput.addEventListener('change', function() {
+        renderNavForRoute(routeIdInput.value);
+      });
+      if (routeIdInput.value) renderNavForRoute(routeIdInput.value);
+    }
+
+    // --- Route map: same road-snapped-via-OSRM approach as the Management
+    // hub's Operations Map, but on a modern light basemap (CARTO Voyager)
+    // instead of stock OpenStreetMap tiles, and scoped to just this
+    // driver's selected route. ---
+    const mapSection = document.getElementById('mapSection');
+    const mapStatusEl = document.getElementById('driverMapStatus');
+    let driverMap = null;
+    let driverMapLayer = null;
+    let driverBusMarker = null;
+    let driverMapDrawToken = 0;
+    let livePollTimer = null;
+    const roadGeometryCache = new Map();
+
+    function ensureDriverMap() {
+      if (driverMap || typeof L === 'undefined') return driverMap;
+      const el = document.getElementById('driverMap');
+      if (!el) return null;
+      driverMap = L.map(el, { zoomControl: true, scrollWheelZoom: false }).setView([0, 0], 2);
+      // CARTO Voyager: a clean, modern light basemap with clearer road
+      // contrast than stock OSM tiles — free, no API key, same road/building
+      // vector data underneath (still OpenStreetMap), just better styled.
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      }).addTo(driverMap);
+      driverMap.attributionControl.setPrefix(false);
+      driverMapLayer = L.layerGroup().addTo(driverMap);
+
+      // Same background-preload zero-size guard used on the Management
+      // hub's map — this page can also be opened inside an app webview
+      // that mounts it hidden before the tab is actually shown.
+      if (typeof ResizeObserver !== 'undefined') {
+        let lastSize = 0;
+        const observer = new ResizeObserver(function(entries) {
+          const entry = entries[0];
+          if (!entry) return;
+          const size = entry.contentRect.width + entry.contentRect.height;
+          if (size > 0 && size !== lastSize) {
+            const wasZero = lastSize === 0;
+            lastSize = size;
+            driverMap.invalidateSize();
+            if (wasZero && routeIdInput.value) drawRouteOnMap(routeIdInput.value);
+          }
+        });
+        observer.observe(el);
+      }
+      return driverMap;
+    }
+
+    async function fetchRoadGeometry(latlngs) {
+      if (!Array.isArray(latlngs) || latlngs.length < 2) return latlngs;
+      const key = latlngs.map(function(p) { return p[0].toFixed(5) + ',' + p[1].toFixed(5); }).join(';');
+      if (roadGeometryCache.has(key)) return roadGeometryCache.get(key);
+      const coordinates = latlngs.map(function(p) { return p[1].toFixed(7) + ',' + p[0].toFixed(7); }).join(';');
+      const url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson&steps=false';
+      try {
+        const response = await fetch(url);
+        const payload = await response.json();
+        const geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
+        const points = Array.isArray(geometry && geometry.coordinates)
+          ? geometry.coordinates.map(function(p) { return [Number(p[1]), Number(p[0])]; })
+          : null;
+        if (points && points.length >= 2) {
+          roadGeometryCache.set(key, points);
+          return points;
+        }
+      } catch (_error) {
+        // Fall back to the straight segment if the routing service is unreachable.
+      }
+      roadGeometryCache.set(key, latlngs);
+      return latlngs;
+    }
+
+    async function drawRouteOnMap(routeId) {
+      const map = ensureDriverMap();
+      if (!map || !driverMapLayer) return;
+      const stops = stopsByRouteId[routeId] || stopsByRouteId[String(routeId)] || [];
+      if (!routeId || !stops.length) {
+        mapSection.style.display = 'none';
+        return;
+      }
+      mapSection.style.display = 'grid';
+      const token = ++driverMapDrawToken;
+      driverMapLayer.clearLayers();
+      driverBusMarker = null;
+      if (mapStatusEl) mapStatusEl.textContent = 'Drawing route on roads…';
+
+      const points = [];
+      stops.forEach(function(stop, idx) {
+        points.push([stop.latitude, stop.longitude]);
+        L.marker([stop.latitude, stop.longitude], {
+          icon: L.divIcon({
+            className: '',
+            html: '<div class="tm-driver-stop-pin">' + (idx + 1) + '</div>',
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          }),
+        }).bindPopup((idx + 1) + '. ' + (stop.stopName || 'Stop')).addTo(driverMapLayer);
+      });
+
+      const hasSchool = schoolDestination && Number.isFinite(schoolDestination.latitude) && Number.isFinite(schoolDestination.longitude);
+      if (hasSchool) {
+        points.push([schoolDestination.latitude, schoolDestination.longitude]);
+        L.marker([schoolDestination.latitude, schoolDestination.longitude], {
+          icon: L.divIcon({ className: '', html: '<div class="tm-driver-bus-pin">🏫</div>', iconSize: [26, 26], iconAnchor: [13, 13] }),
+        }).bindPopup('School').addTo(driverMapLayer);
+      }
+
+      const roadPoints = await fetchRoadGeometry(points);
+      if (token !== driverMapDrawToken) return;
+      L.polyline(roadPoints, { color: '#ffffff', weight: 7, opacity: 0.9 }).addTo(driverMapLayer);
+      L.polyline(roadPoints, { color: '#0f5a66', weight: 4, opacity: 0.95 }).addTo(driverMapLayer);
+
+      const bounds = L.latLngBounds(points);
+      map.invalidateSize();
+      map.fitBounds(bounds.pad(0.15), { maxZoom: 16 });
+      if (mapStatusEl) mapStatusEl.textContent = stops.length + ' stop' + (stops.length === 1 ? '' : 's') + ' plotted on roads.';
+
+      pollDriverLivePosition(routeId);
+    }
+
+    async function pollDriverLivePosition(routeId) {
+      if (livePollTimer) window.clearInterval(livePollTimer);
+      if (!routeId) return;
+      const tick = async function() {
+        try {
+          const response = await fetch('/transportation/live/route/' + encodeURIComponent(routeId), { credentials: 'same-origin' });
+          if (!response.ok) return;
+          const payload = await response.json().catch(function() { return null; });
+          const live = payload && payload.data;
+          const lat = live ? Number(live.latitude) : null;
+          const lng = live ? Number(live.longitude) : null;
+          if (!driverMap || !driverMapLayer || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+          if (driverBusMarker) {
+            driverBusMarker.setLatLng([lat, lng]);
+          } else {
+            driverBusMarker = L.marker([lat, lng], {
+              icon: L.divIcon({ className: '', html: '<div class="tm-driver-bus-pin">🚌</div>', iconSize: [26, 26], iconAnchor: [13, 13] }),
+              zIndexOffset: 1000,
+            }).addTo(driverMapLayer).bindPopup('Live position');
+          }
+          if (mapStatusEl) mapStatusEl.textContent = 'Live — updated ' + new Date(live.recorded_at).toLocaleTimeString();
+        } catch (_error) {
+          // Keep the last-known marker on a transient network failure.
+        }
+      };
+      tick();
+      livePollTimer = window.setInterval(tick, 10000);
+    }
+
+    routeIdInput.addEventListener('change', function() {
+      drawRouteOnMap(routeIdInput.value);
+    });
+    if (routeIdInput.value) drawRouteOnMap(routeIdInput.value);
   })();
 </script>

@@ -454,6 +454,7 @@ const {
 const {
   getTransportationIntegrationStatus,
   setTransportationIntegrationActivation,
+  setTransportationExternalNavActivation,
 } = require("../utils/transportation");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
 const { logOrganizationActivity } = require("../utils/activityLog");
@@ -2302,6 +2303,78 @@ async function completeStripeRegistrationPayment(
   } finally {
     client.release();
   }
+}
+
+// Both Driver Navigation integrations (Google Maps / Apple Maps) are plain
+// password-gated on/off switches with no OAuth connect step — same shape as
+// transportationActivationPost above, just targeting a different flag. One
+// factory keeps the two handlers from being copy-pasted duplicates.
+function buildExternalNavActivationHandler(provider, label) {
+  return async function externalNavActivationPost(req, res) {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    const acceptsHeader = String(req.get("accept") || "").toLowerCase();
+    const wantsJson =
+      req.xhr ||
+      acceptsHeader.includes("application/json") ||
+      String(req.get("x-requested-with") || "").toLowerCase() === "xmlhttprequest";
+
+    const respond = (statusCode, payload) => {
+      if (wantsJson) {
+        return res.status(statusCode).json(payload);
+      }
+      if (!payload.success && payload.message) {
+        req.flash("error", payload.message);
+      } else if (payload.success && payload.message) {
+        req.flash("success", payload.message);
+      }
+      return res.redirect("/account/settings?section=integrations");
+    };
+
+    try {
+      const shouldActivate = String(req.body.activate || "").trim() === "1";
+
+      const integrationPassword = String(
+        req.body.integrationPassword || req.body.deactivationPassword || ""
+      );
+      if (!integrationPassword.trim()) {
+        return respond(400, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? `Enter your password to activate ${label}.`
+            : `Enter your password to deactivate ${label}.`,
+        });
+      }
+
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      if (!isPasswordValid) {
+        return respond(401, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? `Incorrect password. ${label} was not activated.`
+            : `Incorrect password. ${label} was not deactivated.`,
+        });
+      }
+
+      await setTransportationExternalNavActivation(db, orgId, provider, shouldActivate);
+
+      return respond(200, {
+        success: true,
+        activated: shouldActivate,
+        message: shouldActivate
+          ? `${label} is now activated.`
+          : `${label} has been deactivated.`,
+      });
+    } catch (error) {
+      return respond(500, {
+        success: false,
+        message: `Unable to update ${label} right now.`,
+      });
+    }
+  };
 }
 
 const accountController = {
@@ -11931,6 +12004,9 @@ const accountController = {
       });
     }
   },
+
+  googleMapsNavActivationPost: buildExternalNavActivationHandler("google", "Google Maps"),
+  appleMapsNavActivationPost: buildExternalNavActivationHandler("apple", "Maps"),
 
   googleClassroomConnectGet: async (req, res) => {
     const orgId = req.session.organizationId;

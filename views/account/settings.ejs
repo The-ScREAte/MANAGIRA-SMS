@@ -3713,6 +3713,137 @@
               <input type="hidden" name="integrationPassword" id="transportation-activation-password" />
             </form>
           </div>
+
+          <% if (tiActivated) { %>
+          <% const gmActivated = !!ti.googleMapsNavActivated; %>
+          <div class="card" style="margin-top:14px;">
+            <h4>
+              <span class="google-classroom-title">
+                <svg class="google-classroom-logo google-classroom-logo--compact" viewBox="0 0 64 48" aria-hidden="true" focusable="false">
+                  <rect x="1" y="1" width="62" height="46" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"></rect>
+                  <g transform="translate(32,24)">
+                    <path fill="#4285F4" d="M0 0 L0 -14 A14 14 0 0 1 14 0 Z"></path>
+                    <path fill="#34A853" d="M0 0 L14 0 A14 14 0 0 1 0 14 Z"></path>
+                    <path fill="#FBBC04" d="M0 0 L0 14 A14 14 0 0 1 -14 0 Z"></path>
+                    <path fill="#EA4335" d="M0 0 L-14 0 A14 14 0 0 1 0 -14 Z"></path>
+                    <circle cx="0" cy="0" r="6" fill="#ffffff"></circle>
+                  </g>
+                </svg>
+                <span>Google Maps</span>
+              </span>
+            </h4>
+            <small class="google-integration-description">
+              Activate to let drivers open their route directly in the Google Maps app from the Driver Dashboard, with every stop pinned in order and the school as the final destination.
+            </small>
+
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
+                <span class="google-integration-copy">Google Maps status</span>
+                <span
+                  class="pill"
+                  id="google-maps-nav-status-pill"
+                  data-activated="<%= gmActivated ? '1' : '0' %>"
+                  style="background:<%= gmActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= gmActivated ? '#166534' : '#92400e' %>">
+                  <%= gmActivated ? 'Active' : 'Inactive' %>
+                </span>
+              </div>
+
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
+                  <summary class="google-actions-toggle" aria-label="Google Maps actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-google-maps-nav-activate-modal"
+                      style="display:<%= gmActivated ? 'none' : 'block' %>;"><%= gmActivated ? '' : 'Activate' %></a>
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-google-maps-nav-deactivate-modal"
+                      style="display:<%= gmActivated ? 'block' : 'none' %>;"><%= gmActivated ? 'Deactivate' : '' %></a>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="google-maps-nav-activation-form" action="/account/transportation/google-maps-nav/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="google-maps-nav-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="google-maps-nav-activation-password" />
+            </form>
+          </div>
+
+          <% const amActivated = !!ti.appleMapsNavActivated; %>
+          <div class="card" style="margin-top:14px;">
+            <h4>
+              <span class="google-classroom-title">
+                <svg class="google-classroom-logo google-classroom-logo--compact" viewBox="0 0 64 48" aria-hidden="true" focusable="false">
+                  <defs>
+                    <clipPath id="appleMapsClip">
+                      <rect x="1" y="1" width="62" height="46" rx="10"></rect>
+                    </clipPath>
+                  </defs>
+                  <g clip-path="url(#appleMapsClip)">
+                    <rect x="1" y="1" width="62" height="46" fill="#eef1ee"></rect>
+                    <polygon points="1,1 20,1 6,47 1,47" fill="#f3c6ce"></polygon>
+                    <polygon points="20,1 30,1 16,47 6,47" fill="#f6cf6a"></polygon>
+                    <polygon points="30,1 63,1 63,10 24,47 16,47" fill="#a9d18e"></polygon>
+                    <polygon points="63,10 63,26 40,47 24,47" fill="#a9d18e"></polygon>
+                    <polygon points="63,26 63,47 40,47" fill="#8fc7db"></polygon>
+                  </g>
+                  <rect x="1" y="1" width="62" height="46" rx="10" fill="none" stroke="#e2e8f0" stroke-width="2"></rect>
+                  <circle cx="24" cy="28" r="11" fill="#2f7ff0"></circle>
+                  <polygon points="24,20 29,32 24,29 19,32" fill="#f4f8ff"></polygon>
+                  <g transform="translate(40,30)">
+                    <rect x="-11" y="-7" width="22" height="16" rx="3" fill="#2f6fb0"></rect>
+                    <rect x="-9" y="-5" width="18" height="12" rx="2" fill="#ffffff"></rect>
+                    <text x="0" y="4" text-anchor="middle" font-size="8" font-weight="700" fill="#2f6fb0" font-family="Arial, sans-serif">280</text>
+                  </g>
+                </svg>
+                <span>Maps</span>
+              </span>
+            </h4>
+            <small class="google-integration-description">
+              Activate to let drivers open their route directly in the Maps app from the Driver Dashboard, one stop at a time in order, ending at the school.
+            </small>
+
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
+                <span class="google-integration-copy">Maps status</span>
+                <span
+                  class="pill"
+                  id="apple-maps-nav-status-pill"
+                  data-activated="<%= amActivated ? '1' : '0' %>"
+                  style="background:<%= amActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= amActivated ? '#166534' : '#92400e' %>">
+                  <%= amActivated ? 'Active' : 'Inactive' %>
+                </span>
+              </div>
+
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
+                  <summary class="google-actions-toggle" aria-label="Maps actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-apple-maps-nav-activate-modal"
+                      style="display:<%= amActivated ? 'none' : 'block' %>;"><%= amActivated ? '' : 'Activate' %></a>
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-apple-maps-nav-deactivate-modal"
+                      style="display:<%= amActivated ? 'block' : 'none' %>;"><%= amActivated ? 'Deactivate' : '' %></a>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="apple-maps-nav-activation-form" action="/account/transportation/apple-maps-nav/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="apple-maps-nav-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="apple-maps-nav-activation-password" />
+            </form>
+          </div>
+          <% } %>
         </section>
         <% } %>
 
@@ -4099,6 +4230,50 @@
           <p class="error-text" id="transportation-activation-error"></p>
           <div class="form-actions">
             <button class="btn-primary btn-link" id="transportation-activation-submit" type="button">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="google-maps-nav-activation-modal">
+      <div class="modal-card password-modal">
+        <button class="modal-close" type="button" id="google-maps-nav-activation-close">x</button>
+        <h2>Confirm Password</h2>
+        <p id="google-maps-nav-activation-copy">Please confirm your password to continue with Google Maps changes.</p>
+        <div class="content-row">
+          <div class="field-group">
+            <label class="form-label" for="google-maps-nav-activation-input">Password</label>
+            <input
+              type="password"
+              id="google-maps-nav-activation-input"
+              placeholder="Enter your password"
+              class="form-input"
+            />
+          </div>
+          <p class="error-text" id="google-maps-nav-activation-error"></p>
+          <div class="form-actions">
+            <button class="btn-primary btn-link" id="google-maps-nav-activation-submit" type="button">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="apple-maps-nav-activation-modal">
+      <div class="modal-card password-modal">
+        <button class="modal-close" type="button" id="apple-maps-nav-activation-close">x</button>
+        <h2>Confirm Password</h2>
+        <p id="apple-maps-nav-activation-copy">Please confirm your password to continue with Maps changes.</p>
+        <div class="content-row">
+          <div class="field-group">
+            <label class="form-label" for="apple-maps-nav-activation-input">Password</label>
+            <input
+              type="password"
+              id="apple-maps-nav-activation-input"
+              placeholder="Enter your password"
+              class="form-input"
+            />
+          </div>
+          <p class="error-text" id="apple-maps-nav-activation-error"></p>
+          <div class="form-actions">
+            <button class="btn-primary btn-link" id="apple-maps-nav-activation-submit" type="button">Continue</button>
           </div>
         </div>
       </div>
@@ -5432,6 +5607,108 @@
             }
           });
         }
+
+        // Simple password-gated activate/deactivate toggle used by any
+        // integration card that's just an on/off switch (no OAuth connect
+        // step) — Google Maps and Maps (Apple) both
+        // follow this exact shape, so one generic wiring function replaces
+        // what would otherwise be two more full copies of the block above.
+        function wireSimpleIntegrationToggle(opts) {
+          const modal = document.getElementById(opts.prefix + "-activation-modal");
+          const activateOpen = document.getElementById("open-" + opts.prefix + "-activate-modal");
+          const deactivateOpen = document.getElementById("open-" + opts.prefix + "-deactivate-modal");
+          const close = document.getElementById(opts.prefix + "-activation-close");
+          const submit = document.getElementById(opts.prefix + "-activation-submit");
+          const input = document.getElementById(opts.prefix + "-activation-input");
+          const error = document.getElementById(opts.prefix + "-activation-error");
+          const copy = document.getElementById(opts.prefix + "-activation-copy");
+          const value = document.getElementById(opts.prefix + "-activation-value");
+          const statusPill = document.getElementById(opts.prefix + "-status-pill");
+          if (!modal) return;
+
+          function openPasswordModal(mode) {
+            const isActivate = mode === "activate";
+            if (copy) {
+              copy.textContent = isActivate
+                ? "Please confirm your password to activate " + opts.label + "."
+                : "Please confirm your password to deactivate " + opts.label + ".";
+            }
+            if (value) value.value = isActivate ? "1" : "0";
+            if (input) input.value = "";
+            if (error) error.textContent = "";
+            openModal(modal);
+          }
+
+          function setUiState(isActive) {
+            if (statusPill) {
+              statusPill.textContent = isActive ? "Active" : "Inactive";
+              statusPill.style.background = isActive ? "#dcfce7" : "#fef3c7";
+              statusPill.style.color = isActive ? "#166534" : "#92400e";
+              statusPill.dataset.activated = isActive ? "1" : "0";
+            }
+            if (activateOpen) activateOpen.style.display = isActive ? "none" : "block";
+            if (deactivateOpen) deactivateOpen.style.display = isActive ? "block" : "none";
+          }
+
+          if (activateOpen) activateOpen.addEventListener("click", (event) => { event.preventDefault(); openPasswordModal("activate"); });
+          if (deactivateOpen) deactivateOpen.addEventListener("click", (event) => { event.preventDefault(); openPasswordModal("deactivate"); });
+          if (close) close.addEventListener("click", () => closeModal(modal));
+          modal.addEventListener("click", (event) => { if (event.target === modal) closeModal(modal); });
+          if (statusPill) setUiState(statusPill.dataset.activated === "1");
+
+          if (submit && input && value) {
+            submit.addEventListener("click", async () => {
+              const password = input.value.trim();
+              if (!password) {
+                if (error) error.textContent = "Password is required.";
+                return;
+              }
+
+              const activateValue = String(value.value || "0").trim();
+              if (error) error.textContent = "";
+              submit.disabled = true;
+              const previousLabel = submit.textContent;
+              submit.textContent = "Processing...";
+
+              try {
+                const response = await fetch(opts.endpoint, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                  },
+                  body: new URLSearchParams({ activate: activateValue, integrationPassword: password }),
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result || !result.success) {
+                  if (error) error.textContent = (result && result.message) || ("Unable to update " + opts.label + ".");
+                  return;
+                }
+
+                setUiState(Boolean(result.activated));
+                closeModal(modal);
+              } catch (err) {
+                if (error) error.textContent = "Unable to update " + opts.label + " right now.";
+              } finally {
+                submit.disabled = false;
+                submit.textContent = previousLabel || "Continue";
+              }
+            });
+          }
+        }
+
+        wireSimpleIntegrationToggle({
+          prefix: "google-maps-nav",
+          label: "Google Maps",
+          endpoint: "/account/transportation/google-maps-nav/activate",
+        });
+        wireSimpleIntegrationToggle({
+          prefix: "apple-maps-nav",
+          label: "Maps",
+          endpoint: "/account/transportation/apple-maps-nav/activate",
+        });
 
         function openWhatsappPasswordModal(mode) {
           if (!whatsappActivationModal) return;

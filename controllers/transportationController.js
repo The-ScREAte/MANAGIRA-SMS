@@ -2331,7 +2331,7 @@ const transportationController = {
     try {
       await ensureTransportationSchema(db);
 
-      const [routes, buses, activeTrip] = await Promise.all([
+      const [routes, buses, activeTrip, stops, orgMeta, navIntegration] = await Promise.all([
         db.query(
           `SELECT route_id, route_name
              FROM transport_routes
@@ -2358,13 +2358,54 @@ const transportationController = {
             LIMIT 1`,
           [organizationId, userId]
         ),
+        db.query(
+          `SELECT route_id, stop_id, stop_name, stop_address, latitude, longitude, stop_order
+             FROM transport_stops
+            WHERE organization_id = $1
+              AND route_id IS NOT NULL
+              AND latitude IS NOT NULL
+              AND longitude IS NOT NULL
+            ORDER BY route_id ASC, stop_order ASC, stop_name ASC`,
+          [organizationId]
+        ),
+        db.query(
+          `SELECT organization_address, geo_lat, geo_lng FROM organizations WHERE organization_id = $1 LIMIT 1`,
+          [organizationId]
+        ),
+        getTransportationIntegrationStatus(db, organizationId),
       ]);
+
+      const stopsByRouteId = {};
+      stops.rows.forEach((row) => {
+        const routeId = Number(row.route_id);
+        if (!Number.isInteger(routeId)) return;
+        if (!Array.isArray(stopsByRouteId[routeId])) stopsByRouteId[routeId] = [];
+        stopsByRouteId[routeId].push({
+          stopId: row.stop_id,
+          stopName: row.stop_name,
+          stopAddress: row.stop_address,
+          latitude: Number(row.latitude),
+          longitude: Number(row.longitude),
+        });
+      });
+
+      const schoolMeta = orgMeta.rows[0] || {};
+      const schoolLat = toFloat(schoolMeta.geo_lat);
+      const schoolLng = toFloat(schoolMeta.geo_lng);
 
       return res.render("transportation/driverMobile", {
         title: "Driver Transportation",
         routes: routes.rows,
         buses: buses.rows,
         activeTrip: activeTrip.rows[0] || null,
+        stopsByRouteId,
+        schoolDestination: {
+          address: String(schoolMeta.organization_address || "").trim() || null,
+          latitude: schoolLat,
+          longitude: schoolLng,
+        },
+        googleMapsNavActivated: navIntegration.googleMapsNavActivated,
+        appleMapsNavActivated: navIntegration.appleMapsNavActivated,
         messages: req.flash(),
       });
     } catch (error) {

@@ -53,7 +53,9 @@ async function ensureTransportationSchema(dbClient) {
     ALTER TABLE organizations
       ADD COLUMN IF NOT EXISTS transportation_activated BOOLEAN NOT NULL DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS transportation_map_provider TEXT NOT NULL DEFAULT 'openstreetmap',
-      ADD COLUMN IF NOT EXISTS transportation_distance_unit TEXT NOT NULL DEFAULT 'km'
+      ADD COLUMN IF NOT EXISTS transportation_distance_unit TEXT NOT NULL DEFAULT 'km',
+      ADD COLUMN IF NOT EXISTS transportation_google_maps_nav_activated BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS transportation_apple_maps_nav_activated BOOLEAN NOT NULL DEFAULT FALSE
   `);
 
   await dbClient.query(`
@@ -292,9 +294,13 @@ async function ensureTransportationSchema(dbClient) {
 function buildTransportationIntegrationStatus(row = {}) {
   const activated = parseBoolean(row.transportation_activated, false);
   const mapProvider = normalizeMapProvider(row.transportation_map_provider);
+  const googleMapsNavActivated = parseBoolean(row.transportation_google_maps_nav_activated, false);
+  const appleMapsNavActivated = parseBoolean(row.transportation_apple_maps_nav_activated, false);
   return {
     activated,
     mapProvider,
+    googleMapsNavActivated,
+    appleMapsNavActivated,
     shouldShowFeatures: activated,
   };
 }
@@ -304,7 +310,8 @@ async function getTransportationIntegrationStatus(dbClient, organizationId) {
   await ensureTransportationSchema(dbClient);
 
   const result = await dbClient.query(
-    `SELECT transportation_activated, transportation_map_provider
+    `SELECT transportation_activated, transportation_map_provider,
+            transportation_google_maps_nav_activated, transportation_apple_maps_nav_activated
      FROM organizations
      WHERE organization_id = $1
      LIMIT 1`,
@@ -334,6 +341,17 @@ async function setTransportationMapProvider(dbClient, organizationId, provider) 
     [organizationId, normalized]
   );
   return normalized;
+}
+
+async function setTransportationExternalNavActivation(dbClient, organizationId, provider, activated) {
+  await ensureTransportationSchema(dbClient);
+  const column = provider === "apple"
+    ? "transportation_apple_maps_nav_activated"
+    : "transportation_google_maps_nav_activated";
+  await dbClient.query(
+    `UPDATE organizations SET ${column} = $2 WHERE organization_id = $1`,
+    [organizationId, Boolean(activated)]
+  );
 }
 
 async function suggestNearestStop(dbClient, organizationId, homeLat, homeLng) {
@@ -375,5 +393,6 @@ module.exports = {
   getTransportationIntegrationStatus,
   setTransportationIntegrationActivation,
   setTransportationMapProvider,
+  setTransportationExternalNavActivation,
   suggestNearestStop,
 };
