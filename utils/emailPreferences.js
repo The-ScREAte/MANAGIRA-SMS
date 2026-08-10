@@ -77,6 +77,28 @@ async function ensureEmailPreferencesSchema(db) {
       if (err && err.code !== '42P01') throw err;
     }
 
+    // Organization-wide preferences — settings an admin picks on behalf of
+    // the whole school (as opposed to a single user/guardian opting out for
+    // themselves), e.g. whether the org auto-sends the parent-portal
+    // password-setup invite when a student is added.
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS organization_email_preferences (
+          organization_id INTEGER NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+          preference_key VARCHAR(80) NOT NULL,
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (organization_id, preference_key)
+        )
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS idx_organization_email_preferences_org
+          ON organization_email_preferences(organization_id)
+      `);
+    } catch (err) {
+      if (err && err.code !== '42P01') throw err;
+    }
+
     schemaReady = true;
   })().finally(() => { schemaPromise = null; });
 
@@ -179,10 +201,20 @@ const HUB_TOGGLEABLE = [
   { key: 'weekly_hub_digest', label: 'Weekly hub overview (Saturday)', description: 'Weekly cross-organization summary across all member schools.' },
 ];
 
+// Organization-wide toggles — decided once for the whole school, not per user.
+const ORG_TOGGLEABLE = [
+  {
+    key: 'guardian_auto_invite_on_student_add',
+    label: 'Auto-send parent portal password setup invite',
+    description: 'When a new parent/guardian is added while creating a student, automatically email them a link to set their Parent Portal password. If turned off, staff will need to send that invite manually from the guardian’s page.',
+  },
+];
+
 const ALL_KEYS = new Set([
   ...STAFF_TOGGLEABLE.map(e => e.key),
   ...GUARDIAN_TOGGLEABLE.map(e => e.key),
   ...HUB_TOGGLEABLE.map(e => e.key),
+  ...ORG_TOGGLEABLE.map(e => e.key),
 ]);
 
 function getStaffPreferencesForRole(accountType) {
@@ -196,6 +228,10 @@ function getGuardianPreferences() {
 
 function getHubPreferences() {
   return HUB_TOGGLEABLE.slice();
+}
+
+function getOrgPreferences() {
+  return ORG_TOGGLEABLE.slice();
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -310,6 +346,64 @@ async function setHubPreferences(db, hubId, allowedKeys, submittedKeys) {
       if (err && err.code === '42P01') return;
       throw err;
     }
+  }
+}
+
+async function getOrgPreferenceMap(db, organizationId) {
+  if (!organizationId) return {};
+  await ensureEmailPreferencesSchema(db);
+  try {
+    const r = await db.query(
+      `SELECT preference_key, enabled FROM organization_email_preferences WHERE organization_id = $1`,
+      [organizationId]
+    );
+    const out = {};
+    for (const row of r.rows) out[row.preference_key] = !!row.enabled;
+    return out;
+  } catch (err) {
+    if (err && err.code === '42P01') return {};
+    throw err;
+  }
+}
+
+async function setOrgPreferences(db, organizationId, allowedKeys, submittedKeys) {
+  if (!organizationId) return;
+  await ensureEmailPreferencesSchema(db);
+  const allowedSet = new Set(allowedKeys);
+  const enabledSet = new Set((submittedKeys || []).filter(k => allowedSet.has(k)));
+
+  for (const key of allowedKeys) {
+    const enabled = enabledSet.has(key);
+    try {
+      await db.query(
+        `INSERT INTO organization_email_preferences (organization_id, preference_key, enabled, updated_at)
+         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+         ON CONFLICT (organization_id, preference_key)
+         DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = CURRENT_TIMESTAMP`,
+        [organizationId, key, enabled]
+      );
+    } catch (err) {
+      if (err && err.code === '42P01') return;
+      throw err;
+    }
+  }
+}
+
+// Default to ENABLED when no row exists — matches "auto-send by default"
+// until a school actively turns it off.
+async function isOrgEmailEnabled(db, organizationId, key) {
+  if (!organizationId || !key) return true;
+  if (!ALL_KEYS.has(key)) return true;
+  try {
+    await ensureEmailPreferencesSchema(db);
+    const r = await db.query(
+      `SELECT enabled FROM organization_email_preferences WHERE organization_id = $1 AND preference_key = $2`,
+      [organizationId, key]
+    );
+    if (!r.rows.length) return true;
+    return !!r.rows[0].enabled;
+  } catch (_) {
+    return true; // fail open: do not block emails on schema errors
   }
 }
 
@@ -464,18 +558,23 @@ module.exports = {
   STAFF_TOGGLEABLE,
   GUARDIAN_TOGGLEABLE,
   HUB_TOGGLEABLE,
+  ORG_TOGGLEABLE,
   getStaffPreferencesForRole,
   getGuardianPreferences,
   getHubPreferences,
+  getOrgPreferences,
   getUserPreferenceMap,
   getGuardianPreferenceMap,
   getHubPreferenceMap,
+  getOrgPreferenceMap,
   setUserPreferences,
   setGuardianPreferences,
   setHubPreferences,
+  setOrgPreferences,
   isUserEmailEnabled,
   isGuardianEmailEnabled,
   isHubEmailEnabled,
+  isOrgEmailEnabled,
   isEmailEnabledForRecipient,
   filterEmailsByPreference,
 };

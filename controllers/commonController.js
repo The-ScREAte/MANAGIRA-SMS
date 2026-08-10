@@ -10,7 +10,7 @@ const axios = require("axios");
 const he = require("he");
 const { buildFailureNotification, sendEmailSafely, sendEmailInBackground, renderCleanEmail, recordEmailDeliveryFailure } = require("../utils/emailHelper");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
-const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
+const { isEmailEnabledForRecipient, isOrgEmailEnabled } = require("../utils/emailPreferences");
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
   PERMISSIONS,
@@ -4057,7 +4057,7 @@ const commonController = {
       const _nicknameLabel = orgDetails?.nickname ? String(orgDetails.nickname).trim() : "";
       const _nicknameDisplayLabel = orgDetails?.nickname_display ? String(orgDetails.nickname_display).trim() : "";
       const _schoolSiteName = _nicknameDisplayLabel || _nicknameLabel || String(orgDetails?.organization_name || "").trim() || "School";
-      const _seoTitleParts = [orgDetails?.organization_name, _nicknameDisplayLabel, _nicknameLabel, 'Official School Website']
+      const _seoTitleParts = [orgDetails?.organization_name, _publicAlias, 'Official School Website']
         .map((value) => String(value || '').trim())
         .filter((value, index, list) => value && list.indexOf(value) === index);
       const seoTitle = orgDetails?.organization_name
@@ -22560,6 +22560,15 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName, organizat
 // Send welcome email to new guardian with password setup
 const sendGuardianWelcomeEmail = async (guardianEmail, guardianFirstName, guardianLastName, studentName, organizationName, organizationId, guardianId) => {
   try {
+    const db = require("../config/db");
+
+    // Org-level opt-out: Settings → Notifications → Organization Notifications.
+    // Defaults to enabled, so this only skips sending when a school has
+    // explicitly turned it off (staff then send the invite manually from
+    // the guardian's page instead).
+    const autoInviteEnabled = await isOrgEmailEnabled(db, organizationId, 'guardian_auto_invite_on_student_add');
+    if (!autoInviteEnabled) return;
+
     const linkedinUrl = process.env.MANAGIRA_LINKEDIN_URL || 'https://www.linkedin.com/company/managira';
     // Generate token for password setup
     const token = crypto.randomBytes(32).toString("hex");

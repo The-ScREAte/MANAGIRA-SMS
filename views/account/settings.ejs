@@ -2348,7 +2348,7 @@
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg></span>
             <span>Security</span>
           </button></li>
-          <% if (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) { %>
+          <% if ((typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) || (typeof orgNotificationPrefs !== 'undefined' && Array.isArray(orgNotificationPrefs) && orgNotificationPrefs.length)) { %>
           <li><button class="nav-link" data-target="notifications">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-4-5.7V5a2 2 0 1 0-4 0v.3A6 6 0 0 0 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5"/><path d="M9 17a3 3 0 0 0 6 0"/></svg></span>
             <span>Notifications</span>
@@ -3812,12 +3812,42 @@
           -->
         </section>
 
-        <% if (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) {
-             const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {}; %>
+        <%
+          const _hasUserNotificationPrefs = typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length;
+          const _hasOrgNotificationPrefs = typeof orgNotificationPrefs !== 'undefined' && Array.isArray(orgNotificationPrefs) && orgNotificationPrefs.length;
+        %>
+        <% if (_hasUserNotificationPrefs || _hasOrgNotificationPrefs) {
+             const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {};
+             const _orgSaved = (typeof savedOrgNotificationPrefs !== 'undefined' && savedOrgNotificationPrefs) ? savedOrgNotificationPrefs : {}; %>
         <section id="notifications" class="settings-section">
           <h1>Email Notifications</h1>
           <p class="lead">Choose which non-essential emails you want to receive. Security, billing, and other transactional emails are always sent.</p>
 
+          <% if (_hasOrgNotificationPrefs) { %>
+          <div class="card">
+            <h4>Organization Notifications</h4>
+            <small>These apply to the whole school, not just your account.</small>
+            <form action="/account/settings/notifications/organization" method="POST" autocomplete="off">
+              <ul class="notif-list" style="display:flex;flex-direction:column;gap:10px;margin:14px 0 16px;padding:0;list-style:none;">
+                <% orgNotificationPrefs.forEach(function(p) {
+                     const checked = (p.key in _orgSaved) ? !!_orgSaved[p.key] : true; %>
+                  <li style="display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;background:#f9fafb;">
+                    <input type="checkbox" name="orgPreferences" id="org-pref-<%= p.key %>" value="<%= p.key %>" <%= checked ? 'checked' : '' %> style="margin-top:4px;width:18px;height:18px;accent-color:#01535b;flex-shrink:0;cursor:pointer;" />
+                    <label for="org-pref-<%= p.key %>" style="flex:1;cursor:pointer;">
+                      <span style="font-weight:600;color:#0f172a;font-size:0.93rem;display:block;"><%= p.label %></span>
+                      <% if (p.description) { %><span style="font-size:0.83rem;color:#64748b;margin-top:2px;line-height:1.4;display:block;"><%= p.description %></span><% } %>
+                    </label>
+                  </li>
+                <% }); %>
+              </ul>
+              <div class="content-row" style="justify-content:flex-end;">
+                <button type="submit" class="btn-primary btn-link">Save organization preferences</button>
+              </div>
+            </form>
+          </div>
+          <% } %>
+
+          <% if (_hasUserNotificationPrefs) { %>
           <div class="card">
             <h4>Your preferences</h4>
             <small>These options are based on your role. Unchecked items will not be emailed to you.</small>
@@ -3839,6 +3869,7 @@
               </div>
             </form>
           </div>
+          <% } %>
         </section>
         <% } %>
 

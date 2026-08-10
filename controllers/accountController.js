@@ -466,6 +466,9 @@ const {
   getStaffPreferencesForRole,
   getUserPreferenceMap,
   setUserPreferences,
+  getOrgPreferences,
+  getOrgPreferenceMap,
+  setOrgPreferences,
 } = require("../utils/emailPreferences");
 const {
   FEEDBACK_TYPE_OPTIONS,
@@ -6313,6 +6316,37 @@ const accountController = {
     }
   },
 
+  updateOrgNotificationPreferencesPost: async (req, res, db) => {
+    if (!req.session.user || !req.session.organizationId) {
+      req.flash("error", "You must be logged in.");
+      return res.redirect("/account/login");
+    }
+
+    const orgId = req.session.organizationId;
+
+    try {
+      await ensureEmailPreferencesSchema(db);
+
+      const allowed = getOrgPreferences().map(p => p.key);
+      if (!allowed.length) {
+        return res.redirect("/account/settings?section=notifications");
+      }
+
+      const submittedRaw = req.body.orgPreferences;
+      const submitted = Array.isArray(submittedRaw)
+        ? submittedRaw
+        : (submittedRaw ? [submittedRaw] : []);
+
+      await setOrgPreferences(db, orgId, allowed, submitted);
+
+      req.flash("success", "Organization notification preferences saved.");
+      return res.redirect("/account/settings?section=notifications");
+    } catch (error) {
+      req.flash("error", "Failed to save organization notification preferences.");
+      return res.redirect("/account/settings?section=notifications");
+    }
+  },
+
   updatePlatformFeeBearerPost: async (req, res, db) => {
     const orgId = req.session.organizationId;
     if (!orgId) {
@@ -8686,6 +8720,23 @@ const accountController = {
         savedNotificationPrefs = {};
       }
 
+      // ── Organization-wide notification preferences ──────────────────
+      // Same idea, but decided once for the whole school rather than per
+      // user — e.g. whether to auto-send the parent-portal password-setup
+      // invite when a student is added. Defaults to enabled.
+      let orgNotificationPrefs = [];
+      let savedOrgNotificationPrefs = {};
+      try {
+        await ensureEmailPreferencesSchema(db);
+        orgNotificationPrefs = getOrgPreferences();
+        if (orgNotificationPrefs.length && orgId) {
+          savedOrgNotificationPrefs = await getOrgPreferenceMap(db, orgId);
+        }
+      } catch (_) {
+        orgNotificationPrefs = [];
+        savedOrgNotificationPrefs = {};
+      }
+
       const permissionContext = {
         userId,
         userRole: req.session.userRole || user?.account_type || null,
@@ -8829,6 +8880,8 @@ const accountController = {
         publicDashboardTheme,
         notificationPrefs,
         savedNotificationPrefs,
+        orgNotificationPrefs,
+        savedOrgNotificationPrefs,
         canAccessCustomizeSettings,
         canAccessBillingSettings,
         canAccessPaygiraSettings,
