@@ -506,19 +506,40 @@
 
     @media (max-width: 480px) {
       .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .stat-card {
+        padding: 14px 12px;
+      }
+
+      .stat-label {
+        font-size: 0.7rem;
+        margin-bottom: 6px;
+        gap: 4px;
+      }
+
+      .stat-value {
+        font-size: 1.3rem;
       }
 
       .controls-bar {
-        flex-direction: column;
-        flex-wrap: wrap;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 8px;
       }
 
       .control-btn {
-        width: 100%;
         justify-content: center;
-        padding: 10px 16px;
-        font-size: 0.875rem;
+        padding: 8px 10px;
+        font-size: 0.78rem;
+        gap: 5px;
+      }
+
+      .control-btn svg {
+        width: 15px;
+        height: 15px;
       }
 
       .form-submit-btn {
