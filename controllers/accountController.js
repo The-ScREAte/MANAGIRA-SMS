@@ -520,6 +520,8 @@ const {
 const {
   syncGoogleClassroomForOrganization,
   pushPendingAssessmentsForOrganization,
+  createGoogleOauthClient,
+  hasGoogleOauthConfig,
 } = require("../utils/googleClassroomSync");
 
 const GOOGLE_CLASSROOM_SCOPES = [
@@ -12091,7 +12093,7 @@ const accountController = {
         return res.redirect("/account/settings?section=integrations");
       }
 
-      const oauthClient = buildGoogleOauthClient(req);
+      const oauthClient = createGoogleOauthClient();
       const state = createOauthState({
         organizationId: Number(orgId),
         redirectTo: "/account/settings?section=integrations",
@@ -12136,7 +12138,7 @@ const accountController = {
         return res.redirect("/account/settings?section=integrations");
       }
 
-      const oauthClient = buildGoogleOauthClient(req);
+      const oauthClient = createGoogleOauthClient();
       const tokenResponse = await oauthClient.getToken(authCode);
       oauthClient.setCredentials(tokenResponse.tokens || {});
 
@@ -12196,16 +12198,32 @@ const accountController = {
         "Manual sync queued. Course and roster reconciliation will run in the background."
       );
 
+      let syncError = null;
       try {
         await syncGoogleClassroomForOrganization(orgId, { dbClient: db });
         await pushPendingAssessmentsForOrganization(orgId, { dbClient: db, limit: 500, includeExisting: true });
-      } catch (_) {
+      } catch (err) {
+        syncError = err;
+        console.error("[googleClassroomResyncPost] Sync failed:", err?.message || err);
       }
 
-      if (wantsJson) {
-        return res.json({ success: true, message: "Google Classroom sync queued successfully." });
+      if (syncError) {
+        const errorMessage = syncError?.message || "Sync failed. See server logs for details.";
+        await markGoogleSync(db, orgId, "error", errorMessage).catch(() => {});
+
+        if (wantsJson) {
+          return res.status(500).json({ success: false, error: errorMessage });
+        }
+        req.flash("error", `Google Classroom sync failed: ${errorMessage}`);
+        return res.redirect("/account/settings?section=integrations");
       }
-      req.flash("success", "Google Classroom sync queued successfully.");
+
+      await markGoogleSync(db, orgId, "synced", "Manual sync completed successfully.").catch(() => {});
+
+      if (wantsJson) {
+        return res.json({ success: true, message: "Google Classroom sync completed successfully." });
+      }
+      req.flash("success", "Google Classroom sync completed successfully.");
       return res.redirect("/account/settings?section=integrations");
     } catch (error) {
       if (wantsJson) {

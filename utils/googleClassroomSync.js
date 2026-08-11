@@ -11,11 +11,27 @@ function resolveGoogleRedirectUri() {
   const explicitRedirect = String(process.env.GOOGLE_REDIRECT_URI || "").trim();
   if (explicitRedirect) return explicitRedirect;
 
+  const isProduction = process.env.NODE_ENV === "production";
+  const localRedirect = String(process.env.GOOGLE_REDIRECT_URI_LOCAL || "").trim();
   const productionRedirect = String(process.env.GOOGLE_REDIRECT_URI_PRODUCTION || "").trim();
+
+  const envSpecificRedirect = isProduction ? productionRedirect : localRedirect;
+  if (envSpecificRedirect) return envSpecificRedirect;
+
+  // Fall back to whichever explicit redirect is set, regardless of NODE_ENV,
+  // then finally derive one from BASE_URL.
   if (productionRedirect) return productionRedirect;
+  if (localRedirect) return localRedirect;
 
   const baseUrl = String(process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || "https://managira.com").replace(/\/$/, "");
   return `${baseUrl}/account/google-classroom/callback`;
+}
+
+function hasGoogleOauthConfig() {
+  return Boolean(
+    String(process.env.GOOGLE_CLIENT_ID || "").trim() &&
+    String(process.env.GOOGLE_CLIENT_SECRET || "").trim()
+  );
 }
 
 function createGoogleOauthClient() {
@@ -791,14 +807,34 @@ async function pushPendingAssessmentsForOrganization(organizationId, options = {
   );
 
   let pushed = 0;
+  const failures = [];
   for (const row of pendingResult.rows || []) {
     try {
       const didPush = await pushAssessmentToGoogleClassroom(organizationId, row.assessment_id, {
         dbClient,
       });
       if (didPush) pushed += 1;
-    } catch (_) {
+    } catch (err) {
+      const message = err?.message || "Unknown error";
+      console.error(
+        `[googleClassroomSync] Failed to push assessment ${row.assessment_id} (org ${organizationId}):`,
+        message
+      );
+      failures.push({ assessmentId: row.assessment_id, message });
     }
+  }
+
+  if (failures.length) {
+    const summary = failures
+      .slice(0, 3)
+      .map((f) => `#${f.assessmentId}: ${f.message}`)
+      .join("; ");
+    await markGoogleSync(
+      dbClient,
+      organizationId,
+      "error",
+      `${failures.length} assessment(s) failed to push to Google Classroom. ${summary}${failures.length > 3 ? "..." : ""}`
+    ).catch(() => {});
   }
 
   return pushed;
@@ -990,4 +1026,7 @@ module.exports = {
   pushAssessmentToGoogleClassroom,
   pushPendingAssessmentsForOrganization,
   pullGradesFromGoogleClassroom,
+  createGoogleOauthClient,
+  hasGoogleOauthConfig,
+  resolveGoogleRedirectUri,
 };

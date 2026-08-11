@@ -64,6 +64,11 @@ async function ensureStudentPortalSchema(dbClient) {
   `);
 
   await dbClient.query(`
+    ALTER TABLE student_assessment_attempts
+      ADD COLUMN IF NOT EXISTS posted_at TIMESTAMPTZ
+  `);
+
+  await dbClient.query(`
     CREATE TABLE IF NOT EXISTS student_assessment_responses (
       response_id SERIAL PRIMARY KEY,
       attempt_id INTEGER NOT NULL REFERENCES student_assessment_attempts(attempt_id) ON DELETE CASCADE,

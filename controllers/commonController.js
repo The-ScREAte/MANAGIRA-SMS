@@ -2958,6 +2958,51 @@ function computeAssessmentEditability(control, now = new Date()) {
   return { canEdit: true, reason: "Editable" };
 }
 
+async function recomputeSubjectTotalsForStudent(db, { studentId, subjectId, classId, termId, organizationId }) {
+  const resultsRes = await db.query(
+    `SELECT ar.score, ar.category, a.max_score
+     FROM assessment_results ar
+     JOIN assessments a ON a.assessment_id = ar.assessment_id
+     WHERE ar.student_id = $1 AND ar.subject_id = $2 AND ar.term_id = $3 AND ar.class_id = $4
+       AND ar.score IS NOT NULL`,
+    [studentId, subjectId, termId, classId]
+  );
+
+  let totalScore = 0;
+  let maxTotalScore = 0;
+  const categoryScoresMap = {};
+  resultsRes.rows.forEach((row) => {
+    const score = parseFloat(row.score) || 0;
+    totalScore += score;
+    maxTotalScore += parseFloat(row.max_score) || 0;
+    const category = row.category || "Uncategorized";
+    categoryScoresMap[category] = (categoryScoresMap[category] || 0) + score;
+  });
+
+  const totalPercentage = maxTotalScore > 0 ? (totalScore / maxTotalScore) * 100 : null;
+  const grade =
+    totalPercentage !== null
+      ? await getGradeLabelFromScoreRemark(db, organizationId, classId, termId, totalPercentage)
+      : "-";
+
+  await db.query(
+    `UPDATE assessment_results
+     SET total_subject_score = $1, total_percentage = $2, grade = $3
+     WHERE student_id = $4 AND subject_id = $5 AND term_id = $6 AND class_id = $7`,
+    [totalScore, totalPercentage, grade, studentId, subjectId, termId, classId]
+  );
+
+  for (const category in categoryScoresMap) {
+    await db.query(
+      `INSERT INTO category_scores (student_id, class_id, subject_id, organization_id, category, total_score, term_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (student_id, class_id, subject_id, organization_id, category, term_id)
+       DO UPDATE SET total_score = EXCLUDED.total_score`,
+      [studentId, classId, subjectId, organizationId, category, categoryScoresMap[category], termId]
+    );
+  }
+}
+
 async function notifyTeachersForAssessmentControl({
   database,
   organizationId,
@@ -12736,11 +12781,42 @@ NUMBERING:
         });
       });
 
-      const questionSets = dedupedQuestionSetRows.map((row) => ({
+      const assessmentIdsForPostStatus = dedupedQuestionSetRows
+        .map((row) => Number(row.assessment_id))
+        .filter((value) => Number.isInteger(value) && value > 0);
+
+      const postStatusResult = assessmentIdsForPostStatus.length
+        ? await db.query(
+            `SELECT
+               assessment_id,
+               COUNT(*) FILTER (WHERE status = 'submitted') AS completed_count,
+               COUNT(*) FILTER (WHERE status = 'submitted' AND posted_at IS NOT NULL) AS posted_count
+             FROM student_assessment_attempts
+             WHERE organization_id = $1
+               AND assessment_id = ANY($2::int[])
+             GROUP BY assessment_id`,
+            [organizationId, assessmentIdsForPostStatus]
+          )
+        : { rows: [] };
+
+      const postStatusByAssessmentId = new Map();
+      postStatusResult.rows.forEach((row) => {
+        postStatusByAssessmentId.set(Number(row.assessment_id), {
+          completedCount: Number(row.completed_count || 0),
+          postedCount: Number(row.posted_count || 0),
+        });
+      });
+
+      const questionSets = dedupedQuestionSetRows.map((row) => {
+        const postStatus = postStatusByAssessmentId.get(Number(row.assessment_id)) || { completedCount: 0, postedCount: 0 };
+        return {
         question_set_id: row.question_set_id,
         class_id: Number(row.class_id),
         subject_id: Number(row.subject_id),
         assessment_id: Number(row.assessment_id),
+        completed_count: postStatus.completedCount,
+        posted_count: postStatus.postedCount,
+        pending_post_count: Math.max(postStatus.completedCount - postStatus.postedCount, 0),
         class_name: row.class_name || "Class",
         subject_name: row.subject_name || "Subject",
         assessment_title: row.assessment_title || "Assessment",
@@ -12760,7 +12836,8 @@ NUMBERING:
         reviewed_by_name: String(row.reviewed_by_name || "").trim(),
         updated_at: row.updated_at,
         questions: questionsBySetId.get(Number(row.question_set_id)) || [],
-      }));
+        };
+      });
 
       return res.render("common/allClassAssessmentExams", {
         title: "All Class Assessment Questions",
@@ -12777,7 +12854,7 @@ NUMBERING:
         assessmentsForOrg: [],
         assessmentsForTerm: enrichedAssessmentsForTerm,
         questionSets,
-        canUseGoogleClassroom: googleIntegration.activated,
+        canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
         canUseQuestionSetIntegration,
         canManageGoogleIntegration,
         hideGlobalHeader: isEmbedded,
@@ -12802,6 +12879,7 @@ NUMBERING:
 
     try {
       await ensureStudentAssessmentLockSchema(db);
+      await ensureStudentPortalSchema(db);
 
       const scopeResult = await db.query(
         `SELECT
@@ -12869,6 +12947,7 @@ NUMBERING:
            la.submitted_at,
            la.score,
            la.max_score,
+           la.posted_at,
            COALESCE(salo.is_locked, FALSE) AS override_locked
          FROM eligible_students es
          LEFT JOIN LATERAL (
@@ -12879,6 +12958,7 @@ NUMBERING:
              saa.submitted_at,
              saa.score,
              saa.max_score,
+             saa.posted_at,
              saa.updated_at
            FROM student_assessment_attempts saa
            WHERE saa.organization_id = $1
@@ -12906,6 +12986,7 @@ NUMBERING:
         const hasAttemptDate = Boolean(row.started_at || row.submitted_at);
         const isCompleted = Boolean(row.started_at && row.submitted_at);
         const isLocked = hasAttemptDate || Boolean(row.override_locked);
+        const isPosted = Boolean(row.posted_at);
         return {
           studentId: Number(row.student_id),
           firstName: row.first_name || "",
@@ -12914,16 +12995,21 @@ NUMBERING:
           attemptStatus: attemptStatus || "not_started",
           isCompleted,
           isLocked,
+          isPosted,
           hasAttemptDate,
           hasOverrideLock: Boolean(row.override_locked),
           startedAt: row.started_at || null,
           submittedAt: row.submitted_at || null,
+          postedAt: row.posted_at || null,
           score: row.score,
           maxScore: row.max_score,
         };
       });
 
       const completedCount = students.filter((student) => student.isLocked).length;
+      const pendingPostCount = students.filter(
+        (student) => student.attemptStatus === "submitted" && !student.isPosted
+      ).length;
 
       return res.json({
         success: true,
@@ -12942,11 +13028,466 @@ NUMBERING:
           totalStudents: students.length,
           completedCount,
           unlockedCount: students.length - completedCount,
+          pendingPostCount,
         },
         students,
       });
     } catch (_error) {
       return res.status(500).json({ success: false, error: "Failed to load students for this question set." });
+    }
+  },
+
+  postAssessmentQuestionSetScores: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const questionSetId = Number(req.body?.questionSetId || 0);
+
+    if (!organizationId || !Number.isInteger(questionSetId) || questionSetId <= 0) {
+      return res.status(400).json({ success: false, error: "questionSetId is required." });
+    }
+
+    try {
+      await ensureStudentPortalSchema(db);
+
+      const scopeResult = await db.query(
+        `SELECT qs.assessment_id, qs.term_id, qs.class_id, qs.subject_id, a.category, a.title
+         FROM assessment_question_sets qs
+         LEFT JOIN assessments a ON a.assessment_id = qs.assessment_id AND a.organization_id = qs.organization_id
+         WHERE qs.organization_id = $1 AND qs.question_set_id = $2
+         LIMIT 1`,
+        [organizationId, questionSetId]
+      );
+
+      if (!scopeResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Question set not found." });
+      }
+
+      const scope = scopeResult.rows[0];
+      const assessmentId = Number(scope.assessment_id || 0);
+      if (!assessmentId) {
+        return res.status(400).json({ success: false, error: "Question set scope is incomplete." });
+      }
+
+      const pendingResult = await db.query(
+        `SELECT attempt_id, student_id, score, max_score
+         FROM student_assessment_attempts
+         WHERE organization_id = $1
+           AND assessment_id = $2
+           AND question_set_id = $3
+           AND status = 'submitted'
+           AND posted_at IS NULL`,
+        [organizationId, assessmentId, questionSetId]
+      );
+
+      let postedCount = 0;
+      for (const attempt of pendingResult.rows) {
+        await db.query(
+          `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (student_id, assessment_id)
+           DO UPDATE SET score = EXCLUDED.score`,
+          [
+            attempt.student_id,
+            assessmentId,
+            attempt.score,
+            scope.subject_id,
+            scope.term_id,
+            organizationId,
+            scope.class_id,
+            scope.category,
+          ]
+        );
+
+        await recomputeSubjectTotalsForStudent(db, {
+          studentId: attempt.student_id,
+          subjectId: scope.subject_id,
+          classId: scope.class_id,
+          termId: scope.term_id,
+          organizationId,
+        });
+
+        await db.query(
+          `UPDATE student_assessment_attempts SET posted_at = NOW() WHERE attempt_id = $1`,
+          [attempt.attempt_id]
+        );
+
+        postedCount += 1;
+      }
+
+      if (postedCount > 0) {
+        await commonController.updateStudentPositions(
+          db,
+          scope.subject_id,
+          organizationId,
+          scope.class_id,
+          scope.term_id
+        );
+      }
+
+      return res.json({
+        success: true,
+        postedCount,
+        message: postedCount
+          ? `Posted ${postedCount} score(s) for "${scope.title || "this assessment"}".`
+          : "No new completed attempts to post.",
+      });
+    } catch (error) {
+      console.error("[postAssessmentQuestionSetScores] Error:", error?.message || error);
+      return res.status(500).json({ success: false, error: "Failed to post scores." });
+    }
+  },
+
+  unpostAssessmentQuestionSetScores: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const questionSetId = Number(req.body?.questionSetId || 0);
+
+    if (!organizationId || !Number.isInteger(questionSetId) || questionSetId <= 0) {
+      return res.status(400).json({ success: false, error: "questionSetId is required." });
+    }
+
+    try {
+      await ensureStudentPortalSchema(db);
+
+      const scopeResult = await db.query(
+        `SELECT qs.assessment_id, qs.term_id, qs.class_id, qs.subject_id, a.title
+         FROM assessment_question_sets qs
+         LEFT JOIN assessments a ON a.assessment_id = qs.assessment_id AND a.organization_id = qs.organization_id
+         WHERE qs.organization_id = $1 AND qs.question_set_id = $2
+         LIMIT 1`,
+        [organizationId, questionSetId]
+      );
+
+      if (!scopeResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Question set not found." });
+      }
+
+      const scope = scopeResult.rows[0];
+      const assessmentId = Number(scope.assessment_id || 0);
+      if (!assessmentId) {
+        return res.status(400).json({ success: false, error: "Question set scope is incomplete." });
+      }
+
+      const postedResult = await db.query(
+        `SELECT attempt_id, student_id
+         FROM student_assessment_attempts
+         WHERE organization_id = $1
+           AND assessment_id = $2
+           AND question_set_id = $3
+           AND status = 'submitted'
+           AND posted_at IS NOT NULL`,
+        [organizationId, assessmentId, questionSetId]
+      );
+
+      let unpostedCount = 0;
+      for (const attempt of postedResult.rows) {
+        await db.query(
+          `DELETE FROM assessment_results WHERE student_id = $1 AND assessment_id = $2`,
+          [attempt.student_id, assessmentId]
+        );
+
+        await recomputeSubjectTotalsForStudent(db, {
+          studentId: attempt.student_id,
+          subjectId: scope.subject_id,
+          classId: scope.class_id,
+          termId: scope.term_id,
+          organizationId,
+        });
+
+        await db.query(
+          `UPDATE student_assessment_attempts SET posted_at = NULL WHERE attempt_id = $1`,
+          [attempt.attempt_id]
+        );
+
+        unpostedCount += 1;
+      }
+
+      if (unpostedCount > 0) {
+        await commonController.updateStudentPositions(
+          db,
+          scope.subject_id,
+          organizationId,
+          scope.class_id,
+          scope.term_id
+        );
+      }
+
+      return res.json({
+        success: true,
+        unpostedCount,
+        message: unpostedCount
+          ? `Unposted ${unpostedCount} score(s) for "${scope.title || "this assessment"}". They no longer show on the subject dashboard.`
+          : "No posted scores to unpost.",
+      });
+    } catch (error) {
+      console.error("[unpostAssessmentQuestionSetScores] Error:", error?.message || error);
+      return res.status(500).json({ success: false, error: "Failed to unpost scores." });
+    }
+  },
+
+  verifyAssessmentAnswerPassword: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const userId = Number(req.session.userId || 0);
+    const password = String(req.body?.password || "");
+
+    if (!organizationId || !password.trim()) {
+      return res.status(400).json({ success: false, error: "Password is required." });
+    }
+
+    try {
+      if (userId) {
+        const userResult = await db.query(
+          `SELECT password FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+          [userId, organizationId]
+        );
+        if (userResult.rows.length && userResult.rows[0].password) {
+          const matchUser = await bcrypt.compare(password, userResult.rows[0].password);
+          if (matchUser) return res.json({ success: true });
+        }
+      }
+
+      const orgResult = await db.query(
+        `SELECT password FROM organizations WHERE organization_id = $1 LIMIT 1`,
+        [organizationId]
+      );
+      if (orgResult.rows.length && orgResult.rows[0].password) {
+        const matchOrg = await bcrypt.compare(password, orgResult.rows[0].password);
+        if (matchOrg) return res.json({ success: true });
+      }
+
+      return res.status(401).json({ success: false, error: "Incorrect password." });
+    } catch (error) {
+      console.error("[verifyAssessmentAnswerPassword] Error:", error?.message || error);
+      return res.status(500).json({ success: false, error: "Unable to verify password right now." });
+    }
+  },
+
+  getAssessmentAttemptForGrading: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const attemptId = Number(req.query.attemptId || 0);
+
+    if (!organizationId || !Number.isInteger(attemptId) || attemptId <= 0) {
+      return res.status(400).json({ success: false, error: "attemptId is required." });
+    }
+
+    try {
+      const attemptResult = await db.query(
+        `SELECT saa.attempt_id, saa.student_id, saa.assessment_id, saa.question_set_id,
+                saa.status, saa.started_at, saa.submitted_at, saa.score, saa.max_score,
+                st.first_name, st.last_name,
+                a.title AS assessment_title, a.class_id, a.subject_id, a.term_id,
+                a.max_score AS assessment_max_score, a.is_locked, a.is_active,
+                a.edit_window_start, a.edit_window_end,
+                c.class_name, s.subject_name
+         FROM student_assessment_attempts saa
+         JOIN students st ON st.student_id = saa.student_id AND st.organization_id = saa.organization_id
+         JOIN assessments a ON a.assessment_id = saa.assessment_id AND a.organization_id = saa.organization_id
+         LEFT JOIN classes c ON c.class_id = a.class_id AND c.organization_id = a.organization_id
+         LEFT JOIN subjects s ON s.subject_id = a.subject_id AND s.organization_id = a.organization_id
+         WHERE saa.organization_id = $1 AND saa.attempt_id = $2
+         LIMIT 1`,
+        [organizationId, attemptId]
+      );
+
+      if (!attemptResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Attempt not found." });
+      }
+
+      const attempt = attemptResult.rows[0];
+      if (!attempt.question_set_id) {
+        return res.status(400).json({ success: false, error: "This attempt has no linked question set." });
+      }
+
+      const questionsResult = await db.query(
+        `SELECT q.question_id, q.question_type, q.question_text, q.options_json, q.answer_key,
+                q.marks, q.position_index,
+                r.response_text, r.response_json, r.is_correct, r.awarded_marks
+         FROM assessment_questions q
+         LEFT JOIN student_assessment_responses r
+           ON r.question_id = q.question_id AND r.attempt_id = $2
+         WHERE q.question_set_id = $1
+         ORDER BY q.position_index ASC, q.question_id ASC`,
+        [attempt.question_set_id, attemptId]
+      );
+
+      const editability = computeAssessmentEditability(attempt);
+
+      return res.json({
+        success: true,
+        attempt: {
+          attemptId: Number(attempt.attempt_id),
+          status: attempt.status,
+          startedAt: attempt.started_at,
+          submittedAt: attempt.submitted_at,
+          score: attempt.score,
+          maxScore: attempt.max_score,
+        },
+        student: {
+          studentId: Number(attempt.student_id),
+          firstName: attempt.first_name || "",
+          lastName: attempt.last_name || "",
+        },
+        assessment: {
+          assessmentId: Number(attempt.assessment_id),
+          title: attempt.assessment_title,
+          classId: Number(attempt.class_id),
+          className: attempt.class_name || "",
+          subjectId: Number(attempt.subject_id),
+          subjectName: attempt.subject_name || "",
+          termId: Number(attempt.term_id),
+          maxScore: attempt.assessment_max_score,
+        },
+        canEdit: editability.canEdit,
+        editReason: editability.reason || "",
+        questions: questionsResult.rows.map((q) => ({
+          questionId: Number(q.question_id),
+          questionType: q.question_type,
+          questionText: q.question_text,
+          options: q.options_json || null,
+          answerKey: q.answer_key,
+          marks: Number(q.marks),
+          responseText: q.response_text,
+          responseJson: q.response_json,
+          isCorrect: q.is_correct,
+          awardedMarks:
+            q.awarded_marks !== null && q.awarded_marks !== undefined ? Number(q.awarded_marks) : null,
+        })),
+      });
+    } catch (error) {
+      console.error("[getAssessmentAttemptForGrading] Error:", error?.message || error);
+      return res.status(500).json({ success: false, error: "Failed to load attempt for grading." });
+    }
+  },
+
+  saveAssessmentAttemptGrade: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const attemptId = Number(req.body?.attemptId || 0);
+    const marksInput = req.body?.marks && typeof req.body.marks === "object" ? req.body.marks : {};
+
+    if (!organizationId || !Number.isInteger(attemptId) || attemptId <= 0) {
+      return res.status(400).json({ success: false, error: "attemptId is required." });
+    }
+
+    try {
+      await ensureStudentPortalSchema(db);
+
+      const attemptResult = await db.query(
+        `SELECT saa.attempt_id, saa.student_id, saa.assessment_id, saa.posted_at,
+                a.class_id, a.subject_id, a.term_id, a.category,
+                a.is_locked, a.is_active, a.edit_window_start, a.edit_window_end
+         FROM student_assessment_attempts saa
+         JOIN assessments a ON a.assessment_id = saa.assessment_id AND a.organization_id = saa.organization_id
+         WHERE saa.organization_id = $1 AND saa.attempt_id = $2
+         LIMIT 1`,
+        [organizationId, attemptId]
+      );
+
+      if (!attemptResult.rows.length) {
+        return res.status(404).json({ success: false, error: "Attempt not found." });
+      }
+
+      const attempt = attemptResult.rows[0];
+      const editability = computeAssessmentEditability(attempt);
+      if (!editability.canEdit) {
+        return res.status(403).json({
+          success: false,
+          error: `This assessment is not editable right now: ${editability.reason}`,
+        });
+      }
+
+      const questionsResult = await db.query(
+        `SELECT q.question_id, q.marks
+         FROM assessment_questions q
+         JOIN student_assessment_attempts saa ON saa.question_set_id = q.question_set_id
+         WHERE saa.attempt_id = $1`,
+        [attemptId]
+      );
+      const marksByQuestion = new Map(
+        questionsResult.rows.map((q) => [Number(q.question_id), Number(q.marks)])
+      );
+
+      await db.query("BEGIN");
+      let newScore = 0;
+      try {
+        for (const [questionIdStr, rawValue] of Object.entries(marksInput)) {
+          const questionId = Number(questionIdStr);
+          if (!marksByQuestion.has(questionId)) continue;
+
+          const maxMarks = marksByQuestion.get(questionId);
+          let awarded = Number(rawValue);
+          if (!Number.isFinite(awarded)) awarded = 0;
+          awarded = Math.max(0, Math.min(awarded, maxMarks));
+
+          await db.query(
+            `UPDATE student_assessment_responses
+             SET awarded_marks = $1, updated_at = NOW()
+             WHERE attempt_id = $2 AND question_id = $3`,
+            [awarded, attemptId, questionId]
+          );
+        }
+
+        const totalResult = await db.query(
+          `SELECT COALESCE(SUM(awarded_marks), 0) AS total
+           FROM student_assessment_responses
+           WHERE attempt_id = $1`,
+          [attemptId]
+        );
+        newScore = Number(totalResult.rows[0].total) || 0;
+
+        // Grading always updates the attempt's own score. It does NOT post to
+        // assessment_results (the subject dashboard's source) unless this
+        // attempt was already posted before — posting itself only happens via
+        // the explicit "Post Score" action.
+        await db.query(
+          `UPDATE student_assessment_attempts SET score = $1, updated_at = NOW() WHERE attempt_id = $2`,
+          [newScore, attemptId]
+        );
+
+        const wasAlreadyPosted = Boolean(attempt.posted_at);
+
+        if (wasAlreadyPosted) {
+          await db.query(
+            `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             ON CONFLICT (student_id, assessment_id)
+             DO UPDATE SET score = EXCLUDED.score`,
+            [
+              attempt.student_id,
+              attempt.assessment_id,
+              newScore,
+              attempt.subject_id,
+              attempt.term_id,
+              organizationId,
+              attempt.class_id,
+              attempt.category,
+            ]
+          );
+
+          await recomputeSubjectTotalsForStudent(db, {
+            studentId: attempt.student_id,
+            subjectId: attempt.subject_id,
+            classId: attempt.class_id,
+            termId: attempt.term_id,
+            organizationId,
+          });
+
+          await commonController.updateStudentPositions(
+            db,
+            attempt.subject_id,
+            organizationId,
+            attempt.class_id,
+            attempt.term_id
+          );
+        }
+
+        await db.query("COMMIT");
+      } catch (txError) {
+        await db.query("ROLLBACK");
+        throw txError;
+      }
+
+      return res.json({ success: true, score: newScore });
+    } catch (error) {
+      console.error("[saveAssessmentAttemptGrade] Error:", error?.message || error);
+      return res.status(500).json({ success: false, error: "Failed to save grade." });
     }
   },
 
@@ -14233,12 +14774,20 @@ NUMBERING:
           }
 
           if (googleIntegration.shouldShowFeatures) {
-            markGoogleSync(
+            await markGoogleSync(
               db,
               organizationId,
               "queued",
               "Assessment updates detected. Google Classroom sync queued."
             ).catch(() => {});
+
+            pushPendingAssessmentsForOrganization(Number(organizationId), {
+              dbClient: db,
+              limit: 200,
+              includeExisting: true,
+            }).catch((err) =>
+              console.error("[ModifyAssessment] Google Classroom push failed:", err?.message || err)
+            );
           }
         } catch (backgroundErr) {
           console.error(

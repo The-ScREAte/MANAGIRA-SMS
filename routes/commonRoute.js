@@ -400,6 +400,21 @@ module.exports = (db) => {
   router.post("/assessment/questions/students/unlock", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
     commonController.unlockAssessmentQuestionSetStudents(req, res, db)
   );
+  router.post("/assessment/questions/students/post-scores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+    commonController.postAssessmentQuestionSetScores(req, res, db)
+  );
+  router.post("/assessment/questions/students/unpost-scores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+    commonController.unpostAssessmentQuestionSetScores(req, res, db)
+  );
+  router.post("/assessment/verify-answer-password", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+    commonController.verifyAssessmentAnswerPassword(req, res, db)
+  );
+  router.get("/assessment/attempt/grade", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, (req, res) =>
+    commonController.getAssessmentAttemptForGrading(req, res, db)
+  );
+  router.post("/assessment/attempt/grade", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, express.json(), (req, res) =>
+    commonController.saveAssessmentAttemptGrade(req, res, db)
+  );
   router.post("/assessment/control-item", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), express.json(), (req, res) =>
     commonController.updateAssessmentItemControlPost(req, res, db)
   );

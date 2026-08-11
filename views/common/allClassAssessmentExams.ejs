@@ -390,94 +390,127 @@
       align-items: center;
       justify-content: flex-start;
       gap: 8px;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       padding-left: 2px;
       flex-wrap: wrap;
     }
 
     .subject-group-title {
       margin: 0;
-      font-size: 0.76rem;
-      font-weight: 800;
-      color: #13414a;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #64748b;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
     }
 
     .subject-group-meta {
+      display: inline-flex;
+      align-items: center;
       font-size: 0.62rem;
-      color: #5f7381;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      color: #94a3b8;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: 0.01em;
+      background: #f1f5f9;
+      border-radius: 999px;
+      padding: 2px 8px;
     }
 
     .subject-group-assessment-inline {
-      font-size: 0.66rem;
-      font-weight: 700;
-      color: #1f4f59;
-      border-left: 2px solid #c8d6df;
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: #94a3b8;
+      border-left: 1px solid #e2e8f0;
       padding-left: 8px;
       line-height: 1.3;
       text-transform: none;
       letter-spacing: 0.01em;
     }
 
-    .assessment-group {
-      margin-bottom: 10px;
+    .assessment-group-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      align-items: start;
     }
 
+    @media (max-width: 640px) {
+      .assessment-group-list {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .assessment-group {
+      display: contents;
+    }
+
+    .assessment-group .exam-grid {
+      display: contents;
+    }
+
+    /* Sets under one subject render together; the assessment name is already
+       shown in each card's breadcrumb, so this sub-header is hidden. */
     .assessment-group-head {
-      margin: 0 0 8px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: #1f4f59;
-      border-left: 3px solid #b8ced8;
-      padding-left: 8px;
-      line-height: 1.3;
+      display: none;
     }
 
     .exam-card {
-      background: linear-gradient(180deg, #ffffff 0%, #f9fbfe 100%);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      box-shadow: 0 8px 22px rgba(15, 45, 50, 0.08);
+      background: #ffffff;
+      border: 1px solid #e6eaef;
+      border-left: 3px solid var(--primary);
+      border-radius: 14px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
       overflow: visible;
       min-height: 100%;
+      width: 100%;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .exam-card:hover {
+      border-color: color-mix(in srgb, var(--primary) 40%, #d7dee6);
+      border-left-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07);
     }
 
     .exam-summary {
       list-style: none;
       position: relative;
       display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-      padding: 11px 12px;
-      padding-right: 48px;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px 12px;
+      padding-right: 40px;
       margin: 0;
       cursor: pointer;
     }
     .exam-summary::-webkit-details-marker { display: none; }
-    .exam-summary:hover { background: #f8fbfc; }
 
     .exam-title {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+      display: flex;
+      flex-direction: row;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 6px;
       min-width: 0;
     }
     .exam-title strong {
-      font-size: 0.76rem;
-      color: var(--primary);
-      line-height: 1.2;
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.25;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.15s ease;
+    }
+    .exam-title strong:hover {
+      color: var(--primary);
     }
     .exam-title span {
-      font-size: 0.66rem;
-      color: var(--muted);
-      white-space: nowrap;
+      font-size: 0.68rem;
+      color: #94a3b8;
+      font-weight: 500;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -486,86 +519,187 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 4px;
       width: auto;
       min-width: 0;
-      padding: 1px 7px;
-      border-radius: 999px;
-      background: var(--primary-soft);
-      color: var(--primary);
-      border: 1px solid color-mix(in srgb, var(--primary) 28%, #ffffff);
-      font-size: 0.62rem;
-      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid transparent;
+      font-size: 0.68rem;
+      font-weight: 600;
       white-space: nowrap;
+      line-height: 1.4;
+    }
+
+    .exam-pill svg {
+      flex-shrink: 0;
+      width: 11px;
+      height: 11px;
+      color: color-mix(in srgb, var(--primary) 55%, #94a3b8);
+    }
+
+    .exam-pill.status-chip {
+      gap: 5px;
+      padding: 3px 9px 3px 7px;
+      font-weight: 700;
+    }
+
+    .exam-pill.status-chip svg {
+      width: 12px;
+      height: 12px;
     }
 
     .exam-pill.review-pending {
-      background: #fff7ed;
-      border-color: #fed7aa;
-      color: #9a3412;
+      background: #fffbeb;
+      color: #92400e;
     }
+    .exam-pill.review-pending svg { color: #b45309; }
 
     .exam-pill.review-approved {
       background: #ecfdf5;
-      border-color: #bbf7d0;
       color: #166534;
     }
+    .exam-pill.review-approved svg { color: #16a34a; }
 
     .exam-pill.review-rejected {
       background: #fef2f2;
-      border-color: #fecaca;
       color: #991b1b;
     }
+    .exam-pill.review-rejected svg { color: #dc2626; }
 
     .exam-updated {
-      font-size: 0.64rem;
-      color: var(--muted);
+      font-size: 0.62rem;
+      color: #94a3b8;
+      font-weight: 500;
       white-space: nowrap;
+      cursor: default;
     }
 
     .exam-questions {
-      border-top: 1px solid #e8eef3;
+      border-top: 1px solid #eef1f5;
       padding: 10px 12px 11px;
       display: grid;
       gap: 8px;
     }
 
     .exam-summary-actions {
-      display: inline-flex;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+
+    .exam-meta-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .exam-meta-line {
+      display: flex;
       gap: 6px;
       align-items: center;
       flex-wrap: wrap;
     }
 
+    .score-status-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0;
+      border-radius: 0;
+      border: none;
+      background: transparent;
+    }
+
+    .score-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #94a3b8;
+      flex-shrink: 0;
+    }
+
+    .score-status-wrap.is-posted .score-status-dot {
+      background: var(--primary);
+    }
+
+    .score-status-wrap .qm-answer-toggle-label {
+      display: none;
+    }
+
+    .card-score-toggle-status {
+      font-size: 0.64rem;
+      font-weight: 600;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    .score-status-wrap.is-posted .card-score-toggle-status {
+      color: var(--primary);
+    }
+
+    .score-status-wrap .qm-answer-toggle {
+      width: 20px;
+      height: 12px;
+    }
+
+    .score-status-wrap .qm-answer-toggle.is-on {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .score-status-wrap .qm-answer-toggle-knob {
+      top: 1px;
+      left: 1px;
+      width: 8px;
+      height: 8px;
+    }
+
+    .score-status-wrap .qm-answer-toggle.is-on .qm-answer-toggle-knob {
+      transform: translateX(8px);
+    }
+
     .set-actions-menu {
       position: absolute;
       right: 10px;
-      top: 8px;
+      top: 10px;
       margin-left: 0;
       z-index: 200;
+      opacity: 1;
+      transition: opacity 0.12s ease;
+    }
+
+    .exam-card:hover .set-actions-menu,
+    .set-actions-menu.open,
+    .set-actions-trigger:focus-visible {
+      opacity: 1;
     }
 
     .set-actions-trigger {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 30px;
+      width: 24px;
       height: 24px;
-      border-radius: 8px;
-      border: 1px solid color-mix(in srgb, var(--primary) 26%, #ffffff);
-      color: var(--primary);
+      border-radius: 6px;
+      border: 1px solid transparent;
+      color: #94a3b8;
       text-decoration: none;
-      font-size: 13px;
-      font-weight: 700;
       line-height: 1;
-      background: var(--primary-soft);
+      background: transparent;
       cursor: pointer;
-      padding: 0 6px;
+      padding: 0;
     }
 
     .set-actions-trigger:hover,
     .set-actions-trigger:focus-visible {
-      border-color: var(--primary);
-      color: var(--primary);
+      background: #f1f5f9;
+      color: #475569;
       outline: none;
     }
 
@@ -973,6 +1107,132 @@
       color: #607080;
       font-size: 0.68rem;
       min-height: 16px;
+    }
+
+    .grade-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 20, 30, 0.55);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: stretch;
+      justify-content: flex-end;
+      z-index: 10500;
+    }
+
+    .grade-modal-overlay.is-open {
+      display: flex;
+    }
+
+    @keyframes gradeSlideInRight {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+
+    .grade-modal {
+      width: 100%;
+      max-width: 640px;
+      height: 100%;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -12px 0 32px rgba(15, 23, 42, 0.18);
+      animation: gradeSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .grade-modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e6edf0;
+    }
+
+    .grade-modal-title {
+      margin: 0;
+      font-size: 1rem;
+      color: #0f2d32;
+    }
+
+    .grade-modal-subtitle {
+      margin: 4px 0 0;
+      color: #607080;
+      font-size: 0.78rem;
+    }
+
+    .grade-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+    }
+
+    .grade-modal-loading {
+      color: #607080;
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 40px 0;
+    }
+
+    /* Mirrors views/student/takeAssessment.ejs .ta-question* classes so the
+       gradebook shows questions in the exact same layout students see. */
+    .grade-question-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-top: 10px; background: #fff; }
+    .grade-question-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .grade-question-title-wrap { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+    .grade-q-index {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8;
+      font-weight: 800; font-size: 0.72rem; flex: 0 0 auto;
+    }
+    .grade-question-card h3 { margin: 0; font-size: 0.92rem; color: #0f172a; line-height: 1.4; }
+    .grade-mark { font-size: 0.75rem; color: #155e75; background: #ecfeff; border-radius: 999px; padding: 4px 8px; font-weight: 700; display: inline-block; flex: 0 0 auto; }
+
+    .grade-options { margin-top: 8px; display: grid; gap: 8px; }
+    .grade-option { display: flex; align-items: center; gap: 8px; color: #334155; font-size: 0.85rem; padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; }
+    .grade-option.is-correct-answer { background: #f0fdf4; border-color: #bbf7d0; }
+    .grade-option.is-student-answer { border-color: #93c5fd; }
+    .grade-option.is-correct-answer.is-student-answer { background: #ecfdf5; border-color: #34d399; }
+    .grade-option-tag { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; padding: 1px 6px; border-radius: 999px; }
+    .grade-option-tag.correct { background: #dcfce7; color: #166534; }
+    .grade-option-tag.student { background: #dbeafe; color: #1d4ed8; }
+
+    .grade-response-box {
+      width: 100%; min-height: 60px; border: 1px solid #cbd5e1; border-radius: 10px;
+      padding: 9px 10px; font-size: 0.85rem; color: #334155; background: #f8fafc;
+      white-space: pre-wrap; margin-top: 8px;
+    }
+    .grade-answer-key {
+      margin-top: 8px; font-size: 0.78rem; color: #166534; background: #f0fdf4;
+      border: 1px solid #bbf7d0; border-radius: 8px; padding: 6px 10px;
+    }
+
+    .grade-question-marks-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #e2e8f0;
+    }
+
+    .grade-question-marks-input {
+      width: 70px;
+      padding: 5px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.82rem;
+    }
+
+    .grade-modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 14px 20px;
+      border-top: 1px solid #e6edf0;
+    }
+
+    .grade-modal-total {
+      font-weight: 700;
+      color: #0f2d32;
+      font-size: 0.85rem;
     }
 
     .question-modal-overlay {
@@ -2171,6 +2431,133 @@
     .qm-preview-answer {
       font-size: 0.78rem;
       color: #64748b;
+      display: none;
+    }
+
+    .qm-preview-body.show-answers .qm-preview-answer {
+      display: block;
+    }
+
+    .qm-answer-toggle-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding-right: 8px;
+      margin-right: 4px;
+      border-right: 1px solid #e2e8f0;
+    }
+
+    .qm-answer-toggle-label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #334155;
+    }
+
+    .qm-answer-toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: #e2e8f0;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .qm-answer-toggle.is-on {
+      background: #0f5a66;
+      border-color: #0f5a66;
+    }
+
+    .qm-answer-toggle-knob {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.3);
+      transition: transform 0.15s ease;
+    }
+
+    .qm-answer-toggle.is-on .qm-answer-toggle-knob {
+      transform: translateX(18px);
+    }
+
+    .qm-answer-password-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 20, 30, 0.55);
+      backdrop-filter: blur(3px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 11000;
+    }
+
+    .qm-answer-password-overlay.show {
+      display: flex;
+    }
+
+    .qm-answer-password-card {
+      position: relative;
+      width: 100%;
+      max-width: 340px;
+      background: #fff;
+      border-radius: 14px;
+      padding: 22px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+    }
+
+    .qm-answer-password-card h3 {
+      margin: 0 0 6px;
+      font-size: 1rem;
+      color: #0f2d32;
+    }
+
+    .qm-answer-password-copy {
+      margin: 0 0 12px;
+      font-size: 0.8rem;
+      color: #607080;
+    }
+
+    .qm-answer-password-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      border: none;
+      background: transparent;
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #64748b;
+    }
+
+    .qm-answer-password-error {
+      min-height: 16px;
+      margin: 8px 0 0;
+      font-size: 0.76rem;
+      color: #dc2626;
+    }
+
+    .qm-answer-password-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    #qm-answer-password-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.85rem;
     }
 
     .qm-preview-cards {
@@ -2598,6 +2985,28 @@
 
     <% const reviewRole = String((session && (session.userRole || (session.user && session.user.account_type))) || '').trim().toLowerCase(); %>
     <% const canReviewQuestionSets = reviewRole === 'manager' || reviewRole === 'supervisor'; %>
+    <%
+      function formatRelativeUpdated(value) {
+        if (!value) return { relative: '-', full: '' };
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return { relative: '-', full: '' };
+        const full = date.toLocaleString(undefined, {
+          year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+        });
+        const diffMs = Date.now() - date.getTime();
+        const diffSec = Math.round(diffMs / 1000);
+        if (diffSec < 60) return { relative: 'Updated just now', full };
+        const diffMin = Math.round(diffSec / 60);
+        if (diffMin < 60) return { relative: 'Updated ' + diffMin + ' min' + (diffMin === 1 ? '' : 's') + ' ago', full };
+        const diffHr = Math.round(diffMin / 60);
+        if (diffHr < 24) return { relative: 'Updated ' + diffHr + ' hour' + (diffHr === 1 ? '' : 's') + ' ago', full };
+        const diffDay = Math.round(diffHr / 24);
+        if (diffDay < 7) return { relative: 'Updated ' + diffDay + ' day' + (diffDay === 1 ? '' : 's') + ' ago', full };
+        const diffWeek = Math.round(diffDay / 7);
+        if (diffWeek < 5) return { relative: 'Updated ' + diffWeek + ' week' + (diffWeek === 1 ? '' : 's') + ' ago', full };
+        return { relative: 'Updated ' + full, full };
+      }
+    %>
     <% if (!questionSets || !questionSets.length) { %>
       <div class="empty-state">No question sets are available for this term.</div>
     <% } else { %>
@@ -2688,22 +3097,73 @@
             <div class="exam-summary">
               <div class="exam-title" title="<%= setItem.set_title %>">
                 <strong><%= setItem.set_title || 'Question Set' %></strong>
-                <span><%= setItem.class_name %> • <%= setItem.subject_name %> • <%= setItem.assessment_title %></span>
+                <span><%= setItem.class_name %> · <%= setItem.subject_name %> · <%= setItem.assessment_title %></span>
               </div>
-              <span class="exam-pill"><%= setItem.question_count %> question<%= Number(setItem.question_count) === 1 ? '' : 's' %></span>
-              <span class="exam-pill"><%= setItem.total_points %> pts</span>
-              <span class="exam-pill">Assessment Mode: <%= setItem.open_book ? 'Open Book' : 'Secure' %></span>
-              <% if (setItem.time_limit_minutes && Number(setItem.time_limit_minutes) > 0) { %>
-                <span class="exam-pill">Duration <%= Number(setItem.time_limit_minutes) %> min</span>
-              <% } else { %>
-                <span class="exam-pill">Duration Unlimited</span>
-              <% } %>
-              <span class="exam-pill">Attempts <%= Math.max(Number(setItem.max_attempts || 1), 1) %></span>
+              <div class="exam-meta-row">
+                <div class="exam-meta-line">
+                  <span class="exam-pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    <%= setItem.question_count %> Q
+                  </span>
+                  <span class="exam-pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+                    <%= setItem.total_points %> pts
+                  </span>
+                  <span class="exam-pill">
+                    <% if (setItem.open_book) { %>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg> Open Book
+                    <% } else { %>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Closed Book
+                    <% } %>
+                  </span>
+                </div>
+                <div class="exam-meta-line">
+                  <span class="exam-pill">
+                    <% if (setItem.time_limit_minutes && Number(setItem.time_limit_minutes) > 0) { %>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+                      <%= Number(setItem.time_limit_minutes) %> min
+                    <% } else { %>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.5 12c0 1.66-1.34 3-3 3-1.5 0-2.7-1.5-3.5-3-.8-1.5-2-3-3.5-3-1.66 0-3 1.34-3 3s1.34 3 3 3c1.5 0 2.7-1.5 3.5-3 .8-1.5 2-3 3.5-3 1.66 0 3 1.34 3 3z"/></svg>
+                      Unlimited
+                    <% } %>
+                  </span>
+                  <% const attemptsAllowed = Math.max(Number(setItem.max_attempts || 1), 1); %>
+                  <span class="exam-pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                    <%= attemptsAllowed %> attempt<%= attemptsAllowed === 1 ? '' : 's' %>
+                  </span>
+                  <span class="exam-pill status-chip review-<%= reviewStatusKey %>"><%
+                    if (reviewStatusKey === 'approved') { %><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9"/></svg> Approved<%
+                    } else if (reviewStatusKey === 'rejected') { %><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg> Rejected<%
+                    } else { %><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Pending<%
+                    } %></span>
+                </div>
+              </div>
               <div class="exam-summary-actions">
-                <span class="exam-pill review-<%= reviewStatusKey %>">Review: <%= (setItem.review_status || 'pending').toUpperCase() %></span>
-                <span class="exam-updated">Updated: <%= setItem.updated_at ? new Date(setItem.updated_at).toLocaleString() : '-' %></span>
+                <% const postedCount = Number(setItem.posted_count || 0); %>
+                <% const pendingPostCount = Number(setItem.pending_post_count || 0); %>
+                <% const completedCount = Number(setItem.completed_count || 0); %>
+                <% if (completedCount > 0) { %>
+                  <% const isPostedOn = postedCount > 0; %>
+                  <span class="card-score-toggle-wrap score-status-wrap<%= isPostedOn ? ' is-posted' : '' %>"
+                    data-question-set-id="<%= setItem.question_set_id %>"
+                    data-posted-count="<%= postedCount %>"
+                    data-pending-count="<%= pendingPostCount %>">
+                    <span class="score-status-dot"></span>
+                    <span class="card-score-toggle-status"><%
+                      if (!isPostedOn) { %>Not posted<%
+                      } else if (pendingPostCount > 0) { %>Posted (<%= pendingPostCount %> new)<%
+                      } else { %>Posted<% }
+                    %></span>
+                    <button type="button" class="qm-answer-toggle card-post-score-toggle<%= isPostedOn ? ' is-on' : '' %>" role="switch" aria-checked="<%= isPostedOn ? 'true' : 'false' %>" title="Post or unpost scores for this assessment">
+                      <span class="qm-answer-toggle-knob"></span>
+                    </button>
+                  </span>
+                <% } %>
+                <% const updatedInfo = formatRelativeUpdated(setItem.updated_at); %>
+                <span class="exam-updated" title="<%= updatedInfo.full %>"><%= updatedInfo.relative %></span>
                 <div class="set-actions-menu">
-                  <a href="#" class="set-actions-trigger" aria-haspopup="true" aria-expanded="false" title="More actions">...</a>
+                  <a href="#" class="set-actions-trigger" aria-haspopup="true" aria-expanded="false" title="More actions"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></a>
                   <div class="set-actions-dropdown" role="menu">
                     <% if (canReviewQuestionSets && (setItem.review_status || '').toLowerCase() === 'pending') { %>
                       <a
@@ -2922,12 +3382,32 @@
       <div class="qm-preview-topbar">
         <h3 class="qm-preview-title" id="qm-preview-title">Question Preview</h3>
         <div class="qm-preview-actions">
+          <span class="qm-answer-toggle-wrap">
+            <span class="qm-answer-toggle-label">Answer</span>
+            <button type="button" class="qm-answer-toggle" id="qm-preview-toggle-answers" role="switch" aria-checked="false" title="Show or hide answers">
+              <span class="qm-answer-toggle-knob"></span>
+            </button>
+          </span>
           <button type="button" class="qm-preview-print" id="qm-preview-edit" title="Edit set" style="display:none;">Edit</button>
           <button type="button" class="qm-preview-print" id="qm-preview-print" title="Print preview">Print</button>
           <button type="button" class="qm-preview-close" id="qm-preview-close" title="Close preview">×</button>
         </div>
       </div>
       <div class="qm-preview-body" id="qm-preview-body"></div>
+    </div>
+  </div>
+
+  <div class="qm-answer-password-overlay" id="qm-answer-password-overlay" aria-hidden="true">
+    <div class="qm-answer-password-card" role="dialog" aria-modal="true" aria-labelledby="qm-answer-password-title">
+      <button type="button" class="qm-answer-password-close" id="qm-answer-password-close" aria-label="Cancel">×</button>
+      <h3 id="qm-answer-password-title">Confirm Password</h3>
+      <p class="qm-answer-password-copy">Enter your password to reveal the answers for this preview.</p>
+      <input type="password" class="form-input" id="qm-answer-password-input" placeholder="Enter your password" autocomplete="off" />
+      <p class="qm-answer-password-error" id="qm-answer-password-error"></p>
+      <div class="qm-answer-password-actions">
+        <button type="button" class="qm-preview-print" id="qm-answer-password-cancel">Cancel</button>
+        <button type="button" class="qm-preview-print" id="qm-answer-password-submit">Confirm</button>
+      </div>
     </div>
   </div>
 
@@ -2996,7 +3476,15 @@
 
       <div class="students-toolbar">
         <p class="students-status" id="students-status"></p>
-        <button type="button" class="btn btn-outline" id="students-unlock-all-btn">Unlock All Completed</button>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button type="button" class="btn btn-outline" id="students-unlock-all-btn">Unlock All Completed</button>
+          <span class="qm-answer-toggle-wrap" style="border-right:none;padding-right:0;">
+            <span class="qm-answer-toggle-label">Post Score</span>
+            <button type="button" class="qm-answer-toggle" id="students-post-scores-toggle" role="switch" aria-checked="false" title="Post or unpost scores for this assessment">
+              <span class="qm-answer-toggle-knob"></span>
+            </button>
+          </span>
+        </div>
       </div>
 
       <div class="students-table-wrap">
@@ -3009,15 +3497,40 @@
               <th>Finished</th>
               <th>Score</th>
               <th>Locked</th>
+              <th>Grade</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody id="students-table-body">
             <tr>
-              <td colspan="7" class="student-subtle">Select a question set to load students.</td>
+              <td colspan="8" class="student-subtle">Select a question set to load students.</td>
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="grade-modal-overlay" id="gradeModalOverlay" aria-hidden="true">
+    <div class="grade-modal" role="dialog" aria-modal="true" aria-labelledby="gradeModalTitle">
+      <div class="grade-modal-header">
+        <div>
+          <h3 class="grade-modal-title" id="gradeModalTitle">Grade Attempt</h3>
+          <p class="grade-modal-subtitle" id="gradeModalSubtitle"></p>
+        </div>
+      </div>
+
+      <div class="grade-modal-body" id="gradeModalBody">
+        <div class="grade-modal-loading" id="gradeModalLoading">Loading questions...</div>
+        <div id="gradeModalQuestions" style="display:none;"></div>
+      </div>
+
+      <div class="grade-modal-footer">
+        <span class="grade-modal-total" id="gradeModalTotal"></span>
+        <div style="display:flex;gap:10px;">
+          <button type="button" class="btn btn-outline" id="gradeModalCancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="gradeModalSave">Save Grades</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3090,6 +3603,7 @@
       var qmPreviewCloseButton = document.getElementById('qm-preview-close');
       var qmPreviewEditButton = document.getElementById('qm-preview-edit');
       var qmPreviewPrintButton = document.getElementById('qm-preview-print');
+      var qmPreviewToggleAnswersButton = document.getElementById('qm-preview-toggle-answers');
       var qmPreviewBody = document.getElementById('qm-preview-body');
 
       var reuseModalOverlay = document.getElementById('reuse-modal-overlay');
@@ -3112,7 +3626,19 @@
       var studentsSummary = document.getElementById('students-summary');
       var studentsStatus = document.getElementById('students-status');
       var studentsUnlockAllButton = document.getElementById('students-unlock-all-btn');
+      var studentsPostScoresToggle = document.getElementById('students-post-scores-toggle');
       var studentsTableBody = document.getElementById('students-table-body');
+
+      var gradeModalOverlay = document.getElementById('gradeModalOverlay');
+      var gradeModalTitle = document.getElementById('gradeModalTitle');
+      var gradeModalSubtitle = document.getElementById('gradeModalSubtitle');
+      var gradeModalLoading = document.getElementById('gradeModalLoading');
+      var gradeModalQuestions = document.getElementById('gradeModalQuestions');
+      var gradeModalTotal = document.getElementById('gradeModalTotal');
+      var gradeModalCancel = document.getElementById('gradeModalCancel');
+      var gradeModalSave = document.getElementById('gradeModalSave');
+      var activeGradeAttemptId = 0;
+      var activeGradeQuestions = [];
 
       var activeSourceQuestionSetId = 0;
       var currentQuestionSetId = null;
@@ -3326,12 +3852,15 @@
 
         var rows = Array.isArray(payload && payload.students) ? payload.students : [];
         if (!rows.length) {
-          studentsTableBody.innerHTML = '<tr><td colspan="7" class="student-subtle">No eligible students found for this class and term.</td></tr>';
+          studentsTableBody.innerHTML = '<tr><td colspan="8" class="student-subtle">No eligible students found for this class and term.</td></tr>';
           return;
         }
 
         var markup = rows.map(function (student) {
           var statusLabel = mapAttemptStatusLabel(student.attemptStatus);
+          if (student.attemptStatus === 'submitted') {
+            statusLabel += student.isPosted ? ' (Posted)' : ' (Pending post)';
+          }
           var startedLabel = formatAttemptTime(student.startedAt);
           var finishedLabel = formatAttemptTime(student.submittedAt);
           var scoreLabel = (student.score !== null && student.score !== undefined)
@@ -3356,6 +3885,11 @@
             '  <td>' + escapeHtml(scoreLabel) + '</td>',
             '  <td>' + escapeHtml(lockLabel) + '</td>',
             '  <td>',
+            (student.attemptId
+              ? '    <button type="button" class="btn btn-secondary student-grade-btn" data-attempt-id="' + escapeHtml(String(student.attemptId)) + '">Grade</button>'
+              : '    <span class="student-subtle">-</span>'),
+            '  </td>',
+            '  <td>',
             '    <button type="button" class="btn btn-secondary student-lock-toggle-btn' + actionDisabledClass + '" data-student-id="' + escapeHtml(String(student.studentId || '')) + '" data-action="' + escapeHtml(actionType) + '"' + actionDisabledAttr + '>' + escapeHtml(actionLabel) + '</button>',
             '  </td>',
             '</tr>'
@@ -3363,6 +3897,13 @@
         }).join('');
 
         studentsTableBody.innerHTML = markup;
+
+        studentsTableBody.querySelectorAll('.student-grade-btn').forEach(function (button) {
+          button.addEventListener('click', function () {
+            var attemptId = Number(button.getAttribute('data-attempt-id') || 0);
+            if (attemptId) openGradeDrawer(attemptId);
+          });
+        });
 
         studentsTableBody.querySelectorAll('.student-lock-toggle-btn').forEach(function (button) {
           button.addEventListener('click', async function () {
@@ -3454,6 +3995,214 @@
         });
       }
 
+      function openGradeDrawer(attemptId) {
+        activeGradeAttemptId = attemptId;
+        activeGradeQuestions = [];
+        if (gradeModalTitle) gradeModalTitle.textContent = 'Grade Attempt';
+        if (gradeModalSubtitle) gradeModalSubtitle.textContent = '';
+        if (gradeModalTotal) gradeModalTotal.textContent = '';
+        if (gradeModalQuestions) {
+          gradeModalQuestions.style.display = 'none';
+          gradeModalQuestions.innerHTML = '';
+        }
+        if (gradeModalLoading) {
+          gradeModalLoading.style.display = 'block';
+          gradeModalLoading.textContent = 'Loading questions...';
+        }
+        if (gradeModalSave) gradeModalSave.disabled = true;
+
+        gradeModalOverlay.classList.add('is-open');
+        gradeModalOverlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+
+        fetch('/common/assessment/attempt/grade?attemptId=' + encodeURIComponent(String(attemptId)), {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        })
+          .then(function (response) { return response.json().then(function (data) { return { ok: response.ok, data: data }; }); })
+          .then(function (result) {
+            if (!result.ok || !result.data.success) {
+              throw new Error((result.data && result.data.error) || 'Failed to load attempt.');
+            }
+            renderGradeDrawer(result.data);
+          })
+          .catch(function (error) {
+            if (gradeModalLoading) {
+              gradeModalLoading.textContent = error.message || 'Failed to load attempt.';
+            }
+          });
+      }
+
+      function closeGradeDrawer() {
+        gradeModalOverlay.classList.remove('is-open');
+        gradeModalOverlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        activeGradeAttemptId = 0;
+        activeGradeQuestions = [];
+      }
+
+      function updateGradeDrawerTotal() {
+        var total = 0;
+        var maxTotal = 0;
+        activeGradeQuestions.forEach(function (question) {
+          var input = document.getElementById('grade-marks-' + question.questionId);
+          var value = input ? Number(input.value) : 0;
+          if (!Number.isFinite(value)) value = 0;
+          total += value;
+          maxTotal += Number(question.marks) || 0;
+        });
+        if (gradeModalTotal) {
+          gradeModalTotal.textContent = 'Total: ' + total + ' / ' + maxTotal;
+        }
+      }
+
+      function renderGradeDrawer(payload) {
+        activeGradeQuestions = Array.isArray(payload.questions) ? payload.questions : [];
+
+        var studentName = ((payload.student && (payload.student.lastName + ', ' + payload.student.firstName)) || '').trim();
+        var assessmentTitle = (payload.assessment && payload.assessment.title) || 'Assessment';
+        var subjectName = (payload.assessment && payload.assessment.subjectName) || '';
+        var className = (payload.assessment && payload.assessment.className) || '';
+
+        if (gradeModalTitle) gradeModalTitle.textContent = studentName + ' — ' + assessmentTitle;
+        if (gradeModalSubtitle) gradeModalSubtitle.textContent = [className, subjectName].filter(Boolean).join(' • ');
+
+        if (!payload.canEdit && gradeModalLoading) {
+          gradeModalLoading.style.display = 'block';
+          gradeModalLoading.textContent = 'This assessment is not editable right now: ' + (payload.editReason || 'locked') + '.';
+          if (gradeModalQuestions) gradeModalQuestions.style.display = 'none';
+          if (gradeModalSave) gradeModalSave.disabled = true;
+          updateGradeDrawerTotal();
+          return;
+        }
+
+        if (gradeModalLoading) gradeModalLoading.style.display = 'none';
+        if (gradeModalSave) gradeModalSave.disabled = false;
+
+        function normalizeForCompare(value) {
+          return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().toLowerCase();
+        }
+
+        function renderGradeQuestionBody(question) {
+          var type = String(question.questionType || '').toLowerCase();
+          var options = Array.isArray(question.options) ? question.options : [];
+          var studentAnswerSet = Array.isArray(question.responseJson)
+            ? question.responseJson.map(normalizeForCompare)
+            : (question.responseText ? String(question.responseText).split(',').map(normalizeForCompare) : []);
+          var correctAnswerSet = String(question.answerKey || '').split(',').map(normalizeForCompare).filter(Boolean);
+
+          if (type === 'single_choice' || type === 'true_false' || type === 'multiple_choice') {
+            if (!options.length) {
+              return '<div class="grade-response-box">No options were configured for this question.</div>';
+            }
+            var optionRows = options.map(function (option) {
+              var normalizedOption = normalizeForCompare(option);
+              var isCorrect = correctAnswerSet.indexOf(normalizedOption) !== -1;
+              var isStudent = studentAnswerSet.indexOf(normalizedOption) !== -1;
+              var classes = 'grade-option' + (isCorrect ? ' is-correct-answer' : '') + (isStudent ? ' is-student-answer' : '');
+              var tags = '';
+              if (isStudent) tags += '<span class="grade-option-tag student">Student</span>';
+              if (isCorrect) tags += '<span class="grade-option-tag correct">Correct</span>';
+              return '<div class="' + classes + '"><span>' + escapeHtml(String(option)) + '</span>' + tags + '</div>';
+            }).join('');
+            return '<div class="grade-options">' + optionRows + '</div>';
+          }
+
+          var responseText = question.responseText || (question.responseJson ? JSON.stringify(question.responseJson) : '');
+          var responseBox = '<div class="grade-response-box">' + (responseText ? escapeHtml(responseText) : '<span class="student-subtle">No response submitted.</span>') + '</div>';
+          if (type === 'essay') {
+            return responseBox;
+          }
+          var answerKeyBox = question.answerKey
+            ? '<div class="grade-answer-key">Expected answer: ' + escapeHtml(String(question.answerKey)) + '</div>'
+            : '';
+          return responseBox + answerKeyBox;
+        }
+
+        var markup = activeGradeQuestions.map(function (question, index) {
+          var awarded = (question.awardedMarks !== null && question.awardedMarks !== undefined)
+            ? question.awardedMarks
+            : 0;
+          return [
+            '<div class="grade-question-card">',
+            '  <div class="grade-question-head">',
+            '    <div class="grade-question-title-wrap">',
+            '      <span class="grade-q-index">' + (index + 1) + '</span>',
+            '      <h3>' + escapeHtml(question.questionText || '') + '</h3>',
+            '    </div>',
+            '    <span class="grade-mark">' + escapeHtml(String(question.marks)) + ' marks</span>',
+            '  </div>',
+            renderGradeQuestionBody(question),
+            '  <div class="grade-question-marks-row">',
+            '    <label for="grade-marks-' + question.questionId + '">Award marks:</label>',
+            '    <input type="number" class="grade-question-marks-input" id="grade-marks-' + question.questionId + '" min="0" max="' + escapeHtml(String(question.marks)) + '" step="0.5" value="' + escapeHtml(String(awarded)) + '" />',
+            '    <span class="student-subtle">/ ' + escapeHtml(String(question.marks)) + '</span>',
+            '  </div>',
+            '</div>'
+          ].join('');
+        }).join('');
+
+        if (gradeModalQuestions) {
+          gradeModalQuestions.innerHTML = markup || '<p class="student-subtle">No questions found for this attempt.</p>';
+          gradeModalQuestions.style.display = 'block';
+        }
+
+        activeGradeQuestions.forEach(function (question) {
+          var input = document.getElementById('grade-marks-' + question.questionId);
+          if (input) {
+            input.addEventListener('input', updateGradeDrawerTotal);
+          }
+        });
+
+        updateGradeDrawerTotal();
+      }
+
+      if (gradeModalCancel) {
+        gradeModalCancel.addEventListener('click', closeGradeDrawer);
+      }
+
+      if (gradeModalSave) {
+        gradeModalSave.addEventListener('click', async function () {
+          if (!activeGradeAttemptId) return;
+
+          var marks = {};
+          activeGradeQuestions.forEach(function (question) {
+            var input = document.getElementById('grade-marks-' + question.questionId);
+            var value = input ? Number(input.value) : 0;
+            if (!Number.isFinite(value)) value = 0;
+            marks[question.questionId] = value;
+          });
+
+          var originalLabel = gradeModalSave.textContent;
+          gradeModalSave.disabled = true;
+          gradeModalSave.textContent = 'Saving...';
+
+          try {
+            var response = await fetch('/common/assessment/attempt/grade', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+              body: JSON.stringify({ attemptId: activeGradeAttemptId, marks: marks }),
+            });
+            var result = await response.json();
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || 'Failed to save grade.');
+            }
+
+            closeGradeDrawer();
+            if (activeStudentsQuestionSetId) {
+              await loadStudentsForQuestionSet(activeStudentsQuestionSetId);
+            }
+          } catch (error) {
+            window.alert(error.message || 'Failed to save grade.');
+            gradeModalSave.disabled = false;
+            gradeModalSave.textContent = originalLabel;
+          }
+        });
+      }
+
       async function loadStudentsForQuestionSet(questionSetId) {
         if (!Number.isInteger(Number(questionSetId)) || Number(questionSetId) <= 0) {
           return;
@@ -3462,7 +4211,7 @@
         activeStudentsQuestionSetId = Number(questionSetId);
         latestStudentsPayload = null;
         if (studentsTableBody) {
-          studentsTableBody.innerHTML = '<tr><td colspan="7" class="student-subtle">Loading students...</td></tr>';
+          studentsTableBody.innerHTML = '<tr><td colspan="8" class="student-subtle">Loading students...</td></tr>';
         }
         setStudentsStatus('Loading students...', false);
 
@@ -3491,6 +4240,7 @@
 
         renderStudentsSummary(payload);
         renderStudentsRows(payload);
+        syncPostScoresToggleState();
 
         var completedCount = Number((payload.summary && payload.summary.completedCount) || 0);
         if (studentsUnlockAllButton) {
@@ -3498,7 +4248,22 @@
           studentsUnlockAllButton.classList.toggle('is-disabled', completedCount <= 0);
         }
 
-        setStudentsStatus('Loaded ' + String((payload.summary && payload.summary.totalStudents) || 0) + ' student(s).', false);
+        setStudentsStatus('', false);
+      }
+
+      function computePostScoresState() {
+        var students = (latestStudentsPayload && latestStudentsPayload.students) || [];
+        var completed = students.filter(function (s) { return s.attemptStatus === 'submitted'; });
+        var postedCount = completed.filter(function (s) { return s.isPosted; }).length;
+        return { postedCount: postedCount, pendingCount: completed.length - postedCount };
+      }
+
+      function syncPostScoresToggleState() {
+        if (!studentsPostScoresToggle) return;
+        var state = computePostScoresState();
+        var isOn = state.postedCount > 0;
+        studentsPostScoresToggle.classList.toggle('is-on', isOn);
+        studentsPostScoresToggle.setAttribute('aria-checked', isOn ? 'true' : 'false');
       }
 
       function renderUploadButtonIdle() {
@@ -3893,7 +4658,7 @@
           '.print-qtext{font-size:0.88rem;line-height:1.42;color:#0f172a;margin-bottom:7px;}',
           '.print-options{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:0.82rem;color:#334155;}',
           '.print-options.is-side-by-side{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px;row-gap:4px;}',
-          '.print-answer{margin-top:6px;font-size:0.76rem;color:#475569;}',
+          '.print-answer{display:none;}',
           '@media print{body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;} .print-shell{padding:12mm;} .print-watermark-logo{display:block;}}',
           '</style></head><body>',
           watermarkHtml,
@@ -3981,9 +4746,107 @@
         }
       }
 
+      var qmAnswerPasswordOverlay = document.getElementById('qm-answer-password-overlay');
+      var qmAnswerPasswordInput = document.getElementById('qm-answer-password-input');
+      var qmAnswerPasswordError = document.getElementById('qm-answer-password-error');
+      var qmAnswerPasswordSubmit = document.getElementById('qm-answer-password-submit');
+      var qmAnswerPasswordCancel = document.getElementById('qm-answer-password-cancel');
+      var qmAnswerPasswordClose = document.getElementById('qm-answer-password-close');
+
+      function setPreviewAnswersVisible(visible) {
+        if (qmPreviewBody) {
+          qmPreviewBody.classList.toggle('show-answers', Boolean(visible));
+        }
+        if (qmPreviewToggleAnswersButton) {
+          qmPreviewToggleAnswersButton.classList.toggle('is-on', Boolean(visible));
+          qmPreviewToggleAnswersButton.setAttribute('aria-checked', visible ? 'true' : 'false');
+        }
+      }
+
+      function openAnswerPasswordModal() {
+        if (!qmAnswerPasswordOverlay) return;
+        if (qmAnswerPasswordInput) qmAnswerPasswordInput.value = '';
+        if (qmAnswerPasswordError) qmAnswerPasswordError.textContent = '';
+        qmAnswerPasswordOverlay.classList.add('show');
+        qmAnswerPasswordOverlay.setAttribute('aria-hidden', 'false');
+        if (qmAnswerPasswordInput) qmAnswerPasswordInput.focus();
+      }
+
+      function closeAnswerPasswordModal() {
+        if (!qmAnswerPasswordOverlay) return;
+        qmAnswerPasswordOverlay.classList.remove('show');
+        qmAnswerPasswordOverlay.setAttribute('aria-hidden', 'true');
+      }
+
+      async function submitAnswerPassword() {
+        var password = qmAnswerPasswordInput ? qmAnswerPasswordInput.value : '';
+        if (!password) {
+          if (qmAnswerPasswordError) qmAnswerPasswordError.textContent = 'Enter your password.';
+          return;
+        }
+
+        var originalLabel = qmAnswerPasswordSubmit ? qmAnswerPasswordSubmit.textContent : '';
+        if (qmAnswerPasswordSubmit) {
+          qmAnswerPasswordSubmit.disabled = true;
+          qmAnswerPasswordSubmit.textContent = 'Checking...';
+        }
+
+        try {
+          var response = await fetch('/common/assessment/verify-answer-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ password: password }),
+          });
+          var result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Incorrect password.');
+          }
+
+          setPreviewAnswersVisible(true);
+          closeAnswerPasswordModal();
+        } catch (error) {
+          if (qmAnswerPasswordError) qmAnswerPasswordError.textContent = error.message || 'Incorrect password.';
+        } finally {
+          if (qmAnswerPasswordSubmit) {
+            qmAnswerPasswordSubmit.disabled = false;
+            qmAnswerPasswordSubmit.textContent = originalLabel;
+          }
+        }
+      }
+
+      if (qmPreviewToggleAnswersButton) {
+        qmPreviewToggleAnswersButton.addEventListener('click', function () {
+          var isCurrentlyOn = qmPreviewBody && qmPreviewBody.classList.contains('show-answers');
+          if (isCurrentlyOn) {
+            setPreviewAnswersVisible(false);
+          } else {
+            openAnswerPasswordModal();
+          }
+        });
+      }
+
+      if (qmAnswerPasswordSubmit) {
+        qmAnswerPasswordSubmit.addEventListener('click', submitAnswerPassword);
+      }
+      if (qmAnswerPasswordInput) {
+        qmAnswerPasswordInput.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submitAnswerPassword();
+          }
+        });
+      }
+      if (qmAnswerPasswordCancel) {
+        qmAnswerPasswordCancel.addEventListener('click', closeAnswerPasswordModal);
+      }
+      if (qmAnswerPasswordClose) {
+        qmAnswerPasswordClose.addEventListener('click', closeAnswerPasswordModal);
+      }
+
       function openQuestionPreview() {
         if (!qmPreviewOverlay) return;
         setPreviewEditVisible(false);
+        setPreviewAnswersVisible(false);
         if (qmPreviewTitle) {
           qmPreviewTitle.textContent = 'Question Preview';
         }
@@ -5318,6 +6181,7 @@
         activeSetPreviewPayload = payload;
 
         setPreviewEditVisible(true);
+        setPreviewAnswersVisible(false);
         if (qmPreviewTitle) {
           qmPreviewTitle.textContent = 'Question Preview';
         }
@@ -6181,9 +7045,87 @@
             await loadStudentsForQuestionSet(questionSetId);
           } catch (error) {
             if (studentsTableBody) {
-              studentsTableBody.innerHTML = '<tr><td colspan="7" class="student-subtle">Failed to load students.</td></tr>';
+              studentsTableBody.innerHTML = '<tr><td colspan="8" class="student-subtle">Failed to load students.</td></tr>';
             }
             setStudentsStatus(error.message || 'Failed to load students.', true);
+          }
+        });
+      });
+
+      function updateCardScoreToggleUI(wrap, postedCount, pendingCount) {
+        var toggle = wrap.querySelector('.card-post-score-toggle');
+        var statusEl = wrap.querySelector('.card-score-toggle-status');
+        var isOn = postedCount > 0;
+        wrap.setAttribute('data-posted-count', String(postedCount));
+        wrap.setAttribute('data-pending-count', String(pendingCount));
+        wrap.classList.toggle('is-posted', isOn);
+        if (toggle) {
+          toggle.classList.toggle('is-on', isOn);
+          toggle.setAttribute('aria-checked', isOn ? 'true' : 'false');
+        }
+        if (statusEl) {
+          statusEl.textContent = !isOn ? 'Not posted' : (pendingCount > 0 ? 'Posted (' + pendingCount + ' new)' : 'Posted');
+        }
+      }
+
+      document.querySelectorAll('.card-post-score-toggle').forEach(function (toggle) {
+        toggle.addEventListener('click', async function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          var wrap = toggle.closest('.card-score-toggle-wrap');
+          if (!wrap) return;
+
+          var questionSetId = Number(wrap.getAttribute('data-question-set-id') || 0);
+          if (!questionSetId) return;
+
+          var isCurrentlyOn = toggle.classList.contains('is-on');
+          var postedCount = Number(wrap.getAttribute('data-posted-count') || 0);
+          var pendingCount = Number(wrap.getAttribute('data-pending-count') || 0);
+
+          if (isCurrentlyOn) {
+            if (postedCount <= 0) return;
+            var confirmedUnpost = window.confirm('Unpost ' + postedCount + ' score(s) for this assessment? They will disappear from the subject dashboard.');
+            if (!confirmedUnpost) return;
+          } else {
+            if (pendingCount <= 0) return;
+            var confirmedPost = window.confirm('Post ' + pendingCount + ' completed score(s) now? They will become visible on the subject dashboard.');
+            if (!confirmedPost) return;
+          }
+
+          toggle.disabled = true;
+          try {
+            var endpoint = isCurrentlyOn
+              ? '/common/assessment/questions/students/unpost-scores'
+              : '/common/assessment/questions/students/post-scores';
+            var response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ questionSetId: questionSetId }),
+            });
+            var result = await response.json();
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || 'Failed to update score posting.');
+            }
+
+            var statusResponse = await fetch('/common/assessment/questions/students?questionSetId=' + encodeURIComponent(String(questionSetId)), {
+              headers: { Accept: 'application/json' },
+            });
+            var statusPayload = await statusResponse.json();
+            var summary = (statusPayload && statusPayload.summary) || {};
+            var completedCount = Number(summary.completedCount || 0);
+            var pendingPostCount = Number(summary.pendingPostCount || 0);
+            var postedCountFresh = Math.max(completedCount - pendingPostCount, 0);
+
+            updateCardScoreToggleUI(wrap, postedCountFresh, pendingPostCount);
+
+            if (activeStudentsQuestionSetId === questionSetId) {
+              await loadStudentsForQuestionSet(questionSetId);
+            }
+          } catch (error) {
+            window.alert(error.message || 'Failed to update score posting.');
+          } finally {
+            toggle.disabled = false;
           }
         });
       });
@@ -6242,6 +7184,79 @@
             setStudentsStatus(error.message || 'Failed to unlock students.', true);
           } finally {
             studentsUnlockAllButton.textContent = originalLabel;
+          }
+        });
+      }
+
+      if (studentsPostScoresToggle) {
+        studentsPostScoresToggle.addEventListener('click', async function () {
+          if (!activeStudentsQuestionSetId) return;
+
+          var state = computePostScoresState();
+          var isCurrentlyOn = studentsPostScoresToggle.classList.contains('is-on');
+
+          if (isCurrentlyOn) {
+            if (state.postedCount <= 0) {
+              setStudentsStatus('No posted scores to unpost.', true);
+              return;
+            }
+            var confirmedUnpost = window.confirm('Unpost ' + state.postedCount + ' score(s)? They will disappear from the subject dashboard until posted again.');
+            if (!confirmedUnpost) return;
+
+            studentsPostScoresToggle.disabled = true;
+            setStudentsStatus('Unposting scores...', false);
+            try {
+              var unpostResponse = await fetch('/common/assessment/questions/students/unpost-scores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ questionSetId: activeStudentsQuestionSetId }),
+              });
+              var unpostResult = await unpostResponse.json();
+              if (!unpostResponse.ok || !unpostResult.success) {
+                throw new Error(unpostResult.error || 'Failed to unpost scores.');
+              }
+              setStudentsStatus(unpostResult.message || 'Scores unposted.', false);
+              await loadStudentsForQuestionSet(activeStudentsQuestionSetId);
+            } catch (error) {
+              setStudentsStatus(error.message || 'Failed to unpost scores.', true);
+            } finally {
+              studentsPostScoresToggle.disabled = false;
+            }
+            return;
+          }
+
+          if (state.pendingCount <= 0) {
+            setStudentsStatus('No newly completed scores to post.', true);
+            return;
+          }
+
+          var confirmed = window.confirm('Post ' + state.pendingCount + ' completed score(s) now? They will become visible on the subject dashboard.');
+          if (!confirmed) return;
+
+          studentsPostScoresToggle.disabled = true;
+          setStudentsStatus('Posting scores...', false);
+
+          try {
+            var response = await fetch('/common/assessment/questions/students/post-scores', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+              body: JSON.stringify({ questionSetId: activeStudentsQuestionSetId }),
+            });
+
+            var result = await response.json();
+            if (!response.ok || !result.success) {
+              throw new Error(result.error || 'Failed to post scores.');
+            }
+
+            setStudentsStatus(result.message || 'Scores posted.', false);
+            await loadStudentsForQuestionSet(activeStudentsQuestionSetId);
+          } catch (error) {
+            setStudentsStatus(error.message || 'Failed to post scores.', true);
+          } finally {
+            studentsPostScoresToggle.disabled = false;
           }
         });
       }

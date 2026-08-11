@@ -1773,29 +1773,10 @@ module.exports = {
         [autoScore, maxScore, attemptId]
       );
 
-      await client.query(
-        `INSERT INTO assessment_results (
-           student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (student_id, assessment_id)
-         DO UPDATE SET
-           score = EXCLUDED.score,
-           subject_id = EXCLUDED.subject_id,
-           term_id = EXCLUDED.term_id,
-           organization_id = EXCLUDED.organization_id,
-           class_id = EXCLUDED.class_id,
-           category = EXCLUDED.category`,
-        [
-          studentId,
-          assessmentId,
-          autoScore,
-          assessment.subject_id,
-          assessment.term_id,
-          organizationId,
-          assessment.class_id,
-          assessment.category,
-        ]
-      );
+      // Note: does NOT write into assessment_results here. Scores only become
+      // visible on the subject/class dashboard once a teacher explicitly
+      // clicks "Post Score" (commonController.postAssessmentQuestionSetScores),
+      // which reads student_assessment_attempts.score set above.
 
       await client.query(
         `DELETE FROM student_assessment_lock_overrides
