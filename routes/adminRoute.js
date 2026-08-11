@@ -19,9 +19,30 @@ module.exports = (db) => {
         return res.redirect('/admin');
     };
 
+    // Allows full Admin/Mini Admin through unconditionally; anyone else must
+    // have been explicitly granted that specific school via Manage Access.
+    const ensureAdminOrGrantedOrg = async (req, res, next) => {
+        const accountType = req.session && req.session.accountType;
+        if (accountType === 'Admin' || accountType === 'Mini Admin') return next();
+
+        const organizationId = parseInt(req.params.organization_id, 10);
+        const userId = req.session && req.session.userId;
+        if (userId && Number.isInteger(organizationId)) {
+            try {
+                const grant = await db.query(
+                    `SELECT 1 FROM user_extra_organizations WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+                    [userId, organizationId]
+                );
+                if (grant.rows.length) return next();
+            } catch (_) {}
+        }
+        req.flash('error', 'You do not have access to that school.');
+        return res.redirect('/admin');
+    };
+
     // Route: /org/:organization_id (for super admin to view org dashboard)
     // This route works in both development and production
-    router.get('/org/:organization_id', ensureAdmin, async (req, res) => {
+    router.get('/org/:organization_id', ensureAdminOrGrantedOrg, async (req, res) => {
         const organizationId = req.params.organization_id;
         
         // Validate organization_id is a valid number
@@ -96,7 +117,15 @@ module.exports = (db) => {
     });
 
     // Route to exit organization view and return to admin dashboard
-    router.get('/exit-org', ensureAdmin, async (req, res) => {
+    // Anyone currently mid org-switch (originalAdminUserId set) may exit back,
+    // not just full Admins — a granted worker viewing a school needs a way out too.
+    const ensureAdminOrExitingOrg = (req, res, next) => {
+        if (req.session && req.session.accountType === 'Admin') return next();
+        if (req.session && req.session.originalAdminUserId) return next();
+        req.flash('error', 'You do not have permission to access this page.');
+        return res.redirect('/admin');
+    };
+    router.get('/exit-org', ensureAdminOrExitingOrg, async (req, res) => {
         try {
             // Restore original admin session
             if (req.session.originalAdminUserId) {
@@ -151,15 +180,25 @@ module.exports = (db) => {
     router.post('/contacts/:id/note', ensureAdminOrInternal, adminController.appendInternalContactNote);
     router.post('/contacts/:id/delete', ensureAdminOrInternal, adminController.deleteInternalContact);
 
-    // Org Chart — Admin/Mini Admin only (Internal Workers excluded for now)
-    const ensureAdminOnly = (req, res, next) => {
+    // Org Chart — Admin/Mini Admin, plus any user explicitly granted access via Manage Access
+    const ensureOrgChartAccess = async (req, res, next) => {
         const t = req.session && req.session.accountType;
         if (t === 'Admin' || t === 'Mini Admin') return next();
+        try {
+            const userId = req.session && req.session.userId;
+            if (userId) {
+                const flag = await db.query(
+                    `SELECT can_view_org_chart FROM user_feature_flags WHERE user_id = $1`,
+                    [userId]
+                );
+                if (flag.rows.length && flag.rows[0].can_view_org_chart) return next();
+            }
+        } catch (_) {}
         req.flash('error', 'Unauthorized.');
         return res.redirect('/admin');
     };
-    router.get('/org-chart', ensureAdminOnly, adminController.getOrgChart);
-    router.post('/org-chart/:id', ensureAdminOnly, upload.single('profileImage'), adminController.updateOrgChartMember);
+    router.get('/org-chart', ensureOrgChartAccess, adminController.getOrgChart);
+    router.post('/org-chart/:id', ensureAdmin, upload.single('profileImage'), adminController.updateOrgChartMember);
 
     // Self-service profile (any signed-in admin-side user)
     router.get('/profile', (req, res, next) => {
@@ -191,6 +230,10 @@ module.exports = (db) => {
     router.get('/superDashboard/users/ajax', ensureAdmin, adminController.superDashboardUsersAjax);
     router.post('/superDashboard/users/:userId/status', ensureAdmin, adminController.superDashboardUserStatusAjax);
     router.post('/superDashboard/users/:userId/delete', ensureAdmin, adminController.superDashboardDeleteUserAjax);
+    router.get('/superDashboard/users/:userId/permissions', ensureAdmin, adminController.getUserPermissionsAjax);
+    router.post('/superDashboard/users/:userId/permissions', ensureAdmin, adminController.updateUserPermissionsAjax);
+    router.get('/superDashboard/workers/search', ensureAdmin, adminController.searchManagiraWorkersAjax);
+    router.get('/superDashboard/organizations/search', ensureAdmin, adminController.searchOrganizationsAjax);
 
     // Soft-deleted internal contacts (referrals) — Super Admin only
     router.post('/contacts/restore', ensureAdmin, adminController.restoreInternalContact);

@@ -6,6 +6,8 @@
       || _ahUserRole === 'admin' || _ahUserRole === 'mini admin' || _ahUserRole === 'internal worker';
     const _ahIsInternal  = _ahAccountType === 'internal worker' || _ahUserRole === 'internal worker';
     const _ahIsFullAdmin = _ahAccountType === 'admin' || _ahUserRole === 'admin';
+    const _ahCanViewOrgChart = !!(session && session.canViewOrgChart);
+    const _ahGrantedSchools = (session && Array.isArray(session.grantedSchools)) ? session.grantedSchools : [];
   %>
   <% if (session.firstName && _ahIsAdminLike) { %>
     <div class="admin-header-pro">
@@ -60,6 +62,12 @@
           <ul class="admin-hamburger-menu" id="admin-hamburger-menu">
             <% if (_ahIsInternal) { %>
               <li><a href="/admin" class="admin-header-link" data-no-spa>Dashboard</a></li>
+              <% if (_ahCanViewOrgChart) { %>
+                <li><a href="/admin/org-chart" class="admin-header-link" data-no-spa>Team Org Chart</a></li>
+              <% } %>
+              <% _ahGrantedSchools.forEach(function(school) { %>
+                <li><a href="/admin/org/<%= school.organizationId %>" class="admin-header-link" data-no-spa><%= school.organizationName %></a></li>
+              <% }); %>
               <li><a href="/legal/app-demo" class="admin-header-link" target="_blank" rel="noopener" data-no-spa>App Demo</a></li>
               <li><a href="/admin/profile" class="admin-header-link" data-no-spa>Profile Settings</a></li>
               <li><a href="/account/logout" class="admin-header-link" data-no-spa>Logout</a></li>

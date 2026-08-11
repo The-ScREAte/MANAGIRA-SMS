@@ -339,12 +339,230 @@
       line-height: 1;
     }
 
+    .users-modal-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 14px 22px 0;
+      background: #fff;
+    }
+
+    .users-modal-tab {
+      border: 1px solid #d1d5db;
+      background: #f3f4f6;
+      color: var(--text-primary);
+      border-radius: 10px 10px 0 0;
+      padding: 9px 16px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .users-modal-tab.is-active {
+      background: #fff;
+      border-bottom-color: #fff;
+      font-weight: 600;
+    }
+
     .users-modal-toolbar {
       padding: 16px 22px;
       border-bottom: 1px solid var(--border);
       background: #fff;
       display: grid;
       gap: 14px;
+    }
+
+    .users-permissions-panel {
+      width: min(720px, 94vw);
+      height: auto;
+      max-height: 90vh;
+    }
+
+    .permissions-body {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+
+    .permissions-section-title {
+      margin: 0 0 4px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .permissions-section-hint {
+      margin: 0 0 14px;
+      font-size: 0.83rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .permissions-option-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .permissions-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .permissions-option:hover {
+      border-color: #a5f3fc;
+      background: #f8feff;
+    }
+
+    .permissions-option input[type="radio"] {
+      margin-top: 3px;
+      accent-color: var(--primary);
+    }
+
+    .permissions-option:has(input:checked) {
+      border-color: #01535b;
+      background: #ecfeff;
+    }
+
+    .permissions-option strong {
+      display: block;
+      font-size: 0.88rem;
+      color: var(--text-primary);
+    }
+
+    .permissions-option-desc {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .permissions-picker {
+      margin-top: 14px;
+      padding: 14px;
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .permissions-picker input[type="search"] {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font: inherit;
+      background: #fff;
+    }
+
+    .permissions-picker-results {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      margin-top: 8px;
+      max-height: 170px;
+      overflow-y: auto;
+      background: #fff;
+    }
+
+    .permissions-picker-results:empty {
+      display: none;
+      border: none;
+      margin-top: 0;
+    }
+
+    .permissions-picker-result {
+      padding: 9px 12px;
+      cursor: pointer;
+      font-size: 0.87rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .permissions-picker-result:not(:last-child) {
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .permissions-picker-result:hover {
+      background: #f3f4f6;
+    }
+
+    .permissions-picker-result .result-tag {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      background: #eef2ff;
+      border-radius: 999px;
+      padding: 2px 8px;
+      white-space: nowrap;
+    }
+
+    .permissions-chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .permissions-chip-list:empty {
+      margin-top: 0;
+    }
+
+    .permissions-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #ecfeff;
+      border: 1px solid #a5f3fc;
+      border-radius: 999px;
+      padding: 6px 8px 6px 12px;
+      font-size: 0.8rem;
+      color: #155e75;
+      font-weight: 500;
+    }
+
+    .permissions-chip button {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      color: #0e7490;
+      padding: 2px;
+    }
+
+    .permissions-checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+      font-size: 0.88rem;
+    }
+
+    .permissions-footer {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
+    }
+
+    .permissions-full-admin-banner {
+      margin: 0 22px 16px;
+      padding: 14px 16px;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 12px;
+      color: #065f46;
+      font-size: 0.87rem;
+      line-height: 1.5;
+    }
+
+    #permissions-editable-body.is-locked {
+      opacity: 0.45;
+      pointer-events: none;
+      filter: grayscale(0.3);
     }
 
     .users-filter-grid {
@@ -581,6 +799,11 @@
           <button type="button" class="users-modal-close" data-close-users-modal aria-label="Close user manager">×</button>
         </div>
 
+        <div class="users-modal-tabs" role="tablist">
+          <button type="button" class="users-modal-tab is-active" data-users-tab="managira_workers" role="tab" aria-selected="true">Managira Workers</button>
+          <button type="button" class="users-modal-tab" data-users-tab="school_users" role="tab" aria-selected="false">School Users</button>
+        </div>
+
         <div class="users-modal-toolbar">
           <form id="users-filter-form" class="users-filter-grid">
             <input type="search" name="q" id="users-filter-search" placeholder="Search by name, email, or school" autocomplete="off" />
@@ -620,6 +843,85 @@
               </thead>
               <tbody id="users-table-body"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="user-permissions-modal" class="users-modal" hidden>
+      <div class="users-modal-backdrop" data-close-permissions-modal></div>
+      <div class="users-modal-panel users-permissions-panel" role="dialog" aria-modal="true" aria-labelledby="user-permissions-title">
+        <div class="users-modal-header">
+          <div>
+            <h2 id="user-permissions-title">Manage Access</h2>
+            <div class="muted" id="user-permissions-subtitle">Grant this Managira Worker extra visibility without making them a full Admin.</div>
+          </div>
+          <button type="button" class="users-modal-close" data-close-permissions-modal aria-label="Close access manager">×</button>
+        </div>
+
+        <div id="user-permissions-feedback" class="users-feedback" hidden></div>
+
+        <div id="permissions-full-admin-banner" class="permissions-full-admin-banner" hidden>
+          ✓ <strong>Full access is already active</strong> — Admins automatically see every contact, every school, and the Team Org Chart. There's nothing to grant or revoke here.
+        </div>
+
+        <div class="users-modal-body permissions-body" id="permissions-editable-body">
+
+          <section class="permissions-section">
+            <h3 class="permissions-section-title">Contacts</h3>
+            <p class="permissions-section-hint">Choose what this person can see on their Contacts widget, beyond the contacts they personally created or were assigned.</p>
+
+            <div class="permissions-option-list" id="permissions-mode-options">
+              <label class="permissions-option">
+                <input type="radio" name="contactAccessMode" value="own" checked>
+                <span>
+                  <strong>Only their own contacts</strong>
+                  <span class="permissions-option-desc">Default — contacts they created or were assigned to.</span>
+                </span>
+              </label>
+              <label class="permissions-option">
+                <input type="radio" name="contactAccessMode" value="selected">
+                <span>
+                  <strong>Their own, plus selected workers' contacts</strong>
+                  <span class="permissions-option-desc">Pick specific Admins / Internal Workers whose contacts they should also see.</span>
+                </span>
+              </label>
+              <label class="permissions-option">
+                <input type="radio" name="contactAccessMode" value="all">
+                <span>
+                  <strong>All contacts, from every worker</strong>
+                  <span class="permissions-option-desc">Same contact visibility as an Admin.</span>
+                </span>
+              </label>
+            </div>
+
+            <div class="permissions-picker" id="permissions-workers-picker" hidden>
+              <input type="search" id="permissions-worker-search" placeholder="Search Admins or Internal Workers by name or email" autocomplete="off">
+              <div id="permissions-worker-results" class="permissions-picker-results"></div>
+              <div id="permissions-worker-chips" class="permissions-chip-list"></div>
+            </div>
+          </section>
+
+          <section class="permissions-section">
+            <h3 class="permissions-section-title">Schools</h3>
+            <p class="permissions-section-hint">Grant visibility into specific schools. Granted schools appear as quick links on this person's dashboard menu.</p>
+            <div class="permissions-picker">
+              <input type="search" id="permissions-org-search" placeholder="Search schools by name" autocomplete="off">
+              <div id="permissions-org-results" class="permissions-picker-results"></div>
+              <div id="permissions-org-chips" class="permissions-chip-list"></div>
+            </div>
+          </section>
+
+          <section class="permissions-section">
+            <h3 class="permissions-section-title">Other access</h3>
+            <label class="permissions-checkbox-row">
+              <input type="checkbox" id="permissions-org-chart-checkbox">
+              Can view Team Org Chart (hamburger menu)
+            </label>
+          </section>
+
+          <div class="permissions-footer">
+            <button type="button" class="btn-inline is-resume" id="permissions-save-btn">Save Access</button>
           </div>
         </div>
       </div>
@@ -986,7 +1288,9 @@
       loadedOnce: false,
       loading: false,
       searchTimer: null,
+      tab: 'managira_workers',
     };
+    const usersTabButtons = document.querySelectorAll('[data-users-tab]');
 
     function escapeHtml(value) {
       return String(value == null ? '' : value)
@@ -1033,6 +1337,7 @@
           params.set(key, value);
         }
       }
+      params.set('tab', usersState.tab);
       return params.toString();
     }
 
@@ -1108,6 +1413,10 @@
             </td>
             <td>
               <div class="table-actions">
+                ${user.isManagiraWorker ? `
+                <button type="button" class="btn-inline" data-user-action="permissions" data-user-id="${escapeHtml(user.userId)}" data-user-name="${escapeHtml(user.fullName)}" data-account-type="${escapeHtml(user.accountType || '')}">
+                  Manage Access
+                </button>` : ''}
                 <button type="button" class="btn-inline ${user.onHold ? 'is-resume' : 'is-hold'}" data-user-action="status" data-user-id="${escapeHtml(user.userId)}" data-status="${user.onHold ? 'resume' : 'hold'}">
                   ${user.onHold ? 'Resume' : 'Put On Hold'}
                 </button>
@@ -1240,9 +1549,271 @@
         const action = button.getAttribute('data-user-action');
         const userId = button.getAttribute('data-user-id');
         const statusValue = button.getAttribute('data-status');
+
+        if (action === 'permissions') {
+          openPermissionsModal(userId, button.getAttribute('data-user-name'), button.getAttribute('data-account-type'));
+          return;
+        }
+
         handleUserAction(action, userId, statusValue);
       });
     }
+
+    usersTabButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        if (usersState.tab === button.getAttribute('data-users-tab')) return;
+        usersTabButtons.forEach((btn) => {
+          btn.classList.toggle('is-active', btn === button);
+          btn.setAttribute('aria-selected', btn === button ? 'true' : 'false');
+        });
+        usersState.tab = button.getAttribute('data-users-tab');
+        loadUsers();
+      });
+    });
+
+    // --- Manage Access (per-user permission grants) ---
+    const permissionsModal = document.getElementById('user-permissions-modal');
+    const permissionsFeedback = document.getElementById('user-permissions-feedback');
+    const permissionsSubtitle = document.getElementById('user-permissions-subtitle');
+    const permissionsOrgChartCheckbox = document.getElementById('permissions-org-chart-checkbox');
+    const permissionsModeRadios = document.querySelectorAll('input[name="contactAccessMode"]');
+    const permissionsWorkersPicker = document.getElementById('permissions-workers-picker');
+    const permissionsWorkerSearch = document.getElementById('permissions-worker-search');
+    const permissionsWorkerResults = document.getElementById('permissions-worker-results');
+    const permissionsWorkerChips = document.getElementById('permissions-worker-chips');
+    const permissionsOrgSearch = document.getElementById('permissions-org-search');
+    const permissionsOrgResults = document.getElementById('permissions-org-results');
+    const permissionsOrgChips = document.getElementById('permissions-org-chips');
+    const permissionsSaveBtn = document.getElementById('permissions-save-btn');
+    const permissionsFullAdminBanner = document.getElementById('permissions-full-admin-banner');
+    const permissionsEditableBody = document.getElementById('permissions-editable-body');
+    const permissionsState = {
+      userId: null,
+      mode: 'own',
+      selectedWorkers: new Map(),
+      selectedOrgs: new Map(),
+      workerSearchTimer: null,
+      orgSearchTimer: null,
+      isFullAdmin: false,
+    };
+
+    function setFullAdminLockedView(isFullAdmin) {
+      permissionsState.isFullAdmin = isFullAdmin;
+      permissionsFullAdminBanner.hidden = !isFullAdmin;
+      permissionsEditableBody.classList.toggle('is-locked', isFullAdmin);
+      permissionsSaveBtn.hidden = isFullAdmin;
+    }
+
+    function showPermissionsFeedback(message, type) {
+      if (!permissionsFeedback) return;
+      if (!message) {
+        permissionsFeedback.hidden = true;
+        permissionsFeedback.textContent = '';
+        permissionsFeedback.className = 'users-feedback';
+        return;
+      }
+      permissionsFeedback.hidden = false;
+      permissionsFeedback.textContent = message;
+      permissionsFeedback.className = `users-feedback ${type === 'error' ? 'is-error' : 'is-success'}`;
+    }
+
+    function setPermissionsMode(mode) {
+      permissionsState.mode = mode;
+      permissionsModeRadios.forEach((radio) => { radio.checked = radio.value === mode; });
+      permissionsWorkersPicker.hidden = mode !== 'selected';
+    }
+
+    function renderWorkerChips() {
+      permissionsWorkerChips.innerHTML = Array.from(permissionsState.selectedWorkers.values()).map((worker) => `
+        <span class="permissions-chip">
+          ${escapeHtml(worker.name)}${worker.accountType ? ` &middot; ${escapeHtml(worker.accountType)}` : ''}
+          <button type="button" data-remove-worker="${escapeHtml(worker.id)}" aria-label="Remove">×</button>
+        </span>
+      `).join('');
+    }
+
+    function renderOrgChips() {
+      permissionsOrgChips.innerHTML = Array.from(permissionsState.selectedOrgs.values()).map((org) => `
+        <span class="permissions-chip">
+          ${escapeHtml(org.name)}
+          <button type="button" data-remove-org="${escapeHtml(org.id)}" aria-label="Remove">×</button>
+        </span>
+      `).join('');
+    }
+
+    function togglePermissionsModal(show) {
+      if (!permissionsModal) return;
+      permissionsModal.hidden = !show;
+      document.body.style.overflow = show ? 'hidden' : '';
+    }
+
+    async function openPermissionsModal(userId, userName, accountType) {
+      if (!userId) return;
+      permissionsState.userId = userId;
+      permissionsState.selectedWorkers = new Map();
+      permissionsState.selectedOrgs = new Map();
+      permissionsWorkerSearch.value = '';
+      permissionsOrgSearch.value = '';
+      permissionsWorkerResults.innerHTML = '';
+      permissionsOrgResults.innerHTML = '';
+      setPermissionsMode('own');
+      renderWorkerChips();
+      renderOrgChips();
+      showPermissionsFeedback('');
+      setFullAdminLockedView(accountType === 'Admin' || accountType === 'Mini Admin');
+      permissionsSubtitle.textContent = userName
+        ? `Grant ${userName} extra visibility without making them a full Admin.`
+        : 'Grant this Managira Worker extra visibility without making them a full Admin.';
+
+      togglePermissionsModal(true);
+
+      try {
+        const response = await fetch(`/admin/superDashboard/users/${encodeURIComponent(userId)}/permissions`, {
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin',
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || 'Failed to load access settings.');
+        }
+        setFullAdminLockedView(!!payload.isFullAdmin);
+        permissionsOrgChartCheckbox.checked = !!payload.canViewOrgChart;
+        setPermissionsMode(payload.contactAccessMode || 'own');
+        (payload.extraWorkers || []).forEach((worker) => {
+          permissionsState.selectedWorkers.set(String(worker.id), worker);
+        });
+        (payload.extraOrganizations || []).forEach((org) => {
+          permissionsState.selectedOrgs.set(String(org.id), org);
+        });
+        renderWorkerChips();
+        renderOrgChips();
+      } catch (error) {
+        showPermissionsFeedback(error.message || 'Failed to load access settings.', 'error');
+      }
+    }
+
+    permissionsModeRadios.forEach((radio) => {
+      radio.addEventListener('change', () => {
+        if (radio.checked) setPermissionsMode(radio.value);
+      });
+    });
+
+    function wirePicker({ searchInput, resultsEl, timerKey, endpoint, resultKey, selectedMap, renderChips, buildQuery }) {
+      if (!searchInput) return;
+      searchInput.addEventListener('input', () => {
+        clearTimeout(permissionsState[timerKey]);
+        const query = searchInput.value.trim();
+        if (!query) {
+          resultsEl.innerHTML = '';
+          return;
+        }
+        permissionsState[timerKey] = setTimeout(async () => {
+          try {
+            const response = await fetch(buildQuery(query), {
+              headers: { 'Accept': 'application/json' },
+              credentials: 'same-origin',
+            });
+            const payload = await response.json();
+            const items = (payload && payload[resultKey]) || [];
+            const available = items.filter((item) => !selectedMap.has(String(item.id)));
+            resultsEl.innerHTML = available.map((item) => `
+              <div class="permissions-picker-result" data-item-id="${escapeHtml(item.id)}" data-item-name="${escapeHtml(item.name)}" data-item-type="${escapeHtml(item.accountType || '')}">
+                <span>${escapeHtml(item.name)}</span>
+                ${item.accountType ? `<span class="result-tag">${escapeHtml(item.accountType)}</span>` : ''}
+              </div>
+            `).join('') || '<div class="permissions-picker-result muted">No matches</div>';
+          } catch (_) {
+            resultsEl.innerHTML = '';
+          }
+        }, 250);
+      });
+
+      resultsEl.addEventListener('click', (event) => {
+        const row = event.target.closest('[data-item-id]');
+        if (!row) return;
+        const id = row.getAttribute('data-item-id');
+        selectedMap.set(id, {
+          id,
+          name: row.getAttribute('data-item-name'),
+          accountType: row.getAttribute('data-item-type') || undefined,
+        });
+        renderChips();
+        searchInput.value = '';
+        resultsEl.innerHTML = '';
+      });
+    }
+
+    wirePicker({
+      searchInput: permissionsWorkerSearch,
+      resultsEl: permissionsWorkerResults,
+      timerKey: 'workerSearchTimer',
+      resultKey: 'workers',
+      selectedMap: permissionsState.selectedWorkers,
+      renderChips: renderWorkerChips,
+      buildQuery: (query) => `/admin/superDashboard/workers/search?q=${encodeURIComponent(query)}&excludeUserId=${encodeURIComponent(permissionsState.userId || '')}`,
+    });
+
+    wirePicker({
+      searchInput: permissionsOrgSearch,
+      resultsEl: permissionsOrgResults,
+      timerKey: 'orgSearchTimer',
+      resultKey: 'organizations',
+      selectedMap: permissionsState.selectedOrgs,
+      renderChips: renderOrgChips,
+      buildQuery: (query) => `/admin/superDashboard/organizations/search?q=${encodeURIComponent(query)}`,
+    });
+
+    if (permissionsWorkerChips) {
+      permissionsWorkerChips.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-remove-worker]');
+        if (!button) return;
+        permissionsState.selectedWorkers.delete(button.getAttribute('data-remove-worker'));
+        renderWorkerChips();
+      });
+    }
+
+    if (permissionsOrgChips) {
+      permissionsOrgChips.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-remove-org]');
+        if (!button) return;
+        permissionsState.selectedOrgs.delete(button.getAttribute('data-remove-org'));
+        renderOrgChips();
+      });
+    }
+
+    if (permissionsSaveBtn) {
+      permissionsSaveBtn.addEventListener('click', async () => {
+        if (!permissionsState.userId || permissionsState.isFullAdmin) return;
+        showPermissionsFeedback('');
+        try {
+          const response = await fetch(`/admin/superDashboard/users/${encodeURIComponent(permissionsState.userId)}/permissions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              canViewOrgChart: permissionsOrgChartCheckbox.checked,
+              contactAccessMode: permissionsState.mode,
+              extraWorkerIds: Array.from(permissionsState.selectedWorkers.keys()).map((id) => Number(id)),
+              extraOrganizationIds: Array.from(permissionsState.selectedOrgs.keys()).map((id) => Number(id)),
+            }),
+          });
+          const payload = await response.json();
+          if (!response.ok || !payload.success) {
+            throw new Error(payload.message || 'Failed to save access settings.');
+          }
+          showPermissionsFeedback('Access updated.', 'success');
+        } catch (error) {
+          showPermissionsFeedback(error.message || 'Failed to save access settings.', 'error');
+        }
+      });
+    }
+
+    document.querySelectorAll('[data-close-permissions-modal]').forEach((element) => {
+      element.addEventListener('click', () => togglePermissionsModal(false));
+    });
   </script>
 </body>
 </html>

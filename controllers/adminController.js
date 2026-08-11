@@ -104,6 +104,51 @@ function isAdminSideManager(accountType) {
   return accountType === 'Admin' || accountType === 'Mini Admin';
 }
 
+function isManagiraWorkerAccountType(accountType) {
+  return (
+    accountType === 'Admin' ||
+    accountType === 'Mini Admin' ||
+    accountType === 'Internal Worker' ||
+    accountType === 'super_admin'
+  );
+}
+
+// Returns { mode: 'own'|'all'|'selected', sourceUserIds: number[] } describing
+// which other Managira Workers' internal_contacts this user has been granted
+// visibility into (in addition to their own/assigned contacts).
+async function getContactAccessGrant(userId) {
+  const flagResult = await db.query(
+    `SELECT contact_access_mode FROM user_feature_flags WHERE user_id = $1`,
+    [userId]
+  );
+  const mode = flagResult.rows.length ? flagResult.rows[0].contact_access_mode : 'own';
+
+  if (mode !== 'selected') {
+    return { mode, sourceUserIds: [] };
+  }
+
+  const sourcesResult = await db.query(
+    `SELECT source_user_id FROM user_extra_worker_contacts WHERE user_id = $1`,
+    [userId]
+  );
+  return { mode, sourceUserIds: sourcesResult.rows.map((row) => row.source_user_id) };
+}
+
+async function hasExtraContactGrant(userId, contactId) {
+  const grant = await getContactAccessGrant(userId);
+  if (grant.mode === 'all') return true;
+  if (grant.mode !== 'selected' || !grant.sourceUserIds.length) return false;
+
+  const result = await db.query(
+    `SELECT 1 FROM internal_contacts
+     WHERE id = $1
+       AND (created_by_user_id = ANY($2::int[]) OR assigned_to_user_id = ANY($2::int[]))
+     LIMIT 1`,
+    [contactId, grant.sourceUserIds]
+  );
+  return result.rows.length > 0;
+}
+
 function hasStripeWebhookSecretConfigured() {
   return Boolean(
     String(process.env.STRIPE_FINANCE_WEBHOOK_SECRET || "").trim() ||
@@ -565,7 +610,11 @@ const adminController = {
       let contacts = [];
       const canManageAllContacts = isAdminSideManager(accountType);
       const canAssignContacts = accountType === 'Admin';
-      if (isInternalWorker) {
+      const contactAccessGrant = isInternalWorker
+        ? await getContactAccessGrant(req.session.userId)
+        : { mode: 'all', sourceUserIds: [] };
+
+      if (isInternalWorker && contactAccessGrant.mode !== 'all') {
         const own = await db.query(
           `SELECT ic.id, ic.contact_name, ic.organization_name, ic.appointment_set, ic.appointment_at,
                   ic.notes, ic.followed_up, ic.followed_up_at, ic.joined, ic.joined_at,
@@ -580,10 +629,15 @@ const adminController = {
            LEFT JOIN users creator ON creator.user_id = ic.created_by_user_id
            LEFT JOIN users assignee ON assignee.user_id = ic.assigned_to_user_id
            WHERE ic.deleted_at IS NULL
-             AND (ic.created_by_user_id = $1 OR ic.assigned_to_user_id = $1)
+             AND (
+               ic.created_by_user_id = $1
+               OR ic.assigned_to_user_id = $1
+               OR ic.created_by_user_id = ANY($2::int[])
+               OR ic.assigned_to_user_id = ANY($2::int[])
+             )
            ORDER BY created_at DESC
            LIMIT 200`,
-          [req.session.userId]
+          [req.session.userId, contactAccessGrant.sourceUserIds]
         );
         contacts = own.rows;
       } else {
@@ -761,7 +815,12 @@ const adminController = {
         req.flash("error", "Contact not found.");
         return res.redirect("/admin");
       }
-      if (!isPrivileged && ownership.rows[0].created_by_user_id !== userId && ownership.rows[0].assigned_to_user_id !== userId) {
+      if (
+        !isPrivileged &&
+        ownership.rows[0].created_by_user_id !== userId &&
+        ownership.rows[0].assigned_to_user_id !== userId &&
+        !(await hasExtraContactGrant(userId, id))
+      ) {
         req.flash("error", "You can only update your own or assigned contacts.");
         return res.redirect("/admin");
       }
@@ -805,7 +864,12 @@ const adminController = {
         req.flash("error", "Contact not found.");
         return res.redirect("/admin");
       }
-      if (!isPrivileged && ownership.rows[0].created_by_user_id !== userId && ownership.rows[0].assigned_to_user_id !== userId) {
+      if (
+        !isPrivileged &&
+        ownership.rows[0].created_by_user_id !== userId &&
+        ownership.rows[0].assigned_to_user_id !== userId &&
+        !(await hasExtraContactGrant(userId, id))
+      ) {
         req.flash("error", "You can only update your own or assigned contacts.");
         return res.redirect("/admin");
       }
@@ -900,7 +964,12 @@ const adminController = {
         req.flash("error", "Contact not found.");
         return res.redirect("/admin");
       }
-      if (!isPrivileged && ownership.rows[0].created_by_user_id !== userId && ownership.rows[0].assigned_to_user_id !== userId) {
+      if (
+        !isPrivileged &&
+        ownership.rows[0].created_by_user_id !== userId &&
+        ownership.rows[0].assigned_to_user_id !== userId &&
+        !(await hasExtraContactGrant(userId, id))
+      ) {
         req.flash("error", "You can only update your own or assigned contacts.");
         return res.redirect("/admin");
       }
@@ -1702,9 +1771,19 @@ const adminController = {
       const status = String(req.query.status || "all").trim().toLowerCase();
       const role = String(req.query.role || "all").trim();
       const organizationId = String(req.query.organizationId || "all").trim();
+      const tab = String(req.query.tab || "all").trim().toLowerCase();
 
       const conditions = [];
       const values = [];
+
+      const MANAGIRA_WORKER_TYPES = ['Admin', 'Mini Admin', 'Internal Worker', 'super_admin'];
+      if (tab === 'managira_workers') {
+        values.push(MANAGIRA_WORKER_TYPES);
+        conditions.push(`u.account_type::text = ANY($${values.length}::text[])`);
+      } else if (tab === 'school_users') {
+        values.push(MANAGIRA_WORKER_TYPES);
+        conditions.push(`NOT (u.account_type::text = ANY($${values.length}::text[]))`);
+      }
 
       if (search) {
         values.push(`%${search}%`);
@@ -1782,6 +1861,7 @@ const adminController = {
         email: row.email,
         phoneNumber: row.phone_number || '',
         accountType: row.account_type,
+        isManagiraWorker: isManagiraWorkerAccountType(row.account_type),
         onHold: !!row.on_hold,
         organizationId: row.organization_id,
         schools: row.organization_id
@@ -1809,7 +1889,7 @@ const adminController = {
           platform: users.filter((user) => user.schools.length === 0).length,
         },
         filters: {
-          current: { search, status, role, organizationId },
+          current: { search, status, role, organizationId, tab },
           roles: rolesResult.rows.map((row) => row.account_type).filter(Boolean),
           organizations: organizationsResult.rows.map((row) => ({
             organizationId: row.organization_id,
@@ -1824,6 +1904,233 @@ const adminController = {
         success: false,
         message: "Failed to load users.",
       });
+    }
+  },
+
+  getUserPermissionsAjax: async (req, res) => {
+    const userId = parseOptionalInteger(req.params.userId);
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Invalid user selected." });
+    }
+
+    try {
+      const userResult = await db.query(
+        `SELECT user_id, account_type::text AS account_type FROM users WHERE user_id = $1`,
+        [userId]
+      );
+      if (!userResult.rows.length) {
+        return res.status(404).json({ success: false, message: "User not found." });
+      }
+      if (!isManagiraWorkerAccountType(userResult.rows[0].account_type)) {
+        return res.status(400).json({ success: false, message: "Access grants only apply to Managira Workers." });
+      }
+
+      // Admin / Mini Admin already have unrestricted access to every contact,
+      // every school, and the Team Org Chart, regardless of any grant rows —
+      // reflect that as their real, active state rather than showing "own"/off.
+      if (isAdminSideManager(userResult.rows[0].account_type)) {
+        return res.json({
+          success: true,
+          isFullAdmin: true,
+          contactAccessMode: 'all',
+          canViewOrgChart: true,
+          extraWorkers: [],
+          extraOrganizations: [],
+        });
+      }
+
+      const [flagResult, workersResult, orgsResult] = await Promise.all([
+        db.query(
+          `SELECT can_view_org_chart, contact_access_mode FROM user_feature_flags WHERE user_id = $1`,
+          [userId]
+        ),
+        db.query(
+          `SELECT u.user_id, u.first_name, u.last_name, u.account_type::text AS account_type
+           FROM user_extra_worker_contacts p
+           JOIN users u ON u.user_id = p.source_user_id
+           WHERE p.user_id = $1
+           ORDER BY u.first_name ASC, u.last_name ASC`,
+          [userId]
+        ),
+        db.query(
+          `SELECT o.organization_id, o.organization_name
+           FROM user_extra_organizations p
+           JOIN organizations o ON o.organization_id = p.organization_id
+           WHERE p.user_id = $1
+           ORDER BY o.organization_name ASC`,
+          [userId]
+        ),
+      ]);
+
+      return res.json({
+        success: true,
+        isFullAdmin: false,
+        contactAccessMode: flagResult.rows.length ? flagResult.rows[0].contact_access_mode : 'own',
+        canViewOrgChart: !!(flagResult.rows.length && flagResult.rows[0].can_view_org_chart),
+        extraWorkers: workersResult.rows.map((row) => ({
+          id: row.user_id,
+          name: buildUserFullName(row),
+          accountType: row.account_type,
+        })),
+        extraOrganizations: orgsResult.rows.map((row) => ({
+          id: row.organization_id,
+          name: row.organization_name,
+        })),
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to load permissions." });
+    }
+  },
+
+  updateUserPermissionsAjax: async (req, res) => {
+    const userId = parseOptionalInteger(req.params.userId);
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "Invalid user selected." });
+    }
+    if (req.session?.accountType !== 'Admin') {
+      return res.status(403).json({ success: false, message: "Only Admins can manage access grants." });
+    }
+    if (Number(req.session.userId) === Number(userId)) {
+      return res.status(400).json({ success: false, message: "You cannot change your own access grants here." });
+    }
+
+    const contactAccessMode = ['own', 'all', 'selected'].includes(req.body.contactAccessMode)
+      ? req.body.contactAccessMode
+      : 'own';
+    const extraWorkerIds = Array.isArray(req.body.extraWorkerIds)
+      ? req.body.extraWorkerIds.map((id) => parseOptionalInteger(id)).filter((id) => id !== null && id !== userId)
+      : [];
+    const extraOrganizationIds = Array.isArray(req.body.extraOrganizationIds)
+      ? req.body.extraOrganizationIds.map((id) => parseOptionalInteger(id)).filter((id) => id !== null)
+      : [];
+    const canViewOrgChart = !!req.body.canViewOrgChart;
+
+    try {
+      const userResult = await db.query(
+        `SELECT account_type::text AS account_type FROM users WHERE user_id = $1`,
+        [userId]
+      );
+      if (!userResult.rows.length) {
+        return res.status(404).json({ success: false, message: "User not found." });
+      }
+      if (!isManagiraWorkerAccountType(userResult.rows[0].account_type)) {
+        return res.status(400).json({ success: false, message: "Access grants only apply to Managira Workers." });
+      }
+      if (isAdminSideManager(userResult.rows[0].account_type)) {
+        return res.status(400).json({
+          success: false,
+          message: "Admins already have full access to every contact, every school, and the Team Org Chart. There is nothing to grant or revoke here.",
+        });
+      }
+
+      const client = await db.connect();
+      try {
+        await client.query('BEGIN');
+
+        await client.query(`DELETE FROM user_extra_worker_contacts WHERE user_id = $1`, [userId]);
+        if (contactAccessMode === 'selected') {
+          for (const sourceUserId of extraWorkerIds) {
+            await client.query(
+              `INSERT INTO user_extra_worker_contacts (user_id, source_user_id, granted_by)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (user_id, source_user_id) DO NOTHING`,
+              [userId, sourceUserId, req.session.userId]
+            );
+          }
+        }
+
+        await client.query(`DELETE FROM user_extra_organizations WHERE user_id = $1`, [userId]);
+        for (const organizationId of extraOrganizationIds) {
+          await client.query(
+            `INSERT INTO user_extra_organizations (user_id, organization_id, granted_by)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (user_id, organization_id) DO NOTHING`,
+            [userId, organizationId, req.session.userId]
+          );
+        }
+
+        await client.query(
+          `INSERT INTO user_feature_flags (user_id, can_view_org_chart, contact_access_mode, updated_by, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (user_id) DO UPDATE
+             SET can_view_org_chart = EXCLUDED.can_view_org_chart,
+                 contact_access_mode = EXCLUDED.contact_access_mode,
+                 updated_by = EXCLUDED.updated_by,
+                 updated_at = NOW()`,
+          [userId, canViewOrgChart, contactAccessMode, req.session.userId]
+        );
+
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      return res.json({ success: true, message: "Access updated." });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to update permissions." });
+    }
+  },
+
+  searchManagiraWorkersAjax: async (req, res) => {
+    const search = String(req.query.q || "").trim();
+    const excludeUserId = parseOptionalInteger(req.query.excludeUserId);
+
+    try {
+      const values = ['%' + search + '%'];
+      let query = `
+        SELECT user_id, first_name, last_name, email, account_type::text AS account_type
+        FROM users
+        WHERE account_type::text = ANY($2::text[])
+          AND (first_name ILIKE $1 OR last_name ILIKE $1 OR (first_name || ' ' || last_name) ILIKE $1 OR email ILIKE $1)
+      `;
+      values.push(['Admin', 'Mini Admin', 'Internal Worker', 'super_admin']);
+
+      if (excludeUserId) {
+        values.push(excludeUserId);
+        query += ` AND user_id != $${values.length}`;
+      }
+      query += ` ORDER BY first_name ASC, last_name ASC LIMIT 20`;
+
+      const result = await db.query(query, values);
+      return res.json({
+        success: true,
+        workers: result.rows.map((row) => ({
+          id: row.user_id,
+          name: buildUserFullName(row),
+          email: row.email,
+          accountType: row.account_type,
+        })),
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to search workers." });
+    }
+  },
+
+  searchOrganizationsAjax: async (req, res) => {
+    const search = String(req.query.q || "").trim();
+
+    try {
+      const result = await db.query(
+        `SELECT organization_id, organization_name
+         FROM organizations
+         WHERE deleted = false
+           AND ($1 = '' OR organization_name ILIKE $2)
+         ORDER BY organization_name ASC
+         LIMIT 20`,
+        [search, `%${search}%`]
+      );
+      return res.json({
+        success: true,
+        organizations: result.rows.map((row) => ({
+          id: row.organization_id,
+          name: row.organization_name,
+        })),
+      });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Failed to search schools." });
     }
   },
 

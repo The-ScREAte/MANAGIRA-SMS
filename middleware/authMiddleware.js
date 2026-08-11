@@ -187,6 +187,41 @@ const fetchUserInfo = async (req, res, next) => {
                 req.session.accountType = user.account_type;
                 req.session.profileImageUrl = user.profile_image_url || null;
 
+                // Extra feature grants (e.g. Team Org Chart visibility for
+                // Managira Workers who aren't full Admin/Mini Admin).
+                if (user.account_type === 'Admin' || user.account_type === 'Mini Admin') {
+                    req.session.canViewOrgChart = true;
+                } else {
+                    try {
+                        const flagResult = await db.query(
+                            'SELECT can_view_org_chart FROM user_feature_flags WHERE user_id = $1',
+                            [req.session.userId]
+                        );
+                        req.session.canViewOrgChart = !!(flagResult.rows.length && flagResult.rows[0].can_view_org_chart);
+                    } catch (_) {
+                        req.session.canViewOrgChart = false;
+                    }
+
+                    // Schools an Admin has explicitly granted this worker
+                    // visibility into, shown as a "My Schools" quick-switch.
+                    try {
+                        const grantedOrgsResult = await db.query(
+                            `SELECT o.organization_id, o.organization_name
+                             FROM user_extra_organizations p
+                             JOIN organizations o ON o.organization_id = p.organization_id
+                             WHERE p.user_id = $1 AND o.deleted = false
+                             ORDER BY o.organization_name ASC`,
+                            [req.session.userId]
+                        );
+                        req.session.grantedSchools = grantedOrgsResult.rows.map((row) => ({
+                            organizationId: row.organization_id,
+                            organizationName: row.organization_name,
+                        }));
+                    } catch (_) {
+                        req.session.grantedSchools = [];
+                    }
+                }
+
                 // Fetch organization details for non-admin users
                 if (
                     user.account_type !== 'Admin' &&
