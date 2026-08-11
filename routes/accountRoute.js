@@ -331,6 +331,12 @@ router.post(
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountController.whatsappDisconnectPost
 );
+router.get(
+  "/whatsapp/setup-status",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.whatsappSetupStatusGet
+);
 router.post(
   "/whatsapp/test-message",
   isAuthenticated,

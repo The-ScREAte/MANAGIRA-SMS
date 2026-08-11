@@ -515,6 +515,7 @@ const {
   normalizePhoneDigits,
   sendWhatsappTemplateMessage,
   sendWhatsappTextMessage,
+  getWhatsappSetupChecklist,
 } = require("../utils/whatsappIntegration");
 const {
   syncGoogleClassroomForOrganization,
@@ -3949,7 +3950,7 @@ const accountController = {
       const expectedToken = String(
         process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ||
         process.env.WEBHOOK_VERIFY_TOKEN ||
-        "managira_whatsapp_verify_2026"
+        ""
       ).trim();
 
       if (!expectedToken) {
@@ -3967,11 +3968,62 @@ const accountController = {
   },
 
   whatsappWebhookPost: async (req, res) => {
+    // Always ack quickly so Meta does not retry; process in the background.
+    res.status(200).json({ received: true });
+
     try {
-      // Respond quickly so Meta does not retry. Event processing can be added later.
-      return res.status(200).json({ received: true });
-    } catch (_) {
-      return res.status(200).json({ received: true });
+      const entries = Array.isArray(req.body?.entry) ? req.body.entry : [];
+
+      for (const entry of entries) {
+        const changes = Array.isArray(entry.changes) ? entry.changes : [];
+
+        for (const change of changes) {
+          const value = change.value || {};
+          const phoneNumberId = value.metadata?.phone_number_id;
+          if (!phoneNumberId) continue;
+
+          const orgResult = await db.query(
+            `SELECT organization_id FROM organizations WHERE whatsapp_phone_number_id = $1 LIMIT 1`,
+            [phoneNumberId]
+          );
+          const organizationId = orgResult.rows[0]?.organization_id;
+          if (!organizationId) continue;
+
+          const statuses = Array.isArray(value.statuses) ? value.statuses : [];
+          for (const status of statuses) {
+            const isFailure = status.status === "failed";
+            const errorDetail = isFailure
+              ? (status.errors || []).map((e) => `${e.code}: ${e.title || e.message || ""}`).join("; ")
+              : "";
+
+            if (isFailure) {
+              await markWhatsappConnectionError(db, organizationId, errorDetail || "WhatsApp message delivery failed.");
+            }
+
+            await db.query(
+              `INSERT INTO delivery_audit_history (
+                 organization_id, event_domain, event_name, status, notes, metadata
+               )
+               VALUES ($1, 'whatsapp', 'whatsapp_delivery_status', $2, $3, $4::jsonb)`,
+              [
+                organizationId,
+                isFailure ? "failed" : status.status || "unknown",
+                isFailure ? errorDetail : `WhatsApp message ${status.status || "status update"}.`,
+                JSON.stringify({
+                  messageId: status.id || null,
+                  recipientId: status.recipient_id || null,
+                  timestamp: status.timestamp || null,
+                  errors: status.errors || null,
+                }),
+              ]
+            ).catch((err) => {
+              console.error("[whatsappWebhookPost] Failed to record delivery status:", err?.message || err);
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[whatsappWebhookPost] Error processing webhook payload:", err?.message || err);
     }
   },
 
@@ -11574,6 +11626,21 @@ const accountController = {
       }
       req.flash("error", "Unable to disconnect WhatsApp right now.");
       return res.redirect("/account/settings?section=integrations");
+    }
+  },
+
+  whatsappSetupStatusGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) {
+      return res.status(401).json({ success: false, message: "Not authenticated." });
+    }
+
+    try {
+      const checklist = await getWhatsappSetupChecklist(db, orgId);
+      return res.json({ success: true, ...checklist });
+    } catch (error) {
+      console.error("[whatsappSetupStatusGet] Error:", error?.message || error);
+      return res.status(500).json({ success: false, message: "Unable to check WhatsApp setup status." });
     }
   },
 

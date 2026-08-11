@@ -102,7 +102,14 @@ async function sendArrivalNotification(database, { organizationId, student, even
         sendWhatsappTextMessage(whatsappCreds.accessToken, whatsappCreds.phoneNumberId, {
           to: normalized,
           text: message,
-        }).catch(() => {});
+        }).catch((err) => {
+          console.error("[TransportArrival] WhatsApp send failed", {
+            organizationId,
+            studentId: student.student_id,
+            eventType,
+            error: err?.message || err,
+          });
+        });
       }
     }
   }

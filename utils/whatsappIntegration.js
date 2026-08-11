@@ -828,6 +828,148 @@ async function sendWhatsappDocumentMessage(accessToken, phoneNumberId, payload =
   return response.data || {};
 }
 
+async function getWhatsappSetupChecklist(dbClient, organizationId) {
+  const integrationStatus = await getWhatsappIntegrationStatus(dbClient, organizationId);
+
+  if (!integrationStatus.connected) {
+    return {
+      checkedAt: new Date().toISOString(),
+      metaReachable: false,
+      items: [
+        {
+          key: "connected",
+          label: "Connect your WhatsApp Business number",
+          done: false,
+          instructions: "Open the ⋮ menu and click Connect WhatsApp before this checklist can check anything else.",
+          required: true,
+          linkType: "internal",
+          linkTarget: "whatsapp-connect-link",
+          linkLabel: "Go to Connect",
+        },
+      ],
+      overallReady: false,
+    };
+  }
+
+  const items = [];
+
+  const credentials = await getWhatsappMessagingCredentials(dbClient, organizationId);
+  let metaReachable = false;
+  let phoneInfo = null;
+  let wabaInfo = null;
+  let approvedTemplateCount = 0;
+  let metaError = "";
+
+  try {
+    const base = getMetaGraphBaseUrl();
+    const headers = { Authorization: `Bearer ${credentials.accessToken}` };
+
+    const [phoneResp, wabaResp, templatesResp] = await Promise.all([
+      axios.get(`${base}/${encodeURIComponent(credentials.phoneNumberId)}`, {
+        headers,
+        params: { fields: "name_status,code_verification_status,quality_rating,status" },
+        timeout: 15000,
+      }),
+      axios.get(`${base}/${encodeURIComponent(integrationStatus.wabaId)}`, {
+        headers,
+        params: { fields: "business_verification_status,account_review_status,owner_business_info" },
+        timeout: 15000,
+      }),
+      axios.get(`${base}/${encodeURIComponent(integrationStatus.wabaId)}/message_templates`, {
+        headers,
+        params: { limit: 50 },
+        timeout: 15000,
+      }),
+    ]);
+
+    phoneInfo = phoneResp.data || {};
+    wabaInfo = wabaResp.data || {};
+    approvedTemplateCount = (templatesResp.data?.data || []).filter(
+      (t) => safeString(t?.status).toUpperCase() === "APPROVED"
+    ).length;
+    metaReachable = true;
+  } catch (error) {
+    metaError = error?.response?.data?.error?.message || error?.message || "Unable to reach Meta.";
+  }
+
+  const wabaId = safeString(integrationStatus.wabaId);
+  const phoneNumbersUrl = wabaId
+    ? `https://business.facebook.com/wa/manage/phone-numbers/?waba_id=${encodeURIComponent(wabaId)}`
+    : "https://business.facebook.com/wa/manage/phone-numbers/";
+  const templatesUrl = wabaId
+    ? `https://business.facebook.com/wa/manage/message-templates/?waba_id=${encodeURIComponent(wabaId)}`
+    : "https://business.facebook.com/wa/manage/message-templates/";
+
+  items.push({
+    key: "phone_verified",
+    label: "Verify phone number",
+    done: metaReachable ? phoneInfo?.code_verification_status === "VERIFIED" : null,
+    instructions: "Verify by OTP in WhatsApp Manager.",
+    required: true,
+    linkType: "external",
+    linkTarget: phoneNumbersUrl,
+    linkLabel: "Open WhatsApp Manager",
+  });
+
+  items.push({
+    key: "display_name_approved",
+    label: "Get display name approved",
+    done: metaReachable ? phoneInfo?.name_status === "APPROVED" : null,
+    instructions: "Blocks sending until approved. Do this first.",
+    required: true,
+    linkType: "external",
+    linkTarget: phoneNumbersUrl,
+    linkLabel: "Open WhatsApp Manager",
+  });
+
+  items.push({
+    key: "template_approved",
+    label: "Get a message template approved",
+    done: metaReachable ? approvedTemplateCount > 0 : null,
+    instructions: "Needed to message guardians who haven't texted first.",
+    required: true,
+    linkType: "external",
+    linkTarget: templatesUrl,
+    linkLabel: "Open Message Templates",
+  });
+
+  const lastDeliveredResult = await dbClient.query(
+    `SELECT status, created_at FROM delivery_audit_history
+     WHERE organization_id = $1 AND event_domain = 'whatsapp'
+       AND event_name = 'whatsapp_delivery_status'
+       AND status IN ('delivered', 'read')
+     ORDER BY created_at DESC LIMIT 1`,
+    [organizationId]
+  ).catch(() => ({ rows: [] }));
+  const lastDelivered = lastDeliveredResult.rows[0];
+
+  const priorStepsDone = items.every((item) => item.done === true);
+
+  items.push({
+    key: "live_send_confirmed",
+    label: "Confirm a real message was delivered",
+    done: Boolean(lastDelivered),
+    instructions: priorStepsDone
+      ? "A send being accepted isn't proof of delivery."
+      : "Locked until the steps above are approved.",
+    required: true,
+    linkType: "internal",
+    linkTarget: "whatsapp-default-test-button",
+    linkLabel: "Go to Send Test Message",
+    linkDisabled: !priorStepsDone,
+  });
+
+  const overallReady = items.filter((item) => item.required).every((item) => item.done === true);
+
+  return {
+    checkedAt: new Date().toISOString(),
+    metaReachable,
+    metaError: metaReachable ? "" : metaError,
+    items,
+    overallReady,
+  };
+}
+
 module.exports = {
   getMetaConfig,
   getWhatsappRegistrationPinFromEnv,
@@ -851,4 +993,5 @@ module.exports = {
   sendWhatsappTemplateMessage,
   sendWhatsappTextMessage,
   sendWhatsappDocumentMessage,
+  getWhatsappSetupChecklist,
 };

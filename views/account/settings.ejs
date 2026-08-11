@@ -852,9 +852,11 @@
         right: 0;
         left: auto;
         transform: none;
-        top: auto;
-        bottom: calc(100% + 8px);
-        min-width: 240px;
+        top: calc(100% + 8px);
+        bottom: auto;
+        width: max-content;
+        min-width: 200px;
+        max-width: 280px;
         border: 1px solid var(--border);
         border-radius: 12px;
         background: #fff;
@@ -876,6 +878,8 @@
         width: 100%;
         justify-content: flex-start;
         align-items: center;
+        text-align: left;
+        white-space: nowrap;
         padding: 8px 10px;
         border-radius: 8px;
         border: 0;
@@ -3565,25 +3569,19 @@
 
               <form id="whatsapp-disconnect-form" action="/account/whatsapp/disconnect" method="POST" style="display:none;"></form>
 
-              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
-                <button
-                  class="btn-link"
-                  type="button"
-                  id="whatsapp-connect-cta"
-                  style="display:<%= wiActivated ? 'inline-flex' : 'none' %>;align-items:center;<%= hasWhatsappMetaConfig ? '' : 'opacity:0.6;pointer-events:none;cursor:not-allowed;' %>"
-                >
-                  <%= wiConnected ? 'Reconnect WhatsApp' : 'Connect WhatsApp' %>
-                </button>
-                <button
-                  class="btn-link"
-                  type="button"
-                  id="whatsapp-disconnect-cta"
-                  style="display:<%= wiConnected ? 'inline-flex' : 'none' %>;align-items:center;"
-                >
-                  Disconnect WhatsApp
-                </button>
+              <% if (wiConnected) { %>
+              <div id="whatsapp-setup-checklist-card" style="margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;">
+                <strong style="font-size:13.5px;">Setup checklist</strong>
+                <div id="whatsapp-checklist-items" style="margin-top:10px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                  <small style="display:block;padding:10px 12px;color:#64748b;font-size:11.5px;">Loading status...</small>
+                </div>
+                <small id="whatsapp-checklist-meta-error" style="display:none;color:#b91c1c;margin-top:8px;"></small>
+                <small id="whatsapp-checklist-updated" style="display:block;color:#94a3b8;margin-top:8px;"></small>
               </div>
-              <div style="margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;">
+              <% } %>
+
+              <% if (wiReady) { %>
+              <div id="whatsapp-test-message-card" style="display:none;margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;">
                 <div style="display:grid;gap:10px;">
                   <label class="form-label" for="whatsapp-test-recipient-input" style="margin-bottom:0;">Test recipient number</label>
                   <input
@@ -3610,6 +3608,9 @@
                   </div>
                 </div>
               </div>
+              <% } else { %>
+              <small style="display:block;margin-top:16px;color:#64748b;">Activate and connect WhatsApp to unlock the test-message tool.</small>
+              <% } %>
 
               <% if (!hasWhatsappMetaConfig) { %>
               <small style="display:block;margin-top:10px;color:#b45309;">Meta app credentials are missing on this server. Set <strong>META_APP_ID</strong>, <strong>META_APP_SECRET</strong>, and <strong>WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID</strong> for Embedded Signup connect.</small>
@@ -4843,6 +4844,10 @@
         const whatsappDisconnectForm = document.getElementById("whatsapp-disconnect-form");
         const whatsappStatusPill = document.getElementById("whatsapp-status-pill");
         const whatsappLastError = document.getElementById("whatsapp-last-error");
+        const whatsappChecklistItems = document.getElementById("whatsapp-checklist-items");
+        const whatsappChecklistMetaError = document.getElementById("whatsapp-checklist-meta-error");
+        const whatsappChecklistUpdated = document.getElementById("whatsapp-checklist-updated");
+        const whatsappTestMessageCard = document.getElementById("whatsapp-test-message-card");
         const whatsappDefaultTestButton = document.getElementById("whatsapp-default-test-button");
         const whatsappTestRecipientInput = document.getElementById("whatsapp-test-recipient-input");
         const whatsappTestMessageInput = document.getElementById("whatsapp-test-message-input");
@@ -6307,6 +6312,131 @@
           });
         }
 
+        function escapeHtml(value) {
+          const div = document.createElement("div");
+          div.textContent = String(value == null ? "" : value);
+          return div.innerHTML;
+        }
+
+        function renderWhatsappChecklistItem(item, isLast) {
+          const badgeBg = item.done === true ? "#dcfce7" : item.done === false ? "#fef3c7" : "#e2e8f0";
+          const badgeFg = item.done === true ? "#166534" : item.done === false ? "#92400e" : "#64748b";
+          const badgeGlyph = item.done === true ? "✓" : item.done === false ? "!" : "?";
+          const badgeHtml = '<span style="flex:0 0 auto;width:18px;height:18px;border-radius:999px;background:' + badgeBg + ';color:' + badgeFg + ';display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' + badgeGlyph + '</span>';
+          const wrap = document.createElement("div");
+          wrap.style.cssText = "padding:8px 12px;" + (isLast ? "" : "border-bottom:1px solid #f1f5f9;");
+
+          let linkHtml = "";
+          if (item.done !== true && item.linkTarget) {
+            const btnStyle = "display:inline-flex;flex:0 0 auto;padding:2px 9px;font-size:11px;border-radius:999px;";
+            if (item.linkDisabled) {
+              linkHtml = '<button type="button" class="btn-link" disabled style="' + btnStyle + 'opacity:0.5;cursor:not-allowed;">' + escapeHtml(item.linkLabel || "Go") + '</button>';
+            } else if (item.linkType === "external") {
+              linkHtml = '<a class="btn-link" href="' + escapeHtml(item.linkTarget) + '" target="_blank" rel="noopener" style="' + btnStyle + '">' + escapeHtml(item.linkLabel || "Open") + '</a>';
+            } else if (item.linkType === "internal") {
+              linkHtml = '<button type="button" class="btn-link whatsapp-checklist-jump" data-target-id="' + escapeHtml(item.linkTarget) + '" style="' + btnStyle + '">' + escapeHtml(item.linkLabel || "Go") + '</button>';
+            }
+          }
+
+          wrap.innerHTML =
+            '<div style="display:flex;align-items:center;gap:7px;">' +
+              badgeHtml +
+              '<strong style="font-size:12.5px;">' + escapeHtml(item.label) + '</strong>' +
+              (item.required === false ? '<span class="text-muted-sm" style="font-size:11px;">(optional)</span>' : '') +
+            '</div>' +
+            (item.done !== true ? '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px;margin-left:25px;"><small style="color:#64748b;font-size:11.5px;">' + escapeHtml(item.instructions) + '</small>' + linkHtml + '</div>' : '');
+
+          if (item.done !== true && !item.linkDisabled && item.linkType === "internal") {
+            const jumpBtn = wrap.querySelector(".whatsapp-checklist-jump");
+            if (jumpBtn) {
+              jumpBtn.addEventListener("click", () => {
+                const target = document.getElementById(item.linkTarget);
+                if (!target) return;
+                const parentMenu = target.closest("details.google-actions-menu");
+                if (parentMenu && !parentMenu.open) parentMenu.open = true;
+                target.scrollIntoView({ behavior: "smooth", block: "center" });
+                const originalOutline = target.style.outline;
+                target.style.outline = "2px solid #25D366";
+                target.style.outlineOffset = "2px";
+                setTimeout(() => { target.style.outline = originalOutline; }, 1800);
+              });
+            }
+          }
+
+          return wrap;
+        }
+
+        function applyWhatsappTestButtonGating(items) {
+          const priorItems = (items || []).filter((i) => i.key !== "live_send_confirmed");
+          const ready = priorItems.length > 0 && priorItems.every((i) => i.done === true);
+          const blocked = !ready;
+
+          window.whatsappChecklistBlockingReason = blocked
+            ? "Locked until the checklist steps above are approved."
+            : null;
+
+          if (whatsappTestMessageCard) {
+            whatsappTestMessageCard.style.display = ready ? "" : "none";
+          }
+
+          if (whatsappDefaultTestButton) {
+            whatsappDefaultTestButton.style.opacity = blocked ? "0.6" : "";
+            whatsappDefaultTestButton.style.pointerEvents = blocked ? "none" : "";
+            whatsappDefaultTestButton.style.cursor = blocked ? "not-allowed" : "";
+          }
+
+          if (whatsappTestMessageStatus && blocked) {
+            whatsappTestMessageStatus.textContent = "Locked until the checklist steps above are approved.";
+            whatsappTestMessageStatus.style.color = "#b45309";
+          }
+        }
+
+        async function loadWhatsappChecklist() {
+          if (!whatsappChecklistItems) return;
+          whatsappChecklistItems.innerHTML = '<small style="color:#64748b;">Checking with Meta...</small>';
+          if (whatsappChecklistMetaError) whatsappChecklistMetaError.style.display = "none";
+
+          try {
+            const response = await fetch("/account/whatsapp/setup-status", {
+              method: "GET",
+              headers: { "Accept": "application/json" },
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+              throw new Error(result.message || "Unable to check WhatsApp setup status.");
+            }
+
+            whatsappChecklistItems.innerHTML = "";
+            const checklistItemList = result.items || [];
+            checklistItemList.forEach((item, index) => {
+              whatsappChecklistItems.appendChild(renderWhatsappChecklistItem(item, index === checklistItemList.length - 1));
+            });
+            applyWhatsappTestButtonGating(checklistItemList);
+
+            if (!result.metaReachable && result.items && result.items.length > 2) {
+              if (whatsappChecklistMetaError) {
+                whatsappChecklistMetaError.textContent = "Could not reach Meta to verify live status: " + (result.metaError || "Unknown error") + ". Showing what's known locally.";
+                whatsappChecklistMetaError.style.display = "block";
+              }
+            }
+
+            if (whatsappChecklistUpdated) {
+              const when = result.checkedAt ? new Date(result.checkedAt).toLocaleString() : "";
+              whatsappChecklistUpdated.textContent = when ? ("Last checked: " + when) : "";
+            }
+          } catch (error) {
+            whatsappChecklistItems.innerHTML = "";
+            if (whatsappChecklistMetaError) {
+              whatsappChecklistMetaError.textContent = error?.message || "Unable to check WhatsApp setup status.";
+              whatsappChecklistMetaError.style.display = "block";
+            }
+          }
+        }
+
+        if (whatsappChecklistItems) {
+          loadWhatsappChecklist();
+        }
+
         if (whatsappDefaultTestButton) {
           whatsappDefaultTestButton.addEventListener("click", async () => {
             const isActivated = Boolean(whatsappStatusPill && whatsappStatusPill.dataset.activated === "1");
@@ -6319,6 +6449,11 @@
 
             if (!isConnected) {
               setWhatsappTestMessageStatus("Connect WhatsApp once before sending this test message.", "error");
+              return;
+            }
+
+            if (window.whatsappChecklistBlockingReason) {
+              setWhatsappTestMessageStatus(window.whatsappChecklistBlockingReason, "error");
               return;
             }
 

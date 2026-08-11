@@ -1064,6 +1064,30 @@ const startServer = (port) => {
     console.error("[Server] Failed to start:", error);
     process.exit(1);
   });
+
+  // Release the DB connection pool on shutdown so restarts (nodemon, deploys,
+  // crashes) don't leak connections toward the DB instance's connection limit.
+  let shuttingDown = false;
+  const shutdown = (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[Server] Received ${signal}, shutting down gracefully...`);
+
+    server.close(() => {
+      db.end()
+        .then(() => console.log("[Server] DB pool closed. Exiting."))
+        .catch((err) => console.error("[Server] Error closing DB pool:", err.message || err))
+        .finally(() => process.exit(0));
+    });
+
+    setTimeout(() => {
+      console.error("[Server] Forced shutdown after timeout.");
+      process.exit(1);
+    }, 10000).unref();
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 };
 
 startServer(BASE_PORT);
