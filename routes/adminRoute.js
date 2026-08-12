@@ -40,9 +40,26 @@ module.exports = (db) => {
         return res.redirect('/admin');
     };
 
+    // Step-up password check before entering another school's dashboard.
+    // super_admin is exempt; everyone else (Admin, Mini Admin, Internal
+    // Worker) must re-enter their own password once per school per session.
+    const ensureOrgSwitchPasswordVerified = (req, res, next) => {
+        const accountType = req.session && req.session.accountType;
+        if (accountType === 'super_admin') return next();
+
+        const organizationId = parseInt(req.params.organization_id, 10);
+        const verifiedOrgIds = (req.session && req.session.orgSwitchVerifiedOrgIds) || [];
+        if (Number.isInteger(organizationId) && verifiedOrgIds.includes(organizationId)) return next();
+
+        return res.redirect(`/admin/confirm-password?redirect=${encodeURIComponent(req.originalUrl)}`);
+    };
+
+    router.get('/confirm-password', adminController.orgSwitchConfirmGet);
+    router.post('/confirm-password', adminController.orgSwitchConfirmPost);
+
     // Route: /org/:organization_id (for super admin to view org dashboard)
     // This route works in both development and production
-    router.get('/org/:organization_id', ensureAdminOrGrantedOrg, async (req, res) => {
+    router.get('/org/:organization_id', ensureAdminOrGrantedOrg, ensureOrgSwitchPasswordVerified, async (req, res) => {
         const organizationId = req.params.organization_id;
         
         // Validate organization_id is a valid number

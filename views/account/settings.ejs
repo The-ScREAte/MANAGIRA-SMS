@@ -2305,6 +2305,7 @@
       <%
         const _canCustomizeSettings = typeof canAccessCustomizeSettings === 'boolean' ? canAccessCustomizeSettings : true;
         const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
+        const _canSecuritySettings = typeof canAccessSecuritySettings === 'boolean' ? canAccessSecuritySettings : true;
         const _defaultSettingsSectionId = _canCustomizeSettings ? 'customize' : 'profile';
       %>
       <% if (!_isEmbeddedSettings) { %>
@@ -2348,10 +2349,12 @@
             <span>Billing &amp; Plan</span>
           </button></li>
           <% } %>
+          <% if (_canSecuritySettings) { %>
           <li><button class="nav-link" data-target="security">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg></span>
             <span>Security</span>
           </button></li>
+          <% } %>
           <% if ((typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) || (typeof orgNotificationPrefs !== 'undefined' && Array.isArray(orgNotificationPrefs) && orgNotificationPrefs.length)) { %>
           <li><button class="nav-link" data-target="notifications">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-4-5.7V5a2 2 0 1 0-4 0v.3A6 6 0 0 0 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5"/><path d="M9 17a3 3 0 0 0 6 0"/></svg></span>
@@ -3848,6 +3851,7 @@
         </section>
         <% } %>
 
+        <% if (_canSecuritySettings) { %>
         <section id="security" class="settings-section">
           <h1>Security</h1>
           <p class="lead">Manage your account security and password.</p>
@@ -3943,6 +3947,7 @@
           </div>
           -->
         </section>
+        <% } %>
 
         <%
           const _hasUserNotificationPrefs = typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length;

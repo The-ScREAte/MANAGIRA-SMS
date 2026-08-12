@@ -1934,6 +1934,9 @@ const adminController = {
           isFullAdmin: true,
           contactAccessMode: 'all',
           canViewOrgChart: true,
+          canViewBilling: true,
+          canViewSecurity: true,
+          canViewPaygira: true,
           extraWorkers: [],
           extraOrganizations: [],
         });
@@ -1941,7 +1944,8 @@ const adminController = {
 
       const [flagResult, workersResult, orgsResult] = await Promise.all([
         db.query(
-          `SELECT can_view_org_chart, contact_access_mode FROM user_feature_flags WHERE user_id = $1`,
+          `SELECT can_view_org_chart, contact_access_mode, can_view_billing, can_view_security, can_view_paygira
+           FROM user_feature_flags WHERE user_id = $1`,
           [userId]
         ),
         db.query(
@@ -1967,6 +1971,9 @@ const adminController = {
         isFullAdmin: false,
         contactAccessMode: flagResult.rows.length ? flagResult.rows[0].contact_access_mode : 'own',
         canViewOrgChart: !!(flagResult.rows.length && flagResult.rows[0].can_view_org_chart),
+        canViewBilling: !!(flagResult.rows.length && flagResult.rows[0].can_view_billing),
+        canViewSecurity: !!(flagResult.rows.length && flagResult.rows[0].can_view_security),
+        canViewPaygira: !!(flagResult.rows.length && flagResult.rows[0].can_view_paygira),
         extraWorkers: workersResult.rows.map((row) => ({
           id: row.user_id,
           name: buildUserFullName(row),
@@ -2004,6 +2011,9 @@ const adminController = {
       ? req.body.extraOrganizationIds.map((id) => parseOptionalInteger(id)).filter((id) => id !== null)
       : [];
     const canViewOrgChart = !!req.body.canViewOrgChart;
+    const canViewBilling = !!req.body.canViewBilling;
+    const canViewSecurity = !!req.body.canViewSecurity;
+    const canViewPaygira = !!req.body.canViewPaygira;
 
     try {
       const userResult = await db.query(
@@ -2050,14 +2060,18 @@ const adminController = {
         }
 
         await client.query(
-          `INSERT INTO user_feature_flags (user_id, can_view_org_chart, contact_access_mode, updated_by, updated_at)
-           VALUES ($1, $2, $3, $4, NOW())
+          `INSERT INTO user_feature_flags
+             (user_id, can_view_org_chart, contact_access_mode, can_view_billing, can_view_security, can_view_paygira, updated_by, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
            ON CONFLICT (user_id) DO UPDATE
              SET can_view_org_chart = EXCLUDED.can_view_org_chart,
                  contact_access_mode = EXCLUDED.contact_access_mode,
+                 can_view_billing = EXCLUDED.can_view_billing,
+                 can_view_security = EXCLUDED.can_view_security,
+                 can_view_paygira = EXCLUDED.can_view_paygira,
                  updated_by = EXCLUDED.updated_by,
                  updated_at = NOW()`,
-          [userId, canViewOrgChart, contactAccessMode, req.session.userId]
+          [userId, canViewOrgChart, contactAccessMode, canViewBilling, canViewSecurity, canViewPaygira, req.session.userId]
         );
 
         await client.query('COMMIT');
@@ -2071,6 +2085,49 @@ const adminController = {
       return res.json({ success: true, message: "Access updated." });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Failed to update permissions." });
+    }
+  },
+
+  // Step-up password re-entry before switching into another school's
+  // dashboard (Admin, Mini Admin, Internal Worker — everyone but super_admin).
+  orgSwitchConfirmGet: (req, res) => {
+    const redirectUrl = String(req.query.redirect || "/admin");
+    if (!/^\/admin\/org\/\d+(\?.*)?$/.test(redirectUrl)) {
+      req.flash("error", "Invalid request.");
+      return res.redirect("/admin");
+    }
+    res.render("admin/confirmPassword", {
+      title: "Confirm Password",
+      redirectUrl,
+      messages: req.flash(),
+    });
+  },
+
+  orgSwitchConfirmPost: async (req, res) => {
+    const { password, redirectUrl } = req.body;
+    const safeRedirectUrl = /^\/admin\/org\/\d+(\?.*)?$/.test(String(redirectUrl || "")) ? redirectUrl : "/admin";
+    const userId = req.session.userId;
+
+    try {
+      const result = await db.query(`SELECT password FROM users WHERE user_id = $1`, [userId]);
+      const match = result.rows.length && (await bcrypt.compare(String(password || ""), result.rows[0].password));
+
+      if (!match) {
+        req.flash("error", "Incorrect password. Please try again.");
+        return res.redirect(`/admin/confirm-password?redirect=${encodeURIComponent(safeRedirectUrl)}`);
+      }
+
+      const organizationId = parseInt(safeRedirectUrl.match(/\/admin\/org\/(\d+)/)?.[1], 10);
+      if (Number.isInteger(organizationId)) {
+        const verified = new Set(req.session.orgSwitchVerifiedOrgIds || []);
+        verified.add(organizationId);
+        req.session.orgSwitchVerifiedOrgIds = Array.from(verified);
+      }
+
+      return res.redirect(safeRedirectUrl);
+    } catch (error) {
+      req.flash("error", "An unexpected error occurred. Please try again.");
+      return res.redirect(`/admin/confirm-password?redirect=${encodeURIComponent(safeRedirectUrl)}`);
     }
   },
 

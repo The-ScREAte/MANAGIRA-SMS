@@ -1,0 +1,24 @@
+<% if (typeof grantedSchools !== 'undefined' && Array.isArray(grantedSchools) && grantedSchools.length > 0) { %>
+<div class="iw-card" id="schoolsListWidget" style="margin-top:20px;">
+  <div class="iw-card__header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+    <div>
+      <h2 class="iw-card__title" style="margin:0;">🏫 Schools You Can View</h2>
+      <p class="iw-card__subtitle" style="margin:4px 0 0;">
+        Granted by an Admin. Opening one shows that school's dashboard.
+      </p>
+    </div>
+    <span class="iw-card__subtitle" style="font-weight:700;">Total: <%= grantedSchools.length %></span>
+  </div>
+
+  <div class="iw-card__body">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;">
+      <% grantedSchools.forEach(function(school) { %>
+        <a href="/admin/org/<%= school.organizationId %>" data-no-spa
+           style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--border,#e5e7eb);border-radius:12px;background:#fff;text-decoration:none;color:inherit;font-size:0.88rem;font-weight:600;">
+          🏫 <%= school.organizationName %>
+        </a>
+      <% }); %>
+    </div>
+  </div>
+</div>
+<% } %>

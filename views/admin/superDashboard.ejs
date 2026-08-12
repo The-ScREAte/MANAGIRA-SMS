@@ -388,6 +388,12 @@
       gap: 10px;
     }
 
+    .permissions-section-hint {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
     .permissions-checkbox-row {
       display: flex;
       align-items: center;
@@ -845,6 +851,22 @@
               <div id="permissions-org-results" class="permissions-picker-results"></div>
               <div id="permissions-org-selected" class="permissions-selected-summary"></div>
             </div>
+          </section>
+
+          <section class="permissions-section">
+            <p class="permissions-section-hint">Inside a granted school's dashboard:</p>
+            <label class="permissions-checkbox-row">
+              <input type="checkbox" id="permissions-billing-checkbox">
+              Billing and Plan
+            </label>
+            <label class="permissions-checkbox-row">
+              <input type="checkbox" id="permissions-security-checkbox">
+              Security
+            </label>
+            <label class="permissions-checkbox-row">
+              <input type="checkbox" id="permissions-paygira-checkbox">
+              PayGira
+            </label>
           </section>
 
           <div class="permissions-footer">
@@ -1503,6 +1525,9 @@
     const permissionsFeedback = document.getElementById('user-permissions-feedback');
     const permissionsSubtitle = document.getElementById('user-permissions-subtitle');
     const permissionsOrgChartCheckbox = document.getElementById('permissions-org-chart-checkbox');
+    const permissionsBillingCheckbox = document.getElementById('permissions-billing-checkbox');
+    const permissionsSecurityCheckbox = document.getElementById('permissions-security-checkbox');
+    const permissionsPaygiraCheckbox = document.getElementById('permissions-paygira-checkbox');
     const permissionsModeAllCheckbox = document.getElementById('permissions-mode-all-checkbox');
     const permissionsModeSelectedCheckbox = document.getElementById('permissions-mode-selected-checkbox');
     const permissionsWorkersPicker = document.getElementById('permissions-workers-picker');
@@ -1592,6 +1617,9 @@
       applyContactAccessMode('own');
       permissionsSchoolsCheckbox.checked = false;
       permissionsSchoolsPicker.hidden = true;
+      permissionsBillingCheckbox.checked = false;
+      permissionsSecurityCheckbox.checked = false;
+      permissionsPaygiraCheckbox.checked = false;
       renderWorkerSelected();
       renderOrgSelected();
       showPermissionsFeedback('');
@@ -1613,6 +1641,9 @@
         }
         setFullAdminLockedView(!!payload.isFullAdmin);
         permissionsOrgChartCheckbox.checked = !!payload.canViewOrgChart;
+        permissionsBillingCheckbox.checked = !!payload.canViewBilling;
+        permissionsSecurityCheckbox.checked = !!payload.canViewSecurity;
+        permissionsPaygiraCheckbox.checked = !!payload.canViewPaygira;
         applyContactAccessMode(payload.contactAccessMode || 'own');
         (payload.extraWorkers || []).forEach((worker) => {
           permissionsState.selectedWorkers.set(String(worker.id), worker);
@@ -1733,6 +1764,9 @@
             credentials: 'same-origin',
             body: JSON.stringify({
               canViewOrgChart: permissionsOrgChartCheckbox.checked,
+              canViewBilling: permissionsBillingCheckbox.checked,
+              canViewSecurity: permissionsSecurityCheckbox.checked,
+              canViewPaygira: permissionsPaygiraCheckbox.checked,
               contactAccessMode: currentContactAccessMode(),
               extraWorkerIds: Array.from(permissionsState.selectedWorkers.keys()).map((id) => Number(id)),
               extraOrganizationIds: permissionsSchoolsCheckbox.checked

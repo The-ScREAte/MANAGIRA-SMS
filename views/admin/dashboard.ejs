@@ -1377,6 +1377,10 @@
       sessionUserId: (session && session.userId) ? session.userId : null
     }) %>
 
+    <%- include('partials/_schoolsWidget', {
+      grantedSchools: (session && Array.isArray(session.grantedSchools)) ? session.grantedSchools : []
+    }) %>
+
     <% if (!_isInternal) { %>
 
     <div class="orgs-container">

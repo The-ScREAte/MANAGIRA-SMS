@@ -4,6 +4,7 @@ const router = express.Router();
 const { isAuthenticated } = require("../middleware/authMiddleware");
 const { requirePermission, PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
 const { hydrateOrganizationSession } = require("../utils/sessionContext");
+const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
 const c = require("../controllers/financeController");
 
 const PAYGIRA_FEATURE_NAMES = new Set([
@@ -66,6 +67,13 @@ const requireBilling = requirePermission(PERMISSIONS.MANAGE_BILLING);
 const requireFinanceSettingsAccess = async (req, res, next) => {
 	try {
 		await hydrateFinanceSessionContext(req);
+
+		const database0 = req.app.get("db");
+		const orgSwitchRestriction = await getOrgSwitchFeatureRestriction(database0, req).catch(() => ({ isRestricted: false }));
+		if (orgSwitchRestriction.isRestricted && !orgSwitchRestriction.flags.canViewBilling && !orgSwitchRestriction.flags.canViewPaygira) {
+			req.flash("error", "You do not have permission to access PayGira settings.");
+			return res.redirect("/account/settings?section=profile");
+		}
 
 		const localPermissionSet = new Set(
 			(Array.isArray(res.locals?.userPermissions) ? res.locals.userPermissions : [])
@@ -150,6 +158,13 @@ const requirePaygiraFeature = async (req, res, next) => {
 
 	if (isWorkspaceEmbeddedMyPaygiraRequest(req)) {
 		return next();
+	}
+
+	const database1 = req.app.get("db");
+	const orgSwitchRestriction = await getOrgSwitchFeatureRestriction(database1, req).catch(() => ({ isRestricted: false }));
+	if (orgSwitchRestriction.isRestricted && !orgSwitchRestriction.flags.canViewBilling && !orgSwitchRestriction.flags.canViewPaygira) {
+		req.flash("error", "PayGira is not included in your current plan.");
+		return res.redirect("/account/settings?section=profile");
 	}
 
 	const accountType = String(

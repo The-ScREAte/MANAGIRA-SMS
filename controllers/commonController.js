@@ -25,6 +25,7 @@ const {
   isManagerLikeRole,
   invalidateUserPermissionCache,
 } = require("../middleware/permissionMiddleware");
+const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
 const {
   toDateKey,
   ensureAttendanceCalendarSchema,
@@ -17994,6 +17995,10 @@ NUMBERING:
   management: async (req, res, db) => {
     try {
       await ensureGoogleIntegrationSchema(db);
+      const orgSwitchRestriction = await getOrgSwitchFeatureRestriction(db, req).catch(() => ({ isRestricted: false }));
+      const canViewPaygiraOrgSwitch = !orgSwitchRestriction.isRestricted
+        || orgSwitchRestriction.flags.canViewBilling
+        || orgSwitchRestriction.flags.canViewPaygira;
       const roleStr = String(
         req.session.userRole || req.session.user?.account_type || req.session.accountType || ''
       ).trim().toLowerCase();
@@ -18102,6 +18107,7 @@ NUMBERING:
         transportationIntegration,
         canManageAllClassAssessmentExams,
         canAccessAssessmentQuestions,
+        canViewPaygiraOrgSwitch,
       });
     } catch (error) {
             res.status(500).send("Failed to load management data");

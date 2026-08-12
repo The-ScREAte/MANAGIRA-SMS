@@ -444,6 +444,7 @@ const {
   deleteManualCalendarDay,
 } = require("../utils/attendanceCalendar");
 const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
+const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const {
   ensureStudentPortalSchema,
@@ -8917,6 +8918,18 @@ const accountController = {
         canAccessBillingSettings ||
         paygiraPermission ||
         localPermissionSet.has(PERMISSIONS.MANAGE_PAYGIRA);
+      let canAccessSecuritySettings = true;
+
+      // A Managira Worker granted access to view this school (via Manage
+      // Access, not a real Admin/Mini Admin) gets full org-admin session
+      // rights everywhere else — Billing/Security/PayGira here are locked
+      // down unless explicitly granted, independent of the checks above.
+      const orgSwitchRestriction = await getOrgSwitchFeatureRestriction(db, req).catch(() => ({ isRestricted: false }));
+      if (orgSwitchRestriction.isRestricted) {
+        canAccessBillingSettings = canAccessBillingSettings && orgSwitchRestriction.flags.canViewBilling;
+        canAccessPaygiraSettings = canAccessPaygiraSettings && orgSwitchRestriction.flags.canViewPaygira;
+        canAccessSecuritySettings = orgSwitchRestriction.flags.canViewSecurity;
+      }
 
       if (canAccessCustomizeSettings && orgId) {
         const [
@@ -9012,6 +9025,7 @@ const accountController = {
         canAccessCustomizeSettings,
         canAccessBillingSettings,
         canAccessPaygiraSettings,
+        canAccessSecuritySettings,
         googleIntegration,
         whatsappIntegration,
         whatsappFrontendConfig,
