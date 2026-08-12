@@ -1634,6 +1634,7 @@
         const response = await fetch(`/admin/superDashboard/users/${encodeURIComponent(userId)}/permissions`, {
           headers: { 'Accept': 'application/json' },
           credentials: 'same-origin',
+          cache: 'no-store',
         });
         const payload = await response.json();
         if (!response.ok || !payload.success) {

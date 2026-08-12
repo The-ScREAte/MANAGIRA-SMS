@@ -1766,6 +1766,7 @@ const adminController = {
   },
 
   superDashboardUsersAjax: async (req, res) => {
+    res.set('Cache-Control', 'no-store');
     try {
       const search = String(req.query.q || "").trim();
       const status = String(req.query.status || "all").trim().toLowerCase();
@@ -1908,6 +1909,11 @@ const adminController = {
   },
 
   getUserPermissionsAjax: async (req, res) => {
+    // Always hit the server for the latest grant state — a stale browser
+    // cache here is what makes freshly-saved checkboxes look unchecked
+    // after a page refresh.
+    res.set('Cache-Control', 'no-store');
+
     const userId = parseOptionalInteger(req.params.userId);
     if (!userId) {
       return res.status(400).json({ success: false, message: "Invalid user selected." });
