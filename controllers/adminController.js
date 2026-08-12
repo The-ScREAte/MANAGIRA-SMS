@@ -2106,6 +2106,7 @@ const adminController = {
       title: "Confirm Password",
       redirectUrl,
       messages: req.flash(),
+      layout: false,
     });
   },
 
