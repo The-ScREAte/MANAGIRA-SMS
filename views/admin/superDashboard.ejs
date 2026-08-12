@@ -514,6 +514,11 @@
       filter: grayscale(0.3);
     }
 
+    #permissions-editable-body.is-loading {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
     .users-filter-grid {
       display: grid;
       grid-template-columns: minmax(240px, 1.8fr) repeat(3, minmax(150px, 1fr));
@@ -1551,6 +1556,7 @@
       workerSearchTimer: null,
       orgSearchTimer: null,
       isFullAdmin: false,
+      loadToken: 0,
     };
 
     function setFullAdminLockedView(isFullAdmin) {
@@ -1607,6 +1613,10 @@
 
     async function openPermissionsModal(userId, userName, accountType) {
       if (!userId) return;
+      // Bump the load token so a slow/late-arriving response from a
+      // previous open (this user or another) can never land after the
+      // admin has already started making fresh selections.
+      const loadToken = ++permissionsState.loadToken;
       permissionsState.userId = userId;
       permissionsState.selectedWorkers.clear();
       permissionsState.selectedOrgs.clear();
@@ -1628,6 +1638,12 @@
         ? `Access for ${userName}.`
         : 'Access for this worker.';
 
+      // Block interaction until the current saved state has actually
+      // loaded — otherwise a click made while this fetch is still in
+      // flight gets silently overwritten the moment it resolves.
+      permissionsEditableBody.classList.add('is-loading');
+      permissionsSaveBtn.disabled = true;
+
       togglePermissionsModal(true);
 
       try {
@@ -1637,6 +1653,7 @@
           cache: 'no-store',
         });
         const payload = await response.json();
+        if (loadToken !== permissionsState.loadToken) return; // superseded by a newer open
         if (!response.ok || !payload.success) {
           throw new Error(payload.message || 'Failed to load access settings.');
         }
@@ -1657,7 +1674,13 @@
         permissionsSchoolsCheckbox.checked = permissionsState.selectedOrgs.size > 0;
         permissionsSchoolsPicker.hidden = !permissionsSchoolsCheckbox.checked;
       } catch (error) {
+        if (loadToken !== permissionsState.loadToken) return;
         showPermissionsFeedback(error.message || 'Failed to load access settings.', 'error');
+      } finally {
+        if (loadToken === permissionsState.loadToken) {
+          permissionsEditableBody.classList.remove('is-loading');
+          permissionsSaveBtn.disabled = false;
+        }
       }
     }
 
@@ -1695,9 +1718,12 @@
 
       searchInput.addEventListener('input', () => {
         clearTimeout(permissionsState[timerKey]);
+        // Clear stale results immediately so a leftover (already-selected)
+        // checkbox from the previous search can't be mistaken for a fresh
+        // result and re-clicked, which would silently unselect it.
+        resultsEl.innerHTML = '';
         const query = searchInput.value.trim();
         if (!query) {
-          resultsEl.innerHTML = '';
           return;
         }
         permissionsState[timerKey] = setTimeout(async () => {
