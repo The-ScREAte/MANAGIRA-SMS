@@ -149,14 +149,6 @@ async function hasExtraContactGrant(userId, contactId) {
   return result.rows.length > 0;
 }
 
-async function hasCommentPermission(userId) {
-  const result = await db.query(
-    `SELECT can_comment_contacts FROM user_feature_flags WHERE user_id = $1`,
-    [userId]
-  );
-  return !!(result.rows.length && result.rows[0].can_comment_contacts);
-}
-
 function hasStripeWebhookSecretConfigured() {
   return Boolean(
     String(process.env.STRIPE_FINANCE_WEBHOOK_SECRET || "").trim() ||
@@ -972,17 +964,14 @@ const adminController = {
         req.flash("error", "Contact not found.");
         return res.redirect("/admin");
       }
-      const isOwnerOrAssignee =
-        ownership.rows[0].created_by_user_id === userId || ownership.rows[0].assigned_to_user_id === userId;
-      if (!isPrivileged && !isOwnerOrAssignee) {
-        if (!(await hasExtraContactGrant(userId, id))) {
-          req.flash("error", "You can only update your own or assigned contacts.");
-          return res.redirect("/admin");
-        }
-        if (!(await hasCommentPermission(userId))) {
-          req.flash("error", "You do not have permission to add notes to shared contacts.");
-          return res.redirect("/admin");
-        }
+      if (
+        !isPrivileged &&
+        ownership.rows[0].created_by_user_id !== userId &&
+        ownership.rows[0].assigned_to_user_id !== userId &&
+        !(await hasExtraContactGrant(userId, id))
+      ) {
+        req.flash("error", "You can only update your own or assigned contacts.");
+        return res.redirect("/admin");
       }
 
       // Prefix the new note with a timestamp + author name so the
@@ -1954,7 +1943,6 @@ const adminController = {
           canViewBilling: true,
           canViewSecurity: true,
           canViewPaygira: true,
-          canCommentContacts: true,
           extraWorkers: [],
           extraOrganizations: [],
         });
@@ -1962,7 +1950,7 @@ const adminController = {
 
       const [flagResult, workersResult, orgsResult] = await Promise.all([
         db.query(
-          `SELECT can_view_org_chart, contact_access_mode, can_view_billing, can_view_security, can_view_paygira, can_comment_contacts
+          `SELECT can_view_org_chart, contact_access_mode, can_view_billing, can_view_security, can_view_paygira
            FROM user_feature_flags WHERE user_id = $1`,
           [userId]
         ),
@@ -1992,7 +1980,6 @@ const adminController = {
         canViewBilling: !!(flagResult.rows.length && flagResult.rows[0].can_view_billing),
         canViewSecurity: !!(flagResult.rows.length && flagResult.rows[0].can_view_security),
         canViewPaygira: !!(flagResult.rows.length && flagResult.rows[0].can_view_paygira),
-        canCommentContacts: !!(flagResult.rows.length && flagResult.rows[0].can_comment_contacts),
         extraWorkers: workersResult.rows.map((row) => ({
           id: row.user_id,
           name: buildUserFullName(row),
@@ -2033,7 +2020,6 @@ const adminController = {
     const canViewBilling = !!req.body.canViewBilling;
     const canViewSecurity = !!req.body.canViewSecurity;
     const canViewPaygira = !!req.body.canViewPaygira;
-    const canCommentContacts = !!req.body.canCommentContacts;
 
     try {
       const userResult = await db.query(
@@ -2081,18 +2067,17 @@ const adminController = {
 
         await client.query(
           `INSERT INTO user_feature_flags
-             (user_id, can_view_org_chart, contact_access_mode, can_view_billing, can_view_security, can_view_paygira, can_comment_contacts, updated_by, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+             (user_id, can_view_org_chart, contact_access_mode, can_view_billing, can_view_security, can_view_paygira, updated_by, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
            ON CONFLICT (user_id) DO UPDATE
              SET can_view_org_chart = EXCLUDED.can_view_org_chart,
                  contact_access_mode = EXCLUDED.contact_access_mode,
                  can_view_billing = EXCLUDED.can_view_billing,
                  can_view_security = EXCLUDED.can_view_security,
                  can_view_paygira = EXCLUDED.can_view_paygira,
-                 can_comment_contacts = EXCLUDED.can_comment_contacts,
                  updated_by = EXCLUDED.updated_by,
                  updated_at = NOW()`,
-          [userId, canViewOrgChart, contactAccessMode, canViewBilling, canViewSecurity, canViewPaygira, canCommentContacts, req.session.userId]
+          [userId, canViewOrgChart, contactAccessMode, canViewBilling, canViewSecurity, canViewPaygira, req.session.userId]
         );
 
         await client.query('COMMIT');
