@@ -15797,7 +15797,10 @@ NUMBERING:
         classReportsCount = Number(reportsCountResult.rows[0]?.total || 0);
       }
 
-      const canOpenPaygiraWorkspace = true;
+      const classDashOrgSwitchRestriction = await getOrgSwitchFeatureRestriction(db, req).catch(() => ({ isRestricted: false }));
+      const canOpenPaygiraWorkspace = !classDashOrgSwitchRestriction.isRestricted
+        || classDashOrgSwitchRestriction.flags.canViewBilling
+        || classDashOrgSwitchRestriction.flags.canViewPaygira;
 
       const routePanel = String(req.params.panel || '').trim().toLowerCase();
       const routeItemId = req.params.itemId ? String(req.params.itemId).trim() : '';

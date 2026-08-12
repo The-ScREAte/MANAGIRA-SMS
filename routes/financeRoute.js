@@ -108,6 +108,13 @@ const requireMyPaygiraAccess = async (req, res, next) => {
 	try {
 		await hydrateFinanceSessionContext(req);
 
+		const database2 = req.app.get("db");
+		const orgSwitchRestriction = await getOrgSwitchFeatureRestriction(database2, req).catch(() => ({ isRestricted: false }));
+		if (orgSwitchRestriction.isRestricted && !orgSwitchRestriction.flags.canViewBilling && !orgSwitchRestriction.flags.canViewPaygira) {
+			req.flash("error", "You do not have permission to access My PayGira.");
+			return res.redirect("/account/settings?section=profile");
+		}
+
 		if (isWorkspaceEmbeddedMyPaygiraRequest(req)) {
 			return next();
 		}
@@ -156,15 +163,15 @@ router.use((req, res, next) => {
 const requirePaygiraFeature = async (req, res, next) => {
 	await hydrateFinanceSessionContext(req);
 
-	if (isWorkspaceEmbeddedMyPaygiraRequest(req)) {
-		return next();
-	}
-
 	const database1 = req.app.get("db");
 	const orgSwitchRestriction = await getOrgSwitchFeatureRestriction(database1, req).catch(() => ({ isRestricted: false }));
 	if (orgSwitchRestriction.isRestricted && !orgSwitchRestriction.flags.canViewBilling && !orgSwitchRestriction.flags.canViewPaygira) {
 		req.flash("error", "PayGira is not included in your current plan.");
 		return res.redirect("/account/settings?section=profile");
+	}
+
+	if (isWorkspaceEmbeddedMyPaygiraRequest(req)) {
+		return next();
 	}
 
 	const accountType = String(
