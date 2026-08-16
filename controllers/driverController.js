@@ -166,6 +166,7 @@ const driverController = {
         schoolLatitude: toFloat(schoolResult.rows[0]?.geo_lat),
         schoolLongitude: toFloat(schoolResult.rows[0]?.geo_lng),
         distanceUnit: schoolResult.rows[0]?.transportation_distance_unit === "mi" ? "mi" : "km",
+        integration,
         messages: req.flash(),
       });
     } catch (error) {
