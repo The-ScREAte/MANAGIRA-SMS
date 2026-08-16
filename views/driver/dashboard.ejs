@@ -192,6 +192,85 @@
     box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
   }
 
+  /* Hand-off to the driver's preferred turn-by-turn app. */
+  .drv-nav-launch {
+    position: absolute;
+    right: 12px;
+    bottom: 58px;
+    z-index: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .drv-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 999px;
+    background: var(--org-primary-color, #01535b);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
+  }
+
+  .drv-nav-menu {
+    display: grid;
+    gap: 2px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 6px;
+    min-width: 160px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.18);
+  }
+
+  .drv-nav-menu[hidden] { display: none; }
+
+  .drv-nav-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+  }
+
+  .drv-nav-option:hover { background: #f1f5f9; }
+
+  /* Leaflet chrome tuned to feel native and touch-friendly. */
+  .drv-map-wrap .leaflet-bar a,
+  .drv-map-wrap .leaflet-control-zoom a {
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
+    font-size: 18px;
+    color: #1e293b;
+    border-bottom-color: #e2e8f0;
+  }
+
+  .drv-map-wrap .leaflet-bar {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+  }
+
+  .drv-map-wrap .leaflet-control-attribution {
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.8);
+  }
+
   .drv-map-wrap.is-fullscreen {
     position: fixed;
     top: var(--header-height, 64px);
@@ -342,6 +421,11 @@
       margin-top: 0;
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
     }
+    .drv-nav-launch { right: 12px; bottom: 74px; }
+    .drv-nav-btn { padding: 12px 18px; font-size: 0.9rem; }
+    .drv-nav-option { padding: 12px; font-size: 0.9rem; }
+    .drv-map-wrap .leaflet-control-zoom { display: none; }
+    .drv-map-legend { font-size: 0.7rem; gap: 10px; }
     .drv-page > .drv-grid > div:first-child {
       order: 1;
       padding: 0 16px;
@@ -457,6 +541,28 @@
         </div>
         <button type="button" class="drv-map-maximize" id="drv-map-maximize" aria-label="Maximize map" title="Maximize map">⛶</button>
         <div id="drv-map"></div>
+        <%
+          var navApps = [];
+          var navIntegration = (typeof integration !== 'undefined' && integration) ? integration : {};
+          if (navIntegration.googleMapsNavActivated) {
+            navApps.push({ key: 'google', label: 'Google Maps' });
+            navApps.push({ key: 'waze', label: 'Waze' });
+          }
+          if (navIntegration.appleMapsNavActivated) navApps.push({ key: 'apple', label: 'Apple Maps' });
+        %>
+        <% if (navApps.length) { %>
+          <div class="drv-nav-launch" id="drv-nav-launch">
+            <button type="button" class="drv-nav-btn" id="drv-nav-btn">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 2 L19 20 L12 16.5 L5 20 Z"/></svg>
+              Navigate
+            </button>
+            <div class="drv-nav-menu" id="drv-nav-menu" hidden>
+              <% navApps.forEach(function (app) { %>
+                <button type="button" class="drv-nav-option" data-nav-app="<%= app.key %>"><%= app.label %></button>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
         <div class="drv-route-eta" id="drv-route-eta">
           <span>Estimated time to final stop</span>
           <strong id="drv-route-eta-value">-</strong>
@@ -523,6 +629,7 @@
     var map = null;
     var busMarker = null;
     var routeLayer = null;
+    var studentLayer = null;
     var currentRouteStops = [];
     var currentRouteDestination = null;
     var lastPassedStopOrder = -Infinity;
@@ -741,22 +848,26 @@
       remainingStops.forEach(function (s) { remainingLatLngs.push([Number(s.latitude), Number(s.longitude)]); });
       if (currentRouteDestination) remainingLatLngs.push([currentRouteDestination.latitude, currentRouteDestination.longitude]);
       if (remainingLatLngs.length >= 2) {
-        // Deep, bold, and unmistakable — this is the path still ahead, in
-        // the organization's own brand color so it feels native to the app.
+        // Google-style route: a soft white casing under a single bold brand
+        // stroke, so the path reads clearly over any part of the basemap.
         // Snapped to the actual road network so it never cuts through buildings.
         fetchRoadGeometry(remainingLatLngs).then(function (roadPoints) {
           if (thisRequestId !== roadGeometryRequestId) return;
-          window.L.polyline(roadPoints, { color: routeColor, weight: 7, opacity: 0.92, lineCap: 'round' }).addTo(routeLayer);
+          window.L.polyline(roadPoints, { color: '#ffffff', weight: 11, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+          window.L.polyline(roadPoints, { color: routeColor, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
         });
       }
 
       currentRouteStops.forEach(function (s, idx) {
         var isPassed = Number(s.stop_order || 0) <= lastPassedStopOrder;
-        var stopSize = isPassed ? 20 : 26;
+        var stopSize = isPassed ? 16 : 22;
+        var stopHtml = isPassed
+          ? '<div style="width:' + stopSize + 'px;height:' + stopSize + 'px;border-radius:999px;background:#cbd5e1;border:2px solid #fff;box-shadow:0 1px 3px rgba(15,23,42,0.25);"></div>'
+          : '<div style="width:' + stopSize + 'px;height:' + stopSize + 'px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:#fff;border:2.5px solid ' + routeColor + ';box-shadow:0 2px 6px rgba(15,23,42,0.25);font-size:11px;font-weight:700;color:' + routeColor + ';line-height:1;">' + (idx + 1) + '</div>';
         window.L.marker([Number(s.latitude), Number(s.longitude)], {
           icon: window.L.divIcon({
             className: '',
-            html: '<div style="width:' + stopSize + 'px;height:' + stopSize + 'px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:' + (isPassed ? '#e2e8f0' : '#ffffff') + ';border:2px solid ' + (isPassed ? '#94a3b8' : routeColor) + ';box-shadow:0 3px 8px rgba(15,23,42,0.2);font-size:' + Math.round(stopSize * 0.55) + 'px;line-height:1;">🚏</div>',
+            html: stopHtml,
             iconSize: [stopSize, stopSize],
             iconAnchor: [stopSize / 2, stopSize / 2],
           }),
@@ -771,7 +882,8 @@
         window.L.marker([currentRouteDestination.latitude, currentRouteDestination.longitude], {
           icon: window.L.divIcon({
             className: 'drv-school-icon',
-            html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));">🏫</div>',
+            html: '<div style="width:26px;height:26px;border-radius:999px;background:' + routeColor + ';border:2.5px solid #fff;box-shadow:0 2px 8px rgba(15,23,42,0.35);display:flex;align-items:center;justify-content:center;">' +
+              '<svg viewBox="0 0 24 24" width="14" height="14" fill="#fff"><path d="M5 21V9l7-5 7 5v12h-5v-6h-4v6H5z"/></svg></div>',
             iconSize: [26, 26],
             iconAnchor: [13, 13],
           }),
@@ -842,13 +954,28 @@
           (lastLocation && lastLocation.latitude) || schoolLat || 0,
           (lastLocation && lastLocation.longitude) || schoolLng || 0
         ];
-        map = L.map(mapEl, { scrollWheelZoom: false, zoomControl: false }).setView(initialCenter, 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors'
+        map = L.map(mapEl, {
+          zoomControl: false,
+          scrollWheelZoom: true,
+          wheelPxPerZoomLevel: 140,
+          zoomSnap: 0.25,
+          zoomDelta: 0.5,
+          tap: true,
+          attributionControl: true,
+        }).setView(initialCenter, 13);
+
+        // A calm, Google-Maps-like basemap: soft land, white roads, muted
+        // labels — so the route line is the only thing that pops.
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 20,
+          subdomains: 'abcd',
+          detectRetina: true,
+          attribution: '&copy; OpenStreetMap &copy; CARTO'
         }).addTo(map);
         // Keep the required OpenStreetMap credit, drop Leaflet's own branding flag.
         map.attributionControl.setPrefix(false);
+
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
         attachSmartMapControls(map, L, {
           getLiveLatLng: function () { return busMarker ? busMarker.getLatLng() : null; },
         });
@@ -861,13 +988,22 @@
           bounds.push([lastLocation.latitude, lastLocation.longitude]);
         }
 
+        // Student pickup points stay deliberately quiet — small neutral dots
+        // that never compete with the route line for attention.
+        studentLayer = L.layerGroup().addTo(map);
         students.forEach(function (student) {
           var lat = student.stop_latitude || student.home_latitude;
           var lng = student.stop_longitude || student.home_longitude;
           if (!lat || !lng) return;
           var label = [student.first_name, student.last_name].filter(Boolean).join(' ');
-          L.circleMarker([lat, lng], { radius: 6, color: routeColor, fillColor: routeColor, fillOpacity: 0.6 })
-            .addTo(map)
+          L.circleMarker([lat, lng], {
+            radius: 4,
+            weight: 1.5,
+            color: '#ffffff',
+            fillColor: '#94a3b8',
+            fillOpacity: 0.95,
+          })
+            .addTo(studentLayer)
             .bindTooltip(label + (student.stop_name ? ' — ' + student.stop_name : ''), { direction: 'top' })
             .bindPopup(label + (student.stop_name ? ' — ' + student.stop_name : ''));
           bounds.push([lat, lng]);
@@ -1070,6 +1206,61 @@
         drvMapMaximizeBtn.title = goingFullscreen ? 'Exit fullscreen' : 'Maximize map';
         document.body.style.overflow = goingFullscreen ? 'hidden' : '';
         setTimeout(function () { if (map) map.invalidateSize(); }, 80);
+      });
+    }
+
+    // ---- Hand-off to an external turn-by-turn navigation app -------------
+    // Only the apps the school activated under Integrations are offered.
+    var navLaunch = document.getElementById('drv-nav-launch');
+    var navBtn = document.getElementById('drv-nav-btn');
+    var navMenu = document.getElementById('drv-nav-menu');
+
+    function navWaypoints() {
+      var remaining = currentRouteStops.filter(function (s) { return Number(s.stop_order || 0) > lastPassedStopOrder; });
+      var points = remaining.map(function (s) { return [Number(s.latitude), Number(s.longitude)]; });
+      if (currentRouteDestination) points.push([currentRouteDestination.latitude, currentRouteDestination.longitude]);
+      return points;
+    }
+
+    function openNavApp(appKey) {
+      var points = navWaypoints();
+      if (!points.length) {
+        if (tripNote) tripNote.textContent = 'No upcoming stops to navigate to yet.';
+        return;
+      }
+      var destination = points[points.length - 1];
+      var stops = points.slice(0, -1);
+      var url;
+
+      if (appKey === 'waze') {
+        url = 'https://waze.com/ul?ll=' + destination[0] + ',' + destination[1] + '&navigate=yes';
+      } else if (appKey === 'apple') {
+        url = 'https://maps.apple.com/?daddr=' + destination[0] + ',' + destination[1] + '&dirflg=d';
+      } else {
+        url = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' +
+          destination[0] + ',' + destination[1];
+        if (stops.length) {
+          // Google supports up to 9 intermediate waypoints.
+          url += '&waypoints=' + stops.slice(0, 9).map(function (p) { return p[0] + ',' + p[1]; }).join('|');
+        }
+      }
+
+      window.open(url, '_blank', 'noopener');
+      if (navMenu) navMenu.hidden = true;
+    }
+
+    if (navBtn && navMenu) {
+      navBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        navMenu.hidden = !navMenu.hidden;
+      });
+      navMenu.addEventListener('click', function (event) {
+        var option = event.target.closest('[data-nav-app]');
+        if (!option) return;
+        openNavApp(option.getAttribute('data-nav-app'));
+      });
+      document.addEventListener('click', function (event) {
+        if (navLaunch && !navLaunch.contains(event.target)) navMenu.hidden = true;
       });
     }
 
