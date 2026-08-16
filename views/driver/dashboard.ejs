@@ -742,22 +742,26 @@
       remainingStops.forEach(function (s) { remainingLatLngs.push([Number(s.latitude), Number(s.longitude)]); });
       if (currentRouteDestination) remainingLatLngs.push([currentRouteDestination.latitude, currentRouteDestination.longitude]);
       if (remainingLatLngs.length >= 2) {
-        // Deep, bold, and unmistakable — this is the path still ahead, in
-        // the organization's own brand color so it feels native to the app.
+        // Google-style route: a soft white casing under a single bold brand
+        // stroke, so the path reads clearly over any part of the basemap.
         // Snapped to the actual road network so it never cuts through buildings.
         fetchRoadGeometry(remainingLatLngs).then(function (roadPoints) {
           if (thisRequestId !== roadGeometryRequestId) return;
-          window.L.polyline(roadPoints, { color: routeColor, weight: 7, opacity: 0.92, lineCap: 'round' }).addTo(routeLayer);
+          window.L.polyline(roadPoints, { color: '#ffffff', weight: 11, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+          window.L.polyline(roadPoints, { color: routeColor, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
         });
       }
 
       currentRouteStops.forEach(function (s, idx) {
         var isPassed = Number(s.stop_order || 0) <= lastPassedStopOrder;
-        var stopSize = isPassed ? 20 : 26;
+        var stopSize = isPassed ? 16 : 22;
+        var stopHtml = isPassed
+          ? '<div style="width:' + stopSize + 'px;height:' + stopSize + 'px;border-radius:999px;background:#cbd5e1;border:2px solid #fff;box-shadow:0 1px 3px rgba(15,23,42,0.25);"></div>'
+          : '<div style="width:' + stopSize + 'px;height:' + stopSize + 'px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:#fff;border:2.5px solid ' + routeColor + ';box-shadow:0 2px 6px rgba(15,23,42,0.25);font-size:11px;font-weight:700;color:' + routeColor + ';line-height:1;">' + (idx + 1) + '</div>';
         window.L.marker([Number(s.latitude), Number(s.longitude)], {
           icon: window.L.divIcon({
             className: '',
-            html: '<div style="width:' + stopSize + 'px;height:' + stopSize + 'px;border-radius:999px;display:flex;align-items:center;justify-content:center;background:' + (isPassed ? '#e2e8f0' : '#ffffff') + ';border:2px solid ' + (isPassed ? '#94a3b8' : routeColor) + ';box-shadow:0 3px 8px rgba(15,23,42,0.2);font-size:' + Math.round(stopSize * 0.55) + 'px;line-height:1;">🚏</div>',
+            html: stopHtml,
             iconSize: [stopSize, stopSize],
             iconAnchor: [stopSize / 2, stopSize / 2],
           }),
@@ -772,7 +776,8 @@
         window.L.marker([currentRouteDestination.latitude, currentRouteDestination.longitude], {
           icon: window.L.divIcon({
             className: 'drv-school-icon',
-            html: '<div style="font-size:22px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));">🏫</div>',
+            html: '<div style="width:26px;height:26px;border-radius:999px;background:' + routeColor + ';border:2.5px solid #fff;box-shadow:0 2px 8px rgba(15,23,42,0.35);display:flex;align-items:center;justify-content:center;">' +
+              '<svg viewBox="0 0 24 24" width="14" height="14" fill="#fff"><path d="M5 21V9l7-5 7 5v12h-5v-6h-4v6H5z"/></svg></div>',
             iconSize: [26, 26],
             iconAnchor: [13, 13],
           }),
