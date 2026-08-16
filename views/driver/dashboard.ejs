@@ -192,6 +192,85 @@
     box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
   }
 
+  /* Hand-off to the driver's preferred turn-by-turn app. */
+  .drv-nav-launch {
+    position: absolute;
+    right: 12px;
+    bottom: 58px;
+    z-index: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .drv-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 999px;
+    background: var(--org-primary-color, #01535b);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
+  }
+
+  .drv-nav-menu {
+    display: grid;
+    gap: 2px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 6px;
+    min-width: 160px;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.18);
+  }
+
+  .drv-nav-menu[hidden] { display: none; }
+
+  .drv-nav-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+  }
+
+  .drv-nav-option:hover { background: #f1f5f9; }
+
+  /* Leaflet chrome tuned to feel native and touch-friendly. */
+  .drv-map-wrap .leaflet-bar a,
+  .drv-map-wrap .leaflet-control-zoom a {
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
+    font-size: 18px;
+    color: #1e293b;
+    border-bottom-color: #e2e8f0;
+  }
+
+  .drv-map-wrap .leaflet-bar {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+  }
+
+  .drv-map-wrap .leaflet-control-attribution {
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.8);
+  }
+
   .drv-map-wrap.is-fullscreen {
     position: fixed;
     top: var(--header-height, 64px);
