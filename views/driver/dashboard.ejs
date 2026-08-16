@@ -876,13 +876,22 @@
           bounds.push([lastLocation.latitude, lastLocation.longitude]);
         }
 
+        // Student pickup points stay deliberately quiet — small neutral dots
+        // that never compete with the route line for attention.
+        studentLayer = L.layerGroup().addTo(map);
         students.forEach(function (student) {
           var lat = student.stop_latitude || student.home_latitude;
           var lng = student.stop_longitude || student.home_longitude;
           if (!lat || !lng) return;
           var label = [student.first_name, student.last_name].filter(Boolean).join(' ');
-          L.circleMarker([lat, lng], { radius: 6, color: routeColor, fillColor: routeColor, fillOpacity: 0.6 })
-            .addTo(map)
+          L.circleMarker([lat, lng], {
+            radius: 4,
+            weight: 1.5,
+            color: '#ffffff',
+            fillColor: '#94a3b8',
+            fillOpacity: 0.95,
+          })
+            .addTo(studentLayer)
             .bindTooltip(label + (student.stop_name ? ' — ' + student.stop_name : ''), { direction: 'top' })
             .bindPopup(label + (student.stop_name ? ' — ' + student.stop_name : ''));
           bounds.push([lat, lng]);
