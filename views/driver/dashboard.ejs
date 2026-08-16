@@ -842,13 +842,28 @@
           (lastLocation && lastLocation.latitude) || schoolLat || 0,
           (lastLocation && lastLocation.longitude) || schoolLng || 0
         ];
-        map = L.map(mapEl, { scrollWheelZoom: false, zoomControl: false }).setView(initialCenter, 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors'
+        map = L.map(mapEl, {
+          zoomControl: false,
+          scrollWheelZoom: true,
+          wheelPxPerZoomLevel: 140,
+          zoomSnap: 0.25,
+          zoomDelta: 0.5,
+          tap: true,
+          attributionControl: true,
+        }).setView(initialCenter, 13);
+
+        // A calm, Google-Maps-like basemap: soft land, white roads, muted
+        // labels — so the route line is the only thing that pops.
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 20,
+          subdomains: 'abcd',
+          detectRetina: true,
+          attribution: '&copy; OpenStreetMap &copy; CARTO'
         }).addTo(map);
         // Keep the required OpenStreetMap credit, drop Leaflet's own branding flag.
         map.attributionControl.setPrefix(false);
+
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
         attachSmartMapControls(map, L, {
           getLiveLatLng: function () { return busMarker ? busMarker.getLatLng() : null; },
         });
