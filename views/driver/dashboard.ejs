@@ -457,6 +457,28 @@
         </div>
         <button type="button" class="drv-map-maximize" id="drv-map-maximize" aria-label="Maximize map" title="Maximize map">⛶</button>
         <div id="drv-map"></div>
+        <%
+          var navApps = [];
+          var navIntegration = (typeof integration !== 'undefined' && integration) ? integration : {};
+          if (navIntegration.googleMapsNavActivated) {
+            navApps.push({ key: 'google', label: 'Google Maps' });
+            navApps.push({ key: 'waze', label: 'Waze' });
+          }
+          if (navIntegration.appleMapsNavActivated) navApps.push({ key: 'apple', label: 'Apple Maps' });
+        %>
+        <% if (navApps.length) { %>
+          <div class="drv-nav-launch" id="drv-nav-launch">
+            <button type="button" class="drv-nav-btn" id="drv-nav-btn">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M12 2 L19 20 L12 16.5 L5 20 Z"/></svg>
+              Navigate
+            </button>
+            <div class="drv-nav-menu" id="drv-nav-menu" hidden>
+              <% navApps.forEach(function (app) { %>
+                <button type="button" class="drv-nav-option" data-nav-app="<%= app.key %>"><%= app.label %></button>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
         <div class="drv-route-eta" id="drv-route-eta">
           <span>Estimated time to final stop</span>
           <strong id="drv-route-eta-value">-</strong>
