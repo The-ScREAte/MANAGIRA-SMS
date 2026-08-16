@@ -184,6 +184,13 @@ const driverController = {
         schoolLatitude: null,
         schoolLongitude: null,
         distanceUnit: "km",
+        integration: {
+          activated: false,
+          mapProvider: "openstreetmap",
+          googleMapsNavActivated: false,
+          appleMapsNavActivated: false,
+          shouldShowFeatures: false,
+        },
         messages: req.flash(),
       });
     }
