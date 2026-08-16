@@ -115,7 +115,7 @@ const driverController = {
     try {
       await ensureTransportationSchema(db);
 
-      const [assignedRoutes, schoolResult, students] = await Promise.all([
+      const [assignedRoutes, schoolResult, students, integration] = await Promise.all([
         resolveAssignedRoutes(db, organizationId, driverProfile),
         db.query(
           `SELECT organization_address, geo_lat, geo_lng, transportation_distance_unit
@@ -123,6 +123,7 @@ const driverController = {
           [organizationId]
         ),
         resolveMyStudents(db, organizationId, userId, driverBus),
+        getTransportationIntegrationStatus(db, organizationId),
       ]);
 
       let activeTrip = null;
