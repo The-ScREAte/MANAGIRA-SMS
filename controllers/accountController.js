@@ -458,7 +458,7 @@ const {
   setTransportationExternalNavActivation,
 } = require("../utils/transportation");
 const { invalidateOrganizationAccessCache } = require("../utils/accessCache");
-const { logOrganizationActivity } = require("../utils/activityLog");
+const { logOrganizationActivity, getLatestIntegrationActivity } = require("../utils/activityLog");
 const cacheManager = require("../utils/cacheManager");
 const { pingSearchEngines, pingSchoolUrl } = require("../utils/sitemapPing");
 const { autoGeocodeOrg } = require("../utils/geocode");
@@ -518,6 +518,19 @@ const {
   sendWhatsappTextMessage,
   getWhatsappSetupChecklist,
 } = require("../utils/whatsappIntegration");
+const {
+  ensureSmsIntegrationSchema,
+  getSmsIntegrationStatus,
+  setSmsProviderActivation,
+  saveArkeselSettings,
+  saveAfricasTalkingSettings,
+  saveTwilioSettings,
+  markSmsProviderTestResult,
+  getTenantSmsCredentials,
+  sendSms,
+  recordDeliveryStatus,
+} = require("../utils/smsIntegration");
+const { checkRateLimit } = require("../utils/rateLimiter");
 const {
   syncGoogleClassroomForOrganization,
   pushPendingAssessmentsForOrganization,
@@ -2364,6 +2377,7 @@ function buildExternalNavActivationHandler(provider, label) {
       }
 
       await setTransportationExternalNavActivation(db, orgId, provider, shouldActivate);
+      logIntegrationActivation(req, label, shouldActivate);
 
       return respond(200, {
         success: true,
@@ -2379,6 +2393,34 @@ function buildExternalNavActivationHandler(provider, label) {
       });
     }
   };
+}
+
+function logIntegrationActivation(req, recordLabel, activated) {
+  const orgId = req.session.organizationId;
+  if (!orgId) return Promise.resolve();
+
+  const actorId = req.session.user?.user_id || req.session.userId || orgId;
+  const actorName =
+    `${req.session.firstName || req.session.user?.first_name || ""} ${req.session.lastName || req.session.user?.last_name || ""}`.trim() ||
+    req.session.email ||
+    req.session.user?.email ||
+    "Unknown";
+  const actorRole = req.session.userRole || req.session.accountType || req.session.user?.account_type || "User";
+
+  return logOrganizationActivity({
+    organizationId: orgId,
+    userId: actorId,
+    userName: actorName,
+    userRole: actorRole,
+    actionType: activated ? "Activated" : "Deactivated",
+    moduleName: "Integrations",
+    pagePath: "/account/settings?section=integrations",
+    recordType: "Integration",
+    recordLabel,
+    description: `${actorName} ${activated ? "activated" : "deactivated"} the ${recordLabel} integration.`,
+    changedFields: [{ field: "activated", oldValue: String(!activated), newValue: String(activated) }],
+    ipAddress: req.ip,
+  }).catch(() => {});
 }
 
 const accountController = {
@@ -6817,8 +6859,11 @@ const accountController = {
           [hashedPassword, orgId]
         );
       } else {
+        // Also clears any leftover invite token — an employee who changes
+        // their password here has clearly completed setup, even if they
+        // never went through the original "set password" invite link.
         await db.query(
-          "UPDATE users SET password = $1 WHERE user_id = $2 AND organization_id = $3",
+          "UPDATE users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL WHERE user_id = $2 AND organization_id = $3",
           [hashedPassword, userId, orgId]
         );
       }
@@ -8906,6 +8951,15 @@ const accountController = {
         mapProvider: "openstreetmap",
         shouldShowFeatures: false,
       };
+      let smsIntegration = {
+        activeProvider: "",
+        providers: {
+          arkesel: { provider: "arkesel", activated: false, configured: false },
+          africastalking: { provider: "africastalking", activated: false, configured: false },
+          twilio: { provider: "twilio", activated: false, configured: false },
+        },
+      };
+      let integrationActivity = {};
       const [settingsPermission, billingPermission, paygiraPermission] = await Promise.all([
         userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_SETTINGS).catch(() => false),
         userHasPermission(db, permissionContext, PERMISSIONS.MANAGE_BILLING).catch(() => false),
@@ -8937,16 +8991,31 @@ const accountController = {
           initialWhatsappIntegration,
           resolvedStudentPortalIntegration,
           resolvedTransportationIntegration,
+          resolvedSmsIntegration,
         ] = await Promise.all([
           getGoogleIntegrationStatus(db, orgId),
           getWhatsappIntegrationStatus(db, orgId),
           getStudentPortalIntegrationStatus(db, orgId),
           getTransportationIntegrationStatus(db, orgId),
+          getSmsIntegrationStatus(db, orgId),
         ]);
         googleIntegration = resolvedGoogleIntegration;
         whatsappIntegration = initialWhatsappIntegration;
         studentPortalIntegration = resolvedStudentPortalIntegration;
         transportationIntegration = resolvedTransportationIntegration;
+        smsIntegration = resolvedSmsIntegration;
+
+        integrationActivity = await getLatestIntegrationActivity(db, orgId, [
+          "Student Portal",
+          "Transportation",
+          "Google Maps",
+          "Maps",
+          "Google Classroom",
+          "WhatsApp",
+          "Arkesel SMS",
+          "Africa's Talking SMS",
+          "Twilio SMS",
+        ]).catch(() => ({}));
 
         if (
           whatsappIntegration &&
@@ -9032,6 +9101,8 @@ const accountController = {
         whatsappServerTestConfig,
         studentPortalIntegration,
         transportationIntegration,
+        smsIntegration,
+        integrationActivity,
         feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
         feedbackAreaOptions: FEEDBACK_AREA_OPTIONS,
         feedbackPriorityOptions: FEEDBACK_PRIORITY_OPTIONS,
@@ -11441,33 +11512,11 @@ const accountController = {
       }
 
       await setGoogleIntegrationActivation(db, orgId, shouldActivate);
+      logIntegrationActivation(req, "Google Classroom", shouldActivate);
 
       if (shouldActivate) {
         req.flash("success", "Google Classroom integration is now activated. Connect your Google account to finish setup.");
       } else {
-        const actorId = req.session.user?.user_id || req.session.userId || orgId;
-        const actorName =
-          `${req.session.firstName || req.session.user?.first_name || ""} ${req.session.lastName || req.session.user?.last_name || ""}`.trim() ||
-          req.session.email ||
-          req.session.user?.email ||
-          "Unknown";
-        const actorRole = req.session.userRole || req.session.accountType || req.session.user?.account_type || "User";
-
-        logOrganizationActivity({
-          organizationId: orgId,
-          userId: actorId,
-          userName: actorName,
-          userRole: actorRole,
-          actionType: "Google Classroom Deactivated",
-          moduleName: "Integrations",
-          pagePath: "/account/settings?section=integrations",
-          recordType: "Integration",
-          recordLabel: "Google Classroom",
-          description: `${actorName} deactivated Google Classroom integration after password confirmation.`,
-          changedFields: [{ field: "google_classroom_activated", oldValue: "true", newValue: "false" }],
-          ipAddress: req.ip,
-        }).catch(() => {});
-
         req.flash("success", "Google Classroom integration has been deactivated.");
       }
       return res.redirect("/account/settings?section=integrations");
@@ -11530,6 +11579,7 @@ const accountController = {
       }
 
       await setWhatsappIntegrationActivation(db, orgId, shouldActivate);
+      logIntegrationActivation(req, "WhatsApp", shouldActivate);
 
       return respond(200, {
         success: true,
@@ -11951,6 +12001,233 @@ const accountController = {
     }
   },
 
+  smsActivationPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    const acceptsHeader = String(req.get("accept") || "").toLowerCase();
+    const wantsJson =
+      req.xhr ||
+      acceptsHeader.includes("application/json") ||
+      String(req.get("x-requested-with") || "").toLowerCase() === "xmlhttprequest";
+
+    const providerLabels = { arkesel: "Arkesel", africastalking: "Africa's Talking", twilio: "Twilio" };
+
+    const respond = (statusCode, payload) => {
+      if (wantsJson) {
+        return res.status(statusCode).json(payload);
+      }
+      if (!payload.success && payload.message) {
+        req.flash("error", payload.message);
+      } else if (payload.success && payload.message) {
+        req.flash("success", payload.message);
+      }
+      return res.redirect("/account/settings?section=integrations");
+    };
+
+    try {
+      const provider = String(req.body.provider || "").trim().toLowerCase();
+      const providerLabel = providerLabels[provider];
+      if (!providerLabel) {
+        return respond(400, { success: false, message: "Unsupported SMS provider." });
+      }
+
+      await ensureSmsIntegrationSchema(db);
+      const shouldActivate = String(req.body.activate || "").trim() === "1";
+
+      const integrationPassword = String(req.body.integrationPassword || req.body.deactivationPassword || "");
+      if (!integrationPassword.trim()) {
+        return respond(400, {
+          success: false,
+          message: shouldActivate
+            ? `Enter your password to activate ${providerLabel}.`
+            : `Enter your password to deactivate ${providerLabel}.`,
+        });
+      }
+
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      if (!isPasswordValid) {
+        return respond(401, {
+          success: false,
+          message: shouldActivate
+            ? `Incorrect password. ${providerLabel} was not activated.`
+            : `Incorrect password. ${providerLabel} was not deactivated.`,
+        });
+      }
+
+      await setSmsProviderActivation(db, orgId, provider, shouldActivate);
+      logIntegrationActivation(req, `${providerLabel} SMS`, shouldActivate);
+
+      return respond(200, {
+        success: true,
+        provider,
+        activated: shouldActivate,
+        message: shouldActivate
+          ? `${providerLabel} is now activated. Add your API key below to finish setup.`
+          : `${providerLabel} has been deactivated.`,
+      });
+    } catch (error) {
+      return respond(500, { success: false, message: "Unable to update SMS integration activation right now." });
+    }
+  },
+
+  smsSettingsSavePost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) {
+      return res.status(401).json({ success: false, message: "Not authenticated." });
+    }
+
+    const saveLimit = checkRateLimit(`sms-save:${orgId}`, { max: 20, windowMs: 60 * 60 * 1000 });
+    if (!saveLimit.allowed) {
+      return res.status(429).json({
+        success: false,
+        message: "Too many settings changes recently. Wait a bit before trying again.",
+      });
+    }
+
+    try {
+      const provider = String(req.body.provider || "").trim().toLowerCase();
+      await ensureSmsIntegrationSchema(db);
+      const status = await getSmsIntegrationStatus(db, orgId);
+      const providerStatus = status.providers[provider];
+
+      if (!providerStatus) {
+        return res.status(400).json({ success: false, message: "Unsupported SMS provider." });
+      }
+      if (!providerStatus.activated) {
+        return res.status(400).json({ success: false, message: "Activate this SMS integration before saving settings." });
+      }
+
+      if (provider === "arkesel") {
+        const apiKey = String(req.body.apiKey || "").trim();
+        const senderId = String(req.body.senderId || "").trim();
+        if (!apiKey && !providerStatus.configured) {
+          return res.status(400).json({ success: false, message: "API key is required." });
+        }
+        await saveArkeselSettings(db, orgId, { apiKey, senderId });
+      } else if (provider === "africastalking") {
+        const apiKey = String(req.body.apiKey || "").trim();
+        const username = String(req.body.username || "").trim();
+        const senderId = String(req.body.senderId || "").trim();
+        const sandbox = String(req.body.sandbox || "").trim() === "1";
+        if (!apiKey && !providerStatus.configured) {
+          return res.status(400).json({ success: false, message: "API key is required." });
+        }
+        await saveAfricasTalkingSettings(db, orgId, { apiKey, username, senderId, sandbox });
+      } else if (provider === "twilio") {
+        const authToken = String(req.body.authToken || "").trim();
+        const accountSid = String(req.body.accountSid || "").trim();
+        const fromNumber = String(req.body.fromNumber || "").trim();
+        if (!authToken && !providerStatus.configured) {
+          return res.status(400).json({ success: false, message: "Auth token is required." });
+        }
+        await saveTwilioSettings(db, orgId, { accountSid, authToken, fromNumber });
+      } else {
+        return res.status(400).json({ success: false, message: "Unsupported SMS provider." });
+      }
+
+      const refreshedStatus = await getSmsIntegrationStatus(db, orgId);
+      return res.json({
+        success: true,
+        message: "SMS settings saved. This provider is now your active sender.",
+        integration: refreshedStatus,
+      });
+    } catch (error) {
+      return res.status(400).json({ success: false, message: error?.message || "Unable to save SMS settings." });
+    }
+  },
+
+  smsTestMessagePost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) {
+      return res.status(401).json({ success: false, message: "Not authenticated." });
+    }
+
+    const testSendLimit = checkRateLimit(`sms-test:${orgId}`, { max: 5, windowMs: 5 * 60 * 1000 });
+    if (!testSendLimit.allowed) {
+      return res.status(429).json({
+        success: false,
+        message: "Too many test messages sent recently. Wait a few minutes before trying again.",
+      });
+    }
+
+    try {
+      const requestedProvider = String(req.body.provider || "").trim().toLowerCase();
+      const status = await getSmsIntegrationStatus(db, orgId);
+      if (requestedProvider && status.activeProvider !== requestedProvider) {
+        return res.status(400).json({
+          success: false,
+          message: "Save this provider's settings first — the test always sends using your currently active SMS provider.",
+        });
+      }
+
+      const recipient = String(req.body.recipient || req.body.to || "").trim();
+      if (!recipient) {
+        return res.status(400).json({ success: false, message: "Enter a recipient phone number in international format (e.g. +233551234567)." });
+      }
+
+      const tenant = await getTenantSmsCredentials(db, orgId);
+      const message = String(req.body.message || "").trim() || "Managira test SMS from Integrations settings.";
+
+      const result = await sendSms(tenant, message, [recipient]);
+      await markSmsProviderTestResult(db, orgId, tenant.provider, { success: true });
+
+      return res.json({
+        success: true,
+        provider: tenant.provider,
+        message: "Test SMS sent successfully.",
+        providerMessageId: result.providerMessageId || null,
+      });
+    } catch (error) {
+      const provider = String(req.body.provider || "").trim().toLowerCase();
+      if (provider) {
+        await markSmsProviderTestResult(db, orgId, provider, { success: false, errorMessage: error?.message }).catch(() => {});
+      }
+      return res.status(400).json({ success: false, message: error?.message || "Unable to send test SMS." });
+    }
+  },
+
+  smsWebhookPost: async (req, res) => {
+    try {
+      const provider = String(req.params.provider || "").trim().toLowerCase();
+      if (!["arkesel", "africastalking", "twilio"].includes(provider)) {
+        return res.status(404).json({ success: false, message: "Unknown provider." });
+      }
+
+      const body = req.body || {};
+      let providerMessageId = "";
+      let recipient = "";
+      let status = "";
+
+      if (provider === "arkesel") {
+        providerMessageId = String(body.id || body.message_id || "").trim();
+        recipient = String(body.recipient || body.destination || "").trim();
+        status = String(body.status || "").trim();
+      } else if (provider === "africastalking") {
+        providerMessageId = String(body.id || "").trim();
+        recipient = String(body.phoneNumber || body.to || "").trim();
+        status = String(body.status || "").trim();
+      } else {
+        providerMessageId = String(body.MessageSid || body.SmsSid || "").trim();
+        recipient = String(body.To || "").trim();
+        status = String(body.MessageStatus || body.SmsStatus || "").trim();
+      }
+
+      await recordDeliveryStatus(db, {
+        organizationId: req.query.orgId ? Number(req.query.orgId) : null,
+        provider,
+        providerMessageId,
+        recipient,
+        status,
+        rawPayload: body,
+      });
+
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      return res.status(200).json({ success: false });
+    }
+  },
+
   studentPortalActivationPost: async (req, res) => {
     const orgId = req.session.organizationId;
     if (!orgId) return res.redirect("/account/login");
@@ -12004,6 +12281,7 @@ const accountController = {
       }
 
       await setStudentPortalActivation(db, orgId, shouldActivate);
+      logIntegrationActivation(req, "Student Portal", shouldActivate);
 
       return respond(200, {
         success: true,
@@ -12072,6 +12350,7 @@ const accountController = {
       }
 
       await setTransportationIntegrationActivation(db, orgId, shouldActivate);
+      logIntegrationActivation(req, "Transportation", shouldActivate);
 
       return respond(200, {
         success: true,

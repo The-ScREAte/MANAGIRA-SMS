@@ -37,60 +37,50 @@
             box-sizing: border-box;
         }
 
+        html, body {
+            overflow-x: hidden;
+        }
+
+        /* This page is rendered inside the shared app layout's <main>
+           (loaded in an iframe from the Reports hub) — neutralize its
+           width/overflow rules from /css/style.css so this page's own
+           scroll containers (the table) are the only ones that clip. */
+        main {
+            overflow-x: visible !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            min-width: 0 !important;
+        }
+        #app-scale-root {
+            overflow-x: visible !important;
+            min-width: 0 !important;
+        }
+
         body {
             font-family: 'Manrope', 'Segoe UI', sans-serif;
             color: var(--text);
-            background:
-                radial-gradient(circle at 5% 5%, #dff2f4 0, transparent 35%),
-                radial-gradient(circle at 92% -8%, #d4e6f6 0, transparent 33%),
-                var(--bg);
-            min-height: 100vh;
+            background: transparent;
+            min-height: 100%;
         }
 
         .page-wrap {
             max-width: 1280px;
+            width: 100%;
+            box-sizing: border-box;
             margin: 0 auto;
-            padding: 24px 16px 32px;
+            padding: 16px;
             display: grid;
+            grid-template-columns: minmax(0, 1fr);
             gap: 16px;
         }
 
-        .hero {
-            background: linear-gradient(130deg, var(--brand-900), var(--brand-700));
-            border-radius: var(--radius);
-            padding: 18px;
-            box-shadow: var(--shadow);
-            color: #fff;
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .hero h1 {
-            font-size: 24px;
-            line-height: 1.2;
-            margin-bottom: 4px;
-        }
-
-        .hero p {
-            opacity: 0.92;
-            font-size: 13px;
-        }
-
-        .back-btn {
-            background: #ffffff;
-            color: var(--brand-900);
-            text-decoration: none;
-            font-weight: 700;
-            padding: 10px 14px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.45);
-            transition: transform 0.2s ease;
-        }
-
-        .back-btn:hover {
-            transform: translateY(-1px);
+        /* Grid/flex items default to min-width:auto, which stops them from
+           ever shrinking below their content's intrinsic width — that's
+           what was forcing the whole page to stretch to the table's width
+           instead of letting .table-wrap's own overflow-x:auto scroll. */
+        .page-wrap > * {
+            min-width: 0;
         }
 
         .stats-grid {
@@ -133,7 +123,38 @@
         .filters-panel {
             padding: 14px;
             display: grid;
+            gap: 0;
+        }
+
+        .filters-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 2px 0 10px;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .filters-toggle svg {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.18s ease;
+        }
+
+        .filters-toggle[aria-expanded="true"] svg {
+            transform: rotate(180deg);
+        }
+
+        .filters-body {
+            display: grid;
             gap: 12px;
+            padding-bottom: 12px;
         }
 
         .filters-grid {
@@ -147,8 +168,7 @@
         }
 
         .input,
-        .select,
-        .btn {
+        .select {
             width: 100%;
             border-radius: 10px;
             border: 1px solid var(--line);
@@ -168,12 +188,20 @@
         }
 
         .actions-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            display: flex;
+            justify-content: flex-start;
+            gap: 8px;
         }
 
         .btn {
+            width: auto;
+            border-radius: 8px;
+            border: 1px solid var(--line);
+            background: #f8fafc;
+            color: var(--text);
+            padding: 7px 12px;
+            font: inherit;
+            font-size: 12.5px;
             cursor: pointer;
             font-weight: 700;
             border: 1px solid transparent;
@@ -202,13 +230,16 @@
 
         .table-wrap {
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
             border-radius: var(--radius);
+            scrollbar-width: thin;
+            max-width: 100%;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1150px;
+            min-width: 1020px;
             background: #fff;
         }
 
@@ -351,8 +382,11 @@
 
         .mobile-cards {
             display: none;
-            padding: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 10px;
+            padding: 4px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .mobile-card {
@@ -362,6 +396,26 @@
             background: #fff;
             display: grid;
             gap: 8px;
+            min-width: 0;
+        }
+
+        .card-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .card-name {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 10px;
         }
 
         .batch-chip {
@@ -457,10 +511,23 @@
         .mobile-row {
             font-size: 12px;
             color: #334a61;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            min-width: 0;
+            overflow-wrap: break-word;
+        }
+
+        .mobile-row.full {
+            grid-column: 1 / -1;
         }
 
         .mobile-row strong {
-            color: #20364c;
+            color: #8494a6;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            font-weight: 700;
         }
 
         @media (max-width: 1120px) {
@@ -478,14 +545,6 @@
         }
 
         @media (max-width: 720px) {
-            .hero {
-                grid-template-columns: 1fr;
-            }
-
-            .hero h1 {
-                font-size: 20px;
-            }
-
             .stats-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
@@ -498,29 +557,19 @@
                 grid-column: span 1;
             }
 
-            .actions-row {
-                grid-template-columns: 1fr;
-            }
-
             .table-wrap {
                 display: none;
             }
 
             .mobile-cards {
                 display: grid;
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
     <div class="page-wrap">
-        <section class="hero">
-            <div>
-                <h1>Report and Transcript Delivery History</h1>
-                <p>Track report saves, report postings, report email delivery, and transcript delivery with actor attribution.</p>
-            </div>
-            <a href="/print/printStudentReport<%= backQuery %>" class="back-btn" data-no-spa>Back to Report Page</a>
-        </section>
 
         <section class="stats-grid">
             <article class="stat-card">
@@ -546,39 +595,45 @@
         </section>
 
         <section class="panel filters-panel">
-            <div class="filters-grid">
-                <select id="classFilter" class="select">
-                    <option value="">All Classes</option>
-                </select>
-                <select id="termFilter" class="select">
-                    <option value="">All Terms</option>
-                </select>
-                <select id="studentFilter" class="select">
-                    <option value="">All Students</option>
-                </select>
-                <select id="statusFilter" class="select">
-                    <option value="">All Statuses</option>
-                    <option value="saved">Saved</option>
-                    <option value="posted">Posted</option>
-                    <option value="printed">Printed</option>
-                    <option value="pending">Pending</option>
-                    <option value="sending">Sending</option>
-                    <option value="sent">Sent</option>
-                    <option value="failed">Failed</option>
-                </select>
-                <select id="domainFilter" class="select">
-                    <option value="">Report + Transcript</option>
-                    <option value="report">Report only</option>
-                    <option value="transcript">Transcript only</option>
-                </select>
-                <input id="dateFromFilter" type="date" class="input" />
-                <input id="dateToFilter" type="date" class="input" />
-                <input id="batchFilter" type="text" class="input full" placeholder="Batch ID (exact)" />
-                <input id="searchFilter" type="text" class="input full" placeholder="Search student, recipient email, class, term, batch" />
-            </div>
-            <div class="actions-row">
-                <button class="btn btn-primary" id="refreshBtn">Refresh</button>
-                <button class="btn btn-secondary" id="clearBtn">Clear Filters</button>
+            <button type="button" class="filters-toggle" id="filtersToggle" aria-expanded="false">
+                <span>Filters</span>
+                <svg id="filtersToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="filters-body" id="filtersBody" hidden>
+                <div class="filters-grid">
+                    <select id="classFilter" class="select">
+                        <option value="">All Classes</option>
+                    </select>
+                    <select id="termFilter" class="select">
+                        <option value="">All Terms</option>
+                    </select>
+                    <select id="studentFilter" class="select">
+                        <option value="">All Students</option>
+                    </select>
+                    <select id="statusFilter" class="select">
+                        <option value="">All Statuses</option>
+                        <option value="saved">Saved</option>
+                        <option value="posted">Posted</option>
+                        <option value="printed">Printed</option>
+                        <option value="pending">Pending</option>
+                        <option value="sending">Sending</option>
+                        <option value="sent">Sent</option>
+                        <option value="failed">Failed</option>
+                    </select>
+                    <select id="domainFilter" class="select">
+                        <option value="">Report + Transcript</option>
+                        <option value="report">Report only</option>
+                        <option value="transcript">Transcript only</option>
+                    </select>
+                    <input id="dateFromFilter" type="date" class="input" />
+                    <input id="dateToFilter" type="date" class="input" />
+                    <input id="batchFilter" type="text" class="input full" placeholder="Batch ID (exact)" />
+                    <input id="searchFilter" type="text" class="input full" placeholder="Search student, recipient email, class, term, batch" />
+                </div>
+                <div class="actions-row">
+                    <button class="btn btn-primary" id="refreshBtn">Refresh</button>
+                    <button class="btn btn-secondary" id="clearBtn">Clear Filters</button>
+                </div>
             </div>
             <div class="meta-row">
                 <div id="resultMeta">No records loaded yet.</div>
@@ -598,17 +653,16 @@
                             <th>Class / Term</th>
                             <th>Created</th>
                             <th>Sent</th>
-                            <th>Report Posted</th>
+                            <th>Posted</th>
                             <th>Status</th>
                             <th>Recipients</th>
-                            <th>Batch</th>
-                            <th>Triggered By</th>
+                            <th>By</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="historyRows">
                         <tr>
-                            <td colspan="11" class="empty-state">No delivery history found.</td>
+                            <td colspan="10" class="empty-state">No delivery history found.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -920,10 +974,45 @@
             document.getElementById('lastLoadedMeta').textContent = `Last loaded: ${new Date().toLocaleTimeString()}`;
         }
 
+
+        // Send Report (SMS/WhatsApp/Email) rows can always be resent, not
+        // just retried-on-failure — a guardian saying "I never got it" is a
+        // valid reason to resend something that reported as "sent".
+        function buildResendButton(row) {
+            if (String(row.activity_type || '') !== 'report_notify_sent') return '';
+            const channel = String(row.delivery_domain || '').toLowerCase();
+            if (!['sms', 'whatsapp', 'email'].includes(channel)) return '';
+            const recipientsList = Array.isArray(row.recipient_emails) ? row.recipient_emails : [];
+            const recipient = recipientsList[0];
+            if (!recipient || !row.student_id || !row.class_id || !row.term_id) return '';
+            const payload = encodeURIComponent(JSON.stringify({
+                classId: row.class_id, termId: row.term_id, studentId: row.student_id, channel, recipient,
+            }));
+            return `<button class="tiny-btn" onclick="resendGuardianMessage('${payload}')">Resend</button>`;
+        }
+
+        async function resendGuardianMessage(encodedPayload) {
+            const payload = JSON.parse(decodeURIComponent(encodedPayload));
+            const password = prompt(`Enter your password to resend this ${payload.channel.toUpperCase()} message to ${payload.recipient}:`);
+            if (!password) return;
+            try {
+                const res = await fetch('/account/messaging/resend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify({ ...payload, password }),
+                });
+                const data = await res.json().catch(() => ({}));
+                alert(data.message || (data.success ? 'Resent.' : 'Resend failed.'));
+                if (data.success) loadHistory();
+            } catch (err) {
+                alert('Network error — resend failed.');
+            }
+        }
+
         function renderTableRows(emails) {
             const tbody = document.getElementById('historyRows');
             if (!emails.length) {
-                tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No delivery history found for the selected filters.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No delivery history found for the selected filters.</td></tr>';
                 return;
             }
 
@@ -942,6 +1031,7 @@
                 const retryButton = String(row.status || '').toLowerCase() === 'failed' && String(row.source_type || '') === 'email_history' && Number.isFinite(Number(row.id))
                     ? `<button class="tiny-btn retry" onclick="retryEmail(${Number(row.id)})">Retry</button>`
                     : '';
+                const resendButton = buildResendButton(row);
 
                 const isBatchGroup = row.isBatchGroup === true;
                 const encodedGroupToken = encodeURIComponent(String(row.group_token || ''));
@@ -970,21 +1060,20 @@
                         <td>${escapeHtml(fmtDate(row.sent_at))}</td>
                         <td>
                             <div>${escapeHtml(reportPosted)}</div>
-                            <div class="muted">${row.pdf_generated ? 'Generated in queue' : 'Not generated in queue'}</div>
+                            ${String(row.source_type || '') === 'email_history' ? `<div class="muted">${row.pdf_generated ? 'Generated' : 'Not generated'}</div>` : ''}
                         </td>
                         <td>${statusBadge}</td>
                         <td>
-                            <div class="pill">${Number(row.recipient_count || recipientsList.length || 0)} recipient${Number(row.recipient_count || recipientsList.length || 0) === 1 ? '' : 's'}</div>
-                            <div class="recipients muted" title="${escapeHtml(recipients)}">${escapeHtml(recipients)}</div>
+                            ${recipientsList.length ? `<div class="pill">${recipientsList.length} recipient${recipientsList.length === 1 ? '' : 's'}</div><div class="recipients muted" title="${escapeHtml(recipients)}">${escapeHtml(recipients)}</div>` : '<span class="muted">-</span>'}
                             ${errorHtml}
                         </td>
-                        <td class="mono">${escapeHtml(row.batch_id || '-')}</td>
                         <td>${escapeHtml(row.queued_by_name || '-')}</td>
                         <td>
                             <div class="row-actions">
                                 ${reportPdfButton}
                                 ${batchDetailBtn}
                                 ${retryButton}
+                                ${resendButton}
                             </div>
                         </td>
                     </tr>
@@ -1015,22 +1104,33 @@
                 const detailButton = isBatchGroup
                     ? `<button class="tiny-btn" onclick="openBatchDetailsModal(decodeURIComponent('${encodedGroupToken}'))">View ${Number(row.batchCount || 0)} results</button>`
                     : '';
+                const resendButtonMobile = buildResendButton(row);
 
                 return `
                     <article class="mobile-card">
-                        <div class="mobile-row"><strong>${escapeHtml(row.student_name || '-')}</strong> (ID: ${escapeHtml(row.student_id || '-')})</div>
-                        <div class="mobile-row"><strong>Activity:</strong> ${escapeHtml(activityLabel(row))} (${escapeHtml(String(row.delivery_domain || '-').toUpperCase())})</div>
-                        ${isBatchGroup ? `<div class="mobile-row"><strong>Batch:</strong> ${Number(row.batchCount || 0)} records</div>` : ''}
-                        <div class="mobile-row"><strong>Class:</strong> ${escapeHtml(cls)}</div>
-                        <div class="mobile-row"><strong>Term:</strong> ${escapeHtml(term)}</div>
-                        <div class="mobile-row"><strong>Created:</strong> ${escapeHtml(fmtDate(row.created_at))}</div>
-                        <div class="mobile-row"><strong>Sent:</strong> ${escapeHtml(fmtDate(row.sent_at))}</div>
-                        <div class="mobile-row"><strong>Posted:</strong> ${escapeHtml(fmtDate(row.report_posted_at))}</div>
-                        <div class="mobile-row"><strong>Status:</strong> <span class="badge ${statusClass(row.status)}">${escapeHtml(statusLabel(row.status))}</span></div>
-                        <div class="mobile-row"><strong>Recipients:</strong> ${escapeHtml(recipients)}</div>
-                        <div class="mobile-row"><strong>Batch:</strong> <span class="mono">${escapeHtml(row.batch_id || '-')}</span></div>
-                        <div class="mobile-row"><strong>Triggered By:</strong> ${escapeHtml(row.queued_by_name || '-')}</div>
-                        <div class="row-actions">${reportButton}${detailButton}${retryButton}</div>
+                        <div class="card-head">
+                            <div>
+                                <div class="card-name">${escapeHtml(row.student_name || '-')}</div>
+                                <div class="muted">ID: ${escapeHtml(row.student_id || '-')}</div>
+                            </div>
+                            <span class="badge ${statusClass(row.status)}">${escapeHtml(statusLabel(row.status))}</span>
+                        </div>
+                        <div class="card-head">
+                            <div class="pill">${escapeHtml(activityLabel(row))}</div>
+                            <div class="muted">${escapeHtml(String(row.delivery_domain || '-').toUpperCase())}</div>
+                        </div>
+                        ${isBatchGroup ? `<div class="batch-chip">Batch of ${Number(row.batchCount || 0)}</div>` : ''}
+                        <div class="card-grid">
+                            <div class="mobile-row"><strong>Class</strong>${escapeHtml(cls)}</div>
+                            <div class="mobile-row"><strong>Term</strong>${escapeHtml(term)}</div>
+                            <div class="mobile-row"><strong>Created</strong>${escapeHtml(fmtDate(row.created_at))}</div>
+                            <div class="mobile-row"><strong>Sent</strong>${escapeHtml(fmtDate(row.sent_at))}</div>
+                            <div class="mobile-row"><strong>Posted</strong>${escapeHtml(fmtDate(row.report_posted_at))}</div>
+                            <div class="mobile-row"><strong>By</strong>${escapeHtml(row.queued_by_name || '-')}</div>
+                        </div>
+                        <div class="mobile-row full"><strong>Recipients</strong>${recipientsList.length ? escapeHtml(recipients) : '-'}</div>
+                        ${row.error_message ? `<div class="error-msg">${escapeHtml(row.error_message)}</div>` : ''}
+                        <div class="row-actions">${reportButton}${detailButton}${retryButton}${resendButtonMobile}</div>
                     </article>
                 `;
             }).join('');
@@ -1136,6 +1236,13 @@
 
         document.getElementById('refreshBtn').addEventListener('click', loadHistory);
         document.getElementById('clearBtn').addEventListener('click', clearFilters);
+        document.getElementById('filtersToggle').addEventListener('click', () => {
+            const toggle = document.getElementById('filtersToggle');
+            const body = document.getElementById('filtersBody');
+            const expanded = toggle.getAttribute('aria-expanded') === 'true';
+            toggle.setAttribute('aria-expanded', String(!expanded));
+            body.hidden = expanded;
+        });
         document.getElementById('batchDetailsCloseBtn').addEventListener('click', closeBatchDetailsModal);
         document.getElementById('batchDetailsModal').addEventListener('click', (event) => {
             if (event.target && event.target.id === 'batchDetailsModal') {

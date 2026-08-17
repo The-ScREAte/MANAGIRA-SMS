@@ -1,0 +1,14 @@
+<link rel="stylesheet" href="/css/adminDrawer.css">
+<script src="/js/adminDrawer.js"></script>
+<script>
+  // Composer pages loaded inside a ManagiraDrawer iframe (?embed=workspace&drawerId=...)
+  // call this on successful save instead of trying to detect navigation, matching
+  // the createEmployee.ejs convention this pattern was generalized from.
+  function managiraDrawerNotifySaved() {
+    if (window.parent === window) return;
+    const params = new URLSearchParams(window.location.search);
+    const drawerId = params.get('drawerId');
+    if (!drawerId) return;
+    window.parent.postMessage({ managiraDrawerSaved: true, drawerId: drawerId }, window.location.origin);
+  }
+</script>

@@ -1,0 +1,674 @@
+<%
+  const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
+  const themeColors = {
+    teal: '#01535b', blue: '#2563eb', green: '#2e7d32', purple: '#7c3aed', indigo: '#4f46e5',
+    rose: '#8b2635', amber: '#d97706', slate: '#334155', cyan: '#0891b2', orange: '#ea580c',
+    charcoal: '#1f2937', classic: '#01535b', bold: '#0b1020', modern: '#2563eb', minimal: '#7c3aed',
+    gold: '#d4a017', red: '#e11d48', brown: '#7c4a03',
+  };
+  const primary = themeColors[themeColor] || themeColors.teal;
+%>
+<style>
+  #mailroomRoot {
+    --mr-primary: <%= primary %>;
+    --mr-bg: #f4f7f9;
+    --mr-panel: #ffffff;
+    --mr-line: #e5edf2;
+    --mr-text: #14232f;
+    --mr-muted: #64748b;
+    --mr-radius: 14px;
+    --mr-shadow: 0 10px 26px rgba(16, 35, 56, 0.07);
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    color: var(--mr-text);
+    background: var(--mr-bg);
+    min-height: 100%;
+    padding: 18px;
+    box-sizing: border-box;
+  }
+  #mailroomRoot * { box-sizing: border-box; }
+  .mr-header { margin-bottom: 16px; }
+  .mr-header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; color: var(--mr-primary); }
+  .mr-header p { margin: 0; color: var(--mr-muted); font-size: 13.5px; }
+
+  .mr-layout { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .mr-layout { grid-template-columns: 1fr; } }
+
+  .mr-panel { background: var(--mr-panel); border: 1px solid var(--mr-line); border-radius: var(--mr-radius); box-shadow: var(--mr-shadow); }
+
+  /* Left: contact directory */
+  .mr-directory { display: flex; flex-direction: column; max-height: calc(100vh - 140px); min-height: 420px; }
+  .mr-directory-open-row { display: none; }
+  .mr-directory-toggle {
+    display: none;
+    width: auto;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--mr-panel);
+    border: 1px solid var(--mr-line);
+    border-radius: 10px;
+    box-shadow: var(--mr-shadow);
+    padding: 10px 14px;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+  .mr-directory-toggle-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: var(--mr-text); }
+  .mr-directory-toggle-count { font-size: 11px; font-weight: 700; color: var(--mr-primary); background: #e5f3f4; border-radius: 999px; padding: 2px 8px; }
+  .mr-directory-toggle-icon { width: 16px; height: 16px; flex-shrink: 0; color: var(--mr-muted); }
+  .mr-directory-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--mr-line); }
+  .mr-directory-head h2 { margin: 0 0 8px; font-size: 14px; font-weight: 800; }
+  .mr-search { width: 100%; border: 1px solid var(--mr-line); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px; background: #f8fafc; }
+  .mr-select-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--mr-muted); }
+  .mr-select-row button { border: none; background: none; color: var(--mr-primary); font-weight: 700; cursor: pointer; font-size: 12px; padding: 0; }
+  .mr-contact-list { overflow-y: auto; flex: 1; padding: 6px 8px; }
+  .mr-contact { display: flex; align-items: flex-start; gap: 9px; padding: 9px 8px; border-radius: 9px; cursor: pointer; }
+  .mr-contact:hover { background: #f6fbfc; }
+  .mr-contact input[type="checkbox"] { margin-top: 3px; width: 15px; height: 15px; accent-color: var(--mr-primary); flex: 0 0 15px; }
+  .mr-contact.disabled { opacity: 0.4; cursor: not-allowed; }
+  .mr-contact-body { min-width: 0; flex: 1; }
+  .mr-contact-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mr-contact-sub { font-size: 11px; color: var(--mr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  .mr-pill-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .mr-pill { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--mr-line); color: #334a5f; background: #f8fafc; }
+  .mr-pill.mr-pill-missing { color: #b8c2cc; border-style: dashed; }
+  .mr-empty { padding: 24px; text-align: center; color: var(--mr-muted); font-size: 13px; }
+
+  /* Right: compose + history */
+  .mr-right { display: flex; flex-direction: column; gap: 16px; }
+  .mr-compose { position: sticky; top: 8px; z-index: 5; padding: 16px; }
+  .mr-channels { display: none; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
+  .mr-channels.mr-visible { display: flex; }
+  .mr-channel-check { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--mr-text); }
+  .mr-channel-check input { width: 15px; height: 15px; accent-color: var(--mr-primary); cursor: pointer; }
+  .mr-channel-check.mr-channel-disabled { cursor: not-allowed; opacity: 0.45; }
+  .mr-channel-check.mr-channel-disabled input { cursor: not-allowed; }
+  .mr-channel-note { font-size: 11px; color: var(--mr-muted); font-weight: 500; }
+  .mr-channel-empty { font-size: 12.5px; color: var(--mr-muted); }
+  .mr-channel-hint { display: none; margin-bottom: 10px; padding: 8px 11px; border-radius: 8px; background: #fff7d6; border: 1px solid #f0df94; color: #664400; font-size: 12.5px; line-height: 1.4; }
+  .mr-compose-textarea { width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--mr-line); border-radius: 9px; padding: 10px 12px; font: inherit; font-size: 13.5px; }
+  .mr-compose-meta { display: flex; align-items: center; justify-content: flex-start; margin-top: 10px; gap: 14px; flex-wrap: wrap; }
+  .mr-recipient-count { font-size: 12.5px; color: var(--mr-muted); font-weight: 600; }
+  .mr-send-btn { width: auto; align-self: flex-start; background: linear-gradient(130deg, var(--mr-primary), #0e4650); color: #fff; border: none; border-radius: 7px; padding: 6px 14px; font-weight: 700; font-size: 13px; cursor: pointer; order: -1; }
+  .mr-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .mr-status { margin-top: 10px; font-size: 12.5px; display: none; padding: 9px 11px; border-radius: 8px; }
+
+  .mr-history { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .mr-message-card { border: 1px solid var(--mr-line); border-radius: 11px; padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .mr-message-main { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+  .mr-message-recipient { font-weight: 700; font-size: 13px; color: var(--mr-text); }
+  .mr-message-when { font-size: 12px; color: var(--mr-muted); white-space: nowrap; }
+  .mr-badge { display: inline-flex; padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
+  .mr-badge-sent { background: #dcfce7; color: #0f7a4a; }
+  .mr-badge-failed { background: #ffe0e7; color: #a11434; }
+  .mr-badge-channel { background: #e5f3f4; color: var(--mr-primary); }
+  .mr-setup-banner {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: #fff7d6;
+    border: 1px solid #f0df94;
+    color: #664400;
+    border-radius: 10px;
+    padding: 11px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+  .mr-setup-banner a {
+    background: #664400;
+    color: #fff7d6;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 12.5px;
+    padding: 6px 12px;
+    border-radius: 7px;
+    white-space: nowrap;
+  }
+  .mr-setup-banner a:hover { opacity: 0.9; }
+
+  /* Mobile: contacts opens as a right-side slide-in drawer over a backdrop
+     — the same overlay pattern used across the app's hub pages (e.g. the
+     student/guardian panels) — instead of pushing or expanding the page.
+     The page underneath stays exactly as it was; the drawer just floats
+     on top and slides away again on close. */
+  .mr-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(3px);
+    z-index: 12000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .mr-drawer-backdrop.mr-drawer-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .mr-directory-close {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: #f1f5f9;
+    color: #475569;
+    border-radius: 50%;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 1;
+  }
+
+  @media (max-width: 780px) {
+    #mailroomRoot { padding: 12px; }
+    .mr-header h1 { font-size: 19px; }
+    .mr-setup-banner { padding: 10px 12px; font-size: 12.5px; }
+
+    .mr-directory-open-row { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+    .mr-directory-toggle { display: flex; }
+
+    .mr-directory {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: auto;
+      width: 100%;
+      max-width: 420px;
+      max-height: none;
+      min-height: 0;
+      border-radius: 0;
+      z-index: 12001;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mr-directory.mr-drawer-open { transform: translateX(0); }
+
+    .mr-directory-head { position: relative; padding-right: 46px; }
+    .mr-directory-close { display: flex; }
+    .mr-contact { padding: 11px 8px; }
+    .mr-contact input[type="checkbox"] { width: 18px; height: 18px; }
+
+    .mr-compose { position: static; }
+    .mr-channels { gap: 12px; }
+    .mr-compose-meta { justify-content: space-between; }
+    .mr-send-btn { padding: 8px 16px; font-size: 13.5px; }
+
+    .mr-message-card { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .mr-message-main { gap: 8px; }
+  }
+</style>
+
+<div id="mailroomRoot">
+  <div class="mr-header">
+    <h1>Mailroom</h1>
+  </div>
+
+  <div class="mr-setup-banner" id="mrSetupBanner">
+    <span id="mrSetupBannerText">Text and WhatsApp aren't set up for this school yet — only Email can be used to reach guardians.</span>
+    <a href="/common/management?panel=integrations&page=%2Faccount%2Fsettings%3Fsection%3Dintegrations&label=Integrations">Activate in Integrations</a>
+  </div>
+
+  <div class="mr-drawer-backdrop" id="mrDrawerBackdrop"></div>
+
+  <div class="mr-directory-open-row">
+    <button type="button" class="mr-directory-toggle" id="mrDirectoryToggle" aria-expanded="false" aria-controls="mrDirectory">
+      <span class="mr-directory-toggle-label">
+        <span>Contacts</span>
+        <span class="mr-directory-toggle-count" id="mrDirectoryToggleCount" style="display:none;"></span>
+      </span>
+      <svg class="mr-directory-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"></polyline></svg>
+    </button>
+  </div>
+
+  <div class="mr-layout">
+    <section class="mr-panel mr-directory" id="mrDirectory">
+      <div class="mr-directory-head">
+        <button type="button" class="mr-directory-close" id="mrDirectoryClose" aria-label="Close">&times;</button>
+        <h2>Contacts</h2>
+        <input type="text" id="mrSearch" class="mr-search" placeholder="Search name, student, phone, email...">
+        <div class="mr-select-row">
+          <span id="mrContactCount">Loading contacts...</span>
+          <button type="button" id="mrSelectAll">Select all</button>
+        </div>
+      </div>
+      <div class="mr-contact-list" id="mrContactList">
+        <div class="mr-empty">Loading contacts...</div>
+      </div>
+    </section>
+
+    <section class="mr-right">
+      <div class="mr-panel mr-compose">
+        <textarea id="mrMessage" class="mr-compose-textarea" placeholder="Type your message..."></textarea>
+        <div class="mr-channels" id="mrChannels"></div>
+        <div class="mr-channel-hint" id="mrChannelHint"></div>
+        <div class="mr-compose-meta">
+          <span class="mr-recipient-count" id="mrRecipientCount">0 recipients selected</span>
+          <button type="button" class="mr-send-btn" id="mrSendBtn" disabled>Send</button>
+        </div>
+        <div class="mr-status" id="mrStatus"></div>
+      </div>
+
+      <div class="mr-panel mr-history" id="mrHistoryRows">
+        <div class="mr-empty">Loading history...</div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  const state = { contacts: [], channels: new Set(), selected: new Map(), orgChannels: { sms: false, whatsapp: false, email: false } };
+
+  const CHANNEL_META = {
+    sms: { label: 'Text (SMS)', field: 'phone', missing: 'no phone number' },
+    whatsapp: { label: 'WhatsApp', field: 'phone', missing: 'no phone number' },
+    email: { label: 'Email', field: 'email', missing: 'no email address' },
+  };
+
+  function escapeHtml(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function contactKey(c) { return `${c.source}:${c.guardianId}`; }
+
+  // SMS and WhatsApp both need a phone; Email needs an email.
+  function channelField(channel) { return CHANNEL_META[channel]?.field || 'phone'; }
+
+  function fmtDate(v) {
+    if (!v) return '-';
+    try { return new Date(v).toLocaleString(); } catch (_) { return '-'; }
+  }
+
+  function renderContacts() {
+    const list = document.getElementById('mrContactList');
+    const query = (document.getElementById('mrSearch').value || '').trim().toLowerCase();
+    const filtered = state.contacts.filter((c) => {
+      if (!query) return true;
+      const hay = `${c.guardianName} ${(c.studentNames || []).join(' ')} ${c.phone} ${c.email}`.toLowerCase();
+      return hay.includes(query);
+    });
+
+    document.getElementById('mrContactCount').textContent = `${filtered.length} contact${filtered.length === 1 ? '' : 's'}`;
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="mr-empty">No contacts found.</div>';
+      return;
+    }
+
+    // Recipient selection is independent of channel — which contacts can
+    // actually be reached on a given channel is resolved at send time.
+    list.innerHTML = filtered.map((c) => {
+      const key = contactKey(c);
+      const checked = state.selected.has(key);
+      const students = (c.studentNames || []).join(', ');
+      return `<label class="mr-contact" data-key="${escapeHtml(key)}">
+        <input type="checkbox" ${checked ? 'checked' : ''}>
+        <div class="mr-contact-body">
+          <div class="mr-contact-name">${escapeHtml(c.guardianName)}</div>
+          <div class="mr-contact-sub">${escapeHtml(students || 'No linked student on file')}</div>
+          <div class="mr-pill-row">
+            <span class="mr-pill ${c.phone ? '' : 'mr-pill-missing'}">${c.phone ? escapeHtml(c.phone) : 'No phone'}</span>
+            <span class="mr-pill ${c.email ? '' : 'mr-pill-missing'}">${c.email ? escapeHtml(c.email) : 'No email'}</span>
+          </div>
+        </div>
+      </label>`;
+    }).join('');
+
+    list.querySelectorAll('.mr-contact').forEach((el) => {
+      const checkbox = el.querySelector('input[type="checkbox"]');
+      el.addEventListener('click', (e) => {
+        if (e.target === checkbox) return;
+        checkbox.checked = !checkbox.checked;
+        checkbox.dispatchEvent(new Event('change'));
+      });
+      checkbox.addEventListener('change', () => {
+        const key = el.getAttribute('data-key');
+        const contact = state.contacts.find((c) => contactKey(c) === key);
+        if (!contact) return;
+        if (checkbox.checked) state.selected.set(key, contact);
+        else state.selected.delete(key);
+        updateRecipientCount();
+      });
+    });
+
+    updateSelectAllLabel();
+  }
+
+  function updateRecipientCount() {
+    const n = state.selected.size;
+    document.getElementById('mrRecipientCount').textContent = `${n} recipient${n === 1 ? '' : 's'} selected`;
+    document.getElementById('mrSendBtn').disabled = n === 0 || state.channels.size === 0;
+    updateChannelReachability();
+    updateChannelsVisibility();
+    updateSelectAllLabel();
+    updateDirectoryToggleCount();
+  }
+
+  // On mobile the contact list is collapsed behind a toggle — show how many
+  // are selected right on the toggle so that's visible without opening it.
+  function updateDirectoryToggleCount() {
+    const badge = document.getElementById('mrDirectoryToggleCount');
+    const n = state.selected.size;
+    if (n > 0) {
+      badge.textContent = `${n} selected`;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // Flips between "Select all" and "Deselect all" based on whether every
+  // currently visible (search-filtered) contact is already selected.
+  function updateSelectAllLabel() {
+    const visibleKeys = Array.from(document.querySelectorAll('#mrContactList .mr-contact')).map((el) => el.getAttribute('data-key'));
+    const allSelected = visibleKeys.length > 0 && visibleKeys.every((key) => state.selected.has(key));
+    document.getElementById('mrSelectAll').textContent = allSelected ? 'Deselect all' : 'Select all';
+  }
+
+  // The channel checkboxes only matter once there's a message and/or a
+  // recipient to send it to — keep them out of the way until then.
+  function updateChannelsVisibility() {
+    const hasMessage = Boolean(document.getElementById('mrMessage').value.trim());
+    const hasRecipients = state.selected.size > 0;
+    document.getElementById('mrChannels').classList.toggle('mr-visible', hasMessage || hasRecipients);
+  }
+
+  // Only channels this org actually has switched on ever appear — SMS/
+  // WhatsApp are hidden entirely (not just disabled) when the org has no
+  // active provider for them. Email always shows (Managira sends it directly).
+  function renderChannelCheckboxes() {
+    const container = document.getElementById('mrChannels');
+    const available = Object.keys(CHANNEL_META).filter((c) => state.orgChannels[c]);
+
+    if (!available.length) {
+      container.innerHTML = '<div class="mr-channel-empty">No messaging channel is active for this school yet. Turn on SMS, WhatsApp, or Email in Settings.</div>';
+      return;
+    }
+
+    container.innerHTML = available.map((channel) => {
+      const meta = CHANNEL_META[channel];
+      return `<label class="mr-channel-check" data-channel="${channel}">
+        <input type="checkbox" value="${channel}">
+        <span>${escapeHtml(meta.label)}</span>
+        <span class="mr-channel-note" data-note-for="${channel}"></span>
+      </label>`;
+    }).join('');
+
+    container.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) state.channels.add(checkbox.value);
+        else state.channels.delete(checkbox.value);
+        updateRecipientCount();
+      });
+    });
+
+    updateChannelReachability();
+  }
+
+  // Beyond the org having a channel switched on, the currently selected
+  // recipients also need the right contact info for it — a guardian with
+  // no phone number can't be reached by SMS/WhatsApp no matter how the
+  // org is configured. Grey out and disable channels that can't reach
+  // anyone selected, and explain why instead of failing silently on Send.
+  function updateChannelReachability() {
+    const container = document.getElementById('mrChannels');
+    const contacts = Array.from(state.selected.values());
+    let anyUsable = false;
+
+    container.querySelectorAll('label.mr-channel-check').forEach((label) => {
+      const channel = label.getAttribute('data-channel');
+      const meta = CHANNEL_META[channel];
+      const checkbox = label.querySelector('input[type="checkbox"]');
+      const note = label.querySelector('.mr-channel-note');
+
+      if (!contacts.length) {
+        checkbox.disabled = false;
+        label.classList.remove('mr-channel-disabled');
+        note.textContent = '';
+        anyUsable = true;
+        return;
+      }
+
+      const reachable = contacts.filter((c) => c[meta.field]).length;
+      if (reachable === 0) {
+        checkbox.disabled = true;
+        if (checkbox.checked) {
+          checkbox.checked = false;
+          state.channels.delete(channel);
+        }
+        label.classList.add('mr-channel-disabled');
+        note.textContent = `(selected recipient${contacts.length === 1 ? ' has' : 's have'} ${meta.missing})`;
+      } else {
+        checkbox.disabled = false;
+        label.classList.remove('mr-channel-disabled');
+        note.textContent = reachable < contacts.length ? `(${reachable}/${contacts.length} reachable)` : '';
+        anyUsable = true;
+      }
+    });
+
+    const hint = document.getElementById('mrChannelHint');
+    if (contacts.length && Object.keys(CHANNEL_META).some((c) => state.orgChannels[c]) && !anyUsable) {
+      hint.style.display = 'block';
+      hint.textContent = 'None of the selected recipients have a phone number or email on file for any active channel — add contact info for them first.';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
+
+  function showStatus(message, ok) {
+    const el = document.getElementById('mrStatus');
+    el.style.display = 'block';
+    el.style.background = ok ? '#f0fdf4' : '#fef2f2';
+    el.style.color = ok ? '#166534' : '#b91c1c';
+    el.style.border = ok ? '1px solid #bbf7d0' : '1px solid #fecaca';
+    el.textContent = message;
+  }
+
+  async function loadChannelStatus() {
+    try {
+      const res = await fetch('/account/messaging/status');
+      const data = await res.json();
+      if (data.success) {
+        state.orgChannels = {
+          sms: Boolean(data.sms?.ready),
+          whatsapp: Boolean(data.whatsapp?.ready),
+          email: Boolean(data.email?.ready),
+        };
+      }
+    } catch (_) {
+      // Leave orgChannels at its all-false default — renderChannelCheckboxes
+      // will show the "no channel active" message rather than guess.
+    }
+    renderChannelCheckboxes();
+    updateSetupBanner();
+  }
+
+  // Text and WhatsApp both depend on the school activating a provider —
+  // Email always works. Point straight at Integrations so it's a one-click
+  // fix, not a support ticket.
+  function updateSetupBanner() {
+    const banner = document.getElementById('mrSetupBanner');
+    const textEl = document.getElementById('mrSetupBannerText');
+    const smsOn = state.orgChannels.sms;
+    const waOn = state.orgChannels.whatsapp;
+    if (smsOn && waOn) {
+      banner.style.display = 'none';
+      return;
+    }
+    banner.style.display = 'flex';
+    if (!smsOn && !waOn) {
+      textEl.textContent = "Text and WhatsApp aren't set up for this school yet — only Email can be used to reach guardians.";
+    } else if (!smsOn) {
+      textEl.textContent = "Text (SMS) isn't set up for this school yet — WhatsApp and Email are available.";
+    } else {
+      textEl.textContent = "WhatsApp isn't set up for this school yet — Text (SMS) and Email are available.";
+    }
+  }
+
+  async function loadContacts() {
+    try {
+      const res = await fetch('/account/messaging/mailroomDirectory');
+      const data = await res.json();
+      if (!data.success) { document.getElementById('mrContactList').innerHTML = '<div class="mr-empty">Failed to load contacts.</div>'; return; }
+      state.contacts = data.contacts || [];
+      renderContacts();
+    } catch (_) {
+      document.getElementById('mrContactList').innerHTML = '<div class="mr-empty">Error loading contacts.</div>';
+    }
+  }
+
+  async function loadHistory() {
+    const wrap = document.getElementById('mrHistoryRows');
+    wrap.innerHTML = '<div class="mr-empty">Loading history...</div>';
+    try {
+      const res = await fetch('/account/messaging/mailroomHistory');
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.history) || !data.history.length) {
+        wrap.innerHTML = '<div class="mr-empty">No messages sent yet.</div>';
+        return;
+      }
+      wrap.innerHTML = data.history.map((row) => {
+        const recipient = Array.isArray(row.recipient_emails) && row.recipient_emails.length ? row.recipient_emails[0] : '-';
+        const statusClass = String(row.status || '').toLowerCase() === 'sent' ? 'mr-badge-sent' : 'mr-badge-failed';
+        return `<div class="mr-message-card">
+          <div class="mr-message-main">
+            <span class="mr-badge mr-badge-channel">${escapeHtml(String(row.event_domain || '-').toUpperCase())}</span>
+            <span class="mr-message-recipient">${escapeHtml(recipient)}</span>
+            <span class="mr-badge ${statusClass}">${escapeHtml(row.status || '-')}</span>
+            <span class="mr-contact-sub" style="margin:0;">by ${escapeHtml(row.actor_name || '-')}</span>
+          </div>
+          <span class="mr-message-when">${escapeHtml(fmtDate(row.created_at))}</span>
+        </div>`;
+      }).join('');
+    } catch (_) {
+      wrap.innerHTML = '<div class="mr-empty">Error loading history.</div>';
+    }
+  }
+
+  async function sendMessage() {
+    const message = document.getElementById('mrMessage').value.trim();
+    const channels = Array.from(state.channels);
+    if (!message) { showStatus('Type a message first.', false); return; }
+    if (!state.selected.size) { showStatus('Select at least one recipient.', false); return; }
+    if (!channels.length) { showStatus('Check at least one channel: Text, WhatsApp, or Email.', false); return; }
+
+    const contacts = Array.from(state.selected.values());
+    const perChannel = channels.map((channel) => {
+      const field = channelField(channel);
+      const recipients = contacts.filter((c) => c[field]).map((c) => ({
+        guardianId: c.guardianId,
+        source: c.source,
+        phone: field === 'phone' ? c.phone : '',
+        email: field === 'email' ? c.email : '',
+        guardianName: c.guardianName,
+        studentName: (c.studentNames || [])[0] || '',
+      }));
+      return { channel, recipients };
+    }).filter((entry) => entry.recipients.length);
+
+    if (!perChannel.length) {
+      showStatus('None of the selected recipients have the contact info the checked channel(s) need.', false);
+      return;
+    }
+
+    const summary = perChannel.map((entry) => `${entry.channel.toUpperCase()}: ${entry.recipients.length}`).join(', ');
+    const confirmed = confirm(`Send this message via ${summary}?`);
+    if (!confirmed) return;
+    const password = prompt('Enter your password to confirm this send:');
+    if (!password) return;
+
+    const sendBtn = document.getElementById('mrSendBtn');
+    sendBtn.disabled = true;
+    const previousLabel = sendBtn.textContent;
+    sendBtn.textContent = 'Sending...';
+
+    try {
+      const results = await Promise.all(perChannel.map((entry) =>
+        fetch('/account/messaging/mailroomSend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ channel: entry.channel, message, recipients: entry.recipients, password }),
+        }).then((res) => res.json().catch(() => ({})))
+      ));
+
+      const totalSent = results.reduce((sum, r) => sum + (r.sentCount || 0), 0);
+      const totalFailed = results.reduce((sum, r) => sum + (r.failedCount || 0), 0);
+      const anyAuthError = results.some((r) => r.message && /incorrect password/i.test(r.message));
+
+      if (anyAuthError) {
+        showStatus('Incorrect password — nothing was sent.', false);
+      } else {
+        showStatus(
+          totalFailed ? `Sent ${totalSent}, ${totalFailed} failed.` : `Sent to ${totalSent} recipient${totalSent === 1 ? '' : 's'}.`,
+          totalFailed === 0
+        );
+        if (totalSent) {
+          document.getElementById('mrMessage').value = '';
+          updateChannelsVisibility();
+          loadHistory();
+        }
+      }
+    } catch (_) {
+      showStatus('Network error — send failed.', false);
+    } finally {
+      sendBtn.textContent = previousLabel;
+      sendBtn.disabled = state.selected.size === 0 || state.channels.size === 0;
+    }
+  }
+
+  document.getElementById('mrSearch').addEventListener('input', renderContacts);
+  document.getElementById('mrMessage').addEventListener('input', updateChannelsVisibility);
+  document.getElementById('mrSelectAll').addEventListener('click', () => {
+    const visibleEls = Array.from(document.querySelectorAll('#mrContactList .mr-contact'));
+    const visibleKeys = visibleEls.map((el) => el.getAttribute('data-key'));
+    const allSelected = visibleKeys.length > 0 && visibleKeys.every((key) => state.selected.has(key));
+
+    if (allSelected) {
+      visibleKeys.forEach((key) => state.selected.delete(key));
+    } else {
+      visibleEls.forEach((el) => {
+        const key = el.getAttribute('data-key');
+        const contact = state.contacts.find((c) => contactKey(c) === key);
+        if (contact) state.selected.set(key, contact);
+      });
+    }
+    updateRecipientCount();
+    renderContacts();
+  });
+  document.getElementById('mrSendBtn').addEventListener('click', sendMessage);
+
+  // Mobile-only right-side drawer for the contact list — mirrors the same
+  // slide-in-over-a-backdrop pattern used for panels elsewhere in the app,
+  // so it floats on top of the page instead of pushing/expanding it.
+  function openContactsDrawer() {
+    document.getElementById('mrDirectory').classList.add('mr-drawer-open');
+    document.getElementById('mrDrawerBackdrop').classList.add('mr-drawer-open');
+    document.getElementById('mrDirectoryToggle').setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeContactsDrawer() {
+    document.getElementById('mrDirectory').classList.remove('mr-drawer-open');
+    document.getElementById('mrDrawerBackdrop').classList.remove('mr-drawer-open');
+    document.getElementById('mrDirectoryToggle').setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('mrDirectoryToggle').addEventListener('click', openContactsDrawer);
+  document.getElementById('mrDirectoryClose').addEventListener('click', closeContactsDrawer);
+  document.getElementById('mrDrawerBackdrop').addEventListener('click', closeContactsDrawer);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeContactsDrawer();
+  });
+
+  loadChannelStatus();
+  loadContacts();
+  loadHistory();
+})();
+</script>

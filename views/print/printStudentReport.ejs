@@ -2714,14 +2714,7 @@
                                 <span class="download-btn-spinner" aria-hidden="true"></span>
                                 <span class="download-btn-label">Download PDF</span>
                             </a>
-                            <a href="#" class="btn btn-primary email-btn" onclick="openEmailModal(); return false;"><span class="icon">📧</span>Send by Email</a>
-                            <% if (canSendByWhatsapp) { %>
-                            <a href="#" class="btn btn-primary email-btn" onclick="openWhatsappModal(); return false;"><span class="icon">💬</span>Send by WhatsApp</a>
-                            <% } %>
-                            <a href="#" class="btn btn-success" id="postReportCardsLink" onclick="postReportCards(); return false;">
-                                <span class="post-btn-spinner" aria-hidden="true"></span>
-                                <span class="post-btn-label">Post Report</span>
-                            </a>
+                            <a href="#" class="btn btn-primary email-btn" onclick="openSendReportModal(); return false;"><span class="icon">📤</span>Send Report</a>
                             <a href="/print/emailHistoryPage?classId=<%= classId %>&termId=<%= termId %>" class="btn btn-primary history-btn" data-no-spa>📜 History</a>
                             <% if (activatePromotion) { %>
                             <a href="/promotion/apply" class="btn btn-primary" data-no-spa>Schedule Promotion</a>
@@ -4744,21 +4737,808 @@ function updateClass(studentId) {
         }
     }
 
-    // ===== WHATSAPP MODAL =====
-    function openWhatsappModal() {
+    // ===== SEND REPORT (post + notify, one flow) =====
+    let sendReportContext = null;
+
+    function countSmsSegmentsClient(text) {
+        const isGsm7 = /^[\x00-\x7F]*$/.test(text);
+        const singleLimit = isGsm7 ? 160 : 70;
+        const partLimit = isGsm7 ? 153 : 67;
+        const length = text.length;
+        if (length === 0) return { length: 0, segments: 0, encoding: isGsm7 ? 'GSM-7' : 'UCS-2' };
+        const segments = length <= singleLimit ? 1 : Math.ceil(length / partLimit);
+        return { length, segments, encoding: isGsm7 ? 'GSM-7' : 'UCS-2' };
+    }
+
+    function ensureSendReportModal() {
+        if (document.getElementById('sendReportModal')) return document.getElementById('sendReportModal');
+
+        const overlay = document.createElement('div');
+        overlay.id = 'sendReportModal';
+        overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:5000;align-items:center;justify-content:center;padding:16px;';
+        overlay.innerHTML = `
+          <div style="background:#fff;border-radius:14px;max-width:460px;width:100%;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,0.25);font-family:inherit;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+              <h3 style="margin:0;font-size:16px;color:#0f172a;">Send Report</h3>
+              <button type="button" id="srClose" style="border:none;background:#f1f5f9;color:#475569;width:28px;height:28px;border-radius:50%;font-size:15px;cursor:pointer;">x</button>
+            </div>
+            <p id="srScope" style="margin:0 0 12px;font-size:12.5px;color:#64748b;">Checking recipients...</p>
+
+            <label style="display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:10px;background:#f8fafc;cursor:pointer;">
+              <input type="checkbox" id="srPostToggle" checked style="width:16px;height:16px;" />
+              <span id="srPostLabel" style="font-size:13px;font-weight:600;color:#334155;">Post to Parent + Student portal</span>
+            </label>
+
+            <div style="font-size:12.5px;font-weight:600;color:#475569;margin-bottom:6px;">Notify via</div>
+            <div id="srChannelRow" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;font-size:13px;"></div>
+
+            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin-bottom:4px;">Message</label>
+            <textarea id="srMessage" rows="4" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;font:inherit;font-size:13.5px;resize:vertical;"></textarea>
+            <small id="srCounter" style="display:none;margin:4px 0 12px;color:#94a3b8;font-size:11.5px;"></small>
+
+            <label style="display:block;font-size:12.5px;font-weight:600;color:#475569;margin:10px 0 4px;">Confirm Password</label>
+            <input type="password" id="srPassword" placeholder="Enter your password" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid #e2e8f0;border-radius:8px;font:inherit;font-size:13.5px;margin-bottom:14px;" />
+
+            <div style="display:flex;gap:10px;align-items:center;">
+              <button type="button" id="srSend" style="background:var(--primary,#01535b);color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:600;font-size:13.5px;cursor:pointer;">Send</button>
+              <small id="srStatus" style="color:#64748b;font-size:12.5px;"></small>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#srClose').addEventListener('click', closeSendReportModal);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSendReportModal(); });
+        overlay.querySelector('#srSend').addEventListener('click', submitSendReport);
+        overlay.querySelector('#srMessage').addEventListener('input', updateSendReportCounter);
+        overlay.addEventListener('change', (e) => {
+            if (e.target.name === 'srChannel') updateSendReportCounter();
+        });
+        overlay.addEventListener('click', (e) => {
+            const link = e.target.closest('.sr-edit-contacts-link');
+            if (!link) return;
+            e.preventDefault();
+            openSendReportDrawer(link.dataset.type);
+        });
+        return overlay;
+    }
+
+    let srEmailContactsLoaded = false;
+    let srPhoneContactsLoaded = false;
+
+    // ===== Right-side slide-in drawer for editing email/phone contacts =====
+    function ensureSendReportDrawer() {
+        if (document.getElementById('srDrawerBackdrop')) {
+            return {
+                backdrop: document.getElementById('srDrawerBackdrop'),
+                panel: document.getElementById('srDrawerPanel'),
+            };
+        }
+
+        const backdrop = document.createElement('div');
+        backdrop.id = 'srDrawerBackdrop';
+        backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.45);opacity:0;pointer-events:none;transition:opacity 0.2s ease;z-index:5100;';
+
+        const panel = document.createElement('div');
+        panel.id = 'srDrawerPanel';
+        panel.style.cssText = 'position:fixed;top:0;right:0;height:100%;width:min(420px,92vw);background:#fff;box-shadow:-12px 0 32px rgba(15,23,42,0.18);transform:translateX(100%);transition:transform 0.25s ease;z-index:5101;display:flex;flex-direction:column;overflow-y:auto;font-family:inherit;';
+        panel.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;background:#fff;">
+            <h3 id="srDrawerTitle" style="margin:0;font-size:16px;color:#0f172a;">Edit contacts</h3>
+            <button type="button" id="srDrawerClose" style="border:none;background:#f1f5f9;color:#475569;width:30px;height:30px;border-radius:50%;font-size:15px;cursor:pointer;flex-shrink:0;">x</button>
+          </div>
+          <div id="srDrawerBody" style="padding:16px 20px 28px;flex:1;"></div>
+          <div id="srDrawerStatus" style="display:none;margin:0 20px 14px;padding:11px 13px;border-radius:8px;font-size:12.5px;line-height:1.5;"></div>
+          <div style="padding:14px 20px;border-top:1px solid #e2e8f0;position:sticky;bottom:0;background:#fff;">
+            <button type="button" id="srDrawerDone" style="width:100%;background:var(--primary,#01535b);color:#fff;border:none;border-radius:8px;padding:10px;font-weight:600;font-size:13.5px;cursor:pointer;">Done</button>
+          </div>
+        `;
+
+        document.body.appendChild(backdrop);
+        document.body.appendChild(panel);
+
+        backdrop.addEventListener('click', handleSendReportDrawerDone);
+        panel.querySelector('#srDrawerClose').addEventListener('click', handleSendReportDrawerDone);
+        panel.querySelector('#srDrawerDone').addEventListener('click', handleSendReportDrawerDone);
+
+        return { backdrop, panel };
+    }
+
+    let srDrawerCurrentType = null;
+    // rowId -> { studentId, guardianId, source, value } as originally loaded,
+    // so Done can tell added/edited/removed apart without re-fetching.
+    let srDrawerOriginalSnapshot = new Map();
+    let srDrawerRowSeq = 0;
+
+    // Detects which rows were added / edited / removed (vs. what was
+    // loaded), shows the school exactly what's changing and who it affects,
+    // requires a password, then shows a status banner that must be
+    // acknowledged (OK button) before the drawer will close — so a save
+    // failure is never silently missed. Only added/edited values are
+    // persisted to the guardian record; removing a row only drops it from
+    // this send, it does not delete anything from the guardian's record.
+    async function handleSendReportDrawerDone() {
+        const panel = document.getElementById('srDrawerPanel');
+        const type = srDrawerCurrentType;
+        const statusEl = panel.querySelector('#srDrawerStatus');
+        statusEl.style.display = 'none';
+
+        const added = [];
+        const edited = [];
+        const changes = [];
+        const recipientLines = [];
+        let newUnsavable = 0;
+        const remainingRowIds = new Set(srDrawerOriginalSnapshot.keys());
+
+        panel.querySelectorAll('.sr-contact-row').forEach((row) => {
+            const rowId = row.getAttribute('data-row-id');
+            remainingRowIds.delete(rowId);
+            const input = row.querySelector('.sr-value-input');
+            const currentValue = input.value.replace(/\s+/g, '').trim();
+            const guardianId = row.getAttribute('data-guardian-id');
+            const source = row.getAttribute('data-source');
+            const original = srDrawerOriginalSnapshot.get(rowId);
+            if (!currentValue) return;
+
+            const studentName = row.closest('.sr-contact-card')?.querySelector('.sr-contact-card-name')?.textContent || 'Student';
+            if (!original) {
+                added.push({ studentName, value: currentValue });
+            } else if (currentValue.toLowerCase() !== original.value.toLowerCase()) {
+                edited.push({ studentName, from: original.value, to: currentValue });
+            } else {
+                return;
+            }
+
+            if (guardianId && source) {
+                changes.push({ guardianId, source, value: currentValue });
+            } else {
+                newUnsavable += 1;
+            }
+            if (row.querySelector('.sr-include-checkbox').checked) {
+                recipientLines.push(`${studentName}: ${currentValue}`);
+            }
+        });
+
+        const removed = Array.from(remainingRowIds)
+            .map((rowId) => srDrawerOriginalSnapshot.get(rowId))
+            .filter((entry) => entry && entry.value);
+
+        if (!added.length && !edited.length && !removed.length) {
+            closeSendReportDrawer();
+            return;
+        }
+
+        const label = type === 'email' ? 'email address' : 'phone number';
+        const parts = [];
+        if (added.length) parts.push(`${added.length} added`);
+        if (edited.length) parts.push(`${edited.length} edited`);
+        if (removed.length) parts.push(`${removed.length} removed (this send only — not deleted from the guardian record)`);
+        const recipientSummary = recipientLines.length
+            ? `\n\nWill be used for:\n${recipientLines.slice(0, 8).join('\n')}${recipientLines.length > 8 ? `\n...and ${recipientLines.length - 8} more` : ''}`
+            : '';
+        const proceed = confirm(`${label} changes: ${parts.join(', ')}.${recipientSummary}\n\nSave the added/edited entries to the guardian's record so you don't have to re-enter them next time?`);
+        if (!proceed) {
+            closeSendReportDrawer();
+            return;
+        }
+
+        if (!changes.length) {
+            if (newUnsavable) {
+                alert(`${newUnsavable} new ${label}(s) will only be used for this send — there's no existing guardian record to save ${newUnsavable === 1 ? 'it' : 'them'} to.`);
+            }
+            closeSendReportDrawer();
+            return;
+        }
+
+        const password = prompt('Enter your password to confirm these changes:');
+        if (!password) {
+            closeSendReportDrawer();
+            return;
+        }
+
+        const doneBtn = panel.querySelector('#srDrawerDone');
+        doneBtn.disabled = true;
+        doneBtn.textContent = 'Saving...';
+
+        try {
+            const res = await fetch('/account/messaging/saveContacts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ type, changes, password }),
+            });
+            const data = await res.json().catch(() => ({}));
+            statusEl.style.display = 'block';
+            if (!res.ok || !data.success) {
+                statusEl.style.background = '#fef2f2';
+                statusEl.style.color = '#b91c1c';
+                statusEl.style.border = '1px solid #fecaca';
+                statusEl.innerHTML = `${escapeHtmlClient(data.message || 'Unable to save changes.')}<br><button type="button" onclick="closeSendReportDrawer()" style="margin-top:8px;background:#fff;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">OK</button>`;
+            } else {
+                statusEl.style.background = '#f0fdf4';
+                statusEl.style.color = '#166534';
+                statusEl.style.border = '1px solid #bbf7d0';
+                statusEl.innerHTML = `${escapeHtmlClient(data.message || 'Saved.')}<br><button type="button" onclick="closeSendReportDrawer()" style="margin-top:8px;background:#fff;border:1px solid #bbf7d0;color:#166534;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">OK</button>`;
+            }
+        } catch (error) {
+            statusEl.style.display = 'block';
+            statusEl.style.background = '#fef2f2';
+            statusEl.style.color = '#b91c1c';
+            statusEl.style.border = '1px solid #fecaca';
+            statusEl.innerHTML = `Network error — changes were not saved.<br><button type="button" onclick="closeSendReportDrawer()" style="margin-top:8px;background:#fff;border:1px solid #fecaca;color:#b91c1c;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;">OK</button>`;
+        } finally {
+            doneBtn.disabled = false;
+            doneBtn.textContent = 'Done';
+        }
+    }
+
+    function escapeHtmlClient(str) {
+        return String(str || '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function closeSendReportDrawer() {
+        const backdrop = document.getElementById('srDrawerBackdrop');
+        const panel = document.getElementById('srDrawerPanel');
+        if (backdrop) { backdrop.style.opacity = '0'; backdrop.style.pointerEvents = 'none'; }
+        if (panel) panel.style.transform = 'translateX(100%)';
+    }
+
+    function openSendReportDrawer(type) {
+        const { backdrop, panel } = ensureSendReportDrawer();
+        srDrawerCurrentType = type;
+        panel.querySelector('#srDrawerTitle').textContent = type === 'email' ? 'Edit email addresses' : 'Edit phone numbers';
+        panel.querySelector('#srDrawerStatus').style.display = 'none';
+        backdrop.style.opacity = '1';
+        backdrop.style.pointerEvents = 'auto';
+        panel.style.transform = 'translateX(0)';
+
+        // The drawer body is shared between the email and phone panels.
+        // innerHTML='' here would destroy the other type's cache div, and
+        // document.getElementById can't find a node once it's detached from
+        // the document — so the cache lives in the srEmailListCacheEl /
+        // srPhoneListCacheEl variables below, not by id lookup after removal.
+        const body = panel.querySelector('#srDrawerBody');
+        body.textContent = '';
+
+        if (type === 'email') {
+            if (!srEmailContactsLoaded) {
+                srEmailContactsLoaded = true;
+                loadSendReportEmailContacts(body);
+            } else if (srEmailListCacheEl) {
+                body.appendChild(srEmailListCacheEl);
+            }
+        } else if (!srPhoneContactsLoaded) {
+            srPhoneContactsLoaded = true;
+            loadSendReportPhoneContacts(body);
+        } else if (srPhoneListCacheEl) {
+            body.appendChild(srPhoneListCacheEl);
+        }
+    }
+
+    function isValidEmailClient(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    function isValidPhoneClient(phone) {
+        return /^\+[1-9]\d{7,14}$/.test(String(phone || '').replace(/[()\s-]/g, ''));
+    }
+
+    // Cosmetic grouping only — "+233 24 510 1108" instead of a raw digit
+    // string. Never changes the underlying value; validation/collection
+    // always re-strips spaces first.
+    function formatPhoneDisplay(value) {
+        const raw = String(value || '').trim();
+        if (!raw.startsWith('+')) return raw;
+        const digits = raw.slice(1);
+        const dial = (window.MANAGIRA_DIAL_CODES || [])
+            .map((c) => c.dial)
+            .filter((d) => digits.startsWith(d))
+            .sort((a, b) => b.length - a.length)[0];
+        if (!dial) return raw;
+        const rest = digits.slice(dial.length);
+        const groups = rest.match(/.{1,3}/g) || [];
+        return `+${dial} ${groups.join(' ')}`.trim();
+    }
+
+    function ensureSrContactStyles() {
+        if (document.getElementById('srContactStyles')) return;
+        const style = document.createElement('style');
+        style.id = 'srContactStyles';
+        style.textContent = `
+          .sr-contact-card { padding: 12px 2px; border-bottom: 1px solid #f1f5f9; }
+          .sr-contact-card:last-child { border-bottom: none; }
+          .sr-contact-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-width: 0; }
+          .sr-contact-card-name { font-weight: 600; font-size: 13.5px; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
+          .sr-add-link { display: flex; align-items: center; justify-content: center; background: none; border: none; color: #01535b; cursor: pointer; padding: 0; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 6px; margin-left: auto; }
+          .sr-add-link:hover { background: #f0fdf4; }
+          .sr-add-link svg { width: 15px; height: 15px; }
+          .sr-contact-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; width: 100%; box-sizing: border-box; }
+          .sr-contact-row.sr-row-invalid .sr-value-input { border-color: #b91c1c; }
+          .sr-include-checkbox { width: 15px; height: 15px; flex: 0 0 15px; accent-color: #01535b; }
+          .sr-value-input { flex: 1 1 auto; min-width: 0; width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid #e2e8f0; border-radius: 7px; font: inherit; font-size: 13px; color: #0f172a; background: #fff; }
+          .sr-sent-badge { font-size: 10px; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 5px; padding: 2px 6px; white-space: nowrap; flex: 0 0 auto; }
+          .sr-delete-btn { display: flex; align-items: center; justify-content: center; border: none; background: none; color: #94a3b8; cursor: pointer; padding: 0; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 6px; line-height: 1; }
+          .sr-delete-btn:hover { color: #b91c1c; background: #fef2f2; }
+          .sr-delete-btn svg { width: 14px; height: 14px; }
+          .sr-row-error { display: none; font-size: 11px; color: #b91c1c; margin: -2px 0 4px 27px; }
+          .sr-primary-badge { font-size: 10px; font-weight: 700; color: #01535b; background: #e5f3f4; border: 1px solid #bcdfe1; border-radius: 5px; padding: 2px 6px; white-space: nowrap; flex: 0 0 auto; }
+          .sr-make-primary-btn { font-size: 10px; font-weight: 600; color: #94a3b8; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 2px 6px; white-space: nowrap; flex: 0 0 auto; cursor: pointer; }
+          .sr-make-primary-btn:hover { color: #01535b; border-color: #bcdfe1; background: #f0fdf4; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // position 0 in a card's row list is always "Primary" (used first for
+    // sends); others show their position and can be promoted via the button.
+    function srContactRowHtml(studentId, value, guardianId, source, type, rowId, position) {
+        const escapedValue = String(value || '').replace(/"/g, '&quot;');
+        const displayValue = type === 'phone' ? formatPhoneDisplay(value) : value;
+        const escapedDisplay = String(displayValue || '').replace(/"/g, '&quot;');
+        const inputType = type === 'email' ? 'email' : 'tel';
+        const placeholder = type === 'email' ? 'Enter email address' : 'Enter number with country code (e.g. +233...)';
+        const orderBadge = position === 0
+            ? `<span class="sr-primary-badge" title="Used first for this student">Primary</span>`
+            : `<button type="button" class="sr-make-primary-btn" title="Make primary">#${position + 1}</button>`;
+        return `<div data-row-id="${rowId}">
+            <div class="sr-contact-row" data-row-id="${rowId}" data-original-value="${escapedValue}" data-guardian-id="${guardianId || ''}" data-source="${source || ''}">
+                <input type="checkbox" class="sr-include-checkbox" checked title="Include in this send">
+                ${orderBadge}
+                <input type="${inputType}" value="${escapedDisplay}" class="sr-value-input sr-${type}-input" data-student-id="${studentId}" placeholder="${placeholder}">
+                <span class="sr-sent-badge" style="display:none;">Already sent</span>
+                <button type="button" class="sr-delete-btn" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg></button>
+            </div>
+            <div class="sr-row-error"></div>
+        </div>`;
+    }
+
+    // Moving a row to the top of its card promotes it to "Primary" — this
+    // order is what gets used (and re-sent) first for that student.
+    function promoteSrRow(rowWrapper) {
+        const fieldsContainer = rowWrapper.parentElement;
+        if (!fieldsContainer) return;
+        fieldsContainer.prepend(rowWrapper);
+        refreshSrRowBadges(fieldsContainer);
+    }
+
+    function refreshSrRowBadges(fieldsContainer) {
+        if (!fieldsContainer) return;
+        Array.from(fieldsContainer.children).forEach((wrapper, idx) => {
+            const row = wrapper.querySelector('.sr-contact-row');
+            const oldBadge = row?.querySelector('.sr-primary-badge, .sr-make-primary-btn');
+            if (!row || !oldBadge) return;
+            if (idx === 0) {
+                const span = document.createElement('span');
+                span.className = 'sr-primary-badge';
+                span.title = 'Used first for this student';
+                span.textContent = 'Primary';
+                oldBadge.replaceWith(span);
+            } else {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'sr-make-primary-btn';
+                btn.title = 'Make primary';
+                btn.textContent = `#${idx + 1}`;
+                btn.addEventListener('click', () => promoteSrRow(wrapper));
+                oldBadge.replaceWith(btn);
+            }
+        });
+    }
+
+    function bindSrContactRow(rowWrapper, type) {
+        const row = rowWrapper.querySelector('.sr-contact-row');
+        const input = rowWrapper.querySelector('.sr-value-input');
+        const errorEl = rowWrapper.querySelector('.sr-row-error');
+        const deleteBtn = rowWrapper.querySelector('.sr-delete-btn');
+        const makePrimaryBtn = rowWrapper.querySelector('.sr-make-primary-btn');
+        if (makePrimaryBtn) makePrimaryBtn.addEventListener('click', () => promoteSrRow(rowWrapper));
+
+        const validate = () => {
+            const val = input.value.replace(/\s+/g, '').trim();
+            if (!val) { row.classList.remove('sr-row-invalid'); errorEl.style.display = 'none'; return; }
+            const ok = type === 'email' ? isValidEmailClient(val) : isValidPhoneClient(val);
+            const card = rowWrapper.closest('.sr-contact-card');
+            const siblingValues = card
+                ? Array.from(card.querySelectorAll('.sr-value-input'))
+                    .filter((el) => el !== input)
+                    .map((el) => el.value.replace(/\s+/g, '').toLowerCase())
+                : [];
+            const isDuplicate = siblingValues.includes(val.toLowerCase());
+            if (!ok) {
+                row.classList.add('sr-row-invalid');
+                errorEl.textContent = type === 'email' ? 'Doesn’t look like a valid email.' : 'Needs a country code, e.g. +233...';
+                errorEl.style.display = 'block';
+            } else if (isDuplicate) {
+                row.classList.add('sr-row-invalid');
+                errorEl.textContent = 'Duplicate — already listed for this student.';
+                errorEl.style.display = 'block';
+            } else {
+                row.classList.remove('sr-row-invalid');
+                errorEl.style.display = 'none';
+            }
+        };
+
+        input.addEventListener('blur', validate);
+        input.addEventListener('input', () => { if (row.classList.contains('sr-row-invalid')) validate(); });
+
+        deleteBtn.addEventListener('click', () => {
+            if (input.value.trim() && !confirm('Remove this number/address from the send?')) return;
+            const fieldsContainer = rowWrapper.parentElement;
+            rowWrapper.remove();
+            refreshSrRowBadges(fieldsContainer);
+        });
+    }
+
+    let srEmailListCacheEl = null;
+    let srPhoneListCacheEl = null;
+
+    function makeDrawerCacheContainer(id, drawerBody) {
+        const el = document.createElement('div');
+        el.id = id;
+        drawerBody.appendChild(el);
+        return el;
+    }
+
+    function loadSendReportEmailContacts(drawerBody) {
+        ensureSrContactStyles();
+        const container = makeDrawerCacheContainer('srEmailListCache', drawerBody);
+        srEmailListCacheEl = container;
+        container.innerHTML = '<p style="color:#94a3b8;font-size:12px;margin:4px 0;">Loading email addresses...</p>';
+        const studentIds = sendReportContext.studentIds;
+        fetch(`/print/getGuardianEmails?classId=${sendReportContext.classId}&termId=${sendReportContext.termId}&studentIds=${studentIds.join(',')}`)
+            .then((r) => r.json())
+            .then((data) => {
+                if (!data.success) { container.innerHTML = '<p style="color:#b91c1c;font-size:12px;">Failed to load emails.</p>'; return; }
+                renderSendReportContactList(container, data.students, 'email', (s) => s.emails || [], (e) => ({ value: e.email, guardianId: e.guardianId, source: e.source }));
+                applySrSentStatus('email');
+            })
+            .catch(() => { container.innerHTML = '<p style="color:#b91c1c;font-size:12px;">Error fetching emails.</p>'; });
+    }
+
+    function loadSendReportPhoneContacts(drawerBody) {
+        ensureSrContactStyles();
+        const container = makeDrawerCacheContainer('srPhoneListCache', drawerBody);
+        srPhoneListCacheEl = container;
+        container.innerHTML = '<p style="color:#94a3b8;font-size:12px;margin:4px 0;">Loading phone numbers...</p>';
+        const studentIds = sendReportContext.studentIds;
+        fetch(`/print/getGuardianWhatsappNumbers?classId=${sendReportContext.classId}&termId=${sendReportContext.termId}&studentIds=${studentIds.join(',')}`, {
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                if (!data.success) { container.innerHTML = '<p style="color:#b91c1c;font-size:12px;">Failed to load numbers.</p>'; return; }
+                renderSendReportContactList(container, data.students, 'phone', (s) => s.phones || [], (p) => ({ value: p.normalizedPhone || p.phone, guardianId: p.guardianId, source: p.source }));
+                // Numbers can come from either SMS or WhatsApp — check both.
+                applySrSentStatus('sms');
+                applySrSentStatus('whatsapp');
+            })
+            .catch(() => { container.innerHTML = '<p style="color:#b91c1c;font-size:12px;">Error fetching numbers.</p>'; });
+    }
+
+    function applySrSentStatus(channel) {
+        const type = channel === 'email' ? 'email' : 'phone';
+        fetch('/account/messaging/sentStatus', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ classId: sendReportContext.classId, termId: sendReportContext.termId, studentIds: sendReportContext.studentIds, channel }),
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                if (!data.success) return;
+                Object.entries(data.sentByStudentId || {}).forEach(([studentId, sentValues]) => {
+                    const card = document.querySelector(`.sr-${type}-student-row[data-student-id="${studentId}"]`);
+                    if (!card) return;
+                    card.querySelectorAll('.sr-contact-row').forEach((row) => {
+                        const input = row.querySelector('.sr-value-input');
+                        const raw = (row.getAttribute('data-original-value') || input.value || '').replace(/\s+/g, '').toLowerCase();
+                        if (!raw || !sentValues.some((v) => String(v).toLowerCase() === raw)) return;
+                        row.querySelector('.sr-sent-badge').style.display = 'inline-block';
+                        row.querySelector('.sr-include-checkbox').checked = false;
+                    });
+                });
+            })
+            .catch(() => {});
+    }
+
+    function renderSendReportContactList(container, students, type, getEntries, getMeta) {
+        if (!students || !students.length) {
+            container.innerHTML = '<p style="color:#94a3b8;font-size:12px;">No students selected.</p>';
+            return;
+        }
+        let html = '';
+        students.forEach((s) => {
+            const unique = [];
+            getEntries(s).forEach((entry) => {
+                const meta = getMeta(entry) || {};
+                const value = String(meta.value || '').trim();
+                if (value && !unique.some((x) => x.value.toLowerCase() === value.toLowerCase())) {
+                    unique.push({ value, guardianId: meta.guardianId || null, source: meta.source || null });
+                }
+            });
+            const name = s.display_name || `${s.first_name || ''} ${s.last_name || ''}`.trim();
+            html += `<div class="sr-contact-card sr-${type}-student-row" data-student-id="${s.student_id}">
+                <div class="sr-contact-card-head">
+                    <span class="sr-contact-card-name">${name}</span>
+                    <button type="button" class="sr-add-link" title="Add" onclick="addSendReportContactField(${s.student_id}, '${type}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                </div>
+                <div id="sr-${type}-fields-${s.student_id}">`;
+            if (unique.length) {
+                unique.forEach((entry, idx) => {
+                    const rowId = `r${++srDrawerRowSeq}`;
+                    srDrawerOriginalSnapshot.set(rowId, { studentId: s.student_id, guardianId: entry.guardianId, source: entry.source, value: entry.value });
+                    html += srContactRowHtml(s.student_id, entry.value, entry.guardianId, entry.source, type, rowId, idx);
+                });
+            } else {
+                html += srContactRowHtml(s.student_id, '', null, null, type, `r${++srDrawerRowSeq}`, 0);
+            }
+            html += `</div></div>`;
+        });
+        container.innerHTML = html;
+        container.querySelectorAll('[id^="sr-' + type + '-fields-"]').forEach((fieldsWrap) => {
+            Array.from(fieldsWrap.children).forEach((rowWrapper) => bindSrContactRow(rowWrapper, type));
+        });
+    }
+
+    function addSendReportContactField(studentId, type) {
+        const container = document.getElementById(`sr-${type}-fields-${studentId}`);
+        if (!container) return;
+        const rowId = `r${++srDrawerRowSeq}`;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = srContactRowHtml(studentId, '', null, null, type, rowId, container.children.length);
+        const rowWrapper = wrapper.firstElementChild;
+        container.appendChild(rowWrapper);
+        bindSrContactRow(rowWrapper, type);
+        refreshSrRowBadges(container);
+    }
+
+    // Collects {studentId: [values]} from an editable panel — only rows
+    // whose "include" checkbox is checked, so unchecking one is how a
+    // school leaves that guardian out of this particular send. Blocks the
+    // whole collection (returns blocked:true) if any INCLUDED row fails
+    // validation — the point of blur-validation is to catch it before Send.
+    function collectSendReportOverrides(type) {
+        const overrides = {};
+        let blocked = false;
+        document.querySelectorAll(`.sr-${type}-student-row`).forEach((card) => {
+            const studentId = card.getAttribute('data-student-id');
+            const values = [];
+            card.querySelectorAll('.sr-contact-row').forEach((row) => {
+                const input = row.querySelector('.sr-value-input');
+                const included = row.querySelector('.sr-include-checkbox').checked;
+                const val = input.value.replace(/\s+/g, '').trim();
+                if (!val || !included) return;
+                const ok = type === 'email' ? isValidEmailClient(val) : isValidPhoneClient(val);
+                if (!ok) blocked = true;
+                values.push(val);
+            });
+            if (values.length) overrides[studentId] = values;
+        });
+        return { overrides, blocked };
+    }
+
+    function closeSendReportModal() {
+        const modal = document.getElementById('sendReportModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function updateSendReportCounter() {
+        const modal = document.getElementById('sendReportModal');
+        const counterEl = modal.querySelector('#srCounter');
+        const smsChecked = modal.querySelector('input[name="srChannel"][value="sms"]:checked');
+        const text = modal.querySelector('#srMessage').value;
+
+        if (!smsChecked) {
+            counterEl.style.display = 'none';
+            return;
+        }
+        const info = countSmsSegmentsClient(text);
+        const segmentLabel = info.segments <= 1 ? '1 SMS segment' : `${info.segments} SMS segments`;
+        counterEl.style.display = 'block';
+        counterEl.textContent = `${info.length} characters - ${segmentLabel} (${info.encoding})`;
+        counterEl.style.color = info.segments > 1 ? '#b91c1c' : '#94a3b8';
+    }
+
+    async function openSendReportModal() {
+        const selectedStudentIds = Array.from(document.querySelectorAll('.student-checkbox:checked'))
+            .map((cb) => cb.getAttribute('data-student-id'))
+            .filter(Boolean);
+        if (!selectedStudentIds.length) {
+            alert('Select at least one student first.');
+            return;
+        }
+
+        sendReportContext = {
+            context: 'report',
+            studentIds: selectedStudentIds,
+            classId: <%= JSON.stringify(classId) %>,
+            termId: <%= JSON.stringify(termId) %>,
+        };
+
+        const modal = ensureSendReportModal();
+        modal.querySelector('#srScope').textContent = 'Checking recipients...';
+        modal.querySelector('#srMessage').value = '';
+        modal.querySelector('#srPassword').value = '';
+        modal.querySelector('#srStatus').textContent = '';
+        modal.querySelector('#srChannelRow').innerHTML = '';
+        modal.querySelector('#srCounter').style.display = 'none';
+        modal.querySelector('#srSend').disabled = true;
+        closeSendReportDrawer();
+        const cachedEmailList = document.getElementById('srEmailListCache');
+        if (cachedEmailList) cachedEmailList.remove();
+        const cachedPhoneList = document.getElementById('srPhoneListCache');
+        if (cachedPhoneList) cachedPhoneList.remove();
+        srEmailListCacheEl = null;
+        srPhoneListCacheEl = null;
+        srEmailContactsLoaded = false;
+        srPhoneContactsLoaded = false;
+        srDrawerOriginalSnapshot.clear();
+        srDrawerRowSeq = 0;
+        modal.style.display = 'flex';
+
+        let data;
+        try {
+            const res = await fetch('/account/messaging/resolve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify(sendReportContext),
+            });
+            data = await res.json();
+        } catch (_) {
+            data = null;
+        }
+
+        if (!data || !data.success) {
+            modal.querySelector('#srScope').textContent = (data && data.message) || 'Unable to load recipients.';
+            modal.querySelector('#srScope').style.color = '#b91c1c';
+            return;
+        }
+
+        modal.querySelector('#srScope').style.color = '#64748b';
+        modal.querySelector('#srScope').textContent = data.recipientDescription || '';
+        modal.querySelector('#srMessage').value = data.defaultMessage || '';
+
+        const postToggle = modal.querySelector('#srPostToggle');
+        const postLabel = modal.querySelector('#srPostLabel');
+        postToggle.checked = true;
+        if (data.posted) {
+            const lastPostedStr = data.postedAt
+                ? new Date(data.postedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+                : '';
+            postLabel.textContent = `Posted to Parent + Student portal ✓${lastPostedStr ? ' — last posted ' + lastPostedStr : ''}`;
+        } else {
+            postLabel.textContent = 'Post to Parent + Student portal';
+        }
+
+        const channelRow = modal.querySelector('#srChannelRow');
+        const channelDefs = [
+            { key: 'email', label: 'Email', editType: 'email' },
+            { key: 'whatsapp', label: 'WhatsApp', editType: 'phone' },
+            { key: 'sms', label: data.channels?.sms?.providerLabel ? `SMS (${data.channels.sms.providerLabel})` : 'SMS', editType: 'phone' },
+        ];
+        const available = channelDefs.filter((c) => data.channels?.[c.key]?.ready);
+
+        if (!available.length) {
+            channelRow.innerHTML = '<span style="color:#b91c1c;">No notification channel is active. You can still post to the portal.</span>';
+        } else {
+            // SMS and WhatsApp share the same phone numbers, so only the
+            // first row of that type gets an "Edit" link — a second one
+            // pointed at the same drawer was redundant (and confusing).
+            const seenEditTypes = new Set();
+            channelRow.innerHTML = available
+                .map((c) => {
+                    const showEdit = !seenEditTypes.has(c.editType);
+                    seenEditTypes.add(c.editType);
+                    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                      <input type="checkbox" name="srChannel" value="${c.key}" /> ${c.label}
+                    </label>
+                    ${showEdit ? `<a href="#" class="sr-edit-contacts-link" data-type="${c.editType}" style="font-size:11.5px;color:#01535b;font-weight:600;text-decoration:none;">Edit</a>` : ''}
+                  </div>`;
+                })
+                .join('');
+        }
+
+        modal.querySelector('#srSend').disabled = !data.recipientCount;
+        updateSendReportCounter();
+    }
+
+    async function submitSendReport() {
+        const modal = document.getElementById('sendReportModal');
+        const statusEl = modal.querySelector('#srStatus');
+        const sendBtn = modal.querySelector('#srSend');
+        const message = modal.querySelector('#srMessage').value.trim();
+        const password = modal.querySelector('#srPassword').value;
+        const channels = Array.from(modal.querySelectorAll('input[name="srChannel"]:checked')).map((el) => el.value);
+        const post = modal.querySelector('#srPostToggle').checked;
+
+        if (!post && !channels.length) { statusEl.textContent = 'Nothing to do — post to the portal or pick a channel.'; statusEl.style.color = '#b91c1c'; return; }
+        if (channels.length && !message) { statusEl.textContent = 'Type a message first.'; statusEl.style.color = '#b91c1c'; return; }
+        if (!password) { statusEl.textContent = 'Enter your password.'; statusEl.style.color = '#b91c1c'; return; }
+
+        // Only send edited-contact overrides for channels the user actually
+        // opened the "edit contacts" drawer for — otherwise the server just
+        // uses the guardian numbers/emails on file, as normal. Blur
+        // validation already caught bad rows, so a blocked collection here
+        // means an invalid row is still checked "include" — stop the send.
+        let emailOverrides = null;
+        let phoneOverrides = null;
+        let blocked = false;
+        if (channels.includes('email') && srEmailContactsLoaded) {
+            const result = collectSendReportOverrides('email');
+            emailOverrides = result.overrides;
+            blocked = blocked || result.blocked;
+        }
+        if ((channels.includes('sms') || channels.includes('whatsapp')) && srPhoneContactsLoaded) {
+            const result = collectSendReportOverrides('phone');
+            phoneOverrides = result.overrides;
+            blocked = blocked || result.blocked;
+        }
+        if (blocked) {
+            statusEl.textContent = 'Fix the highlighted email/phone entries before sending.';
+            statusEl.style.color = '#b91c1c';
+            return;
+        }
+
+        const editedNote = (emailOverrides || phoneOverrides) ? ' using your edited contact list' : '';
+        const scopeText = modal.querySelector('#srScope').textContent || 'the selected recipients';
+        const actionParts = [];
+        if (channels.length) actionParts.push(`send via ${channels.join(', ')}`);
+        if (post) actionParts.push('post to the portal');
+        const confirmMsg = `Confirm: ${actionParts.join(' and ')} to ${scopeText}${editedNote}?`;
+        if (!confirm(confirmMsg)) return;
+
+        sendBtn.disabled = true;
+        const previousLabel = sendBtn.textContent;
+        sendBtn.textContent = 'Sending...';
+        statusEl.style.color = '#64748b';
+        statusEl.textContent = channels.length ? 'Posting and sending...' : 'Posting...';
+
+        try {
+            const res = await fetch('/account/messaging/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ ...sendReportContext, channels, password, message, post, emailOverrides, phoneOverrides }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                statusEl.textContent = data.message || 'Send failed.';
+                statusEl.style.color = '#b91c1c';
+                return;
+            }
+            statusEl.textContent = data.message || 'Done.';
+            statusEl.style.color = '#166534';
+            setTimeout(closeSendReportModal, 2400);
+        } catch (error) {
+            statusEl.textContent = 'Network error — please try again.';
+            statusEl.style.color = '#b91c1c';
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = previousLabel || 'Send';
+        }
+    }
+
+    // ===== WHATSAPP MODAL (legacy, unused now that Send Report replaces it) =====
+    let currentSendChannel = 'whatsapp';
+
+    function openWhatsappModal(channel) {
+        currentSendChannel = channel === 'sms' ? 'sms' : 'whatsapp';
+        const channelLabel = currentSendChannel === 'sms' ? 'SMS' : 'WhatsApp';
+
         const hasUnsavedChanges = checkForUnsavedChanges();
         if (hasUnsavedChanges) {
-            const proceed = confirm('⚠️ WARNING: You may have unsaved changes to the report cards.\n\nPlease save report changes before sending to WhatsApp.\n\nClick OK to continue, or Cancel to return.');
+            const proceed = confirm(`⚠️ WARNING: You may have unsaved changes to the report cards.\n\nPlease save report changes before sending by ${channelLabel}.\n\nClick OK to continue, or Cancel to return.`);
             if (!proceed) return;
         }
 
         const selected = document.querySelectorAll('.student-checkbox:checked');
         if (selected.length === 0) {
-            alert('Please select at least one student to send by WhatsApp.');
+            alert(`Please select at least one student to send by ${channelLabel}.`);
             return;
         }
 
         const studentIds = Array.from(selected).map((cb) => cb.getAttribute('data-student-id'));
+
+        const titleEl = document.getElementById('whatsappModalTitle');
+        if (titleEl) titleEl.textContent = `Send Reports by ${channelLabel}`;
+        const sendBtn = document.getElementById('whatsappSendBtn');
+        if (sendBtn) sendBtn.textContent = 'Send Reports';
 
         document.getElementById('whatsappModal').style.display = 'flex';
         document.getElementById('whatsappRecipientCount').textContent = `${selected.length} student${selected.length === 1 ? '' : 's'} selected`;
@@ -4998,21 +5778,22 @@ function updateClass(studentId) {
             return;
         }
 
+        const channelLabel = currentSendChannel === 'sms' ? 'SMS' : 'WhatsApp';
         sendBtn.disabled = true;
         sendBtn.textContent = 'Sending...';
-        statusEl.textContent = 'Sending reports by WhatsApp, please wait...';
+        statusEl.textContent = `Sending reports by ${channelLabel}, please wait...`;
         statusEl.style.color = '#666';
 
         try {
-            const response = await fetch('/print/whatsappReports', {
+            const endpoint = currentSendChannel === 'sms' ? '/print/smsReports' : '/print/whatsappReports';
+            const payload = currentSendChannel === 'sms'
+                ? { classId: <%= classId %>, termId: <%= termId %>, password, smsData: whatsappData }
+                : { classId: <%= classId %>, termId: <%= termId %>, password, whatsappData };
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    classId: <%= classId %>,
-                    termId: <%= termId %>,
-                    password,
-                    whatsappData,
-                }),
+                body: JSON.stringify(payload),
             });
 
             const result = await response.json();
@@ -5047,6 +5828,8 @@ function updateClass(studentId) {
                 }
             });
         </script>
+
+        <script src="/js/guardianBroadcast.js"></script>
 
     <!-- Email Modal -->
     <div id="emailModal" class="email-modal-overlay">
@@ -5088,7 +5871,7 @@ function updateClass(studentId) {
             <div class="email-modal-header">
                 <div>
                     <p id="whatsappRecipientCount" class="email-modal-subtitle">Preparing recipients...</p>
-                    <h3 class="email-modal-title">Send Reports by WhatsApp</h3>
+                    <h3 class="email-modal-title" id="whatsappModalTitle">Send Reports by WhatsApp</h3>
                 </div>
                 <button class="email-close-btn" onclick="closeWhatsappModal()">✕</button>
             </div>

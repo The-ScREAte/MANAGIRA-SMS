@@ -130,7 +130,7 @@
       background: #fff;
       border-top: 1px solid #e2e8f0;
       box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.06);
-      padding: 10px 20px calc(10px + env(safe-area-inset-bottom, 0px));
+      padding: 6px 14px calc(6px + env(safe-area-inset-bottom, 0px));
     }
 
     .employee-actions-row {
@@ -138,31 +138,50 @@
       justify-content: flex-start !important;
       flex-wrap: nowrap;
       gap: 8px;
-      align-items: stretch;
+      align-items: center;
       overflow-x: auto;
       max-width: 1180px;
       margin: 0 auto;
     }
     .employee-actions-row > * {
       flex: 0 0 auto !important;
-      margin: 0 !important;
     }
+    /* manageClassSubjectAndGradYr.css ships a global `form { margin-top:
+       10px; }` rule that leaks onto every <form> on every page, including
+       these action buttons — pin margin-top to 0 here so it can't push
+       Hold Employee/Delete out of line with Save Changes again. */
     .employee-action-form {
-      margin: 0 !important;
       width: auto !important;
       display: inline-flex !important;
-      align-items: stretch;
+      align-items: center;
       flex: 0 0 auto !important;
-    }
-    .employee-actions-row .employee-action-form:last-child {
-      margin-left: 0 !important;
+      margin-top: 0 !important;
     }
     .employee-action-form .btn {
-      height: 100%;
-      padding: 0 8px;
+      height: 34px;
+      padding: 0 10px;
+    }
+    /* All three actions (Save, Hold, Delete) share one look — white with a
+       border in the org's theme color, and the same fixed height — so they
+       read as one aligned, consistent button group. */
+    .employee-actions-row .btn {
+      background-color: #fff !important;
+      color: var(--org-primary-color) !important;
+      border: 1.5px solid var(--org-primary-color) !important;
+      box-shadow: none !important;
+      height: 34px;
+      margin: 0;
+      font-size: 0.84rem;
+    }
+    .employee-actions-row .btn:hover {
+      background-color: var(--org-primary-soft, rgba(1, 83, 91, 0.08)) !important;
     }
     #saveEmployeeBtn {
-      padding: 0 8px;
+      width: auto;
+      min-width: 0;
+      flex: 0 0 auto;
+      padding: 0 10px;
+      height: 34px;
     }
     .employee-save-btn-text {
       white-space: nowrap;
@@ -221,34 +240,22 @@
       background-color: #b91c1c;
       border-color: #b91c1c;
     }
-    .employee-actions-row .btn.btn-danger {
-      background-color: #dc2626 !important;
-      border-color: #dc2626 !important;
-      color: #fff !important;
-    }
     .employee-actions-row .employee-delete-action {
       display: inline-flex !important;
       align-items: center !important;
       justify-content: center !important;
       width: 34px !important;
       min-width: 34px !important;
-      min-height: 32px !important;
+      height: 34px !important;
       padding: 0 !important;
       opacity: 1 !important;
       visibility: visible !important;
-      background-color: #dc2626 !important;
-      border-color: #dc2626 !important;
-      color: #fff !important;
     }
     .employee-actions-row .employee-delete-action svg {
       display: block;
       width: 16px;
       height: 16px;
-      stroke: #fff;
-    }
-    .employee-actions-row .btn.btn-danger:hover {
-      background-color: #b91c1c !important;
-      border-color: #b91c1c !important;
+      stroke: var(--org-primary-color);
     }
     .modify-employee-card .btn-warning {
         background-color: var(--btn-warning-bg, #f59e0b);
@@ -464,6 +471,26 @@
         </div>
         <div style="margin-top:8px; color:#64748b; font-size:12px;" id="permissionsNote">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
         <div style="margin-top:8px; color:#64748b; font-size:12px; display:none;" id="driverPermissionsNote">Drivers automatically get access to view and manage the student roster only — no other permissions can be granted from this form.</div>
+
+        <div id="mailroomScopePanel" style="display:none; margin-top:12px; padding:12px 14px; background:#fff; border:1px solid #e2e8f0; border-radius:8px;">
+          <div style="font-size:12.5px; font-weight:700; color:#1e293b; margin-bottom:8px;">Mailroom contact access</div>
+          <label style="display:flex; align-items:center; gap:7px; font-size:13.5px; color:#1e293b; margin-bottom:6px;">
+            <input type="radio" name="mailroomScope" value="all" <%= mailroomScope !== 'classes' ? 'checked' : '' %>>
+            All contacts (every class)
+          </label>
+          <label style="display:flex; align-items:center; gap:7px; font-size:13.5px; color:#1e293b; margin-bottom:6px;">
+            <input type="radio" name="mailroomScope" value="classes" <%= mailroomScope === 'classes' ? 'checked' : '' %>>
+            Only guardians of students in selected classes
+          </label>
+          <div id="mailroomClassesGrid" style="display:none; grid-template-columns:1fr 1fr; gap:8px 14px; margin:8px 0 0 22px; padding-top:8px; border-top:1px dashed #e2e8f0;">
+            <% classes.forEach(cls => { %>
+            <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:#475569;">
+              <input type="checkbox" name="mailroomClassIds" value="<%= cls.class_id %>" <%= (enrolledMailroomClasses || []).includes(cls.class_id) ? 'checked' : '' %>>
+              <%= cls.class_name %>
+            </label>
+            <% }); %>
+          </div>
+        </div>
       </div>
     </div>
     <div class="employee-section employee-section-classes">
@@ -622,11 +649,33 @@
         permissionGroup.style.display = "block";
       };
 
+      // Mailroom's contact-scope sub-panel only matters once "Mailroom" is
+      // checked, and the class picker only matters once "classes" scope is
+      // chosen — keep both hidden otherwise so the form stays uncluttered.
+      const mailroomScopePanel = document.getElementById("mailroomScopePanel");
+      const mailroomClassesGrid = document.getElementById("mailroomClassesGrid");
+      const syncMailroomScopePanel = () => {
+        if (!mailroomScopePanel) return;
+        const mailroomCheckbox = document.querySelector('input[name="permissions"][value="mailroom"]');
+        const isMailroomChecked = Boolean(mailroomCheckbox && mailroomCheckbox.checked);
+        mailroomScopePanel.style.display = isMailroomChecked ? "block" : "none";
+        const classesRadio = mailroomScopePanel.querySelector('input[name="mailroomScope"][value="classes"]');
+        if (mailroomClassesGrid) {
+          mailroomClassesGrid.style.display = isMailroomChecked && classesRadio && classesRadio.checked ? "grid" : "none";
+        }
+      };
+      document.addEventListener("change", (e) => {
+        if (e.target.matches('input[name="permissions"][value="mailroom"], input[name="mailroomScope"]')) {
+          syncMailroomScopePanel();
+        }
+      });
+
       if (accountTypeSelect) {
         accountTypeSelect.addEventListener("change", (e) => {
           syncPermissionVisibility();
           applyRoleDefaults(e.target.value);
           applyDriverModeUI(e.target.value === "Driver");
+          syncMailroomScopePanel();
         });
       }
       syncPermissionVisibility();
@@ -637,6 +686,7 @@
           cb.checked = CURRENT_SAVED_PERMISSIONS.includes(cb.value);
         });
       }
+      syncMailroomScopePanel();
 
       const collapseAllClasses = document.getElementById('collapse-all-classes');
       const arrowAllClasses = document.getElementById('arrow-all-classes');

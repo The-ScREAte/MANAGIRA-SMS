@@ -1,3 +1,4 @@
+const { getMessagingChannelStatus } = require("../utils/guardianMessaging");
 const {
   ensureTransportationSchema,
   getTransportationIntegrationStatus,
@@ -622,12 +623,18 @@ const transportationController = {
         );
       }
 
+      const transportMessagingStatus = await getMessagingChannelStatus(db, organizationId).catch(() => ({
+        sms: { ready: false },
+        whatsapp: { ready: false },
+      }));
+
       return res.render("transportation/manage", {
         title: "Transportation Management",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
+        canBroadcastToGuardians: Boolean(transportMessagingStatus.sms?.ready || transportMessagingStatus.whatsapp?.ready),
         integration,
         buses: buses.rows,
         driverUsers: driverUsers.rows,

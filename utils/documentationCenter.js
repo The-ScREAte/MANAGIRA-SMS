@@ -923,6 +923,64 @@ const CANONICAL_ARTICLE_SYNC = [
       <p>If the issue still persists after the checks above, contact <strong>info@managira.com</strong> or use the <a href="/legal/help">Help Center</a>.</p>
     `,
   },
+  {
+    slug: 'mailroom-send-sms-whatsapp-and-email-to-guardians',
+    title: 'Mailroom — send SMS, WhatsApp, and Email to guardians',
+    topic: 'Communication & Website',
+    subtopic: 'Mailroom',
+    status: 'active',
+    featured: true,
+    tags: ['mailroom', 'sms', 'whatsapp', 'email', 'guardian messaging', 'permissions', 'integrations'],
+    seoDescription: 'Set up Mailroom access, send SMS/WhatsApp/Email to guardians, restrict which contacts an employee can message, and activate the SMS/WhatsApp integrations Mailroom needs.',
+    contentHtml: `
+      <h2>Overview</h2>
+      <p>Mailroom is a single page for messaging guardians directly — outside of a specific report or transcript send. Open it from the hamburger menu (it only appears for accounts with Mailroom access) or go straight to <strong>Mailroom</strong> under the main navigation. It shows every guardian contact you're allowed to see on the left, and a compose panel with delivery history on the right.</p>
+
+      <h2>Turning on Mailroom access</h2>
+      <p>Mailroom is off by default for everyone except the organisation owner. To let a staff member use it:</p>
+      <ol>
+        <li>Go to <strong>Management → Manage Employees</strong>.</li>
+        <li>Open the employee's record (Add Employee for a new hire, or the pencil/modify action for an existing one).</li>
+        <li>In the permissions list, check <strong>Mailroom (Send SMS/WhatsApp/Email)</strong>.</li>
+        <li>A <strong>Mailroom contact access</strong> panel appears — choose a scope (see below), then save.</li>
+      </ol>
+      <p>Only accounts with this permission see the Mailroom link in the hamburger menu at all. Everyone else — including staff who can see other Management Tools — won't know it exists.</p>
+
+      <h2>Choosing who an employee can message (contact scope)</h2>
+      <p>When Mailroom is checked, you must choose one of two access levels:</p>
+      <ul>
+        <li><strong>All contacts (every class)</strong> — the employee can see and message every guardian in the school, exactly like the organisation owner.</li>
+        <li><strong>Only guardians of students in selected classes</strong> — pick the specific classes. The employee's Mailroom contact list, and anything they send, is limited to guardians of students in those classes only.</li>
+      </ul>
+      <div class="doc-callout doc-callout--tip"><strong>Tip:</strong> Use the restricted scope for homeroom teachers or class-level staff who should only reach their own students' guardians. Reserve "All contacts" for front-office/admin staff who need school-wide reach.</div>
+      <div class="doc-callout doc-callout--warning"><strong>This is enforced, not just hidden:</strong> the restriction is checked again on the server every time a message is sent — a restricted employee cannot message a guardian outside their assigned classes even by any indirect means. If a class assignment changes later, edit the employee's record again to update Mailroom's class list; it does not automatically follow their teaching assignment.</div>
+      <p>If no classes are selected for a "restricted" employee, they will see an empty contact list until at least one class is chosen.</p>
+
+      <h2>Sending a message</h2>
+      <ol>
+        <li>Open <strong>Mailroom</strong>.</li>
+        <li>On the left, search and select one or more guardian contacts (use <strong>Select all</strong> to select everyone currently visible in the list — click again to deselect all).</li>
+        <li>Type the message in the compose box on the right.</li>
+        <li>Check one or more channels — <strong>Text (SMS)</strong>, <strong>WhatsApp</strong>, and/or <strong>Email</strong> — the checkboxes only appear once a message is started or a recipient is selected.</li>
+        <li>Click <strong>Send</strong>, confirm the recipient/channel summary, then enter your password to confirm. Nothing is sent until the password is confirmed.</li>
+      </ol>
+      <p>Sending to multiple channels at once sends the same message through each — a guardian with both a phone number and email selected under "Text" and "Email" receives it both ways.</p>
+
+      <h2>When a channel can't reach a recipient</h2>
+      <p>A channel checkbox is greyed out and disabled if none of your currently selected recipients have the contact info it needs (e.g. SMS/WhatsApp need a phone number, Email needs an email address). A note explains why, and if none of the selected recipients can be reached on any active channel, a banner explains that too — add the missing contact info to the guardian's record first (via the report/transcript "Edit contacts" drawers, or the guardian's profile) and try again.</p>
+
+      <h2>Activating SMS and WhatsApp</h2>
+      <p>Email always works — Managira sends it directly. SMS and WhatsApp both require the school to activate a provider first. If either isn't set up yet, Mailroom shows a banner at the top of the page explaining which one is missing, with a direct link to Integrations.</p>
+      <ol>
+        <li>Click the banner's <strong>Activate in Integrations</strong> link, or go to <strong>Account Settings → Integrations</strong> directly.</li>
+        <li>Follow the setup steps for your SMS provider (e.g. Arkesel, Africa's Talking) and/or WhatsApp Business.</li>
+        <li>Return to Mailroom — the banner disappears once a channel is active, and its checkbox becomes available.</li>
+      </ol>
+
+      <h2>Delivery history</h2>
+      <p>Every message sent through Mailroom appears as its own card below the compose panel, showing the channel, recipient, delivery status, who sent it, and when. An employee with restricted (class-scoped) access only sees the history of messages <em>they personally sent</em> — not messages sent by other staff — since those could involve contacts outside their assigned classes. Accounts with "All contacts" access see the school's full Mailroom history.</p>
+    `,
+  },
 ];
 
 let schemaReady = false;

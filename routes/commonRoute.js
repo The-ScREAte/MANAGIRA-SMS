@@ -699,6 +699,20 @@ module.exports = (db) => {
     commonController.getEmployeeDetails(req, res, db)
   );
 
+  // Unified broadcast/announcement system (modal + banner popups) — admin UI.
+  router.get(
+    "/manageAnnouncements",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    (req, res) => commonController.manageAnnouncementsGet(req, res, db)
+  );
+  router.get(
+    "/announcementComposer",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    (req, res) => commonController.announcementComposerGet(req, res, db)
+  );
+
 
   // Create Event Announcement with schoolYearId and termId
   router.get(
@@ -763,6 +777,11 @@ module.exports = (db) => {
   // Reports Hub
   router.get("/reports", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), (req, res) =>
     commonController.reportsHub(req, res, db)
+  );
+
+  // Mailroom
+  router.get("/mailroom", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MAILROOM), (req, res) =>
+    commonController.mailroomHub(req, res, db)
   );
 
   // Activity Logs (full list page, linked from the Reports Hub)

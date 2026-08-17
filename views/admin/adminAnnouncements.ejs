@@ -562,6 +562,11 @@
     border: 1px dashed rgba(16, 37, 66, 0.16);
   }
 
+  /* Slide-in-from-right drawer, matching the shared ManagiraDrawer pattern
+     (public/css/adminDrawer.css) used by every other composer. This modal
+     is JS-heavy (live recipient search) so it stays inline rather than
+     moving into an iframe - only the position/animation changed, the
+     open/close JS (toggling [hidden]) is untouched. */
   .modal-shell[hidden] {
     display: none;
   }
@@ -569,29 +574,43 @@
   .modal-shell {
     position: fixed;
     inset: 0;
-    z-index: 60;
-    display: grid;
-    place-items: center;
-    padding: 24px;
+    z-index: 10000;
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    padding: 0;
+    background: rgba(15, 23, 42, 0.54);
+    backdrop-filter: blur(8px);
+    animation: adminModalFadeIn 0.2s ease;
   }
+  @keyframes adminModalFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   .modal-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(15, 23, 42, 0.54);
-    backdrop-filter: blur(8px);
   }
 
   .modal-panel {
     position: relative;
-    width: min(860px, 100%);
-    max-height: calc(100vh - 48px);
+    width: 100%;
+    max-width: 860px;
+    height: 100%;
+    max-height: 100%;
     overflow-y: auto;
-    border-radius: 28px;
+    border-radius: 0;
     background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
-    border: 1px solid rgba(16, 37, 66, 0.12);
-    box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24);
+    border: none;
+    border-left: 1px solid rgba(16, 37, 66, 0.12);
+    box-shadow: -8px 0 40px rgba(15, 23, 42, 0.24);
     padding: 24px;
+    animation: adminModalSlideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @keyframes adminModalSlideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  @media (max-width: 500px) {
+    .modal-panel { max-width: 100%; }
   }
 
   .modal-header {
@@ -845,30 +864,10 @@
           <h2 class="panel-title">Admin announcements</h2>
           <p class="panel-subtitle">Keep the existing announcement flow available for quick global or organization-specific notices.</p>
         </div>
+        <button type="button" class="admin-btn automation-primary" id="open-admin-announcement-drawer">+ New Announcement</button>
       </div>
 
       <%- include('../partials/flash') %>
-
-      <form method="POST" action="/admin/announcements" class="announcement-form">
-        <div>
-          <label class="field-label" for="announcement-title">Announcement title</label>
-          <input id="announcement-title" class="automation-input" type="text" name="title" placeholder="School reopening notice" required />
-        </div>
-        <div>
-          <label class="field-label" for="announcement-description">Announcement message</label>
-          <textarea id="announcement-description" class="automation-textarea" name="description" placeholder="Write the notice you want admins, schools, or users to see." required></textarea>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;padding:6px 2px;">
-          <input id="announcement-show-for-admins" type="checkbox" name="show_for_admins" style="width:16px;height:16px;" />
-          <label for="announcement-show-for-admins" style="font-size:0.9rem;color:var(--text-primary,#0f172a);cursor:pointer;">
-            Show for admins
-            <span style="display:block;font-size:0.78rem;color:var(--text-secondary,#64748b);font-weight:400;">
-              Also display this announcement on the admin dashboard. Each admin can dismiss it once they’ve read it.
-            </span>
-          </label>
-        </div>
-        <button type="submit" class="admin-btn automation-primary">Create announcement</button>
-      </form>
 
       <hr class="section-divider" />
 
@@ -1091,6 +1090,22 @@
   </div>
 </section>
 
+<%- include('../partials/adminDrawer') %>
+<script>
+  (() => {
+    const adminAnnouncementDrawer = ManagiraDrawer.create({
+      id: 'adminAnnouncement',
+      icon: '📢',
+      title: 'New Announcement',
+      subtitle: 'Global or organization-specific notice',
+      listPagePath: '/admin/announcements',
+      width: 640,
+    });
+    document.getElementById('open-admin-announcement-drawer').addEventListener('click', function () {
+      adminAnnouncementDrawer.open('/admin/announcements/new?embed=workspace');
+    });
+  })();
+</script>
 <script>
   (() => {
     const campaignsEndpoint = '/admin/announcements/email-campaigns';

@@ -637,6 +637,15 @@
       <button class="ctrl-btn ctrl-btn-back" onclick="history.back()">← Back</button>
       <button class="ctrl-btn ctrl-btn-print" onclick="trackTranscriptPrintAndPrint()">🖨️ Print</button>
       <button class="ctrl-btn ctrl-btn-email" onclick="openEmailModal()">✉️ Email</button>
+      <% if (canBroadcastToGuardians) { %>
+      <button
+        class="ctrl-btn ctrl-btn-email notify-guardians-btn"
+        type="button"
+        style="background:#166534;"
+        data-context="transcript"
+        data-context-id="<%= student.student_id %>"
+      >Notify Guardians</button>
+      <% } %>
     </div>
 
     <!-- Transcript Document -->
@@ -1125,5 +1134,17 @@
     </div>
     <% } %>
 
+    <script src="/js/guardianBroadcast.js"></script>
+    <script>
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.notify-guardians-btn');
+        if (!btn) return;
+        e.preventDefault();
+        openGuardianBroadcast({
+          context: btn.dataset.context || 'transcript',
+          contextId: btn.dataset.contextId || '',
+        });
+      });
+    </script>
   </body>
 </html>

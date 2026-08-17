@@ -1063,7 +1063,10 @@
         </div>
         <div class="gd-field">
           <label>Phone</label>
-          <input type="text" name="phone" value="<%= guardian.phone || '' %>">
+          <div class="phone-combo" data-default-iso2="GH" style="display:flex;gap:6px;">
+            <select class="phone-dial-select" style="max-width:150px;flex:0 0 auto;"></select>
+            <input type="text" class="phone-local-input" name="phone" value="<%= guardian.phone || '' %>" placeholder="24 123 4567" style="flex:1;">
+          </div>
         </div>
         <div class="gd-field">
           <label>Date of Birth</label>
@@ -1219,6 +1222,7 @@
   </div>
 </div>
 
+<script src="/js/dialCodes.js"></script>
 <script>
   (function() {
     const style = document.createElement('style');
@@ -1259,6 +1263,7 @@
 
     form.addEventListener('submit', function (event) {
       if (event.defaultPrevented) return;
+      if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(form);
       saveBtn.disabled = true;
       saveBtn.classList.add('gd-is-saving');
 

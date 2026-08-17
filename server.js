@@ -700,10 +700,44 @@ app.use(setAllowedPermissions);
 app.use(setThemeColor);
 app.use(preloadCache);
 
+// Hamburger-menu hub panels (Management/Admissions/Reports workspaces) load
+// each section in an iframe tagged with ?embed=workspace. Previously every
+// click re-fetched the panel from scratch, even when nothing about it had
+// changed since the user's last visit — including full page reloads of the
+// hub itself, which wipe the in-memory "already loaded" tracking the hub's
+// own JS keeps. stale-while-revalidate fixes both: the browser serves the
+// last cached copy of a panel instantly, then quietly re-fetches it in the
+// background and swaps in the fresh copy for next time — no visible reload,
+// no stale-forever content either. "private" keeps this out of any shared/
+// CDN cache since the response is session-specific (permissions, org data).
+const embedPanelCacheHeaders = setCacheHeaders({ maxAge: 60, isPrivate: true, staleWhileRevalidate: 300 });
+app.use((req, res, next) => {
+  if (req.query && req.query.embed === "workspace") {
+    // setCacheHeaders already no-stores non-GET requests and unauthenticated
+    // ones, so an expired-session redirect-to-login response never ends up
+    // cached under this key.
+    return embedPanelCacheHeaders(req, res, next);
+  }
+  next();
+});
+
 // Template engine setup
 app.use(expressLayouts);
 app.set("layout", "layout"); // Set default layout file
 app.set("view engine", "ejs");
+
+// Short-link redirects (see utils/shortLink.js) — keeps SMS message bodies
+// from having long S3 URLs inlined, which would burn extra SMS segments.
+app.get("/r/:code", async (req, res) => {
+  try {
+    const { resolveShortLink } = require("./utils/shortLink");
+    const target = await resolveShortLink(db, req.params.code);
+    if (!target) return res.status(404).send("This link has expired or doesn't exist.");
+    return res.redirect(302, target);
+  } catch (error) {
+    return res.status(500).send("Unable to open this link right now.");
+  }
+});
 
 // Service worker — must be served with no-cache headers so the browser always
 // picks up the latest version and the SW scope is correct (root of the app).
@@ -791,6 +825,8 @@ const studentRoute = require("./routes/studentRoute")(db);
 const documentRoute = require("./routes/documentRoute")(db);
 const transportationRoute = require("./routes/transportationRoute")(db);
 const driverRoute = require("./routes/driverRoute")(db);
+const announcementRoute = require("./routes/announcementRoute")(db);
+const announcementController = require("./controllers/announcementController");
 
 // Debug middleware for admin routes in production
 if (process.env.NODE_ENV === "production") {
@@ -805,6 +841,9 @@ app.use("/account/settings", financeRoute);
 app.use("/account", accountRoute);
 app.use("/admin", adminRoute);
 app.use("/common", commonRoute);
+app.use("/announcements", announcementRoute);
+// Canonical end-user feed path per spec; alias of GET /announcements/me.
+app.get("/me/announcements", announcementController.getMyAnnouncements);
 app.use("/print", printRoute);
 app.use("/legal", legalRoute);
 // Disabled: School Directory page is hidden for now, so the /directory alias is commented out too.

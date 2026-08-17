@@ -511,7 +511,12 @@
         <% employees.forEach((employee, idx) => { %>
         <tr>
           <td data-label="Status">
-            <% if (employee.reset_password_token) { %>
+            <% /* A leftover invite token doesn't mean the employee is still
+                  pending — if they already have a password set (e.g. via
+                  Account Settings' own "change password" flow, which
+                  doesn't clear the original invite token), they're active
+                  regardless of stray token bookkeeping. */ %>
+            <% if (employee.reset_password_token && !employee.password) { %>
               <span class="status-badge status-pending">⏳ Pending Setup</span>
             <% } else { %>
               <span class="status-badge status-active">✓ Active</span>

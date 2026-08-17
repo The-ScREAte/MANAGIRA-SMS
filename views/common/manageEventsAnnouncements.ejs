@@ -551,6 +551,17 @@
                         <button class="btn btn-primary btn-sm" type="submit">Update Event</button>
                       </div>
                     </form>
+                    <% if (canBroadcastToGuardians && ev.visibility !== 'org') { %>
+                    <div class="item-actions">
+                      <button
+                        type="button"
+                        class="btn btn-sm notify-guardians-btn"
+                        style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;"
+                        data-context="event"
+                        data-context-id="<%= ev.id %>"
+                      >Notify Guardians</button>
+                    </div>
+                    <% } %>
                     <hr />
                     <form action="/common/deleteEvent" method="POST" onsubmit="return confirm('Permanently delete this event?');">
                       <input type="hidden" name="id" value="<%= ev.id %>" />
@@ -672,6 +683,17 @@
                         <button class="btn btn-primary btn-sm" type="submit">Update</button>
                       </div>
                     </form>
+                    <% if (canBroadcastToGuardians && ann.visibility !== 'org') { %>
+                    <div class="item-actions">
+                      <button
+                        type="button"
+                        class="btn btn-sm notify-guardians-btn"
+                        style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;"
+                        data-context="announcement"
+                        data-context-id="<%= ann.announcement_id %>"
+                      >Notify Guardians</button>
+                    </div>
+                    <% } %>
                     <hr />
                     <form action="/common/deleteAnnouncement" method="POST" onsubmit="return confirm('Permanently delete this announcement?');">
                       <input type="hidden" name="id" value="<%= ann.announcement_id %>" />
@@ -760,6 +782,18 @@
         e.preventDefault();
         cb.checked = false;
       }
+    });
+  });
+</script>
+<script src="/js/guardianBroadcast.js"></script>
+<script>
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.notify-guardians-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    openGuardianBroadcast({
+      context: btn.dataset.context,
+      contextId: btn.dataset.contextId,
     });
   });
 </script>

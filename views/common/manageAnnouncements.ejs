@@ -1,0 +1,207 @@
+<head>
+  <style>
+    :root {
+      --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --primary: var(--org-primary-color, #01535b);
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+    }
+    body.manage-announcements-page { font-family: var(--font-family); background: var(--bg-page); }
+    .ann-page { max-width: none; margin: 0; width: 100%; box-sizing: border-box; padding: 24px 24px 60px; }
+    .ann-page-header {
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+      margin-bottom: 24px; background: #fff; padding: 24px; border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: 1px solid var(--border);
+    }
+    .ann-page-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+    .ann-page-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .ann-table-card { background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+    table.ann-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    table.ann-table th, table.ann-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+    table.ann-table th { background: #f8fafc; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    .ann-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+    .ann-badge-modal { background: #eef4ff; color: #1d3a8a; }
+    .ann-badge-banner { background: #f3ecff; color: #5b2fa8; }
+    .ann-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 600; }
+    .ann-status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .ann-status.active .ann-status-dot { background: #22c55e; }
+    .ann-status.scheduled .ann-status-dot { background: #f59e0b; }
+    .ann-status.expired .ann-status-dot { background: #94a3b8; }
+    .ann-status.inactive .ann-status-dot { background: #cbd5e1; }
+    .ann-row-actions { display: flex; gap: 8px; }
+    .ann-row-actions button {
+      border: 1px solid var(--border); background: #fff; border-radius: 6px; padding: 4px 10px;
+      font-size: 0.72rem; cursor: pointer; font-weight: 600; color: var(--text-primary);
+    }
+    .ann-row-actions button:hover { background: #f8fafc; }
+    .ann-row-actions button.danger { color: #dc2626; border-color: #fecaca; }
+    .ann-row-actions button.danger:hover { background: #fef2f2; }
+    .ann-empty { padding: 40px; text-align: center; color: var(--text-secondary); font-size: 0.9rem; }
+    .ann-audience { font-size: 0.78rem; color: var(--text-secondary); }
+    .ann-stats { font-size: 0.78rem; color: var(--text-secondary); white-space: nowrap; }
+  </style>
+</head>
+<body class="manage-announcements-page">
+  <div class="ann-page">
+    <div class="ann-page-header">
+      <h1 class="ann-page-title">Announcements</h1>
+      <div class="ann-page-actions">
+        <% if (typeof isPlatformAdmin !== 'undefined' && isPlatformAdmin) { %>
+          <button type="button" class="mgr-drawer-trigger" id="newGlobalAnnouncementBtn">+ New Global Broadcast</button>
+        <% } %>
+        <button type="button" class="mgr-drawer-trigger" id="newAnnouncementBtn">+ New Announcement</button>
+      </div>
+    </div>
+
+    <div class="ann-table-card">
+      <table class="ann-table" id="annTable">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Variant</th>
+            <th>Status</th>
+            <th>Audience</th>
+            <th>Seen / Dismissed</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="annTableBody">
+          <tr><td colspan="7" class="ann-empty">Loading&hellip;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <%- include('../partials/adminDrawer') %>
+
+  <script>
+    const annComposerDrawer = ManagiraDrawer.create({
+      id: 'annComposer',
+      icon: '📢',
+      title: 'Announcement',
+      subtitle: 'Compose a modal or banner broadcast',
+      listPagePath: '/common/manageAnnouncements',
+    });
+    const annGlobalComposerDrawer = ManagiraDrawer.create({
+      id: 'annGlobalComposer',
+      icon: '🌍',
+      title: 'Global Broadcast',
+      subtitle: 'Managira platform-wide announcement',
+      listPagePath: '/common/manageAnnouncements',
+    });
+
+    document.getElementById('newAnnouncementBtn').addEventListener('click', function () {
+      annComposerDrawer.open('/common/announcementComposer?embed=workspace');
+    });
+    const globalBtn = document.getElementById('newGlobalAnnouncementBtn');
+    if (globalBtn) {
+      globalBtn.addEventListener('click', function () {
+        annGlobalComposerDrawer.open('/common/announcementComposer?embed=workspace&global=1');
+      });
+    }
+
+    function annStatusFor(row) {
+      const now = new Date();
+      const starts = row.starts_at ? new Date(row.starts_at) : null;
+      const ends = row.ends_at ? new Date(row.ends_at) : null;
+      if (!row.is_active) return { key: 'inactive', label: 'Inactive' };
+      if (starts && starts > now) return { key: 'scheduled', label: 'Scheduled' };
+      if (ends && ends < now) return { key: 'expired', label: 'Expired' };
+      return { key: 'active', label: 'Active' };
+    }
+
+    function annAudienceSummary(row) {
+      if (!row.targets || !row.targets.length) return row.tenant_id ? 'This school (no roles set)' : 'Everyone';
+      const roles = row.targets.filter(t => t.target_type === 'role').map(t => t.target_value);
+      const orgs = row.targets.filter(t => t.target_type === 'org').length;
+      const users = row.targets.filter(t => t.target_type === 'user').length;
+      const parts = [];
+      parts.push(row.tenant_id ? 'This school' : 'All orgs');
+      if (roles.length) parts.push(roles.join(', '));
+      if (orgs) parts.push(orgs + ' org(s)');
+      if (users) parts.push(users + ' specific user(s)');
+      return parts.join(' · ');
+    }
+
+    function escapeHtml(v) {
+      const d = document.createElement('div');
+      d.textContent = v == null ? '' : String(v);
+      return d.innerHTML;
+    }
+
+    function renderRow(row) {
+      const status = annStatusFor(row);
+      const stats = row.stats || { seen: 0, dismissed: 0 };
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><strong>' + escapeHtml(row.title) + '</strong></td>' +
+        '<td><span class="ann-badge ann-badge-' + row.display_type + '">' + row.display_type + '</span></td>' +
+        '<td>' + escapeHtml(row.variant) + '</td>' +
+        '<td><span class="ann-status ' + status.key + '"><span class="ann-status-dot"></span>' + status.label + '</span></td>' +
+        '<td class="ann-audience">' + escapeHtml(annAudienceSummary(row)) + '</td>' +
+        '<td class="ann-stats">' + stats.seen + ' seen &middot; ' + stats.dismissed + ' dismissed</td>' +
+        '<td></td>';
+
+      const actionsTd = tr.lastElementChild;
+      const actions = document.createElement('div');
+      actions.className = 'ann-row-actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', function () {
+        const drawer = row.tenant_id === null ? annGlobalComposerDrawer : annComposerDrawer;
+        const src = '/common/announcementComposer?embed=workspace&id=' + row.id + (row.tenant_id === null ? '&global=1' : '');
+        drawer.open(src);
+      });
+      actions.appendChild(editBtn);
+
+      const dupBtn = document.createElement('button');
+      dupBtn.type = 'button';
+      dupBtn.textContent = 'Duplicate';
+      dupBtn.addEventListener('click', function () {
+        fetch('/announcements/' + row.id + '/duplicate', { method: 'POST', credentials: 'same-origin' })
+          .then(() => loadAnnouncements());
+      });
+      actions.appendChild(dupBtn);
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'danger';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', function () {
+        if (!confirm('Delete "' + row.title + '"? This cannot be undone.')) return;
+        fetch('/announcements/' + row.id, { method: 'DELETE', credentials: 'same-origin' })
+          .then(() => loadAnnouncements());
+      });
+      actions.appendChild(delBtn);
+
+      actionsTd.appendChild(actions);
+      return tr;
+    }
+
+    function loadAnnouncements() {
+      fetch('/announcements', { credentials: 'same-origin' })
+        .then(r => r.json())
+        .then(data => {
+          const tbody = document.getElementById('annTableBody');
+          tbody.innerHTML = '';
+          const rows = data.announcements || [];
+          if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="ann-empty">No announcements yet. Create one to get started.</td></tr>';
+            return;
+          }
+          rows.forEach(row => tbody.appendChild(renderRow(row)));
+        })
+        .catch(() => {
+          document.getElementById('annTableBody').innerHTML = '<tr><td colspan="7" class="ann-empty">Unable to load announcements.</td></tr>';
+        });
+    }
+
+    loadAnnouncements();
+  </script>
+</body>

@@ -110,11 +110,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 12px 16px;
-    border-radius: 10px;
-    font-size: 0.95rem;
+    gap: 6px;
+    width: auto;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.84rem;
     font-weight: 700;
     border: none;
     cursor: pointer;
@@ -294,17 +294,32 @@
     background: #f1f5f9;
   }
 
+  /* Floats directly on the map (top-left, clear of the maximize button and
+     the Next Stop card which both live top-right/above) instead of sitting
+     in its own row below — same overlay treatment as the other map chrome. */
   .drv-map-legend {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 600;
     display: flex;
-    gap: 14px;
+    gap: 8px;
     flex-wrap: wrap;
-    margin-top: 10px;
-    font-size: 0.75rem;
+    max-width: calc(100% - 60px);
+    font-size: 0.7rem;
     color: #475569;
   }
 
-  .drv-map-legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .drv-legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .drv-map-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 3px 9px 3px 7px;
+  }
+  .drv-legend-emoji { font-size: 0.85rem; line-height: 1; }
 
   .drv-next-stop {
     display: flex;
@@ -325,18 +340,20 @@
 
   .drv-route-eta {
     display: none;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-top: 12px;
-    padding: 10px 14px;
-    border-radius: 10px;
+    justify-content: flex-start;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 6px 12px;
+    border-radius: 999px;
     background: #f0fdfa;
     border: 1.5px solid #99f6e4;
-    font-size: 0.82rem;
+    font-size: 0.72rem;
     color: #0f766e;
+    width: fit-content;
   }
-  .drv-route-eta strong { font-size: 0.98rem; }
+  .drv-route-eta strong { font-size: 0.8rem; }
 
   .drv-info-grid {
     display: grid;
@@ -402,7 +419,15 @@
       height: 62vh;
       border-radius: 0;
     }
-    .drv-map-legend { padding: 0 16px; }
+    /* The mobile nav layout already floats the Next Stop card (top) and
+       route ETA (bottom) across the full width of the map — no clear
+       corner left for the legend, so it drops back to a plain row
+       underneath the map here instead of competing for space on it. */
+    .drv-map-legend {
+      position: static;
+      max-width: none;
+      padding: 8px 16px 0;
+    }
     .drv-next-stop {
       position: absolute;
       top: 12px;
@@ -456,8 +481,6 @@
   <div class="drv-grid">
     <div style="display:grid; gap:20px;">
       <div class="drv-card">
-        <h2>Trip Control</h2>
-
         <% if (!driverBus) { %>
           <p class="drv-empty">You haven't been assigned a bus yet. Once your administrator links you to a bus in Transportation Management, trip controls will appear here.</p>
         <% } else if (!(assignedRoutes || []).length) { %>
@@ -479,9 +502,7 @@
             End Trip
           </button>
 
-          <p class="drv-note" id="drv-trip-note">
-            <% if (activeTrip) { %>Trip in progress — your location is being shared every 15 seconds.<% } else { %>Select your route and start your trip when you begin driving.<% } %>
-          </p>
+          <p class="drv-note" id="drv-trip-note" style="display:none;"></p>
         <% } %>
       </div>
 
@@ -564,15 +585,15 @@
           </div>
         <% } %>
         <div class="drv-route-eta" id="drv-route-eta">
-          <span>Estimated time to final stop</span>
+          <span>Est. time to final stop:</span>
           <strong id="drv-route-eta-value">-</strong>
         </div>
-      </div>
-      <div class="drv-map-legend">
-        <span><span class="drv-legend-dot" id="drv-legend-you"></span> You</span>
-        <span><span class="drv-legend-dot" id="drv-legend-route"></span> Remaining route</span>
-        <span><span class="drv-legend-dot" style="background:#94a3b8;"></span> Already covered</span>
-        <span><span class="drv-legend-dot" id="drv-legend-stop" style="border:2px solid #fff;"></span> Student stop</span>
+        <div class="drv-map-legend">
+          <span><span class="drv-legend-emoji">🚌</span> You</span>
+          <span><span class="drv-legend-emoji">🛣️</span> Remaining route</span>
+          <span><span class="drv-legend-emoji">✅</span> Already covered</span>
+          <span><span class="drv-legend-emoji">📍</span> Student stop</span>
+        </div>
       </div>
     </div>
   </div>
@@ -591,12 +612,6 @@
     var distanceUnit = <%- JSON.stringify(distanceUnit === 'mi' ? 'mi' : 'km') %>;
     var routeColor = (getComputedStyle(document.documentElement).getPropertyValue('--org-primary-color') || '').trim() || '#01535b';
 
-    ['drv-legend-you', 'drv-legend-route', 'drv-legend-stop'].forEach(function (id) {
-      var el = document.getElementById(id);
-      if (el) el.style.background = routeColor;
-    });
-    var legendStopDot = document.getElementById('drv-legend-stop');
-    if (legendStopDot) legendStopDot.style.boxShadow = '0 0 0 1px ' + routeColor;
     var activeTripId = activeTrip && activeTrip.trip_id ? Number(activeTrip.trip_id) : null;
     var locationTimer = null;
     var roadGeometryCache = {};
@@ -635,6 +650,13 @@
     var lastPassedStopOrder = -Infinity;
     var ASSUMED_SPEED_KMH = 25; // fallback used when stopped/no speed reading yet
     var ARRIVED_KM = 0.15;
+    // While a trip is active, the camera follows the driver instead of
+    // fitting the whole remaining route — like turn-by-turn navigation, so
+    // the driver marker never scrolls off-screen as they move.
+    var isFollowingDriver = false;
+    var lastHeadingDeg = null;
+    var FOLLOW_ZOOM = 17;
+    var FOLLOW_LOOKAHEAD_M = 70; // how far ahead of the driver the camera centers
 
     var routeSelect = document.getElementById('drv-route-select');
     var routeField = document.getElementById('drv-route-field');
@@ -665,6 +687,29 @@
       var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // Moves a point `distanceMeters` forward from (lat,lng) along a compass
+    // heading — used to bias the follow-camera's center slightly ahead of
+    // the driver (so more road is visible ahead than behind), the same way
+    // driving nav apps frame the view. Falls back to the driver's own
+    // position when heading isn't available (GPS reports null when
+    // stationary or on some devices).
+    function projectForward(lat, lng, headingDeg, distanceMeters) {
+      if (typeof headingDeg !== 'number' || Number.isNaN(headingDeg)) return [lat, lng];
+      var R = 6378137;
+      var bearing = (headingDeg * Math.PI) / 180;
+      var latRad = (lat * Math.PI) / 180;
+      var lngRad = (lng * Math.PI) / 180;
+      var angularDistance = distanceMeters / R;
+      var newLatRad = Math.asin(
+        Math.sin(latRad) * Math.cos(angularDistance) + Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing)
+      );
+      var newLngRad = lngRad + Math.atan2(
+        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
+        Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(newLatRad)
+      );
+      return [(newLatRad * 180) / Math.PI, (newLngRad * 180) / Math.PI];
     }
 
     function formatDistance(km) {
@@ -892,7 +937,26 @@
       }
 
       if (hasPosition) bounds.push([lat, lng]);
-      if (bounds.length) map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+
+      if (isFollowingDriver && hasPosition) {
+        // Nav-style follow: keep the driver AND the next stop they're
+        // headed to both in view — not the whole remaining route (too
+        // zoomed out) and not just the driver alone (no sense of where
+        // they're going). Falls back to a heading-biased close-up when
+        // there's no next stop left (final leg to the destination only).
+        var followTarget = remainingStops.length
+          ? [Number(remainingStops[0].latitude), Number(remainingStops[0].longitude)]
+          : (currentRouteDestination ? [currentRouteDestination.latitude, currentRouteDestination.longitude] : null);
+
+        if (followTarget) {
+          map.fitBounds([[lat, lng], followTarget], { padding: [70, 70], maxZoom: FOLLOW_ZOOM, animate: true });
+        } else {
+          var followCenter = projectForward(lat, lng, lastHeadingDeg, FOLLOW_LOOKAHEAD_M);
+          map.setView(followCenter, FOLLOW_ZOOM, { animate: true });
+        }
+      } else if (bounds.length) {
+        map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+      }
 
       updateStats(hasPosition ? lat : null, hasPosition ? lng : null);
     }
@@ -1073,15 +1137,20 @@
       });
     }
 
+    // The note is hidden by default now — it only ever surfaces to explain
+    // a real problem (couldn't start/end the trip, nothing to navigate to
+    // yet), never as a permanent instructional message.
+    function showTripNote(message) {
+      if (!tripNote) return;
+      tripNote.textContent = message;
+      tripNote.style.display = '';
+    }
+
     function setTripUiState(active) {
       if (routeField) routeField.style.display = active ? 'none' : '';
       if (startBtn) startBtn.style.display = active ? 'none' : '';
       if (endBtn) endBtn.style.display = active ? '' : 'none';
-      if (tripNote) {
-        tripNote.textContent = active
-          ? 'Trip in progress — your location is being shared every 15 seconds.'
-          : 'Select your route and start your trip when you begin driving.';
-      }
+      if (tripNote) tripNote.style.display = 'none';
       if (statusText) statusText.textContent = active ? 'Trip Active' : 'Not Driving';
       if (statusDot) statusDot.className = 'drv-status-dot' + (active ? ' is-moving' : '');
       if (!active && nextStopCard) nextStopCard.style.display = 'none';
@@ -1093,6 +1162,9 @@
       navigator.geolocation.getCurrentPosition(async function (position) {
         var speedKmh = position.coords.speed ? Number(position.coords.speed) * 3.6 : null;
         lastSpeedKmh = speedKmh;
+        lastHeadingDeg = typeof position.coords.heading === 'number' && !Number.isNaN(position.coords.heading)
+          ? position.coords.heading
+          : null;
         var payload = new URLSearchParams({
           tripId: String(activeTripId),
           latitude: String(position.coords.latitude),
@@ -1135,7 +1207,7 @@
       startBtn.addEventListener('click', async function () {
         var routeId = routeSelect ? String(routeSelect.value || '').trim() : '';
         if (!routeId || !driverBus) {
-          if (tripNote) tripNote.textContent = 'Select your route to start your trip.';
+          showTripNote('Select your route to start your trip.');
           return;
         }
 
@@ -1152,11 +1224,12 @@
           });
           var result = await response.json().catch(function () { return null; });
           if (!response.ok || !result || !result.success || !result.trip) {
-            if (tripNote) tripNote.textContent = (result && result.message) || 'Unable to start trip.';
+            showTripNote((result && result.message) || 'Unable to start trip.');
             return;
           }
 
           activeTripId = Number(result.trip.trip_id);
+          isFollowingDriver = true;
           setActiveRoute(findRoute(routeId));
           setTripUiState(true);
           startLocationLoop();
@@ -1182,11 +1255,13 @@
           });
           var result = await response.json().catch(function () { return null; });
           if (!response.ok || !result || !result.success) {
-            if (tripNote) tripNote.textContent = (result && result.message) || 'Unable to end trip.';
+            showTripNote((result && result.message) || 'Unable to end trip.');
             return;
           }
 
           activeTripId = null;
+          isFollowingDriver = false;
+          lastHeadingDeg = null;
           stopLocationLoop();
           setTripUiState(false);
           setActiveRoute(null);
@@ -1225,7 +1300,7 @@
     function openNavApp(appKey) {
       var points = navWaypoints();
       if (!points.length) {
-        if (tripNote) tripNote.textContent = 'No upcoming stops to navigate to yet.';
+        showTripNote('No upcoming stops to navigate to yet.');
         return;
       }
       var destination = points[points.length - 1];

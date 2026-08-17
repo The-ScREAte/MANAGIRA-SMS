@@ -759,6 +759,38 @@ async function logOrganizationActivity(input, database = db) {
   );
 }
 
+// Latest activate/deactivate entry per integration record label, for showing
+// "who changed this and when" inline on each integration card.
+async function getLatestIntegrationActivity(database, organizationId, recordLabels) {
+  const orgId = Number(organizationId);
+  const labels = Array.isArray(recordLabels) ? recordLabels.filter(Boolean) : [];
+  if (!orgId || !labels.length) return {};
+
+  await ensureOrganizationActivityLogSchema(database);
+
+  const result = await database.query(
+    `SELECT DISTINCT ON (record_label)
+       record_label, action_type, user_name, user_role, created_at
+     FROM organization_activity_logs
+     WHERE organization_id = $1
+       AND module_name = 'Integrations'
+       AND record_label = ANY($2::text[])
+     ORDER BY record_label, created_at DESC`,
+    [orgId, labels]
+  );
+
+  const byLabel = {};
+  result.rows.forEach((row) => {
+    byLabel[row.record_label] = {
+      actionType: row.action_type,
+      userName: row.user_name,
+      userRole: row.user_role,
+      createdAt: row.created_at,
+    };
+  });
+  return byLabel;
+}
+
 async function buildLogPayloadFromRequest(req, database = db) {
   const moduleName = inferModuleName(req);
   const recordType = inferRecordType(req, moduleName);
@@ -958,6 +990,7 @@ module.exports = {
   ensureOrganizationActivityLogSchema,
   getActivityLogFilterOptions,
   getOrganizationActivityLogs,
+  getLatestIntegrationActivity,
   logOrganizationActivity,
   purgeOldActivityLogs,
 };

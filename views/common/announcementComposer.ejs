@@ -1,0 +1,370 @@
+<%
+  const a = typeof announcement !== 'undefined' && announcement ? announcement : null;
+  const global = typeof isGlobalMode !== 'undefined' && isGlobalMode;
+  const orgs = typeof orgOptions !== 'undefined' ? orgOptions : [];
+  const existingRoleTargets = a ? a.targets.filter(t => t.target_type === 'role').map(t => t.target_value) : [];
+  const existingOrgTargets = a ? a.targets.filter(t => t.target_type === 'org').map(t => t.target_value) : [];
+  const existingUserTargets = a ? a.targets.filter(t => t.target_type === 'user').map(t => t.target_value) : [];
+  const ctaLinks = a && a.cta_links ? (typeof a.cta_links === 'string' ? JSON.parse(a.cta_links) : a.cta_links) : [];
+%>
+<head>
+  <style>
+    :root {
+      --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --primary: var(--org-primary-color, #01535b);
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --border: #e2e8f0;
+      --bg-page: #f8fafc;
+    }
+    body.ann-composer-page { font-family: var(--font-family); background: var(--bg-page); margin: 0; }
+    .ann-form-wrap { max-width: 720px; margin: 0 auto; padding: 28px 24px 80px; }
+    .ann-field { margin-bottom: 18px; }
+    .ann-field label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+    .ann-field .hint { font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px; }
+    .ann-field input[type=text], .ann-field input[type=url], .ann-field input[type=number],
+    .ann-field input[type=datetime-local], .ann-field textarea, .ann-field select {
+      width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 0.85rem; font-family: inherit;
+    }
+    .ann-field textarea { min-height: 110px; resize: vertical; }
+    .ann-row { display: flex; gap: 16px; }
+    .ann-row > .ann-field { flex: 1; }
+    .ann-toggle-row { display: flex; align-items: center; gap: 10px; }
+    .ann-segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .ann-segmented button {
+      border: none; background: #fff; padding: 8px 16px; font-size: 0.8rem; font-weight: 600; cursor: pointer; color: var(--text-secondary);
+    }
+    .ann-segmented button.active { background: var(--primary); color: #fff; }
+    .ann-cta-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .ann-cta-row input { flex: 1; }
+    .ann-cta-row select { width: 110px; flex: 0 0 auto; }
+    .ann-cta-row label { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; white-space: nowrap; }
+    .ann-cta-row button.remove { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 1rem; }
+    .ann-add-link { background: none; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; cursor: pointer; color: var(--primary); width: 100%; }
+    .ann-target-group { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+    .ann-target-group h4 { margin: 0 0 8px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+    .ann-checkbox-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .ann-checkbox-grid label { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
+    .ann-estimate { font-size: 0.78rem; color: var(--text-secondary); margin-top: 8px; }
+    .ann-submit-bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid var(--border); padding: 14px 24px; margin: 0 -24px; display: flex; justify-content: flex-end; gap: 10px; }
+    .ann-submit-bar button { padding: 10px 22px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .ann-btn-primary { background: var(--primary); color: #fff; border: none; }
+    .ann-btn-secondary { background: #fff; color: var(--text-primary); border: 1px solid var(--border); }
+    .ann-error { color: #dc2626; font-size: 0.8rem; margin-top: 10px; display: none; }
+    .ann-image-preview { max-width: 200px; max-height: 120px; border-radius: 8px; display: none; margin-top: 8px; }
+  </style>
+</head>
+<body class="ann-composer-page">
+  <%- include('../partials/adminDrawer') %>
+  <div class="ann-form-wrap">
+    <form id="annForm">
+      <div class="ann-field">
+        <label>Title</label>
+        <input type="text" id="ann_title" value="<%= a ? a.title : '' %>" maxlength="255" required>
+      </div>
+
+      <div class="ann-field">
+        <label>Body</label>
+        <textarea id="ann_body" required><%= a ? a.body : '' %></textarea>
+        <div class="hint">Markdown/plain text supported.</div>
+      </div>
+
+      <div class="ann-field">
+        <label>Image (optional)</label>
+        <input type="file" id="ann_image_file" accept="image/*">
+        <input type="hidden" id="ann_image_url" value="<%= a && a.image_url ? a.image_url : '' %>">
+        <img id="ann_image_preview" class="ann-image-preview" src="<%= a && a.image_url ? a.image_url : '' %>" style="<%= a && a.image_url ? 'display:block;' : '' %>">
+      </div>
+
+      <div class="ann-row">
+        <div class="ann-field">
+          <label>Display type</label>
+          <div class="ann-segmented" id="ann_display_type_toggle">
+            <button type="button" data-value="modal" class="<%= (!a || a.display_type === 'modal') ? 'active' : '' %>">Modal</button>
+            <button type="button" data-value="banner" class="<%= (a && a.display_type === 'banner') ? 'active' : '' %>">Banner</button>
+          </div>
+        </div>
+        <div class="ann-field">
+          <label>Variant</label>
+          <select id="ann_variant">
+            <% ['info','success','warning','new'].forEach(v => { %>
+              <option value="<%= v %>" <%= a && a.variant === v ? 'selected' : '' %>><%= v %></option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+
+      <div class="ann-field ann-toggle-row">
+        <input type="checkbox" id="ann_dismissible" <%= (!a || a.dismissible) ? 'checked' : '' %>>
+        <label for="ann_dismissible" style="margin:0;">Dismissible</label>
+      </div>
+
+      <div class="ann-field">
+        <label>Call-to-action links</label>
+        <div id="ann_cta_rows"></div>
+        <button type="button" class="ann-add-link" id="ann_add_cta">+ Add link</button>
+      </div>
+
+      <div class="ann-row">
+        <div class="ann-field">
+          <label>Frequency</label>
+          <select id="ann_frequency">
+            <% ['once','once_per_session','every_login','daily','n_times','until_dismissed','until_date'].forEach(f => { %>
+              <option value="<%= f %>" <%= a && a.frequency === f ? 'selected' : '' %>><%= f.replace(/_/g,' ') %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="ann-field" id="ann_max_views_field" style="display:none;">
+          <label>Max views</label>
+          <input type="number" id="ann_max_views" min="1" value="<%= a && a.max_views ? a.max_views : 3 %>">
+        </div>
+      </div>
+
+      <div class="ann-row">
+        <div class="ann-field">
+          <label>Starts at</label>
+          <input type="datetime-local" id="ann_starts_at" data-iso="<%= a && a.starts_at ? a.starts_at.toISOString() : '' %>">
+        </div>
+        <div class="ann-field">
+          <label>Ends at (optional)</label>
+          <input type="datetime-local" id="ann_ends_at" data-iso="<%= a && a.ends_at ? a.ends_at.toISOString() : '' %>">
+        </div>
+      </div>
+
+      <div class="ann-field ann-toggle-row">
+        <input type="checkbox" id="ann_is_active" <%= (!a || a.is_active) ? 'checked' : '' %>>
+        <label for="ann_is_active" style="margin:0;">Active</label>
+      </div>
+
+      <div class="ann-field">
+        <label>Targeting</label>
+
+        <% if (global) { %>
+          <div class="ann-target-group">
+            <h4>Scope</h4>
+            <label><input type="checkbox" id="ann_all_orgs" <%= (a && a.tenant_id === null) || !a ? 'checked' : '' %>> All organizations</label>
+            <div id="ann_org_picker" style="margin-top:8px; display:none;">
+              <select id="ann_org_select" multiple size="6" style="width:100%;">
+                <% orgs.forEach(o => { %>
+                  <option value="<%= o.organization_id %>" <%= existingOrgTargets.includes(String(o.organization_id)) ? 'selected' : '' %>><%= o.organization_name %></option>
+                <% }) %>
+              </select>
+            </div>
+          </div>
+        <% } %>
+
+        <div class="ann-target-group">
+          <h4>Roles</h4>
+          <div class="ann-checkbox-grid">
+            <% ['teacher','student_teacher','student','parent','guardian','driver','org_admin','super_admin'].forEach(r => { %>
+              <label><input type="checkbox" class="ann-role-check" value="<%= r %>" <%= existingRoleTargets.includes(r) ? 'checked' : '' %>> <%= r.replace(/_/g,' ') %></label>
+            <% }) %>
+          </div>
+        </div>
+
+        <div class="ann-target-group">
+          <h4>Specific users (comma-separated user IDs, optional)</h4>
+          <input type="text" id="ann_user_ids" value="<%= existingUserTargets.join(', ') %>">
+        </div>
+
+        <div class="ann-estimate" id="ann_estimate">Estimated recipients: &mdash;</div>
+      </div>
+
+      <div class="ann-error" id="ann_error"></div>
+
+      <div class="ann-submit-bar">
+        <button type="button" class="ann-btn-secondary" onclick="window.parent && window.parent.postMessage({managiraDrawerSaved:false}, window.location.origin)">Cancel</button>
+        <button type="submit" class="ann-btn-primary"><%= a ? 'Save changes' : 'Create announcement' %></button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // Populate datetime-local inputs from the server-provided ISO timestamps
+    // (datetime-local needs local-time "YYYY-MM-DDTHH:mm", not raw ISO/UTC).
+    ['ann_starts_at', 'ann_ends_at'].forEach(function (id) {
+      const el = document.getElementById(id);
+      const iso = el.dataset.iso;
+      if (!iso) return;
+      const d = new Date(iso);
+      const pad = (n) => String(n).padStart(2, '0');
+      el.value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    });
+
+    const isEditing = <%= a ? 'true' : 'false' %>;
+    const announcementId = <%= a ? a.id : 'null' %>;
+    const isGlobal = <%= global ? 'true' : 'false' %>;
+
+    // Display-type segmented toggle
+    document.querySelectorAll('#ann_display_type_toggle button').forEach(btn => {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('#ann_display_type_toggle button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // Frequency -> max_views conditional field
+    const freqSelect = document.getElementById('ann_frequency');
+    const maxViewsField = document.getElementById('ann_max_views_field');
+    function syncMaxViewsVisibility() {
+      maxViewsField.style.display = freqSelect.value === 'n_times' ? 'block' : 'none';
+    }
+    freqSelect.addEventListener('change', syncMaxViewsVisibility);
+    syncMaxViewsVisibility();
+
+    // Image upload
+    document.getElementById('ann_image_file').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      fetch('/announcements/upload-image', { method: 'POST', credentials: 'same-origin', body: formData })
+        .then(r => r.json())
+        .then(data => {
+          if (data.image_url) {
+            document.getElementById('ann_image_url').value = data.image_url;
+            const preview = document.getElementById('ann_image_preview');
+            preview.src = data.image_url;
+            preview.style.display = 'block';
+          }
+        });
+    });
+
+    // Dynamic CTA rows
+    const ctaRowsContainer = document.getElementById('ann_cta_rows');
+    const existingCtaLinks = <%- JSON.stringify(ctaLinks) %>;
+
+    function addCtaRow(link) {
+      link = link || { label: '', url: '', style: 'primary', ack_required: false };
+      const row = document.createElement('div');
+      row.className = 'ann-cta-row';
+      row.innerHTML =
+        '<input type="text" placeholder="Label" class="cta-label" value="' + (link.label || '').replace(/"/g,'&quot;') + '">' +
+        '<input type="url" placeholder="https://..." class="cta-url" value="' + (link.url || '').replace(/"/g,'&quot;') + '">' +
+        '<select class="cta-style">' +
+          '<option value="primary"' + (link.style === 'primary' ? ' selected' : '') + '>Primary</option>' +
+          '<option value="secondary"' + (link.style === 'secondary' ? ' selected' : '') + '>Secondary</option>' +
+          '<option value="link"' + (link.style === 'link' ? ' selected' : '') + '>Link</option>' +
+        '</select>' +
+        '<label><input type="checkbox" class="cta-ack"' + (link.ack_required ? ' checked' : '') + '> Ack required</label>' +
+        '<button type="button" class="remove">&times;</button>';
+      row.querySelector('.remove').addEventListener('click', () => row.remove());
+      ctaRowsContainer.appendChild(row);
+    }
+    if (existingCtaLinks.length) {
+      existingCtaLinks.forEach(addCtaRow);
+    }
+    document.getElementById('ann_add_cta').addEventListener('click', () => addCtaRow());
+
+    // Global scope: all-orgs checkbox toggles org picker
+    <% if (global) { %>
+      const allOrgsCheckbox = document.getElementById('ann_all_orgs');
+      const orgPicker = document.getElementById('ann_org_picker');
+      function syncOrgPicker() { orgPicker.style.display = allOrgsCheckbox.checked ? 'none' : 'block'; }
+      allOrgsCheckbox.addEventListener('change', syncOrgPicker);
+      syncOrgPicker();
+    <% } %>
+
+    function collectTargets() {
+      const targets = [];
+      document.querySelectorAll('.ann-role-check:checked').forEach(cb => targets.push({ target_type: 'role', target_value: cb.value }));
+      const userIdsRaw = document.getElementById('ann_user_ids').value.trim();
+      if (userIdsRaw) {
+        userIdsRaw.split(',').map(s => s.trim()).filter(Boolean).forEach(uid => targets.push({ target_type: 'user', target_value: uid }));
+      }
+      <% if (global) { %>
+        if (!allOrgsCheckbox.checked) {
+          Array.from(document.getElementById('ann_org_select').selectedOptions).forEach(opt => {
+            targets.push({ target_type: 'org', target_value: opt.value });
+          });
+        }
+      <% } %>
+      return targets;
+    }
+
+    function collectCtaLinks() {
+      return Array.from(ctaRowsContainer.querySelectorAll('.ann-cta-row')).map(row => ({
+        label: row.querySelector('.cta-label').value.trim(),
+        url: row.querySelector('.cta-url').value.trim(),
+        style: row.querySelector('.cta-style').value,
+        ack_required: row.querySelector('.cta-ack').checked,
+      })).filter(l => l.label && l.url);
+    }
+
+    function refreshEstimate() {
+      const params = new URLSearchParams();
+      params.set('targets', JSON.stringify(collectTargets()));
+      <% if (global) { %> if (!allOrgsCheckbox.checked) params.set('tenant_id', ''); <% } %>
+      fetch('/announcements/estimate-recipients?' + params.toString(), { credentials: 'same-origin' })
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('ann_estimate').textContent = 'Estimated recipients: ' + (data.estimate != null ? data.estimate : '—');
+        })
+        .catch(() => {});
+    }
+    document.getElementById('annForm').addEventListener('change', refreshEstimate);
+    refreshEstimate();
+
+    document.getElementById('annForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const errorBox = document.getElementById('ann_error');
+      errorBox.style.display = 'none';
+
+      const payload = {
+        title: document.getElementById('ann_title').value.trim(),
+        body: document.getElementById('ann_body').value,
+        image_url: document.getElementById('ann_image_url').value || null,
+        display_type: document.querySelector('#ann_display_type_toggle button.active').dataset.value,
+        variant: document.getElementById('ann_variant').value,
+        dismissible: document.getElementById('ann_dismissible').checked,
+        cta_links: collectCtaLinks(),
+        frequency: freqSelect.value,
+        max_views: freqSelect.value === 'n_times' ? parseInt(document.getElementById('ann_max_views').value, 10) : null,
+        starts_at: document.getElementById('ann_starts_at').value || null,
+        ends_at: document.getElementById('ann_ends_at').value || null,
+        is_active: document.getElementById('ann_is_active').checked,
+        targets: collectTargets(),
+      };
+      <% if (global) { %>
+        payload.tenant_id = allOrgsCheckbox.checked ? null : (Array.from(document.getElementById('ann_org_select').selectedOptions)[0] || {}).value || null;
+      <% } %>
+
+      if (!payload.title || !payload.body) {
+        errorBox.textContent = 'Title and body are required.';
+        errorBox.style.display = 'block';
+        return;
+      }
+
+      let url, method;
+      if (isEditing) {
+        url = '/announcements/' + announcementId;
+        method = 'PUT';
+      } else {
+        url = isGlobal ? '/announcements/global' : '/announcements';
+        method = 'POST';
+      }
+
+      fetch(url, {
+        method,
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then(async (r) => {
+          if (!r.ok) {
+            const data = await r.json().catch(() => ({}));
+            throw new Error(data.error || 'Unable to save announcement.');
+          }
+          return r.json();
+        })
+        .then(() => {
+          if (typeof managiraDrawerNotifySaved === 'function') managiraDrawerNotifySaved();
+        })
+        .catch((err) => {
+          errorBox.textContent = err.message;
+          errorBox.style.display = 'block';
+        });
+    });
+  </script>
+</body>
