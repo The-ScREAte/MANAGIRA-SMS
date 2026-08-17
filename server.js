@@ -558,7 +558,11 @@ if (process.env.NODE_ENV === "production") {
     })
   );
 } else {
-  // Localhost: no domain sharing
+  // Localhost: no domain sharing by default (works at plain http://localhost:4000
+  // like always). Opt in to LOCAL_DEV_COOKIE_DOMAIN=.managira.local in .env only
+  // if you've added app.managira.local / mira.managira.local to /etc/hosts and
+  // want to test the Mira SSO bridge locally the way it behaves in production
+  // (see README-MIRA.md) - leaving it unset preserves today's behavior exactly.
   app.use(
     session({
       store: new pgSession(sessionStoreConfig),
@@ -568,6 +572,7 @@ if (process.env.NODE_ENV === "production") {
       saveUninitialized: false,
       cookie: {
         secure: false,
+        domain: process.env.LOCAL_DEV_COOKIE_DOMAIN || undefined,
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24-hour hard ceiling (idle timeout enforces 4h inactivity limit)
       },

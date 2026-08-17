@@ -70,17 +70,26 @@ npm start               # http://localhost:4100
 
 **Local-dev cookie caveat**: in production the session cookie's domain is
 already `.managira.com`, so the browser sends it to any subdomain — nothing
-to configure. Locally there's no shared domain (main app on
+to configure. Locally there's no shared domain by default (main app on
 `localhost:4000`, Mira on `localhost:4100` are different origins as far as
 cookies are concerned), so a browser session started on the main app won't
-automatically reach Mira. Options for local end-to-end testing:
-1. Add both to `/etc/hosts` under one fake domain (e.g.
-   `app.managira.local` and `mira.managira.local`) and set the dev session
-   cookie's `domain` to `.managira.local` in `server.js`'s non-production
-   branch.
-2. Or just test Mira's routes directly with a manually-signed cookie value
-   (see the verification scripts written during development for the exact
-   `cookie-signature` pattern used).
+automatically reach Mira unless you opt in to the local-domain setup below.
+
+**Local-domain setup (implemented, opt-in)**:
+1. One-time: add to `/etc/hosts` (needs sudo):
+   ```
+   127.0.0.1  app.managira.local
+   127.0.0.1  mira.managira.local
+   ```
+2. In the **main app's** `.env`, set `LOCAL_DEV_COOKIE_DOMAIN=.managira.local`
+   (already set if you're reading this after the initial setup — leaving it
+   unset preserves the old plain-`localhost` behavior exactly, so this never
+   breaks anyone who hasn't opted in).
+3. Log in at `http://app.managira.local:4000` (not `localhost:4000` — the
+   cookie is scoped to `.managira.local`, so it won't be sent to plain
+   `localhost`).
+4. Open Mira at `http://mira.managira.local:4100` — same session, no second
+   login, exactly like production.
 
 ## Deploying `mira.managira.com` (manual steps — I can't do this part)
 
