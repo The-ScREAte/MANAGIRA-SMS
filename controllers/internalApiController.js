@@ -128,7 +128,236 @@ async function searchStudents(req, res) {
   }
 }
 
+// GET /internal/api/guardians/search?organizationId=63&q=jane
+async function searchGuardians(req, res) {
+  try {
+    const organizationId = parseInt(req.query.organizationId, 10);
+    const q = String(req.query.q || "").trim();
+    if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
+    if (!q) return res.json({ guardians: [] });
+
+    const result = await db.query(
+      `SELECT gp.guardian_id, gp.first_name, gp.last_name, gp.phone, gp.email,
+              array_agg(DISTINCT (s.first_name || ' ' || s.last_name)) FILTER (WHERE s.student_id IS NOT NULL) AS student_names
+       FROM guardian_profiles gp
+       LEFT JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
+       LEFT JOIN students s ON s.student_id = gs.student_id AND s.organization_id = gp.organization_id
+       WHERE gp.organization_id = $1
+         AND (gp.first_name || ' ' || gp.last_name) ILIKE $2
+       GROUP BY gp.guardian_id
+       ORDER BY gp.last_name, gp.first_name
+       LIMIT 10`,
+      [organizationId, `%${q}%`]
+    );
+    return res.json({ guardians: result.rows });
+  } catch (error) {
+    console.error("[internalApi/searchGuardians]", error);
+    return res.status(500).json({ error: "Unable to search guardians." });
+  }
+}
+
+// GET /internal/api/students/:studentId/fees?organizationId=63
+// Reasonable-effort summary (payments recorded vs. active fee templates) -
+// not a full Paygira billing-status mirror, which is a much larger system.
+async function getStudentFees(req, res) {
+  try {
+    const organizationId = parseInt(req.query.organizationId, 10);
+    const studentId = parseInt(req.params.studentId, 10);
+    if (!Number.isInteger(organizationId) || !Number.isInteger(studentId)) {
+      return res.status(400).json({ error: "organizationId and studentId are required." });
+    }
+
+    const student = await db.query(
+      `SELECT student_id, first_name, last_name FROM students WHERE student_id = $1 AND organization_id = $2`,
+      [studentId, organizationId]
+    );
+    if (!student.rows[0]) return res.status(404).json({ error: "Student not found." });
+
+    const payments = await db.query(
+      `SELECT payment_id, amount, method, occurrence_date, received_at, is_refund
+       FROM finance_payments
+       WHERE student_id = $1 AND organization_id = $2
+       ORDER BY received_at DESC
+       LIMIT 20`,
+      [studentId, organizationId]
+    );
+    const totals = await db.query(
+      `SELECT COALESCE(SUM(amount) FILTER (WHERE is_refund IS NOT TRUE), 0) AS total_paid,
+              COALESCE(SUM(amount) FILTER (WHERE is_refund IS TRUE), 0) AS total_refunded
+       FROM finance_payments WHERE student_id = $1 AND organization_id = $2`,
+      [studentId, organizationId]
+    );
+
+    return res.json({ student: student.rows[0], payments: payments.rows, totals: totals.rows[0] });
+  } catch (error) {
+    console.error("[internalApi/getStudentFees]", error);
+    return res.status(500).json({ error: "Unable to load fee information." });
+  }
+}
+
+// GET /internal/api/students/:studentId/attendance?organizationId=63&days=30
+async function getStudentAttendance(req, res) {
+  try {
+    const organizationId = parseInt(req.query.organizationId, 10);
+    const studentId = parseInt(req.params.studentId, 10);
+    const days = Math.min(parseInt(req.query.days, 10) || 30, 180);
+    if (!Number.isInteger(organizationId) || !Number.isInteger(studentId)) {
+      return res.status(400).json({ error: "organizationId and studentId are required." });
+    }
+
+    const student = await db.query(
+      `SELECT student_id, first_name, last_name FROM students WHERE student_id = $1 AND organization_id = $2`,
+      [studentId, organizationId]
+    );
+    if (!student.rows[0]) return res.status(404).json({ error: "Student not found." });
+
+    const records = await db.query(
+      `SELECT date, status FROM attendance_records
+       WHERE student_id = $1 AND organization_id = $2 AND date >= (CURRENT_DATE - $3::int)
+       ORDER BY date DESC`,
+      [studentId, organizationId, days]
+    );
+    const summary = await db.query(
+      `SELECT status, COUNT(*)::int AS count FROM attendance_records
+       WHERE student_id = $1 AND organization_id = $2 AND date >= (CURRENT_DATE - $3::int)
+       GROUP BY status`,
+      [studentId, organizationId, days]
+    );
+
+    return res.json({ student: student.rows[0], records: records.rows, summary: summary.rows });
+  } catch (error) {
+    console.error("[internalApi/getStudentAttendance]", error);
+    return res.status(500).json({ error: "Unable to load attendance information." });
+  }
+}
+
+// GET /internal/api/classes?organizationId=63&q=grade+3
+async function listClasses(req, res) {
+  try {
+    const organizationId = parseInt(req.query.organizationId, 10);
+    const q = String(req.query.q || "").trim();
+    if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
+
+    const result = await db.query(
+      `SELECT c.class_id, c.class_name, COUNT(s.student_id)::int AS student_count
+       FROM classes c
+       LEFT JOIN students s ON s.class_id = c.class_id AND s.organization_id = c.organization_id
+       WHERE c.organization_id = $1
+         AND ($2 = '' OR c.class_name ILIKE '%' || $2 || '%')
+       GROUP BY c.class_id
+       ORDER BY c.dashboard_sort_order NULLS LAST, c.class_name
+       LIMIT 20`,
+      [organizationId, q]
+    );
+    return res.json({ classes: result.rows });
+  } catch (error) {
+    console.error("[internalApi/listClasses]", error);
+    return res.status(500).json({ error: "Unable to load classes." });
+  }
+}
+
+// GET /internal/api/terms?organizationId=63
+async function listTerms(req, res) {
+  try {
+    const organizationId = parseInt(req.query.organizationId, 10);
+    if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
+
+    const result = await db.query(
+      `SELECT term_id, term_name, start_date, end_date, current, current_term
+       FROM terms WHERE organization_id = $1
+       ORDER BY start_date DESC LIMIT 20`,
+      [organizationId]
+    );
+    return res.json({ terms: result.rows });
+  } catch (error) {
+    console.error("[internalApi/listTerms]", error);
+    return res.status(500).json({ error: "Unable to load terms." });
+  }
+}
+
+// GET /internal/api/organizations/:organizationId  - basic org info, used
+// by the list_projects tool (Mira's "project" concept = the caller's own
+// school; a session is always scoped to exactly one org).
+async function getOrganization(req, res) {
+  try {
+    const organizationId = parseInt(req.params.organizationId, 10);
+    if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
+
+    const result = await db.query(
+      `SELECT organization_id, organization_name, logo FROM organizations WHERE organization_id = $1 AND deleted IS NOT TRUE`,
+      [organizationId]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: "Organization not found." });
+    return res.json({ organization: result.rows[0] });
+  } catch (error) {
+    console.error("[internalApi/getOrganization]", error);
+    return res.status(500).json({ error: "Unable to load organization." });
+  }
+}
+
+// GET /internal/api/students/:studentId/guardians?organizationId=63
+async function getStudentGuardians(req, res) {
+  try {
+    const organizationId = parseInt(req.query.organizationId, 10);
+    const studentId = parseInt(req.params.studentId, 10);
+    if (!Number.isInteger(organizationId) || !Number.isInteger(studentId)) {
+      return res.status(400).json({ error: "organizationId and studentId are required." });
+    }
+
+    const result = await db.query(
+      `SELECT gp.guardian_id, gp.first_name, gp.last_name, gp.phone, gp.email, gs.relationship
+       FROM guardian_students gs
+       JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id
+       JOIN students s ON s.student_id = gs.student_id
+       WHERE gs.student_id = $1 AND s.organization_id = $2 AND gp.organization_id = $2`,
+      [studentId, organizationId]
+    );
+    return res.json({ guardians: result.rows });
+  } catch (error) {
+    console.error("[internalApi/getStudentGuardians]", error);
+    return res.status(500).json({ error: "Unable to load guardians." });
+  }
+}
+
+// POST /internal/api/announcements
+// { organizationId, title, body }
+// Uses the admin_announcements table (org-targeted via organization_id,
+// same table the /admin/announcements page reads from today) - the newer
+// broadcast_announcements engine lives on a different, not-yet-merged
+// branch, so this deliberately doesn't take a dependency on it.
+async function createAnnouncement(req, res) {
+  try {
+    const organizationId = parseInt(req.body?.organizationId, 10);
+    const title = String(req.body?.title || "").trim();
+    const body = String(req.body?.body || "").trim();
+
+    if (!Number.isInteger(organizationId) || !title || !body) {
+      return res.status(400).json({ error: "organizationId, title, and body are required." });
+    }
+
+    const inserted = await db.query(
+      `INSERT INTO admin_announcements (title, description, is_active, organization_id)
+       VALUES ($1, $2, TRUE, $3)
+       RETURNING *`,
+      [title.slice(0, 255), body, organizationId]
+    );
+
+    return res.status(201).json({ announcement: inserted.rows[0] });
+  } catch (error) {
+    console.error("[internalApi/createAnnouncement]", error);
+    return res.status(500).json({ error: "Unable to create announcement." });
+  }
+}
+
 module.exports = {
   validateSession,
   searchStudents,
+  searchGuardians,
+  getStudentFees,
+  getStudentAttendance,
+  listClasses,
+  listTerms,
+  getOrganization,
+  getStudentGuardians,
+  createAnnouncement,
 };

@@ -12,5 +12,13 @@ router.use(internalServiceAuth);
 
 router.post("/session/validate", internalApiController.validateSession);
 router.get("/students/search", internalApiController.searchStudents);
+router.get("/guardians/search", internalApiController.searchGuardians);
+router.get("/students/:studentId/fees", internalApiController.getStudentFees);
+router.get("/students/:studentId/attendance", internalApiController.getStudentAttendance);
+router.get("/classes", internalApiController.listClasses);
+router.get("/terms", internalApiController.listTerms);
+router.get("/organizations/:organizationId", internalApiController.getOrganization);
+router.get("/students/:studentId/guardians", internalApiController.getStudentGuardians);
+router.post("/announcements", internalApiController.createAnnouncement);
 
 module.exports = router;

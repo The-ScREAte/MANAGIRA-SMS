@@ -50,12 +50,17 @@ async function mockStreamCompletion({ messages, tools, onToken, onToolCall }) {
   const decision = mockDecide({ messages, tools });
   if (decision.type === "tool_call") {
     onToolCall(decision.toolName, decision.arguments);
-    return { finishReason: "tool_call" };
+    return { finishReason: "tool_call", provider: "mock", model: "mock", usage: { promptTokens: 0, completionTokens: 0 } };
   }
   for (const word of decision.content.split(" ")) {
     onToken(word + " ");
   }
-  return { finishReason: "stop", usage: { promptTokens: 0, completionTokens: decision.content.split(" ").length } };
+  return {
+    finishReason: "stop",
+    provider: "mock",
+    model: "mock",
+    usage: { promptTokens: 0, completionTokens: decision.content.split(" ").length },
+  };
 }
 
 // ---- Real providers ----
@@ -149,7 +154,8 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
     if (!isProviderConfigured(provider)) continue;
     try {
       const model = provider === primary.provider ? primary.model : TASK_MODEL_MAP.default.model;
-      return await callProvider(provider, { model, messages, tools, onToken, onToolCall });
+      const result = await callProvider(provider, { model, messages, tools, onToken, onToolCall });
+      return { ...result, provider, model };
     } catch (error) {
       console.error(`[mira/modelRouter] ${provider} failed, will try fallback if available:`, error.message);
       lastError = error;

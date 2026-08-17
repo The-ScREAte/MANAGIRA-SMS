@@ -7,6 +7,8 @@ const db = require("../config/db");
 const { ensureMiraSchema } = require("../db/schema");
 const { streamCompletion } = require("./modelRouter");
 const { listToolSchemas, runTool } = require("../tools");
+const { retrieveContext } = require("./ragService");
+const { checkBudget, recordUsage } = require("./usageLedger");
 
 const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff. You help find student and school records, draft communications, and summarize data. You only ever act within the current user's own school - never suggest or imply access to another school's data. Be concise and warm.`;
 
@@ -61,19 +63,40 @@ function summarizeToolResult(toolName, result) {
 // sse: { send(event, data) } - a thin wrapper the route layer provides so
 // this module has no direct knowledge of Express's response object.
 async function runTurn({ tenant, chatId, userText, sse }) {
+  const budget = await checkBudget(tenant.organizationId);
+  if (!budget.allowed) {
+    sse.send("error", { message: budget.reason });
+    return;
+  }
+
   const chat = await getOrCreateChat({ tenant, chatId });
   const history = await loadHistory(chat.id);
   await saveMessage(chat.id, "user", userText);
 
   sse.send("chat", { chatId: chat.id });
 
-  const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...history, { role: "user", content: userText }];
+  // RAG: pull in any previously-indexed content relevant to this message
+  // (scoped to the caller's own tenant - vectorStore.search() enforces
+  // this in SQL, not just in application code). Best-effort: indexing
+  // failures should never block a chat turn.
+  let contextMessages = [];
+  try {
+    const matches = await retrieveContext({ tenantId: tenant.organizationId, query: userText, limit: 4 });
+    if (matches.length) {
+      const contextText = matches.map((m) => `- (${m.source_type}) ${m.content}`).join("\n");
+      contextMessages = [{ role: "system", content: `Relevant indexed context:\n${contextText}` }];
+    }
+  } catch (error) {
+    console.error("[mira/orchestrator] RAG retrieval failed, continuing without it:", error.message);
+  }
+
+  const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history, { role: "user", content: userText }];
   const tools = listToolSchemas();
 
   let assistantText = "";
   let toolCallInfo = null;
 
-  await streamCompletion({
+  const firstPass = await streamCompletion({
     task: "default",
     messages,
     tools,
@@ -85,6 +108,14 @@ async function runTurn({ tenant, chatId, userText, sse }) {
       toolCallInfo = { name, args };
     },
   });
+  await recordUsage({
+    tenantId: tenant.organizationId,
+    userId: tenant.userId,
+    provider: firstPass.provider,
+    model: firstPass.model,
+    promptTokens: firstPass.usage?.promptTokens || firstPass.usage?.prompt_tokens || 0,
+    completionTokens: firstPass.usage?.completionTokens || firstPass.usage?.completion_tokens || 0,
+  }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
 
   if (toolCallInfo) {
     sse.send("tool_call", { name: toolCallInfo.name, args: toolCallInfo.args });
@@ -101,7 +132,7 @@ async function runTurn({ tenant, chatId, userText, sse }) {
       { role: "user", content: `Tool result: ${JSON.stringify(result)}. Reply to the user based on this.` },
     ];
     assistantText = "";
-    await streamCompletion({
+    const secondPass = await streamCompletion({
       task: "default",
       messages: followUpMessages,
       tools: [],
@@ -111,6 +142,14 @@ async function runTurn({ tenant, chatId, userText, sse }) {
       },
       onToolCall: () => {},
     });
+    await recordUsage({
+      tenantId: tenant.organizationId,
+      userId: tenant.userId,
+      provider: secondPass.provider,
+      model: secondPass.model,
+      promptTokens: secondPass.usage?.promptTokens || secondPass.usage?.prompt_tokens || 0,
+      completionTokens: secondPass.usage?.completionTokens || secondPass.usage?.completion_tokens || 0,
+    }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
 
     await saveMessage(chat.id, "assistant", assistantText, [{ name: toolCallInfo.name, args: toolCallInfo.args, status }]);
   } else {
