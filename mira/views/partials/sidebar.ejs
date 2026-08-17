@@ -1,0 +1,42 @@
+<div class="mira-sidebar-backdrop" id="miraSidebarBackdrop"></div>
+<aside class="mira-sidebar" id="miraSidebar">
+  <div class="mira-sidebar-header">
+    <div class="mira-sidebar-brand">
+      <%- include('logo', { size: 'sidebar', animate: false }) %>
+      <span class="mira-sidebar-brand-name">Mira</span>
+    </div>
+    <button class="mira-collapse-toggle" id="miraCollapseToggle" type="button" aria-label="Collapse sidebar">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3h10M3 8h10M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="mira-sidebar-actions">
+    <button class="mira-btn mira-btn-primary" id="miraNewChatBtn" type="button">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="mira-btn-label">New chat</span>
+    </button>
+    <button class="mira-btn mira-btn-secondary" id="miraBuildBtn" type="button" disabled title="Coming soon">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8.5l3-5 3 2 3-4 3 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="mira-btn-label">Build</span>
+    </button>
+  </div>
+
+  <div class="mira-sidebar-history">
+    <div class="mira-sidebar-section-label">Chat history</div>
+    <div class="mira-history-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <input type="search" id="miraHistorySearch" placeholder="Search chats" />
+    </div>
+    <div id="miraChatList">
+      <!-- populated by mira-app.js from GET /api/chat/history -->
+    </div>
+  </div>
+
+  <div class="mira-sidebar-footer">
+    <div class="mira-avatar"><%= (tenant.displayName || '?').trim().charAt(0).toUpperCase() %></div>
+    <div class="mira-sidebar-user-info">
+      <div class="mira-sidebar-user-name"><%= tenant.displayName %></div>
+      <div class="mira-sidebar-user-role"><%= tenant.roleTags && tenant.roleTags.length ? tenant.roleTags[0].replace('_',' ') : tenant.viewerType %></div>
+    </div>
+  </div>
+</aside>

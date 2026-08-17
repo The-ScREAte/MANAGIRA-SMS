@@ -1,2 +1,545 @@
-/* Placeholder - replaced with full brand tokens + layout in phase 3. */
-body { font-family: "Inter", sans-serif; color: #1e293b; }
+/* Mira - Managira's AI assistant. Brand tokens pulled from the main app
+   (public/css/buttons.css, views/partials/head.ejs, site.webmanifest) -
+   #01535b is Managira's confirmed brand color, not invented here. */
+
+:root {
+  --mira-primary: #01535b;
+  --mira-primary-hover: #014a51;
+  --mira-primary-soft: color-mix(in srgb, var(--mira-primary) 10%, white);
+  --mira-primary-soft-strong: color-mix(in srgb, var(--mira-primary) 16%, white);
+  --mira-primary-border: color-mix(in srgb, var(--mira-primary) 28%, white);
+  --mira-shadow-color: rgba(1, 83, 91, 0.22);
+  --mira-shadow-color-strong: rgba(1, 83, 91, 0.28);
+
+  --mira-bg: #f8fafc;
+  --mira-bg-elevated: #ffffff;
+  --mira-sidebar-bg: #ffffff;
+  --mira-border: #e2e8f0;
+  --mira-text-primary: #16181d;
+  --mira-text-secondary: #64748b;
+  --mira-text-tertiary: #94a3b8;
+
+  --mira-radius-sm: 8px;
+  --mira-radius-lg: 16px;
+  --mira-radius-full: 50%;
+
+  --mira-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --mira-sidebar-width: 280px;
+  --mira-sidebar-width-collapsed: 72px;
+}
+
+/* System dark mode (no manual toggle exists yet, but the hook is here) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --mira-bg: #0e1520;
+    --mira-bg-elevated: #16202c;
+    --mira-sidebar-bg: #121a24;
+    --mira-border: #263241;
+    --mira-text-primary: #f1f5f9;
+    --mira-text-secondary: #94a3b8;
+    --mira-text-tertiary: #64748b;
+    --mira-primary-soft: color-mix(in srgb, var(--mira-primary) 22%, #16202c);
+    --mira-primary-soft-strong: color-mix(in srgb, var(--mira-primary) 32%, #16202c);
+  }
+}
+:root[data-theme="dark"] {
+  --mira-bg: #0e1520;
+  --mira-bg-elevated: #16202c;
+  --mira-sidebar-bg: #121a24;
+  --mira-border: #263241;
+  --mira-text-primary: #f1f5f9;
+  --mira-text-secondary: #94a3b8;
+  --mira-text-tertiary: #64748b;
+  --mira-primary-soft: color-mix(in srgb, var(--mira-primary) 22%, #16202c);
+  --mira-primary-soft-strong: color-mix(in srgb, var(--mira-primary) 32%, #16202c);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--mira-font);
+  background: var(--mira-bg);
+  color: var(--mira-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+button { font-family: inherit; }
+
+/* ---------------------------------------------------------------- shell */
+
+.mira-shell {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------- sidebar */
+
+.mira-sidebar {
+  width: var(--mira-sidebar-width);
+  flex-shrink: 0;
+  background: var(--mira-sidebar-bg);
+  border-right: 1px solid var(--mira-border);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s ease;
+  overflow: hidden;
+}
+.mira-sidebar.is-collapsed { width: var(--mira-sidebar-width-collapsed); }
+
+.mira-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px 14px;
+  gap: 10px;
+}
+
+.mira-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mira-sidebar-brand-name {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mira-sidebar.is-collapsed .mira-sidebar-brand-name,
+.mira-sidebar.is-collapsed .mira-sidebar-section-label,
+.mira-sidebar.is-collapsed .mira-chat-item-text,
+.mira-sidebar.is-collapsed .mira-sidebar-user-info,
+.mira-sidebar.is-collapsed .mira-btn-label {
+  display: none;
+}
+
+.mira-collapse-toggle {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--mira-radius-sm);
+  border: 1px solid var(--mira-border);
+  background: var(--mira-bg-elevated);
+  color: var(--mira-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mira-collapse-toggle:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+
+.mira-sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 12px 16px;
+}
+
+.mira-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--mira-radius-sm);
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.mira-btn-primary {
+  background: var(--mira-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px var(--mira-shadow-color);
+}
+.mira-btn-primary:hover { background: var(--mira-primary-hover); box-shadow: 0 6px 16px var(--mira-shadow-color-strong); }
+
+.mira-btn-secondary {
+  background: transparent;
+  color: var(--mira-text-secondary);
+  border: 1px solid var(--mira-border);
+}
+.mira-btn-secondary:hover { background: var(--mira-primary-soft); color: var(--mira-primary); border-color: var(--mira-primary-border); }
+
+.mira-sidebar-history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 12px;
+  min-height: 0;
+}
+
+.mira-sidebar-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mira-text-tertiary);
+}
+
+.mira-history-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--mira-radius-sm);
+  border: 1px solid var(--mira-border);
+  background: var(--mira-bg-elevated);
+  margin: 4px 0 10px;
+}
+.mira-history-search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.82rem;
+  color: var(--mira-text-primary);
+  width: 100%;
+}
+.mira-history-search svg { flex-shrink: 0; color: var(--mira-text-tertiary); }
+
+.mira-chat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: var(--mira-radius-sm);
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+.mira-chat-item:hover, .mira-chat-item.is-active { background: var(--mira-primary-soft); }
+.mira-chat-item-text {
+  font-size: 0.83rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--mira-text-primary);
+}
+.mira-chat-item-time { font-size: 0.72rem; color: var(--mira-text-tertiary); }
+
+.mira-sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--mira-border);
+}
+
+.mira-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--mira-radius-full);
+  background: linear-gradient(135deg, var(--mira-primary) 0%, var(--mira-primary-hover) 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.mira-sidebar-user-info { min-width: 0; }
+.mira-sidebar-user-name {
+  font-size: 0.83rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mira-sidebar-user-role { font-size: 0.72rem; color: var(--mira-text-secondary); }
+
+/* --------------------------------------------------------------- main */
+
+.mira-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.mira-mobile-topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--mira-border);
+  background: var(--mira-bg-elevated);
+}
+
+.mira-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 22px;
+  text-align: center;
+}
+
+.mira-empty-heading {
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--mira-text-primary);
+}
+
+.mira-project-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--mira-border);
+  background: var(--mira-bg-elevated);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--mira-text-secondary);
+  cursor: pointer;
+}
+.mira-project-selector:hover { border-color: var(--mira-primary-border); color: var(--mira-primary); }
+
+.mira-composer {
+  width: min(680px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mira-input-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 10px 10px 16px;
+  border-radius: var(--mira-radius-lg);
+  border: 1px solid var(--mira-border);
+  background: var(--mira-bg-elevated);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+}
+.mira-input-box:focus-within { border-color: var(--mira-primary-border); box-shadow: 0 0 0 3px var(--mira-primary-soft); }
+
+.mira-input-box textarea {
+  flex: 1;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-family: var(--mira-font);
+  font-size: 0.92rem;
+  color: var(--mira-text-primary);
+  max-height: 160px;
+  padding: 8px 0;
+  line-height: 1.4;
+}
+.mira-input-box textarea::placeholder { color: var(--mira-text-tertiary); }
+
+.mira-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--mira-radius-full);
+  border: none;
+  background: transparent;
+  color: var(--mira-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mira-icon-btn:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+
+.mira-send-btn {
+  background: var(--mira-primary);
+  color: #fff;
+  box-shadow: 0 3px 10px var(--mira-shadow-color);
+}
+.mira-send-btn:hover { background: var(--mira-primary-hover); }
+.mira-send-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+.mira-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mira-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--mira-border);
+  background: var(--mira-bg-elevated);
+  color: var(--mira-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mira-chip:hover { border-color: var(--mira-primary-border); color: var(--mira-primary); background: var(--mira-primary-soft); }
+
+/* -------------------------------------------------------------- chat */
+
+.mira-chat-view { display: none; flex: 1; flex-direction: column; min-height: 0; }
+.mira-chat-view.is-active { display: flex; }
+
+.mira-chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 24px 12px;
+}
+
+.mira-chat-thread {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.mira-message { display: flex; gap: 12px; max-width: 100%; }
+.mira-message-user { justify-content: flex-end; }
+
+.mira-message-bubble {
+  padding: 12px 16px;
+  border-radius: var(--mira-radius-lg);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.mira-message-user .mira-message-bubble {
+  background: var(--mira-primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.mira-message-assistant .mira-message-bubble {
+  background: var(--mira-bg-elevated);
+  border: 1px solid var(--mira-border);
+  border-bottom-left-radius: 4px;
+}
+
+.mira-tool-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--mira-radius-sm);
+  background: var(--mira-primary-soft);
+  border: 1px solid var(--mira-primary-border);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--mira-primary);
+  margin-top: 8px;
+}
+.mira-tool-action svg { flex-shrink: 0; }
+
+.mira-composer-docked {
+  padding: 12px 24px 20px;
+  border-top: 1px solid var(--mira-border);
+  display: flex;
+  justify-content: center;
+}
+.mira-composer-docked .mira-composer { width: min(760px, 100%); }
+
+.mira-typing-dots { display: inline-flex; gap: 4px; padding: 4px 0; }
+.mira-typing-dots span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--mira-text-tertiary);
+  animation: miraTypingBounce 1.2s infinite ease-in-out;
+}
+.mira-typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.mira-typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes miraTypingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ---------------------------------------------------------------- logo */
+
+.mira-logo {
+  width: 84px;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mira-logo img { width: 100%; height: 100%; object-fit: contain; }
+
+.mira-logo-sidebar { width: 32px; height: 32px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .mira-logo.mira-logo-entrance {
+    opacity: 0;
+    transform: scale(0.6) rotate(0deg);
+    animation: miraLogoEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .mira-logo.mira-logo-idle { animation: miraLogoFloat 4.5s ease-in-out infinite; }
+
+  @keyframes miraLogoEntrance {
+    0%   { opacity: 0; transform: scale(0.6) rotate(0deg); }
+    60%  { opacity: 1; transform: scale(1.05) rotate(360deg); }
+    100% { opacity: 1; transform: scale(1) rotate(360deg); }
+  }
+  @keyframes miraLogoFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-4px) scale(1.015); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mira-logo.mira-logo-entrance { opacity: 1; transform: none; }
+}
+
+/* -------------------------------------------------------------- mobile */
+
+@media (max-width: 860px) {
+  .mira-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 500;
+    width: min(300px, 84vw);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 8px 0 30px rgba(0, 0, 0, 0.15);
+  }
+  .mira-sidebar.is-open { transform: translateX(0); }
+  .mira-sidebar.is-collapsed { width: min(300px, 84vw); }
+  .mira-sidebar.is-collapsed .mira-sidebar-brand-name,
+  .mira-sidebar.is-collapsed .mira-sidebar-section-label,
+  .mira-sidebar.is-collapsed .mira-chat-item-text,
+  .mira-sidebar.is-collapsed .mira-sidebar-user-info,
+  .mira-sidebar.is-collapsed .mira-btn-label { display: revert; }
+
+  .mira-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 490;
+  }
+  .mira-sidebar-backdrop.is-visible { display: block; }
+
+  .mira-mobile-topbar { display: flex; }
+  .mira-empty-heading { font-size: 1.4rem; }
+  .mira-logo { width: 64px; height: 64px; }
+}

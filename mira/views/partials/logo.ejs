@@ -1,0 +1,8 @@
+<%
+  // size: 'sidebar' | 'hero'
+  const logoSize = typeof size !== 'undefined' ? size : 'hero';
+  const animated = typeof animate !== 'undefined' ? animate : false;
+%>
+<div class="mira-logo <%= logoSize === 'sidebar' ? 'mira-logo-sidebar' : '' %> <%= animated ? 'mira-logo-entrance' : '' %>" data-mira-logo <%= animated ? 'data-mira-logo-idle-after-entrance' : '' %>>
+  <img src="/images/managira.png" alt="Managira" />
+</div>
