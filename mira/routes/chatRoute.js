@@ -1,10 +1,9 @@
-// Full chat/orchestrator wiring lands in phase 4. This stub keeps the
-// service bootable at every phase-2 checkpoint.
 const express = require("express");
 const router = express.Router();
+const chatController = require("../controllers/chatController");
 
-router.post("/", (req, res) => {
-  res.status(501).json({ error: "Chat orchestrator not wired up yet (phase 4)." });
-});
+router.post("/", chatController.postChat);
+router.get("/history", chatController.getHistory);
+router.get("/:id", chatController.getChat);
 
 module.exports = router;

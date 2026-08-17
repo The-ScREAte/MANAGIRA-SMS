@@ -91,6 +91,44 @@ async function validateSession(req, res) {
   }
 }
 
+// GET /internal/api/students/search?organizationId=63&q=john
+// Reuses the same students/classes join pattern used throughout
+// commonController.js (e.g. student profile lookups) rather than
+// introducing new query logic. organizationId is required on every call -
+// Mira derives it from the caller's *validated* session identity, never
+// from client input, but this endpoint scopes by it regardless as a second
+// layer of tenant enforcement.
+async function searchStudents(req, res) {
+  try {
+    const organizationId = parseInt(req.query.organizationId, 10);
+    const q = String(req.query.q || "").trim();
+    if (!Number.isInteger(organizationId)) {
+      return res.status(400).json({ error: "organizationId is required." });
+    }
+    if (!q) {
+      return res.json({ students: [] });
+    }
+
+    const result = await db.query(
+      `SELECT s.student_id, s.first_name, s.last_name, s.grade, s.gender,
+              s.custom_student_id, c.class_name
+       FROM students s
+       LEFT JOIN classes c ON c.class_id = s.class_id
+       WHERE s.organization_id = $1
+         AND (s.first_name || ' ' || s.last_name) ILIKE $2
+       ORDER BY s.last_name, s.first_name
+       LIMIT 10`,
+      [organizationId, `%${q}%`]
+    );
+
+    return res.json({ students: result.rows });
+  } catch (error) {
+    console.error("[internalApi/searchStudents]", error);
+    return res.status(500).json({ error: "Unable to search students." });
+  }
+}
+
 module.exports = {
   validateSession,
+  searchStudents,
 };

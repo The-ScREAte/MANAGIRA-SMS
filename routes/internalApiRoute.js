@@ -11,5 +11,6 @@ router.use(express.json());
 router.use(internalServiceAuth);
 
 router.post("/session/validate", internalApiController.validateSession);
+router.get("/students/search", internalApiController.searchStudents);
 
 module.exports = router;
