@@ -791,6 +791,7 @@ const studentRoute = require("./routes/studentRoute")(db);
 const documentRoute = require("./routes/documentRoute")(db);
 const transportationRoute = require("./routes/transportationRoute")(db);
 const driverRoute = require("./routes/driverRoute")(db);
+const internalApiRoute = require("./routes/internalApiRoute");
 
 // Debug middleware for admin routes in production
 if (process.env.NODE_ENV === "production") {
@@ -806,6 +807,9 @@ app.use("/account", accountRoute);
 app.use("/admin", adminRoute);
 app.use("/common", commonRoute);
 app.use("/print", printRoute);
+// Service-to-service only (shared-token gated) - consumed by the separate
+// Mira AI service, never reachable from a browser session.
+app.use("/internal/api", internalApiRoute);
 app.use("/legal", legalRoute);
 // Disabled: School Directory page is hidden for now, so the /directory alias is commented out too.
 // Short-URL alias so the path Google has been trying (/directory) resolves with a 301 to the canonical page.
