@@ -20,5 +20,6 @@ router.get("/terms", internalApiController.listTerms);
 router.get("/organizations/:organizationId", internalApiController.getOrganization);
 router.get("/students/:studentId/guardians", internalApiController.getStudentGuardians);
 router.post("/announcements", internalApiController.createAnnouncement);
+router.get("/documentation", internalApiController.listDocumentationArticles);
 
 module.exports = router;

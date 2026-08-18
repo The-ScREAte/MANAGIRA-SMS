@@ -349,6 +349,26 @@ async function createAnnouncement(req, res) {
   }
 }
 
+// GET /internal/api/documentation - the platform's own published help-
+// center articles (documentation_articles), used to build Mira's RAG
+// index (see mira/scripts/ingestDocs.js). Public, non-tenant content -
+// no organizationId scoping needed, unlike every other endpoint here.
+// Drafts are excluded so Mira never cites unpublished content.
+async function listDocumentationArticles(req, res) {
+  try {
+    const result = await db.query(
+      `SELECT id, title, slug, topic, subtopic, tags, content_html
+       FROM documentation_articles
+       WHERE status = 'active'
+       ORDER BY topic, subtopic, title`
+    );
+    return res.json({ articles: result.rows });
+  } catch (error) {
+    console.error("[internalApi/listDocumentationArticles]", error);
+    return res.status(500).json({ error: "Unable to load documentation." });
+  }
+}
+
 module.exports = {
   validateSession,
   searchStudents,
@@ -360,4 +380,5 @@ module.exports = {
   getOrganization,
   getStudentGuardians,
   createAnnouncement,
+  listDocumentationArticles,
 };

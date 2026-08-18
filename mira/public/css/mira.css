@@ -936,6 +936,8 @@ button { font-family: inherit; }
 .mira-message-bubble ul, .mira-message-bubble ol { margin: 0 0 10px; padding-left: 22px; }
 .mira-message-bubble li { margin: 3px 0; }
 .mira-message-bubble li:last-child { margin-bottom: 0; }
+.mira-message-bubble a { color: var(--mira-primary); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.mira-message-bubble a:hover { text-decoration: none; }
 .mira-message-bubble code {
   background: var(--mira-primary-soft);
   color: var(--mira-primary);
