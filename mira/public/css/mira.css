@@ -918,9 +918,9 @@ button { font-family: inherit; }
   border-bottom-right-radius: 4px;
 }
 .mira-message-assistant .mira-message-bubble {
-  background: var(--mira-bg-elevated);
-  border: 1px solid var(--mira-border);
-  border-bottom-left-radius: 4px;
+  background: none;
+  border: none;
+  padding: 0;
   white-space: normal;
 }
 .mira-message-bubble p { margin: 0 0 10px; }
