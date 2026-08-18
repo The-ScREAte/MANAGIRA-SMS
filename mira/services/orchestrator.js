@@ -84,7 +84,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   const history = await loadHistory(chat.id);
   await saveMessage(chat.id, "user", userText);
 
-  sse.send("chat", { chatId: chat.id });
+  sse.send("chat", { chatId: chat.id, title: chat.title, pinned: chat.pinned });
 
   // RAG: pull in any previously-indexed content relevant to this message
   // (scoped to the caller's own tenant - vectorStore.search() enforces

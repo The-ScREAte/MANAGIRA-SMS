@@ -769,6 +769,71 @@ button { font-family: inherit; }
 .mira-chat-view { display: none; flex: 1; flex-direction: column; min-height: 0; }
 .mira-chat-view.is-active { display: flex; }
 
+.mira-chat-topbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--mira-border);
+  flex-shrink: 0;
+}
+.mira-chat-topbar-title-wrap { position: relative; }
+.mira-chat-topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--mira-radius-sm);
+  background: transparent;
+  color: var(--mira-text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  max-width: 320px;
+  cursor: pointer;
+}
+.mira-chat-topbar-title span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mira-chat-topbar-title svg { flex-shrink: 0; color: var(--mira-text-tertiary); }
+.mira-chat-topbar-title:hover { background: var(--mira-primary-soft); border-color: var(--mira-primary-border); color: var(--mira-primary); }
+.mira-chat-topbar-title[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+.mira-chat-topbar-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 550;
+  min-width: 160px;
+  background: var(--mira-bg-elevated);
+  border: 1px solid var(--mira-border);
+  border-radius: var(--mira-radius-sm);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
+  padding: 4px;
+  animation: miraMenuIn 0.12s ease-out;
+}
+.mira-chat-topbar-menu[hidden] { display: none; }
+.mira-chat-topbar-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--mira-text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+.mira-chat-topbar-menu-item:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+.mira-chat-topbar-menu-delete { color: #dc2626; }
+.mira-chat-topbar-menu-delete:hover { background: color-mix(in srgb, #dc2626 10%, transparent); color: #dc2626; }
+.mira-chat-topbar-menu-divider { height: 1px; background: var(--mira-border); margin: 4px 2px; }
+
 .mira-chat-scroll {
   flex: 1;
   overflow-y: auto;

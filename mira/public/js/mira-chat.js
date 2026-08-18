@@ -4,6 +4,7 @@
   var thread = document.getElementById("miraChatThread");
   var scrollEl = document.getElementById("miraChatScroll");
   var currentChatId = null;
+  var currentChatPinned = false;
   var allChats = []; // last fetched history list, filtered locally by the search box
   var pendingAttachments = []; // [{filename, kind:"text", text} | {filename, kind:"image", dataUrl, mimeType}] - cleared after each send
 
@@ -23,6 +24,114 @@
   }
   function hideAiDisclaimer() {
     if (aiDisclaimer) aiDisclaimer.hidden = true;
+  }
+
+  // ---- Chat topbar: current chat's title + a Pin/Rename/Delete menu ----
+  var chatTopbarTitleText = document.getElementById("miraChatTopbarTitleText");
+  var chatTopbarTitleBtn = document.getElementById("miraChatTopbarTitle");
+  var chatTopbarMenu = document.getElementById("miraChatTopbarMenu");
+  var chatTopbarPinLabel = document.getElementById("miraChatTopbarPinLabel");
+
+  function updateChatTopbar(title, pinned) {
+    currentChatPinned = !!pinned;
+    if (chatTopbarTitleText) chatTopbarTitleText.textContent = title || "New chat";
+    if (chatTopbarPinLabel) chatTopbarPinLabel.textContent = currentChatPinned ? "Unpin" : "Pin";
+  }
+
+  function closeChatTopbarMenu() {
+    if (chatTopbarMenu) chatTopbarMenu.hidden = true;
+    if (chatTopbarTitleBtn) chatTopbarTitleBtn.setAttribute("aria-expanded", "false");
+  }
+  if (chatTopbarTitleBtn) {
+    chatTopbarTitleBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (!currentChatId) return;
+      var willOpen = chatTopbarMenu.hidden;
+      closeChatTopbarMenu();
+      if (willOpen) {
+        chatTopbarMenu.hidden = false;
+        chatTopbarTitleBtn.setAttribute("aria-expanded", "true");
+      }
+    });
+    document.addEventListener("click", function (e) {
+      if (!chatTopbarMenu.hidden && !chatTopbarMenu.contains(e.target) && e.target !== chatTopbarTitleBtn) closeChatTopbarMenu();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !chatTopbarMenu.hidden) closeChatTopbarMenu();
+    });
+  }
+
+  var chatTopbarPinBtn = document.getElementById("miraChatTopbarPin");
+  if (chatTopbarPinBtn) {
+    chatTopbarPinBtn.addEventListener("click", function () {
+      closeChatTopbarMenu();
+      if (!currentChatId) return;
+      var nextPinned = !currentChatPinned;
+      fetch("/api/chat/" + currentChatId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinned: nextPinned }),
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("pin toggle failed");
+          currentChatPinned = nextPinned;
+          if (chatTopbarPinLabel) chatTopbarPinLabel.textContent = currentChatPinned ? "Unpin" : "Pin";
+          refreshHistory();
+        })
+        .catch(function () {
+          alert("Unable to update that chat right now.");
+        });
+    });
+  }
+
+  var chatTopbarRenameBtn = document.getElementById("miraChatTopbarRename");
+  if (chatTopbarRenameBtn) {
+    chatTopbarRenameBtn.addEventListener("click", function () {
+      closeChatTopbarMenu();
+      if (!currentChatId || !chatTopbarTitleText) return;
+      var currentTitle = chatTopbarTitleText.textContent;
+      var newTitle = prompt("Rename chat", currentTitle);
+      if (newTitle == null) return;
+      newTitle = newTitle.trim();
+      if (!newTitle || newTitle === currentTitle) return;
+      fetch("/api/chat/" + currentChatId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle }),
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("rename failed");
+          chatTopbarTitleText.textContent = newTitle;
+          refreshHistory();
+        })
+        .catch(function () {
+          alert("Unable to rename that chat right now.");
+        });
+    });
+  }
+
+  var chatTopbarDeleteBtn = document.getElementById("miraChatTopbarDelete");
+  if (chatTopbarDeleteBtn) {
+    chatTopbarDeleteBtn.addEventListener("click", function () {
+      closeChatTopbarMenu();
+      if (!currentChatId) return;
+      if (!confirm("Delete this chat? This can't be undone.")) return;
+      var deletingId = currentChatId;
+      fetch("/api/chat/" + deletingId, { method: "DELETE" })
+        .then(function (r) {
+          if (!r.ok) throw new Error("delete failed");
+          allChats = allChats.filter(function (c) { return c.id !== deletingId; });
+          if (deletingId === currentChatId) {
+            currentChatId = null;
+            thread.innerHTML = "";
+            if (window.miraShowEmptyState) window.miraShowEmptyState();
+          }
+          refreshHistory();
+        })
+        .catch(function () {
+          alert("Unable to delete that chat right now.");
+        });
+    });
   }
 
   function appendUserMessage(text) {
@@ -253,6 +362,7 @@
     streamChat(outgoingText, outgoingImages, {
       onChat: function (data) {
         currentChatId = data.chatId;
+        updateChatTopbar(data.title, data.pinned);
       },
       onToken: function (data) {
         if (!receivedFirstToken) {
@@ -508,6 +618,7 @@
       })
         .then(function (r) {
           if (!r.ok) throw new Error("rename failed");
+          if (chatId === currentChatId && chatTopbarTitleText) chatTopbarTitleText.textContent = newTitle;
           refreshHistory();
         })
         .catch(function () {
@@ -531,6 +642,10 @@
     })
       .then(function (r) {
         if (!r.ok) throw new Error("pin toggle failed");
+        if (chatId === currentChatId) {
+          currentChatPinned = pinned;
+          if (chatTopbarPinLabel) chatTopbarPinLabel.textContent = pinned ? "Unpin" : "Pin";
+        }
         return refreshHistory();
       })
       .catch(function () {
@@ -718,6 +833,7 @@
       })
       .then(function (data) {
         currentChatId = data.chat.id;
+        updateChatTopbar(data.chat.title, data.chat.pinned);
         thread.innerHTML = "";
         (data.messages || []).forEach(renderStoredMessage);
         if (window.miraShowChatView) window.miraShowChatView();
@@ -738,6 +854,8 @@
     clearAttachments();
     setActiveHistoryItem(null);
     hideAiDisclaimer();
+    updateChatTopbar("New chat", false);
+    closeChatTopbarMenu();
   };
 
   refreshHistory();
