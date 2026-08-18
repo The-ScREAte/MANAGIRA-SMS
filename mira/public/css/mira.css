@@ -662,6 +662,7 @@ button { font-family: inherit; }
   color: var(--mira-primary);
   width: fit-content;
 }
+.mira-attached-file[hidden] { display: none; }
 .mira-attached-file button {
   border: none;
   background: transparent;
@@ -822,9 +823,9 @@ button { font-family: inherit; }
     transform: scale(0.6) rotate(0deg);
     animation: miraLogoEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
-  /* Idle state: a small, slow, symmetric left-right wag - a subtle sign
-     of life, not an attention-grabbing spin. Always on, not just while
-     something is loading. */
+  /* Idle state: a small, slow left-right wag - a subtle sign of life, not
+     an attention-grabbing spin. Always on, not just while something is
+     loading. */
   .mira-logo.mira-logo-idle { animation: miraLogoWag 3s ease-in-out infinite; }
   /* Loading state: while Mira is generating a reply (message avatar).
      Same motion, just a little brisker to read as "working". */
@@ -835,10 +836,15 @@ button { font-family: inherit; }
     60%  { opacity: 1; transform: scale(1.05) rotate(360deg); }
     100% { opacity: 1; transform: scale(1) rotate(360deg); }
   }
+  /* Asymmetric swing (10deg right, 20deg left) - keyframe timing spaced
+     proportionally to each leg's angular distance (10/60, 20/60, 40/60,
+     60/60) so neither side stalls waiting for the other's time budget. */
   @keyframes miraLogoWag {
-    0%, 100% { transform: rotate(0deg); }
-    25%      { transform: rotate(-14deg); }
-    75%      { transform: rotate(14deg); }
+    0%   { transform: rotate(0deg); }
+    17%  { transform: rotate(10deg); }
+    33%  { transform: rotate(0deg); }
+    67%  { transform: rotate(-20deg); }
+    100% { transform: rotate(0deg); }
   }
 }
 @media (prefers-reduced-motion: reduce) {
