@@ -1,6 +1,24 @@
 (function () {
   "use strict";
 
+  // Shared by every API call in mira-app.js and mira-chat.js: a session
+  // that's expired or been signed out elsewhere means the *right* thing
+  // to do is send the user to log back in, not surface a generic "unable
+  // to reach Mira" network-style error for what's actually an auth
+  // problem. Redirecting immediately and returning a promise that never
+  // resolves means the caller's existing .then()/.catch() chain simply
+  // never fires again - no extra error handling needed at each call site.
+  function miraFetch(url, options) {
+    return fetch(url, options).then(function (response) {
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return new Promise(function () {});
+      }
+      return response;
+    });
+  }
+  window.miraFetch = miraFetch;
+
   var sidebar = document.getElementById("miraSidebar");
   var collapseToggle = document.getElementById("miraCollapseToggle");
   var mobileMenuBtn = document.getElementById("miraMobileMenuBtn");
@@ -323,7 +341,7 @@
 
   function loadClasses() {
     if (classesLoaded) return;
-    fetch("/api/classes")
+    miraFetch("/api/classes")
       .then(function (r) {
         if (!r.ok) throw new Error("request failed: " + r.status);
         return r.json();

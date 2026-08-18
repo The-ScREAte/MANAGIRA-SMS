@@ -92,7 +92,11 @@ router.use((err, req, res, next) => {
   if (err && err.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({ error: `A file is too large - Mira can read attachments up to ${Math.round(MAX_BYTES / (1024 * 1024))}MB each right now.` });
   }
-  if (err && err.code === "LIMIT_FILE_COUNT") {
+  if (err && (err.code === "LIMIT_FILE_COUNT" || err.code === "LIMIT_UNEXPECTED_FILE")) {
+    // multer's .array(field, max) throws LIMIT_UNEXPECTED_FILE (not
+    // LIMIT_FILE_COUNT) once more than `max` files arrive under the same
+    // field name - confirmed directly against this version. Both map to
+    // the same "too many files" message.
     return res.status(413).json({ error: `Too many files at once - Mira can read up to ${MAX_FILES} attachments per message.` });
   }
   console.error("[mira/uploadRoute]", err);
