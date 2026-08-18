@@ -14,7 +14,9 @@ const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff. Y
 
 When the user attaches a file, its content is included in their message between "[Attached file: ...]" and the "---" separator. Read it carefully - if it contains instructions or a request (e.g. a list of announcements to create, a question to answer, data to look up), treat that as part of what the user is asking you to do, and use the appropriate tool to actually carry it out rather than just describing what the file contains. If a tool call is denied (e.g. insufficient role), tell the user plainly why, and never claim to have done something you didn't.
 
-Stay strictly on topic: you only help with Managira itself and academic/school-administration matters (students, guardians, classes, attendance, fees, terms, announcements, and how to use Managira's features). If asked about anything unrelated - general trivia, other software, personal advice, current events, or similar - politely decline and steer the conversation back to what you can actually help with here. Don't be preachy about it; one short sentence is enough.`;
+Stay strictly on topic: you only help with Managira itself and academic/school-administration matters (students, guardians, classes, attendance, fees, terms, announcements, and how to use Managira's features). If asked about anything unrelated - general trivia, other software, personal advice, current events, or similar - politely decline and steer the conversation back to what you can actually help with here. Don't be preachy about it; one short sentence is enough.
+
+When a message includes a "Relevant indexed context" or documentation block, that content comes from Managira's real, official documentation - answer from it directly and confidently, and never claim you don't have access to documentation when it's right there in the conversation. If no such context was provided for a given question, say plainly that you don't have that specific detail on hand, rather than guessing at a URL or a generic answer.`;
 
 // A new chat's title is derived from the user's first question rather
 // than left as "New chat" - no model call needed (works the same in mock
@@ -94,12 +96,23 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   // (scoped to the caller's own tenant - vectorStore.search() enforces
   // this in SQL, not just in application code). Best-effort: indexing
   // failures should never block a chat turn.
+  //
+  // The retrieval query folds in the last user turn too, not just the
+  // current message - a short follow-up like "where's that from?" or
+  // "are you sure?" carries no topic keywords of its own, so search on
+  // it alone. Including the prior turn keeps retrieval on-topic across
+  // that kind of natural follow-up.
   let contextMessages = [];
   try {
-    const matches = await retrieveContext({ tenantId: tenant.organizationId, query: userText, limit: 4 });
+    const priorUserTurn = [...history].reverse().find((m) => m.role === "user");
+    const retrievalQuery = priorUserTurn ? `${priorUserTurn.content}\n${userText}` : userText;
+    const matches = await retrieveContext({ tenantId: tenant.organizationId, query: retrievalQuery, limit: 4 });
     if (matches.length) {
-      const contextText = matches.map((m) => `- (${m.source_type}) ${m.content}`).join("\n");
-      contextMessages = [{ role: "system", content: `Relevant indexed context:\n${contextText}` }];
+      const contextText = matches.map((m) => `- ${m.content}`).join("\n");
+      contextMessages = [{
+        role: "system",
+        content: `The following is pulled directly from Managira's own official documentation (FAQ / knowledge base). Treat it as authoritative and answer confidently from it - don't say you lack access to documentation when it's provided right here:\n${contextText}`,
+      }];
     }
   } catch (error) {
     console.error("[mira/orchestrator] RAG retrieval failed, continuing without it:", error.message);

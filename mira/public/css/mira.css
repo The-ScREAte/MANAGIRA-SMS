@@ -790,7 +790,23 @@ button { font-family: inherit; }
   border-bottom: 1px solid var(--mira-border);
   flex-shrink: 0;
 }
-.mira-chat-topbar-title-wrap { position: relative; min-width: 0; }
+.mira-chat-topbar-title-wrap { position: relative; min-width: 0; display: flex; align-items: center; gap: 8px; }
+
+.mira-chat-class-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--mira-primary-soft);
+  color: var(--mira-primary);
+  border: 1px solid var(--mira-primary-border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.mira-chat-class-badge[hidden] { display: none; }
 .mira-chat-topbar-title {
   display: flex;
   align-items: center;

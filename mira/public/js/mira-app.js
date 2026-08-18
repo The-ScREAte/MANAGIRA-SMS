@@ -288,9 +288,31 @@
 
   window.MIRA_SELECTED_CLASS = null;
 
+  // Shown in the active chat view's topbar so it stays visible for the
+  // whole conversation, not just at the composer before the first
+  // message - a class scope chosen once and then scrolled past otherwise
+  // reads as "this whole chat is org-wide", which is exactly what a
+  // class-scoped conversation should *not* look like.
+  var chatClassBadge = document.getElementById("miraChatClassBadge");
+  var chatClassBadgeLabel = document.getElementById("miraChatClassBadgeLabel");
+  function updateChatClassBadge() {
+    if (!chatClassBadge || !chatClassBadgeLabel) return;
+    var selected = window.MIRA_SELECTED_CLASS;
+    // Only a specific class counts as "focused" - "all classes" is
+    // effectively org-wide scope, the exact thing this badge exists to
+    // distinguish from.
+    if (!selected || selected === "all") {
+      chatClassBadge.hidden = true;
+      return;
+    }
+    chatClassBadgeLabel.textContent = selected.class_name || "Unnamed class";
+    chatClassBadge.hidden = false;
+  }
+
   function selectClass(value, label) {
     window.MIRA_SELECTED_CLASS = value;
     classSelectorLabel.textContent = label;
+    updateChatClassBadge();
     closeClassDropdown();
   }
 
