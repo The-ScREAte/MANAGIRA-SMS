@@ -192,10 +192,18 @@
     });
   }
 
-  function appendUserMessage(text) {
+  function formatMessageTime(input) {
+    var d = input ? new Date(input) : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+
+  function appendUserMessage(text, createdAt) {
     var el = document.createElement("div");
     el.className = "mira-message mira-message-user";
-    el.innerHTML = '<div class="mira-message-bubble">' + escapeHtml(text) + "</div>";
+    el.innerHTML =
+      '<div class="mira-message-bubble">' + escapeHtml(text) + "</div>" +
+      '<div class="mira-message-time">' + formatMessageTime(createdAt) + "</div>";
     thread.appendChild(el);
     scrollToBottom();
   }
@@ -307,7 +315,12 @@
     thread.appendChild(el);
     scrollToBottom();
 
-    return { el: el, bubble: bubble, avatar: avatar };
+    // Timestamp is created but not attached yet - the reply isn't "sent"
+    // until onDone, which appends it after the action buttons.
+    var timeEl = document.createElement("div");
+    timeEl.className = "mira-message-time";
+
+    return { el: el, bubble: bubble, avatar: avatar, timeEl: timeEl };
   }
 
   // Stop the "actively working" wag once a reply has settled - only the
@@ -317,8 +330,20 @@
     avatar.classList.remove("mira-logo-spinning");
   }
 
+  var TOOL_ACTION_LABELS = {
+    find_student: "Searched students",
+    find_contact: "Searched guardians",
+    get_fees: "Checked fees",
+    get_attendance: "Checked attendance",
+    get_class: "Checked classes",
+    get_term: "Checked terms",
+    list_projects: "Checked school details",
+    draft_message: "Drafted a message",
+    create_announcement: "Created an announcement",
+    generate_report_card_summary: "Generated a summary",
+  };
   function renderToolAction(container, name, status) {
-    var label = name === "find_student" ? "Searched students" : name;
+    var label = TOOL_ACTION_LABELS[name] || name;
     var icon = status === "ok" ? "✓" : status === "denied" ? "✕" : "!";
     var action = document.createElement("div");
     action.className = "mira-tool-action";
@@ -444,6 +469,8 @@
         messageIdRef.id = data.messageId || null;
         var actions = buildMessageActions(function () { return bubble.textContent; }, messageIdRef);
         assistant.el.appendChild(actions);
+        assistant.timeEl.textContent = formatMessageTime(data.createdAt);
+        assistant.el.appendChild(assistant.timeEl);
         showAiDisclaimer();
         scrollToBottom();
         refreshHistory();
@@ -850,7 +877,7 @@
   // ---- Loading a past chat from history ----
   function renderStoredMessage(message) {
     if (message.role === "user") {
-      appendUserMessage(message.content);
+      appendUserMessage(message.content, message.created_at);
       return;
     }
     var el = document.createElement("div");
@@ -879,6 +906,11 @@
     var messageIdRef = { id: message.id, feedback: message.feedback || null };
     var actions = buildMessageActions(function () { return bubble.textContent; }, messageIdRef);
     el.appendChild(actions);
+
+    var timeEl = document.createElement("div");
+    timeEl.className = "mira-message-time";
+    timeEl.textContent = formatMessageTime(message.created_at);
+    el.appendChild(timeEl);
 
     thread.appendChild(el);
   }

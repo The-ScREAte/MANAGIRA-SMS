@@ -97,7 +97,49 @@ function mockPhraseToolResult(messages, rawText) {
     return `Found ${result.length} student${result.length === 1 ? "" : "s"}: ${names}${more}.`;
   }
 
-  return "I'm running in demo mode, so I can run the tool but can't fully phrase the result yet - the raw data came back fine though.";
+  if (toolName === "find_contact" && Array.isArray(result)) {
+    if (!result.length) return "I couldn't find any guardians matching that - try a different name or spelling.";
+    const names = result
+      .slice(0, 5)
+      .map((g) => {
+        const kids = (g.student_names || []).filter(Boolean);
+        return [g.first_name, g.last_name].filter(Boolean).join(" ") + (kids.length ? ` (guardian of ${kids.join(", ")})` : "");
+      })
+      .join(", ");
+    const more = result.length > 5 ? `, and ${result.length - 5} more` : "";
+    return `Found ${result.length} guardian${result.length === 1 ? "" : "s"}: ${names}${more}.`;
+  }
+
+  if (toolName === "get_class" && Array.isArray(result)) {
+    if (!result.length) return "I couldn't find any classes matching that.";
+    const rows = result.slice(0, 8).map((c) => `${c.class_name} (${c.student_count} student${c.student_count === 1 ? "" : "s"})`).join(", ");
+    const totalStudents = result.reduce((sum, c) => sum + (c.student_count || 0), 0);
+    return `${result.length} class${result.length === 1 ? "" : "es"}, ${totalStudents} student${totalStudents === 1 ? "" : "s"} total: ${rows}.`;
+  }
+
+  if (toolName === "get_term" && Array.isArray(result)) {
+    if (!result.length) return "No terms are set up yet for your school.";
+    const current = result.find((t) => t.current || t.current_term);
+    const names = result.slice(0, 5).map((t) => t.term_name + (t === current ? " (current)" : "")).join(", ");
+    return `Found ${result.length} term${result.length === 1 ? "" : "s"}: ${names}.`;
+  }
+
+  if (toolName === "list_projects" && Array.isArray(result)) {
+    const org = result[0];
+    return org?.organization_name ? `You're working in ${org.organization_name}.` : "I couldn't load your school's details.";
+  }
+
+  return "I'm running in demo mode, so I can run the tool but can't fully phrase every kind of result yet - the raw data came back fine though.";
+}
+
+// Text left over after stripping the intent's own keywords - used as the
+// search query for name-lookup tools. Falls back to null (rather than an
+// empty-string query, which would search on the class/tool name instead
+// of a real query) when nothing meaningful remains.
+function stripKeywords(text, words) {
+  const re = new RegExp("\\b(" + words.join("|") + ")\\b", "gi");
+  const cleaned = text.replace(re, " ").replace(/\s+/g, " ").trim();
+  return cleaned || null;
 }
 
 function mockDecide({ messages, tools }) {
@@ -108,9 +150,40 @@ function mockDecide({ messages, tools }) {
   const toolResultReply = mockPhraseToolResult(messages, rawText);
   if (toolResultReply) return { type: "text", content: toolResultReply };
 
-  if (tools?.some((t) => t.name === "find_student") && (text.includes("find") || text.includes("student") || text.includes("search"))) {
-    const nameMatch = text.match(/(?:find|search for|look up)\s+(?:student\s+)?([a-z][a-z .'-]{1,40})/i);
-    const query = nameMatch ? nameMatch[1].trim() : text.replace(/find|student|search|for/gi, "").trim() || "student";
+  const available = new Set((tools || []).map((t) => t.name));
+
+  // Class/grade counts and rosters - checked before student search so
+  // "how many students in JSS" routes here (class counts) instead of a
+  // broken name search on "in jss".
+  if (available.has("get_class") && /\b(class|classes|grade|jss|sss|form)\b/.test(text) && /\b(how many|how much|list|show|what|which)\b/.test(text)) {
+    const classMatch = text.match(/\b(jss\s?\d?|sss\s?\d?|grade\s?\d+|form\s?\d+)\b/i);
+    return { type: "tool_call", toolName: "get_class", arguments: { query: classMatch ? classMatch[0].trim() : "" } };
+  }
+
+  // Terms / school years
+  if (available.has("get_term") && /\b(term|terms|semester|school year)\b/.test(text)) {
+    return { type: "tool_call", toolName: "get_term", arguments: {} };
+  }
+
+  // Which school/org this session is in
+  if (available.has("list_projects") && /\b(what|which)\s+(school|org|organization)\b/.test(text)) {
+    return { type: "tool_call", toolName: "list_projects", arguments: {} };
+  }
+
+  // Guardian/parent/contact search - checked before student search so it
+  // doesn't fall through to searching students by a guardian's name.
+  if (available.has("find_contact") && /\b(guardian|guardians|parent|parents|contact|contacts)\b/.test(text) && /\b(find|search|look ?up)\b/.test(text)) {
+    const query = stripKeywords(text, ["find", "search", "for", "of", "look ?up", "guardian", "guardians", "parent", "parents", "contact", "contacts", "a", "an", "me", "the"]);
+    if (!query) return { type: "text", content: "Which guardian would you like me to find? Try \"find guardian <name>\"." };
+    return { type: "tool_call", toolName: "find_contact", arguments: { query } };
+  }
+
+  // Student search - broadest match, checked last so the more specific
+  // intents above get first claim on ambiguous wording.
+  if (available.has("find_student") && (/\bstudents?\b/.test(text) || /\bfind\b/.test(text) || /\bsearch\b/.test(text))) {
+    const nameMatch = text.match(/(?:find|search for|look up)\s+(?:me\s+)?(?:a\s+)?(?:student\s+)?(?:named\s+|called\s+)?([a-z][a-z .'-]{1,40})/i);
+    const query = nameMatch ? nameMatch[1].trim() : stripKeywords(text, ["find", "search", "for", "of", "student", "students", "me", "a", "an", "named", "called"]);
+    if (!query) return { type: "text", content: "Who would you like me to find? Try \"find <name>\"." };
     return { type: "tool_call", toolName: "find_student", arguments: { query } };
   }
 
@@ -125,7 +198,7 @@ function mockDecide({ messages, tools }) {
   return {
     type: "text",
     content:
-      "I'm running in demo mode right now (no live model key configured), so I can only answer using the tools I have wired up so far. Try asking me to find a student.",
+      "I'm running in demo mode right now (no live model key configured), so I can only answer using the tools I have wired up so far - try asking me to find a student, find a guardian, list classes, or list terms.",
   };
 }
 

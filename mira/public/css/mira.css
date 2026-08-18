@@ -867,8 +867,15 @@ button { font-family: inherit; }
 }
 
 .mira-message { display: flex; gap: 12px; max-width: 100%; }
-.mira-message-user { justify-content: flex-end; }
+.mira-message-user { flex-direction: column; align-items: flex-end; gap: 4px; }
 .mira-message-assistant { flex-direction: column; align-items: flex-start; gap: 6px; }
+
+.mira-message-time {
+  font-size: 0.7rem;
+  color: var(--mira-text-tertiary);
+  padding: 0 2px;
+}
+.mira-message-assistant .mira-message-time { margin-left: 36px; }
 
 .mira-message-row { display: flex; gap: 10px; align-items: flex-start; max-width: 100%; }
 .mira-message-avatar { flex-shrink: 0; margin-top: 2px; }

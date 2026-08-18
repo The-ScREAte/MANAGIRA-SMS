@@ -48,11 +48,11 @@ async function loadHistory(chatId) {
 
 async function saveMessage(chatId, role, content, toolCalls) {
   const result = await db.query(
-    `INSERT INTO mira_chat_messages (chat_id, role, content, tool_calls) VALUES ($1, $2, $3, $4) RETURNING id`,
+    `INSERT INTO mira_chat_messages (chat_id, role, content, tool_calls) VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
     [chatId, role, content, toolCalls ? JSON.stringify(toolCalls) : null]
   );
   await db.query(`UPDATE mira_chats SET updated_at = now() WHERE id = $1`, [chatId]);
-  return result.rows[0].id;
+  return { id: result.rows[0].id, createdAt: result.rows[0].created_at };
 }
 
 async function logToolCall({ tenant, chatId, toolName, args, status, resultSummary }) {
@@ -82,9 +82,9 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
 
   const chat = await getOrCreateChat({ tenant, chatId, firstMessage: userText });
   const history = await loadHistory(chat.id);
-  await saveMessage(chat.id, "user", userText);
+  const userMessage = await saveMessage(chat.id, "user", userText);
 
-  sse.send("chat", { chatId: chat.id, title: chat.title, pinned: chat.pinned });
+  sse.send("chat", { chatId: chat.id, title: chat.title, pinned: chat.pinned, userMessageCreatedAt: userMessage.createdAt });
 
   // RAG: pull in any previously-indexed content relevant to this message
   // (scoped to the caller's own tenant - vectorStore.search() enforces
@@ -119,7 +119,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
 
   let assistantText = "";
   let toolCallInfo = null;
-  let assistantMessageId = null;
+  let assistantMessage = null;
 
   const firstPass = await streamCompletion({
     task: "default",
@@ -176,12 +176,12 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
       completionTokens: secondPass.usage?.completionTokens || secondPass.usage?.completion_tokens || 0,
     }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
 
-    assistantMessageId = await saveMessage(chat.id, "assistant", assistantText, [{ name: toolCallInfo.name, args: toolCallInfo.args, status }]);
+    assistantMessage = await saveMessage(chat.id, "assistant", assistantText, [{ name: toolCallInfo.name, args: toolCallInfo.args, status }]);
   } else {
-    assistantMessageId = await saveMessage(chat.id, "assistant", assistantText);
+    assistantMessage = await saveMessage(chat.id, "assistant", assistantText);
   }
 
-  sse.send("done", { chatId: chat.id, messageId: assistantMessageId });
+  sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt });
 }
 
 module.exports = { runTurn };
