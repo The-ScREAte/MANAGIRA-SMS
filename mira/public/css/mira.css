@@ -435,6 +435,11 @@ button { font-family: inherit; }
   animation: miraMenuIn 0.14s ease-out;
   text-align: left;
 }
+/* `display: flex` above and the [hidden] attribute's UA-stylesheet
+   `display: none` are equal specificity - author styles win cascade
+   ties over UA styles regardless of source order, so without this
+   explicit override the dropdown stayed visible even while `hidden`. */
+.mira-class-dropdown[hidden] { display: none; }
 .mira-class-dropdown-search { padding: 2px 2px 8px; }
 .mira-class-dropdown-search input {
   width: 100%;
