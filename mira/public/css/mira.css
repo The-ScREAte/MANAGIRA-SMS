@@ -820,31 +820,23 @@ button { font-family: inherit; }
     transform: scale(0.6) rotate(0deg);
     animation: miraLogoEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
-  /* Idle state: the brand mark wags gently left-right, always - not just
-     while something is loading. */
-  .mira-logo.mira-logo-idle { animation: miraLogoWag 5.5s ease-in-out infinite; }
-  /* Loading state: while Mira is generating a reply (message avatar). A
-     brisker wag reads as "actively working", distinct from the calm idle
-     wag. */
-  .mira-logo.mira-logo-spinning { animation: miraLogoWag 3.2s ease-in-out infinite; }
+  /* Idle state: a small, slow, symmetric left-right wag - a subtle sign
+     of life, not an attention-grabbing spin. Always on, not just while
+     something is loading. */
+  .mira-logo.mira-logo-idle { animation: miraLogoWag 6s ease-in-out infinite; }
+  /* Loading state: while Mira is generating a reply (message avatar).
+     Same small motion, just a little brisker to read as "working". */
+  .mira-logo.mira-logo-spinning { animation: miraLogoWag 3.5s ease-in-out infinite; }
 
   @keyframes miraLogoEntrance {
     0%   { opacity: 0; transform: scale(0.6) rotate(0deg); }
     60%  { opacity: 1; transform: scale(1.05) rotate(360deg); }
     100% { opacity: 1; transform: scale(1) rotate(360deg); }
   }
-  /* Asymmetric swing (80deg right, 70deg left) - keyframe timing is spaced
-     proportionally to the angular distance of each leg (80/300, 160/300,
-     230/300, 300/300) so the average speed stays constant across the
-     whole cycle - otherwise the longer leg gets the same time budget as
-     the shorter one and visibly stalls at the far extreme before
-     reversing. */
   @keyframes miraLogoWag {
-    0%   { transform: rotate(0deg); }
-    27%  { transform: rotate(80deg); }
-    53%  { transform: rotate(0deg); }
-    77%  { transform: rotate(-70deg); }
-    100% { transform: rotate(0deg); }
+    0%, 100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-6deg); }
+    75%      { transform: rotate(6deg); }
   }
 }
 @media (prefers-reduced-motion: reduce) {
