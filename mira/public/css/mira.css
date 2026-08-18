@@ -824,10 +824,10 @@ button { font-family: inherit; }
   /* Idle state: a small, slow, symmetric left-right wag - a subtle sign
      of life, not an attention-grabbing spin. Always on, not just while
      something is loading. */
-  .mira-logo.mira-logo-idle { animation: miraLogoWag 6s ease-in-out infinite; }
+  .mira-logo.mira-logo-idle { animation: miraLogoWag 4.5s ease-in-out infinite; }
   /* Loading state: while Mira is generating a reply (message avatar).
      Same small motion, just a little brisker to read as "working". */
-  .mira-logo.mira-logo-spinning { animation: miraLogoWag 3.5s ease-in-out infinite; }
+  .mira-logo.mira-logo-spinning { animation: miraLogoWag 2.6s ease-in-out infinite; }
 
   @keyframes miraLogoEntrance {
     0%   { opacity: 0; transform: scale(0.6) rotate(0deg); }

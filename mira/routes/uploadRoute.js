@@ -1,14 +1,14 @@
 // File attach - reads a wide range of document types in memory and
 // returns extracted text for the client to fold into the next chat
-// message. No persistent storage. Plain-text formats are read as-is;
-// PDF and Word documents are parsed to extract their text content.
+// message, or (for images) a base64 data URL the client sends along
+// with the chat request as a vision input. No persistent storage.
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
 const mammoth = require("mammoth");
 
-const MAX_BYTES = 5 * 1024 * 1024; // 5MB - PDFs/docx are bulkier than plain text
+const MAX_BYTES = 5 * 1024 * 1024; // 5MB - PDFs/docx/images are bulkier than plain text
 const MAX_TEXT_CHARS = 20000; // keep extracted content small enough to fold into one prompt
 
 const TEXT_EXTENSIONS = new Set([
@@ -16,7 +16,15 @@ const TEXT_EXTENSIONS = new Set([
   ".yml", ".yaml", ".xml", ".html", ".htm", ".rtf",
 ]);
 const DOCUMENT_EXTENSIONS = new Set([".pdf", ".docx"]);
-const ALLOWED_EXTENSIONS = new Set([...TEXT_EXTENSIONS, ...DOCUMENT_EXTENSIONS]);
+const IMAGE_MIME_TYPES = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+};
+const IMAGE_EXTENSIONS = new Set(Object.keys(IMAGE_MIME_TYPES));
+const ALLOWED_EXTENSIONS = new Set([...TEXT_EXTENSIONS, ...DOCUMENT_EXTENSIONS, ...IMAGE_EXTENSIONS]);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -53,6 +61,12 @@ router.post("/", upload.single("file"), async (req, res) => {
     });
   }
 
+  if (IMAGE_EXTENSIONS.has(ext)) {
+    const mimeType = req.file.mimetype && req.file.mimetype.startsWith("image/") ? req.file.mimetype : IMAGE_MIME_TYPES[ext];
+    const dataUrl = `data:${mimeType};base64,${req.file.buffer.toString("base64")}`;
+    return res.json({ filename: req.file.originalname, kind: "image", mimeType, dataUrl, bytes: req.file.size });
+  }
+
   let text;
   try {
     text = await extractText(req.file, ext);
@@ -65,7 +79,7 @@ router.post("/", upload.single("file"), async (req, res) => {
     text = text.slice(0, MAX_TEXT_CHARS) + "\n\n[Content truncated - the file is longer than Mira can read in one go.]";
   }
 
-  return res.json({ filename: req.file.originalname, text, bytes: req.file.size });
+  return res.json({ filename: req.file.originalname, kind: "text", text, bytes: req.file.size });
 });
 
 router.use((err, req, res, next) => {

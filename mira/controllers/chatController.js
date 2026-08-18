@@ -20,6 +20,16 @@ async function postChat(req, res) {
     return res.status(400).json({ error: "message is required." });
   }
 
+  // Image comes from a prior POST /api/upload (routes/uploadRoute.js),
+  // which already validated type/size - here we just check shape before
+  // trusting it as a vision input for this turn. Never persisted; see
+  // orchestrator.runTurn.
+  let image = null;
+  const rawImage = req.body?.image;
+  if (rawImage && typeof rawImage.dataUrl === "string" && rawImage.dataUrl.startsWith("data:image/")) {
+    image = { dataUrl: rawImage.dataUrl, mimeType: typeof rawImage.mimeType === "string" ? rawImage.mimeType : null };
+  }
+
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache",
@@ -36,7 +46,7 @@ async function postChat(req, res) {
   req.on("close", () => res.end());
 
   try {
-    await runTurn({ tenant: req.tenant, chatId, userText, sse, classScope: className ? { classId, className } : null });
+    await runTurn({ tenant: req.tenant, chatId, userText, sse, classScope: className ? { classId, className } : null, image });
   } catch (error) {
     console.error("[mira/chatController]", error);
     sse.send("error", { message: "Something went wrong generating a response." });

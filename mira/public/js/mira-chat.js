@@ -161,7 +161,7 @@
 
   // Minimal text/event-stream parser over a fetch() ReadableStream - used
   // instead of EventSource because EventSource can't send a POST body.
-  async function streamChat(message, handlers) {
+  async function streamChat(message, image, handlers) {
     var selectedClass = window.MIRA_SELECTED_CLASS;
     var response = await fetch("/api/chat", {
       method: "POST",
@@ -169,6 +169,7 @@
       body: JSON.stringify({
         message: message,
         chatId: currentChatId,
+        image: image || null,
         classId: selectedClass && selectedClass !== "all" ? selectedClass.class_id : null,
         className: selectedClass === "all" ? "All classes" : selectedClass ? selectedClass.class_name : null,
       }),
@@ -223,8 +224,12 @@
     var attachment = pendingAttachment;
     clearAttachment();
 
+    var isImage = attachment && attachment.kind === "image";
     var displayText = attachment ? text + "\n\n📎 " + attachment.filename : text;
-    var outgoingText = attachment ? "[Attached file: " + attachment.filename + "]\n\n" + attachment.text + "\n\n---\n\n" + text : text;
+    var outgoingText = attachment
+      ? (isImage ? "[Attached image: " + attachment.filename + "]" : "[Attached file: " + attachment.filename + "]\n\n" + attachment.text) + "\n\n---\n\n" + text
+      : text;
+    var outgoingImage = isImage ? { dataUrl: attachment.dataUrl, mimeType: attachment.mimeType } : null;
 
     appendUserMessage(displayText);
     var assistant = appendAssistantMessage();
@@ -232,7 +237,7 @@
     var receivedFirstToken = false;
     var messageIdRef = { id: null, feedback: null };
 
-    streamChat(outgoingText, {
+    streamChat(outgoingText, outgoingImage, {
       onChat: function (data) {
         currentChatId = data.chatId;
       },
@@ -332,7 +337,9 @@
       if (!file) return;
       uploadAttachment(file)
         .then(function (data) {
-          pendingAttachment = { filename: data.filename, text: data.text };
+          pendingAttachment = data.kind === "image"
+            ? { filename: data.filename, kind: "image", dataUrl: data.dataUrl, mimeType: data.mimeType }
+            : { filename: data.filename, kind: "text", text: data.text };
           renderAttachmentChip();
         })
         .catch(function (err) {

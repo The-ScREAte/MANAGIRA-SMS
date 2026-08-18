@@ -23,6 +23,44 @@ function isProviderConfigured(provider) {
   return provider === "openai" ? !!process.env.OPENAI_API_KEY : !!process.env.ANTHROPIC_API_KEY;
 }
 
+// ---- Multimodal content: messages built by the orchestrator use a
+// provider-neutral shape - content is either a plain string, or an array
+// of {type:"text", text} / {type:"image", image:{dataUrl}} blocks. Each
+// real provider needs its own wire format, adapted right before the call
+// so the rest of the codebase (mock mode, persistence, RAG) never has to
+// know about either provider's specific schema.
+function extractText(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.filter((b) => b.type === "text").map((b) => b.text).join(" ");
+  return "";
+}
+function hasImage(content) {
+  return Array.isArray(content) && content.some((b) => b.type === "image");
+}
+function parseDataUrl(dataUrl) {
+  const match = /^data:(.+?);base64,(.+)$/.exec(dataUrl || "");
+  return match ? { mimeType: match[1], base64: match[2] } : null;
+}
+function adaptForOpenAI(content) {
+  if (typeof content === "string") return content;
+  return content.map((block) => {
+    if (block.type === "text") return { type: "text", text: block.text };
+    if (block.type === "image") return { type: "image_url", image_url: { url: block.image.dataUrl } };
+    return block;
+  });
+}
+function adaptForAnthropic(content) {
+  if (typeof content === "string") return content;
+  return content.map((block) => {
+    if (block.type === "text") return { type: "text", text: block.text };
+    if (block.type === "image") {
+      const parsed = parseDataUrl(block.image.dataUrl);
+      return { type: "image", source: { type: "base64", media_type: parsed?.mimeType || block.image.mimeType, data: parsed?.base64 || "" } };
+    }
+    return block;
+  });
+}
+
 // ---- Mock provider: deterministic, keyword-triggered tool selection so
 // the full orchestrator loop (including real tool execution against real
 // tenant-scoped data) is provably correct without live API keys. Swapping
@@ -31,12 +69,21 @@ function isProviderConfigured(provider) {
 // is present).
 function mockDecide({ messages, tools }) {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  const text = String(lastUser?.content || "").toLowerCase();
+  const rawText = extractText(lastUser?.content);
+  const text = rawText.toLowerCase();
 
   if (tools?.some((t) => t.name === "find_student") && (text.includes("find") || text.includes("student") || text.includes("search"))) {
     const nameMatch = text.match(/(?:find|search for|look up)\s+(?:student\s+)?([a-z][a-z .'-]{1,40})/i);
     const query = nameMatch ? nameMatch[1].trim() : text.replace(/find|student|search|for/gi, "").trim() || "student";
     return { type: "tool_call", toolName: "find_student", arguments: { query } };
+  }
+
+  if (hasImage(lastUser?.content)) {
+    return {
+      type: "text",
+      content:
+        "I can see you've attached an image, but I'm running in demo mode right now (no live model key configured) so I can't actually look at it yet. Once a real API key is added, I'll be able to read images too.",
+    };
   }
 
   return {
@@ -71,7 +118,7 @@ async function openaiStreamCompletion({ model, messages, tools, onToken, onToolC
 
   const stream = await client.chat.completions.create({
     model,
-    messages,
+    messages: messages.map((m) => ({ ...m, content: adaptForOpenAI(m.content) })),
     tools: tools?.length ? tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })) : undefined,
     stream: true,
   });
@@ -111,8 +158,8 @@ async function anthropicStreamCompletion({ model, messages, tools, onToken, onTo
   const stream = client.messages.stream({
     model,
     max_tokens: 1024,
-    system: systemMessage?.content,
-    messages: conversational,
+    system: extractText(systemMessage?.content),
+    messages: conversational.map((m) => ({ ...m, content: adaptForAnthropic(m.content) })),
     tools: tools?.length ? tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) : undefined,
   });
 

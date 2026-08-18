@@ -19,7 +19,11 @@ app.set("view engine", "ejs");
 app.use(expressLayouts);
 app.set("layout", "layout");
 
-app.use(express.json());
+// Default 100kb is too small for a chat message carrying a base64 image
+// data URL (a 5MB upload inflates to ~6.7MB base64) - raised to cover
+// that with headroom. File uploads themselves go through multer's own
+// memory storage (routes/uploadRoute.js), not this parser.
+app.use(express.json({ limit: "10mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 // No auth - used by the deploy platform / uptime checks.
