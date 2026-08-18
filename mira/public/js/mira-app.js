@@ -37,6 +37,7 @@
   var newChatBtn = document.getElementById("miraNewChatBtn");
   if (newChatBtn) {
     newChatBtn.addEventListener("click", function () {
+      if (window.miraStartNewChat) window.miraStartNewChat();
       showEmptyState();
       var input = document.getElementById("miraInput");
       if (input) input.focus();
@@ -110,6 +111,82 @@
     });
   }
 
-  // Submit handling (calls the orchestrator, streams the reply) lives in
-  // mira-chat.js, loaded after this file once the chat API is wired up.
+  // ---- User menu (floating, anchored above the sidebar footer) ----
+  var userTrigger = document.getElementById("miraUserTrigger");
+  var userMenu = document.getElementById("miraUserMenu");
+
+  function openUserMenu() {
+    userMenu.hidden = false;
+    userTrigger.setAttribute("aria-expanded", "true");
+  }
+  function closeUserMenu() {
+    userMenu.hidden = true;
+    userTrigger.setAttribute("aria-expanded", "false");
+  }
+  if (userTrigger) {
+    userTrigger.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (userMenu.hidden) openUserMenu();
+      else closeUserMenu();
+    });
+    document.addEventListener("click", function (e) {
+      if (!userMenu.hidden && !userMenu.contains(e.target) && e.target !== userTrigger) closeUserMenu();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !userMenu.hidden) closeUserMenu();
+    });
+  }
+
+  // ---- Theme switch (light / dark / system) ----
+  var THEME_STORAGE_KEY = "mira:theme";
+  var themeSwitch = document.getElementById("miraThemeSwitch");
+
+  function applyTheme(choice) {
+    if (choice === "light" || choice === "dark") {
+      document.documentElement.setAttribute("data-theme", choice);
+      window.localStorage.setItem(THEME_STORAGE_KEY, choice);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+      window.localStorage.removeItem(THEME_STORAGE_KEY);
+    }
+    if (themeSwitch) {
+      themeSwitch.querySelectorAll(".mira-theme-option").forEach(function (btn) {
+        var isActive = btn.dataset.themeChoice === choice;
+        btn.classList.toggle("is-active", isActive);
+        btn.setAttribute("aria-checked", String(isActive));
+      });
+    }
+  }
+  if (themeSwitch) {
+    var savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) || "system";
+    applyTheme(savedTheme);
+    themeSwitch.querySelectorAll(".mira-theme-option").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        applyTheme(btn.dataset.themeChoice);
+      });
+    });
+  }
+
+  // ---- Settings modal ----
+  var settingsBtn = document.getElementById("miraSettingsBtn");
+  var settingsOverlay = document.getElementById("miraSettingsOverlay");
+  var settingsClose = document.getElementById("miraSettingsClose");
+  if (settingsBtn && settingsOverlay) {
+    settingsBtn.addEventListener("click", function () {
+      closeUserMenu();
+      settingsOverlay.hidden = false;
+    });
+    settingsClose.addEventListener("click", function () {
+      settingsOverlay.hidden = true;
+    });
+    settingsOverlay.addEventListener("click", function (e) {
+      if (e.target === settingsOverlay) settingsOverlay.hidden = true;
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !settingsOverlay.hidden) settingsOverlay.hidden = true;
+    });
+  }
+
+  // Submit handling (calls the orchestrator, streams the reply) and chat
+  // history loading live in mira-chat.js, loaded after this file.
 })();

@@ -28,15 +28,84 @@
       <input type="search" id="miraHistorySearch" placeholder="Search chats" />
     </div>
     <div id="miraChatList">
-      <!-- populated by mira-app.js from GET /api/chat/history -->
+      <!-- populated by mira-chat.js from GET /api/chat/history -->
     </div>
   </div>
 
   <div class="mira-sidebar-footer">
-    <div class="mira-avatar"><%= (tenant.displayName || '?').trim().charAt(0).toUpperCase() %></div>
-    <div class="mira-sidebar-user-info">
-      <div class="mira-sidebar-user-name"><%= tenant.displayName %></div>
-      <div class="mira-sidebar-user-role"><%= tenant.roleTags && tenant.roleTags.length ? tenant.roleTags[0].replace('_',' ') : tenant.viewerType %></div>
+    <button class="mira-user-trigger" id="miraUserTrigger" type="button" aria-haspopup="true" aria-expanded="false">
+      <div class="mira-avatar"><%= (tenant.displayName || '?').trim().charAt(0).toUpperCase() %></div>
+      <div class="mira-sidebar-user-info">
+        <div class="mira-sidebar-user-name"><%= tenant.displayName %></div>
+        <div class="mira-sidebar-user-role"><%= tenant.roleTags && tenant.roleTags.length ? tenant.roleTags[0].replace('_',' ') : tenant.viewerType %></div>
+      </div>
+      <svg class="mira-user-trigger-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 10l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <div class="mira-user-menu" id="miraUserMenu" role="menu" hidden>
+      <div class="mira-user-menu-header">
+        <div class="mira-sidebar-user-name"><%= tenant.displayName %></div>
+        <div class="mira-user-menu-role"><%= tenant.roleTags && tenant.roleTags.length ? tenant.roleTags[0].replace('_',' ') : tenant.viewerType %> &middot; org <%= tenant.organizationId %></div>
+      </div>
+      <div class="mira-user-menu-divider"></div>
+
+      <div class="mira-user-menu-item mira-user-menu-theme" role="group">
+        <span>Theme</span>
+        <div class="mira-theme-switch" id="miraThemeSwitch" role="radiogroup" aria-label="Theme">
+          <button type="button" class="mira-theme-option" data-theme-choice="light" role="radio" aria-label="Light">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1.4M8 13.1v1.4M2.6 8H1.2M14.8 8h-1.4M3.6 3.6l1 1M11.4 11.4l1 1M12.4 3.6l-1 1M4.6 11.4l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+          <button type="button" class="mira-theme-option" data-theme-choice="dark" role="radio" aria-label="Dark">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 9.5a5.5 5.5 0 01-7-7 5.5 5.5 0 107 7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          </button>
+          <button type="button" class="mira-theme-option" data-theme-choice="system" role="radio" aria-label="System">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="3" width="13" height="8.5" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M5.5 14h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="mira-user-menu-divider"></div>
+
+      <button type="button" class="mira-user-menu-item mira-user-menu-action" id="miraSettingsBtn">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.8v1.3M8 12.9v1.3M14.2 8h-1.3M3.1 8H1.8M12.2 3.8l-.9.9M4.7 11.3l-.9.9M12.2 12.2l-.9-.9M4.7 4.7l-.9-.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Settings
+      </button>
+      <a class="mira-user-menu-item mira-user-menu-action" href="<%= mainAppUrl %>/account/logout">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M10.5 11l3-3-3-3M13.5 8H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Log out
+      </a>
     </div>
   </div>
 </aside>
+
+<div class="mira-modal-overlay" id="miraSettingsOverlay" hidden>
+  <div class="mira-modal" role="dialog" aria-modal="true" aria-labelledby="miraSettingsTitle">
+    <div class="mira-modal-header">
+      <h2 id="miraSettingsTitle">Settings</h2>
+      <button type="button" class="mira-icon-btn" id="miraSettingsClose" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="mira-modal-body">
+      <div class="mira-settings-row">
+        <div>
+          <div class="mira-settings-row-label">Name</div>
+          <div class="mira-settings-row-value"><%= tenant.displayName %></div>
+        </div>
+      </div>
+      <div class="mira-settings-row">
+        <div>
+          <div class="mira-settings-row-label">Role</div>
+          <div class="mira-settings-row-value"><%= tenant.roleTags && tenant.roleTags.length ? tenant.roleTags.join(', ').replace(/_/g,' ') : tenant.viewerType %></div>
+        </div>
+      </div>
+      <div class="mira-settings-row">
+        <div>
+          <div class="mira-settings-row-label">School</div>
+          <div class="mira-settings-row-value">Organization #<%= tenant.organizationId %></div>
+        </div>
+      </div>
+      <p class="mira-settings-note">More settings (notification preferences, data controls) are on the way. Account and school details are managed in Managira itself.</p>
+    </div>
+  </div>
+</div>

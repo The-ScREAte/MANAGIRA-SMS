@@ -236,12 +236,97 @@ button { font-family: inherit; }
 .mira-chat-item-time { font-size: 0.72rem; color: var(--mira-text-tertiary); }
 
 .mira-sidebar-footer {
+  position: relative;
+  padding: 10px;
+  border-top: 1px solid var(--mira-border);
+}
+
+.mira-user-trigger {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px;
-  border-top: 1px solid var(--mira-border);
+  width: 100%;
+  padding: 8px;
+  border-radius: var(--mira-radius-sm);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
 }
+.mira-user-trigger:hover { background: var(--mira-primary-soft); }
+.mira-user-trigger-chevron {
+  flex-shrink: 0;
+  color: var(--mira-text-tertiary);
+  transition: transform 0.15s ease;
+}
+.mira-user-trigger[aria-expanded="true"] .mira-user-trigger-chevron { transform: rotate(180deg); }
+.mira-sidebar.is-collapsed .mira-user-trigger-chevron { display: none; }
+
+/* Floating menu - elevated above the page (matches the LOIS-style popup
+   anchored to the bottom-left user row), not inline in the document flow. */
+.mira-user-menu {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: calc(100% + 8px);
+  z-index: 600;
+  background: var(--mira-bg-elevated);
+  border: 1px solid var(--mira-border);
+  border-radius: var(--mira-radius-lg);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
+  padding: 8px;
+  animation: miraMenuIn 0.14s ease-out;
+}
+@keyframes miraMenuIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.mira-sidebar.is-collapsed .mira-user-menu { left: 10px; right: auto; width: 240px; }
+
+.mira-user-menu-header { padding: 8px 10px 6px; }
+.mira-user-menu-role { font-size: 0.72rem; color: var(--mira-text-secondary); text-transform: capitalize; margin-top: 1px; }
+.mira-user-menu-divider { height: 1px; background: var(--mira-border); margin: 6px 4px; }
+
+.mira-user-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 0.84rem;
+  color: var(--mira-text-primary);
+  text-decoration: none;
+  cursor: pointer;
+}
+.mira-user-menu-action { justify-content: flex-start; }
+.mira-user-menu-action:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+.mira-user-menu-action svg { flex-shrink: 0; }
+
+.mira-theme-switch {
+  display: inline-flex;
+  border: 1px solid var(--mira-border);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+}
+.mira-theme-option {
+  width: 26px;
+  height: 24px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--mira-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.mira-theme-option:hover { color: var(--mira-primary); }
+.mira-theme-option.is-active { background: var(--mira-primary); color: #fff; }
 
 .mira-avatar {
   width: 32px;
@@ -509,6 +594,46 @@ button { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .mira-logo.mira-logo-entrance { opacity: 1; transform: none; }
 }
+
+/* ----------------------------------------------------- settings modal */
+
+.mira-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(15, 20, 30, 0.5);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.mira-modal-overlay[hidden] { display: none; }
+
+.mira-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--mira-bg-elevated);
+  border: 1px solid var(--mira-border);
+  border-radius: var(--mira-radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: miraMenuIn 0.16s ease-out;
+}
+
+.mira-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--mira-border);
+}
+.mira-modal-header h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+
+.mira-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.mira-settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mira-settings-row-label { font-size: 0.72rem; color: var(--mira-text-tertiary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; }
+.mira-settings-row-value { font-size: 0.9rem; font-weight: 500; text-transform: capitalize; }
+.mira-settings-note { font-size: 0.8rem; color: var(--mira-text-secondary); line-height: 1.5; margin: 4px 0 0; }
 
 /* -------------------------------------------------------------- mobile */
 

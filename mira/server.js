@@ -8,6 +8,11 @@ const { tenantScope } = require("./middleware/tenantScope");
 
 const app = express();
 const PORT = Number(process.env.MIRA_PORT) || 4100;
+// The browser-facing URL of the main app (for links like Logout) - not to
+// be confused with MAIN_APP_INTERNAL_BASE_URL, which internalApiClient.js
+// uses for server-to-server calls and may differ (e.g. an internal
+// hostname in production vs. the public one).
+const MAIN_APP_PUBLIC_URL = process.env.MAIN_APP_PUBLIC_URL || process.env.MAIN_APP_INTERNAL_BASE_URL || "http://localhost:4000";
 
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
@@ -29,6 +34,7 @@ app.get("/", (req, res) => {
   res.render("index", {
     title: "Mira",
     tenant: req.tenant,
+    mainAppUrl: MAIN_APP_PUBLIC_URL,
   });
 });
 

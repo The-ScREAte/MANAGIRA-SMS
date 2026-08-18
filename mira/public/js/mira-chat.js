@@ -159,6 +159,12 @@
     return days + "d ago";
   }
 
+  function setActiveHistoryItem(chatId) {
+    document.querySelectorAll("#miraChatList .mira-chat-item").forEach(function (el) {
+      el.classList.toggle("is-active", Number(el.dataset.chatId) === chatId);
+    });
+  }
+
   function refreshHistory() {
     var list = document.getElementById("miraChatList");
     if (!list) return;
@@ -171,14 +177,74 @@
         (data.chats || []).forEach(function (chat) {
           var item = document.createElement("div");
           item.className = "mira-chat-item";
+          item.dataset.chatId = chat.id;
           if (chat.id === currentChatId) item.classList.add("is-active");
           item.innerHTML =
             '<span class="mira-chat-item-text">' + escapeHtml(chat.title) + "</span>" +
             '<span class="mira-chat-item-time">' + timeAgo(chat.updated_at) + "</span>";
+          item.addEventListener("click", function () {
+            loadChat(chat.id);
+          });
           list.appendChild(item);
         });
       })
       .catch(function () {});
   }
+
+  // ---- Loading a past chat from history ----
+  function renderStoredMessage(message) {
+    if (message.role === "user") {
+      appendUserMessage(message.content);
+      return;
+    }
+    var el = document.createElement("div");
+    el.className = "mira-message mira-message-assistant";
+    var bubble = document.createElement("div");
+    bubble.className = "mira-message-bubble";
+    bubble.textContent = message.content;
+    el.appendChild(bubble);
+    thread.appendChild(el);
+
+    var toolCalls = message.tool_calls;
+    if (typeof toolCalls === "string") {
+      try {
+        toolCalls = JSON.parse(toolCalls);
+      } catch (e) {
+        toolCalls = null;
+      }
+    }
+    if (Array.isArray(toolCalls)) {
+      toolCalls.forEach(function (call) {
+        renderToolAction(bubble, call.name, call.status);
+      });
+    }
+  }
+
+  function loadChat(chatId) {
+    fetch("/api/chat/" + chatId)
+      .then(function (r) {
+        if (!r.ok) throw new Error("not found");
+        return r.json();
+      })
+      .then(function (data) {
+        currentChatId = data.chat.id;
+        thread.innerHTML = "";
+        (data.messages || []).forEach(renderStoredMessage);
+        if (window.miraShowChatView) window.miraShowChatView();
+        setActiveHistoryItem(currentChatId);
+        scrollToBottom();
+      })
+      .catch(function () {
+        console.error("[mira] unable to load chat", chatId);
+      });
+  }
+
+  // ---- New chat (called from mira-app.js's New chat button) ----
+  window.miraStartNewChat = function () {
+    currentChatId = null;
+    thread.innerHTML = "";
+    setActiveHistoryItem(null);
+  };
+
   refreshHistory();
 })();

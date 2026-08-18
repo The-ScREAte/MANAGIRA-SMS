@@ -6,6 +6,17 @@ const assert = require("node:assert/strict");
 // Redis-absent dev environment during development.
 const { rateLimiter } = require("../middleware/rateLimiter");
 
+// Date.now() alone isn't a safe uniqueness key here - these tests run in
+// well under a millisecond each, so back-to-back tests can get the exact
+// same timestamp and collide on the in-memory rate-limit window, letting
+// one test's counted requests bleed into the next. A monotonic counter
+// guarantees distinct IDs regardless of execution speed.
+let uniqueCounter = 0;
+function uniqueId(label) {
+  uniqueCounter += 1;
+  return `${label}-${Date.now()}-${uniqueCounter}`;
+}
+
 // The middleware calls next() when allowed, but on rejection it ends the
 // response via res.status().json() WITHOUT calling next() (correct
 // behavior - mirrors real Express middleware). So the test harness must
@@ -34,7 +45,7 @@ function runMiddleware(middleware, tenant) {
 
 test("rateLimiter: allows requests under the per-user limit", async () => {
   const middleware = rateLimiter({ perUserPerMinute: 5, perTenantPerMinute: 100 });
-  const tenant = { organizationId: 63, userId: "ratelimit-test-" + Date.now(), viewerType: "staff" };
+  const tenant = { organizationId: 63, userId: uniqueId("ratelimit-test"), viewerType: "staff" };
 
   let allowedCount = 0;
   for (let i = 0; i < 5; i++) {
@@ -46,7 +57,7 @@ test("rateLimiter: allows requests under the per-user limit", async () => {
 
 test("rateLimiter: blocks the request once the per-user limit is exceeded", async () => {
   const middleware = rateLimiter({ perUserPerMinute: 3, perTenantPerMinute: 100 });
-  const tenant = { organizationId: 63, userId: "ratelimit-test-" + Date.now(), viewerType: "staff" };
+  const tenant = { organizationId: 63, userId: uniqueId("ratelimit-test"), viewerType: "staff" };
 
   const results = [];
   for (let i = 0; i < 4; i++) {
@@ -58,9 +69,8 @@ test("rateLimiter: blocks the request once the per-user limit is exceeded", asyn
 
 test("rateLimiter: different users each get their own budget", async () => {
   const middleware = rateLimiter({ perUserPerMinute: 2, perTenantPerMinute: 100 });
-  const suffix = Date.now();
 
-  for (const userId of ["userA-" + suffix, "userB-" + suffix]) {
+  for (const userId of [uniqueId("userA"), uniqueId("userB")]) {
     const tenant = { organizationId: 63, userId, viewerType: "staff" };
     let allowedCount = 0;
     for (let i = 0; i < 2; i++) {
@@ -73,9 +83,10 @@ test("rateLimiter: different users each get their own budget", async () => {
 
 test("rateLimiter: a shared tenant budget blocks a second user once the tenant cap is hit", async () => {
   const middleware = rateLimiter({ perUserPerMinute: 100, perTenantPerMinute: 3 });
-  const suffix = Date.now();
-  const tenantA = { organizationId: 777001 + suffix, userId: "tenantcap-userA", viewerType: "staff" };
-  const tenantB = { organizationId: tenantA.organizationId, userId: "tenantcap-userB", viewerType: "staff" };
+  uniqueCounter += 1;
+  const sharedOrgId = 777000000 + uniqueCounter;
+  const tenantA = { organizationId: sharedOrgId, userId: uniqueId("tenantcap-userA"), viewerType: "staff" };
+  const tenantB = { organizationId: sharedOrgId, userId: uniqueId("tenantcap-userB"), viewerType: "staff" };
 
   const results = [];
   results.push(await runMiddleware(middleware, tenantA));
