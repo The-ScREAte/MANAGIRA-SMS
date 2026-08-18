@@ -3,7 +3,7 @@
 // shared service token; this is the ONLY way Mira ever reads Managira
 // business data or validates a session - it never queries the main app's
 // tables directly.
-require("dotenv").config();
+require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
 
 const MAIN_APP_INTERNAL_BASE_URL = process.env.MAIN_APP_INTERNAL_BASE_URL || "http://localhost:4000";
 const MIRA_SERVICE_TOKEN = process.env.MIRA_SERVICE_TOKEN;

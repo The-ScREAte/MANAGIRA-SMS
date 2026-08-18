@@ -40,30 +40,45 @@ it's a translation layer, not a second copy of the business logic.
 
 ## Environment variables
 
-See `mira/.env.example` for the full list with comments. The main app needs
-one addition of its own:
+Mira reads the **same `.env` at the repo root** as the main app - not its
+own `mira/.env` - since both services run under `managira.com` and share
+`DB_CONNECTION_STRING`/`SESSION_SECRET` already. (Every Mira file that calls
+`dotenv.config()` points its `path` at the root `.env` explicitly; see
+`mira/server.js` and friends.) Mira-specific variables live in that same
+root file, grouped under a `# Mira` comment:
 
 ```
-# main app's .env
-MIRA_SERVICE_TOKEN=<same long random value as Mira's .env>
+MIRA_SERVICE_TOKEN=<long random value, generate with: openssl rand -hex 32>
+MAIN_APP_INTERNAL_BASE_URL=http://localhost:4000
+MIRA_PORT=4100
+MIRA_MOCK_LLM=false
+OPENROUTER_API_KEY=...      # and/or OPENAI_API_KEY / ANTHROPIC_API_KEY
 ```
 
-Generate the shared token once with `openssl rand -hex 32` and put the same
-value in both services' env — this is the bearer token Mira sends as
-`X-Internal-Token` on every internal API call, and the main app rejects
-anything without a matching token (constant-time comparison).
+`MIRA_SERVICE_TOKEN` is the bearer token Mira sends as `X-Internal-Token` on
+every internal API call; the main app rejects anything without a matching
+token (constant-time comparison) - since it's the same `.env` now, there's
+only one value to keep in sync, not two.
 
 ## Running locally
 
+Fill in the Mira variables (see above) in the repo-root `.env` once - both
+services read it.
+
 ```bash
-# Terminal 1 - main app (needs MIRA_SERVICE_TOKEN set)
+# from the repo root - runs both at once (main on :4000, Mira on :4100)
+npm run dev
+```
+
+Or run them separately:
+
+```bash
+# Terminal 1 - main app
 cd "MANAGIRA-SMS"
-MIRA_SERVICE_TOKEN=dev-token-change-me npm start
+npm start
 
 # Terminal 2 - Mira
 cd "MANAGIRA-SMS/mira"
-cp .env.example .env   # fill in DB_CONNECTION_STRING, SESSION_SECRET,
-                        # MIRA_SERVICE_TOKEN (same value as above)
 npm install
 npm start               # http://localhost:4100
 ```
@@ -84,7 +99,10 @@ Removed; don't reintroduce it.)
 
 1. **Render**: create a new Web Service pointed at this repo, root
    directory `mira/`, build command `npm install`, start command
-   `npm start`. Set all the env vars from `mira/.env.example`.
+   `npm start`. Set the Mira env vars listed above directly in Render's
+   dashboard for this service (a deployed service has no local `.env`
+   file to read - the `dotenv.config()` calls are a no-op there and
+   process.env comes entirely from what Render injects).
 2. **DNS**: add a CNAME (or A record, per Render's instructions) for
    `mira` pointing at the new service's Render hostname.
 3. **Reverse proxy / TLS**: if Render is fronting this directly, its
@@ -107,11 +125,18 @@ Removed; don't reintroduce it.)
 
 ## Adding real LLM keys
 
-Set `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in Mira's env. Mock mode
-(`MIRA_MOCK_LLM`) auto-disables the moment either key is present — no code
-change needed. The model router calls OpenAI and Anthropic behind one
-interface (`services/modelRouter.js`) and automatically retries on the
-other provider if the primary one errors or times out.
+Set `OPENROUTER_API_KEY` (preferred - one key reaches many vendors' models
+through an OpenAI-compatible API) and/or `OPENAI_API_KEY`/
+`ANTHROPIC_API_KEY` directly. Mock mode (`MIRA_MOCK_LLM`) auto-disables the
+moment any of these is present - no code change needed. The model router
+(`services/modelRouter.js`) tries every configured provider in priority
+order (openrouter, then openai, then anthropic) and automatically falls
+back to the next one if a call errors or times out.
+
+Test-suite note: `mira/tests` always force `MIRA_MOCK_LLM=true` (set in
+`mira/package.json`'s `test` script) regardless of what's in `.env`, so
+`npm test` stays free, offline, and deterministic even with a real key
+configured for the running app.
 
 ## Security notes
 

@@ -6,7 +6,7 @@
 // rate limiting and the SSO identity cache both have in-memory fallbacks
 // for this reason; BullMQ (services/queue) genuinely requires Redis and
 // logs a clear warning instead of crashing when it's unavailable.
-require("dotenv").config();
+require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
 
 const REDIS_URL = process.env.REDIS_URL || "";
 const KEY_PREFIX = process.env.MIRA_REDIS_PREFIX || "mira:cache";

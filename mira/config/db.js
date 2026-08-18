@@ -7,7 +7,7 @@
 // MIRA_DB_CONNECTION_STRING defaults to DB_CONNECTION_STRING so this
 // deploys today with zero new infra, but can be pointed at a dedicated
 // Postgres instance later with no code change - just set the env var.
-require("dotenv").config();
+require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
 const { Pool } = require("pg");
 
 const connectionString = process.env.MIRA_DB_CONNECTION_STRING || process.env.DB_CONNECTION_STRING;

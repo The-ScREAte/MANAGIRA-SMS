@@ -1,27 +1,50 @@
-// Unified interface over OpenAI and Anthropic. Callers never talk to a
-// provider SDK directly - they call `streamCompletion()` and get the same
-// event shape back regardless of which provider (or mock mode) served it.
-// Automatic fallback: if the chosen provider throws or times out, retries
-// once on the other provider before giving up.
-require("dotenv").config();
+// Unified interface over OpenRouter, OpenAI, and Anthropic. Callers never
+// talk to a provider SDK directly - they call `streamCompletion()` and get
+// the same event shape back regardless of which provider (or mock mode)
+// served it. Automatic fallback: tries each configured provider in
+// priority order until one succeeds.
+require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
 
-const MOCK_MODE = String(process.env.MIRA_MOCK_LLM || "").toLowerCase() === "true" || (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY);
-
-const TASK_MODEL_MAP = {
-  classify: { provider: "openai", model: "gpt-4o-mini" },
-  lookup: { provider: "openai", model: "gpt-4o-mini" },
-  draft: { provider: "anthropic", model: "claude-sonnet-4-5" },
-  reasoning: { provider: "anthropic", model: "claude-sonnet-4-5" },
-  default: { provider: "openai", model: "gpt-4o-mini" },
-};
-
-function otherProvider(provider) {
-  return provider === "openai" ? "anthropic" : "openai";
-}
+// OpenRouter first: one key can reach many vendors' models (including
+// OpenAI's and Anthropic's), so it's the most useful default when present.
+// Direct OpenAI/Anthropic keys still work standalone if OpenRouter isn't
+// configured.
+const PROVIDER_PRIORITY = ["openrouter", "openai", "anthropic"];
 
 function isProviderConfigured(provider) {
-  return provider === "openai" ? !!process.env.OPENAI_API_KEY : !!process.env.ANTHROPIC_API_KEY;
+  if (provider === "openrouter") return !!process.env.OPENROUTER_API_KEY;
+  if (provider === "openai") return !!process.env.OPENAI_API_KEY;
+  return !!process.env.ANTHROPIC_API_KEY;
 }
+
+const MOCK_MODE = String(process.env.MIRA_MOCK_LLM || "").toLowerCase() === "true" || !PROVIDER_PRIORITY.some(isProviderConfigured);
+
+// Model IDs differ per provider (OpenRouter prefixes with the vendor, e.g.
+// "openai/gpt-4o-mini", while a direct OpenAI/Anthropic key uses their own
+// bare model names) - one map per provider, same task keys throughout.
+const TASK_MODEL_MAPS = {
+  openrouter: {
+    classify: "openai/gpt-4o-mini",
+    lookup: "openai/gpt-4o-mini",
+    draft: "anthropic/claude-3.5-sonnet",
+    reasoning: "anthropic/claude-3.5-sonnet",
+    default: "openai/gpt-4o-mini",
+  },
+  openai: {
+    classify: "gpt-4o-mini",
+    lookup: "gpt-4o-mini",
+    draft: "gpt-4o-mini",
+    reasoning: "gpt-4o-mini",
+    default: "gpt-4o-mini",
+  },
+  anthropic: {
+    classify: "claude-sonnet-4-5",
+    lookup: "claude-sonnet-4-5",
+    draft: "claude-sonnet-4-5",
+    reasoning: "claude-sonnet-4-5",
+    default: "claude-sonnet-4-5",
+  },
+};
 
 // ---- Multimodal content: messages built by the orchestrator use a
 // provider-neutral shape - content is either a plain string, or an array
@@ -221,10 +244,10 @@ async function mockStreamCompletion({ messages, tools, onToken, onToolCall }) {
 
 // ---- Real providers ----
 
-async function openaiStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
-  const OpenAI = require("openai");
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
+// Shared by OpenAI and OpenRouter - both speak the same chat-completions
+// wire format (OpenRouter is deliberately OpenAI-API-compatible), so only
+// the client construction (base URL / key / headers) differs between them.
+async function runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall }) {
   const stream = await client.chat.completions.create({
     model,
     messages: messages.map((m) => ({ ...m, content: adaptForOpenAI(m.content) })),
@@ -257,6 +280,25 @@ async function openaiStreamCompletion({ model, messages, tools, onToken, onToolC
   return { finishReason: "stop", usage };
 }
 
+async function openaiStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
+  const OpenAI = require("openai");
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall });
+}
+
+async function openrouterStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
+  const OpenAI = require("openai");
+  const client = new OpenAI({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseURL: "https://openrouter.ai/api/v1",
+    defaultHeaders: {
+      "HTTP-Referer": process.env.MAIN_APP_PUBLIC_URL || process.env.MAIN_APP_INTERNAL_BASE_URL || "http://localhost:4100",
+      "X-Title": "Mira",
+    },
+  });
+  return runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall });
+}
+
 async function anthropicStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
   const Anthropic = require("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -284,6 +326,7 @@ async function anthropicStreamCompletion({ model, messages, tools, onToken, onTo
 }
 
 async function callProvider(provider, { model, messages, tools, onToken, onToolCall }) {
+  if (provider === "openrouter") return openrouterStreamCompletion({ model, messages, tools, onToken, onToolCall });
   if (provider === "openai") return openaiStreamCompletion({ model, messages, tools, onToken, onToolCall });
   return anthropicStreamCompletion({ model, messages, tools, onToken, onToolCall });
 }
@@ -292,24 +335,22 @@ async function callProvider(provider, { model, messages, tools, onToken, onToolC
  * streamCompletion({task, messages, tools, onToken, onToolCall})
  * Picks a provider/model for the task, streams tokens via onToken(text),
  * and calls onToolCall(name, args) at most once if the model chooses a
- * tool instead of replying directly. Falls back to the other provider on
- * error/timeout automatically.
+ * tool instead of replying directly. Tries every configured provider in
+ * priority order (openrouter, then openai, then anthropic) on error/
+ * timeout before giving up.
  */
 async function streamCompletion({ task = "default", messages, tools = [], onToken, onToolCall }) {
   if (MOCK_MODE) {
     return mockStreamCompletion({ messages, tools, onToken, onToolCall });
   }
 
-  const primary = TASK_MODEL_MAP[task] || TASK_MODEL_MAP.default;
-  const providerOrder = isProviderConfigured(primary.provider)
-    ? [primary.provider, otherProvider(primary.provider)]
-    : [otherProvider(primary.provider), primary.provider];
+  const configuredProviders = PROVIDER_PRIORITY.filter(isProviderConfigured);
 
   let lastError = null;
-  for (const provider of providerOrder) {
-    if (!isProviderConfigured(provider)) continue;
+  for (const provider of configuredProviders) {
     try {
-      const model = provider === primary.provider ? primary.model : TASK_MODEL_MAP.default.model;
+      const taskMap = TASK_MODEL_MAPS[provider];
+      const model = taskMap[task] || taskMap.default;
       const result = await callProvider(provider, { model, messages, tools, onToken, onToolCall });
       return { ...result, provider, model };
     } catch (error) {
@@ -317,7 +358,7 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
       lastError = error;
     }
   }
-  throw lastError || new Error("No LLM provider is configured (set OPENAI_API_KEY or ANTHROPIC_API_KEY).");
+  throw lastError || new Error("No LLM provider is configured (set OPENROUTER_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY).");
 }
 
-module.exports = { streamCompletion, MOCK_MODE, TASK_MODEL_MAP };
+module.exports = { streamCompletion, MOCK_MODE, TASK_MODEL_MAPS, PROVIDER_PRIORITY };

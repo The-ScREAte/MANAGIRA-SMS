@@ -5,10 +5,14 @@ const db = require("../config/db");
 const { ensureMiraSchema } = require("../db/schema");
 
 // Approximate $ per 1M tokens - for cost *estimation* only, not billing-grade
-// precision. Update alongside TASK_MODEL_MAP in modelRouter.js.
+// precision. Update alongside TASK_MODEL_MAPS in modelRouter.js. OpenRouter
+// generally passes through the underlying provider's own price, so these
+// reuse the same figures as the direct-API entries above them.
 const PRICING_PER_MILLION = {
   "gpt-4o-mini": { prompt: 0.15, completion: 0.6 },
   "claude-sonnet-4-5": { prompt: 3, completion: 15 },
+  "openai/gpt-4o-mini": { prompt: 0.15, completion: 0.6 },
+  "anthropic/claude-3.5-sonnet": { prompt: 3, completion: 15 },
   mock: { prompt: 0, completion: 0 },
 };
 

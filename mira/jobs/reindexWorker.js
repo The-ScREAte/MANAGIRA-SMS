@@ -3,7 +3,7 @@
 // the request-serving server.js, so heavy re-embedding work never competes
 // with chat request latency. No-op until phase 5's ragService/vectorStore
 // land - this just proves the queue plumbing runs end to end.
-require("dotenv").config();
+require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
 const { bullConnectionOptions, REDIS_URL_CONFIGURED } = require("../config/redis");
 const { REINDEX_QUEUE_NAME } = require("../services/queue");
 
