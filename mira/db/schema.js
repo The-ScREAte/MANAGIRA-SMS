@@ -77,6 +77,18 @@ async function ensureMiraSchema(db) {
     )
   `);
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS mira_user_preferences (
+      tenant_id           INTEGER NOT NULL,
+      viewer_type         VARCHAR(10) NOT NULL DEFAULT 'staff' CHECK (viewer_type IN ('staff','guardian','student')),
+      user_id             INTEGER NOT NULL,
+      custom_instructions TEXT NULL,
+      chat_font           VARCHAR(32) NULL,
+      updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (tenant_id, viewer_type, user_id)
+    )
+  `);
+
   // Vector store. CREATE EXTENSION requires privileges most managed
   // Postgres plans grant by default (confirmed available, not yet enabled,
   // on this project's instance) - if it's not permitted in a given

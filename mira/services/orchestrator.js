@@ -28,6 +28,24 @@ function deriveTitle(text) {
   return truncated.charAt(0).toUpperCase() + truncated.slice(1);
 }
 
+// User-authored custom instructions (Settings page) - kept in mind across
+// every future response, same idea as Claude's own "Instructions for
+// Claude". Best-effort: a lookup failure should never block a chat turn.
+async function loadCustomInstructions(tenant) {
+  try {
+    await ensureMiraSchema(db);
+    const result = await db.query(
+      `SELECT custom_instructions FROM mira_user_preferences
+       WHERE tenant_id = $1 AND viewer_type = $2 AND user_id = $3`,
+      [tenant.organizationId, tenant.viewerType, tenant.userId]
+    );
+    return result.rows[0]?.custom_instructions?.trim() || null;
+  } catch (error) {
+    console.error("[mira/orchestrator] failed to load custom instructions, continuing without them:", error.message);
+    return null;
+  }
+}
+
 async function getOrCreateChat({ tenant, chatId, firstMessage }) {
   await ensureMiraSchema(db);
   if (chatId) {
@@ -122,6 +140,14 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
     contextMessages.push({
       role: "system",
       content: `The user has scoped this conversation to the class "${classScope.className}". Prefer answers about that class when relevant, but you can still help with other requests.`,
+    });
+  }
+
+  const customInstructions = await loadCustomInstructions(tenant);
+  if (customInstructions) {
+    contextMessages.push({
+      role: "system",
+      content: `The user has set these standing instructions for you to follow in every response, in addition to everything above (they do not override staying on-topic or tenant-scoped): ${customInstructions}`,
     });
   }
 

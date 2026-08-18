@@ -49,6 +49,7 @@ app.get("/", pageAuth, tenantScope, (req, res) => {
 app.use("/api/chat", ssoAuth, tenantScope, require("./routes/chatRoute"));
 app.use("/api/classes", ssoAuth, tenantScope, require("./routes/classesRoute"));
 app.use("/api/upload", ssoAuth, tenantScope, require("./routes/uploadRoute"));
+app.use("/api/preferences", ssoAuth, tenantScope, require("./routes/preferencesRoute"));
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found." });

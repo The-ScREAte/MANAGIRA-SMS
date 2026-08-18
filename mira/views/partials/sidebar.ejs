@@ -104,6 +104,29 @@
         <span class="mira-btn-label">Manage account in Managira</span>
       </a>
       <p class="mira-settings-note">Notification preferences, password, and other account/school details are managed in Managira itself - the button above takes you straight there, scoped to whatever your role there already allows.</p>
+
+      <div class="mira-settings-divider"></div>
+
+      <div class="mira-settings-block">
+        <div class="mira-settings-block-label">Instructions for Mira</div>
+        <p class="mira-settings-block-hint">Mira will keep these in mind across every chat from here on. For example, "always add a link to the source" or "keep answers to a few sentences unless I ask for more."</p>
+        <textarea class="mira-settings-textarea" id="miraCustomInstructions" rows="4" maxlength="2000" placeholder="e.g. Always add a link for the source when you reference documentation."></textarea>
+        <div class="mira-settings-block-footer">
+          <span class="mira-settings-save-status" id="miraInstructionsStatus" aria-live="polite"></span>
+          <button type="button" class="mira-btn mira-btn-primary mira-settings-save-btn" id="miraInstructionsSave">Save</button>
+        </div>
+      </div>
+
+      <div class="mira-settings-block">
+        <div class="mira-settings-block-label">Chat font</div>
+        <p class="mira-settings-block-hint">Change the typeface used for Mira's replies.</p>
+        <select class="mira-settings-select" id="miraChatFontSelect">
+          <option value="default">Default (Inter)</option>
+          <option value="serif">Serif (Georgia)</option>
+          <option value="mono">Monospace</option>
+          <option value="rounded">Rounded (Comic Sans)</option>
+        </select>
+      </div>
     </div>
   </div>
 </div>

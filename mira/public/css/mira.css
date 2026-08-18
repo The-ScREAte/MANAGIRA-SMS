@@ -24,10 +24,17 @@
   --mira-radius-full: 50%;
 
   --mira-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mira-chat-font: var(--mira-font);
 
   --mira-sidebar-width: 280px;
   --mira-sidebar-width-collapsed: 72px;
 }
+
+/* Chat font: a personalization pref set in Settings (public/js/mira-app.js
+   sets data-chat-font on <html>), independent of the app's own UI font. */
+:root[data-chat-font="serif"] { --mira-chat-font: Georgia, "Times New Roman", serif; }
+:root[data-chat-font="mono"] { --mira-chat-font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+:root[data-chat-font="rounded"] { --mira-chat-font: "Comic Sans MS", "Comic Sans", cursive, sans-serif; }
 
 /* System dark mode (no manual toggle exists yet, but the hook is here) */
 @media (prefers-color-scheme: dark) {
@@ -908,6 +915,7 @@ button { font-family: inherit; }
 .mira-message-bubble {
   padding: 12px 16px;
   border-radius: var(--mira-radius-lg);
+  font-family: var(--mira-chat-font);
   font-size: 0.9rem;
   line-height: 1.55;
   white-space: pre-wrap;
@@ -1145,6 +1153,43 @@ button { font-family: inherit; }
 .mira-settings-row-label { font-size: 0.72rem; color: var(--mira-text-tertiary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; }
 .mira-settings-row-value { font-size: 0.9rem; font-weight: 500; text-transform: capitalize; }
 .mira-settings-note { font-size: 0.8rem; color: var(--mira-text-secondary); line-height: 1.5; margin: 4px 0 0; }
+
+.mira-settings-divider { height: 1px; background: var(--mira-border); margin: 4px 0; }
+.mira-settings-block { display: flex; flex-direction: column; gap: 8px; }
+.mira-settings-block-label { font-size: 0.85rem; font-weight: 600; color: var(--mira-text-primary); }
+.mira-settings-block-hint { font-size: 0.78rem; color: var(--mira-text-secondary); line-height: 1.5; margin: 0; }
+.mira-settings-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 84px;
+  padding: 10px 12px;
+  border-radius: var(--mira-radius-sm);
+  border: 1px solid var(--mira-border);
+  background: var(--mira-bg);
+  color: var(--mira-text-primary);
+  font-family: var(--mira-font);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  outline: none;
+}
+.mira-settings-textarea:focus { border-color: var(--mira-primary-border); box-shadow: 0 0 0 3px var(--mira-primary-soft); }
+.mira-settings-block-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.mira-settings-save-status { font-size: 0.76rem; color: var(--mira-text-tertiary); }
+.mira-settings-save-btn { padding: 6px 16px; font-size: 0.82rem; }
+.mira-settings-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border-radius: var(--mira-radius-sm);
+  border: 1px solid var(--mira-border);
+  background: var(--mira-bg);
+  color: var(--mira-text-primary);
+  font-family: var(--mira-font);
+  font-size: 0.86rem;
+  outline: none;
+}
+.mira-settings-select:focus { border-color: var(--mira-primary-border); box-shadow: 0 0 0 3px var(--mira-primary-soft); }
 
 /* ------------------------------------------------------------ auth page */
 

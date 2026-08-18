@@ -19,6 +19,15 @@
   }
   window.miraFetch = miraFetch;
 
+  // Chat font: applied from a cached localStorage value immediately (avoids
+  // a flash of the default font before the server round-trip below
+  // resolves), then kept in sync with the server copy so it follows the
+  // user across devices. See the Settings block further down for the
+  // fetch-on-open / save-on-change wiring.
+  var CHAT_FONT_STORAGE_KEY = "mira:chatFont";
+  var cachedChatFont = window.localStorage.getItem(CHAT_FONT_STORAGE_KEY);
+  if (cachedChatFont) document.documentElement.setAttribute("data-chat-font", cachedChatFont);
+
   var sidebar = document.getElementById("miraSidebar");
   var collapseToggle = document.getElementById("miraCollapseToggle");
   var mobileMenuBtn = document.getElementById("miraMobileMenuBtn");
@@ -479,10 +488,65 @@
   var settingsBtn = document.getElementById("miraSettingsBtn");
   var settingsOverlay = document.getElementById("miraSettingsOverlay");
   var settingsClose = document.getElementById("miraSettingsClose");
+  var instructionsInput = document.getElementById("miraCustomInstructions");
+  var instructionsSaveBtn = document.getElementById("miraInstructionsSave");
+  var instructionsStatus = document.getElementById("miraInstructionsStatus");
+  var chatFontSelect = document.getElementById("miraChatFontSelect");
+  var preferencesLoaded = false;
+
+  function applyChatFont(font) {
+    document.documentElement.setAttribute("data-chat-font", font || "default");
+    window.localStorage.setItem(CHAT_FONT_STORAGE_KEY, font || "default");
+  }
+
+  function loadPreferencesIntoSettings() {
+    if (!instructionsInput && !chatFontSelect) return;
+    miraFetch("/api/preferences")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        preferencesLoaded = true;
+        if (instructionsInput) instructionsInput.value = data.customInstructions || "";
+        if (chatFontSelect) chatFontSelect.value = data.chatFont || "default";
+        applyChatFont(data.chatFont || "default");
+      })
+      .catch(function () {});
+  }
+
+  if (instructionsSaveBtn && instructionsInput) {
+    instructionsSaveBtn.addEventListener("click", function () {
+      instructionsStatus.textContent = "Saving…";
+      miraFetch("/api/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customInstructions: instructionsInput.value }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function () {
+          instructionsStatus.textContent = "Saved";
+          window.setTimeout(function () { instructionsStatus.textContent = ""; }, 2000);
+        })
+        .catch(function () {
+          instructionsStatus.textContent = "Couldn't save - try again.";
+        });
+    });
+  }
+
+  if (chatFontSelect) {
+    chatFontSelect.addEventListener("change", function () {
+      applyChatFont(chatFontSelect.value);
+      miraFetch("/api/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatFont: chatFontSelect.value }),
+      }).catch(function () {});
+    });
+  }
+
   if (settingsBtn && settingsOverlay) {
     settingsBtn.addEventListener("click", function () {
       closeUserMenu();
       settingsOverlay.hidden = false;
+      if (!preferencesLoaded) loadPreferencesIntoSettings();
     });
     settingsClose.addEventListener("click", function () {
       settingsOverlay.hidden = true;
