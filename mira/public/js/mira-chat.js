@@ -134,6 +134,64 @@
     });
   }
 
+  // ---- Share: hands the whole visible transcript to the OS share sheet
+  // (mobile/modern desktop browsers), or copies it to the clipboard as a
+  // fallback - no server-side "public link" exists, so this never exposes
+  // chat content outside of an action the user explicitly took.
+  function buildTranscriptText() {
+    var title = chatTopbarTitleText ? chatTopbarTitleText.textContent : "Chat with Mira";
+    var lines = [title, ""];
+    thread.querySelectorAll(".mira-message").forEach(function (el) {
+      var bubble = el.querySelector(".mira-message-bubble");
+      if (!bubble) return;
+      var speaker = el.classList.contains("mira-message-user") ? "You" : "Mira";
+      lines.push(speaker + ": " + bubble.textContent);
+      lines.push("");
+    });
+    return lines.join("\n").trim();
+  }
+
+  var chatTopbarShareBtn = document.getElementById("miraChatTopbarShare");
+  if (chatTopbarShareBtn) {
+    chatTopbarShareBtn.addEventListener("click", function () {
+      if (!currentChatId) return;
+      var title = chatTopbarTitleText ? chatTopbarTitleText.textContent : "Chat with Mira";
+      var text = buildTranscriptText();
+
+      if (navigator.share) {
+        navigator.share({ title: title, text: text }).catch(function () {
+          /* user cancelled the share sheet - not an error */
+        });
+        return;
+      }
+
+      var copyPromise = navigator.clipboard && navigator.clipboard.writeText
+        ? navigator.clipboard.writeText(text)
+        : Promise.reject(new Error("no clipboard API"));
+      copyPromise
+        .catch(function () {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); } catch (e) {}
+          document.body.removeChild(ta);
+        })
+        .then(function () {
+          var label = chatTopbarShareBtn.querySelector("span");
+          var restoreLabel = label ? label.textContent : "Share";
+          chatTopbarShareBtn.classList.add("is-copied");
+          if (label) label.textContent = "Copied!";
+          setTimeout(function () {
+            chatTopbarShareBtn.classList.remove("is-copied");
+            if (label) label.textContent = restoreLabel;
+          }, 1500);
+        });
+    });
+  }
+
   function appendUserMessage(text) {
     var el = document.createElement("div");
     el.className = "mira-message mira-message-user";
