@@ -308,6 +308,28 @@ button { font-family: inherit; }
   text-align: left;
 }
 .mira-chat-item-menu-rename:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+.mira-chat-item-menu-pin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--mira-text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+.mira-chat-item-menu-pin:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+
+.mira-chat-item-pin-icon {
+  display: inline-flex;
+  margin-right: 5px;
+  color: var(--mira-primary);
+  vertical-align: -1px;
+}
 
 .mira-chat-item-rename-input {
   width: 100%;
@@ -447,9 +469,9 @@ button { font-family: inherit; }
   font-size: 0.72rem;
   color: var(--mira-text-secondary);
   margin-top: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.35;
 }
 .mira-user-trigger { color: var(--mira-text-primary); }
 
@@ -769,6 +791,14 @@ button { font-family: inherit; }
 }
 .mira-composer-docked .mira-composer { width: min(760px, 100%); }
 
+.mira-ai-disclaimer {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--mira-text-tertiary);
+}
+.mira-ai-disclaimer[hidden] { display: none; }
+
 /* ---------------------------------------------------------------- logo */
 
 .mira-logo {
@@ -802,17 +832,17 @@ button { font-family: inherit; }
     60%  { opacity: 1; transform: scale(1.05) rotate(360deg); }
     100% { opacity: 1; transform: scale(1) rotate(360deg); }
   }
-  /* Asymmetric swing (50deg right, 70deg left) - keyframe timing is spaced
-     proportionally to the angular distance of each leg (50/240, 100/240,
-     170/240, 240/240) so the average speed stays constant across the
-     whole cycle. Without that, the longer 70deg leg gets the same time
-     budget as the shorter 50deg leg and visibly stalls at the left
-     extreme before reversing. */
+  /* Asymmetric swing (80deg right, 70deg left) - keyframe timing is spaced
+     proportionally to the angular distance of each leg (80/300, 160/300,
+     230/300, 300/300) so the average speed stays constant across the
+     whole cycle - otherwise the longer leg gets the same time budget as
+     the shorter one and visibly stalls at the far extreme before
+     reversing. */
   @keyframes miraLogoWag {
     0%   { transform: rotate(0deg); }
-    21%  { transform: rotate(50deg); }
-    42%  { transform: rotate(0deg); }
-    71%  { transform: rotate(-70deg); }
+    27%  { transform: rotate(80deg); }
+    53%  { transform: rotate(0deg); }
+    77%  { transform: rotate(-70deg); }
     100% { transform: rotate(0deg); }
   }
 }

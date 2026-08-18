@@ -7,7 +7,7 @@ router.post("/", rateLimiter({ perUserPerMinute: 20, perTenantPerMinute: 100 }),
 router.get("/history", chatController.getHistory);
 router.post("/messages/:messageId/feedback", chatController.setMessageFeedback);
 router.get("/:id", chatController.getChat);
-router.patch("/:id", chatController.renameChat);
+router.patch("/:id", chatController.updateChat);
 router.delete("/:id", chatController.deleteChat);
 
 module.exports = router;

@@ -20,6 +20,7 @@ async function ensureMiraSchema(db) {
       updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await db.query(`ALTER TABLE mira_chats ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT false`);
   await db.query(`CREATE INDEX IF NOT EXISTS mira_chats_tenant_user_idx ON mira_chats(tenant_id, viewer_type, user_id, updated_at DESC)`);
 
   await db.query(`

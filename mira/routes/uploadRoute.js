@@ -1,15 +1,22 @@
-// File attach - deliberately scoped: reads small text-based files
-// (.txt/.csv/.md/.json) in memory and returns their content for the
-// client to fold into the next chat message. No persistent storage, no
-// document/image parsing pipeline (OCR, PDF extraction) - that's a
-// meaningfully larger feature than this pass covers, and this endpoint
-// says so clearly for anything else instead of silently doing nothing.
+// File attach - reads a wide range of document types in memory and
+// returns extracted text for the client to fold into the next chat
+// message. No persistent storage. Plain-text formats are read as-is;
+// PDF and Word documents are parsed to extract their text content.
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
+const pdfParse = require("pdf-parse");
+const mammoth = require("mammoth");
 
-const MAX_BYTES = 250 * 1024; // 250KB - plenty for a text attachment, small enough to fold into one prompt
-const ALLOWED_EXTENSIONS = new Set([".txt", ".csv", ".md", ".json"]);
+const MAX_BYTES = 5 * 1024 * 1024; // 5MB - PDFs/docx are bulkier than plain text
+const MAX_TEXT_CHARS = 20000; // keep extracted content small enough to fold into one prompt
+
+const TEXT_EXTENSIONS = new Set([
+  ".txt", ".csv", ".tsv", ".md", ".json", ".log",
+  ".yml", ".yaml", ".xml", ".html", ".htm", ".rtf",
+]);
+const DOCUMENT_EXTENSIONS = new Set([".pdf", ".docx"]);
+const ALLOWED_EXTENSIONS = new Set([...TEXT_EXTENSIONS, ...DOCUMENT_EXTENSIONS]);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -21,7 +28,20 @@ function getExtension(filename) {
   return match ? match[0].toLowerCase() : "";
 }
 
-router.post("/", upload.single("file"), (req, res) => {
+async function extractText(file, ext) {
+  if (TEXT_EXTENSIONS.has(ext)) return file.buffer.toString("utf8");
+  if (ext === ".pdf") {
+    const data = await pdfParse(file.buffer);
+    return data.text;
+  }
+  if (ext === ".docx") {
+    const result = await mammoth.extractRawText({ buffer: file.buffer });
+    return result.value;
+  }
+  return null;
+}
+
+router.post("/", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded." });
   }
@@ -29,17 +49,28 @@ router.post("/", upload.single("file"), (req, res) => {
   const ext = getExtension(req.file.originalname);
   if (!ALLOWED_EXTENSIONS.has(ext)) {
     return res.status(415).json({
-      error: `Mira can currently only read text files (${[...ALLOWED_EXTENSIONS].join(", ")}). Support for other file types is on the way.`,
+      error: `Mira can't read that file type yet${ext ? ` (${ext})` : ""}. Supported: ${[...ALLOWED_EXTENSIONS].join(", ")}.`,
     });
   }
 
-  const text = req.file.buffer.toString("utf8");
+  let text;
+  try {
+    text = await extractText(req.file, ext);
+  } catch (error) {
+    console.error("[mira/uploadRoute] extraction failed:", error.message);
+    return res.status(422).json({ error: "Unable to read that file - it may be corrupted or password-protected." });
+  }
+
+  if (text.length > MAX_TEXT_CHARS) {
+    text = text.slice(0, MAX_TEXT_CHARS) + "\n\n[Content truncated - the file is longer than Mira can read in one go.]";
+  }
+
   return res.json({ filename: req.file.originalname, text, bytes: req.file.size });
 });
 
 router.use((err, req, res, next) => {
   if (err && err.code === "LIMIT_FILE_SIZE") {
-    return res.status(413).json({ error: `File is too large - Mira can read attachments up to ${Math.round(MAX_BYTES / 1024)}KB right now.` });
+    return res.status(413).json({ error: `File is too large - Mira can read attachments up to ${Math.round(MAX_BYTES / (1024 * 1024))}MB right now.` });
   }
   console.error("[mira/uploadRoute]", err);
   return res.status(500).json({ error: "Unable to process the file." });

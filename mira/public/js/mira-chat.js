@@ -17,6 +17,14 @@
     if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
   }
 
+  var aiDisclaimer = document.getElementById("miraAiDisclaimer");
+  function showAiDisclaimer() {
+    if (aiDisclaimer) aiDisclaimer.hidden = false;
+  }
+  function hideAiDisclaimer() {
+    if (aiDisclaimer) aiDisclaimer.hidden = true;
+  }
+
   function appendUserMessage(text) {
     var el = document.createElement("div");
     el.className = "mira-message mira-message-user";
@@ -249,6 +257,7 @@
         messageIdRef.id = data.messageId || null;
         var actions = buildMessageActions(function () { return bubble.textContent; }, messageIdRef);
         assistant.el.appendChild(actions);
+        showAiDisclaimer();
         scrollToBottom();
         refreshHistory();
       },
@@ -443,8 +452,7 @@
       })
         .then(function (r) {
           if (!r.ok) throw new Error("rename failed");
-          var chat = allChats.find(function (c) { return c.id === chatId; });
-          if (chat) chat.title = newTitle;
+          refreshHistory();
         })
         .catch(function () {
           textEl.textContent = currentTitle;
@@ -457,6 +465,21 @@
       if (e.key === "Escape") { done = true; input.replaceWith(textEl); }
     });
     input.addEventListener("click", function (e) { e.stopPropagation(); });
+  }
+
+  function togglePinChat(chatId, pinned) {
+    fetch("/api/chat/" + chatId, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned: pinned }),
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("pin toggle failed");
+        return refreshHistory();
+      })
+      .catch(function () {
+        alert("Unable to update that chat right now.");
+      });
   }
 
   function deleteChat(chatId, itemEl) {
@@ -493,12 +516,19 @@
       item.className = "mira-chat-item";
       item.dataset.chatId = chat.id;
       if (chat.id === currentChatId) item.classList.add("is-active");
+      if (chat.pinned) item.classList.add("is-pinned");
 
       var main = document.createElement("div");
       main.className = "mira-chat-item-main";
       var textSpan = document.createElement("span");
       textSpan.className = "mira-chat-item-text";
-      textSpan.textContent = chat.title;
+      if (chat.pinned) {
+        var pinIcon = document.createElement("span");
+        pinIcon.className = "mira-chat-item-pin-icon";
+        pinIcon.innerHTML = '<svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.2 3.6L13 6.8 10 9.2l.7 3.8L8 11l-2.7 2 .7-3.8-3-2.4 3.8-1.2z" fill="currentColor"/></svg>';
+        textSpan.appendChild(pinIcon);
+      }
+      textSpan.appendChild(document.createTextNode(chat.title));
       var timeSpan = document.createElement("span");
       timeSpan.className = "mira-chat-item-time";
       timeSpan.textContent = timeAgo(chat.updated_at);
@@ -533,6 +563,18 @@
           renameChat(chat.id, item, textSpan);
         });
         menu.appendChild(renameBtn);
+        var pinBtn = document.createElement("button");
+        pinBtn.type = "button";
+        pinBtn.className = "mira-chat-item-menu-pin";
+        pinBtn.innerHTML = chat.pinned
+          ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.2 3.6L13 6.8 10 9.2l.7 3.8L8 11l-2.7 2 .7-3.8-3-2.4 3.8-1.2z" fill="currentColor"/></svg><span>Unpin</span>'
+          : '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2l1.2 3.6L13 6.8 10 9.2l.7 3.8L8 11l-2.7 2 .7-3.8-3-2.4 3.8-1.2z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg><span>Pin</span>';
+        pinBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          closeAllChatItemMenus();
+          togglePinChat(chat.id, !chat.pinned);
+        });
+        menu.appendChild(pinBtn);
         var deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
         deleteBtn.className = "mira-chat-item-menu-delete";
@@ -624,6 +666,8 @@
         (data.messages || []).forEach(renderStoredMessage);
         if (window.miraShowChatView) window.miraShowChatView();
         setActiveHistoryItem(currentChatId);
+        var hasAssistantReply = (data.messages || []).some(function (m) { return m.role === "assistant"; });
+        if (hasAssistantReply) showAiDisclaimer(); else hideAiDisclaimer();
         scrollToBottom();
       })
       .catch(function () {
@@ -637,6 +681,7 @@
     thread.innerHTML = "";
     clearAttachment();
     setActiveHistoryItem(null);
+    hideAiDisclaimer();
   };
 
   refreshHistory();

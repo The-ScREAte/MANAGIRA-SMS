@@ -50,9 +50,9 @@ async function getHistory(req, res) {
   try {
     await ensureMiraSchema(db);
     const result = await db.query(
-      `SELECT id, title, updated_at FROM mira_chats
+      `SELECT id, title, updated_at, pinned FROM mira_chats
        WHERE tenant_id = $1 AND viewer_type = $2 AND user_id = $3
-       ORDER BY updated_at DESC LIMIT 50`,
+       ORDER BY pinned DESC, updated_at DESC LIMIT 50`,
       [req.tenant.organizationId, req.tenant.viewerType, req.tenant.userId]
     );
     return res.json({ chats: result.rows });
@@ -84,23 +84,45 @@ async function getChat(req, res) {
   }
 }
 
-// PATCH /api/chat/:id  { title } - user-driven rename, tenant/user scoped.
-async function renameChat(req, res) {
+// PATCH /api/chat/:id  { title?, pinned? } - user-driven rename and/or
+// pin toggle, tenant/user scoped. Either field, or both, may be present.
+async function updateChat(req, res) {
   try {
     await ensureMiraSchema(db);
     const chatId = parseInt(req.params.id, 10);
-    const title = String(req.body?.title || "").trim().slice(0, 120);
-    if (!title) return res.status(400).json({ error: "title is required." });
+    const hasTitle = typeof req.body?.title === "string";
+    const hasPinned = typeof req.body?.pinned === "boolean";
+    if (!hasTitle && !hasPinned) {
+      return res.status(400).json({ error: "title or pinned is required." });
+    }
+
+    const setClauses = [];
+    const values = [];
+    let idx = 1;
+    if (hasTitle) {
+      const title = req.body.title.trim().slice(0, 120);
+      if (!title) return res.status(400).json({ error: "title cannot be empty." });
+      values.push(title);
+      setClauses.push(`title = $${idx++}`);
+    }
+    if (hasPinned) {
+      values.push(req.body.pinned);
+      setClauses.push(`pinned = $${idx++}`);
+    }
+    values.push(chatId, req.tenant.organizationId, req.tenant.viewerType, req.tenant.userId);
+    const chatIdx = idx++, tenantIdx = idx++, viewerIdx = idx++, userIdx = idx++;
 
     const result = await db.query(
-      `UPDATE mira_chats SET title = $1 WHERE id = $2 AND tenant_id = $3 AND viewer_type = $4 AND user_id = $5 RETURNING id, title`,
-      [title, chatId, req.tenant.organizationId, req.tenant.viewerType, req.tenant.userId]
+      `UPDATE mira_chats SET ${setClauses.join(", ")}
+       WHERE id = $${chatIdx} AND tenant_id = $${tenantIdx} AND viewer_type = $${viewerIdx} AND user_id = $${userIdx}
+       RETURNING id, title, pinned`,
+      values
     );
     if (result.rowCount === 0) return res.status(404).json({ error: "Chat not found." });
     return res.json({ chat: result.rows[0] });
   } catch (error) {
-    console.error("[mira/chatController/renameChat]", error);
-    return res.status(500).json({ error: "Unable to rename chat." });
+    console.error("[mira/chatController/updateChat]", error);
+    return res.status(500).json({ error: "Unable to update chat." });
   }
 }
 
@@ -150,4 +172,4 @@ async function setMessageFeedback(req, res) {
   }
 }
 
-module.exports = { postChat, getHistory, getChat, renameChat, deleteChat, setMessageFeedback };
+module.exports = { postChat, getHistory, getChat, updateChat, deleteChat, setMessageFeedback };
