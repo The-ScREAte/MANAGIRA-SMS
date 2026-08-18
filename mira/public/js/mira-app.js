@@ -6,6 +6,7 @@
   var mobileMenuBtn = document.getElementById("miraMobileMenuBtn");
   var backdrop = document.getElementById("miraSidebarBackdrop");
   var COLLAPSE_STORAGE_KEY = "mira:sidebarCollapsed";
+  var mobileMql = window.matchMedia("(max-width: 860px)");
 
   // ---- Sidebar collapse (desktop) ----
   function applyCollapsedState(collapsed) {
@@ -16,10 +17,25 @@
     applyCollapsedState(false);
     window.localStorage.setItem(COLLAPSE_STORAGE_KEY, "false");
   }
+  function updateCollapseToggleLabel() {
+    if (!collapseToggle) return;
+    collapseToggle.setAttribute("aria-label", mobileMql.matches ? "Close menu" : "Collapse sidebar");
+  }
   if (collapseToggle) {
     var storedCollapsed = window.localStorage.getItem(COLLAPSE_STORAGE_KEY) === "true";
     applyCollapsedState(storedCollapsed);
+    updateCollapseToggleLabel();
+    mobileMql.addEventListener("change", updateCollapseToggleLabel);
     collapseToggle.addEventListener("click", function () {
+      // On the mobile drawer, "collapse to icon rail" isn't a real state
+      // (the drawer is either open or closed) - this button closes the
+      // drawer there instead, and shows an X rather than the hamburger
+      // lines, so it isn't just a second, do-nothing hamburger icon
+      // sitting inside the already-open drawer.
+      if (mobileMql.matches) {
+        closeDrawer();
+        return;
+      }
       var next = !sidebar.classList.contains("is-collapsed");
       applyCollapsedState(next);
       window.localStorage.setItem(COLLAPSE_STORAGE_KEY, String(next));

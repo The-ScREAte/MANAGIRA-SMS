@@ -150,6 +150,7 @@ button { font-family: inherit; }
   flex-shrink: 0;
 }
 .mira-collapse-toggle:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+.mira-collapse-icon-close { display: none; }
 
 .mira-sidebar-actions {
   display: flex;
@@ -1147,4 +1148,11 @@ button { font-family: inherit; }
   .mira-mobile-topbar { display: flex; }
   .mira-empty-heading { font-size: 1.4rem; }
   .mira-logo { width: 64px; height: 64px; }
+  .mira-logo-inline { width: 20px; height: 20px; }
+
+  /* The collapse-toggle becomes a "close drawer" button here (see
+     mira-app.js) - show an X instead of the hamburger lines so it isn't
+     a second, do-nothing hamburger icon sitting inside the open drawer. */
+  .mira-collapse-icon-lines { display: none; }
+  .mira-collapse-icon-close { display: block; }
 }
