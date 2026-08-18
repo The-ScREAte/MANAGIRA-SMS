@@ -81,35 +81,147 @@
   wireComposer("miraInput", "miraSendBtn", "miraComposerForm");
   var syncDockedComposer = wireComposer("miraInputDocked", "miraSendBtnDocked", "miraComposerFormDocked");
 
-  // ---- Quick-action chips: pre-fill intent, aware of the selected class ----
-  // { class: "...{class}...", all: "...", none: "..." } - `none` matches the
-  // original static behavior when nothing is selected yet; `all` deliberately
-  // drops "for" (reads oddly to say "a report for all classes" as a
-  // half-typed prompt) while `class` completes the sentence with the name.
-  var INTENT_TEMPLATES = {
-    find: { class: "Find a student in {class}: ", all: "Find a student: ", none: "Find " },
-    draft: { class: "Draft a message about {class}: ", all: "Draft a message: ", none: "Draft a message to " },
-    plan: { class: "Help me plan for {class}: ", all: "Help me plan: ", none: "Help me plan " },
-    report: { class: "Generate a report for {class}: ", all: "Generate a report: ", none: "Generate a report for " },
+  // ---- Quick-action chips: open a small suggestion popup, aware of the
+  // selected class. Each item is { class: "...{class}...", all: "...",
+  // none: "..." } - not every item is class-aware (some just use `none`
+  // for every state); `all` deliberately drops "for" (reads oddly to say
+  // "a report for all classes" as a half-typed prompt) while `class`
+  // completes the sentence with the name.
+  var CHIP_SUGGESTIONS = {
+    find: {
+      label: "Find",
+      icon: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+      items: [
+        { class: "Find a student in {class}", all: "Find a student", none: "Find a student" },
+        { none: "Look up a guardian's contact details" },
+        { none: "Find a past announcement" },
+        { none: "Search recent messages" },
+      ],
+    },
+    draft: {
+      label: "Draft",
+      icon: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M11 2.5l2.5 2.5-8 8-3 .5.5-3 8-8z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+      items: [
+        { none: "Draft a message to a guardian" },
+        { class: "Draft an announcement for {class}", all: "Draft an announcement", none: "Draft an announcement" },
+        { none: "Draft a note on a student" },
+        { none: "Draft a reply to a guardian message" },
+      ],
+    },
+    plan: {
+      label: "Plan",
+      icon: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M2 6.5h12M5.5 1.5v2.5M10.5 1.5v2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+      items: [
+        { none: "See what's due today" },
+        { none: "Plan my week ahead" },
+        { class: "Get up to speed on {class}", all: "Get up to speed on my classes", none: "Get up to speed on a class" },
+        { none: "Set a reminder for an upcoming deadline" },
+      ],
+    },
+    report: {
+      label: "Report",
+      icon: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M4 1.5h6l3 3V13a1 1 0 01-1 1H4a1 1 0 01-1-1V2.5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.5 8h5M5.5 10.5h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+      items: [
+        { class: "Summarize {class}", all: "Summarize my classes", none: "Summarize my classes" },
+        { none: "Find students with no recent attendance" },
+        { none: "Show upcoming fee deadlines" },
+        { none: "Check for students with outstanding fees" },
+      ],
+    },
   };
-  function buildChipPrefill(intent) {
-    var templates = INTENT_TEMPLATES[intent];
-    if (!templates) return "";
+
+  function resolveItemText(item) {
     var selected = window.MIRA_SELECTED_CLASS;
-    if (selected === "all") return templates.all;
-    if (selected && selected.class_name) return templates.class.replace("{class}", selected.class_name);
-    return templates.none;
+    if (selected === "all" && item.all) return item.all;
+    if (selected && selected.class_name && item.class) return item.class.replace("{class}", selected.class_name);
+    return item.none;
+  }
+
+  var openChipPopup = null;
+  function closeChipPopup() {
+    if (openChipPopup) {
+      openChipPopup.remove();
+      openChipPopup = null;
+    }
+  }
+  function openChipPopupFor(chip, intent) {
+    var config = CHIP_SUGGESTIONS[intent];
+    if (!config) return;
+    closeChipPopup();
+
+    var popup = document.createElement("div");
+    popup.className = "mira-chip-popup";
+    popup.setAttribute("role", "menu");
+
+    var header = document.createElement("div");
+    header.className = "mira-chip-popup-header";
+    header.innerHTML =
+      '<span class="mira-chip-popup-icon">' + config.icon + "</span>" +
+      '<span class="mira-chip-popup-title">' + config.label + "</span>";
+    var closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "mira-chip-popup-close";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    closeBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      closeChipPopup();
+    });
+    header.appendChild(closeBtn);
+    popup.appendChild(header);
+
+    var list = document.createElement("div");
+    list.className = "mira-chip-popup-list";
+    config.items.forEach(function (item) {
+      var text = resolveItemText(item);
+      if (!text) return;
+      var row = document.createElement("button");
+      row.type = "button";
+      row.className = "mira-chip-popup-item";
+      row.textContent = text;
+      row.addEventListener("click", function () {
+        var input = document.getElementById("miraInput");
+        if (input) {
+          input.value = text + " ";
+          input.focus();
+          input.dispatchEvent(new Event("input"));
+          var caretPos = input.value.length;
+          input.setSelectionRange(caretPos, caretPos);
+        }
+        closeChipPopup();
+      });
+      list.appendChild(row);
+    });
+    popup.appendChild(list);
+
+    document.body.appendChild(popup);
+    var chipRect = chip.getBoundingClientRect();
+    var popupRect = popup.getBoundingClientRect();
+    var left = Math.min(chipRect.left, window.innerWidth - popupRect.width - 12);
+    left = Math.max(12, left);
+    var top = chipRect.top - popupRect.height - 10;
+    if (top < 8) top = chipRect.bottom + 10; // not enough room above - open downward instead
+    popup.style.left = left + "px";
+    popup.style.top = top + "px";
+
+    openChipPopup = popup;
   }
   document.querySelectorAll(".mira-chip[data-intent]").forEach(function (chip) {
-    chip.addEventListener("click", function () {
-      var input = document.getElementById("miraInput");
-      if (!input) return;
-      input.value = buildChipPrefill(chip.dataset.intent);
-      input.focus();
-      input.dispatchEvent(new Event("input"));
-      var caretPos = input.value.length;
-      input.setSelectionRange(caretPos, caretPos);
+    chip.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (openChipPopup && openChipPopup.dataset.intent === chip.dataset.intent) {
+        closeChipPopup();
+        return;
+      }
+      openChipPopupFor(chip, chip.dataset.intent);
+      if (openChipPopup) openChipPopup.dataset.intent = chip.dataset.intent;
     });
+  });
+  document.addEventListener("click", function (e) {
+    if (openChipPopup && !openChipPopup.contains(e.target)) closeChipPopup();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && openChipPopup) closeChipPopup();
   });
 
   // ---- Empty state <-> chat view ----

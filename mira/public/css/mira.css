@@ -649,20 +649,32 @@ button { font-family: inherit; }
   50%      { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
 }
 
+.mira-attached-files-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.mira-attached-files-row[hidden] { display: none; }
 .mira-attached-file {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  margin: 0 0 8px;
   border-radius: var(--mira-radius-sm);
   background: var(--mira-primary-soft);
   border: 1px solid var(--mira-primary-border);
   font-size: 0.8rem;
   color: var(--mira-primary);
   width: fit-content;
+  max-width: 100%;
 }
-.mira-attached-file[hidden] { display: none; }
+.mira-attached-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
 .mira-attached-file button {
   border: none;
   background: transparent;
@@ -670,6 +682,7 @@ button { font-family: inherit; }
   cursor: pointer;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   opacity: 0.75;
 }
 .mira-attached-file button:hover { opacity: 1; }
@@ -703,6 +716,53 @@ button { font-family: inherit; }
   cursor: pointer;
 }
 .mira-chip:hover { border-color: var(--mira-primary-border); color: var(--mira-primary); background: var(--mira-primary-soft); }
+
+.mira-chip-popup {
+  position: fixed;
+  z-index: 700;
+  width: min(340px, calc(100vw - 24px));
+  background: var(--mira-bg-elevated);
+  border: 1px solid var(--mira-border);
+  border-radius: var(--mira-radius-lg);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  animation: miraMenuIn 0.14s ease-out;
+}
+.mira-chip-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 14px 12px;
+}
+.mira-chip-popup-icon { display: inline-flex; color: var(--mira-text-secondary); }
+.mira-chip-popup-title { flex: 1; font-size: 0.95rem; font-weight: 700; color: var(--mira-text-primary); }
+.mira-chip-popup-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--mira-text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.mira-chip-popup-close:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+.mira-chip-popup-list { display: flex; flex-direction: column; }
+.mira-chip-popup-item {
+  display: block;
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  border-top: 1px solid var(--mira-border);
+  background: transparent;
+  color: var(--mira-text-primary);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.mira-chip-popup-item:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
 
 /* -------------------------------------------------------------- chat */
 
@@ -836,14 +896,15 @@ button { font-family: inherit; }
     60%  { opacity: 1; transform: scale(1.05) rotate(360deg); }
     100% { opacity: 1; transform: scale(1) rotate(360deg); }
   }
-  /* Asymmetric swing (10deg right, 20deg left) - keyframe timing spaced
-     proportionally to each leg's angular distance (10/60, 20/60, 40/60,
-     60/60) so neither side stalls waiting for the other's time budget. */
+  /* Asymmetric swing, left leg first (20deg left, 10deg right) - keyframe
+     timing spaced proportionally to each leg's angular distance (20/60,
+     40/60, 50/60, 60/60) so neither side stalls waiting for the other's
+     time budget. */
   @keyframes miraLogoWag {
     0%   { transform: rotate(0deg); }
-    17%  { transform: rotate(10deg); }
-    33%  { transform: rotate(0deg); }
-    67%  { transform: rotate(-20deg); }
+    33%  { transform: rotate(-20deg); }
+    50%  { transform: rotate(0deg); }
+    83%  { transform: rotate(10deg); }
     100% { transform: rotate(0deg); }
   }
 }

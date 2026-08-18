@@ -5,7 +5,7 @@
   var scrollEl = document.getElementById("miraChatScroll");
   var currentChatId = null;
   var allChats = []; // last fetched history list, filtered locally by the search box
-  var pendingAttachment = null; // { filename, text } - cleared after each send
+  var pendingAttachments = []; // [{filename, kind:"text", text} | {filename, kind:"image", dataUrl, mimeType}] - cleared after each send
 
   function escapeHtml(value) {
     var div = document.createElement("div");
@@ -161,7 +161,7 @@
 
   // Minimal text/event-stream parser over a fetch() ReadableStream - used
   // instead of EventSource because EventSource can't send a POST body.
-  async function streamChat(message, image, handlers) {
+  async function streamChat(message, images, handlers) {
     var selectedClass = window.MIRA_SELECTED_CLASS;
     var response = await fetch("/api/chat", {
       method: "POST",
@@ -169,7 +169,7 @@
       body: JSON.stringify({
         message: message,
         chatId: currentChatId,
-        image: image || null,
+        images: images && images.length ? images : [],
         classId: selectedClass && selectedClass !== "all" ? selectedClass.class_id : null,
         className: selectedClass === "all" ? "All classes" : selectedClass ? selectedClass.class_name : null,
       }),
@@ -207,12 +207,20 @@
         } catch (e) {
           continue;
         }
-        if (eventName === "chat") handlers.onChat(data);
-        else if (eventName === "token") handlers.onToken(data);
-        else if (eventName === "tool_call") handlers.onToolCall(data);
-        else if (eventName === "tool_result") handlers.onToolResult(data);
-        else if (eventName === "error") handlers.onError(data.message);
-        else if (eventName === "done") handlers.onDone(data);
+        // A missing handler must never abort the stream mid-read - a
+        // thrown error here previously skipped onDone entirely (no
+        // history refresh, no AI disclaimer) for any turn that hit a
+        // tool call, since onToolCall wasn't always provided by callers.
+        try {
+          if (eventName === "chat") handlers.onChat?.(data);
+          else if (eventName === "token") handlers.onToken?.(data);
+          else if (eventName === "tool_call") handlers.onToolCall?.(data);
+          else if (eventName === "tool_result") handlers.onToolResult?.(data);
+          else if (eventName === "error") handlers.onError?.(data.message);
+          else if (eventName === "done") handlers.onDone?.(data);
+        } catch (handlerError) {
+          console.error("[mira] SSE handler failed for event", eventName, handlerError);
+        }
       }
     }
   }
@@ -221,15 +229,20 @@
     if (!text.trim()) return;
     if (window.miraShowChatView) window.miraShowChatView();
 
-    var attachment = pendingAttachment;
-    clearAttachment();
+    var attachments = pendingAttachments;
+    clearAttachments();
 
-    var isImage = attachment && attachment.kind === "image";
-    var displayText = attachment ? text + "\n\n📎 " + attachment.filename : text;
-    var outgoingText = attachment
-      ? (isImage ? "[Attached image: " + attachment.filename + "]" : "[Attached file: " + attachment.filename + "]\n\n" + attachment.text) + "\n\n---\n\n" + text
-      : text;
-    var outgoingImage = isImage ? { dataUrl: attachment.dataUrl, mimeType: attachment.mimeType } : null;
+    var textAttachments = attachments.filter(function (a) { return a.kind === "text"; });
+    var imageAttachments = attachments.filter(function (a) { return a.kind === "image"; });
+
+    var filenames = attachments.map(function (a) { return a.filename; });
+    var displayText = filenames.length ? text + "\n\n" + filenames.map(function (f) { return "📎 " + f; }).join("\n") : text;
+
+    var attachedBlocks = textAttachments
+      .map(function (a) { return "[Attached file: " + a.filename + "]\n\n" + a.text; })
+      .concat(imageAttachments.map(function (a) { return "[Attached image: " + a.filename + "]"; }));
+    var outgoingText = attachedBlocks.length ? attachedBlocks.join("\n\n---\n\n") + "\n\n---\n\n" + text : text;
+    var outgoingImages = imageAttachments.map(function (a) { return { dataUrl: a.dataUrl, mimeType: a.mimeType }; });
 
     appendUserMessage(displayText);
     var assistant = appendAssistantMessage();
@@ -237,7 +250,7 @@
     var receivedFirstToken = false;
     var messageIdRef = { id: null, feedback: null };
 
-    streamChat(outgoingText, outgoingImage, {
+    streamChat(outgoingText, outgoingImages, {
       onChat: function (data) {
         currentChatId = data.chatId;
       },
@@ -250,6 +263,7 @@
         bubble.textContent += data.text;
         scrollToBottom();
       },
+      onToolCall: function () {},
       onToolResult: function (data) {
         renderToolAction(bubble, data.name, data.status);
       },
@@ -285,73 +299,108 @@
   wireComposerSubmit("miraComposerForm", "miraInput");
   wireComposerSubmit("miraComposerFormDocked", "miraInputDocked");
 
-  // ---- Attach: text-file upload, folded into the next outgoing message ----
+  // ---- Attach: multi-file upload, folded into the next outgoing message ----
   var fileInput = document.getElementById("miraFileInput");
-  var activeAttachTarget = "main"; // which composer's chip to render into
+  var MAX_ATTACHMENTS = 5;
 
   function renderAttachmentChip() {
     ["", "Docked"].forEach(function (suffix) {
-      var chip = document.getElementById(suffix ? "miraAttachedFileChipDocked" : "miraAttachedFileChip");
-      var nameEl = document.getElementById(suffix ? "miraAttachedFileNameDocked" : "miraAttachedFileName");
-      if (!chip || !nameEl) return;
-      if (pendingAttachment) {
-        nameEl.textContent = pendingAttachment.filename;
-        chip.hidden = false;
-      } else {
-        chip.hidden = true;
+      var container = document.getElementById(suffix ? "miraAttachedFileChipDocked" : "miraAttachedFileChip");
+      if (!container) return;
+      container.innerHTML = "";
+      if (!pendingAttachments.length) {
+        container.hidden = true;
+        return;
       }
-    });
-  }
-
-  function clearAttachment() {
-    pendingAttachment = null;
-    if (fileInput) fileInput.value = "";
-    renderAttachmentChip();
-  }
-
-  function uploadAttachment(file) {
-    var formData = new FormData();
-    formData.append("file", file);
-    return fetch("/api/upload", { method: "POST", body: formData }).then(function (r) {
-      return r.json().then(function (data) {
-        if (!r.ok) throw new Error(data.error || "Upload failed.");
-        return data;
+      container.hidden = false;
+      pendingAttachments.forEach(function (attachment, index) {
+        var pill = document.createElement("div");
+        pill.className = "mira-attached-file";
+        var icon = attachment.kind === "image"
+          ? '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.3" stroke="currentColor" stroke-width="1.3"/><circle cx="5.5" cy="6" r="1" fill="currentColor"/><path d="M2.5 11l3.2-3.2 2 2L11.5 6l2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          : '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M11 5.5l-5 5a2 2 0 102.8 2.8l5-5a3.5 3.5 0 10-5-5l-5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+        var nameSpan = document.createElement("span");
+        nameSpan.className = "mira-attached-file-name";
+        nameSpan.textContent = attachment.filename;
+        var removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.setAttribute("aria-label", "Remove " + attachment.filename);
+        removeBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+        removeBtn.addEventListener("click", function () {
+          pendingAttachments.splice(index, 1);
+          renderAttachmentChip();
+        });
+        pill.innerHTML = icon;
+        pill.appendChild(nameSpan);
+        pill.appendChild(removeBtn);
+        container.appendChild(pill);
       });
     });
   }
 
-  function wireAttach(buttonId, target) {
+  function clearAttachments() {
+    pendingAttachments = [];
+    if (fileInput) fileInput.value = "";
+    renderAttachmentChip();
+  }
+
+  function uploadAttachments(files) {
+    var formData = new FormData();
+    for (var i = 0; i < files.length; i++) formData.append("files", files[i]);
+    return fetch("/api/upload", { method: "POST", body: formData }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error(data.error || "Upload failed.");
+        return data.results || [];
+      });
+    });
+  }
+
+  function wireAttach(buttonId) {
     var btn = document.getElementById(buttonId);
     if (!btn || !fileInput) return;
     btn.addEventListener("click", function () {
-      activeAttachTarget = target;
       fileInput.click();
     });
   }
-  wireAttach("miraAttachBtn", "main");
-  wireAttach("miraAttachBtnDocked", "docked");
+  wireAttach("miraAttachBtn");
+  wireAttach("miraAttachBtnDocked");
 
   if (fileInput) {
     fileInput.addEventListener("change", function () {
-      var file = fileInput.files[0];
-      if (!file) return;
-      uploadAttachment(file)
-        .then(function (data) {
-          pendingAttachment = data.kind === "image"
-            ? { filename: data.filename, kind: "image", dataUrl: data.dataUrl, mimeType: data.mimeType }
-            : { filename: data.filename, kind: "text", text: data.text };
+      var files = fileInput.files;
+      if (!files || !files.length) return;
+      var room = MAX_ATTACHMENTS - pendingAttachments.length;
+      if (room <= 0) {
+        alert("You can attach up to " + MAX_ATTACHMENTS + " files at once.");
+        fileInput.value = "";
+        return;
+      }
+      var selected = Array.prototype.slice.call(files, 0, room);
+      uploadAttachments(selected)
+        .then(function (results) {
+          var failures = [];
+          results.forEach(function (data) {
+            if (data.error) {
+              failures.push(data.filename + ": " + data.error);
+              return;
+            }
+            pendingAttachments.push(
+              data.kind === "image"
+                ? { filename: data.filename, kind: "image", dataUrl: data.dataUrl, mimeType: data.mimeType }
+                : { filename: data.filename, kind: "text", text: data.text }
+            );
+          });
           renderAttachmentChip();
+          if (failures.length) alert(failures.join("\n"));
         })
         .catch(function (err) {
-          alert(err.message || "Unable to attach that file.");
+          alert(err.message || "Unable to attach those files.");
+        })
+        .finally(function () {
           fileInput.value = "";
         });
     });
   }
-  ["miraAttachedFileRemove", "miraAttachedFileRemoveDocked"].forEach(function (id) {
-    var btn = document.getElementById(id);
-    if (btn) btn.addEventListener("click", clearAttachment);
-  });
 
   // ---- Mic: voice-to-text via the Web Speech API (client-side, no backend) ----
   var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -686,7 +735,7 @@
   window.miraStartNewChat = function () {
     currentChatId = null;
     thread.innerHTML = "";
-    clearAttachment();
+    clearAttachments();
     setActiveHistoryItem(null);
     hideAiDisclaimer();
   };

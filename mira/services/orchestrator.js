@@ -73,7 +73,7 @@ function summarizeToolResult(toolName, result) {
 
 // sse: { send(event, data) } - a thin wrapper the route layer provides so
 // this module has no direct knowledge of Express's response object.
-async function runTurn({ tenant, chatId, userText, sse, classScope, image }) {
+async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   const budget = await checkBudget(tenant.organizationId);
   if (!budget.allowed) {
     sse.send("error", { message: budget.reason });
@@ -108,11 +108,11 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, image }) {
     });
   }
 
-  // Only the current turn's message can carry an image - history loaded
+  // Only the current turn's message can carry images - history loaded
   // from the DB is always plain text, since images are never persisted
   // (kept out of mira_chat_messages to avoid storing base64 blobs there).
-  const currentUserContent = image
-    ? [{ type: "text", text: userText }, { type: "image", image }]
+  const currentUserContent = images?.length
+    ? [{ type: "text", text: userText }, ...images.map((image) => ({ type: "image", image }))]
     : userText;
   const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history, { role: "user", content: currentUserContent }];
   const tools = listToolSchemas();
