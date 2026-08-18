@@ -134,6 +134,7 @@ button { font-family: inherit; }
 .mira-sidebar.is-collapsed .mira-btn-label {
   display: none;
 }
+.mira-sidebar.is-collapsed .mira-sidebar-history { display: none; }
 
 .mira-collapse-toggle {
   width: 30px;
@@ -975,6 +976,7 @@ button { font-family: inherit; }
   .mira-sidebar.is-collapsed .mira-chat-item-text,
   .mira-sidebar.is-collapsed .mira-sidebar-user-info,
   .mira-sidebar.is-collapsed .mira-btn-label { display: revert; }
+  .mira-sidebar.is-collapsed .mira-sidebar-history { display: revert; }
 
   .mira-sidebar-backdrop {
     display: none;
