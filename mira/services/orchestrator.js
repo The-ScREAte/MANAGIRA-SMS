@@ -37,11 +37,12 @@ async function loadHistory(chatId) {
 }
 
 async function saveMessage(chatId, role, content, toolCalls) {
-  await db.query(
-    `INSERT INTO mira_chat_messages (chat_id, role, content, tool_calls) VALUES ($1, $2, $3, $4)`,
+  const result = await db.query(
+    `INSERT INTO mira_chat_messages (chat_id, role, content, tool_calls) VALUES ($1, $2, $3, $4) RETURNING id`,
     [chatId, role, content, toolCalls ? JSON.stringify(toolCalls) : null]
   );
   await db.query(`UPDATE mira_chats SET updated_at = now() WHERE id = $1`, [chatId]);
+  return result.rows[0].id;
 }
 
 async function logToolCall({ tenant, chatId, toolName, args, status, resultSummary }) {
@@ -102,6 +103,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope }) {
 
   let assistantText = "";
   let toolCallInfo = null;
+  let assistantMessageId = null;
 
   const firstPass = await streamCompletion({
     task: "default",
@@ -158,12 +160,12 @@ async function runTurn({ tenant, chatId, userText, sse, classScope }) {
       completionTokens: secondPass.usage?.completionTokens || secondPass.usage?.completion_tokens || 0,
     }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
 
-    await saveMessage(chat.id, "assistant", assistantText, [{ name: toolCallInfo.name, args: toolCallInfo.args, status }]);
+    assistantMessageId = await saveMessage(chat.id, "assistant", assistantText, [{ name: toolCallInfo.name, args: toolCallInfo.args, status }]);
   } else {
-    await saveMessage(chat.id, "assistant", assistantText);
+    assistantMessageId = await saveMessage(chat.id, "assistant", assistantText);
   }
 
-  sse.send("done", { chatId: chat.id });
+  sse.send("done", { chatId: chat.id, messageId: assistantMessageId });
 }
 
 module.exports = { runTurn };

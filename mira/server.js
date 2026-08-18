@@ -44,6 +44,7 @@ app.get("/", pageAuth, tenantScope, (req, res) => {
 // JSON APIs: fetch()/SSE callers need a machine-readable 401, not a redirect.
 app.use("/api/chat", ssoAuth, tenantScope, require("./routes/chatRoute"));
 app.use("/api/classes", ssoAuth, tenantScope, require("./routes/classesRoute"));
+app.use("/api/upload", ssoAuth, tenantScope, require("./routes/uploadRoute"));
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found." });

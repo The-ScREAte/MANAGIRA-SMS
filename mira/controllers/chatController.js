@@ -74,7 +74,7 @@ async function getChat(req, res) {
     if (!chat.rows[0]) return res.status(404).json({ error: "Chat not found." });
 
     const messages = await db.query(
-      `SELECT role, content, tool_calls, created_at FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC`,
+      `SELECT id, role, content, tool_calls, feedback, created_at FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC`,
       [chatId]
     );
     return res.json({ chat: chat.rows[0], messages: messages.rows });
@@ -84,4 +84,50 @@ async function getChat(req, res) {
   }
 }
 
-module.exports = { postChat, getHistory, getChat };
+// DELETE /api/chat/:id - tenant/user scoped, cascades to messages via FK.
+async function deleteChat(req, res) {
+  try {
+    await ensureMiraSchema(db);
+    const chatId = parseInt(req.params.id, 10);
+    const result = await db.query(
+      `DELETE FROM mira_chats WHERE id = $1 AND tenant_id = $2 AND viewer_type = $3 AND user_id = $4`,
+      [chatId, req.tenant.organizationId, req.tenant.viewerType, req.tenant.userId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Chat not found." });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[mira/chatController/deleteChat]", error);
+    return res.status(500).json({ error: "Unable to delete chat." });
+  }
+}
+
+// POST /api/chat/messages/:messageId/feedback  { feedback: 'like' | 'dislike' | null }
+// Scoped by joining through mira_chats so a message can only be rated by
+// the tenant/user who owns the chat it belongs to.
+async function setMessageFeedback(req, res) {
+  try {
+    await ensureMiraSchema(db);
+    const messageId = parseInt(req.params.messageId, 10);
+    const feedback = req.body?.feedback;
+    if (feedback !== "like" && feedback !== "dislike" && feedback !== null) {
+      return res.status(400).json({ error: "feedback must be 'like', 'dislike', or null." });
+    }
+
+    const result = await db.query(
+      `UPDATE mira_chat_messages m
+       SET feedback = $1
+       FROM mira_chats c
+       WHERE m.id = $2 AND m.chat_id = c.id
+         AND c.tenant_id = $3 AND c.viewer_type = $4 AND c.user_id = $5
+       RETURNING m.id`,
+      [feedback, messageId, req.tenant.organizationId, req.tenant.viewerType, req.tenant.userId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Message not found." });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[mira/chatController/setMessageFeedback]", error);
+    return res.status(500).json({ error: "Unable to record feedback." });
+  }
+}
+
+module.exports = { postChat, getHistory, getChat, deleteChat, setMessageFeedback };

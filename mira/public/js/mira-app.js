@@ -68,18 +68,30 @@
   wireComposer("miraInput", "miraSendBtn", "miraComposerForm");
   wireComposer("miraInputDocked", "miraSendBtnDocked", "miraComposerFormDocked");
 
-  // ---- Quick-action chips: pre-fill intent ----
-  var INTENT_PREFILL = {
-    find: "Find ",
-    draft: "Draft a message to ",
-    plan: "Help me plan ",
-    report: "Generate a report for ",
+  // ---- Quick-action chips: pre-fill intent, aware of the selected class ----
+  // { class: "...{class}...", all: "...", none: "..." } - `none` matches the
+  // original static behavior when nothing is selected yet; `all` deliberately
+  // drops "for" (reads oddly to say "a report for all classes" as a
+  // half-typed prompt) while `class` completes the sentence with the name.
+  var INTENT_TEMPLATES = {
+    find: { class: "Find a student in {class}: ", all: "Find a student: ", none: "Find " },
+    draft: { class: "Draft a message about {class}: ", all: "Draft a message: ", none: "Draft a message to " },
+    plan: { class: "Help me plan for {class}: ", all: "Help me plan: ", none: "Help me plan " },
+    report: { class: "Generate a report for {class}: ", all: "Generate a report: ", none: "Generate a report for " },
   };
+  function buildChipPrefill(intent) {
+    var templates = INTENT_TEMPLATES[intent];
+    if (!templates) return "";
+    var selected = window.MIRA_SELECTED_CLASS;
+    if (selected === "all") return templates.all;
+    if (selected && selected.class_name) return templates.class.replace("{class}", selected.class_name);
+    return templates.none;
+  }
   document.querySelectorAll(".mira-chip[data-intent]").forEach(function (chip) {
     chip.addEventListener("click", function () {
       var input = document.getElementById("miraInput");
       if (!input) return;
-      input.value = INTENT_PREFILL[chip.dataset.intent] || "";
+      input.value = buildChipPrefill(chip.dataset.intent);
       input.focus();
       input.dispatchEvent(new Event("input"));
       var caretPos = input.value.length;
@@ -113,6 +125,12 @@
 
   window.MIRA_SELECTED_CLASS = null;
 
+  function selectClass(value, label) {
+    window.MIRA_SELECTED_CLASS = value;
+    classSelectorLabel.textContent = label;
+    closeClassDropdown();
+  }
+
   function renderClassOptions(filterText) {
     var query = (filterText || "").trim().toLowerCase();
     var filtered = query
@@ -120,6 +138,22 @@
       : allClasses;
 
     classDropdownList.innerHTML = "";
+
+    // "All classes" is always offered (not filtered by the class-name
+    // search - it's a scope choice, not a class to look up) alongside
+    // picking one specific class.
+    if (!query || "all classes".indexOf(query) !== -1) {
+      var allOption = document.createElement("button");
+      allOption.type = "button";
+      allOption.className = "mira-class-option mira-class-option-all";
+      if (window.MIRA_SELECTED_CLASS === "all") allOption.classList.add("is-selected");
+      allOption.innerHTML = "<span>All classes</span>";
+      allOption.addEventListener("click", function () {
+        selectClass("all", "All classes");
+      });
+      classDropdownList.appendChild(allOption);
+    }
+
     if (!filtered.length) {
       var empty = document.createElement("div");
       empty.className = "mira-class-dropdown-empty";
@@ -131,14 +165,12 @@
       var option = document.createElement("button");
       option.type = "button";
       option.className = "mira-class-option";
-      if (window.MIRA_SELECTED_CLASS && window.MIRA_SELECTED_CLASS.class_id === c.class_id) option.classList.add("is-selected");
+      if (window.MIRA_SELECTED_CLASS && window.MIRA_SELECTED_CLASS !== "all" && window.MIRA_SELECTED_CLASS.class_id === c.class_id) option.classList.add("is-selected");
       var name = String(c.class_name || "Unnamed class").replace(/</g, "&lt;");
       var count = Number(c.student_count) || 0;
       option.innerHTML = "<span>" + name + "</span><span class=\"mira-class-option-count\">" + count + " student" + (count === 1 ? "" : "s") + "</span>";
       option.addEventListener("click", function () {
-        window.MIRA_SELECTED_CLASS = c;
-        classSelectorLabel.textContent = c.class_name || "Unnamed class";
-        closeClassDropdown();
+        selectClass(c, c.class_name || "Unnamed class");
       });
       classDropdownList.appendChild(option);
     });

@@ -225,15 +225,17 @@ button { font-family: inherit; }
 .mira-history-search svg { flex-shrink: 0; color: var(--mira-text-tertiary); }
 
 .mira-chat-item {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 9px 10px;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 6px 9px 10px;
   border-radius: var(--mira-radius-sm);
   cursor: pointer;
   margin-bottom: 2px;
 }
 .mira-chat-item:hover, .mira-chat-item.is-active { background: var(--mira-primary-soft); }
+.mira-chat-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .mira-chat-item-text {
   font-size: 0.83rem;
   font-weight: 500;
@@ -243,6 +245,54 @@ button { font-family: inherit; }
   color: var(--mira-text-primary);
 }
 .mira-chat-item-time { font-size: 0.72rem; color: var(--mira-text-tertiary); }
+
+.mira-chat-item-menu-btn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--mira-text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+}
+.mira-chat-item:hover .mira-chat-item-menu-btn,
+.mira-chat-item-menu-btn.is-open,
+.mira-sidebar.is-collapsed .mira-chat-item-menu-btn { opacity: 1; }
+.mira-chat-item-menu-btn:hover { background: var(--mira-bg-elevated); color: var(--mira-text-primary); }
+
+.mira-chat-item-menu {
+  position: absolute;
+  right: 4px;
+  top: calc(100% + 2px);
+  z-index: 550;
+  min-width: 140px;
+  background: var(--mira-bg-elevated);
+  border: 1px solid var(--mira-border);
+  border-radius: var(--mira-radius-sm);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  padding: 4px;
+  animation: miraMenuIn 0.12s ease-out;
+}
+.mira-chat-item-menu-delete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #dc2626;
+  cursor: pointer;
+  text-align: left;
+}
+.mira-chat-item-menu-delete:hover { background: color-mix(in srgb, #dc2626 10%, transparent); }
 
 .mira-sidebar-footer {
   position: relative;
@@ -480,6 +530,7 @@ button { font-family: inherit; }
 .mira-class-option:hover, .mira-class-option.is-selected { background: var(--mira-primary-soft); color: var(--mira-primary); }
 .mira-class-option-count { font-size: 0.72rem; color: var(--mira-text-tertiary); flex-shrink: 0; }
 .mira-class-option:hover .mira-class-option-count, .mira-class-option.is-selected .mira-class-option-count { color: inherit; opacity: 0.75; }
+.mira-class-option-all { font-weight: 600; border-bottom: 1px solid var(--mira-border); border-radius: 6px 6px 0 0; margin-bottom: 4px; padding-bottom: 10px; }
 
 .mira-composer {
   width: min(680px, 92vw);
@@ -532,6 +583,35 @@ button { font-family: inherit; }
   flex-shrink: 0;
 }
 .mira-icon-btn:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+.mira-icon-btn.is-recording { color: #dc2626; background: color-mix(in srgb, #dc2626 12%, transparent); animation: miraRecordPulse 1.4s ease-in-out infinite; }
+@keyframes miraRecordPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+  50%      { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
+.mira-attached-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 0 0 8px;
+  border-radius: var(--mira-radius-sm);
+  background: var(--mira-primary-soft);
+  border: 1px solid var(--mira-primary-border);
+  font-size: 0.8rem;
+  color: var(--mira-primary);
+  width: fit-content;
+}
+.mira-attached-file button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  opacity: 0.75;
+}
+.mira-attached-file button:hover { opacity: 1; }
 
 .mira-send-btn {
   background: var(--mira-primary);
@@ -584,6 +664,10 @@ button { font-family: inherit; }
 
 .mira-message { display: flex; gap: 12px; max-width: 100%; }
 .mira-message-user { justify-content: flex-end; }
+.mira-message-assistant { flex-direction: column; align-items: flex-start; gap: 6px; }
+
+.mira-message-row { display: flex; gap: 10px; align-items: flex-start; max-width: 100%; }
+.mira-message-avatar { flex-shrink: 0; margin-top: 2px; }
 
 .mira-message-bubble {
   padding: 12px 16px;
@@ -602,6 +686,29 @@ button { font-family: inherit; }
   border: 1px solid var(--mira-border);
   border-bottom-left-radius: 4px;
 }
+
+.mira-message-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 36px;
+}
+.mira-msg-action {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--mira-text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.mira-msg-action:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+.mira-msg-action.is-active[data-action="like"] { color: #16a34a; }
+.mira-msg-action.is-active[data-action="dislike"] { color: #dc2626; }
+.mira-msg-action.is-copied { color: #16a34a; }
 
 .mira-tool-action {
   display: inline-flex;
