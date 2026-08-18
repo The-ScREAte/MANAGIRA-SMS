@@ -6,12 +6,17 @@
 // session table directly - see internalApiClient.js), and caches the
 // result briefly in Redis so every keystroke doesn't round-trip to the
 // main app. Falls back to an in-memory cache if Redis is unavailable.
+//
+// Also honors a Mira-local "signed out of Mira" flag (see routes/authRoute.js)
+// so a user can sign out of Mira specifically without touching - or being
+// affected by - the shared Managira session other tabs are using.
 const cookie = require("cookie");
 const crypto = require("crypto");
 const { validateSession } = require("../internalApiClient");
 const { getRedisClient, prefixed } = require("../config/redis");
 
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "connect.sid";
+const MIRA_SIGNED_OUT_COOKIE = "mira_signed_out";
 const IDENTITY_CACHE_TTL_SEC = 60;
 
 // In-memory fallback so SSO still works (just without cross-process
@@ -47,33 +52,65 @@ async function setCachedIdentity(cacheKey, identity) {
   memoryCache.set(cacheKey, { identity, expiresAt: Date.now() + IDENTITY_CACHE_TTL_SEC * 1000 });
 }
 
+function isSignedOutOfMira(req) {
+  const cookies = cookie.parse(req.headers.cookie || "");
+  return cookies[MIRA_SIGNED_OUT_COOKIE] === "1";
+}
+
+// Resolves identity without writing any response - shared by the JSON API
+// guard (ssoAuth) and the browser-page guard (pageAuth), and also usable
+// directly by routes/authRoute.js's login page to check "is the underlying
+// Managira session still alive?" regardless of the Mira-local signed-out flag.
+async function resolveIdentity(req, { ignoreMiraSignedOut = false } = {}) {
+  if (!ignoreMiraSignedOut && isSignedOutOfMira(req)) {
+    return { identity: null, reason: "signed_out" };
+  }
+
+  const cookies = cookie.parse(req.headers.cookie || "");
+  const rawCookieValue = cookies[SESSION_COOKIE_NAME];
+  if (!rawCookieValue) {
+    return { identity: null, reason: "no_session" };
+  }
+
+  const cacheKey = `identity:${hashCookie(rawCookieValue)}`;
+  let identity = await getCachedIdentity(cacheKey);
+
+  if (!identity) {
+    const result = await validateSession(rawCookieValue).catch((error) => {
+      if (error.status === 401) return null;
+      throw error;
+    });
+    if (!result) {
+      return { identity: null, reason: "expired" };
+    }
+    identity = result.identity;
+    await setCachedIdentity(cacheKey, identity);
+  }
+
+  if (!identity.organizationId) {
+    return { identity: null, reason: "no_organization" };
+  }
+
+  return { identity, reason: null };
+}
+
+// JSON API guard - used on /api/* routes, where a fetch()/SSE caller needs
+// a machine-readable 401, not an HTML redirect.
 async function ssoAuth(req, res, next) {
   try {
-    const cookies = cookie.parse(req.headers.cookie || "");
-    const rawCookieValue = cookies[SESSION_COOKIE_NAME];
-    if (!rawCookieValue) {
-      return res.status(401).json({ error: "Not signed in to Managira." });
-    }
-
-    const cacheKey = `identity:${hashCookie(rawCookieValue)}`;
-    let identity = await getCachedIdentity(cacheKey);
-
+    const { identity, reason } = await resolveIdentity(req);
     if (!identity) {
-      const result = await validateSession(rawCookieValue).catch((error) => {
-        if (error.status === 401) return null;
-        throw error;
-      });
-      if (!result) {
-        return res.status(401).json({ error: "Your Managira session has expired. Please log in again." });
-      }
-      identity = result.identity;
-      await setCachedIdentity(cacheKey, identity);
+      const status = reason === "no_organization" ? 403 : 401;
+      const message =
+        reason === "signed_out"
+          ? "Signed out of Mira."
+          : reason === "expired"
+          ? "Your Managira session has expired. Please log in again."
+          : reason === "no_organization"
+          ? "No organization context on this session."
+          : "Not signed in to Managira.";
+      return res.status(status).json({ error: message });
     }
-
-    if (!identity.organizationId) {
-      return res.status(403).json({ error: "No organization context on this session." });
-    }
-
     req.identity = identity;
     next();
   } catch (error) {
@@ -82,4 +119,21 @@ async function ssoAuth(req, res, next) {
   }
 }
 
-module.exports = { ssoAuth };
+// Browser-page guard - used on GET / (and any future full-page routes),
+// where the right response to "not authenticated" is a redirect to Mira's
+// own login page, not a raw JSON error.
+async function pageAuth(req, res, next) {
+  try {
+    const { identity, reason } = await resolveIdentity(req);
+    if (!identity) {
+      return res.redirect(`/login${reason ? `?reason=${reason}` : ""}`);
+    }
+    req.identity = identity;
+    next();
+  } catch (error) {
+    console.error("[mira/pageAuth]", error);
+    return res.redirect("/login?reason=error");
+  }
+}
+
+module.exports = { ssoAuth, pageAuth, resolveIdentity, MIRA_SIGNED_OUT_COOKIE };

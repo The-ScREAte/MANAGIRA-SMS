@@ -3,7 +3,7 @@ const express = require("express");
 const path = require("path");
 const expressLayouts = require("express-ejs-layouts");
 
-const { ssoAuth } = require("./middleware/ssoAuth");
+const { ssoAuth, pageAuth } = require("./middleware/ssoAuth");
 const { tenantScope } = require("./middleware/tenantScope");
 
 const app = express();
@@ -27,10 +27,13 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "mira", time: new Date().toISOString() });
 });
 
-// Everything past this point requires a valid Managira session.
-app.use(ssoAuth, tenantScope);
+// Mira's own login/continue/logout - deliberately unauthenticated (that's
+// the point) and mounted before any auth gate. See routes/authRoute.js.
+app.use(require("./routes/authRoute"));
 
-app.get("/", (req, res) => {
+// The main page: browser navigation, so an auth failure means a redirect
+// to /login, not a raw JSON 401.
+app.get("/", pageAuth, tenantScope, (req, res) => {
   res.render("index", {
     title: "Mira",
     tenant: req.tenant,
@@ -38,8 +41,9 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/api/chat", require("./routes/chatRoute"));
-app.use("/api/classes", require("./routes/classesRoute"));
+// JSON APIs: fetch()/SSE callers need a machine-readable 401, not a redirect.
+app.use("/api/chat", ssoAuth, tenantScope, require("./routes/chatRoute"));
+app.use("/api/classes", ssoAuth, tenantScope, require("./routes/classesRoute"));
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found." });

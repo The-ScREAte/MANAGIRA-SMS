@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= typeof title !== 'undefined' ? title : 'Sign in - Mira' %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/mira.css" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("mira:theme");
+        if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body class="mira-auth-page">
+  <div class="mira-auth-shell">
+    <div class="mira-auth-card">
+      <%- include('partials/logo', { size: 'hero', animate: true }) %>
+
+      <% if (hasUnderlyingSession) { %>
+        <h1 class="mira-auth-title">Welcome back<%= displayName ? ', ' + displayName.split(' ')[0] : '' %></h1>
+        <p class="mira-auth-subtitle">
+          <% if (reason === 'signed_out') { %>
+            You're still signed in to Managira — just continue below.
+          <% } else { %>
+            You're already signed in to Managira.
+          <% } %>
+        </p>
+        <a class="mira-btn mira-btn-primary mira-auth-btn" href="/continue">
+          <span class="mira-btn-label">Continue to Mira</span>
+        </a>
+      <% } else { %>
+        <h1 class="mira-auth-title">Sign in to Mira</h1>
+        <p class="mira-auth-subtitle">
+          <% if (reason === 'expired') { %>
+            Your Managira session has expired. Log in again to continue.
+          <% } else { %>
+            Mira uses your Managira account — sign in there and this page will pick it up automatically.
+          <% } %>
+        </p>
+        <a class="mira-btn mira-btn-primary mira-auth-btn" href="<%= mainAppUrl %>/account/login" target="_blank" rel="noopener">
+          <span class="mira-btn-label">Log in to Managira</span>
+        </a>
+        <button class="mira-btn mira-btn-secondary mira-auth-btn" id="miraAuthRetry" type="button">
+          <span class="mira-btn-label">I've logged in — continue</span>
+        </button>
+      <% } %>
+    </div>
+  </div>
+
+  <script src="/js/mira-logo.js" defer></script>
+  <script>
+    var retryBtn = document.getElementById("miraAuthRetry");
+    if (retryBtn) retryBtn.addEventListener("click", function () { window.location.href = "/"; });
+  </script>
+</body>
+</html>
