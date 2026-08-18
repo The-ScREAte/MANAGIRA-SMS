@@ -569,6 +569,7 @@ button { font-family: inherit; }
   font-family: var(--mira-font);
   font-size: 0.95rem;
   color: var(--mira-text-primary);
+  min-height: 24px;
   max-height: 160px;
   padding: 0;
   line-height: 1.5;
@@ -759,22 +760,23 @@ button { font-family: inherit; }
     transform: scale(0.6) rotate(0deg);
     animation: miraLogoEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
-  /* Idle state: the brand mark spins continuously at a calm pace, always -
-     not just while something is loading. */
-  .mira-logo.mira-logo-idle { animation: miraLogoSpin 3.2s linear infinite; }
-  /* Loading state: while Mira is generating a reply (message avatar).
-     Faster rotation reads as "actively working", distinct from the calm
-     idle spin. */
-  .mira-logo.mira-logo-spinning { animation: miraLogoSpin 1.1s linear infinite; }
+  /* Idle state: the brand mark wags gently left-right, always - not just
+     while something is loading. */
+  .mira-logo.mira-logo-idle { animation: miraLogoWag 4.5s ease-in-out infinite; }
+  /* Loading state: while Mira is generating a reply (message avatar). A
+     brisker wag reads as "actively working", distinct from the calm idle
+     wag. */
+  .mira-logo.mira-logo-spinning { animation: miraLogoWag 2.2s ease-in-out infinite; }
 
   @keyframes miraLogoEntrance {
     0%   { opacity: 0; transform: scale(0.6) rotate(0deg); }
     60%  { opacity: 1; transform: scale(1.05) rotate(360deg); }
     100% { opacity: 1; transform: scale(1) rotate(360deg); }
   }
-  @keyframes miraLogoSpin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+  @keyframes miraLogoWag {
+    0%, 100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-70deg); }
+    75%      { transform: rotate(70deg); }
   }
 }
 @media (prefers-reduced-motion: reduce) {

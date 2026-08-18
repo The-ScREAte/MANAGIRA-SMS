@@ -48,9 +48,16 @@
   function wireComposer(textareaId, sendBtnId, submitFormId) {
     var textarea = document.getElementById(textareaId);
     var sendBtn = document.getElementById(sendBtnId);
-    if (!textarea || !sendBtn) return;
+    if (!textarea || !sendBtn) return null;
 
     function sync() {
+      // While the composer's container is display:none (e.g. the docked
+      // composer before the first message is sent), scrollHeight reads as
+      // 0 - baking in a permanent height:0px that leaves nothing to click
+      // into once the container becomes visible. Skip the measurement
+      // until it's actually laid out; showChatView() re-runs this once
+      // the docked composer becomes visible.
+      if (textarea.offsetParent === null) return;
       textarea.style.height = "auto";
       textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
       sendBtn.disabled = textarea.value.trim().length === 0;
@@ -64,9 +71,10 @@
       }
     });
     sync();
+    return sync;
   }
   wireComposer("miraInput", "miraSendBtn", "miraComposerForm");
-  wireComposer("miraInputDocked", "miraSendBtnDocked", "miraComposerFormDocked");
+  var syncDockedComposer = wireComposer("miraInputDocked", "miraSendBtnDocked", "miraComposerFormDocked");
 
   // ---- Quick-action chips: pre-fill intent, aware of the selected class ----
   // { class: "...{class}...", all: "...", none: "..." } - `none` matches the
@@ -110,6 +118,7 @@
   function showChatView() {
     emptyState.style.display = "none";
     chatView.classList.add("is-active");
+    if (syncDockedComposer) syncDockedComposer();
   }
   window.miraShowChatView = showChatView;
   window.miraShowEmptyState = showEmptyState;

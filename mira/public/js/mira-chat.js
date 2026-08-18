@@ -135,12 +135,11 @@
     return { el: el, bubble: bubble, avatar: avatar };
   }
 
-  // Swap the avatar from the fast "actively working" spin back to the
-  // calm, always-on idle spin once a reply has settled.
+  // Stop the "actively working" wag once a reply has settled - only the
+  // hero/new-chat logo stays in motion at idle, not every message avatar.
   function settleAvatar(avatar) {
     if (!avatar) return;
     avatar.classList.remove("mira-logo-spinning");
-    avatar.classList.add("mira-logo-idle");
   }
 
   function renderToolAction(container, name, status) {
@@ -532,7 +531,7 @@
 
     var row = document.createElement("div");
     row.className = "mira-message-row";
-    row.innerHTML = '<span class="mira-logo mira-logo-inline mira-message-avatar mira-logo-idle"><img src="/images/managira.png" alt=""></span>';
+    row.innerHTML = '<span class="mira-logo mira-logo-inline mira-message-avatar"><img src="/images/managira.png" alt=""></span>';
 
     var bubble = document.createElement("div");
     bubble.className = "mira-message-bubble";
