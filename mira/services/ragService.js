@@ -7,7 +7,10 @@ const crypto = require("crypto");
 const vectorStore = require("./vectorStore");
 
 const EMBEDDING_DIMENSIONS = 1536;
-const MOCK_EMBEDDINGS = !process.env.OPENAI_API_KEY;
+// OpenRouter proxies OpenAI's embedding models through the same
+// OpenAI-compatible API used for chat (see modelRouter.js) - checked
+// first since it's the preferred/most commonly configured provider here.
+const MOCK_EMBEDDINGS = !process.env.OPENROUTER_API_KEY && !process.env.OPENAI_API_KEY;
 
 function mockEmbed(text) {
   // Deterministic pseudo-embedding: hash the text into a seed, then
@@ -27,8 +30,11 @@ async function embedText(text) {
   if (MOCK_EMBEDDINGS) return mockEmbed(text);
 
   const OpenAI = require("openai");
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const response = await client.embeddings.create({ model: "text-embedding-3-small", input: text });
+  const client = process.env.OPENROUTER_API_KEY
+    ? new OpenAI({ apiKey: process.env.OPENROUTER_API_KEY, baseURL: "https://openrouter.ai/api/v1" })
+    : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const model = process.env.OPENROUTER_API_KEY ? "openai/text-embedding-3-small" : "text-embedding-3-small";
+  const response = await client.embeddings.create({ model, input: text });
   return response.data[0].embedding;
 }
 

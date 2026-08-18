@@ -968,7 +968,7 @@ button { font-family: inherit; }
 .mira-logo img { width: 100%; height: 100%; object-fit: contain; }
 
 .mira-logo-sidebar { width: 32px; height: 32px; }
-.mira-logo-inline { width: 26px; height: 26px; }
+.mira-logo-inline { width: 22px; height: 22px; }
 
 @media (prefers-reduced-motion: no-preference) {
   .mira-logo.mira-logo-entrance {
@@ -1148,7 +1148,13 @@ button { font-family: inherit; }
   .mira-mobile-topbar { display: flex; }
   .mira-empty-heading { font-size: 1.4rem; }
   .mira-logo { width: 64px; height: 64px; }
-  .mira-logo-inline { width: 20px; height: 20px; }
+  /* .mira-logo-inline/-sidebar match the base .mira-logo selector too, at
+     equal specificity - without redeclaring them here, the rule above
+     (later in source order) would win and blow both up to 64px on
+     mobile. */
+  .mira-logo-inline { width: 22px; height: 22px; }
+  .mira-logo-sidebar { width: 26px; height: 26px; }
+  .mira-collapse-toggle { width: 26px; height: 26px; }
 
   /* The collapse-toggle becomes a "close drawer" button here (see
      mira-app.js) - show an X instead of the hamburger lines so it isn't
