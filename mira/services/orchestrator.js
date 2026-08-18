@@ -12,7 +12,17 @@ const { checkBudget, recordUsage } = require("./usageLedger");
 
 const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff. You help find student and school records, draft communications, and summarize data. You only ever act within the current user's own school - never suggest or imply access to another school's data. Be concise and warm.`;
 
-async function getOrCreateChat({ tenant, chatId }) {
+// A new chat's title is derived from the user's first question rather
+// than left as "New chat" - no model call needed (works the same in mock
+// mode), just a cleaned-up, truncated version of what they asked.
+function deriveTitle(text) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  if (!clean) return "New chat";
+  const truncated = clean.length > 48 ? clean.slice(0, 48).trim() + "…" : clean;
+  return truncated.charAt(0).toUpperCase() + truncated.slice(1);
+}
+
+async function getOrCreateChat({ tenant, chatId, firstMessage }) {
   await ensureMiraSchema(db);
   if (chatId) {
     const existing = await db.query(
@@ -22,8 +32,8 @@ async function getOrCreateChat({ tenant, chatId }) {
     if (existing.rows[0]) return existing.rows[0];
   }
   const created = await db.query(
-    `INSERT INTO mira_chats (tenant_id, user_id, viewer_type) VALUES ($1, $2, $3) RETURNING *`,
-    [tenant.organizationId, tenant.userId, tenant.viewerType]
+    `INSERT INTO mira_chats (tenant_id, user_id, viewer_type, title) VALUES ($1, $2, $3, $4) RETURNING *`,
+    [tenant.organizationId, tenant.userId, tenant.viewerType, deriveTitle(firstMessage)]
   );
   return created.rows[0];
 }
@@ -70,7 +80,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope }) {
     return;
   }
 
-  const chat = await getOrCreateChat({ tenant, chatId });
+  const chat = await getOrCreateChat({ tenant, chatId, firstMessage: userText });
   const history = await loadHistory(chat.id);
   await saveMessage(chat.id, "user", userText);
 

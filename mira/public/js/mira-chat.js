@@ -418,6 +418,47 @@
     document.querySelectorAll(".mira-chat-item-menu-btn.is-open").forEach(function (b) { b.classList.remove("is-open"); });
   }
 
+  function renameChat(chatId, itemEl, textEl) {
+    var currentTitle = textEl.textContent;
+    var input = document.createElement("input");
+    input.type = "text";
+    input.className = "mira-chat-item-rename-input";
+    input.value = currentTitle;
+    textEl.replaceWith(input);
+    input.focus();
+    input.select();
+
+    var done = false;
+    function commit() {
+      if (done) return;
+      done = true;
+      var newTitle = input.value.trim();
+      input.replaceWith(textEl);
+      if (!newTitle || newTitle === currentTitle) return;
+      textEl.textContent = newTitle;
+      fetch("/api/chat/" + chatId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle }),
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error("rename failed");
+          var chat = allChats.find(function (c) { return c.id === chatId; });
+          if (chat) chat.title = newTitle;
+        })
+        .catch(function () {
+          textEl.textContent = currentTitle;
+          alert("Unable to rename that chat right now.");
+        });
+    }
+    input.addEventListener("blur", commit);
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+      if (e.key === "Escape") { done = true; input.replaceWith(textEl); }
+    });
+    input.addEventListener("click", function (e) { e.stopPropagation(); });
+  }
+
   function deleteChat(chatId, itemEl) {
     if (!confirm("Delete this chat? This can't be undone.")) return;
     fetch("/api/chat/" + chatId, { method: "DELETE" })
@@ -455,9 +496,14 @@
 
       var main = document.createElement("div");
       main.className = "mira-chat-item-main";
-      main.innerHTML =
-        '<span class="mira-chat-item-text">' + escapeHtml(chat.title) + "</span>" +
-        '<span class="mira-chat-item-time">' + timeAgo(chat.updated_at) + "</span>";
+      var textSpan = document.createElement("span");
+      textSpan.className = "mira-chat-item-text";
+      textSpan.textContent = chat.title;
+      var timeSpan = document.createElement("span");
+      timeSpan.className = "mira-chat-item-time";
+      timeSpan.textContent = timeAgo(chat.updated_at);
+      main.appendChild(textSpan);
+      main.appendChild(timeSpan);
       main.addEventListener("click", function () {
         loadChat(chat.id);
       });
@@ -477,6 +523,16 @@
         menuBtn.classList.add("is-open");
         var menu = document.createElement("div");
         menu.className = "mira-chat-item-menu";
+        var renameBtn = document.createElement("button");
+        renameBtn.type = "button";
+        renameBtn.className = "mira-chat-item-menu-rename";
+        renameBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M11 2.5l2.5 2.5-8 8-3 .5.5-3 8-8z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg><span>Rename</span>';
+        renameBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          closeAllChatItemMenus();
+          renameChat(chat.id, item, textSpan);
+        });
+        menu.appendChild(renameBtn);
         var deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
         deleteBtn.className = "mira-chat-item-menu-delete";

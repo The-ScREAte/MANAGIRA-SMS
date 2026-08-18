@@ -293,6 +293,34 @@ button { font-family: inherit; }
   text-align: left;
 }
 .mira-chat-item-menu-delete:hover { background: color-mix(in srgb, #dc2626 10%, transparent); }
+.mira-chat-item-menu-rename {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--mira-text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+.mira-chat-item-menu-rename:hover { background: var(--mira-primary-soft); color: var(--mira-primary); }
+
+.mira-chat-item-rename-input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--mira-text-primary);
+  background: var(--mira-bg-elevated);
+  border: 1px solid var(--mira-primary-border);
+  border-radius: 4px;
+  padding: 1px 4px;
+  outline: none;
+}
 
 .mira-sidebar-footer {
   position: relative;
@@ -343,7 +371,7 @@ button { font-family: inherit; }
 .mira-sidebar.is-collapsed .mira-user-menu { left: 10px; right: auto; width: 240px; }
 
 .mira-user-menu-header { padding: 8px 10px 6px; }
-.mira-user-menu-role { font-size: 0.72rem; color: var(--mira-text-secondary); text-transform: capitalize; margin-top: 1px; }
+.mira-user-menu-role { font-size: 0.72rem; color: var(--mira-text-secondary); text-transform: capitalize; margin-top: 3px; }
 .mira-user-menu-divider { height: 1px; background: var(--mira-border); margin: 6px 4px; }
 
 .mira-user-menu-item {
@@ -418,6 +446,7 @@ button { font-family: inherit; }
 .mira-sidebar-user-role {
   font-size: 0.72rem;
   color: var(--mira-text-secondary);
+  margin-top: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -762,21 +791,29 @@ button { font-family: inherit; }
   }
   /* Idle state: the brand mark wags gently left-right, always - not just
      while something is loading. */
-  .mira-logo.mira-logo-idle { animation: miraLogoWag 4.5s ease-in-out infinite; }
+  .mira-logo.mira-logo-idle { animation: miraLogoWag 5.5s ease-in-out infinite; }
   /* Loading state: while Mira is generating a reply (message avatar). A
      brisker wag reads as "actively working", distinct from the calm idle
      wag. */
-  .mira-logo.mira-logo-spinning { animation: miraLogoWag 2.2s ease-in-out infinite; }
+  .mira-logo.mira-logo-spinning { animation: miraLogoWag 3.2s ease-in-out infinite; }
 
   @keyframes miraLogoEntrance {
     0%   { opacity: 0; transform: scale(0.6) rotate(0deg); }
     60%  { opacity: 1; transform: scale(1.05) rotate(360deg); }
     100% { opacity: 1; transform: scale(1) rotate(360deg); }
   }
+  /* Asymmetric swing (50deg right, 70deg left) - keyframe timing is spaced
+     proportionally to the angular distance of each leg (50/240, 100/240,
+     170/240, 240/240) so the average speed stays constant across the
+     whole cycle. Without that, the longer 70deg leg gets the same time
+     budget as the shorter 50deg leg and visibly stalls at the left
+     extreme before reversing. */
   @keyframes miraLogoWag {
-    0%, 100% { transform: rotate(0deg); }
-    25%      { transform: rotate(-70deg); }
-    75%      { transform: rotate(70deg); }
+    0%   { transform: rotate(0deg); }
+    21%  { transform: rotate(50deg); }
+    42%  { transform: rotate(0deg); }
+    71%  { transform: rotate(-70deg); }
+    100% { transform: rotate(0deg); }
   }
 }
 @media (prefers-reduced-motion: reduce) {
