@@ -15,10 +15,6 @@
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       <span class="mira-btn-label">New chat</span>
     </button>
-    <button class="mira-btn mira-btn-secondary" id="miraBuildBtn" type="button" disabled title="Coming soon">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8.5l3-5 3 2 3-4 3 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="mira-btn-label">Build</span>
-    </button>
   </div>
 
   <div class="mira-sidebar-history">
@@ -45,7 +41,7 @@
     <div class="mira-user-menu" id="miraUserMenu" role="menu" hidden>
       <div class="mira-user-menu-header">
         <div class="mira-sidebar-user-name"><%= tenant.displayName %></div>
-        <div class="mira-user-menu-role"><%= tenant.roleTags && tenant.roleTags.length ? tenant.roleTags[0].replace('_',' ') : tenant.viewerType %> &middot; org <%= tenant.organizationId %></div>
+        <div class="mira-user-menu-role"><%= tenant.roleTags && tenant.roleTags.length ? tenant.roleTags[0].replace('_',' ') : tenant.viewerType %> &middot; <%= tenant.organizationName %></div>
       </div>
       <div class="mira-user-menu-divider"></div>
 
@@ -102,7 +98,7 @@
       <div class="mira-settings-row">
         <div>
           <div class="mira-settings-row-label">School</div>
-          <div class="mira-settings-row-value">Organization #<%= tenant.organizationId %></div>
+          <div class="mira-settings-row-value"><%= tenant.organizationName %></div>
         </div>
       </div>
       <p class="mira-settings-note">More settings (notification preferences, data controls) are on the way. Account and school details are managed in Managira itself.</p>

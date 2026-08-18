@@ -9,6 +9,12 @@ const { ensureMiraSchema } = require("../db/schema");
 async function postChat(req, res) {
   const userText = String(req.body?.message || "").trim();
   const chatId = req.body?.chatId ? parseInt(req.body.chatId, 10) : null;
+  // Class scope is client-supplied for UX convenience only (which class is
+  // "selected" in the sidebar) - it's just a hint folded into the prompt,
+  // never trusted for data access; every tool call still independently
+  // enforces tenant scope from req.tenant, not from this.
+  const classId = req.body?.classId ? parseInt(req.body.classId, 10) : null;
+  const className = req.body?.className ? String(req.body.className).slice(0, 120) : null;
 
   if (!userText) {
     return res.status(400).json({ error: "message is required." });
@@ -30,7 +36,7 @@ async function postChat(req, res) {
   req.on("close", () => res.end());
 
   try {
-    await runTurn({ tenant: req.tenant, chatId, userText, sse });
+    await runTurn({ tenant: req.tenant, chatId, userText, sse, classScope: className ? { classId, className } : null });
   } catch (error) {
     console.error("[mira/chatController]", error);
     sse.send("error", { message: "Something went wrong generating a response." });

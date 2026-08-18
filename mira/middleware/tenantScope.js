@@ -37,6 +37,7 @@ function tenantScope(req, res, next) {
 
   req.tenant = {
     organizationId: req.identity.organizationId,
+    organizationName: req.identity.organizationName || `Organization #${req.identity.organizationId}`,
     userId: viewerId,
     viewerType,
     roleTags: resolveRoleTags(req.identity),

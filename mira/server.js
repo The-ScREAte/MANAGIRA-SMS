@@ -39,6 +39,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/chat", require("./routes/chatRoute"));
+app.use("/api/classes", require("./routes/classesRoute"));
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found." });

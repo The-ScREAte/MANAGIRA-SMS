@@ -102,12 +102,82 @@
   window.miraShowChatView = showChatView;
   window.miraShowEmptyState = showEmptyState;
 
-  // ---- Project selector (populated once list_projects tool lands) ----
-  var projectSelector = document.getElementById("miraProjectSelector");
-  if (projectSelector) {
-    projectSelector.addEventListener("click", function () {
-      // Placeholder until the project-scoping UI (list_projects tool) lands.
-      console.info("[mira] project selector - coming soon");
+  // ---- Class selector (scopes the conversation to one class) ----
+  var classSelector = document.getElementById("miraClassSelector");
+  var classDropdown = document.getElementById("miraClassDropdown");
+  var classDropdownList = document.getElementById("miraClassDropdownList");
+  var classSelectorLabel = document.getElementById("miraClassSelectorLabel");
+  var classSearch = document.getElementById("miraClassSearch");
+  var allClasses = [];
+  var classesLoaded = false;
+
+  window.MIRA_SELECTED_CLASS = null;
+
+  function renderClassOptions(filterText) {
+    var query = (filterText || "").trim().toLowerCase();
+    var filtered = query ? allClasses.filter(function (c) { return c.class_name.toLowerCase().indexOf(query) !== -1; }) : allClasses;
+
+    classDropdownList.innerHTML = "";
+    if (!filtered.length) {
+      var empty = document.createElement("div");
+      empty.className = "mira-class-dropdown-empty";
+      empty.textContent = classesLoaded ? "No classes found." : "Loading classes…";
+      classDropdownList.appendChild(empty);
+      return;
+    }
+    filtered.forEach(function (c) {
+      var option = document.createElement("button");
+      option.type = "button";
+      option.className = "mira-class-option";
+      if (window.MIRA_SELECTED_CLASS && window.MIRA_SELECTED_CLASS.class_id === c.class_id) option.classList.add("is-selected");
+      option.innerHTML = '<span>' + c.class_name.replace(/</g, "&lt;") + '</span><span class="mira-class-option-count">' + c.student_count + ' student' + (c.student_count === 1 ? "" : "s") + '</span>';
+      option.addEventListener("click", function () {
+        window.MIRA_SELECTED_CLASS = c;
+        classSelectorLabel.textContent = c.class_name;
+        closeClassDropdown();
+      });
+      classDropdownList.appendChild(option);
+    });
+  }
+
+  function loadClasses() {
+    if (classesLoaded) return;
+    fetch("/api/classes")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        allClasses = data.classes || [];
+        classesLoaded = true;
+        renderClassOptions(classSearch.value);
+      })
+      .catch(function () {
+        classDropdownList.innerHTML = '<div class="mira-class-dropdown-empty">Unable to load classes.</div>';
+      });
+  }
+
+  function openClassDropdown() {
+    classDropdown.hidden = false;
+    classSelector.setAttribute("aria-expanded", "true");
+    loadClasses();
+    classSearch.focus();
+  }
+  function closeClassDropdown() {
+    classDropdown.hidden = true;
+    classSelector.setAttribute("aria-expanded", "false");
+  }
+  if (classSelector) {
+    classSelector.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (classDropdown.hidden) openClassDropdown();
+      else closeClassDropdown();
+    });
+    classSearch.addEventListener("input", function () {
+      renderClassOptions(classSearch.value);
+    });
+    document.addEventListener("click", function (e) {
+      if (!classDropdown.hidden && !classDropdown.contains(e.target) && e.target !== classSelector) closeClassDropdown();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !classDropdown.hidden) closeClassDropdown();
     });
   }
 

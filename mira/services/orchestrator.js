@@ -62,7 +62,7 @@ function summarizeToolResult(toolName, result) {
 
 // sse: { send(event, data) } - a thin wrapper the route layer provides so
 // this module has no direct knowledge of Express's response object.
-async function runTurn({ tenant, chatId, userText, sse }) {
+async function runTurn({ tenant, chatId, userText, sse, classScope }) {
   const budget = await checkBudget(tenant.organizationId);
   if (!budget.allowed) {
     sse.send("error", { message: budget.reason });
@@ -88,6 +88,13 @@ async function runTurn({ tenant, chatId, userText, sse }) {
     }
   } catch (error) {
     console.error("[mira/orchestrator] RAG retrieval failed, continuing without it:", error.message);
+  }
+
+  if (classScope?.className) {
+    contextMessages.push({
+      role: "system",
+      content: `The user has scoped this conversation to the class "${classScope.className}". Prefer answers about that class when relevant, but you can still help with other requests.`,
+    });
   }
 
   const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history, { role: "user", content: userText }];

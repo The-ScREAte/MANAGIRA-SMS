@@ -47,10 +47,16 @@
   // Minimal text/event-stream parser over a fetch() ReadableStream - used
   // instead of EventSource because EventSource can't send a POST body.
   async function streamChat(message, handlers) {
+    var selectedClass = window.MIRA_SELECTED_CLASS;
     var response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: message, chatId: currentChatId }),
+      body: JSON.stringify({
+        message: message,
+        chatId: currentChatId,
+        classId: selectedClass ? selectedClass.class_id : null,
+        className: selectedClass ? selectedClass.class_name : null,
+      }),
     });
 
     if (!response.ok || !response.body) {

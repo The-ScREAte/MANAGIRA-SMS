@@ -41,6 +41,7 @@
     --mira-text-tertiary: #64748b;
     --mira-primary-soft: color-mix(in srgb, var(--mira-primary) 22%, #16202c);
     --mira-primary-soft-strong: color-mix(in srgb, var(--mira-primary) 32%, #16202c);
+    --mira-primary-border: color-mix(in srgb, var(--mira-primary) 45%, #16202c);
   }
 }
 :root[data-theme="dark"] {
@@ -48,6 +49,7 @@
   --mira-bg-elevated: #16202c;
   --mira-sidebar-bg: #121a24;
   --mira-border: #263241;
+  --mira-primary-border: color-mix(in srgb, var(--mira-primary) 45%, #16202c);
   --mira-text-primary: #f1f5f9;
   --mira-text-secondary: #94a3b8;
   --mira-text-tertiary: #64748b;
@@ -79,15 +81,22 @@ button { font-family: inherit; }
   display: flex;
   height: 100dvh;
   overflow: hidden;
+  background: var(--mira-bg);
 }
 
 /* ------------------------------------------------------------- sidebar */
 
+/* A floating, isolated panel (margin on all but the shared inner edge,
+   rounded corners, shadow) rather than a flush full-height rail. */
 .mira-sidebar {
   width: var(--mira-sidebar-width);
   flex-shrink: 0;
+  margin: 12px 0 12px 12px;
+  height: calc(100dvh - 24px);
   background: var(--mira-sidebar-bg);
-  border-right: 1px solid var(--mira-border);
+  border: 1px solid var(--mira-border);
+  border-radius: var(--mira-radius-lg);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.05);
   display: flex;
   flex-direction: column;
   transition: width 0.2s ease;
@@ -404,6 +413,61 @@ button { font-family: inherit; }
   cursor: pointer;
 }
 .mira-project-selector:hover { border-color: var(--mira-primary-border); color: var(--mira-primary); }
+.mira-project-selector[aria-expanded="true"] { border-color: var(--mira-primary-border); color: var(--mira-primary); background: var(--mira-primary-soft); }
+
+.mira-class-selector-wrap { position: relative; }
+
+.mira-class-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  width: 280px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  background: var(--mira-bg-elevated);
+  border: 1px solid var(--mira-border);
+  border-radius: var(--mira-radius-lg);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
+  padding: 8px;
+  animation: miraMenuIn 0.14s ease-out;
+  text-align: left;
+}
+.mira-class-dropdown-search { padding: 2px 2px 8px; }
+.mira-class-dropdown-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border-radius: var(--mira-radius-sm);
+  border: 1px solid var(--mira-border);
+  background: var(--mira-bg);
+  color: var(--mira-text-primary);
+  font-size: 0.82rem;
+  outline: none;
+}
+.mira-class-dropdown-search input:focus { border-color: var(--mira-primary-border); }
+.mira-class-dropdown-list { overflow-y: auto; }
+.mira-class-dropdown-empty { padding: 14px 10px; font-size: 0.82rem; color: var(--mira-text-tertiary); text-align: center; }
+.mira-class-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--mira-text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+.mira-class-option:hover, .mira-class-option.is-selected { background: var(--mira-primary-soft); color: var(--mira-primary); }
+.mira-class-option-count { font-size: 0.72rem; color: var(--mira-text-tertiary); flex-shrink: 0; }
+.mira-class-option:hover .mira-class-option-count, .mira-class-option.is-selected .mira-class-option-count { color: inherit; opacity: 0.75; }
 
 .mira-composer {
   width: min(680px, 92vw);
@@ -643,6 +707,10 @@ button { font-family: inherit; }
     inset: 0 auto 0 0;
     z-index: 500;
     width: min(300px, 84vw);
+    margin: 0;
+    height: 100%;
+    border-radius: 0;
+    border: none;
     transform: translateX(-100%);
     transition: transform 0.25s ease;
     box-shadow: 8px 0 30px rgba(0, 0, 0, 0.15);
