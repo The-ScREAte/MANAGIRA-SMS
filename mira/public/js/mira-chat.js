@@ -25,10 +25,6 @@
     scrollToBottom();
   }
 
-  function loadingIndicatorHtml() {
-    return '<span class="mira-loading-indicator"><span class="mira-logo mira-logo-inline mira-logo-spinning"><img src="/images/managira.png" alt=""></span></span>';
-  }
-
   // ---- Assistant message actions: copy / download / like / dislike ----
   function buildMessageActions(getText, messageIdRef) {
     var actions = document.createElement("div");
@@ -126,17 +122,25 @@
 
     var row = document.createElement("div");
     row.className = "mira-message-row";
-    row.innerHTML = '<span class="mira-logo mira-logo-inline mira-message-avatar"><img src="/images/managira.png" alt=""></span>';
+    row.innerHTML = '<span class="mira-logo mira-logo-inline mira-message-avatar mira-logo-spinning"><img src="/images/managira.png" alt=""></span>';
+    var avatar = row.querySelector(".mira-logo");
 
     var bubble = document.createElement("div");
     bubble.className = "mira-message-bubble";
-    bubble.innerHTML = loadingIndicatorHtml();
     row.appendChild(bubble);
     el.appendChild(row);
     thread.appendChild(el);
     scrollToBottom();
 
-    return { el: el, bubble: bubble };
+    return { el: el, bubble: bubble, avatar: avatar };
+  }
+
+  // Swap the avatar from the fast "actively working" spin back to the
+  // calm, always-on idle spin once a reply has settled.
+  function settleAvatar(avatar) {
+    if (!avatar) return;
+    avatar.classList.remove("mira-logo-spinning");
+    avatar.classList.add("mira-logo-idle");
   }
 
   function renderToolAction(container, name, status) {
@@ -229,20 +233,20 @@
         if (!receivedFirstToken) {
           bubble.textContent = "";
           receivedFirstToken = true;
+          settleAvatar(assistant.avatar);
         }
         bubble.textContent += data.text;
         scrollToBottom();
-      },
-      onToolCall: function () {
-        if (!receivedFirstToken) bubble.innerHTML = loadingIndicatorHtml();
       },
       onToolResult: function (data) {
         renderToolAction(bubble, data.name, data.status);
       },
       onError: function (message) {
         bubble.textContent = message || "Something went wrong.";
+        settleAvatar(assistant.avatar);
       },
       onDone: function (data) {
+        settleAvatar(assistant.avatar);
         messageIdRef.id = data.messageId || null;
         var actions = buildMessageActions(function () { return bubble.textContent; }, messageIdRef);
         assistant.el.appendChild(actions);
@@ -528,7 +532,7 @@
 
     var row = document.createElement("div");
     row.className = "mira-message-row";
-    row.innerHTML = '<span class="mira-logo mira-logo-inline mira-message-avatar"><img src="/images/managira.png" alt=""></span>';
+    row.innerHTML = '<span class="mira-logo mira-logo-inline mira-message-avatar mira-logo-idle"><img src="/images/managira.png" alt=""></span>';
 
     var bubble = document.createElement("div");
     bubble.className = "mira-message-bubble";
