@@ -23,12 +23,16 @@
     scrollToBottom();
   }
 
+  function loadingIndicatorHtml() {
+    return '<span class="mira-loading-indicator"><span class="mira-logo mira-logo-inline mira-logo-spinning"><img src="/images/managira.png" alt=""></span></span>';
+  }
+
   function appendAssistantMessage() {
     var el = document.createElement("div");
     el.className = "mira-message mira-message-assistant";
     var bubble = document.createElement("div");
     bubble.className = "mira-message-bubble";
-    bubble.innerHTML = '<span class="mira-typing-dots"><span></span><span></span><span></span></span>';
+    bubble.innerHTML = loadingIndicatorHtml();
     el.appendChild(bubble);
     thread.appendChild(el);
     scrollToBottom();
@@ -122,7 +126,7 @@
         scrollToBottom();
       },
       onToolCall: function () {
-        if (!receivedFirstToken) bubble.innerHTML = '<span class="mira-typing-dots"><span></span><span></span><span></span></span>';
+        if (!receivedFirstToken) bubble.innerHTML = loadingIndicatorHtml();
       },
       onToolResult: function (data) {
         renderToolAction(bubble, data.name, data.status);

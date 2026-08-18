@@ -358,8 +358,15 @@ button { font-family: inherit; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Explicit rather than relying on inherited body color - this is the
+     text reported unreadable in dark mode (white on dark / black on
+     light), so it gets its own unambiguous rule instead of depending on
+     the cascade to carry it through the sidebar-footer/user-trigger
+     nesting correctly. */
+  color: var(--mira-text-primary);
 }
 .mira-sidebar-user-role { font-size: 0.72rem; color: var(--mira-text-secondary); }
+.mira-user-trigger { color: var(--mira-text-primary); }
 
 /* --------------------------------------------------------------- main */
 
@@ -619,18 +626,7 @@ button { font-family: inherit; }
 }
 .mira-composer-docked .mira-composer { width: min(760px, 100%); }
 
-.mira-typing-dots { display: inline-flex; gap: 4px; padding: 4px 0; }
-.mira-typing-dots span {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--mira-text-tertiary);
-  animation: miraTypingBounce 1.2s infinite ease-in-out;
-}
-.mira-typing-dots span:nth-child(2) { animation-delay: 0.15s; }
-.mira-typing-dots span:nth-child(3) { animation-delay: 0.3s; }
-@keyframes miraTypingBounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
-  30% { transform: translateY(-4px); opacity: 1; }
-}
+.mira-loading-indicator { display: inline-flex; padding: 2px 0; }
 
 /* ---------------------------------------------------------------- logo */
 
@@ -644,6 +640,7 @@ button { font-family: inherit; }
 .mira-logo img { width: 100%; height: 100%; object-fit: contain; }
 
 .mira-logo-sidebar { width: 32px; height: 32px; }
+.mira-logo-inline { width: 26px; height: 26px; }
 
 @media (prefers-reduced-motion: no-preference) {
   .mira-logo.mira-logo-entrance {
@@ -652,6 +649,11 @@ button { font-family: inherit; }
     animation: miraLogoEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
   .mira-logo.mira-logo-idle { animation: miraLogoFloat 4.5s ease-in-out infinite; }
+  /* Loading state: while Mira is generating a reply (visible in the
+     assistant's message bubble, and on the hero logo for the moment
+     between hitting send and the chat view taking over). Continuous
+     rotation reads clearly as "working", distinct from the idle float. */
+  .mira-logo.mira-logo-spinning { animation: miraLogoSpin 1.1s linear infinite; }
 
   @keyframes miraLogoEntrance {
     0%   { opacity: 0; transform: scale(0.6) rotate(0deg); }
@@ -662,9 +664,20 @@ button { font-family: inherit; }
     0%, 100% { transform: translateY(0) scale(1); }
     50%      { transform: translateY(-4px) scale(1.015); }
   }
+  @keyframes miraLogoSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .mira-logo.mira-logo-entrance { opacity: 1; transform: none; }
+  /* Loading state still needs *some* signal without motion - a soft pulse
+     instead of a spin. */
+  .mira-logo.mira-logo-spinning { animation: miraLogoPulseReduced 1.4s ease-in-out infinite; }
+  @keyframes miraLogoPulseReduced {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.45; }
+  }
 }
 
 /* ----------------------------------------------------- settings modal */

@@ -232,6 +232,10 @@
   }
   if (themeSwitch) {
     var savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    // Guards against a stale "system" value left over from before the
+    // toggle was simplified to two explicit choices - anything other than
+    // exactly "light"/"dark" is treated as unset.
+    if (savedTheme !== "light" && savedTheme !== "dark") savedTheme = null;
     if (!savedTheme) {
       // No explicit choice yet - highlight whichever the OS preference
       // currently resolves to (the page itself already renders that way
