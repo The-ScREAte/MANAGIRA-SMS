@@ -65,7 +65,10 @@
       if (textarea.offsetParent === null) return;
       textarea.style.height = "auto";
       textarea.style.height = Math.min(textarea.scrollHeight, 160) + "px";
-      sendBtn.disabled = textarea.value.trim().length === 0;
+      // While a reply is streaming, the button is a stop button and must
+      // stay clickable regardless of what's in the textarea - mira-chat.js
+      // sets this flag for the duration of a request.
+      if (!window.miraIsSending) sendBtn.disabled = textarea.value.trim().length === 0;
     }
     textarea.addEventListener("input", sync);
     textarea.addEventListener("keydown", function (e) {

@@ -5,6 +5,13 @@
   var scrollEl = document.getElementById("miraChatScroll");
   var currentChatId = null;
   var currentChatPinned = false;
+  // Guards against a second send firing while one is still streaming - both
+  // as a UX affordance (send button becomes a stop button) and as a real
+  // bug fix: submitting again before the first request's "chat" SSE event
+  // resolves currentChatId used to race and silently fork a second,
+  // separate chat instead of continuing the same one.
+  var isSending = false;
+  var currentAbortController = null;
   var allChats = []; // last fetched history list, filtered locally by the search box
   var pendingAttachments = []; // [{filename, kind:"text", text} | {filename, kind:"image", dataUrl, mimeType}] - cleared after each send
 
@@ -353,19 +360,27 @@
 
   // Minimal text/event-stream parser over a fetch() ReadableStream - used
   // instead of EventSource because EventSource can't send a POST body.
-  async function streamChat(message, images, handlers) {
+  async function streamChat(message, images, handlers, signal) {
     var selectedClass = window.MIRA_SELECTED_CLASS;
-    var response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: message,
-        chatId: currentChatId,
-        images: images && images.length ? images : [],
-        classId: selectedClass && selectedClass !== "all" ? selectedClass.class_id : null,
-        className: selectedClass === "all" ? "All classes" : selectedClass ? selectedClass.class_name : null,
-      }),
-    });
+    var response;
+    try {
+      response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: signal,
+        body: JSON.stringify({
+          message: message,
+          chatId: currentChatId,
+          images: images && images.length ? images : [],
+          classId: selectedClass && selectedClass !== "all" ? selectedClass.class_id : null,
+          className: selectedClass === "all" ? "All classes" : selectedClass ? selectedClass.class_name : null,
+        }),
+      });
+    } catch (err) {
+      if (err.name === "AbortError") return handlers.onAbort?.();
+      handlers.onError("Unable to reach Mira.");
+      return;
+    }
 
     if (!response.ok || !response.body) {
       handlers.onError("Unable to reach Mira.");
@@ -377,7 +392,13 @@
     var buffer = "";
 
     while (true) {
-      var chunk = await reader.read();
+      var chunk;
+      try {
+        chunk = await reader.read();
+      } catch (err) {
+        if (err.name === "AbortError") return handlers.onAbort?.();
+        throw err;
+      }
       if (chunk.done) break;
       buffer += decoder.decode(chunk.value, { stream: true });
 
@@ -417,9 +438,34 @@
     }
   }
 
+  var SEND_ICON = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h11M8 3l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var STOP_ICON = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="10" height="10" rx="2" fill="currentColor"/></svg>';
+
+  // While sending, the send button becomes a stop button - always
+  // clickable (not disabled), regardless of the textarea's contents.
+  // While idle, disabled state goes back to tracking whether there's text
+  // to send.
+  function setSendingUI(sending) {
+    window.miraIsSending = sending;
+    [["miraSendBtn", "miraInput"], ["miraSendBtnDocked", "miraInputDocked"]].forEach(function (pair) {
+      var btn = document.getElementById(pair[0]);
+      var input = document.getElementById(pair[1]);
+      if (!btn) return;
+      btn.classList.toggle("is-sending", sending);
+      btn.innerHTML = sending ? STOP_ICON : SEND_ICON;
+      btn.setAttribute("aria-label", sending ? "Stop generating" : "Send");
+      btn.title = sending ? "Stop generating" : "";
+      btn.disabled = sending ? false : !input || input.value.trim().length === 0;
+    });
+  }
+
   function sendMessage(text) {
-    if (!text.trim()) return;
+    if (!text.trim() || isSending) return;
     if (window.miraShowChatView) window.miraShowChatView();
+
+    isSending = true;
+    currentAbortController = new AbortController();
+    setSendingUI(true);
 
     var attachments = pendingAttachments;
     clearAttachments();
@@ -442,6 +488,12 @@
     var receivedFirstToken = false;
     var messageIdRef = { id: null, feedback: null };
 
+    function finishSending() {
+      isSending = false;
+      currentAbortController = null;
+      setSendingUI(false);
+    }
+
     streamChat(outgoingText, outgoingImages, {
       onChat: function (data) {
         currentChatId = data.chatId;
@@ -463,6 +515,22 @@
       onError: function (message) {
         bubble.textContent = message || "Something went wrong.";
         settleAvatar(assistant.avatar);
+        finishSending();
+      },
+      onAbort: function () {
+        settleAvatar(assistant.avatar);
+        if (bubble.textContent.trim()) {
+          bubble.textContent += " [stopped]";
+          scrollToBottom();
+        } else {
+          assistant.el.remove();
+        }
+        finishSending();
+        // The user's message (and the chat itself, if this was the first
+        // message) is already persisted server-side by the time the abort
+        // reaches here - refresh so it doesn't stay invisible in the
+        // sidebar until some other action happens to trigger a refetch.
+        refreshHistory();
       },
       onDone: function (data) {
         settleAvatar(assistant.avatar);
@@ -474,8 +542,9 @@
         showAiDisclaimer();
         scrollToBottom();
         refreshHistory();
+        finishSending();
       },
-    });
+    }, currentAbortController.signal);
   }
 
   function wireComposerSubmit(formId, inputId) {
@@ -484,6 +553,10 @@
     if (!form || !input) return;
     form.addEventListener("submit", function (e) {
       e.preventDefault();
+      if (isSending) {
+        if (currentAbortController) currentAbortController.abort();
+        return;
+      }
       var text = input.value;
       input.value = "";
       input.style.height = "auto";

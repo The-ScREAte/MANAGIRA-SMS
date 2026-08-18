@@ -694,6 +694,8 @@ button { font-family: inherit; }
 }
 .mira-send-btn:hover { background: var(--mira-primary-hover); }
 .mira-send-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+.mira-send-btn.is-sending { background: var(--mira-text-primary); }
+.mira-send-btn.is-sending:hover { opacity: 0.85; }
 
 .mira-quick-actions {
   display: flex;
