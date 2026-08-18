@@ -875,7 +875,7 @@ button { font-family: inherit; }
   color: var(--mira-text-tertiary);
   padding: 0 2px;
 }
-.mira-message-assistant .mira-message-time { margin-left: 36px; }
+.mira-message-actions .mira-message-time { margin-left: 6px; }
 
 .mira-message-row { display: flex; gap: 10px; align-items: flex-start; max-width: 100%; }
 .mira-message-avatar { flex-shrink: 0; margin-top: 2px; }

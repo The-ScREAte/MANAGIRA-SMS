@@ -468,9 +468,9 @@
         settleAvatar(assistant.avatar);
         messageIdRef.id = data.messageId || null;
         var actions = buildMessageActions(function () { return bubble.textContent; }, messageIdRef);
-        assistant.el.appendChild(actions);
         assistant.timeEl.textContent = formatMessageTime(data.createdAt);
-        assistant.el.appendChild(assistant.timeEl);
+        actions.appendChild(assistant.timeEl);
+        assistant.el.appendChild(actions);
         showAiDisclaimer();
         scrollToBottom();
         refreshHistory();
@@ -905,12 +905,11 @@
 
     var messageIdRef = { id: message.id, feedback: message.feedback || null };
     var actions = buildMessageActions(function () { return bubble.textContent; }, messageIdRef);
-    el.appendChild(actions);
-
     var timeEl = document.createElement("div");
     timeEl.className = "mira-message-time";
     timeEl.textContent = formatMessageTime(message.created_at);
-    el.appendChild(timeEl);
+    actions.appendChild(timeEl);
+    el.appendChild(actions);
 
     thread.appendChild(el);
   }
