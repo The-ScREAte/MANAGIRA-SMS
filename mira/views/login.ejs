@@ -40,23 +40,30 @@
           <% if (reason === 'expired') { %>
             Your Managira session has expired. Log in again to continue.
           <% } else { %>
-            Mira uses your Managira account — sign in there and this page will pick it up automatically.
+            Use your Managira account. Already signed in on another tab? It'll be picked up automatically.
           <% } %>
         </p>
-        <a class="mira-btn mira-btn-primary mira-auth-btn" href="<%= mainAppUrl %>/account/login" target="_blank" rel="noopener">
-          <span class="mira-btn-label">Log in to Managira</span>
-        </a>
-        <button class="mira-btn mira-btn-secondary mira-auth-btn" id="miraAuthRetry" type="button">
-          <span class="mira-btn-label">I've logged in — continue</span>
-        </button>
+
+        <form class="mira-auth-form" method="POST" action="/login">
+          <% if (typeof formError !== 'undefined' && formError) { %>
+            <div class="mira-auth-error"><%= formError %></div>
+          <% } %>
+          <div class="mira-auth-field">
+            <label for="miraLoginEmail">Email</label>
+            <input type="email" id="miraLoginEmail" name="email" value="<%= typeof formEmail !== 'undefined' ? formEmail : '' %>" autocomplete="email" required autofocus />
+          </div>
+          <div class="mira-auth-field">
+            <label for="miraLoginPassword">Password</label>
+            <input type="password" id="miraLoginPassword" name="password" autocomplete="current-password" required />
+          </div>
+          <button type="submit" class="mira-btn mira-btn-primary mira-auth-btn mira-auth-submit">
+            <span class="mira-btn-label">Log in</span>
+          </button>
+        </form>
       <% } %>
     </div>
   </div>
 
   <script src="/js/mira-logo.js" defer></script>
-  <script>
-    var retryBtn = document.getElementById("miraAuthRetry");
-    if (retryBtn) retryBtn.addEventListener("click", function () { window.location.href = "/"; });
-  </script>
 </body>
 </html>

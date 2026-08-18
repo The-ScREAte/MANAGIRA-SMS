@@ -115,7 +115,9 @@
 
   function renderClassOptions(filterText) {
     var query = (filterText || "").trim().toLowerCase();
-    var filtered = query ? allClasses.filter(function (c) { return c.class_name.toLowerCase().indexOf(query) !== -1; }) : allClasses;
+    var filtered = query
+      ? allClasses.filter(function (c) { return String(c.class_name || "").toLowerCase().indexOf(query) !== -1; })
+      : allClasses;
 
     classDropdownList.innerHTML = "";
     if (!filtered.length) {
@@ -130,10 +132,12 @@
       option.type = "button";
       option.className = "mira-class-option";
       if (window.MIRA_SELECTED_CLASS && window.MIRA_SELECTED_CLASS.class_id === c.class_id) option.classList.add("is-selected");
-      option.innerHTML = '<span>' + c.class_name.replace(/</g, "&lt;") + '</span><span class="mira-class-option-count">' + c.student_count + ' student' + (c.student_count === 1 ? "" : "s") + '</span>';
+      var name = String(c.class_name || "Unnamed class").replace(/</g, "&lt;");
+      var count = Number(c.student_count) || 0;
+      option.innerHTML = "<span>" + name + "</span><span class=\"mira-class-option-count\">" + count + " student" + (count === 1 ? "" : "s") + "</span>";
       option.addEventListener("click", function () {
         window.MIRA_SELECTED_CLASS = c;
-        classSelectorLabel.textContent = c.class_name;
+        classSelectorLabel.textContent = c.class_name || "Unnamed class";
         closeClassDropdown();
       });
       classDropdownList.appendChild(option);
@@ -143,14 +147,18 @@
   function loadClasses() {
     if (classesLoaded) return;
     fetch("/api/classes")
-      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (!r.ok) throw new Error("request failed: " + r.status);
+        return r.json();
+      })
       .then(function (data) {
-        allClasses = data.classes || [];
+        allClasses = Array.isArray(data.classes) ? data.classes : [];
         classesLoaded = true;
         renderClassOptions(classSearch.value);
       })
-      .catch(function () {
-        classDropdownList.innerHTML = '<div class="mira-class-dropdown-empty">Unable to load classes.</div>';
+      .catch(function (err) {
+        console.error("[mira] failed to load classes", err);
+        classDropdownList.innerHTML = '<div class="mira-class-dropdown-empty">Unable to load classes. Try again shortly.</div>';
       });
   }
 
@@ -207,18 +215,13 @@
     });
   }
 
-  // ---- Theme switch (light / dark / system) ----
+  // ---- Theme switch (light / dark - two explicit choices only) ----
   var THEME_STORAGE_KEY = "mira:theme";
   var themeSwitch = document.getElementById("miraThemeSwitch");
 
   function applyTheme(choice) {
-    if (choice === "light" || choice === "dark") {
-      document.documentElement.setAttribute("data-theme", choice);
-      window.localStorage.setItem(THEME_STORAGE_KEY, choice);
-    } else {
-      document.documentElement.removeAttribute("data-theme");
-      window.localStorage.removeItem(THEME_STORAGE_KEY);
-    }
+    document.documentElement.setAttribute("data-theme", choice);
+    window.localStorage.setItem(THEME_STORAGE_KEY, choice);
     if (themeSwitch) {
       themeSwitch.querySelectorAll(".mira-theme-option").forEach(function (btn) {
         var isActive = btn.dataset.themeChoice === choice;
@@ -228,8 +231,18 @@
     }
   }
   if (themeSwitch) {
-    var savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) || "system";
-    applyTheme(savedTheme);
+    var savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (!savedTheme) {
+      // No explicit choice yet - highlight whichever the OS preference
+      // currently resolves to (the page itself already renders that way
+      // via the prefers-color-scheme CSS block) without locking it in.
+      savedTheme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      themeSwitch.querySelectorAll(".mira-theme-option").forEach(function (btn) {
+        btn.classList.toggle("is-active", btn.dataset.themeChoice === savedTheme);
+      });
+    } else {
+      applyTheme(savedTheme);
+    }
     themeSwitch.querySelectorAll(".mira-theme-option").forEach(function (btn) {
       btn.addEventListener("click", function () {
         applyTheme(btn.dataset.themeChoice);

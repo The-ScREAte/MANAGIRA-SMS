@@ -55,9 +55,24 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`[Mira] Running on http://localhost:${PORT}`);
-  });
+  // Run schema setup once at boot, not lazily on whichever request happens
+  // to hit it first. ensureMiraSchema does ~15 DDL statements (tables,
+  // indexes, the pgvector extension/HNSW index) - against a remote,
+  // non-colocated Postgres each round trip has real latency, and doing
+  // this on a random user's first click added ~1.7s to that one request.
+  const db = require("./config/db");
+  const { ensureMiraSchema } = require("./db/schema");
+
+  ensureMiraSchema(db)
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`[Mira] Running on http://localhost:${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error("[Mira] Failed to initialize database schema, exiting:", error);
+      process.exit(1);
+    });
 }
 
 module.exports = app;
