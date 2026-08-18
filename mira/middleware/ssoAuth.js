@@ -17,7 +17,11 @@ const { getRedisClient, prefixed } = require("../config/redis");
 
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "connect.sid";
 const MIRA_SIGNED_OUT_COOKIE = "mira_signed_out";
-const IDENTITY_CACHE_TTL_SEC = 60;
+// Longer than the original 60s: identity rarely changes mid-session, and
+// every cache miss costs a full round trip to the main app's internal API
+// (measured 800ms-1s on a cold cache, vs ~170ms warm) - the dominant cause
+// of history-chat clicks feeling slow when they land just past expiry.
+const IDENTITY_CACHE_TTL_SEC = 300;
 
 // In-memory fallback so SSO still works (just without cross-process
 // caching) when Redis isn't configured, matching the main app's own

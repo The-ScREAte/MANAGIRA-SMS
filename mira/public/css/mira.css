@@ -901,6 +901,28 @@ button { font-family: inherit; }
   gap: 20px;
 }
 
+/* Shown the instant a history item is clicked, before the fetch resolves -
+   see loadChat() in mira-chat.js. */
+.mira-chat-loading-skeleton { display: flex; flex-direction: column; gap: 14px; padding-top: 4px; }
+.mira-chat-loading-skeleton div {
+  height: 14px;
+  border-radius: 7px;
+  background: var(--mira-border);
+  width: 70%;
+}
+.mira-chat-loading-skeleton div:nth-child(1) { width: 40%; }
+.mira-chat-loading-skeleton div:nth-child(2) { width: 85%; }
+.mira-chat-loading-skeleton div:nth-child(3) { width: 55%; }
+@media (prefers-reduced-motion: no-preference) {
+  .mira-chat-loading-skeleton div { animation: miraSkeletonPulse 1.2s ease-in-out infinite; }
+  .mira-chat-loading-skeleton div:nth-child(2) { animation-delay: 0.15s; }
+  .mira-chat-loading-skeleton div:nth-child(3) { animation-delay: 0.3s; }
+}
+@keyframes miraSkeletonPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
 .mira-message { display: flex; gap: 12px; max-width: 100%; }
 .mira-message-user { flex-direction: column; align-items: flex-end; gap: 4px; }
 .mira-message-assistant { flex-direction: column; align-items: flex-start; gap: 6px; }
@@ -1065,7 +1087,10 @@ button { font-family: inherit; }
      motion there read as distracting. More specific (3 classes) than
      the rule above, so it wins regardless of source order. */
   .mira-logo.mira-logo-thread.mira-logo-idle { animation: none; }
-  .mira-logo.mira-logo-thread.mira-logo-idle:hover { animation: miraLogoWag 3s ease-in-out infinite; }
+  /* A single up-down bob per hover, not a continuous loop - re-triggers
+     each time the pointer re-enters (mouse leaves + comes back), but
+     sitting there hovering plays it exactly once and then holds still. */
+  .mira-logo.mira-logo-thread.mira-logo-idle:hover { animation: miraLogoHoverBob 0.6s ease-in-out 1; }
   /* Loading state: while Mira is generating a reply. Same motion, just a
      little brisker to read as "working" - always animated here,
      regardless of hover, on the thread logo too. */
@@ -1097,6 +1122,12 @@ button { font-family: inherit; }
     67%  { transform: rotate(0deg); }
     83%  { transform: rotate(10deg); }
     100% { transform: rotate(0deg); }
+  }
+  @keyframes miraLogoHoverBob {
+    0%   { transform: translateY(0); }
+    35%  { transform: translateY(-6px); }
+    70%  { transform: translateY(1px); }
+    100% { transform: translateY(0); }
   }
 }
 @media (prefers-reduced-motion: reduce) {
