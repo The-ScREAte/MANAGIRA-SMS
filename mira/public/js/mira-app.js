@@ -279,15 +279,20 @@
   var emptyState = document.getElementById("miraEmptyState");
   var chatView = document.getElementById("miraChatView");
   var mobileShareBtn = document.getElementById("miraChatTopbarShareMobile");
+  var mobileNewChatBtn = document.getElementById("miraNewChatBtnMobile");
 
   function showEmptyState() {
     emptyState.style.display = "flex";
     chatView.classList.remove("is-active");
     if (mobileShareBtn) mobileShareBtn.hidden = true;
+    // Already on the "start a new chat" screen - a second New chat button
+    // here would be redundant.
+    if (mobileNewChatBtn) mobileNewChatBtn.hidden = true;
   }
   function showChatView() {
     emptyState.style.display = "none";
     chatView.classList.add("is-active");
+    if (mobileNewChatBtn) mobileNewChatBtn.hidden = false;
     if (mobileShareBtn) mobileShareBtn.hidden = false;
     if (syncDockedComposer) syncDockedComposer();
   }
