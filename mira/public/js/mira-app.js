@@ -82,15 +82,20 @@
   if (backdrop) backdrop.addEventListener("click", closeDrawer);
 
   // ---- New chat ----
-  var newChatBtn = document.getElementById("miraNewChatBtn");
-  if (newChatBtn) {
-    newChatBtn.addEventListener("click", function () {
-      if (window.miraStartNewChat) window.miraStartNewChat();
-      showEmptyState();
-      var input = document.getElementById("miraInput");
-      if (input) input.focus();
-    });
+  // Shared by the sidebar's "New chat" button and its mobile-topbar
+  // icon-only counterpart (views/index.ejs) - the sidebar is off-screen by
+  // default on mobile, so the topbar needs its own trigger for the same
+  // action rather than requiring the drawer to be opened first.
+  function startNewChat() {
+    if (window.miraStartNewChat) window.miraStartNewChat();
+    showEmptyState();
+    var input = document.getElementById("miraInput");
+    if (input) input.focus();
   }
+  var newChatBtn = document.getElementById("miraNewChatBtn");
+  if (newChatBtn) newChatBtn.addEventListener("click", startNewChat);
+  var newChatBtnMobile = document.getElementById("miraNewChatBtnMobile");
+  if (newChatBtnMobile) newChatBtnMobile.addEventListener("click", startNewChat);
 
   // ---- Textarea auto-grow + send-button enable state ----
   function wireComposer(textareaId, sendBtnId, submitFormId) {

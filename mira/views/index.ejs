@@ -8,14 +8,19 @@
       </button>
       <%- include('partials/logo', { size: 'sidebar', animate: false }) %>
       <span style="font-weight:700;">Mira</span>
-      <button type="button" class="mira-icon-btn mira-mobile-topbar-share" id="miraChatTopbarShareMobile" aria-label="Share chat" title="Share chat" hidden>
-        <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><circle cx="12.5" cy="3.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><circle cx="3.5" cy="8" r="1.8" stroke="currentColor" stroke-width="1.3"/><circle cx="12.5" cy="12.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M5.1 7l5.8-3M5.1 9l5.8 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-      </button>
+      <div class="mira-mobile-topbar-actions">
+        <button type="button" class="mira-icon-btn" id="miraNewChatBtnMobile" aria-label="New chat" title="New chat">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <button type="button" class="mira-icon-btn" id="miraChatTopbarShareMobile" aria-label="Share chat" title="Share chat" hidden>
+          <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><circle cx="12.5" cy="3.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><circle cx="3.5" cy="8" r="1.8" stroke="currentColor" stroke-width="1.3"/><circle cx="12.5" cy="12.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M5.1 7l5.8-3M5.1 9l5.8 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        </button>
+      </div>
     </div>
 
     <!-- Empty state -->
     <section class="mira-empty-state" id="miraEmptyState">
-      <%- include('partials/logo', { size: 'hero', animate: true }) %>
+      <%- include('partials/logo', { size: 'hero', animate: true, mark: 'managira' }) %>
       <h1 class="mira-empty-heading">What can I help you with?</h1>
 
       <div class="mira-class-selector-wrap">

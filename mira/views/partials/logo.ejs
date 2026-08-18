@@ -1,8 +1,14 @@
 <%
   // size: 'sidebar' | 'hero'
+  // mark: 'mira' (default) | 'managira' - the empty-state hero explicitly
+  // wants the Managira wordmark, everywhere else (sidebar, mobile topbar,
+  // login) uses the Mira mark.
   const logoSize = typeof size !== 'undefined' ? size : 'hero';
   const animated = typeof animate !== 'undefined' ? animate : false;
+  const logoMark = typeof mark !== 'undefined' ? mark : 'mira';
+  const logoSrc = logoMark === 'managira' ? '/images/managira.png' : '/images/miralogo.png';
+  const logoAlt = logoMark === 'managira' ? 'Managira' : 'Mira';
 %>
 <div class="mira-logo <%= logoSize === 'sidebar' ? 'mira-logo-sidebar' : '' %> <%= animated ? 'mira-logo-entrance' : '' %>" data-mira-logo <%= animated ? 'data-mira-logo-idle-after-entrance' : '' %>>
-  <img src="/images/miralogo.png" alt="Mira" />
+  <img src="<%= logoSrc %>" alt="<%= logoAlt %>" />
 </div>

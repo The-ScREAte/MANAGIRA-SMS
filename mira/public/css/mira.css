@@ -1312,12 +1312,12 @@ button { font-family: inherit; }
   .mira-sidebar-backdrop.is-visible { display: block; }
 
   .mira-mobile-topbar { display: flex; }
-  .mira-mobile-topbar-share { margin-left: auto; }
-  .mira-mobile-topbar-share[hidden] { display: none; }
+  .mira-mobile-topbar-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+  .mira-mobile-topbar-actions [hidden] { display: none; }
   /* The full desktop chat topbar (title/rename/pin/delete menu + Share)
      doesn't fit this width - title lives in the mobile topbar's "Mira"
-     label instead, and Share moves to its own icon button there too (see
-     .mira-mobile-topbar-share above). */
+     label instead, and New chat/Share move to their own icon buttons
+     there too (see .mira-mobile-topbar-actions above). */
   .mira-chat-topbar { display: none; }
   .mira-empty-heading { font-size: 1.4rem; }
   .mira-logo { width: 64px; height: 64px; }
