@@ -273,14 +273,17 @@
   // ---- Empty state <-> chat view ----
   var emptyState = document.getElementById("miraEmptyState");
   var chatView = document.getElementById("miraChatView");
+  var mobileShareBtn = document.getElementById("miraChatTopbarShareMobile");
 
   function showEmptyState() {
     emptyState.style.display = "flex";
     chatView.classList.remove("is-active");
+    if (mobileShareBtn) mobileShareBtn.hidden = true;
   }
   function showChatView() {
     emptyState.style.display = "none";
     chatView.classList.add("is-active");
+    if (mobileShareBtn) mobileShareBtn.hidden = false;
     if (syncDockedComposer) syncDockedComposer();
   }
   window.miraShowChatView = showChatView;
