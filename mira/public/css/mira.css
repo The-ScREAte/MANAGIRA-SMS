@@ -962,13 +962,17 @@ button { font-family: inherit; }
     100% { opacity: 1; transform: scale(1) rotate(360deg); }
   }
   /* Asymmetric swing, left leg first (20deg left, 10deg right) - keyframe
-     timing spaced proportionally to each leg's angular distance (20/60,
-     40/60, 50/60, 60/60) so neither side stalls waiting for the other's
-     time budget. */
+     timing spaced proportionally to each leg's angular distance so every
+     leg moves at the same average speed: 20/60=33%, 40/60=67% (back to
+     center), 50/60=83% (out to the right), 60/60=100% (back to center).
+     A previous version had the second keyframe at 50% instead of 67%,
+     which squeezed the return-from-left leg into half its correct time
+     and stretched the swing-to-right leg to double its correct time -
+     that mismatch was the visible stutter ("breaks in the middle"). */
   @keyframes miraLogoWag {
     0%   { transform: rotate(0deg); }
     33%  { transform: rotate(-20deg); }
-    50%  { transform: rotate(0deg); }
+    67%  { transform: rotate(0deg); }
     83%  { transform: rotate(10deg); }
     100% { transform: rotate(0deg); }
   }
