@@ -67,10 +67,46 @@ function adaptForAnthropic(content) {
 // in real keys later requires no code change - only MIRA_MOCK_LLM=false
 // (or simply setting the keys, since mock mode auto-disables once a key
 // is present).
+// The orchestrator's second pass (after a tool call) re-invokes the model
+// with the tool's real result folded into a "Tool result: <json>. Reply to
+// the user based on this." message, expecting a natural-language answer.
+// Without this, mock mode fell through to the same generic "demo mode"
+// line every time - identical output whether a search found 3 students or
+// zero, which reads as broken rather than just unphrased.
+function mockPhraseToolResult(messages, rawText) {
+  const match = rawText.match(/^Tool result: ([\s\S]*)\. Reply to the user based on this\.$/);
+  if (!match) return null;
+
+  let result;
+  try {
+    result = JSON.parse(match[1]);
+  } catch {
+    result = null;
+  }
+
+  const calledMessage = [...messages].reverse().find((m) => m.role === "assistant" && /^\[Called /.test(extractText(m.content)));
+  const toolName = calledMessage ? (extractText(calledMessage.content).match(/^\[Called (\w+)/) || [])[1] : null;
+
+  if (toolName === "find_student" && Array.isArray(result)) {
+    if (!result.length) return "I couldn't find any students matching that - try a different name or spelling.";
+    const names = result
+      .slice(0, 5)
+      .map((s) => [s.first_name, s.last_name].filter(Boolean).join(" ") + (s.class_name ? ` (${s.class_name})` : ""))
+      .join(", ");
+    const more = result.length > 5 ? `, and ${result.length - 5} more` : "";
+    return `Found ${result.length} student${result.length === 1 ? "" : "s"}: ${names}${more}.`;
+  }
+
+  return "I'm running in demo mode, so I can run the tool but can't fully phrase the result yet - the raw data came back fine though.";
+}
+
 function mockDecide({ messages, tools }) {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   const rawText = extractText(lastUser?.content);
   const text = rawText.toLowerCase();
+
+  const toolResultReply = mockPhraseToolResult(messages, rawText);
+  if (toolResultReply) return { type: "text", content: toolResultReply };
 
   if (tools?.some((t) => t.name === "find_student") && (text.includes("find") || text.includes("student") || text.includes("search"))) {
     const nameMatch = text.match(/(?:find|search for|look up)\s+(?:student\s+)?([a-z][a-z .'-]{1,40})/i);
