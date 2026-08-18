@@ -11,6 +11,11 @@
   function applyCollapsedState(collapsed) {
     sidebar.classList.toggle("is-collapsed", collapsed);
   }
+  function expandSidebar() {
+    if (!sidebar.classList.contains("is-collapsed")) return;
+    applyCollapsedState(false);
+    window.localStorage.setItem(COLLAPSE_STORAGE_KEY, "false");
+  }
   if (collapseToggle) {
     var storedCollapsed = window.localStorage.getItem(COLLAPSE_STORAGE_KEY) === "true";
     applyCollapsedState(storedCollapsed);
@@ -245,8 +250,12 @@
   if (userTrigger) {
     userTrigger.addEventListener("click", function (e) {
       e.stopPropagation();
-      if (userMenu.hidden) openUserMenu();
-      else closeUserMenu();
+      if (userMenu.hidden) {
+        expandSidebar();
+        openUserMenu();
+      } else {
+        closeUserMenu();
+      }
     });
     document.addEventListener("click", function (e) {
       if (!userMenu.hidden && !userMenu.contains(e.target) && e.target !== userTrigger) closeUserMenu();

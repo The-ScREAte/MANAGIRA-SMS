@@ -347,6 +347,7 @@ button { font-family: inherit; }
 
 .mira-sidebar-footer {
   position: relative;
+  margin-top: auto;
   padding: 10px;
   border-top: 1px solid var(--mira-border);
 }
