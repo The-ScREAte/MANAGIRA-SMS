@@ -263,6 +263,59 @@
       font-size: 0.82rem;
     }
 
+    .mailroom-scope-panel {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .mailroom-scope-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+
+    .mailroom-scope-option {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .mailroom-scope-option input[type="radio"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--primary);
+    }
+
+    .mailroom-classes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 14px;
+      margin: 8px 0 0 22px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .mailroom-class-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .mailroom-class-item input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--primary);
+    }
+
     .btn-primary {
       display: inline-flex;
       align-items: center;
@@ -432,6 +485,27 @@
       // Role → default permission keys map (injected server-side)
       const ROLE_DEFAULT_PERMISSIONS_MAP = <%- JSON.stringify(roleDefaultPermissionsMap || {}) %>;
 
+      // Mailroom's contact-scope sub-panel only matters once "Mailroom" is
+      // checked, and the class picker only matters once "classes" scope is
+      // chosen — keep both hidden otherwise so the form stays uncluttered.
+      const mailroomScopePanel = document.getElementById("mailroomScopePanel");
+      const mailroomClassesGrid = document.getElementById("mailroomClassesGrid");
+      const syncMailroomScopePanel = () => {
+        if (!mailroomScopePanel) return;
+        const mailroomCheckbox = document.querySelector('input[name="permissions"][value="mailroom"]');
+        const isMailroomChecked = Boolean(mailroomCheckbox && mailroomCheckbox.checked);
+        mailroomScopePanel.style.display = isMailroomChecked ? "block" : "none";
+        const classesRadio = mailroomScopePanel.querySelector('input[name="mailroomScope"][value="classes"]');
+        if (mailroomClassesGrid) {
+          mailroomClassesGrid.style.display = isMailroomChecked && classesRadio && classesRadio.checked ? "grid" : "none";
+        }
+      };
+      document.addEventListener("change", (e) => {
+        if (e.target.matches('input[name="permissions"][value="mailroom"], input[name="mailroomScope"]')) {
+          syncMailroomScopePanel();
+        }
+      });
+
       const syncPermissionVisibility = () => {
         if (!accountTypeSelect || !permissionGroup) return;
         permissionGroup.style.display = "block";
@@ -463,6 +537,8 @@
           const containerId = `subjects-container-${cb.value}`;
           toggleSubjects(cb.value, containerId);
         });
+
+        syncMailroomScopePanel();
       };
 
       if (accountTypeSelect) {
@@ -566,6 +642,26 @@
             </div>
             <div class="permissions-note" id="permissionsNote">Permissions are pre-selected based on the chosen role. You can add or remove any before saving. High-risk permissions (Billing, Settings) require a Manager account.</div>
             <div class="permissions-note" id="driverPermissionsNote" style="display:none;">Drivers automatically get access to view and manage the student roster only — no other permissions can be granted from this form.</div>
+
+            <div class="mailroom-scope-panel" id="mailroomScopePanel" style="display:none;">
+              <div class="mailroom-scope-title">Mailroom contact access</div>
+              <label class="mailroom-scope-option">
+                <input type="radio" name="mailroomScope" value="all" checked>
+                All contacts (every class)
+              </label>
+              <label class="mailroom-scope-option">
+                <input type="radio" name="mailroomScope" value="classes">
+                Only guardians of students in selected classes
+              </label>
+              <div class="mailroom-classes-grid" id="mailroomClassesGrid" style="display:none;">
+                <% classes.forEach(cls => { %>
+                <label class="mailroom-class-item">
+                  <input type="checkbox" name="mailroomClassIds" value="<%= cls.class_id %>">
+                  <%= cls.class_name %>
+                </label>
+                <% }); %>
+              </div>
+            </div>
           </div>
         </div>
 

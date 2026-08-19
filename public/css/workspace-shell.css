@@ -447,6 +447,125 @@ main { padding: 0 !important; max-width: none !important; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Desktop icon-rail collapse — shared by all three workspace sidebars
+   (hub-nav, management-nav, settings-nav). Toggled via JS setting
+   .is-collapsed on the nav and .is-nav-collapsed on the layout grid.
+   Lives here (not in each page's inline <style>) because this file loads
+   last and !important's most sidebar rules above — page-level overrides
+   without !important lose that fight, so the real behavior has to live
+   where it can actually win. Kept to fast (<=160ms), cheap-to-animate
+   properties so it stays snappy. */
+.hub-layout, .management-layout, .settings-layout {
+  transition: grid-template-columns 0.16s ease;
+}
+
+.hub-layout.is-nav-collapsed,
+.management-layout.is-nav-collapsed,
+.settings-layout.is-nav-collapsed {
+  grid-template-columns: 76px minmax(0, 1fr) !important;
+}
+
+.hub-nav-collapse-toggle,
+.management-nav-collapse-toggle,
+.settings-nav-collapse-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+
+.hub-nav-collapse-toggle:hover,
+.management-nav-collapse-toggle:hover,
+.settings-nav-collapse-toggle:hover {
+  color: var(--primary, #01535b);
+  border-color: var(--primary, #01535b);
+  background: #f8fafc;
+}
+
+.hub-nav-collapse-toggle:active,
+.management-nav-collapse-toggle:active,
+.settings-nav-collapse-toggle:active {
+  transform: scale(0.9);
+}
+
+.hub-nav-collapse-toggle svg,
+.management-nav-collapse-toggle svg,
+.settings-nav-collapse-toggle svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.hub-nav.is-collapsed .hub-nav-collapse-toggle,
+.management-nav.is-collapsed .management-nav-collapse-toggle,
+.settings-nav.is-collapsed .settings-nav-collapse-toggle {
+  color: var(--primary, #01535b);
+  border-color: var(--primary, #01535b);
+}
+
+.hub-nav.is-collapsed .hub-nav-header,
+.management-nav.is-collapsed .management-nav-header,
+.settings-nav.is-collapsed .settings-nav-header {
+  justify-content: center !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+.hub-nav.is-collapsed .hub-nav-header h3,
+.management-nav.is-collapsed .management-nav-header h3,
+.settings-nav.is-collapsed .settings-nav-header h3,
+.settings-nav.is-collapsed .settings-nav-toggle,
+.settings-nav.is-collapsed .settings-nav-country-flag {
+  display: none !important;
+}
+
+.hub-nav.is-collapsed .nav-link,
+.management-nav.is-collapsed .nav-link,
+.settings-nav.is-collapsed .nav-link {
+  justify-content: center !important;
+  padding: 10px !important;
+  gap: 0 !important;
+}
+
+.hub-nav .nav-link > span:not(.nav-link-icon),
+.management-nav .nav-link > span:not(.nav-link-icon),
+.settings-nav .nav-link > span:not(.nav-link-icon) {
+  max-width: 220px;
+  opacity: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.12s ease, max-width 0.16s ease;
+}
+
+.hub-nav.is-collapsed .nav-link > span:not(.nav-link-icon),
+.management-nav.is-collapsed .nav-link > span:not(.nav-link-icon),
+.settings-nav.is-collapsed .nav-link > span:not(.nav-link-icon) {
+  opacity: 0 !important;
+  max-width: 0 !important;
+}
+
+.hub-nav.is-collapsed .nav-submenu {
+  display: none !important;
+}
+
+/* Icon-rail collapse never applies on mobile — the sidebar is already an
+   overlay/dropdown there via the block below. */
+@media (max-width: 900px) {
+  .hub-nav-collapse-toggle,
+  .management-nav-collapse-toggle,
+  .settings-nav-collapse-toggle {
+    display: none !important;
+  }
+}
+
 /* Mobile */
 @media (max-width: 900px) {
   .hub-main form input[type="date"],

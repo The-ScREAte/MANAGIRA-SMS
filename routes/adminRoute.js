@@ -305,6 +305,7 @@ module.exports = (db) => {
     router.get('/scheduled-holds', ensureAdmin, adminController.scheduledHoldsPage);
 
     router.get("/announcements", isAuthenticated, ensureAdmin, adminController.getAdminAnnouncements);
+    router.get("/announcements/new", isAuthenticated, ensureAdmin, adminController.newAdminAnnouncementForm);
     router.post("/announcements", isAuthenticated, ensureAdmin, adminController.createAdminAnnouncement);
     router.post("/announcements/toggle/:id", isAuthenticated, ensureAdmin, adminController.toggleAdminAnnouncement);
     router.post("/announcements/delete/:id", isAuthenticated, ensureAdmin, adminController.deleteAdminAnnouncement);

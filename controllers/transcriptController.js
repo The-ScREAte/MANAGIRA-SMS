@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const ejs = require('ejs');
 const axios = require('axios');
+const { getMessagingChannelStatus } = require("../utils/guardianMessaging");
 
 // Ensure signature metadata columns exist on report_settings
 let ensuredSignatureMeta = false;
@@ -240,6 +241,11 @@ const transcriptController = (db) => ({
             }
 
             // Render the transcript
+            const transcriptMessagingStatus = await getMessagingChannelStatus(db, organizationId).catch(() => ({
+                sms: { ready: false },
+                whatsapp: { ready: false },
+            }));
+
             res.render('print/transcript', {
                 title: `Transcript for ${student.first_name} ${student.last_name}`,
                 organization,
@@ -249,6 +255,7 @@ const transcriptController = (db) => ({
                 signatureName,
                 signatureTitle,
                 official: req.query.official === 'true',
+                canBroadcastToGuardians: Boolean(transcriptMessagingStatus.sms?.ready || transcriptMessagingStatus.whatsapp?.ready),
                 hideGlobalHeader: true,
                 hideGlobalFooter: true,
             });

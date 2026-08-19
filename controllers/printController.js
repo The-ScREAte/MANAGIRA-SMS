@@ -30,6 +30,7 @@ const {
   sendWhatsappTextMessage,
   sendWhatsappDocumentMessage,
 } = require("../utils/whatsappIntegration");
+const { getSmsIntegrationStatus, getTenantSmsCredentials, sendSms } = require("../utils/smsIntegration");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
@@ -2330,6 +2331,12 @@ const printController = (db) => ({
       }));
       const canSendByWhatsapp = Boolean(whatsappIntegrationStatus.activated && whatsappIntegrationStatus.connected);
 
+      const smsIntegrationStatusForReport = await getSmsIntegrationStatus(db, organizationId).catch(() => ({ activeProvider: "", providers: {} }));
+      const smsActiveProviderForReport = smsIntegrationStatusForReport.activeProvider || "";
+      const canSendBySms = Boolean(
+        smsActiveProviderForReport && smsIntegrationStatusForReport.providers?.[smsActiveProviderForReport]?.configured
+      );
+
       // Render the report
       const isEmbedded = isEmbeddedRequest(req, "printStudentReport");
       res.render("print/printStudentReport", {
@@ -2392,6 +2399,7 @@ const printController = (db) => ({
         schoolWebsiteHost: websiteInfo.websiteHost,
         reportYear: new Date().getFullYear(),
         canSendByWhatsapp,
+        canSendBySms,
       });
     } catch (error) {
             res.status(500).send("Failed to generate student report.");
@@ -7742,14 +7750,16 @@ const printController = (db) => ({
         return res.status(400).json({ success: false, message: "No valid student IDs." });
       }
 
-      // Fetch students with their guardian emails (new guardian_profiles + legacy guardians table)
+      // Fetch students with their guardian emails (new guardian_profiles + legacy guardians table).
+      // guardian_id + source are included so an edit in the Send Report
+      // modal can be saved back to the exact guardian row it came from.
       const result = await db.query(
         `SELECT s.student_id,
                 s.first_name,
                 s.last_name,
                 c.class_name,
                 COALESCE(
-                  jsonb_agg(DISTINCT jsonb_build_object('email', ge.email, 'relationship', ge.relationship))
+                  jsonb_agg(DISTINCT jsonb_build_object('email', ge.email, 'relationship', ge.relationship, 'guardianId', ge.guardian_id, 'source', ge.source))
                   FILTER (WHERE ge.email IS NOT NULL),
                   '[]'::jsonb
                 ) AS emails
@@ -7759,7 +7769,9 @@ const printController = (db) => ({
            -- Modern guardian profiles mapped through guardian_students
            SELECT gs.student_id,
                   gp.email,
-                  COALESCE(gs.relationship, 'Guardian') AS relationship
+                  COALESCE(gs.relationship, 'Guardian') AS relationship,
+                  gp.guardian_id AS guardian_id,
+                  'profile' AS source
            FROM guardian_students gs
            JOIN guardian_profiles gp
              ON gp.guardian_id = gs.guardian_id
@@ -7771,7 +7783,9 @@ const printController = (db) => ({
            -- Legacy guardians table fallback
            SELECT g.student_id,
                   g.email,
-                  'Guardian' AS relationship
+                  'Guardian' AS relationship,
+                  g.guardian_id AS guardian_id,
+                  'legacy' AS source
            FROM guardians g
            WHERE g.organization_id = $2
              AND g.email IS NOT NULL
@@ -7824,7 +7838,7 @@ const printController = (db) => ({
                 s.last_name,
                 c.class_name,
                 COALESCE(
-                  jsonb_agg(DISTINCT jsonb_build_object('phone', gpv.phone, 'relationship', gpv.relationship))
+                  jsonb_agg(DISTINCT jsonb_build_object('phone', gpv.phone, 'relationship', gpv.relationship, 'guardianId', gpv.guardian_id, 'source', gpv.source))
                   FILTER (WHERE gpv.phone IS NOT NULL),
                   '[]'::jsonb
                 ) AS phones
@@ -7833,7 +7847,9 @@ const printController = (db) => ({
          LEFT JOIN (
            SELECT gs.student_id,
                   gp.phone,
-                  COALESCE(gs.relationship, 'Guardian') AS relationship
+                  COALESCE(gs.relationship, 'Guardian') AS relationship,
+                  gp.guardian_id AS guardian_id,
+                  'profile' AS source
            FROM guardian_students gs
            JOIN guardian_profiles gp
              ON gp.guardian_id = gs.guardian_id
@@ -7844,7 +7860,9 @@ const printController = (db) => ({
 
            SELECT g.student_id,
                   g.phone,
-                  'Guardian' AS relationship
+                  'Guardian' AS relationship,
+                  g.guardian_id AS guardian_id,
+                  'legacy' AS source
            FROM guardians g
            WHERE g.organization_id = $2
              AND g.phone IS NOT NULL
@@ -7871,6 +7889,8 @@ const printController = (db) => ({
               relationship: String(entry?.relationship || "Guardian").trim() || "Guardian",
               normalizedPhone: normalized.normalized || "",
               valid: normalized.valid,
+              guardianId: entry?.guardianId ?? null,
+              source: entry?.source || null,
             };
           })
           .filter(Boolean);
@@ -8456,6 +8476,228 @@ const printController = (db) => ({
           await browser.close();
         } catch (_) {}
       }
+    }
+  },
+
+  // Send reports to guardians by SMS. Deliberately lean compared to
+  // whatsappReports: it only uses a PDF link that's already been posted
+  // (posted_report_cards.pdf_url) rather than generating one via Puppeteer —
+  // SMS is a text link either way, so there's no need to duplicate that
+  // generation pipeline here. If a student's report hasn't been posted yet,
+  // the guardian still gets a message, just without a working link.
+  smsReports: async (req, res) => {
+    try {
+      const organizationId = Number(req.session.organizationId || 0);
+      const { classId, termId, password, smsData } = req.body || {};
+
+      if (!organizationId || !password || !Array.isArray(smsData) || !classId || !termId) {
+        return res.status(400).json({ success: false, message: "Missing required fields." });
+      }
+
+      const parsedClassId = Number(classId);
+      const parsedTermId = Number(termId);
+      if (!Number.isFinite(parsedClassId) || parsedClassId <= 0 || !Number.isFinite(parsedTermId) || parsedTermId <= 0) {
+        return res.status(400).json({ success: false, message: "Invalid class or term." });
+      }
+
+      await ensureDeliveryAuditTable(db);
+
+      const activityBatchId = `rsa_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const userId = req.session.userId || (req.session.user && req.session.user.user_id);
+
+      let passwordMatch = false;
+      if (userId) {
+        const userResult = await db.query(
+          "SELECT password FROM users WHERE user_id = $1 AND organization_id = $2",
+          [userId, organizationId]
+        );
+        if (userResult.rows.length > 0 && userResult.rows[0].password) {
+          passwordMatch = await bcrypt.compare(password, userResult.rows[0].password);
+        }
+      }
+      if (!passwordMatch) {
+        const orgResult = await db.query("SELECT password FROM organizations WHERE organization_id = $1", [organizationId]);
+        if (orgResult.rows.length > 0) {
+          passwordMatch = await bcrypt.compare(password, orgResult.rows[0].password);
+        }
+      }
+      if (!passwordMatch) {
+        return res.status(401).json({ success: false, message: "Incorrect password." });
+      }
+
+      const smsStatus = await getSmsIntegrationStatus(db, organizationId);
+      const activeProvider = smsStatus.activeProvider;
+      if (!activeProvider || !smsStatus.providers?.[activeProvider]?.configured) {
+        return res.status(400).json({
+          success: false,
+          message: "SMS is not set up for this school yet. Configure a provider in Settings → Integrations.",
+        });
+      }
+      const tenant = await getTenantSmsCredentials(db, organizationId);
+
+      const [orgResult, classResult, termResult] = await Promise.all([
+        db.query("SELECT organization_name FROM organizations WHERE organization_id = $1 LIMIT 1", [organizationId]),
+        db.query("SELECT class_name FROM classes WHERE class_id = $1 AND organization_id = $2 LIMIT 1", [parsedClassId, organizationId]),
+        db.query("SELECT term_name FROM terms WHERE term_id = $1 AND organization_id = $2 LIMIT 1", [parsedTermId, organizationId]),
+      ]);
+      const orgName = String(orgResult.rows[0]?.organization_name || "Your School").trim() || "Your School";
+      const className = String(classResult.rows[0]?.class_name || `Class ${parsedClassId}`).trim();
+      const termName = String(termResult.rows[0]?.term_name || `Term ${parsedTermId}`).trim();
+
+      const requestedStudentIds = parsePositiveIntArray(smsData.map((entry) => entry?.studentId));
+      if (!requestedStudentIds.length) {
+        return res.status(400).json({ success: false, message: "No valid students selected for SMS send." });
+      }
+
+      const validStudentIds = await getScopedStudentIdsForClassTerm(db, organizationId, parsedClassId, parsedTermId, requestedStudentIds);
+      const validStudentIdSet = new Set(validStudentIds);
+      if (!validStudentIds.length) {
+        return res.status(400).json({ success: false, message: "None of the selected students are in this class and term." });
+      }
+
+      const studentRowsResult = await db.query(
+        `SELECT student_id, first_name, last_name FROM students WHERE organization_id = $1 AND student_id = ANY($2::int[])`,
+        [organizationId, validStudentIds]
+      );
+      const studentNameById = new Map(
+        (studentRowsResult.rows || []).map((row) => {
+          const full = `${row.first_name || ""} ${row.last_name || ""}`.trim() || `Student ${row.student_id}`;
+          return [Number(row.student_id), full];
+        })
+      );
+
+      const postedRowsResult = await db.query(
+        `SELECT student_id, pdf_url FROM posted_report_cards WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id = ANY($4::int[])`,
+        [organizationId, parsedClassId, parsedTermId, validStudentIds]
+      );
+      const pdfUrlByStudentId = new Map(
+        (postedRowsResult.rows || []).map((row) => [Number(row.student_id), String(row.pdf_url || "").trim()])
+      );
+
+      const sent = [];
+      const failed = [];
+      const deliveryAuditRows = [];
+
+      const appendDeliveryAuditRow = ({ studentId = null, studentName = null, status = "failed", notes = "", metadata = {} }) => {
+        deliveryAuditRows.push({
+          organizationId,
+          eventDomain: "sms",
+          eventName: "report_sms_sent",
+          classId: parsedClassId,
+          termId: parsedTermId,
+          studentId: Number.isFinite(Number(studentId)) && Number(studentId) > 0 ? Number(studentId) : null,
+          studentName: studentName || null,
+          actorUserId: userId || null,
+          actorName: "",
+          recipientEmails: [],
+          status,
+          batchId: activityBatchId,
+          pdfUrl: null,
+          notes,
+          metadata: { source: "smsReports", ...metadata },
+        });
+      };
+
+      for (const entry of smsData) {
+        const studentId = Number(entry?.studentId || 0);
+        if (!Number.isFinite(studentId) || studentId <= 0 || !validStudentIdSet.has(studentId)) continue;
+
+        const studentName = studentNameById.get(studentId) || `Student ${studentId}`;
+        const phones = Array.isArray(entry?.phones) ? entry.phones.map((p) => String(p || "").trim()).filter(Boolean) : [];
+
+        if (!phones.length) {
+          failed.push({ studentId, studentName, phone: "", message: "No phone numbers provided." });
+          appendDeliveryAuditRow({ studentId, studentName, status: "failed", notes: "No phone numbers provided for student." });
+          continue;
+        }
+
+        const pdfUrl = pdfUrlByStudentId.get(studentId) || "";
+        const message = pdfUrl
+          ? `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is ready. View/download: ${pdfUrl}`
+          : `Hello, this is ${orgName}. ${studentName}'s report card for ${termName} (${className}) is ready — please check the school portal or contact the office.`;
+
+        for (const phone of phones) {
+          try {
+            const result = await sendSms(tenant, message, [phone]);
+            sent.push({ studentId, studentName, phone, messageId: result.providerMessageId || null });
+            appendDeliveryAuditRow({
+              studentId,
+              studentName,
+              status: "sent",
+              notes: `Report card sent by SMS to ${phone}.`,
+              metadata: { channel: "sms", provider: activeProvider, className, termName, recipientPhone: phone, pdfUrl: pdfUrl || null },
+            });
+          } catch (error) {
+            const reason = error?.message || "Failed to send SMS.";
+            failed.push({ studentId, studentName, phone, message: reason });
+            appendDeliveryAuditRow({
+              studentId,
+              studentName,
+              status: "failed",
+              notes: `SMS send failed for ${phone}.`,
+              metadata: { channel: "sms", provider: activeProvider, className, termName, recipientPhone: phone, failureReason: reason },
+            });
+          }
+        }
+      }
+
+      let auditWriteError = "";
+      if (deliveryAuditRows.length) {
+        try {
+          await db.query(
+            `INSERT INTO delivery_audit_history (
+               organization_id, event_domain, event_name, class_id, term_id, student_id,
+               student_name, actor_user_id, actor_name, recipient_emails, status, batch_id, pdf_url, notes, metadata
+             )
+             SELECT * FROM UNNEST(
+               $1::int[], $2::text[], $3::text[], $4::int[], $5::int[], $6::int[],
+               $7::text[], $8::int[], $9::text[], $10::text[][], $11::text[], $12::text[],
+               $13::text[], $14::text[], $15::jsonb[]
+             )`,
+            [
+              deliveryAuditRows.map((row) => row.organizationId),
+              deliveryAuditRows.map((row) => row.eventDomain),
+              deliveryAuditRows.map((row) => row.eventName),
+              deliveryAuditRows.map((row) => row.classId),
+              deliveryAuditRows.map((row) => row.termId),
+              deliveryAuditRows.map((row) => row.studentId),
+              deliveryAuditRows.map((row) => row.studentName),
+              deliveryAuditRows.map((row) => row.actorUserId),
+              deliveryAuditRows.map((row) => row.actorName),
+              deliveryAuditRows.map((row) => row.recipientEmails),
+              deliveryAuditRows.map((row) => row.status),
+              deliveryAuditRows.map((row) => row.batchId),
+              deliveryAuditRows.map((row) => row.pdfUrl),
+              deliveryAuditRows.map((row) => row.notes),
+              deliveryAuditRows.map((row) => row.metadata || {}),
+            ]
+          );
+        } catch (auditError) {
+          auditWriteError = String(auditError?.message || "").trim();
+          console.error("[smsReports] Audit insert failed:", auditWriteError || auditError);
+        }
+      }
+
+      return res.json({
+        success: failed.length === 0,
+        message: failed.length
+          ? `SMS sent to ${sent.length} number(s) with ${failed.length} failure(s).`
+          : `SMS sent successfully to ${sent.length} number(s).`,
+        sentCount: sent.length,
+        failedCount: failed.length,
+        batchId: activityBatchId,
+        trackedCount: deliveryAuditRows.length,
+        trackingWarning: auditWriteError || null,
+        sent,
+        failed,
+      });
+    } catch (error) {
+      console.error("[smsReports] Error:", error);
+      const details = String(error?.message || "").trim();
+      return res.status(500).json({
+        success: false,
+        message: details ? `Failed to send reports by SMS. ${details}` : "Failed to send reports by SMS.",
+      });
     }
   },
 

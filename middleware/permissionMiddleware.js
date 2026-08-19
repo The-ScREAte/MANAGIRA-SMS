@@ -25,7 +25,14 @@ const PERMISSIONS = {
   MANAGE_BILLING: "manage_billing",
   MANAGE_SETTINGS: "manage_settings",
   MANAGE_PAYGIRA: "manage_paygira",
+  MAILROOM: "mailroom",
 };
+
+// Not a PERMISSION_OPTIONS entry (so it never renders as its own checkbox) —
+// it's an internal marker stored alongside "mailroom" in user_permissions to
+// record that an employee's mailroom access is unrestricted (every guardian
+// contact org-wide), vs. scoped to just the classes in user_mailroom_classes.
+const MAILROOM_ALL_ACCESS_KEY = "mailroom_all_access";
 
 const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.MANAGE_EMPLOYEES, label: "Manage Employees" },
@@ -46,6 +53,7 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.MANAGE_BILLING, label: "Manage Billing" },
   { key: PERMISSIONS.MANAGE_SETTINGS, label: "Manage Organization Settings" },
   { key: PERMISSIONS.MANAGE_PAYGIRA, label: "PayGira (Finance & Billing)" },
+  { key: PERMISSIONS.MAILROOM, label: "Mailroom (Send SMS/WhatsApp/Email)" },
 ];
 
 const MANAGER_DEFAULT_OPTIONAL_PERMISSIONS = PERMISSION_OPTIONS
@@ -462,6 +470,7 @@ function requirePermission(permissionKey) {
 
 module.exports = {
   PERMISSIONS,
+  MAILROOM_ALL_ACCESS_KEY,
   PERMISSION_OPTIONS,
   ROLE_DEFAULT_PERMISSIONS,
   ensurePermissionsSchema,

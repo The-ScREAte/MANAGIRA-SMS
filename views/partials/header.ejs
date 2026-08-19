@@ -2548,6 +2548,16 @@
           </a>
         </li>
         <% } %>
+        <% if (req.session && Array.isArray(userPermissions) && userPermissions.includes('mailroom')) { %>
+        <li class="nav-item">
+          <a href="/common/mailroom" class="nav-item-link management-link">
+            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+            </svg>
+            Mailroom
+          </a>
+        </li>
+        <% } %>
         <li class="nav-item">
           <a href="/common/birthdays" class="nav-item-link management-link">
             <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3944,23 +3954,25 @@
   });
 
   // Mark all read
-  markAllBtn.addEventListener('click', async () => {
-    try {
-      await fetch('/notifications/mark-all-read', {
-        method: 'POST',
-        credentials: 'same-origin',
-      });
-      updateBadge(0);
-      // Re-render items as read
-      const items = list.querySelectorAll('.notif-item--unread');
-      items.forEach(el => {
-        el.classList.remove('notif-item--unread');
-        el.classList.add('notif-item--read');
-        const dot = el.querySelector('.notif-unread-dot');
-        if (dot) dot.remove();
-      });
-    } catch { /* silent */ }
-  });
+  if (markAllBtn) {
+    markAllBtn.addEventListener('click', async () => {
+      try {
+        await fetch('/notifications/mark-all-read', {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
+        updateBadge(0);
+        // Re-render items as read
+        const items = list.querySelectorAll('.notif-item--unread');
+        items.forEach(el => {
+          el.classList.remove('notif-item--unread');
+          el.classList.add('notif-item--read');
+          const dot = el.querySelector('.notif-unread-dot');
+          if (dot) dot.remove();
+        });
+      } catch { /* silent */ }
+    });
+  }
 
   // Clear all — dismiss every visible notification for this user
   if (clearAllBtn) {

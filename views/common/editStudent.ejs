@@ -638,6 +638,7 @@
         transform: none !important;
       }
     </style>
+    <script src="/js/dialCodes.js"></script>
     <script>
         let updateFormSubmitting = false;
 
@@ -661,6 +662,7 @@
               return false;
             }
 
+            if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(event.target);
             updateFormSubmitting = true;
             setUpdateStudentSavingState(true);
             return true;
@@ -897,12 +899,13 @@
             div.innerHTML = '<div class="es-form-grid">' +
               '<div class="es-field"><label>First Name</label><input type="text" name="guardians[' + count + '][firstName]"></div>' +
               '<div class="es-field"><label>Last Name</label><input type="text" name="guardians[' + count + '][lastName]"></div>' +
-              '<div class="es-field"><label>Phone</label><input type="text" name="guardians[' + count + '][phone]"></div>' +
+              '<div class="es-field"><label>Phone</label><div class="phone-combo" data-default-iso2="GH" style="display:flex;gap:6px;"><select class="phone-dial-select" style="max-width:150px;flex:0 0 auto;"></select><input type="text" class="phone-local-input" name="guardians[' + count + '][phone]" placeholder="24 123 4567" style="flex:1;"></div></div>' +
               '<div class="es-field"><label>Email</label><input type="email" name="guardians[' + count + '][email]"></div>' +
               '<div class="es-field"><label>Address</label><input type="text" name="guardians[' + count + '][address]"><label style="display:flex;align-items:center;gap:6px;font-size:0.75rem;margin:6px 0 0;"><input type="checkbox" class="es-guardian-address-sync" checked> Use student address</label></div>' +
               '<div class="es-field"><label>Hometown</label><input type="text" name="guardians[' + count + '][hometown]"></div>' +
             '</div>';
             container.appendChild(div);
+            if (window.initPhoneCountryCombos) window.initPhoneCountryCombos(div);
             bindGuardianAddressSyncForEntry(div);
         }
 
@@ -1096,11 +1099,14 @@
               </div>
               <div class="es-field">
                 <label>Phone</label>
-                <input type="text" name="guardians[<%= index %>][phone]" value="<%= guardian.phone %>">
+                <div class="phone-combo" data-default-iso2="GH" style="display:flex;gap:6px;">
+                  <select class="phone-dial-select" style="max-width:150px;flex:0 0 auto;"></select>
+                  <input type="text" class="phone-local-input" name="guardians[<%= index %>][phone]" value="<%= guardian.phone %>" placeholder="24 123 4567" style="flex:1;">
+                </div>
               </div>
               <div class="es-field">
                 <label>Email</label>
-                <input type="text" name="guardians[<%= index %>][email]" value="<%= guardian.email %>">
+                <input type="email" name="guardians[<%= index %>][email]" value="<%= guardian.email %>">
               </div>
               <div class="es-field">
                 <label>Address</label>

@@ -1,4 +1,5 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { getMessagingChannelStatus } = require("./../utils/guardianMessaging");
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
@@ -14,6 +15,7 @@ const { isEmailEnabledForRecipient, isOrgEmailEnabled } = require("../utils/emai
 const { getPaystackSettings } = require("../utils/paystackConfig");
 const {
   PERMISSIONS,
+  MAILROOM_ALL_ACCESS_KEY,
   PERMISSION_OPTIONS,
   ensurePermissionsSchema,
   normalizePermissionsList,
@@ -229,6 +231,7 @@ async function upsertStudentTransportationAssignment(dbClient, {
 }
 
 let publicRegistrationSchemaReady = false;
+let userMailroomClassesSchemaReady = false;
 let guardianPaymentMethodSchemaReady = false;
 let studentIdSettingsSchemaReady = false;
 let studentEmailSchemaReady = false;
@@ -881,6 +884,22 @@ async function ensurePublicRegistrationSchema(dbClient) {
 
 async function ensureUserBirthdaySchema(dbClient) {
   await dbClient.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth DATE`);
+}
+
+// Which classes' guardians a "mailroom"-scoped (not mailroom_all_access)
+// employee can see/message — mirrors user_classes but kept separate so
+// restricting mailroom visibility never touches an employee's actual
+// teaching/homeroom class assignments.
+async function ensureUserMailroomClassesSchema(dbClient) {
+  if (userMailroomClassesSchemaReady) return;
+  await dbClient.query(`
+    CREATE TABLE IF NOT EXISTS user_mailroom_classes (
+      user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+      class_id INT REFERENCES classes(class_id) ON DELETE CASCADE,
+      PRIMARY KEY (user_id, class_id)
+    )
+  `);
+  userMailroomClassesSchemaReady = true;
 }
 
 async function ensureGuardianBirthdaySchema(dbClient) {
@@ -1633,8 +1652,22 @@ function normalizeGenderValue(raw) {
 
 function sanitizePhoneNumber(raw) {
   if (!raw) return '';
-  // Strip +, spaces, dashes, parens, dots — keep only digits
-  return String(raw).replace(/[\s\-\(\)\.\+]/g, '');
+  const value = String(raw);
+  const hasPlus = value.trim().startsWith('+');
+  // Strip spaces, dashes, parens, dots — keep only digits, but preserve a
+  // leading "+" if the sheet already had one (a stripped "+" is otherwise
+  // indistinguishable from a number that never had a country code).
+  const digits = value.replace(/[\s\-\(\)\.\+]/g, '');
+  return hasPlus ? `+${digits}` : digits;
+}
+
+// Best-effort: if an imported phone has no "+", assume it's a local number
+// in the school's own country and prefix that country's dial code — bulk
+// import sheets are almost always all-one-country and rarely include a "+".
+function applyDefaultDialCode(phone, defaultDial) {
+  const value = String(phone || '').trim();
+  if (!value || value.startsWith('+') || !defaultDial) return value;
+  return `+${defaultDial}${value}`;
 }
 
 function normalizeOptionalEmail(raw) {
@@ -5676,6 +5709,28 @@ const commonController = {
         // Get organization ID from session or user object
         const organizationId = req.session?.organizationId || req.user?.organization_id;
 
+        // Import sheets almost never include a "+" country code — assume
+        // any guardian phone missing one is local to the school's own
+        // country and prefix that country's dial code.
+        if (organizationId) {
+          try {
+            const orgCountryResult = await db.query(
+              'SELECT organization_country FROM organizations WHERE organization_id = $1 LIMIT 1',
+              [organizationId]
+            );
+            const orgCountryCode = String(orgCountryResult.rows[0]?.organization_country || '').trim().toUpperCase();
+            const { DIAL_CODES } = require('../utils/dialCodes');
+            const defaultDial = (DIAL_CODES.find((c) => c.iso2 === orgCountryCode) || {}).dial;
+            if (defaultDial) {
+              students = students.map((s) => (
+                s && s.phone ? { ...s, phone: applyDefaultDialCode(s.phone, defaultDial) } : s
+              ));
+            }
+          } catch (_) {
+            // Non-fatal — imported numbers just keep whatever shape the sheet had.
+          }
+        }
+
         // Only perform database validation if organization ID is available
         if (organizationId) {
           // Get all unique classes from parsed data
@@ -9378,6 +9433,8 @@ const commonController = {
     // Drivers can be assigned classes (e.g. which routes/classes they cover)
     // but must never be assigned subjects.
     if (account_type === "Driver") subjects = [];
+    const mailroomScope = req.body.mailroomScope === "classes" ? "classes" : "all";
+    let mailroomClassIds = req.body.mailroomClassIds || [];
     const requestorRole = req.session.userRole;
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
@@ -9423,11 +9480,20 @@ const commonController = {
       ? sanitizedRequestedPermissions.filter((permission) => permission === PERMISSIONS.MANAGE_STUDENTS)
       : sanitizedRequestedPermissions;
 
+    // Mailroom scope is a separate marker, not a checkbox in the permission
+    // list — "all" means every guardian contact org-wide; "classes" means
+    // only guardians of students in the classes picked below.
+    if (effectivePermissions.includes(PERMISSIONS.MAILROOM) && mailroomScope === "all") {
+      effectivePermissions.push(MAILROOM_ALL_ACCESS_KEY);
+    }
+    if (!Array.isArray(mailroomClassIds)) mailroomClassIds = [mailroomClassIds];
+
     // ─── Step 1: Ensure schema using the POOL (not a transaction client) to
     //             avoid locking issues that cause the request to hang. ────────
     try {
       await ensureUserBirthdaySchema(db);
       await ensurePermissionsSchema(db);
+      await ensureUserMailroomClassesSchema(db);
     } catch (schemaErr) {
       req.flash("error", "Database schema error: " + schemaErr.message);
       return res.redirect("/common/createEmployee");
@@ -9514,6 +9580,28 @@ const commonController = {
            ON CONFLICT (user_id, subject_id) DO NOTHING`,
           [userId, safeSubjectIds]
         );
+      }
+
+      // ─── Step 6b: Mailroom class scope (only when restricted, not all-access) ──
+      if (effectivePermissions.includes(PERMISSIONS.MAILROOM) && mailroomScope === "classes") {
+        const normalizedMailroomClassIds = [...new Set(
+          mailroomClassIds.map((v) => Number(v)).filter((v) => Number.isInteger(v) && v > 0)
+        )];
+        const ownedMailroomClassesCE = normalizedMailroomClassIds.length
+          ? await client.query(
+              `SELECT class_id FROM classes WHERE class_id = ANY($1::int[]) AND organization_id = $2`,
+              [normalizedMailroomClassIds, req.session.organizationId]
+            )
+          : { rows: [] };
+        const safeMailroomClassIds = ownedMailroomClassesCE.rows.map((r) => Number(r.class_id));
+        if (safeMailroomClassIds.length > 0) {
+          await client.query(
+            `INSERT INTO user_mailroom_classes (user_id, class_id)
+             SELECT $1, unnest($2::int[])
+             ON CONFLICT (user_id, class_id) DO NOTHING`,
+            [userId, safeMailroomClassIds]
+          );
+        }
       }
 
       // ─── Step 7: Save permissions ─────────────────────────────────────────
@@ -10006,8 +10094,8 @@ const commonController = {
       const employeeNameSortExpression = buildNameSortExpression(req.session?.nameDisplayFormat, "u");
       const result = await db.query(
         `
-          SELECT u.user_id, u.first_name, u.last_name, u.email, u.account_type, 
-                 u.reset_password_token, array_agg(uc.class_id) as class_ids
+          SELECT u.user_id, u.first_name, u.last_name, u.email, u.account_type,
+                 u.reset_password_token, u.password, array_agg(uc.class_id) as class_ids
           FROM users u
           LEFT JOIN user_classes uc ON u.user_id = uc.user_id
           WHERE u.organization_id = $1
@@ -10162,6 +10250,7 @@ const commonController = {
     try {
       await ensureUserBirthdaySchema(db);
       await ensurePermissionsSchema(db);
+      await ensureUserMailroomClassesSchema(db);
       await ensureClassDashboardLayoutSchema(db);
       const userResult = await db.query(
         "SELECT * FROM users WHERE user_id = $1 AND organization_id = $2",
@@ -10232,6 +10321,14 @@ const commonController = {
         userId,
         req.session.organizationId
       );
+
+      const mailroomClassesResult = await db.query(
+        `SELECT class_id FROM user_mailroom_classes WHERE user_id = $1`,
+        [userId]
+      );
+      const enrolledMailroomClasses = mailroomClassesResult.rows.map((row) => row.class_id);
+      const mailroomScope = rawSelectedPermissions.includes(MAILROOM_ALL_ACCESS_KEY) ? "all" : "classes";
+
       const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
       const permissionOptions = setAssessmentQuestionsFeatureEnabled
         ? PERMISSION_OPTIONS
@@ -10248,6 +10345,8 @@ const commonController = {
         classes,
         enrolledClasses,
         enrolledSubjects,
+        enrolledMailroomClasses,
+        mailroomScope,
         permissionOptions,
         managerDefaultPermissions: stripUnavailablePermissions(getSuggestedPermissionsForRole("Manager")),
         roleDefaultPermissionsMap: {
@@ -10274,9 +10373,11 @@ const commonController = {
       dateOfBirth,
       classIds = [],
       subjects: rawSubjects = [],
+      mailroomClassIds = [],
     } = req.body;
     // Drivers can be assigned classes but must never be assigned subjects.
     const subjects = accountType === "Driver" ? [] : rawSubjects;
+    const mailroomScope = req.body.mailroomScope === "classes" ? "classes" : "all";
     const requestorRole = req.session.userRole;
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
@@ -10332,6 +10433,13 @@ const commonController = {
       ? sanitizedRequestedPermissions.filter((permission) => permission === PERMISSIONS.MANAGE_STUDENTS)
       : sanitizedRequestedPermissions;
 
+    // Mailroom scope is a separate marker, not a checkbox in the permission
+    // list — "all" means every guardian contact org-wide; "classes" means
+    // only guardians of students in the classes picked below.
+    if (effectivePermissions.includes(PERMISSIONS.MAILROOM) && mailroomScope === "all") {
+      effectivePermissions.push(MAILROOM_ALL_ACCESS_KEY);
+    }
+
     // Guard: session must have organizationId or the INSERT will fail
     if (!organizationId) {
       return respondModifyEmployeeError(401, "Session error: please log in again.", "/account/login");
@@ -10347,11 +10455,17 @@ const commonController = {
         .map((value) => Number(value))
         .filter((value) => Number.isInteger(value) && value > 0)
     )];
+    const normalizedMailroomClassIds = [...new Set(
+      (Array.isArray(mailroomClassIds) ? mailroomClassIds : mailroomClassIds ? [mailroomClassIds] : [])
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    )];
 
     const client = await db.connect();
 
     try {
       await ensureUserBirthdaySchema(client);
+      await ensureUserMailroomClassesSchema(client);
       // BEGIN immediately — every exit path below reaches the catch which ROLLBACKs
       await client.query("BEGIN");
 
@@ -10423,6 +10537,27 @@ const commonController = {
            ON CONFLICT (user_id, subject_id) DO NOTHING`,
           [userId, safeSubjectIdsMod]
         );
+      }
+
+      // Mailroom class scope — always cleared first (covers the case where
+      // mailroom was revoked, or scope switched to "all"), then re-synced
+      // only when the employee still has mailroom AND is restricted to
+      // specific classes rather than org-wide access.
+      await client.query("DELETE FROM user_mailroom_classes WHERE user_id = $1", [userId]);
+      if (effectivePermissions.includes(PERMISSIONS.MAILROOM) && mailroomScope === "classes" && normalizedMailroomClassIds.length) {
+        const ownedMailroomClassesME = await client.query(
+          `SELECT class_id FROM classes WHERE class_id = ANY($1::int[]) AND organization_id = $2`,
+          [normalizedMailroomClassIds, organizationId]
+        );
+        const safeMailroomClassIdsMod = ownedMailroomClassesME.rows.map((r) => Number(r.class_id));
+        if (safeMailroomClassIdsMod.length > 0) {
+          await client.query(
+            `INSERT INTO user_mailroom_classes (user_id, class_id)
+             SELECT $1, unnest($2::int[])
+             ON CONFLICT (user_id, class_id) DO NOTHING`,
+            [userId, safeMailroomClassIdsMod]
+          );
+        }
       }
 
       // ✅ Replace permissions — hard DELETE for this user+org, then fresh INSERT
@@ -17519,6 +17654,11 @@ NUMBERING:
         [req.session.organizationId, school_year_id, term_id]
       );
 
+      const messagingStatus = await getMessagingChannelStatus(db, req.session.organizationId).catch(() => ({
+        sms: { ready: false },
+        whatsapp: { ready: false },
+      }));
+
       res.render("common/manageEventsAnnouncements", {
         title: "Manage Events & Announcements",
         isEmbedded,
@@ -17527,6 +17667,7 @@ NUMBERING:
         hideGlobalChatbot: isEmbedded,
         events: events.rows,
         announcements: announcements.rows,
+        canBroadcastToGuardians: Boolean(messagingStatus.sms?.ready || messagingStatus.whatsapp?.ready),
         messages: req.flash(),
       });
     } catch (err) {
@@ -22927,6 +23068,21 @@ NUMBERING:
     }
   },
 
+  // Mailroom — SaaS-style page for ad-hoc SMS/WhatsApp/Email to guardians,
+  // gated by the "mailroom" permission (see middleware/permissionMiddleware.js).
+  mailroomHub: async (req, res, db) => {
+    try {
+      res.render("common/mailroom", {
+        title: "Mailroom",
+        disableMainZoom: true,
+        organizationId: req.session.organizationId,
+        messages: req.flash(),
+      });
+    } catch (error) {
+      res.status(500).send("Failed to load mailroom page");
+    }
+  },
+
   // Activity Logs (dedicated page, linked from Reports Hub)
   activityLogs: async (req, res, db) => {
     try {
@@ -23288,6 +23444,69 @@ NUMBERING:
     } catch (err) {
       console.error('[checkStudentId]', err.message);
       return res.status(500).json({ error: "Server error" });
+    }
+  },
+
+  // Unified broadcast/announcement system (modal + banner popups) — list page.
+  // Data is loaded client-side via GET /announcements; this just renders the shell.
+  manageAnnouncementsGet: async (req, res, db) => {
+    try {
+      const isEmbedded = isEmbeddedRequest(req, "manageAnnouncements");
+      const isPlatformAdmin = String(req.session?.accountType || "").trim().toLowerCase() === "admin";
+      res.render("common/manageAnnouncements", {
+        title: "Manage Announcements",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        isPlatformAdmin,
+      });
+    } catch (error) {
+      console.error("[manageAnnouncementsGet]", error);
+      req.flash("error", "Unable to load announcements.");
+      return res.redirect("/common/orgDashboard");
+    }
+  },
+
+  // Composer for the new broadcast_announcements table — used both standalone
+  // and iframe-embedded inside the ManagiraDrawer opened from manageAnnouncements.
+  announcementComposerGet: async (req, res, db) => {
+    try {
+      const isEmbedded = isEmbeddedRequest(req, "announcementComposer");
+      let announcement = null;
+      const id = parseInt(req.query.id, 10);
+      if (Number.isInteger(id)) {
+        const result = await db.query(`SELECT * FROM broadcast_announcements WHERE id = $1`, [id]);
+        if (result.rows[0]) {
+          const targetsResult = await db.query(
+            `SELECT target_type, target_value FROM broadcast_announcement_targets WHERE announcement_id = $1`,
+            [id]
+          );
+          announcement = { ...result.rows[0], targets: targetsResult.rows };
+        }
+      }
+      const isPlatformAdmin = String(req.session?.accountType || "").trim().toLowerCase() === "admin";
+      const isGlobalMode = isPlatformAdmin && req.query.global === "1";
+      let orgOptions = [];
+      if (isGlobalMode) {
+        const orgsResult = await db.query(
+          `SELECT organization_id, organization_name FROM organizations WHERE deleted IS NOT TRUE ORDER BY organization_name ASC`
+        );
+        orgOptions = orgsResult.rows;
+      }
+      res.render("common/announcementComposer", {
+        title: announcement ? "Edit Announcement" : "New Announcement",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        announcement,
+        isPlatformAdmin,
+        isGlobalMode,
+        orgOptions,
+      });
+    } catch (error) {
+      console.error("[announcementComposerGet]", error);
+      req.flash("error", "Unable to load the announcement composer.");
+      return res.redirect("/common/manageAnnouncements");
     }
   },
 };

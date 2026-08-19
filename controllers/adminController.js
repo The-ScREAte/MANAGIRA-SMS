@@ -5051,6 +5051,21 @@ const adminController = {
     }
   },
 
+  // Standalone form page, loaded inside the ManagiraDrawer iframe from the
+  // "+ New Announcement" button on /admin/announcements (see adminDrawer.js).
+  // Posts to the existing /admin/announcements route unchanged - on success
+  // that redirects back to /admin/announcements, which the drawer detects
+  // via iframe path match and reloads the parent list, same convention as
+  // the Modify Employee drawer.
+  newAdminAnnouncementForm: async (req, res) => {
+    res.render("admin/adminAnnouncementForm", {
+      title: "New Admin Announcement",
+      messages: req.flash(),
+      hideGlobalHeader: true,
+      hideGlobalFooter: true,
+    });
+  },
+
   createAdminAnnouncement: async (req, res) => {
     const { title, description } = req.body;
     const showForAdmins = req.body.show_for_admins === 'on'

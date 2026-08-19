@@ -53,6 +53,24 @@
         font-family: var(--font-family);
       }
 
+      /* Matches the same full-height wrapper pattern used by the
+         Management/Admissions/Reports hubs (.hub-wrapper /
+         .management-wrapper), so the sidebar + main panel reach the bottom
+         of the window here too instead of stopping wherever their own
+         content ends. min-height (not height + overflow:hidden like the
+         hub pages use) because unlike those hubs — whose main panel is an
+         iframe meant to fill exactly one screen — this page's content can
+         be genuinely taller than the viewport (many expandable cards), and
+         it needs to keep scrolling normally in that case. */
+      .settings-wrapper {
+        width: 100%;
+        min-height: calc(100vh - 68px);
+      }
+
+      .settings-wrapper.is-embedded {
+        min-height: 100vh;
+      }
+
       .settings-layout {
         display: grid;
         grid-template-columns: 260px 1fr;
@@ -61,7 +79,30 @@
         margin: 0 auto 40px;
         padding: 0 20px;
         scroll-margin-top: var(--settings-header-offset);
-        align-items: start;
+        align-items: stretch;
+        min-height: 100%;
+      }
+
+      /* workspace-shell.css (loaded after this block) also sets
+         align-items:start and .settings-nav's height at equal specificity —
+         it wins on source order otherwise, undoing the equal-height-columns
+         stretch below. The #settings-layout-root id beats it regardless of
+         load order, which is what actually makes the sidebar card reach the
+         same height as .settings-main instead of stopping short. */
+      #settings-layout-root {
+        align-items: stretch !important;
+        /* Body reserves ~80px at top for the fixed global header (see
+           partials/header.ejs) and workspace-shell.css gives this layout
+           ~24px of bottom padding — subtracting both makes the sidebar and
+           main panel both reach the bottom of the viewport on short pages,
+           instead of stopping as soon as their own content ends. Min-height
+           (not height) so genuinely long content still grows and scrolls
+           normally rather than getting clipped. */
+        min-height: calc(100vh - var(--header-height, 64px) - 120px) !important;
+      }
+
+      #settings-layout-root .settings-nav {
+        height: auto !important;
       }
 
       /* Embedded inside the Management hub — the hub already has its own
@@ -79,8 +120,7 @@
         border-radius: 12px;
         padding: 16px 12px;
         background: #fff;
-        height: fit-content;
-        align-self: start;
+        height: 100%;
         position: sticky;
         top: var(--settings-header-offset);
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
@@ -162,6 +202,85 @@
 
       .nav-link svg {
         color: inherit;
+      }
+
+      /* Desktop-only rail collapse: shrinks the sidebar to icon-only width and
+         hands the freed grid column over to .settings-main. Hidden on mobile
+         (see max-width:960px query below) since the sidebar is already an
+         overlay/dropdown there. Kept to fast (<=160ms), cheap-to-animate
+         properties (opacity/max-width/transform, one grid-template-columns
+         transition) so it stays snappy. */
+      .settings-layout {
+        transition: grid-template-columns 0.16s ease;
+      }
+
+      .settings-layout.is-nav-collapsed {
+        grid-template-columns: 76px 1fr;
+      }
+
+      .settings-nav-collapse-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 0;
+        flex-shrink: 0;
+        transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+      }
+
+      .settings-nav-collapse-toggle:hover {
+        color: var(--primary);
+        border-color: var(--primary);
+        background: #f8fafc;
+      }
+
+      .settings-nav-collapse-toggle:active {
+        transform: scale(0.9);
+      }
+
+      .settings-nav-collapse-toggle svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .settings-nav.is-collapsed .settings-nav-collapse-toggle {
+        color: var(--primary);
+        border-color: var(--primary);
+      }
+
+      .settings-nav.is-collapsed .settings-nav-header {
+        justify-content: center;
+      }
+
+      .settings-nav.is-collapsed .settings-nav-toggle,
+      .settings-nav.is-collapsed .settings-nav-country-flag {
+        display: none;
+      }
+
+      .settings-nav.is-collapsed .nav-link {
+        justify-content: center;
+        padding: 8px !important;
+        gap: 0;
+      }
+
+      .nav-link > span:not(.nav-link-icon) {
+        display: inline-block;
+        max-width: 220px;
+        opacity: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        transition: opacity 0.12s ease, max-width 0.16s ease;
+      }
+
+      .settings-nav.is-collapsed .nav-link > span:not(.nav-link-icon) {
+        opacity: 0;
+        max-width: 0;
       }
 
       .settings-main{
@@ -252,6 +371,15 @@
         align-items: center;
         justify-content: space-between;
         gap: 10px;
+      }
+
+      .card-collapse-head h4,
+      .settings-section .card > h4 {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        min-width: 0;
       }
 
       .settings-collapse-toggle {
@@ -757,8 +885,8 @@
       .google-classroom-logo,
       .student-portal-logo,
       .transportation-logo {
-        width: 54px;
-        height: 40px;
+        width: 76px;
+        height: 56px;
         display: inline-block;
         flex-shrink: 0;
         filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.18));
@@ -771,8 +899,160 @@
       }
 
       .google-classroom-logo--compact {
-        width: 50px;
-        height: 37px;
+        width: 70px;
+        height: 52px;
+      }
+
+      .sms-provider-logo-chip {
+        width: 96px;
+        height: 56px;
+        border-radius: 10px;
+        overflow: hidden;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 2px rgba(0, 0, 0, 0.08);
+        background: #fff;
+      }
+
+      .sms-provider-logo-chip img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .integration-readmore-link {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #111827;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .integration-readmore-link:hover {
+        color: #000;
+        text-decoration: underline;
+      }
+
+      .integration-info-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        z-index: 1200;
+      }
+
+      .integration-info-backdrop.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .integration-info-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100%;
+        width: min(420px, 92vw);
+        background: #fff;
+        box-shadow: -12px 0 32px rgba(15, 23, 42, 0.18);
+        transform: translateX(100%);
+        transition: transform 0.25s ease;
+        z-index: 1201;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+
+      .integration-info-panel.show {
+        transform: translateX(0);
+      }
+
+      .integration-info-panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 20px 22px;
+        border-bottom: 1px solid #e2e8f0;
+        position: sticky;
+        top: 0;
+        background: #fff;
+      }
+
+      .integration-info-panel-head h3 {
+        margin: 0;
+        font-size: 17px;
+        color: #0f172a;
+      }
+
+      .integration-info-panel-close {
+        border: none;
+        background: #f1f5f9;
+        color: #475569;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        font-size: 16px;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      .integration-info-panel-close:hover {
+        background: #e2e8f0;
+      }
+
+      .integration-info-panel-body {
+        padding: 20px 22px 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .integration-info-panel-body h4 {
+        margin: 0 0 6px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+      }
+
+      .integration-info-panel-body p,
+      .integration-info-panel-body li {
+        margin: 0;
+        font-size: 14px;
+        line-height: 1.55;
+        color: #334155;
+      }
+
+      .integration-info-panel-body ul {
+        margin: 0;
+        padding-left: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .integration-info-docs-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--primary);
+        text-decoration: none;
+        padding: 9px 12px;
+        border: 1px solid var(--primary);
+        border-radius: 8px;
+        background: #f8fafc;
+      }
+
+      .integration-info-docs-link:hover {
+        background: #fff;
+        text-decoration: underline;
       }
 
       .google-integration-summary {
@@ -783,7 +1063,6 @@
       }
 
       .google-integration-toolbar {
-        margin-top: 14px;
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         column-gap: 12px;
@@ -919,13 +1198,18 @@
         .google-classroom-logo,
         .student-portal-logo,
         .transportation-logo {
-          width: 42px;
-          height: 32px;
+          width: 58px;
+          height: 44px;
         }
 
         .google-classroom-logo--compact {
-          width: 39px;
-          height: 30px;
+          width: 54px;
+          height: 40px;
+        }
+
+        .sms-provider-logo-chip {
+          width: 72px;
+          height: 44px;
         }
 
         .google-classroom-title {
@@ -1942,6 +2226,10 @@
           width: 100%;
         }
 
+        .settings-nav-collapse-toggle {
+          display: none;
+        }
+
         .settings-nav-header h3 {
           text-align: left;
           margin: 0;
@@ -2144,13 +2432,18 @@
         .google-classroom-logo,
         .student-portal-logo,
         .transportation-logo {
-          width: 30px;
-          height: 22px;
+          width: 44px;
+          height: 32px;
         }
 
         .google-classroom-logo--compact {
-          width: 28px;
-          height: 20px;
+          width: 40px;
+          height: 30px;
+        }
+
+        .sms-provider-logo-chip {
+          width: 58px;
+          height: 34px;
         }
 
         .google-classroom-title span {
@@ -2295,13 +2588,35 @@
         display: inline-flex !important;
         align-items: center !important;
       }
+
+      #integrations .card {
+        padding: 12px 14px;
+      }
+
+      #integrations .google-actions-toggle {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        font-size: 17px;
+      }
+
+      #integrations details.google-actions-menu[open] {
+        z-index: 99999;
+      }
+
+      #integrations .google-actions-menu-list {
+        z-index: 99999;
+        top: auto !important;
+        bottom: calc(100% + 8px) !important;
+      }
     </style>
     <link rel="stylesheet" href="/css/workspace-shell.css" />
   </head>
   <body>
     <%- include('../partials/flash') %>
     <% const _isEmbeddedSettings = typeof isEmbedded !== 'undefined' && isEmbedded; %>
-    <div class="settings-layout<%= _isEmbeddedSettings ? ' is-embedded-hub' : '' %>">
+    <div class="settings-wrapper<%= _isEmbeddedSettings ? ' is-embedded' : '' %>">
+    <div class="settings-layout<%= _isEmbeddedSettings ? ' is-embedded-hub' : '' %>" id="settings-layout-root">
       <%
         const _canCustomizeSettings = typeof canAccessCustomizeSettings === 'boolean' ? canAccessCustomizeSettings : true;
         const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
@@ -2330,6 +2645,9 @@
 
             <h3>Settings</h3>
           </span>
+          <button class="settings-nav-collapse-toggle" id="settings-nav-collapse-toggle" type="button" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg>
+          </button>
           <span class="settings-nav-country-flag" title="Organization country: <%= navCountryLabel %>" aria-label="Organization country: <%= navCountryLabel %>"><%= navCountryFlag %></span>
         </div>
         <ul class="nav-list">
@@ -3444,6 +3762,255 @@
           <% const spiActivated = !!spi.activated; %>
           <% const ti = (typeof transportationIntegration !== 'undefined' && transportationIntegration) ? transportationIntegration : {}; %>
           <% const tiActivated = !!ti.activated; %>
+          <% const integrationActivityMap = (typeof integrationActivity !== 'undefined' && integrationActivity) ? integrationActivity : {}; %>
+          <%
+            function escapeIntegrationActivityText(value) {
+              return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            }
+            function integrationActivityLine(recordLabel) {
+              const entry = integrationActivityMap[recordLabel];
+              if (!entry) return '';
+              const when = entry.createdAt ? new Date(entry.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '';
+              const who = escapeIntegrationActivityText(entry.userName || 'Unknown');
+              const role = entry.userRole ? ` (${escapeIntegrationActivityText(entry.userRole)})` : '';
+              const action = escapeIntegrationActivityText((entry.actionType || '').toLowerCase());
+              return `<br><span class="text-muted-sm">Last change: <strong>${action}</strong> by <strong>${who}</strong>${role}${when ? ' on ' + escapeIntegrationActivityText(when) : ''}</span>`;
+            }
+
+            // Per-integration network/country coverage, by ISO country code.
+            // Only the SMS providers are actually country-restricted (they
+            // route through specific telecom corridors) — every other
+            // integration here works the same everywhere, so it just always
+            // reads "Available". Twilio has no restricted list either since
+            // it's real phone numbers + A2P registration, available globally.
+            const integrationCoverage = {
+              arkesel: ['GH', 'NG', 'TZ', 'ZA'],
+              africastalking: ['KE', 'UG', 'TZ', 'RW', 'MW', 'ZM', 'NG', 'CI', 'ET', 'GH', 'ZA'],
+              twilio: null,
+              'student-portal': null,
+              transportation: null,
+              'google-maps': null,
+              'apple-maps': null,
+              'google-classroom': null,
+              whatsapp: null,
+            };
+            const orgCountryCode = (org && org.organization_country ? String(org.organization_country).trim().toUpperCase() : '');
+            const orgCountryOption = (settingsCountryOptionsWithCurrency || settingsCountryOptions || []).find(
+              (country) => String(country.code || '').toUpperCase() === orgCountryCode
+            ) || null;
+            const orgCountryName = orgCountryOption ? orgCountryOption.name : '';
+            function integrationCoverageBadge(integrationKey) {
+              const coverage = integrationCoverage[integrationKey];
+              if (!orgCountryCode) return '';
+              const isAvailable = !coverage || coverage.includes(orgCountryCode);
+              const bg = isAvailable ? '#dcfce7' : '#fef2f2';
+              const fg = isAvailable ? '#166534' : '#b91c1c';
+              const label = isAvailable ? 'Available' : 'Not available';
+              const title = orgCountryName ? `${orgCountryName} (${orgCountryCode})` : orgCountryCode;
+              return `<span class="pill sms-coverage-badge" title="${escapeIntegrationActivityText(title)}" style="background:${bg};color:${fg};">${orgCountryCode}: ${label}</span>`;
+            }
+          %>
+
+          <div class="card">
+            <h4>
+              <span class="student-portal-title">
+                <img class="student-portal-logo" src="/images/managira.png" alt="Managira logo" />
+                <span>Student Portal</span>
+              </span>
+              <span
+                class="pill"
+                id="student-portal-status-pill"
+                data-activated="<%= spiActivated ? '1' : '0' %>"
+                style="background:<%= spiActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= spiActivated ? '#166534' : '#92400e' %>">
+                <%= spiActivated ? 'Active' : 'Inactive' %>
+              </span>
+              <%- integrationCoverageBadge('student-portal') %>
+            </h4>
+            <small class="google-integration-description">
+              Activate Student Portal to control school-level access to student-facing portal features and flows.
+              <%- integrationActivityLine('Student Portal') %>
+            </small>
+
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+                <a href="#" class="integration-readmore-link" data-integration="student-portal">Read more</a>
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
+                  <summary class="google-actions-toggle" aria-label="Student Portal actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-student-portal-activate-modal"
+                      style="display:<%= spiActivated ? 'none' : 'block' %>;">Activate</a>
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-student-portal-deactivate-modal"
+                      style="display:<%= spiActivated ? 'block' : 'none' %>;">Deactivate</a>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="student-portal-activation-form" action="/account/student-portal/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="student-portal-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="student-portal-activation-password" />
+            </form>
+          </div>
+
+          <div class="card">
+            <h4>
+              <span class="student-portal-title">
+                <img class="transportation-logo" src="/images/transportation-logo.png" alt="Transportation logo" />
+                <span>Transportation</span>
+              </span>
+              <span
+                class="pill"
+                id="transportation-status-pill"
+                data-activated="<%= tiActivated ? '1' : '0' %>"
+                style="background:<%= tiActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= tiActivated ? '#166534' : '#92400e' %>">
+                <%= tiActivated ? 'Active' : 'Inactive' %>
+              </span>
+              <%- integrationCoverageBadge('transportation') %>
+            </h4>
+            <small class="google-integration-description">
+              Activate Transportation to unlock bus, route, stop assignment, and live tracking dashboards for students, guardians, and staff.
+              <br>Map provider: <strong><%= ti.mapProvider || 'openstreetmap' %></strong>
+              <%- integrationActivityLine('Transportation') %>
+            </small>
+
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+                <a href="#" class="integration-readmore-link" data-integration="transportation">Read more</a>
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
+                  <summary class="google-actions-toggle" aria-label="Transportation actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-transportation-activate-modal"
+                      style="display:<%= tiActivated ? 'none' : 'block' %>;"><%= tiActivated ? '' : 'Activate' %></a>
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-transportation-deactivate-modal"
+                      style="display:<%= tiActivated ? 'block' : 'none' %>;"><%= tiActivated ? 'Deactivate' : '' %></a>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="transportation-activation-form" action="/account/transportation/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="transportation-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="transportation-activation-password" />
+            </form>
+          </div>
+
+          <% if (tiActivated) { %>
+          <% const gmActivated = !!ti.googleMapsNavActivated; %>
+          <div class="card">
+            <h4>
+              <span class="google-classroom-title">
+                <span class="sms-provider-logo-chip">
+                  <img src="/images/google maps.png" alt="Google Maps logo" />
+                </span>
+                <span>Google Maps</span>
+              </span>
+              <span
+                class="pill"
+                id="google-maps-nav-status-pill"
+                data-activated="<%= gmActivated ? '1' : '0' %>"
+                style="background:<%= gmActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= gmActivated ? '#166534' : '#92400e' %>">
+                <%= gmActivated ? 'Active' : 'Inactive' %>
+              </span>
+              <%- integrationCoverageBadge('google-maps') %>
+            </h4>
+            <small class="google-integration-description">
+              Activate to let drivers open their route directly in the Google Maps app from the Driver Dashboard, with every stop pinned in order and the school as the final destination.
+              <%- integrationActivityLine('Google Maps') %>
+            </small>
+
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+                <a href="#" class="integration-readmore-link" data-integration="google-maps">Read more</a>
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
+                  <summary class="google-actions-toggle" aria-label="Google Maps actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-google-maps-nav-activate-modal"
+                      style="display:<%= gmActivated ? 'none' : 'block' %>;"><%= gmActivated ? '' : 'Activate' %></a>
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-google-maps-nav-deactivate-modal"
+                      style="display:<%= gmActivated ? 'block' : 'none' %>;"><%= gmActivated ? 'Deactivate' : '' %></a>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="google-maps-nav-activation-form" action="/account/transportation/google-maps-nav/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="google-maps-nav-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="google-maps-nav-activation-password" />
+            </form>
+          </div>
+
+          <% const amActivated = !!ti.appleMapsNavActivated; %>
+          <div class="card">
+            <h4>
+              <span class="google-classroom-title">
+                <span class="sms-provider-logo-chip">
+                  <img src="/images/maps.png" alt="Apple Maps logo" />
+                </span>
+                <span>Maps</span>
+              </span>
+              <span
+                class="pill"
+                id="apple-maps-nav-status-pill"
+                data-activated="<%= amActivated ? '1' : '0' %>"
+                style="background:<%= amActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= amActivated ? '#166534' : '#92400e' %>">
+                <%= amActivated ? 'Active' : 'Inactive' %>
+              </span>
+              <%- integrationCoverageBadge('apple-maps') %>
+            </h4>
+            <small class="google-integration-description">
+              Activate to let drivers open their route directly in the Maps app from the Driver Dashboard, one stop at a time in order, ending at the school.
+              <%- integrationActivityLine('Maps') %>
+            </small>
+
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+                <a href="#" class="integration-readmore-link" data-integration="apple-maps">Read more</a>
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
+                  <summary class="google-actions-toggle" aria-label="Maps actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-apple-maps-nav-activate-modal"
+                      style="display:<%= amActivated ? 'none' : 'block' %>;"><%= amActivated ? '' : 'Activate' %></a>
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-apple-maps-nav-deactivate-modal"
+                      style="display:<%= amActivated ? 'block' : 'none' %>;"><%= amActivated ? 'Deactivate' : '' %></a>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="apple-maps-nav-activation-form" action="/account/transportation/apple-maps-nav/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="apple-maps-nav-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="apple-maps-nav-activation-password" />
+            </form>
+          </div>
+          <% } %>
 
           <div class="card">
             <h4>
@@ -3458,24 +4025,21 @@
                 </svg>
                 <span>Google Classroom</span>
               </span>
+              <span class="pill" style="background:<%= giReady ? '#dcfce7' : '#fef3c7' %>;color:<%= giReady ? '#166534' : '#92400e' %>">
+                <%= giReady ? 'Active & Connected' : (giActivated ? 'Connection Required' : 'Inactive') %>
+              </span>
+              <%- integrationCoverageBadge('google-classroom') %>
             </h4>
             <small class="google-integration-description">
               Activate and connect Google Classroom to let students access assessments and tests online individually, while teachers can sync classwork directly from Managira.
               <% if (gi.clientEmail) { %><br>Connected account: <strong><%= gi.clientEmail %></strong><% } %>
+              <% if (gi.lastSyncStatus) { %><br>Last sync status: <strong><%= gi.lastSyncStatus %></strong><% } %>
+              <%- integrationActivityLine('Google Classroom') %>
             </small>
 
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
-                <span class="google-integration-copy">Google Classroom status</span>
-                <span class="pill" style="background:<%= giReady ? '#dcfce7' : '#fef3c7' %>;color:<%= giReady ? '#166534' : '#92400e' %>">
-                  <%= giReady ? 'Active & Connected' : (giActivated ? 'Connection Required' : 'Inactive') %>
-                </span>
-                <% if (gi.lastSyncStatus) { %>
-                <span class="text-muted-sm">Last sync status: <strong><%= gi.lastSyncStatus %></strong></span>
-                <% } %>
-              </div>
-
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+                <a href="#" class="integration-readmore-link" data-integration="google-classroom">Read more</a>
                 <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
                   <summary class="google-actions-toggle" aria-label="Google Classroom actions">⋮</summary>
                   <div class="google-actions-menu-list">
@@ -3515,7 +4079,198 @@
             <% } %>
           </div>
 
-            <div class="card" style="margin-top:14px;">
+
+            <%
+              const smsi = (typeof smsIntegration !== 'undefined' && smsIntegration) ? smsIntegration : { activeProvider: '', providers: {} };
+              const smsProviders = smsi.providers || {};
+              const smsCardDefs = [
+                {
+                  key: 'twilio',
+                  label: 'Twilio SMS',
+                  logo: '/images/twilio.png',
+                  description: "Send SMS worldwide using your school's own Twilio account and phone number.",
+                },
+                {
+                  key: 'arkesel',
+                  label: 'Arkesel SMS',
+                  logo: '/images/arkesel.png',
+                  description: "Send SMS to parents and staff using your school's own Arkesel account (Ghana-focused). Your school's Arkesel wallet is charged per message.",
+                },
+                {
+                  key: 'africastalking',
+                  label: "Africa's Talking SMS",
+                  logo: '/images/africantalking.png',
+                  description: "Send SMS across Africa using your school's own Africa's Talking account. Supports a free sandbox for testing before you go live.",
+                },
+              ];
+            %>
+            <% smsCardDefs.forEach((def) => { %>
+            <% const ps = smsProviders[def.key] || { activated: false, configured: false, lastError: '' }; %>
+            <% const psActivated = !!ps.activated; %>
+            <% const psConfigured = !!ps.configured; %>
+            <% const psIsActive = smsi.activeProvider === def.key; %>
+            <div class="card sms-provider-card" data-sms-provider="<%= def.key %>">
+              <h4>
+                <span class="student-portal-title">
+                  <span class="sms-provider-logo-chip">
+                    <img src="<%= def.logo %>" alt="<%= def.label %> logo" />
+                  </span>
+                  <span><%= def.label %></span>
+                </span>
+                <span
+                  class="pill sms-status-pill"
+                  data-activated="<%= psActivated ? '1' : '0' %>"
+                  style="background:<%= psIsActive ? '#dcfce7' : '#fef3c7' %>;color:<%= psIsActive ? '#166534' : '#92400e' %>">
+                  <%= psIsActive ? 'Active' : (psConfigured ? 'Configured (Inactive)' : (psActivated ? 'Setup Required' : 'Inactive')) %>
+                </span>
+                <%- integrationCoverageBadge(def.key) %>
+              </h4>
+              <small class="google-integration-description">
+                <%= def.description %>
+                <% if (ps.lastError) { %><br><span style="color:#b91c1c;">Last error: <%= ps.lastError %></span><% } %>
+                <%- integrationActivityLine(def.label) %>
+              </small>
+
+              <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
+                <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+                  <a href="#" class="integration-readmore-link" data-integration="<%= def.key %>">Read more</a>
+                  <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
+                    <summary class="google-actions-toggle" aria-label="<%= def.label %> actions">⋮</summary>
+                    <div class="google-actions-menu-list">
+                      <a class="google-action-item sms-open-activate" href="#" data-provider="<%= def.key %>" style="display:<%= psActivated ? 'none' : 'block' %>">Activate</a>
+                      <a class="google-action-item sms-open-deactivate" href="#" data-provider="<%= def.key %>" style="display:<%= psActivated ? 'block' : 'none' %>">Deactivate</a>
+                    </div>
+                  </details>
+                </div>
+              </div>
+
+              <% if (psActivated) { %>
+
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+                <% if (psConfigured) { %>
+                <button type="button" class="btn-link sms-compose-toggle" data-provider="<%= def.key %>" style="font-size:12.5px;padding:6px 10px;">
+                  Send a Message
+                </button>
+                <% } %>
+                <button type="button" class="btn-link sms-config-toggle" data-provider="<%= def.key %>" style="font-size:12.5px;padding:6px 10px;">
+                  <%= psConfigured ? 'Edit Credentials' : 'Configure Credentials' %>
+                </button>
+              </div>
+
+              <div class="sms-panel-row" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;margin-top:10px;">
+                <% if (psConfigured) { %>
+                <div class="sms-compose-panel" data-provider="<%= def.key %>" style="display:none;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;">
+                  <div style="display:grid;gap:8px;">
+                    <div>
+                      <label class="form-label" for="sms-<%= def.key %>-send-recipient" style="margin-bottom:3px;">Recipient<span class="form-required-mark">*</span></label>
+                      <input id="sms-<%= def.key %>-send-recipient" class="form-input sms-test-recipient" data-provider="<%= def.key %>" type="tel" placeholder="+233551234567" />
+                    </div>
+                    <div>
+                      <label class="form-label" for="sms-<%= def.key %>-send-message" style="margin-bottom:3px;">Message<span class="form-required-mark">*</span></label>
+                      <textarea id="sms-<%= def.key %>-send-message" class="form-input sms-test-message" data-provider="<%= def.key %>" rows="3" maxlength="480" placeholder="Type your message...">Managira test SMS from Integrations settings.</textarea>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                      <button class="btn-primary btn-link sms-test-button" type="button" data-provider="<%= def.key %>">Send</button>
+                      <small class="sms-settings-status" data-provider="<%= def.key %>" style="color:#64748b;">
+                        <%= psIsActive ? 'Active — new sends from Managira use this provider.' : 'Saved, but another provider is active.' %>
+                      </small>
+                    </div>
+                    <small style="color:#94a3b8;"><span class="form-required-mark">*</span> Required</small>
+                  </div>
+                </div>
+                <% } %>
+
+                <div class="sms-config-panel" data-provider="<%= def.key %>" style="display:<%= psConfigured ? 'none' : 'block' %>;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;">
+                <form
+                  class="sms-settings-form"
+                  data-provider="<%= def.key %>"
+                  autocomplete="off"
+                >
+                  <div style="display:grid;gap:8px;">
+                    <% if (def.key === 'africastalking') { %>
+                    <div>
+                      <label class="form-label" for="sms-africastalking-username">Username<span class="form-required-mark">*</span></label>
+                      <input id="sms-africastalking-username" class="form-input" type="text" placeholder="Your live Team username (not \"sandbox\")" value="<%= ps.username || '' %>" />
+                    </div>
+                    <% } %>
+
+                    <div>
+                      <label class="form-label" for="sms-<%= def.key %>-api-key"><%= def.key === 'twilio' ? 'Auth Token' : 'API Key' %><span class="form-required-mark">*</span></label>
+                      <% const savedSecretTail = def.key === 'twilio' ? ps.maskedAuthToken : ps.maskedApiKey; %>
+                      <% const savedSecretLast4 = savedSecretTail ? savedSecretTail.replace(/^••••/, '') : ''; %>
+                      <% const savedSecretDisplay = '•'.repeat(15) + savedSecretLast4; %>
+                      <div class="sms-secret-input-wrap" style="position:relative;display:block;">
+                        <% if (savedSecretTail) { %>
+                        <input
+                          class="form-input sms-secret-display"
+                          data-provider="<%= def.key %>"
+                          type="text"
+                          readonly
+                          value="<%= savedSecretDisplay %>"
+                          style="width:100%;box-sizing:border-box;padding-right:78px;letter-spacing:1px;color:#475569;background:#f8fafc;"
+                        />
+                        <% } %>
+                        <input
+                          id="sms-<%= def.key %>-api-key"
+                          class="form-input sms-secret-edit-input"
+                          data-provider="<%= def.key %>"
+                          type="password"
+                          autocomplete="new-password"
+                          style="width:100%;box-sizing:border-box;<%= savedSecretTail ? 'display:none;padding-right:78px;' : '' %>"
+                          placeholder="<%= def.key === 'twilio' ? 'Paste your Twilio auth token' : 'Paste your API key' %>"
+                        />
+                        <% if (savedSecretTail) { %>
+                        <button
+                          type="button"
+                          class="btn-link sms-secret-change-btn"
+                          data-provider="<%= def.key %>"
+                          data-mode="change"
+                          style="position:absolute;top:6px;right:6px;padding:5px 10px;font-size:11.5px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;line-height:1;cursor:pointer;"
+                        >Change</button>
+                        <% } %>
+                      </div>
+                      <small style="display:block;margin-top:4px;color:#94a3b8;">Encrypted at rest, never logged.</small>
+                    </div>
+
+                    <% if (def.key === 'twilio') { %>
+                    <div>
+                      <label class="form-label" for="sms-twilio-account-sid">Account SID<span class="form-required-mark">*</span></label>
+                      <input id="sms-twilio-account-sid" class="form-input" type="text" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="<%= ps.accountSid || '' %>" />
+                    </div>
+                    <div>
+                      <label class="form-label" for="sms-twilio-from-number">Sender Phone Number<span class="form-required-mark">*</span></label>
+                      <input id="sms-twilio-from-number" class="form-input" type="text" placeholder="+15551234567" value="<%= ps.fromNumber || '' %>" />
+                    </div>
+                    <% } else { %>
+                    <div>
+                      <label class="form-label" for="sms-<%= def.key %>-sender-id">Sender ID (optional)</label>
+                      <input id="sms-<%= def.key %>-sender-id" class="form-input" type="text" maxlength="11" placeholder="e.g. YourSchool — leave blank to use a shared shortcode" value="<%= ps.senderId || '' %>" />
+                      <% if (def.key === 'arkesel') { %>
+                      <small style="display:block;margin-top:4px;color:#94a3b8;">
+                        Works immediately without one. In Ghana, AirtelTigo may filter unregistered senders — MTN and Telecel are more lenient. For reliable branded delivery on all networks, request a Sender ID in your Arkesel dashboard (Letter of Authorization, ≤72hr approval).
+                      </small>
+                      <% } %>
+                    </div>
+                    <% } %>
+
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                      <button class="btn-primary btn-link sms-save-settings-button" type="button" data-provider="<%= def.key %>">Save Settings</button>
+                      <small class="sms-settings-status" data-provider="<%= def.key %>-config" style="color:#64748b;">
+                        <%= psConfigured ? '' : 'Add your credentials above, then Save Settings.' %>
+                      </small>
+                    </div>
+                    <small style="color:#94a3b8;"><span class="form-required-mark">*</span> Required</small>
+                  </div>
+                </form>
+                </div>
+              </div>
+              <% } else { %>
+              <small style="display:block;margin-top:16px;color:#64748b;">Activate <%= def.label %> to reveal its API credential fields.</small>
+              <% } %>
+            </div>
+            <% }); %>
+
+            <div class="card">
               <h4>
                 <span class="google-classroom-title">
                   <svg class="google-classroom-logo" viewBox="8 8 48 48" aria-hidden="true" focusable="false">
@@ -3524,29 +4279,26 @@
                   </svg>
                   <span>WhatsApp Business</span>
                 </span>
+                <span class="pill" id="whatsapp-status-pill" data-activated="<%= wiActivated ? '1' : '0' %>" data-connected="<%= wiConnected ? '1' : '0' %>" style="background:<%= wiReady ? '#dcfce7' : '#fef3c7' %>;color:<%= wiReady ? '#166534' : '#92400e' %>">
+                  <%= wiReady ? 'Active & Connected' : (wiActivated ? 'Connection Required' : 'Inactive') %>
+                </span>
+                <%- integrationCoverageBadge('whatsapp') %>
               </h4>
               <small class="google-integration-description">
                 Activate WhatsApp, then connect your school's WhatsApp Business number using Meta Embedded Signup. This only sets up integration now; messaging will be configured separately.
                 <% if (wi.displayPhoneNumber) { %><br>Connected number: <strong><%= wi.displayPhoneNumber %></strong><% } %>
+                <% if (wi.businessName) { %><br>Business: <strong><%= wi.businessName %></strong><% } %>
+                <% if (wi.lastError) { %>
+                <br><span id="whatsapp-last-error" style="color:#b91c1c;"><%= wi.lastError %></span>
+                <% } else { %>
+                <span id="whatsapp-last-error" style="display:none;color:#b91c1c;"></span>
+                <% } %>
+                <%- integrationActivityLine('WhatsApp') %>
               </small>
 
-              <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
-                <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
-                  <span class="google-integration-copy">WhatsApp status</span>
-                  <span class="pill" id="whatsapp-status-pill" data-activated="<%= wiActivated ? '1' : '0' %>" data-connected="<%= wiConnected ? '1' : '0' %>" style="background:<%= wiReady ? '#dcfce7' : '#fef3c7' %>;color:<%= wiReady ? '#166534' : '#92400e' %>">
-                    <%= wiReady ? 'Active & Connected' : (wiActivated ? 'Connection Required' : 'Inactive') %>
-                  </span>
-                  <% if (wi.businessName) { %>
-                  <span class="text-muted-sm">Business: <strong><%= wi.businessName %></strong></span>
-                  <% } %>
-                  <% if (wi.lastError) { %>
-                  <span class="text-muted-sm" id="whatsapp-last-error" style="color:#b91c1c;"><%= wi.lastError %></span>
-                  <% } else { %>
-                  <span class="text-muted-sm" id="whatsapp-last-error" style="display:none;color:#b91c1c;"></span>
-                  <% } %>
-                </div>
-
-                <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
+              <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
+                <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+                  <a href="#" class="integration-readmore-link" data-integration="whatsapp">Read more</a>
                   <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
                     <summary class="google-actions-toggle" aria-label="WhatsApp actions">⋮</summary>
                     <div class="google-actions-menu-list">
@@ -3572,7 +4324,7 @@
 
               <form id="whatsapp-disconnect-form" action="/account/whatsapp/disconnect" method="POST" style="display:none;"></form>
 
-              <% if (wiConnected) { %>
+              <% if (wiActivated && wiConnected) { %>
               <div id="whatsapp-setup-checklist-card" style="margin-top:16px;padding:16px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;">
                 <strong style="font-size:13.5px;">Setup checklist</strong>
                 <div id="whatsapp-checklist-items" style="margin-top:10px;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
@@ -3619,235 +4371,6 @@
               <small style="display:block;margin-top:10px;color:#b45309;">Meta app credentials are missing on this server. Set <strong>META_APP_ID</strong>, <strong>META_APP_SECRET</strong>, and <strong>WHATSAPP_EMBEDDED_SIGNUP_CONFIG_ID</strong> for Embedded Signup connect.</small>
               <% } %>
             </div>
-
-          <div class="card" style="margin-top:14px;">
-            <h4>
-              <span class="student-portal-title">
-                <img class="student-portal-logo" src="/images/managira.png" alt="Managira logo" />
-                <span>Student Portal</span>
-              </span>
-            </h4>
-            <small class="google-integration-description">
-              Activate Student Portal to control school-level access to student-facing portal features and flows.
-            </small>
-
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
-                <span class="google-integration-copy">Student Portal status</span>
-                <span
-                  class="pill"
-                  id="student-portal-status-pill"
-                  data-activated="<%= spiActivated ? '1' : '0' %>"
-                  style="background:<%= spiActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= spiActivated ? '#166534' : '#92400e' %>">
-                  <%= spiActivated ? 'Active' : 'Inactive' %>
-                </span>
-              </div>
-
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
-                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Student Portal actions">⋮</summary>
-                  <div class="google-actions-menu-list">
-                    <a
-                      class="google-action-item"
-                      href="#"
-                      id="open-student-portal-activate-modal"
-                      style="display:<%= spiActivated ? 'none' : 'block' %>;">Activate</a>
-                    <a
-                      class="google-action-item"
-                      href="#"
-                      id="open-student-portal-deactivate-modal"
-                      style="display:<%= spiActivated ? 'block' : 'none' %>;">Deactivate</a>
-                  </div>
-                </details>
-              </div>
-            </div>
-
-            <form id="student-portal-activation-form" action="/account/student-portal/activate" method="POST" style="display:none;">
-              <input type="hidden" name="activate" id="student-portal-activation-value" value="0" />
-              <input type="hidden" name="integrationPassword" id="student-portal-activation-password" />
-            </form>
-          </div>
-
-          <div class="card" style="margin-top:14px;">
-            <h4>
-              <span class="student-portal-title">
-                <img class="transportation-logo" src="/images/transportation-logo.png" alt="Transportation logo" />
-                <span>Transportation</span>
-              </span>
-            </h4>
-            <small class="google-integration-description">
-              Activate Transportation to unlock bus, route, stop assignment, and live tracking dashboards for students, guardians, and staff.
-            </small>
-
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
-                <span class="google-integration-copy">Transportation status</span>
-                <span
-                  class="pill"
-                  id="transportation-status-pill"
-                  data-activated="<%= tiActivated ? '1' : '0' %>"
-                  style="background:<%= tiActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= tiActivated ? '#166534' : '#92400e' %>">
-                  <%= tiActivated ? 'Active' : 'Inactive' %>
-                </span>
-                <span class="text-muted-sm">Map provider: <strong><%= ti.mapProvider || 'openstreetmap' %></strong></span>
-              </div>
-
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
-                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Transportation actions">⋮</summary>
-                  <div class="google-actions-menu-list">
-                    <a
-                      class="google-action-item"
-                      href="#"
-                      id="open-transportation-activate-modal"
-                      style="display:<%= tiActivated ? 'none' : 'block' %>;"><%= tiActivated ? '' : 'Activate' %></a>
-                    <a
-                      class="google-action-item"
-                      href="#"
-                      id="open-transportation-deactivate-modal"
-                      style="display:<%= tiActivated ? 'block' : 'none' %>;"><%= tiActivated ? 'Deactivate' : '' %></a>
-                    <a class="google-action-item" href="/transportation/manage" style="display:<%= tiActivated ? 'block' : 'none' %>;">Open Transportation Manager</a>
-                  </div>
-                </details>
-              </div>
-            </div>
-
-            <form id="transportation-activation-form" action="/account/transportation/activate" method="POST" style="display:none;">
-              <input type="hidden" name="activate" id="transportation-activation-value" value="0" />
-              <input type="hidden" name="integrationPassword" id="transportation-activation-password" />
-            </form>
-          </div>
-
-          <% if (tiActivated) { %>
-          <% const gmActivated = !!ti.googleMapsNavActivated; %>
-          <div class="card" style="margin-top:14px;">
-            <h4>
-              <span class="google-classroom-title">
-                <svg class="google-classroom-logo google-classroom-logo--compact" viewBox="0 0 64 48" aria-hidden="true" focusable="false">
-                  <rect x="1" y="1" width="62" height="46" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"></rect>
-                  <g transform="translate(32,24)">
-                    <path fill="#4285F4" d="M0 0 L0 -14 A14 14 0 0 1 14 0 Z"></path>
-                    <path fill="#34A853" d="M0 0 L14 0 A14 14 0 0 1 0 14 Z"></path>
-                    <path fill="#FBBC04" d="M0 0 L0 14 A14 14 0 0 1 -14 0 Z"></path>
-                    <path fill="#EA4335" d="M0 0 L-14 0 A14 14 0 0 1 0 -14 Z"></path>
-                    <circle cx="0" cy="0" r="6" fill="#ffffff"></circle>
-                  </g>
-                </svg>
-                <span>Google Maps</span>
-              </span>
-            </h4>
-            <small class="google-integration-description">
-              Activate to let drivers open their route directly in the Google Maps app from the Driver Dashboard, with every stop pinned in order and the school as the final destination.
-            </small>
-
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
-                <span class="google-integration-copy">Google Maps status</span>
-                <span
-                  class="pill"
-                  id="google-maps-nav-status-pill"
-                  data-activated="<%= gmActivated ? '1' : '0' %>"
-                  style="background:<%= gmActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= gmActivated ? '#166534' : '#92400e' %>">
-                  <%= gmActivated ? 'Active' : 'Inactive' %>
-                </span>
-              </div>
-
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
-                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Google Maps actions">⋮</summary>
-                  <div class="google-actions-menu-list">
-                    <a
-                      class="google-action-item"
-                      href="#"
-                      id="open-google-maps-nav-activate-modal"
-                      style="display:<%= gmActivated ? 'none' : 'block' %>;"><%= gmActivated ? '' : 'Activate' %></a>
-                    <a
-                      class="google-action-item"
-                      href="#"
-                      id="open-google-maps-nav-deactivate-modal"
-                      style="display:<%= gmActivated ? 'block' : 'none' %>;"><%= gmActivated ? 'Deactivate' : '' %></a>
-                  </div>
-                </details>
-              </div>
-            </div>
-
-            <form id="google-maps-nav-activation-form" action="/account/transportation/google-maps-nav/activate" method="POST" style="display:none;">
-              <input type="hidden" name="activate" id="google-maps-nav-activation-value" value="0" />
-              <input type="hidden" name="integrationPassword" id="google-maps-nav-activation-password" />
-            </form>
-          </div>
-
-          <% const amActivated = !!ti.appleMapsNavActivated; %>
-          <div class="card" style="margin-top:14px;">
-            <h4>
-              <span class="google-classroom-title">
-                <svg class="google-classroom-logo google-classroom-logo--compact" viewBox="0 0 64 48" aria-hidden="true" focusable="false">
-                  <defs>
-                    <clipPath id="appleMapsClip">
-                      <rect x="1" y="1" width="62" height="46" rx="10"></rect>
-                    </clipPath>
-                  </defs>
-                  <g clip-path="url(#appleMapsClip)">
-                    <rect x="1" y="1" width="62" height="46" fill="#eef1ee"></rect>
-                    <polygon points="1,1 20,1 6,47 1,47" fill="#f3c6ce"></polygon>
-                    <polygon points="20,1 30,1 16,47 6,47" fill="#f6cf6a"></polygon>
-                    <polygon points="30,1 63,1 63,10 24,47 16,47" fill="#a9d18e"></polygon>
-                    <polygon points="63,10 63,26 40,47 24,47" fill="#a9d18e"></polygon>
-                    <polygon points="63,26 63,47 40,47" fill="#8fc7db"></polygon>
-                  </g>
-                  <rect x="1" y="1" width="62" height="46" rx="10" fill="none" stroke="#e2e8f0" stroke-width="2"></rect>
-                  <circle cx="24" cy="28" r="11" fill="#2f7ff0"></circle>
-                  <polygon points="24,20 29,32 24,29 19,32" fill="#f4f8ff"></polygon>
-                  <g transform="translate(40,30)">
-                    <rect x="-11" y="-7" width="22" height="16" rx="3" fill="#2f6fb0"></rect>
-                    <rect x="-9" y="-5" width="18" height="12" rx="2" fill="#ffffff"></rect>
-                    <text x="0" y="4" text-anchor="middle" font-size="8" font-weight="700" fill="#2f6fb0" font-family="Arial, sans-serif">280</text>
-                  </g>
-                </svg>
-                <span>Maps</span>
-              </span>
-            </h4>
-            <small class="google-integration-description">
-              Activate to let drivers open their route directly in the Maps app from the Driver Dashboard, one stop at a time in order, ending at the school.
-            </small>
-
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:space-between !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-summary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;flex:1 1 auto;">
-                <span class="google-integration-copy">Maps status</span>
-                <span
-                  class="pill"
-                  id="apple-maps-nav-status-pill"
-                  data-activated="<%= amActivated ? '1' : '0' %>"
-                  style="background:<%= amActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= amActivated ? '#166534' : '#92400e' %>">
-                  <%= amActivated ? 'Active' : 'Inactive' %>
-                </span>
-              </div>
-
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;">
-                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Maps actions">⋮</summary>
-                  <div class="google-actions-menu-list">
-                    <a
-                      class="google-action-item"
-                      href="#"
-                      id="open-apple-maps-nav-activate-modal"
-                      style="display:<%= amActivated ? 'none' : 'block' %>;"><%= amActivated ? '' : 'Activate' %></a>
-                    <a
-                      class="google-action-item"
-                      href="#"
-                      id="open-apple-maps-nav-deactivate-modal"
-                      style="display:<%= amActivated ? 'block' : 'none' %>;"><%= amActivated ? 'Deactivate' : '' %></a>
-                  </div>
-                </details>
-              </div>
-            </div>
-
-            <form id="apple-maps-nav-activation-form" action="/account/transportation/apple-maps-nav/activate" method="POST" style="display:none;">
-              <input type="hidden" name="activate" id="apple-maps-nav-activation-value" value="0" />
-              <input type="hidden" name="integrationPassword" id="apple-maps-nav-activation-password" />
-            </form>
-          </div>
-          <% } %>
         </section>
         <% } %>
 
@@ -4103,6 +4626,7 @@
         </section>
       </main>
     </div>
+    </div>
     <div class="modal-overlay" id="cancel-modal">
       <div class="modal-card cancel-modal">
         <button class="modal-close" type="button" id="cancel-modal-close">x</button>
@@ -4218,6 +4742,36 @@
         </div>
       </div>
     </div>
+    <div class="modal-overlay" id="sms-activation-modal">
+      <div class="modal-card password-modal">
+        <button class="modal-close" type="button" id="sms-activation-close">x</button>
+        <h2>Confirm Password</h2>
+        <p id="sms-activation-copy">Please confirm your password to continue.</p>
+        <div class="content-row">
+          <div class="field-group">
+            <label class="form-label" for="sms-activation-input">Password</label>
+            <input
+              type="password"
+              id="sms-activation-input"
+              placeholder="Enter your password"
+              class="form-input"
+            />
+          </div>
+          <p class="error-text" id="sms-activation-error"></p>
+          <div class="form-actions">
+            <button class="btn-primary btn-link" id="sms-activation-submit" type="button">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="integration-info-backdrop" id="integration-info-backdrop"></div>
+    <aside class="integration-info-panel" id="integration-info-panel" aria-hidden="true">
+      <div class="integration-info-panel-head">
+        <h3 id="integration-info-title">Integration</h3>
+        <button class="integration-info-panel-close" type="button" id="integration-info-close" aria-label="Close">x</button>
+      </div>
+      <div class="integration-info-panel-body" id="integration-info-body"></div>
+    </aside>
     <div class="modal-overlay" id="transportation-activation-modal">
       <div class="modal-card password-modal">
         <button class="modal-close" type="button" id="transportation-activation-close">x</button>
@@ -4773,6 +5327,8 @@
         const navHeader = document.querySelector(".settings-nav-header");
         const navPanel = document.querySelector(".settings-nav");
         const navOverlay = document.querySelector(".settings-nav-overlay");
+        const navCollapseToggle = document.getElementById("settings-nav-collapse-toggle");
+        const settingsLayoutRoot = document.getElementById("settings-layout-root");
         const logoInput = document.getElementById("logo");
         const logoSubmit = document.getElementById("logo-submit");
         const fontSelect = document.getElementById("font-select");
@@ -5181,6 +5737,37 @@
           navHeader.dataset.spaMenuBound = "1";
           navHeader.addEventListener("click", () => {
             openNav();
+          });
+        }
+
+        // Desktop-only icon-rail collapse. Remembered across reloads so the
+        // sidebar doesn't jump back to full width every time this page
+        // reloads. Stops propagation so clicking it doesn't also trigger
+        // navHeader's own click-to-open-mobile-nav handler above.
+        if (navCollapseToggle && navPanel && settingsLayoutRoot && navCollapseToggle.dataset.spaMenuBound !== "1") {
+          navCollapseToggle.dataset.spaMenuBound = "1";
+          const NAV_COLLAPSE_STORAGE_KEY = "managira-settings-nav-collapsed";
+
+          const setNavCollapsed = (isCollapsed) => {
+            navPanel.classList.toggle("is-collapsed", isCollapsed);
+            settingsLayoutRoot.classList.toggle("is-nav-collapsed", isCollapsed);
+            navCollapseToggle.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+            navCollapseToggle.setAttribute("title", isCollapsed ? "Expand sidebar" : "Collapse sidebar");
+          };
+
+          let storedCollapsed = false;
+          try {
+            storedCollapsed = localStorage.getItem(NAV_COLLAPSE_STORAGE_KEY) === "1";
+          } catch (_) {}
+          setNavCollapsed(storedCollapsed);
+
+          navCollapseToggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const isCollapsed = !navPanel.classList.contains("is-collapsed");
+            setNavCollapsed(isCollapsed);
+            try {
+              localStorage.setItem(NAV_COLLAPSE_STORAGE_KEY, isCollapsed ? "1" : "0");
+            } catch (_) {}
           });
         }
 
@@ -7574,6 +8161,453 @@
         showSection(initialSection, { scroll: false });
       });
     })();
+    </script>
+    <script>
+      (function () {
+        // CSS calc(100vh - ...) can't reliably account for the global
+        // layout's header height + its conditional 0.9 zoom on <main>, so
+        // instead measure the real remaining viewport space at runtime and
+        // apply it as an explicit min-height. This is what actually makes
+        // the sidebar + main panel reach the bottom of the window instead
+        // of stopping wherever their own content ends.
+        function fitSettingsLayoutToViewport() {
+          const root = document.getElementById("settings-layout-root");
+          const nav = document.getElementById("settings-nav-panel");
+          const main = document.querySelector(".settings-main");
+          if (!root) return;
+
+          if (window.innerWidth <= 960) {
+            root.style.minHeight = "";
+            if (nav) nav.style.minHeight = "";
+            return;
+          }
+
+          const top = root.getBoundingClientRect().top;
+          const available = window.innerHeight - top;
+          if (available <= 200) return;
+
+          root.style.minHeight = available + "px";
+
+          // Belt-and-suspenders: don't rely on CSS Grid's align-items:stretch
+          // actually stretching the nav to the row height on this page (it's
+          // embedded inside the app's shared layout in a non-standard way
+          // that has made pure-CSS height fixes here unreliable) — directly
+          // set the nav's min-height in JS to match whichever is taller: the
+          // viewport-filling row, or the main panel's real content height.
+          if (nav && main) {
+            const targetHeight = Math.max(available, main.getBoundingClientRect().height);
+            nav.style.minHeight = targetHeight + "px";
+          }
+        }
+
+        window.addEventListener("load", fitSettingsLayoutToViewport);
+        window.addEventListener("resize", fitSettingsLayoutToViewport);
+        document.addEventListener("DOMContentLoaded", fitSettingsLayoutToViewport);
+        setTimeout(fitSettingsLayoutToViewport, 300);
+      })();
+    </script>
+    <script>
+      (function () {
+        function openModal(modal) { if (modal) modal.classList.add("show"); }
+        function closeModal(modal) { if (modal) modal.classList.remove("show"); }
+
+        const INTEGRATION_INFO = {
+          "student-portal": {
+            title: "Student Portal",
+            whatItDoes: "Gives students their own login to a dedicated portal — assessments, results, timetables, and announcements — separate from the parent/guardian and staff views.",
+            goodFor: "Schools that want students to check their own grades, take online assessments, and see schedules without going through a parent's account.",
+            goodForWho: ["Secondary and tertiary schools with independent student logins", "Schools running online tests or quizzes", "Schools that want to reduce front-desk requests for results"],
+          },
+          transportation: {
+            title: "Transportation",
+            whatItDoes: "Unlocks bus routes, stop assignments, driver dashboards, and live tracking so guardians and staff can see where a school bus is in real time.",
+            goodFor: "Schools that run their own bus fleet or contract transportation and want guardians to trust pickup/drop-off timing.",
+            goodForWho: ["Schools with bus fleets or shuttle services", "Boarding schools coordinating pickup points", "Admin teams fielding \"where is the bus\" calls"],
+          },
+          "google-maps": {
+            title: "Google Maps Navigation",
+            whatItDoes: "Lets drivers open their assigned route directly in the Google Maps app from the Driver Dashboard, with every stop pinned in order and the school as the final destination.",
+            goodFor: "Drivers who already use Google Maps daily and want turn-by-turn navigation without manually entering stops.",
+            goodForWho: ["Drivers using Android phones", "Schools whose routes cross well-mapped urban areas", "Transport coordinators who want minimal driver training"],
+          },
+          "apple-maps": {
+            title: "Apple Maps Navigation",
+            whatItDoes: "Lets drivers open their assigned route directly in the Apple Maps app from the Driver Dashboard, with every stop pinned in order and the school as the final destination.",
+            goodFor: "Drivers on iPhones who prefer Apple's native navigation over a third-party app.",
+            goodForWho: ["Drivers using iPhones", "Schools that issue Apple devices to transport staff"],
+          },
+          "google-classroom": {
+            title: "Google Classroom",
+            whatItDoes: "Syncs classwork and lets students access assessments and tests online individually, while teachers push classwork directly from Managira into Google Classroom.",
+            goodFor: "Schools already using Google Workspace for Education that want Managira's assessments to show up where students already do their classwork.",
+            goodForWho: ["Schools on Google Workspace for Education", "Teachers who assign homework through Google Classroom", "Schools blending in-person and online classwork"],
+          },
+          whatsapp: {
+            title: "WhatsApp Business",
+            whatItDoes: "Connects your school's WhatsApp Business number so you can message parents and staff on the channel they already check most.",
+            goodFor: "Schools where parents primarily communicate over WhatsApp and want higher open rates than email or SMS alone.",
+            goodForWho: ["Schools in regions where WhatsApp is the default messaging app", "PTA and front-office teams sending reminders", "Schools wanting read receipts on important notices"],
+          },
+          arkesel: {
+            title: "Arkesel SMS",
+            docsUrl: "https://managira.com/legal/user-documentation/sms-integrations#:~:text=optionally)%20Sender%20ID.-,Arkesel,-Site%3A%20https",
+            whatItDoes: "Sends SMS to parents and staff using your school's own Arkesel account and wallet — Managira never touches your credit or message content storage.",
+            goodFor: "Schools in Ghana and West Africa that already have (or can easily open) an Arkesel account with a registered sender ID.",
+            goodForWho: ["Ghana-based schools", "Schools needing fast local SMS delivery", "Admins comfortable topping up via Mobile Money"],
+          },
+          africastalking: {
+            title: "Africa's Talking SMS",
+            docsUrl: "https://managira.com/legal/user-documentation/sms-integrations#:~:text=Select%20Activate.-,Africa%27s%20Talking,-Site%3A%20https",
+            whatItDoes: "Sends SMS using your school's own Africa's Talking account, with a free sandbox mode so you can test the full flow before spending real credit.",
+            goodFor: "Schools operating across multiple African countries that want one SMS provider with broad continental coverage.",
+            goodForWho: ["Schools outside Ghana needing pan-African SMS reach", "Multi-branch school groups", "Admins who want to test in sandbox before going live"],
+          },
+          twilio: {
+            title: "Twilio SMS",
+            docsUrl: "https://managira.com/legal/user-documentation/sms-integrations#:~:text=Select%20Activate.-,Twilio,-Site%3A%20https",
+            whatItDoes: "Sends SMS worldwide using your school's own Twilio account and a purchased Twilio phone number.",
+            goodFor: "International schools or diaspora-heavy parent bases where messages need to reach numbers outside Africa reliably.",
+            goodForWho: ["International schools with parents abroad", "Schools already using Twilio for other communications", "Admins who need delivery status callbacks for compliance records"],
+          },
+        };
+
+        const integrationInfoBackdrop = document.getElementById("integration-info-backdrop");
+        const integrationInfoPanel = document.getElementById("integration-info-panel");
+        const integrationInfoTitle = document.getElementById("integration-info-title");
+        const integrationInfoBody = document.getElementById("integration-info-body");
+        const integrationInfoClose = document.getElementById("integration-info-close");
+
+        function openIntegrationInfo(key) {
+          const info = INTEGRATION_INFO[key];
+          if (!info || !integrationInfoPanel || !integrationInfoBackdrop) return;
+
+          integrationInfoTitle.textContent = info.title;
+          integrationInfoBody.innerHTML = `
+            ${info.docsUrl ? `<a href="${info.docsUrl}" target="_blank" rel="noopener" class="integration-info-docs-link">📄 Read the full setup guide &rarr;</a>` : ""}
+            <div>
+              <h4>What it does</h4>
+              <p>${info.whatItDoes}</p>
+            </div>
+            <div>
+              <h4>Good for</h4>
+              <p>${info.goodFor}</p>
+            </div>
+            <div>
+              <h4>Who it's good for</h4>
+              <ul>${info.goodForWho.map((item) => `<li>${item}</li>`).join("")}</ul>
+            </div>
+          `;
+
+          integrationInfoBackdrop.classList.add("show");
+          integrationInfoPanel.classList.add("show");
+          integrationInfoPanel.setAttribute("aria-hidden", "false");
+        }
+
+        function closeIntegrationInfo() {
+          if (!integrationInfoPanel || !integrationInfoBackdrop) return;
+          integrationInfoBackdrop.classList.remove("show");
+          integrationInfoPanel.classList.remove("show");
+          integrationInfoPanel.setAttribute("aria-hidden", "true");
+        }
+
+        document.querySelectorAll(".integration-readmore-link").forEach((link) => {
+          link.addEventListener("click", (event) => {
+            event.preventDefault();
+            openIntegrationInfo(link.dataset.integration);
+          });
+        });
+
+        if (integrationInfoClose) integrationInfoClose.addEventListener("click", closeIntegrationInfo);
+        if (integrationInfoBackdrop) integrationInfoBackdrop.addEventListener("click", closeIntegrationInfo);
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") closeIntegrationInfo();
+        });
+
+        // Close any open integration ⋮ action menu when clicking anywhere else on the page.
+        document.addEventListener("click", (event) => {
+          document.querySelectorAll("#integrations details.google-actions-menu[open]").forEach((menu) => {
+            if (!menu.contains(event.target)) menu.open = false;
+          });
+        });
+
+        const smsModal = document.getElementById("sms-activation-modal");
+        const smsModalCopy = document.getElementById("sms-activation-copy");
+        const smsModalClose = document.getElementById("sms-activation-close");
+        const smsModalInput = document.getElementById("sms-activation-input");
+        const smsModalError = document.getElementById("sms-activation-error");
+        const smsModalSubmit = document.getElementById("sms-activation-submit");
+
+        const providerLabels = {
+          arkesel: "Arkesel SMS",
+          africastalking: "Africa's Talking SMS",
+          twilio: "Twilio SMS",
+        };
+
+        let pendingSmsProvider = null;
+        let pendingSmsActivate = true;
+
+        function openSmsPasswordModal(provider, activate) {
+          if (!smsModal) return;
+          pendingSmsProvider = provider;
+          pendingSmsActivate = activate;
+          const label = providerLabels[provider] || "this SMS provider";
+          if (smsModalCopy) {
+            smsModalCopy.textContent = `Please confirm your password to ${activate ? "activate" : "deactivate"} ${label}.`;
+          }
+          if (smsModalInput) smsModalInput.value = "";
+          if (smsModalError) smsModalError.textContent = "";
+          openModal(smsModal);
+          if (smsModalInput) smsModalInput.focus();
+        }
+
+        document.querySelectorAll(".sms-open-activate").forEach((el) => {
+          el.addEventListener("click", (event) => {
+            event.preventDefault();
+            openSmsPasswordModal(el.dataset.provider, true);
+          });
+        });
+        document.querySelectorAll(".sms-open-deactivate").forEach((el) => {
+          el.addEventListener("click", (event) => {
+            event.preventDefault();
+            openSmsPasswordModal(el.dataset.provider, false);
+          });
+        });
+
+        if (smsModalClose && smsModal) {
+          smsModalClose.addEventListener("click", () => closeModal(smsModal));
+        }
+        if (smsModal) {
+          smsModal.addEventListener("click", (event) => {
+            if (event.target === smsModal) closeModal(smsModal);
+          });
+        }
+
+        function setSmsCardActivationState(provider, activated) {
+          const card = document.querySelector(`.sms-provider-card[data-sms-provider="${provider}"]`);
+          if (!card) return;
+          window.location.reload();
+        }
+
+        if (smsModalSubmit) {
+          smsModalSubmit.addEventListener("click", async () => {
+            const password = smsModalInput ? smsModalInput.value.trim() : "";
+            if (!password) {
+              if (smsModalError) smsModalError.textContent = "Password is required.";
+              return;
+            }
+            if (!pendingSmsProvider) return;
+
+            const previousLabel = smsModalSubmit.textContent;
+            smsModalSubmit.disabled = true;
+            smsModalSubmit.textContent = "Processing...";
+            if (smsModalError) smsModalError.textContent = "";
+
+            try {
+              const response = await fetch("/account/sms/activate", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: new URLSearchParams({
+                  provider: pendingSmsProvider,
+                  activate: pendingSmsActivate ? "1" : "0",
+                  integrationPassword: password,
+                }),
+              });
+
+              const result = await response.json().catch(() => ({}));
+              if (!response.ok || !result || !result.success) {
+                if (smsModalError) smsModalError.textContent = (result && result.message) || "Unable to update this SMS integration.";
+                return;
+              }
+
+              closeModal(smsModal);
+              setSmsCardActivationState(pendingSmsProvider, pendingSmsActivate);
+            } catch (error) {
+              if (smsModalError) smsModalError.textContent = "Unable to update this SMS integration right now.";
+            } finally {
+              smsModalSubmit.disabled = false;
+              smsModalSubmit.textContent = previousLabel || "Continue";
+            }
+          });
+        }
+
+        function setSmsStatus(provider, message, isError) {
+          const el = document.querySelector(`.sms-settings-status[data-provider="${provider}"]`);
+          if (!el) return;
+          el.textContent = message;
+          el.style.color = isError ? "#b91c1c" : "#64748b";
+        }
+
+        document.querySelectorAll(".sms-save-settings-button").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const provider = button.dataset.provider;
+            const form = document.querySelector(`form.sms-settings-form[data-provider="${provider}"]`);
+            if (!form) return;
+
+            const payload = { provider };
+            const apiKeyInput = document.getElementById(`sms-${provider}-api-key`);
+            if (apiKeyInput) payload.apiKey = apiKeyInput.value.trim();
+
+            if (provider === "arkesel") {
+              const senderInput = document.getElementById("sms-arkesel-sender-id");
+              payload.senderId = senderInput ? senderInput.value.trim() : "";
+            } else if (provider === "africastalking") {
+              const usernameInput = document.getElementById("sms-africastalking-username");
+              const senderInput = document.getElementById("sms-africastalking-sender-id");
+              payload.username = usernameInput ? usernameInput.value.trim() : "";
+              payload.senderId = senderInput ? senderInput.value.trim() : "";
+              payload.apiKey = apiKeyInput ? apiKeyInput.value.trim() : "";
+            } else if (provider === "twilio") {
+              const accountSidInput = document.getElementById("sms-twilio-account-sid");
+              const fromNumberInput = document.getElementById("sms-twilio-from-number");
+              payload.accountSid = accountSidInput ? accountSidInput.value.trim() : "";
+              payload.fromNumber = fromNumberInput ? fromNumberInput.value.trim() : "";
+              payload.authToken = apiKeyInput ? apiKeyInput.value.trim() : "";
+            }
+
+            const statusKey = `${provider}-config`;
+            const previousLabel = button.textContent;
+            button.disabled = true;
+            button.textContent = "Saving...";
+            setSmsStatus(statusKey, "Saving settings...", false);
+
+            try {
+              const response = await fetch("/account/sms/settings", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: new URLSearchParams(payload),
+              });
+
+              const result = await response.json().catch(() => ({}));
+              if (!response.ok || !result || !result.success) {
+                setSmsStatus(statusKey, (result && result.message) || "Unable to save SMS settings.", true);
+                return;
+              }
+
+              setSmsStatus(statusKey, "Saved. This provider is now active — new sends from Managira use it.", false);
+              window.location.reload();
+            } catch (error) {
+              setSmsStatus(statusKey, "Unable to save SMS settings right now.", true);
+            } finally {
+              button.disabled = false;
+              button.textContent = previousLabel || "Save Settings";
+            }
+          });
+        });
+
+        document.querySelectorAll(".sms-test-button").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const provider = button.dataset.provider;
+            const recipientInput = document.querySelector(`.sms-test-recipient[data-provider="${provider}"]`);
+            const messageInput = document.querySelector(`.sms-test-message[data-provider="${provider}"]`);
+            const recipient = recipientInput ? recipientInput.value.trim() : "";
+            const message = messageInput ? messageInput.value.trim() : "";
+
+            if (!recipient) {
+              setSmsStatus(provider, "Enter a recipient phone number first (e.g. +233551234567).", true);
+              return;
+            }
+            if (!message) {
+              setSmsStatus(provider, "Type a message first.", true);
+              return;
+            }
+
+            const previousLabel = button.textContent;
+            button.disabled = true;
+            button.textContent = "Sending...";
+            setSmsStatus(provider, "Sending...", false);
+
+            try {
+              const response = await fetch("/account/sms/test-message", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: new URLSearchParams({ provider, recipient, message }),
+              });
+
+              const result = await response.json().catch(() => ({}));
+              if (!response.ok || !result || !result.success) {
+                setSmsStatus(provider, (result && result.message) || "Send failed.", true);
+                return;
+              }
+
+              setSmsStatus(provider, "Sent successfully.", false);
+            } catch (error) {
+              setSmsStatus(provider, "Unable to send right now.", true);
+            } finally {
+              button.disabled = false;
+              button.textContent = previousLabel || "Send";
+            }
+          });
+        });
+
+        document.querySelectorAll(".sms-config-toggle").forEach((button) => {
+          button.dataset.defaultLabel = button.textContent;
+          button.addEventListener("click", () => {
+            const provider = button.dataset.provider;
+            const panel = document.querySelector(`.sms-config-panel[data-provider="${provider}"]`);
+            if (!panel) return;
+            const isHidden = panel.style.display === "none";
+            panel.style.display = isHidden ? "block" : "none";
+            button.textContent = isHidden ? "Hide Credentials" : button.dataset.defaultLabel;
+          });
+        });
+
+        document.querySelectorAll(".sms-compose-toggle").forEach((button) => {
+          button.dataset.defaultLabel = button.textContent;
+          button.addEventListener("click", () => {
+            const provider = button.dataset.provider;
+            const panel = document.querySelector(`.sms-compose-panel[data-provider="${provider}"]`);
+            if (!panel) return;
+            const isHidden = panel.style.display === "none";
+            panel.style.display = isHidden ? "block" : "none";
+            button.textContent = isHidden ? "Hide" : button.dataset.defaultLabel;
+            if (isHidden) {
+              const recipientInput = panel.querySelector(".sms-test-recipient");
+              if (recipientInput) recipientInput.focus();
+            }
+          });
+        });
+
+        document.querySelectorAll(".sms-secret-change-btn").forEach((button) => {
+          button.addEventListener("click", () => {
+            const provider = button.dataset.provider;
+            const displayInput = document.querySelector(`.sms-secret-display[data-provider="${provider}"]`);
+            const editInput = document.querySelector(`.sms-secret-edit-input[data-provider="${provider}"]`);
+            if (!displayInput || !editInput) return;
+
+            const isChangeMode = button.dataset.mode === "change";
+            if (isChangeMode) {
+              // Switch to edit mode: hide the dotted display, show the real
+              // (empty) input for a new key, button becomes a cancel (✕).
+              displayInput.style.display = "none";
+              editInput.style.display = "";
+              editInput.value = "";
+              editInput.focus();
+              button.textContent = "✕";
+              button.dataset.mode = "cancel";
+            } else {
+              // Cancel: discard whatever was typed, go back to the locked
+              // dotted display, button becomes "Change" again.
+              editInput.style.display = "none";
+              editInput.value = "";
+              displayInput.style.display = "";
+              button.textContent = "Change";
+              button.dataset.mode = "change";
+            }
+          });
+        });
+      })();
     </script>
   </body>
 </html>

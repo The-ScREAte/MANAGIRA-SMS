@@ -2683,6 +2683,7 @@
       studentIdNextAvailableStart: Number(nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1))
     }).replace(/</g, '\\u003c') %></script>
 
+    <script src="/js/dialCodes.js"></script>
     <script>
       // Helper functions for guardian autocomplete
       function escapeHtml(str) {
@@ -3167,7 +3168,10 @@
     
       // ── Smart sanitization helpers (client-side) ──
       function sanitizePhoneClient(val) {
-        return String(val || '').replace(/[\s\-\(\)\.\+]/g, '');
+        const raw = String(val || '');
+        const hasPlus = raw.trim().startsWith('+');
+        const digits = raw.replace(/[\s\-\(\)\.\+]/g, '');
+        return hasPlus ? `+${digits}` : digits;
       }
       function normalizeGenderClient(val) {
         const g = String(val || '').trim().toLowerCase();
@@ -3259,7 +3263,8 @@
         }
         duplicateInput.value = allowDuplicateSave ? 'true' : 'false';
 
-        // ── Pre-submit: sanitize all phone & gender fields ──
+        // ── Pre-submit: combine country-code select + local number, then sanitize ──
+        if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(form);
         form.querySelectorAll('input[name*="guardianPhone"]').forEach(input => {
           input.value = sanitizePhoneClient(input.value);
         });
@@ -3872,7 +3877,10 @@ function addStudentForm() {
 
               <div class="form-field-group">
                 <label class="form-label">Phone</label>
-                <input type="text" class="form-input" name="guardianPhone_${index}_${count}" />
+                <div class="phone-combo" data-default-iso2="GH" style="display:flex;gap:6px;">
+                  <select class="form-input phone-dial-select" style="max-width:150px;flex:0 0 auto;"></select>
+                  <input type="text" class="form-input phone-local-input" name="guardianPhone_${index}_${count}" placeholder="24 123 4567" style="flex:1;" />
+                </div>
               </div>
 
               <div class="form-field-group">
@@ -3915,7 +3923,8 @@ function addStudentForm() {
         wrapper.innerHTML = html;
         const guardianRow = wrapper.querySelector(".guardian-row");
         container.appendChild(guardianRow);
-        
+        if (window.initPhoneCountryCombos) window.initPhoneCountryCombos(guardianRow);
+
         // Bind autocomplete only for existing guardian mode
         if (mode === 'existing') {
           bindGuardianAutocomplete(guardianRow);

@@ -856,8 +856,24 @@
       position: static;
     }
 
+    .tm-brand {
+      justify-content: space-between;
+      margin-bottom: 0;
+      padding: 4px;
+    }
+
+    .tm-nav-toggle {
+      display: inline-flex;
+    }
+
     .tm-nav {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      display: none;
+      grid-template-columns: 1fr;
+      margin-top: 10px;
+    }
+
+    .tm-nav.is-open {
+      display: grid;
     }
 
     .tm-stats {
@@ -879,26 +895,6 @@
 
     .tm-sidebar {
       padding: 10px 12px;
-    }
-
-    .tm-brand {
-      justify-content: space-between;
-      margin-bottom: 0;
-      padding: 4px;
-    }
-
-    .tm-nav-toggle {
-      display: inline-flex;
-    }
-
-    .tm-nav {
-      display: none;
-      grid-template-columns: 1fr;
-      margin-top: 10px;
-    }
-
-    .tm-nav.is-open {
-      display: grid;
     }
 
     .tm-head--split {
@@ -1771,6 +1767,15 @@
                       <button class="tm-btn tm-btn--primary" type="button" data-action="save-class-access">Save</button>
                       <button class="tm-btn" type="button" data-action="cancel-class-access">Cancel</button>
                     </span>
+                    <% if (canBroadcastToGuardians && classGroup.classId) { %>
+                    <button
+                      class="tm-btn notify-guardians-btn"
+                      type="button"
+                      style="background:#f0fdf4;color:#166534;border-color:#bbf7d0;"
+                      data-context="transportation"
+                      data-context-id="<%= classGroup.classId %>"
+                    >Notify Guardians</button>
+                    <% } %>
                     <span class="tm-map-note" data-class-feedback></span>
                   </div>
                   <div class="tm-class-group-list">
@@ -3528,4 +3533,17 @@
       });
     });
   })();
+</script>
+<script src="/js/guardianBroadcast.js"></script>
+<script>
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.notify-guardians-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openGuardianBroadcast({
+      context: btn.dataset.context || 'transportation',
+      contextId: btn.dataset.contextId || '',
+    });
+  });
 </script>

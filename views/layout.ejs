@@ -103,6 +103,9 @@
             <% } %>
         <% } %>
 
+        <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>
+            <%- include('partials/announcementFeed') %>
+        <% } %>
 
         <main>
             <%- body %>

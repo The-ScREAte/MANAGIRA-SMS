@@ -76,6 +76,8 @@ module.exports = (db) => {
           organizationId: req.session.organizationId,
           classId,
           termId,
+          hideGlobalHeader: true,
+          hideGlobalFooter: true,
         });
     });
    router.get('/getGuardianEmails', isAuthenticated, printController.getGuardianEmails);
@@ -86,6 +88,7 @@ module.exports = (db) => {
     router.post('/logDeliveryEvent', isAuthenticated, express.json(), printController.logDeliveryEvent);
    router.post('/emailReports', isAuthenticated, express.json(), printController.emailReports);
     router.post('/whatsappReports', isAuthenticated, express.json(), printController.whatsappReports);
+    router.post('/smsReports', isAuthenticated, express.json(), printController.smsReports);
    router.get('/emailHistory', isAuthenticated, printController.getEmailHistory);
    router.post('/retryEmail', isAuthenticated, express.json(), printController.retryFailedEmail);
    

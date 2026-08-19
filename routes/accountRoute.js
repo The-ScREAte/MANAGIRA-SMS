@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const accountController = require("../controllers/accountController");
+const guardianMessagingController = require("../controllers/guardianMessagingController");
 const themeController = require("../controllers/themeController");
 const accountValidation = require("../validation/accountValidation");
 const { isAuthenticated } = require("../middleware/authMiddleware");
@@ -349,6 +350,78 @@ router.post(
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountController.whatsappDiagnoseRecipientPost
 );
+router.post(
+  "/sms/activate",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.smsActivationPost
+);
+router.post(
+  "/sms/settings",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.smsSettingsSavePost
+);
+router.post(
+  "/sms/test-message",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.smsTestMessagePost
+);
+router.get(
+  "/messaging/status",
+  isAuthenticated,
+  guardianMessagingController.channelStatus
+);
+router.post(
+  "/messaging/resolve",
+  isAuthenticated,
+  guardianMessagingController.resolve
+);
+router.post(
+  "/messaging/broadcast",
+  isAuthenticated,
+  guardianMessagingController.broadcast
+);
+router.post(
+  "/messaging/sentStatus",
+  isAuthenticated,
+  guardianMessagingController.sentStatus
+);
+router.post(
+  "/messaging/saveContacts",
+  isAuthenticated,
+  guardianMessagingController.saveContacts
+);
+router.post(
+  "/messaging/resend",
+  isAuthenticated,
+  guardianMessagingController.resend
+);
+router.get(
+  "/messaging/mailroomDirectory",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MAILROOM),
+  guardianMessagingController.mailroomDirectory
+);
+router.post(
+  "/messaging/mailroomSend",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MAILROOM),
+  guardianMessagingController.mailroomSend
+);
+router.get(
+  "/messaging/mailroomHistory",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MAILROOM),
+  guardianMessagingController.mailroomHistory
+);
+router.post(
+  "/messaging/mailroomResend",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MAILROOM),
+  guardianMessagingController.mailroomResend
+);
 router.get(
   "/google-classroom/connect",
   isAuthenticated,
@@ -480,6 +553,14 @@ router.get("/whatsapp/webhook", (req, res) =>
 );
 router.post("/whatsapp/webhook", express.json({ type: "application/json" }), (req, res) =>
   accountController.whatsappWebhookPost(req, res)
+);
+
+// SMS delivery-status callbacks (Arkesel, Africa's Talking, Twilio all post here — no auth, providers only).
+router.post(
+  "/sms/webhook/:provider",
+  express.json(),
+  express.urlencoded({ extended: false }),
+  (req, res) => accountController.smsWebhookPost(req, res)
 );
 
 // Webhook Route for Stripe Events (Legacy)

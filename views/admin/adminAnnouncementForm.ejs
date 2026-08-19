@@ -1,0 +1,46 @@
+<link rel="stylesheet" href="/css/admin.css" />
+<style>
+  :root {
+    --automation-ink: #102542;
+    --automation-muted: #5b6b82;
+    --automation-accent: #0f766e;
+    --automation-border: rgba(16, 37, 66, 0.12);
+  }
+  body { margin: 0; background: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .aaf-wrap { max-width: 560px; margin: 0 auto; padding: 28px 24px 60px; }
+  .aaf-wrap h1 { font-size: 1.2rem; color: var(--automation-ink); margin: 0 0 18px; }
+  .field-label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--automation-ink); margin-bottom: 6px; }
+  .automation-input, .automation-textarea {
+    width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--automation-border);
+    border-radius: 8px; font-size: 0.85rem; font-family: inherit; margin-bottom: 16px;
+  }
+  .automation-textarea { min-height: 120px; resize: vertical; }
+  .admin-btn.automation-primary {
+    background: var(--automation-accent); color: #fff; border: none; padding: 10px 22px;
+    border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  }
+</style>
+<div class="aaf-wrap">
+  <h1>New admin announcement</h1>
+  <%- include('../partials/flash') %>
+  <form method="POST" action="/admin/announcements" class="announcement-form">
+    <div>
+      <label class="field-label" for="announcement-title">Announcement title</label>
+      <input id="announcement-title" class="automation-input" type="text" name="title" placeholder="School reopening notice" required />
+    </div>
+    <div>
+      <label class="field-label" for="announcement-description">Announcement message</label>
+      <textarea id="announcement-description" class="automation-textarea" name="description" placeholder="Write the notice you want admins, schools, or users to see." required></textarea>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 2px 16px;">
+      <input id="announcement-show-for-admins" type="checkbox" name="show_for_admins" style="width:16px;height:16px;" />
+      <label for="announcement-show-for-admins" style="font-size:0.85rem;color:var(--automation-ink);cursor:pointer;">
+        Show for admins
+        <span style="display:block;font-size:0.75rem;color:var(--automation-muted);font-weight:400;">
+          Also display this announcement on the admin dashboard. Each admin can dismiss it once they've read it.
+        </span>
+      </label>
+    </div>
+    <button type="submit" class="admin-btn automation-primary">Create announcement</button>
+  </form>
+</div>

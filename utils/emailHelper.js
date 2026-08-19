@@ -75,7 +75,14 @@ async function hasMxRecords(email) {
   if (_domainCache.has(domain)) return _domainCache.get(domain);
 
   try {
-    const records = await dns.promises.resolveMx(domain);
+    // The DNS resolver has no hard cap of its own — a slow/unreachable
+    // resolver can otherwise stall a send for tens of seconds per
+    // recipient domain. Fail open (allow the send attempt) on timeout,
+    // same as the transient-error path below, rather than blocking.
+    const records = await Promise.race([
+      dns.promises.resolveMx(domain),
+      new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error("MX lookup timed out"), { code: "ETIMEOUT" })), 4000)),
+    ]);
     // Filter out parked/catch-all domains with dummy MX records like "~" or "."
     const realRecords = (records || []).filter(r =>
       r.exchange && r.exchange.length > 2 && r.exchange !== "~" && r.exchange !== "."
@@ -805,27 +812,35 @@ async function sendEmailSafely(mailOptions, context = "Email") {
       },
     });
 
-    const rejectedRecipients = toRecipientList(info?.rejected || []).validRecipients;
-    if (rejectedRecipients.length > 0 && db) {
-      for (const recipient of rejectedRecipients) {
-        suppressEmail(
-          db,
-          recipient,
-          "smtp_hard_bounce",
-          info?.response || info?.messageId || "Recipient rejected"
-        ).catch(() => {});
-        await notifyEmailFailure(db, {
-          recipient,
-          reason: "smtp_hard_bounce",
-          failureNotification: mailOptions.failureNotification,
-        });
+    // transporter.sendMail() above already succeeded — the message is on
+    // its way. Everything below is just bookkeeping (bounce suppression,
+    // in-app failure notices); a bug here must never flip an actually-sent
+    // message to "failed", so it gets its own try/catch instead of sharing
+    // the outer one.
+    try {
+      const rejectedRecipients = toRecipientList(info?.rejected || []).validRecipients;
+      if (rejectedRecipients.length > 0 && db) {
+        for (const recipient of rejectedRecipients) {
+          suppressEmail(
+            db,
+            recipient,
+            "smtp_hard_bounce",
+            info?.response || info?.messageId || "Recipient rejected"
+          ).catch(() => {});
+          await notifyEmailFailure(db, {
+            recipient,
+            reason: "smtp_hard_bounce",
+            failureNotification: mailOptions.failureNotification,
+          });
+        }
       }
+
+      const acceptedRecipients = toRecipientList(info?.accepted || []).validRecipients;
+      return acceptedRecipients.length > 0 || rejectedRecipients.length === 0;
+    } catch (bookkeepingError) {
+      console.error(`[Email][${context}] Post-send bookkeeping failed (message was already sent):`, bookkeepingError);
+      return true;
     }
-
-    const acceptedRecipients = toRecipientList(info?.accepted || []).validRecipients;
-    const sendSucceeded = acceptedRecipients.length > 0 || rejectedRecipients.length === 0;
-
-    return sendSucceeded;
   } catch (error) {
     _transporter = null;
     _transporterConfig = null;
