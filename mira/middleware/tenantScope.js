@@ -3,7 +3,17 @@
 // never read req.identity directly, so there's exactly one place that
 // decides what "the current tenant/user/role" means. Mirrors the role-tag
 // resolution used by the main app's announcement system for consistency.
-const MANAGER_LIKE_ROLES = new Set(["organization", "admin", "mini admin"]);
+// "manager" added alongside the original set: it's the actual account_type
+// used by staff org-admins created through the employee flow (see
+// controllers/internalApiController.js users query) - without it, any
+// Manager account was silently missing the "org_admin" tag and every
+// admin-gated tool (createAnnouncement, the School Year write tools) wrongly
+// denied them even though the backend's real per-user permission check
+// (middleware/permissionMiddleware.js userHasPermission) would have allowed
+// it. This tag is still only a cheap first-pass hint for tool UX text -
+// actual authorization for write actions is re-derived from the database,
+// never trusted from this alone.
+const MANAGER_LIKE_ROLES = new Set(["organization", "admin", "mini admin", "manager"]);
 
 function resolveViewerType(identity) {
   if (identity.guardianId) return "guardian";
@@ -27,6 +37,26 @@ function resolveRoleTags(identity) {
   return [...new Set(tags)];
 }
 
+// Human-facing role name for the UI (sidebar/settings). Deliberately NOT
+// derived from roleTags above - those are internal permission-bucket hints
+// (e.g. "org_admin" covers Manager, org owner, AND platform Admin/Mini
+// Admin alike) never meant to be shown verbatim; doing so previously
+// displayed a Manager account as "Org Admin", a role name that doesn't
+// exist anywhere in this app's actual role system (Manager/Supervisor/
+// Teacher/Driver for org staff, Organization for the owner login, Guardian,
+// Student - platform-level Admin/Mini Admin/Internal Worker and Hub owner
+// sessions never reach Mira at all, see ssoAuth.js's organizationId check).
+// This shows the real stored role name instead.
+function resolveRoleLabel(identity, viewerType) {
+  if (viewerType === "guardian") return "Guardian";
+  if (viewerType === "student") return "Student";
+
+  const raw = String(identity.userRole || identity.accountType || "").trim();
+  if (!raw) return "Staff";
+  if (raw.toLowerCase() === "organization") return "Organization Owner";
+  return raw;
+}
+
 function tenantScope(req, res, next) {
   if (!req.identity) {
     return res.status(401).json({ error: "Not signed in." });
@@ -41,10 +71,18 @@ function tenantScope(req, res, next) {
     userId: viewerId,
     viewerType,
     roleTags: resolveRoleTags(req.identity),
+    roleLabel: resolveRoleLabel(req.identity, viewerType),
     displayName: [req.identity.firstName, req.identity.lastName].filter(Boolean).join(" ") || "there",
+    // Raw role/account-type from the validated session (never from chat
+    // input) - passed through to internal API write endpoints so they can
+    // re-derive the caller's actual granted permissions (see
+    // middleware/permissionMiddleware.js userHasPermission) rather than
+    // trusting the coarser roleTags bucket above.
+    userRole: req.identity.userRole || null,
+    accountType: req.identity.accountType || null,
   };
 
   next();
 }
 
-module.exports = { tenantScope, resolveRoleTags, resolveViewerType };
+module.exports = { tenantScope, resolveRoleTags, resolveViewerType, resolveRoleLabel };

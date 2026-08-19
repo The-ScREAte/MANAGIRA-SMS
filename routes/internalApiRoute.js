@@ -21,5 +21,26 @@ router.get("/organizations/:organizationId", internalApiController.getOrganizati
 router.get("/students/:studentId/guardians", internalApiController.getStudentGuardians);
 router.post("/announcements", internalApiController.createAnnouncement);
 router.get("/documentation", internalApiController.listDocumentationArticles);
+router.get("/school-years", internalApiController.listSchoolYears);
+router.post("/school-years/create", internalApiController.createSchoolYear);
+router.post("/school-years/rename", internalApiController.renameSchoolYear);
+router.post("/school-years/delete", internalApiController.deleteSchoolYear);
+router.post("/school-years/terms/add", internalApiController.addTermToSchoolYear);
+router.post("/school-years/terms/delete", internalApiController.deleteTermFromSchoolYear);
+router.post("/classes/create", internalApiController.createClasses);
+router.post("/classes/rename", internalApiController.renameClass);
+router.post("/classes/delete", internalApiController.deleteClassApi);
+router.post("/classes/reorder", internalApiController.reorderClasses);
+router.get("/subjects", internalApiController.listSubjects);
+router.post("/subjects/create", internalApiController.createSubject);
+router.post("/subjects/assign", internalApiController.assignSubjectToClasses);
+router.post("/subjects/rename", internalApiController.renameSubject);
+router.post("/subjects/delete", internalApiController.deleteSubjectApi);
+router.get("/subjects/delete-impact", internalApiController.getSubjectDeleteImpact);
+router.get("/graduation-year-groups", internalApiController.listGraduationYearGroups);
+router.post("/graduation-year-groups/create", internalApiController.createGraduationYearGroup);
+router.post("/graduation-year-groups/rename", internalApiController.renameGraduationYearGroup);
+router.post("/graduation-year-groups/delete", internalApiController.deleteGraduationYearGroupApi);
+router.post("/activity-logs", internalApiController.logActivity);
 
 module.exports = router;

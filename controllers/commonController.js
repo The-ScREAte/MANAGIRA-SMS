@@ -475,9 +475,9 @@ function formatDependencyTableName(tableName) {
   return String(tableName || "").replace(/_/g, " ").trim();
 }
 
-function buildSchoolYearDependencyErrorMessage(blockers = []) {
+function buildSchoolYearDependencyErrorMessage(blockers = [], recordNoun = "school year") {
   if (!Array.isArray(blockers) || blockers.length === 0) {
-    return "Cannot delete this school year because related records still exist.";
+    return `Cannot delete this ${recordNoun} because related records still exist.`;
   }
 
   const ordered = blockers
@@ -490,7 +490,7 @@ function buildSchoolYearDependencyErrorMessage(blockers = []) {
   const extraCount = ordered.length - preview.length;
   const extraSuffix = extraCount > 0 ? ` and ${extraCount} more area${extraCount === 1 ? "" : "s"}` : "";
 
-  return `Cannot delete this school year because related records still exist in the system: ${summary}${extraSuffix}. Remove those records first, then try again.`;
+  return `Cannot delete this ${recordNoun} because related records still exist in the system: ${summary}${extraSuffix}. Remove those records first, then try again.`;
 }
 
 async function collectSchoolYearDeletionBlockers(dbClient, { organizationId, schoolYearId, termIds = [] }) {
@@ -557,42 +557,8 @@ async function collectSchoolYearDeletionBlockers(dbClient, { organizationId, sch
     }
   }
 
-  const safeTermIds = Array.isArray(termIds)
-    ? termIds.map((termId) => Number(termId)).filter((termId) => Number.isInteger(termId))
-    : [];
-
-  if (safeTermIds.length) {
-    const termReferences = await getReferences("terms", "term_id");
-    const termSkipTables = new Set(["term_classes"]);
-
-    for (const reference of termReferences) {
-      const tableName = String(reference.table_name || "");
-      if (!tableName || termSkipTables.has(tableName)) continue;
-
-      const hasOrganizationId =
-        reference.has_organization_id === true ||
-        reference.has_organization_id === "t" ||
-        reference.has_organization_id === 1;
-
-      const countQuery = `
-        SELECT COUNT(*)::int AS count
-        FROM ${quoteSqlIdentifier(reference.table_schema)}.${quoteSqlIdentifier(tableName)}
-        WHERE ${quoteSqlIdentifier(reference.column_name)} = ANY($1::int[])
-        ${hasOrganizationId ? "AND organization_id = $2" : ""}
-      `;
-      const params = hasOrganizationId
-        ? [safeTermIds, organizationId]
-        : [safeTermIds];
-      const countResult = await dbClient.query(countQuery, params);
-      const count = Number(countResult.rows[0]?.count || 0);
-      if (count > 0) {
-        blockers.push({
-          tableName,
-          count,
-        });
-      }
-    }
-  }
+  const termBlockers = await collectTermDeletionBlockers(dbClient, { organizationId, termIds, getReferences });
+  blockers.push(...termBlockers);
 
   const dedupedByTable = new Map();
   for (const blocker of blockers) {
@@ -607,6 +573,168 @@ async function collectSchoolYearDeletionBlockers(dbClient, { organizationId, sch
     tableName,
     count,
   }));
+}
+
+// Same FK-scan approach as the school-year half above, split out so a
+// single term can be checked for dependents on its own (deleteTerm below) -
+// previously that endpoint deleted a term with zero safety check, unlike
+// deleteSchoolYear which already ran this same scan.
+async function collectTermDeletionBlockers(dbClient, { organizationId, termIds = [], getReferences: getReferencesOverride } = {}) {
+  const safeTermIds = Array.isArray(termIds)
+    ? termIds.map((termId) => Number(termId)).filter((termId) => Number.isInteger(termId))
+    : [];
+  if (!safeTermIds.length) return [];
+
+  const getReferences =
+    getReferencesOverride ||
+    (async (referencedTable, referencedColumn) => {
+      const result = await dbClient.query(
+        `SELECT
+           tc.table_schema,
+           tc.table_name,
+           kcu.column_name,
+           EXISTS (
+             SELECT 1
+             FROM information_schema.columns c
+             WHERE c.table_schema = tc.table_schema
+               AND c.table_name = tc.table_name
+               AND c.column_name = 'organization_id'
+           ) AS has_organization_id
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+         JOIN information_schema.constraint_column_usage ccu
+           ON tc.constraint_name = ccu.constraint_name
+          AND tc.table_schema = ccu.table_schema
+         WHERE tc.constraint_type = 'FOREIGN KEY'
+           AND tc.table_schema = 'public'
+           AND ccu.table_schema = 'public'
+           AND ccu.table_name = $1
+           AND ccu.column_name = $2`,
+        [referencedTable, referencedColumn]
+      );
+      return result.rows || [];
+    });
+
+  const blockers = [];
+  const termReferences = await getReferences("terms", "term_id");
+  const termSkipTables = new Set(["term_classes"]);
+
+  for (const reference of termReferences) {
+    const tableName = String(reference.table_name || "");
+    if (!tableName || termSkipTables.has(tableName)) continue;
+
+    const hasOrganizationId =
+      reference.has_organization_id === true ||
+      reference.has_organization_id === "t" ||
+      reference.has_organization_id === 1;
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS count
+      FROM ${quoteSqlIdentifier(reference.table_schema)}.${quoteSqlIdentifier(tableName)}
+      WHERE ${quoteSqlIdentifier(reference.column_name)} = ANY($1::int[])
+      ${hasOrganizationId ? "AND organization_id = $2" : ""}
+    `;
+    const params = hasOrganizationId ? [safeTermIds, organizationId] : [safeTermIds];
+    const countResult = await dbClient.query(countQuery, params);
+    const count = Number(countResult.rows[0]?.count || 0);
+    if (count > 0) {
+      blockers.push({ tableName, count });
+    }
+  }
+
+  // Multiple FK constraints can reference terms.term_id from the same
+  // table (e.g. separate columns for different attendance kinds), which
+  // would otherwise show the same table name more than once in the
+  // dependency message - collapse to one entry per table, keeping the
+  // largest count seen.
+  const dedupedByTable = new Map();
+  for (const blocker of blockers) {
+    const tableName = String(blocker.tableName || "").trim();
+    if (!tableName) continue;
+    const count = Number(blocker.count || 0);
+    const prev = dedupedByTable.get(tableName) || 0;
+    dedupedByTable.set(tableName, Math.max(prev, count));
+  }
+
+  return Array.from(dedupedByTable.entries()).map(([tableName, count]) => ({ tableName, count }));
+}
+
+// Same FK-scan approach as school years/terms above, for a class. This did
+// NOT exist before - deleteClass only ever manually cleaned up `subjects`
+// (its one legitimately-owned child, skipped below same as `terms` was for
+// school years) and then hard-deleted the class row, relying entirely on
+// the database's own ON DELETE CASCADE on students.class_id (and a dozen
+// other tables: attendance_records, assessments, enrolled_students, etc.)
+// to silently wipe every real student and their records with zero warning
+// or way to stop it. This scan makes that impossible - any real dependent
+// data blocks the delete instead of vanishing.
+async function collectClassDeletionBlockers(dbClient, { organizationId, classId }) {
+  const getReferences = async (referencedTable, referencedColumn) => {
+    const result = await dbClient.query(
+      `SELECT
+         tc.table_schema,
+         tc.table_name,
+         kcu.column_name,
+         EXISTS (
+           SELECT 1
+           FROM information_schema.columns c
+           WHERE c.table_schema = tc.table_schema
+             AND c.table_name = tc.table_name
+             AND c.column_name = 'organization_id'
+         ) AS has_organization_id
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu
+         ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+       JOIN information_schema.constraint_column_usage ccu
+         ON tc.constraint_name = ccu.constraint_name
+        AND tc.table_schema = ccu.table_schema
+       WHERE tc.constraint_type = 'FOREIGN KEY'
+         AND tc.table_schema = 'public'
+         AND ccu.table_schema = 'public'
+         AND ccu.table_name = $1
+         AND ccu.column_name = $2`,
+      [referencedTable, referencedColumn]
+    );
+    return result.rows || [];
+  };
+
+  const blockers = [];
+  const references = await getReferences("classes", "class_id");
+  const skipTables = new Set(["subjects"]);
+
+  for (const reference of references) {
+    const tableName = String(reference.table_name || "");
+    if (!tableName || skipTables.has(tableName)) continue;
+
+    const hasOrganizationId =
+      reference.has_organization_id === true || reference.has_organization_id === "t" || reference.has_organization_id === 1;
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS count
+      FROM ${quoteSqlIdentifier(reference.table_schema)}.${quoteSqlIdentifier(tableName)}
+      WHERE ${quoteSqlIdentifier(reference.column_name)} = $1
+      ${hasOrganizationId ? "AND organization_id = $2" : ""}
+    `;
+    const params = hasOrganizationId ? [classId, organizationId] : [classId];
+    const countResult = await dbClient.query(countQuery, params);
+    const count = Number(countResult.rows[0]?.count || 0);
+    if (count > 0) {
+      blockers.push({ tableName, count });
+    }
+  }
+
+  const dedupedByTable = new Map();
+  for (const blocker of blockers) {
+    const tableName = String(blocker.tableName || "").trim();
+    if (!tableName) continue;
+    const count = Number(blocker.count || 0);
+    const prev = dedupedByTable.get(tableName) || 0;
+    dedupedByTable.set(tableName, Math.max(prev, count));
+  }
+  return Array.from(dedupedByTable.entries()).map(([tableName, count]) => ({ tableName, count }));
 }
 
 async function convertAmountBetweenCurrencies(amount, fromCurrency, toCurrency) {
@@ -17786,17 +17914,76 @@ NUMBERING:
   },
 
   deleteTerm: async (req, res, db) => {
-    const { term_id } = req.body;
+    const termId = Number.parseInt(String(req.body?.term_id ?? ""), 10);
+    const organizationId = req.session.organizationId;
+    const expectsJson = requestExpectsJson(req);
+
+    const sendError = (statusCode, message) => {
+      if (expectsJson) {
+        return res.status(statusCode).json({ success: false, message });
+      }
+      req.flash("error", message);
+      return res.redirect("/common/manageRecords");
+    };
+
+    if (!organizationId) {
+      return sendError(401, "Unauthorized.");
+    }
+    if (!Number.isInteger(termId)) {
+      return sendError(400, "Invalid term selected.");
+    }
+
+    const client = await db.connect();
     try {
-      await db.query(
-        "DELETE FROM terms WHERE term_id = $1 AND organization_id = $2",
-        [term_id, req.session.organizationId]
+      await client.query("BEGIN");
+
+      const termOwn = await client.query(
+        `SELECT term_id, school_year_id FROM terms WHERE term_id = $1 AND organization_id = $2 FOR UPDATE`,
+        [termId, organizationId]
       );
-      res.json({ success: true, message: "Term deleted successfully." });
+      if (!termOwn.rows.length) {
+        await client.query("ROLLBACK");
+        return sendError(404, "Term does not belong to your organization.");
+      }
+      const schoolYearId = termOwn.rows[0].school_year_id;
+
+      const siblingCount = await client.query(
+        `SELECT COUNT(*)::int AS count FROM terms WHERE school_year_id = $1 AND organization_id = $2`,
+        [schoolYearId, organizationId]
+      );
+      if (Number(siblingCount.rows[0]?.count || 0) <= 1) {
+        await client.query("ROLLBACK");
+        return sendError(409, "Cannot delete the only remaining term for this school year. Delete the school year itself instead, or add another term first.");
+      }
+
+      const blockers = await collectTermDeletionBlockers(client, { organizationId, termIds: [termId] });
+      if (blockers.length) {
+        await client.query("ROLLBACK");
+        return sendError(409, buildSchoolYearDependencyErrorMessage(blockers, "term"));
+      }
+
+      await client.query(`DELETE FROM term_classes WHERE organization_id = $1 AND term_id = $2`, [organizationId, termId]);
+      const deleteResult = await client.query(`DELETE FROM terms WHERE term_id = $1 AND organization_id = $2`, [termId, organizationId]);
+
+      if (deleteResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return sendError(404, "Term was not found or could not be deleted.");
+      }
+
+      await client.query("COMMIT");
+      if (expectsJson) {
+        return res.json({ success: true, message: "Term deleted successfully." });
+      }
+      req.flash("success", "Term deleted successfully.");
+      return res.redirect("/common/manageRecords");
     } catch (error) {
-            res
-        .status(500)
-        .json({ success: false, message: "Failed to delete term." });
+      await client.query("ROLLBACK").catch(() => {});
+      if (error && error.code === "23503") {
+        return sendError(409, "Cannot delete this term because related records still exist. Remove them first, then try again.");
+      }
+      return sendError(500, "Failed to delete term.");
+    } finally {
+      client.release();
     }
   },
 
@@ -18608,87 +18795,158 @@ NUMBERING:
   },
 
   deleteGraduationYearGroup: async (req, res, db) => {
-    const { id } = req.query;
+    const idRaw = req.query?.id ?? req.body?.id;
+    const id = Number.parseInt(String(idRaw ?? ""), 10);
+    const organizationId = req.session.organizationId;
+    const expectsJson = requestExpectsJson(req);
+
+    const sendError = (statusCode, message) => {
+      if (expectsJson) return res.status(statusCode).json({ success: false, message });
+      req.flash("error", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+    const sendSuccess = (message) => {
+      if (expectsJson) return res.json({ success: true, message });
+      req.flash("success", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+
+    if (!organizationId) {
+      if (expectsJson) return res.status(401).json({ success: false, message: "Unauthorized." });
+      req.flash("error", "Unauthorized.");
+      return res.redirect("/account/login");
+    }
+    if (!Number.isInteger(id)) return sendError(400, "Invalid graduation year group selected.");
+
     try {
-      await db.query(
-        "DELETE FROM graduation_year_groups WHERE id = $1 AND organization_id = $2",
-        [id, req.session.organizationId]
+      const own = await db.query("SELECT id FROM graduation_year_groups WHERE id = $1 AND organization_id = $2", [id, organizationId]);
+      if (!own.rows.length) return sendError(404, "Graduation year group does not belong to your organization.");
+
+      // graduation_year_group_id has no ON DELETE clause on classes/subjects
+      // (defaults to RESTRICT), so a class still pointing at this group
+      // would previously surface only as a generic "Failed to delete"
+      // message via the raw 23503 below - checking first gives a real,
+      // actionable count instead.
+      const dependentClasses = await db.query(
+        "SELECT COUNT(*)::int AS count FROM classes WHERE graduation_year_group_id = $1 AND organization_id = $2",
+        [id, organizationId]
       );
-      req.flash("success", "Graduation year group deleted successfully.");
-      res.redirect("/common/manageClassSubjectAndGradYr");
+      const classCount = Number(dependentClasses.rows[0]?.count || 0);
+      if (classCount > 0) {
+        return sendError(409, `Cannot delete this graduation year group because ${classCount} class${classCount === 1 ? "" : "es"} still reference it. Reassign or remove them first, then try again.`);
+      }
+
+      const result = await db.query("DELETE FROM graduation_year_groups WHERE id = $1 AND organization_id = $2", [id, organizationId]);
+      if (result.rowCount === 0) return sendError(404, "Graduation year group was not found or could not be deleted.");
+
+      return sendSuccess("Graduation year group deleted successfully.");
     } catch (error) {
-            req.flash("error", "Failed to delete graduation year group.");
-      res.redirect("/common/manageClassSubjectAndGradYr");
+      if (error && error.code === "23503") {
+        return sendError(409, "Cannot delete this graduation year group because related records still exist. Remove them first, then try again.");
+      }
+      return sendError(500, "Failed to delete graduation year group due to an internal error.");
     }
   },
 
   deleteClass: async (req, res, db) => {
-    const { classId } = req.query;
-    const sessionOrganizationId = req.session.organizationId;
-    if (!sessionOrganizationId) {
+    const classIdRaw = req.query?.classId ?? req.body?.classId;
+    const classId = Number.parseInt(String(classIdRaw ?? ""), 10);
+    const organizationId = req.session.organizationId;
+    const expectsJson = requestExpectsJson(req);
+
+    const sendError = (statusCode, message, extra = {}) => {
+      if (expectsJson) {
+        return res.status(statusCode).json({ success: false, message, ...extra });
+      }
+      req.flash("error", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+    const sendSuccess = (message) => {
+      if (expectsJson) {
+        return res.json({ success: true, message });
+      }
+      req.flash("success", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+
+    if (!organizationId) {
+      if (expectsJson) return res.status(401).json({ success: false, message: "Unauthorized." });
       req.flash("error", "Unauthorized.");
       return res.redirect("/account/login");
     }
+    if (!Number.isInteger(classId)) {
+      return sendError(400, "Invalid class selected.");
+    }
+
+    const client = await db.connect();
     try {
+      await client.query("BEGIN");
+
       // Tenant boundary: ensure the class belongs to caller's org BEFORE
       // walking its subjects — otherwise a foreign classId would let us
       // delete subjects (and user_subjects rows) from another tenant.
-      const classOwn = await db.query(
-        `SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $2`,
-        [classId, sessionOrganizationId]
+      const classOwn = await client.query(
+        `SELECT class_id FROM classes WHERE class_id = $1 AND organization_id = $2 FOR UPDATE`,
+        [classId, organizationId]
       );
       if (!classOwn.rows.length) {
-        req.flash("error", "Class does not belong to your organization.");
-        return res.redirect("/common/classDashboard");
+        await client.query("ROLLBACK");
+        return sendError(404, "Class does not belong to your organization.");
       }
 
-      // Warn the user about the consequences of deleting the class
-      req.flash(
-        "warning",
-        "This will delete all associated subjects and user data. Are you sure?"
-      );
+      // Previously this deleted straight through and relied on the
+      // database's own ON DELETE CASCADE (students.class_id included) to
+      // silently remove every student and their records - see
+      // collectClassDeletionBlockers above. Now any real dependent data
+      // blocks the delete instead.
+      const blockers = await collectClassDeletionBlockers(client, { organizationId, classId });
+      if (blockers.length) {
+        await client.query("ROLLBACK");
+        return sendError(409, buildSchoolYearDependencyErrorMessage(blockers, "class"));
+      }
 
       // Check if the class has associated subjects and delete them first
-      // (org-scoped subselect)
-      const subjects = await db.query(
+      // (org-scoped subselect) - subjects are the one child this action
+      // legitimately owns and is expected to take with it.
+      const subjects = await client.query(
         "SELECT subject_id FROM subjects WHERE class_id = $1 AND organization_id = $2",
-        [classId, sessionOrganizationId]
+        [classId, organizationId]
       );
 
-      for (let subject of subjects.rows) {
+      for (const subject of subjects.rows) {
         // Delete associated records from user_subjects for each subject.
         // Constrain via EXISTS on users so we never wipe another org's
         // user_subjects rows that happen to share subject_id (they cannot
         // legitimately, but defense-in-depth).
-        await db.query(
+        await client.query(
           `DELETE FROM user_subjects us
            WHERE us.subject_id = $1
              AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = us.user_id AND u.organization_id = $2)`,
-          [subject.subject_id, sessionOrganizationId]
+          [subject.subject_id, organizationId]
         );
-
-        // Delete the subject itself (org-scoped)
-        await db.query(
-          "DELETE FROM subjects WHERE subject_id = $1 AND organization_id = $2",
-          [subject.subject_id, sessionOrganizationId]
-        );
+        await client.query("DELETE FROM subjects WHERE subject_id = $1 AND organization_id = $2", [subject.subject_id, organizationId]);
       }
 
-      // Now, delete the class after its subjects and dependencies have been removed
-      await db.query(
-        "DELETE FROM classes WHERE class_id = $1 AND organization_id = $2",
-        [classId, sessionOrganizationId]
-      );
+      const deleteResult = await client.query("DELETE FROM classes WHERE class_id = $1 AND organization_id = $2", [
+        classId,
+        organizationId,
+      ]);
+      if (deleteResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return sendError(404, "Class was not found or could not be deleted.");
+      }
 
-      req.flash(
-        "success",
-        "Class and all associated subjects deleted successfully."
-      );
+      await client.query("COMMIT");
+      return sendSuccess("Class and all associated subjects deleted successfully.");
     } catch (error) {
-            req.flash("error", "Failed to delete class. " + error.message);
+      await client.query("ROLLBACK").catch(() => {});
+      if (error && error.code === "23503") {
+        return sendError(409, "Cannot delete this class because related records still exist. Remove them first, then try again.");
+      }
+      return sendError(500, "Failed to delete class due to an internal error.");
+    } finally {
+      client.release();
     }
-
-    res.redirect("/common/manageClassSubjectAndGradYr");
   },
 
   editClass: async (req, res, db) => {
@@ -18748,23 +19006,32 @@ NUMBERING:
   updateClassDashboardLayout: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const rawPayload = String(req.body.layoutPayload || "").trim();
+    const expectsJson = requestExpectsJson(req);
+
+    const sendError = (statusCode, message) => {
+      if (expectsJson) return res.status(statusCode).json({ success: false, message });
+      req.flash("error", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+    const sendSuccess = (message) => {
+      if (expectsJson) return res.json({ success: true, message });
+      req.flash("success", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
 
     if (!rawPayload) {
-      req.flash("error", "No dashboard class layout was submitted.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      return sendError(400, "No dashboard class layout was submitted.");
     }
 
     let submittedItems;
     try {
       submittedItems = JSON.parse(rawPayload);
     } catch (_) {
-      req.flash("error", "Dashboard class layout data was invalid.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      return sendError(400, "Dashboard class layout data was invalid.");
     }
 
     if (!Array.isArray(submittedItems) || submittedItems.length === 0) {
-      req.flash("error", "Dashboard class layout is empty.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      return sendError(400, "Dashboard class layout is empty.");
     }
 
     const client = await db.connect();
@@ -18817,12 +19084,10 @@ NUMBERING:
       }
 
       await client.query("COMMIT");
-      req.flash("success", "Dashboard class layout saved.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      return sendSuccess("Dashboard class layout saved.");
     } catch (error) {
-      await client.query("ROLLBACK");
-      req.flash("error", "Failed to save dashboard class layout.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      await client.query("ROLLBACK").catch(() => {});
+      return sendError(500, "Failed to save dashboard class layout.");
     } finally {
       client.release();
     }

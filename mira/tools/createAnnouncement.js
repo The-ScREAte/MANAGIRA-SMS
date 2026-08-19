@@ -1,8 +1,8 @@
-const { callInternalApi } = require("../internalApiClient");
+const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 
 module.exports = {
   name: "create_announcement",
-  description: "Create a banner announcement visible to staff/guardians in the caller's own school. Requires an admin-level role.",
+  description: "Create a banner announcement visible to staff/guardians in the caller's own school. Requires the Publish Events & Announcements permission.",
   parameters: {
     type: "object",
     properties: {
@@ -12,19 +12,23 @@ module.exports = {
     required: ["title", "body"],
   },
   async handler(args, tenant) {
-    if (!tenant.roleTags.includes("org_admin") && !tenant.roleTags.includes("super_admin")) {
-      const error = new Error("You need an admin-level role to create announcements.");
-      error.denied = true;
-      throw error;
+    assertIsStaff(tenant, "create announcements");
+
+    const title = String(args?.title || "").trim();
+    const body = String(args?.body || "").trim();
+    if (!title || !body) {
+      return { status: "needs_info", message: "I need both a title and a body to create the announcement." };
     }
 
-    return callInternalApi("/internal/api/announcements", {
-      method: "POST",
-      body: {
-        organizationId: tenant.organizationId,
-        title: args?.title,
-        body: args?.body,
-      },
+    const result = await callWriteApi("/internal/api/announcements", {
+      organizationId: tenant.organizationId,
+      userId: tenant.userId,
+      userRole: tenant.userRole,
+      accountType: tenant.accountType,
+      title,
+      body,
     });
+
+    return { status: "done", ...result };
   },
 };

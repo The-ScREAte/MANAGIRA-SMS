@@ -12,6 +12,25 @@ const listProjects = require("./listProjects");
 const draftMessage = require("./draftMessage");
 const createAnnouncement = require("./createAnnouncement");
 const generateReportCardSummary = require("./generateReportCardSummary");
+const listSchoolYears = require("./listSchoolYears");
+const createSchoolYear = require("./createSchoolYear");
+const renameSchoolYear = require("./renameSchoolYear");
+const deleteSchoolYear = require("./deleteSchoolYear");
+const addTermToSchoolYear = require("./addTermToSchoolYear");
+const deleteTerm = require("./deleteTerm");
+const createClasses = require("./createClasses");
+const renameClass = require("./renameClass");
+const deleteClass = require("./deleteClass");
+const reorderClasses = require("./reorderClasses");
+const listSubjects = require("./listSubjects");
+const createSubject = require("./createSubject");
+const assignSubjectToClasses = require("./assignSubjectToClasses");
+const renameSubject = require("./renameSubject");
+const deleteSubject = require("./deleteSubject");
+const listGraduationYearGroups = require("./listGraduationYearGroups");
+const createGraduationYearGroup = require("./createGraduationYearGroup");
+const renameGraduationYearGroup = require("./renameGraduationYearGroup");
+const deleteGraduationYearGroup = require("./deleteGraduationYearGroup");
 
 const ALL_TOOLS = [
   findStudent,
@@ -24,6 +43,25 @@ const ALL_TOOLS = [
   draftMessage,
   createAnnouncement,
   generateReportCardSummary,
+  listSchoolYears,
+  createSchoolYear,
+  renameSchoolYear,
+  deleteSchoolYear,
+  addTermToSchoolYear,
+  deleteTerm,
+  createClasses,
+  renameClass,
+  deleteClass,
+  reorderClasses,
+  listSubjects,
+  createSubject,
+  assignSubjectToClasses,
+  renameSubject,
+  deleteSubject,
+  listGraduationYearGroups,
+  createGraduationYearGroup,
+  renameGraduationYearGroup,
+  deleteGraduationYearGroup,
 ];
 
 const REGISTRY = Object.fromEntries(ALL_TOOLS.map((t) => [t.name, t]));

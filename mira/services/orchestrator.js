@@ -14,6 +14,14 @@ const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff. Y
 
 When the user attaches a file, its content is included in their message between "[Attached file: ...]" and the "---" separator. Read it carefully - if it contains instructions or a request (e.g. a list of announcements to create, a question to answer, data to look up), treat that as part of what the user is asking you to do, and use the appropriate tool to actually carry it out rather than just describing what the file contains. If a tool call is denied (e.g. insufficient role), tell the user plainly why, and never claim to have done something you didn't.
 
+Before taking any action that changes or deletes real data (not just looking things up), make sure you actually have every piece of information that action's tool requires - never guess, assume, or fill in a value the user hasn't given you; ask for whatever is missing instead. For any action that deletes something, follow the tool's own confirmation instructions exactly: warn the user plainly what will be deleted and that it's permanent, then wait for their explicit go-ahead in a later message before actually deleting - never treat your own warning message as consent. Once an action tool finishes (successfully, blocked, or failed), tell the user specifically what happened - what was changed, to what, or why it didn't go through - not just "done".
+
+When a question asks about the CURRENT state of real data (which year/term is current, what's blocking something, current counts, etc.), call the relevant tool again to get a fresh answer rather than reasoning from a tool result earlier in this same conversation - the underlying data can change between turns, and a stale result read back confidently is worse than a moment's delay to re-check. If a tool call genuinely fails or a result is incomplete, say so plainly and specifically (what's missing and why) rather than inventing an answer to avoid an awkward gap - a wrong-but-confident answer is far worse than "let me check that again" or "I don't have that detail."
+
+Use formatting so the important part of an answer doesn't blend into the rest: bold the specific fact that answers the question (a current year/term name, a count, a status), and bold or clearly separate onto its own line anything risky, permanent, blocking, or that needs the user's decision (a delete warning, a permission denial, a reason an action didn't go through). Use a table or list when comparing several records side by side (e.g. multiple school years/terms), and make sure every row is grounded in actual tool output, not inferred or reconstructed from memory of an earlier message.
+
+Only pause to ask the user something when you're missing information only they can give you (a value, a choice, or confirmation before a destructive action), or when a tool has denied/blocked something and there's a real decision for them to make. Never ask permission to do a lookup, a verification, or any other read-only step that's part of fulfilling what they already asked for (e.g. checking a year's existing terms before adding a new one, or looking up a record's exact name before acting on it) - just do it and fold the result into your next step or your answer, the same way a competent assistant wouldn't interrupt someone to ask "should I go check that?" Chain as many tool calls as the request actually needs in one go rather than resolving it one round-trip at a time - if the user gave you everything required for an action, get all the way to actually attempting it (or to the one real confirmation step a destructive action requires) in that same turn, not partway with a status update.
+
 Stay strictly on topic: you only help with Managira itself and academic/school-administration matters (students, guardians, classes, attendance, fees, terms, announcements, and how to use Managira's features). If asked about anything unrelated - general trivia, other software, personal advice, current events, or similar - politely decline and steer the conversation back to what you can actually help with here. Don't be preachy about it; one short sentence is enough.
 
 When a message includes a "Relevant indexed context" or documentation block, that content comes from Managira's real, official documentation - answer from it directly and confidently, and never claim you don't have access to documentation when it's right there in the conversation. If no such context was provided for a given question, say plainly that you don't have that specific detail on hand, rather than guessing at a URL or a generic answer.`;
@@ -157,72 +165,71 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   const currentUserContent = images?.length
     ? [{ type: "text", text: userText }, ...images.map((image) => ({ type: "image", image }))]
     : userText;
-  const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history, { role: "user", content: currentUserContent }];
   const tools = listToolSchemas();
 
+  // Multi-step tool loop: a single user request can legitimately need more
+  // than one tool call in sequence (e.g. "create school year X with 3
+  // terms" led the model to first call get_term to see what's already
+  // there, then needed a second call to actually create it) - previously
+  // this only allowed exactly one tool call per turn (a hardcoded "first
+  // pass" + "second pass" with tools:[] on the second), so the model's
+  // first, exploratory tool call silently used up its only chance to act,
+  // and it would report the actual action as "unavailable" even though the
+  // caller had full permission. Capped so a model that gets stuck can't
+  // loop indefinitely at cost to the org's usage budget; the final,
+  // forced-text round (tools:[]) guarantees the turn always ends in a
+  // reply rather than a dropped tool call.
+  const MAX_TOOL_CALLS_PER_TURN = 6;
+  let workingMessages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history, { role: "user", content: currentUserContent }];
   let assistantText = "";
-  let toolCallInfo = null;
-  let assistantMessage = null;
+  const toolCallsThisTurn = [];
 
-  const firstPass = await streamCompletion({
-    task: "default",
-    messages,
-    tools,
-    onToken: (text) => {
-      assistantText += text;
-      sse.send("token", { text });
-    },
-    onToolCall: (name, args) => {
-      toolCallInfo = { name, args };
-    },
-  });
-  await recordUsage({
-    tenantId: tenant.organizationId,
-    userId: tenant.userId,
-    provider: firstPass.provider,
-    model: firstPass.model,
-    promptTokens: firstPass.usage?.promptTokens || firstPass.usage?.prompt_tokens || 0,
-    completionTokens: firstPass.usage?.completionTokens || firstPass.usage?.completion_tokens || 0,
-  }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
+  for (let round = 0; round <= MAX_TOOL_CALLS_PER_TURN; round++) {
+    let toolCallInfo = null;
+    assistantText = "";
+    const roundTools = round < MAX_TOOL_CALLS_PER_TURN ? tools : [];
 
-  if (toolCallInfo) {
+    const pass = await streamCompletion({
+      task: "default",
+      messages: workingMessages,
+      tools: roundTools,
+      onToken: (text) => {
+        assistantText += text;
+        sse.send("token", { text });
+      },
+      onToolCall: (name, args) => {
+        toolCallInfo = { name, args };
+      },
+    });
+    await recordUsage({
+      tenantId: tenant.organizationId,
+      userId: tenant.userId,
+      provider: pass.provider,
+      model: pass.model,
+      promptTokens: pass.usage?.promptTokens || pass.usage?.prompt_tokens || 0,
+      completionTokens: pass.usage?.completionTokens || pass.usage?.completion_tokens || 0,
+    }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
+
+    if (!toolCallInfo) break;
+
     sse.send("tool_call", { name: toolCallInfo.name, args: toolCallInfo.args });
     const { status, result } = await runTool(toolCallInfo.name, toolCallInfo.args, tenant);
     const summary = summarizeToolResult(toolCallInfo.name, result);
     await logToolCall({ tenant, chatId: chat.id, toolName: toolCallInfo.name, args: toolCallInfo.args, status, resultSummary: summary });
     sse.send("tool_result", { name: toolCallInfo.name, status, result });
+    toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status });
 
-    // Second pass: give the model the tool result so it can phrase a
-    // natural-language answer, instead of the raw tool output.
-    const followUpMessages = [
-      ...messages,
+    workingMessages = [
+      ...workingMessages,
       { role: "assistant", content: `[Called ${toolCallInfo.name} with ${JSON.stringify(toolCallInfo.args)}]` },
-      { role: "user", content: `Tool result: ${JSON.stringify(result)}. Reply to the user based on this.` },
-    ];
-    assistantText = "";
-    const secondPass = await streamCompletion({
-      task: "default",
-      messages: followUpMessages,
-      tools: [],
-      onToken: (text) => {
-        assistantText += text;
-        sse.send("token", { text });
+      {
+        role: "user",
+        content: `Tool result: ${JSON.stringify(result)}. Reply to the user based on this, or call another tool next if the original request still needs more steps.`,
       },
-      onToolCall: () => {},
-    });
-    await recordUsage({
-      tenantId: tenant.organizationId,
-      userId: tenant.userId,
-      provider: secondPass.provider,
-      model: secondPass.model,
-      promptTokens: secondPass.usage?.promptTokens || secondPass.usage?.prompt_tokens || 0,
-      completionTokens: secondPass.usage?.completionTokens || secondPass.usage?.completion_tokens || 0,
-    }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
-
-    assistantMessage = await saveMessage(chat.id, "assistant", assistantText, [{ name: toolCallInfo.name, args: toolCallInfo.args, status }]);
-  } else {
-    assistantMessage = await saveMessage(chat.id, "assistant", assistantText);
+    ];
   }
+
+  const assistantMessage = await saveMessage(chat.id, "assistant", assistantText, toolCallsThisTurn.length ? toolCallsThisTurn : undefined);
 
   sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt });
 }
