@@ -193,7 +193,6 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
         );
         push({ email, guardianName: recipient.guardianName || "", success: Boolean(sent), error: sent ? undefined : "Send failed." });
       } catch (error) {
-        console.error(`[GuardianMessaging][email] Send to ${email} failed:`, error);
         push({ email, guardianName: recipient.guardianName || "", success: false, error: error?.message || "Send failed." });
       }
     }

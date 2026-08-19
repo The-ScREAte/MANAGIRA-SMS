@@ -845,7 +845,6 @@ async function sendEmailSafely(mailOptions, context = "Email") {
     _transporter = null;
     _transporterConfig = null;
     console.error(`[Email][${context}] SMTP FAILED after ${Date.now() - sendStart}ms:`, error.message);
-    console.error(error.stack || error);
     if (error.code === 'EAUTH') {
       console.error(`[Email][${context}] Authentication failed — check ADMIN_NOTIFY_EMAIL_*, NOTIFY_EMAIL_*, EMAIL_* or SMTP_* credentials.`);
     } else if (error.code === 'ECONNECTION' || error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
