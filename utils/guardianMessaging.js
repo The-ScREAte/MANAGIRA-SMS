@@ -111,6 +111,9 @@ async function getMessagingChannelStatus(dbClient, organizationId) {
 // recipients: [{ phone, guardianName, studentName, ...extra template vars }]
 // Returns [{ phone, guardianName, success, error }] — one entry per recipient,
 // so the caller can show "sent to 8 of 10 guardians" style summaries.
+// onResult(result, index), if given, fires right after EACH recipient's own
+// send attempt resolves (not after the whole batch) — lets a caller that
+// isn't awaiting this whole call persist per-recipient status as it happens.
 async function sendGuardianMessages(dbClient, organizationId, options) {
   const {
     channel,
@@ -119,6 +122,7 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
     schoolName,
     documentUrl,
     documentCaption,
+    onResult,
   } = options;
 
   const normalizedChannel = safeString(channel).toLowerCase();
@@ -134,6 +138,10 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
   }
 
   const results = [];
+  function push(result) {
+    results.push(result);
+    if (typeof onResult === "function") onResult(result, results.length - 1);
+  }
 
   if (normalizedChannel === "sms") {
     const tenant = await getTenantSmsCredentials(dbClient, organizationId);
@@ -141,19 +149,19 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
       const phone = safeString(recipient.phone);
       const message = sanitizeForSms(renderMessageTemplate(messageTemplate, { ...recipient, schoolName }));
       if (!phone) {
-        results.push({ phone: "", guardianName: recipient.guardianName || "", success: false, error: "Missing phone number." });
+        push({ phone: "", guardianName: recipient.guardianName || "", success: false, error: "Missing phone number." });
         continue;
       }
       if (!isValidPhoneNumber(phone)) {
-        results.push({ phone, guardianName: recipient.guardianName || "", success: false, error: "Invalid phone number — include the country code (e.g. +233...)." });
+        push({ phone, guardianName: recipient.guardianName || "", success: false, error: "Invalid phone number — include the country code (e.g. +233...)." });
         continue;
       }
       try {
         // eslint-disable-next-line no-await-in-loop
         await sendSms(tenant, message, [phone]);
-        results.push({ phone, guardianName: recipient.guardianName || "", success: true });
+        push({ phone, guardianName: recipient.guardianName || "", success: true });
       } catch (error) {
-        results.push({ phone, guardianName: recipient.guardianName || "", success: false, error: error?.message || "Send failed." });
+        push({ phone, guardianName: recipient.guardianName || "", success: false, error: error?.message || "Send failed." });
       }
     }
     return results;
@@ -164,11 +172,11 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
       const email = safeString(recipient.email);
       const message = renderMessageTemplate(messageTemplate, { ...recipient, schoolName });
       if (!email) {
-        results.push({ email: "", guardianName: recipient.guardianName || "", success: false, error: "Missing email address." });
+        push({ email: "", guardianName: recipient.guardianName || "", success: false, error: "Missing email address." });
         continue;
       }
       if (!isValidEmailAddress(email)) {
-        results.push({ email, guardianName: recipient.guardianName || "", success: false, error: "Invalid email address." });
+        push({ email, guardianName: recipient.guardianName || "", success: false, error: "Invalid email address." });
         continue;
       }
       try {
@@ -183,9 +191,10 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
           { to: email, subject: `${safeString(schoolName)}: Notification`, html },
           "Guardian Notification Email"
         );
-        results.push({ email, guardianName: recipient.guardianName || "", success: Boolean(sent), error: sent ? undefined : "Send failed." });
+        push({ email, guardianName: recipient.guardianName || "", success: Boolean(sent), error: sent ? undefined : "Send failed." });
       } catch (error) {
-        results.push({ email, guardianName: recipient.guardianName || "", success: false, error: error?.message || "Send failed." });
+        console.error(`[GuardianMessaging][email] Send to ${email} failed:`, error);
+        push({ email, guardianName: recipient.guardianName || "", success: false, error: error?.message || "Send failed." });
       }
     }
     return results;
@@ -202,11 +211,11 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
     const phone = normalizePhoneDigits(recipient.phone);
     const message = renderMessageTemplate(messageTemplate, { ...recipient, schoolName });
     if (!phone) {
-      results.push({ phone: "", guardianName: recipient.guardianName || "", success: false, error: "Missing phone number." });
+      push({ phone: "", guardianName: recipient.guardianName || "", success: false, error: "Missing phone number." });
       continue;
     }
     if (rawPhone && !isValidPhoneNumber(rawPhone)) {
-      results.push({ phone, guardianName: recipient.guardianName || "", success: false, error: "Invalid phone number — include the country code (e.g. +233...)." });
+      push({ phone, guardianName: recipient.guardianName || "", success: false, error: "Invalid phone number — include the country code (e.g. +233...)." });
       continue;
     }
     try {
@@ -222,10 +231,10 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
         // eslint-disable-next-line no-await-in-loop
         await sendWhatsappTextMessage(credentials.accessToken, credentials.phoneNumberId, { to: phone, text: message });
       }
-      results.push({ phone, guardianName: recipient.guardianName || "", success: true });
+      push({ phone, guardianName: recipient.guardianName || "", success: true });
     } catch (error) {
       const reason = error?.response?.data?.error?.message || error?.message || "Send failed.";
-      results.push({ phone, guardianName: recipient.guardianName || "", success: false, error: reason });
+      push({ phone, guardianName: recipient.guardianName || "", success: false, error: reason });
     }
   }
   return results;

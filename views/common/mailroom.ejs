@@ -24,16 +24,17 @@
     min-height: 100%;
     padding: 18px;
     box-sizing: border-box;
+    overflow-x: hidden;
   }
   #mailroomRoot * { box-sizing: border-box; }
   .mr-header { margin-bottom: 16px; }
   .mr-header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; color: var(--mr-primary); }
   .mr-header p { margin: 0; color: var(--mr-muted); font-size: 13.5px; }
 
-  .mr-layout { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; gap: 16px; align-items: start; }
-  @media (max-width: 980px) { .mr-layout { grid-template-columns: 1fr; } }
+  .mr-layout { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .mr-layout { grid-template-columns: minmax(0, 1fr); } }
 
-  .mr-panel { background: var(--mr-panel); border: 1px solid var(--mr-line); border-radius: var(--mr-radius); box-shadow: var(--mr-shadow); }
+  .mr-panel { background: var(--mr-panel); border: 1px solid var(--mr-line); border-radius: var(--mr-radius); box-shadow: var(--mr-shadow); min-width: 0; }
 
   /* Left: contact directory */
   .mr-directory { display: flex; flex-direction: column; max-height: calc(100vh - 140px); min-height: 420px; }
@@ -75,7 +76,7 @@
   .mr-empty { padding: 24px; text-align: center; color: var(--mr-muted); font-size: 13px; }
 
   /* Right: compose + history */
-  .mr-right { display: flex; flex-direction: column; gap: 16px; }
+  .mr-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .mr-compose { position: sticky; top: 8px; z-index: 5; padding: 16px; }
   .mr-channels { display: none; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
   .mr-channels.mr-visible { display: flex; }
@@ -94,6 +95,12 @@
   .mr-status { margin-top: 10px; font-size: 12.5px; display: none; padding: 9px 11px; border-radius: 8px; }
 
   .mr-history { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .mr-history-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .mr-history-title { font-size: 13px; font-weight: 800; color: var(--mr-text); text-transform: uppercase; letter-spacing: 0.03em; }
+  .mr-history-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mr-filter-chip { width: auto; margin: 0; flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--mr-muted); background: var(--mr-bg); border: 1px solid var(--mr-line); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+  .mr-filter-chip.mr-filter-active { color: #fff; background: var(--mr-primary); border-color: var(--mr-primary); }
+  .mr-history-rows { display: flex; flex-direction: column; gap: 10px; }
   .mr-message-card { border: 1px solid var(--mr-line); border-radius: 11px; padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .mr-message-main { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
   .mr-message-recipient { font-weight: 700; font-size: 13px; color: var(--mr-text); }
@@ -101,7 +108,16 @@
   .mr-badge { display: inline-flex; padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
   .mr-badge-sent { background: #dcfce7; color: #0f7a4a; }
   .mr-badge-failed { background: #ffe0e7; color: #a11434; }
+  .mr-badge-pending { background: #fef3c7; color: #92400e; }
   .mr-badge-channel { background: #e5f3f4; color: var(--mr-primary); }
+  .mr-resend-btn { width: auto; margin: 0; flex: 0 0 auto; font-size: 11px; font-weight: 700; line-height: 1.4; color: var(--mr-primary); background: none; border: 1px solid var(--mr-primary); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
+  .mr-resend-btn:hover { background: var(--mr-primary); color: #fff; }
+  .mr-message-error { flex-basis: 100%; font-size: 12px; color: #a11434; }
+  .mr-message-text-wrap { flex-basis: 100%; min-width: 0; }
+  .mr-message-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; color: var(--mr-text); word-break: break-word; }
+  .mr-message-text.mr-expanded { -webkit-line-clamp: unset; display: block; overflow: visible; white-space: pre-wrap; }
+  .mr-readmore { display: inline-block; margin-top: 2px; font-size: 12px; color: var(--mr-primary); cursor: pointer; text-decoration: underline; }
+  .mr-message-actor { font-size: 11px; color: var(--mr-muted); word-break: break-word; }
   .mr-setup-banner {
     display: none;
     align-items: center;
@@ -256,8 +272,19 @@
         <div class="mr-status" id="mrStatus"></div>
       </div>
 
-      <div class="mr-panel mr-history" id="mrHistoryRows">
-        <div class="mr-empty">Loading history...</div>
+      <div class="mr-panel mr-history">
+        <div class="mr-history-header">
+          <span class="mr-history-title">History</span>
+          <div class="mr-history-filters" id="mrHistoryFilters">
+            <button type="button" class="mr-filter-chip mr-filter-active" data-channel="all">All</button>
+            <button type="button" class="mr-filter-chip" data-channel="sms" id="mrFilterChipSms" style="display:none;">Text</button>
+            <button type="button" class="mr-filter-chip" data-channel="whatsapp" id="mrFilterChipWhatsapp" style="display:none;">WhatsApp</button>
+            <button type="button" class="mr-filter-chip" data-channel="email">Email</button>
+          </div>
+        </div>
+        <div class="mr-history-rows" id="mrHistoryRows">
+          <div class="mr-empty">Loading history...</div>
+        </div>
       </div>
     </section>
   </div>
@@ -489,6 +516,27 @@
     }
     renderChannelCheckboxes();
     updateSetupBanner();
+    updateHistoryFilterVisibility();
+  }
+
+  // Text/WhatsApp filter chips (and their compose checkboxes, handled by
+  // renderChannelCheckboxes) only ever appear once that channel is
+  // activated under Settings -> Integrations — never unconditionally.
+  function updateHistoryFilterVisibility() {
+    const smsChip = document.getElementById('mrFilterChipSms');
+    const waChip = document.getElementById('mrFilterChipWhatsapp');
+    smsChip.style.display = state.orgChannels.sms ? '' : 'none';
+    waChip.style.display = state.orgChannels.whatsapp ? '' : 'none';
+
+    // If the active filter just lost its channel (deactivated mid-session),
+    // fall back to "All" rather than leaving an inaccessible filter engaged.
+    if ((historyFilter === 'sms' && !state.orgChannels.sms) || (historyFilter === 'whatsapp' && !state.orgChannels.whatsapp)) {
+      historyFilter = 'all';
+      document.querySelectorAll('#mrHistoryFilters .mr-filter-chip').forEach((el) => {
+        el.classList.toggle('mr-filter-active', el.dataset.channel === 'all');
+      });
+      renderHistoryList();
+    }
   }
 
   // Text and WhatsApp both depend on the school activating a provider —
@@ -525,33 +573,164 @@
     }
   }
 
+  const READMORE_THRESHOLD = 140;
+  const STATUS_BADGE_CLASS = { sent: 'mr-badge-sent', failed: 'mr-badge-failed', pending: 'mr-badge-pending' };
+  let historyPollTimer = null;
+
+  function renderHistoryRow(row) {
+    const recipient = Array.isArray(row.recipient_emails) && row.recipient_emails.length ? row.recipient_emails[0] : '-';
+    const status = String(row.status || '').toLowerCase();
+    const statusClass = STATUS_BADGE_CLASS[status] || 'mr-badge-failed';
+    const messageText = (row.metadata && row.metadata.message) ? row.metadata.message : '';
+    const errorText = (row.metadata && row.metadata.error) ? row.metadata.error : '';
+    const isLong = messageText.length > READMORE_THRESHOLD;
+    return `<div class="mr-message-card">
+      <div class="mr-message-main">
+        <span class="mr-badge mr-badge-channel">${escapeHtml(String(row.event_domain || '-').toUpperCase())}</span>
+        <span class="mr-message-recipient">${escapeHtml(recipient)}</span>
+        <span class="mr-badge ${statusClass}">${escapeHtml(row.status || '-')}</span>
+        <span class="mr-message-actor">by ${escapeHtml(row.actor_name || '-')}</span>
+        ${status === 'failed' ? `<button type="button" class="mr-resend-btn" data-action="resend" data-id="${row.id}">Resend</button>` : ''}
+      </div>
+      ${messageText ? `<div class="mr-message-text-wrap">
+        <div class="mr-message-text">${escapeHtml(messageText)}</div>
+        ${isLong ? `<span class="mr-readmore" data-action="toggle-message">Read more</span>` : ''}
+      </div>` : ''}
+      ${status === 'failed' && errorText ? `<div class="mr-message-error">${escapeHtml(errorText)}</div>` : ''}
+      <span class="mr-message-when">${escapeHtml(fmtDate(row.created_at))}</span>
+    </div>`;
+  }
+
+  let historyData = [];
+  let historyFilter = 'all';
+
+  // Re-renders from the already-fetched data using the active channel
+  // filter — no network round trip, so switching filters is instant.
+  function renderHistoryList() {
+    const wrap = document.getElementById('mrHistoryRows');
+    const rows = historyFilter === 'all'
+      ? historyData
+      : historyData.filter((row) => String(row.event_domain || '').toLowerCase() === historyFilter);
+    if (!rows.length) {
+      wrap.innerHTML = `<div class="mr-empty">${historyData.length ? 'No messages for this channel.' : 'No messages sent yet.'}</div>`;
+      return;
+    }
+    wrap.innerHTML = rows.map(renderHistoryRow).join('');
+  }
+
+  // Returns true if any row is still pending, so the caller knows whether
+  // to keep polling.
   async function loadHistory() {
     const wrap = document.getElementById('mrHistoryRows');
-    wrap.innerHTML = '<div class="mr-empty">Loading history...</div>';
+    if (!wrap.querySelector('.mr-message-card')) {
+      wrap.innerHTML = '<div class="mr-empty">Loading history...</div>';
+    }
     try {
       const res = await fetch('/account/messaging/mailroomHistory');
       const data = await res.json();
-      if (!data.success || !Array.isArray(data.history) || !data.history.length) {
-        wrap.innerHTML = '<div class="mr-empty">No messages sent yet.</div>';
-        return;
+      if (!data.success || !Array.isArray(data.history)) {
+        wrap.innerHTML = '<div class="mr-empty">Error loading history.</div>';
+        return false;
       }
-      wrap.innerHTML = data.history.map((row) => {
-        const recipient = Array.isArray(row.recipient_emails) && row.recipient_emails.length ? row.recipient_emails[0] : '-';
-        const statusClass = String(row.status || '').toLowerCase() === 'sent' ? 'mr-badge-sent' : 'mr-badge-failed';
-        return `<div class="mr-message-card">
-          <div class="mr-message-main">
-            <span class="mr-badge mr-badge-channel">${escapeHtml(String(row.event_domain || '-').toUpperCase())}</span>
-            <span class="mr-message-recipient">${escapeHtml(recipient)}</span>
-            <span class="mr-badge ${statusClass}">${escapeHtml(row.status || '-')}</span>
-            <span class="mr-contact-sub" style="margin:0;">by ${escapeHtml(row.actor_name || '-')}</span>
-          </div>
-          <span class="mr-message-when">${escapeHtml(fmtDate(row.created_at))}</span>
-        </div>`;
-      }).join('');
+      // Already sorted most-recent-first by the server (resends bump their
+      // row back to the top too, since they update the same row in place).
+      historyData = data.history;
+      renderHistoryList();
+      return historyData.some((row) => String(row.status || '').toLowerCase() === 'pending');
     } catch (_) {
       wrap.innerHTML = '<div class="mr-empty">Error loading history.</div>';
+      return false;
     }
   }
+
+  // Refreshes history every couple seconds until nothing is left pending
+  // (or a generous cap is hit), so a send/resend's pending -> sent/failed
+  // flip shows up without the admin manually reloading the page. Capped at
+  // 3 minutes rather than 30s — a cold SMTP connection plus the MX-lookup
+  // timeout can legitimately take a while, and giving up too early is what
+  // made the UI look "stuck" even though the row had already settled.
+  function pollHistoryUntilSettled() {
+    if (historyPollTimer) clearInterval(historyPollTimer);
+    let attempts = 0;
+    historyPollTimer = setInterval(async () => {
+      attempts += 1;
+      const stillPending = await loadHistory();
+      if (!stillPending || attempts >= 90) {
+        clearInterval(historyPollTimer);
+        historyPollTimer = null;
+      }
+    }, 2000);
+  }
+
+  // Also poll while the tab is merely in the background/hidden — timers
+  // can get throttled there, so catch up immediately when it becomes
+  // visible again instead of leaving a stale "pending" row on screen.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && historyPollTimer) {
+      loadHistory();
+    }
+  });
+
+  function getVerifiedPassword(promptText) {
+    const PASSWORD_KEY = 'mailroomVerifiedPassword';
+    let password = window.sessionStorage ? sessionStorage.getItem(PASSWORD_KEY) : null;
+    if (!password) password = prompt(promptText);
+    return password;
+  }
+
+  function rememberVerifiedPassword(password) {
+    if (window.sessionStorage) sessionStorage.setItem('mailroomVerifiedPassword', password);
+  }
+
+  function forgetVerifiedPassword() {
+    if (window.sessionStorage) sessionStorage.removeItem('mailroomVerifiedPassword');
+  }
+
+  async function resendMessage(id) {
+    const password = getVerifiedPassword('Enter your password to confirm this resend:');
+    if (!password) return;
+    try {
+      const res = await fetch('/account/messaging/mailroomResend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ id, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!data.success) {
+        if (data.message && /incorrect password/i.test(data.message)) forgetVerifiedPassword();
+        showStatus(data.message || 'Unable to resend.', false);
+        return;
+      }
+      rememberVerifiedPassword(password);
+      showStatus('Resending...', true);
+      loadHistory();
+      pollHistoryUntilSettled();
+    } catch (_) {
+      showStatus('Network error — resend failed.', false);
+    }
+  }
+
+  document.getElementById('mrHistoryRows').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    if (btn.dataset.action === 'resend') {
+      resendMessage(btn.dataset.id);
+    } else if (btn.dataset.action === 'toggle-message') {
+      const textEl = btn.closest('.mr-message-text-wrap').querySelector('.mr-message-text');
+      const expanded = textEl.classList.toggle('mr-expanded');
+      btn.textContent = expanded ? 'Show less' : 'Read more';
+    }
+  });
+
+  document.getElementById('mrHistoryFilters').addEventListener('click', (e) => {
+    const chip = e.target.closest('.mr-filter-chip');
+    if (!chip) return;
+    historyFilter = chip.dataset.channel;
+    document.querySelectorAll('#mrHistoryFilters .mr-filter-chip').forEach((el) => {
+      el.classList.toggle('mr-filter-active', el === chip);
+    });
+    renderHistoryList();
+  });
 
   async function sendMessage() {
     const message = document.getElementById('mrMessage').value.trim();
@@ -582,7 +761,8 @@
     const summary = perChannel.map((entry) => `${entry.channel.toUpperCase()}: ${entry.recipients.length}`).join(', ');
     const confirmed = confirm(`Send this message via ${summary}?`);
     if (!confirmed) return;
-    const password = prompt('Enter your password to confirm this send:');
+
+    const password = getVerifiedPassword('Enter your password to confirm this send:');
     if (!password) return;
 
     const sendBtn = document.getElementById('mrSendBtn');
@@ -591,6 +771,10 @@
     sendBtn.textContent = 'Sending...';
 
     try {
+      // The server writes each recipient as a "pending" row and responds
+      // right away — the actual SMS/email/WhatsApp round trips happen in
+      // the background, so this resolves almost immediately regardless of
+      // how slow the provider is.
       const results = await Promise.all(perChannel.map((entry) =>
         fetch('/account/messaging/mailroomSend', {
           method: 'POST',
@@ -599,22 +783,23 @@
         }).then((res) => res.json().catch(() => ({})))
       ));
 
-      const totalSent = results.reduce((sum, r) => sum + (r.sentCount || 0), 0);
-      const totalFailed = results.reduce((sum, r) => sum + (r.failedCount || 0), 0);
       const anyAuthError = results.some((r) => r.message && /incorrect password/i.test(r.message));
+      const anyOtherError = results.some((r) => r.success === false && !(r.message && /incorrect password/i.test(r.message)));
 
       if (anyAuthError) {
+        forgetVerifiedPassword();
         showStatus('Incorrect password — nothing was sent.', false);
+      } else if (anyOtherError) {
+        const errMsg = results.find((r) => r.success === false)?.message || 'Unable to send.';
+        showStatus(errMsg, false);
       } else {
-        showStatus(
-          totalFailed ? `Sent ${totalSent}, ${totalFailed} failed.` : `Sent to ${totalSent} recipient${totalSent === 1 ? '' : 's'}.`,
-          totalFailed === 0
-        );
-        if (totalSent) {
-          document.getElementById('mrMessage').value = '';
-          updateChannelsVisibility();
-          loadHistory();
-        }
+        rememberVerifiedPassword(password);
+        const totalRecipients = results.reduce((sum, r) => sum + (Array.isArray(r.rows) ? r.rows.length : 0), 0);
+        showStatus(`Sending to ${totalRecipients} recipient${totalRecipients === 1 ? '' : 's'}...`, true);
+        document.getElementById('mrMessage').value = '';
+        updateChannelsVisibility();
+        loadHistory();
+        pollHistoryUntilSettled();
       }
     } catch (_) {
       showStatus('Network error — send failed.', false);

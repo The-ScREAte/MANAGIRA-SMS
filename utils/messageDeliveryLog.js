@@ -80,6 +80,10 @@ async function ensureDeliveryAuditTable(dbClient) {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await dbClient.query(`
+    ALTER TABLE delivery_audit_history
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  `);
   auditSchemaReady = true;
 }
 
@@ -99,11 +103,12 @@ async function recordDeliveryAuditRow(dbClient, {
   metadata,
 }) {
   await ensureDeliveryAuditTable(dbClient);
-  await dbClient.query(
+  const result = await dbClient.query(
     `INSERT INTO delivery_audit_history (
        organization_id, event_domain, event_name, class_id, term_id, student_id,
        student_name, actor_user_id, actor_name, recipient_emails, status, batch_id, metadata
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+     RETURNING id`,
     [
       organizationId,
       eventDomain,
@@ -120,6 +125,21 @@ async function recordDeliveryAuditRow(dbClient, {
       JSON.stringify(metadata || {}),
     ]
   );
+  return { id: result.rows[0]?.id || null };
+}
+
+// Flips a row from "pending" to its final "sent"/"failed" state once the
+// actual provider send (fired in the background, after the HTTP response
+// already went out) resolves — also used by the resend button to retry a
+// single failed row in place instead of creating a duplicate history entry.
+async function updateDeliveryAuditRowStatus(dbClient, { id, status, metadata }) {
+  await ensureDeliveryAuditTable(dbClient);
+  await dbClient.query(
+    `UPDATE delivery_audit_history
+     SET status = $1, metadata = $2::jsonb, updated_at = NOW()
+     WHERE id = $3`,
+    [status, JSON.stringify(metadata || {}), id]
+  );
 }
 
 module.exports = {
@@ -128,4 +148,5 @@ module.exports = {
   getSentRecipientSet,
   normalizeRecipient,
   recordDeliveryAuditRow,
+  updateDeliveryAuditRowStatus,
 };

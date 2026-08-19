@@ -416,6 +416,12 @@ router.get(
   requirePermission(PERMISSIONS.MAILROOM),
   guardianMessagingController.mailroomHistory
 );
+router.post(
+  "/messaging/mailroomResend",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MAILROOM),
+  guardianMessagingController.mailroomResend
+);
 router.get(
   "/google-classroom/connect",
   isAuthenticated,

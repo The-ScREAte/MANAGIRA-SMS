@@ -9,7 +9,7 @@ const { getMessagingChannelStatus, sendGuardianMessages } = require("../utils/gu
 const { createShortLink } = require("../utils/shortLink");
 const { ensureTranscriptPdfLink } = require("../utils/transcriptPdf");
 const { ensureReportPdfLink } = require("../utils/reportPdf");
-const { recordMessageSent, getSentRecipientSet, recordDeliveryAuditRow } = require("../utils/messageDeliveryLog");
+const { recordMessageSent, getSentRecipientSet, recordDeliveryAuditRow, updateDeliveryAuditRowStatus } = require("../utils/messageDeliveryLog");
 const { MAILROOM_ALL_ACCESS_KEY, isManagerLikeRole, getUserPermissions } = require("../middleware/permissionMiddleware");
 
 function safeString(value) {
@@ -630,20 +630,27 @@ module.exports = {
         });
       }
 
-      const schoolName = await getSchoolName(db, orgId);
-      const results = await sendGuardianMessages(db, orgId, {
-        channel,
-        recipients: normalizedRecipients,
-        messageTemplate: message,
-        schoolName,
-      });
-
-      const actorUserId = req.session.userId || req.session.user?.user_id;
-      const actorName = safeString(req.session.user?.name || req.session.userName);
+      const actorUserId = Number(req.session.userId || req.session.user?.user_id) || null;
+      const actorNameRow = actorUserId
+        ? (
+            await db.query(
+              `SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown') AS actor_name
+               FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+              [actorUserId, orgId]
+            )
+          ).rows[0]
+        : null;
+      const actorName = actorNameRow?.actor_name || "Unknown";
       const batchId = `mailroom-${Date.now()}`;
 
-      await Promise.all(
-        results.map((r) =>
+      // The provider round trips (SMTP/SMS/WhatsApp API calls) are the slow
+      // part, not the DB writes — so write a "pending" row per recipient and
+      // respond immediately, then do the actual sending in the background.
+      // The client shows these as pending and polls history for the flip to
+      // sent/failed, instead of the Send button sitting frozen for however
+      // long every provider call takes to round-trip.
+      const pendingRows = await Promise.all(
+        normalizedRecipients.map((r) =>
           recordDeliveryAuditRow(db, {
             organizationId: orgId,
             eventDomain: channel,
@@ -651,30 +658,128 @@ module.exports = {
             actorUserId,
             actorName,
             recipient: r.phone || r.email,
-            status: r.success ? "sent" : "failed",
+            status: "pending",
             batchId,
-            metadata: { guardianName: r.guardianName, message, error: r.error || null },
+            metadata: { guardianName: r.guardianName, message },
           })
         )
       );
 
-      const sentCount = results.filter((r) => r.success).length;
-      const failedCount = results.length - sentCount;
       const skippedNote = skippedOutOfScope
         ? ` (${skippedOutOfScope} recipient${skippedOutOfScope === 1 ? "" : "s"} outside your mailroom access were skipped.)`
         : "";
-      return res.json({
-        success: failedCount === 0,
-        sentCount,
-        failedCount,
+
+      res.json({
+        success: true,
+        pending: true,
+        batchId,
         skippedOutOfScope,
-        results,
-        message: (failedCount
-          ? `Sent ${sentCount}, ${failedCount} failed.`
-          : `Sent to ${sentCount} recipient${sentCount === 1 ? "" : "s"}.`) + skippedNote,
+        rows: pendingRows.map((row, i) => ({
+          id: row.id,
+          recipient: normalizedRecipients[i].phone || normalizedRecipients[i].email,
+          guardianName: normalizedRecipients[i].guardianName,
+          channel,
+          status: "pending",
+        })),
+        message: `Sending to ${normalizedRecipients.length} recipient${normalizedRecipients.length === 1 ? "" : "s"}...${skippedNote}`,
+      });
+
+      const schoolName = await getSchoolName(db, orgId);
+      sendGuardianMessages(db, orgId, {
+        channel,
+        recipients: normalizedRecipients,
+        messageTemplate: message,
+        schoolName,
+        onResult: (result, index) => {
+          const rowId = pendingRows[index]?.id;
+          if (!rowId) return;
+          updateDeliveryAuditRowStatus(db, {
+            id: rowId,
+            status: result.success ? "sent" : "failed",
+            metadata: { guardianName: result.guardianName, message, error: result.error || null },
+          }).catch(() => {});
+        },
+      }).catch((error) => {
+        // The batch never started (e.g. provider not configured) — every
+        // row that's still pending gets marked failed instead of hanging.
+        console.error("[Mailroom] Send batch failed to start:", error);
+        pendingRows.forEach((row) => {
+          updateDeliveryAuditRowStatus(db, {
+            id: row.id,
+            status: "failed",
+            metadata: { message, error: error?.message || "Send failed." },
+          }).catch(() => {});
+        });
       });
     } catch (error) {
-      return res.status(500).json({ success: false, message: error?.message || "Unable to send." });
+      if (!res.headersSent) {
+        return res.status(500).json({ success: false, message: error?.message || "Unable to send." });
+      }
+    }
+  },
+
+  // Retries a single failed row in place (same history entry flips back to
+  // pending, then to sent/failed) rather than creating a duplicate.
+  mailroomResend: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.status(401).json({ success: false, message: "Not authenticated." });
+    try {
+      const id = Number(req.body?.id);
+      const password = safeString(req.body?.password);
+      if (!id) return res.status(400).json({ success: false, message: "Missing message id." });
+      if (!password) return res.status(400).json({ success: false, message: "Enter your password to confirm." });
+
+      const passwordOk = await verifyActorPassword(req, password);
+      if (!passwordOk) return res.status(401).json({ success: false, message: "Incorrect password." });
+
+      const row = (
+        await db.query(
+          `SELECT id, event_domain, recipient_emails, metadata FROM delivery_audit_history
+           WHERE id = $1 AND organization_id = $2 AND event_name = 'mailroom_send' LIMIT 1`,
+          [id, orgId]
+        )
+      ).rows[0];
+      if (!row) return res.status(404).json({ success: false, message: "Message not found." });
+
+      const channel = safeString(row.event_domain);
+      const recipientValue = Array.isArray(row.recipient_emails) ? safeString(row.recipient_emails[0]) : "";
+      const metadata = row.metadata || {};
+      const message = safeString(metadata.message);
+      if (!recipientValue || !message || !["sms", "whatsapp", "email"].includes(channel)) {
+        return res.status(400).json({ success: false, message: "This message can't be resent." });
+      }
+
+      await updateDeliveryAuditRowStatus(db, { id, status: "pending", metadata: { ...metadata, error: null } });
+      res.json({ success: true, id, status: "pending" });
+
+      const schoolName = await getSchoolName(db, orgId);
+      const recipient = {
+        phone: channel === "email" ? "" : recipientValue,
+        email: channel === "email" ? recipientValue : "",
+        guardianName: safeString(metadata.guardianName) || "Guardian",
+        guardianTitleLastName: safeString(metadata.guardianName) || "Guardian",
+        studentName: "",
+      };
+      sendGuardianMessages(db, orgId, { channel, recipients: [recipient], messageTemplate: message, schoolName })
+        .then((results) => {
+          const r = results[0] || { success: false, error: "Send failed." };
+          return updateDeliveryAuditRowStatus(db, {
+            id,
+            status: r.success ? "sent" : "failed",
+            metadata: { ...metadata, error: r.error || null },
+          });
+        })
+        .catch((error) => {
+          updateDeliveryAuditRowStatus(db, {
+            id,
+            status: "failed",
+            metadata: { ...metadata, error: error?.message || "Send failed." },
+          }).catch(() => {});
+        });
+    } catch (error) {
+      if (!res.headersSent) {
+        return res.status(500).json({ success: false, message: error?.message || "Unable to resend." });
+      }
     }
   },
 
@@ -698,13 +803,13 @@ module.exports = {
              FROM delivery_audit_history
              WHERE organization_id = $1 AND event_name = 'mailroom_send' AND actor_user_id = $2
                AND created_at >= NOW() - INTERVAL '30 days'
-             ORDER BY created_at DESC
+             ORDER BY COALESCE(updated_at, created_at) DESC
              LIMIT 200`
           : `SELECT id, event_domain, recipient_emails, status, batch_id, actor_name, metadata, created_at
              FROM delivery_audit_history
              WHERE organization_id = $1 AND event_name = 'mailroom_send'
                AND created_at >= NOW() - INTERVAL '30 days'
-             ORDER BY created_at DESC
+             ORDER BY COALESCE(updated_at, created_at) DESC
              LIMIT 200`,
         isRestricted ? [orgId, actorUserId] : [orgId]
       );
