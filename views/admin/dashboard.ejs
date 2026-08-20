@@ -1439,6 +1439,8 @@
                     <div><strong>Email:</strong> <%= application.email %></div>
                     <div><strong>Phone:</strong> <%= application.organization_phone %></div>
                     <div><strong>Address:</strong> <%= application.organization_address %><% if (application.organization_country || application.organization_province) { %>, <%= [application.organization_province, application.organization_country].filter(Boolean).join(', ') %><% } %></div>
+                    <div><strong>Enrolled:</strong> <%= application.created_at ? new Date(application.created_at).toLocaleString() : 'N/A' %></div>
+                    <div><strong>Current Plan:</strong> <%= application.plan_name || 'No plan assigned' %></div>
                   </div>
 
                   <div class="proofs-grid">
