@@ -564,13 +564,15 @@ const adminController = {
           'organizations:list',
           async () => {
             const result = await db.query(`
-              SELECT organization_id, organization_name, on_hold, hold_by, 
+              SELECT o.organization_id, o.organization_name, o.on_hold, o.hold_by,
                      first_name, last_name, email, organization_address, organization_country, organization_province,
-                     organization_phone, proof_of_existence_1, proof_of_existence_2, subdomain
-              FROM organizations 
-              WHERE deleted = false
-                AND (hub_id IS NULL OR is_hub_member = false)
-              ORDER BY organization_name ASC
+                     organization_phone, proof_of_existence_1, proof_of_existence_2, subdomain,
+                     o.created_at, p.plan_name
+              FROM organizations o
+              LEFT JOIN plans p ON p.id = o.plan_id
+              WHERE o.deleted = false
+                AND (o.hub_id IS NULL OR o.is_hub_member = false)
+              ORDER BY o.organization_name ASC
             `);
             return result.rows;
           },

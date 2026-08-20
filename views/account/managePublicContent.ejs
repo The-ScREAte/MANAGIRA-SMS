@@ -1897,6 +1897,24 @@
             </div>
           </div>
         </label>
+        <label class="layout-option <%= publicDashboardLayout === 'wireframe4' ? 'selected' : '' %>">
+          <div class="layout-option-row">
+            <input type="radio" name="publicDashboardLayout" value="wireframe4" <%= publicDashboardLayout === 'wireframe4' ? 'checked' : '' %> style="margin-top: 4px;" />
+            <div class="layout-option-meta">
+              <div class="layout-title">Narrative Flow</div>
+              <div class="layout-subtitle">
+                Step-by-step story flow.
+              </div>
+              <div class="layout-preview wf4" aria-hidden="true">
+                <span class="layout-block hero"></span>
+                <span class="layout-block gallery accent"></span>
+                <span class="layout-block events"></span>
+                <span class="layout-block announcements accent"></span>
+                <span class="layout-block about soft"></span>
+              </div>
+            </div>
+          </div>
+        </label>
         <label class="layout-option <%= publicDashboardLayout === 'wireframe2' ? 'selected' : '' %>">
           <div class="layout-option-row">
             <input type="radio" name="publicDashboardLayout" value="wireframe2" <%= publicDashboardLayout === 'wireframe2' ? 'checked' : '' %> style="margin-top: 4px;" />
@@ -1927,24 +1945,6 @@
                 <span class="layout-block hero"></span>
                 <span class="layout-block gallery accent"></span>
                 <span class="layout-block articles"></span>
-                <span class="layout-block announcements accent"></span>
-                <span class="layout-block about soft"></span>
-              </div>
-            </div>
-          </div>
-        </label>
-        <label class="layout-option <%= publicDashboardLayout === 'wireframe4' ? 'selected' : '' %>">
-          <div class="layout-option-row">
-            <input type="radio" name="publicDashboardLayout" value="wireframe4" <%= publicDashboardLayout === 'wireframe4' ? 'checked' : '' %> style="margin-top: 4px;" />
-            <div class="layout-option-meta">
-              <div class="layout-title">Narrative Flow</div>
-              <div class="layout-subtitle">
-                Step-by-step story flow.
-              </div>
-              <div class="layout-preview wf4" aria-hidden="true">
-                <span class="layout-block hero"></span>
-                <span class="layout-block gallery accent"></span>
-                <span class="layout-block events"></span>
                 <span class="layout-block announcements accent"></span>
                 <span class="layout-block about soft"></span>
               </div>
