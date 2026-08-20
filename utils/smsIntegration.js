@@ -2,6 +2,12 @@ const axios = require("axios");
 const { encryptSecret, decryptSecret, maskSecret } = require("./encryption");
 
 const PROVIDERS = ["arkesel", "africastalking", "twilio"];
+const AFRICAN_COUNTRY_CODES = new Set([
+  "DZ", "AO", "BJ", "BW", "BF", "BI", "CV", "CM", "CF", "TD", "KM", "CG", "CD", "CI",
+  "DJ", "EG", "GQ", "ER", "SZ", "ET", "GA", "GM", "GH", "GN", "GW", "KE", "LS", "LR", "LY",
+  "MG", "MW", "ML", "MR", "MU", "MA", "MZ", "NA", "NE", "NG", "RW", "ST", "SN", "SC", "SL",
+  "SO", "ZA", "SS", "SD", "TZ", "TG", "TN", "UG", "ZM", "ZW",
+]);
 
 let smsSchemaReady = false;
 
@@ -22,6 +28,11 @@ function parseBoolean(value, fallback = false) {
 
 function isValidProvider(provider) {
   return PROVIDERS.includes(safeString(provider).toLowerCase());
+}
+
+function isTwilioAvailableForCountry(countryCode) {
+  const normalizedCountryCode = safeString(countryCode).toUpperCase();
+  return Boolean(normalizedCountryCode) && !AFRICAN_COUNTRY_CODES.has(normalizedCountryCode);
 }
 
 async function ensureSmsIntegrationSchema(dbClient) {
@@ -269,7 +280,7 @@ async function getTenantSmsCredentials(dbClient, organizationId) {
   await ensureSmsIntegrationSchema(dbClient);
 
   const result = await dbClient.query(
-    `SELECT ${SMS_INTEGRATION_COLUMNS} FROM organizations WHERE organization_id = $1 LIMIT 1`,
+    `SELECT organization_country, ${SMS_INTEGRATION_COLUMNS} FROM organizations WHERE organization_id = $1 LIMIT 1`,
     [organizationId]
   );
   const row = result.rows[0];
@@ -278,6 +289,10 @@ async function getTenantSmsCredentials(dbClient, organizationId) {
   const provider = safeString(row.sms_active_provider).toLowerCase();
   if (!isValidProvider(provider)) {
     throw new Error("No SMS provider is configured for this school yet. Set one up under Settings → Integrations.");
+  }
+
+  if (provider === "twilio" && !isTwilioAvailableForCountry(row.organization_country)) {
+    throw new Error("Twilio is not available for schools in African countries.");
   }
 
   if (provider === "arkesel") {
@@ -496,8 +511,10 @@ async function recordDeliveryStatus(dbClient, { organizationId, provider, provid
 }
 
 module.exports = {
+  AFRICAN_COUNTRY_CODES,
   PROVIDERS,
   isValidProvider,
+  isTwilioAvailableForCountry,
   ensureSmsIntegrationSchema,
   getSmsIntegrationStatus,
   setSmsProviderActivation,

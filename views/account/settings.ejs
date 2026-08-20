@@ -3782,15 +3782,10 @@
             }
 
             // Per-integration network/country coverage, by ISO country code.
-            // Only the SMS providers are actually country-restricted (they
-            // route through specific telecom corridors) — every other
-            // integration here works the same everywhere, so it just always
-            // reads "Available". Twilio has no restricted list either since
-            // it's real phone numbers + A2P registration, available globally.
             const integrationCoverage = {
               arkesel: ['GH', 'NG', 'TZ', 'ZA'],
               africastalking: ['KE', 'UG', 'TZ', 'RW', 'MW', 'ZM', 'NG', 'CI', 'ET', 'GH', 'ZA'],
-              twilio: null,
+              twilio: twilioAvailableForCountry ? [orgCountryCode] : [],
               'student-portal': null,
               transportation: null,
               'google-maps': null,
@@ -3910,7 +3905,6 @@
             </form>
           </div>
 
-          <% if (tiActivated) { %>
           <% const gmActivated = !!ti.googleMapsNavActivated; %>
           <div class="card">
             <h4>
@@ -4010,7 +4004,6 @@
               <input type="hidden" name="integrationPassword" id="apple-maps-nav-activation-password" />
             </form>
           </div>
-          <% } %>
 
           <div class="card">
             <h4>
@@ -4088,7 +4081,7 @@
                   key: 'twilio',
                   label: 'Twilio SMS',
                   logo: '/images/twilio.png',
-                  description: "Send SMS worldwide using your school's own Twilio account and phone number.",
+                  description: "Send SMS using your school's own Twilio account and phone number. Twilio is not available in African countries.",
                 },
                 {
                   key: 'arkesel',
@@ -4137,7 +4130,11 @@
                   <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
                     <summary class="google-actions-toggle" aria-label="<%= def.label %> actions">⋮</summary>
                     <div class="google-actions-menu-list">
+                      <% if (def.key === 'twilio' && !twilioAvailableForCountry && !psActivated) { %>
+                      <span class="google-action-item" aria-disabled="true" style="color:#b91c1c;cursor:not-allowed;">Unavailable in Africa</span>
+                      <% } else { %>
                       <a class="google-action-item sms-open-activate" href="#" data-provider="<%= def.key %>" style="display:<%= psActivated ? 'none' : 'block' %>">Activate</a>
+                      <% } %>
                       <a class="google-action-item sms-open-deactivate" href="#" data-provider="<%= def.key %>" style="display:<%= psActivated ? 'block' : 'none' %>">Deactivate</a>
                     </div>
                   </details>
@@ -8265,7 +8262,7 @@
           twilio: {
             title: "Twilio SMS",
             docsUrl: "https://managira.com/legal/user-documentation/sms-integrations#:~:text=Select%20Activate.-,Twilio,-Site%3A%20https",
-            whatItDoes: "Sends SMS worldwide using your school's own Twilio account and a purchased Twilio phone number.",
+            whatItDoes: "Sends SMS using your school's own Twilio account and a purchased Twilio phone number. Twilio is not available in African countries.",
             goodFor: "International schools or diaspora-heavy parent bases where messages need to reach numbers outside Africa reliably.",
             goodForWho: ["International schools with parents abroad", "Schools already using Twilio for other communications", "Admins who need delivery status callbacks for compliance records"],
           },

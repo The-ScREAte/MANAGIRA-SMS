@@ -521,6 +521,7 @@ const {
 const {
   ensureSmsIntegrationSchema,
   getSmsIntegrationStatus,
+  isTwilioAvailableForCountry,
   setSmsProviderActivation,
   saveArkeselSettings,
   saveAfricasTalkingSettings,
@@ -9102,6 +9103,7 @@ const accountController = {
         studentPortalIntegration,
         transportationIntegration,
         smsIntegration,
+        twilioAvailableForCountry: isTwilioAvailableForCountry(orgRow?.organization_country),
         integrationActivity,
         feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
         feedbackAreaOptions: FEEDBACK_AREA_OPTIONS,
@@ -12035,6 +12037,19 @@ const accountController = {
       await ensureSmsIntegrationSchema(db);
       const shouldActivate = String(req.body.activate || "").trim() === "1";
 
+      if (provider === "twilio" && shouldActivate) {
+        const countryResult = await db.query(
+          `SELECT organization_country FROM organizations WHERE organization_id = $1 LIMIT 1`,
+          [orgId]
+        );
+        if (!isTwilioAvailableForCountry(countryResult.rows[0]?.organization_country)) {
+          return respond(400, {
+            success: false,
+            message: "Twilio is not available for schools in African countries.",
+          });
+        }
+      }
+
       const integrationPassword = String(req.body.integrationPassword || req.body.deactivationPassword || "");
       if (!integrationPassword.trim()) {
         return respond(400, {
@@ -12096,6 +12111,19 @@ const accountController = {
       }
       if (!providerStatus.activated) {
         return res.status(400).json({ success: false, message: "Activate this SMS integration before saving settings." });
+      }
+
+      if (provider === "twilio") {
+        const countryResult = await db.query(
+          `SELECT organization_country FROM organizations WHERE organization_id = $1 LIMIT 1`,
+          [orgId]
+        );
+        if (!isTwilioAvailableForCountry(countryResult.rows[0]?.organization_country)) {
+          return res.status(400).json({
+            success: false,
+            message: "Twilio is not available for schools in African countries.",
+          });
+        }
       }
 
       if (provider === "arkesel") {
