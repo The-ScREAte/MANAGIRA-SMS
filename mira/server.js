@@ -27,9 +27,19 @@ app.set("layout", "layout");
 app.use(express.json({ limit: "10mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// No auth - used by the deploy platform / uptime checks.
+// No auth - used by the deploy platform / uptime checks. `providers` is
+// boolean-only (never keys/values) - just enough to diagnose "which LLM
+// providers does this deployment actually have configured" without needing
+// dashboard access to the host's env vars.
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "mira", time: new Date().toISOString() });
+  const { PROVIDER_PRIORITY, MOCK_MODE } = require("./services/modelRouter");
+  const providers = {
+    openrouter: !!process.env.OPENROUTER_API_KEY,
+    telnyx: !!process.env.TELNYX_API_KEY,
+    openai: !!process.env.OPENAI_API_KEY,
+    anthropic: !!process.env.ANTHROPIC_API_KEY,
+  };
+  res.json({ status: "ok", service: "mira", time: new Date().toISOString(), mockMode: MOCK_MODE, providerPriority: PROVIDER_PRIORITY, providers });
 });
 
 // Mira's own login/continue/logout - deliberately unauthenticated (that's
