@@ -288,6 +288,9 @@
     // Already on the "start a new chat" screen - a second New chat button
     // here would be redundant.
     if (mobileNewChatBtn) mobileNewChatBtn.hidden = true;
+    // On mobile the drawer sits over the conversation - picking "New chat"
+    // from it should reveal the result, not leave the drawer covering it.
+    if (mobileMql.matches) closeDrawer();
   }
   function showChatView() {
     emptyState.style.display = "none";
@@ -295,7 +298,10 @@
     if (mobileNewChatBtn) mobileNewChatBtn.hidden = false;
     if (mobileShareBtn) mobileShareBtn.hidden = false;
     if (syncDockedComposer) syncDockedComposer();
+    // Same for opening an existing chat from the history list.
+    if (mobileMql.matches) closeDrawer();
   }
+
   window.miraShowChatView = showChatView;
   window.miraShowEmptyState = showEmptyState;
 

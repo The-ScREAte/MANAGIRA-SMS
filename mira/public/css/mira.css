@@ -1472,7 +1472,41 @@ button { font-family: inherit; }
   .mira-modal-body { padding: 16px; }
 
   .mira-chat-scroll { padding: 16px 12px 12px; }
+
+  /* iOS Safari auto-zooms into any focused field rendered below 16px, which
+     throws the whole layout off-centre while typing. Every text-entry
+     control on Mira is bumped to exactly 16px here - the visual weight is
+     kept in check with tighter line-height/padding rather than a smaller
+     type size. */
+  .mira-input-box textarea,
+  .mira-history-search input,
+  .mira-class-dropdown-search input,
+  .mira-settings-textarea,
+  .mira-settings-select,
+  .mira-chat-item-rename-input,
+  .mira-auth-field input,
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  .mira-input-box { padding: 6px 6px 6px 14px; min-height: 52px; }
+  .mira-input-box textarea { line-height: 1.45; }
+
+  /* Clean, consistent reading sizes so the thread and sidebar stay legible
+     without any single element crowding a phone screen. */
+  .mira-message-bubble { font-size: 0.95rem; line-height: 1.6; }
+  .mira-chat-item-text { font-size: 0.88rem; }
+  .mira-chat-item-time { font-size: 0.7rem; }
+  .mira-chip { font-size: 0.8rem; padding: 7px 12px; }
+  .mira-quick-actions { gap: 6px; }
+  .mira-ai-disclaimer { font-size: 0.68rem; }
+  .mira-project-selector { font-size: 0.82rem; }
 }
+
 
 @keyframes miraModalSheetIn {
   from { transform: translateY(12px); opacity: 0; }
