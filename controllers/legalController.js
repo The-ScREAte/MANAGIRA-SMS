@@ -486,7 +486,13 @@ const legalController = {
             keywords: 'mira ai assistant, school ai assistant, education ai, managira ai, ai school management',
             canonicalUrl: 'https://managira.com/legal/mira-ai-assistant',
             isMarketingHeroPage: true,
-            showFooterTopSection: true
+            showFooterTopSection: true,
+            // So Google/social previews for this page show the Mira logo
+            // instead of the generic Managira share image.
+            shareImage: 'https://www.managira.com/images/miralogo.png',
+            shareImageWidth: '756',
+            shareImageHeight: '692',
+            shareImageType: 'image/png'
         });
     },
     

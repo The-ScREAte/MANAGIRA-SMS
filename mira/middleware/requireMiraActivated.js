@@ -31,15 +31,26 @@ async function requireMiraActivated(req, res, next) {
       const message = !activated
         ? "Mira isn't available for your school yet."
         : "You don't have access to Mira yet.";
+      const mainAppUrl = process.env.MAIN_APP_PUBLIC_URL || process.env.MAIN_APP_INTERNAL_BASE_URL || "http://localhost:4000";
 
       if (req.accepts(["html", "json"]) === "json") {
         return res.status(403).json({ error: message });
       }
+
+      // Org hasn't activated Mira at all (as opposed to this one staff
+      // member lacking the per-user "Use Mira" permission) - send them to
+      // the real marketing/info page on the main app instead of a dead-end
+      // in-app error, so they can actually learn about Mira and how to get
+      // it activated for their school.
+      if (!activated) {
+        return res.redirect(`${mainAppUrl}/legal/mira-ai-assistant`);
+      }
+
       return res.status(403).render("notActivated", {
         title: "Mira",
         layout: false,
         message,
-        mainAppUrl: process.env.MAIN_APP_PUBLIC_URL || process.env.MAIN_APP_INTERNAL_BASE_URL || "http://localhost:4000",
+        mainAppUrl,
       });
     }
 

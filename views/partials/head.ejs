@@ -39,7 +39,16 @@
     let _shareImageHeight = '461';
     let _shareImageType = 'image/png';
 
-    if (!_isManagiraRootHost && _schoolLogoPath) {
+    // Per-page override (e.g. the Mira AI Assistant page using the Mira
+    // logo instead of the generic Managira share image) - takes priority
+    // over both the root-host default and the school-logo case below.
+    const _hasShareImageOverride = typeof shareImage !== 'undefined' && shareImage;
+    if (_hasShareImageOverride) {
+      _shareImage = shareImage;
+      if (typeof shareImageWidth !== 'undefined' && shareImageWidth) _shareImageWidth = String(shareImageWidth);
+      if (typeof shareImageHeight !== 'undefined' && shareImageHeight) _shareImageHeight = String(shareImageHeight);
+      if (typeof shareImageType !== 'undefined' && shareImageType) _shareImageType = shareImageType;
+    } else if (!_isManagiraRootHost && _schoolLogoPath) {
       const rawLogo = String(_schoolLogoPath).trim();
       if (/^https?:\/\//i.test(rawLogo)) {
         _shareImage = rawLogo;

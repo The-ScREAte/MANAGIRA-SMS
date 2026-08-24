@@ -1,4 +1,5 @@
 const express = require("express");
+const { createProxyMiddleware } = require("http-proxy-middleware");
 const https = require("https");
 const session = require("express-session");
 const multer = require("multer");
@@ -347,6 +348,29 @@ const renderOrganizationNotFound = async (req, res, subdomain) => {
     </html>
   `);
 };
+
+// Reverse-proxy mira.managira.com straight through to the separate Mira
+// service, before the general subdomain middleware below gets a chance to
+// treat "mira" as an organization nickname lookup (it isn't one - it 404s
+// as "Organization Not Found" otherwise, since Mira and school subdomains
+// currently share the same wildcard *.managira.com DNS). MIRA_INTERNAL_URL
+// should point wherever the Mira service actually runs - same-host sibling
+// process (e.g. http://localhost:4100) or a real internal network address
+// if it's deployed as a separate service.
+const MIRA_INTERNAL_URL = process.env.MIRA_INTERNAL_URL || `http://localhost:${process.env.MIRA_PORT || 4100}`;
+const miraProxy = createProxyMiddleware({
+  target: MIRA_INTERNAL_URL,
+  changeOrigin: true,
+  ws: true,
+  logger: console,
+});
+app.use((req, res, next) => {
+  const host = String(req.hostname || "").toLowerCase();
+  if (host === "mira.managira.com") {
+    return miraProxy(req, res, next);
+  }
+  next();
+});
 
 // middleware for dynamic subdomains
 app.use(async (req, res, next) => {
