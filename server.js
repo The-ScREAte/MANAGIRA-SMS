@@ -1090,16 +1090,22 @@ app.get("/", async (req, res) => {
 
   // ...removed log for clean background operation...
 
+  // An already-logged-in org user landing on the bare root domain (typed it
+  // directly, reopened the tab with the session still alive, or - in dev -
+  // just running on localhost) wants their dashboard, not the public
+  // marketing homepage - send them straight there instead of making them
+  // click through the marketing page first. Deliberately excludes an
+  // actual school subdomain (Case 2 below, req.schoolDetails set) - a
+  // logged-in admin visiting their own school's public subdomain is
+  // previewing the public site, not asking to be bounced to their
+  // dashboard, so that case is left untouched.
+  const isSchoolSubdomain = isProduction && !!req.schoolDetails;
+  if (!isSchoolSubdomain && req.session && (req.session.organizationId || req.session.userId)) {
+    return res.redirect("/common/orgDashboard");
+  }
+
   // ✅ Case 1: Production root domain (e.g. managira.com or www)
   if (isProduction && req.isRootDomain) {
-    // An already-logged-in org user landing on the bare root domain (typed
-    // it directly, or reopened the tab with the session still alive) wants
-    // their dashboard, not the public marketing homepage - send them
-    // straight there instead of making them click through the marketing
-    // page first.
-    if (req.session && (req.session.organizationId || req.session.userId)) {
-      return res.redirect("/common/orgDashboard");
-    }
   // ...removed log for clean background operation...
     return res.render("index", homeSeo);
   }
@@ -1225,13 +1231,22 @@ const startServer = (port) => {
 
 // Mira runs as its own Express app/port, but on a single-service deploy
 // (one Render web service, `npm start` running only this file) nothing
-// else ever starts it - locally, `npm run dev` starts it as a second
-// process via concurrently, which production's plain `node server.js`
-// does not. Starting it here, in-process, right after the main app comes
-// up, makes it work the same way in production without needing a second
-// Render service. Set MIRA_STANDALONE_SERVICE=true to skip this when Mira
-// really is deployed as its own separate service instead.
-if (String(process.env.MIRA_STANDALONE_SERVICE || "").toLowerCase() !== "true") {
+// else ever starts it - production's plain `node server.js` never runs
+// Mira on its own. Starting it here, in-process, right after the main app
+// comes up, makes it work the same way in production without needing a
+// second Render service.
+//
+// Skipped in development: `npm run dev` already starts Mira as its own
+// separate process via concurrently (see package.json's dev:mira script)
+// so it can be nodemon-watched independently - co-starting it here too
+// would just fight that process for port 4100 (EADDRINUSE). Set
+// MIRA_STANDALONE_SERVICE=true to also skip this in production, for the
+// same reason, if Mira is ever deployed as its own separate service there
+// instead of co-located with the main app.
+const shouldCoStartMira =
+  process.env.NODE_ENV === "production" &&
+  String(process.env.MIRA_STANDALONE_SERVICE || "").toLowerCase() !== "true";
+if (shouldCoStartMira) {
   try {
     require("./mira/server").start().catch((error) => {
       console.error("[Mira] Failed to start alongside the main app:", error);
