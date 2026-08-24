@@ -138,7 +138,12 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   // "are you sure?" carries no topic keywords of its own, so search on
   // it alone. Including the prior turn keeps retrieval on-topic across
   // that kind of natural follow-up.
-  let contextMessages = [];
+  let contextMessages = [
+    {
+      role: "system",
+      content: `The current user talking to you right now is ${tenant.displayName}${tenant.userEmail ? ` (${tenant.userEmail})` : ""}, role: ${tenant.roleLabel}, at ${tenant.organizationName}. Never ask them who they are or which employee they are - you already know. If asked about their own permissions/role/access, answer directly from this identity (cross-referenced with the employee list or role documentation if needed) rather than listing all staff and asking them to self-identify.`,
+    },
+  ];
   try {
     const priorUserTurn = [...history].reverse().find((m) => m.role === "user");
     const retrievalQuery = priorUserTurn ? `${priorUserTurn.content}\n${userText}` : userText;

@@ -475,6 +475,17 @@ async function callProvider(provider, { model, messages, tools, onToken, onToolC
   return anthropicStreamCompletion({ model, messages, tools, onToken, onToolCall });
 }
 
+// Rough chars/4 token estimate - not a real tokenizer, just precise enough
+// to tell "this prompt is way over the known OpenRouter cap" from "it's
+// probably fine", which is all the skip-ahead check below needs. Override
+// via env var once the OpenRouter account is funded/verified and the real
+// cap changes - the ~10,696-token ceiling logged in every 402 so far is
+// this account's current tier, not a fixed platform limit.
+const OPENROUTER_PROMPT_TOKEN_CAP = Number(process.env.OPENROUTER_PROMPT_TOKEN_CAP) || 10500;
+function estimateTokens(messages, tools) {
+  return Math.ceil((JSON.stringify(messages).length + JSON.stringify(tools).length) / 4);
+}
+
 /**
  * streamCompletion({task, messages, tools, onToken, onToolCall})
  * Picks a provider/model for the task, streams tokens via onToken(text),
@@ -491,7 +502,19 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
     return mockStreamCompletion({ messages, tools, onToken, onToolCall });
   }
 
-  const configuredProviders = PROVIDER_PRIORITY.filter(isProviderConfigured);
+  let configuredProviders = PROVIDER_PRIORITY.filter(isProviderConfigured);
+
+  // Skip a doomed OpenRouter round-trip outright once we can already tell
+  // this prompt will blow its prompt-token cap - saves the latency and the
+  // guaranteed 402 on every real turn (Mira's real system prompt + full
+  // tool schema is consistently ~30k tokens, this account's cap is ~10.7k).
+  if (
+    configuredProviders.length > 1 &&
+    configuredProviders.includes("openrouter") &&
+    estimateTokens(messages, tools) > OPENROUTER_PROMPT_TOKEN_CAP
+  ) {
+    configuredProviders = configuredProviders.filter((p) => p !== "openrouter");
+  }
 
   let lastError = null;
   for (const provider of configuredProviders) {
