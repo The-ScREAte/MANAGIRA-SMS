@@ -1,0 +1,30 @@
+{
+  "name": "mira",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mira - Managira's AI assistant. Separate deployable service; see ../README-MIRA.md.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon",
+    "test": "MIRA_MOCK_LLM=true node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "bullmq": "^5.34.0",
+    "cookie": "^0.7.1",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.9",
+    "express": "^4.22.0",
+    "express-ejs-layouts": "^2.5.1",
+    "mammoth": "^1.12.1",
+    "multer": "^2.2.0",
+    "openai": "^4.77.0",
+    "pdf-parse": "^1.1.4",
+    "pg": "^8.13.1",
+    "redis": "^5.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

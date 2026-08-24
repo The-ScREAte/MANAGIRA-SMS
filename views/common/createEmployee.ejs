@@ -548,7 +548,7 @@
       }
       syncPermissionVisibility();
 
-      const form = document.querySelector("form[action='/common/createEmployee']");
+      const form = document.getElementById("createEmployeeForm");
       if (form) {
         const submitButton = document.querySelector('button[type="submit"][form="createEmployeeForm"]');
         const submitLabel = submitButton ? submitButton.querySelector('.btn-label') : null;
@@ -596,7 +596,7 @@
   <div class="form-card">
 
     <div class="form-content">
-      <form id="createEmployeeForm" action="/common/createEmployee" method="post">
+      <form id="createEmployeeForm" action="/common/createEmployee<%= (typeof isEmbedded !== 'undefined' && isEmbedded) ? '?embed=workspace' : '' %>" method="post">
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="firstName">First Name</label>

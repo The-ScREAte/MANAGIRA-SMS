@@ -297,6 +297,36 @@ router.post(
   accountController.studentPortalActivationPost
 );
 router.post(
+  "/mira/activate",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.miraActivationPost
+);
+router.get(
+  "/mira",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.miraSettingsGet
+);
+router.post(
+  "/mira/permissions",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.miraPermissionsPost
+);
+router.get(
+  "/mira/user/:userId",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.miraUserPermissionsGet
+);
+router.post(
+  "/mira/user/:userId",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.miraUserPermissionsPost
+);
+router.post(
   "/transportation/activate",
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),
@@ -578,8 +608,15 @@ router.get("/validate-promo", (req, res) =>
   accountController.validatePromoGet(req, res)
 );
 
+// Was previously reachable with no auth/permission check at all - any
+// request carrying a valid organizationId in session could flip a school's
+// public self-enrollment on/off and set its price, unlike every sibling
+// route on this same page. Brought in line with the rest of Public Content
+// Management above.
 router.post(
   "/updatePublicRegistration",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
   accountController.updatePublicRegistration
 );
 

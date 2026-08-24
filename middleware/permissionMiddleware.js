@@ -26,6 +26,7 @@ const PERMISSIONS = {
   MANAGE_SETTINGS: "manage_settings",
   MANAGE_PAYGIRA: "manage_paygira",
   MAILROOM: "mailroom",
+  USE_MIRA: "use_mira",
 };
 
 // Not a PERMISSION_OPTIONS entry (so it never renders as its own checkbox) —
@@ -54,6 +55,7 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.MANAGE_SETTINGS, label: "Manage Organization Settings" },
   { key: PERMISSIONS.MANAGE_PAYGIRA, label: "PayGira (Finance & Billing)" },
   { key: PERMISSIONS.MAILROOM, label: "Mailroom (Send SMS/WhatsApp/Email)" },
+  { key: PERMISSIONS.USE_MIRA, label: "Use Mira (AI Assistant)" },
 ];
 
 const MANAGER_DEFAULT_OPTIONAL_PERMISSIONS = PERMISSION_OPTIONS

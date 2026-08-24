@@ -102,6 +102,7 @@ const {
   getTransportationIntegrationStatus,
   suggestNearestStop,
 } = require("../utils/transportation");
+const { getMiraIntegrationStatus } = require("../utils/miraIntegration");
 const {
   getStudentTransportationSnapshot,
   getClassTransportationSnapshot,
@@ -478,9 +479,9 @@ function formatDependencyTableName(tableName) {
   return String(tableName || "").replace(/_/g, " ").trim();
 }
 
-function buildSchoolYearDependencyErrorMessage(blockers = []) {
+function buildSchoolYearDependencyErrorMessage(blockers = [], recordNoun = "school year") {
   if (!Array.isArray(blockers) || blockers.length === 0) {
-    return "Cannot delete this school year because related records still exist.";
+    return `Cannot delete this ${recordNoun} because related records still exist.`;
   }
 
   const ordered = blockers
@@ -493,7 +494,7 @@ function buildSchoolYearDependencyErrorMessage(blockers = []) {
   const extraCount = ordered.length - preview.length;
   const extraSuffix = extraCount > 0 ? ` and ${extraCount} more area${extraCount === 1 ? "" : "s"}` : "";
 
-  return `Cannot delete this school year because related records still exist in the system: ${summary}${extraSuffix}. Remove those records first, then try again.`;
+  return `Cannot delete this ${recordNoun} because related records still exist in the system: ${summary}${extraSuffix}. Remove those records first, then try again.`;
 }
 
 async function collectSchoolYearDeletionBlockers(dbClient, { organizationId, schoolYearId, termIds = [] }) {
@@ -560,42 +561,8 @@ async function collectSchoolYearDeletionBlockers(dbClient, { organizationId, sch
     }
   }
 
-  const safeTermIds = Array.isArray(termIds)
-    ? termIds.map((termId) => Number(termId)).filter((termId) => Number.isInteger(termId))
-    : [];
-
-  if (safeTermIds.length) {
-    const termReferences = await getReferences("terms", "term_id");
-    const termSkipTables = new Set(["term_classes"]);
-
-    for (const reference of termReferences) {
-      const tableName = String(reference.table_name || "");
-      if (!tableName || termSkipTables.has(tableName)) continue;
-
-      const hasOrganizationId =
-        reference.has_organization_id === true ||
-        reference.has_organization_id === "t" ||
-        reference.has_organization_id === 1;
-
-      const countQuery = `
-        SELECT COUNT(*)::int AS count
-        FROM ${quoteSqlIdentifier(reference.table_schema)}.${quoteSqlIdentifier(tableName)}
-        WHERE ${quoteSqlIdentifier(reference.column_name)} = ANY($1::int[])
-        ${hasOrganizationId ? "AND organization_id = $2" : ""}
-      `;
-      const params = hasOrganizationId
-        ? [safeTermIds, organizationId]
-        : [safeTermIds];
-      const countResult = await dbClient.query(countQuery, params);
-      const count = Number(countResult.rows[0]?.count || 0);
-      if (count > 0) {
-        blockers.push({
-          tableName,
-          count,
-        });
-      }
-    }
-  }
+  const termBlockers = await collectTermDeletionBlockers(dbClient, { organizationId, termIds, getReferences });
+  blockers.push(...termBlockers);
 
   const dedupedByTable = new Map();
   for (const blocker of blockers) {
@@ -610,6 +577,168 @@ async function collectSchoolYearDeletionBlockers(dbClient, { organizationId, sch
     tableName,
     count,
   }));
+}
+
+// Same FK-scan approach as the school-year half above, split out so a
+// single term can be checked for dependents on its own (deleteTerm below) -
+// previously that endpoint deleted a term with zero safety check, unlike
+// deleteSchoolYear which already ran this same scan.
+async function collectTermDeletionBlockers(dbClient, { organizationId, termIds = [], getReferences: getReferencesOverride } = {}) {
+  const safeTermIds = Array.isArray(termIds)
+    ? termIds.map((termId) => Number(termId)).filter((termId) => Number.isInteger(termId))
+    : [];
+  if (!safeTermIds.length) return [];
+
+  const getReferences =
+    getReferencesOverride ||
+    (async (referencedTable, referencedColumn) => {
+      const result = await dbClient.query(
+        `SELECT
+           tc.table_schema,
+           tc.table_name,
+           kcu.column_name,
+           EXISTS (
+             SELECT 1
+             FROM information_schema.columns c
+             WHERE c.table_schema = tc.table_schema
+               AND c.table_name = tc.table_name
+               AND c.column_name = 'organization_id'
+           ) AS has_organization_id
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+         JOIN information_schema.constraint_column_usage ccu
+           ON tc.constraint_name = ccu.constraint_name
+          AND tc.table_schema = ccu.table_schema
+         WHERE tc.constraint_type = 'FOREIGN KEY'
+           AND tc.table_schema = 'public'
+           AND ccu.table_schema = 'public'
+           AND ccu.table_name = $1
+           AND ccu.column_name = $2`,
+        [referencedTable, referencedColumn]
+      );
+      return result.rows || [];
+    });
+
+  const blockers = [];
+  const termReferences = await getReferences("terms", "term_id");
+  const termSkipTables = new Set(["term_classes"]);
+
+  for (const reference of termReferences) {
+    const tableName = String(reference.table_name || "");
+    if (!tableName || termSkipTables.has(tableName)) continue;
+
+    const hasOrganizationId =
+      reference.has_organization_id === true ||
+      reference.has_organization_id === "t" ||
+      reference.has_organization_id === 1;
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS count
+      FROM ${quoteSqlIdentifier(reference.table_schema)}.${quoteSqlIdentifier(tableName)}
+      WHERE ${quoteSqlIdentifier(reference.column_name)} = ANY($1::int[])
+      ${hasOrganizationId ? "AND organization_id = $2" : ""}
+    `;
+    const params = hasOrganizationId ? [safeTermIds, organizationId] : [safeTermIds];
+    const countResult = await dbClient.query(countQuery, params);
+    const count = Number(countResult.rows[0]?.count || 0);
+    if (count > 0) {
+      blockers.push({ tableName, count });
+    }
+  }
+
+  // Multiple FK constraints can reference terms.term_id from the same
+  // table (e.g. separate columns for different attendance kinds), which
+  // would otherwise show the same table name more than once in the
+  // dependency message - collapse to one entry per table, keeping the
+  // largest count seen.
+  const dedupedByTable = new Map();
+  for (const blocker of blockers) {
+    const tableName = String(blocker.tableName || "").trim();
+    if (!tableName) continue;
+    const count = Number(blocker.count || 0);
+    const prev = dedupedByTable.get(tableName) || 0;
+    dedupedByTable.set(tableName, Math.max(prev, count));
+  }
+
+  return Array.from(dedupedByTable.entries()).map(([tableName, count]) => ({ tableName, count }));
+}
+
+// Same FK-scan approach as school years/terms above, for a class. This did
+// NOT exist before - deleteClass only ever manually cleaned up `subjects`
+// (its one legitimately-owned child, skipped below same as `terms` was for
+// school years) and then hard-deleted the class row, relying entirely on
+// the database's own ON DELETE CASCADE on students.class_id (and a dozen
+// other tables: attendance_records, assessments, enrolled_students, etc.)
+// to silently wipe every real student and their records with zero warning
+// or way to stop it. This scan makes that impossible - any real dependent
+// data blocks the delete instead of vanishing.
+async function collectClassDeletionBlockers(dbClient, { organizationId, classId }) {
+  const getReferences = async (referencedTable, referencedColumn) => {
+    const result = await dbClient.query(
+      `SELECT
+         tc.table_schema,
+         tc.table_name,
+         kcu.column_name,
+         EXISTS (
+           SELECT 1
+           FROM information_schema.columns c
+           WHERE c.table_schema = tc.table_schema
+             AND c.table_name = tc.table_name
+             AND c.column_name = 'organization_id'
+         ) AS has_organization_id
+       FROM information_schema.table_constraints tc
+       JOIN information_schema.key_column_usage kcu
+         ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+       JOIN information_schema.constraint_column_usage ccu
+         ON tc.constraint_name = ccu.constraint_name
+        AND tc.table_schema = ccu.table_schema
+       WHERE tc.constraint_type = 'FOREIGN KEY'
+         AND tc.table_schema = 'public'
+         AND ccu.table_schema = 'public'
+         AND ccu.table_name = $1
+         AND ccu.column_name = $2`,
+      [referencedTable, referencedColumn]
+    );
+    return result.rows || [];
+  };
+
+  const blockers = [];
+  const references = await getReferences("classes", "class_id");
+  const skipTables = new Set(["subjects"]);
+
+  for (const reference of references) {
+    const tableName = String(reference.table_name || "");
+    if (!tableName || skipTables.has(tableName)) continue;
+
+    const hasOrganizationId =
+      reference.has_organization_id === true || reference.has_organization_id === "t" || reference.has_organization_id === 1;
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS count
+      FROM ${quoteSqlIdentifier(reference.table_schema)}.${quoteSqlIdentifier(tableName)}
+      WHERE ${quoteSqlIdentifier(reference.column_name)} = $1
+      ${hasOrganizationId ? "AND organization_id = $2" : ""}
+    `;
+    const params = hasOrganizationId ? [classId, organizationId] : [classId];
+    const countResult = await dbClient.query(countQuery, params);
+    const count = Number(countResult.rows[0]?.count || 0);
+    if (count > 0) {
+      blockers.push({ tableName, count });
+    }
+  }
+
+  const dedupedByTable = new Map();
+  for (const blocker of blockers) {
+    const tableName = String(blocker.tableName || "").trim();
+    if (!tableName) continue;
+    const count = Number(blocker.count || 0);
+    const prev = dedupedByTable.get(tableName) || 0;
+    dedupedByTable.set(tableName, Math.max(prev, count));
+  }
+  return Array.from(dedupedByTable.entries()).map(([tableName, count]) => ({ tableName, count }));
 }
 
 async function convertAmountBetweenCurrencies(amount, fromCurrency, toCurrency) {
@@ -3439,9 +3568,13 @@ const commonController = {
       const isSuperAdminSwitch = req.session.superAdminOrgSwitch;
       const isProduction = process.env.NODE_ENV === "production";
       const school = isProduction ? req.schoolDetails : null;
-      const organizationId = isProduction
-        ? school?.organization_id
-        : req.session.organizationId;
+      // Prefer the subdomain-resolved org, but fall back to the logged-in
+      // session's organizationId when req.schoolDetails hasn't been attached
+      // for this request (e.g. a subdomain-cache miss/race right after an
+      // org is set up) — otherwise a valid logged-in user gets bounced to
+      // the public landing page instead of their dashboard.
+      const organizationId =
+        school?.organization_id || req.session.organizationId || null;
       const orgNameDisplayFormat = req.session?.nameDisplayFormat;
 
       if (!organizationId) {
@@ -4054,11 +4187,11 @@ const commonController = {
 
       // Separate images for the slideshow vs. normal images
       const slideshowImages = images.filter(
-        (img) => img.allocation.toLowerCase() === "slideshow"
+        (img) => String(img.allocation || "").toLowerCase() === "slideshow"
       );
 
       const normalImages = images.filter(
-        (img) => img.allocation.toLowerCase() !== "slideshow"
+        (img) => String(img.allocation || "").toLowerCase() !== "slideshow"
       );
 
       // Fetch texts for the organization
@@ -4358,7 +4491,11 @@ const commonController = {
         showFooterTopSection: false,
       });
     } catch (error) {
-      // ...removed error log for clean background operation...
+      console.error("[PublicDashboard] Failed to render public dashboard", {
+        organizationId: req.query.organizationId || req.organizationId,
+        message: error.message,
+        stack: error.stack,
+      });
       req.flash("error", "Failed to load School website data.");
       res.status(500).send("Failed to load school website data.");
     }
@@ -7564,14 +7701,30 @@ const commonController = {
 
   rejectPendingStudent: async (req, res, db) => {
     const { id } = req.params;
+    // pending_id is a globally-unique SERIAL, not scoped per org in any of
+    // these queries below - without an explicit organization_id check here,
+    // a staff member from ANY org could reject (permanently delete) another
+    // org's pending admission just by guessing/iterating pending_id, since
+    // every other handler on this page (approve, save-changes, get-details)
+    // already scopes by organization_id and this one didn't.
+    const sessionOrgId = req.session.organizationId;
     try {
+      const ownerCheck = await db.query(
+        `SELECT 1 FROM pending_students WHERE pending_id = $1 AND organization_id = $2`,
+        [id, sessionOrgId]
+      );
+      if (!ownerCheck.rows.length) {
+        req.flash("error", "Student application not found.");
+        return res.redirect("/common/admissionPending");
+      }
+
       const guardians = await db.query(
         `SELECT email FROM pending_guardians WHERE pending_id = $1`,
         [id]
       );
       const pending = await db.query(
-        `SELECT first_name, last_name, organization_id FROM pending_students WHERE pending_id = $1`,
-        [id]
+        `SELECT first_name, last_name, organization_id FROM pending_students WHERE pending_id = $1 AND organization_id = $2`,
+        [id, sessionOrgId]
       );
 
       const orgId = pending.rows[0]?.organization_id;
@@ -7591,8 +7744,9 @@ const commonController = {
         `DELETE FROM pending_student_subjects WHERE pending_student_id = $1`,
         [id]
       );
-      await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [
+      await db.query(`DELETE FROM pending_students WHERE pending_id = $1 AND organization_id = $2`, [
         id,
+        sessionOrgId,
       ]);
 
       req.flash("info", "Student application rejected and deleted.");
@@ -9258,6 +9412,7 @@ const commonController = {
 
   createEmployeeGet: async (req, res, db) => {
     try {
+      const isEmbedded = isEmbeddedRequest(req, "createEmployee");
       await ensurePermissionsSchema(db);
       await ensureClassDashboardLayoutSchema(db);
 
@@ -9290,6 +9445,10 @@ const commonController = {
           success: req.flash("success"),
           error: req.flash("error"),
         },
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
       });
     } catch (error) {
       req.flash("error", "Failed to load classes.");
@@ -9298,6 +9457,8 @@ const commonController = {
   },
 
   createEmployeePost: async (req, res, db) => {
+    const isEmbedded = isEmbeddedRequest(req, "createEmployee");
+    const createEmployeeRedirectUrl = isEmbedded ? "/common/createEmployee?embed=workspace" : "/common/createEmployee";
     const { firstName, lastName, email, account_type, dateOfBirth } = req.body;
 
     let classes = req.body.classes || [];
@@ -9328,7 +9489,7 @@ const commonController = {
 
     if (!firstName || !lastName || !email || !account_type) {
       req.flash("error", "All fields are required.");
-      return res.redirect("/common/createEmployee");
+      return res.redirect(createEmployeeRedirectUrl);
     }
 
     const requestorRoleName = String(requestorRole || "").trim();
@@ -9337,7 +9498,7 @@ const commonController = {
 
     if (account_type === "Manager" && !canAssignSensitivePermissions) {
       req.flash("error", "Only managers can create manager accounts.");
-      return res.redirect("/common/createEmployee");
+      return res.redirect(createEmployeeRedirectUrl);
     }
 
     const sanitizedRequestedPermissions = canAssignSensitivePermissions
@@ -9368,7 +9529,7 @@ const commonController = {
       await ensureUserMailroomClassesSchema(db);
     } catch (schemaErr) {
       req.flash("error", "Database schema error: " + schemaErr.message);
-      return res.redirect("/common/createEmployee");
+      return res.redirect(createEmployeeRedirectUrl);
     }
 
     // ─── Step 2: Acquire a connection from the pool ──────────────────────────
@@ -9377,7 +9538,7 @@ const commonController = {
       client = await db.connect();
     } catch (connErr) {
       req.flash("error", "Could not connect to the database. Please try again.");
-      return res.redirect("/common/createEmployee");
+      return res.redirect(createEmployeeRedirectUrl);
     }
 
     try {
@@ -9394,7 +9555,7 @@ const commonController = {
       if (emailCheckResult.rows.length > 0) {
         req.flash("error", "This email is already in use by another user or organization.");
         await client.query("ROLLBACK");
-        return res.redirect("/common/createEmployee");
+        return res.redirect(createEmployeeRedirectUrl);
       }
 
       // ─── Step 4: Generate token ───────────────────────────────────────────
@@ -9506,11 +9667,11 @@ const commonController = {
       });
 
       req.flash("success", "Employee created successfully. Password invite is being sent now.");
-      res.redirect("/common/createEmployee");
+      res.redirect(createEmployeeRedirectUrl);
     } catch (error) {
       try { await client.query("ROLLBACK"); } catch (_) {}
       req.flash("error", "Failed to create employee: " + error.message);
-      res.redirect("/common/createEmployee");
+      res.redirect(createEmployeeRedirectUrl);
     } finally {
       client.release();
     }
@@ -10076,6 +10237,8 @@ const commonController = {
 
   toggleHoldEmployee: async (req, res, db) => {
     const { userId } = req.params;
+    const isEmbedded = isEmbeddedRequest(req, "modifyEmployee");
+    const modifyEmployeeRedirectUrl = `/common/modifyEmployee?userId=${userId}${isEmbedded ? "&embed=workspace" : ""}`;
     try {
       const result = await db.query(
         "UPDATE users SET on_hold = NOT on_hold WHERE user_id = $1 AND organization_id = $2 RETURNING on_hold",
@@ -10103,16 +10266,17 @@ const commonController = {
       }).catch(err => console.error('[Notif] hold change failed:', err.message));
 
       req.flash("success", `Employee has been ${newStatus}.`);
-      res.redirect(`/common/modifyEmployee?userId=${userId}`);
+      res.redirect(modifyEmployeeRedirectUrl);
     } catch (error) {
       // ...removed error log for clean background operation...
       req.flash("error", "Failed to update employee status.");
-      res.redirect(`/common/modifyEmployee?userId=${userId}`);
+      res.redirect(modifyEmployeeRedirectUrl);
     }
   },
 
   modifyEmployeeGet: async (req, res, db) => {
     const { userId } = req.query;
+    const isEmbedded = isEmbeddedRequest(req, "modifyEmployee");
 
     if (!userId) {
       res.status(400).send("User ID is required.");
@@ -10229,6 +10393,10 @@ const commonController = {
         },
         selectedPermissions,
         messages: req.flash(),
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
       });
     } catch (error) {
             res.status(500).send("Failed to load employee details.");
@@ -10237,6 +10405,7 @@ const commonController = {
 
   modifyEmployeePost: async (req, res, db) => {
     const { userId } = req.params;
+    const isEmbedded = isEmbeddedRequest(req, "modifyEmployee");
     const {
       firstName,
       lastName,
@@ -10261,7 +10430,8 @@ const commonController = {
         return res.status(statusCode).json({ success: false, error: message });
       }
       req.flash("error", message);
-      return res.redirect(redirectPath || `/common/modifyEmployee?userId=${userId}`);
+      const fallbackPath = `/common/modifyEmployee?userId=${userId}${isEmbedded ? "&embed=workspace" : ""}`;
+      return res.redirect(redirectPath || fallbackPath);
     };
     const respondModifyEmployeeSuccess = (message) => {
       req.flash("success", message);
@@ -10609,10 +10779,11 @@ const commonController = {
 
       const students = studentsResult.rows;
 
+      const noStudentsUrl = `/common/admissions?panel=create-student&page=${encodeURIComponent("/common/addStudent")}&label=${encodeURIComponent("Add New Student")}`;
       if (students.length === 0) {
         req.flash(
           "error",
-          `No students found for this class in the current term. Go to 'Enrollment Management' to add student.`
+          `No students found for this class in the current term. Go to Admissions to add a new student.`
         );
       }
 
@@ -10644,10 +10815,12 @@ const commonController = {
         };
       });
 
+      const manageAssessmentUrl = `/common/manageAssessment?organizationId=${organizationId}&termId=${currentTerm.term_id}`;
+      const noAssessmentsUrl = `/common/management?panel=assessment-scores&page=${encodeURIComponent(manageAssessmentUrl)}&label=${encodeURIComponent("Assessments")}`;
       if (assessments.length === 0) {
         req.flash(
           "error",
-          "No assessments found for the current term, subject, and class. Go to 'Create & Manage Assessment Scores' to add assessments "
+          "No assessments found for the current term, subject, and class. Go to Management Tools to add assessments."
         );
       }
 
@@ -10794,6 +10967,8 @@ const commonController = {
         assessments,
         hasEditableAssessments: assessments.some((assessmentRow) => assessmentRow.can_edit_scores),
         students,
+        noStudentsUrl,
+        noAssessmentsUrl,
         employees,
         scaleBase,
         maxPossibleScore,
@@ -11566,6 +11741,24 @@ const commonController = {
         }
       }
 
+      // assessment_questions -> student_assessment_responses is ON DELETE
+      // CASCADE, so replacing a set's questions (always a full
+      // delete-then-reinsert here) used to silently wipe any student's
+      // already-submitted answers and manually-entered marks along with
+      // the old rows, with zero check. Block instead - same principle as
+      // the class/school-year/test delete guards.
+      const attemptCount = await client.query(
+        `SELECT COUNT(*)::int AS count FROM student_assessment_attempts WHERE question_set_id = $1`,
+        [resolvedQuestionSetId]
+      );
+      if (Number(attemptCount.rows[0]?.count || 0) > 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: "Cannot change this question set's questions because one or more students have already started or submitted an attempt on it. Use the retake/unlock flow for individual students instead, or create a new question set.",
+        });
+      }
+
       await client.query(
         `DELETE FROM assessment_questions WHERE question_set_id = $1`,
         [resolvedQuestionSetId]
@@ -12000,6 +12193,21 @@ NUMBERING:
       if (!existingResult.rows.length) {
         await client.query("ROLLBACK");
         return res.status(404).json({ success: false, error: "Question set not found." });
+      }
+
+      // Same guard as upsertAssessmentQuestionSet above - assessment_questions
+      // cascades to student_assessment_responses, so this used to silently
+      // wipe every student's submitted answers/marks with no check.
+      const attemptCount = await client.query(
+        `SELECT COUNT(*)::int AS count FROM student_assessment_attempts WHERE question_set_id = $1`,
+        [questionSetId]
+      );
+      if (Number(attemptCount.rows[0]?.count || 0) > 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: "Cannot delete this question set because one or more students have already started or submitted an attempt on it. Remove those attempts first, then try again.",
+        });
       }
 
       await client.query(
@@ -15085,14 +15293,37 @@ NUMBERING:
     try {
       await client.query("BEGIN"); // Start a transaction
 
+      // assessment_results.assessment_id is ON DELETE CASCADE, so this
+      // used to silently delete every student score already entered for
+      // the test along with it - no check, no warning. Block instead,
+      // same principle as the class/school-year/term delete guards.
+      const resultCount = await client.query(
+        `SELECT COUNT(*)::int AS count
+         FROM assessment_results ar
+         JOIN assessments a ON a.assessment_id = ar.assessment_id
+         WHERE a.group_id = $1 AND a.organization_id = $2`,
+        [groupId, organizationId]
+      );
+      const scoreCount = Number(resultCount.rows[0]?.count || 0);
+      if (scoreCount > 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error: `Cannot delete this test because ${scoreCount} student score${scoreCount === 1 ? "" : "s"} have already been entered for it. Remove those results first, then try again.`,
+        });
+      }
+
       // Delete all assessments associated with the given group ID --
       // restricted to the caller's organization to prevent cross-org
       // deletions when group ids are guessable.
-      await client.query(
+      const deleteResult = await client.query(
         `DELETE FROM assessments
              WHERE group_id = $1 AND organization_id = $2`,
         [groupId, organizationId]
       );
+      if (deleteResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Test was not found or could not be deleted." });
+      }
 
       await client.query("COMMIT"); // Commit the transaction
       res
@@ -17927,17 +18158,76 @@ NUMBERING:
   },
 
   deleteTerm: async (req, res, db) => {
-    const { term_id } = req.body;
+    const termId = Number.parseInt(String(req.body?.term_id ?? ""), 10);
+    const organizationId = req.session.organizationId;
+    const expectsJson = requestExpectsJson(req);
+
+    const sendError = (statusCode, message) => {
+      if (expectsJson) {
+        return res.status(statusCode).json({ success: false, message });
+      }
+      req.flash("error", message);
+      return res.redirect("/common/manageRecords");
+    };
+
+    if (!organizationId) {
+      return sendError(401, "Unauthorized.");
+    }
+    if (!Number.isInteger(termId)) {
+      return sendError(400, "Invalid term selected.");
+    }
+
+    const client = await db.connect();
     try {
-      await db.query(
-        "DELETE FROM terms WHERE term_id = $1 AND organization_id = $2",
-        [term_id, req.session.organizationId]
+      await client.query("BEGIN");
+
+      const termOwn = await client.query(
+        `SELECT term_id, school_year_id FROM terms WHERE term_id = $1 AND organization_id = $2 FOR UPDATE`,
+        [termId, organizationId]
       );
-      res.json({ success: true, message: "Term deleted successfully." });
+      if (!termOwn.rows.length) {
+        await client.query("ROLLBACK");
+        return sendError(404, "Term does not belong to your organization.");
+      }
+      const schoolYearId = termOwn.rows[0].school_year_id;
+
+      const siblingCount = await client.query(
+        `SELECT COUNT(*)::int AS count FROM terms WHERE school_year_id = $1 AND organization_id = $2`,
+        [schoolYearId, organizationId]
+      );
+      if (Number(siblingCount.rows[0]?.count || 0) <= 1) {
+        await client.query("ROLLBACK");
+        return sendError(409, "Cannot delete the only remaining term for this school year. Delete the school year itself instead, or add another term first.");
+      }
+
+      const blockers = await collectTermDeletionBlockers(client, { organizationId, termIds: [termId] });
+      if (blockers.length) {
+        await client.query("ROLLBACK");
+        return sendError(409, buildSchoolYearDependencyErrorMessage(blockers, "term"));
+      }
+
+      await client.query(`DELETE FROM term_classes WHERE organization_id = $1 AND term_id = $2`, [organizationId, termId]);
+      const deleteResult = await client.query(`DELETE FROM terms WHERE term_id = $1 AND organization_id = $2`, [termId, organizationId]);
+
+      if (deleteResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return sendError(404, "Term was not found or could not be deleted.");
+      }
+
+      await client.query("COMMIT");
+      if (expectsJson) {
+        return res.json({ success: true, message: "Term deleted successfully." });
+      }
+      req.flash("success", "Term deleted successfully.");
+      return res.redirect("/common/manageRecords");
     } catch (error) {
-            res
-        .status(500)
-        .json({ success: false, message: "Failed to delete term." });
+      await client.query("ROLLBACK").catch(() => {});
+      if (error && error.code === "23503") {
+        return sendError(409, "Cannot delete this term because related records still exist. Remove them first, then try again.");
+      }
+      return sendError(500, "Failed to delete term.");
+    } finally {
+      client.release();
     }
   },
 
@@ -18205,6 +18495,7 @@ NUMBERING:
       const googleIntegration = await getGoogleIntegrationStatus(db, req.session.organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, req.session.organizationId);
       const transportationIntegration = await getTransportationIntegrationStatus(db, req.session.organizationId);
+      const miraIntegration = await getMiraIntegrationStatus(db, req.session.organizationId);
       const canUseQuestionSetIntegration =
         Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
       const canSetAssessmentQuestions = await userHasPermission(
@@ -18249,6 +18540,7 @@ NUMBERING:
         failedEmailCount,
         googleIntegration,
         transportationIntegration,
+        miraIntegration,
         canManageAllClassAssessmentExams,
         canAccessAssessmentQuestions,
         canViewPaygiraOrgSwitch,
@@ -18749,87 +19041,158 @@ NUMBERING:
   },
 
   deleteGraduationYearGroup: async (req, res, db) => {
-    const { id } = req.query;
+    const idRaw = req.query?.id ?? req.body?.id;
+    const id = Number.parseInt(String(idRaw ?? ""), 10);
+    const organizationId = req.session.organizationId;
+    const expectsJson = requestExpectsJson(req);
+
+    const sendError = (statusCode, message) => {
+      if (expectsJson) return res.status(statusCode).json({ success: false, message });
+      req.flash("error", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+    const sendSuccess = (message) => {
+      if (expectsJson) return res.json({ success: true, message });
+      req.flash("success", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+
+    if (!organizationId) {
+      if (expectsJson) return res.status(401).json({ success: false, message: "Unauthorized." });
+      req.flash("error", "Unauthorized.");
+      return res.redirect("/account/login");
+    }
+    if (!Number.isInteger(id)) return sendError(400, "Invalid graduation year group selected.");
+
     try {
-      await db.query(
-        "DELETE FROM graduation_year_groups WHERE id = $1 AND organization_id = $2",
-        [id, req.session.organizationId]
+      const own = await db.query("SELECT id FROM graduation_year_groups WHERE id = $1 AND organization_id = $2", [id, organizationId]);
+      if (!own.rows.length) return sendError(404, "Graduation year group does not belong to your organization.");
+
+      // graduation_year_group_id has no ON DELETE clause on classes/subjects
+      // (defaults to RESTRICT), so a class still pointing at this group
+      // would previously surface only as a generic "Failed to delete"
+      // message via the raw 23503 below - checking first gives a real,
+      // actionable count instead.
+      const dependentClasses = await db.query(
+        "SELECT COUNT(*)::int AS count FROM classes WHERE graduation_year_group_id = $1 AND organization_id = $2",
+        [id, organizationId]
       );
-      req.flash("success", "Graduation year group deleted successfully.");
-      res.redirect("/common/manageClassSubjectAndGradYr");
+      const classCount = Number(dependentClasses.rows[0]?.count || 0);
+      if (classCount > 0) {
+        return sendError(409, `Cannot delete this graduation year group because ${classCount} class${classCount === 1 ? "" : "es"} still reference it. Reassign or remove them first, then try again.`);
+      }
+
+      const result = await db.query("DELETE FROM graduation_year_groups WHERE id = $1 AND organization_id = $2", [id, organizationId]);
+      if (result.rowCount === 0) return sendError(404, "Graduation year group was not found or could not be deleted.");
+
+      return sendSuccess("Graduation year group deleted successfully.");
     } catch (error) {
-            req.flash("error", "Failed to delete graduation year group.");
-      res.redirect("/common/manageClassSubjectAndGradYr");
+      if (error && error.code === "23503") {
+        return sendError(409, "Cannot delete this graduation year group because related records still exist. Remove them first, then try again.");
+      }
+      return sendError(500, "Failed to delete graduation year group due to an internal error.");
     }
   },
 
   deleteClass: async (req, res, db) => {
-    const { classId } = req.query;
-    const sessionOrganizationId = req.session.organizationId;
-    if (!sessionOrganizationId) {
+    const classIdRaw = req.query?.classId ?? req.body?.classId;
+    const classId = Number.parseInt(String(classIdRaw ?? ""), 10);
+    const organizationId = req.session.organizationId;
+    const expectsJson = requestExpectsJson(req);
+
+    const sendError = (statusCode, message, extra = {}) => {
+      if (expectsJson) {
+        return res.status(statusCode).json({ success: false, message, ...extra });
+      }
+      req.flash("error", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+    const sendSuccess = (message) => {
+      if (expectsJson) {
+        return res.json({ success: true, message });
+      }
+      req.flash("success", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+
+    if (!organizationId) {
+      if (expectsJson) return res.status(401).json({ success: false, message: "Unauthorized." });
       req.flash("error", "Unauthorized.");
       return res.redirect("/account/login");
     }
+    if (!Number.isInteger(classId)) {
+      return sendError(400, "Invalid class selected.");
+    }
+
+    const client = await db.connect();
     try {
+      await client.query("BEGIN");
+
       // Tenant boundary: ensure the class belongs to caller's org BEFORE
       // walking its subjects — otherwise a foreign classId would let us
       // delete subjects (and user_subjects rows) from another tenant.
-      const classOwn = await db.query(
-        `SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $2`,
-        [classId, sessionOrganizationId]
+      const classOwn = await client.query(
+        `SELECT class_id FROM classes WHERE class_id = $1 AND organization_id = $2 FOR UPDATE`,
+        [classId, organizationId]
       );
       if (!classOwn.rows.length) {
-        req.flash("error", "Class does not belong to your organization.");
-        return res.redirect("/common/classDashboard");
+        await client.query("ROLLBACK");
+        return sendError(404, "Class does not belong to your organization.");
       }
 
-      // Warn the user about the consequences of deleting the class
-      req.flash(
-        "warning",
-        "This will delete all associated subjects and user data. Are you sure?"
-      );
+      // Previously this deleted straight through and relied on the
+      // database's own ON DELETE CASCADE (students.class_id included) to
+      // silently remove every student and their records - see
+      // collectClassDeletionBlockers above. Now any real dependent data
+      // blocks the delete instead.
+      const blockers = await collectClassDeletionBlockers(client, { organizationId, classId });
+      if (blockers.length) {
+        await client.query("ROLLBACK");
+        return sendError(409, buildSchoolYearDependencyErrorMessage(blockers, "class"));
+      }
 
       // Check if the class has associated subjects and delete them first
-      // (org-scoped subselect)
-      const subjects = await db.query(
+      // (org-scoped subselect) - subjects are the one child this action
+      // legitimately owns and is expected to take with it.
+      const subjects = await client.query(
         "SELECT subject_id FROM subjects WHERE class_id = $1 AND organization_id = $2",
-        [classId, sessionOrganizationId]
+        [classId, organizationId]
       );
 
-      for (let subject of subjects.rows) {
+      for (const subject of subjects.rows) {
         // Delete associated records from user_subjects for each subject.
         // Constrain via EXISTS on users so we never wipe another org's
         // user_subjects rows that happen to share subject_id (they cannot
         // legitimately, but defense-in-depth).
-        await db.query(
+        await client.query(
           `DELETE FROM user_subjects us
            WHERE us.subject_id = $1
              AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = us.user_id AND u.organization_id = $2)`,
-          [subject.subject_id, sessionOrganizationId]
+          [subject.subject_id, organizationId]
         );
-
-        // Delete the subject itself (org-scoped)
-        await db.query(
-          "DELETE FROM subjects WHERE subject_id = $1 AND organization_id = $2",
-          [subject.subject_id, sessionOrganizationId]
-        );
+        await client.query("DELETE FROM subjects WHERE subject_id = $1 AND organization_id = $2", [subject.subject_id, organizationId]);
       }
 
-      // Now, delete the class after its subjects and dependencies have been removed
-      await db.query(
-        "DELETE FROM classes WHERE class_id = $1 AND organization_id = $2",
-        [classId, sessionOrganizationId]
-      );
+      const deleteResult = await client.query("DELETE FROM classes WHERE class_id = $1 AND organization_id = $2", [
+        classId,
+        organizationId,
+      ]);
+      if (deleteResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return sendError(404, "Class was not found or could not be deleted.");
+      }
 
-      req.flash(
-        "success",
-        "Class and all associated subjects deleted successfully."
-      );
+      await client.query("COMMIT");
+      return sendSuccess("Class and all associated subjects deleted successfully.");
     } catch (error) {
-            req.flash("error", "Failed to delete class. " + error.message);
+      await client.query("ROLLBACK").catch(() => {});
+      if (error && error.code === "23503") {
+        return sendError(409, "Cannot delete this class because related records still exist. Remove them first, then try again.");
+      }
+      return sendError(500, "Failed to delete class due to an internal error.");
+    } finally {
+      client.release();
     }
-
-    res.redirect("/common/manageClassSubjectAndGradYr");
   },
 
   editClass: async (req, res, db) => {
@@ -18889,23 +19252,32 @@ NUMBERING:
   updateClassDashboardLayout: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const rawPayload = String(req.body.layoutPayload || "").trim();
+    const expectsJson = requestExpectsJson(req);
+
+    const sendError = (statusCode, message) => {
+      if (expectsJson) return res.status(statusCode).json({ success: false, message });
+      req.flash("error", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
+    const sendSuccess = (message) => {
+      if (expectsJson) return res.json({ success: true, message });
+      req.flash("success", message);
+      return res.redirect("/common/manageClassSubjectAndGradYr");
+    };
 
     if (!rawPayload) {
-      req.flash("error", "No dashboard class layout was submitted.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      return sendError(400, "No dashboard class layout was submitted.");
     }
 
     let submittedItems;
     try {
       submittedItems = JSON.parse(rawPayload);
     } catch (_) {
-      req.flash("error", "Dashboard class layout data was invalid.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      return sendError(400, "Dashboard class layout data was invalid.");
     }
 
     if (!Array.isArray(submittedItems) || submittedItems.length === 0) {
-      req.flash("error", "Dashboard class layout is empty.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      return sendError(400, "Dashboard class layout is empty.");
     }
 
     const client = await db.connect();
@@ -18958,12 +19330,10 @@ NUMBERING:
       }
 
       await client.query("COMMIT");
-      req.flash("success", "Dashboard class layout saved.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      return sendSuccess("Dashboard class layout saved.");
     } catch (error) {
-      await client.query("ROLLBACK");
-      req.flash("error", "Failed to save dashboard class layout.");
-      return res.redirect("/common/manageClassSubjectAndGradYr");
+      await client.query("ROLLBACK").catch(() => {});
+      return sendError(500, "Failed to save dashboard class layout.");
     } finally {
       client.release();
     }
@@ -23452,4 +23822,8 @@ module.exports = {
   sendPasswordSetSuccessEmail,
   sendGuardianWelcomeEmail,
   sendGuardianStudentAddedEmail,
+  getUpcomingBirthdayInfo,
+  buildUpcomingBirthdayCards,
+  getStudentBirthdayWish,
+  getStaffBirthdayWish,
 };

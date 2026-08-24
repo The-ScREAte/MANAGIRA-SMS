@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= typeof title !== 'undefined' ? title : 'Sign in - Mira' %></title>
+  <link rel="icon" type="image/png" href="/images/miralogo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/mira.css" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("mira:theme");
+        if (saved === "light" || saved === "dark") document.documentElement.setAttribute("data-theme", saved);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body class="mira-auth-page">
+  <div class="mira-auth-shell">
+    <div class="mira-auth-card">
+      <%- include('partials/logo', { size: 'hero', animate: true }) %>
+
+      <% if (hasUnderlyingSession) { %>
+        <h1 class="mira-auth-title">Welcome back<%= displayName ? ', ' + displayName.split(' ')[0] : '' %></h1>
+        <p class="mira-auth-subtitle">
+          <% if (reason === 'signed_out') { %>
+            You're still signed in to Managira — just continue below.
+          <% } else { %>
+            You're already signed in to Managira.
+          <% } %>
+        </p>
+        <a class="mira-btn mira-btn-primary mira-auth-btn" href="/continue">
+          <span class="mira-btn-label">Continue to Mira</span>
+        </a>
+      <% } else { %>
+        <h1 class="mira-auth-title">Sign in to Mira</h1>
+        <p class="mira-auth-subtitle">
+          <% if (reason === 'expired') { %>
+            Your Managira session has expired. Log in again to continue.
+          <% } else { %>
+            Use your Managira account. Already signed in on another tab? It'll be picked up automatically.
+          <% } %>
+        </p>
+
+        <form class="mira-auth-form" method="POST" action="/login">
+          <% if (typeof formError !== 'undefined' && formError) { %>
+            <div class="mira-auth-error"><%= formError %></div>
+          <% } %>
+          <div class="mira-auth-field">
+            <label for="miraLoginEmail">Email</label>
+            <input type="email" id="miraLoginEmail" name="email" value="<%= typeof formEmail !== 'undefined' ? formEmail : '' %>" autocomplete="email" required autofocus />
+          </div>
+          <div class="mira-auth-field">
+            <label for="miraLoginPassword">Password</label>
+            <input type="password" id="miraLoginPassword" name="password" autocomplete="current-password" required />
+          </div>
+          <button type="submit" class="mira-btn mira-btn-primary mira-auth-btn mira-auth-submit">
+            <span class="mira-btn-label">Log in</span>
+          </button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+
+  <script src="/js/mira-logo.js" defer></script>
+</body>
+</html>

@@ -6,9 +6,11 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "node server.js",
-    "dev": "nodemon",
-    "dev:status": "node -e \"const net=require('net');const port=Number(process.env.PORT||4000);const socket=net.createConnection({host:'127.0.0.1',port},()=>{console.log('[Status] Server is running on port '+port);socket.end();});socket.on('error',()=>{console.log('[Status] Server is NOT running on port '+port);process.exit(1);});\"",
-    "dev:stop": "sh -c \"port=${PORT:-4000}; pids=$(lsof -ti tcp:$port); if [ -n \\\"$pids\\\" ]; then kill $pids && echo \\\"[Dev] Stopped process on port $port\\\"; else echo \\\"[Dev] No process running on port $port\\\"; fi\"",
+    "dev": "concurrently -n MAIN,MIRA -c blue,green \"npm:dev:main\" \"npm:dev:mira\"",
+    "dev:main": "nodemon",
+    "dev:mira": "npm --prefix mira run dev",
+    "dev:status": "node -e \"const net=require('net');const ports=[Number(process.env.PORT||4000),Number(process.env.MIRA_PORT||4100)];ports.forEach(port=>{const socket=net.createConnection({host:'127.0.0.1',port},()=>{console.log('[Status] Server is running on port '+port);socket.end();});socket.on('error',()=>{console.log('[Status] Server is NOT running on port '+port);});});\"",
+    "dev:stop": "for port in ${PORT:-4000} ${MIRA_PORT:-4100}; do pids=$(lsof -ti tcp:$port); if [ -n \"$pids\" ]; then kill $pids && echo \"[Dev] Stopped process on port $port\"; else echo \"[Dev] No process running on port $port\"; fi; done",
     "build:dev": "vite build --mode development"
   },
   "keywords": [],
@@ -24,6 +26,8 @@
     "compression": "^1.8.1",
     "connect-flash": "^0.1.1",
     "connect-pg-simple": "^10.0.0",
+    "cookie": "^0.7.1",
+    "cookie-signature": "^1.0.6",
     "date-holidays": "^3.26.8",
     "dotenv": "^16.4.7",
     "ejs": "^3.1.9",
@@ -64,6 +68,7 @@
     "qs": "^6.14.2"
   },
   "devDependencies": {
+    "concurrently": "^10.0.5",
     "connect-livereload": "^0.6.1",
     "livereload": "^0.10.3",
     "node-gyp": "^11.1.0",

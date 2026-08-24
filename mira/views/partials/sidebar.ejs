@@ -1,0 +1,170 @@
+<div class="mira-sidebar-backdrop" id="miraSidebarBackdrop"></div>
+<aside class="mira-sidebar" id="miraSidebar">
+  <div class="mira-sidebar-header">
+    <div class="mira-sidebar-brand">
+      <%- include('logo', { size: 'sidebar', animate: false }) %>
+      <span class="mira-sidebar-brand-name">Mira</span>
+    </div>
+    <button class="mira-collapse-toggle" id="miraCollapseToggle" type="button" aria-label="Collapse sidebar">
+      <svg class="mira-collapse-icon-lines" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3h10M3 8h10M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <svg class="mira-collapse-icon-close" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="mira-sidebar-actions">
+    <button class="mira-btn mira-btn-primary" id="miraNewChatBtn" type="button">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span class="mira-btn-label">New chat</span>
+    </button>
+  </div>
+
+  <div class="mira-sidebar-history">
+    <div class="mira-sidebar-section-label">
+      <span>Chat history</span>
+      <button type="button" class="mira-history-select-toggle" id="miraHistorySelectToggle">Select</button>
+    </div>
+    <div class="mira-history-search">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <input type="search" id="miraHistorySearch" placeholder="Search chats" />
+    </div>
+    <div class="mira-history-select-bar" id="miraHistorySelectBar" hidden>
+      <label class="mira-history-select-all">
+        <input type="checkbox" id="miraHistorySelectAll" />
+        <span id="miraHistorySelectCount">0 selected</span>
+      </label>
+      <div class="mira-history-select-actions">
+        <button type="button" class="mira-history-select-delete" id="miraHistorySelectDelete" disabled>Delete</button>
+        <button type="button" class="mira-history-select-cancel" id="miraHistorySelectCancel">Cancel</button>
+      </div>
+    </div>
+    <div id="miraChatList">
+      <!-- populated by mira-chat.js from GET /api/chat/history -->
+    </div>
+  </div>
+
+  <div class="mira-sidebar-footer">
+    <button class="mira-user-trigger" id="miraUserTrigger" type="button" aria-haspopup="true" aria-expanded="false">
+      <div class="mira-avatar"><%= (tenant.displayName || '?').trim().charAt(0).toUpperCase() %></div>
+      <div class="mira-sidebar-user-info">
+        <div class="mira-sidebar-user-name"><%= tenant.displayName %></div>
+        <div class="mira-sidebar-user-role"><%= tenant.roleLabel %> &middot; <%= tenant.organizationName %></div>
+      </div>
+      <svg class="mira-user-trigger-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 10l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <div class="mira-user-menu" id="miraUserMenu" role="menu" hidden>
+      <div class="mira-user-menu-header">
+        <div class="mira-sidebar-user-name"><%= tenant.displayName %></div>
+        <div class="mira-user-menu-role"><%= tenant.roleLabel %> &middot; <%= tenant.organizationName %></div>
+      </div>
+      <div class="mira-user-menu-divider"></div>
+
+      <div class="mira-user-menu-item mira-user-menu-theme" role="group">
+        <span>Theme</span>
+        <div class="mira-theme-switch" id="miraThemeSwitch" role="radiogroup" aria-label="Theme">
+          <button type="button" class="mira-theme-option" data-theme-choice="light" role="radio" aria-label="Light">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v1.4M8 13.1v1.4M2.6 8H1.2M14.8 8h-1.4M3.6 3.6l1 1M11.4 11.4l1 1M12.4 3.6l-1 1M4.6 11.4l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </button>
+          <button type="button" class="mira-theme-option" data-theme-choice="dark" role="radio" aria-label="Dark">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.5 9.5a5.5 5.5 0 01-7-7 5.5 5.5 0 107 7z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="mira-user-menu-divider"></div>
+
+      <button type="button" class="mira-user-menu-item mira-user-menu-action" id="miraSettingsBtn">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.8v1.3M8 12.9v1.3M14.2 8h-1.3M3.1 8H1.8M12.2 3.8l-.9.9M4.7 11.3l-.9.9M12.2 12.2l-.9-.9M4.7 4.7l-.9-.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Settings
+      </button>
+      <a class="mira-user-menu-item mira-user-menu-action" href="/logout" title="Signs out of Mira only - you'll stay logged in to Managira">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M10.5 11l3-3-3-3M13.5 8H6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Log out
+      </a>
+    </div>
+  </div>
+</aside>
+
+<div class="mira-modal-overlay" id="miraSettingsOverlay" hidden>
+  <div class="mira-modal" role="dialog" aria-modal="true" aria-labelledby="miraSettingsTitle">
+    <div class="mira-modal-header">
+      <h2 id="miraSettingsTitle">Settings</h2>
+      <button type="button" class="mira-icon-btn" id="miraSettingsClose" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="mira-modal-body">
+      <div class="mira-settings-card">
+        <div class="mira-settings-row">
+          <svg class="mira-settings-row-icon" width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.4" r="2.6" stroke="currentColor" stroke-width="1.3"/><path d="M2.6 13.4c.8-2.6 2.9-3.9 5.4-3.9s4.6 1.3 5.4 3.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <div>
+            <div class="mira-settings-row-label">Name</div>
+            <div class="mira-settings-row-value"><%= tenant.displayName %></div>
+          </div>
+        </div>
+        <div class="mira-settings-row">
+          <svg class="mira-settings-row-icon" width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2.6 6.4h10.8a1 1 0 0 1 1 1v5.4a1 1 0 0 1-1 1H2.6a1 1 0 0 1-1-1V7.4a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/><path d="M5.6 6.4V4.8a1.2 1.2 0 0 1 1.2-1.2h2.4a1.2 1.2 0 0 1 1.2 1.2v1.6" stroke="currentColor" stroke-width="1.3"/></svg>
+          <div>
+            <div class="mira-settings-row-label">Role</div>
+            <div class="mira-settings-row-value"><%= tenant.roleLabel %></div>
+          </div>
+        </div>
+        <div class="mira-settings-row">
+          <svg class="mira-settings-row-icon" width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 13.4V3.6a.6.6 0 0 1 .6-.6h4.8a.6.6 0 0 1 .6.6v9.8M9 13.4V6.6a.6.6 0 0 1 .6-.6h2.8a.6.6 0 0 1 .6.6v6.8M1.8 13.4h12.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M5 5.6h1M5 8h1M5 10.4h1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <div>
+            <div class="mira-settings-row-label">School</div>
+            <div class="mira-settings-row-value"><%= tenant.organizationName %></div>
+          </div>
+        </div>
+      </div>
+      <a class="mira-btn mira-btn-secondary mira-settings-manage-btn" href="<%= mainAppUrl %>/account/settings" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.8v1.3M8 12.9v1.3M14.2 8h-1.3M3.1 8H1.8M12.2 3.8l-.9.9M4.7 11.3l-.9.9M12.2 12.2l-.9-.9M4.7 4.7l-.9-.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        <span class="mira-btn-label">Manage account in Managira</span>
+      </a>
+      <p class="mira-settings-note">Notification preferences, password, and other account/school details are managed in Managira itself - the button above takes you straight there, scoped to whatever your role there already allows.</p>
+
+      <div class="mira-settings-divider"></div>
+
+      <div class="mira-settings-block">
+        <div class="mira-settings-block-label">Instructions for Mira</div>
+        <p class="mira-settings-block-hint">Mira will keep these in mind across every chat from here on. For example, "always add a link to the source" or "keep answers to a few sentences unless I ask for more."</p>
+        <textarea class="mira-settings-textarea" id="miraCustomInstructions" rows="4" maxlength="2000" placeholder="e.g. Always add a link for the source when you reference documentation."></textarea>
+        <div class="mira-settings-block-footer">
+          <button type="button" class="mira-btn mira-btn-primary mira-settings-save-btn" id="miraInstructionsSave">Save</button>
+          <span class="mira-settings-save-status" id="miraInstructionsStatus" aria-live="polite"></span>
+        </div>
+      </div>
+
+      <div class="mira-settings-block">
+        <div class="mira-settings-block-label">Chat font</div>
+        <p class="mira-settings-block-hint">Change the typeface used for Mira's replies.</p>
+        <select class="mira-settings-select" id="miraChatFontSelect">
+          <optgroup label="Sans-serif">
+            <option value="default">Default (Inter)</option>
+            <option value="professional">Professional (Poppins)</option>
+            <option value="corporate">Corporate (Roboto)</option>
+            <option value="executive">Executive (IBM Plex Sans)</option>
+            <option value="modern">Modern (Manrope)</option>
+            <option value="precise">Precise (Space Grotesk)</option>
+            <option value="clean">Clean (Work Sans)</option>
+            <option value="neutral">Neutral (DM Sans)</option>
+            <option value="friendly">Friendly (Nunito)</option>
+          </optgroup>
+          <optgroup label="Serif">
+            <option value="elegant">Elegant (Playfair Display)</option>
+            <option value="editorial">Editorial (Source Serif 4)</option>
+            <option value="refined">Refined (Lora)</option>
+            <option value="serif">Classic (Georgia)</option>
+          </optgroup>
+          <optgroup label="Monospace">
+            <option value="mono">Monospace (System)</option>
+            <option value="code">Code (JetBrains Mono)</option>
+          </optgroup>
+          <optgroup label="Fun">
+            <option value="rounded">Playful (Comic Sans)</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>

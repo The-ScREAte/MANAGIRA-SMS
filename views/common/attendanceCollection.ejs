@@ -1248,14 +1248,14 @@
                     <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
                     <div class="attendance-header-pills-center">
                         <% const _countryCode = String(attendanceCalendarSummary.countryCode || '').trim().toUpperCase(); %>
-                        <% const _countryFlag = _countryCode.length === 2 ? String.fromCodePoint(_countryCode.charCodeAt(0) + 127397, _countryCode.charCodeAt(1) + 127397) : '🌍'; %>
+                        <% const _countryFlagHtml = /^[A-Z]{2}$/.test(_countryCode) ? `<img src="https://flagcdn.com/24x18/${_countryCode.toLowerCase()}.png" alt="" width="20" height="15" style="vertical-align:middle; border-radius:2px;">` : '🌍'; %>
                         <div class="cal-pill-wrap">
                             <button type="button" class="cal-pill" data-pill="country">
-                                <%= _countryFlag %> <%= _countryCode %>
+                                <%- _countryFlagHtml %> <%= _countryCode %>
                             </button>
                             <div class="cal-pill-popover" id="popover-country">
                                 <p class="cal-popover-label">Country</p>
-                                <p class="cal-popover-value"><%= _countryFlag %> <%= _countryCode %></p>
+                                <p class="cal-popover-value"><%- _countryFlagHtml %> <%= _countryCode %></p>
                             </div>
                         </div>
                         <div class="cal-pill-wrap">

@@ -81,6 +81,8 @@
               <svg class="footer-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <ul class="footer-col-list">
+              <li><a href="/legal/mira-ai-assistant">Mira</a></li>
+              <li><a href="https://managira.com/legal/user-documentation/mira-ai-capabilities">Mira Capabilities</a></li>
               <li><a href="/legal/user-documentation">Documentation</a></li>
               <li><a href="/legal/faq">FAQ</a></li>
               <li><a href="/legal/help">Help Center</a></li>
@@ -507,6 +509,132 @@
       document.addEventListener('DOMContentLoaded', initFooterAccordion);
     } else {
       initFooterAccordion();
+    }
+  })();
+</script>
+
+<!-- Logout confirmation modal — intercepts every logout link site-wide -->
+<div class="logout-modal-overlay" id="logoutModalOverlay" role="presentation">
+  <div class="logout-modal" role="alertdialog" aria-modal="true" aria-labelledby="logoutModalTitle" aria-describedby="logoutModalDesc">
+    <h2 id="logoutModalTitle" class="logout-modal-title">Sign out of Managira?</h2>
+    <p id="logoutModalDesc" class="logout-modal-desc">
+      You'll need to sign in again to access your dashboard, students, and records.
+      Any unsaved changes on this page will be lost.
+    </p>
+    <div class="logout-modal-actions">
+      <button type="button" class="logout-modal-cancel" id="logoutModalCancel">Cancel</button>
+      <a href="#" class="logout-modal-confirm" id="logoutModalConfirm">Sign Out</a>
+    </div>
+  </div>
+</div>
+
+<style>
+  .logout-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .logout-modal-overlay.open { display: flex; }
+  .logout-modal {
+    background: #fff;
+    border-radius: 14px;
+    max-width: 380px;
+    width: 100%;
+    padding: 28px 26px 22px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+    text-align: left;
+  }
+  .logout-modal-title {
+    margin: 0 0 10px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+  }
+  .logout-modal-desc {
+    margin: 0 0 22px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #4b5563;
+  }
+  .logout-modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+  .logout-modal-cancel,
+  .logout-modal-confirm {
+    display: inline-flex;
+    flex: none;
+    width: auto;
+    white-space: nowrap;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    text-decoration: none;
+  }
+  .logout-modal-cancel {
+    background: #f3f4f6;
+    color: #1f2937;
+    border-color: #e5e7eb;
+  }
+  .logout-modal-cancel:hover { background: #e5e7eb; }
+  .logout-modal-confirm {
+    background: #dc2626;
+    color: #fff;
+  }
+  .logout-modal-confirm:hover { background: #b91c1c; }
+</style>
+
+<script>
+  (function () {
+    function initLogoutModal() {
+      var overlay = document.getElementById('logoutModalOverlay');
+      var confirmBtn = document.getElementById('logoutModalConfirm');
+      var cancelBtn = document.getElementById('logoutModalCancel');
+      if (!overlay || !confirmBtn || !cancelBtn) return;
+
+      var pendingHref = '/account/logout';
+
+      function openModal(href) {
+        pendingHref = href || '/account/logout';
+        confirmBtn.setAttribute('href', pendingHref);
+        overlay.classList.add('open');
+      }
+
+      function closeModal() {
+        overlay.classList.remove('open');
+      }
+
+      document.addEventListener('click', function (e) {
+        var link = e.target.closest('a[href="/account/logout"], a[href="/hub/logout"], a.logout');
+        if (!link || link.id === 'logoutModalConfirm') return;
+        e.preventDefault();
+        openModal(link.getAttribute('href'));
+      });
+
+      cancelBtn.addEventListener('click', closeModal);
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeModal();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initLogoutModal);
+    } else {
+      initLogoutModal();
     }
   })();
 </script>

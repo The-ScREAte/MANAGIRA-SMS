@@ -259,7 +259,7 @@ const notifyTeachersOnNewClassAssignments = async ({ db, req, orgId, docId, docT
         u.first_name,
         c.class_name,
         c.class_id
-      FROM class_employees ce
+      FROM user_classes ce
       JOIN users u ON u.user_id = ce.user_id
       JOIN classes c ON c.class_id = ce.class_id
       WHERE ce.class_id = ANY($1::int[])
@@ -393,7 +393,7 @@ const documentController = {
               JOIN document_class_assignments dca ON d.id = dca.document_id AND dca.class_id = $2
               WHERE d.organization_id = $1 AND d.is_deleted = FALSE
                 AND EXISTS (
-                  SELECT 1 FROM class_employees ce
+                  SELECT 1 FROM user_classes ce
                   WHERE ce.class_id = $2 AND ce.user_id = $3
                 )
 
@@ -458,7 +458,7 @@ const documentController = {
           JOIN users u ON d.created_by = u.user_id
           LEFT JOIN document_permissions dp ON d.id = dp.document_id AND dp.user_id = $1
           LEFT JOIN document_class_assignments dca ON d.id = dca.document_id
-          LEFT JOIN class_employees ce ON ce.class_id = dca.class_id AND ce.user_id = $1
+          LEFT JOIN user_classes ce ON ce.class_id = dca.class_id AND ce.user_id = $1
           WHERE d.organization_id = $2 AND d.is_deleted = FALSE
             AND (d.created_by = $1 OR dp.user_id IS NOT NULL OR ce.user_id IS NOT NULL)
           ORDER BY d.updated_at DESC
@@ -640,7 +640,7 @@ const documentController = {
           // Check class-based permission
           const classPermResult = await db.query(`
             SELECT dca.permission_level FROM document_class_assignments dca
-            JOIN class_employees ce ON dca.class_id = ce.class_id
+            JOIN user_classes ce ON dca.class_id = ce.class_id
             JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $3
             WHERE dca.document_id = $1 AND ce.user_id = $2
             LIMIT 1
@@ -795,7 +795,7 @@ const documentController = {
         if (directPerm.rows.length === 0) {
           const classPerm = await db.query(`
             SELECT 1 FROM document_class_assignments dca
-            JOIN class_employees ce ON dca.class_id = ce.class_id
+            JOIN user_classes ce ON dca.class_id = ce.class_id
             JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = $3
             WHERE dca.document_id = $1 AND ce.user_id = $2
             LIMIT 1
@@ -1051,7 +1051,7 @@ const documentController = {
       if (!canManageRecords) {
         const classMembership = await db.query(`
           SELECT 1
-          FROM class_employees ce
+          FROM user_classes ce
           JOIN classes c ON c.class_id = ce.class_id
           WHERE ce.class_id = $1 AND ce.user_id = $2 AND c.organization_id = $3
           LIMIT 1
@@ -1078,7 +1078,7 @@ const documentController = {
             OR dp.user_id IS NOT NULL
             OR $4 = TRUE
             OR EXISTS (
-              SELECT 1 FROM class_employees ce
+              SELECT 1 FROM user_classes ce
               WHERE ce.class_id = dca.class_id AND ce.user_id = $2
             )
           )
@@ -1116,20 +1116,29 @@ const documentController = {
         return res.status(403).json({ success: false, message: 'Class does not belong to this organization.' });
       }
 
+      // `enrollments` has no student_id/class_id column, and `students` has
+      // no status column - a student's class placement for a term lives in
+      // enrolled_students (membership there for this term/class IS "active
+      // in this class this term", no separate flag needed), keyed off the
+      // term's enrollment row. This previously referenced a nonexistent
+      // e.student_id column and a nonexistent s.status column, 500-ing for
+      // every real user who clicked "Insert Students".
       const students = await db.query(`
         SELECT s.student_id, s.first_name, s.last_name
-        FROM students s
-        JOIN enrollments e ON s.student_id = e.student_id
-        WHERE e.class_id = $1 AND e.term_id = $2 AND s.organization_id = $3 AND s.status = 'Active'
+        FROM enrolled_students es
+        JOIN students s ON es.student_id = s.student_id
+        JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+        WHERE es.class_id = $1 AND e.term_id = $2 AND s.organization_id = $3
         ORDER BY s.first_name, s.last_name
       `, [classId, termId, orgId]);
 
+      // There's no class_subjects junction table - subjects belong directly
+      // to a class via subjects.class_id (this previously referenced a
+      // nonexistent table and 500'd for every real user).
       const subjects = await db.query(`
-        SELECT cs.subject_id, sub.subject_name
-        FROM class_subjects cs
-        JOIN subjects sub ON cs.subject_id = sub.subject_id
-        JOIN classes c ON cs.class_id = c.class_id
-        WHERE cs.class_id = $1 AND c.organization_id = $2
+        SELECT sub.subject_id, sub.subject_name
+        FROM subjects sub
+        WHERE sub.class_id = $1 AND sub.organization_id = $2
         ORDER BY sub.subject_name
       `, [classId, orgId]);
 
@@ -1157,7 +1166,7 @@ const documentController = {
 
     const classPerm = await db.query(`
       SELECT dca.permission_level FROM document_class_assignments dca
-      JOIN class_employees ce ON dca.class_id = ce.class_id
+      JOIN user_classes ce ON dca.class_id = ce.class_id
       JOIN documents d ON d.id = dca.document_id
       JOIN classes c ON c.class_id = dca.class_id AND c.organization_id = d.organization_id
       WHERE dca.document_id = $1 AND ce.user_id = $2 AND dca.permission_level = 'edit'
@@ -1167,4 +1176,4 @@ const documentController = {
   }
 };
 
-module.exports = { documentController };
+module.exports = { documentController, ensureDocumentsSchema };

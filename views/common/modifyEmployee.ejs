@@ -424,7 +424,7 @@
 </head>
 <body>
 <div class="modify-employee-card">
-  <form id="modifyEmployeeForm" class="employee-edit-form" action="/common/modifyEmployee/<%= user.user_id %>" method="post">
+  <form id="modifyEmployeeForm" class="employee-edit-form" action="/common/modifyEmployee/<%= user.user_id %><%= (typeof isEmbedded !== 'undefined' && isEmbedded) ? '?embed=workspace' : '' %>" method="post">
     <div class="employee-fields-grid">
       <div>
         <label for="firstName">First Name:</label>

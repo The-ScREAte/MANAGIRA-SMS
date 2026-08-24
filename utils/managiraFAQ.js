@@ -4,8 +4,15 @@ const managiraFAQ = [
     id: 1,
     category: "Getting Started",
     question: "What is Managira?",
-    answer: "Managira is a school management platform for admissions, attendance, grades, reports, billing, and parent communication.",
-    keywords: ["what is managira", "overview", "school management"]
+    answer: "Managira is an all-in-one school management platform - admissions, attendance, grading and report cards, promotion, billing, transportation, staff management, and parent/guardian communication all run from one system, for individual schools and school districts alike, instead of stitching together separate tools for each job.",
+    keywords: ["what is managira", "overview", "school management", "all-in-one school software", "complete school management system"]
+  },
+  {
+    id: 22,
+    category: "Getting Started",
+    question: "Is Managira an all-in-one school management solution, or just one tool among several?",
+    answer: "All-in-one, by design. Admissions, student and guardian records, attendance, assessments and grading, report cards and merit sheets, promotion between terms, staff/employee management, school transportation, billing, announcements, the public school website, and Docs/Sheets are all part of the same platform - a school runs its full administration in Managira rather than combining it with separate, disconnected tools.",
+    keywords: ["all-in-one school software", "complete school management platform", "single system school administration", "comprehensive school software"]
   },
   {
     id: 2,
@@ -60,15 +67,29 @@ const managiraFAQ = [
     id: 18,
     category: "Hub Management",
     question: "What is a Managira Hub?",
-    answer: "A Hub lets one organization oversee and support multiple schools from a central workspace.",
-    keywords: ["hub", "multi-school", "oversight"]
+    answer: "A Hub lets one organization - a school district, a network of schools, or an education oversight body - manage and support multiple member schools from a single central workspace, while each school keeps running its own day-to-day operations independently.",
+    keywords: ["hub", "multi-school", "oversight", "school district software", "district management"]
+  },
+  {
+    id: 19,
+    category: "Hub Management",
+    question: "Does Managira support school districts?",
+    answer: "Yes. Managira is built for individual schools as well as school districts and multi-school networks - a district oversight team can supervise, support, and coordinate every member school from one Hub dashboard, without taking over each school's own daily administration.",
+    keywords: ["school district software", "district management system", "multi-school platform", "school network"]
+  },
+  {
+    id: 20,
+    category: "Hub Management",
+    question: "Can a school district monitor multiple schools from one place?",
+    answer: "Yes. A district's Hub dashboard gives central visibility across every member school - coordinating operations and oversight district-wide - while each school retains its own independent records, staff, and students.",
+    keywords: ["district dashboard", "multi-school oversight", "central school district management"]
   },
   {
     id: 21,
     category: "Hub Management",
     question: "Can hubs manage billing for member schools?",
-    answer: "Yes. In hub-managed setups, billing can be controlled centrally.",
-    keywords: ["hub billing", "central billing"]
+    answer: "Yes. In hub-managed setups - including school districts - billing can be controlled centrally across every member school from the Hub.",
+    keywords: ["hub billing", "central billing", "district billing"]
   },
   {
     id: 24,
@@ -188,6 +209,55 @@ const managiraFAQ = [
     question: "Where can I find full step-by-step guides?",
     answer: "Use User Documentation for detailed workflows, screenshots, and policy notes.",
     keywords: ["documentation", "full guide", "step by step", "how to"]
+  },
+  {
+    id: 130,
+    category: "Mira AI Assistant",
+    question: "What is Mira?",
+    answer: "Mira is Managira's built-in AI assistant for school staff. It looks up records, drafts messages, generates reports, and carries out real school-management actions - creating students, managing enrollment, scheduling promotions, and more - through plain-language conversation, entirely inside the Managira platform.",
+    keywords: ["what is mira", "mira ai", "managira ai assistant", "education ai"]
+  },
+  {
+    id: 131,
+    category: "Mira AI Assistant",
+    question: "What can Mira actually do?",
+    answer: "Mira covers admissions and student records, attendance, assessments and grading, report cards and merit sheets, enrollment, promotion, employees, transportation, announcements, the school website, and Docs/Sheets - both looking things up and making real changes, not just answering questions about the app.",
+    keywords: ["mira capabilities", "what can mira do", "mira features", "ai school management"]
+  },
+  {
+    id: 132,
+    category: "Mira AI Assistant",
+    question: "Is Mira accurate and safe to use for real school data?",
+    answer: "Every action Mira takes runs through the same real, per-user permission checks as the Managira app itself - never guessed from a role name alone - and is scoped strictly to the caller's own school. Every change Mira makes is recorded in the school's Activity Logs, tagged as done via Mira, so nothing happens invisibly.",
+    keywords: ["is mira accurate", "mira safety", "ai data safety", "mira permissions", "trustworthy school ai"]
+  },
+  {
+    id: 133,
+    category: "Mira AI Assistant",
+    question: "Will Mira delete or change data without asking?",
+    answer: "No. Any destructive or irreversible action - deleting a student, removing an enrollment, deleting a class - always warns first and only proceeds after the user's explicit confirmation in a later message. Creating or adding non-destructive records happens directly once all the needed details are known.",
+    keywords: ["mira confirmation", "mira delete", "ai destructive actions", "mira warns before deleting"]
+  },
+  {
+    id: 134,
+    category: "Mira AI Assistant",
+    question: "How is Mira different from a general-purpose AI chatbot?",
+    answer: "Mira isn't a generic chatbot bolted onto Managira - it's built directly into the platform with real, working access to a school's own live data and the same account permissions each staff member already has, so it can actually complete school-administration tasks (not just describe how to do them) inside the tool the school already uses every day.",
+    keywords: ["mira vs chatgpt", "education ai comparison", "best school management ai", "ai built into school software"]
+  },
+  {
+    id: 135,
+    category: "Mira AI Assistant",
+    question: "Does Mira work across every part of Managira?",
+    answer: "Yes. Mira spans Admissions, Students & Guardians, Attendance, Assessments & Report Cards, Enrollment & Promotion, Employees, Transportation, Announcements, the public School Website, and Docs/Sheets - one assistant across the whole platform rather than a narrow single-feature bot.",
+    keywords: ["mira coverage", "mira all features", "comprehensive school ai", "managira modules"]
+  },
+  {
+    id: 136,
+    category: "Mira AI Assistant",
+    question: "How do I turn Mira on for my school?",
+    answer: "Activate Mira from Integrations once your school is set up in Managira, or contact Managira to see it first via a live demo.",
+    keywords: ["activate mira", "enable mira", "turn on mira ai", "mira setup"]
   }
 ];
 

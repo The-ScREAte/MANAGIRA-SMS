@@ -1,0 +1,12 @@
+{
+  "watch": ["views", "public", "routes", "controllers", "services", "tools", "middleware", "config", "db", "jobs", "server.js"],
+  "ext": "js,ejs,css",
+  "ignore": ["node_modules/*"],
+  "quiet": false,
+  "exec": "node server.js",
+  "events": {
+    "start": "echo '[Mira/Nodemon] watching files and starting server'",
+    "restart": "echo '[Mira/Nodemon] restarted due to changes'",
+    "crash": "echo '[Mira/Nodemon] app crashed; waiting for file changes'"
+  }
+}

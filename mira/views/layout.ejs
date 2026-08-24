@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= typeof title !== 'undefined' ? title : 'Mira' %></title>
+  <link rel="icon" type="image/png" href="/images/miralogo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600&family=Playfair+Display:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=Nunito:wght@400;600;700&family=Lora:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Roboto:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=Work+Sans:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&family=DM+Sans:wght@400;500;600&family=Source+Serif+4:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/mira.css" />
+  <script>
+    // Applied before first paint to avoid a light/dark and font flash on
+    // load - the chat font now drives the whole app's font (not just chat
+    // bubbles), so a flash here would be far more noticeable than before.
+    (function () {
+      try {
+        var saved = localStorage.getItem("mira:theme");
+        if (saved === "light" || saved === "dark") {
+          document.documentElement.setAttribute("data-theme", saved);
+        }
+        var savedFont = localStorage.getItem("mira:chatFont");
+        if (savedFont) {
+          document.documentElement.setAttribute("data-chat-font", savedFont);
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <%- body %>
+</body>
+</html>

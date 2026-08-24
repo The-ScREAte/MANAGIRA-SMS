@@ -25,6 +25,7 @@
   const hasFilesFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Create Files') || allowedFeatures.includes('Files & Sheets') || allowedFeatures.includes('Docs/Sheets'));
   const hasPublicWebsiteFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite') || allowedFeatures.includes('Public Dashboard') || allowedFeatures.includes('School Public Dashboard'));
   const hasTransportationIntegration = !!(transportationIntegration && transportationIntegration.activated);
+  const hasMiraIntegration = !!(miraIntegration && miraIntegration.activated);
   const hasPaygiraFeature = Array.isArray(allowedFeatures) && allowedFeatures.some((featureName) => {
     const normalizedFeatureName = String(featureName || '').trim().toLowerCase();
     return normalizedFeatureName === 'paygira'
@@ -580,6 +581,14 @@
           </a>
         </li>
         <% } %>
+        <% if (hasMiraIntegration) { %>
+        <li>
+          <a class="nav-link" href="/account/mira" data-no-spa data-section="mira" data-embed-url="/account/mira" data-embed-label="Mira">
+            <span class="nav-link-icon"><img src="/images/miralogo.png" alt="Mira" /></span>
+            <span>Mira (AI Assistant)</span>
+          </a>
+        </li>
+        <% } %>
         <li>
           <a class="nav-link" href="/common/manageEventsAnnouncements" data-no-spa data-section="announcements-events" data-embed-url="/common/manageEventsAnnouncements" data-embed-label="Announcements &amp; Events">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 11v2a2 2 0 002 2h2l5 4V5L7 9H5a2 2 0 00-2 2z"/><path d="M16 8a5 5 0 010 8"/></svg></span>
@@ -711,6 +720,17 @@
           <div class="embed-placeholder">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
             <p>Loading Transportation…</p>
+          </div>
+        </div>
+      </section>
+      <% } %>
+
+      <% if (hasMiraIntegration) { %>
+      <section class="management-section" id="mira">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <img src="/images/miralogo.png" alt="" style="width:40px;height:40px;border-radius:50%;" />
+            <p>Loading Mira…</p>
           </div>
         </div>
       </section>

@@ -198,6 +198,13 @@
     '/common/reports'            // Dynamic filters + tables; safer to full-load
   ];
 
+  // Routes that should still SPA-navigate (fast, no full reload) but whose
+  // HTML must never be served from the client-side cache — the server's
+  // response for these depends on request-time state that can differ
+  // between two visits to the exact same URL, so a cached response could
+  // show stale/wrong UI on a later visit.
+  const NO_CACHE_PATTERNS = [];
+
   // ─── SPARouter Class ──────────────────────────────────────────────────
   class SPARouter {
     constructor() {
@@ -482,7 +489,7 @@
       this.isNavigating = true;
 
       // Cached pages: skip the fade entirely so they feel instant.
-      const isCached = this.cache.has(normalizedPath);
+      const isCached = this.cache.has(normalizedPath) && !this._isNoCache(normalizedPath);
       this._skipFade = isCached;
       if (!isCached) {
         this._showProgress();
@@ -519,9 +526,10 @@
 
     async _loadPage(path, isForwardNav) {
       const normalizedPath = this._normalizePath(path);
+      const noCache = this._isNoCache(normalizedPath);
 
       try {
-        let html = this.cache.get(normalizedPath);
+        let html = noCache ? null : this.cache.get(normalizedPath);
 
         if (!html) {
           this.abortController = new AbortController();
@@ -537,7 +545,7 @@
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
           html = await response.text();
-          this._cacheSet(normalizedPath, html);
+          if (!noCache) this._cacheSet(normalizedPath, html);
         }
 
         // Parse response
@@ -1075,6 +1083,7 @@
 
     _preload(path) {
       const normalized = this._normalizePath(path);
+      if (this._isNoCache(normalized)) return;
       if (this.cache.has(normalized)) return;
       if (this._preloadsInFlight.has(normalized)) return;
       if (this._preloadsInFlight.size >= CONFIG.MAX_CONCURRENT_PRELOADS) return;
@@ -1326,6 +1335,10 @@
 
     _isExcluded(path) {
       return EXCLUDED_PATTERNS.some(pattern => path.includes(pattern));
+    }
+
+    _isNoCache(path) {
+      return NO_CACHE_PATTERNS.some(pattern => path.includes(pattern));
     }
 
     // ── Utilities ─────────────────────────────────────────────────────

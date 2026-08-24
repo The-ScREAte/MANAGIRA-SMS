@@ -7,15 +7,25 @@
   <circle cx="428" cy="117" r="11" fill="#CBD5E1"/>
   <circle cx="468" cy="117" r="11" fill="#CBD5E1"/>
   <rect x="520" y="92" width="320" height="48" rx="18" fill="#E2E8F0"/>
+  <text x="540" y="122" fill="#64748B" font-size="18" font-family="Inter, Arial, sans-serif">Search students, classes, reports…</text>
   <rect x="988" y="88" width="156" height="56" rx="20" fill="#CCFBF1"/>
+  <text x="1013" y="122" fill="#0F766E" font-size="18" font-family="Inter, Arial, sans-serif" font-weight="600">This Term</text>
   <rect x="1160" y="88" width="156" height="56" rx="20" fill="#0F766E"/>
+  <text x="1188" y="122" fill="#F8FAFC" font-size="18" font-family="Inter, Arial, sans-serif" font-weight="600">+ New Report</text>
   <rect x="82" y="96" width="126" height="42" rx="12" fill="#134E4A"/>
+  <text x="102" y="123" fill="#F8FAFC" font-size="18" font-family="Inter, Arial, sans-serif" font-weight="700">Managira</text>
   <rect x="82" y="208" width="178" height="52" rx="16" fill="#134E4A"/>
+  <text x="112" y="241" fill="#F8FAFC" font-size="19" font-family="Inter, Arial, sans-serif" font-weight="600">Overview</text>
   <rect x="82" y="290" width="178" height="52" rx="16" fill="#111827"/>
+  <text x="112" y="323" fill="#CBD5E1" font-size="19" font-family="Inter, Arial, sans-serif">Students</text>
   <rect x="82" y="372" width="178" height="52" rx="16" fill="#111827"/>
+  <text x="112" y="405" fill="#CBD5E1" font-size="19" font-family="Inter, Arial, sans-serif">Classes</text>
   <rect x="82" y="454" width="178" height="52" rx="16" fill="#111827"/>
+  <text x="112" y="487" fill="#CBD5E1" font-size="19" font-family="Inter, Arial, sans-serif">Attendance</text>
   <rect x="82" y="536" width="178" height="52" rx="16" fill="#111827"/>
+  <text x="112" y="569" fill="#CBD5E1" font-size="19" font-family="Inter, Arial, sans-serif">Finance</text>
   <rect x="82" y="618" width="178" height="52" rx="16" fill="#111827"/>
+  <text x="112" y="651" fill="#CBD5E1" font-size="19" font-family="Inter, Arial, sans-serif">Reports</text>
   <text x="340" y="230" fill="#0F172A" font-size="42" font-family="Inter, Arial, sans-serif" font-weight="700">Dashboard Overview</text>
   <text x="340" y="272" fill="#64748B" font-size="22" font-family="Inter, Arial, sans-serif">Monitor operations, finance status, attendance, and recent activity.</text>
   <rect x="340" y="322" width="238" height="162" rx="28" fill="#F8FAFC" stroke="#D9E3EC"/>
@@ -24,17 +34,29 @@
   <rect x="1096" y="322" width="238" height="162" rx="28" fill="#EEF2FF"/>
   <text x="372" y="380" fill="#64748B" font-size="20" font-family="Inter, Arial, sans-serif">Students Active</text>
   <text x="372" y="446" fill="#0F172A" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">1,284</text>
+  <text x="372" y="470" fill="#16A34A" font-size="16" font-family="Inter, Arial, sans-serif" font-weight="600">↑ 4.2% this term</text>
   <text x="624" y="380" fill="#0F766E" font-size="20" font-family="Inter, Arial, sans-serif">Attendance Today</text>
   <text x="624" y="446" fill="#134E4A" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">94%</text>
+  <text x="624" y="470" fill="#0F766E" font-size="16" font-family="Inter, Arial, sans-serif" font-weight="600">1,207 of 1,284 present</text>
   <text x="876" y="380" fill="#C2410C" font-size="20" font-family="Inter, Arial, sans-serif">Fees Collected</text>
-  <text x="876" y="446" fill="#9A3412" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">N8.4M</text>
+  <text x="876" y="446" fill="#9A3412" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">$8.4M</text>
+  <text x="876" y="470" fill="#C2410C" font-size="16" font-family="Inter, Arial, sans-serif" font-weight="600">78% of term target</text>
   <text x="1128" y="380" fill="#4338CA" font-size="20" font-family="Inter, Arial, sans-serif">Reports Ready</text>
   <text x="1128" y="446" fill="#3730A3" font-size="54" font-family="Inter, Arial, sans-serif" font-weight="700">327</text>
+  <text x="1128" y="470" fill="#4338CA" font-size="16" font-family="Inter, Arial, sans-serif" font-weight="600">41 pending review</text>
   <rect x="340" y="524" width="650" height="420" rx="32" fill="#F8FAFC" stroke="#D9E3EC"/>
   <text x="380" y="588" fill="#0F172A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Performance Trend</text>
   <text x="380" y="624" fill="#64748B" font-size="18" font-family="Inter, Arial, sans-serif">Enrollment, fee collection, and attendance over the term</text>
   <path d="M404 846C480 784 548 770 620 724C700 672 776 686 842 626C888 584 914 570 952 562" stroke="#0F766E" stroke-width="12" stroke-linecap="round"/>
   <path d="M404 874C470 860 548 820 620 790C694 758 770 756 842 724C896 698 924 674 952 662" stroke="#FB923C" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="404" cy="846" r="9" fill="#0F766E"/>
+  <circle cx="952" cy="562" r="9" fill="#0F766E"/>
+  <circle cx="404" cy="874" r="9" fill="#FB923C"/>
+  <circle cx="952" cy="662" r="9" fill="#FB923C"/>
+  <circle cx="392" cy="900" r="8" fill="#0F766E"/>
+  <text x="410" y="906" fill="#334155" font-size="17" font-family="Inter, Arial, sans-serif">Attendance</text>
+  <circle cx="560" cy="900" r="8" fill="#FB923C"/>
+  <text x="578" y="906" fill="#334155" font-size="17" font-family="Inter, Arial, sans-serif">Fee collection</text>
   <rect x="1020" y="524" width="340" height="420" rx="32" fill="#0F172A"/>
   <text x="1060" y="590" fill="#F8FAFC" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Live Activity</text>
   <rect x="1060" y="634" width="260" height="82" rx="22" fill="#111827"/>
@@ -43,31 +65,67 @@
   <circle cx="1098" cy="674" r="16" fill="#14B8A6"/>
   <circle cx="1098" cy="774" r="16" fill="#60A5FA"/>
   <circle cx="1098" cy="874" r="16" fill="#FB923C"/>
-  <text x="1130" y="668" fill="#F8FAFC" font-size="18" font-family="Inter, Arial, sans-serif">Three new admissions completed</text>
-  <text x="1130" y="768" fill="#F8FAFC" font-size="18" font-family="Inter, Arial, sans-serif">Attendance flagged for Grade 6 Gold</text>
-  <text x="1130" y="868" fill="#F8FAFC" font-size="18" font-family="Inter, Arial, sans-serif">Finance report exported successfully</text>
+  <text x="1130" y="662" fill="#F8FAFC" font-size="17" font-family="Inter, Arial, sans-serif">Three new admissions</text>
+  <text x="1130" y="684" fill="#94A3B8" font-size="14" font-family="Inter, Arial, sans-serif">2 minutes ago</text>
+  <text x="1130" y="762" fill="#F8FAFC" font-size="17" font-family="Inter, Arial, sans-serif">Attendance flagged for Eng 103</text>
+  <text x="1130" y="784" fill="#94A3B8" font-size="14" font-family="Inter, Arial, sans-serif">18 minutes ago</text>
+  <text x="1130" y="862" fill="#F8FAFC" font-size="17" font-family="Inter, Arial, sans-serif">Finance report exported</text>
+  <text x="1130" y="884" fill="#94A3B8" font-size="14" font-family="Inter, Arial, sans-serif">1 hour ago</text>
   <rect x="340" y="978" width="1020" height="300" rx="32" fill="#FFFFFF" stroke="#D9E3EC"/>
   <text x="380" y="1040" fill="#0F172A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Announcements and Tasks</text>
   <rect x="380" y="1082" width="940" height="72" rx="20" fill="#F8FAFC"/>
+  <circle cx="416" cy="1118" r="7" fill="#0F766E"/>
+  <text x="440" y="1113" fill="#0F172A" font-size="18" font-family="Inter, Arial, sans-serif" font-weight="600">Report cards due for submission</text>
+  <text x="440" y="1135" fill="#64748B" font-size="15" font-family="Inter, Arial, sans-serif">All classes · due Friday, March 14</text>
   <rect x="380" y="1172" width="940" height="72" rx="20" fill="#F8FAFC"/>
+  <circle cx="416" cy="1208" r="7" fill="#60A5FA"/>
+  <text x="440" y="1203" fill="#0F172A" font-size="18" font-family="Inter, Arial, sans-serif" font-weight="600">Staff meeting scheduled</text>
+  <text x="440" y="1225" fill="#64748B" font-size="15" font-family="Inter, Arial, sans-serif">Monday, 9:00 AM · Staff Room</text>
   <rect x="380" y="1262" width="940" height="72" rx="20" fill="#F8FAFC"/>
+  <circle cx="416" cy="1298" r="7" fill="#FB923C"/>
+  <text x="440" y="1293" fill="#0F172A" font-size="18" font-family="Inter, Arial, sans-serif" font-weight="600">Admission applications pending review</text>
+  <text x="440" y="1315" fill="#64748B" font-size="15" font-family="Inter, Arial, sans-serif">12 new applications this week</text>
   <rect x="340" y="1316" width="486" height="500" rx="32" fill="#ECFEFF"/>
   <rect x="874" y="1316" width="486" height="500" rx="32" fill="#FFF7ED"/>
   <text x="380" y="1384" fill="#134E4A" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Department Health</text>
   <text x="914" y="1384" fill="#9A3412" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Finance Snapshot</text>
+  <text x="380" y="1420" fill="#0F172A" font-size="17" font-family="Inter, Arial, sans-serif" font-weight="600">Academics</text>
+  <text x="756" y="1420" fill="#0F766E" font-size="17" font-family="Inter, Arial, sans-serif" font-weight="700">92%</text>
   <rect x="380" y="1428" width="406" height="34" rx="17" fill="#A7F3D0"/>
-  <rect x="380" y="1488" width="342" height="34" rx="17" fill="#5EEAD4"/>
-  <rect x="380" y="1548" width="286" height="34" rx="17" fill="#2DD4BF"/>
-  <rect x="380" y="1608" width="228" height="34" rx="17" fill="#14B8A6"/>
-  <rect x="914" y="1438" width="392" height="220" rx="28" fill="#FFFFFF" stroke="#FED7AA"/>
-  <circle cx="1110" cy="1548" r="82" fill="#FDBA74"/>
+  <rect x="380" y="1428" width="374" height="34" rx="17" fill="#0F766E"/>
+  <text x="380" y="1480" fill="#0F172A" font-size="17" font-family="Inter, Arial, sans-serif" font-weight="600">Administration</text>
+  <text x="756" y="1480" fill="#0F766E" font-size="17" font-family="Inter, Arial, sans-serif" font-weight="700">81%</text>
+  <rect x="380" y="1488" width="406" height="34" rx="17" fill="#A7F3D0"/>
+  <rect x="380" y="1488" width="329" height="34" rx="17" fill="#14B8A6"/>
+  <text x="380" y="1540" fill="#0F172A" font-size="17" font-family="Inter, Arial, sans-serif" font-weight="600">Facilities</text>
+  <text x="756" y="1540" fill="#0F766E" font-size="17" font-family="Inter, Arial, sans-serif" font-weight="700">74%</text>
+  <rect x="380" y="1548" width="406" height="34" rx="17" fill="#A7F3D0"/>
+  <rect x="380" y="1548" width="300" height="34" rx="17" fill="#2DD4BF"/>
+  <text x="380" y="1600" fill="#0F172A" font-size="17" font-family="Inter, Arial, sans-serif" font-weight="600">Transport</text>
+  <text x="756" y="1600" fill="#0F766E" font-size="17" font-family="Inter, Arial, sans-serif" font-weight="700">65%</text>
+  <rect x="380" y="1608" width="406" height="34" rx="17" fill="#A7F3D0"/>
+  <rect x="380" y="1608" width="264" height="34" rx="17" fill="#5EEAD4"/>
+  <circle cx="1110" cy="1548" r="82" fill="#FED7AA"/>
+  <path d="M1110 1466 A82 82 0 1 1 1032 1583 L1110 1548 Z" fill="#FDBA74"/>
   <circle cx="1110" cy="1548" r="52" fill="#FFF7ED"/>
+  <text x="1110" y="1542" fill="#9A3412" font-size="30" font-family="Inter, Arial, sans-serif" font-weight="700" text-anchor="middle">68%</text>
+  <text x="1110" y="1564" fill="#C2410C" font-size="13" font-family="Inter, Arial, sans-serif" text-anchor="middle">collected</text>
+  <circle cx="920" cy="1660" r="8" fill="#FDBA74"/>
+  <text x="938" y="1666" fill="#7C2D12" font-size="16" font-family="Inter, Arial, sans-serif">Paid — $8.4M (68%)</text>
+  <circle cx="920" cy="1690" r="8" fill="#FED7AA"/>
+  <text x="938" y="1696" fill="#7C2D12" font-size="16" font-family="Inter, Arial, sans-serif">Outstanding — $3.9M (32%)</text>
   <rect x="340" y="1860" width="1020" height="530" rx="32" fill="#0F172A"/>
   <text x="380" y="1928" fill="#F8FAFC" font-size="28" font-family="Inter, Arial, sans-serif" font-weight="700">Quick Actions</text>
   <rect x="380" y="1978" width="280" height="150" rx="26" fill="#134E4A"/>
+  <text x="410" y="2043" fill="#F8FAFC" font-size="19" font-family="Inter, Arial, sans-serif" font-weight="600">Add Student</text>
   <rect x="710" y="1978" width="280" height="150" rx="26" fill="#1D4ED8"/>
+  <text x="740" y="2043" fill="#F8FAFC" font-size="19" font-family="Inter, Arial, sans-serif" font-weight="600">Send Report</text>
   <rect x="1040" y="1978" width="280" height="150" rx="26" fill="#C2410C"/>
+  <text x="1070" y="2043" fill="#F8FAFC" font-size="19" font-family="Inter, Arial, sans-serif" font-weight="600">Record Payment</text>
   <rect x="380" y="2160" width="280" height="150" rx="26" fill="#4F46E5"/>
+  <text x="410" y="2225" fill="#F8FAFC" font-size="19" font-family="Inter, Arial, sans-serif" font-weight="600">Mark Attendance</text>
   <rect x="710" y="2160" width="280" height="150" rx="26" fill="#0E7490"/>
+  <text x="740" y="2225" fill="#F8FAFC" font-size="19" font-family="Inter, Arial, sans-serif" font-weight="600">New Announcement</text>
   <rect x="1040" y="2160" width="280" height="150" rx="26" fill="#475569"/>
+  <text x="1070" y="2225" fill="#F8FAFC" font-size="19" font-family="Inter, Arial, sans-serif" font-weight="600">View Settings</text>
 </svg>

@@ -5987,6 +5987,8 @@ const printController = (db) => ({
 
   generateMeritSheet: async (req, res) => {
     const organizationId = req.session.organizationId;
+    const isEmbedded = isEmbeddedRequest(req, "meritSheetPage");
+    const meritSheetBaseUrl = `/print/meritSheetPage${isEmbedded ? "?embed=workspace" : ""}`;
 
     // Accept payload from POST body or GET query; fall back to last run for refreshes
     const payload = req.method === 'GET' ? req.query : req.body;
@@ -6021,7 +6023,7 @@ const printController = (db) => ({
     try {
       if (!classId || !termId || !organizationId || !subjectIds.length || !assessmentIds.length) {
         // Redirect to the base page if we don't have enough info (e.g., first load without form submit)
-        return res.redirect('/print/meritSheetPage');
+        return res.redirect(meritSheetBaseUrl);
       }
 
       // Parse as integers
@@ -6030,7 +6032,7 @@ const printController = (db) => ({
 
       if (isNaN(parsedClassId) || isNaN(parsedTermId)) {
         req.flash('error', 'Invalid class or term ID.');
-        return res.redirect('/print/meritSheetPage');
+        return res.redirect(meritSheetBaseUrl);
       }
 
       // Fetch organization details
@@ -6069,7 +6071,9 @@ const printController = (db) => ({
 
       if (classDetailsResult.rows.length === 0) {
         req.flash("error", "Class or term details not found. Please regenerate.");
-        const qs = parsedClassId && parsedTermId ? `?classId=${parsedClassId}&termId=${parsedTermId}` : "";
+        const qs = parsedClassId && parsedTermId
+          ? `?classId=${parsedClassId}&termId=${parsedTermId}${isEmbedded ? "&embed=workspace" : ""}`
+          : (isEmbedded ? "?embed=workspace" : "");
         return res.redirect(`/print/meritSheetPage${qs}`);
       }
 

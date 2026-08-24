@@ -53,6 +53,17 @@ function isEmbeddedRequest(req, routeKey) {
     return false;
   }
 
+  // Sec-Fetch-Dest is sent by all current browsers and can't be spoofed by
+  // timing or a missing Referer: "document" only ever means a genuine
+  // top-level navigation (typed URL, bookmark, clicking a real link) — never
+  // a continuation of something already rendered inside an iframe. Trust it
+  // over the Referer heuristic below whenever it's present.
+  const fetchDest = String(req.get("sec-fetch-dest") || "").toLowerCase();
+  if (fetchDest === "document") {
+    delete req.session.embeddedRoutes[routeKey];
+    return false;
+  }
+
   const referer = String(req.get("referer") || req.get("referrer") || "");
   const refererLooksEmbedded = /[?&]embed=workspace(?:&|$)/.test(referer);
   const setAt = expiresAt - WINDOW_MS;
