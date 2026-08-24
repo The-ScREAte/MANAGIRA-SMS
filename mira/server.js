@@ -61,25 +61,43 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Something went wrong." });
 });
 
-if (require.main === module) {
-  // Run schema setup once at boot, not lazily on whichever request happens
-  // to hit it first. ensureMiraSchema does ~15 DDL statements (tables,
-  // indexes, the pgvector extension/HNSW index) - against a remote,
-  // non-colocated Postgres each round trip has real latency, and doing
-  // this on a random user's first click added ~1.7s to that one request.
+// Run schema setup once at boot, not lazily on whichever request happens to
+// hit it first. ensureMiraSchema does ~15 DDL statements (tables, indexes,
+// the pgvector extension/HNSW index) - against a remote, non-colocated
+// Postgres each round trip has real latency, and doing this on a random
+// user's first click added ~1.7s to that one request.
+//
+// Exported as start() (not just run inline behind require.main === module)
+// so a single-process production deploy can start Mira as a second listener
+// inside the SAME Node process as the main app, instead of needing it run
+// as its own separate OS process/service - see server.js's own startServer,
+// which calls this after its own app.listen().
+// Throws on failure rather than exiting the process itself - the caller
+// decides what that means. Standalone (below), that's fatal, same as
+// before. Co-started from the main app's server.js, it isn't: Mira just
+// won't be available, but the main app (and everything unrelated to Mira)
+// keeps running rather than going down because of a Mira-only problem.
+async function start() {
   const db = require("./config/db");
   const { ensureMiraSchema } = require("./db/schema");
 
-  ensureMiraSchema(db)
-    .then(() => {
-      app.listen(PORT, () => {
-        console.log(`[Mira] Running on http://localhost:${PORT}`);
-      });
-    })
-    .catch((error) => {
-      console.error("[Mira] Failed to initialize database schema, exiting:", error);
-      process.exit(1);
+  await ensureMiraSchema(db);
+
+  return new Promise((resolve, reject) => {
+    const server = app.listen(PORT, () => {
+      console.log(`[Mira] Running on http://localhost:${PORT}`);
+      resolve(server);
     });
+    server.on("error", reject);
+  });
+}
+
+if (require.main === module) {
+  start().catch((error) => {
+    console.error("[Mira] Failed to start, exiting:", error);
+    process.exit(1);
+  });
 }
 
 module.exports = app;
+module.exports.start = start;

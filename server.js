@@ -1215,4 +1215,22 @@ const startServer = (port) => {
   process.on("SIGINT", () => shutdown("SIGINT"));
 };
 
+// Mira runs as its own Express app/port, but on a single-service deploy
+// (one Render web service, `npm start` running only this file) nothing
+// else ever starts it - locally, `npm run dev` starts it as a second
+// process via concurrently, which production's plain `node server.js`
+// does not. Starting it here, in-process, right after the main app comes
+// up, makes it work the same way in production without needing a second
+// Render service. Set MIRA_STANDALONE_SERVICE=true to skip this when Mira
+// really is deployed as its own separate service instead.
+if (String(process.env.MIRA_STANDALONE_SERVICE || "").toLowerCase() !== "true") {
+  try {
+    require("./mira/server").start().catch((error) => {
+      console.error("[Mira] Failed to start alongside the main app:", error);
+    });
+  } catch (error) {
+    console.error("[Mira] Failed to load:", error);
+  }
+}
+
 startServer(BASE_PORT);
