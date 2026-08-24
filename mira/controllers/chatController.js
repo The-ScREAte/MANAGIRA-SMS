@@ -51,7 +51,10 @@ async function postChat(req, res) {
     await runTurn({ tenant: req.tenant, chatId, userText, sse, classScope: className ? { classId, className } : null, images });
   } catch (error) {
     console.error("[mira/chatController]", error);
-    sse.send("error", { message: "Something went wrong generating a response." });
+    // TEMP DIAGNOSTIC - surfacing the real error to authenticated callers
+    // to debug a prod-only failure without Render dashboard log access.
+    // Revert to the generic message once root-caused.
+    sse.send("error", { message: "Something went wrong generating a response.", debug: error.message, stack: error.stack });
   } finally {
     res.end();
   }
