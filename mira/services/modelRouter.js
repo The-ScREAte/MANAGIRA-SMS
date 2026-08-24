@@ -1,4 +1,4 @@
-// Unified interface over OpenRouter, OpenAI, and Anthropic. Callers never
+// Unified interface over OpenRouter, Telnyx, OpenAI, and Anthropic. Callers never
 // talk to a provider SDK directly - they call `streamCompletion()` and get
 // the same event shape back regardless of which provider (or mock mode)
 // served it. Automatic fallback: tries each configured provider in
@@ -7,12 +7,16 @@ require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env"
 
 // OpenRouter first: one key can reach many vendors' models (including
 // OpenAI's and Anthropic's), so it's the most useful default when present.
-// Direct OpenAI/Anthropic keys still work standalone if OpenRouter isn't
+// Telnyx is the second choice - a real, independently-hosted fallback so a
+// full turn still completes (not a mock/canned reply) if OpenRouter itself
+// is unreachable or out of credit, not just if the request errors. Direct
+// OpenAI/Anthropic keys still work standalone/as further fallbacks if
 // configured.
-const PROVIDER_PRIORITY = ["openrouter", "openai", "anthropic"];
+const PROVIDER_PRIORITY = ["openrouter", "telnyx", "openai", "anthropic"];
 
 function isProviderConfigured(provider) {
   if (provider === "openrouter") return !!process.env.OPENROUTER_API_KEY;
+  if (provider === "telnyx") return !!process.env.TELNYX_API_KEY;
   if (provider === "openai") return !!process.env.OPENAI_API_KEY;
   return !!process.env.ANTHROPIC_API_KEY;
 }
@@ -59,6 +63,19 @@ const TASK_MODEL_MAPS = {
     draft: "claude-sonnet-4-5",
     reasoning: "claude-sonnet-4-5",
     default: "claude-sonnet-4-5",
+  },
+  // Telnyx's open-model catalog (https://developers.telnyx.com/docs/inference/models)
+  // doesn't have an established "cheap/small" tier the way OpenAI does, so
+  // one solid tool-calling model covers every task here rather than
+  // guessing at a lighter model's exact id. Kimi K2 is Moonshot AI's
+  // agentic/tool-use-oriented model - a reasonable single choice for a
+  // fallback path that still needs to drive Mira's full tool set reliably.
+  telnyx: {
+    classify: "moonshotai/Kimi-K2.5",
+    lookup: "moonshotai/Kimi-K2.5",
+    draft: "moonshotai/Kimi-K2.5",
+    reasoning: "moonshotai/Kimi-K2.5",
+    default: "moonshotai/Kimi-K2.5",
   },
 };
 
@@ -387,6 +404,18 @@ async function openrouterStreamCompletion({ model, messages, tools, onToken, onT
   return runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall });
 }
 
+// Telnyx's chat completions endpoint is deliberately OpenAI-compatible
+// (https://developers.telnyx.com/docs/inference/ai-assistants/custom-llm) -
+// same wire format as OpenRouter/OpenAI, just a different base URL and key.
+async function telnyxStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
+  const OpenAI = require("openai");
+  const client = new OpenAI({
+    apiKey: process.env.TELNYX_API_KEY,
+    baseURL: "https://api.telnyx.com/v2/ai",
+  });
+  return runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall });
+}
+
 async function anthropicStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
   const Anthropic = require("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -423,6 +452,7 @@ async function anthropicStreamCompletion({ model, messages, tools, onToken, onTo
 
 async function callProvider(provider, { model, messages, tools, onToken, onToolCall }) {
   if (provider === "openrouter") return openrouterStreamCompletion({ model, messages, tools, onToken, onToolCall });
+  if (provider === "telnyx") return telnyxStreamCompletion({ model, messages, tools, onToken, onToolCall });
   if (provider === "openai") return openaiStreamCompletion({ model, messages, tools, onToken, onToolCall });
   return anthropicStreamCompletion({ model, messages, tools, onToken, onToolCall });
 }
@@ -435,8 +465,8 @@ async function callProvider(provider, { model, messages, tools, onToken, onToolC
  * next call's message history (see orchestrator.js) so the follow-up
  * "here's the tool result" message uses the provider's real tool-call
  * protocol instead of being faked as plain text. Tries every configured provider in
- * priority order (openrouter, then openai, then anthropic) on error/
- * timeout before giving up.
+ * priority order (openrouter, then telnyx, then openai, then anthropic) on
+ * error/timeout before giving up.
  */
 async function streamCompletion({ task = "default", messages, tools = [], onToken, onToolCall }) {
   if (MOCK_MODE) {
@@ -457,7 +487,7 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
       lastError = error;
     }
   }
-  throw lastError || new Error("No LLM provider is configured (set OPENROUTER_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY).");
+  throw lastError || new Error("No LLM provider is configured (set OPENROUTER_API_KEY, TELNYX_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY).");
 }
 
 module.exports = { streamCompletion, MOCK_MODE, TASK_MODEL_MAPS, PROVIDER_PRIORITY };
