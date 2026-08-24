@@ -7,7 +7,13 @@ const { getMiraIntegrationStatus } = require('../utils/miraIntegration');
 // setThemeColor.js's shape.
 const setMiraStatus = async (req, res, next) => {
   res.locals.miraActivated = false;
-  res.locals.miraPublicUrl = process.env.MIRA_PUBLIC_URL || `http://localhost:${process.env.MIRA_PORT || 4100}`;
+  // In production, MIRA_PUBLIC_URL must be a real configured URL (e.g.
+  // https://mira.managira.com) - falling back to a localhost dev URL would
+  // send every user to an address that only resolves on their own machine.
+  // Only use the localhost fallback outside production, where it's the
+  // correct behavior for local development.
+  res.locals.miraPublicUrl = process.env.MIRA_PUBLIC_URL ||
+    (process.env.NODE_ENV === "production" ? null : `http://localhost:${process.env.MIRA_PORT || 4100}`);
 
   if (!req.session.organizationId) {
     return next();

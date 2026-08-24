@@ -2376,10 +2376,10 @@
       <a href="#" title="Go to management page" class="header-welcome"
         >Hello, <%= session.firstName %>!</a
       >
-      <% if (typeof miraActivated !== 'undefined' && miraActivated) { %>
+      <% if (typeof miraActivated !== 'undefined' && miraActivated && typeof miraPublicUrl !== 'undefined' && miraPublicUrl) { %>
       <%# ── Mira (AI Assistant) launcher ───────────────────── %>
       <a
-        href="<%= typeof miraPublicUrl !== 'undefined' ? miraPublicUrl : '#' %>"
+        href="<%= miraPublicUrl %>"
         target="_blank"
         rel="noopener"
         class="header-mira-btn"
