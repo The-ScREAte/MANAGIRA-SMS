@@ -12,6 +12,14 @@ require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env"
 // is unreachable or out of credit, not just if the request errors. Direct
 // OpenAI/Anthropic keys still work standalone/as further fallbacks if
 // configured.
+//
+// Note: the account's current OpenRouter tier caps prompt tokens at ~10,696
+// ("Prompt tokens limit exceeded"), while Mira's real system prompt + tool
+// schema is ~30,000 tokens, so OpenRouter currently fails on every real turn
+// before falling through to Telnyx. It's kept first anyway because that
+// failure is fast (~1s, a fast 402) - the real hang risk was Telnyx itself
+// having no request timeout (fixed via PROVIDER_TIMEOUT_MS below), not the
+// order providers are tried in.
 const PROVIDER_PRIORITY = ["openrouter", "telnyx", "openai", "anthropic"];
 
 function isProviderConfigured(provider) {
@@ -385,9 +393,17 @@ async function runOpenAICompatibleStream(client, { model, messages, tools, onTok
   return { finishReason: "stop", usage };
 }
 
+// The SDK's own default (10 minutes) means a provider that stalls instead of
+// erroring - connects but never sends data, or hangs mid-stream - blocks the
+// whole turn for up to 10 minutes with no fallback and no error surfaced to
+// the frontend, which just reads as "spins forever". Capping it here makes a
+// stalled provider fail fast (APIConnectionTimeoutError) so streamCompletion's
+// try/catch loop below moves on to the next configured provider instead.
+const PROVIDER_TIMEOUT_MS = 25000;
+
 async function openaiStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
   const OpenAI = require("openai");
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: PROVIDER_TIMEOUT_MS });
   return runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall });
 }
 
@@ -396,6 +412,7 @@ async function openrouterStreamCompletion({ model, messages, tools, onToken, onT
   const client = new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
     baseURL: "https://openrouter.ai/api/v1",
+    timeout: PROVIDER_TIMEOUT_MS,
     defaultHeaders: {
       "HTTP-Referer": process.env.MAIN_APP_PUBLIC_URL || process.env.MAIN_APP_INTERNAL_BASE_URL || "http://localhost:4100",
       "X-Title": "Mira",
@@ -412,13 +429,14 @@ async function telnyxStreamCompletion({ model, messages, tools, onToken, onToolC
   const client = new OpenAI({
     apiKey: process.env.TELNYX_API_KEY,
     baseURL: "https://api.telnyx.com/v2/ai",
+    timeout: PROVIDER_TIMEOUT_MS,
   });
   return runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall });
 }
 
 async function anthropicStreamCompletion({ model, messages, tools, onToken, onToolCall }) {
   const Anthropic = require("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: PROVIDER_TIMEOUT_MS });
 
   // Anthropic's API takes one flat `system` string, not multiple system-role
   // messages in the array - the base prompt, RAG context, class scope, and
