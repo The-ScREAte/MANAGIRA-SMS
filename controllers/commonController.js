@@ -102,6 +102,7 @@ const {
   getTransportationIntegrationStatus,
   suggestNearestStop,
 } = require("../utils/transportation");
+const { getMiraIntegrationStatus } = require("../utils/miraIntegration");
 const {
   getStudentTransportationSnapshot,
   getClassTransportationSnapshot,
@@ -3567,9 +3568,13 @@ const commonController = {
       const isSuperAdminSwitch = req.session.superAdminOrgSwitch;
       const isProduction = process.env.NODE_ENV === "production";
       const school = isProduction ? req.schoolDetails : null;
-      const organizationId = isProduction
-        ? school?.organization_id
-        : req.session.organizationId;
+      // Prefer the subdomain-resolved org, but fall back to the logged-in
+      // session's organizationId when req.schoolDetails hasn't been attached
+      // for this request (e.g. a subdomain-cache miss/race right after an
+      // org is set up) — otherwise a valid logged-in user gets bounced to
+      // the public landing page instead of their dashboard.
+      const organizationId =
+        school?.organization_id || req.session.organizationId || null;
       const orgNameDisplayFormat = req.session?.nameDisplayFormat;
 
       if (!organizationId) {
@@ -4182,11 +4187,11 @@ const commonController = {
 
       // Separate images for the slideshow vs. normal images
       const slideshowImages = images.filter(
-        (img) => img.allocation.toLowerCase() === "slideshow"
+        (img) => String(img.allocation || "").toLowerCase() === "slideshow"
       );
 
       const normalImages = images.filter(
-        (img) => img.allocation.toLowerCase() !== "slideshow"
+        (img) => String(img.allocation || "").toLowerCase() !== "slideshow"
       );
 
       // Fetch texts for the organization
@@ -4486,7 +4491,11 @@ const commonController = {
         showFooterTopSection: false,
       });
     } catch (error) {
-      // ...removed error log for clean background operation...
+      console.error("[PublicDashboard] Failed to render public dashboard", {
+        organizationId: req.query.organizationId || req.organizationId,
+        message: error.message,
+        stack: error.stack,
+      });
       req.flash("error", "Failed to load School website data.");
       res.status(500).send("Failed to load school website data.");
     }
@@ -7692,14 +7701,30 @@ const commonController = {
 
   rejectPendingStudent: async (req, res, db) => {
     const { id } = req.params;
+    // pending_id is a globally-unique SERIAL, not scoped per org in any of
+    // these queries below - without an explicit organization_id check here,
+    // a staff member from ANY org could reject (permanently delete) another
+    // org's pending admission just by guessing/iterating pending_id, since
+    // every other handler on this page (approve, save-changes, get-details)
+    // already scopes by organization_id and this one didn't.
+    const sessionOrgId = req.session.organizationId;
     try {
+      const ownerCheck = await db.query(
+        `SELECT 1 FROM pending_students WHERE pending_id = $1 AND organization_id = $2`,
+        [id, sessionOrgId]
+      );
+      if (!ownerCheck.rows.length) {
+        req.flash("error", "Student application not found.");
+        return res.redirect("/common/admissionPending");
+      }
+
       const guardians = await db.query(
         `SELECT email FROM pending_guardians WHERE pending_id = $1`,
         [id]
       );
       const pending = await db.query(
-        `SELECT first_name, last_name, organization_id FROM pending_students WHERE pending_id = $1`,
-        [id]
+        `SELECT first_name, last_name, organization_id FROM pending_students WHERE pending_id = $1 AND organization_id = $2`,
+        [id, sessionOrgId]
       );
 
       const orgId = pending.rows[0]?.organization_id;
@@ -7719,8 +7744,9 @@ const commonController = {
         `DELETE FROM pending_student_subjects WHERE pending_student_id = $1`,
         [id]
       );
-      await db.query(`DELETE FROM pending_students WHERE pending_id = $1`, [
+      await db.query(`DELETE FROM pending_students WHERE pending_id = $1 AND organization_id = $2`, [
         id,
+        sessionOrgId,
       ]);
 
       req.flash("info", "Student application rejected and deleted.");
@@ -9386,6 +9412,7 @@ const commonController = {
 
   createEmployeeGet: async (req, res, db) => {
     try {
+      const isEmbedded = isEmbeddedRequest(req, "createEmployee");
       await ensurePermissionsSchema(db);
       await ensureClassDashboardLayoutSchema(db);
 
@@ -9418,6 +9445,10 @@ const commonController = {
           success: req.flash("success"),
           error: req.flash("error"),
         },
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
       });
     } catch (error) {
       req.flash("error", "Failed to load classes.");
@@ -9426,6 +9457,8 @@ const commonController = {
   },
 
   createEmployeePost: async (req, res, db) => {
+    const isEmbedded = isEmbeddedRequest(req, "createEmployee");
+    const createEmployeeRedirectUrl = isEmbedded ? "/common/createEmployee?embed=workspace" : "/common/createEmployee";
     const { firstName, lastName, email, account_type, dateOfBirth } = req.body;
 
     let classes = req.body.classes || [];
@@ -9456,7 +9489,7 @@ const commonController = {
 
     if (!firstName || !lastName || !email || !account_type) {
       req.flash("error", "All fields are required.");
-      return res.redirect("/common/createEmployee");
+      return res.redirect(createEmployeeRedirectUrl);
     }
 
     const requestorRoleName = String(requestorRole || "").trim();
@@ -9465,7 +9498,7 @@ const commonController = {
 
     if (account_type === "Manager" && !canAssignSensitivePermissions) {
       req.flash("error", "Only managers can create manager accounts.");
-      return res.redirect("/common/createEmployee");
+      return res.redirect(createEmployeeRedirectUrl);
     }
 
     const sanitizedRequestedPermissions = canAssignSensitivePermissions
@@ -9496,7 +9529,7 @@ const commonController = {
       await ensureUserMailroomClassesSchema(db);
     } catch (schemaErr) {
       req.flash("error", "Database schema error: " + schemaErr.message);
-      return res.redirect("/common/createEmployee");
+      return res.redirect(createEmployeeRedirectUrl);
     }
 
     // ─── Step 2: Acquire a connection from the pool ──────────────────────────
@@ -9505,7 +9538,7 @@ const commonController = {
       client = await db.connect();
     } catch (connErr) {
       req.flash("error", "Could not connect to the database. Please try again.");
-      return res.redirect("/common/createEmployee");
+      return res.redirect(createEmployeeRedirectUrl);
     }
 
     try {
@@ -9522,7 +9555,7 @@ const commonController = {
       if (emailCheckResult.rows.length > 0) {
         req.flash("error", "This email is already in use by another user or organization.");
         await client.query("ROLLBACK");
-        return res.redirect("/common/createEmployee");
+        return res.redirect(createEmployeeRedirectUrl);
       }
 
       // ─── Step 4: Generate token ───────────────────────────────────────────
@@ -9634,11 +9667,11 @@ const commonController = {
       });
 
       req.flash("success", "Employee created successfully. Password invite is being sent now.");
-      res.redirect("/common/createEmployee");
+      res.redirect(createEmployeeRedirectUrl);
     } catch (error) {
       try { await client.query("ROLLBACK"); } catch (_) {}
       req.flash("error", "Failed to create employee: " + error.message);
-      res.redirect("/common/createEmployee");
+      res.redirect(createEmployeeRedirectUrl);
     } finally {
       client.release();
     }
@@ -10204,6 +10237,8 @@ const commonController = {
 
   toggleHoldEmployee: async (req, res, db) => {
     const { userId } = req.params;
+    const isEmbedded = isEmbeddedRequest(req, "modifyEmployee");
+    const modifyEmployeeRedirectUrl = `/common/modifyEmployee?userId=${userId}${isEmbedded ? "&embed=workspace" : ""}`;
     try {
       const result = await db.query(
         "UPDATE users SET on_hold = NOT on_hold WHERE user_id = $1 AND organization_id = $2 RETURNING on_hold",
@@ -10231,16 +10266,17 @@ const commonController = {
       }).catch(err => console.error('[Notif] hold change failed:', err.message));
 
       req.flash("success", `Employee has been ${newStatus}.`);
-      res.redirect(`/common/modifyEmployee?userId=${userId}`);
+      res.redirect(modifyEmployeeRedirectUrl);
     } catch (error) {
       // ...removed error log for clean background operation...
       req.flash("error", "Failed to update employee status.");
-      res.redirect(`/common/modifyEmployee?userId=${userId}`);
+      res.redirect(modifyEmployeeRedirectUrl);
     }
   },
 
   modifyEmployeeGet: async (req, res, db) => {
     const { userId } = req.query;
+    const isEmbedded = isEmbeddedRequest(req, "modifyEmployee");
 
     if (!userId) {
       res.status(400).send("User ID is required.");
@@ -10357,6 +10393,10 @@ const commonController = {
         },
         selectedPermissions,
         messages: req.flash(),
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
       });
     } catch (error) {
             res.status(500).send("Failed to load employee details.");
@@ -10365,6 +10405,7 @@ const commonController = {
 
   modifyEmployeePost: async (req, res, db) => {
     const { userId } = req.params;
+    const isEmbedded = isEmbeddedRequest(req, "modifyEmployee");
     const {
       firstName,
       lastName,
@@ -10389,7 +10430,8 @@ const commonController = {
         return res.status(statusCode).json({ success: false, error: message });
       }
       req.flash("error", message);
-      return res.redirect(redirectPath || `/common/modifyEmployee?userId=${userId}`);
+      const fallbackPath = `/common/modifyEmployee?userId=${userId}${isEmbedded ? "&embed=workspace" : ""}`;
+      return res.redirect(redirectPath || fallbackPath);
     };
     const respondModifyEmployeeSuccess = (message) => {
       req.flash("success", message);
@@ -10737,10 +10779,11 @@ const commonController = {
 
       const students = studentsResult.rows;
 
+      const noStudentsUrl = `/common/admissions?panel=create-student&page=${encodeURIComponent("/common/addStudent")}&label=${encodeURIComponent("Add New Student")}`;
       if (students.length === 0) {
         req.flash(
           "error",
-          `No students found for this class in the current term. Go to 'Enrollment Management' to add student.`
+          `No students found for this class in the current term. Go to Admissions to add a new student.`
         );
       }
 
@@ -10772,10 +10815,12 @@ const commonController = {
         };
       });
 
+      const manageAssessmentUrl = `/common/manageAssessment?organizationId=${organizationId}&termId=${currentTerm.term_id}`;
+      const noAssessmentsUrl = `/common/management?panel=assessment-scores&page=${encodeURIComponent(manageAssessmentUrl)}&label=${encodeURIComponent("Assessments")}`;
       if (assessments.length === 0) {
         req.flash(
           "error",
-          "No assessments found for the current term, subject, and class. Go to 'Create & Manage Assessment Scores' to add assessments "
+          "No assessments found for the current term, subject, and class. Go to Management Tools to add assessments."
         );
       }
 
@@ -10922,6 +10967,8 @@ const commonController = {
         assessments,
         hasEditableAssessments: assessments.some((assessmentRow) => assessmentRow.can_edit_scores),
         students,
+        noStudentsUrl,
+        noAssessmentsUrl,
         employees,
         scaleBase,
         maxPossibleScore,
@@ -11694,6 +11741,24 @@ const commonController = {
         }
       }
 
+      // assessment_questions -> student_assessment_responses is ON DELETE
+      // CASCADE, so replacing a set's questions (always a full
+      // delete-then-reinsert here) used to silently wipe any student's
+      // already-submitted answers and manually-entered marks along with
+      // the old rows, with zero check. Block instead - same principle as
+      // the class/school-year/test delete guards.
+      const attemptCount = await client.query(
+        `SELECT COUNT(*)::int AS count FROM student_assessment_attempts WHERE question_set_id = $1`,
+        [resolvedQuestionSetId]
+      );
+      if (Number(attemptCount.rows[0]?.count || 0) > 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: "Cannot change this question set's questions because one or more students have already started or submitted an attempt on it. Use the retake/unlock flow for individual students instead, or create a new question set.",
+        });
+      }
+
       await client.query(
         `DELETE FROM assessment_questions WHERE question_set_id = $1`,
         [resolvedQuestionSetId]
@@ -12128,6 +12193,21 @@ NUMBERING:
       if (!existingResult.rows.length) {
         await client.query("ROLLBACK");
         return res.status(404).json({ success: false, error: "Question set not found." });
+      }
+
+      // Same guard as upsertAssessmentQuestionSet above - assessment_questions
+      // cascades to student_assessment_responses, so this used to silently
+      // wipe every student's submitted answers/marks with no check.
+      const attemptCount = await client.query(
+        `SELECT COUNT(*)::int AS count FROM student_assessment_attempts WHERE question_set_id = $1`,
+        [questionSetId]
+      );
+      if (Number(attemptCount.rows[0]?.count || 0) > 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          success: false,
+          error: "Cannot delete this question set because one or more students have already started or submitted an attempt on it. Remove those attempts first, then try again.",
+        });
       }
 
       await client.query(
@@ -15213,14 +15293,37 @@ NUMBERING:
     try {
       await client.query("BEGIN"); // Start a transaction
 
+      // assessment_results.assessment_id is ON DELETE CASCADE, so this
+      // used to silently delete every student score already entered for
+      // the test along with it - no check, no warning. Block instead,
+      // same principle as the class/school-year/term delete guards.
+      const resultCount = await client.query(
+        `SELECT COUNT(*)::int AS count
+         FROM assessment_results ar
+         JOIN assessments a ON a.assessment_id = ar.assessment_id
+         WHERE a.group_id = $1 AND a.organization_id = $2`,
+        [groupId, organizationId]
+      );
+      const scoreCount = Number(resultCount.rows[0]?.count || 0);
+      if (scoreCount > 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error: `Cannot delete this test because ${scoreCount} student score${scoreCount === 1 ? "" : "s"} have already been entered for it. Remove those results first, then try again.`,
+        });
+      }
+
       // Delete all assessments associated with the given group ID --
       // restricted to the caller's organization to prevent cross-org
       // deletions when group ids are guessable.
-      await client.query(
+      const deleteResult = await client.query(
         `DELETE FROM assessments
              WHERE group_id = $1 AND organization_id = $2`,
         [groupId, organizationId]
       );
+      if (deleteResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Test was not found or could not be deleted." });
+      }
 
       await client.query("COMMIT"); // Commit the transaction
       res
@@ -18392,6 +18495,7 @@ NUMBERING:
       const googleIntegration = await getGoogleIntegrationStatus(db, req.session.organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, req.session.organizationId);
       const transportationIntegration = await getTransportationIntegrationStatus(db, req.session.organizationId);
+      const miraIntegration = await getMiraIntegrationStatus(db, req.session.organizationId);
       const canUseQuestionSetIntegration =
         Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
       const canSetAssessmentQuestions = await userHasPermission(
@@ -18436,6 +18540,7 @@ NUMBERING:
         failedEmailCount,
         googleIntegration,
         transportationIntegration,
+        miraIntegration,
         canManageAllClassAssessmentExams,
         canAccessAssessmentQuestions,
         canViewPaygiraOrgSwitch,
@@ -23717,4 +23822,8 @@ module.exports = {
   sendPasswordSetSuccessEmail,
   sendGuardianWelcomeEmail,
   sendGuardianStudentAddedEmail,
+  getUpcomingBirthdayInfo,
+  buildUpcomingBirthdayCards,
+  getStudentBirthdayWish,
+  getStaffBirthdayWish,
 };

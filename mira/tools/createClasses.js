@@ -3,7 +3,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 
 module.exports = {
   name: "create_classes",
-  description: "Create one or more new classes in the caller's own school, matching the \"+ Add New Items\" > New Class form. Requires the Manage Classes & Subjects permission. Class names may only contain letters, numbers, spaces, and hyphens.",
+  description: "Create one or more new classes in the caller's own school, matching the \"+ Add New Items\" > New Class form. Needs Manage Classes & Subjects. Class names may only contain letters, numbers, spaces, and hyphens.",
   parameters: {
     type: "object",
     properties: {
@@ -24,6 +24,7 @@ module.exports = {
       userId: tenant.userId,
       userRole: tenant.userRole,
       accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
       classNames,
     });
 

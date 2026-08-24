@@ -42,6 +42,7 @@ async function ensureClassDashboardLayoutSchema(dbClient) {
 const enrollmentController = {
     // Enrollment page
     enrollmentGet: async (req, res, db) => {
+      const isEmbedded = isEmbeddedRequest(req, "enroll");
       try {
         const organizationId = req.session.organizationId;
         await ensureClassDashboardLayoutSchema(db);
@@ -73,7 +74,7 @@ const enrollmentController = {
         const currentTerm = terms.find(t => t.current);
         if (!currentTerm) {
           req.flash('error', 'No current term found. Please set a current term.');
-          return res.redirect('/');
+          return res.redirect(isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/common/orgDashboard');
         }
     
         // 🔥 Fetch ALL classes in the organization
@@ -111,11 +112,15 @@ const enrollmentController = {
           schoolYears,
           classes: classesWithEnrolledStudents, // ✅ shows ALL classes
           currentTerm,
-          messages: req.flash()
+          messages: req.flash(),
+          isEmbedded,
+          hideGlobalHeader: isEmbedded,
+          hideGlobalFooter: isEmbedded,
+          hideGlobalChatbot: isEmbedded,
         });
       } catch (error) {
                 req.flash('error', 'Failed to load enrollment data.');
-        res.redirect('/');
+        res.redirect(isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/');
       }
     },
     
@@ -351,10 +356,10 @@ const enrollmentController = {
               
         
     modifyEnrollmentGet: async (req, res, db) => {
+        const isEmbedded = isEmbeddedRequest(req, "modifyEnrollment");
         try {
             const { enrollmentId } = req.params; // Extract enrollmentId from the route
             const organizationId = req.session.organizationId;
-            const isEmbedded = isEmbeddedRequest(req, "modifyEnrollment");
         await ensureClassDashboardLayoutSchema(db);
     
             // Fetch the existing enrollment
@@ -366,7 +371,7 @@ const enrollmentController = {
     
             if (enrollmentResult.rows.length === 0) {
                 req.flash('error', 'Enrollment not found.');
-                return res.redirect('/enrollment/manageEnrollment');
+                return res.redirect(isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/enrollment/manageEnrollment');
             }
     
             const enrollment = enrollmentResult.rows[0];
@@ -440,7 +445,7 @@ const enrollmentController = {
             });
         } catch (error) {
                         req.flash('error', 'Failed to load modify enrollment data.');
-            res.redirect('/enrollment/manageEnrollment');
+            res.redirect(isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/enrollment/manageEnrollment');
         }
     },
     

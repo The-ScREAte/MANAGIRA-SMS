@@ -350,16 +350,9 @@
               : ([0, 6].includes(new Date().getDay()) ? 'Weekend' : 'School Day'); %>
             <% if (dashboardCountryCode || dashboardTodayLabel) { %>
             <div style="margin-top:6px; font-size:0.9rem; color:#334155; display:inline-flex; align-items:center; gap:6px;">
-              <% const dashboardCountryFlag = (function toFlagEmoji(code) {
-                const normalized = String(code || '').trim().toUpperCase();
-                if (!/^[A-Z]{2}$/.test(normalized)) return '🌍';
-                return normalized
-                  .split('')
-                  .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
-                  .join('');
-              })(dashboardCountryCode); %>
-              <% if (dashboardCountryCode) { %>
-              <span style="display:inline-flex; align-items:center; font-size:1.50rem; line-height:1;" title="Organization country: <%= dashboardCountryName || dashboardCountryCode %>" aria-label="Organization country: <%= dashboardCountryName || dashboardCountryCode %>"><%= dashboardCountryFlag %></span>
+              <% const dashboardCountryFlagUrl = /^[A-Z]{2}$/.test(String(dashboardCountryCode || '').trim().toUpperCase()) ? `https://flagcdn.com/24x18/${String(dashboardCountryCode).trim().toLowerCase()}.png` : ''; %>
+              <% if (dashboardCountryFlagUrl) { %>
+              <span style="display:inline-flex; align-items:center; line-height:1;" title="Organization country: <%= dashboardCountryName || dashboardCountryCode %>" aria-label="Organization country: <%= dashboardCountryName || dashboardCountryCode %>"><img src="<%= dashboardCountryFlagUrl %>" alt="" width="20" height="15" style="border-radius:2px;"></span>
               <% } else { %>
               <span style="display:inline-flex; align-items:center; font-size:1.05rem; line-height:1;" aria-hidden="true">🌍</span>
               <% } %>

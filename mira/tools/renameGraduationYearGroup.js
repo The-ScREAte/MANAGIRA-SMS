@@ -3,7 +3,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 
 module.exports = {
   name: "rename_graduation_year_group",
-  description: "Rename a graduation year group. Requires the Manage Classes & Subjects permission and the exact current name (use list_graduation_year_groups first if unsure).",
+  description: "Rename a graduation year group. Needs Manage Classes & Subjects and the exact current name (use list_graduation_year_groups first if unsure).",
   parameters: {
     type: "object",
     properties: {
@@ -26,6 +26,7 @@ module.exports = {
       userId: tenant.userId,
       userRole: tenant.userRole,
       accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
       name,
       newName,
     });

@@ -22,20 +22,36 @@ const MOCK_MODE = String(process.env.MIRA_MOCK_LLM || "").toLowerCase() === "tru
 // Model IDs differ per provider (OpenRouter prefixes with the vendor, e.g.
 // "openai/gpt-4o-mini", while a direct OpenAI/Anthropic key uses their own
 // bare model names) - one map per provider, same task keys throughout.
+// "default" is what every real chat turn actually runs on - including all
+// the multi-step tool calling (creating/renaming/deleting records) built
+// out across this file's callers. It was pinned to the cheapest tier
+// (gpt-4o-mini) while lighter, simpler tasks (draft/reasoning) got the
+// stronger model - backwards, and the direct cause of tool calls going out
+// with empty/wrong arguments in longer or multi-entity conversations
+// (e.g. "create this class, add this subject to it, and these two
+// graduation year groups" - gpt-4o-mini repeatedly called create_subject
+// with {} instead of filling in values right there in the conversation).
+// Bumped to the same tier as draft/reasoning.
 const TASK_MODEL_MAPS = {
   openrouter: {
     classify: "openai/gpt-4o-mini",
     lookup: "openai/gpt-4o-mini",
-    draft: "anthropic/claude-3.5-sonnet",
-    reasoning: "anthropic/claude-3.5-sonnet",
+    draft: "anthropic/claude-sonnet-4.5",
+    reasoning: "anthropic/claude-sonnet-4.5",
+    // Root cause of the reliability problem was a parser bug (see
+    // toOpenAIMessages/toAnthropicMessages and the tool-call buffering
+    // below), not this model's capability - it was corrupting every
+    // parallel tool call except the first regardless of which model was
+    // used. With that fixed, gpt-4o-mini is what's affordable given the
+    // account's current credit balance.
     default: "openai/gpt-4o-mini",
   },
   openai: {
     classify: "gpt-4o-mini",
     lookup: "gpt-4o-mini",
-    draft: "gpt-4o-mini",
-    reasoning: "gpt-4o-mini",
-    default: "gpt-4o-mini",
+    draft: "gpt-4o",
+    reasoning: "gpt-4o",
+    default: "gpt-4o",
   },
   anthropic: {
     classify: "claude-sonnet-4-5",
@@ -84,6 +100,56 @@ function adaptForAnthropic(content) {
   });
 }
 
+// ---- Tool-call history messages ----
+// The orchestrator represents "the model called a tool, here's the result"
+// as two provider-neutral message shapes: an assistant message carrying
+// `toolCalls: [{id, name, args}, ...]` (content null, ONE OR MORE calls -
+// models routinely call several tools in parallel in a single response,
+// e.g. "create this class, this subject, and these two grad year groups"
+// naturally becomes 4 parallel calls), and a `role: "tool_results"` message
+// carrying `results: [{toolCallId, content}, ...]`, one per call being
+// answered. Previously this was faked as plain text ("[Called X with Y]" /
+// "Tool result: ..."), which isn't the real tool-calling protocol either
+// provider expects; fixing that to a *single*-call-shaped native format
+// then surfaced the real bug: parallel tool calls were being collapsed
+// into one corrupted buffer (all calls' JSON arguments concatenated
+// together byte-for-byte, since only the first call's buffer was ever
+// created and every subsequent call's argument fragments kept getting
+// appended onto it) - producing invalid JSON that silently parsed to `{}`,
+// which looked exactly like "the model keeps forgetting the arguments"
+// but was actually this parser discarding 2 of every 3 parallel calls'
+// real arguments. These adapt the neutral shape to each provider's actual
+// wire format right before the call, same principle as
+// adaptForOpenAI/adaptForAnthropic above.
+function toOpenAIMessages(m) {
+  if (m.role === "assistant" && m.toolCalls?.length) {
+    return [
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: m.toolCalls.map((tc) => ({ id: tc.id, type: "function", function: { name: tc.name, arguments: JSON.stringify(tc.args || {}) } })),
+      },
+    ];
+  }
+  if (m.role === "tool_results") {
+    return m.results.map((r) => ({ role: "tool", tool_call_id: r.toolCallId, content: typeof r.content === "string" ? r.content : JSON.stringify(r.content) }));
+  }
+  return [{ ...m, content: adaptForOpenAI(m.content) }];
+}
+
+function toAnthropicMessages(m) {
+  if (m.role === "assistant" && m.toolCalls?.length) {
+    return [{ role: "assistant", content: m.toolCalls.map((tc) => ({ type: "tool_use", id: tc.id, name: tc.name, input: tc.args || {} })) }];
+  }
+  if (m.role === "tool_results") {
+    // Anthropic requires every tool_result answering a turn's tool_use
+    // blocks to live in ONE subsequent user message (multiple content
+    // blocks), not one message per result.
+    return [{ role: "user", content: m.results.map((r) => ({ type: "tool_result", tool_use_id: r.toolCallId, content: typeof r.content === "string" ? r.content : JSON.stringify(r.content) })) }];
+  }
+  return [{ ...m, content: adaptForAnthropic(m.content) }];
+}
+
 // ---- Mock provider: deterministic, keyword-triggered tool selection so
 // the full orchestrator loop (including real tool execution against real
 // tenant-scoped data) is provably correct without live API keys. Swapping
@@ -96,19 +162,19 @@ function adaptForAnthropic(content) {
 // Without this, mock mode fell through to the same generic "demo mode"
 // line every time - identical output whether a search found 3 students or
 // zero, which reads as broken rather than just unphrased.
-function mockPhraseToolResult(messages, rawText) {
-  const match = rawText.match(/^Tool result: ([\s\S]*)\. Reply to the user based on this\.$/);
-  if (!match) return null;
+function mockPhraseToolResult(messages) {
+  const lastMessage = messages[messages.length - 1];
+  if (!lastMessage || lastMessage.role !== "tool_results" || !lastMessage.results?.length) return null;
 
   let result;
   try {
-    result = JSON.parse(match[1]);
+    result = JSON.parse(lastMessage.results[0].content);
   } catch {
     result = null;
   }
 
-  const calledMessage = [...messages].reverse().find((m) => m.role === "assistant" && /^\[Called /.test(extractText(m.content)));
-  const toolName = calledMessage ? (extractText(calledMessage.content).match(/^\[Called (\w+)/) || [])[1] : null;
+  const calledMessage = [...messages].reverse().find((m) => m.role === "assistant" && m.toolCalls?.length);
+  const toolName = calledMessage?.toolCalls?.[0]?.name || null;
 
   if (toolName === "find_student" && Array.isArray(result)) {
     if (!result.length) return "I couldn't find any students matching that - try a different name or spelling.";
@@ -170,7 +236,7 @@ function mockDecide({ messages, tools }) {
   const rawText = extractText(lastUser?.content);
   const text = rawText.toLowerCase();
 
-  const toolResultReply = mockPhraseToolResult(messages, rawText);
+  const toolResultReply = mockPhraseToolResult(messages);
   if (toolResultReply) return { type: "text", content: toolResultReply };
 
   const available = new Set((tools || []).map((t) => t.name));
@@ -228,7 +294,7 @@ function mockDecide({ messages, tools }) {
 async function mockStreamCompletion({ messages, tools, onToken, onToolCall }) {
   const decision = mockDecide({ messages, tools });
   if (decision.type === "tool_call") {
-    onToolCall(decision.toolName, decision.arguments);
+    onToolCall(decision.toolName, decision.arguments, `mock-${Date.now()}`);
     return { finishReason: "tool_call", provider: "mock", model: "mock", usage: { promptTokens: 0, completionTokens: 0 } };
   }
   for (const word of decision.content.split(" ")) {
@@ -250,31 +316,53 @@ async function mockStreamCompletion({ messages, tools, onToken, onToolCall }) {
 async function runOpenAICompatibleStream(client, { model, messages, tools, onToken, onToolCall }) {
   const stream = await client.chat.completions.create({
     model,
-    messages: messages.map((m) => ({ ...m, content: adaptForOpenAI(m.content) })),
+    messages: messages.flatMap(toOpenAIMessages),
     tools: tools?.length ? tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })) : undefined,
+    // Without a cap, some providers (via OpenRouter) reserve credits against
+    // the model's full max output (tens of thousands of tokens) just to
+    // start a request, even for an ordinary chat reply - this was failing
+    // every call outright ("requires more credits... requested up to 64000
+    // tokens") on an account with a modest balance. A real chat reply or
+    // tool call never needs anywhere near this; matches the cap the direct
+    // Anthropic path below already sets.
+    max_tokens: 2048,
     stream: true,
   });
 
-  let toolCallBuffer = null;
+  // Keyed by the stream's own `index` field, NOT array position - a model
+  // that calls several tools in parallel (very common for a compound
+  // request) streams one fragment set per call, each tagged with its own
+  // index; every fragment must accumulate into ITS call's buffer, not get
+  // appended onto whichever buffer happened to exist first.
+  const toolCallBuffers = new Map();
   let usage = null;
   for await (const chunk of stream) {
     const delta = chunk.choices?.[0]?.delta;
     if (delta?.content) onToken(delta.content);
     if (delta?.tool_calls?.length) {
-      const call = delta.tool_calls[0];
-      if (!toolCallBuffer) toolCallBuffer = { name: call.function?.name || "", args: "" };
-      if (call.function?.arguments) toolCallBuffer.args += call.function.arguments;
+      for (const call of delta.tool_calls) {
+        const index = call.index ?? 0;
+        if (!toolCallBuffers.has(index)) {
+          // `id` and `function.name` only arrive on the first chunk of a
+          // given tool call; later chunks for that same index carry only
+          // argument fragments to append.
+          toolCallBuffers.set(index, { id: call.id, name: call.function?.name || "", args: "" });
+        }
+        if (call.function?.arguments) toolCallBuffers.get(index).args += call.function.arguments;
+      }
     }
     if (chunk.usage) usage = chunk.usage;
   }
-  if (toolCallBuffer) {
-    let parsedArgs = {};
-    try {
-      parsedArgs = JSON.parse(toolCallBuffer.args || "{}");
-    } catch {
-      /* leave empty */
+  if (toolCallBuffers.size) {
+    for (const buffer of toolCallBuffers.values()) {
+      let parsedArgs = {};
+      try {
+        parsedArgs = JSON.parse(buffer.args || "{}");
+      } catch {
+        /* leave empty */
+      }
+      onToolCall(buffer.name, parsedArgs, buffer.id);
     }
-    onToolCall(toolCallBuffer.name, parsedArgs);
     return { finishReason: "tool_call", usage };
   }
   return { finishReason: "stop", usage };
@@ -303,23 +391,31 @@ async function anthropicStreamCompletion({ model, messages, tools, onToken, onTo
   const Anthropic = require("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-  const systemMessage = messages.find((m) => m.role === "system");
+  // Anthropic's API takes one flat `system` string, not multiple system-role
+  // messages in the array - the base prompt, RAG context, class scope, and
+  // custom instructions are each their own system message upstream, so all
+  // of them have to be joined here or everything after the first (including
+  // the user's own custom instructions) silently never reaches the model.
+  const systemMessages = messages.filter((m) => m.role === "system");
   const conversational = messages.filter((m) => m.role !== "system");
 
   const stream = client.messages.stream({
     model,
     max_tokens: 1024,
-    system: extractText(systemMessage?.content),
-    messages: conversational.map((m) => ({ ...m, content: adaptForAnthropic(m.content) })),
+    system: systemMessages.map((m) => extractText(m.content)).filter(Boolean).join("\n\n"),
+    messages: conversational.flatMap(toAnthropicMessages),
     tools: tools?.length ? tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) : undefined,
   });
 
   stream.on("text", (text) => onToken(text));
 
   const finalMessage = await stream.finalMessage();
-  const toolUse = finalMessage.content.find((block) => block.type === "tool_use");
-  if (toolUse) {
-    onToolCall(toolUse.name, toolUse.input);
+  // Anthropic natively supports multiple tool_use blocks in one response
+  // (parallel tool calls) - only using the first silently dropped every
+  // other one the model tried to make in the same turn.
+  const toolUses = finalMessage.content.filter((block) => block.type === "tool_use");
+  if (toolUses.length) {
+    for (const toolUse of toolUses) onToolCall(toolUse.name, toolUse.input, toolUse.id);
     return { finishReason: "tool_call", usage: finalMessage.usage };
   }
   return { finishReason: "stop", usage: finalMessage.usage };
@@ -334,8 +430,11 @@ async function callProvider(provider, { model, messages, tools, onToken, onToolC
 /**
  * streamCompletion({task, messages, tools, onToken, onToolCall})
  * Picks a provider/model for the task, streams tokens via onToken(text),
- * and calls onToolCall(name, args) at most once if the model chooses a
- * tool instead of replying directly. Tries every configured provider in
+ * and calls onToolCall(name, args, id) at most once if the model chooses a
+ * tool instead of replying directly - `id` must be threaded back into the
+ * next call's message history (see orchestrator.js) so the follow-up
+ * "here's the tool result" message uses the provider's real tool-call
+ * protocol instead of being faked as plain text. Tries every configured provider in
  * priority order (openrouter, then openai, then anthropic) on error/
  * timeout before giving up.
  */

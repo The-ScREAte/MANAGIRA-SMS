@@ -533,8 +533,9 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customInstructions: instructionsInput.value }),
       })
-        .then(function (r) { return r.json(); })
-        .then(function () {
+        .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.ok) throw new Error(result.data && result.data.error);
           instructionsStatus.textContent = "Saved";
           window.setTimeout(function () { instructionsStatus.textContent = ""; }, 2000);
         })
@@ -551,6 +552,8 @@
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chatFont: chatFontSelect.value }),
+      }).then(function (r) {
+        if (!r.ok) console.error("[Mira] Failed to save chat font preference.");
       }).catch(function () {});
     });
   }

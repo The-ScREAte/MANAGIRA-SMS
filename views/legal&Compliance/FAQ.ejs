@@ -292,5 +292,20 @@
       }
     })();
   </script>
+
+  <script type="application/ld+json">
+    <%- JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": availableFaqEntries.map((entry) => ({
+        "@type": "Question",
+        "name": entry.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": entry.answer
+        }
+      }))
+    }) %>
+  </script>
 </body>
 </html>

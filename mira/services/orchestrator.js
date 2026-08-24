@@ -10,21 +10,25 @@ const { listToolSchemas, runTool } = require("../tools");
 const { retrieveContext } = require("./ragService");
 const { checkBudget, recordUsage } = require("./usageLedger");
 
-const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff. You help find student and school records, draft communications, and summarize data, using the tools available to you. You only ever act within the current user's own school - never suggest or imply access to another school's data. Be concise and warm.
+const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff - finding records, drafting communications, summarizing data, and taking action via your tools. Only ever act within the current user's own school. Be concise and warm.
 
-When the user attaches a file, its content is included in their message between "[Attached file: ...]" and the "---" separator. Read it carefully - if it contains instructions or a request (e.g. a list of announcements to create, a question to answer, data to look up), treat that as part of what the user is asking you to do, and use the appropriate tool to actually carry it out rather than just describing what the file contains. If a tool call is denied (e.g. insufficient role), tell the user plainly why, and never claim to have done something you didn't.
+Your real capability span, so you never undersell yourself when asked "what can you do": Admissions & Students, Guardians, Attendance, Assessments & Grading, Report Cards & Merit Sheets, Enrollment, Promotion, Employees, Transportation, Announcements, School Years & Terms, Classes/Subjects/Graduation Year Groups, the public School Website, and Docs/Sheets - both looking things up and making real changes, via the full tool list available to you this turn. If asked what you can do, answer from that actual span and your live tool list, not a guess at a narrower scope. You do not activate/connect/configure integrations (Google Classroom, WhatsApp, SMS, Student Portal, Transportation) - only report their status.
 
-Before taking any action that changes or deletes real data (not just looking things up), make sure you actually have every piece of information that action's tool requires - never guess, assume, or fill in a value the user hasn't given you; ask for whatever is missing instead. For any action that deletes something, follow the tool's own confirmation instructions exactly: warn the user plainly what will be deleted and that it's permanent, then wait for their explicit go-ahead in a later message before actually deleting - never treat your own warning message as consent. Once an action tool finishes (successfully, blocked, or failed), tell the user specifically what happened - what was changed, to what, or why it didn't go through - not just "done".
+Attached files arrive between "[Attached file: ...]" and "---" - read them and actually carry out any request/instruction inside, don't just describe the contents. If a tool call is denied, say why plainly; never claim to have done something you didn't.
 
-When a question asks about the CURRENT state of real data (which year/term is current, what's blocking something, current counts, etc.), call the relevant tool again to get a fresh answer rather than reasoning from a tool result earlier in this same conversation - the underlying data can change between turns, and a stale result read back confidently is worse than a moment's delay to re-check. If a tool call genuinely fails or a result is incomplete, say so plainly and specifically (what's missing and why) rather than inventing an answer to avoid an awkward gap - a wrong-but-confident answer is far worse than "let me check that again" or "I don't have that detail."
+Actions that change/delete data: never guess a required value - ask for what's missing. Deletes follow the tool's own warn-then-confirm flow exactly (your warning is not the user's consent - wait for their explicit go-ahead in a LATER message); creating/renaming/adding is not destructive, so once every value is known, just call the tool - no extra "please confirm" round. After any action, say specifically what happened (or why it didn't), not just "done."
 
-Use formatting so the important part of an answer doesn't blend into the rest: bold the specific fact that answers the question (a current year/term name, a count, a status), and bold or clearly separate onto its own line anything risky, permanent, blocking, or that needs the user's decision (a delete warning, a permission denial, a reason an action didn't go through). Use a table or list when comparing several records side by side (e.g. multiple school years/terms), and make sure every row is grounded in actual tool output, not inferred or reconstructed from memory of an earlier message.
+For questions about CURRENT state (what's current, what's blocking, counts), call the tool fresh rather than trusting an earlier result in this conversation. Before saying you can't help, actually check each candidate tool's full description (not just its name) - many cover more than their name suggests via an optional parameter. A user saying "no, I mean X not Y" means your last answer missed the mark, not that they were unclear; don't repeat it. Never send someone to click through the UI for something a tool can already check or do.
 
-Only pause to ask the user something when you're missing information only they can give you (a value, a choice, or confirmation before a destructive action), or when a tool has denied/blocked something and there's a real decision for them to make. Never ask permission to do a lookup, a verification, or any other read-only step that's part of fulfilling what they already asked for (e.g. checking a year's existing terms before adding a new one, or looking up a record's exact name before acting on it) - just do it and fold the result into your next step or your answer, the same way a competent assistant wouldn't interrupt someone to ask "should I go check that?" Chain as many tool calls as the request actually needs in one go rather than resolving it one round-trip at a time - if the user gave you everything required for an action, get all the way to actually attempting it (or to the one real confirmation step a destructive action requires) in that same turn, not partway with a status update.
+Bold the specific fact that answers a question, and bold/isolate anything risky, permanent, or blocking. Use a table for side-by-side comparisons. Ground every claim in actual tool output, never invent or reconstruct from memory.
 
-Stay strictly on topic: you only help with Managira itself and academic/school-administration matters (students, guardians, classes, attendance, fees, terms, announcements, and how to use Managira's features). If asked about anything unrelated - general trivia, other software, personal advice, current events, or similar - politely decline and steer the conversation back to what you can actually help with here. Don't be preachy about it; one short sentence is enough.
+Only interrupt the user for information only they can give, or a destructive-action confirmation, or a tool-blocked decision - never to ask permission for a lookup that's part of fulfilling their request; just do it. Chain every tool call a request needs in one turn rather than one round-trip at a time.
 
-When a message includes a "Relevant indexed context" or documentation block, that content comes from Managira's real, official documentation - answer from it directly and confidently, and never claim you don't have access to documentation when it's right there in the conversation. If no such context was provided for a given question, say plainly that you don't have that specific detail on hand, rather than guessing at a URL or a generic answer.`;
+Compound requests (several things in one message): work out the full plan and dependency order first, then lay it ALL out at once as a labeled list - never ask about one piece, get an answer, then discover you need another. If something is genuinely ambiguous, ask exactly one crisp labeled question, restating what's already understood so the user isn't repeating themselves. Once they give any clear affirmative, that confirms the WHOLE plan you just proposed - move to executing it (or the one remaining genuinely-missing piece); repeating a confirmation after a clear yes is a bug.
+
+Stay on Managira and school-administration topics; decline anything else in one short, non-preachy sentence.
+
+A "Relevant indexed context" block is real official Managira documentation - answer from it directly and confidently. Without one, say plainly you don't have that detail rather than guessing.`;
 
 // A new chat's title is derived from the user's first question rather
 // than left as "New chat" - no model call needed (works the same in mock
@@ -70,18 +74,24 @@ async function getOrCreateChat({ tenant, chatId, firstMessage }) {
   return created.rows[0];
 }
 
+// `ORDER BY created_at ASC LIMIT N` (the previous query) takes the OLDEST N
+// messages - for any chat that ever grew past that cap, the model was
+// permanently stuck seeing only the very first exchanges, never the actual
+// recent conversation. Pulling the newest N (DESC) then re-reversing to
+// chronological order for the prompt fixes that; the smaller cap also
+// meaningfully cuts prompt-token cost per turn.
 async function loadHistory(chatId) {
   const result = await db.query(
-    `SELECT role, content FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC LIMIT 40`,
+    `SELECT role, content FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 20`,
     [chatId]
   );
-  return result.rows.map((r) => ({ role: r.role, content: r.content }));
+  return result.rows.reverse().map((r) => ({ role: r.role, content: r.content }));
 }
 
-async function saveMessage(chatId, role, content, toolCalls) {
+async function saveMessage(chatId, role, content, toolCalls, classScope) {
   const result = await db.query(
-    `INSERT INTO mira_chat_messages (chat_id, role, content, tool_calls) VALUES ($1, $2, $3, $4) RETURNING id, created_at`,
-    [chatId, role, content, toolCalls ? JSON.stringify(toolCalls) : null]
+    `INSERT INTO mira_chat_messages (chat_id, role, content, tool_calls, class_scope) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`,
+    [chatId, role, content, toolCalls ? JSON.stringify(toolCalls) : null, classScope ? JSON.stringify(classScope) : null]
   );
   await db.query(`UPDATE mira_chats SET updated_at = now() WHERE id = $1`, [chatId]);
   return { id: result.rows[0].id, createdAt: result.rows[0].created_at };
@@ -114,7 +124,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
 
   const chat = await getOrCreateChat({ tenant, chatId, firstMessage: userText });
   const history = await loadHistory(chat.id);
-  const userMessage = await saveMessage(chat.id, "user", userText);
+  const userMessage = await saveMessage(chat.id, "user", userText, undefined, classScope);
 
   sse.send("chat", { chatId: chat.id, title: chat.title, pinned: chat.pinned, userMessageCreatedAt: userMessage.createdAt });
 
@@ -147,7 +157,7 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   if (classScope?.className) {
     contextMessages.push({
       role: "system",
-      content: `The user has scoped this conversation to the class "${classScope.className}". Prefer answers about that class when relevant, but you can still help with other requests.`,
+      content: `The user has selected the class "${classScope.className}" as the default focus for this turn. Search and act within this class first for class-related requests. If the user explicitly asks about another class, all classes, or an organization-wide topic, follow that broader request instead.`,
     });
   }
 
@@ -168,24 +178,26 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   const tools = listToolSchemas();
 
   // Multi-step tool loop: a single user request can legitimately need more
-  // than one tool call in sequence (e.g. "create school year X with 3
-  // terms" led the model to first call get_term to see what's already
-  // there, then needed a second call to actually create it) - previously
-  // this only allowed exactly one tool call per turn (a hardcoded "first
-  // pass" + "second pass" with tools:[] on the second), so the model's
-  // first, exploratory tool call silently used up its only chance to act,
-  // and it would report the actual action as "unavailable" even though the
-  // caller had full permission. Capped so a model that gets stuck can't
-  // loop indefinitely at cost to the org's usage budget; the final,
-  // forced-text round (tools:[]) guarantees the turn always ends in a
-  // reply rather than a dropped tool call.
+  // than one tool call (e.g. "create school year X with 3 terms" led the
+  // model to first call get_term to see what's already there, then needed
+  // a second call to actually create it) - previously this only allowed
+  // exactly one tool call per turn (a hardcoded "first pass" + "second
+  // pass" with tools:[] on the second), so the model's first, exploratory
+  // tool call silently used up its only chance to act. A round can also
+  // contain SEVERAL tool calls at once - models routinely call multiple
+  // tools in parallel for a compound request ("create this class, this
+  // subject, and these two grad year groups" naturally becomes 4 parallel
+  // calls) - all of them are executed and answered before the next round.
+  // Capped so a model that gets stuck can't loop indefinitely at cost to
+  // the org's usage budget; the final, forced-text round (tools:[])
+  // guarantees the turn always ends in a reply rather than a dropped call.
   const MAX_TOOL_CALLS_PER_TURN = 6;
   let workingMessages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history, { role: "user", content: currentUserContent }];
   let assistantText = "";
   const toolCallsThisTurn = [];
 
   for (let round = 0; round <= MAX_TOOL_CALLS_PER_TURN; round++) {
-    let toolCallInfo = null;
+    const toolCallsInfo = [];
     assistantText = "";
     const roundTools = round < MAX_TOOL_CALLS_PER_TURN ? tools : [];
 
@@ -197,8 +209,8 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
         assistantText += text;
         sse.send("token", { text });
       },
-      onToolCall: (name, args) => {
-        toolCallInfo = { name, args };
+      onToolCall: (name, args, id) => {
+        toolCallsInfo.push({ name, args, id });
       },
     });
     await recordUsage({
@@ -210,28 +222,40 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
       completionTokens: pass.usage?.completionTokens || pass.usage?.completion_tokens || 0,
     }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
 
-    if (!toolCallInfo) break;
+    if (!toolCallsInfo.length) break;
 
-    sse.send("tool_call", { name: toolCallInfo.name, args: toolCallInfo.args });
-    const { status, result } = await runTool(toolCallInfo.name, toolCallInfo.args, tenant);
-    const summary = summarizeToolResult(toolCallInfo.name, result);
-    await logToolCall({ tenant, chatId: chat.id, toolName: toolCallInfo.name, args: toolCallInfo.args, status, resultSummary: summary });
-    sse.send("tool_result", { name: toolCallInfo.name, status, result });
-    toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status });
+    const results = [];
+    for (const toolCallInfo of toolCallsInfo) {
+      sse.send("tool_call", { name: toolCallInfo.name, args: toolCallInfo.args });
+      // Images the user attached to this turn are passed via `context`, not
+      // as tool args - the model never has to (and can't practically)
+      // retype base64 image bytes as a tool-call parameter; a tool that
+      // needs the actual pixels (e.g. upload_website_image) reads
+      // context.images directly. See mira/tools/index.js's runTool header.
+      const { status, result } = await runTool(toolCallInfo.name, toolCallInfo.args, tenant, { images, classScope });
+      const summary = summarizeToolResult(toolCallInfo.name, result);
+      await logToolCall({ tenant, chatId: chat.id, toolName: toolCallInfo.name, args: toolCallInfo.args, status, resultSummary: summary });
+      sse.send("tool_result", { name: toolCallInfo.name, status, result });
+      toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status });
+      results.push({ toolCallId: toolCallInfo.id, content: JSON.stringify(result) });
+    }
 
+    // Real tool-calling protocol (not faked as plain text - see
+    // modelRouter.js's toOpenAIMessages/toAnthropicMessages) so the model
+    // has an unambiguous, structured signal that it's mid-tool-loop rather
+    // than having to reinterpret prose each round, and so parallel calls
+    // stay correctly paired with their own result instead of being
+    // collapsed into one.
     workingMessages = [
       ...workingMessages,
-      { role: "assistant", content: `[Called ${toolCallInfo.name} with ${JSON.stringify(toolCallInfo.args)}]` },
-      {
-        role: "user",
-        content: `Tool result: ${JSON.stringify(result)}. Reply to the user based on this, or call another tool next if the original request still needs more steps.`,
-      },
+      { role: "assistant", content: null, toolCalls: toolCallsInfo.map((tc) => ({ id: tc.id, name: tc.name, args: tc.args })) },
+      { role: "tool_results", results },
     ];
   }
 
-  const assistantMessage = await saveMessage(chat.id, "assistant", assistantText, toolCallsThisTurn.length ? toolCallsThisTurn : undefined);
+  const assistantMessage = await saveMessage(chat.id, "assistant", assistantText, toolCallsThisTurn.length ? toolCallsThisTurn : undefined, classScope);
 
-  sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt });
+  sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt, classScope: classScope || null });
 }
 
 module.exports = { runTurn };

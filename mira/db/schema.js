@@ -30,10 +30,12 @@ async function ensureMiraSchema(db) {
       role            VARCHAR(16) NOT NULL CHECK (role IN ('user','assistant','tool')),
       content         TEXT NOT NULL,
       tool_calls      JSONB NULL,
+      class_scope     JSONB NULL,
       feedback        VARCHAR(10) NULL CHECK (feedback IN ('like','dislike')),
       created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  await db.query(`ALTER TABLE mira_chat_messages ADD COLUMN IF NOT EXISTS class_scope JSONB NULL`);
   await db.query(`ALTER TABLE mira_chat_messages ADD COLUMN IF NOT EXISTS feedback VARCHAR(10) NULL`);
   await db.query(`CREATE INDEX IF NOT EXISTS mira_chat_messages_chat_idx ON mira_chat_messages(chat_id, created_at ASC)`);
 

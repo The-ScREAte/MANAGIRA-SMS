@@ -21,10 +21,9 @@ function describeImpact(dependentCounts) {
 module.exports = {
   name: "delete_subject",
   description:
-    "Delete a subject. This is DESTRUCTIVE and PERMANENT - unlike deleting a class or school year, this is NOT blocked by dependent data: it deletes the subject's full assessment history, results, and enrollments along with it. Requires the Manage Classes & Subjects permission. " +
-    "By default this removes the subject from EVERY class it's assigned to - pass className to remove it from just that one class instead. " +
-    "Call this tool a first time with confirm omitted (or false) to see exactly what would be lost; read that warning to the user IN FULL and ask them to confirm - never set confirm=true on that first call. " +
-    "As soon as the user replies with ANY clear affirmative in a later message, call this tool again with confirm=true right away.",
+    "Delete a subject. DESTRUCTIVE and PERMANENT - unlike class/school-year deletes, NOT blocked by dependent data: wipes assessment history/results/enrollments too. Needs Manage Classes & Subjects. " +
+    "Default removes it from EVERY class - pass className to remove from just that one. " +
+    "First call with confirm omitted/false to get the warning; relay it in full and get explicit confirmation. On any clear yes in a later message, call again with confirm=true.",
   parameters: {
     type: "object",
     properties: {
@@ -73,6 +72,7 @@ module.exports = {
         userId: tenant.userId,
         userRole: tenant.userRole,
         accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
         subjectName,
         className,
       });

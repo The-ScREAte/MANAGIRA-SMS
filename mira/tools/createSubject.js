@@ -3,7 +3,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 
 module.exports = {
   name: "create_subject",
-  description: "Create a new subject and assign it to one or more classes, matching the \"+ Add New Items\" > New Subject form. Requires the Manage Classes & Subjects permission and at least one class name.",
+  description: "Create a new subject and assign it to one or more classes, matching the \"+ Add New Items\" > New Subject form. Needs Manage Classes & Subjects and at least one class name.",
   parameters: {
     type: "object",
     properties: {
@@ -26,6 +26,7 @@ module.exports = {
       userId: tenant.userId,
       userRole: tenant.userRole,
       accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
       subjectName,
       classNames,
     });

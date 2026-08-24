@@ -1,0 +1,498 @@
+<style>
+  .mira-settings-page {
+    width: 100%; margin: 0; padding: 28px 28px 90px; box-sizing: border-box;
+    background: #fafafa;
+  }
+
+  /* Every tint below is mixed live from --org-primary-color (set per
+     organization in partials/head.ejs) via color-mix(), so it always
+     follows whatever theme color the org actually has - never a fixed
+     brand color of its own. */
+  .mira-hero {
+    position: relative;
+    display: flex; align-items: center; gap: 20px;
+    padding: 26px 32px;
+    border-radius: 20px;
+    margin-bottom: 24px;
+    color: color-mix(in srgb, var(--org-primary-color, #01535b) 88%, black);
+    background: color-mix(in srgb, var(--org-primary-color, #01535b) 14%, white);
+    border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 22%, transparent);
+    box-shadow: 0 8px 28px -10px color-mix(in srgb, var(--org-primary-color, #01535b) 35%, transparent);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    overflow: hidden;
+  }
+  .mira-hero::before, .mira-hero::after {
+    content: ""; position: absolute; border-radius: 50%;
+    background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, transparent);
+    pointer-events: none;
+  }
+  .mira-hero::before { width: 220px; height: 220px; top: -110px; right: -60px; }
+  .mira-hero::after { width: 140px; height: 140px; bottom: -90px; right: 130px; }
+
+  .mira-hero-logo-ring {
+    position: relative; z-index: 1; flex-shrink: 0;
+    width: 68px; height: 68px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mira-hero-logo-ring img {
+    width: 68px; height: 68px; object-fit: contain;
+    filter: drop-shadow(0 4px 10px color-mix(in srgb, var(--org-primary-color, #01535b) 35%, transparent));
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .mira-hero-logo-ring img:hover { animation: miraLogoShake 0.6s ease-in-out 1; }
+  }
+  @keyframes miraLogoShake {
+    0%   { transform: rotate(0deg); }
+    33%  { transform: rotate(-20deg); }
+    67%  { transform: rotate(0deg); }
+    83%  { transform: rotate(10deg); }
+    100% { transform: rotate(0deg); }
+  }
+
+  .mira-hero-text { position: relative; z-index: 1; }
+  .mira-hero-text h1 {
+    margin: 0 0 4px; font-size: 1.7rem; font-weight: 700; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 10px;
+    color: color-mix(in srgb, var(--org-primary-color, #01535b) 90%, black);
+  }
+  .mira-hero-text .mira-hero-sparkle { font-size: 1.1rem; }
+  .mira-hero-subtitle { margin: 0; color: color-mix(in srgb, var(--org-primary-color, #01535b) 60%, #374151); font-size: 0.95rem; }
+
+  .mira-status-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
+    border-radius: 999px; font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    background: color-mix(in srgb, white 55%, transparent);
+    border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 20%, transparent);
+    color: color-mix(in srgb, var(--org-primary-color, #01535b) 85%, black);
+  }
+  .mira-status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: #9ca3af; }
+  .mira-status-pill.is-active .dot { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .mira-status-pill.is-inactive .dot { background: #f59e0b; }
+  .mira-status-pill-corner { position: absolute; top: 18px; right: 22px; z-index: 2; }
+
+  .mira-flash { padding: 10px 14px; border-radius: 10px; margin-bottom: 18px; font-size: 0.92rem; }
+  .mira-flash-success { background: #dcfce7; color: #166534; }
+  .mira-flash-error { background: #fef2f2; color: #b91c1c; }
+
+  .mira-inactive-notice {
+    background: #fef3c7; color: #92400e; border-radius: 12px; padding: 14px 16px;
+    margin-bottom: 20px; font-size: 0.92rem; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .mira-inactive-notice a { color: inherit; font-weight: 700; text-decoration: underline; }
+
+  .mira-trial-notice, .mira-trial-ended-notice {
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; font-size: 0.92rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .mira-trial-notice {
+    background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, white);
+    color: color-mix(in srgb, var(--org-primary-color, #01535b) 85%, black);
+  }
+  .mira-trial-ended-notice { background: #fef3c7; color: #92400e; }
+  .mira-seat-count {
+    font-weight: 700; font-size: 0.8rem; white-space: nowrap;
+    background: rgba(255,255,255,0.6); border-radius: 999px; padding: 3px 10px;
+  }
+
+  .mira-card {
+    background: #fff; border: 1px solid color-mix(in srgb, var(--org-primary-color, #01535b) 14%, #e5e7eb);
+    border-radius: 16px; padding: 24px; margin-bottom: 20px; width: 100%; box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  }
+  .mira-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .mira-card-icon {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, white); color: var(--org-primary-color, #01535b);
+  }
+  .mira-card-icon svg { width: 18px; height: 18px; }
+  .mira-card h2 { margin: 0; font-size: 1.02rem; color: #111827; }
+  .mira-card p { margin: 0 0 10px; color: #4b5563; line-height: 1.6; font-size: 0.92rem; }
+
+  .mira-point-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
+  .mira-point-list li {
+    display: flex; align-items: flex-start; gap: 10px; color: #374151; line-height: 1.55; font-size: 0.9rem;
+  }
+  .mira-point-icon {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; margin-top: 1px;
+    background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, white); color: var(--org-primary-color, #01535b);
+    display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700;
+  }
+
+  .mira-access-table { width: 100%; border-collapse: collapse; }
+  .mira-access-table th, .mira-access-table td { text-align: left; padding: 11px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+  .mira-access-table thead tr { background: color-mix(in srgb, var(--org-primary-color, #01535b) 6%, white); }
+  .mira-access-table th { color: var(--org-primary-color, #475569); font-weight: 700; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .mira-access-table th:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+  .mira-access-table th:last-child { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
+  .mira-access-table tbody tr:hover { background: #fafafa; }
+  .mira-access-table tr:last-child td { border-bottom: none; }
+  .mira-owner-tag {
+    color: var(--org-primary-color, #01535b); font-size: 0.72rem; font-weight: 700;
+    background: color-mix(in srgb, var(--org-primary-color, #01535b) 12%, white); border-radius: 999px; padding: 2px 8px; margin-left: 6px;
+  }
+  .mira-access-table input[type="checkbox"][disabled] { accent-color: var(--org-primary-color, #01535b); cursor: default; width: 16px; height: 16px; }
+
+  .mira-save-btn {
+    background: linear-gradient(135deg, var(--org-primary-color, #01535b), var(--org-primary-hover, #014a51));
+    color: #fff; border: none; padding: 10px 22px; border-radius: 10px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 12px -2px color-mix(in srgb, var(--org-primary-color, #01535b) 25%, transparent);
+  }
+  .mira-save-btn:hover { filter: brightness(1.05); }
+  .mira-empty-state { color: #6b7280; font-size: 0.9rem; padding: 12px 0; }
+
+  .mira-edit-btn {
+    background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, white); border: 1px solid transparent; border-radius: 999px; padding: 5px 14px;
+    font-size: 0.8rem; font-weight: 600; color: var(--org-primary-color, #01535b); cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .mira-edit-btn:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 20%, white); }
+  .mira-edit-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .mira-modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+    z-index: 2000; align-items: center; justify-content: center; padding: 20px;
+    backdrop-filter: blur(2px);
+  }
+  .mira-modal-overlay.show { display: flex; }
+  .mira-modal-card {
+    background: #fff; border-radius: 20px; max-width: 540px; width: 100%;
+    max-height: 85vh; overflow-y: auto; padding: 28px; position: relative;
+    box-shadow: 0 24px 60px -12px rgba(0,0,0,0.3);
+  }
+  .mira-modal-close {
+    position: absolute; top: 16px; right: 18px; background: #f3f4f6; border: none;
+    width: 28px; height: 28px; border-radius: 50%;
+    font-size: 1.1rem; cursor: pointer; color: #6b7280; line-height: 1;
+  }
+  .mira-modal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .mira-modal-avatar {
+    width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--org-primary-color, #01535b), var(--org-primary-hover, #014a51));
+    color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.95rem;
+  }
+  .mira-modal-card h3 { margin: 0; font-size: 1.08rem; }
+  .mira-modal-subtitle { color: #6b7280; font-size: 0.85rem; margin: 2px 0 20px 50px; }
+
+  .mira-toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: color-mix(in srgb, var(--org-primary-color, #01535b) 6%, white); border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;
+  }
+  .mira-toggle-row .label { font-weight: 600; font-size: 0.9rem; color: #111827; }
+  .mira-toggle-row .sub { color: #6b7280; font-size: 0.78rem; margin-top: 2px; }
+  .mira-switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+  .mira-switch input { opacity: 0; width: 0; height: 0; }
+  .mira-switch-slider {
+    position: absolute; cursor: pointer; inset: 0; background: #d1d5db;
+    border-radius: 999px; transition: background 0.18s ease;
+  }
+  .mira-switch-slider::before {
+    content: ""; position: absolute; height: 18px; width: 18px; left: 3px; top: 3px;
+    background: #fff; border-radius: 50%; transition: transform 0.18s ease;
+  }
+  .mira-switch input:checked + .mira-switch-slider { background: var(--org-primary-color, #01535b); }
+  .mira-switch input:checked + .mira-switch-slider::before { transform: translateX(18px); }
+  .mira-switch input:disabled + .mira-switch-slider { opacity: 0.6; cursor: default; }
+
+  .mira-permissions-label { font-weight: 600; font-size: 0.86rem; margin: 0 0 3px; color: #111827; }
+  .mira-permissions-sub { color: #6b7280; font-size: 0.78rem; margin: 0 0 14px; }
+  .mira-permission-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .mira-permission-item {
+    display: flex; align-items: flex-start; gap: 8px; font-size: 0.84rem; color: #374151;
+    border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .mira-permission-item:has(input:checked) {
+    border-color: var(--org-primary-color, #01535b); background: color-mix(in srgb, var(--org-primary-color, #01535b) 10%, white);
+  }
+  .mira-permission-item input { margin-top: 2px; accent-color: var(--org-primary-color, #01535b); }
+
+  .mira-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+  .mira-modal-cancel {
+    background: none; border: 1px solid #d1d5db; border-radius: 10px; padding: 9px 18px;
+    font-weight: 600; cursor: pointer; color: #374151;
+  }
+  .mira-modal-status { font-size: 0.82rem; margin-top: 12px; min-height: 1.1em; }
+  .mira-modal-status.error { color: #b91c1c; }
+  .mira-modal-status.success { color: #166534; }
+</style>
+
+<div class="mira-settings-page">
+  <div class="mira-hero">
+    <% if (miraIntegration.activated) { %>
+      <span class="mira-status-pill is-active mira-status-pill-corner"><span class="dot"></span> Active</span>
+    <% } else { %>
+      <span class="mira-status-pill is-inactive mira-status-pill-corner"><span class="dot"></span> Inactive</span>
+    <% } %>
+    <div class="mira-hero-logo-ring">
+      <img src="/images/miralogo.png" alt="" aria-hidden="true" />
+    </div>
+    <div class="mira-hero-text">
+      <h1><span class="mira-hero-sparkle">&#10024;</span> Mira</h1>
+      <p class="mira-hero-subtitle">Your school's AI assistant, the Educational Intelligence for easy management.</p>
+    </div>
+  </div>
+
+  <% if (flash && flash.success && flash.success.length) { %>
+    <div class="mira-flash mira-flash-success"><%= flash.success[0] %></div>
+  <% } %>
+  <% if (flash && flash.error && flash.error.length) { %>
+    <div class="mira-flash mira-flash-error"><%= flash.error[0] %></div>
+  <% } %>
+
+  <% if (!miraIntegration.activated) { %>
+    <div class="mira-inactive-notice">
+      <span>Mira isn't activated for your school yet.</span>
+      <a href="/account/settings?section=integrations">Activate it under Integrations &rarr;</a>
+    </div>
+  <% } else if (miraIntegration.trialActive) { %>
+    <div class="mira-trial-notice">
+      <span>&#10024; Free trial - <strong><%= miraIntegration.trialDaysRemaining %></strong> day<%= miraIntegration.trialDaysRemaining === 1 ? '' : 's' %> left. Add as many people as you like at no charge during the trial.</span>
+      <span class="mira-seat-count"><%= seatCount %> seat<%= seatCount === 1 ? '' : 's' %> active</span>
+    </div>
+  <% } else if (miraIntegration.trialEnded) { %>
+    <div class="mira-trial-ended-notice">
+      <span>Your free trial ended. Everyone below with access is a billable seat, including the owner.</span>
+      <span class="mira-seat-count"><%= seatCount %> seat<%= seatCount === 1 ? '' : 's' %> billable</span>
+    </div>
+  <% } %>
+
+  <div class="mira-card">
+    <div class="mira-card-head">
+      <span class="mira-card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.7 5.3L19 9l-5.3 1.7L12 16l-1.7-5.3L5 9l5.3-1.7L12 2z"/><path d="M19 15l.8 2.4L22 18l-2.2.6L19 21l-.8-2.4L16 18l2.2-.6L19 15z"/></svg>
+      </span>
+      <h2>What Mira is</h2>
+    </div>
+    <p>
+      Mira is your school's built-in AI assistant — an educational intelligence that understands how
+      your workspace runs. Ask it a question, hand it a task, or have it pull together a summary, and
+      it works directly inside the app on your behalf: looking up students, guardians, fees, attendance,
+      classes, and assessments, drafting messages, and carrying out real actions across the app through
+      a simple conversation.
+    </p>
+    <ul class="mira-point-list">
+      <li><span class="mira-point-icon">&#10003;</span> Built for easy management — Mira turns multi-step, click-through tasks into a single request.</li>
+      <li><span class="mira-point-icon">&#10003;</span> Scoped strictly to your own school — Mira never sees or touches another school's data.</li>
+      <li><span class="mira-point-icon">&#10003;</span> Permission-aware by design — Mira only ever does what the real permissions granted below already allow, nothing more.</li>
+      <li><span class="mira-point-icon">&#10003;</span> Fully auditable — every change Mira makes is recorded in Activity Logs, tagged "via Mira (AI assistant)".</li>
+      <li><span class="mira-point-icon">&#10003;</span> Runs as its own dedicated service and opens in its own tab, alongside the rest of the app.</li>
+    </ul>
+  </div>
+
+  <div class="mira-card">
+    <div class="mira-card-head">
+      <span class="mira-card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><circle cx="17" cy="7" r="3"/><path d="M22 19c0-2.5-1.8-4.5-5-5"/></svg>
+      </span>
+      <h2>Who can open Mira</h2>
+    </div>
+    <p>Checked means active. Use Edit next to a person to change what they can do, including turning access on or off.</p>
+
+    <table class="mira-access-table">
+      <thead>
+        <tr>
+          <th style="width:40px;"></th>
+          <th>Name</th>
+          <th>Role</th>
+          <th>Email</th>
+          <th style="width:70px;"></th>
+        </tr>
+      </thead>
+      <tbody id="mira-access-tbody">
+        <% if (!employees || employees.length === 0) { %>
+          <tr><td colspan="5" class="mira-empty-state">No employees found for this school yet.</td></tr>
+        <% } else { %>
+          <% employees.forEach(function(employee) { %>
+            <tr data-user-row="<%= employee.userId %>">
+              <td>
+                <input
+                  type="checkbox"
+                  disabled
+                  data-user-checkbox="<%= employee.userId %>"
+                  <%= employee.canUseMira ? 'checked' : '' %>
+                  title="<%= employee.canUseMira ? 'Can open Mira' : 'Cannot open Mira' %>"
+                />
+              </td>
+              <td>
+                <%= [employee.firstName, employee.lastName].filter(Boolean).join(' ') || 'Unnamed' %>
+                <% if (employee.isOwner) { %><span class="mira-owner-tag">Owner</span><% } %>
+              </td>
+              <td><%= employee.accountType || '' %></td>
+              <td><%= employee.email || '' %></td>
+              <td>
+                <button
+                  type="button"
+                  class="mira-edit-btn"
+                  data-mira-edit-user="<%= employee.userId %>"
+                  data-mira-edit-name="<%= [employee.firstName, employee.lastName].filter(Boolean).join(' ') || 'Unnamed' %>"
+                >Edit</button>
+              </td>
+            </tr>
+          <% }); %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="mira-modal-overlay" id="mira-edit-modal">
+  <div class="mira-modal-card">
+    <button type="button" class="mira-modal-close" id="mira-edit-modal-close" aria-label="Close">&times;</button>
+    <div class="mira-modal-head">
+      <span class="mira-modal-avatar" id="mira-edit-modal-avatar">?</span>
+      <h3 id="mira-edit-modal-title">Mira access</h3>
+    </div>
+    <p class="mira-modal-subtitle" id="mira-edit-modal-subtitle">What this person can do through Mira.</p>
+
+    <div class="mira-toggle-row">
+      <div>
+        <div class="label">Can open Mira</div>
+        <div class="sub">Turn off to hide Mira from their menu entirely.</div>
+      </div>
+      <label class="mira-switch">
+        <input type="checkbox" id="mira-edit-can-use" />
+        <span class="mira-switch-slider"></span>
+      </label>
+    </div>
+
+    <p class="mira-permissions-label">What Mira can do on their behalf</p>
+    <p class="mira-permissions-sub">
+      These are the same real permissions used everywhere else in the app - Mira only ever does what
+      the checked-off ones already allow (manage classes, manage students, manage reports, and so on).
+    </p>
+    <div class="mira-permission-grid" id="mira-edit-permission-grid">
+      <!-- populated by JS -->
+    </div>
+
+    <div class="mira-modal-status" id="mira-edit-modal-status"></div>
+
+    <div class="mira-modal-actions">
+      <button type="button" class="mira-modal-cancel" id="mira-edit-modal-cancel">Cancel</button>
+      <button type="button" class="mira-save-btn" id="mira-edit-modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const modal = document.getElementById('mira-edit-modal');
+  const modalAvatar = document.getElementById('mira-edit-modal-avatar');
+  const modalTitle = document.getElementById('mira-edit-modal-title');
+  const modalSubtitle = document.getElementById('mira-edit-modal-subtitle');
+  const canUseInput = document.getElementById('mira-edit-can-use');
+  const permissionGrid = document.getElementById('mira-edit-permission-grid');
+  const statusEl = document.getElementById('mira-edit-modal-status');
+  const saveBtn = document.getElementById('mira-edit-modal-save');
+  const cancelBtn = document.getElementById('mira-edit-modal-cancel');
+  const closeBtn = document.getElementById('mira-edit-modal-close');
+  let currentUserId = null;
+
+  function openModal() { modal.classList.add('show'); }
+  function closeModal() { modal.classList.remove('show'); currentUserId = null; }
+
+  function setStatus(message, kind) {
+    statusEl.textContent = message || '';
+    statusEl.className = 'mira-modal-status' + (kind ? ' ' + kind : '');
+  }
+
+  async function loadUser(userId, name) {
+    currentUserId = userId;
+    modalAvatar.textContent = (name || '?').trim().charAt(0).toUpperCase() || '?';
+    modalTitle.textContent = 'Mira access';
+    modalSubtitle.textContent = name ? ('What ' + name + ' can do through Mira.') : 'What this person can do through Mira.';
+    permissionGrid.innerHTML = '<div class="mira-empty-state">Loading…</div>';
+    canUseInput.checked = false;
+    canUseInput.disabled = false;
+    saveBtn.style.display = '';
+    setStatus('');
+    openModal();
+
+    try {
+      const response = await fetch('/account/mira/user/' + encodeURIComponent(userId), {
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Unable to load this employee.');
+
+      canUseInput.checked = !!data.canUseMira;
+      if (data.isOwner) {
+        setStatus('The owner is billed for Mira like anyone else - grant or revoke access the same way.', '');
+      }
+
+      const selected = new Set(data.permissions || []);
+      permissionGrid.innerHTML = (data.permissionOptions || []).map(function (option) {
+        const checked = selected.has(option.key) ? 'checked' : '';
+        const id = 'mira-perm-' + option.key;
+        return '<label class="mira-permission-item" for="' + id + '">' +
+          '<input type="checkbox" id="' + id + '" value="' + option.key + '" ' + checked + ' />' +
+          '<span>' + option.label + '</span>' +
+          '</label>';
+      }).join('');
+    } catch (error) {
+      permissionGrid.innerHTML = '';
+      setStatus(error.message || 'Unable to load this employee.', 'error');
+    }
+  }
+
+  document.querySelectorAll('[data-mira-edit-user]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      loadUser(
+        btn.getAttribute('data-mira-edit-user'),
+        btn.getAttribute('data-mira-edit-name')
+      );
+    });
+  });
+
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  if (modal) {
+    modal.addEventListener('click', function (event) {
+      if (event.target === modal) closeModal();
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async function () {
+      if (!currentUserId) return;
+      const permissions = Array.from(permissionGrid.querySelectorAll('input[type="checkbox"]:checked')).map(function (el) {
+        return el.value;
+      });
+
+      saveBtn.disabled = true;
+      const previousLabel = saveBtn.textContent;
+      saveBtn.textContent = 'Saving…';
+      setStatus('');
+
+      try {
+        const response = await fetch('/account/mira/user/' + encodeURIComponent(currentUserId), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify({
+            canUseMira: canUseInput.checked ? '1' : '0',
+            permissions: permissions,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'Unable to save.');
+
+        const rowCheckbox = document.querySelector('[data-user-checkbox="' + currentUserId + '"]');
+        if (rowCheckbox) rowCheckbox.checked = !!data.canUseMira;
+
+        setStatus('Saved.', 'success');
+        setTimeout(closeModal, 500);
+      } catch (error) {
+        setStatus(error.message || 'Unable to save right now.', 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = previousLabel;
+      }
+    });
+  }
+})();
+</script>

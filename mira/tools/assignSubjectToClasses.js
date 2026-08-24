@@ -3,7 +3,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 
 module.exports = {
   name: "assign_subject_to_classes",
-  description: "Assign an EXISTING subject to one or more additional classes, matching the \"Assign Existing Subject\" form. Requires the Manage Classes & Subjects permission. Use list_subjects first if you need to confirm the subject's exact name.",
+  description: "Assign an EXISTING subject to one or more additional classes, matching the \"Assign Existing Subject\" form. Needs Manage Classes & Subjects. Use list_subjects first if you need to confirm the subject's exact name.",
   parameters: {
     type: "object",
     properties: {
@@ -26,6 +26,7 @@ module.exports = {
       userId: tenant.userId,
       userRole: tenant.userRole,
       accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
       subjectName,
       classNames,
     });

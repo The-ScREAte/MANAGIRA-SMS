@@ -443,7 +443,13 @@ const {
   upsertManualCalendarDay,
   deleteManualCalendarDay,
 } = require("../utils/attendanceCalendar");
-const { userHasPermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
+const {
+  userHasPermission,
+  PERMISSIONS,
+  PERMISSION_OPTIONS,
+  getUserPermissions,
+  invalidateUserPermissionCache,
+} = require("../middleware/permissionMiddleware");
 const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
 const { hasGuardianPortalFeature } = require("../utils/guardianPortalAccess");
 const {
@@ -452,6 +458,10 @@ const {
   getStudentPortalIntegrationStatus,
   setStudentPortalActivation,
 } = require("../utils/studentPortal");
+const {
+  getMiraIntegrationStatus,
+  setMiraIntegrationActivation,
+} = require("../utils/miraIntegration");
 const {
   getTransportationIntegrationStatus,
   setTransportationIntegrationActivation,
@@ -8952,6 +8962,10 @@ const accountController = {
         mapProvider: "openstreetmap",
         shouldShowFeatures: false,
       };
+      let miraIntegration = {
+        activated: false,
+        shouldShowFeatures: false,
+      };
       let smsIntegration = {
         activeProvider: "",
         providers: {
@@ -8993,18 +9007,21 @@ const accountController = {
           resolvedStudentPortalIntegration,
           resolvedTransportationIntegration,
           resolvedSmsIntegration,
+          resolvedMiraIntegration,
         ] = await Promise.all([
           getGoogleIntegrationStatus(db, orgId),
           getWhatsappIntegrationStatus(db, orgId),
           getStudentPortalIntegrationStatus(db, orgId),
           getTransportationIntegrationStatus(db, orgId),
           getSmsIntegrationStatus(db, orgId),
+          getMiraIntegrationStatus(db, orgId),
         ]);
         googleIntegration = resolvedGoogleIntegration;
         whatsappIntegration = initialWhatsappIntegration;
         studentPortalIntegration = resolvedStudentPortalIntegration;
         transportationIntegration = resolvedTransportationIntegration;
         smsIntegration = resolvedSmsIntegration;
+        miraIntegration = resolvedMiraIntegration;
 
         integrationActivity = await getLatestIntegrationActivity(db, orgId, [
           "Student Portal",
@@ -9016,6 +9033,7 @@ const accountController = {
           "Arkesel SMS",
           "Africa's Talking SMS",
           "Twilio SMS",
+          "Mira",
         ]).catch(() => ({}));
 
         if (
@@ -9103,6 +9121,7 @@ const accountController = {
         studentPortalIntegration,
         transportationIntegration,
         smsIntegration,
+        miraIntegration,
         twilioAvailableForCountry: isTwilioAvailableForCountry(orgRow?.organization_country),
         integrationActivity,
         feedbackTypeOptions: FEEDBACK_TYPE_OPTIONS,
@@ -12323,6 +12342,330 @@ const accountController = {
         success: false,
         message: "Unable to update Student Portal activation right now.",
       });
+    }
+  },
+
+  miraActivationPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    const acceptsHeader = String(req.get("accept") || "").toLowerCase();
+    const wantsJson =
+      req.xhr ||
+      acceptsHeader.includes("application/json") ||
+      String(req.get("x-requested-with") || "").toLowerCase() === "xmlhttprequest";
+
+    const respond = (statusCode, payload) => {
+      if (wantsJson) {
+        return res.status(statusCode).json(payload);
+      }
+
+      if (!payload.success && payload.message) {
+        req.flash("error", payload.message);
+      } else if (payload.success && payload.message) {
+        req.flash("success", payload.message);
+      }
+
+      return res.redirect("/account/settings?section=integrations");
+    };
+
+    try {
+      const shouldActivate = String(req.body.activate || "").trim() === "1";
+
+      const integrationPassword = String(
+        req.body.integrationPassword || req.body.deactivationPassword || ""
+      );
+      if (!integrationPassword.trim()) {
+        return respond(400, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? "Enter your password to activate Mira integration."
+            : "Enter your password to deactivate Mira integration.",
+        });
+      }
+
+      const isPasswordValid = await verifySessionPassword(integrationPassword, req);
+      if (!isPasswordValid) {
+        return respond(401, {
+          success: false,
+          activated: !shouldActivate,
+          message: shouldActivate
+            ? "Incorrect password. Mira integration was not activated."
+            : "Incorrect password. Mira integration was not deactivated.",
+        });
+      }
+
+      await setMiraIntegrationActivation(db, orgId, shouldActivate);
+      logIntegrationActivation(req, "Mira", shouldActivate);
+
+      return respond(200, {
+        success: true,
+        activated: shouldActivate,
+        message: shouldActivate
+          ? "Mira integration is now activated."
+          : "Mira integration has been deactivated.",
+      });
+    } catch (error) {
+      return respond(500, {
+        success: false,
+        message: "Unable to update Mira activation right now.",
+      });
+    }
+  },
+
+  // GET /account/mira - what Mira is, how it works, and who at this school
+  // is allowed to open it. Reached from the "Mira" item in the management
+  // sidebar (only shown once activated under Settings -> Integrations) -
+  // deliberately NOT a direct link to the Mira service itself, since the
+  // whole point of this page is to let an admin decide who else gets that
+  // direct link's worth of access first.
+  miraSettingsGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+    const isEmbedded = isEmbeddedRequest(req, "mira");
+
+    try {
+      const miraIntegration = await getMiraIntegrationStatus(db, orgId);
+
+      const orgResult = await db.query(
+        `SELECT email FROM organizations WHERE organization_id = $1 LIMIT 1`,
+        [orgId]
+      );
+      const ownerEmail = String(orgResult.rows[0]?.email || "").trim().toLowerCase();
+
+      const employeesResult = await db.query(
+        `SELECT user_id, first_name, last_name, email, account_type
+         FROM users
+         WHERE organization_id = $1
+         ORDER BY first_name ASC, last_name ASC`,
+        [orgId]
+      );
+
+      // Owner included, on equal footing: Mira access (and, once billing is
+      // wired up, Mira's per-seat charge) requires an explicit grant for
+      // everyone - the owner's usual "always has full access" bypass
+      // (middleware/permissionMiddleware.js userHasPermission) is
+      // deliberately NOT applied to Use Mira. See
+      // controllers/internalApiController.js getMiraActivationStatusApi.
+      const employees = await Promise.all(
+        employeesResult.rows.map(async (employee) => {
+          const isOwner = ownerEmail && String(employee.email || "").trim().toLowerCase() === ownerEmail;
+          const permissions = await getUserPermissions(db, employee.user_id, orgId);
+          return {
+            userId: employee.user_id,
+            firstName: employee.first_name,
+            lastName: employee.last_name,
+            email: employee.email,
+            accountType: employee.account_type,
+            isOwner,
+            canUseMira: permissions.includes(PERMISSIONS.USE_MIRA),
+          };
+        })
+      );
+
+      const seatCount = employees.filter((employee) => employee.canUseMira).length;
+
+      res.render("account/mira", {
+        title: "Mira",
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
+        miraIntegration,
+        employees,
+        seatCount,
+        permissionOptions: PERMISSION_OPTIONS,
+        flash: {
+          success: req.flash("success"),
+          error: req.flash("error"),
+        },
+      });
+    } catch (error) {
+      console.error("[accountController/miraSettingsGet]", error);
+      res.status(500).send("Unable to load the Mira settings page.");
+    }
+  },
+
+  // POST /account/mira/permissions - bulk-sets which employees may open
+  // Mira. checked out user IDs on the form get Use Mira; anyone else in
+  // the org loses it, in one pass - the same replace-all shape the rest of
+  // the app's permission-checkbox saves use (see modifyEmployeePost).
+  miraPermissionsPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.redirect("/account/login");
+
+    try {
+      const rawUserIds = Array.isArray(req.body.userIds)
+        ? req.body.userIds
+        : req.body.userIds
+        ? [req.body.userIds]
+        : [];
+      const selectedUserIds = new Set(
+        rawUserIds.map((value) => parseInt(value, 10)).filter((value) => Number.isInteger(value))
+      );
+
+      const employeesResult = await db.query(
+        `SELECT user_id, email FROM users WHERE organization_id = $1`,
+        [orgId]
+      );
+
+      const grantorId = req.session.user?.user_id || req.session.userId || null;
+
+      // Owner included - Mira access requires an explicit grant for
+      // everyone, no free/unbilled bypass for the org owner.
+      for (const employee of employeesResult.rows) {
+        const shouldHaveAccess = selectedUserIds.has(employee.user_id);
+        const existing = await getUserPermissions(db, employee.user_id, orgId);
+        const hasAccess = existing.includes(PERMISSIONS.USE_MIRA);
+
+        if (shouldHaveAccess && !hasAccess) {
+          await db.query(
+            `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (user_id, organization_id, permission_key) DO NOTHING`,
+            [employee.user_id, orgId, PERMISSIONS.USE_MIRA, grantorId]
+          );
+          invalidateUserPermissionCache(orgId, employee.user_id);
+        } else if (!shouldHaveAccess && hasAccess) {
+          await db.query(
+            `DELETE FROM user_permissions
+             WHERE user_id = $1 AND organization_id = $2 AND permission_key = $3`,
+            [employee.user_id, orgId, PERMISSIONS.USE_MIRA]
+          );
+          invalidateUserPermissionCache(orgId, employee.user_id);
+        }
+      }
+
+      req.flash("success", "Mira access updated.");
+      return res.redirect("/account/mira");
+    } catch (error) {
+      console.error("[accountController/miraPermissionsPost]", error);
+      req.flash("error", "Unable to update Mira access right now.");
+      return res.redirect("/account/mira");
+    }
+  },
+
+  // GET /account/mira/user/:userId (AJAX/JSON) - powers the "Edit" modal on
+  // /account/mira: what this one employee can currently do, i.e. exactly
+  // the real permissions Mira's own tools check against (see
+  // mira/CAPABILITIES.md - Mira never has its own separate permission
+  // system, it re-checks the caller's real granted permissions on every
+  // write), plus whether they can open Mira at all.
+  miraUserPermissionsGet: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.status(401).json({ error: "Not signed in." });
+
+    const userId = parseInt(req.params.userId, 10);
+    if (!Number.isInteger(userId)) return res.status(400).json({ error: "Invalid user." });
+
+    try {
+      const userResult = await db.query(
+        `SELECT user_id, first_name, last_name, email, account_type
+         FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+        [userId, orgId]
+      );
+      const employee = userResult.rows[0];
+      if (!employee) return res.status(404).json({ error: "Employee not found." });
+
+      const orgResult = await db.query(
+        `SELECT email FROM organizations WHERE organization_id = $1 LIMIT 1`,
+        [orgId]
+      );
+      const ownerEmail = String(orgResult.rows[0]?.email || "").trim().toLowerCase();
+      const isOwner = ownerEmail && String(employee.email || "").trim().toLowerCase() === ownerEmail;
+
+      // Owner included - no free bypass; Mira access is read straight from
+      // their real granted permissions like anyone else.
+      const permissions = await getUserPermissions(db, userId, orgId);
+      const modalOptions = PERMISSION_OPTIONS.filter((option) => option.key !== PERMISSIONS.USE_MIRA);
+
+      return res.json({
+        userId: employee.user_id,
+        name: [employee.first_name, employee.last_name].filter(Boolean).join(" ") || "Unnamed",
+        email: employee.email,
+        accountType: employee.account_type,
+        isOwner,
+        canUseMira: permissions.includes(PERMISSIONS.USE_MIRA),
+        permissions: permissions.filter((key) => key !== PERMISSIONS.USE_MIRA),
+        permissionOptions: modalOptions,
+      });
+    } catch (error) {
+      console.error("[accountController/miraUserPermissionsGet]", error);
+      return res.status(500).json({ error: "Unable to load this employee's Mira access." });
+    }
+  },
+
+  // POST /account/mira/user/:userId (AJAX/JSON) - saves one employee's
+  // "can open Mira" toggle plus which real app permissions they hold
+  // (the same ones that gate what Mira will actually let them do). Only
+  // touches the standard PERMISSION_OPTIONS keys - anything else already
+  // stored for this user (e.g. the mailroom "all access" marker, which is
+  // deliberately not a PERMISSION_OPTIONS entry) is left untouched.
+  miraUserPermissionsPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.status(401).json({ error: "Not signed in." });
+
+    const userId = parseInt(req.params.userId, 10);
+    if (!Number.isInteger(userId)) return res.status(400).json({ error: "Invalid user." });
+
+    try {
+      const userResult = await db.query(
+        `SELECT user_id, email FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+        [userId, orgId]
+      );
+      const employee = userResult.rows[0];
+      if (!employee) return res.status(404).json({ error: "Employee not found." });
+
+      // Owner included - no special-case rejection; the owner is saved the
+      // same way as any other employee.
+      const canUseMira = String(req.body.canUseMira || "").trim() === "1";
+      const rawPermissions = Array.isArray(req.body.permissions)
+        ? req.body.permissions
+        : req.body.permissions
+        ? [req.body.permissions]
+        : [];
+      const validKeys = new Set(PERMISSION_OPTIONS.map((option) => option.key));
+      const selectedOptionPermissions = new Set(
+        rawPermissions
+          .map((value) => String(value || "").trim())
+          .filter((value) => validKeys.has(value) && value !== PERMISSIONS.USE_MIRA)
+      );
+      if (canUseMira) selectedOptionPermissions.add(PERMISSIONS.USE_MIRA);
+
+      const existing = await getUserPermissions(db, userId, orgId);
+      const nonOptionPermissions = existing.filter((key) => !validKeys.has(key));
+      const nextPermissions = new Set([...nonOptionPermissions, ...selectedOptionPermissions]);
+
+      const grantorId = req.session.user?.user_id || req.session.userId || null;
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          `DELETE FROM user_permissions WHERE user_id = $1 AND organization_id = $2`,
+          [userId, orgId]
+        );
+        if (nextPermissions.size > 0) {
+          await client.query(
+            `INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
+             SELECT $1, $2, unnest($3::text[]), $4`,
+            [userId, orgId, [...nextPermissions], grantorId]
+          );
+        }
+        await client.query("COMMIT");
+      } catch (txError) {
+        await client.query("ROLLBACK");
+        throw txError;
+      } finally {
+        client.release();
+      }
+
+      invalidateUserPermissionCache(orgId, userId);
+
+      return res.json({ success: true, canUseMira, permissions: [...selectedOptionPermissions].filter((key) => key !== PERMISSIONS.USE_MIRA) });
+    } catch (error) {
+      console.error("[accountController/miraUserPermissionsPost]", error);
+      return res.status(500).json({ error: "Unable to save this employee's Mira access." });
     }
   },
 

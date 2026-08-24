@@ -31,10 +31,26 @@
 }
 
 /* Chat font: a personalization pref set in Settings (public/js/mira-app.js
-   sets data-chat-font on <html>), independent of the app's own UI font. */
-:root[data-chat-font="serif"] { --mira-chat-font: Georgia, "Times New Roman", serif; }
-:root[data-chat-font="mono"] { --mira-chat-font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-:root[data-chat-font="rounded"] { --mira-chat-font: "Comic Sans MS", "Comic Sans", cursive, sans-serif; }
+   sets data-chat-font on <html>). Overrides --mira-font itself (not just
+   --mira-chat-font) so the choice applies to the whole app - sidebar,
+   settings modal, buttons, inputs - not just the chat reply text. Every
+   rule below still cascades into --mira-chat-font via its `var(--mira-font)`
+   fallback in the base :root block above. */
+:root[data-chat-font="professional"] { --mira-font: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+:root[data-chat-font="modern"] { --mira-font: "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+:root[data-chat-font="friendly"] { --mira-font: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+:root[data-chat-font="corporate"] { --mira-font: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+:root[data-chat-font="executive"] { --mira-font: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+:root[data-chat-font="clean"] { --mira-font: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+:root[data-chat-font="precise"] { --mira-font: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+:root[data-chat-font="neutral"] { --mira-font: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+:root[data-chat-font="elegant"] { --mira-font: "Playfair Display", Georgia, "Times New Roman", serif; }
+:root[data-chat-font="refined"] { --mira-font: "Lora", Georgia, "Times New Roman", serif; }
+:root[data-chat-font="editorial"] { --mira-font: "Source Serif 4", Georgia, "Times New Roman", serif; }
+:root[data-chat-font="serif"] { --mira-font: Georgia, "Times New Roman", serif; }
+:root[data-chat-font="mono"] { --mira-font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+:root[data-chat-font="code"] { --mira-font: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+:root[data-chat-font="rounded"] { --mira-font: "Comic Sans MS", "Comic Sans", cursive, sans-serif; }
 
 /* System dark mode (no manual toggle exists yet, but the hook is here) */
 @media (prefers-color-scheme: dark) {
@@ -77,6 +93,7 @@ body {
   background: var(--mira-bg);
   color: var(--mira-text-primary);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 a { color: inherit; }
@@ -212,6 +229,71 @@ button { font-family: inherit; }
   letter-spacing: 0.04em;
   color: var(--mira-text-tertiary);
 }
+
+.mira-history-select-toggle {
+  border: none;
+  background: transparent;
+  color: var(--mira-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.mira-history-select-toggle:hover { text-decoration: underline; }
+
+.mira-history-select-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  margin: 0 0 8px;
+  border-radius: var(--mira-radius-sm);
+  border: 1px solid var(--mira-border);
+  background: var(--mira-bg-elevated);
+  font-size: 0.78rem;
+}
+.mira-history-select-bar[hidden] { display: none; }
+.mira-history-select-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--mira-text-secondary);
+}
+.mira-history-select-actions { display: flex; align-items: center; gap: 6px; }
+.mira-history-select-delete,
+.mira-history-select-cancel {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mira-history-select-delete {
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+  color: #dc2626;
+}
+.mira-history-select-delete:hover:not(:disabled) { background: color-mix(in srgb, #dc2626 20%, transparent); }
+.mira-history-select-delete:disabled { opacity: 0.45; cursor: not-allowed; }
+.mira-history-select-cancel {
+  background: transparent;
+  color: var(--mira-text-secondary);
+}
+.mira-history-select-cancel:hover { background: var(--mira-primary-soft); color: var(--mira-text-primary); }
+
+.mira-chat-item.is-select-mode { cursor: default; }
+.mira-chat-item.is-selected { background: var(--mira-primary-soft); }
+.mira-chat-item-checkbox {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.mira-chat-item-checkbox input { cursor: pointer; }
 
 .mira-history-search {
   display: flex;
@@ -890,6 +972,7 @@ button { font-family: inherit; }
 .mira-chat-scroll {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 24px 24px 12px;
 }
 
@@ -923,7 +1006,7 @@ button { font-family: inherit; }
   50% { opacity: 1; }
 }
 
-.mira-message { display: flex; gap: 12px; max-width: 100%; }
+.mira-message { display: flex; gap: 12px; max-width: 100%; min-width: 0; }
 .mira-message-user { flex-direction: column; align-items: flex-end; gap: 4px; }
 .mira-message-assistant { flex-direction: column; align-items: flex-start; gap: 6px; }
 
@@ -933,6 +1016,17 @@ button { font-family: inherit; }
   padding: 0 2px;
 }
 .mira-message-actions .mira-message-time { margin-left: 6px; }
+.mira-message-class-scope {
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--mira-border);
+  color: var(--mira-primary);
+  font-size: 0.7rem;
+  max-width: min(100%, 260px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .mira-message-bubble {
   padding: 12px 16px;
@@ -952,6 +1046,8 @@ button { font-family: inherit; }
   border: none;
   padding: 0;
   white-space: normal;
+  width: 100%;
+  min-width: 0;
 }
 .mira-message-bubble p { margin: 0 0 10px; }
 .mira-message-bubble p:last-child { margin-bottom: 0; }
@@ -983,12 +1079,19 @@ button { font-family: inherit; }
 }
 .mira-message-bubble pre code { background: none; padding: 0; color: inherit; }
 
-.mira-md-table-wrap { overflow-x: auto; margin: 0 0 10px; }
-.mira-md-table { border-collapse: collapse; width: 100%; font-size: 0.87rem; }
+.mira-md-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 10px;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+}
+.mira-md-table { border-collapse: collapse; min-width: 100%; font-size: 0.87rem; }
 .mira-md-table th, .mira-md-table td {
   border: 1px solid var(--mira-border);
   padding: 7px 10px;
   text-align: left;
+  white-space: nowrap;
 }
 .mira-md-table th {
   background: var(--mira-primary-soft);
@@ -997,9 +1100,20 @@ button { font-family: inherit; }
 }
 .mira-md-table tbody tr:nth-child(even) { background: var(--mira-bg-hover, rgba(0,0,0,0.02)); }
 
+.mira-md-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 4px 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--mira-border);
+  background: #fff;
+}
+
 .mira-message-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 2px;
 }
 .mira-msg-action {
@@ -1162,7 +1276,7 @@ button { font-family: inherit; }
 
 .mira-modal {
   width: 100%;
-  max-width: 420px;
+  max-width: 560px;
   background: var(--mira-bg-elevated);
   border: 1px solid var(--mira-border);
   border-radius: var(--mira-radius-lg);
@@ -1177,12 +1291,21 @@ button { font-family: inherit; }
   padding: 16px 18px;
   border-bottom: 1px solid var(--mira-border);
 }
-.mira-modal-header h2 { margin: 0; font-size: 1rem; font-weight: 700; }
+.mira-modal-header h2 { margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em; }
 
 .mira-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
-.mira-settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.mira-settings-row-label { font-size: 0.72rem; color: var(--mira-text-tertiary); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; }
-.mira-settings-row-value { font-size: 0.9rem; font-weight: 500; text-transform: capitalize; }
+
+.mira-settings-card {
+  border: 1px solid var(--mira-border);
+  border-radius: var(--mira-radius-sm);
+  background: var(--mira-bg);
+  overflow: hidden;
+}
+.mira-settings-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.mira-settings-row + .mira-settings-row { border-top: 1px solid var(--mira-border); }
+.mira-settings-row-icon { flex: 0 0 auto; color: var(--mira-text-tertiary); }
+.mira-settings-row-label { font-size: 0.7rem; color: var(--mira-text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px; }
+.mira-settings-row-value { font-size: 0.9rem; font-weight: 600; color: var(--mira-text-primary); }
 .mira-settings-note { font-size: 0.8rem; color: var(--mira-text-secondary); line-height: 1.5; margin: 4px 0 0; }
 
 .mira-settings-divider { height: 1px; background: var(--mira-border); margin: 4px 0; }
@@ -1205,9 +1328,9 @@ button { font-family: inherit; }
   outline: none;
 }
 .mira-settings-textarea:focus { border-color: var(--mira-primary-border); box-shadow: 0 0 0 3px var(--mira-primary-soft); }
-.mira-settings-block-footer { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.mira-settings-block-footer { display: flex; align-items: center; justify-content: flex-start; gap: 10px; }
 .mira-settings-save-status { font-size: 0.76rem; color: var(--mira-text-tertiary); }
-.mira-settings-save-btn { padding: 6px 16px; font-size: 0.82rem; }
+.mira-settings-save-btn { width: auto; flex: 0 0 auto; padding: 7px 18px; font-size: 0.82rem; }
 .mira-settings-select {
   width: 100%;
   box-sizing: border-box;
@@ -1334,4 +1457,24 @@ button { font-family: inherit; }
      a second, do-nothing hamburger icon sitting inside the open drawer. */
   .mira-collapse-icon-lines { display: none; }
   .mira-collapse-icon-close { display: block; }
+
+  /* Settings modal reads as cramped at the desktop 420px cap on a phone
+     screen - give it most of the viewport width instead. */
+  .mira-modal-overlay { padding: 10px; align-items: flex-end; }
+  .mira-modal {
+    max-width: none;
+    width: 100%;
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    border-radius: var(--mira-radius-lg) var(--mira-radius-lg) 0 0;
+    animation: miraModalSheetIn 0.2s ease-out;
+  }
+  .mira-modal-body { padding: 16px; }
+
+  .mira-chat-scroll { padding: 16px 12px 12px; }
+}
+
+@keyframes miraModalSheetIn {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }

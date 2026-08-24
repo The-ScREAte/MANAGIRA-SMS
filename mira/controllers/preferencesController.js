@@ -2,7 +2,12 @@ const db = require("../config/db");
 const { ensureMiraSchema } = require("../db/schema");
 
 const MAX_INSTRUCTIONS_LENGTH = 2000;
-const ALLOWED_FONTS = ["default", "serif", "mono", "rounded"];
+const ALLOWED_FONTS = [
+  "default", "professional", "corporate", "executive", "modern", "precise", "clean", "neutral", "friendly",
+  "elegant", "editorial", "refined", "serif",
+  "mono", "code",
+  "rounded",
+];
 
 // GET /api/preferences - current user's saved custom instructions + chat
 // font. Absent row simply means defaults (empty instructions, default font).

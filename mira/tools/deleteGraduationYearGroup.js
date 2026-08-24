@@ -5,9 +5,8 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 module.exports = {
   name: "delete_graduation_year_group",
   description:
-    "Delete a graduation year group. This is DESTRUCTIVE and PERMANENT - it cannot be undone, and if any classes still reference it, the deletion will be BLOCKED. Requires the Manage Classes & Subjects permission. " +
-    "Call this tool a first time with confirm omitted (or false) to get its details and a warning; read that warning to the user IN FULL and ask them to confirm - never set confirm=true on that first call. " +
-    "As soon as the user replies with ANY clear affirmative in a later message, call this tool again with confirm=true right away.",
+    "Delete a graduation year group. DESTRUCTIVE and PERMANENT; BLOCKED if any classes still reference it. Needs Manage Classes & Subjects. " +
+    "First call with confirm omitted/false to get the warning; relay it in full and get explicit confirmation. On any clear yes in a later message, call again with confirm=true.",
   parameters: {
     type: "object",
     properties: {
@@ -56,6 +55,7 @@ module.exports = {
         userId: tenant.userId,
         userRole: tenant.userRole,
         accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
         name: group.name,
       });
 

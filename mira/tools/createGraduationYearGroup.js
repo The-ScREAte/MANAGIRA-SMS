@@ -4,7 +4,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 module.exports = {
   name: "create_graduation_year_group",
   description:
-    "Create a graduation year group for a given 4-digit year, matching the \"+ Add New Items\" > New Graduation Year Group form. Requires the Manage Classes & Subjects permission. " +
+    "Create a graduation year group for a given 4-digit year, matching the \"+ Add New Items\" > New Graduation Year Group form. Needs Manage Classes & Subjects. " +
     "The group's name is always auto-generated as \"Graduation Class of {year} Group\" - never invent a different name.",
   parameters: {
     type: "object",
@@ -24,6 +24,7 @@ module.exports = {
       userId: tenant.userId,
       userRole: tenant.userRole,
       accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
       year,
     });
 

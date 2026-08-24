@@ -1,4 +1,5 @@
 const { callInternalApi } = require("../internalApiClient");
+const { assertIsStaff } = require("./_writeAuth");
 
 // A lightweight summary (attendance + fee standing) the model can narrate -
 // not a replacement for the main app's full report-card/assessment engine,
@@ -7,13 +8,17 @@ const { callInternalApi } = require("../internalApiClient");
 module.exports = {
   name: "generate_report_card_summary",
   description:
-    "Generate a brief status summary for a student (attendance + fee standing) within the caller's own school. Requires the student's numeric ID.",
+    "Generate a brief status summary for a student (attendance + fee standing) within the caller's own school. Requires the student's numeric ID. Staff only.",
   parameters: {
     type: "object",
     properties: { studentId: { type: "number", description: "The student's numeric ID." } },
     required: ["studentId"],
   },
+  // Staff-only: composes get_attendance + get_fees, both arbitrary-studentId
+  // reads with no ownership check - inherits the same exposure if not
+  // gated here too.
   async handler(args, tenant) {
+    assertIsStaff(tenant, "generate a report card summary");
     const params = new URLSearchParams({ organizationId: String(tenant.organizationId) });
     const [attendance, fees] = await Promise.all([
       callInternalApi(`/internal/api/students/${encodeURIComponent(args?.studentId)}/attendance?${params.toString()}`),

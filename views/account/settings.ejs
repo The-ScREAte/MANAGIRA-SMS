@@ -75,9 +75,10 @@
         display: grid;
         grid-template-columns: 260px 1fr;
         gap: 24px;
-        max-width: 1200px;
-        margin: 0 auto 40px;
-        padding: 0 20px;
+        /* max-width/margin/padding here are overridden by workspace-shell.css
+           (.hub-layout,.management-layout,.settings-layout), which loads
+           after this block and sets max-width:none so the layout genuinely
+           fills the viewport - not set here to avoid contradictory values. */
         scroll-margin-top: var(--settings-header-offset);
         align-items: stretch;
         min-height: 100%;
@@ -285,7 +286,7 @@
 
       .settings-main{
         padding: 24px 0 0 0;
-        max-width: 920px;
+        max-width: none;
         width: 100%;
         scroll-margin-top: var(--settings-header-offset);
       }
@@ -2616,28 +2617,27 @@
     <%- include('../partials/flash') %>
     <% const _isEmbeddedSettings = typeof isEmbedded !== 'undefined' && isEmbedded; %>
     <div class="settings-wrapper<%= _isEmbeddedSettings ? ' is-embedded' : '' %>">
-    <div class="settings-layout<%= _isEmbeddedSettings ? ' is-embedded-hub' : '' %>" id="settings-layout-root">
+    <%
+      // This <main> is what the client-side SPA router swaps on navigation —
+      // it only ever replaces the ONE <main> element's contents, so the
+      // sidebar below must live INSIDE it (not as a sibling) or it would
+      // never get (re)rendered on an SPA navigation to this page, only on a
+      // genuine full page load. That was the real cause of the sidebar
+      // going missing after navigating here via a normal in-app link.
+    %>
+    <main class="settings-layout<%= _isEmbeddedSettings ? ' is-embedded-hub' : '' %>" id="settings-layout-root">
       <%
         const _canCustomizeSettings = typeof canAccessCustomizeSettings === 'boolean' ? canAccessCustomizeSettings : true;
         const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
         const _canSecuritySettings = typeof canAccessSecuritySettings === 'boolean' ? canAccessSecuritySettings : true;
         const _defaultSettingsSectionId = _canCustomizeSettings ? 'customize' : 'profile';
       %>
-      <% if (!_isEmbeddedSettings) { %>
-      <aside class="settings-nav" id="settings-nav-panel">
+      <aside class="settings-nav" id="settings-nav-panel" style="<%= _isEmbeddedSettings ? 'display:none;' : '' %>">
         <% 
           const navCountryCode = (org && org.organization_country ? String(org.organization_country).toUpperCase() : '');
           const navCountry = (settingsCountryOptionsWithCurrency || settingsCountryOptions || []).find((country) => String(country.code || '').toUpperCase() === navCountryCode) || null;
           const navCountryLabel = navCountry ? `${navCountry.name} (${navCountry.code})` : 'Country not set';
-          const navCountryFlag = (function toFlagEmoji(code) {
-            if (!code || code.length !== 2) return '🌐';
-            const upper = code.toUpperCase();
-            const base = 127397;
-            const first = upper.charCodeAt(0);
-            const second = upper.charCodeAt(1);
-            if (first < 65 || first > 90 || second < 65 || second > 90) return '🌐';
-            return String.fromCodePoint(first + base, second + base);
-          })(navCountryCode);
+          const navCountryFlagUrl = /^[A-Z]{2}$/.test(navCountryCode) ? `https://flagcdn.com/24x18/${navCountryCode.toLowerCase()}.png` : '';
         %>
         <div class="settings-nav-header">
           <span class="settings-nav-toggle">
@@ -2648,7 +2648,7 @@
           <button class="settings-nav-collapse-toggle" id="settings-nav-collapse-toggle" type="button" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg>
           </button>
-          <span class="settings-nav-country-flag" title="Organization country: <%= navCountryLabel %>" aria-label="Organization country: <%= navCountryLabel %>"><%= navCountryFlag %></span>
+          <span class="settings-nav-country-flag" title="Organization country: <%= navCountryLabel %>" aria-label="Organization country: <%= navCountryLabel %>"><% if (navCountryFlagUrl) { %><img src="<%= navCountryFlagUrl %>" alt="" width="20" height="15" style="vertical-align:middle; border-radius:2px;"><% } else { %>🌐<% } %></span>
         </div>
         <ul class="nav-list">
           <% if (_canCustomizeSettings) { %>
@@ -2685,9 +2685,27 @@
           </button></li>
         </ul>
       </aside>
-      <% } %>
+      <script>
+        // This page is fine to cache/serve fast (client-side SPA nav can reuse
+        // a previous response for this exact URL), but whether the sidebar
+        // should be hidden depends on whether THIS load is genuinely running
+        // inside an iframe right now — a fact the server can't know for a
+        // cached response and shouldn't need to. window.self !== window.top
+        // is always accurate at the moment this runs, regardless of how stale
+        // the surrounding HTML is, so it's the authoritative source of truth
+        // here instead of the server's best-effort embed detection.
+        (function () {
+          var reallyEmbedded = window.self !== window.top;
+          var nav = document.getElementById('settings-nav-panel');
+          var root = document.getElementById('settings-layout-root');
+          var wrapper = root ? root.parentElement : null;
+          if (nav) nav.style.display = reallyEmbedded ? 'none' : '';
+          if (root) root.classList.toggle('is-embedded-hub', reallyEmbedded);
+          if (wrapper) wrapper.classList.toggle('is-embedded', reallyEmbedded);
+        })();
+      </script>
 
-      <main class="settings-main">
+      <div class="settings-main">
         <% if (_canCustomizeSettings) { %>
         <section id="customize" class="settings-section <%= _defaultSettingsSectionId === 'customize' ? 'is-default' : '' %>">
           <h1>Customize School</h1>
@@ -3760,6 +3778,8 @@
           <% const hasWhatsappMetaConfig = !!(wf.appId && wf.embeddedSignupConfigId); %>
           <% const spi = (typeof studentPortalIntegration !== 'undefined' && studentPortalIntegration) ? studentPortalIntegration : {}; %>
           <% const spiActivated = !!spi.activated; %>
+          <% const mi = (typeof miraIntegration !== 'undefined' && miraIntegration) ? miraIntegration : {}; %>
+          <% const miActivated = !!mi.activated; %>
           <% const ti = (typeof transportationIntegration !== 'undefined' && transportationIntegration) ? transportationIntegration : {}; %>
           <% const tiActivated = !!ti.activated; %>
           <% const integrationActivityMap = (typeof integrationActivity !== 'undefined' && integrationActivity) ? integrationActivity : {}; %>
@@ -3782,6 +3802,7 @@
             }
 
             // Per-integration network/country coverage, by ISO country code.
+            const orgCountryCode = (org && org.organization_country ? String(org.organization_country).trim().toUpperCase() : '');
             const integrationCoverage = {
               arkesel: ['GH', 'NG', 'TZ', 'ZA'],
               africastalking: ['KE', 'UG', 'TZ', 'RW', 'MW', 'ZM', 'NG', 'CI', 'ET', 'GH', 'ZA'],
@@ -3792,8 +3813,8 @@
               'apple-maps': null,
               'google-classroom': null,
               whatsapp: null,
+              mira: null,
             };
-            const orgCountryCode = (org && org.organization_country ? String(org.organization_country).trim().toUpperCase() : '');
             const orgCountryOption = (settingsCountryOptionsWithCurrency || settingsCountryOptions || []).find(
               (country) => String(country.code || '').toUpperCase() === orgCountryCode
             ) || null;
@@ -3854,6 +3875,53 @@
             <form id="student-portal-activation-form" action="/account/student-portal/activate" method="POST" style="display:none;">
               <input type="hidden" name="activate" id="student-portal-activation-value" value="0" />
               <input type="hidden" name="integrationPassword" id="student-portal-activation-password" />
+            </form>
+          </div>
+
+          <div class="card">
+            <h4>
+              <span class="student-portal-title">
+                <img class="student-portal-logo" src="/images/miralogo.png" alt="Mira logo" />
+                <span>Mira (AI Assistant)</span>
+              </span>
+              <span
+                class="pill"
+                id="mira-status-pill"
+                data-activated="<%= miActivated ? '1' : '0' %>"
+                style="background:<%= miActivated ? '#dcfce7' : '#fef3c7' %>;color:<%= miActivated ? '#166534' : '#92400e' %>">
+                <%= miActivated ? 'Active' : 'Inactive' %>
+              </span>
+              <%- integrationCoverageBadge('mira') %>
+            </h4>
+            <small class="google-integration-description">
+              Activate Mira to add an AI assistant to your workspace menu — it can look up records, draft messages, and (with your real permissions) make changes across the app through chat.
+              <%- integrationActivityLine('Mira') %>
+            </small>
+
+            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
+              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+                <a href="#" class="integration-readmore-link" data-integration="mira">Read more</a>
+                <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
+                  <summary class="google-actions-toggle" aria-label="Mira actions">⋮</summary>
+                  <div class="google-actions-menu-list">
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-mira-activate-modal"
+                      style="display:<%= miActivated ? 'none' : 'block' %>;">Activate</a>
+                    <a
+                      class="google-action-item"
+                      href="#"
+                      id="open-mira-deactivate-modal"
+                      style="display:<%= miActivated ? 'block' : 'none' %>;">Deactivate</a>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+            <form id="mira-activation-form" action="/account/mira/activate" method="POST" style="display:none;">
+              <input type="hidden" name="activate" id="mira-activation-value" value="0" />
+              <input type="hidden" name="integrationPassword" id="mira-activation-password" />
             </form>
           </div>
 
@@ -4621,8 +4689,8 @@
             </form>
           </div>
         </section>
-      </main>
-    </div>
+      </div>
+    </main>
     </div>
     <div class="modal-overlay" id="cancel-modal">
       <div class="modal-card cancel-modal">
@@ -4735,6 +4803,28 @@
           <p class="error-text" id="student-portal-activation-error"></p>
           <div class="form-actions">
             <button class="btn-primary btn-link" id="student-portal-activation-submit" type="button">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="mira-activation-modal">
+      <div class="modal-card password-modal">
+        <button class="modal-close" type="button" id="mira-activation-close">x</button>
+        <h2>Confirm Password</h2>
+        <p id="mira-activation-copy">Please confirm your password to continue with Mira changes.</p>
+        <div class="content-row">
+          <div class="field-group">
+            <label class="form-label" for="mira-activation-input">Password</label>
+            <input
+              type="password"
+              id="mira-activation-input"
+              placeholder="Enter your password"
+              class="form-input"
+            />
+          </div>
+          <p class="error-text" id="mira-activation-error"></p>
+          <div class="form-actions">
+            <button class="btn-primary btn-link" id="mira-activation-submit" type="button">Continue</button>
           </div>
         </div>
       </div>
@@ -5372,6 +5462,18 @@
         const studentPortalActivationPassword = document.getElementById("student-portal-activation-password");
         const studentPortalActivationForm = document.getElementById("student-portal-activation-form");
         const studentPortalStatusPill = document.getElementById("student-portal-status-pill");
+        const miraActivationModal = document.getElementById("mira-activation-modal");
+        const miraActivateOpen = document.getElementById("open-mira-activate-modal");
+        const miraDeactivateOpen = document.getElementById("open-mira-deactivate-modal");
+        const miraActivationClose = document.getElementById("mira-activation-close");
+        const miraActivationSubmit = document.getElementById("mira-activation-submit");
+        const miraActivationInput = document.getElementById("mira-activation-input");
+        const miraActivationError = document.getElementById("mira-activation-error");
+        const miraActivationCopy = document.getElementById("mira-activation-copy");
+        const miraActivationValue = document.getElementById("mira-activation-value");
+        const miraActivationPassword = document.getElementById("mira-activation-password");
+        const miraActivationForm = document.getElementById("mira-activation-form");
+        const miraStatusPill = document.getElementById("mira-status-pill");
         const transportationActivationModal = document.getElementById("transportation-activation-modal");
         const transportationActivateOpen = document.getElementById("open-transportation-activate-modal");
         const transportationDeactivateOpen = document.getElementById("open-transportation-deactivate-modal");
@@ -6076,6 +6178,126 @@
             } finally {
               studentPortalActivationSubmit.disabled = false;
               studentPortalActivationSubmit.textContent = previousLabel || "Continue";
+            }
+          });
+        }
+
+        function openMiraPasswordModal(mode) {
+          if (!miraActivationModal) return;
+          const isActivate = mode === "activate";
+          if (miraActivationCopy) {
+            miraActivationCopy.textContent = isActivate
+              ? "Please confirm your password to activate Mira."
+              : "Please confirm your password to deactivate Mira.";
+          }
+          if (miraActivationValue) {
+            miraActivationValue.value = isActivate ? "1" : "0";
+          }
+          if (miraActivationInput) {
+            miraActivationInput.value = "";
+          }
+          if (miraActivationError) {
+            miraActivationError.textContent = "";
+          }
+          openModal(miraActivationModal);
+        }
+
+        function setMiraUiState(isActive) {
+          if (miraStatusPill) {
+            miraStatusPill.textContent = isActive ? "Active" : "Inactive";
+            miraStatusPill.style.background = isActive ? "#dcfce7" : "#fef3c7";
+            miraStatusPill.style.color = isActive ? "#166534" : "#92400e";
+            miraStatusPill.dataset.activated = isActive ? "1" : "0";
+          }
+
+          if (miraActivateOpen) {
+            miraActivateOpen.style.display = isActive ? "none" : "block";
+          }
+
+          if (miraDeactivateOpen) {
+            miraDeactivateOpen.style.display = isActive ? "block" : "none";
+          }
+        }
+
+        if (miraActivateOpen && miraActivationModal) {
+          miraActivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openMiraPasswordModal("activate");
+          });
+        }
+
+        if (miraDeactivateOpen && miraActivationModal) {
+          miraDeactivateOpen.addEventListener("click", (event) => {
+            event.preventDefault();
+            openMiraPasswordModal("deactivate");
+          });
+        }
+
+        if (miraActivationClose && miraActivationModal) {
+          miraActivationClose.addEventListener("click", () => closeModal(miraActivationModal));
+        }
+
+        if (miraActivationModal) {
+          miraActivationModal.addEventListener("click", (event) => {
+            if (event.target === miraActivationModal) {
+              closeModal(miraActivationModal);
+            }
+          });
+        }
+
+        if (miraActivationSubmit && miraActivationInput && miraActivationForm && miraActivationPassword) {
+          miraActivationSubmit.addEventListener("click", async () => {
+            const password = miraActivationInput.value.trim();
+            if (!password) {
+              if (miraActivationError) {
+                miraActivationError.textContent = "Password is required.";
+              }
+              return;
+            }
+
+            const activateValue = miraActivationValue
+              ? String(miraActivationValue.value || "0").trim()
+              : "0";
+
+            if (miraActivationError) {
+              miraActivationError.textContent = "";
+            }
+
+            miraActivationSubmit.disabled = true;
+            const previousLabel = miraActivationSubmit.textContent;
+            miraActivationSubmit.textContent = "Processing...";
+
+            try {
+              const response = await fetch("/account/mira/activate", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                  "Accept": "application/json",
+                  "X-Requested-With": "XMLHttpRequest",
+                },
+                body: new URLSearchParams({
+                  activate: activateValue,
+                  integrationPassword: password,
+                }),
+              });
+
+              const result = await response.json();
+              if (!response.ok || !result || !result.success) {
+                if (miraActivationError) {
+                  miraActivationError.textContent = (result && result.message) || "Unable to update Mira integration.";
+                }
+                return;
+              }
+
+              setMiraUiState(Boolean(result.activated));
+              closeModal(miraActivationModal);
+            } catch (error) {
+              if (miraActivationError) {
+                miraActivationError.textContent = "Unable to update Mira integration right now.";
+              }
+            } finally {
+              miraActivationSubmit.disabled = false;
+              miraActivationSubmit.textContent = previousLabel || "Continue";
             }
           });
         }
@@ -8238,6 +8460,12 @@
             whatItDoes: "Syncs classwork and lets students access assessments and tests online individually, while teachers push classwork directly from Managira into Google Classroom.",
             goodFor: "Schools already using Google Workspace for Education that want Managira's assessments to show up where students already do their classwork.",
             goodForWho: ["Schools on Google Workspace for Education", "Teachers who assign homework through Google Classroom", "Schools blending in-person and online classwork"],
+          },
+          mira: {
+            title: "Mira (AI Assistant)",
+            whatItDoes: "Adds Mira, an AI assistant, to your workspace menu. Mira can look up students, guardians, fees, attendance, classes, and more, draft messages, and — using your own real, individually-granted permissions, never more — make changes across the app through chat.",
+            goodFor: "Schools that want a faster way to look things up or get routine admin tasks done without clicking through multiple pages.",
+            goodForWho: ["Staff who'd rather ask a question than navigate menus", "Admins handling repetitive setup tasks (classes, subjects, announcements)", "Anyone wanting a quick summary before a parent call or meeting"],
           },
           whatsapp: {
             title: "WhatsApp Business",

@@ -5878,7 +5878,8 @@ module.exports = {
     } catch (err) {
       console.error("[staffMyPaygiraGet]", err);
       req.flash && req.flash("error", "Unable to load My PayGira.");
-      res.redirect("/account/settings");
+      const isEmbeddedFallback = String(req.query.embed || '').toLowerCase() === 'workspace';
+      res.redirect(isEmbeddedFallback ? "/account/settings/my-paygira?embed=workspace" : "/account/settings");
     }
   },
 

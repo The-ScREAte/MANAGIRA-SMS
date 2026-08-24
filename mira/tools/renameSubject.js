@@ -3,7 +3,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 
 module.exports = {
   name: "rename_subject",
-  description: "Rename a subject. This renames it across EVERY class it's assigned to at once (subjects are a shared name across classes, not a per-class label). Requires the Manage Classes & Subjects permission.",
+  description: "Rename a subject. This renames it across EVERY class it's assigned to at once (subjects are a shared name across classes, not a per-class label). Needs Manage Classes & Subjects.",
   parameters: {
     type: "object",
     properties: {
@@ -26,6 +26,7 @@ module.exports = {
       userId: tenant.userId,
       userRole: tenant.userRole,
       accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
       subjectName,
       newSubjectName,
     });

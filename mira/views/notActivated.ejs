@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= typeof title !== 'undefined' ? title : 'Mira' %></title>
+  <link rel="icon" type="image/png" href="/images/miralogo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/mira.css" />
+  <style>
+    .mira-not-activated-card .mira-logo { width: 112px; height: 112px; }
+  </style>
+</head>
+<body class="mira-auth-page">
+  <div class="mira-auth-shell">
+    <div class="mira-auth-card mira-not-activated-card">
+      <%- include('partials/logo', { size: 'hero', animate: false }) %>
+      <h1 class="mira-auth-title">Access Required</h1>
+      <p class="mira-auth-subtitle">
+        <%= typeof message !== 'undefined' && message ? message : "You don't have access to Mira yet." %>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

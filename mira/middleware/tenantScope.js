@@ -80,6 +80,11 @@ function tenantScope(req, res, next) {
     // trusting the coarser roleTags bucket above.
     userRole: req.identity.userRole || null,
     accountType: req.identity.accountType || null,
+    // Same reasoning as userRole/accountType above - lets internal API
+    // endpoints check the "email matches the org's own signup email = full
+    // owner access" bypass that middleware/permissionMiddleware.js's
+    // userHasPermission already applies for the browser UI.
+    userEmail: req.identity.userEmail || null,
   };
 
   next();

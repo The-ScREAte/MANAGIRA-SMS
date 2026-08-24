@@ -470,11 +470,22 @@ const legalController = {
     },
 
     aboutUs: (req, res) => {
-        res.render('legal&Compliance/AboutUs', { 
+        res.render('legal&Compliance/AboutUs', {
             title: 'About Managira - School Management That Actually Works',
             description: 'Real school management software built for schools tired of spreadsheets and disconnected systems. Simple setup, reliable operations, and actual support from people who understand schools.',
             keywords: 'managira about us, school management software, education management system, student information system, school administration',
             canonicalUrl: 'https://managira.com/legal/about-us',
+            showFooterTopSection: true
+        });
+    },
+
+    miraAiAssistant: (req, res) => {
+        res.render('legal&Compliance/MiraAiAssistant', {
+            title: 'Mira - The Educational Intelligence for Easy Management',
+            description: 'Mira is Managira\'s built-in AI assistant - an educational intelligence that looks things up, drafts messages, and carries out real school-management tasks through a simple conversation, scoped to your own school and your own real permissions.',
+            keywords: 'mira ai assistant, school ai assistant, education ai, managira ai, ai school management',
+            canonicalUrl: 'https://managira.com/legal/mira-ai-assistant',
+            isMarketingHeroPage: true,
             showFooterTopSection: true
         });
     },
@@ -496,7 +507,10 @@ const legalController = {
             console.error('FAQ knowledge load failed:', err);
         }
         res.render('legal&Compliance/FAQ', {
-            title: 'FAQ',
+            title: 'Managira FAQ - School Management Software & Mira AI Questions Answered',
+            description: 'Answers to common questions about Managira school management software and Mira, its built-in AI assistant - admissions, attendance, grading, billing, parent communication, and what Mira can do.',
+            keywords: 'managira faq, mira ai faq, school management software questions, education ai assistant faq',
+            canonicalUrl: 'https://managira.com/legal/faq',
             showFooterTopSection: true,
             faqEntries,
             faqCategories

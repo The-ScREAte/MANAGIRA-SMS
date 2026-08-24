@@ -403,6 +403,13 @@
     object-position: center;
   }
 
+  .public-nav-visual--mira img {
+    width: 100%;
+    max-width: 420px;
+    height: auto;
+    object-fit: contain;
+  }
+
   .public-nav-capabilities {
     padding: 26px 26px 24px;
     display: flex;
@@ -688,6 +695,14 @@
     object-fit: cover;
     object-position: center;
     background: #ffffff;
+  }
+
+  .public-mobile-visual--mira img {
+    width: 55%;
+    max-width: 160px;
+    height: auto;
+    margin: 8px auto;
+    object-fit: contain;
   }
 
   .public-mobile-capabilities {
@@ -2010,7 +2025,7 @@
 <% const isSchoolPublicHome = !!(!isLoggedIn && isSchoolSubdomainContext && (headerCurrentPath === '/' || headerCurrentPath.startsWith('/?'))); %>
 <% const isMarketingHome = !!(!isLoggedIn && !isPublicDashboard && !isSchoolSubdomainContext && headerCurrentPath === '/'); %>
 <% const showPublicOrgIdentity = !!(!isLoggedIn && (isPublicDashboard || isSchoolSubdomainContext)); %>
-<header id="top-header" data-overlay-eligible="<%= isMarketingHome ? '1' : '0' %>" class="<%= isMarketingHome ? 'homepage-overlay-enabled' : '' %>">
+<header id="top-header" data-overlay-eligible="<%= (isMarketingHome || (typeof isMarketingHeroPage !== 'undefined' && isMarketingHeroPage)) ? '1' : '0' %>" class="<%= (isMarketingHome || (typeof isMarketingHeroPage !== 'undefined' && isMarketingHeroPage)) ? 'homepage-overlay-enabled' : '' %>">
   <% const publicOrgData = (typeof orgDetails !== 'undefined' && orgDetails) ? orgDetails : ((req && req.schoolDetails) ? req.schoolDetails : null); %>
   <% const headerHomeHref = (typeof BASE_URL !== 'undefined' && BASE_URL) ? BASE_URL : '/'; %>
   <% const publicOrgFullName = (publicOrgData && publicOrgData.organization_name) ? publicOrgData.organization_name : ''; %>
@@ -2026,6 +2041,35 @@
       : '/common/publicDashboard'); %>
   <% const showMarketingMegaNav = !isLoggedIn && !isPublicDashboard && !isSchoolSubdomainContext; %>
   <% const publicMarketingNav = [
+    {
+      label: 'AI Assistance',
+      eyebrow: 'Mira AI Assistant',
+      title: 'School intelligence, ready when you are.',
+      description: 'Ask questions, find records, create summaries, and handle everyday school work through a thoughtful AI assistant built into Managira.',
+      ctaLabel: 'Explore Mira',
+      ctaHref: '/legal/mira-ai-assistant',
+      columns: 2,
+      heroImage: '/images/miratext.png',
+      heroImageAlt: 'Mira AI Assistant',
+      capabilitiesTitle: 'Mira helps with',
+      capabilities: ['Look up records', 'Create summaries', 'Take permission-aware actions'],
+      sections: [
+        {
+          title: 'Mira AI Assistant',
+          links: [
+            { label: 'What Mira can do', href: '/legal/mira-ai-assistant', description: 'Explore Mira\'s capabilities for school teams.' },
+            { label: 'Trust & Permissions', href: '/legal/mira-ai-assistant#mira', description: 'See how access and actions stay scoped and auditable.' }
+          ]
+        },
+        {
+          title: 'Get Started',
+          links: [
+            { label: 'Request a Demo', href: '/legal/request-demo', description: 'Talk with the Managira team about Mira.' },
+            { label: 'View Service Plans', href: '/account/service-plan', description: 'See the plans that include Managira capabilities.' }
+          ]
+        }
+      ]
+    },
     {
       label: 'Unify School',
       eyebrow: 'Unify School',
@@ -2248,7 +2292,7 @@
                     <% } %>
                   </div>
                   <% if (menu.heroImage) { %>
-                    <div class="public-nav-visual">
+                    <div class="public-nav-visual <%= menu.heroImage === '/images/miratext.png' ? 'public-nav-visual--mira' : '' %>">
                       <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" onerror="this.onerror=null;this.src='/images/image.png';" />
                     </div>
                     <div class="public-nav-capabilities">
@@ -2332,6 +2376,20 @@
       <a href="#" title="Go to management page" class="header-welcome"
         >Hello, <%= session.firstName %>!</a
       >
+      <% if (typeof miraActivated !== 'undefined' && miraActivated) { %>
+      <%# ── Mira (AI Assistant) launcher ───────────────────── %>
+      <a
+        href="<%= typeof miraPublicUrl !== 'undefined' ? miraPublicUrl : '#' %>"
+        target="_blank"
+        rel="noopener"
+        class="header-mira-btn"
+        id="header-mira-btn"
+        title="Open Mira"
+        aria-label="Open Mira, your AI assistant"
+      >
+        <img src="/images/miralogo.png" alt="" aria-hidden="true" />
+      </a>
+      <% } %>
       <%# ── Notification Bell ──────────────────────────────── %>
       <div class="notif-bell-wrapper" id="notif-bell-wrapper">
         <button class="notif-bell-btn" id="notif-bell-btn" aria-label="Notifications" type="button">
@@ -2638,7 +2696,7 @@
               <% } %>
             </div>
             <% if (menu.heroImage) { %>
-              <div class="public-mobile-visual">
+              <div class="public-mobile-visual <%= menu.heroImage === '/images/miratext.png' ? 'public-mobile-visual--mira' : '' %>">
                 <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" onerror="this.onerror=null;this.src='/images/image.png';" />
               </div>
               <% if (menu.capabilities && menu.capabilities.length) { %>
@@ -2840,8 +2898,9 @@
       const isPublicMarketingShell = !!publicHeader.querySelector('.public-header-main');
       const isPublicDashboardPath = window.location.pathname.includes('/publicDashboard');
       const isHomePath = window.location.pathname === '/';
+      const isMarketingHeroPath = publicHeader.dataset.overlayEligible === '1' && !isPublicDashboardPath;
       const isOverlayEligible = publicHeader.dataset.overlayEligible === '1';
-      const shouldUseOverlay = isPublicMarketingShell && isHomePath && !isPublicDashboardPath && isOverlayEligible;
+      const shouldUseOverlay = isPublicMarketingShell && (isHomePath || isMarketingHeroPath) && isOverlayEligible;
 
       publicHeader.classList.toggle('homepage-overlay-enabled', shouldUseOverlay);
       document.body.classList.toggle('homepage-overlay-header', shouldUseOverlay);
@@ -3436,6 +3495,30 @@
   // Re-initialize logo SPA navigation after SPA page loads
   window.addEventListener('spa:pageLoaded', initLogoSPANavigation);
 </script>
+
+<%# ── Mira launcher CSS ───────────────────────────────────────────────────── %>
+<style>
+.header-mira-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.header-mira-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+}
+.header-mira-btn:hover { background: rgba(0,0,0,0.07); transform: scale(1.05); }
+.header-mira-btn:focus-visible { outline: 2px solid var(--org-primary-color,#01535b); }
+</style>
 
 <%# ── Notification Bell CSS ──────────────────────────────────────────────── %>
 <style>

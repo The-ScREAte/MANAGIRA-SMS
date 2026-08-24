@@ -19,10 +19,23 @@
   </div>
 
   <div class="mira-sidebar-history">
-    <div class="mira-sidebar-section-label">Chat history</div>
+    <div class="mira-sidebar-section-label">
+      <span>Chat history</span>
+      <button type="button" class="mira-history-select-toggle" id="miraHistorySelectToggle">Select</button>
+    </div>
     <div class="mira-history-search">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       <input type="search" id="miraHistorySearch" placeholder="Search chats" />
+    </div>
+    <div class="mira-history-select-bar" id="miraHistorySelectBar" hidden>
+      <label class="mira-history-select-all">
+        <input type="checkbox" id="miraHistorySelectAll" />
+        <span id="miraHistorySelectCount">0 selected</span>
+      </label>
+      <div class="mira-history-select-actions">
+        <button type="button" class="mira-history-select-delete" id="miraHistorySelectDelete" disabled>Delete</button>
+        <button type="button" class="mira-history-select-cancel" id="miraHistorySelectCancel">Cancel</button>
+      </div>
     </div>
     <div id="miraChatList">
       <!-- populated by mira-chat.js from GET /api/chat/history -->
@@ -81,22 +94,27 @@
       </button>
     </div>
     <div class="mira-modal-body">
-      <div class="mira-settings-row">
-        <div>
-          <div class="mira-settings-row-label">Name</div>
-          <div class="mira-settings-row-value"><%= tenant.displayName %></div>
+      <div class="mira-settings-card">
+        <div class="mira-settings-row">
+          <svg class="mira-settings-row-icon" width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.4" r="2.6" stroke="currentColor" stroke-width="1.3"/><path d="M2.6 13.4c.8-2.6 2.9-3.9 5.4-3.9s4.6 1.3 5.4 3.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <div>
+            <div class="mira-settings-row-label">Name</div>
+            <div class="mira-settings-row-value"><%= tenant.displayName %></div>
+          </div>
         </div>
-      </div>
-      <div class="mira-settings-row">
-        <div>
-          <div class="mira-settings-row-label">Role</div>
-          <div class="mira-settings-row-value"><%= tenant.roleLabel %></div>
+        <div class="mira-settings-row">
+          <svg class="mira-settings-row-icon" width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2.6 6.4h10.8a1 1 0 0 1 1 1v5.4a1 1 0 0 1-1 1H2.6a1 1 0 0 1-1-1V7.4a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.3"/><path d="M5.6 6.4V4.8a1.2 1.2 0 0 1 1.2-1.2h2.4a1.2 1.2 0 0 1 1.2 1.2v1.6" stroke="currentColor" stroke-width="1.3"/></svg>
+          <div>
+            <div class="mira-settings-row-label">Role</div>
+            <div class="mira-settings-row-value"><%= tenant.roleLabel %></div>
+          </div>
         </div>
-      </div>
-      <div class="mira-settings-row">
-        <div>
-          <div class="mira-settings-row-label">School</div>
-          <div class="mira-settings-row-value"><%= tenant.organizationName %></div>
+        <div class="mira-settings-row">
+          <svg class="mira-settings-row-icon" width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M3 13.4V3.6a.6.6 0 0 1 .6-.6h4.8a.6.6 0 0 1 .6.6v9.8M9 13.4V6.6a.6.6 0 0 1 .6-.6h2.8a.6.6 0 0 1 .6.6v6.8M1.8 13.4h12.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M5 5.6h1M5 8h1M5 10.4h1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          <div>
+            <div class="mira-settings-row-label">School</div>
+            <div class="mira-settings-row-value"><%= tenant.organizationName %></div>
+          </div>
         </div>
       </div>
       <a class="mira-btn mira-btn-secondary mira-settings-manage-btn" href="<%= mainAppUrl %>/account/settings" target="_blank" rel="noopener">
@@ -112,8 +130,8 @@
         <p class="mira-settings-block-hint">Mira will keep these in mind across every chat from here on. For example, "always add a link to the source" or "keep answers to a few sentences unless I ask for more."</p>
         <textarea class="mira-settings-textarea" id="miraCustomInstructions" rows="4" maxlength="2000" placeholder="e.g. Always add a link for the source when you reference documentation."></textarea>
         <div class="mira-settings-block-footer">
-          <span class="mira-settings-save-status" id="miraInstructionsStatus" aria-live="polite"></span>
           <button type="button" class="mira-btn mira-btn-primary mira-settings-save-btn" id="miraInstructionsSave">Save</button>
+          <span class="mira-settings-save-status" id="miraInstructionsStatus" aria-live="polite"></span>
         </div>
       </div>
 
@@ -121,10 +139,30 @@
         <div class="mira-settings-block-label">Chat font</div>
         <p class="mira-settings-block-hint">Change the typeface used for Mira's replies.</p>
         <select class="mira-settings-select" id="miraChatFontSelect">
-          <option value="default">Default (Inter)</option>
-          <option value="serif">Serif (Georgia)</option>
-          <option value="mono">Monospace</option>
-          <option value="rounded">Rounded (Comic Sans)</option>
+          <optgroup label="Sans-serif">
+            <option value="default">Default (Inter)</option>
+            <option value="professional">Professional (Poppins)</option>
+            <option value="corporate">Corporate (Roboto)</option>
+            <option value="executive">Executive (IBM Plex Sans)</option>
+            <option value="modern">Modern (Manrope)</option>
+            <option value="precise">Precise (Space Grotesk)</option>
+            <option value="clean">Clean (Work Sans)</option>
+            <option value="neutral">Neutral (DM Sans)</option>
+            <option value="friendly">Friendly (Nunito)</option>
+          </optgroup>
+          <optgroup label="Serif">
+            <option value="elegant">Elegant (Playfair Display)</option>
+            <option value="editorial">Editorial (Source Serif 4)</option>
+            <option value="refined">Refined (Lora)</option>
+            <option value="serif">Classic (Georgia)</option>
+          </optgroup>
+          <optgroup label="Monospace">
+            <option value="mono">Monospace (System)</option>
+            <option value="code">Code (JetBrains Mono)</option>
+          </optgroup>
+          <optgroup label="Fun">
+            <option value="rounded">Playful (Comic Sans)</option>
+          </optgroup>
         </select>
       </div>
     </div>

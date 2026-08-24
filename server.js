@@ -64,6 +64,7 @@ const setAllowedFeatures = require("./middleware/setAllowedFeatures");
 const setAllowedRoles = require("./middleware/setAllowedRoles");
 const setAllowedPermissions = require("./middleware/setAllowedPermissions");
 const setThemeColor = require("./middleware/setThemeColor");
+const setMiraStatus = require("./middleware/setMiraStatus");
 const compression = require("compression");
 const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
 const { createRequestLatencyMonitor } = require("./middleware/requestLatencyMonitor");
@@ -601,7 +602,32 @@ app.use((req, res, next) => {
     });
   }
 
-  req.session.lastActivity = now;
+  // Only touch (and re-save) the session when lastActivity is meaningfully
+  // stale. Writing it on every single request — including background
+  // polling — makes express-session re-persist the session to the store on
+  // nearly every request, which can race a concurrent logout: an in-flight
+  // poll started before logout can finish saving the session back to the
+  // store *after* logout deletes it, resurrecting the user's login.
+  const ACTIVITY_WRITE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  if (now - lastActivity > ACTIVITY_WRITE_INTERVAL_MS) {
+    req.session.lastActivity = now;
+  }
+  next();
+});
+
+// Prevent browsers (and back-forward cache) from serving a stale authenticated
+// page after logout — always revalidate logged-in HTML requests so the header
+// never shows a previous user's info once the session has ended.
+app.use((req, res, next) => {
+  if (
+    req.session &&
+    req.session.userId &&
+    req.method === "GET" &&
+    (req.headers.accept || "").includes("text/html")
+  ) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+  }
   next();
 });
 
@@ -698,6 +724,7 @@ app.use(setAllowedFeatures);
 app.use(setAllowedRoles);
 app.use(setAllowedPermissions);
 app.use(setThemeColor);
+app.use(setMiraStatus);
 app.use(preloadCache);
 
 // Hamburger-menu hub panels (Management/Admissions/Reports workspaces) load
@@ -795,7 +822,12 @@ app.post(
   (req, res) => financeController.financeStripeWebhookPost(req, res, db)
 );
 
-app.use(express.json());
+// 10mb (Express default is 100kb) - Mira's internal API forwards an
+// already-attached chat image (base64, up to ~5MB raw -> ~6.7MB encoded)
+// straight through as a JSON body when publishing it to the school
+// website (upload_website_image); the default limit would 413 before the
+// request ever reached that route.
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(createOrganizationActivityLogMiddleware(db));
 
@@ -911,6 +943,15 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Only list a school's subdomain in the sitemap if its plan actually has the
+// "School Website" feature active — otherwise the public URL just renders a
+// generic "Website Not Activated Yet" placeholder (see checkFeatureAccess.js).
+// Submitting thousands of near-identical placeholder pages to Google is worse
+// than not listing them at all: it reads as thin/duplicate content at scale,
+// which hurts how the whole domain (including schools that DO have a real
+// site) gets crawled and ranked. This mirrors checkFeatureAccess.js's own
+// feature-gate lookup for the /common/publicDashboard route exactly, rather
+// than hardcoding a specific feature id/name that could drift out of sync.
 const fetchSitemapOrganizations = async () => {
   const result = await db.query(
     `SELECT o.organization_id, o.nickname, o.updated_at
@@ -920,6 +961,23 @@ const fetchSitemapOrganizations = async () => {
         AND o.nickname IS NOT NULL
         AND o.nickname <> ''
         AND COALESCE(mh.on_hold, false) = false
+        AND (
+          NOT EXISTS (
+            SELECT 1 FROM feature_routes fr
+            WHERE fr.route_path = '/common/publicDashboard'
+          )
+          OR EXISTS (
+            SELECT 1 FROM feature_routes fr
+            JOIN plan_features pf ON pf.feature_id = fr.feature_id
+            WHERE fr.route_path = '/common/publicDashboard'
+              AND pf.plan_id = (
+                CASE
+                  WHEN o.is_hub_member AND mh.plan_id IS NOT NULL THEN mh.plan_id
+                  ELSE o.plan_id
+                END
+              )
+          )
+        )
       ORDER BY o.organization_name ASC
       LIMIT 5000`
   );

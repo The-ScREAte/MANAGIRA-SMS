@@ -27,6 +27,7 @@ const upload = multer({
 
 
 router.get('/about-us', legalController.aboutUs);
+router.get('/mira-ai-assistant', legalController.miraAiAssistant);
 router.get('/product-category', legalController.productCategoryPage);
 // Disabled: School Directory page is hidden (not shown in production for now).
 // router.get('/directory', legalController.directory);

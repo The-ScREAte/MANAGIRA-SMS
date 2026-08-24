@@ -9,10 +9,9 @@ const { ensureMiraSchema } = require("../db/schema");
 async function postChat(req, res) {
   const userText = String(req.body?.message || "").trim();
   const chatId = req.body?.chatId ? parseInt(req.body.chatId, 10) : null;
-  // Class scope is client-supplied for UX convenience only (which class is
-  // "selected" in the sidebar) - it's just a hint folded into the prompt,
-  // never trusted for data access; every tool call still independently
-  // enforces tenant scope from req.tenant, not from this.
+  // Class scope is client-supplied for UX convenience only. Tenant-scoped
+  // tools still enforce data access independently; this is also stored so
+  // each response can show the scope that was active for that message.
   const classId = req.body?.classId ? parseInt(req.body.classId, 10) : null;
   const className = req.body?.className ? String(req.body.className).slice(0, 120) : null;
 
@@ -87,7 +86,7 @@ async function getChat(req, res) {
     if (!chat.rows[0]) return res.status(404).json({ error: "Chat not found." });
 
     const messages = await db.query(
-      `SELECT id, role, content, tool_calls, feedback, created_at FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC`,
+      `SELECT id, role, content, tool_calls, class_scope, feedback, created_at FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at ASC`,
       [chatId]
     );
     return res.json({ chat: chat.rows[0], messages: messages.rows });
@@ -156,6 +155,39 @@ async function deleteChat(req, res) {
   }
 }
 
+// POST /api/chat/bulk-delete  { ids: number[] } | { all: true } - tenant/user
+// scoped, cascades to messages via FK. `all` deletes every chat the caller
+// owns (still scoped by the same WHERE clause, so it can never cross tenants).
+async function bulkDeleteChats(req, res) {
+  try {
+    await ensureMiraSchema(db);
+    const deleteAll = req.body?.all === true;
+    const ids = Array.isArray(req.body?.ids)
+      ? [...new Set(req.body.ids.map((id) => parseInt(id, 10)).filter((id) => Number.isInteger(id)))]
+      : [];
+
+    if (!deleteAll && !ids.length) {
+      return res.status(400).json({ error: "ids (non-empty array) or all:true is required." });
+    }
+
+    const params = [req.tenant.organizationId, req.tenant.viewerType, req.tenant.userId];
+    let idClause = "";
+    if (!deleteAll) {
+      params.push(ids);
+      idClause = `AND id = ANY($${params.length})`;
+    }
+
+    const result = await db.query(
+      `DELETE FROM mira_chats WHERE tenant_id = $1 AND viewer_type = $2 AND user_id = $3 ${idClause}`,
+      params
+    );
+    return res.json({ success: true, deletedCount: result.rowCount });
+  } catch (error) {
+    console.error("[mira/chatController/bulkDeleteChats]", error);
+    return res.status(500).json({ error: "Unable to delete chats." });
+  }
+}
+
 // POST /api/chat/messages/:messageId/feedback  { feedback: 'like' | 'dislike' | null }
 // Scoped by joining through mira_chats so a message can only be rated by
 // the tenant/user who owns the chat it belongs to.
@@ -185,4 +217,4 @@ async function setMessageFeedback(req, res) {
   }
 }
 
-module.exports = { postChat, getHistory, getChat, updateChat, deleteChat, setMessageFeedback };
+module.exports = { postChat, getHistory, getChat, updateChat, deleteChat, bulkDeleteChats, setMessageFeedback };

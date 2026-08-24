@@ -5,6 +5,7 @@ const expressLayouts = require("express-ejs-layouts");
 
 const { ssoAuth, pageAuth } = require("./middleware/ssoAuth");
 const { tenantScope } = require("./middleware/tenantScope");
+const { requireMiraActivated } = require("./middleware/requireMiraActivated");
 
 const app = express();
 const PORT = Number(process.env.MIRA_PORT) || 4100;
@@ -37,7 +38,7 @@ app.use(require("./routes/authRoute"));
 
 // The main page: browser navigation, so an auth failure means a redirect
 // to /login, not a raw JSON 401.
-app.get("/", pageAuth, tenantScope, (req, res) => {
+app.get("/", pageAuth, tenantScope, requireMiraActivated, (req, res) => {
   res.render("index", {
     title: "Mira",
     tenant: req.tenant,
@@ -46,10 +47,10 @@ app.get("/", pageAuth, tenantScope, (req, res) => {
 });
 
 // JSON APIs: fetch()/SSE callers need a machine-readable 401, not a redirect.
-app.use("/api/chat", ssoAuth, tenantScope, require("./routes/chatRoute"));
-app.use("/api/classes", ssoAuth, tenantScope, require("./routes/classesRoute"));
-app.use("/api/upload", ssoAuth, tenantScope, require("./routes/uploadRoute"));
-app.use("/api/preferences", ssoAuth, tenantScope, require("./routes/preferencesRoute"));
+app.use("/api/chat", ssoAuth, tenantScope, requireMiraActivated, require("./routes/chatRoute"));
+app.use("/api/classes", ssoAuth, tenantScope, requireMiraActivated, require("./routes/classesRoute"));
+app.use("/api/upload", ssoAuth, tenantScope, requireMiraActivated, require("./routes/uploadRoute"));
+app.use("/api/preferences", ssoAuth, tenantScope, requireMiraActivated, require("./routes/preferencesRoute"));
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found." });

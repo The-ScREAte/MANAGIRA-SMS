@@ -3,7 +3,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 
 module.exports = {
   name: "rename_class",
-  description: "Rename an existing class. Requires the Manage Classes & Subjects permission and the exact current class name.",
+  description: "Rename an existing class. Needs Manage Classes & Subjects and the exact current class name.",
   parameters: {
     type: "object",
     properties: {
@@ -26,6 +26,7 @@ module.exports = {
       userId: tenant.userId,
       userRole: tenant.userRole,
       accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
       className,
       newClassName,
     });

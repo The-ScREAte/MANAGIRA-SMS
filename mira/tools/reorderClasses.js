@@ -4,7 +4,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 module.exports = {
   name: "reorder_classes",
   description:
-    "Change the display order of classes on the Classes dashboard, matching the drag-and-drop \"Dashboard Class Arrangement\" panel. Requires the Manage Classes & Subjects permission. " +
+    "Change the display order of classes on the Classes dashboard, matching the drag-and-drop \"Dashboard Class Arrangement\" panel. Needs Manage Classes & Subjects. " +
     "Give the class names in the exact order the user wants them to appear, top to bottom - any class not mentioned keeps its place, appended after the ones you listed. Never guess an order the user hasn't stated.",
   parameters: {
     type: "object",
@@ -26,6 +26,7 @@ module.exports = {
       userId: tenant.userId,
       userRole: tenant.userRole,
       accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
       orderedClassNames,
     });
 

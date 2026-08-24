@@ -5,13 +5,8 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 module.exports = {
   name: "delete_school_year",
   description:
-    "Delete a School Year record. This is DESTRUCTIVE and PERMANENT - it cannot be undone. Requires an admin-level role. " +
-    "Call this tool a first time with confirm omitted (or false) to get the year's details and a warning; " +
-    "read that warning to the user IN FULL, in plain language, and ask them to confirm before doing anything else - " +
-    "never set confirm=true on that same first call, no matter how clearly the user already asked for the deletion earlier in the conversation. " +
-    "As soon as the user replies with ANY clear affirmative in a later message - \"yes\", \"confirm\", \"go ahead\", \"do it\", \"delete it\", etc. is enough, " +
-    "you do not need extra certainty or a specially-worded reply - call this tool again with confirm=true right away. " +
-    "Only skip straight to confirm=true, or refuse outright, if the reply is actually ambiguous, off-topic, or a change of mind.",
+    "Delete a School Year record. DESTRUCTIVE and PERMANENT. Needs Manage School Years & Terms. " +
+    "First call with confirm omitted/false to get the warning; relay it in full and get explicit confirmation. On any clear yes in a later message, call again with confirm=true.",
   parameters: {
     type: "object",
     properties: {
@@ -70,6 +65,7 @@ module.exports = {
         userId: tenant.userId,
         userRole: tenant.userRole,
         accountType: tenant.accountType,
+      userEmail: tenant.userEmail,
         yearLabel: year.year_label,
       });
 
