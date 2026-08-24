@@ -11,7 +11,8 @@
     "dev:mira": "npm --prefix mira run dev",
     "dev:status": "node -e \"const net=require('net');const ports=[Number(process.env.PORT||4000),Number(process.env.MIRA_PORT||4100)];ports.forEach(port=>{const socket=net.createConnection({host:'127.0.0.1',port},()=>{console.log('[Status] Server is running on port '+port);socket.end();});socket.on('error',()=>{console.log('[Status] Server is NOT running on port '+port);});});\"",
     "dev:stop": "for port in ${PORT:-4000} ${MIRA_PORT:-4100}; do pids=$(lsof -ti tcp:$port); if [ -n \"$pids\" ]; then kill $pids && echo \"[Dev] Stopped process on port $port\"; else echo \"[Dev] No process running on port $port\"; fi; done",
-    "build:dev": "vite build --mode development"
+    "build:dev": "vite build --mode development",
+    "postinstall": "npm install --prefix mira"
   },
   "keywords": [],
   "author": "",
