@@ -162,7 +162,7 @@
         </ul>
       <% } %>
 
-      <form action="/admin/profile" method="POST" class="profile-form" autocomplete="off" enctype="multipart/form-data">
+      <form action="/admin/profile" method="POST" class="profile-form" autocomplete="off" enctype="multipart/form-data" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
         <label>
           First name
           <input type="text" name="firstName" value="<%= profile.first_name || '' %>" required maxlength="255" />
@@ -173,7 +173,10 @@
         </label>
         <label class="full">
           Phone number
-          <input type="tel" name="phoneNumber" value="<%= profile.phone_number || '' %>" maxlength="50" placeholder="e.g. +1 555 123 4567" pattern="[+()\-\s\d]{4,50}" />
+          <div class="phone-combo" data-default-iso2="US">
+            <select class="phone-dial-select"></select>
+            <input type="tel" class="phone-local-input" name="phoneNumber" value="<%= profile.phone_number || '' %>" maxlength="50" />
+          </div>
         </label>
         <label class="full">
           Email (read-only)
@@ -234,3 +237,5 @@
     </div>
   </div>
 </div>
+
+<script src="/js/dialCodes.js"></script>

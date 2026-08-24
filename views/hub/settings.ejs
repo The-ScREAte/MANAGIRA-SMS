@@ -214,7 +214,7 @@
 
     <div class="settings-card">
       <h2>Profile Settings</h2>
-      <form action="/hub/settings/profile" method="POST">
+      <form action="/hub/settings/profile" method="POST" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
         <div class="form-group">
           <label class="form-label">First Name</label>
           <input type="text" name="firstName" class="form-input" value="<%= hub.first_name %>" required>
@@ -225,7 +225,10 @@
         </div>
         <div class="form-group">
           <label class="form-label">Phone</label>
-          <input type="text" name="hubPhone" class="form-input" value="<%= hub.hub_phone || '' %>">
+          <div class="phone-combo" data-default-iso2="GH">
+            <select class="phone-dial-select"></select>
+            <input type="text" class="phone-local-input" name="hubPhone" value="<%= hub.hub_phone || '' %>">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Address</label>
@@ -275,4 +278,6 @@
       </form>
     </div>
     <% } %>
+
+<script src="/js/dialCodes.js"></script>
   </div>

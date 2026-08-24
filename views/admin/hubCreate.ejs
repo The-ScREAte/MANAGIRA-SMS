@@ -119,7 +119,7 @@
       <strong>Note:</strong> After creation, a setup email will be sent to the hub contact.
     </div>
 
-    <form action="/admin/hubs/create" method="POST">
+    <form action="/admin/hubs/create" method="POST" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
       <div class="form-section">
         <h2>Hub Information</h2>
         <div class="form-group">
@@ -149,7 +149,10 @@
         </div>
         <div class="form-group">
           <label class="form-label" for="hubPhone">Phone</label>
-          <input type="text" name="hubPhone" id="hubPhone" class="form-input" placeholder="+233 123 456 789">
+          <div class="phone-combo" data-default-iso2="GH">
+            <select class="phone-dial-select"></select>
+            <input type="text" name="hubPhone" id="hubPhone" class="phone-local-input">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label" for="hubAddress">Address</label>
@@ -193,5 +196,6 @@
       </div>
     </form>
   </div>
+  <script src="/js/dialCodes.js"></script>
 </body>
 </html>

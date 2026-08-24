@@ -167,7 +167,7 @@
       <p>Some fields like subdomain and email cannot be changed. Contact support if you need to modify these.</p>
     </div>
 
-    <form action="/hub/organizations/edit/<%= organization.organization_id %>" method="POST">
+    <form action="/hub/organizations/edit/<%= organization.organization_id %>" method="POST" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
       <div class="form-group">
         <label for="organization_name">
           Organization Name <span style="color: #dc3545;">*</span>
@@ -253,13 +253,17 @@
         <label for="organization_phone">
           Phone Number <span style="color: #dc3545;">*</span>
         </label>
-        <input
-          type="tel"
-          id="organization_phone"
-          name="organization_phone"
-          value="<%= organization.organization_phone %>"
-          required
-        />
+        <div class="phone-combo" data-default-iso2="GH">
+          <select class="phone-dial-select"></select>
+          <input
+            type="tel"
+            id="organization_phone"
+            class="phone-local-input"
+            name="organization_phone"
+            value="<%= organization.organization_phone %>"
+            required
+          />
+        </div>
       </div>
 
       <div class="button-group">
@@ -269,3 +273,5 @@
     </form>
   </div>
 </div>
+
+<script src="/js/dialCodes.js"></script>

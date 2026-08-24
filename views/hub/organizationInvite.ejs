@@ -322,7 +322,7 @@
           <p>They will create a new Managira account and join your hub</p>
         </div>
 
-        <form action="/hub/organizations/invite" method="POST">
+        <form action="/hub/organizations/invite" method="POST" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
           <div class="form-section">
             <h3><span class="section-icon">🏫</span> Organization Details</h3>
             <div class="form-group">
@@ -344,7 +344,10 @@
             </div>
             <div class="form-group">
               <label for="contact_person_phone">Phone Number</label>
-              <input type="tel" id="contact_person_phone" name="contact_person_phone" placeholder="+1 (555) 123-4567">
+              <div class="phone-combo" data-default-iso2="GH">
+                <select class="phone-dial-select"></select>
+                <input type="tel" id="contact_person_phone" class="phone-local-input" name="contact_person_phone">
+              </div>
             </div>
           </div>
 
@@ -409,6 +412,7 @@
     </div>
   </div>
 
+  <script src="/js/dialCodes.js"></script>
   <script>
     function showTypeSelection() {
       document.getElementById('typeSelection').style.display = 'block';

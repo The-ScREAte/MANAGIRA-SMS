@@ -533,6 +533,7 @@
   </div>
 </div>
 
+<script src="/js/dialCodes.js"></script>
 <script>
 let hasChanges = false;
 
@@ -759,7 +760,12 @@ async function loadStudentDetails(id) {
                   <div class="guardian-fields">
                     <div><label>First Name:</label><input type="text" name="guardianFirstName${i}" value="${g.first_name || ''}" onchange="hasChanges=true"></div>
                     <div><label>Last Name:</label><input type="text" name="guardianLastName${i}" value="${g.last_name || ''}" onchange="hasChanges=true"></div>
-                    <div><label>Phone:</label><input type="text" name="guardianPhone${i}" value="${g.phone || ''}" onchange="hasChanges=true"></div>
+                    <div><label>Phone:</label>
+                      <div class="phone-combo" data-default-iso2="GH">
+                        <select class="phone-dial-select"></select>
+                        <input type="text" class="phone-local-input" name="guardianPhone${i}" value="${g.phone || ''}" onchange="hasChanges=true">
+                      </div>
+                    </div>
                     <div><label>Email:</label><input type="text" name="guardianEmail${i}" value="${g.email || ''}" onchange="hasChanges=true"></div>
                   </div>
                   <div style="margin-top: 12px;"><label>Hometown:</label><input type="text" name="guardianHometown${i}" value="${g.hometown || ''}" onchange="hasChanges=true"></div>
@@ -778,6 +784,7 @@ async function loadStudentDetails(id) {
       </main>
     `;
 
+    if (window.initPhoneCountryCombos) window.initPhoneCountryCombos(container);
     toggleEnrollmentFields();
     document.querySelectorAll('input[name="enrollmentType"]').forEach(el => {
       el.addEventListener("change", toggleEnrollmentFields);
@@ -815,7 +822,9 @@ function confirmApprove(e, id) {
   }
   const confirmed = confirm("✅ Are you sure you want to approve this admission?");
   if (confirmed) {
-    document.getElementById('pendingReviewForm').action = `/common/admissionPending/approve/${id}`;
+    const form = document.getElementById('pendingReviewForm');
+    if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(form);
+    form.action = `/common/admissionPending/approve/${id}`;
     return true;
   }
   e.preventDefault();
@@ -840,6 +849,7 @@ function deleteStudentImage(pendingId) {
 function saveChanges(id) {
   if (!confirm("💾 Save changes?")) return;
   const form = document.getElementById("pendingReviewForm");
+  if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(form);
   const formData = new FormData(form);
   fetch(`/common/savePendingStudentChanges/${id}`, { method: "POST", body: formData })
     .then(res => res.json())
@@ -871,11 +881,17 @@ function addGuardian() {
     <div class="guardian-fields">
       <div><label>First Name:</label><input type="text" name="guardianFirstName${index}" onchange="hasChanges=true"></div>
       <div><label>Last Name:</label><input type="text" name="guardianLastName${index}" onchange="hasChanges=true"></div>
-      <div><label>Phone:</label><input type="text" name="guardianPhone${index}" onchange="hasChanges=true"></div>
+      <div><label>Phone:</label>
+        <div class="phone-combo" data-default-iso2="GH">
+          <select class="phone-dial-select"></select>
+          <input type="text" class="phone-local-input" name="guardianPhone${index}" onchange="hasChanges=true">
+        </div>
+      </div>
       <div><label>Email:</label><input type="text" name="guardianEmail${index}" onchange="hasChanges=true"></div>
     </div>
     <div style="margin-top: 12px;"><label>Hometown:</label><input type="text" name="guardianHometown${index}" onchange="hasChanges=true"></div>
   `;
   container.appendChild(div);
+  if (window.initPhoneCountryCombos) window.initPhoneCountryCombos(div);
 }
 </script>

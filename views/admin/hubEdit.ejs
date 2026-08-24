@@ -130,7 +130,7 @@
       <strong>Created:</strong> <%= new Date(hub.created_at).toLocaleDateString() %>
     </div>
 
-    <form action="/admin/hubs/<%= hub.hub_id %>/edit" method="POST">
+    <form action="/admin/hubs/<%= hub.hub_id %>/edit" method="POST" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
       <div class="form-section">
         <h2>Hub Information</h2>
         <div class="form-group">
@@ -161,7 +161,10 @@
         </div>
         <div class="form-group">
           <label class="form-label" for="hubPhone">Phone</label>
-          <input type="text" name="hubPhone" id="hubPhone" class="form-input" value="<%= hub.hub_phone || '' %>">
+          <div class="phone-combo" data-default-iso2="GH">
+            <select class="phone-dial-select"></select>
+            <input type="text" name="hubPhone" id="hubPhone" class="phone-local-input" value="<%= hub.hub_phone || '' %>">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label" for="hubAddress">Address</label>
@@ -213,5 +216,6 @@
       </div>
     </form>
   </div>
+  <script src="/js/dialCodes.js"></script>
 </body>
 </html>

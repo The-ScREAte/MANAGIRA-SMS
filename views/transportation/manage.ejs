@@ -1093,7 +1093,12 @@
                 <div class="tm-row"><label>First Name</label><input name="firstName" required /></div>
                 <div class="tm-row"><label>Last Name</label><input name="lastName" required /></div>
                 <div class="tm-row"><label>Email</label><input name="email" type="email" required /></div>
-                <div class="tm-row"><label>Phone</label><input name="phone" /></div>
+                <div class="tm-row"><label>Phone</label>
+                  <div class="phone-combo" data-default-iso2="GH">
+                    <select class="phone-dial-select"></select>
+                    <input name="phone" class="phone-local-input" />
+                  </div>
+                </div>
                 <div class="tm-row"><label>License Number</label><input name="licenseNumber" /></div>
                 <div class="tm-row"><label>Status</label><select name="status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
                 <div class="tm-row"><label>Assigned Bus</label><select name="assignedBusId"><option value="">None</option><% (buses || []).forEach(function(bus) { %><option value="<%= bus.bus_id %>"><%= bus.bus_number %></option><% }) %></select></div>
@@ -1832,6 +1837,7 @@
   crossorigin=""
 ></script>
 
+<script src="/js/dialCodes.js"></script>
 <script>
   (function () {
     const navButtons = Array.from(document.querySelectorAll('.tm-nav-btn'));
@@ -2418,7 +2424,12 @@
         if (addDriverForm) {
           addDriverForm.elements.firstName.value = actionBtn.dataset.firstName || '';
           addDriverForm.elements.lastName.value = actionBtn.dataset.lastName || '';
-          addDriverForm.elements.phone.value = actionBtn.dataset.phone || '';
+          const driverPhoneCombo = addDriverForm.querySelector('.phone-combo');
+          if (driverPhoneCombo && window.setPhoneComboValue) {
+            window.setPhoneComboValue(driverPhoneCombo, actionBtn.dataset.phone || '');
+          } else {
+            addDriverForm.elements.phone.value = actionBtn.dataset.phone || '';
+          }
           addDriverForm.elements.email.value = actionBtn.dataset.email || '';
           addDriverForm.elements.licenseNumber.value = actionBtn.dataset.licenseNumber || '';
           addDriverForm.elements.status.value = actionBtn.dataset.status || 'active';
@@ -2816,6 +2827,8 @@
     if (openAddDriverModalBtn) {
       openAddDriverModalBtn.addEventListener('click', () => {
         if (addDriverForm) addDriverForm.reset();
+        const freshPhoneCombo = addDriverForm && addDriverForm.querySelector('.phone-combo');
+        if (freshPhoneCombo && window.setPhoneComboValue) window.setPhoneComboValue(freshPhoneCombo, '');
         if (driverUserIdField) driverUserIdField.value = '';
         if (addDriverTitle) addDriverTitle.textContent = 'Add Driver';
         if (submitAddDriverBtn) submitAddDriverBtn.textContent = 'Save Driver';
@@ -2845,6 +2858,7 @@
         if (addDriverFeedback) addDriverFeedback.textContent = 'Saving driver...';
 
         try {
+          if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(addDriverForm);
           const formData = new FormData(addDriverForm);
           const driverUserId = String(driverUserIdField && driverUserIdField.value ? driverUserIdField.value : '').trim();
           const url = driverUserId

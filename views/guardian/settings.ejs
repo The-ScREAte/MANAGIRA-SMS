@@ -816,7 +816,7 @@
         </summary>
 
         <div class="accordion-body">
-        <form action="/guardian/settings" method="POST" enctype="multipart/form-data" class="settings-form">
+        <form action="/guardian/settings" method="POST" enctype="multipart/form-data" class="settings-form" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
           <details class="settings-accordion">
             <summary class="accordion-summary">
               <span class="accordion-badge">👤</span>
@@ -919,7 +919,10 @@
 
                 <div class="form-field">
                   <label class="form-label">Phone Number *</label>
-                  <input type="text" name="phone" class="form-input" value="<%= guardian.phone || guardian.login_phone || '' %>" required />
+                  <div class="phone-combo" data-default-iso2="GH">
+                    <select class="phone-dial-select"></select>
+                    <input type="text" class="phone-local-input" name="phone" value="<%= guardian.phone || guardian.login_phone || '' %>" required />
+                  </div>
                 </div>
 
                 <div class="form-field form-field--full">
@@ -1098,6 +1101,7 @@
   </div>
 </div>
 
+<script src="/js/dialCodes.js"></script>
 <script>
 function updateStudentPreview() {
   const select = document.getElementById('studentSelect');

@@ -563,7 +563,7 @@
         <h1>Register Your Organization</h1>
       </div>
 
-      <form class="register-form" action="/account/register" method="post" enctype="multipart/form-data">
+      <form class="register-form" action="/account/register" method="post" enctype="multipart/form-data" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
         <input type="hidden" name="preferredPlanId" value="<%= preferredPlanId || '' %>">
         <input type="hidden" name="trialRequested" value="<%= trialRequested ? '1' : '' %>">
         <input type="hidden" name="preferredPlanName" value="<%= preferredPlanName || '' %>">
@@ -725,7 +725,10 @@
 
         <div class="form-group">
           <label class="form-label" for="orgPhone">Org Phone *</label>
-          <input type="tel" name="orgPhone" id="orgPhone" class="form-input" placeholder="+1 801 555 0123" required pattern="^\+?[0-9\s().-]{6,25}$" title="Use 6 to 15 digits. Country code is allowed (for example: +1 801 555 0123)." autocomplete="tel" value="<%= formData?.orgPhone || '' %>">
+          <div class="phone-combo" data-default-iso2="US">
+            <select class="phone-dial-select"></select>
+            <input type="tel" name="orgPhone" id="orgPhone" class="phone-local-input" required autocomplete="tel" value="<%= formData?.orgPhone || '' %>">
+          </div>
         </div>
 
         <% const registerProofDraft = (typeof proofDraft !== 'undefined' && proofDraft) ? proofDraft : {}; %>
@@ -822,6 +825,7 @@
     </div>
   </div>
 
+  <script src="/js/dialCodes.js"></script>
   <script>
     const REGISTER_DRAFT_KEY = 'managira:register:draft:v1';
     const REGISTER_DRAFT_TTL_MS = 2 * 60 * 60 * 1000;

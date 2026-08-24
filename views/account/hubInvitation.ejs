@@ -375,7 +375,7 @@
           </ul>
         </div>
 
-        <form action="/account/accept-hub-invitation/<%= token %>" method="POST">
+        <form action="/account/accept-hub-invitation/<%= token %>" method="POST" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
           <!-- Organization Setup -->
           <div class="form-section">
             <h3>Organization Setup</h3>
@@ -449,12 +449,15 @@
                 <label for="admin_phone">
                   Phone Number
                 </label>
-                <input
-                  type="tel"
-                  id="admin_phone"
-                  name="admin_phone"
-                  placeholder="+234 800 000 0000"
-                />
+                <div class="phone-combo" data-default-iso2="NG">
+                  <select class="phone-dial-select"></select>
+                  <input
+                    type="tel"
+                    id="admin_phone"
+                    class="phone-local-input"
+                    name="admin_phone"
+                  />
+                </div>
               </div>
             </div>
 
@@ -524,6 +527,7 @@
       </div>
     </div>
 
+    <script src="/js/dialCodes.js"></script>
     <script>
       // Live subdomain preview
       document.getElementById('organization_nickname').addEventListener('input', function(e) {

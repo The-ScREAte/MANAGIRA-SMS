@@ -1092,6 +1092,14 @@ app.get("/", async (req, res) => {
 
   // ✅ Case 1: Production root domain (e.g. managira.com or www)
   if (isProduction && req.isRootDomain) {
+    // An already-logged-in org user landing on the bare root domain (typed
+    // it directly, or reopened the tab with the session still alive) wants
+    // their dashboard, not the public marketing homepage - send them
+    // straight there instead of making them click through the marketing
+    // page first.
+    if (req.session && (req.session.organizationId || req.session.userId)) {
+      return res.redirect("/common/orgDashboard");
+    }
   // ...removed log for clean background operation...
     return res.render("index", homeSeo);
   }
