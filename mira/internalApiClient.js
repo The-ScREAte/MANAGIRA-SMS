@@ -5,7 +5,13 @@
 // tables directly.
 require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
 
-const MAIN_APP_INTERNAL_BASE_URL = process.env.MAIN_APP_INTERNAL_BASE_URL || "http://localhost:4000";
+// Matches server.js's own BASE_PORT exactly (process.env.PORT, which Render
+// assigns dynamically - e.g. 10000, not a fixed number) so this default is
+// correct on a co-located single-service deploy without anyone having to
+// track Render's assigned port by hand. Only override
+// MAIN_APP_INTERNAL_BASE_URL if the main app is a genuinely separate
+// service reachable at a different internal address.
+const MAIN_APP_INTERNAL_BASE_URL = process.env.MAIN_APP_INTERNAL_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
 const MIRA_SERVICE_TOKEN = process.env.MIRA_SERVICE_TOKEN;
 
 async function callInternalApi(path, { method = "GET", body } = {}) {

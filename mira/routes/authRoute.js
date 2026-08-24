@@ -16,7 +16,9 @@ const router = express.Router();
 const { resolveIdentity, MIRA_SIGNED_OUT_COOKIE } = require("../middleware/ssoAuth");
 
 const MAIN_APP_PUBLIC_URL = process.env.MAIN_APP_PUBLIC_URL || process.env.MAIN_APP_INTERNAL_BASE_URL || "http://localhost:4000";
-const MAIN_APP_INTERNAL_BASE_URL = process.env.MAIN_APP_INTERNAL_BASE_URL || "http://localhost:4000";
+// Matches server.js's own BASE_PORT (process.env.PORT, Render's dynamically
+// assigned port) - see internalApiClient.js for the full explanation.
+const MAIN_APP_INTERNAL_BASE_URL = process.env.MAIN_APP_INTERNAL_BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
 const SESSION_COOKIE_NAME = process.env.SESSION_COOKIE_NAME || "connect.sid";
 
 // Trivial in-memory rate limit on login attempts, matching
