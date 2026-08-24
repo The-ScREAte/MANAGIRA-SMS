@@ -1498,7 +1498,7 @@ button { font-family: inherit; }
 
   /* Clean, consistent reading sizes so the thread and sidebar stay legible
      without any single element crowding a phone screen. */
-  .mira-message-body { font-size: 0.95rem; line-height: 1.6; }
+  .mira-message-bubble { font-size: 0.95rem; line-height: 1.6; }
   .mira-chat-item-text { font-size: 0.88rem; }
   .mira-chat-item-time { font-size: 0.7rem; }
   .mira-chip { font-size: 0.8rem; padding: 7px 12px; }
