@@ -267,6 +267,12 @@ router.post(
   (req, res) => accountController.updatePlatformFeeBearerPost(req, res, db)
 );
 router.post(
+  "/settings/pay-now",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_BILLING),
+  (req, res) => accountController.payNowPost(req, res, db)
+);
+router.post(
   "/settings/calendar/profile",
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),

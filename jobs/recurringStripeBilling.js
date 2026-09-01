@@ -413,7 +413,9 @@ async function recordRenewalFailure({
     if (failedAttempts >= MAX_FAILED_RETRY_ATTEMPTS) {
       await db.query(
         `UPDATE organizations
-         SET on_hold = true
+         SET on_hold = true,
+             on_hold_at = NOW(),
+             hold_reminder_count = 0
          WHERE organization_id = $1`,
         [organizationId]
       );
@@ -430,6 +432,305 @@ async function recordRenewalFailure({
   );
 
   return null;
+}
+
+// Manually triggered charge attempt — e.g. a manager clicking "Make Payment
+// Now" on the billing settings page while their org is on_hold. Mirrors the
+// pricing/charge logic in runRecurringBilling()'s per-org loop below, but
+// runs for a single org on demand and reports the result synchronously
+// instead of only via email, and clears the hold immediately on success.
+async function chargeOrganizationNow(organizationId) {
+  await ensurePaymentProviderSchema(db);
+  await ensureBillingInvoiceSchema();
+  await ensureBillingRetryAttemptSchema();
+
+  let stripe = null;
+  try {
+    stripe = await getStripeClient(db);
+  } catch (_) {
+    stripe = null;
+  }
+
+  const paymentFailureColumns = await getPaymentsFailureColumns();
+
+  const orgResult = await db.query(
+    `SELECT organization_id, email, organization_name, plan_id,
+            organization_country, organization_currency, stripe_customer_id,
+            pending_plan_id, pending_plan_effective_date
+     FROM organizations
+     WHERE organization_id = $1`,
+    [organizationId]
+  );
+  const org = orgResult.rows[0];
+  if (!org) {
+    return { success: false, message: 'Organization not found.' };
+  }
+
+  const paymentResult = await db.query(
+    `SELECT next_payment_end_date, COALESCE(billing_period_key, 'monthly') AS billing_period_key
+     FROM payments
+     WHERE organization_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [organizationId]
+  );
+  const paymentRow = paymentResult.rows[0] || null;
+  org.next_payment_end_date = paymentRow?.next_payment_end_date || new Date();
+  org.billing_period_key = paymentRow?.billing_period_key || 'monthly';
+
+  let billingInterval = 'monthly';
+  try {
+    const intervalResult = await db.query("SELECT value FROM app_settings WHERE key = 'billing_interval'");
+    if (intervalResult.rows.length > 0) {
+      billingInterval = intervalResult.rows[0].value;
+    }
+  } catch (_) {}
+
+  const lockKey = `recurring_subscription_charge:${org.organization_id}`;
+  const lockResult = await db.query('SELECT pg_try_advisory_lock(hashtext($1)) AS locked', [lockKey]);
+  if (!lockResult.rows[0]?.locked) {
+    return { success: false, message: 'A payment attempt is already in progress for this organization. Please wait a moment and try again.' };
+  }
+
+  try {
+    let shouldApplyPendingPlan = false;
+    let pendingPlanId = null;
+    if (org.pending_plan_id && org.pending_plan_effective_date) {
+      const effectiveDate = new Date(org.pending_plan_effective_date);
+      if (effectiveDate <= new Date()) {
+        shouldApplyPendingPlan = true;
+        pendingPlanId = org.pending_plan_id;
+        org.plan_id = org.pending_plan_id;
+      }
+    }
+
+    const actualStudentCount = await getOrganizationStudentCount(org.organization_id);
+    const dynamicTermDivider = await getDynamicTermDivider();
+    const region = await getRegionForCountry(db, org.organization_country || null);
+    const pricingMatch = await getBestPlanRegionPrice(
+      db,
+      Number(org.plan_id),
+      Number(region?.id || 0) || null
+    );
+
+    let monthlyPrice = 0;
+    if (pricingMatch?.priceRow) {
+      const resolvedRegion = pricingMatch.region || region;
+      const monthsPerTerm = await getDynamicRegionTermMonths(
+        Number(resolvedRegion?.id || region?.id || 0),
+        dynamicTermDivider
+      );
+      const monthly = computeDynamicMonthlyPrice(pricingMatch.priceRow, actualStudentCount, {
+        termDivider: monthsPerTerm,
+      });
+      monthlyPrice = Number(monthly?.monthlyTotal || 0);
+    } else {
+      monthlyPrice = await getFallbackPlanMonthlyUsd(org.plan_id);
+    }
+
+    if (!(monthlyPrice > 0)) {
+      return { success: false, message: 'Unable to determine your plan price. Please contact support.' };
+    }
+
+    const periodConfig = await resolveBillingCycle(org.billing_period_key || 'monthly');
+    const cycleBreakdown = applyCycle(monthlyPrice, periodConfig);
+    const periodMonths = Number(cycleBreakdown.months) || 1;
+    const chargeAmountUsd = Number(cycleBreakdown.finalTotal || 0);
+    const stripeChargeCurrency = String(
+      resolveStripeChargeCurrencyForOrganization(org.organization_country, org.organization_currency || null)
+    ).toLowerCase();
+    const chargeAmount = await convertUsdAmountToCurrency(chargeAmountUsd, stripeChargeCurrency);
+    const amount = Math.round(chargeAmount * 100);
+
+    let dueInvoiceRecord = null;
+    try {
+      dueInvoiceRecord = await upsertPrechargeInvoiceRecord({
+        organizationId: org.organization_id,
+        scheduledChargeAt: org.next_payment_end_date,
+        amountDue: chargeAmount,
+        currency: stripeChargeCurrency,
+        billingPeriodKey: org.billing_period_key || 'monthly',
+      });
+    } catch (invoiceErr) {
+      return { success: false, message: 'Could not prepare your invoice. Please try again shortly.' };
+    }
+
+    if (!dueInvoiceRecord?.id) {
+      return { success: false, message: 'Could not prepare your invoice. Please try again shortly.' };
+    }
+
+    if (!stripe || !org.stripe_customer_id) {
+      return { success: false, message: 'No payment provider is configured for this organization. Please contact support.' };
+    }
+
+    const orgCards = await getOrgChargeCards(db, org.organization_id, 'stripe');
+    if (!orgCards.length) {
+      return { success: false, message: 'No card on file. Please add a payment method first.' };
+    }
+
+    let chargeSucceeded = false;
+    let succeededPaymentIntentId = null;
+    let lastFailureMessage = null;
+    let cardsTriedCount = 0;
+
+    try {
+      for (const card of orgCards) {
+        cardsTriedCount += 1;
+        try {
+          const dueIso = org.next_payment_end_date
+            ? new Date(org.next_payment_end_date).toISOString().slice(0, 19)
+            : 'no_due_date';
+          const cardToken = String(card.authorization_code || `card_${cardsTriedCount}`).slice(-24);
+          const idempotencyKey = `manual_pay_now:${org.organization_id}:${dueIso}:${amount}:${cardToken}:${Date.now()}`;
+
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount,
+            currency: stripeChargeCurrency,
+            customer: org.stripe_customer_id,
+            payment_method: card.authorization_code,
+            confirm: true,
+            off_session: true,
+            metadata: {
+              flow: 'manual_pay_now',
+              organization_id: String(org.organization_id),
+              billing_period_key: org.billing_period_key || 'monthly',
+              charge_currency: stripeChargeCurrency,
+              card_position: String(cardsTriedCount),
+              is_primary_card: String(Boolean(card.is_primary)),
+            },
+          }, { idempotencyKey });
+
+          if (paymentIntent.status === 'succeeded') {
+            chargeSucceeded = true;
+            succeededPaymentIntentId = paymentIntent.id || null;
+            break;
+          }
+
+          lastFailureMessage = paymentIntent.last_payment_error?.message || lastFailureMessage || 'Charge declined.';
+        } catch (perCardErr) {
+          lastFailureMessage = perCardErr?.response?.data?.message || perCardErr.message || lastFailureMessage || 'Charge request failed.';
+        }
+      }
+    } catch (outerErr) {
+      lastFailureMessage = outerErr.message || lastFailureMessage || 'Charge request failed.';
+    }
+
+    if (chargeSucceeded) {
+      let nextPaymentDate;
+      if (periodMonths > 1) {
+        nextPaymentDate = `NOW() + interval '${periodMonths} months'`;
+      } else {
+        switch (billingInterval) {
+          case '5_minutes': nextPaymentDate = "NOW() + interval '5 minutes'"; break;
+          case 'daily': nextPaymentDate = "NOW() + interval '1 day'"; break;
+          case 'weekly': nextPaymentDate = "NOW() + interval '1 week'"; break;
+          case 'yearly': nextPaymentDate = "NOW() + interval '1 year'"; break;
+          case '2_years': nextPaymentDate = "NOW() + interval '2 years'"; break;
+          case '3_years': nextPaymentDate = "NOW() + interval '3 years'"; break;
+          case 'monthly':
+          default: nextPaymentDate = "NOW() + interval '1 month'"; break;
+        }
+      }
+
+      await db.query(
+        paymentFailureColumns.hasFailedAttempts && paymentFailureColumns.hasLastFailedPayment
+          ? `UPDATE payments
+             SET amount_paid = $1,
+                 next_payment_end_date = ${nextPaymentDate},
+                 status = 'active',
+                 failed_attempts = 0,
+                 last_failed_payment = NULL
+             WHERE organization_id = $2`
+          : `UPDATE payments
+             SET amount_paid = $1,
+                 next_payment_end_date = ${nextPaymentDate},
+                 status = 'active'
+             WHERE organization_id = $2`,
+        [chargeAmountUsd, org.organization_id]
+      );
+
+      await db.query(
+        `UPDATE billing_invoices
+         SET status = 'paid', paid_at = NOW(), failed_at = NULL,
+             payment_intent_id = COALESCE($2, payment_intent_id), updated_at = NOW()
+         WHERE id = $1`,
+        [dueInvoiceRecord.id, succeededPaymentIntentId]
+      );
+
+      await db.query(
+        `UPDATE organizations
+         SET on_hold = false, on_hold_at = NULL, hold_reminder_count = 0
+         WHERE organization_id = $1`,
+        [org.organization_id]
+      );
+
+      if (shouldApplyPendingPlan && pendingPlanId) {
+        try {
+          await db.query(
+            `UPDATE organizations
+             SET plan_id = $1, pending_plan_id = NULL, pending_plan_effective_date = NULL
+             WHERE organization_id = $2`,
+            [pendingPlanId, org.organization_id]
+          );
+        } catch (_) {}
+      }
+
+      await logBillingRetryAttempt({
+        organizationId: org.organization_id,
+        attemptNumber: 0,
+        chargeStatus: 'succeeded',
+        amountDue: chargeAmount,
+        currency: stripeChargeCurrency,
+        failureReason: null,
+        paymentIntentId: succeededPaymentIntentId,
+        emailToSchool: org.email,
+        emailToSchoolSent: false,
+        emailToAdmin: null,
+        emailToAdminSent: null,
+        nextRetryAt: null,
+      });
+
+      return { success: true, message: 'Payment successful. Your account has been restored.' };
+    }
+
+    const failureMessage = lastFailureMessage || 'Charge declined. Please check your card details and try again.';
+
+    await db.query(
+      `UPDATE billing_invoices
+       SET status = 'failed', failed_at = NOW(), updated_at = NOW()
+       WHERE id = $1`,
+      [dueInvoiceRecord.id]
+    );
+
+    const failedAttempts = await recordRenewalFailure({
+      organizationId: org.organization_id,
+      paymentFailureColumns,
+    });
+
+    const retryDelayDays = getRetryDelayDaysForAttempt(failedAttempts);
+    const nextRetryAt = typeof retryDelayDays === 'number' && retryDelayDays > 0
+      ? new Date(Date.now() + Number(retryDelayDays) * MS_PER_DAY)
+      : null;
+
+    await logBillingRetryAttempt({
+      organizationId: org.organization_id,
+      attemptNumber: failedAttempts,
+      chargeStatus: 'failed',
+      amountDue: chargeAmount,
+      currency: stripeChargeCurrency,
+      failureReason: failureMessage,
+      paymentIntentId: null,
+      emailToSchool: org.email,
+      emailToSchoolSent: false,
+      emailToAdmin: null,
+      emailToAdminSent: null,
+      nextRetryAt,
+    });
+
+    return { success: false, message: failureMessage };
+  } finally {
+    await db.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);
+  }
 }
 
 async function createAndSendPrechargeInvoices() {
@@ -1010,3 +1311,4 @@ if (require.main === module) {
 }
 
 module.exports = runRecurringBilling;
+module.exports.chargeOrganizationNow = chargeOrganizationNow;

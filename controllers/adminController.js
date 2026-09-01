@@ -1582,7 +1582,7 @@ const adminController = {
     const { orgId } = req.body;
     try {
       const result = await db.query(
-        "UPDATE organizations SET on_hold = false WHERE organization_id = $1 RETURNING email, first_name, last_name",
+        "UPDATE organizations SET on_hold = false, on_hold_at = NULL, hold_reminder_count = 0 WHERE organization_id = $1 RETURNING email, first_name, last_name",
         [orgId]
       );
       const organization = result.rows[0];
@@ -2600,6 +2600,8 @@ const adminController = {
              on_hold = false,
              hold_by = NULL,
              scheduled_hold_date = NULL,
+             on_hold_at = NULL,
+             hold_reminder_count = 0,
              updated_at = NOW()
          WHERE organization_id = $1
          RETURNING email, first_name, last_name`,

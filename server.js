@@ -35,6 +35,7 @@ require("./jobs/scheduler"); // Start the billing scheduler
 require("./jobs/keepAlive"); // Start the keep-alive scheduler
 const cron = require("node-cron");
 const applyScheduledHolds = require("./utils/applyScheduledHolds");
+const { runOnHoldManagerReminderSweep } = require("./utils/onHoldManagerReminders");
 
 const setCurrentTerm = require("./middleware/setCurrentTerm"); // Middleware to set the current term
 const {
@@ -1158,6 +1159,15 @@ const shouldRunScheduledHolds = process.env.NODE_ENV === "production" || process
 if (shouldRunScheduledHolds) {
   cron.schedule("0 0 * * *", async () => {
     await applyScheduledHolds();
+
+    try {
+      const summary = await runOnHoldManagerReminderSweep();
+      if (summary.emailsSent > 0) {
+        console.log(`[On-Hold Manager Reminder] Sweep complete. orgs=${summary.orgsProcessed}, emails=${summary.emailsSent}`);
+      }
+    } catch (error) {
+      console.error("[On-Hold Manager Reminder] Sweep failed:", error.message);
+    }
   });
 } else {
   // Scheduled holds cron disabled in dev — set ENABLE_SCHEDULED_HOLDS_CRON=true to enable.

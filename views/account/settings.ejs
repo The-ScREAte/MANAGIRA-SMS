@@ -2616,6 +2616,18 @@
   <body>
     <%- include('../partials/flash') %>
     <% const _isEmbeddedSettings = typeof isEmbedded !== 'undefined' && isEmbedded; %>
+    <% const _isOnHoldRestricted = typeof isOnHoldRestricted !== 'undefined' && isOnHoldRestricted; %>
+    <%
+      let _onHoldAmountText = '';
+      if (_isOnHoldRestricted && typeof billingFailureInfo !== 'undefined' && billingFailureInfo && billingFailureInfo.amountDue) {
+        try {
+          _onHoldAmountText = ' The amount due is ' + new Intl.NumberFormat('en-US', { style: 'currency', currency: billingFailureInfo.currency || 'USD' }).format(Number(billingFailureInfo.amountDue)) + '.';
+        } catch (e) {
+          _onHoldAmountText = ' The amount due is ' + Number(billingFailureInfo.amountDue).toFixed(2) + ' ' + (billingFailureInfo.currency || 'USD') + '.';
+        }
+      }
+      const _onHoldBannerMessage = 'Your account is on hold.' + _onHoldAmountText + ' All users are locked out until payment is made. Please update your payment method or complete payment below to restore full access. Contact us with any other questions.';
+    %>
     <div class="settings-wrapper<%= _isEmbeddedSettings ? ' is-embedded' : '' %>">
     <%
       // This <main> is what the client-side SPA router swaps on navigation —
@@ -2630,9 +2642,9 @@
         const _canCustomizeSettings = typeof canAccessCustomizeSettings === 'boolean' ? canAccessCustomizeSettings : true;
         const _canBillingSettings = typeof canAccessBillingSettings === 'boolean' ? canAccessBillingSettings : true;
         const _canSecuritySettings = typeof canAccessSecuritySettings === 'boolean' ? canAccessSecuritySettings : true;
-        const _defaultSettingsSectionId = _canCustomizeSettings ? 'customize' : 'profile';
+        const _defaultSettingsSectionId = _isOnHoldRestricted ? 'billing' : (_canCustomizeSettings ? 'customize' : 'profile');
       %>
-      <aside class="settings-nav" id="settings-nav-panel" style="<%= _isEmbeddedSettings ? 'display:none;' : '' %>">
+      <aside class="settings-nav" id="settings-nav-panel" style="<%= (_isEmbeddedSettings || _isOnHoldRestricted) ? 'display:none;' : '' %>">
         <% 
           const navCountryCode = (org && org.organization_country ? String(org.organization_country).toUpperCase() : '');
           const navCountry = (settingsCountryOptionsWithCurrency || settingsCountryOptions || []).find((country) => String(country.code || '').toUpperCase() === navCountryCode) || null;
@@ -2706,7 +2718,12 @@
       </script>
 
       <div class="settings-main">
-        <% if (_canCustomizeSettings) { %>
+        <% if (_isOnHoldRestricted) { %>
+        <div class="settings-onhold-banner" style="margin-bottom:16px;padding:14px 16px;border-radius:10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;font-size:14px;">
+          <%= _onHoldBannerMessage %>
+        </div>
+        <% } %>
+        <% if (_canCustomizeSettings && !_isOnHoldRestricted) { %>
         <section id="customize" class="settings-section <%= _defaultSettingsSectionId === 'customize' ? 'is-default' : '' %>">
           <h1>Customize School</h1>
           <p class="lead">
@@ -3339,6 +3356,7 @@
         </section>
         <% } %>
 
+        <% if (!_isOnHoldRestricted) { %>
         <section id="profile" class="settings-section <%= _defaultSettingsSectionId === 'profile' ? 'is-default' : '' %>">
           <h1>Profile</h1>
           <p class="lead">View and manage your profile information.</p>
@@ -3448,9 +3466,10 @@
             </form>
           </div>
         </section>
+        <% } %>
 
         <% if (_canBillingSettings) { %>
-        <section id="billing" class="settings-section">
+        <section id="billing" class="settings-section <%= _defaultSettingsSectionId === 'billing' ? 'is-default' : '' %>">
           <h1>Billing &amp; Plan</h1>
           <p class="lead">Manage your billing and transaction account settings.</p>
 
@@ -3478,10 +3497,28 @@
                   &nbsp;&middot;&nbsp;<% if (_primaryPayout.account_type === 'mobile_money') { %>📱 MoMo<% } else if (_primaryPayout.account_type === 'bank') { %>🏦 Bank<% } else { %>💳 Card<% } %> &middot; Paystack Payout Account
                 <% } %>
               </div>
-              <button class="btn-primary btn-link btn-inline" id="open-payment-modal" type="button">Manage Payment Methods</button>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <% if (_isOnHoldRestricted) { %>
+                <button
+                  class="btn-primary btn-link btn-inline"
+                  id="pay-now-btn"
+                  type="button"
+                  <%= defaultPaymentMethod ? '' : 'disabled title="Add a card first"' %>
+                  style="background:#0f766e;"
+                >Make Payment Now</button>
+                <% } %>
+                <button class="btn-primary btn-link btn-inline" id="open-payment-modal" type="button">Manage Payment Methods</button>
+              </div>
             </div>
+            <% if (_isOnHoldRestricted) { %>
+            <div id="pay-now-status" style="display:none; margin-top:10px; font-size:13px;"></div>
+            <div class="settings-onhold-banner" style="margin-top:14px;padding:14px 16px;border-radius:10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;font-size:14px;">
+              <%= _onHoldBannerMessage %>
+            </div>
+            <% } %>
           </div>
 
+          <% if (!_isOnHoldRestricted) { %>
           <section class="card" id="platform-fee-bearer-card">
             <h4>Platform Service Fee</h4>
             <small>
@@ -3522,6 +3559,7 @@
               </div>
             </form>
           </section>
+          <% } %>
           <% } %>
 
           <% if (!isHubMember) { %>
@@ -3684,10 +3722,13 @@
                   <% } %>
                 <% } %>
               </div>
+              <% if (!_isOnHoldRestricted) { %>
               <button class="btn-link" id="open-plan-modal" type="button">Change Plan</button>
+              <% } %>
             </div>
           </div>
 
+          <% if (!_isOnHoldRestricted) { %>
           <div class="card">
             <h4>Cancel Subscription</h4>
             <small>End your subscription at the end of the current billing cycle.</small>
@@ -3695,6 +3736,7 @@
               <button class="btn-danger btn-link" id="open-cancel-modal" type="button">Cancel Subscription</button>
             </div>
           </div>
+          <% } %>
 
           <% if ((appInvoices && appInvoices.length) || paymentProvider === 'stripe') { %>
           <div class="card">
@@ -3759,7 +3801,7 @@
         </section>
         <% } %>
 
-        <% if (_canCustomizeSettings) { %>
+        <% if (_canCustomizeSettings && !_isOnHoldRestricted) { %>
         <section id="integrations" class="settings-section">
           <h1>Integrations</h1>
           <p class="lead">Activate and connect third-party services used across your academic workspace.</p>
@@ -4439,7 +4481,7 @@
         </section>
         <% } %>
 
-        <% if (_canSecuritySettings) { %>
+        <% if (_canSecuritySettings && !_isOnHoldRestricted) { %>
         <section id="security" class="settings-section">
           <h1>Security</h1>
           <p class="lead">Manage your account security and password.</p>
@@ -4541,7 +4583,7 @@
           const _hasUserNotificationPrefs = typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length;
           const _hasOrgNotificationPrefs = typeof orgNotificationPrefs !== 'undefined' && Array.isArray(orgNotificationPrefs) && orgNotificationPrefs.length;
         %>
-        <% if (_hasUserNotificationPrefs || _hasOrgNotificationPrefs) {
+        <% if ((_hasUserNotificationPrefs || _hasOrgNotificationPrefs) && !_isOnHoldRestricted) {
              const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) ? savedNotificationPrefs : {};
              const _orgSaved = (typeof savedOrgNotificationPrefs !== 'undefined' && savedOrgNotificationPrefs) ? savedOrgNotificationPrefs : {}; %>
         <section id="notifications" class="settings-section">
@@ -4598,6 +4640,7 @@
         </section>
         <% } %>
 
+        <% if (!_isOnHoldRestricted) { %>
         <section id="feedback" class="settings-section">
           <h1>Feedback</h1>
           <p class="lead">Send a quick review, bug report, feature request, or general feedback.</p>
@@ -4689,6 +4732,7 @@
             </form>
           </div>
         </section>
+        <% } %>
       </div>
     </main>
     </div>
@@ -5429,6 +5473,51 @@
         const paymentModal = document.getElementById("payment-method-modal");
         const paymentModalOpen = document.getElementById("open-payment-modal");
         const paymentModalClose = document.getElementById("payment-method-close");
+        const payNowBtn = document.getElementById("pay-now-btn");
+        const payNowStatus = document.getElementById("pay-now-status");
+        if (payNowBtn) {
+          payNowBtn.addEventListener("click", async () => {
+            payNowBtn.disabled = true;
+            payNowBtn.textContent = "Processing...";
+            if (payNowStatus) {
+              payNowStatus.style.display = "none";
+              payNowStatus.textContent = "";
+            }
+
+            try {
+              const res = await fetch("/account/settings/pay-now", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              });
+              const data = await res.json().catch(() => ({}));
+
+              if (res.ok && data.success) {
+                if (payNowStatus) {
+                  payNowStatus.style.color = "#166534";
+                  payNowStatus.textContent = data.message || "Payment successful. Your account has been restored.";
+                  payNowStatus.style.display = "block";
+                }
+                setTimeout(() => window.location.reload(), 1200);
+              } else {
+                payNowBtn.disabled = false;
+                payNowBtn.textContent = "Make Payment Now";
+                if (payNowStatus) {
+                  payNowStatus.style.color = "#b91c1c";
+                  payNowStatus.textContent = data.message || "Payment failed. Please try again.";
+                  payNowStatus.style.display = "block";
+                }
+              }
+            } catch (err) {
+              payNowBtn.disabled = false;
+              payNowBtn.textContent = "Make Payment Now";
+              if (payNowStatus) {
+                payNowStatus.style.color = "#b91c1c";
+                payNowStatus.textContent = "Payment failed. Please check your connection and try again.";
+                payNowStatus.style.display = "block";
+              }
+            }
+          });
+        }
         const schoolModal = null; // payout accounts now live inside payment-method-modal
         const passwordModal = document.getElementById("billing-password-modal");
         const passwordModalClose = document.getElementById("billing-password-close");

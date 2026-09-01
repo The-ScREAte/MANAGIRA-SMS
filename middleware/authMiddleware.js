@@ -7,6 +7,23 @@ function safeFlash(req, type, message) {
     }
 }
 
+// Routes an on-hold manager may still reach: the restricted settings page
+// itself, plus the billing/payment-method/invoice endpoints it calls to
+// actually resolve the hold.
+const ON_HOLD_ALLOWED_PATH_PREFIXES = [
+    '/account/settings',
+    '/account/cards',
+    '/account/remove-card',
+    '/account/paystack',
+    '/account/invoices',
+    '/account/logout',
+];
+
+function isOnHoldAllowedPath(originalUrl) {
+    const path = String(originalUrl || '').split('?')[0];
+    return ON_HOLD_ALLOWED_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
 function destroySessionAndRedirect(req, res, redirectTo) {
     if (!req || !req.session) {
         return res.redirect(redirectTo);
@@ -77,10 +94,23 @@ const isAuthenticated = async (req, res, next) => {
             }
 
             const orgData = org.rows[0];
-            
-            if (orgData.deleted || orgData.on_hold) {
+
+            if (orgData.deleted) {
                 safeFlash(req, 'error', 'Account suspended. Contact support.');
                 return destroySessionAndRedirect(req, res, '/');
+            }
+
+            if (orgData.on_hold) {
+                if (req.session.userRole === 'Manager') {
+                    req.session.onHoldRestricted = true;
+                    if (!isOnHoldAllowedPath(req.originalUrl)) {
+                        return res.redirect('/account/settings');
+                    }
+                    // Fall through: settingsGet renders the restricted billing-only view.
+                } else {
+                    safeFlash(req, 'error', 'Account suspended. Contact support.');
+                    return destroySessionAndRedirect(req, res, '/');
+                }
             }
         }
 

@@ -5533,7 +5533,9 @@ const accountController = {
               return res.redirect("/account/login");
             }
 
-            if (organization.on_hold) {
+            const isManagerAccount = String(user.account_type || '').trim().toLowerCase() === 'manager';
+
+            if (organization.on_hold && !isManagerAccount) {
               req.flash(
                 "error",
 
@@ -5542,6 +5544,8 @@ const accountController = {
 
               return res.redirect("/account/login");
             }
+
+            const onHoldRestricted = Boolean(organization.on_hold && isManagerAccount);
 
             req.session.regenerate(async (err) => {
               if (err) {
@@ -5586,6 +5590,7 @@ const accountController = {
 
               req.session.orgNickNameDisplay = (organization.nickname_display && String(organization.nickname_display).trim()) || organization.nickname;
 
+              req.session.onHoldRestricted = onHoldRestricted;
 
               // Add hub information if organization is part of a hub
               if (organization.is_hub_member && organization.hub_id) {
@@ -5606,7 +5611,9 @@ const accountController = {
               delete req.session.returnTo;
               // Drivers always land on their dedicated dashboard — never honor
               // a deep-link returnTo into the generic admin console.
-              const finalRedirectUrl = isDriverAccount
+              const finalRedirectUrl = onHoldRestricted
+                ? "/account/settings"
+                : isDriverAccount
                 ? redirectUrl
                 : await resolveSafeLoginRedirect(
                     db,
@@ -5689,15 +5696,7 @@ const accountController = {
             return res.redirect("/account/login");
           }
 
-          if (organization.on_hold) {
-            req.flash(
-              "error",
-
-              "Your organization account is currently on hold. Please contact support."
-            );
-
-            return res.redirect("/account/login");
-          }
+          const onHoldRestricted = Boolean(organization.on_hold);
 
           req.session.regenerate(async (err) => {
             if (err) {
@@ -5740,6 +5739,8 @@ const accountController = {
 
             req.session.orgNickNameDisplay = (organization.nickname_display && String(organization.nickname_display).trim()) || organization.nickname;
 
+            req.session.onHoldRestricted = onHoldRestricted;
+
             // Add hub information if organization is part of a hub
             if (organization.is_hub_member && organization.hub_id) {
               req.session.hubName = organization.hub_name;
@@ -5755,18 +5756,20 @@ const accountController = {
                   req.session.organizationId;
             const requestedReturnTo = req.session.returnTo;
             delete req.session.returnTo;
-            const finalRedirectUrl = await resolveSafeLoginRedirect(
-              db,
-              {
-                userId: organization.organization_id,
-                userRole: "Manager",
-                organizationId: organization.organization_id,
-                accountType: "Organization",
-                userEmail: organization.email,
-              },
-              requestedReturnTo,
-              redirectUrl
-            );
+            const finalRedirectUrl = onHoldRestricted
+              ? "/account/settings"
+              : await resolveSafeLoginRedirect(
+                  db,
+                  {
+                    userId: organization.organization_id,
+                    userRole: "Manager",
+                    organizationId: organization.organization_id,
+                    accountType: "Organization",
+                    userEmail: organization.email,
+                  },
+                  requestedReturnTo,
+                  redirectUrl
+                );
 
             req.session.save((err) => {
               if (err) {
@@ -6550,6 +6553,27 @@ const accountController = {
       console.error("[updatePlatformFeeBearerPost]", error);
       req.flash("error", "Failed to update platform fee preference. Please try again.");
       return res.redirect("/account/settings#platform-fee-bearer-card");
+    }
+  },
+
+  payNowPost: async (req, res, db) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) {
+      return res.status(401).json({ success: false, message: "You must be signed in as a school administrator." });
+    }
+
+    try {
+      const { chargeOrganizationNow } = require("../jobs/recurringStripeBilling");
+      const result = await chargeOrganizationNow(orgId);
+
+      if (result.success) {
+        req.session.onHoldRestricted = false;
+      }
+
+      return res.status(result.success ? 200 : 402).json(result);
+    } catch (error) {
+      console.error("[payNowPost]", error);
+      return res.status(500).json({ success: false, message: "Payment failed. Please try again or contact support." });
     }
   },
 
@@ -8806,15 +8830,16 @@ const accountController = {
                     dbc.label AS period_label, dbc.months AS period_months, dbc.discount_percentage
              FROM payments p
              LEFT JOIN dynamic_billing_cycles dbc ON dbc.cycle_key = p.billing_period_key
-             WHERE p.organization_id = $1 AND p.status IN ('active', 'completed', 'failed')
+             WHERE p.organization_id = $1
+               AND (p.status IN ('active', 'completed', 'failed') OR $2)
              ORDER BY p.created_at DESC
              LIMIT 1`,
-            [orgId]
+            [orgId, Boolean(req.session.onHoldRestricted)]
           );
           if (billingResult.rows.length > 0) {
             billingInfo = billingResult.rows[0];
 
-            if (String(billingInfo.status || '').toLowerCase() === 'failed') {
+            if (String(billingInfo.status || '').toLowerCase() === 'failed' || Boolean(req.session.onHoldRestricted)) {
               const fallbackAttemptNumber = Number(billingInfo.failed_attempts || 0) || null;
               const fallbackRetryDelayDays = fallbackAttemptNumber
                 ? (fallbackAttemptNumber <= 1 ? 1 : (fallbackAttemptNumber < 4 ? 2 : null))
@@ -9067,9 +9092,12 @@ const accountController = {
         getCachedPaystackCountries().catch(() => []),
       ]);
 
+      const isOnHoldRestricted = Boolean(req.session.onHoldRestricted);
+
       res.render("account/settings", {
         title: "Settings",
         isEmbedded,
+        isOnHoldRestricted,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
@@ -9628,8 +9656,8 @@ const accountController = {
       }
 
       await db.query(
-        `UPDATE organizations 
-                 SET scheduled_hold_date = NULL, hold_by = NULL, on_hold = false 
+        `UPDATE organizations
+                 SET scheduled_hold_date = NULL, hold_by = NULL, on_hold = false, on_hold_at = NULL, hold_reminder_count = 0
                  WHERE organization_id = $1`,
         [orgId]
       );

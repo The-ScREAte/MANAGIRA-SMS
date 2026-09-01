@@ -52,7 +52,9 @@ async function enforceHubContractAccess() {
       `UPDATE organizations
        SET on_hold = true,
            hold_by = $2,
-           scheduled_hold_date = NULL
+           scheduled_hold_date = NULL,
+           on_hold_at = NOW(),
+           hold_reminder_count = 0
        WHERE organization_id = $1`,
       [org.organization_id, HUB_CONTRACT_HOLD_BY]
     );
@@ -83,7 +85,9 @@ async function enforceHubContractAccess() {
     await db.query(
       `UPDATE organizations
        SET on_hold = false,
-           hold_by = NULL
+           hold_by = NULL,
+           on_hold_at = NULL,
+           hold_reminder_count = 0
        WHERE organization_id = $1`,
       [org.organization_id]
     );
