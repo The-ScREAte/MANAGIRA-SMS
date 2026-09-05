@@ -197,6 +197,19 @@ async function ensureNotificationSchema(database = db) {
     )
   `);
 
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS notification_quiet_streaks (
+      streak_id SERIAL PRIMARY KEY,
+      organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+      digest_type VARCHAR(80) NOT NULL,
+      recipient_email VARCHAR(255) NOT NULL,
+      quiet_weeks SMALLINT NOT NULL DEFAULT 0,
+      last_week_start_date DATE,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE (organization_id, digest_type, recipient_email)
+    )
+  `);
+
   await database.query(
     "CREATE INDEX IF NOT EXISTS idx_notification_dispatches_org_event ON notification_dispatches (organization_id, event_type, created_at DESC)"
   );
@@ -750,6 +763,104 @@ async function markDigestRun(database, organizationId, digestType, weekStartKey)
   );
 }
 
+// After this many consecutive weeks with nothing to report, send one simple
+// well-wishes email instead of staying silent forever.
+const QUIET_CHECKIN_THRESHOLD_WEEKS = 4;
+
+// Bumps a recipient's consecutive quiet-week counter (once per distinct week)
+// and returns the resulting count. Runs at most once per week per recipient
+// because callers only reach this when the whole digest run - itself gated to
+// once per week - had nothing to send that recipient.
+async function bumpQuietStreak(database, organizationId, digestType, recipientEmail, weekStartKey) {
+  const email = normalizeEmail(recipientEmail);
+  const result = await database.query(
+    `INSERT INTO notification_quiet_streaks (organization_id, digest_type, recipient_email, quiet_weeks, last_week_start_date)
+     VALUES ($1, $2, $3, 1, $4::date)
+     ON CONFLICT (organization_id, digest_type, recipient_email) DO UPDATE
+     SET quiet_weeks = CASE
+           WHEN notification_quiet_streaks.last_week_start_date = $4::date
+             THEN notification_quiet_streaks.quiet_weeks
+           ELSE notification_quiet_streaks.quiet_weeks + 1
+         END,
+         last_week_start_date = $4::date,
+         updated_at = NOW()
+     RETURNING quiet_weeks`,
+    [organizationId, digestType, email, weekStartKey]
+  );
+  return toNumber(result.rows[0]?.quiet_weeks, 0);
+}
+
+async function resetQuietStreak(database, organizationId, digestType, recipientEmail, weekStartKey) {
+  const email = normalizeEmail(recipientEmail);
+  await database.query(
+    `INSERT INTO notification_quiet_streaks (organization_id, digest_type, recipient_email, quiet_weeks, last_week_start_date)
+     VALUES ($1, $2, $3, 0, $4::date)
+     ON CONFLICT (organization_id, digest_type, recipient_email) DO UPDATE
+     SET quiet_weeks = 0, last_week_start_date = $4::date, updated_at = NOW()`,
+    [organizationId, digestType, email, weekStartKey]
+  );
+}
+
+function buildQuietCheckInHtml({ organizationName, greetingName, audienceLine, websiteInfo }) {
+  return renderCleanEmail({
+    title: `${organizationName} - A Quick Hello from Managira`,
+    showTitle: false,
+    greeting: `Hello ${escapeHtml(greetingName)},`,
+    paragraphs: [
+      `It's been a quiet few weeks with no new activity to summarize, so there's no digest to send this time.`,
+      `We just wanted to check in and say hello - wishing you continued success in ${audienceLine}.`,
+      `We'll be back with your next update as soon as there's fresh activity to share.`,
+    ],
+    followManagira: false,
+    note: buildWeeklyDigestFooterNote(),
+    noReply: false,
+    schoolWebsiteUrl: websiteInfo?.websiteUrl || "",
+    schoolWebsiteHost: websiteInfo?.websiteHost || "",
+  });
+}
+
+// Checks whether a recipient has crossed the quiet-week threshold and, if so,
+// sends a one-off well-wishes email and resets the streak. Returns whether an
+// email was sent. Always bumps the streak first, so callers should invoke
+// this only along the "nothing to report" path for a given week.
+async function maybeSendQuietCheckIn(database, {
+  organizationId,
+  streakType,
+  checkinEventType,
+  eventKey,
+  recipientEmail,
+  recipientKind,
+  weekStartKey,
+  weekEndKey,
+  organizationName,
+  greetingName,
+  audienceLine,
+  websiteInfo,
+}) {
+  const quietWeeks = await bumpQuietStreak(database, organizationId, streakType, recipientEmail, weekStartKey);
+  if (quietWeeks < QUIET_CHECKIN_THRESHOLD_WEEKS) return { sent: false };
+
+  const html = buildQuietCheckInHtml({ organizationName, greetingName, audienceLine, websiteInfo });
+
+  const ok = await sendLoggedEmail(database, {
+    organizationId,
+    eventType: checkinEventType,
+    eventKey,
+    recipientEmail,
+    recipientKind,
+    subject: `${organizationName}: Just checking in`,
+    html,
+    payload: { weekStartKey, weekEndKey, quietWeeks },
+    context: "Quiet Week Check-in",
+  });
+
+  // Reset regardless of delivery outcome so the next check-in is another
+  // full quiet cycle away, rather than retrying every subsequent week.
+  await resetQuietStreak(database, organizationId, streakType, recipientEmail, weekStartKey);
+
+  return { sent: ok };
+}
+
 async function sendWeeklyParentDigestForOrganization(database, organizationId, options = {}) {
   await ensureNotificationSchema(database);
   const policy = await getPolicy(database, organizationId);
@@ -794,16 +905,6 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
     weekEndKey,
     studentIds
   );
-  const rollingStart = new Date(weekStart);
-  rollingStart.setDate(rollingStart.getDate() - 14);
-  const rollingStartKey = toDateKey(rollingStart);
-  const rollingAttendanceMap = await getStudentAttendanceWeekly(
-    database,
-    organizationId,
-    rollingStartKey,
-    weekEndKey,
-    studentIds
-  );
   const currentTermId = await getCurrentTermId(database, organizationId);
   const averageMap = await getStudentTermAverages(database, organizationId, currentTermId, studentIds);
   const classStandingMap = await getStudentClassStandingMap(database, organizationId, currentTermId, studentIds);
@@ -818,75 +919,74 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
       const basic = studentBasics.get(sid);
       if (!basic) continue;
       const attendance = attendanceMap.get(sid) || {};
-      const rollingAttendance = rollingAttendanceMap.get(sid) || {};
       const avgScore = averageMap.get(sid);
       const standing = classStandingMap.get(sid);
       const marksCount = toNumber(attendance.marksCount, 0);
-      const rollingMarksCount = toNumber(rollingAttendance.marksCount, 0);
+
+      // Only report children with real attendance activity this week; stale
+      // data from prior weeks is never reused to pad out an empty digest.
+      if (marksCount === 0) continue;
+
       const absentCount = toNumber(attendance.absentCount, 0);
-      const rollingAbsentCount = toNumber(rollingAttendance.absentCount, 0);
       const presentCount = toNumber(attendance.presentCount, 0);
-      const rollingPresentCount = toNumber(rollingAttendance.presentCount, 0);
       const lateCount = toNumber(attendance.lateCount, 0);
-      const rollingLateCount = toNumber(rollingAttendance.lateCount, 0);
 
-      let attendanceSummary = "No attendance marks recorded yet.";
-      if (marksCount > 0 && Number.isFinite(Number(attendance.attendancePct))) {
-        attendanceSummary = `${Number(attendance.attendancePct).toFixed(1)}% this week (${presentCount} present, ${absentCount} absent${lateCount > 0 ? `, ${lateCount} late` : ""})`;
-      } else if (rollingMarksCount > 0 && Number.isFinite(Number(rollingAttendance.attendancePct))) {
-        attendanceSummary = `${Number(rollingAttendance.attendancePct).toFixed(1)}% over the last 3 weeks (${rollingPresentCount} present, ${rollingAbsentCount} absent${rollingLateCount > 0 ? `, ${rollingLateCount} late` : ""})`;
-      }
+      const attendanceSummary = Number.isFinite(Number(attendance.attendancePct))
+        ? `${Number(attendance.attendancePct).toFixed(1)}% this week (${presentCount} present, ${absentCount} absent${lateCount > 0 ? `, ${lateCount} late` : ""})`
+        : "Attendance marks recorded this week";
 
-      const hasAssessmentSignal = Number.isFinite(Number(avgScore)) || !!standing;
       const academicStanding = standing?.standingLabel
         || (Number.isFinite(Number(avgScore))
           ? `${scoreBand(avgScore, toNumber(policy.good_score_threshold, 60))} assessment trend`
           : "Assessment profile is still being built");
 
-      let weeklyFocus = "We will share new classroom updates as soon as teachers publish them.";
+      let weeklyFocus = "Attendance routines stayed active this week.";
       if (standing && Number.isFinite(standing.percentileRank) && standing.percentileRank <= 0.2) {
         weeklyFocus = "Recent classroom entries place your child in a top-performing group.";
-      } else if (weeklySignals.assessmentUpdates > 0 && hasAssessmentSignal) {
+      } else if (weeklySignals.assessmentUpdates > 0) {
         weeklyFocus = "Assessment updates were recorded this week without exposing exact scores.";
-      } else if (marksCount > 0) {
-        weeklyFocus = "Attendance routines stayed active this week.";
-      } else if (rollingMarksCount > 0) {
-        weeklyFocus = "No fresh entries this week, so this digest includes a calm 3-week attendance view.";
       }
 
       children.push({
         name: `${basic.firstName} ${basic.lastName}`,
         className: basic.className,
         marksCount,
-        rollingMarksCount,
         absentCount,
         attendancePct: Number(attendance.attendancePct),
         avgScore: Number(avgScore),
-        hasAssessmentSignal,
         attendanceSummary,
         academicStanding,
         weeklyFocus,
       });
     }
 
-    if (!children.length) continue;
-
-    const hasCurrentWeekAttendance = children.some((child) => child.marksCount > 0);
-    const hasThreeWeekAttendance = children.some((child) => child.rollingMarksCount > 0);
-    const hasAssessmentSignals = children.some((child) => child.hasAssessmentSignal);
-    const hasSendableActivity =
-      hasCurrentWeekAttendance
-      || hasThreeWeekAttendance
-      || hasAssessmentSignals
-      || weeklySignals.assessmentUpdates > 0
-      || weeklySignals.communicationUpdates > 0;
-    if (!hasSendableActivity) continue;
-
-    const fallbackMode = !hasCurrentWeekAttendance && hasThreeWeekAttendance;
-
     // Respect this guardian's preference for the weekly parent digest.
     const guardianEnabled = await isEmailEnabledForRecipient(database, guardian.email, 'weekly_parent_digest');
     if (!guardianEnabled) continue;
+
+    // Nothing happened for this guardian's children this week - skip the
+    // digest itself, but track how long it's been quiet so we can still
+    // send a simple hello after a few weeks of silence.
+    if (!children.length) {
+      const { sent: checkinSent } = await maybeSendQuietCheckIn(database, {
+        organizationId,
+        streakType: "weekly_parent_digest",
+        checkinEventType: "weekly_parent_checkin",
+        eventKey: weekStartKey,
+        recipientEmail: guardian.email,
+        recipientKind: "guardian",
+        weekStartKey,
+        weekEndKey,
+        organizationName,
+        greetingName: `${guardian.firstName} ${guardian.lastName}`.trim(),
+        audienceLine: "everything you do to support your child's learning and growth",
+        websiteInfo,
+      });
+      if (checkinSent) sent += 1;
+      continue;
+    }
+
+    await resetQuietStreak(database, organizationId, "weekly_parent_digest", guardian.email, weekStartKey);
 
     children.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -896,9 +996,6 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
     }
     if (weeklySignals.communicationUpdates > 0) {
       digestHighlights.push("School communication updates were shared this week.");
-    }
-    if (fallbackMode) {
-      digestHighlights.push(`No fresh attendance entries were recorded this week, so this digest includes context from ${rollingStartKey} to ${weekEndKey}.`);
     }
     if (!digestHighlights.length) {
       digestHighlights.push("No disruptive alerts this week. Continue your current home support routine.");
@@ -912,9 +1009,7 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
       title: `${organizationName} Weekly Parent Digest`,
       greeting: `Hello ${escapeHtml(`${guardian.firstName} ${guardian.lastName}`.trim())},`,
       paragraphs: [
-        fallbackMode
-          ? `Here is your family progress digest. Because this week had limited classroom updates, we prepared a useful 3-week snapshot (${rollingStartKey} to ${weekEndKey}).`
-          : `Here is your weekly summary for all linked children (${weekStartKey} to ${weekEndKey}).`,
+        `Here is your weekly summary for all linked children (${weekStartKey} to ${weekEndKey}).`,
         highlightsHtml,
         buildChildrenTableRows(children),
       ],
@@ -923,7 +1018,7 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
         { label: "Children in digest", value: String(children.length) },
         { label: "Assessment updates this week", value: String(weeklySignals.assessmentUpdates) },
         { label: "Messages/announcements this week", value: String(weeklySignals.communicationUpdates) },
-        { label: "Digest basis", value: fallbackMode ? "3-week fallback context" : "Current-week updates" },
+        { label: "Digest basis", value: "Current-week updates" },
       ],
       followManagira: false,
       note: buildWeeklyDigestFooterNote(),
@@ -943,9 +1038,7 @@ async function sendWeeklyParentDigestForOrganization(database, organizationId, o
       payload: {
         weekStartKey,
         weekEndKey,
-        rollingStartKey,
         childrenCount: children.length,
-        fallbackMode,
         assessmentUpdates: weeklySignals.assessmentUpdates,
         communicationUpdates: weeklySignals.communicationUpdates,
       },
@@ -1230,7 +1323,6 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
 
     const classAssignments = await getUserClassAssignments(database, organizationId, teacher.user_id);
     const teachingAssignments = await getTeachingAssignments(database, organizationId, teacher.user_id);
-    if (!classAssignments.length && !teachingAssignments.length) continue;
 
     const classIds = Array.from(
       new Set([
@@ -1238,7 +1330,6 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
         ...teachingAssignments.map((assignment) => assignment.classId),
       ])
     );
-    if (!classIds.length) continue;
 
     const classAttendanceMap = await getClassWeeklyAttendanceMap(
       database,
@@ -1306,7 +1397,26 @@ async function sendWeeklyTeacherDigestForOrganization(database, organizationId, 
       })
       .filter((row) => row.classMarksCount > 0);
 
-    if (!teachingRows.length && !mainClassRows.length) continue;
+    if (!teachingRows.length && !mainClassRows.length) {
+      const { sent: checkinSent } = await maybeSendQuietCheckIn(database, {
+        organizationId,
+        streakType: "weekly_teacher_digest",
+        checkinEventType: "weekly_teacher_checkin",
+        eventKey: weekStartKey,
+        recipientEmail: teacher.email,
+        recipientKind: "teacher",
+        weekStartKey,
+        weekEndKey,
+        organizationName,
+        greetingName: `${teacher.first_name || ""} ${teacher.last_name || ""}`.trim() || "Teacher",
+        audienceLine: "all your work in the classroom and everything you do for your students",
+        websiteInfo,
+      });
+      if (checkinSent) sent += 1;
+      continue;
+    }
+
+    await resetQuietStreak(database, organizationId, "weekly_teacher_digest", teacher.email, weekStartKey);
 
     const mainClassesWithUpdates = new Set(mainClassRows.map((row) => row.classId)).size;
     const teacherHighlights = [];
@@ -1536,6 +1646,7 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
   const weeklyClassesWithMarks = toNumber(weeklyAttendanceRes.rows[0]?.classes_with_marks, 0);
   const weeklyAttendancePct = toNumber(weeklyAttendanceRes.rows[0]?.attendance_pct, NaN);
   const totalClasses = Math.max(0, toNumber(totalClassesRes.rows[0]?.total_classes, 0));
+  const weeklySignals = await getWeeklySchoolSignals(database, organizationId, weekStartKey, weekEndKey);
 
   const attendanceThreshold = toNumber(policy.underperform_attendance_threshold, 70);
   const scoreThreshold = toNumber(policy.underperform_score_threshold, 55);
@@ -1571,9 +1682,37 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
 
   risks.sort((a, b) => a.className.localeCompare(b.className) || a.studentName.localeCompare(b.studentName));
 
-  if (!weeklyAttendanceMarks && !risks.length) {
+  // Only send when something actually happened this week. Risks derived from
+  // term-wide averages can persist for weeks with no new activity, so they
+  // are not on their own a reason to send a digest. When the whole org was
+  // quiet, no individual recipient can have anything to report either, so
+  // just track quiet streaks / send check-ins and stop.
+  const hasWeeklyActivity =
+    weeklyAttendanceMarks > 0
+    || weeklySignals.assessmentUpdates > 0
+    || weeklySignals.communicationUpdates > 0;
+  if (!hasWeeklyActivity) {
+    let checkinSent = 0;
+    for (const recipient of recipientsResult.rows) {
+      if (!(await isUserEmailEnabled(database, recipient.user_id, 'weekly_manager_digest'))) continue;
+      const { sent: didSend } = await maybeSendQuietCheckIn(database, {
+        organizationId,
+        streakType: "weekly_manager_digest",
+        checkinEventType: "weekly_manager_checkin",
+        eventKey: `${weekStartKey}:${recipient.user_id}`,
+        recipientEmail: recipient.email,
+        recipientKind: String(recipient.account_type || "Manager"),
+        weekStartKey,
+        weekEndKey,
+        organizationName,
+        greetingName: `${recipient.first_name || ""} ${recipient.last_name || ""}`.trim() || recipient.account_type,
+        audienceLine: `all you do leading and supporting ${organizationName}`,
+        websiteInfo,
+      });
+      if (didSend) checkinSent += 1;
+    }
     await markDigestRun(database, organizationId, "weekly_manager_digest", weekStartKey);
-    return { sent: 0, skipped: true };
+    return { sent: checkinSent, skipped: true };
   }
 
   let sent = 0;
@@ -1594,8 +1733,6 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
           ...teachingAssignments.map((assignment) => assignment.classId),
         ])
       );
-
-      if (!classIds.length) continue;
 
       const classAttendanceMap = await getClassWeeklyAttendanceMap(
         database,
@@ -1657,7 +1794,26 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
         })
         .filter((row) => row.classMarksCount > 0);
 
-      if (!teachingRows.length && !classFeedRows.length) continue;
+      if (!teachingRows.length && !classFeedRows.length) {
+        const { sent: checkinSent } = await maybeSendQuietCheckIn(database, {
+          organizationId,
+          streakType: "weekly_manager_digest",
+          checkinEventType: "weekly_manager_checkin",
+          eventKey: `${weekStartKey}:${recipient.user_id}`,
+          recipientEmail: recipient.email,
+          recipientKind: "Supervisor",
+          weekStartKey,
+          weekEndKey,
+          organizationName,
+          greetingName: fullName,
+          audienceLine: `all you do leading and supporting ${organizationName}`,
+          websiteInfo,
+        });
+        if (checkinSent) sent += 1;
+        continue;
+      }
+
+      await resetQuietStreak(database, organizationId, "weekly_manager_digest", recipient.email, weekStartKey);
 
       const classesWithFeedUpdates = new Set(classFeedRows.map((row) => row.classId)).size;
       const supervisorHighlights = [];
@@ -1740,6 +1896,9 @@ async function sendWeeklyManagerDigestForOrganization(database, organizationId, 
       if (supervisorOk) sent += 1;
       continue;
     }
+
+    // Managers always get the org-wide snapshot when hasWeeklyActivity is true.
+    await resetQuietStreak(database, organizationId, "weekly_manager_digest", recipient.email, weekStartKey);
 
     const totalStudents = studentIds.length;
     const studentsAtRiskPct = totalStudents > 0 ? (risks.length / totalStudents) * 100 : 0;
@@ -2052,6 +2211,8 @@ async function sendWeeklyHubDigest(database, options = {}) {
         }
       }
 
+      const weeklySignals = await getWeeklySchoolSignals(database, org.organization_id, weekStartKey, weekEndKey);
+
       orgSummaries.push({
         orgName: org.organization_name || "School",
         studentCount,
@@ -2060,6 +2221,8 @@ async function sendWeeklyHubDigest(database, options = {}) {
         attendancePct,
         avgScore,
         riskCount,
+        assessmentUpdates: weeklySignals.assessmentUpdates,
+        communicationUpdates: weeklySignals.communicationUpdates,
       });
     }
 
@@ -2079,13 +2242,34 @@ async function sendWeeklyHubDigest(database, options = {}) {
       if (!canRun) continue;
     }
 
+    // riskCount is derived from term-wide averages and can stay nonzero for
+    // weeks with no new activity, so it is not treated as activity on its own.
     const hasHubWeeklyActivity = orgSummaries.some((orgSummary) =>
-      orgSummary.attendanceMarks > 0 || orgSummary.riskCount > 0
+      orgSummary.attendanceMarks > 0
+      || orgSummary.assessmentUpdates > 0
+      || orgSummary.communicationUpdates > 0
     );
     if (!hasHubWeeklyActivity) {
+      const { sent: checkinSent } = await maybeSendQuietCheckIn(database, {
+        organizationId: digestRunOrganizationId,
+        streakType: hubDigestType,
+        checkinEventType: "weekly_hub_checkin",
+        eventKey: `${hub.hub_id}:${weekStartKey}`,
+        recipientEmail: hub.hub_email,
+        recipientKind: "hub",
+        weekStartKey,
+        weekEndKey,
+        organizationName: hub.hub_name || "Hub",
+        greetingName: `${hub.first_name || ""} ${hub.last_name || ""}`.trim() || hub.hub_name || "Hub",
+        audienceLine: "all you do supporting your member schools",
+        websiteInfo: {},
+      });
+      if (checkinSent) sent += 1;
       await markDigestRun(database, digestRunOrganizationId, hubDigestType, weekStartKey);
       continue;
     }
+
+    await resetQuietStreak(database, digestRunOrganizationId, hubDigestType, hub.hub_email, weekStartKey);
 
     const totalStudents = orgSummaries.reduce((sum, o) => sum + o.studentCount, 0);
     const totalStaff = orgSummaries.reduce((sum, o) => sum + o.staffCount, 0);
