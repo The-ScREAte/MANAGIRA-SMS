@@ -51,7 +51,13 @@ warnIfDbConfigLooksWrong();
 const pool = new Pool({
   connectionString: dbConnectionString,
   ssl: shouldUseSsl ? { rejectUnauthorized: false } : false,
-  max: parseInt(process.env.DB_POOL_MAX || '15', 10),  // bumped: auth+permission+session mw each use a connection
+  // Postgres plan caps at 103 max_connections (100 usable after superuser
+  // reserve); Mira's separate pool (mira/config/db.js) also shares this
+  // budget (default max 10). 30 leaves comfortable headroom for other
+  // services/spikes while letting concurrent requests (each middleware
+  // hop + large form submissions like promotion scheduling) avoid queueing
+  // on a small pool.
+  max: parseInt(process.env.DB_POOL_MAX || '30', 10),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
   keepAlive: true,

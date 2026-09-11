@@ -853,7 +853,11 @@ app.post(
 // website (upload_website_image); the default limit would 413 before the
 // request ever reached that route.
 app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+// parameterLimit raised from the qs/Express default of 1000 - large schools submit
+// forms with per-student, per-subject fields (e.g. promotion scheduling), which
+// blow past 1000 total fields and crash body-parsing with an unhandled 500 before
+// the request ever reaches a route handler.
+app.use(express.urlencoded({ extended: true, limit: "10mb", parameterLimit: 100000 }));
 app.use(createOrganizationActivityLogMiddleware(db));
 
 // Only admin pages need unresolved help-thread notifications.
@@ -1151,6 +1155,11 @@ app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
   if (res.headersSent) {
     return next(err);
+  }
+  const isOversizedRequest = err && (err.type === 'parameters.too.many' || err.status === 413 || err.type === 'entity.too.large');
+  if (isOversizedRequest && req.session) {
+    req.flash('error', 'That request was too large to process. Please try again with fewer items selected, or contact support if this keeps happening.');
+    return res.redirect('back');
   }
   res.status(500).send('Something went wrong!');
 });
