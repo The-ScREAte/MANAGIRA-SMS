@@ -2345,6 +2345,7 @@ const printController = (db) => ({
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
+        disableMainZoom: true,
         students,
         orgName: organization.organization_name || "Default School Name",
         orgAddress: organization.organization_address,
