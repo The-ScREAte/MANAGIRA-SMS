@@ -1781,6 +1781,19 @@ module.exports = {
       });
     });
 
+    if (promotedStudentIds.length > 0) {
+      // A promoted student's subject list belongs to their NEW class only -
+      // clear out whatever was assigned under their old class before
+      // re-inserting below. Without this, re-running promotion (or a
+      // school-year enrollment carry-over that runs afterward) piles new
+      // rows on top of the old class's subjects instead of replacing them,
+      // so a student ends up with every subject listed twice.
+      await client.query(
+        `DELETE FROM student_subjects WHERE organization_id = $1 AND student_id = ANY($2::int[])`,
+        [organization_id, promotedStudentIds]
+      );
+    }
+
     if (subjectInsertRows.length > 0) {
       const values = [];
       const placeholders = [];

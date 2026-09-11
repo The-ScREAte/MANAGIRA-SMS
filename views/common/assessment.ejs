@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <link rel="stylesheet" href="/css/globalScale.css">
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Assessment</title>
@@ -1462,14 +1463,14 @@ input[type="number"].score-input-invalid {
       <%- include('../partials/flash') %>
 
       <% if (students.length === 0 || assessments.length === 0) { %>
-      <div class="assessment-empty-state-actions" style="display:flex; flex-wrap:wrap; gap:10px; margin: 0 0 16px;">
+      <div class="assessment-empty-state-actions" style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin: 0 0 16px;">
         <% if (students.length === 0) { %>
-        <a href="<%= noStudentsUrl %>" target="_top" data-no-spa style="display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#0f5a66; color:#fff; border-radius:8px; text-decoration:none; font-weight:600; font-size:0.85rem;">
+        <a href="<%= noStudentsUrl %>" target="_top" data-no-spa style="display:inline-flex; align-items:center; gap:5px; padding:5px 10px; background:#0f5a66; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; font-size:0.76rem;">
           Go to Admissions to add a student
         </a>
         <% } %>
         <% if (assessments.length === 0) { %>
-        <a href="<%= noAssessmentsUrl %>" target="_top" data-no-spa style="display:inline-flex; align-items:center; gap:6px; padding:8px 14px; background:#0f5a66; color:#fff; border-radius:8px; text-decoration:none; font-weight:600; font-size:0.85rem;">
+        <a href="<%= noAssessmentsUrl %>" target="_top" data-no-spa style="display:inline-flex; align-items:center; gap:5px; padding:5px 10px; background:#0f5a66; color:#fff; border-radius:6px; text-decoration:none; font-weight:600; font-size:0.76rem;">
           Go to Management Tools to add assessments
         </a>
         <% } %>

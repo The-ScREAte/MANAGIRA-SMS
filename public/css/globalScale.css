@@ -1,0 +1,18 @@
+/* App-wide size reduction so every page reads at the same, slightly more
+   compact scale instead of each template's own default (100%) looking
+   oversized next to pages that already had their own manual adjustments.
+   Kept as a single shared file so the scale factor is defined ONCE and
+   applied identically everywhere - change it here, not per page. */
+html {
+  zoom: 0.9;
+}
+
+/* Disable on narrow viewports - CSS zoom throws off mobile browsers'
+   scrollable-width calculations and can trigger unwanted horizontal
+   scroll / auto zoom-out (same reasoning as layout.ejs's existing
+   main/footer zoom handling). */
+@media (max-width: 960px) {
+  html {
+    zoom: 1;
+  }
+}

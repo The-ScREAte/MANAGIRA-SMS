@@ -31,27 +31,26 @@
             margin: 0 auto;
             width: 100%;
             box-sizing: border-box;
-            <% if (!((typeof disableMainZoom !== 'undefined' && disableMainZoom) || (typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader))) { %>
-            zoom: 0.9;
-            <% } %>
         }
 
         .managira-footer {
             margin-top: auto;
             flex-shrink: 0;
-            <% if (!((typeof disableMainZoom !== 'undefined' && disableMainZoom) || (typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader))) { %>
-            zoom: 0.9;
-            <% } %>
-        }
-
-        /* ── Mobile: disable zoom so browsers don't miscalculate
-           the scrollable width and trigger the horizontal-scroll
-           / auto-zoom-out behaviour on narrow viewports. */
-        @media (max-width: 960px) {
-            main          { zoom: 1; }
-            .managira-footer { zoom: 1; }
         }
     </style>
+    <% if (!(typeof disableMainZoom !== 'undefined' && disableMainZoom)) { %>
+    <!-- Shared app-wide size reduction (see public/css/globalScale.css) -
+         applied to the whole document (header included) instead of just
+         main/footer so nothing on the page looks mismatched in scale.
+         hideGlobalHeader alone does NOT skip this - most pages that hide
+         their own header/footer are just embedded panel CONTENT (Reports,
+         Activity Logs, Management Tools sub-pages, etc.) and should still
+         be scaled like everything else. Only disableMainZoom skips it -
+         reserved for the handful of hub shells that host an iframe AND
+         poll its geometry/position (managementTools, reportsHub,
+         admissionsHub, mailroom) - CSS zoom throws off that math. -->
+    <link rel="stylesheet" href="/css/globalScale.css">
+    <% } %>
 </head>
 <body class="<%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %>">
     <div id="app-scale-root">
