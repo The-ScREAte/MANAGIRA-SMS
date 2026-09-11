@@ -1319,6 +1319,7 @@
           saveBtn.innerHTML = saveBtn.dataset.originalHtml || 'Save';
           saveBtn.disabled = false;
         }
+        throw error;
       }
     }
 
@@ -1390,7 +1391,7 @@
                               <td>${escapeHtml(student.currentClassName)}</td>
                               <td>${escapeHtml(student.promotionStatus)}</td>
                               <td>
-                                <select name="promotionOverride_${Number(student.studentId)}" class="promotion-preview-select" data-student-id="${Number(student.studentId)}" data-original-value="${Number(student.assignedClassId)}">
+                                <select class="promotion-preview-select" data-student-id="${Number(student.studentId)}" data-original-value="${Number(student.assignedClassId)}">
                                   ${selectOptions}
                                 </select>
                               </td>
@@ -1405,7 +1406,6 @@
                                   data-original-selected-by-class='${escapeHtml(JSON.stringify(selectedByClass))}'
                                   data-subject-dirty="0"
                                 >
-                                  <input type="hidden" name="promotionSubjectTouched_${Number(student.studentId)}" value="1">
                                   <button type="button" class="promotion-subject-toggle">Subjects</button>
                                   <div class="promotion-subject-menu"></div>
                                 </div>
@@ -1482,7 +1482,7 @@
         const checked = selected.includes(subjectId) ? 'checked' : '';
         return `
           <label class="promotion-subject-row">
-            <input type="checkbox" class="promotion-subject-checkbox" name="promotionSubject_${studentId}" value="${subjectId}" ${checked}>
+            <input type="checkbox" class="promotion-subject-checkbox" data-subject-id="${subjectId}" value="${subjectId}" ${checked}>
             <span>${escapeHtml(subject.subjectName || `Subject ${subjectId}`)}</span>
           </label>
         `;
@@ -1772,13 +1772,37 @@
     renderPromotionPreviewSummary();
     loadPromotionPreview();
 
+    // The per-student override/subject inputs used to be submitted as part of
+    // this form directly, but a school with hundreds of students could produce
+    // thousands of form fields in one submission - enough to exceed the
+    // server's form field limit and crash the request. Those decisions are now
+    // saved out-of-band via /promotion/preview/save (see savePromotionClassDecisions),
+    // so this form only ever carries a handful of fields regardless of school
+    // size. Any edits the user hasn't explicitly saved yet are flushed here
+    // before the schedule/apply submission goes through.
+    async function saveAllDirtyPromotionClassDecisions() {
+      const classIds = Array.from(document.querySelectorAll('.promotion-class-section'))
+        .map((section) => section.dataset.classId)
+        .filter(Boolean);
+      for (const classId of classIds) {
+        await savePromotionClassDecisions(classId);
+      }
+    }
+
     if (form) {
       form.addEventListener('submit', function (e) {
         const checked = Array.from(allClassCheckboxes).some(cb => cb.checked);
         if (!checked) {
           e.preventDefault();
           alert('Please select at least one class to apply promotion.');
+          return;
         }
+        e.preventDefault();
+        saveAllDirtyPromotionClassDecisions()
+          .then(() => form.submit())
+          .catch((error) => {
+            alert(error && error.message ? error.message : 'Failed to save your changes before scheduling. Please try again.');
+          });
       });
     }
 

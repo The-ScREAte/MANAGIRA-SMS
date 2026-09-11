@@ -1083,8 +1083,12 @@
         // the browser's own "about:blank" placeholder, racing ahead of the
         // real navigation we asked for — ignore it completely so it never
         // gets treated as the real page (it has no relation to `url`).
-        if (iframe.contentWindow && iframe.contentWindow.location.href === 'about:blank') {
-          return;
+        try {
+          if (iframe.contentWindow && iframe.contentWindow.location.href === 'about:blank') {
+            return;
+          }
+        } catch (err) {
+          // Cross-origin — nothing more we can do, fall through to the next check.
         }
 
         try {
