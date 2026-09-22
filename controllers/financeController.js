@@ -130,7 +130,47 @@ async function ensureFinanceSchema() {
   if (_financeSchemaReady) return;
   await ensurePspSettingsTable().catch(() => null);
   await ensureSignoffCorrectionSchema().catch(() => null);
+  await ensurePendingStripePaymentsSchema().catch(() => null);
   _financeSchemaReady = true;
+}
+
+// finance_pending_stripe_payments backs the guardian Stripe PaymentIntent flow
+// (upsertPendingGuardianStripePayment / loadPendingGuardianStripePayment /
+// updatePendingGuardianStripePaymentStatus below). It previously existed only
+// in the live database with no CREATE TABLE anywhere in the repo — defined
+// here so a fresh database doesn't break on the first guardian card payment.
+async function ensurePendingStripePaymentsSchema() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS finance_pending_stripe_payments (
+      payment_intent_id VARCHAR(255) PRIMARY KEY,
+      organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+      guardian_id INT NOT NULL,
+      assignment_id INT NOT NULL,
+      bill_id INT NOT NULL,
+      student_id INT NOT NULL,
+      requested_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      total_external_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      credit_applied_expected NUMERIC(12,2) NOT NULL DEFAULT 0,
+      platform_fee_percentage NUMERIC(6,3) NOT NULL DEFAULT 0,
+      platform_fee_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      platform_fee_bearer VARCHAR(20) NOT NULL DEFAULT 'parent',
+      tax_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      charged_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+      selected_occurrence_dates JSONB NOT NULL DEFAULT '[]',
+      payment_entries JSONB NOT NULL DEFAULT '[]',
+      status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      stripe_method_type VARCHAR(40),
+      last_error TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      processed_at TIMESTAMPTZ
+    )
+  `).catch(() => null);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_finance_pending_stripe_payments_org
+    ON finance_pending_stripe_payments(organization_id, guardian_id, status)
+  `).catch(() => null);
 }
 
 async function ensureSignoffCorrectionSchema() {
@@ -3505,6 +3545,7 @@ module.exports = {
   ensureFinanceSchema,
   isFinanceAdmin,
   invalidateFinanceCache,
+  resolveFinanceStripeRuntime,
 
   // Ultra-cheap version probe — clients poll this every few seconds. When the
   // returned `v` increases, the page silently soft-reloads via the SPA router.
@@ -7515,6 +7556,161 @@ module.exports = {
       if (client && shouldReleaseClient) client.release();
     }
     res.redirect("/guardian/paygira");
+  },
+
+  // POST /guardian/cards/setup-intent — start a Stripe SetupIntent so the
+  // guardian can tokenize a card client-side (Stripe Elements) without the
+  // raw card number ever touching our server.
+  guardianCardSetupIntentPost: async (req, res, dbArg) => {
+    const database = dbArg || db;
+    const orgId = req.session.organizationId;
+    const guardianId = req.session.guardianId;
+    if (!orgId || !guardianId) {
+      return res.status(401).json({ success: false, message: "Please log in again." });
+    }
+    try {
+      await ensureGuardianCardsSchema();
+      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, null, null);
+      if (!stripeRuntime.stripeOn) {
+        return res.status(400).json({ success: false, message: "Card payments are not available for this school." });
+      }
+      const stripe = getFinanceStripeClient(stripeRuntime);
+
+      const guardianRow = (await database.query(
+        `SELECT gp.stripe_customer_id, gp.first_name, gp.last_name, ga.login_email
+           FROM guardian_profiles gp
+           LEFT JOIN guardian_accounts ga ON ga.guardian_id = gp.guardian_id
+          WHERE gp.guardian_id=$1 AND gp.organization_id=$2`,
+        [guardianId, orgId]
+      )).rows[0] || {};
+
+      let stripeCustomerId = guardianRow.stripe_customer_id || null;
+      if (!stripeCustomerId) {
+        const fullName = `${guardianRow.first_name || ""} ${guardianRow.last_name || ""}`.trim();
+        const customer = await stripe.customers.create({
+          ...(guardianRow.login_email ? { email: guardianRow.login_email } : {}),
+          ...(fullName ? { name: fullName } : {}),
+          metadata: { guardian_id: String(guardianId), organization_id: String(orgId) },
+        });
+        stripeCustomerId = customer.id;
+        await database.query(
+          `UPDATE guardian_profiles SET stripe_customer_id=$1 WHERE guardian_id=$2 AND organization_id=$3`,
+          [stripeCustomerId, guardianId, orgId]
+        );
+      }
+
+      const setupIntent = await stripe.setupIntents.create({
+        customer: stripeCustomerId,
+        payment_method_types: ["card"],
+        usage: "off_session",
+      });
+
+      return res.json({
+        success: true,
+        clientSecret: setupIntent.client_secret,
+        publishableKey: stripeRuntime.publishableKey,
+      });
+    } catch (error) {
+      console.error("[guardianCardSetupIntentPost]", error.message);
+      return res.status(500).json({ success: false, message: "Unable to start card setup." });
+    }
+  },
+
+  // POST /guardian/cards — persist the payment method created by the
+  // SetupIntent above. Only ever receives a Stripe payment_method/setup_intent
+  // id here — never a raw card number.
+  guardianCardAddPost: async (req, res, dbArg) => {
+    const database = dbArg || db;
+    const orgId = req.session.organizationId;
+    const guardianId = req.session.guardianId;
+    if (!orgId || !guardianId) return res.redirect("/account/login");
+    try {
+      await ensureGuardianCardsSchema();
+      const setupIntentId = String(req.body?.setup_intent_id || "").trim();
+      const rawPaymentMethodId = String(req.body?.payment_method_id || "").trim();
+      if (!setupIntentId && !rawPaymentMethodId) {
+        req.flash && req.flash("error", "Card setup did not complete. Please try again.");
+        return res.redirect("/guardian/settings#cards");
+      }
+
+      const stripeRuntime = await resolveFinanceStripeRuntime(orgId, null, null);
+      const stripe = getFinanceStripeClient(stripeRuntime);
+
+      let paymentMethodId = rawPaymentMethodId;
+      if (setupIntentId) {
+        const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+        if (setupIntent.status !== "succeeded" || !setupIntent.payment_method) {
+          req.flash && req.flash("error", "Card could not be verified. Please try again.");
+          return res.redirect("/guardian/settings#cards");
+        }
+        paymentMethodId = typeof setupIntent.payment_method === "string"
+          ? setupIntent.payment_method
+          : setupIntent.payment_method.id;
+      }
+
+      const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+      if (!pm || pm.type !== "card" || !pm.card?.last4) {
+        req.flash && req.flash("error", "Only card payment methods can be saved.");
+        return res.redirect("/guardian/settings#cards");
+      }
+
+      const existing = await database.query(
+        `SELECT card_id FROM guardian_payment_methods
+          WHERE guardian_id=$1 AND organization_id=$2 AND external_payment_method_id=$3
+          LIMIT 1`,
+        [guardianId, orgId, pm.id]
+      );
+      if (existing.rows.length) {
+        req.flash && req.flash("success", "Card already saved.");
+        return res.redirect("/guardian/settings#cards");
+      }
+
+      const childStudentIdRaw = parseInt(req.body?.child_student_id, 10);
+      const childStudentId = Number.isInteger(childStudentIdRaw) ? childStudentIdRaw : null;
+      const setDefaultRequested = req.body?.set_default === "1" || req.body?.set_default === "on";
+      const countR = await database.query(
+        `SELECT COUNT(*)::int AS n FROM guardian_payment_methods WHERE guardian_id=$1 AND organization_id=$2`,
+        [guardianId, orgId]
+      );
+      const makeDefault = setDefaultRequested || countR.rows[0].n === 0;
+      if (makeDefault) {
+        await database.query(
+          `UPDATE guardian_payment_methods SET is_default=false WHERE guardian_id=$1 AND organization_id=$2`,
+          [guardianId, orgId]
+        );
+      }
+
+      await database.query(
+        `INSERT INTO guardian_payment_methods
+            (guardian_id, organization_id, brand, last4, holder_name, exp_month, exp_year, is_default, provider, external_payment_method_id, student_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'stripe',$9,$10)`,
+        [
+          guardianId, orgId,
+          pm.card.brand || "card",
+          pm.card.last4,
+          pm.billing_details?.name || null,
+          pm.card.exp_month,
+          pm.card.exp_year,
+          makeDefault,
+          pm.id,
+          childStudentId,
+        ]
+      );
+
+      req.flash && req.flash("success", "Card saved securely.");
+      await logPaygira(req, {
+        actionType: "Added Card",
+        recordType: "Payment Method",
+        recordId: pm.id,
+        recordLabel: `Card ending ${pm.card.last4}`,
+        description: `Guardian saved a new payment method ending in ${pm.card.last4}.`,
+        changedFields: [],
+      });
+    } catch (error) {
+      console.error("[guardianCardAddPost]", error.message);
+      req.flash && req.flash("error", "Could not save card: " + error.message);
+    }
+    res.redirect("/guardian/settings#cards");
   },
 
   guardianCardDeletePost: async (req, res, dbArg) => {

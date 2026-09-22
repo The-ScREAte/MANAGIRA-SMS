@@ -1040,28 +1040,15 @@
             <div class="paygira-empty-state">No cards saved yet. Add your first card below to make one-tap payments on PayGira.</div>
           <% } %>
 
-          <form action="/guardian/cards" method="POST" autocomplete="off" class="paygira-form">
+          <% if (stripeEnabled) { %>
+          <form id="gcardAddForm" action="/guardian/cards" method="POST" autocomplete="off" class="paygira-form">
             <h3 class="paygira-form-title">➕ Add a new card</h3>
 
             <div class="paygira-grid">
-              <div>
-                <label class="paygira-label">Card number</label>
-                <input type="text" name="card_number" inputmode="numeric" pattern="[0-9 ]{12,23}" placeholder="1234 5678 9012 3456" required class="paygira-input paygira-input--mono" />
-              </div>
-
-              <div>
-                <label class="paygira-label">Cardholder name</label>
-                <input type="text" name="holder_name" placeholder="e.g. JANE DOE" class="paygira-input" style="text-transform:uppercase;" />
-              </div>
-
-              <div>
-                <label class="paygira-label">Exp Month</label>
-                <input type="number" name="exp_month" min="1" max="12" placeholder="MM" required class="paygira-input" />
-              </div>
-
-              <div>
-                <label class="paygira-label">Exp Year</label>
-                <input type="number" name="exp_year" min="2024" max="2099" placeholder="YYYY" required class="paygira-input" />
+              <div style="grid-column: 1 / -1;">
+                <label class="paygira-label">Card details</label>
+                <div id="gcard-element" class="paygira-input" style="padding:12px;"></div>
+                <div id="gcard-errors" style="color:#d33; font-size:0.85rem; margin-top:6px;"></div>
               </div>
 
               <div>
@@ -1080,15 +1067,58 @@
               Make this my default payment card
             </label>
 
+            <input type="hidden" name="setup_intent_id" id="gcardSetupIntentId" />
+
             <div class="paygira-actions">
               <span class="paygira-note">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-                We store only the last 4 digits — your full PAN is never saved.
+                Card details are sent directly to Stripe — your full card number is never stored on Managira's servers.
               </span>
 
-              <button type="submit" class="paygira-submit">🔒 Save Card Securely</button>
+              <button type="submit" id="gcardSubmitBtn" class="paygira-submit">🔒 Save Card Securely</button>
             </div>
           </form>
+
+          <script src="https://js.stripe.com/v3/"></script>
+          <script>
+            (function () {
+              var stripe = window.Stripe('<%= stripePublishableKey %>');
+              var elements = stripe.elements();
+              var cardElement = elements.create('card');
+              cardElement.mount('#gcard-element');
+              cardElement.on('change', function (event) {
+                document.getElementById('gcard-errors').textContent = event.error ? event.error.message : '';
+              });
+
+              var form = document.getElementById('gcardAddForm');
+              var submitBtn = document.getElementById('gcardSubmitBtn');
+              form.addEventListener('submit', async function (evt) {
+                evt.preventDefault();
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving…';
+                try {
+                  var startResp = await fetch('/guardian/cards/setup-intent', { method: 'POST' });
+                  var startData = await startResp.json();
+                  if (!startResp.ok || !startData.success) {
+                    throw new Error(startData.message || 'Unable to start card setup.');
+                  }
+                  var result = await stripe.confirmCardSetup(startData.clientSecret, {
+                    payment_method: { card: cardElement },
+                  });
+                  if (result.error) throw result.error;
+                  document.getElementById('gcardSetupIntentId').value = result.setupIntent.id;
+                  form.submit();
+                } catch (err) {
+                  document.getElementById('gcard-errors').textContent = err.message || 'Could not save card.';
+                  submitBtn.disabled = false;
+                  submitBtn.textContent = '🔒 Save Card Securely';
+                }
+              });
+            })();
+          </script>
+          <% } else { %>
+          <div class="paygira-empty-state">Card payments are not enabled for this school yet. Contact the school office for other payment options.</div>
+          <% } %>
 
           <% if (Array.isArray(allowedFeatures) && allowedFeatures.includes('PayGira')) { %>
           <div class="paygira-link-wrap">

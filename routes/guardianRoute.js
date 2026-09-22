@@ -145,6 +145,9 @@ module.exports = (db) => {
   );
 
   // ===== Saved Cards & Billing (PayGira wallet) =====
+  router.post("/cards/setup-intent", isGuardianAuthenticated, (req, res) =>
+    financeController.guardianCardSetupIntentPost(req, res, db)
+  );
   router.post("/cards", isGuardianAuthenticated, (req, res) =>
     financeController.guardianCardAddPost(req, res, db)
   );

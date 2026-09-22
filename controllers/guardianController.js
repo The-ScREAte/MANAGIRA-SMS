@@ -20,6 +20,7 @@ const {
 const { getStudentTransportationSnapshot } = require("./transportationController");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { buildNameSortExpression, formatDisplayName } = require("../utils/organizationDisplayPreferences");
+const { resolveFinanceStripeRuntime } = require("./financeController");
 
 // Keep the settings list aligned with parent notification keys actively emitted in the app.
 const LIVE_GUARDIAN_NOTIFICATION_KEYS = new Set([
@@ -961,6 +962,18 @@ module.exports = {
           [student.first_name, student.last_name].filter(Boolean).join(" ").trim(),
       }));
 
+      // Stripe config for the "Add a new card" tokenization form (Elements).
+      let stripeEnabled = false;
+      let stripePublishableKey = "";
+      try {
+        const stripeRuntime = await resolveFinanceStripeRuntime(organizationId, null, null);
+        stripeEnabled = Boolean(stripeRuntime.stripeOn);
+        stripePublishableKey = stripeRuntime.publishableKey || "";
+      } catch (_) {
+        stripeEnabled = false;
+        stripePublishableKey = "";
+      }
+
       return res.render("guardian/settings", {
         title: "Settings",
         guardian: guardian,
@@ -969,6 +982,8 @@ module.exports = {
         savedNotificationPrefs,
         cards,
         children,
+        stripeEnabled,
+        stripePublishableKey,
         messages: req.flash(),
         req,
       });

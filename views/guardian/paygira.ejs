@@ -1721,6 +1721,10 @@
         mode: 'payment',
         amount: amountMinor,
         currency: stripeCurrency,
+        // Must match the setup_future_usage the server sets on the PaymentIntent
+        // for this (no-saved-card) flow, or stripe.confirmPayment() rejects with
+        // a setup_future_usage mismatch error.
+        setupFutureUsage: 'on_session',
       });
       stripeMountedAmount = amountMinor;
       stripePaymentElement = stripeElements.create('payment', {

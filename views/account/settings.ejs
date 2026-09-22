@@ -1520,6 +1520,31 @@
       }
 
       .pm-panel { display: none; }
+
+      .payout-tab-bar {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid var(--border);
+        margin: 0 0 8px;
+      }
+
+      .payout-tab {
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        padding: 6px 14px;
+        font-size: .85rem;
+        font-weight: 500;
+        color: var(--muted, #6b7280);
+        cursor: pointer;
+        transition: color .15s, border-color .15s;
+      }
+
+      .payout-tab.active {
+        color: var(--primary, #2563eb);
+        border-bottom-color: var(--primary, #2563eb);
+      }
       .pm-panel.active { display: block; }
 
       #plan-modal {
@@ -1828,6 +1853,71 @@
         font-size: 11px;
         color: #64748b;
         line-height: 1.5;
+      }
+
+      .current-plan-head {
+        margin-top: 2px;
+      }
+
+      .current-plan-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .current-plan-meta {
+        margin-top: 1px;
+        font-size: 12px;
+        color: #64748b;
+      }
+
+      .current-plan-price-grid {
+        margin-top: 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .current-plan-price-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 11px;
+        background: #f8fafc;
+      }
+
+      .current-plan-price-row + .current-plan-price-row {
+        border-top: 1px solid #e2e8f0;
+      }
+
+      .current-plan-price-label {
+        font-size: 11.5px;
+        color: #64748b;
+      }
+
+      .current-plan-price-value {
+        font-size: 14px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .current-plan-price-value-sub {
+        font-size: 12px;
+        font-weight: 600;
+        color: #334155;
+      }
+
+      .current-plan-note {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #64748b;
+        line-height: 1.5;
+      }
+
+      .current-plan-summary.is-failed {
+        border-color: #f8d7da;
+        background: #fff5f6;
       }
 
       .error-text {
@@ -3565,10 +3655,8 @@
           <% if (!isHubMember) { %>
           <div class="card">
             <h4>Current Plan</h4>
-            <small>Your subscription plan and billing details.</small>
             <div class="content-row">
               <div>
-                <strong><%= planName || 'Not set' %></strong>
                 <% const hasBillingInfo = (typeof billingInfo !== 'undefined' && billingInfo); %>
                 <% const hasTrial = !!(hasBillingInfo && billingInfo.is_trial && billingInfo.trial_ends_at && new Date(billingInfo.trial_ends_at) > new Date()); %>
                 <% const trialEnd = hasTrial ? new Date(billingInfo.trial_ends_at) : null; %>
@@ -3586,13 +3674,31 @@
                 <% const billingDiscount = hasBillingInfo ? Math.max(0, Number(billingInfo.discount_percentage || 0)) : 0; %>
                 <% const billingCycleTotal = currentMonthlyBase * billingMonths * (1 - (billingDiscount / 100)); %>
                 <% const billingChargeLabel = hasBillingInfo ? (billingInfo.period_label || 'Monthly') : 'Monthly'; %>
-                <% const billingPrimaryLine = `Next payment: You pay ${formatCurrentPlanAmount(billingCycleTotal)}.`; %>
-                <% const nextPaymentDate = hasBillingInfo && billingInfo.next_payment_end_date ? new Date(billingInfo.next_payment_end_date) : null; %>
                 <% const isBillingFailed = !!(hasBillingInfo && String(billingInfo.status || '').toLowerCase() === 'failed'); %>
                 <% const billingStatus = hasBillingInfo ? String(billingInfo.status || '').toLowerCase() : ''; %>
                 <% const isBillingSuccessful = ['active', 'paid', 'succeeded', 'success'].includes(billingStatus); %>
                 <% const hasFailureInfo = !!(typeof billingFailureInfo !== 'undefined' && billingFailureInfo); %>
                 <% const currentStudentCount = Number(organizationStudentCount || 0); %>
+
+                <% let planPricingRegionName = null; %>
+                <% let planPricingFreeThreshold = null; %>
+                <% let planPricingHasExtraCharge = false; %>
+                <% if (currentPlanPricing) { %>
+                  <% planPricingRegionName = currentPlanPricing.pricingRegionName || null; %>
+                  <% if (currentPlanPricing.pricingMode === 'dynamic') { %>
+                    <% planPricingFreeThreshold = Number(currentPlanPricing.freeStudentThreshold || 0); %>
+                    <% planPricingHasExtraCharge = Number(currentPlanPricing.extraStudents || 0) > 0; %>
+                  <% } else { %>
+                    <% planPricingFreeThreshold = Number(currentPlanPricing.freeStudentThreshold || 50); %>
+                    <% planPricingHasExtraCharge = true; %>
+                  <% } %>
+                <% } %>
+
+                <div class="current-plan-head">
+                  <div class="current-plan-name"><%= planName || 'Not set' %></div>
+                  <div class="current-plan-meta"><%= currentStudentCount %> student<%= currentStudentCount === 1 ? '' : 's' %><%= planPricingRegionName ? ` · ${planPricingRegionName}` : '' %></div>
+                </div>
+
                 <% if (pendingPlan) { %>
                   <div class="current-plan-summary is-pending">
                     <div class="current-plan-summary-standout">
@@ -3603,78 +3709,47 @@
                     </div>
                   </div>
                 <% } %>
-                <% if (currentPlanPricing && currentPlanPricing.pricingMode === 'dynamic') { %>
-                  <% const freeThreshold = Number(currentPlanPricing.freeStudentThreshold || 0); %>
-                  <div class="current-plan-pricing-note">
-                    <div class="current-plan-pricing-note-title">
-                      <%= planName || 'Selected plan' %> pricing at your current size
+
+                <% if (currentPlanPricing) { %>
+                  <div class="current-plan-price-grid">
+                    <div class="current-plan-price-row">
+                      <div class="current-plan-price-label">Next payment</div>
+                      <div class="current-plan-price-value"><%= formatCurrentPlanAmount(billingCycleTotal) %></div>
                     </div>
-                    <div class="current-plan-pricing-note-points">
-                      <div class="current-plan-pricing-note-point"><strong>You have <%= currentStudentCount %> students.</strong></div>
-                      <div class="current-plan-pricing-note-point"><strong>Region: <%= currentPlanPricing.pricingRegionName %> • First <%= freeThreshold %> students are free.</strong></div>
-                      <div class="current-plan-pricing-note-point">
-                        <% if (Number(currentPlanPricing.extraStudents || 0) > 0) { %>
-                          Additional charges are currently active because your student count is above <%= freeThreshold %>.
-                        <% } else { %>
-                          Additional charges are not active because your student count is within the free <%= freeThreshold %>.
-                        <% } %>
-                      </div>
-                      <div class="current-plan-pricing-note-point"><strong><%= billingPrimaryLine %></strong></div>
-                      <div class="current-plan-pricing-note-sub">Billing cycle: <%= billingChargeLabel %><%= billingDiscount > 0 ? ` • Includes ${billingDiscount}% cycle discount.` : '' %></div>
+                    <div class="current-plan-price-row">
+                      <div class="current-plan-price-label">Billing</div>
+                      <div class="current-plan-price-value-sub"><%= billingMonths > 1 ? `Every ${billingChargeLabel}` : billingChargeLabel %><%= billingDiscount > 0 ? ` · ${billingDiscount}% discount` : '' %></div>
                     </div>
                   </div>
-                <% } else if (currentPlanPricing) { %>
-                  <% const fallbackThreshold = Number(currentPlanPricing.freeStudentThreshold || 50); %>
-                  <div class="current-plan-pricing-note">
-                    <div class="current-plan-pricing-note-title">
-                      <%= planName || 'Selected plan' %> pricing at your current size
+                  <% if (planPricingFreeThreshold !== null) { %>
+                    <div class="current-plan-note">
+                      First <%= planPricingFreeThreshold %> student<%= planPricingFreeThreshold === 1 ? '' : 's' %> are free.<%= planPricingHasExtraCharge ? ' Additional student charges apply.' : ' You’re within the free threshold — no additional charges.' %>
                     </div>
-                    <div class="current-plan-pricing-note-points">
-                      <div class="current-plan-pricing-note-point"><strong>You have <%= currentStudentCount %> students.</strong></div>
-                      <div class="current-plan-pricing-note-point"><strong>Region: <%= currentPlanPricing.pricingRegionName %> • First <%= fallbackThreshold %> students are free.</strong></div>
-                      <div class="current-plan-pricing-note-point">Additional charges are currently active because your student count is above <%= fallbackThreshold %>.</div>
-                      <div class="current-plan-pricing-note-point"><strong><%= billingPrimaryLine %></strong></div>
-                      <div class="current-plan-pricing-note-sub">Billing cycle: <%= billingChargeLabel %><%= billingDiscount > 0 ? ` • Includes ${billingDiscount}% cycle discount.` : '' %></div>
-                    </div>
-                  </div>
+                  <% } %>
                 <% } %>
+
                 <% if (hasBillingInfo) { %>
                   <% if (isBillingFailed) { %>
-                    <% const failedAttemptNumber = hasFailureInfo && billingFailureInfo.attemptNumber ? Number(billingFailureInfo.attemptNumber) : null; %>
-                    <% const failedMaxAttempts = hasFailureInfo && billingFailureInfo.maxAttempts ? Number(billingFailureInfo.maxAttempts) : 4; %>
                     <% const failedAmountUsd = hasFailureInfo && billingFailureInfo.amountDue !== null ? Number(billingFailureInfo.amountDue || 0) : Number(billingCycleTotal || 0); %>
                     <% const failedAtDate = hasFailureInfo && billingFailureInfo.failedAt ? new Date(billingFailureInfo.failedAt) : null; %>
                     <% const nextRetryDate = hasFailureInfo && billingFailureInfo.nextRetryAt ? new Date(billingFailureInfo.nextRetryAt) : null; %>
                     <% const friendlyFailureReason = hasFailureInfo && billingFailureInfo.reason
                       ? billingFailureInfo.reason
                       : 'Your bank or card provider declined the automatic payment, or the card needed extra authentication.'; %>
-                    <div class="current-plan-summary" style="border-color:#f8d7da;background:#fff5f6;">
+                    <div class="current-plan-summary is-failed" style="margin-top:10px;">
                       <div class="current-plan-summary-standout" style="color:#a61b2b;">
-                        We could not process your payment.
+                        Payment failed
                       </div>
                       <div class="current-plan-summary-sub">
-                        Failed amount: <%= formatCurrentPlanAmount(failedAmountUsd) %>
+                        We couldn't process your latest payment of <%= formatCurrentPlanAmount(failedAmountUsd) %><%= failedAtDate ? ` on ${failedAtDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : '' %>.
                       </div>
-                      <% if (failedAttemptNumber) { %>
-                        <div class="current-plan-summary-sub">
-                          Attempt <%= failedAttemptNumber %> of <%= failedMaxAttempts %> failed<%= failedAtDate ? ` on ${failedAtDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : '' %>.
-                        </div>
-                      <% } %>
                       <div class="current-plan-summary-sub">
                         Reason: <%= friendlyFailureReason %>
                       </div>
-                      <% if (nextRetryDate) { %>
-                        <div class="current-plan-summary-sub">
-                          Next automatic retry: <%= nextRetryDate.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) %>.
-                        </div>
-                      <% } else { %>
-                        <div class="current-plan-summary-sub">
-                          Next automatic retry follows this schedule: 1 day after the first failure, then 2 days for each later retry.
-                        </div>
-                      <% } %>
                       <div class="current-plan-summary-sub">
-                        No action is required now, but updating your card in Payment Methods can prevent another failed retry.
+                        Your payment will be retried automatically<%= nextRetryDate ? ` on ${nextRetryDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : '' %>. Updating your payment method can help prevent another failed attempt.
                       </div>
+                      <button type="button" class="btn-link btn-inline" id="open-payment-modal-from-failure" style="margin-top:8px;">Update payment method</button>
                     </div>
 
                     <% if (typeof billingRetryHistory !== 'undefined' && billingRetryHistory && billingRetryHistory.length) { %>
@@ -5982,6 +6057,11 @@
 
         if (paymentModalOpen) {
           paymentModalOpen.addEventListener("click", () => requestPassword(paymentModal));
+        }
+
+        const paymentModalOpenFromFailure = document.getElementById("open-payment-modal-from-failure");
+        if (paymentModalOpenFromFailure) {
+          paymentModalOpenFromFailure.addEventListener("click", () => requestPassword(paymentModal));
         }
 
         if (paymentModalClose) {

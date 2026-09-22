@@ -11,6 +11,7 @@ const {
 const { runAdminEmailCampaignSweep } = require('../utils/adminEmailCampaignRunner');
 const { purgeOldActivityLogs } = require('../utils/activityLog');
 const { retryPendingPaystackPayouts } = require('../utils/paystackPayout');
+const { runPayoutSweep } = require('./payoutScheduler');
 const { getPaystackSettings } = require('../utils/paystackConfig');
 const {
   syncQueuedGoogleClassroomOrganizations,
@@ -24,6 +25,9 @@ const shouldRunNotifications = process.env.NODE_ENV === 'production' || process.
 // explicitly disabled.
 const shouldRunAdminEmailScheduler = process.env.ENABLE_ADMIN_EMAIL_SCHEDULER !== 'false';
 const shouldRunActivityLogRetention = process.env.NODE_ENV === 'production' || process.env.ENABLE_ACTIVITY_LOG_RETENTION === 'true';
+// Payouts (Settings → Payouts) — opt-out like the admin email scheduler, so
+// scheduled/recurring payouts are testable locally without extra env config.
+const shouldRunPayoutScheduler = process.env.ENABLE_PAYOUT_SCHEDULER !== 'false';
 const ACTIVITY_LOG_RETENTION_DAYS = Number(process.env.ACTIVITY_LOG_RETENTION_DAYS) || 1095; // ~3 years
 
 // Resolve the active Paystack secret key for the current mode (test/live).
@@ -108,6 +112,23 @@ if (shouldRunAdminEmailScheduler) {
   });
 } else {
   // Admin email scheduler disabled in dev — set ENABLE_ADMIN_EMAIL_SCHEDULER=true to enable.
+}
+
+if (shouldRunPayoutScheduler) {
+  // Every 5 minutes: charge due org_payouts (one-time and recurring) against
+  // the school's saved card and email the recipient a receipt.
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const summary = await runPayoutSweep();
+      if (summary.processed > 0) {
+        console.log(`[Payout Scheduler] Sweep complete. processed=${summary.processed}, succeeded=${summary.succeeded}, failed=${summary.failed}`);
+      }
+    } catch (error) {
+      console.error('[Payout Scheduler] Sweep failed:', error.message);
+    }
+  });
+} else {
+  // Payout scheduler disabled — set ENABLE_PAYOUT_SCHEDULER=false to disable, unset/true to enable.
 }
 
 if (shouldRunActivityLogRetention) {

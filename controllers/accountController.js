@@ -10430,18 +10430,6 @@ const accountController = {
     }
   },
 
-  deleteFlutterwaveAccount: async (req, res) => {
-    const { id } = req.body;
-
-    try {
-      await db.query(`DELETE FROM flutterwave_accounts WHERE id = $1`, [id]);
-
-      res.json({ success: true });
-    } catch (err) {
-            res.json({ success: false, message: "Delete failed." });
-    }
-  },
-
   getFlutterwaveAccountById: async (req, res) => {
     const { id } = req.params;
 

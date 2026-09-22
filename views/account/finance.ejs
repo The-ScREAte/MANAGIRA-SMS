@@ -1491,9 +1491,15 @@
     gap: 14px;
   }
 
-  /* Lift table row surfaces for readability */
+  /* Lift table row surfaces for readability.
+     A global `th, td { border: 1px solid #ddd }` reset (and, on pages with
+     compact tables, an extra `border-top`) otherwise leaks a light default
+     grid line onto every cell — invisible against most of this dark theme,
+     but visible as a stray box around the last column next to the icon
+     buttons. Zero out every side but the intentional row-separator. */
   .fin-table td {
     background: rgba(22,34,56,.95) !important;
+    border: 0 !important;
     border-bottom: 1px solid rgba(42,60,95,.8) !important;
   }
   .fin-table tbody tr:hover td {
@@ -1501,6 +1507,7 @@
   }
   .fin-table th {
     background: rgba(14,24,42,.98) !important;
+    border: 0 !important;
     border-bottom: 1px solid rgba(42,60,95,.8) !important;
   }
 
@@ -1757,6 +1764,7 @@
         <a href="/account/settings/finance?section=payments"      class="<%= sec==='payments' ? 'active':'' %>"><span class="ico">💰</span><span>Payment Tracking</span></a>
         <% /* Fee Templates hidden for now */ %>
         <a href="/account/settings/finance/arrears"               class="<%= sec==='arrears' ? 'active':'' %>"><span class="ico">🧾</span><span>Fee Recovery</span></a>
+        <a href="/account/settings/finance?section=payouts"       class="<%= sec==='payouts' ? 'active':'' %>"><span class="ico">💸</span><span>Payouts</span></a>
         <a href="/account/settings/finance?section=settings"      class="<%= sec==='settings' ? 'active':'' %>"><span class="ico">⚙️</span><span>Payment Settings</span></a>
       </nav>
     </aside>
@@ -2546,6 +2554,416 @@
             </div>
           <% } %>
         </div>
+      <% } %>
+
+      <% if (sec === 'payouts') { %>
+        <div class="fin-card fin-accordion" id="acc-create-payout" style="margin-bottom:20px;">
+          <button type="button" class="fin-acc-head" onclick="finToggleAcc('acc-create-payout')">
+            <span><span class="fin-acc-ico">💸</span> <strong>Create Payout</strong></span>
+            <span class="fin-acc-hint">Pay a teacher, staff member, or vendor — one time or on a schedule</span>
+            <span class="fin-acc-chev">▾</span>
+          </button>
+          <div class="fin-acc-body">
+            <form class="fin-form" id="finPayoutForm">
+              <input type="hidden" id="finPayoutFormId" value="">
+              <div class="fin-field">
+                <label>Name *</label>
+                <input id="finPayoutName" required placeholder="e.g. Teacher Salary — John Doe">
+              </div>
+
+              <div class="fin-field">
+                <label>Recipient *</label>
+                <div class="fin-payout-tabs">
+                  <button type="button" class="fin-payout-tab active" id="finRecipientTabExisting" data-mode="existing">Existing Managira user</button>
+                  <button type="button" class="fin-payout-tab" id="finRecipientTabNew" data-mode="new">New person</button>
+                </div>
+                <div id="finRecipientExistingPanel">
+                  <input type="text" id="finRecipientSearch" placeholder="Search by name or email…" autocomplete="off">
+                  <div id="finRecipientResults" class="fin-payout-search-results" style="display:none;"></div>
+                  <div id="finRecipientSelected" class="fin-type-chip" style="display:none; margin-top:8px;"></div>
+                </div>
+                <div id="finRecipientNewPanel" style="display:none;">
+                  <div class="fin-row">
+                    <div class="fin-field"><label>Full name</label><input type="text" id="finRecipientNameNew" placeholder="e.g. John Doe"></div>
+                    <div class="fin-field"><label>Email address</label><input type="email" id="finRecipientEmailNew" placeholder="john@example.com"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="fin-row">
+                <div class="fin-field">
+                  <label>Amount *</label>
+                  <input id="finPayoutAmount" type="number" min="0.01" step="0.01" required placeholder="500.00">
+                </div>
+                <div class="fin-field">
+                  <label>Currency</label>
+                  <select id="finPayoutCurrency">
+                    <option value="<%= currentCurrency %>"><%= currentCurrency %></option>
+                    <% ['USD','GHS','NGN','GBP','EUR'].filter(c => c !== currentCurrency).forEach(c => { %><option value="<%= c %>"><%= c %></option><% }) %>
+                  </select>
+                </div>
+              </div>
+
+              <div class="fin-row">
+                <div class="fin-field">
+                  <label>Charge this card *</label>
+                  <select id="finPayoutCard" required></select>
+                  <small id="finPayoutNoCardHint" style="display:none; color:var(--fin-muted);font-size:.72rem;">No saved card yet — add one under <a href="/account/settings?section=billing" style="color:var(--fin-teal);">Account Settings → Billing &amp; Plan</a>.</small>
+                </div>
+                <div class="fin-field">
+                  <label>Frequency</label>
+                  <select id="finPayoutFrequency">
+                    <option value="once">One time</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Every 2 weeks</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="fin-row">
+                <div class="fin-field">
+                  <label id="finPayoutStartDateLabel">Pay on *</label>
+                  <input id="finPayoutStartDate" type="date" required>
+                </div>
+                <div class="fin-field" id="finPayoutEndDateField" style="display:none;">
+                  <label>Ends on (optional)</label>
+                  <input id="finPayoutEndDate" type="date">
+                </div>
+              </div>
+
+              <p class="error-text" id="finPayoutError" style="color:var(--fin-red); font-size:.82rem;"></p>
+              <button type="submit" class="fin-btn primary" id="finPayoutSubmit">Save Payout</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="fin-card">
+          <div class="section-head">
+            <h2>Scheduled Payouts</h2>
+            <span class="fin-section-count" id="finPayoutsCount">0 payouts</span>
+          </div>
+          <div class="empty-state" id="finPayoutsEmpty"><div class="ico">💸</div><h3>No payouts yet</h3><p style="color:var(--fin-muted);">Create one above to pay a teacher, staff member, or vendor on a schedule.</p></div>
+          <div class="fin-table-wrap" id="finPayoutsTableWrap" style="display:none;">
+            <table class="fin-table">
+              <thead><tr>
+                <th>Name</th><th>Recipient</th><th class="num">Amount</th><th>Frequency</th>
+                <th>Card</th><th>Next</th><th>Status</th><th></th>
+              </tr></thead>
+              <tbody id="finPayoutsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="fin-card" id="finPayoutHistoryCard" style="display:none;">
+          <div class="section-head">
+            <h2 id="finPayoutHistoryTitle">Payment History</h2>
+            <button type="button" class="fin-btn ghost sm" onclick="document.getElementById('finPayoutHistoryCard').style.display='none';">Close</button>
+          </div>
+          <div class="fin-table-wrap">
+            <table class="fin-table">
+              <thead><tr><th>Date</th><th class="num">Amount</th><th>Provider</th><th>Status</th><th>Notes</th></tr></thead>
+              <tbody id="finPayoutHistoryBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <style>
+          .fin-payout-tabs { display:flex; gap:0; border-bottom:2px solid var(--fin-border); margin:6px 0 10px; }
+          .fin-payout-tab {
+            background:none; border:none; border-bottom:2px solid transparent; margin-bottom:-2px;
+            padding:7px 14px; font-size:.82rem; font-weight:600; color:var(--fin-muted); cursor:pointer;
+          }
+          .fin-payout-tab.active { color:var(--fin-teal); border-bottom-color:var(--fin-teal); }
+          .fin-payout-search-results {
+            border:1px solid var(--fin-border); border-radius:8px; margin-top:6px; max-height:180px; overflow:auto;
+            background:var(--fin-card);
+          }
+          .fin-payout-search-results .fin-payout-result { padding:8px 10px; cursor:pointer; border-bottom:1px solid var(--fin-border); font-size:.85rem; }
+          .fin-payout-search-results .fin-payout-result:hover { background:rgba(0,212,170,.08); }
+          .fin-payout-search-results .fin-payout-result:last-child { border-bottom:0; }
+        </style>
+
+        <script>
+          (function initFinPayouts() {
+            var listEmpty = document.getElementById('finPayoutsEmpty');
+            var listWrap = document.getElementById('finPayoutsTableWrap');
+            var listBody = document.getElementById('finPayoutsBody');
+            var countEl = document.getElementById('finPayoutsCount');
+            var form = document.getElementById('finPayoutForm');
+            var formIdInput = document.getElementById('finPayoutFormId');
+            var errorEl = document.getElementById('finPayoutError');
+            var cardSelect = document.getElementById('finPayoutCard');
+            var noCardHint = document.getElementById('finPayoutNoCardHint');
+            var frequencySelect = document.getElementById('finPayoutFrequency');
+            var startDateInput = document.getElementById('finPayoutStartDate');
+            var startDateLabel = document.getElementById('finPayoutStartDateLabel');
+            var endDateField = document.getElementById('finPayoutEndDateField');
+            var endDateInput = document.getElementById('finPayoutEndDate');
+            var searchInput = document.getElementById('finRecipientSearch');
+            var searchResults = document.getElementById('finRecipientResults');
+            var selectedChip = document.getElementById('finRecipientSelected');
+            var tabExisting = document.getElementById('finRecipientTabExisting');
+            var tabNew = document.getElementById('finRecipientTabNew');
+            var panelExisting = document.getElementById('finRecipientExistingPanel');
+            var panelNew = document.getElementById('finRecipientNewPanel');
+            var nameNewInput = document.getElementById('finRecipientNameNew');
+            var emailNewInput = document.getElementById('finRecipientEmailNew');
+
+            var selectedRecipientUserId = '';
+            var recipientMode = 'existing';
+
+            function esc(v) {
+              return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+              });
+            }
+            function freqLabel(f) { return { once: 'One time', weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly' }[f] || f; }
+            function fmtDate(v) { if (!v) return '—'; try { return new Date(v).toLocaleDateString(); } catch (e) { return '—'; } }
+
+            function switchRecipientTab(mode) {
+              recipientMode = mode;
+              tabExisting.classList.toggle('active', mode === 'existing');
+              tabNew.classList.toggle('active', mode === 'new');
+              panelExisting.style.display = mode === 'existing' ? '' : 'none';
+              panelNew.style.display = mode === 'new' ? '' : 'none';
+              // Only enforce required on whichever recipient path is active,
+              // so switching tabs never blocks submission on hidden fields.
+              nameNewInput.required = mode === 'new';
+              emailNewInput.required = mode === 'new';
+              if (mode === 'existing') { nameNewInput.value = ''; emailNewInput.value = ''; }
+            }
+            tabExisting.addEventListener('click', function () { switchRecipientTab('existing'); });
+            tabNew.addEventListener('click', function () { switchRecipientTab('new'); });
+
+            function toggleFrequencyFields() {
+              var isOnce = frequencySelect.value === 'once';
+              startDateLabel.textContent = isOnce ? 'Pay on *' : 'Starting *';
+              endDateField.style.display = isOnce ? 'none' : '';
+              if (isOnce) endDateInput.value = '';
+            }
+            frequencySelect.addEventListener('change', toggleFrequencyFields);
+
+            var searchDebounce = null;
+            searchInput.addEventListener('input', function () {
+              clearTimeout(searchDebounce);
+              var q = searchInput.value.trim();
+              if (!q) { searchResults.style.display = 'none'; return; }
+              searchDebounce = setTimeout(function () {
+                fetch('/account/settings/payouts/recipients/search?q=' + encodeURIComponent(q))
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    var users = data.users || [];
+                    searchResults.style.display = 'block';
+                    searchResults.innerHTML = users.length
+                      ? users.map(function (u) {
+                          return '<div class="fin-payout-result" data-user-id="' + u.userId + '" data-name="' + esc(u.name) + '" data-email="' + esc(u.email) + '">' +
+                            esc(u.name) + ' <span style="color:var(--fin-muted);">' + esc(u.email) + ' · ' + esc(u.accountType || '') + '</span></div>';
+                        }).join('')
+                      : '<div style="padding:8px 10px;color:var(--fin-muted);">No matching users found.</div>';
+                  })
+                  .catch(function () { searchResults.style.display = 'none'; });
+              }, 250);
+            });
+            searchResults.addEventListener('click', function (evt) {
+              var row = evt.target.closest('.fin-payout-result');
+              if (!row) return;
+              selectedRecipientUserId = row.dataset.userId;
+              selectedChip.style.display = 'inline-flex';
+              selectedChip.textContent = row.dataset.name + ' (' + row.dataset.email + ')';
+              searchResults.style.display = 'none';
+              searchInput.value = '';
+            });
+
+            function resetForm() {
+              form.reset();
+              formIdInput.value = '';
+              errorEl.textContent = '';
+              selectedRecipientUserId = '';
+              selectedChip.style.display = 'none';
+              searchInput.value = '';
+              searchResults.style.display = 'none';
+              switchRecipientTab('existing');
+              frequencySelect.value = 'once';
+              toggleFrequencyFields();
+              startDateInput.value = new Date().toISOString().slice(0, 10);
+            }
+
+            function renderCardOptions(cards) {
+              if (!cards.length) {
+                cardSelect.innerHTML = '';
+                cardSelect.disabled = true;
+                noCardHint.style.display = 'block';
+                return;
+              }
+              cardSelect.disabled = false;
+              noCardHint.style.display = 'none';
+              cardSelect.innerHTML = cards.map(function (c) {
+                return '<option value="' + c.id + '">' + esc(c.card_type || c.provider) + ' •••• ' + esc(c.last4 || '') + (c.display_name ? ' — ' + esc(c.display_name) : '') + '</option>';
+              }).join('');
+            }
+
+            function statusBadge(status) {
+              var map = { active: 'active', paused: 'pending', cancelled: 'overdue', completed: 'paid' };
+              return '<span class="badge ' + (map[status] || 'active') + '">' + esc(status) + '</span>';
+            }
+
+            function renderPayouts(payouts) {
+              countEl.textContent = payouts.length + ' payout' + (payouts.length === 1 ? '' : 's');
+              if (!payouts.length) {
+                listEmpty.style.display = '';
+                listWrap.style.display = 'none';
+                return;
+              }
+              listEmpty.style.display = 'none';
+              listWrap.style.display = '';
+              listBody.innerHTML = payouts.map(function (p) {
+                var actions = '<div class="fin-actions-cell" style="justify-content:flex-start;">' +
+                  '<button type="button" class="fin-btn sm finPayoutPayNow" data-id="' + p.payout_id + '"' + (p.status === 'cancelled' ? ' disabled' : '') + '>Pay Now</button>' +
+                  (p.status === 'active' ? '<button type="button" class="fin-btn ghost sm finPayoutPause" data-id="' + p.payout_id + '">Pause</button>' : '') +
+                  (p.status === 'paused' ? '<button type="button" class="fin-btn ghost sm finPayoutResume" data-id="' + p.payout_id + '">Resume</button>' : '') +
+                  '<button type="button" class="fin-btn ghost sm finPayoutHistory" data-id="' + p.payout_id + '" data-name="' + esc(p.name) + '">History</button>' +
+                  '<button type="button" class="fin-btn danger sm finPayoutDelete" data-id="' + p.payout_id + '">Delete</button>' +
+                  '</div>';
+                return '<tr>' +
+                  '<td><strong>' + esc(p.name) + '</strong>' + (p.last_error ? '<div style="color:var(--fin-red);font-size:.72rem;margin-top:3px;">' + esc(p.last_error) + '</div>' : '') + '</td>' +
+                  '<td>' + esc(p.recipient_name) + '<div style="color:var(--fin-muted);font-size:.72rem;">' + esc(p.recipient_email) + '</div></td>' +
+                  '<td class="num fin-money-neutral">' + esc(p.currency) + ' ' + Number(p.amount).toFixed(2) + '</td>' +
+                  '<td>' + freqLabel(p.frequency) + '</td>' +
+                  '<td>' + esc(p.card_brand || p.card_provider || '—') + ' •••• ' + esc(p.card_last4 || '') + '</td>' +
+                  '<td class="fin-date-muted">' + (p.next_run_at ? fmtDate(p.next_run_at) : '—') + '</td>' +
+                  '<td>' + statusBadge(p.status) + '</td>' +
+                  '<td>' + actions + '</td>' +
+                  '</tr>';
+              }).join('');
+            }
+
+            function loadPayouts() {
+              fetch('/account/settings/payouts.json')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                  if (!data.success) throw new Error(data.message || 'Failed to load payouts.');
+                  renderCardOptions(data.cards || []);
+                  renderPayouts(data.payouts || []);
+                })
+                .catch(function (err) {
+                  listEmpty.style.display = '';
+                  listEmpty.querySelector('h3').textContent = err.message || 'Unable to load payouts.';
+                });
+            }
+
+            form.addEventListener('submit', function (evt) {
+              evt.preventDefault();
+              errorEl.textContent = '';
+              if (recipientMode === 'existing' && !selectedRecipientUserId) {
+                errorEl.textContent = "Search for and select an existing user, or switch to 'New person'.";
+                return;
+              }
+              if (!cardSelect.value) {
+                errorEl.textContent = 'Add a saved card before creating a payout.';
+                return;
+              }
+              var payload = {
+                name: document.getElementById('finPayoutName').value,
+                amount: document.getElementById('finPayoutAmount').value,
+                currency: document.getElementById('finPayoutCurrency').value,
+                card_id: cardSelect.value,
+                frequency: frequencySelect.value,
+                start_date: startDateInput.value,
+                end_date: endDateInput.value || undefined,
+              };
+              if (recipientMode === 'existing') {
+                payload.recipient_user_id = selectedRecipientUserId;
+              } else {
+                payload.recipient_name = nameNewInput.value;
+                payload.recipient_email = emailNewInput.value;
+              }
+
+              var payoutId = formIdInput.value;
+              var submitBtn = document.getElementById('finPayoutSubmit');
+              submitBtn.disabled = true;
+              submitBtn.textContent = 'Saving…';
+              fetch(payoutId ? '/account/settings/payouts/' + payoutId : '/account/settings/payouts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              })
+                .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                .then(function (res) {
+                  if (!res.ok || !res.data.success) throw new Error(res.data.message || 'Unable to save payout.');
+                  resetForm();
+                  document.getElementById('acc-create-payout').classList.remove('open');
+                  loadPayouts();
+                })
+                .catch(function (err) { errorEl.textContent = err.message; })
+                .finally(function () {
+                  submitBtn.disabled = false;
+                  submitBtn.textContent = 'Save Payout';
+                });
+            });
+
+            listBody.addEventListener('click', function (evt) {
+              var btn = evt.target.closest('button[data-id]');
+              if (!btn) return;
+              var payoutId = btn.dataset.id;
+
+              if (btn.classList.contains('finPayoutPayNow')) {
+                if (!confirm('Charge the saved card for this payout right now?')) return;
+                btn.disabled = true;
+                btn.textContent = 'Processing…';
+                fetch('/account/settings/payouts/' + payoutId + '/pay-now', { method: 'POST' })
+                  .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                  .then(function (res) {
+                    if (!res.ok || !res.data.success) throw new Error(res.data.message || 'Charge failed.');
+                    loadPayouts();
+                  })
+                  .catch(function (err) { alert(err.message); btn.disabled = false; btn.textContent = 'Pay Now'; });
+                return;
+              }
+
+              if (btn.classList.contains('finPayoutPause') || btn.classList.contains('finPayoutResume')) {
+                var status = btn.classList.contains('finPayoutPause') ? 'paused' : 'active';
+                fetch('/account/settings/payouts/' + payoutId, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: status }),
+                })
+                  .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                  .then(function (res) { if (!res.ok || !res.data.success) throw new Error(res.data.message); loadPayouts(); })
+                  .catch(function (err) { alert(err.message); });
+                return;
+              }
+
+              if (btn.classList.contains('finPayoutDelete')) {
+                if (!confirm('Delete this payout? This cannot be undone.')) return;
+                fetch('/account/settings/payouts/' + payoutId + '/delete', { method: 'POST' })
+                  .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                  .then(function (res) { if (!res.ok || !res.data.success) throw new Error(res.data.message); loadPayouts(); })
+                  .catch(function (err) { alert(err.message); });
+                return;
+              }
+
+              if (btn.classList.contains('finPayoutHistory')) {
+                fetch('/account/settings/payouts/' + payoutId + '/transactions')
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    var rows = data.transactions || [];
+                    document.getElementById('finPayoutHistoryTitle').textContent = 'Payment History — ' + btn.dataset.name;
+                    document.getElementById('finPayoutHistoryBody').innerHTML = rows.length
+                      ? rows.map(function (t) {
+                          return '<tr><td>' + fmtDate(t.created_at) + '</td><td class="num">' + esc(t.currency) + ' ' + Number(t.amount).toFixed(2) + '</td><td>' + esc(t.provider) + '</td><td>' + (t.status === 'succeeded' ? '<span class="badge paid">Succeeded</span>' : '<span class="badge overdue">Failed</span>') + '</td><td style="color:var(--fin-red);">' + esc(t.failure_reason || '') + '</td></tr>';
+                        }).join('')
+                      : '<tr><td colspan="5" style="color:var(--fin-muted);">No payments recorded yet.</td></tr>';
+                    document.getElementById('finPayoutHistoryCard').style.display = '';
+                    document.getElementById('finPayoutHistoryCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  })
+                  .catch(function () { alert('Unable to load payment history.'); });
+                return;
+              }
+            });
+
+            resetForm();
+            loadPayouts();
+          })();
+        </script>
       <% } %>
 
       <% if (sec === 'settings') { %>
