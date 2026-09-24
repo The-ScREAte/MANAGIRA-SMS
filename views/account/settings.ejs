@@ -2708,8 +2708,33 @@
     <% const _isEmbeddedSettings = typeof isEmbedded !== 'undefined' && isEmbedded; %>
     <% const _isOnHoldRestricted = typeof isOnHoldRestricted !== 'undefined' && isOnHoldRestricted; %>
     <%
+      // Single source of truth for "what will actually be charged next":
+      // current plan × current billing period × current student count,
+      // computed live on every render. Both the on-hold banner above the
+      // fold and the Current Plan card below reuse these same values, so
+      // they can never show two different "amount due" figures again —
+      // that mismatch (banner showing a stale failed-attempt amount while
+      // the plan/billing period had already been corrected) is exactly
+      // what confused an admin fixing a school's plan on 2026-09-24.
+      const currentPlanPricing = Array.isArray(plans) && currentPlan ? plans.find((p) => Number(p.plan_id) === Number(currentPlan.plan_id)) : null;
+      const selectedCurrency = (currencyProfile && currencyProfile.userCurrency) ? String(currencyProfile.userCurrency).toUpperCase() : 'USD';
+      const selectedLocale = (currencyProfile && currencyProfile.locale) ? currencyProfile.locale : 'en-US';
+      const usdToUserRate = (currencyProfile && Number(currencyProfile.usdToUserRate) > 0) ? Number(currencyProfile.usdToUserRate) : 1;
+      const showLocalizedCurrency = selectedCurrency !== 'USD' && usdToUserRate > 0;
+      const formatUsdCurrency = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0));
+      const formatSelectedCurrency = (value) => new Intl.NumberFormat(selectedLocale, { style: 'currency', currency: selectedCurrency }).format(Number(value || 0));
+      const formatCurrentPlanAmount = (usdAmount) => { const baseUsd = Number(usdAmount || 0); const usdDisplay = formatUsdCurrency(baseUsd); if (!showLocalizedCurrency) return usdDisplay; return `${formatSelectedCurrency(baseUsd * usdToUserRate)} (${usdDisplay})`; };
+      const hasBillingInfo = (typeof billingInfo !== 'undefined' && billingInfo);
+      const currentMonthlyBase = currentPlanPricing ? Number(currentPlanPricing.modalBaseUsd || 0) : 0;
+      const billingMonths = hasBillingInfo ? Math.max(1, Number(billingInfo.period_months || 1)) : 1;
+      const billingDiscount = hasBillingInfo ? Math.max(0, Number(billingInfo.discount_percentage || 0)) : 0;
+      const billingCycleTotal = currentMonthlyBase * billingMonths * (1 - (billingDiscount / 100));
+      const billingChargeLabel = hasBillingInfo ? (billingInfo.period_label || 'Monthly') : 'Monthly';
+
       let _onHoldAmountText = '';
-      if (_isOnHoldRestricted && typeof billingFailureInfo !== 'undefined' && billingFailureInfo && billingFailureInfo.amountDue) {
+      if (_isOnHoldRestricted && currentPlanPricing && billingCycleTotal > 0) {
+        _onHoldAmountText = ' The amount due is ' + formatCurrentPlanAmount(billingCycleTotal) + '.';
+      } else if (_isOnHoldRestricted && typeof billingFailureInfo !== 'undefined' && billingFailureInfo && billingFailureInfo.amountDue) {
         try {
           _onHoldAmountText = ' The amount due is ' + new Intl.NumberFormat('en-US', { style: 'currency', currency: billingFailureInfo.currency || 'USD' }).format(Number(billingFailureInfo.amountDue)) + '.';
         } catch (e) {
@@ -3657,23 +3682,12 @@
             <h4>Current Plan</h4>
             <div class="content-row">
               <div>
-                <% const hasBillingInfo = (typeof billingInfo !== 'undefined' && billingInfo); %>
+                <% // currentPlanPricing, formatCurrentPlanAmount, billingCycleTotal, billingChargeLabel etc.
+                   // are computed once near the top of this file (shared with the on-hold banner) so
+                   // this card and that banner can never disagree on "what will be charged next". %>
                 <% const hasTrial = !!(hasBillingInfo && billingInfo.is_trial && billingInfo.trial_ends_at && new Date(billingInfo.trial_ends_at) > new Date()); %>
                 <% const trialEnd = hasTrial ? new Date(billingInfo.trial_ends_at) : null; %>
                 <% const trialDaysLeft = hasTrial ? Math.ceil((trialEnd - new Date()) / (1000 * 60 * 60 * 24)) : 0; %>
-                <% const currentPlanPricing = Array.isArray(plans) && currentPlan ? plans.find((p) => Number(p.plan_id) === Number(currentPlan.plan_id)) : null; %>
-                <% const selectedCurrency = (currencyProfile && currencyProfile.userCurrency) ? String(currencyProfile.userCurrency).toUpperCase() : 'USD'; %>
-                <% const selectedLocale = (currencyProfile && currencyProfile.locale) ? currencyProfile.locale : 'en-US'; %>
-                <% const usdToUserRate = (currencyProfile && Number(currencyProfile.usdToUserRate) > 0) ? Number(currencyProfile.usdToUserRate) : 1; %>
-                <% const showLocalizedCurrency = selectedCurrency !== 'USD' && usdToUserRate > 0; %>
-                <% const formatUsdCurrency = (value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0)); %>
-                <% const formatSelectedCurrency = (value) => new Intl.NumberFormat(selectedLocale, { style: 'currency', currency: selectedCurrency }).format(Number(value || 0)); %>
-                <% const formatCurrentPlanAmount = (usdAmount) => { const baseUsd = Number(usdAmount || 0); const usdDisplay = formatUsdCurrency(baseUsd); if (!showLocalizedCurrency) return usdDisplay; return `${formatSelectedCurrency(baseUsd * usdToUserRate)} (${usdDisplay})`; }; %>
-                <% const currentMonthlyBase = currentPlanPricing ? Number(currentPlanPricing.modalBaseUsd || 0) : 0; %>
-                <% const billingMonths = hasBillingInfo ? Math.max(1, Number(billingInfo.period_months || 1)) : 1; %>
-                <% const billingDiscount = hasBillingInfo ? Math.max(0, Number(billingInfo.discount_percentage || 0)) : 0; %>
-                <% const billingCycleTotal = currentMonthlyBase * billingMonths * (1 - (billingDiscount / 100)); %>
-                <% const billingChargeLabel = hasBillingInfo ? (billingInfo.period_label || 'Monthly') : 'Monthly'; %>
                 <% const isBillingFailed = !!(hasBillingInfo && String(billingInfo.status || '').toLowerCase() === 'failed'); %>
                 <% const billingStatus = hasBillingInfo ? String(billingInfo.status || '').toLowerCase() : ''; %>
                 <% const isBillingSuccessful = ['active', 'paid', 'succeeded', 'success'].includes(billingStatus); %>
