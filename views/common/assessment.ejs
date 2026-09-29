@@ -56,19 +56,33 @@ body {
 
 .assessment-header.compact {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 8px 12px;
-  min-height: 42px;
+  gap: 10px 16px;
+  padding: 12px 14px;
+}
+
+.assessment-compact-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.assessment-compact-titles {
+  min-width: 0;
 }
 
 .assessment-compact-title {
   margin: 0;
+  padding: 0;
   color: var(--text);
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  line-height: 30px;
+  line-height: 1.25;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
@@ -76,60 +90,72 @@ body {
   max-width: 100%;
 }
 
-.assessment-compact-heading {
-  display: flex;
+.assessment-compact-subtitle {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.assessment-gender-field {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  flex: 1 1 auto;
-  min-width: 0;
-  flex-wrap: nowrap;
+  gap: 6px;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .assessment-gender-filter {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #334155;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 4px 24px 4px 8px;
-  height: 30px;
+  width: auto;
+  height: 34px;
   margin: 0;
-  align-self: center;
-  width: fit-content;
-  min-width: 60px;
-  max-width: max-content;
-  flex: 0 0 auto;
+  padding: 0 28px 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #fff;
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.assessment-gender-filter:focus {
+  border-color: var(--primary);
+  outline: 2px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  outline-offset: 0;
 }
 
 .assessment-compact-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;
   justify-content: flex-end;
-  flex-shrink: 0;
+  gap: 8px;
+  margin-left: auto;
 }
 
-.assessment-compact-actions .teachers-popover-wrap,
-.assessment-compact-actions .teachers-btn,
-.assessment-compact-actions .header-action-btn,
-.assessment-compact-actions .header-save-btn {
+.assessment-compact-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   width: auto;
-  max-width: fit-content;
-  flex: 0 0 auto;
-}
-
-@media screen and (max-width: 1100px) and (min-width: 769px) {
-  .assessment-header.compact {
-    gap: 10px;
-  }
-
-  .assessment-compact-actions {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-  }
+  height: 34px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 /* Teachers popover */
@@ -137,20 +163,32 @@ body {
   position: relative;
 }
 
-.teachers-btn {
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #475569;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
+.assessment-compact-actions .teachers-btn,
+.assessment-compact-actions .header-action-btn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: var(--text);
 }
 
-.teachers-btn:hover {
-  background: #f8fafc;
+.assessment-compact-actions .teachers-btn:hover,
+.assessment-compact-actions .header-action-btn:hover,
+.assessment-compact-actions .teachers-btn[aria-expanded="true"] {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.teachers-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .teachers-popover {
@@ -158,7 +196,7 @@ body {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  min-width: 180px;
+  min-width: 200px;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -187,57 +225,55 @@ body {
 }
 
 .teachers-popover-list li {
-  padding: 3px 0;
-  font-size: 0.82rem;
+  padding: 4px 0;
+  font-size: 0.84rem;
   color: var(--text);
   display: flex;
   align-items: center;
-  gap: 5px;
-}
-
-.teachers-popover-list .main-dot {
-  color: var(--primary);
-  font-weight: 800;
-  font-size: 0.9rem;
-}
-
-/* Save button in header */
-.header-save-btn {
-  padding: 5px 9px;
-  border: none;
-  background: var(--primary);
-  color: #fff;
-  border-radius: 7px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
+  gap: 6px;
   white-space: nowrap;
 }
 
-.header-save-btn:hover {
-  background: var(--primary);
+.teachers-popover-list .main-tag {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 10%, white);
+  color: var(--primary);
+  font-size: 0.66rem;
+  font-weight: 700;
 }
 
-.header-save-btn:disabled {
+/* Save button in header */
+.assessment-compact-actions .header-save-btn {
+  min-width: 84px;
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.assessment-compact-actions .header-save-btn:hover {
+  background: var(--primary-hover-fill);
+}
+
+.assessment-compact-actions .header-save-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.header-action-btn {
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  background: #fff;
-  color: #334155;
-  border-radius: 7px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
+/* Dot shown while typed scores are not yet saved */
+.header-save-btn .unsaved-dot {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fbbf24;
 }
 
-.header-action-btn:hover {
-  background: #fff;
+.header-save-btn.has-unsaved .unsaved-dot {
+  display: inline-block;
 }
+
 
 .question-modal-overlay {
   position: fixed;
@@ -950,10 +986,39 @@ body {
   .qm-grid-2 { grid-template-columns: 1fr; }
 }
 
+/* Open / Closed badge in each assessment column header */
 .assessment-status {
-  display: block;
-  margin-top: 4px;
-  color: #e2e8f0;
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 2px;
+  padding: 3px 9px;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.assessment-status svg {
+  flex: none;
+}
+
+.assessment-status .status-reason {
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.assessment-status.is-editable {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
 }
 
 .table-sort-btn {
@@ -992,11 +1057,6 @@ body {
 
 .student-name-heading-label-short {
   display: none;
-}
-
-.assessment-status.is-editable {
-  color: #22c55e;
-  font-weight: 700;
 }
 
 .meta-toggle {
@@ -1341,49 +1401,17 @@ input[type="number"].score-input-invalid {
   }
 
   .assessment-header.compact {
-    gap: 8px;
-    padding: 7px 10px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .assessment-compact-title {
-    font-size: 0.95rem;
-    line-height: 1.25;
-    order: 1;
-    flex: 0 0 100%;
-    margin-bottom: 2px;
+    padding: 10px 12px;
   }
 
   .assessment-compact-heading {
-    display: contents;
-  }
-
-  .assessment-gender-filter {
-    order: 2;
-    margin-top: 0;
-    flex: 0 0 auto;
+    flex-basis: 100%;
+    justify-content: space-between;
   }
 
   .assessment-compact-actions {
-    order: 3;
-    width: auto;
-    min-width: 0;
     flex: 1 1 auto;
-    justify-content: flex-end;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    gap: 6px;
-  }
-
-  .teachers-popover-wrap,
-  .teachers-btn,
-  .header-action-btn,
-  .header-save-btn {
-    flex: 0 0 auto;
-    min-height: 30px;
+    margin-left: 0;
   }
 
   .assessment-compact-summary {
@@ -1401,16 +1429,19 @@ input[type="number"].score-input-invalid {
 
 @media screen and (max-width: 480px) {
   .assessment-compact-title {
-    font-size: 0.9rem;
+    font-size: 1rem;
   }
 
-  .assessment-gender-filter {
-    width: auto;
-    max-width: 100%;
+  .assessment-gender-field > span {
+    display: none;
   }
 
   .assessment-compact-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
+  }
+
+  .assessment-compact-actions .teachers-btn .btn-label {
+    display: none;
   }
 
   /* Student Name column: wrap text and reduce spacing */
@@ -1480,24 +1511,34 @@ input[type="number"].score-input-invalid {
       <% if (isEmbedded) { %>
       <div class="assessment-header compact">
         <div class="assessment-compact-heading">
-          <h1 class="assessment-compact-title"><%= subjectName %></h1>
-          <select id="assessment-gender-filter" class="assessment-gender-filter" aria-label="Filter students by gender">
-            <option value="all">All</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
+          <div class="assessment-compact-titles">
+            <h1 class="assessment-compact-title" title="<%= subjectName %>"><%= subjectName %></h1>
+            <p class="assessment-compact-subtitle"><%= className %> &middot; <%= currentTerm.term_name %> &middot; <%= students.length %> student<%= students.length === 1 ? '' : 's' %></p>
+          </div>
+          <label class="assessment-gender-field">
+            <span>Show</span>
+            <select id="assessment-gender-filter" class="assessment-gender-filter" aria-label="Filter students by gender">
+              <option value="all">All students</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </label>
         </div>
         <div class="assessment-compact-actions">
           <% if (employees.length > 0) { %>
           <div class="teachers-popover-wrap">
-            <button type="button" class="teachers-btn" id="teachers-btn" aria-expanded="false">Teachers</button>
+            <button type="button" class="teachers-btn" id="teachers-btn" aria-expanded="false" aria-controls="teachers-popover" aria-label="Assigned teachers (<%= employees.length %>)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span class="btn-label">Teachers</span>
+              <span class="teachers-count"><%= employees.length %></span>
+            </button>
             <div class="teachers-popover" id="teachers-popover" role="tooltip">
               <p class="teachers-popover-title">Assigned Teachers</p>
               <ul class="teachers-popover-list">
                 <% employees.forEach(function(employee) { %>
                 <li>
-                  <% if (employee.main) { %><span class="main-dot">•</span><% } %>
                   <%= (typeof formatDisplayName === 'function' ? formatDisplayName(employee) : [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim()) %>
+                  <% if (employee.main) { %><span class="main-tag">Main</span><% } %>
                 </li>
                 <% }); %>
               </ul>
@@ -1512,7 +1553,11 @@ input[type="number"].score-input-invalid {
           >
             Edit Questions
           </button>
-          <button type="button" class="header-save-btn" id="header-save-scores-button" <%= hasEditableAssessments ? '' : 'disabled' %>>Save</button>
+          <button type="button" class="header-save-btn" id="header-save-scores-button" <%= hasEditableAssessments ? '' : 'disabled' %> title="<%= hasEditableAssessments ? 'Save scores' : 'All assessments are closed' %>">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+            <span>Save</span>
+            <span class="unsaved-dot" aria-hidden="true"></span>
+          </button>
         </div>
       </div>
       <% } else { %>
@@ -1561,7 +1606,29 @@ input[type="number"].score-input-invalid {
                 <th>
                   <%= assessment.title %> (<%= assessment.weight %>%)<br />
                   <%= assessment.category %><br />
-                  <small class="assessment-status <%= assessment.can_edit_scores ? 'is-editable' : '' %>">Status: <%= assessment.can_edit_scores ? 'Editable' : assessment.access_reason %></small>
+                  <%
+                    // Plain-English status: "Open" or "Closed" with the reason.
+                    const _fmtDay = (value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    let _closedReason = 'Closed';
+                    if (!assessment.can_edit_scores) {
+                      if (assessment.access_reason === 'Locked') _closedReason = 'Locked';
+                      else if (assessment.access_reason === 'Inactive') _closedReason = 'Turned off';
+                      else if (assessment.edit_window_start && new Date(assessment.edit_window_start) > new Date()) _closedReason = `Opens ${_fmtDay(assessment.edit_window_start)}`;
+                      else if (assessment.edit_window_end && new Date(assessment.edit_window_end) < new Date()) _closedReason = `Ended ${_fmtDay(assessment.edit_window_end)}`;
+                    }
+                    const _statusHelp = assessment.can_edit_scores
+                      ? 'Open: scores can be entered and changed.'
+                      : `Closed (${_closedReason}): scores can't be changed right now.`;
+                  %>
+                  <small class="assessment-status <%= assessment.can_edit_scores ? 'is-editable' : 'is-closed' %>" title="<%= _statusHelp %>">
+                    <% if (assessment.can_edit_scores) { %>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                    Open
+                    <% } else { %>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Closed<% if (_closedReason !== 'Closed') { %><span class="status-reason">· <%= _closedReason %></span><% } %>
+                    <% } %>
+                  </small>
                   <hr />
                   Score Out Of: <%= assessment.max_score %>
                 </th>
@@ -1604,26 +1671,20 @@ input[type="number"].score-input-invalid {
                 </td>
                 <% }); %>
 
+                <% const _hasScores = Number.isFinite(parseFloat(student.total_percentage)); %>
+                <% const _position = parseInt(student.position, 10); %>
                 <td>
-                  <%= student.total_subject_score !== undefined &&
-                  student.total_subject_score !== null ?
-                  parseFloat(student.total_subject_score).toFixed(2) : '-' %>
+                  <%= _hasScores && Number.isFinite(parseFloat(student.total_subject_score)) ? parseFloat(student.total_subject_score).toFixed(2) : '-' %>
                 </td>
                 <td>
-                  <% if (student.total_percentage !== undefined && student.total_percentage !== null) { %>
-                    <%= (parseFloat(student.total_percentage) / 100 * scaleBase).toFixed(2) %> / <%= scaleBase %>
-                  <% } else { %>-<% } %>
+                  <%= _hasScores ? `${(parseFloat(student.total_percentage) / 100 * scaleBase).toFixed(2)} / ${scaleBase}` : '-' %>
                 </td>
                 <td>
-                  <%= student.total_percentage !== undefined &&
-                  student.total_percentage !== null ?
-                  parseFloat(student.total_percentage).toFixed(2) : '-' %> %
+                  <%= _hasScores ? `${parseFloat(student.total_percentage).toFixed(2)} %` : '-' %>
                 </td>
-                <td><%= student.grade ? student.grade : '-' %></td>
+                <td><%= _hasScores && student.grade && student.grade !== '-' ? student.grade : '-' %></td>
                 <td>
-                  <%= student.position !== undefined && student.position !==
-                  null ? student.position + getOrdinalSuffix(student.position) :
-                  '-' %>
+                  <%= _hasScores && Number.isFinite(_position) ? _position + getOrdinalSuffix(_position) : '-' %>
                 </td>
               </tr>
               <% }); %>
@@ -1632,7 +1693,7 @@ input[type="number"].score-input-invalid {
         </div>
         <% if (!hasEditableAssessments) { %>
           <p style="margin: 0 0 10px 0; color: #b91c1c; font-weight: 600; text-align:center;">
-            Score editing is disabled. Assessment is locked, inactive, or outside its edit window.
+            All assessments here are closed, so scores can't be changed right now.
           </p>
         <% } %>
       </form>
@@ -3069,6 +3130,8 @@ input[type="number"].score-input-invalid {
         scoresFormForTracking.addEventListener("input", function (event) {
           if (event.target && event.target.name && event.target.name.indexOf("scores[") === 0) {
             hasUnsavedScores = true;
+            saveButton.classList.add("has-unsaved");
+            saveButton.setAttribute("title", "You have unsaved scores");
           }
         });
       }
@@ -3175,6 +3238,8 @@ input[type="number"].score-input-invalid {
               alert("Your session has expired. Please log in again in another tab, then save. Your typed scores are still on this page.");
             } else if (response.ok && responseData.success) {
               hasUnsavedScores = false;
+              saveButton.classList.remove("has-unsaved");
+              saveButton.setAttribute("title", "Save scores");
               alert(responseData.message || "Scores saved successfully.");
               window.location.reload();
             } else {

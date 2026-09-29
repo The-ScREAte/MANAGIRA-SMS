@@ -30,68 +30,6 @@
             box-sizing: border-box;
         }
 
-        .attendance-toolbar {
-            display: block;
-            margin-bottom: <%= isEmbedded ? '6px' : '0' %>;
-        }
-
-        .attendance-header-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .attendance-header-copy {
-            min-width: 0;
-            flex: 1 1 auto;
-        }
-
-        /* Single-row layout when embedded */
-        .attendance-header-top.embedded-row {
-            align-items: center;
-        }
-
-        .attendance-header-title {
-            flex-shrink: 0;
-            margin: 0;
-            color: #0f172a;
-            font-size: 1.08rem;
-            font-weight: 700;
-        }
-
-        .attendance-header-pills-center {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 5px;
-        }
-
-        .attendance-header-actions {
-            flex-shrink: 0;
-        }
-
-        .attendance-header {
-            margin: <%= isEmbedded ? '0' : '8px 0 14px' %>;
-            padding: <%= isEmbedded ? '10px 12px' : '14px 16px' %>;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: #fff;
-            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
-            text-align: <%= isEmbedded ? 'left' : 'left' %>;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .attendance-header h1 {
-            margin: 0;
-            color: #0f172a;
-            font-size: <%= isEmbedded ? '1.08rem' : '1.3rem' %>;
-            font-weight: 700;
-            text-align: left;
-        }
-
         .attendance-summary-line {
             margin: 4px 0 0;
             color: #475569;
@@ -160,51 +98,6 @@
 
         .calendar-rules-toggle {
             display: none;
-        }
-
-        /* Calendar info pills */
-        .cal-pills-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 5px;
-            margin-top: 6px;
-        }
-
-        .cal-pill-wrap {
-            position: relative;
-        }
-
-        .cal-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 3px 9px;
-            border-radius: 999px;
-            border: 1px solid #c7d2fe;
-            background: #eef2ff;
-            color: #1e3a8a;
-            font-size: 0.72rem;
-            font-weight: 600;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: background 0.15s;
-            line-height: 1.4;
-        }
-
-        .cal-pill:hover {
-            background: #e0e7ff;
-        }
-
-        .cal-pill.cal-pill-muted {
-            border-color: #e2e8f0;
-            background: #f1f5f9;
-            color: #475569;
-        }
-
-        .cal-pill.cal-pill-muted:hover {
-            background: #e9eff5;
-
         }
 
         .sort-toggle-btn {
@@ -412,120 +305,6 @@
         padding-top: 10px;
     }
     
-    /* === Collapsible Filter Controls === */
-    .filter-toggle-btn {
-        background: var(--primary);
-        color: white;
-        border: none;
-        padding: <%= isEmbedded ? '7px 12px' : '6px 10px' %>;
-        border-radius: 999px;
-        cursor: pointer;
-        font-size: <%= isEmbedded ? '0.78rem' : '0.8rem' %>;
-        font-weight: 600;
-        margin: <%= isEmbedded ? '0' : '8px auto' %>;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        transition: background-color 0.3s ease;
-        box-shadow: 0 6px 14px rgba(1, 83, 91, 0.16);
-        flex-shrink: 0;
-        width: auto !important;
-        min-width: 0 !important;
-        max-width: none !important;
-        white-space: nowrap;
-        align-self: flex-start;
-    }
-
-    .filter-toggle-btn:hover {
-        background: var(--primary-hover-fill, var(--primary-hover));
-    }
-
-    .filter-toggle-btn::after {
-        content: " ▼";
-        font-size: 0.8rem;
-        transition: transform 0.3s ease;
-    }
-
-    .filter-toggle-btn.collapsed::after {
-        transform: rotate(-90deg);
-    }
-
-    .filter-controls-content {
-        max-height: 500px;
-        overflow: hidden;
-        transition: max-height 0.3s ease;
-        margin-top: <%= isEmbedded ? '8px' : '0' %>;
-        width: 100%;
-    }
-
-    .filter-controls-content.collapsed {
-        max-height: 0;
-    }
-
-    .filter-controls {
-        margin: <%= isEmbedded ? '0' : '20px auto' %>;
-        padding: <%= isEmbedded ? '10px 12px' : '10px 15px' %>;
-        background-color: #f8f8f8;
-        border: 1px solid #ddd;
-        border-radius: 12px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: <%= isEmbedded ? '10px 12px' : '12px 20px' %>;
-        align-items: center;
-        justify-content: flex-start;
-        max-width: 100%;
-        font-size: <%= isEmbedded ? '0.84rem' : '0.9rem' %>;
-    }
-
-    .filter-inner-container {
-        display: flex;
-        flex-wrap: <%= isEmbedded ? 'wrap' : 'nowrap' %>;
-        gap: <%= isEmbedded ? '8px' : '10px' %>;
-        align-items: end;
-        width: 100%;
-        margin-bottom: <%= isEmbedded ? '0' : '8px' %>;
-        overflow-x: auto;
-    }
-    
-    .filter-controls label {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        font-weight: 500;
-        color: #333;
-        font-size: <%= isEmbedded ? '0.8rem' : '0.88rem' %>;
-        min-width: <%= isEmbedded ? '160px' : '150px' %>;
-        flex: <%= isEmbedded ? '1 1 180px' : '1 1 0' %>;
-    }
-    
-    .filter-controls select {
-        padding: 6px 8px;
-        font-size: <%= isEmbedded ? '0.8rem' : '0.88rem' %>;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-        width: 100%;
-    }
-    
-    .filter-controls button {
-        padding: <%= isEmbedded ? '8px 12px' : '7px 10px' %>;
-        font-size: <%= isEmbedded ? '0.78rem' : '0.82rem' %>;
-        background-color: var(--org-primary-color);
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        align-self: end;
-        width: auto;
-        min-width: <%= isEmbedded ? '96px' : '110px' %>;
-        white-space: nowrap;
-    }
-    
-    .filter-controls button:hover {
-        background-color: var(--org-primary-hover-fill, var(--org-primary-hover));
-    }
-    
-    
     /* === Attendance Table === */
     .attendance-sheet-container {
         padding: <%= isEmbedded ? '0' : '16px 0' %>;
@@ -730,73 +509,6 @@
             font-size: 0.82rem;
         }
 
-        /* === FILTER/SORT SECTION FIXES === */
-        .filter-toggle-btn {
-                        font-size: 0.72rem;
-                        padding: 5px 9px;
-                        margin: 6px auto;
-        }
-
-                .filter-inner-container {
-                    display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 8px;
-                    margin-bottom: 8px;
-                    overflow: visible;
-                }
-
-                .filter-inner-container > label:nth-of-type(1) { grid-column: 1; grid-row: 1; }
-                .filter-inner-container > label:nth-of-type(2) { grid-column: 2; grid-row: 1; }
-                .filter-inner-container > label:nth-of-type(3) { grid-column: 1; grid-row: 2; }
-                .filter-inner-container > button {
-                    grid-column: 2;
-                    grid-row: 2;
-                    width: 100%;
-                    min-width: 0;
-                    justify-self: stretch;
-                }
-
-        .filter-controls {
-                    align-items: stretch;
-          gap: 16px;
-                    padding: 10px;
-          margin: 10px;
-        }
-      
-        .filter-controls > div {
-                    gap: 10px;
-          width: 100%;
-        }
-      
-        .filter-controls label {
-                    font-size: 0.82rem;
-                    min-width: 0;
-                    width: 100%;
-          display: flex;
-          flex-direction: column;
-                    gap: 4px;
-        }
-      
-        .filter-controls select {
-                    font-size: 0.82rem;
-                    padding: 6px 8px;
-          width: 100%;
-          border-radius: 6px;
-                    border: 1px solid #ddd;
-        }
-      
-        .filter-controls button {
-                    font-size: 0.8rem;
-                    padding: 7px 10px;
-                    width: 100%;
-                    min-width: 0;
-                    margin-top: 0;
-          border-radius: 6px;
-                    background: var(--primary);
-          color: white;
-          border: none;
-        }
-
         /* === TABLE CONTAINER IMPROVEMENTS === */
         .attendance-sheet-container {
             padding: 10px 0;
@@ -917,59 +629,6 @@
             padding: 0 5px;
         }
 
-        .filter-toggle-btn {
-            font-size: 0.7rem; /* Reduced from 0.8rem */
-            padding: 5px 8px; /* Reduced from 8px 10px */
-            margin: 6px; /* Reduced from 8px */
-        }
-
-        .attendance-header-top.embedded-row {
-            gap: 6px;
-        }
-
-        .attendance-header-top.embedded-row .attendance-header-title {
-            font-size: 0.9rem;
-        }
-
-        .attendance-header-top.embedded-row .cal-pill {
-            font-size: 0.6rem;
-            padding: 2px 6px;
-            gap: 2px;
-        }
-
-        .attendance-header-top.embedded-row .filter-toggle-btn {
-            font-size: 0.64rem;
-            padding: 4px 7px;
-            margin: 4px;
-            gap: 5px;
-        }
-
-        .filter-inner-container {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 6px;
-            margin-bottom: 10px;
-        }
-
-        .filter-controls {
-          padding: 10px;
-          gap: 14px;
-          margin: 5px;
-        }
-      
-        .filter-controls label {
-                    font-size: 0.8rem;
-        }
-      
-        .filter-controls select {
-                    font-size: 0.8rem;
-          padding: 8px;
-        }
-      
-        .filter-controls button {
-                    font-size: 0.8rem;
-          padding: 10px 12px;
-        }
-
         /* === ULTRA COMPACT TABLE === */
         .attendance-sheet {
             font-size: 0.62rem;
@@ -1033,7 +692,7 @@
         #attendance-summary {
                     font-size: 0.7rem;
           padding: 10px 5px;
-          margin: 15px 5px;
+          margin: 15px 0;
         }
 
         #attendance-summary th {
@@ -1066,62 +725,6 @@
                     padding: 12px 10px 28px;
                 }
 
-                .attendance-header h1 {
-                    font-size: 1.15rem;
-                }
-
-                .attendance-header-top:not(.embedded-row) {
-                    flex-direction: column;
-                    align-items: stretch;
-                }
-
-                .attendance-header-top:not(.embedded-row) .filter-toggle-btn {
-                    align-self: flex-start;
-                }
-
-                .attendance-header-top.embedded-row {
-                    flex-wrap: wrap;
-                    gap: 8px;
-                }
-
-                .attendance-header-top.embedded-row .attendance-header-title {
-                    font-size: 0.96rem;
-                }
-
-                .attendance-header-pills-center {
-                    order: 3;
-                    flex: 0 1 auto;
-                    justify-content: flex-start;
-                    width: 100%;
-                    gap: 4px;
-                }
-
-                .attendance-header-top.embedded-row .cal-pill {
-                    font-size: 0.64rem;
-                    padding: 2px 7px;
-                    gap: 3px;
-                }
-
-                .attendance-header-top.embedded-row .cal-pill-popover {
-                    min-width: 140px;
-                    max-width: 210px;
-                    padding: 8px 10px;
-                }
-
-                .attendance-header-top.embedded-row .cal-popover-label {
-                    font-size: 0.62rem;
-                }
-
-                .attendance-header-top.embedded-row .cal-popover-value {
-                    font-size: 0.74rem;
-                }
-
-                .attendance-header-top.embedded-row .filter-toggle-btn {
-                    font-size: 0.68rem;
-                    padding: 4px 8px;
-                    gap: 6px;
-                }
-
                 .attendance-meta {
                     font-size: 0.85rem;
                 }
@@ -1148,109 +751,322 @@
                 }
             }
 
-            /* Refined embedded attendance toolbar/filter layout */
-            .attendance-header-top.embedded-row {
+            /* === Toolbar: title, calendar chips, filters === */
+            .attendance-toolbar {
+                margin-bottom: <%= isEmbedded ? '10px' : '18px' %>;
+            }
+
+            .attendance-header {
+                margin: <%= isEmbedded ? '0' : '8px 0 0' %>;
+                padding: <%= isEmbedded ? '12px 14px' : '16px 18px' %>;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: #fff;
+                box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+                text-align: left;
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            .attendance-header-top {
                 display: flex;
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 10px 16px;
+            }
+
+            .attendance-header-copy {
+                min-width: 0;
+                flex: 0 1 auto;
+            }
+
+            .attendance-header .attendance-header-title {
+                margin: 0;
+                padding: 0;
+                color: #0f172a;
+                font-size: <%= isEmbedded ? '1.1rem' : '1.3rem' %>;
+                font-weight: 700;
+                line-height: 1.25;
+                text-align: left;
             }
 
             .attendance-header-pills-center {
-                justify-content: flex-start;
+                display: flex;
+                flex: 1 1 auto;
+                flex-wrap: wrap;
                 align-items: center;
+                justify-content: flex-start;
                 gap: 6px;
                 min-width: 0;
-                width: 100%;
             }
 
             .attendance-header-actions {
-                width: 100%;
                 display: flex;
-                justify-content: flex-start;
+                align-items: center;
+                gap: 8px;
+                margin-left: auto;
             }
 
-            .attendance-header-actions .filter-toggle-btn {
+            .cal-pill-wrap {
+                position: relative;
+            }
+
+            .attendance-header .cal-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                width: auto;
+                height: 28px;
                 margin: 0;
+                padding: 0 11px;
+                border: 1px solid #e2e8f0;
+                border-radius: 999px;
+                background: #f8fafc;
+                color: #334155;
+                font-size: 0.76rem;
+                font-weight: 600;
+                line-height: 1;
                 white-space: nowrap;
+                cursor: pointer;
+                transition: background-color 0.15s ease, border-color 0.15s ease;
             }
 
-            .cal-pill {
-                min-height: 26px;
-                padding: 4px 10px;
-                font-size: 0.72rem;
+            .attendance-header .cal-pill:hover,
+            .attendance-header .cal-pill[aria-expanded="true"] {
+                border-color: #cbd5e1;
+                background: #f1f5f9;
             }
 
+            .attendance-header .cal-pill img {
+                border-radius: 2px;
+            }
+
+            .attendance-header .cal-pill svg {
+                color: #64748b;
+            }
+
+            .attendance-header .cal-pill.cal-pill-muted {
+                color: #64748b;
+            }
+
+            .attendance-header .filter-toggle-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                width: auto;
+                height: 34px;
+                margin: 0;
+                padding: 0 12px;
+                border: 1px solid #cbd5e1;
+                border-radius: 9px;
+                background: #fff;
+                color: #0f172a;
+                font-size: 0.84rem;
+                font-weight: 600;
+                white-space: nowrap;
+                box-shadow: none;
+                cursor: pointer;
+                transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+            }
+
+            .attendance-header .filter-toggle-btn:hover {
+                border-color: var(--primary);
+                color: var(--primary);
+            }
+
+            .attendance-header .filter-toggle-btn[aria-expanded="true"] {
+                border-color: var(--primary);
+                background: color-mix(in srgb, var(--primary) 8%, white);
+                color: var(--primary);
+            }
+
+            .filter-toggle-btn .filter-chevron {
+                transition: transform 0.2s ease;
+            }
+
+            .filter-toggle-btn[aria-expanded="true"] .filter-chevron {
+                transform: rotate(180deg);
+            }
+
+            .filter-count {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 18px;
+                height: 18px;
+                padding: 0 5px;
+                border-radius: 999px;
+                background: var(--primary);
+                color: #fff;
+                font-size: 0.7rem;
+                font-weight: 700;
+            }
+
+            .filter-count[hidden] {
+                display: none;
+            }
+
+            /* Filter panel (inside the header card) */
             .filter-controls-content {
-                margin-top: 8px;
+                max-height: 320px;
+                overflow: hidden;
+                transition: max-height 0.25s ease;
+            }
+
+            .filter-controls-content.collapsed {
+                max-height: 0;
             }
 
             .filter-controls {
-                background: #ffffff;
-                border-color: #dbe3ea;
-                border-radius: 12px;
-                padding: 12px;
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid #eef2f6;
             }
 
             .filter-inner-container {
-                display: grid;
-                grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(180px, 1fr) auto;
-                align-items: end;
+                display: flex;
+                flex-wrap: wrap;
+                align-items: flex-end;
                 gap: 10px 12px;
-                width: 100%;
-                margin-bottom: 0;
-                overflow: visible;
             }
 
-            .filter-controls label {
-                min-width: 0;
-                width: auto;
-                margin: 0;
+            .filter-field {
+                display: flex;
+                flex-direction: column;
                 gap: 5px;
+                margin: 0;
+                color: #64748b;
+                font-size: 0.7rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
             }
 
-            .filter-controls select {
-                min-height: 34px;
+            .filter-field select,
+            .filter-field .filter-sort-btn {
+                height: 36px;
+                margin: 0;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                background-color: #fff;
+                color: #0f172a;
+                font-size: 0.86rem;
+                font-weight: 500;
+                letter-spacing: normal;
+                text-transform: none;
             }
 
-            .filter-inner-container > button {
+            .filter-field select {
                 width: auto;
-                min-width: 120px;
-                justify-self: end;
-                align-self: end;
-                white-space: nowrap;
-                margin-top: 0;
+                min-width: 170px;
+                padding: 0 10px;
             }
 
-            @media screen and (max-width: 1100px) and (min-width: 769px) {
-                .attendance-header-top.embedded-row {
-                    gap: 8px;
+            .filter-field .filter-sort-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                width: auto;
+                min-width: 96px;
+                padding: 0 12px;
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            .filter-field select:focus,
+            .filter-field .filter-sort-btn:focus-visible {
+                border-color: var(--primary);
+                outline: 2px solid color-mix(in srgb, var(--primary) 22%, transparent);
+                outline-offset: 0;
+            }
+
+            .filter-sort-btn[data-sort-direction="asc"] .sort-label-desc,
+            .filter-sort-btn[data-sort-direction="desc"] .sort-label-asc {
+                display: none;
+            }
+
+            .filter-actions {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-left: auto;
+            }
+
+            .filter-reset-btn {
+                width: auto;
+                height: 36px;
+                margin: 0;
+                padding: 0 12px;
+                border: 0;
+                border-radius: 8px;
+                background: transparent;
+                color: var(--primary);
+                font-size: 0.84rem;
+                font-weight: 600;
+                cursor: pointer;
+            }
+
+            .filter-reset-btn:hover {
+                background: color-mix(in srgb, var(--primary) 8%, white);
+            }
+
+            .filter-reset-btn[disabled] {
+                color: #94a3b8;
+                background: transparent;
+                cursor: default;
+            }
+
+            @media screen and (max-width: 640px) {
+                .attendance-header-top {
+                    gap: 8px 10px;
+                }
+
+                .attendance-header-pills-center {
+                    order: 3;
+                    flex-basis: 100%;
+                }
+
+                .attendance-header .cal-pill {
+                    height: 26px;
+                    padding: 0 9px;
+                    font-size: 0.72rem;
                 }
 
                 .filter-inner-container {
+                    display: grid;
                     grid-template-columns: repeat(2, minmax(0, 1fr));
                 }
 
-                .filter-inner-container > button {
-                    grid-column: 2;
+                .filter-field select,
+                .filter-field .filter-sort-btn {
+                    width: 100%;
+                    min-width: 0;
+                }
+
+                .filter-actions {
+                    justify-content: flex-end;
+                    margin-left: 0;
                 }
             }
-    
 </style>
 </head>
 <body>
         <div class="attendance-page <%= isEmbedded ? 'attendance-page-embedded' : '' %>">
             <div class="attendance-toolbar">
             <div class="attendance-header">
-                <% if (isEmbedded) { %>
-                <div class="attendance-header-top embedded-row">
-                    <h1 class="attendance-header-title">Attendance</h1>
-                    <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
+                <div class="attendance-header-top">
+                    <div class="attendance-header-copy">
+                        <h1 class="attendance-header-title"><%= isEmbedded ? 'Attendance' : `Attendance for ${className}` %></h1>
+                        <% if (!isEmbedded) { %>
+                        <div class="attendance-meta">School Year: <%= schoolYear.year_label %> &middot; Term: <%= termName %></div>
+                        <% } %>
+                    </div>
                     <div class="attendance-header-pills-center">
+                    <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
                         <% const _countryCode = String(attendanceCalendarSummary.countryCode || '').trim().toUpperCase(); %>
-                        <% const _countryFlagHtml = /^[A-Z]{2}$/.test(_countryCode) ? `<img src="https://flagcdn.com/24x18/${_countryCode.toLowerCase()}.png" alt="" width="20" height="15" style="vertical-align:middle; border-radius:2px;">` : '🌍'; %>
+                        <% const _countryFlagHtml = /^[A-Z]{2}$/.test(_countryCode) ? `<img src="https://flagcdn.com/24x18/${_countryCode.toLowerCase()}.png" alt="" width="18" height="13">` : '🌍'; %>
                         <div class="cal-pill-wrap">
-                            <button type="button" class="cal-pill" data-pill="country">
+                            <button type="button" class="cal-pill" data-pill="country" aria-expanded="false" aria-controls="popover-country">
                                 <%- _countryFlagHtml %> <%= _countryCode %>
                             </button>
                             <div class="cal-pill-popover" id="popover-country">
@@ -1259,7 +1075,8 @@
                             </div>
                         </div>
                         <div class="cal-pill-wrap">
-                            <button type="button" class="cal-pill" data-pill="weekends">
+                            <button type="button" class="cal-pill" data-pill="weekends" aria-expanded="false" aria-controls="popover-weekends">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                                 Weekends
                             </button>
                             <div class="cal-pill-popover" id="popover-weekends">
@@ -1268,7 +1085,8 @@
                             </div>
                         </div>
                         <div class="cal-pill-wrap">
-                            <button type="button" class="cal-pill" data-pill="holidays">
+                            <button type="button" class="cal-pill" data-pill="holidays" aria-expanded="false" aria-controls="popover-holidays">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 22V4a1 1 0 0 1 1-1h11l-2 4 2 4H5"/></svg>
                                 Public Holidays
                             </button>
                             <div class="cal-pill-popover" id="popover-holidays">
@@ -1278,86 +1096,76 @@
                         </div>
                         <% if (attendanceCalendarSummary.excludedDisplayDateCount > 0) { %>
                         <div class="cal-pill-wrap">
-                            <button type="button" class="cal-pill cal-pill-muted" data-pill="excluded">
-                                <%= attendanceCalendarSummary.excludedDisplayDateCount %> inactive date(s)
+                            <button type="button" class="cal-pill cal-pill-muted" data-pill="excluded" aria-expanded="false" aria-controls="popover-excluded">
+                                <%= attendanceCalendarSummary.excludedDisplayDateCount %> inactive <%= attendanceCalendarSummary.excludedDisplayDateCount === 1 ? 'date' : 'dates' %>
                             </button>
                             <div class="cal-pill-popover" id="popover-excluded">
                                 <p class="cal-popover-label">Inactive Dates</p>
-                                <p class="cal-popover-value"><%= attendanceCalendarSummary.excludedDisplayDateCount %> date(s) shown as inactive &mdash; weekends, public holidays, or manually excluded.</p>
+                                <p class="cal-popover-value"><%= attendanceCalendarSummary.excludedDisplayDateCount %> <%= attendanceCalendarSummary.excludedDisplayDateCount === 1 ? 'date is' : 'dates are' %> shown as inactive &mdash; weekends, public holidays, or manually excluded.</p>
                             </div>
                         </div>
                         <% } %>
-                    </div>
-                    <% } else { %>
-                    <div class="attendance-header-pills-center"></div>
                     <% } %>
+                    </div>
                     <div class="attendance-header-actions">
-                        <button class="filter-toggle-btn" onclick="toggleFilters()"><span aria-hidden="true">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"></polygon></svg>
-                        </span><span>Filters</span></button>
+                        <button type="button" class="filter-toggle-btn" onclick="toggleFilters()" aria-expanded="false" aria-controls="filterControlsContent">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"></polygon></svg>
+                            <span>Filters</span>
+                            <span class="filter-count" id="filterCount" hidden></span>
+                            <svg class="filter-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
                     </div>
                 </div>
-                <% } else { %>
-                <div class="attendance-header-top">
-                    <div class="attendance-header-copy">
-                        <h1><%= `Attendance for ${className}` %></h1>
-                        <div class="attendance-meta">School Year: <%= schoolYear.year_label %> &middot; Term: <%= termName %></div>
-                    </div>
-                    <!-- Collapsible Filter Controls -->
-                    <button class="filter-toggle-btn" onclick="toggleFilters()"><span aria-hidden="true">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4"></polygon></svg>
-                    </span><span>Filters</span></button>
-                </div>
-                <% } %>
-                <% if (attendanceCalendarSummary && attendanceCalendarSummary.enabled) { %>
-                    <%# Calendar Rules button removed — pills in header handle this now %>
-                <% } else { %>
-                    <div class="attendance-meta" style="margin-top:6px; background:#fff8e1; border:1px solid #f59e0b; border-radius:6px; padding:6px 14px; color:#92400e; display:inline-block;">
+                <% if (!(attendanceCalendarSummary && attendanceCalendarSummary.enabled)) { %>
+                    <div class="attendance-meta" style="margin-top:10px; background:#fff8e1; border:1px solid #f59e0b; border-radius:8px; padding:8px 14px; color:#92400e; display:inline-block;">
                         ⚠️ No attendance calendar is configured for this term — all dates including weekends are shown.
                         <a href="/account/settings?section=customize&calendarTermId=<%= termId %>" style="color:#b45309; font-weight:600; margin-left:6px;">Configure Calendar for this term →</a>
                     </div>
                 <% } %>
+                <div class="filter-controls-content collapsed" id="filterControlsContent">
+                    <div class="filter-controls">
+                        <div class="filter-inner-container">
+                            <div class="filter-field">
+                                <span id="nameSortLabel">Name order</span>
+                                <button type="button" class="filter-sort-btn" id="nameSortToggle" data-sort-direction="asc" aria-labelledby="nameSortLabel nameSortToggle" aria-label="Sort names Z to A">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/></svg>
+                                    <span class="sort-label-asc">A → Z</span><span class="sort-label-desc">Z → A</span>
+                                </button>
+                                <input type="hidden" id="nameSort" value="asc">
+                            </div>
+
+                            <label class="filter-field">
+                                Gender
+                                <select id="genderFilter">
+                                    <option value="all">All students</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Male">Male</option>
+                                </select>
+                            </label>
+
+                            <% const _now = new Date(); %>
+                            <% const todayKey = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`; %>
+
+                            <label class="filter-field">
+                                Date
+                                <select id="dateFilter">
+                                    <option value="all">All dates</option>
+                                    <% displayDates.slice().reverse().forEach(date => { %>
+                                        <% const isToday = date === todayKey; %>
+                                        <% const dateObj = new Date(`${date}T00:00:00Z`); %>
+                                        <% const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }); %>
+                                        <option value="<%= date %>"><%= isToday ? `Today (${formattedDate})` : formattedDate %></option>
+                                    <% }) %>
+                                </select>
+                            </label>
+
+                            <div class="filter-actions">
+                                <button type="button" class="filter-reset-btn" id="filterResetBtn" onclick="resetFilters()" disabled>Reset</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-<div class="filter-controls-content collapsed" id="filterControlsContent">
-    <div class="filter-controls">
-        <div class="filter-inner-container">
-            <label>
-                Sort by name:
-                <button type="button" class="sort-toggle-btn" id="nameSortToggle" data-sort-direction="asc" aria-label="Sort names Z to A">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg>
-                </button>
-                <input type="hidden" id="nameSort" value="asc">
-            </label>
-
-            <label>
-                Filter by gender:
-                <select id="genderFilter">
-                    <option value="all">All</option>
-                    <option value="Female">Female</option>
-                    <option value="Male">Male</option>
-                </select>
-            </label>
-
-            <% const _now = new Date(); %>
-            <% const todayKey = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`; %>
-
-            <label>
-                Filter by date:
-                <select id="dateFilter">
-                    <option value="all">All</option>
-                    <% displayDates.forEach(date => { %>
-                        <% const isToday = date === todayKey; %>
-                        <% const dateParts = String(date).split('-'); %>
-                        <% const formattedDate = `${Number(dateParts[1])}/${Number(dateParts[2])}/${dateParts[0]}`; %>
-                        <option value="<%= date %>"><%= isToday ? "Today" : formattedDate %></option>
-                    <% }) %>
-                </select>
-            </label>
-
-            <button onclick="applyFilters()">Apply Filters</button>
-        </div>
-    </div>
-</div>
             </div>
 
     
@@ -1490,9 +1298,33 @@
         function toggleFilters() {
             const content = document.getElementById('filterControlsContent');
             const button = document.querySelector('.filter-toggle-btn');
-            
-            content.classList.toggle('collapsed');
-            button.classList.toggle('collapsed');
+            const open = content.classList.contains('collapsed');
+            content.classList.toggle('collapsed', !open);
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        // Filters apply as soon as they change; the button shows how many are on.
+        function updateFilterState() {
+            const active = [
+                document.getElementById('nameSort').value === 'desc',
+                document.getElementById('genderFilter').value !== 'all',
+                document.getElementById('dateFilter').value !== 'all',
+            ].filter(Boolean).length;
+            const count = document.getElementById('filterCount');
+            if (count) {
+                count.textContent = String(active);
+                count.hidden = active === 0;
+            }
+            const reset = document.getElementById('filterResetBtn');
+            if (reset) reset.disabled = active === 0;
+        }
+
+        function resetFilters() {
+            document.getElementById('nameSort').value = 'asc';
+            document.getElementById('genderFilter').value = 'all';
+            document.getElementById('dateFilter').value = 'all';
+            if (typeof syncAttendanceSortToggle === 'function') syncAttendanceSortToggle();
+            applyFilters();
         }
 
         function toggleCalendarRules() {
@@ -1513,12 +1345,21 @@
                     document.querySelectorAll('.cal-pill-popover.open').forEach(function (p) {
                         p.classList.remove('open');
                     });
-                    if (!isOpen) popover.classList.add('open');
+                    document.querySelectorAll('.cal-pill[aria-expanded="true"]').forEach(function (b) {
+                        b.setAttribute('aria-expanded', 'false');
+                    });
+                    if (!isOpen) {
+                        popover.classList.add('open');
+                        btn.setAttribute('aria-expanded', 'true');
+                    }
                 });
             });
             document.addEventListener('click', function () {
                 document.querySelectorAll('.cal-pill-popover.open').forEach(function (p) {
                     p.classList.remove('open');
+                });
+                document.querySelectorAll('.cal-pill[aria-expanded="true"]').forEach(function (b) {
+                    b.setAttribute('aria-expanded', 'false');
                 });
             });
         })();
@@ -1655,6 +1496,10 @@
                     applyFilters();
                 });
             }
+            ['genderFilter', 'dateFilter'].forEach(function (id) {
+                const field = document.getElementById(id);
+                if (field) field.addEventListener('change', applyFilters);
+            });
             if (attendanceHeaderSortToggle && nameSortInput) {
                 attendanceHeaderSortToggle.addEventListener('click', function() {
                     nameSortInput.value = nameSortInput.value === 'asc' ? 'desc' : 'asc';
@@ -1898,6 +1743,7 @@
             
                 // Auto-update attendance summary
                 setTimeout(updateAttendanceSummary, 50);
+                updateFilterState();
             }
 
             
