@@ -103,12 +103,12 @@ async function withPage(task) {
 // Opens an app page as the signed-in user. Page scripts are disabled: the
 // server-rendered HTML is complete, and scripts (menus, chat widget, SPA
 // router) only slow rendering and can move things around.
-async function openAppPage(page, { baseUrl, sessionCookie, path, mediaType }) {
+async function openAppPage(page, { baseUrl, sessionCookie, path, mediaType, javaScript = false }) {
   if (!sessionCookie) {
     throw userFacingError("Session cookie missing. Refresh the page and try again.");
   }
 
-  await page.setJavaScriptEnabled(false);
+  await page.setJavaScriptEnabled(javaScript);
   await page.setViewport({ width: 1024, height: 1400, deviceScaleFactor: 1 });
   await page.emulateMediaType(mediaType);
   await page.setCookie({ name: "connect.sid", value: sessionCookie, url: baseUrl });
@@ -441,22 +441,38 @@ function layoutMeritSheetPages({ maxSingleWidth, splitWidth }) {
     indexes.reduce((sum, index) => sum + headerCells[index].getBoundingClientRect().width, 0);
 
   // Greedy grouping of whole assessments into page-width column groups.
+  // Each group is a list of units (an assessment with its grade/total).
+  const flat = (group) => group.flat();
   const groups = [];
   let current = [];
   units.forEach((unit) => {
-    const candidate = current.concat(unit);
-    if (current.length && widthOf(leading.concat(candidate)) > splitWidth) {
+    if (current.length && widthOf(leading.concat(flat(current), unit)) > splitWidth) {
       groups.push(current);
-      current = unit.slice();
+      current = [unit];
     } else {
-      current = candidate;
+      current.push(unit);
     }
   });
-  if (trailing.length && widthOf(leading.concat(current, trailing)) > splitWidth) {
+  // The summary columns go on the last page. If they do not fit, move the
+  // last assessments onto a final page with them rather than leaving a page
+  // of totals only.
+  if (trailing.length && widthOf(leading.concat(flat(current), trailing)) > splitWidth) {
+    const carried = [];
+    while (current.length > 1 && widthOf(leading.concat(flat(carried), trailing)) < splitWidth) {
+      const moved = current.pop();
+      if (widthOf(leading.concat(moved, flat(carried), trailing)) > splitWidth) {
+        current.push(moved);
+        break;
+      }
+      carried.unshift(moved);
+    }
     groups.push(current);
-    current = [];
+    current = carried;
   }
-  groups.push(current.concat(trailing));
+  groups.push(current);
+  const pageColumns = groups.map((group, index) =>
+    index === groups.length - 1 ? flat(group).concat(trailing) : flat(group)
+  );
 
   const keepColumns = (clonedTable, keep) => {
     const keepSet = new Set(keep);
@@ -470,7 +486,7 @@ function layoutMeritSheetPages({ maxSingleWidth, splitWidth }) {
     });
   };
 
-  const pages = groups.map((group, pageIndex) => {
+  const pages = pageColumns.map((group, pageIndex) => {
     const page = document.createElement("div");
     page.className = "merit-sheet-pdf-page";
     if (pageIndex > 0) page.style.breakBefore = "page";
@@ -536,6 +552,32 @@ async function renderMeritSheetPdf({ baseUrl, sessionCookie, classId, termId, su
   });
 }
 
+// Organization stats: the page draws its charts with scripts, so scripts stay
+// on here and the PDF waits for the page to report that every chart is drawn.
+async function renderOrganizationStatsPdf({ baseUrl, sessionCookie, termId }) {
+  return withPage(async (page) => {
+    await openAppPage(page, {
+      baseUrl,
+      sessionCookie,
+      path: `/stats/organization?selectedTermId=${encodeURIComponent(termId)}&pdf=true`,
+      mediaType: "screen",
+      javaScript: true,
+    });
+    try {
+      await page.waitForFunction(() => window.__orgStatsReady === true, { timeout: NAVIGATION_TIMEOUT_MS });
+    } catch (_) {
+      throw userFacingError("The charts could not be drawn. Check the internet connection and try again.");
+    }
+    await waitForAssets(page);
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" },
+    });
+    return Buffer.from(pdf);
+  });
+}
+
 function pdfPublicUrl(bucketName, key) {
   const regionName = String(process.env.AWS_REGION || "").trim();
   if (!regionName || regionName === "us-east-1") {
@@ -579,6 +621,7 @@ module.exports = {
   renderReportCardsPerStudent,
   renderTranscriptPdf,
   renderMeritSheetPdf,
+  renderOrganizationStatsPdf,
   storePdf,
   safeFileSegment,
   sessionCookieFromHeader,

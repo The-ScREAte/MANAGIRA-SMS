@@ -27,15 +27,16 @@
         margin: 0;
       }
 
+      /* One full-width surface: the page already sits inside the app's own
+         panel, so no extra card border, shadow or margin here. */
       .container {
         position: relative;
-        width: 90%;
-        margin: 30px auto;
-        padding: 20px;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 24px 28px;
         background-color: var(--card);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-        border-radius: 12px;
-        border: 1px solid var(--border);
       }
 
       .header {
@@ -102,13 +103,13 @@
 
       .merit-panel-header {
         display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
+        flex-wrap: nowrap;
+        align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        gap: 16px;
         padding: 14px 16px;
         border-bottom: 1px solid var(--border);
-        background: #f8fafc;
+        background: #ffffff;
       }
 
       .merit-panel-title {
@@ -125,7 +126,8 @@
 
       .merit-toolbar {
         display: flex;
-        flex-wrap: wrap;
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
         align-items: center;
         gap: 4px;
       }
@@ -154,13 +156,6 @@
       .merit-link-btn:hover,
       .merit-link-btn:focus-visible {
         background: color-mix(in srgb, var(--primary) 10%, white);
-      }
-
-      .merit-toolbar-divider {
-        width: 1px;
-        height: 18px;
-        margin: 0 4px;
-        background: var(--border);
       }
 
       .subject-card {
@@ -204,6 +199,19 @@
         font: inherit;
         text-align: left;
         cursor: pointer;
+      }
+
+      .subject-toggle:hover,
+      .subject-toggle:focus,
+      .subject-toggle:active {
+        background: none;
+        color: #0f172a;
+      }
+
+      .subject-toggle:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+        border-radius: 6px;
       }
 
       .subject-toggle:disabled {
@@ -344,11 +352,17 @@
       .merit-sheet .col-sn { width: 56px; }
       .merit-sheet .col-student-id { width: 74px; }
       .merit-sheet .col-student-name { width: 150px; }
-      .merit-sheet .col-assessment { width: 106px; }
+      .merit-sheet .col-assessment { width: 60px; }
       .merit-sheet .col-grade { width: 48px; }
       .merit-sheet .col-total { width: 76px; }
       .merit-sheet .col-average { width: 70px; }
       .merit-sheet .col-percentage { width: 80px; }
+      .merit-sheet .col-gender { width: 64px; }
+      .merit-sheet .col-subject-total { width: 66px; }
+      .merit-sheet .col-overall-grade { width: 60px; }
+      .merit-sheet .col-remark { width: 150px; }
+      .merit-sheet .subject-total-cell { font-weight: 700; }
+      .merit-sheet td.remark-cell { white-space: normal; text-align: left; }
       .merit-sheet .col-position { width: 68px; }
 
         table, th, td {
@@ -404,6 +418,8 @@
       .total-header,
       .average-header,
       .percentage-header,
+      .gender-header,
+      .overall-grade-header,
       .position-header {
         padding: 0;
       }
@@ -413,6 +429,8 @@
       .total-header .header-label,
       .average-header .header-label,
       .percentage-header .header-label,
+      .gender-header .header-label,
+      .overall-grade-header .header-label,
       .position-header .header-label {
         display: inline-block;
         width: auto;
@@ -491,6 +509,52 @@
       .print-section .merit-sheet {
         position: relative;
         z-index: 1;
+      }
+
+      /* Header names run vertically (reading upwards), wrapped onto several
+         short lines and centred, so every name stays inside its own column
+         however long it is. */
+      .merit-sheet table thead th.slanted-header {
+        height: 150px;
+        padding: 6px 2px;
+        vertical-align: middle;
+        text-align: center;
+        overflow: hidden;
+        writing-mode: horizontal-tb;
+        transform: none;
+      }
+
+      .merit-sheet table thead th.slanted-header .header-label {
+        position: static;
+        display: inline-block;
+        width: auto;
+        max-height: 112px;
+        margin: 0 auto;
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        white-space: normal;
+        word-break: normal;
+        overflow-wrap: anywhere;
+        text-align: center;
+        line-height: 1.15;
+      }
+
+      /* Alternate column shading so columns are easy to follow. */
+      .merit-sheet.merit-sheet table tbody tr td:nth-child(odd) {
+        background: transparent;
+      }
+
+      .merit-sheet.merit-sheet table tbody tr td:nth-child(even) {
+        background: color-mix(in srgb, var(--primary) 9%, transparent);
+      }
+
+      .merit-sheet.merit-sheet table thead tr th:nth-child(even) {
+        background: color-mix(in srgb, var(--primary) 12%, #f3f4f6);
+      }
+
+      /* Subject and assessment each start a new line. */
+      .merit-sheet table thead th.slanted-header .label-line {
+        display: block;
       }
 
       @media print {
@@ -654,6 +718,8 @@
         .total-header .header-label,
         .average-header .header-label,
         .percentage-header .header-label,
+        .gender-header .header-label,
+        .overall-grade-header .header-label,
         .position-header .header-label {
           writing-mode: horizontal-tb !important;
           transform: rotate(-62deg) !important;
@@ -666,11 +732,55 @@
         .merit-sheet .col-sn { width: 44px; }
         .merit-sheet .col-student-id { width: 72px; }
         .merit-sheet .col-student-name { width: 180px; }
-        .merit-sheet .col-assessment { width: 84px; }
+        .merit-sheet .col-assessment { width: 48px; }
         .merit-sheet .col-grade { width: 48px; }
         .merit-sheet .col-total { width: 72px; }
         .merit-sheet .col-average { width: 72px; }
         .merit-sheet .col-percentage { width: 76px; }
+        .merit-sheet .col-gender { width: 56px; }
+        .merit-sheet .col-subject-total { width: 54px; }
+        .merit-sheet .col-overall-grade { width: 56px; }
+        .merit-sheet .col-remark { width: 140px; }
+
+        /* One even header band (a gradient per cell would show seams). */
+        .merit-sheet table thead th {
+          background: var(--primary) !important;
+        }
+
+        .merit-sheet table thead th.slanted-header {
+          height: 118px !important;
+          max-height: none !important;
+          padding: 4px 1px !important;
+          vertical-align: middle !important;
+          text-align: center !important;
+          overflow: hidden !important;
+        }
+
+        .merit-sheet table thead th.slanted-header .header-label {
+          position: static !important;
+          display: inline-block !important;
+          width: auto !important;
+          max-height: 96px !important;
+          margin: 0 auto !important;
+          writing-mode: vertical-rl !important;
+          transform: rotate(180deg) !important;
+          white-space: normal !important;
+          overflow-wrap: anywhere !important;
+          text-align: center !important;
+          line-height: 1.1 !important;
+        }
+
+        .merit-sheet.merit-sheet table thead tr th:nth-child(even) {
+          background: color-mix(in srgb, var(--primary) 80%, black) !important;
+        }
+
+        .merit-sheet table thead th.slanted-header .label-line {
+          display: block !important;
+        }
+
+        .merit-sheet.merit-sheet table tbody tr td:nth-child(even) {
+          background: color-mix(in srgb, var(--primary) 10%, transparent) !important;
+        }
         .merit-sheet .col-position { width: 68px; }
 
         .merit-sheet td.student-name-cell,
@@ -729,8 +839,8 @@
                 padding: 4px 12px 14px;
             }
 
-            .merit-toolbar {
-                width: 100%;
+            .merit-panel-header {
+                flex-wrap: wrap;
             }
         
             /* Enables table scrolling without breaking layout */
@@ -817,9 +927,6 @@
               <div class="merit-toolbar">
                 <button type="button" class="merit-link-btn" data-merit-action="select-all">Select all</button>
                 <button type="button" class="merit-link-btn" data-merit-action="clear-all">Clear</button>
-                <span class="merit-toolbar-divider" aria-hidden="true"></span>
-                <button type="button" class="merit-link-btn" data-merit-action="expand-all">Expand all</button>
-                <button type="button" class="merit-link-btn" data-merit-action="collapse-all">Collapse all</button>
               </div>
             </div>
 
@@ -876,18 +983,26 @@
             <div class="merit-panel-header">
               <div>
                 <h4 id="meritColumnsTitle" class="merit-panel-title">Columns to show</h4>
-                <p class="merit-panel-hint">S/N, student name and assessment scores are always shown.</p>
+                <p class="merit-panel-hint">S/N, student name and assessment scores are always shown. Overall grade and remark follow the grading scale in Report Settings.</p>
               </div>
             </div>
             <!-- Always sent so "all optional columns off" is kept as chosen. -->
             <input type="hidden" name="columns[]" value="name" />
             <div class="column-options">
-              <label class="column-option"><input type="checkbox" name="columns[]" value="studentId" <%= columnChecked('studentId', true) %> /><span>Student ID</span></label>
-              <label class="column-option"><input type="checkbox" name="columns[]" value="grade" <%= columnChecked('grade', true) %> /><span>Grade</span></label>
-              <label class="column-option"><input type="checkbox" name="columns[]" value="total" <%= columnChecked('total', true) %> /><span>Total Score</span></label>
-              <label class="column-option"><input type="checkbox" name="columns[]" value="average" <%= columnChecked('average', true) %> /><span>Average</span></label>
-              <label class="column-option"><input type="checkbox" name="columns[]" value="percentage" <%= columnChecked('percentage', false) %> /><span>Percentage</span></label>
-              <label class="column-option"><input type="checkbox" name="columns[]" value="position" <%= columnChecked('position', true) %> /><span>Position</span></label>
+              <% [
+                ['studentId', 'Student ID', true],
+                ['gender', 'Gender', false],
+                ['grade', 'Grade per assessment', true],
+                ['subjectTotal', 'Subject total', false],
+                ['total', 'Total Score', true],
+                ['average', 'Average', true],
+                ['percentage', 'Percentage', false],
+                ['overallGrade', 'Overall grade', false],
+                ['position', 'Position', true],
+                ['remark', 'Remark', false],
+              ].forEach(([key, label, defaultOn]) => { %>
+              <label class="column-option"><input type="checkbox" name="columns[]" value="<%= key %>" <%= columnChecked(key, defaultOn) %> /><span><%= label %></span></label>
+              <% }); %>
             </div>
           </section>
 
@@ -918,7 +1033,7 @@
           <%
             const cols = (typeof meritColumns !== 'undefined' && meritColumns)
               ? meritColumns
-              : { studentId: true, grade: true, total: true, average: true, percentage: false, position: true };
+              : { studentId: true, grade: true, total: true, average: true, position: true };
             let assessmentGroup = 0;
           %>
           <table>
@@ -926,35 +1041,45 @@
               <col class="col-sn" />
               <% if (cols.studentId) { %><col class="col-student-id" /><% } %>
               <col class="col-student-name" />
+              <% if (cols.gender) { %><col class="col-gender" /><% } %>
               <% subjects.forEach(subject => { %>
                 <% subject.assessments.forEach(() => { %>
                   <col class="col-assessment" />
                   <% if (cols.grade) { %><col class="col-grade" /><% } %>
                 <% }); %>
+                <% if (cols.subjectTotal && subject.assessments.length) { %><col class="col-subject-total" /><% } %>
               <% }); %>
               <% if (cols.total) { %><col class="col-total" /><% } %>
               <% if (cols.average) { %><col class="col-average" /><% } %>
               <% if (cols.percentage) { %><col class="col-percentage" /><% } %>
+              <% if (cols.overallGrade) { %><col class="col-overall-grade" /><% } %>
               <% if (cols.position) { %><col class="col-position" /><% } %>
+              <% if (cols.remark) { %><col class="col-remark" /><% } %>
             </colgroup>
             <thead>
               <tr>
                 <th class="rotated-header" data-merit-col="lead"><span class="header-label">S/N</span></th>
-                <% if (cols.studentId) { %><th class="rotated-header student-id-header" data-merit-col="lead"><span class="header-label">Student ID</span></th><% } %>
+                <% if (cols.studentId) { %><th class="rotated-header slanted-header student-id-header" data-merit-col="lead"><span class="header-label">Student ID</span></th><% } %>
                 <th class="rotated-header student-name-cell" data-merit-col="lead"><span class="header-label">Student Name</span></th>
+                <% if (cols.gender) { %><th class="rotated-header slanted-header gender-header" data-merit-col="lead"><span class="header-label">Gender</span></th><% } %>
                 <% subjects.forEach(subject => { %>
                   <% subject.assessments.forEach(assessment => { %>
                     <% assessmentGroup += 1; %>
-                <th class="rotated-header" data-merit-col="assessment" data-merit-group="<%= assessmentGroup %>">
-                  <span class="header-label"><%= subject.subject_name %> - <%= assessment.title %></span>
+                <th class="rotated-header slanted-header" data-merit-col="assessment" data-merit-group="<%= assessmentGroup %>">
+                  <span class="header-label"><span class="label-line"><%= subject.subject_name %></span><span class="label-line"><%= assessment.title %></span></span>
                 </th>
-                    <% if (cols.grade) { %><th class="rotated-header grade-header" data-merit-col="assessment" data-merit-group="<%= assessmentGroup %>"><span class="header-label">Grade</span></th><% } %>
+                    <% if (cols.grade) { %><th class="rotated-header slanted-header grade-header" data-merit-col="assessment" data-merit-group="<%= assessmentGroup %>"><span class="header-label">Grade</span></th><% } %>
                   <% }); %>
+                  <% if (cols.subjectTotal && subject.assessments.length) { %>
+                <th class="rotated-header slanted-header subject-total-header" data-merit-col="assessment" data-merit-group="<%= assessmentGroup %>"><span class="header-label"><span class="label-line"><%= subject.subject_name %></span><span class="label-line">Total</span></span></th>
+                  <% } %>
                 <% }); %>
-                <% if (cols.total) { %><th class="rotated-header total-header" data-merit-col="summary"><span class="header-label">Total Score</span></th><% } %>
-                <% if (cols.average) { %><th class="rotated-header average-header" data-merit-col="summary"><span class="header-label">Average</span></th><% } %>
-                <% if (cols.percentage) { %><th class="rotated-header percentage-header" data-merit-col="summary"><span class="header-label">Percentage</span></th><% } %>
-                <% if (cols.position) { %><th class="rotated-header position-header" data-merit-col="summary"><span class="header-label">Position</span></th><% } %>
+                <% if (cols.total) { %><th class="rotated-header slanted-header total-header" data-merit-col="summary"><span class="header-label">Total Score</span></th><% } %>
+                <% if (cols.average) { %><th class="rotated-header slanted-header average-header" data-merit-col="summary"><span class="header-label">Average</span></th><% } %>
+                <% if (cols.percentage) { %><th class="rotated-header slanted-header percentage-header" data-merit-col="summary"><span class="header-label">Percentage</span></th><% } %>
+                <% if (cols.overallGrade) { %><th class="rotated-header slanted-header overall-grade-header" data-merit-col="summary"><span class="header-label">Overall Grade</span></th><% } %>
+                <% if (cols.position) { %><th class="rotated-header slanted-header position-header" data-merit-col="summary"><span class="header-label">Position</span></th><% } %>
+                <% if (cols.remark) { %><th class="rotated-header remark-header" data-merit-col="summary"><span class="header-label">Remark</span></th><% } %>
               </tr>
             </thead>
             <tbody>
@@ -963,6 +1088,7 @@
                 <td><%= index + 1 %></td>
                 <% if (cols.studentId) { %><td><%= student.studentId %></td><% } %>
                 <td class="student-name-cell"><%= student.name %></td>
+                <% if (cols.gender) { %><td><%= student.gender %></td><% } %>
                 <% student.scores.forEach(subject => { %>
                   <% subject.assessments.forEach(assessment => { %>
                 <td>
@@ -971,29 +1097,32 @@
                 </td>
                     <% if (cols.grade) { %><td><%= assessment.grade || '-' %></td><% } %>
                   <% }); %>
+                  <% if (cols.subjectTotal && subject.assessments.length) { %><td class="subject-total-cell"><%= Number(subject.totalScore || 0).toFixed(2) %></td><% } %>
                 <% }); %>
                 <% if (cols.total) { %><td><%= student.totalScore %></td><% } %>
                 <% if (cols.average) { %><td><%= student.averageScore %></td><% } %>
                 <% if (cols.percentage) { %><td><%= student.percentage %></td><% } %>
+                <% if (cols.overallGrade) { %><td><%= student.overallGrade %></td><% } %>
                 <% if (cols.position) { %><td><%= student.position %></td><% } %>
+                <% if (cols.remark) { %><td class="remark-cell"><%= student.remark %></td><% } %>
               </tr>
               <% }); %>
             </tbody>
           </table>
         </div>
 
-        <div class="merit-sheet-actions">
+        <% const hasSelection = typeof meritSheetSelection !== 'undefined' && meritSheetSelection; %>
+        <div
+          class="merit-sheet-actions"
+          id="meritSheetActions"
+          <% if (hasSelection) { %>data-selection="<%= JSON.stringify(meritSheetSelection) %>"<% } %>
+        >
           <% if (typeof changeSelectionUrl !== 'undefined' && changeSelectionUrl) { %>
           <a class="btn btn-secondary" href="<%= changeSelectionUrl %>">Change selection</a>
           <% } %>
-          <button class="btn" type="button" onclick="window.print()">Print Report</button>
-          <% if (typeof meritSheetSelection !== 'undefined' && meritSheetSelection) { %>
-          <button
-            class="btn"
-            type="button"
-            id="downloadMeritSheetBtn"
-            data-selection="<%= JSON.stringify(meritSheetSelection) %>"
-          >Download PDF</button>
+          <button class="btn" type="button" id="printMeritSheetBtn">Print Report</button>
+          <% if (hasSelection) { %>
+          <button class="btn" type="button" id="downloadMeritSheetBtn">Download PDF</button>
           <% } %>
         </div>
       </div>
@@ -1028,44 +1157,92 @@
         }
       });
 
+      // Print and Download both use the server-generated PDF, so a wide sheet
+      // is split into readable pages the same way in both.
       (function () {
+        const actions = document.getElementById("meritSheetActions");
+        const printBtn = document.getElementById("printMeritSheetBtn");
         const downloadBtn = document.getElementById("downloadMeritSheetBtn");
-        if (!downloadBtn) return;
+        const selection = actions ? actions.getAttribute("data-selection") : null;
 
-        downloadBtn.addEventListener("click", async function () {
-          if (downloadBtn.disabled) return;
-          const label = downloadBtn.textContent;
-          downloadBtn.disabled = true;
-          downloadBtn.textContent = "Preparing PDF...";
-          try {
-            const response = await fetch("/print/downloadMeritSheet", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Accept": "application/pdf, application/json" },
-              credentials: "same-origin",
-              body: downloadBtn.getAttribute("data-selection"),
-            });
-            const contentType = String(response.headers.get("content-type") || "").toLowerCase();
-            if (!response.ok || !contentType.includes("application/pdf")) {
-              const payload = await response.json().catch(() => ({}));
-              throw new Error(payload.message || "Failed to download the merit sheet.");
-            }
-            const blob = await response.blob();
-            const disposition = String(response.headers.get("content-disposition") || "");
-            const fileNameMatch = disposition.match(/filename="([^"]+)"/i);
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = fileNameMatch ? fileNameMatch[1] : "merit_sheet.pdf";
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-          } catch (error) {
-            alert(error.message || "Failed to download the merit sheet.");
-          } finally {
-            downloadBtn.disabled = false;
-            downloadBtn.textContent = label;
+        const fetchMeritSheetPdf = async () => {
+          const response = await fetch("/print/downloadMeritSheet", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Accept": "application/pdf, application/json" },
+            credentials: "same-origin",
+            body: selection,
+          });
+          const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+          if (!response.ok || !contentType.includes("application/pdf")) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.message || "The merit sheet PDF could not be prepared.");
           }
-        });
+          const disposition = String(response.headers.get("content-disposition") || "");
+          const fileNameMatch = disposition.match(/filename="([^"]+)"/i);
+          return { blob: await response.blob(), fileName: fileNameMatch ? fileNameMatch[1] : "merit_sheet.pdf" };
+        };
+
+        const withBusyButton = async (button, busyLabel, task) => {
+          if (button.disabled) return;
+          const label = button.textContent;
+          button.disabled = true;
+          button.textContent = busyLabel;
+          try {
+            await task();
+          } catch (error) {
+            alert(error.message || "Something went wrong. Please try again.");
+          } finally {
+            button.disabled = false;
+            button.textContent = label;
+          }
+        };
+
+        if (downloadBtn) {
+          downloadBtn.addEventListener("click", () =>
+            withBusyButton(downloadBtn, "Preparing PDF...", async () => {
+              const { blob, fileName } = await fetchMeritSheetPdf();
+              const link = document.createElement("a");
+              link.href = URL.createObjectURL(blob);
+              link.download = fileName;
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+            })
+          );
+        }
+
+        if (printBtn) {
+          printBtn.addEventListener("click", () => {
+            if (!selection) {
+              window.print();
+              return;
+            }
+            withBusyButton(printBtn, "Preparing print...", async () => {
+              const { blob } = await fetchMeritSheetPdf();
+              const url = URL.createObjectURL(blob);
+              const frame = document.createElement("iframe");
+              frame.setAttribute("aria-hidden", "true");
+              frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+              document.body.appendChild(frame);
+              await new Promise((resolve) => {
+                frame.onload = resolve;
+                frame.src = url;
+              });
+              try {
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+              } catch (_) {
+                // Browsers that cannot print a PDF from the page open it instead.
+                window.open(url, "_blank");
+              }
+              setTimeout(() => {
+                frame.remove();
+                URL.revokeObjectURL(url);
+              }, 60000);
+            });
+          });
+        }
       })();
 
       window.addEventListener("afterprint", function () {
@@ -1140,14 +1317,9 @@
 
         form.querySelectorAll("[data-merit-action]").forEach((button) => {
           button.addEventListener("click", () => {
-            const action = button.getAttribute("data-merit-action");
-            if (action === "select-all" || action === "clear-all") {
-              const checked = action === "select-all";
-              cards.forEach((card) => assessmentBoxes(card).forEach((box) => { box.checked = checked; }));
-              refresh();
-            } else {
-              cards.forEach((card) => setExpanded(card, action === "expand-all"));
-            }
+            const checked = button.getAttribute("data-merit-action") === "select-all";
+            cards.forEach((card) => assessmentBoxes(card).forEach((box) => { box.checked = checked; }));
+            refresh();
           });
         });
 

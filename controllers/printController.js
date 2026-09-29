@@ -1438,7 +1438,18 @@ const assignScoreRemark = async (percentage, organizationId, db) => {
 // Optional merit sheet columns staff can show or hide. S/N, student name and
 // the assessment scores are always shown. The defaults are the original
 // layout, so links and callers that do not choose columns are unchanged.
-const MERIT_SHEET_COLUMN_KEYS = ["studentId", "grade", "total", "average", "percentage", "position"];
+const MERIT_SHEET_COLUMN_KEYS = [
+  "studentId",
+  "gender",
+  "grade",
+  "subjectTotal",
+  "total",
+  "average",
+  "percentage",
+  "overallGrade",
+  "position",
+  "remark",
+];
 const DEFAULT_MERIT_SHEET_COLUMNS = ["studentId", "grade", "total", "average", "position"];
 
 // Accepts an array or comma-separated list of column keys; undefined means
@@ -1451,6 +1462,25 @@ function parseMeritSheetColumns(input) {
       .filter(Boolean)
   );
   return MERIT_SHEET_COLUMN_KEYS.filter((key) => requested.has(key));
+}
+
+// Picks the school's grade band for a percentage (Report Settings grading
+// scale): the band containing it, else the nearest band, else the higher one.
+function resolveScoreBand(bands, percentage) {
+  if (!Number.isFinite(percentage) || !bands.length) return null;
+  let best = null;
+  let bestDistance = Infinity;
+  bands.forEach((band) => {
+    const from = Number(band.from_percentage);
+    const to = Number(band.to_percentage);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return;
+    const distance = percentage >= from && percentage <= to ? 0 : percentage < from ? from - percentage : percentage - to;
+    if (!best || distance < bestDistance || (distance === bestDistance && from > Number(best.from_percentage))) {
+      best = band;
+      bestDistance = distance;
+    }
+  });
+  return best;
 }
 
 function meritSheetColumnFlags(columnKeys) {
@@ -6109,101 +6139,60 @@ const printController = (db) => ({
         return res.redirect(meritSheetBaseUrl);
       }
 
-      // Fetch organization details
-      const organizationResult = await db.query(
-        `
+      // Everything below depends only on the organization, class, term and
+      // selection, so the reads run together.
+      const [
+        organizationResult,
+        studentIdSettings,
+        classDetailsResult,
+        subjectsResult,
+        assessmentsResult,
+        studentsResult,
+        scoresResult,
+        scoreBandsResult,
+      ] = await Promise.all([
+        db.query(
+          `
             SELECT organization_name, logo_path
             FROM organizations
             WHERE organization_id = $1
         `,
-        [organizationId]
-      );
-      const organization = organizationResult.rows[0];
-
-      if (!organization) {
-        return res.status(404).send("Organization not found.");
-      }
-
-      const studentIdSettings = await getOrganizationStudentIdSettings(db, organizationId);
-      const orgNameDisplayFormat = req.session?.nameDisplayFormat;
-
-      const logoUrl = organization.logo_path
-        ? `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${organization.logo_path}`
-        : null;
-
-      // Fetch class, term, and school year details
-      const classDetailsResult = await db.query(
-        `
+          [organizationId]
+        ),
+        getOrganizationStudentIdSettings(db, organizationId),
+        db.query(
+          `
             SELECT c.class_name, t.term_name, sy.year_label
             FROM classes c
             JOIN terms t ON t.term_id = $1 AND t.organization_id = $2
             JOIN school_years sy ON t.school_year_id = sy.id
             WHERE c.class_id = $3 AND c.organization_id = $2
         `,
-        [parsedTermId, organizationId, parsedClassId]
-      );
-
-      if (classDetailsResult.rows.length === 0) {
-        req.flash("error", "Class or term details not found. Please regenerate.");
-        const qs = parsedClassId && parsedTermId
-          ? `?classId=${parsedClassId}&termId=${parsedTermId}${isEmbedded ? "&embed=workspace" : ""}`
-          : (isEmbedded ? "?embed=workspace" : "");
-        return res.redirect(`/print/meritSheetPage${qs}`);
-      }
-
-      const {
-        class_name: className,
-        term_name: termName,
-        year_label: schoolYear,
-      } = classDetailsResult.rows[0];
-
-      // Fetch selected subjects and assessments
-      const subjectsResult = await db.query(
-        `
-            SELECT subject_id, subject_name
-            FROM subjects
-            WHERE subject_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3
-            ORDER BY subject_name ASC, subject_id ASC
-        `,
-        [subjectIds, parsedClassId, organizationId]
-      );
-
-      const selectedSubjectsData = await Promise.all(
-        subjectsResult.rows.map(async (subject) => {
-          const assessmentsResult = await db.query(
-            `
-                SELECT assessment_id, title, weight, category, max_score
-                FROM assessments
-                WHERE assessment_id = ANY($1::int[]) AND subject_id = $2 AND class_id = $3 AND term_id = $4 AND organization_id = $5
-                ORDER BY assessment_id ASC
-            `,
-            [assessmentIds, subject.subject_id, parsedClassId, parsedTermId, organizationId]
-          );
-
-          return {
-            ...subject,
-            assessments: assessmentsResult.rows,
-          };
-        })
-      );
-
-      // Fetch students enrolled in the class for the given term.
-      const studentsResult = await db.query(
-        `SELECT es.student_id, s.custom_student_id, s.first_name, s.last_name
+          [parsedTermId, organizationId, parsedClassId]
+        ),
+        db.query(
+          `SELECT subject_id, subject_name
+           FROM subjects
+           WHERE subject_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3
+           ORDER BY subject_name ASC, subject_id ASC`,
+          [subjectIds, parsedClassId, organizationId]
+        ),
+        db.query(
+          `SELECT assessment_id, subject_id, title, weight, category, max_score
+           FROM assessments
+           WHERE assessment_id = ANY($1::int[]) AND class_id = $2 AND term_id = $3 AND organization_id = $4
+           ORDER BY assessment_id ASC`,
+          [assessmentIds, parsedClassId, parsedTermId, organizationId]
+        ),
+        db.query(`SELECT es.student_id, s.custom_student_id, s.first_name, s.last_name, s.gender
          FROM enrolled_students es
          JOIN students s ON es.student_id = s.student_id
          JOIN enrollments e ON es.enrollment_id = e.enrollment_id
          WHERE es.class_id = $1
            AND e.term_id = $2
-           AND e.organization_id = $3`,
-        [parsedClassId, parsedTermId, organizationId]
-      );
-
-      const students = studentsResult.rows;
-
-      // Fetch students' assessment scores used in merit-sheet computation.
-      const scoresResult = await db.query(
-        `
+           AND e.organization_id = $3`, [parsedClassId, parsedTermId, organizationId]),
+        db.query(
+          `
             SELECT
               ar.student_id,
               a.subject_id,
@@ -6243,10 +6232,61 @@ const printController = (db) => ({
             JOIN assessments a ON ar.assessment_id = a.assessment_id
             WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3
         `,
-        [parsedClassId, parsedTermId, organizationId]
-      );
+          [parsedClassId, parsedTermId, organizationId]
+        ),
+        // The class's grading scale for this term (Overall Grade and Remark).
+        db.query(
+          `SELECT from_percentage, to_percentage, NULLIF(TRIM(grade_label), '') AS grade_label, NULLIF(TRIM(remark), '') AS remark
+         FROM score_remarks
+         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
+          [organizationId, parsedClassId, parsedTermId]
+        ),
+      ]);
 
-      const scores = scoresResult.rows;
+      const organization = organizationResult.rows[0];
+      if (!organization) {
+        return res.status(404).send("Organization not found.");
+      }
+
+      const orgNameDisplayFormat = req.session?.nameDisplayFormat;
+      const logoUrl = organization.logo_path
+        ? `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${organization.logo_path}`
+        : null;
+
+      if (classDetailsResult.rows.length === 0) {
+        req.flash("error", "Class or term details not found. Please regenerate.");
+        const qs = parsedClassId && parsedTermId
+          ? `?classId=${parsedClassId}&termId=${parsedTermId}${isEmbedded ? "&embed=workspace" : ""}`
+          : (isEmbedded ? "?embed=workspace" : "");
+        return res.redirect(`/print/meritSheetPage${qs}`);
+      }
+
+      const {
+        class_name: className,
+        term_name: termName,
+        year_label: schoolYear,
+      } = classDetailsResult.rows[0];
+
+      const assessmentsBySubject = new Map();
+      assessmentsResult.rows.forEach((assessment) => {
+        const key = Number(assessment.subject_id);
+        if (!assessmentsBySubject.has(key)) assessmentsBySubject.set(key, []);
+        assessmentsBySubject.get(key).push(assessment);
+      });
+      const selectedSubjectsData = subjectsResult.rows.map((subject) => ({
+        ...subject,
+        assessments: assessmentsBySubject.get(Number(subject.subject_id)) || [],
+      }));
+
+      const students = studentsResult.rows;
+      const scoreBands = scoreBandsResult.rows;
+
+      // Scores indexed by student, subject and assessment title.
+      const scoreByKey = new Map();
+      scoresResult.rows.forEach((score) => {
+        const key = `${score.student_id}|${score.subject_id}|${score.assessment_title}`;
+        if (!scoreByKey.has(key)) scoreByKey.set(key, score);
+      });
 
       // Highest possible total across the selected assessments (for Percentage).
       const maxPossibleTotal = selectedSubjectsData.reduce(
@@ -6259,12 +6299,7 @@ const printController = (db) => ({
       const meritSheetData = students.map((student) => {
         const studentScores = selectedSubjectsData.map((subject) => {
           const subjectAssessments = subject.assessments.map((assessment) => {
-            const scoreData = scores.find(
-              (score) =>
-                score.student_id === student.student_id &&
-                score.subject_id === subject.subject_id &&
-                score.assessment_title === assessment.title
-            );
+            const scoreData = scoreByKey.get(`${student.student_id}|${subject.subject_id}|${assessment.title}`);
 
             return {
               title: assessment.title,
@@ -6296,6 +6331,13 @@ const printController = (db) => ({
           0
         );
         const averageScore = totalScore / studentScores.length;
+        const percentageValue = maxPossibleTotal > 0 ? (totalScore / maxPossibleTotal) * 100 : null;
+        const hasRecordedScore = studentScores.some((subject) =>
+          subject.assessments.some((assessment) => assessment.score !== "-" && assessment.score !== null)
+        );
+        // No scores yet: no grade band, rather than the lowest band.
+        const scoreBand = percentageValue === null || !hasRecordedScore ? null : resolveScoreBand(scoreBands, percentageValue);
+        const genderText = String(student.gender || "").trim();
 
         return {
           studentId: buildStudentDisplayId(student, studentIdSettings),
@@ -6305,7 +6347,10 @@ const printController = (db) => ({
           scores: studentScores,
           totalScore: totalScore.toFixed(2),
           averageScore: averageScore.toFixed(2),
-          percentage: maxPossibleTotal > 0 ? `${((totalScore / maxPossibleTotal) * 100).toFixed(2)}%` : "-",
+          percentage: percentageValue === null ? "-" : `${percentageValue.toFixed(2)}%`,
+          gender: genderText ? genderText.charAt(0).toUpperCase() + genderText.slice(1).toLowerCase() : "-",
+          overallGrade: scoreBand?.grade_label || "-",
+          remark: scoreBand?.remark || "-",
         };
       });
 
