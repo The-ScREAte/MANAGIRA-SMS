@@ -2195,10 +2195,13 @@ const transportationController = {
       const selectedSet = new Set(selectedStudentIds);
       const uncheckedStudentIds = classStudentIds.filter((id) => !selectedSet.has(id));
 
-      await db.query("BEGIN");
+      // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+      // connections and strand writes in an open transaction.
+      const txClient = await db.connect();
       try {
+        await txClient.query("BEGIN");
         if (uncheckedStudentIds.length) {
-          await db.query(
+          await txClient.query(
             `UPDATE transport_student_assignments
                 SET active = FALSE,
                     updated_at = NOW()
@@ -2209,7 +2212,7 @@ const transportationController = {
         }
 
         if (selectedStudentIds.length) {
-          await db.query(
+          await txClient.query(
             `INSERT INTO transport_student_assignments (
                organization_id, student_id, active
              )
@@ -2223,10 +2226,12 @@ const transportationController = {
           );
         }
 
-        await db.query("COMMIT");
+        await txClient.query("COMMIT");
       } catch (error) {
-        await db.query("ROLLBACK");
+        await txClient.query("ROLLBACK").catch(() => {});
         throw error;
+      } finally {
+        txClient.release();
       }
 
       // Best-effort, outside the main transaction: turn each checked

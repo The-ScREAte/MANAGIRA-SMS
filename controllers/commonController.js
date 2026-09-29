@@ -2351,6 +2351,32 @@ async function ensureAssessmentControlSchema(database = require("../config/db"))
   return global._assessmentControlSchemaPromise;
 }
 
+// Indexes used by the score sheet and saveAllScores (see
+// database/migrations/2026-09-28_score_sheet_indexes.sql). Applied once per
+// process; failures are logged and never block the request.
+const SCORE_SHEET_INDEX_STATEMENTS = [
+  "CREATE INDEX IF NOT EXISTS idx_assessment_results_assessment ON assessment_results (assessment_id)",
+  "CREATE INDEX IF NOT EXISTS idx_assessment_results_class_subject_term ON assessment_results (class_id, subject_id, term_id)",
+  "CREATE INDEX IF NOT EXISTS idx_enrolled_students_class_student ON enrolled_students (class_id, student_id)",
+  "CREATE INDEX IF NOT EXISTS idx_enrolled_students_student ON enrolled_students (student_id)",
+  "CREATE INDEX IF NOT EXISTS idx_students_org_class ON students (organization_id, class_id)",
+];
+
+function ensureScoreSheetIndexes(database = require("../config/db")) {
+  if (!global._scoreSheetIndexesPromise) {
+    global._scoreSheetIndexesPromise = (async () => {
+      for (const statement of SCORE_SHEET_INDEX_STATEMENTS) {
+        try {
+          await database.query(statement);
+        } catch (indexErr) {
+          console.warn("[ScoreSheetIndexes] Index warning (non-fatal):", indexErr.message);
+        }
+      }
+    })();
+  }
+  return global._scoreSheetIndexesPromise;
+}
+
 let assessmentQuestionSetReviewSchemaReady = false;
 let assessmentQuestionSetRetakeSchemaReady = false;
 
@@ -3301,6 +3327,66 @@ async function getGradeLabelFromScoreRemark(
 
   const configuredLabel = String(remarkResult.rows[0]?.grade_label || "").trim();
   return configuredLabel || getDefaultGradeLabel(percentage);
+}
+
+// Upper bound on score cells accepted by one saveAllScores request. Large
+// enough for any real sheet (e.g. 500 students x 100 assessments), small
+// enough to stop abusive payloads.
+const MAX_SCORE_CELLS_PER_SAVE = 50000;
+
+// Loads a class/term's grade bands once and resolves labels in memory, so a
+// sheet with many students does not run one grade query per student. Mirrors
+// the band selection in getGradeLabelFromScoreRemark.
+async function loadGradeLabelResolver(dbClient, organizationId, classId, termId) {
+  await ensureScoreRemarkGradeSchema(dbClient);
+
+  const bandsResult = await dbClient.query(
+    `SELECT from_percentage, to_percentage, TRIM(grade_label) AS grade_label
+     FROM score_remarks
+     WHERE organization_id = $1
+       AND class_id = $2
+       AND term_id = $3
+       AND NULLIF(TRIM(grade_label), '') IS NOT NULL`,
+    [organizationId, classId, termId]
+  );
+
+  const bands = bandsResult.rows.map((row) => ({
+    from: row.from_percentage === null ? NaN : Number(row.from_percentage),
+    to: row.to_percentage === null ? NaN : Number(row.to_percentage),
+    label: String(row.grade_label || "").trim(),
+  }));
+
+  return (percentage) => {
+    if (percentage === null || percentage === undefined || Number.isNaN(percentage)) {
+      return "-";
+    }
+
+    let bestBand = null;
+    let bestDistance = Infinity;
+    for (const band of bands) {
+      let distance;
+      if (!Number.isFinite(band.from) || !Number.isFinite(band.to)) {
+        distance = Infinity;
+      } else if (percentage >= band.from && percentage <= band.to) {
+        distance = 0;
+      } else if (percentage < band.from) {
+        distance = band.from - percentage;
+      } else {
+        distance = percentage - band.to;
+      }
+
+      if (
+        bestBand === null ||
+        distance < bestDistance ||
+        (distance === bestDistance && band.from > bestBand.from)
+      ) {
+        bestBand = band;
+        bestDistance = distance;
+      }
+    }
+
+    return (bestBand && bestBand.label) || getDefaultGradeLabel(percentage);
+  };
 }
 
 const commonController = {
@@ -9312,15 +9398,30 @@ const commonController = {
         return res.status(403).json({ success: false, message: "Class or term does not belong to your organization." });
       }
 
-      // Tenant boundary: keep only student ids that belong to this class and org.
+      // Tenant boundary: keep only student ids that belong to this class and
+      // org, either by profile class or by enrollment for this term.
       const requestedStudentIds = Object.keys(attendance || {})
         .map(v => Number(v))
         .filter(v => Number.isInteger(v) && v > 0);
       const ownedStudentsRes = requestedStudentIds.length
         ? await db.query(
-            `SELECT student_id FROM students
-             WHERE student_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3`,
-            [requestedStudentIds, classId, organizationId]
+            `SELECT s.student_id
+             FROM students s
+             WHERE s.student_id = ANY($1::int[])
+               AND s.organization_id = $3
+               AND (
+                 s.class_id = $2
+                 OR EXISTS (
+                   SELECT 1
+                   FROM enrolled_students es
+                   JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+                   WHERE es.student_id = s.student_id
+                     AND es.class_id = $2
+                     AND e.term_id = $4
+                     AND e.organization_id = $3
+                 )
+               )`,
+            [requestedStudentIds, classId, organizationId, termId]
           )
         : { rows: [] };
       const ownedStudentIds = new Set(ownedStudentsRes.rows.map(r => Number(r.student_id)));
@@ -9356,41 +9457,51 @@ const commonController = {
         }
       }
 
-      await db.query("BEGIN");
-
+      // Use one dedicated connection for the transaction; BEGIN/COMMIT on the
+      // pool can land on different connections and strand writes.
+      const client = await db.connect();
       const touchedStudentIds = [];
-      for (const studentId in attendance) {
-        const status = attendance[studentId];
-        const parsedStudentId = Number.parseInt(studentId, 10);
-        if (!Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
-          continue; // skip foreign or unknown student ids
+      try {
+        await client.query("BEGIN");
+
+        for (const studentId in attendance) {
+          const status = attendance[studentId];
+          const parsedStudentId = Number.parseInt(studentId, 10);
+          if (!Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
+            continue; // skip foreign or unknown student ids
+          }
+          touchedStudentIds.push(parsedStudentId);
+
+          // Tenant-safe UPSERT: the ON CONFLICT key (student_id, date, term_id)
+          // is enforced as unique at the DB level, but because student/term ids
+          // are now constrained above to this org, the conflict target cannot
+          // legitimately collide with another org's row.
+          await client.query(
+            `
+                      INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id)
+                      VALUES ($1, $2, $3, $4, $5, $6, $7)
+                      ON CONFLICT (student_id, date, term_id)
+                      DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, updated_at = NOW()
+                      WHERE attendance_records.organization_id = EXCLUDED.organization_id`,
+            [
+              parsedStudentId,
+              date,
+              status,
+              classId,
+              termId,
+              req.session.userId,
+              organizationId,
+            ]
+          );
         }
-        touchedStudentIds.push(parsedStudentId);
 
-        // Tenant-safe UPSERT: the ON CONFLICT key (student_id, date, term_id)
-        // is enforced as unique at the DB level, but because student/term ids
-        // are now constrained above to this org, the conflict target cannot
-        // legitimately collide with another org's row.
-        await db.query(
-          `
-                    INSERT INTO attendance_records (student_id, date, status, class_id, term_id, marked_by, organization_id)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT (student_id, date, term_id)
-                    DO UPDATE SET status = EXCLUDED.status, marked_by = EXCLUDED.marked_by, updated_at = NOW()
-                    WHERE attendance_records.organization_id = EXCLUDED.organization_id`,
-          [
-            parsedStudentId,
-            date,
-            status,
-            classId,
-            termId,
-            req.session.userId,
-            organizationId,
-          ]
-        );
+        await client.query("COMMIT");
+      } catch (txError) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw txError;
+      } finally {
+        client.release();
       }
-
-      await db.query("COMMIT");
 
       // Trigger parent absence-threshold checks in background; dedupe protects against duplicate sends.
       if (touchedStudentIds.length > 0) {
@@ -9403,7 +9514,7 @@ const commonController = {
 
       res.json({ success: true });
     } catch (error) {
-      await db.query("ROLLBACK");
+      console.error("[saveSingleAttendance] Failed to save attendance:", error);
       res
         .status(500)
         .json({ success: false, message: "Failed to save attendance" });
@@ -10669,6 +10780,7 @@ const commonController = {
       await ensureAssessmentControlSchema(db);
       await ensureScoreRemarkGradeSchema(db);
       await ensureGoogleIntegrationSchema(db);
+      ensureScoreSheetIndexes(db);
       const organizationId = req.session.organizationId;
       const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
@@ -10880,16 +10992,16 @@ const commonController = {
         }
       });
 
-      for (const [studentIdKey, summary] of Object.entries(studentScores)) {
+      const resolveGradeLabel = await loadGradeLabelResolver(
+        db,
+        organizationId,
+        classId,
+        currentTerm.term_id
+      );
+      for (const summary of Object.values(studentScores)) {
         if (summary.max_total_score > 0) {
           summary.total_percentage = (summary.total_subject_score / summary.max_total_score) * 100;
-          summary.grade = await getGradeLabelFromScoreRemark(
-            db,
-            organizationId,
-            classId,
-            currentTerm.term_id,
-            summary.total_percentage
-          );
+          summary.grade = resolveGradeLabel(summary.total_percentage);
         }
       }
 
@@ -10999,13 +11111,15 @@ const commonController = {
   ) {
     const updateQuery = `
             WITH RankedScores AS (
+                -- Rank within this class and term only; readers look positions
+                -- up by term, so mixing terms produced wrong positions.
                 SELECT
                     student_id,
                     subject_id,
                     SUM(score) AS total_subject_score,
                     RANK() OVER (PARTITION BY subject_id ORDER BY SUM(score) DESC) AS position
                 FROM assessment_results
-                WHERE subject_id = $1 AND organization_id = $2
+                WHERE subject_id = $1 AND organization_id = $2 AND class_id = $3 AND term_id = $4
                 GROUP BY student_id, subject_id
             )
             INSERT INTO student_positions (student_id, subject_id, organization_id, total_subject_score, position, class_id, term_id)
@@ -11039,8 +11153,22 @@ const commonController = {
     const requestedTermId = Number.parseInt(req.query.termId || req.session.currentTermId, 10);
 
     if (!subjectId || !classId) {
-      res.status(400).send("Subject ID and Class ID are required.");
-      return;
+      return res.status(400).json({ error: "Subject ID and Class ID are required." });
+    }
+
+    if (!scores || typeof scores !== "object" || Array.isArray(scores)) {
+      return res.status(400).json({ error: "No scores were submitted." });
+    }
+
+    const submittedCellCount = Object.values(scores).reduce(
+      (count, studentScores) =>
+        count + (studentScores && typeof studentScores === "object" ? Object.keys(studentScores).length : 0),
+      0
+    );
+    if (submittedCellCount > MAX_SCORE_CELLS_PER_SAVE) {
+      return res.status(413).json({
+        error: `Too many scores in one save (${submittedCellCount}). Please save at most ${MAX_SCORE_CELLS_PER_SAVE} at a time.`,
+      });
     }
 
     const organizationId = req.session.organizationId;
@@ -11060,8 +11188,7 @@ const commonController = {
         );
 
         if (termResult.rows.length === 0) {
-          res.status(404).send("No current term found for this class.");
-          return;
+          return res.status(404).json({ error: "No current term found for this class." });
         }
 
         currentTermId = termResult.rows[0].term_id;
@@ -11069,6 +11196,7 @@ const commonController = {
       req.session.currentTermId = currentTermId;
 
       await ensureAssessmentControlSchema(db);
+      await ensureScoreSheetIndexes(db);
 
       const submittedAssessmentIds = Array.from(
         new Set(
@@ -11080,17 +11208,33 @@ const commonController = {
         )
       );
 
-      // Tenant boundary: only keep student ids that belong to (classId, org).
-      // Without this, a foreign student_id could be inserted into this org's
-      // assessment_results table.
+      // Tenant boundary: only keep students that belong to this class for this
+      // term. The score sheet lists students from enrolled_students, so accept
+      // the same set here (falling back to students.class_id). Checking only
+      // students.class_id silently dropped scores for students whose profile
+      // class differs from their term enrollment.
       const requestedStudentIds = Object.keys(scores || {})
         .map(v => Number(v))
         .filter(v => Number.isInteger(v) && v > 0);
       const ownedStudentsRes = requestedStudentIds.length
         ? await db.query(
-            `SELECT student_id FROM students
-             WHERE student_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3`,
-            [requestedStudentIds, classId, organizationId]
+            `SELECT s.student_id
+             FROM students s
+             WHERE s.student_id = ANY($1::int[])
+               AND s.organization_id = $3
+               AND (
+                 s.class_id = $2
+                 OR EXISTS (
+                   SELECT 1
+                   FROM enrolled_students es
+                   JOIN enrollments e ON es.enrollment_id = e.enrollment_id
+                   WHERE es.student_id = s.student_id
+                     AND es.class_id = $2
+                     AND e.term_id = $4
+                     AND e.organization_id = $3
+                 )
+               )`,
+            [requestedStudentIds, classId, organizationId, currentTermId]
           )
         : { rows: [] };
       const ownedStudentIds = new Set(ownedStudentsRes.rows.map(r => Number(r.student_id)));
@@ -11140,152 +11284,357 @@ const commonController = {
         });
       }
 
-      await db.query("BEGIN");
+      // Validate every submitted cell up front; nothing is written unless the
+      // whole sheet is valid.
+      const submittedCells = new Map(); // studentId -> Map(assessmentId -> number | null)
+      let skippedStudentCount = 0;
+      const outOfRangeTitles = new Set();
 
-      // Insert or update scores for each student
-      for (let studentId in scores) {
-        const parsedStudentId = Number(studentId);
+      for (const studentKey of Object.keys(scores || {})) {
+        const parsedStudentId = Number(studentKey);
         if (!Number.isInteger(parsedStudentId) || !ownedStudentIds.has(parsedStudentId)) {
-          continue; // skip foreign or unknown students
+          skippedStudentCount += 1;
+          continue;
         }
-        let totalScore = 0;
-        let maxTotalScore = 0; // Maximum possible score
-        const categoryScoresMap = {}; // To store total scores for each category
 
-        for (let assessmentId in scores[studentId]) {
-          let score = scores[studentId][assessmentId];
-
-          const assessmentControl = assessmentControlMap.get(Number(assessmentId));
+        for (const assessmentKey of Object.keys(scores[studentKey] || {})) {
+          const parsedAssessmentId = Number(assessmentKey);
+          const assessmentControl = assessmentControlMap.get(parsedAssessmentId);
           if (!assessmentControl || !assessmentControl.canEdit) continue;
 
-          if (score === null || score === "") {
-            // Score was cleared — delete the existing row so it doesn't reappear
-            await db.query(
-              `DELETE FROM assessment_results WHERE student_id = $1 AND assessment_id = $2`,
-              [studentId, assessmentId]
-            );
+          if (!submittedCells.has(parsedStudentId)) {
+            submittedCells.set(parsedStudentId, new Map());
+          }
+
+          const rawScore = scores[studentKey][assessmentKey];
+          if (rawScore === null || rawScore === undefined || String(rawScore).trim() === "") {
+            submittedCells.get(parsedStudentId).set(parsedAssessmentId, null);
             continue;
           }
 
-          const { max_score, category } = assessmentControl;
-
-          totalScore += parseFloat(score);
-          maxTotalScore += parseFloat(max_score);
-
-          // Insert or update the score in the assessment_results table
-          await db.query(
-            `
-                            INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                            ON CONFLICT (student_id, assessment_id)
-                            DO UPDATE SET 
-                                score = EXCLUDED.score,
-                                term_id = EXCLUDED.term_id,
-                                subject_id = EXCLUDED.subject_id,
-                                organization_id = EXCLUDED.organization_id,
-                                class_id = EXCLUDED.class_id,
-                                category = EXCLUDED.category
-                        `,
-            [
-              studentId,
-              assessmentId,
-              score,
-              subjectId,
-              currentTermId,
-              organizationId,
-              classId,
-              category,
-            ]
-          );
-
-          // Update categoryScoresMap for each category
-          if (!categoryScoresMap[category]) {
-            categoryScoresMap[category] = 0;
+          // Server-side range check (the browser check can be bypassed).
+          // Same allowance as the input: 0 to max score + 10.
+          // Scores are stored as NUMERIC(5,2), so round to 2 decimals and
+          // never exceed 999.99.
+          const numericScore = Math.round(Number(rawScore) * 100) / 100;
+          const allowedMax = Math.min(Number(assessmentControl.max_score || 0) + 10, 999.99);
+          if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > allowedMax) {
+            outOfRangeTitles.add(`${assessmentControl.title} (0-${allowedMax})`);
+            continue;
           }
-          categoryScoresMap[category] += parseFloat(score);
-        }
-
-        // Calculate total percentage based on the scores achieved vs. the maximum possible score
-        const totalPercentage =
-          maxTotalScore > 0 ? (totalScore / maxTotalScore) * 100 : null;
-
-        // Calculate grade
-        const grade =
-          totalPercentage !== null
-            ? await getGradeLabelFromScoreRemark(
-                db,
-                organizationId,
-                classId,
-                currentTermId,
-                totalPercentage
-              )
-            : "-";
-
-        // Save total_subject_score, total_percentage, and grade in assessment_results table
-        await db.query(
-          `
-                    UPDATE assessment_results
-                    SET total_subject_score = $1,
-                        total_percentage = $2,
-                        grade = $3
-                    WHERE student_id = $4 AND subject_id = $5 AND term_id = $6 AND class_id = $7
-                `,
-          [
-            totalScore,
-            totalPercentage,
-            grade,
-            studentId,
-            subjectId,
-            currentTermId,
-            classId,
-          ]
-        );
-
-        // Insert or update category scores in the category_scores table
-        for (let category in categoryScoresMap) {
-          const totalCategoryScore = categoryScoresMap[category];
-
-          await db.query(
-            `
-                        INSERT INTO category_scores (student_id, class_id, subject_id, organization_id, category, total_score, term_id)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
-                        ON CONFLICT (student_id, class_id, subject_id, organization_id, category, term_id)
-                        DO UPDATE SET 
-                            total_score = EXCLUDED.total_score
-                    `,
-            [
-              studentId,
-              classId,
-              subjectId,
-              organizationId,
-              category,
-              totalCategoryScore,
-              currentTermId,
-            ]
-          );
+          submittedCells.get(parsedStudentId).set(parsedAssessmentId, numericScore);
         }
       }
 
-      // Update student positions after scores are updated
-      await this.updateStudentPositions(
-        db,
-        subjectId,
-        organizationId,
-        classId,
-        currentTermId
-      );
+      if (outOfRangeTitles.size > 0) {
+        return res.status(400).json({
+          error: `Some scores are not valid numbers or are out of range for: ${Array.from(outOfRangeTitles).join(", ")}. Nothing was saved.`,
+        });
+      }
 
-      await db.query("COMMIT");
-      req.flash("success", "Scores and grades saved successfully.");
+      let savedCount = 0;
+      let clearedCount = 0;
+
+      // pool.query() may run each statement on a different connection, so a
+      // transaction must use one dedicated client. Running BEGIN/COMMIT on
+      // the pool left connections stuck "idle in transaction" and saved
+      // scores vanished on refresh.
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+        // A large sheet (or one queued behind another teacher's save) can
+        // legitimately take longer than the pool's default statement limit.
+        await client.query("SET LOCAL statement_timeout = '120s'");
+        // Serialize saves of the same score sheet so two teachers saving at
+        // once cannot deadlock or overwrite each other's totals/positions.
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtext('saveAllScores'), hashtext($1))",
+          [`${organizationId}:${classId}:${subjectId}:${currentTermId}`]
+        );
+
+        const submittedStudentIds = Array.from(submittedCells.keys());
+
+        // Current scores on this sheet (read under the lock) so only cells
+        // that actually changed are written. Re-saving a mostly unchanged
+        // sheet is then close to free.
+        const existingResult = submittedStudentIds.length
+          ? await client.query(
+              `
+                SELECT ar.student_id, ar.assessment_id, ar.score,
+                       ar.category AS stored_category,
+                       a.max_score, a.category
+                FROM assessment_results ar
+                JOIN assessments a ON a.assessment_id = ar.assessment_id
+                WHERE ar.student_id = ANY($1::int[])
+                  AND a.class_id = $2 AND a.subject_id = $3
+                  AND a.term_id = $4 AND a.organization_id = $5
+              `,
+              [submittedStudentIds, classId, subjectId, currentTermId, organizationId]
+            )
+          : { rows: [] };
+
+        // studentId -> Map(assessmentId -> { score, maxScore, category })
+        const sheetByStudent = new Map();
+        existingResult.rows.forEach((row) => {
+          const studentId = Number(row.student_id);
+          if (!sheetByStudent.has(studentId)) sheetByStudent.set(studentId, new Map());
+          sheetByStudent.get(studentId).set(Number(row.assessment_id), {
+            score: row.score === null ? null : Number(row.score),
+            maxScore: Number(row.max_score || 0),
+            category: row.category,
+            storedCategory: row.stored_category,
+          });
+        });
+
+        const upsertStudentIds = [];
+        const upsertAssessmentIds = [];
+        const upsertScores = [];
+        const upsertCategories = [];
+        const clearStudentIds = [];
+        const clearAssessmentIds = [];
+        const changedStudentIds = new Set();
+
+        for (const [studentId, cells] of submittedCells) {
+          if (!sheetByStudent.has(studentId)) sheetByStudent.set(studentId, new Map());
+          const sheet = sheetByStudent.get(studentId);
+
+          for (const [assessmentId, newScore] of cells) {
+            const existing = sheet.get(assessmentId);
+            const control = assessmentControlMap.get(assessmentId);
+
+            if (newScore === null) {
+              if (existing) {
+                // Score was cleared — delete the existing row so it doesn't reappear
+                clearStudentIds.push(studentId);
+                clearAssessmentIds.push(assessmentId);
+                sheet.delete(assessmentId);
+                changedStudentIds.add(studentId);
+              }
+              continue;
+            }
+
+            // Unchanged cell: skip, unless its denormalized category is stale.
+            if (
+              existing &&
+              existing.score === newScore &&
+              existing.storedCategory === control.category
+            ) {
+              continue;
+            }
+
+            upsertStudentIds.push(studentId);
+            upsertAssessmentIds.push(assessmentId);
+            upsertScores.push(newScore);
+            upsertCategories.push(control.category);
+            sheet.set(assessmentId, {
+              score: newScore,
+              maxScore: Number(control.max_score || 0),
+              category: control.category,
+            });
+            changedStudentIds.add(studentId);
+          }
+        }
+
+        savedCount = upsertStudentIds.length;
+        clearedCount = clearStudentIds.length;
+
+        if (changedStudentIds.size > 0) {
+          // Totals and grade per student, from the merged sheet (includes
+          // scores on locked assessments, which the browser does not submit).
+          const resolveGradeLabel = await loadGradeLabelResolver(
+            client,
+            organizationId,
+            classId,
+            currentTermId
+          );
+          const totalsByStudent = new Map();
+          for (const studentId of changedStudentIds) {
+            let total = 0;
+            let max = 0;
+            const categories = new Map();
+            for (const cell of sheetByStudent.get(studentId).values()) {
+              if (cell.score === null) continue;
+              total += cell.score;
+              max += cell.maxScore;
+              categories.set(cell.category, (categories.get(cell.category) || 0) + cell.score);
+            }
+            const percentage = max > 0 ? (total / max) * 100 : null;
+            // Round like the NUMERIC(…,2) columns so unchanged totals compare
+            // equal and are not rewritten.
+            const round2 = (value) => Math.round(value * 100) / 100;
+            for (const [category, categoryScore] of categories) {
+              categories.set(category, round2(categoryScore));
+            }
+            totalsByStudent.set(studentId, {
+              total: round2(total),
+              percentage: percentage === null ? null : round2(percentage),
+              grade: resolveGradeLabel(percentage),
+              categories,
+            });
+          }
+
+          if (clearStudentIds.length) {
+            await client.query(
+              `DELETE FROM assessment_results ar
+               USING unnest($1::int[], $2::int[]) AS c(student_id, assessment_id)
+               WHERE ar.student_id = c.student_id AND ar.assessment_id = c.assessment_id`,
+              [clearStudentIds, clearAssessmentIds]
+            );
+          }
+
+          // Changed cells are written once, already carrying their totals, so
+          // each new row is inserted (and FK-checked) a single time.
+          if (upsertStudentIds.length) {
+            const upsertTotals = upsertStudentIds.map((id) => totalsByStudent.get(id));
+            await client.query(
+              `
+                INSERT INTO assessment_results (
+                  student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category,
+                  total_subject_score, total_percentage, grade
+                )
+                SELECT u.student_id, u.assessment_id, u.score, $8, $9, $10, $11, u.category,
+                       u.total_score, u.total_percentage, u.grade
+                FROM unnest($1::int[], $2::int[], $3::numeric[], $4::text[], $5::numeric[], $6::numeric[], $7::text[])
+                     AS u(student_id, assessment_id, score, category, total_score, total_percentage, grade)
+                ON CONFLICT (student_id, assessment_id)
+                DO UPDATE SET
+                    score = EXCLUDED.score,
+                    term_id = EXCLUDED.term_id,
+                    subject_id = EXCLUDED.subject_id,
+                    organization_id = EXCLUDED.organization_id,
+                    class_id = EXCLUDED.class_id,
+                    category = EXCLUDED.category,
+                    total_subject_score = EXCLUDED.total_subject_score,
+                    total_percentage = EXCLUDED.total_percentage,
+                    grade = EXCLUDED.grade
+              `,
+              [
+                upsertStudentIds,
+                upsertAssessmentIds,
+                upsertScores,
+                upsertCategories,
+                upsertTotals.map((t) => t.total),
+                upsertTotals.map((t) => t.percentage),
+                upsertTotals.map((t) => t.grade),
+                subjectId,
+                currentTermId,
+                organizationId,
+                classId,
+              ]
+            );
+          }
+
+          const totalStudentIds = Array.from(totalsByStudent.keys());
+          const totalValues = totalStudentIds.map((id) => totalsByStudent.get(id));
+
+          // Bring the stored totals on the student's other rows in line, only
+          // where they differ.
+          await client.query(
+            `
+              UPDATE assessment_results ar
+              SET total_subject_score = t.total_score,
+                  total_percentage = t.total_percentage,
+                  grade = t.grade
+              FROM unnest($1::int[], $2::numeric[], $3::numeric[], $4::text[])
+                   AS t(student_id, total_score, total_percentage, grade)
+              WHERE ar.student_id = t.student_id
+                AND ar.subject_id = $5 AND ar.term_id = $6 AND ar.class_id = $7
+                AND (
+                  ar.total_subject_score IS DISTINCT FROM t.total_score
+                  OR ar.total_percentage IS DISTINCT FROM t.total_percentage
+                  OR ar.grade IS DISTINCT FROM t.grade
+                )
+            `,
+            [
+              totalStudentIds,
+              totalValues.map((t) => t.total),
+              totalValues.map((t) => t.percentage),
+              totalValues.map((t) => t.grade),
+              subjectId,
+              currentTermId,
+              classId,
+            ]
+          );
+
+          const categoryStudentIds = [];
+          const categoryNames = [];
+          const categoryTotals = [];
+          totalStudentIds.forEach((studentId) => {
+            for (const [category, categoryScore] of totalsByStudent.get(studentId).categories) {
+              categoryStudentIds.push(studentId);
+              categoryNames.push(category);
+              categoryTotals.push(categoryScore);
+            }
+          });
+
+          if (categoryStudentIds.length) {
+            await client.query(
+              `
+                INSERT INTO category_scores (student_id, class_id, subject_id, organization_id, category, total_score, term_id)
+                SELECT c.student_id, $4, $5, $6, c.category, c.total_score, $7
+                FROM unnest($1::int[], $2::text[], $3::numeric[]) AS c(student_id, category, total_score)
+                ON CONFLICT (student_id, class_id, subject_id, organization_id, category, term_id)
+                DO UPDATE SET
+                    total_score = EXCLUDED.total_score
+                WHERE category_scores.total_score IS DISTINCT FROM EXCLUDED.total_score
+              `,
+              [categoryStudentIds, categoryNames, categoryTotals, classId, subjectId, organizationId, currentTermId]
+            );
+          }
+
+          // Drop category totals left behind when every score in that
+          // category was cleared for a student.
+          await client.query(
+            `
+              DELETE FROM category_scores cs
+              WHERE cs.student_id = ANY($1::int[])
+                AND cs.class_id = $2 AND cs.subject_id = $3
+                AND cs.organization_id = $4 AND cs.term_id = $5
+                AND NOT EXISTS (
+                  SELECT 1 FROM assessment_results ar
+                  WHERE ar.student_id = cs.student_id
+                    AND ar.class_id = cs.class_id
+                    AND ar.subject_id = cs.subject_id
+                    AND ar.term_id = cs.term_id
+                    AND ar.category = cs.category
+                )
+            `,
+            [totalStudentIds, classId, subjectId, organizationId, currentTermId]
+          );
+
+          // Update student positions after scores are updated
+          await this.updateStudentPositions(
+            client,
+            subjectId,
+            organizationId,
+            classId,
+            currentTermId
+          );
+        }
+
+        await client.query("COMMIT");
+      } catch (txError) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw txError;
+      } finally {
+        client.release();
+      }
+
+      const changeParts = [];
+      if (savedCount > 0) changeParts.push(`${savedCount} score${savedCount === 1 ? "" : "s"} saved`);
+      if (clearedCount > 0) changeParts.push(`${clearedCount} cleared`);
+      let message = changeParts.length
+        ? `Scores saved successfully (${changeParts.join(", ")}).`
+        : "No changes to save. All scores are already up to date.";
+      if (skippedStudentCount > 0) {
+        message += ` ${skippedStudentCount} student${skippedStudentCount === 1 ? " was" : "s were"} skipped because they are not enrolled in this class for this term.`;
+      }
+
       res
         .status(200)
-        .json({ success: true, message: "Scores saved successfully." });
+        .json({ success: true, message, savedCount, clearedCount, skippedStudentCount });
     } catch (error) {
-      await db.query("ROLLBACK");
-            req.flash(
-        "error",
-        "An error occurred while saving scores. Please try again."
-      );
+      console.error("[saveAllScores] Failed to save scores:", error);
       res.status(500).json({
         error: "An error occurred while saving scores. Please try again.",
       });
@@ -13748,7 +14097,8 @@ NUMBERING:
         questionsResult.rows.map((q) => [Number(q.question_id), Number(q.marks)])
       );
 
-      await db.query("BEGIN");
+      const client = await db.connect();
+      await client.query("BEGIN");
       let newScore = 0;
       try {
         for (const [questionIdStr, rawValue] of Object.entries(marksInput)) {
@@ -13760,7 +14110,7 @@ NUMBERING:
           if (!Number.isFinite(awarded)) awarded = 0;
           awarded = Math.max(0, Math.min(awarded, maxMarks));
 
-          await db.query(
+          await client.query(
             `UPDATE student_assessment_responses
              SET awarded_marks = $1, updated_at = NOW()
              WHERE attempt_id = $2 AND question_id = $3`,
@@ -13768,7 +14118,7 @@ NUMBERING:
           );
         }
 
-        const totalResult = await db.query(
+        const totalResult = await client.query(
           `SELECT COALESCE(SUM(awarded_marks), 0) AS total
            FROM student_assessment_responses
            WHERE attempt_id = $1`,
@@ -13780,7 +14130,7 @@ NUMBERING:
         // assessment_results (the subject dashboard's source) unless this
         // attempt was already posted before — posting itself only happens via
         // the explicit "Post Score" action.
-        await db.query(
+        await client.query(
           `UPDATE student_assessment_attempts SET score = $1, updated_at = NOW() WHERE attempt_id = $2`,
           [newScore, attemptId]
         );
@@ -13788,7 +14138,7 @@ NUMBERING:
         const wasAlreadyPosted = Boolean(attempt.posted_at);
 
         if (wasAlreadyPosted) {
-          await db.query(
+          await client.query(
             `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
              ON CONFLICT (student_id, assessment_id)
@@ -13805,7 +14155,7 @@ NUMBERING:
             ]
           );
 
-          await recomputeSubjectTotalsForStudent(db, {
+          await recomputeSubjectTotalsForStudent(client, {
             studentId: attempt.student_id,
             subjectId: attempt.subject_id,
             classId: attempt.class_id,
@@ -13814,7 +14164,7 @@ NUMBERING:
           });
 
           await commonController.updateStudentPositions(
-            db,
+            client,
             attempt.subject_id,
             organizationId,
             attempt.class_id,
@@ -13822,10 +14172,12 @@ NUMBERING:
           );
         }
 
-        await db.query("COMMIT");
+        await client.query("COMMIT");
       } catch (txError) {
-        await db.query("ROLLBACK");
+        await client.query("ROLLBACK").catch(() => {});
         throw txError;
+      } finally {
+        client.release();
       }
 
       return res.json({ success: true, score: newScore });
@@ -15616,6 +15968,9 @@ NUMBERING:
   },
 
   deleteEmployee: async (req, res, db) => {
+    // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+    // connections and strand writes in an open transaction.
+    let txClient = null;
     const { userId } = req.params;
 
     if (!userId) {
@@ -15627,16 +15982,17 @@ NUMBERING:
     let replacementUser = null;
 
     try {
-      await db.query("BEGIN");
+      txClient = await db.connect();
+      await txClient.query("BEGIN");
 
       // Confirm employee exists in this organization
-      const employeeResult = await db.query(
+      const employeeResult = await txClient.query(
         "SELECT user_id, first_name, last_name, account_type FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1",
         [userId, organizationId]
       );
 
       if (employeeResult.rows.length === 0) {
-        await db.query("ROLLBACK");
+        if (txClient) await txClient.query("ROLLBACK").catch(() => {});
         req.flash("error", "Employee not found in this organization.");
         return res.redirect("/common/manageEmployees");
       }
@@ -15653,14 +16009,14 @@ NUMBERING:
       };
 
       if (employee.account_type === "Manager") {
-        const primaryManagerUserId = await getPrimaryManagerUserId(db, organizationId);
+        const primaryManagerUserId = await getPrimaryManagerUserId(txClient, organizationId);
         const isPrimaryManager =
           primaryManagerUserId !== null && String(primaryManagerUserId) === String(userId);
 
         if (isPrimaryManager) {
           const fullPermissionSet = toPermissionSet(allPermissionKeys);
 
-          const replacementCandidatesResult = await db.query(
+          const replacementCandidatesResult = await txClient.query(
             `
               SELECT
                 u.user_id,
@@ -15699,7 +16055,7 @@ NUMBERING:
           }
 
           if (!replacementUser) {
-            await db.query("ROLLBACK");
+            if (txClient) await txClient.query("ROLLBACK").catch(() => {});
             req.flash(
               "error",
               "Primary manager cannot be deleted until another Manager or Supervisor with all permissions exists."
@@ -15709,7 +16065,7 @@ NUMBERING:
 
           const replacementRole = String(replacementUser.account_type || "").toLowerCase();
           if (replacementRole === "supervisor") {
-            await db.query(
+            await txClient.query(
               `
                 UPDATE users
                 SET account_type = 'Manager', updated_at = NOW()
@@ -15718,12 +16074,12 @@ NUMBERING:
               [replacementUser.user_id, organizationId]
             );
 
-            await db.query(
+            await txClient.query(
               "DELETE FROM user_permissions WHERE user_id = $1 AND organization_id = $2",
               [replacementUser.user_id, organizationId]
             );
 
-            await db.query(
+            await txClient.query(
               `
                 INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
                 SELECT $1, $2, unnest($3::text[]), $4
@@ -15742,7 +16098,7 @@ NUMBERING:
       // Determine fallback owner for documents created by this employee
       // IMPORTANT: requesterUserId may be organization_id for org-account logins,
       // so only select fallback from actual users table in this organization.
-      const fallbackResult = await db.query(
+      const fallbackResult = await txClient.query(
         `SELECT user_id
          FROM users
          WHERE organization_id = $1
@@ -15760,9 +16116,9 @@ NUMBERING:
 
       // Reassign ownership of documents if documents table exists
       try {
-        const docsTableExists = await db.query(`SELECT to_regclass('public.documents') AS tbl`);
+        const docsTableExists = await txClient.query(`SELECT to_regclass('public.documents') AS tbl`);
         if (docsTableExists.rows[0]?.tbl) {
-          const docsOwnedResult = await db.query(
+          const docsOwnedResult = await txClient.query(
             "SELECT COUNT(*)::int AS count FROM documents WHERE organization_id = $1 AND created_by = $2",
             [organizationId, userId]
           );
@@ -15773,7 +16129,7 @@ NUMBERING:
           }
 
           if (docsOwnedCount > 0 && fallbackOwnerId) {
-            await db.query(
+            await txClient.query(
               "UPDATE documents SET created_by = $1, updated_at = NOW() WHERE organization_id = $2 AND created_by = $3",
               [fallbackOwnerId, organizationId, userId]
             );
@@ -15783,11 +16139,11 @@ NUMBERING:
         throw documentError;
       }
 
-      await db.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
-      await db.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
-      await db.query("DELETE FROM user_permissions WHERE user_id = $1", [userId]);
+      await txClient.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
+      await txClient.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
+      await txClient.query("DELETE FROM user_permissions WHERE user_id = $1", [userId]);
 
-      const deleteResult = await db.query(
+      const deleteResult = await txClient.query(
         "DELETE FROM users WHERE user_id = $1 AND organization_id = $2",
         [userId, organizationId]
       );
@@ -15796,7 +16152,7 @@ NUMBERING:
         throw new Error("Employee deletion failed. The employee could not be removed.");
       }
 
-      await db.query("COMMIT");
+      await txClient.query("COMMIT");
       if (replacementUser?.user_id) {
         invalidateUserPermissionCache(organizationId, replacementUser.user_id);
       }
@@ -15805,7 +16161,7 @@ NUMBERING:
       req.flash("success", "Employee deleted successfully.");
       res.redirect("/common/manageEmployees");
     } catch (error) {
-      try { await db.query("ROLLBACK"); } catch (rollbackError) {}
+      if (txClient) await txClient.query("ROLLBACK").catch(() => {});
 
       if (error?.code === "23503") {
         let detailedMessage = "Failed to delete employee: this user is linked to protected records.";
@@ -15860,6 +16216,8 @@ NUMBERING:
         req.flash("error", "Failed to delete employee.");
       }
       res.redirect("/common/manageEmployees");
+    } finally {
+      if (txClient) txClient.release();
     }
   },
 
@@ -16771,6 +17129,9 @@ NUMBERING:
   },
 
   setMainEmployee: async (req, res, db) => {
+    // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+    // connections and strand writes in an open transaction.
+    let txClient = null;
     const { class_id, main_employee } = req.body;
     const organizationId = req.session.organizationId;
     if (!organizationId) {
@@ -16786,26 +17147,29 @@ NUMBERING:
       if (!ownership.rows[0] || !ownership.rows[0].class_ok || !ownership.rows[0].user_ok) {
         return res.status(403).json({ success: false, message: "Class or employee does not belong to your organization." });
       }
-      await db.query("BEGIN");
-      await db.query(
+      txClient = await db.connect();
+      await txClient.query("BEGIN");
+      await txClient.query(
         `UPDATE user_classes uc SET main = FALSE
           WHERE uc.class_id = $1
             AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = uc.user_id AND u.organization_id = $2)`,
         [class_id, organizationId]
       );
-      await db.query(
+      await txClient.query(
         `UPDATE user_classes uc SET main = TRUE
           WHERE uc.class_id = $1 AND uc.user_id = $2
             AND EXISTS (SELECT 1 FROM users u WHERE u.user_id = uc.user_id AND u.organization_id = $3)`,
         [class_id, main_employee, organizationId]
       );
-      await db.query("COMMIT");
+      await txClient.query("COMMIT");
       res.json({ success: true, message: "Main employee set successfully." });
     } catch (error) {
-      await db.query("ROLLBACK");
+      if (txClient) await txClient.query("ROLLBACK").catch(() => {});
             res
         .status(500)
         .json({ success: false, message: "Failed to set main employee." });
+    } finally {
+      if (txClient) txClient.release();
     }
   },
 
@@ -17165,6 +17529,9 @@ NUMBERING:
   },
 
   updateSchoolYearAndTerms: async (req, res, db) => {
+    // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+    // connections and strand writes in an open transaction.
+    let txClient = null;
     const {
       yearId,
       year_label,
@@ -17275,23 +17642,24 @@ NUMBERING:
         }
       }
 
-      await db.query("BEGIN");
+      txClient = await db.connect();
+      await txClient.query("BEGIN");
 
       let enrollmentCopySummary = null;
 
       // Update school year label
-      await db.query(
+      await txClient.query(
         "UPDATE school_years SET year_label = $1 WHERE id = $2 AND organization_id = $3",
         [normalizedYearLabel, yearIdInt, organizationId]
       );
 
       // Mark current year
       if (currentYear) {
-        await db.query(
+        await txClient.query(
           "UPDATE school_years SET current = FALSE WHERE organization_id = $1",
           [organizationId]
         );
-        await db.query(
+        await txClient.query(
           "UPDATE school_years SET current = TRUE WHERE id = $1 AND organization_id = $2",
           [yearIdInt, organizationId]
         );
@@ -17327,24 +17695,24 @@ NUMBERING:
 
         if (termIdInt) {
           // Update existing term
-          await db.query(
+          await txClient.query(
             "UPDATE terms SET term_name = $1, start_date = $2, end_date = $3 WHERE term_id = $4 AND organization_id = $5",
             [termName, startDate, endDate, termIdInt, organizationId]
           );
 
           if (isCurrent) {
-            await db.query(
+            await txClient.query(
               "UPDATE terms SET current = FALSE WHERE organization_id = $1",
               [organizationId]
             );
-            await db.query(
+            await txClient.query(
               "UPDATE terms SET current = TRUE WHERE term_id = $1 AND organization_id = $2",
               [termIdInt, organizationId]
             );
           }
 
           // Clean up classes
-          await db.query(
+          await txClient.query(
             "DELETE FROM term_classes WHERE term_id = $1 AND organization_id = $2",
             [termIdInt, organizationId]
           );
@@ -17353,7 +17721,7 @@ NUMBERING:
           for (const classId of selectedClasses) {
             const idInt = parseInt(classId, 10);
             if (!isNaN(idInt)) {
-              await db.query(
+              await txClient.query(
                 "INSERT INTO term_classes (term_id, class_id, organization_id) VALUES ($1, $2, $3)",
                 [termIdInt, idInt, organizationId]
               );
@@ -17361,18 +17729,18 @@ NUMBERING:
           }
         } else {
           // Insert new term
-          const newTermResult = await db.query(
+          const newTermResult = await txClient.query(
             "INSERT INTO terms (term_name, start_date, end_date, school_year_id, organization_id, current) VALUES ($1, $2, $3, $4, $5, FALSE) RETURNING term_id",
             [termName, startDate, endDate, yearIdInt, organizationId]
           );
           const newTermId = newTermResult.rows[0].term_id;
 
           if (isCurrent) {
-            await db.query(
+            await txClient.query(
               "UPDATE terms SET current = FALSE WHERE organization_id = $1",
               [organizationId]
             );
-            await db.query(
+            await txClient.query(
               "UPDATE terms SET current = TRUE WHERE term_id = $1 AND organization_id = $2",
               [newTermId, organizationId]
             );
@@ -17382,7 +17750,7 @@ NUMBERING:
           for (const classId of selectedClasses) {
             const idInt = parseInt(classId, 10);
             if (!isNaN(idInt)) {
-              await db.query(
+              await txClient.query(
                 "INSERT INTO term_classes (term_id, class_id, organization_id) VALUES ($1, $2, $3)",
                 [newTermId, idInt, organizationId]
               );
@@ -17406,7 +17774,7 @@ NUMBERING:
           throw new Error("Current term changed while preparing enrollment copy. Please try saving again.");
         }
 
-        const targetTermResult = await db.query(
+        const targetTermResult = await txClient.query(
           `SELECT term_id, school_year_id
            FROM terms
            WHERE term_id = $1
@@ -17421,7 +17789,7 @@ NUMBERING:
 
         const targetSchoolYearId = Number(targetTermResult.rows[0].school_year_id);
 
-        const sourceClassResult = await db.query(
+        const sourceClassResult = await txClient.query(
           `SELECT DISTINCT es.class_id
            FROM enrollments e
            JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
@@ -17437,7 +17805,7 @@ NUMBERING:
           .map((row) => Number(row.class_id))
           .filter((value) => Number.isFinite(value) && value > 0))];
 
-        const organizationClassResult = await db.query(
+        const organizationClassResult = await txClient.query(
           `SELECT class_id
            FROM classes
            WHERE organization_id = $1`,
@@ -17455,7 +17823,7 @@ NUMBERING:
         const carryStudentClassIds = effectiveClassIds.filter((classId) => sourceClassSet.has(classId));
 
         let targetEnrollmentId;
-        const targetEnrollmentResult = await db.query(
+        const targetEnrollmentResult = await txClient.query(
           `SELECT enrollment_id
            FROM enrollments
            WHERE organization_id = $1
@@ -17469,7 +17837,7 @@ NUMBERING:
         if (targetEnrollmentResult.rows.length) {
           targetEnrollmentId = Number(targetEnrollmentResult.rows[0].enrollment_id);
         } else {
-          const insertEnrollmentResult = await db.query(
+          const insertEnrollmentResult = await txClient.query(
             `INSERT INTO enrollments (school_year_id, term_id, organization_id, created_at)
              VALUES ($1, $2, $3, NOW())
              RETURNING enrollment_id`,
@@ -17480,7 +17848,7 @@ NUMBERING:
 
         let insertedClassCount = 0;
         if (effectiveClassIds.length > 0) {
-          const insertClassResult = await db.query(
+          const insertClassResult = await txClient.query(
             `INSERT INTO enrolled_classes (enrollment_id, class_id)
              SELECT $1, class_id
              FROM UNNEST($2::int[]) AS src(class_id)
@@ -17497,7 +17865,7 @@ NUMBERING:
 
         let insertedStudentCount = 0;
         if (normalizedEnrollMode === "classes_and_students" && carryStudentClassIds.length > 0) {
-          const sourceStudentResult = await db.query(
+          const sourceStudentResult = await txClient.query(
             `SELECT DISTINCT es.student_id, es.class_id
              FROM enrollments e
              JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
@@ -17515,7 +17883,7 @@ NUMBERING:
             const classId = Number(row.class_id);
             if (!Number.isFinite(studentId) || !Number.isFinite(classId)) continue;
 
-            const insertStudentResult = await db.query(
+            const insertStudentResult = await txClient.query(
               `INSERT INTO enrolled_students (enrollment_id, student_id, class_id)
                SELECT $1, $2, $3
                WHERE NOT EXISTS (
@@ -17539,7 +17907,7 @@ NUMBERING:
         };
       }
 
-      await db.query("COMMIT");
+      await txClient.query("COMMIT");
 
       const activeTermResult = await db.query(
         `SELECT t.term_id, t.term_name, sy.year_label
@@ -17594,10 +17962,12 @@ NUMBERING:
       }
       res.redirect("/common/manageRecords");
     } catch (error) {
-      await db.query("ROLLBACK");
+      if (txClient) await txClient.query("ROLLBACK").catch(() => {});
       console.error("[ManageRecords] Failed to update school year/terms:", error);
       req.flash("error", "Failed to update school year and terms.");
       res.redirect("/common/manageRecords");
+    } finally {
+      if (txClient) txClient.release();
     }
   },
 

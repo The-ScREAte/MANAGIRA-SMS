@@ -397,9 +397,12 @@ async function saveClassSchedule(db, options) {
     }
   }
 
-  await db.query("BEGIN");
+  // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+  // connections and strand writes in an open transaction.
+  const txClient = await db.connect();
   try {
-    const upsertResult = await db.query(
+    await txClient.query("BEGIN");
+    const upsertResult = await txClient.query(
       `
         INSERT INTO class_schedules (
           organization_id, class_id, school_year_id, term_id, created_by, updated_by
@@ -412,24 +415,38 @@ async function saveClassSchedule(db, options) {
     );
 
     const scheduleId = upsertResult.rows[0].schedule_id;
-    await db.query(`DELETE FROM class_schedule_entries WHERE schedule_id = $1`, [scheduleId]);
+    await txClient.query(`DELETE FROM class_schedule_entries WHERE schedule_id = $1`, [scheduleId]);
 
-    for (const [index, entry] of normalizedEntries.entries()) {
-      await db.query(
+    if (normalizedEntries.length) {
+      // One bulk insert instead of one round trip per row.
+      await txClient.query(
         `
           INSERT INTO class_schedule_entries (
             schedule_id, day_of_week, start_time, end_time, subject_id, row_order, custom_label
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          )
+          SELECT $1, e.day_of_week, e.start_time, e.end_time, e.subject_id, e.row_order, e.custom_label
+          FROM unnest($2::int[], $3::time[], $4::time[], $5::int[], $6::int[], $7::text[])
+               AS e(day_of_week, start_time, end_time, subject_id, row_order, custom_label)
         `,
-        [scheduleId, entry.dayOfWeek, entry.startTime, entry.endTime, entry.subjectId, index, entry.customLabel || null]
+        [
+          scheduleId,
+          normalizedEntries.map((entry) => entry.dayOfWeek),
+          normalizedEntries.map((entry) => entry.startTime),
+          normalizedEntries.map((entry) => entry.endTime),
+          normalizedEntries.map((entry) => entry.subjectId),
+          normalizedEntries.map((entry, index) => index),
+          normalizedEntries.map((entry) => entry.customLabel || null),
+        ]
       );
     }
 
-    await db.query("COMMIT");
+    await txClient.query("COMMIT");
     return getClassScheduleForTerm(db, { organizationId, classId, termId });
   } catch (error) {
-    await db.query("ROLLBACK");
+    await txClient.query("ROLLBACK").catch(() => {});
     throw error;
+  } finally {
+    txClient.release();
   }
 }
 
@@ -474,9 +491,12 @@ async function clonePreviousClassSchedule(db, options) {
     customLabel: entry.customLabel || null,
   }));
 
-  await db.query("BEGIN");
+  // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+  // connections and strand writes in an open transaction.
+  const txClient = await db.connect();
   try {
-    const insertResult = await db.query(
+    await txClient.query("BEGIN");
+    const insertResult = await txClient.query(
       `
         INSERT INTO class_schedules (
           organization_id, class_id, school_year_id, term_id, reused_from_schedule_id, created_by, updated_by
@@ -492,23 +512,37 @@ async function clonePreviousClassSchedule(db, options) {
     );
 
     const scheduleId = insertResult.rows[0].schedule_id;
-    await db.query(`DELETE FROM class_schedule_entries WHERE schedule_id = $1`, [scheduleId]);
+    await txClient.query(`DELETE FROM class_schedule_entries WHERE schedule_id = $1`, [scheduleId]);
 
-    for (const [index, entry] of clonedEntries.entries()) {
-      await db.query(
+    if (clonedEntries.length) {
+      // One bulk insert instead of one round trip per row.
+      await txClient.query(
         `
           INSERT INTO class_schedule_entries (
             schedule_id, day_of_week, start_time, end_time, subject_id, row_order, custom_label
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          )
+          SELECT $1, e.day_of_week, e.start_time, e.end_time, e.subject_id, e.row_order, e.custom_label
+          FROM unnest($2::int[], $3::time[], $4::time[], $5::int[], $6::int[], $7::text[])
+               AS e(day_of_week, start_time, end_time, subject_id, row_order, custom_label)
         `,
-        [scheduleId, entry.dayOfWeek, entry.startTime, entry.endTime, entry.subjectId, index, entry.customLabel || null]
+        [
+          scheduleId,
+          clonedEntries.map((entry) => entry.dayOfWeek),
+          clonedEntries.map((entry) => entry.startTime),
+          clonedEntries.map((entry) => entry.endTime),
+          clonedEntries.map((entry) => entry.subjectId),
+          clonedEntries.map((entry, index) => index),
+          clonedEntries.map((entry) => entry.customLabel || null),
+        ]
       );
     }
 
-    await db.query("COMMIT");
+    await txClient.query("COMMIT");
   } catch (error) {
-    await db.query("ROLLBACK");
+    await txClient.query("ROLLBACK").catch(() => {});
     throw error;
+  } finally {
+    txClient.release();
   }
 
   return getClassScheduleForTerm(db, { organizationId, classId, termId });

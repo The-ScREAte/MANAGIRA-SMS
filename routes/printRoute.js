@@ -37,6 +37,7 @@ module.exports = (db) => {
     // Merit sheet generation (supports GET refresh + POST form submit)
     router.get('/generateMeritSheet', checkFeatureAccess, isAuthenticated, printController.generateMeritSheet);
     router.post('/generateMeritSheet', isAuthenticated, printController.generateMeritSheet); // Generate merit sheet
+    router.post('/downloadMeritSheet', checkFeatureAccess, isAuthenticated, express.json(), printController.downloadMeritSheet); // Merit sheet PDF
 
     // Route to upload a signature image using multer's memory storage
     router.post('/uploadSignatureImage', isAuthenticated, upload.single('signatureImage'), printController.uploadSignatureImage);

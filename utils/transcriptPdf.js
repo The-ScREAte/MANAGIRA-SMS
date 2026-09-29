@@ -1,11 +1,9 @@
 // Gives transcripts the same persistent PDF pipeline report cards already
-// have: render the existing /transcript/:studentId page with Puppeteer
-// (reusing the requester's session cookie), upload the PDF to S3, and cache
+// have: render the existing /transcript/:studentId page through
+// utils/pdfService (reusing the requester's session cookie), store it, and cache
 // the resulting URL — so "Notify Guardians" can link to a real, stable PDF
 // instead of a temp file that's deleted after one use.
-const { PutObjectCommand } = require("@aws-sdk/client-s3");
-const { s3Client } = require("../config/s3");
-const puppeteer = require("puppeteer");
+const { renderTranscriptPdf, storePdf, sessionCookieFromHeader } = require("./pdfService");
 
 let schemaReady = false;
 
@@ -21,14 +19,6 @@ async function ensurePostedTranscriptsSchema(dbClient) {
     )
   `);
   schemaReady = true;
-}
-
-function buildPdfUrl(bucketName, regionName, pdfKey) {
-  const cleanKey = String(pdfKey || "").replace(/^\/+/, "");
-  if (!regionName || regionName === "us-east-1") {
-    return `https://${bucketName}.s3.amazonaws.com/${cleanKey}`;
-  }
-  return `https://${bucketName}.s3.${regionName}.amazonaws.com/${cleanKey}`;
 }
 
 // Returns a stable S3 URL for this student's transcript, generating and
@@ -48,58 +38,19 @@ async function ensureTranscriptPdfLink(dbClient, req, studentId) {
   const existingUrl = cached.rows[0]?.pdf_url;
   if (existingUrl) return existingUrl;
 
-  const cookieHeader = String(req.headers.cookie || "");
-  const sessionCookieMatch = cookieHeader.match(/(?:^|;\s*)connect\.sid=([^;]+)/);
-  const sessionCookieValue = sessionCookieMatch ? sessionCookieMatch[1] : "";
-  if (!sessionCookieValue) return "";
+  const sessionCookie = sessionCookieFromHeader(req.headers.cookie);
+  if (!sessionCookie) return "";
 
-  const host = String(req.get("host") || "").trim();
-  const protocol = String(req.protocol || "https").trim();
-  const bucketName = String(process.env.S3_BUCKET_NAME || process.env.S3_PUBLIC_BUCKET_NAME || "oneplaces3").trim();
-  const regionName = String(process.env.AWS_REGION || "").trim();
-
-  let browser = null;
-  let page = null;
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
-    });
-    page = await browser.newPage();
-    await page.setCookie({
-      name: "connect.sid",
-      value: sessionCookieValue,
-      domain: host.split(":")[0],
-      path: "/",
+    // Guardian notices link the unofficial copy (watermarked "UNOFFICIAL").
+    const buffer = await renderTranscriptPdf({
+      baseUrl: `${String(req.protocol || "https").trim()}://${String(req.get("host") || "").trim()}`,
+      sessionCookie,
+      studentId,
+      official: false,
     });
 
-    const transcriptUrl = `${protocol}://${host}/transcript/${studentId}`;
-    await page.goto(transcriptUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForSelector(".transcript", { timeout: 15000 });
-    await page.evaluate(() => {
-      document.querySelectorAll(".transcript-controls").forEach((el) => {
-        el.style.display = "none";
-      });
-    });
-
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
-    });
-
-    const pdfKey = `transcripts/org_${organizationId}/student_${studentId}_${Date.now()}.pdf`;
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: bucketName,
-        Key: pdfKey,
-        Body: pdfBuffer,
-        ContentType: "application/pdf",
-      })
-    );
-
-    const pdfUrl = buildPdfUrl(bucketName, regionName, pdfKey);
+    const pdfUrl = await storePdf(`transcripts/org_${organizationId}/student_${studentId}_${Date.now()}.pdf`, buffer);
 
     await dbClient.query(
       `INSERT INTO posted_transcripts (organization_id, student_id, pdf_url)
@@ -109,15 +60,9 @@ async function ensureTranscriptPdfLink(dbClient, req, studentId) {
     );
 
     return pdfUrl;
-  } catch (_) {
+  } catch (error) {
+    console.error("[ensureTranscriptPdfLink] Could not generate transcript PDF:", error.message);
     return "";
-  } finally {
-    try {
-      if (page) await page.close();
-    } catch (_) {}
-    try {
-      if (browser) await browser.close();
-    } catch (_) {}
   }
 }
 

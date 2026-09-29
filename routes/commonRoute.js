@@ -364,9 +364,6 @@ module.exports = (db) => {
   router.get("/modifyAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
     commonController.modifyAssessmentGet(req, res, db)
   );
-  router.post("/modifyAssessment", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), (req, res) =>
-    commonController.modifyAssessmentPost(req, res, db)
-  );
   router.post("/saveAllScores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), upload.none(), (req, res) =>
     commonController.saveAllScores(req, res, db)
   );

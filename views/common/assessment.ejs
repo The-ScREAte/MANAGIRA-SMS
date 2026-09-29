@@ -3061,16 +3061,34 @@ input[type="number"].score-input-invalid {
                          document.getElementById("save-all-scores-button");
       if (!saveButton) return;
 
+      // Track unsaved edits so a teacher is warned before leaving with typed
+      // scores that were never saved.
+      let hasUnsavedScores = false;
+      const scoresFormForTracking = document.getElementById("save-scores-form");
+      if (scoresFormForTracking) {
+        scoresFormForTracking.addEventListener("input", function (event) {
+          if (event.target && event.target.name && event.target.name.indexOf("scores[") === 0) {
+            hasUnsavedScores = true;
+          }
+        });
+      }
+      window.addEventListener("beforeunload", function (event) {
+        if (!hasUnsavedScores) return;
+        event.preventDefault();
+        event.returnValue = "";
+      });
+
+      let isSavingScores = false;
+
       saveButton.addEventListener("click", async function () {
+          // Ignore repeat clicks while a save is in flight.
+          if (isSavingScores) return;
+
           const formElement = document.getElementById("save-scores-form");
-          const formData = new FormData(formElement);
           const spinner = document.getElementById("loading-spinner");
           const scoreInputs = formElement
             ? Array.prototype.slice.call(formElement.querySelectorAll('input[name^="scores["]'))
             : [];
-
-          // Show loading spinner
-          spinner.style.display = "block";
 
           // Clear any previous invalid markers before validating this save attempt.
           scoreInputs.forEach((input) => {
@@ -3078,44 +3096,40 @@ input[type="number"].score-input-invalid {
             input.removeAttribute("title");
           });
 
-          // Transform FormData into a format suitable for sending as JSON
+          // Build the payload straight from the inputs (one pass, no per-cell
+          // DOM lookups) so very large sheets stay fast. Disabled inputs belong
+          // to locked assessments and are not submitted.
           const scoresData = {};
-          let hasInvalidScore = false;
           let invalidCount = 0;
 
-          formData.forEach((value, key) => {
-            const matches = key.match(/^scores\[(\d+)\]\[(\d+)\]$/);
-            if (matches) {
-              const studentId = matches[1];
-              const assessmentId = matches[2];
-              const inputElement = document.querySelector(
-                `input[name="${key}"]`
-              );
-              const maxScore = parseFloat(inputElement.getAttribute("max"));
-              const score = parseFloat(value);
+          scoreInputs.forEach((inputElement) => {
+            if (inputElement.disabled) return;
+            const matches = inputElement.name.match(/^scores\[(\d+)\]\[(\d+)\]$/);
+            if (!matches) return;
 
-              if (!scoresData[studentId]) {
-                scoresData[studentId] = {};
-              }
+            const studentId = matches[1];
+            const assessmentId = matches[2];
+            const value = String(inputElement.value || "").trim();
+            const maxScore = parseFloat(inputElement.getAttribute("max"));
+            const score = parseFloat(value);
 
-              // Validate score: should be between 0 and the per-input max.
-              if (!isNaN(score) && (score < 0 || score > maxScore)) {
-                hasInvalidScore = true;
-                invalidCount += 1;
-                if (inputElement) {
-                  inputElement.classList.add("score-input-invalid");
-                  inputElement.setAttribute(
-                    "title",
-                    `Allowed range is 0 to ${maxScore}`
-                  );
-                }
-              }
-
-              scoresData[studentId][assessmentId] = value;
+            if (!scoresData[studentId]) {
+              scoresData[studentId] = {};
             }
+
+            // Validate score: should be between 0 and the per-input max.
+            // badInput catches text the number field could not parse.
+            const isBadInput = inputElement.validity && inputElement.validity.badInput;
+            if (isBadInput || (value !== "" && (isNaN(score) || score < 0 || score > maxScore))) {
+              invalidCount += 1;
+              inputElement.classList.add("score-input-invalid");
+              inputElement.setAttribute("title", `Allowed range is 0 to ${maxScore}`);
+            }
+
+            scoresData[studentId][assessmentId] = value;
           });
 
-          if (hasInvalidScore) {
+          if (invalidCount > 0) {
             alert(
               `${invalidCount} score field${invalidCount === 1 ? "" : "s"} highlighted in red. Allowed range is 0 to max score + 10 for each assessment. Please correct before saving.`
             );
@@ -3124,8 +3138,6 @@ input[type="number"].score-input-invalid {
               firstInvalidInput.focus();
               firstInvalidInput.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
             }
-            // Hide loading spinner
-            spinner.style.display = "none";
             return;
           }
 
@@ -3133,31 +3145,46 @@ input[type="number"].score-input-invalid {
           const classId = "<%= classId %>";
           const termId = "<%= currentTerm.term_id %>";
 
+          isSavingScores = true;
+          saveButton.disabled = true;
+          spinner.style.display = "block";
+
           try {
             // Send scores data as JSON to the server
             const response = await fetch(
-              `/common/saveAllScores?subjectId=${subjectId}&classId=${classId}&termId=${termId}`,
+              `/common/saveAllScores?subjectId=${encodeURIComponent(subjectId)}&classId=${encodeURIComponent(classId)}&termId=${encodeURIComponent(termId)}`,
               {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
+                  "Accept": "application/json",
                 },
+                credentials: "same-origin",
                 body: JSON.stringify({ scores: scoresData }),
               }
             );
 
-            const responseData = await response.json();
+            let responseData = {};
+            try {
+              responseData = await response.json();
+            } catch (_) {
+              responseData = {};
+            }
 
-            if (response.ok) {
-              alert(responseData.message);
+            if (response.status === 401 || response.redirected) {
+              alert("Your session has expired. Please log in again in another tab, then save. Your typed scores are still on this page.");
+            } else if (response.ok && responseData.success) {
+              hasUnsavedScores = false;
+              alert(responseData.message || "Scores saved successfully.");
               window.location.reload();
             } else {
-              alert(responseData.error);
+              alert(responseData.error || responseData.message || `Scores could not be saved (error ${response.status}). Please try again.`);
             }
           } catch (error) {
-            alert("An unexpected error occurred while saving scores.");
+            alert("Could not reach the server. Check your connection and try again. Your typed scores are still on this page.");
           } finally {
-            // Hide loading spinner
+            isSavingScores = false;
+            saveButton.disabled = false;
             spinner.style.display = "none";
           }
         });

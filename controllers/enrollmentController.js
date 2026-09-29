@@ -128,6 +128,9 @@ const enrollmentController = {
     
 
     enrollmentPost: async (req, res, db) => {
+      // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+      // connections and strand writes in an open transaction.
+      let txClient = null;
       const { schoolYearId, termId, selectedClasses, selectedStudents } = req.body;
       const organizationId = req.session.organizationId;
     
@@ -178,10 +181,11 @@ const enrollmentController = {
           return res.status(403).json({ success: false, message: 'Term or school year does not belong to your organization.' });
         }
 
-        await db.query('BEGIN');
+        txClient = await db.connect();
+        await txClient.query('BEGIN');
     
         // Check for existing enrollment
-        const existingEnrollmentRes = await db.query(`
+        const existingEnrollmentRes = await txClient.query(`
           SELECT enrollment_id FROM enrollments
           WHERE school_year_id = $1 AND term_id = $2 AND organization_id = $3
         `, [schoolYearId, termId, organizationId]);
@@ -190,7 +194,7 @@ const enrollmentController = {
         if (existingEnrollmentRes.rows.length > 0) {
           enrollmentId = existingEnrollmentRes.rows[0].enrollment_id;
         } else {
-          const newEnrollmentRes = await db.query(`
+          const newEnrollmentRes = await txClient.query(`
             INSERT INTO enrollments (school_year_id, term_id, organization_id, created_at)
             VALUES ($1, $2, $3, NOW())
             RETURNING enrollment_id
@@ -201,7 +205,7 @@ const enrollmentController = {
         // Insert any new classes (avoid duplicates) -- only org-owned
         for (const classId of normalizedClassIds) {
           if (!ownedClassIds.has(Number(classId))) continue;
-          await db.query(`
+          await txClient.query(`
             INSERT INTO enrolled_classes (enrollment_id, class_id)
             SELECT $1, $2
             WHERE NOT EXISTS (
@@ -218,13 +222,13 @@ const enrollmentController = {
           for (const studentId of students) {
             const studentIdNum = Number(studentId);
             if (!ownedStudentIds.has(studentIdNum)) continue; // skip foreign students
-            const existingStudentCheck = await db.query(`
+            const existingStudentCheck = await txClient.query(`
               SELECT 1 FROM enrolled_students
               WHERE enrollment_id = $1 AND student_id = $2
             `, [enrollmentId, studentIdNum]);
     
             if (existingStudentCheck.rows.length === 0) {
-              await db.query(`
+              await txClient.query(`
                 INSERT INTO enrolled_students (enrollment_id, student_id, class_id)
                 VALUES ($1, $2, $3)
               `, [enrollmentId, studentIdNum, classIdNum]);
@@ -232,7 +236,7 @@ const enrollmentController = {
           }
         }
     
-        await db.query('COMMIT');
+        await txClient.query('COMMIT');
 
         // I1 — notify class teachers of new enrollment(s)
         const enrolledClassIds = [...new Set(Object.keys(selectedStudents || {}).map(Number).filter(Boolean).filter(id => ownedClassIds.has(id)))];
@@ -250,8 +254,10 @@ const enrollmentController = {
 
         res.status(200).json({ success: true, message: 'Enrollment updated successfully.' });
       } catch (error) {
-        await db.query('ROLLBACK');
+        if (txClient) await txClient.query('ROLLBACK').catch(() => {});
                 res.status(500).json({ success: false, message: 'Failed to enroll students.' });
+      } finally {
+        if (txClient) txClient.release();
       }
     },
           
@@ -450,6 +456,9 @@ const enrollmentController = {
     },
     
     modifyEnrollmentPost: async (req, res, db) => {
+      // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+      // connections and strand writes in an open transaction.
+      let txClient = null;
         const { schoolYearId, termId, selectedClasses, selectedStudents } = req.body;
         const { enrollmentId } = req.params;
         const organizationId = req.session.organizationId;
@@ -496,7 +505,8 @@ const enrollmentController = {
             : { rows: [] };
           const ownedStudentIds = new Set(ownedStudentsRes.rows.map(r => Number(r.student_id)));
 
-          await db.query('BEGIN');
+          txClient = await db.connect();
+          await txClient.query('BEGIN');
       
           const conflictingStudents = [];
       
@@ -506,7 +516,7 @@ const enrollmentController = {
             for (const studentId of (studentIds || [])) {
               const studentIdNum = Number(studentId);
               if (!ownedStudentIds.has(studentIdNum)) continue;
-              const conflictRes = await db.query(`
+              const conflictRes = await txClient.query(`
                 SELECT c.class_id, c.class_name, s.first_name, s.last_name
                 FROM enrolled_students es
                 JOIN enrolled_classes ec ON es.enrollment_id = ec.enrollment_id AND es.class_id = ec.class_id
@@ -520,7 +530,7 @@ const enrollmentController = {
               if (conflictRes.rows.length > 0) {
                 const currentClass = conflictRes.rows[0].class_name;
                 const studentName = `${conflictRes.rows[0].first_name} ${conflictRes.rows[0].last_name}`;
-                const newClass = await db.query('SELECT class_name FROM classes WHERE class_id = $1 AND organization_id = $2', [newClassIdNum, organizationId]).then(r => r.rows[0]?.class_name || '');
+                const newClass = await txClient.query('SELECT class_name FROM classes WHERE class_id = $1 AND organization_id = $2', [newClassIdNum, organizationId]).then(r => r.rows[0]?.class_name || '');
                 conflictingStudents.push({
                   studentId: studentIdNum,
                   studentName,
@@ -532,7 +542,7 @@ const enrollmentController = {
           }
       
           if (conflictingStudents.length > 0 && !req.query.confirmMove) {
-            await db.query('ROLLBACK');
+            if (txClient) await txClient.query('ROLLBACK').catch(() => {});
             return res.status(200).json({
               conflicts: conflictingStudents,
               message: 'Some students are already in other classes. Confirm if you want to move them.'
@@ -543,12 +553,12 @@ const enrollmentController = {
           // Org-bound: the enrollment is already validated above, and the
           // class/student ids being reinserted have all been validated to
           // belong to this org.
-          await db.query('DELETE FROM enrolled_classes WHERE enrollment_id = $1', [enrollmentId]);
-          await db.query('DELETE FROM enrolled_students WHERE enrollment_id = $1', [enrollmentId]);
+          await txClient.query('DELETE FROM enrolled_classes WHERE enrollment_id = $1', [enrollmentId]);
+          await txClient.query('DELETE FROM enrolled_students WHERE enrollment_id = $1', [enrollmentId]);
       
           const safeClassIds = requestedClassIds.filter(id => ownedClassIds.has(id));
           if (safeClassIds.length > 0) {
-            await db.query(`
+            await txClient.query(`
               INSERT INTO enrolled_classes (enrollment_id, class_id)
               SELECT $1, unnest($2::int[])
             `, [enrollmentId, safeClassIds]);
@@ -562,7 +572,7 @@ const enrollmentController = {
               for (const studentId of (students || [])) {
                 const studentIdNum = Number(studentId);
                 if (!ownedStudentIds.has(studentIdNum)) continue;
-                await db.query(`
+                await txClient.query(`
                   INSERT INTO enrolled_students (enrollment_id, student_id, class_id)
                   VALUES ($1, $2, $3)
                 `, [enrollmentId, studentIdNum, classIdNum]);
@@ -570,17 +580,22 @@ const enrollmentController = {
             }
           }
       
-          await db.query('COMMIT');
+          await txClient.query('COMMIT');
           req.flash('success', 'Enrollment modified successfully.');
           res.status(200).json({ success: true, message: 'Enrollment modified successfully.' });
         } catch (error) {
-          await db.query('ROLLBACK');
+          if (txClient) await txClient.query('ROLLBACK').catch(() => {});
                     res.status(500).json({ success: false, message: 'Failed to modify enrollment.' });
+        } finally {
+          if (txClient) txClient.release();
         }
       },
       
                       
     deleteEnrollment: async (req, res, db) => {
+      // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+      // connections and strand writes in an open transaction.
+      let txClient = null;
         const enrollmentId = req.params.enrollmentId;
         const organizationId = req.session.organizationId;
 
@@ -601,27 +616,30 @@ const enrollmentController = {
                 return res.redirect('/enrollment/manageEnrollment');
             }
 
-            await db.query('BEGIN');
+            txClient = await db.connect();
+            await txClient.query('BEGIN');
 
             // Delete enrolled students
-            await db.query(`DELETE FROM enrolled_students WHERE enrollment_id = $1`, [enrollmentId]);
+            await txClient.query(`DELETE FROM enrolled_students WHERE enrollment_id = $1`, [enrollmentId]);
 
             // Delete enrolled classes
-            await db.query(`DELETE FROM enrolled_classes WHERE enrollment_id = $1`, [enrollmentId]);
+            await txClient.query(`DELETE FROM enrolled_classes WHERE enrollment_id = $1`, [enrollmentId]);
 
             // Delete the enrollment itself (org-scoped as a final guard)
-            await db.query(
+            await txClient.query(
                 `DELETE FROM enrollments WHERE enrollment_id = $1 AND organization_id = $2`,
                 [enrollmentId, organizationId]
             );
 
-            await db.query('COMMIT');
+            await txClient.query('COMMIT');
             req.flash('success', 'Enrollment deleted successfully.');
             res.redirect('/enrollment/manageEnrollment');
         } catch (error) {
-            await db.query('ROLLBACK');
+            if (txClient) await txClient.query('ROLLBACK').catch(() => {});
                         req.flash('error', 'Failed to delete enrollment.');
             res.redirect('/enrollment/modifyEnrollment/' + enrollmentId);
+        } finally {
+          if (txClient) txClient.release();
         }
     },
         searchUsers: async (req, res, db) => {

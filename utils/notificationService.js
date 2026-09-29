@@ -850,7 +850,7 @@ async function notifyReportRecipients(db, { orgId, reportId, type, title, body, 
          WHERE u.organization_id = $1
            AND COALESCE(u.on_hold, FALSE) = FALSE
            AND (
-             u.account_type IN ('Manager', 'Supervisor', 'Organization')
+             u.account_type::text IN ('Manager', 'Supervisor', 'Organization')
              OR (
                u.account_type = 'Teacher'
                AND EXISTS (

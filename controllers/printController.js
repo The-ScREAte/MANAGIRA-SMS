@@ -1,22 +1,21 @@
 const {
   PutObjectCommand,
-  GetObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
 } = require("@aws-sdk/client-s3");
 const { s3Client } = require("../config/s3");
 const db = require("../config/db");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
-const pdfParse = require("pdf-parse");
-const Papa = require("papaparse");
-const { Readable } = require("stream");
-const path = require("path");
 const bcrypt = require("bcryptjs");
-const puppeteer = require("puppeteer");
-const fs = require("fs");
-const ejs = require("ejs");
-const axios = require("axios");
-const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
+const {
+  renderReportCardsPdf,
+  renderReportCardsPerStudent,
+  renderMeritSheetPdf,
+  storePdf,
+  safeFileSegment,
+  sessionCookieFromHeader,
+} = require("../utils/pdfService");
+const { sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { formatDisplayDate, formatDisplayName } = require("../utils/organizationDisplayPreferences");
@@ -1436,6 +1435,29 @@ const assignScoreRemark = async (percentage, organizationId, db) => {
   return remark;
 };
 
+// Optional merit sheet columns staff can show or hide. S/N, student name and
+// the assessment scores are always shown. The defaults are the original
+// layout, so links and callers that do not choose columns are unchanged.
+const MERIT_SHEET_COLUMN_KEYS = ["studentId", "grade", "total", "average", "percentage", "position"];
+const DEFAULT_MERIT_SHEET_COLUMNS = ["studentId", "grade", "total", "average", "position"];
+
+// Accepts an array or comma-separated list of column keys; undefined means
+// "not chosen" and gives the defaults. Returns the enabled keys in order.
+function parseMeritSheetColumns(input) {
+  if (input === undefined || input === null) return [...DEFAULT_MERIT_SHEET_COLUMNS];
+  const requested = new Set(
+    (Array.isArray(input) ? input : String(input).split(","))
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  );
+  return MERIT_SHEET_COLUMN_KEYS.filter((key) => requested.has(key));
+}
+
+function meritSheetColumnFlags(columnKeys) {
+  const enabled = new Set(columnKeys);
+  return Object.fromEntries(MERIT_SHEET_COLUMN_KEYS.map((key) => [key, enabled.has(key)]));
+}
+
 const printController = (db) => ({
   printStudentReport: async (req, res) => {
     const { classId, termId, studentId } = req.query;
@@ -1475,6 +1497,9 @@ const printController = (db) => ({
       ? parsedStudentIds
       : (parsedStudentId ? [parsedStudentId] : []);
     const studentFilterIds = requestedStudentIds.length ? requestedStudentIds : null;
+    // Class positions must be ranked across the whole class, so data is loaded
+    // for every student and narrowed to the requested ones only after ranking.
+    const classWideFilterIds = null;
 
     try {
       // Fetch organization details
@@ -1581,7 +1606,7 @@ const printController = (db) => ({
              OR student_id = ANY($4::int[])
            )`;
 
-      const savedReportsParams = [organizationId, parsedClassId, parsedTermId, studentFilterIds];
+      const savedReportsParams = [organizationId, parsedClassId, parsedTermId, classWideFilterIds];
 
       const savedReportsResult = await db.query(
         savedReportsQuery,
@@ -1631,7 +1656,7 @@ const printController = (db) => ({
                  OR array_length($4::int[], 1) IS NULL
                  OR es.student_id = ANY($4::int[])
                )`,
-          [parsedClassId, parsedTermId, organizationId, studentFilterIds, Number(term.school_year_id)]
+          [parsedClassId, parsedTermId, organizationId, classWideFilterIds, Number(term.school_year_id)]
         ),
         db.query(
           `SELECT COUNT(DISTINCT es.student_id)::int AS total_students
@@ -1675,7 +1700,7 @@ const printController = (db) => ({
                  OR student_id = ANY($4::int[])
                )
              GROUP BY student_id`,
-          [parsedClassId, parsedTermId, organizationId, studentFilterIds]
+          [parsedClassId, parsedTermId, organizationId, classWideFilterIds]
         ),
         db.query(
           `SELECT ar.student_id, ar.assessment_id, COALESCE(ar.score, 0) AS score
@@ -1686,7 +1711,7 @@ const printController = (db) => ({
                  OR array_length($4::int[], 1) IS NULL
                  OR ar.student_id = ANY($4::int[])
                )`,
-          [parsedClassId, parsedTermId, organizationId, studentFilterIds]
+          [parsedClassId, parsedTermId, organizationId, classWideFilterIds]
         ),
         db.query(
           `SELECT student_id, subject_id, position
@@ -1697,7 +1722,7 @@ const printController = (db) => ({
                  OR array_length($4::int[], 1) IS NULL
                  OR student_id = ANY($4::int[])
                )`,
-          [parsedClassId, parsedTermId, organizationId, studentFilterIds]
+          [parsedClassId, parsedTermId, organizationId, classWideFilterIds]
         ),
         db.query(
           `SELECT assessment_id, subject_id, title, category, max_score, COALESCE(scale_base, 100) AS scale_base
@@ -2293,6 +2318,16 @@ const printController = (db) => ({
           }
         });
 
+      // Positions are ranked; keep only the requested students from here on.
+      if (studentFilterIds) {
+        const requestedIdSet = new Set(studentFilterIds);
+        for (let index = students.length - 1; index >= 0; index -= 1) {
+          if (!requestedIdSet.has(Number(students[index].student_id))) {
+            students.splice(index, 1);
+          }
+        }
+      }
+
       // ✅ Auto-save promotion status to student_reports so promotion scheduler has data
       if (!isPostingMode && statusSettings.activate_promotion && cutOffPoint > 0) {
         try {
@@ -2485,11 +2520,7 @@ const printController = (db) => ({
       const parsedTermId = parseInt(resolvedTermId, 10);
 
       // Validate that classId belongs to current organization
-      const classCheck = await db.query(
-        `SELECT class_id FROM classes WHERE class_id = $1 AND organization_id = $2`,
-        [parsedClassId, organizationId]
-      );
-      if (classCheck.rows.length === 0) {
+      if (!organizationClasses.some((cls) => Number(cls.class_id) === parsedClassId)) {
         // ClassId doesn't belong to this org, redirect to fallback
         return res.redirect(`/print/reportSettings?classId=${organizationClasses[0].class_id}&termId=${parsedTermId}${isEmbedded ? "&embed=workspace" : ""}`);
       }
@@ -2524,55 +2555,137 @@ const printController = (db) => ({
         initialDefaultsSuppressedMap[String(row.class_id)] = !!row.defaults_suppressed;
       });
 
-      for (const cls of enrolledClasses) {
-        const cid = Number(cls.class_id);
-        if (initialDefaultsSuppressedMap[String(cid)] === true) {
-          continue;
+      // Seed default grading bands only for classes that have none yet (one
+      // query for all classes instead of one per class).
+      const seedCandidateClassIds = enrolledClasses
+        .map((cls) => Number(cls.class_id))
+        .filter((cid) => initialDefaultsSuppressedMap[String(cid)] !== true);
+      const classesWithBandsResult = seedCandidateClassIds.length
+        ? await db.query(
+            `SELECT DISTINCT class_id
+             FROM score_remarks
+             WHERE organization_id = $1 AND term_id = $2 AND class_id = ANY($3::int[])`,
+            [organizationId, parsedTermId, seedCandidateClassIds]
+          )
+        : { rows: [] };
+      const classesWithBands = new Set(classesWithBandsResult.rows.map((row) => Number(row.class_id)));
+      for (const cid of seedCandidateClassIds) {
+        if (!classesWithBands.has(cid)) {
+          await seedDefaultRowsIfEmpty(db, organizationId, cid, parsedTermId);
         }
-        await seedDefaultRowsIfEmpty(db, organizationId, cid, parsedTermId);
       }
   
+      // Everything below needs only the organization, class and term, so the
+      // reads run together instead of one after another.
+      const enrolledClassIds = enrolledClasses.map(c => c.class_id);
+      const [
+        remarksResult,
+        scoreRemarksResult,
+        classLocksResult,
+        reportSettingsResult,
+        allClassDsResult,
+        allClassSubjectsResult,
+        allClassAssessmentsResult,
+        signatureClassesResult,
+        transcriptSignatureClassesResult,
+        groupedStatusSettingsResult,
+        assessmentsForSettingsResult,
+        organizationClassroomRemarkTypes,
+      ] = await Promise.all([
+        db.query(
+          `SELECT id, remark, remark_type FROM remarks 
+           WHERE organization_id = $1`,
+          [organizationId]
+        ),
+        db.query(
+          `SELECT * FROM score_remarks 
+           WHERE organization_id = $1 AND term_id = $2
+           ORDER BY class_id, from_percentage ASC`,
+          [organizationId, parsedTermId]
+        ),
+        db.query(
+          `
+            SELECT class_id, entry_type, from_percentage, to_percentage, is_locked
+            FROM score_remark_rule_locks
+            WHERE organization_id = $1
+              AND term_id = $2
+              AND is_locked = TRUE
+          `,
+          [organizationId, parsedTermId]
+        ),
+        db.query(
+          `SELECT signature_image_path, signature_name, signature_title, display_settings FROM report_settings 
+           WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
+          [organizationId, parsedClassId, parsedTermId]
+        ),
+        db.query(
+          `SELECT class_id, display_settings FROM report_settings
+           WHERE organization_id = $1 AND term_id = $2 AND class_id = ANY($3::int[])`,
+          [organizationId, parsedTermId, enrolledClassIds]
+        ),
+        db.query(
+          `SELECT class_id, subject_id, subject_name
+           FROM subjects
+           WHERE organization_id = $1
+             AND class_id = ANY($2::int[])
+           ORDER BY class_id ASC, subject_name ASC`,
+          [organizationId, enrolledClassIds]
+        ),
+        db.query(
+          `SELECT class_id, title, category FROM assessments
+           WHERE term_id = $1 AND organization_id = $2 AND class_id = ANY($3::int[])
+           GROUP BY class_id, title, category
+           ORDER BY class_id, category, MIN(assessment_id)`,
+          [parsedTermId, organizationId, enrolledClassIds]
+        ),
+        db.query(
+          `SELECT DISTINCT class_id, signature_image_path, signature_name, signature_title FROM report_settings 
+           WHERE organization_id = $1 AND term_id = $2 AND signature_image_path IS NOT NULL`,
+          [organizationId, parsedTermId]
+        ),
+        db.query(
+          `SELECT DISTINCT class_id, signature_image_path, signature_name, signature_title FROM report_settings 
+           WHERE organization_id = $1 AND term_id = -1 AND signature_image_path IS NOT NULL`,
+          [organizationId]
+        ),
+        db.query(
+          `SELECT 
+            promoted_class, 
+            repeated_class, 
+            activate_promotion, 
+            cut_off_point, 
+            promotion_basis,
+            school_reopen_date,
+            array_agg(class_id ORDER BY class_id ASC) AS classes
+          FROM status_settings
+          WHERE organization_id = $1 AND term_id = $2
+          GROUP BY promoted_class, repeated_class, activate_promotion, cut_off_point, promotion_basis, school_reopen_date`,
+          [organizationId, parsedTermId]
+        ),
+        db.query(
+          `SELECT title, category FROM assessments
+           WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
+           GROUP BY title, category
+           ORDER BY category, MIN(assessment_id)`,
+          [parsedClassId, parsedTermId, organizationId]
+        ),
+        getOrganizationClassroomRemarkTypes(db, organizationId),
+      ]);
+
       // Fetch remarks
-      const remarksResult = await db.query(
-        `SELECT id, remark, remark_type FROM remarks 
-         WHERE organization_id = $1`,
-        [organizationId]
-      );
       const remarks = remarksResult.rows || [];
   
       // Fetch score remarks for all classes in this term
-      const scoreRemarksResult = await db.query(
-        `SELECT * FROM score_remarks 
-         WHERE organization_id = $1 AND term_id = $2
-         ORDER BY class_id, from_percentage ASC`,
-        [organizationId, parsedTermId]
-      );
       const scoreRemarks = scoreRemarksResult.rows || [];
 
-      const defaultsStateResult = await db.query(
-        `
-          SELECT class_id, defaults_suppressed
-          FROM score_remark_default_state
-          WHERE organization_id = $1 AND term_id = $2
-        `,
-        [organizationId, parsedTermId]
-      );
+      // Seeding does not change this table, so the earlier read is current.
+      const defaultsStateResult = initialDefaultsStateResult;
       const defaultsSuppressedMap = {};
       defaultsStateResult.rows.forEach((row) => {
         defaultsSuppressedMap[String(row.class_id)] = !!row.defaults_suppressed;
       });
 
       const ruleLocksMap = { grade: {}, remark: {} };
-      const classLocksResult = await db.query(
-        `
-          SELECT class_id, entry_type, from_percentage, to_percentage, is_locked
-          FROM score_remark_rule_locks
-          WHERE organization_id = $1
-            AND term_id = $2
-            AND is_locked = TRUE
-        `,
-        [organizationId, parsedTermId]
-      );
       classLocksResult.rows.forEach((row) => {
         const safeEntryType = row.entry_type === "grade" ? "grade" : (row.entry_type === "remark" ? "remark" : null);
         if (!safeEntryType) return;
@@ -2585,11 +2698,6 @@ const printController = (db) => ({
       });
   
       // Fetch signature image for this class/term
-      const reportSettingsResult = await db.query(
-        `SELECT signature_image_path, signature_name, signature_title, display_settings FROM report_settings 
-         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
-        [organizationId, parsedClassId, parsedTermId]
-      );
       const reportSettings = reportSettingsResult.rows[0];
       let signatureImageUrl = null;
       const signatureName = reportSettings?.signature_name || null;
@@ -2598,15 +2706,8 @@ const printController = (db) => ({
         signatureImageUrl = await getFromS3(reportSettings.signature_image_path);
       }
 
-      const organizationClassroomRemarkTypes = await getOrganizationClassroomRemarkTypes(db, organizationId);
 
       // Fetch display settings for ALL enrolled classes (for the dynamic per-class Advanced panel)
-      const enrolledClassIds = enrolledClasses.map(c => c.class_id);
-      const allClassDsResult = await db.query(
-        `SELECT class_id, display_settings FROM report_settings
-         WHERE organization_id = $1 AND term_id = $2 AND class_id = ANY($3::int[])`,
-        [organizationId, parsedTermId, enrolledClassIds]
-      );
       const allDisplaySettingsMap = {};
       enrolledClasses.forEach(cls => {
         const row = allClassDsResult.rows.find(r => r.class_id === cls.class_id);
@@ -2688,14 +2789,6 @@ const printController = (db) => ({
       enrolledClasses.forEach((cls) => {
         allSubjectsByClassMap[String(cls.class_id)] = [];
       });
-      const allClassSubjectsResult = await db.query(
-        `SELECT class_id, subject_id, subject_name
-         FROM subjects
-         WHERE organization_id = $1
-           AND class_id = ANY($2::int[])
-         ORDER BY class_id ASC, subject_name ASC`,
-        [organizationId, enrolledClassIds]
-      );
       allClassSubjectsResult.rows.forEach((row) => {
         const classKey = String(row.class_id);
         if (!allSubjectsByClassMap[classKey]) {
@@ -2712,13 +2805,6 @@ const printController = (db) => ({
       });
 
       // Fetch assessments for ALL enrolled classes (unique titles per class, for sub-toggle items)
-      const allClassAssessmentsResult = await db.query(
-        `SELECT class_id, title, category FROM assessments
-         WHERE term_id = $1 AND organization_id = $2 AND class_id = ANY($3::int[])
-         GROUP BY class_id, title, category
-         ORDER BY class_id, category, MIN(assessment_id)`,
-        [parsedTermId, organizationId, enrolledClassIds]
-      );
       const allAssessmentsByCategoryMap = {};
       allClassAssessmentsResult.rows.forEach(a => {
         if (!allAssessmentsByCategoryMap[a.class_id]) allAssessmentsByCategoryMap[a.class_id] = {};
@@ -2728,11 +2814,6 @@ const printController = (db) => ({
       });
 
       // Fetch all signature groups for current term
-      const signatureClassesResult = await db.query(
-        `SELECT DISTINCT class_id, signature_image_path, signature_name, signature_title FROM report_settings 
-         WHERE organization_id = $1 AND term_id = $2 AND signature_image_path IS NOT NULL`,
-        [organizationId, parsedTermId]
-      );
   
       const signatureGroups = {};
       for (const row of signatureClassesResult.rows) {
@@ -2761,11 +2842,6 @@ const printController = (db) => ({
       );
 
       // Fetch transcript signatures (term_id = -1)
-      const transcriptSignatureClassesResult = await db.query(
-        `SELECT DISTINCT class_id, signature_image_path, signature_name, signature_title FROM report_settings 
-         WHERE organization_id = $1 AND term_id = -1 AND signature_image_path IS NOT NULL`,
-        [organizationId]
-      );
 
       const transcriptSignatureGroups = {};
       for (const row of transcriptSignatureClassesResult.rows) {
@@ -2787,20 +2863,6 @@ const printController = (db) => ({
       }
       
       // ✅ Fetch grouped status settings for this term only
-      const groupedStatusSettingsResult = await db.query(
-        `SELECT 
-          promoted_class, 
-          repeated_class, 
-          activate_promotion, 
-          cut_off_point, 
-          promotion_basis,
-          school_reopen_date,
-          array_agg(class_id ORDER BY class_id ASC) AS classes
-        FROM status_settings
-        WHERE organization_id = $1 AND term_id = $2
-        GROUP BY promoted_class, repeated_class, activate_promotion, cut_off_point, promotion_basis, school_reopen_date`,
-        [organizationId, parsedTermId]
-      );
   
       // ✅ Map with correct typing
       const groupedStatusSettings = groupedStatusSettingsResult.rows.map(
@@ -2819,13 +2881,6 @@ const printController = (db) => ({
 
       // Fetch assessments for this class+term grouped by category (for display settings UI)
       // GROUP BY title+category so each assessment name appears only once (assessments are per-subject)
-      const assessmentsForSettingsResult = await db.query(
-        `SELECT title, category FROM assessments
-         WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
-         GROUP BY title, category
-         ORDER BY category, MIN(assessment_id)`,
-        [parsedClassId, parsedTermId, organizationId]
-      );
       const assessmentsByCategory = {};
       assessmentsForSettingsResult.rows.forEach((a) => {
         const key = a.category || 'Other';
@@ -5920,6 +5975,7 @@ const printController = (db) => ({
             SELECT subject_id, subject_name
             FROM subjects
             WHERE class_id = $1 AND organization_id = $2
+            ORDER BY subject_name ASC, subject_id ASC
         `,
         [classId, organizationId]
       );
@@ -5931,6 +5987,7 @@ const printController = (db) => ({
                 SELECT assessment_id, title, weight, category
                 FROM assessments
                 WHERE subject_id = $1 AND class_id = $2 AND term_id = $3 AND organization_id = $4
+                ORDER BY assessment_id ASC
             `,
             [subject.subject_id, classId, termId, organizationId]
           );
@@ -5941,6 +5998,19 @@ const printController = (db) => ({
           };
         })
       );
+
+      // "Change selection" links carry the previous choices so the form
+      // reopens with them ticked. The ids only pre-tick boxes in this class's
+      // own list. A fresh visit starts with nothing ticked and the default
+      // columns.
+      const linkedAssessmentIds = String(req.query.assessments || "")
+        .split(",")
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0);
+      const previousSelection = {
+        assessmentIds: linkedAssessmentIds,
+        columns: meritSheetColumnFlags(parseMeritSheetColumns(req.query.columns)),
+      };
 
       // Render the page with organization name and logo
       const isEmbedded = isEmbeddedRequest(req, "meritSheetPage");
@@ -5957,6 +6027,7 @@ const printController = (db) => ({
         schoolYear,
         subjects,
         meritSheet: [], // Initialize meritSheet to avoid ReferenceError
+        previousSelection,
         orgName: organization.organization_name,
         logoUrl: logoUrl,
       });
@@ -5993,7 +6064,7 @@ const printController = (db) => ({
 
     // Accept payload from POST body or GET query; fall back to last run for refreshes
     const payload = req.method === 'GET' ? req.query : req.body;
-    let { classId, termId, selectedSubjects, selectedAssessments } = payload;
+    let { classId, termId, selectedSubjects, selectedAssessments, columns } = payload;
 
     // Helper to normalize ids from array, comma string, or single value
     const normalizeIds = (input) => {
@@ -6016,10 +6087,12 @@ const printController = (db) => ({
       termId = termId || last.termId;
       if (!selectedSubjects) selectedSubjects = last.selectedSubjectIds;
       if (!selectedAssessments) selectedAssessments = last.selectedAssessmentIds;
+      if (columns === undefined) columns = last.columns;
     }
 
     const subjectIds = normalizeIds(selectedSubjects);
     const assessmentIds = normalizeIds(selectedAssessments);
+    const columnKeys = parseMeritSheetColumns(columns);
 
     try {
       if (!classId || !termId || !organizationId || !subjectIds.length || !assessmentIds.length) {
@@ -6090,6 +6163,7 @@ const printController = (db) => ({
             SELECT subject_id, subject_name
             FROM subjects
             WHERE subject_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3
+            ORDER BY subject_name ASC, subject_id ASC
         `,
         [subjectIds, parsedClassId, organizationId]
       );
@@ -6101,6 +6175,7 @@ const printController = (db) => ({
                 SELECT assessment_id, title, weight, category, max_score
                 FROM assessments
                 WHERE assessment_id = ANY($1::int[]) AND subject_id = $2 AND class_id = $3 AND term_id = $4 AND organization_id = $5
+                ORDER BY assessment_id ASC
             `,
             [assessmentIds, subject.subject_id, parsedClassId, parsedTermId, organizationId]
           );
@@ -6173,6 +6248,13 @@ const printController = (db) => ({
 
       const scores = scoresResult.rows;
 
+      // Highest possible total across the selected assessments (for Percentage).
+      const maxPossibleTotal = selectedSubjectsData.reduce(
+        (sum, subject) =>
+          sum + subject.assessments.reduce((subjectSum, assessment) => subjectSum + (Number(assessment.max_score) || 0), 0),
+        0
+      );
+
       // Process students and attach scores, grades, and positions
       const meritSheetData = students.map((student) => {
         const studentScores = selectedSubjectsData.map((subject) => {
@@ -6223,6 +6305,7 @@ const printController = (db) => ({
           scores: studentScores,
           totalScore: totalScore.toFixed(2),
           averageScore: averageScore.toFixed(2),
+          percentage: maxPossibleTotal > 0 ? `${((totalScore / maxPossibleTotal) * 100).toFixed(2)}%` : "-",
         };
       });
 
@@ -6236,9 +6319,17 @@ const printController = (db) => ({
         )
       );
 
+      // Standard competition ranking (1, 1, 3) so tied totals share a
+      // position, matching the report card and score sheet.
+      let previousRoundedTotal = null;
+      let previousPosition = 0;
       meritSheetData.forEach((student, index) => {
+        const roundedTotal = Math.round((Number(student.totalScore) || 0) * 100) / 100;
+        const position = roundedTotal === previousRoundedTotal ? previousPosition : index + 1;
+        previousRoundedTotal = roundedTotal;
+        previousPosition = position;
         student.position = hasAnyRecordedScore
-          ? `${index + 1}${getOrdinalSuffix(index + 1)}`
+          ? `${position}${getOrdinalSuffix(position)}`
           : "-";
       });
 
@@ -6248,6 +6339,7 @@ const printController = (db) => ({
         termId: parsedTermId,
         selectedSubjectIds: subjectIds,
         selectedAssessmentIds: assessmentIds,
+        columns: columnKeys,
       };
 
       const isEmbedded = isEmbeddedRequest(req, "meritSheetPage");
@@ -6264,9 +6356,72 @@ const printController = (db) => ({
         schoolYear,
         subjects: selectedSubjectsData,
         meritSheet: meritSheetData,
+        meritColumns: meritSheetColumnFlags(columnKeys),
+        meritSheetSelection: {
+          classId: parsedClassId,
+          termId: parsedTermId,
+          subjectIds,
+          assessmentIds,
+          columns: columnKeys,
+        },
+        changeSelectionUrl: `/print/meritSheetPage?${new URLSearchParams({
+          classId: String(parsedClassId),
+          termId: String(parsedTermId),
+          assessments: assessmentIds.join(","),
+          columns: ["name", ...columnKeys].join(","),
+          ...(isEmbedded ? { embed: "workspace" } : {}),
+        }).toString()}`,
       });
     } catch (error) {
             res.status(500).send("Failed to generate merit sheet.");
+    }
+  },
+
+  // Merit sheet as a PDF, rendered from the merit sheet page itself.
+  downloadMeritSheet: async (req, res) => {
+    try {
+      const organizationId = Number(req.session.organizationId);
+      const classId = Number(req.body?.classId);
+      const termId = Number(req.body?.termId);
+      const subjectIds = parsePositiveIntArray(req.body?.subjectIds);
+      const assessmentIds = parsePositiveIntArray(req.body?.assessmentIds);
+      const columnKeys = parseMeritSheetColumns(req.body?.columns);
+
+      if (!organizationId || !classId || !termId || !subjectIds.length || !assessmentIds.length) {
+        return res.status(400).json({ success: false, message: "Select at least one subject and one assessment." });
+      }
+
+      const sessionCookie = sessionCookieFromHeader(req.headers.cookie);
+      if (!sessionCookie) {
+        return res.status(401).json({ success: false, message: "Session cookie missing. Refresh the page and try again." });
+      }
+
+      const [classResult, termResult] = await Promise.all([
+        db.query(`SELECT class_name FROM classes WHERE class_id = $1 AND organization_id = $2`, [classId, organizationId]),
+        db.query(`SELECT term_name FROM terms WHERE term_id = $1 AND organization_id = $2`, [termId, organizationId]),
+      ]);
+      if (!classResult.rows.length || !termResult.rows.length) {
+        return res.status(404).json({ success: false, message: "Class or term not found." });
+      }
+
+      const pdfBuffer = await renderMeritSheetPdf({
+        baseUrl: `${req.protocol}://${req.get("host")}`,
+        sessionCookie,
+        classId,
+        termId,
+        subjectIds,
+        assessmentIds,
+        columns: columnKeys,
+      });
+
+      const fileName = `merit_sheet_${safeFileSegment(classResult.rows[0].class_name, `class_${classId}`)}_${safeFileSegment(termResult.rows[0].term_name, `term_${termId}`)}.pdf`;
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      res.setHeader("Content-Length", String(pdfBuffer.length));
+      return res.send(pdfBuffer);
+    } catch (error) {
+      console.error("[downloadMeritSheet] Error:", error);
+      return res.status(500).json({ success: false, message: error?.userMessage || "Failed to download the merit sheet. Please try again." });
     }
   },
 
@@ -6286,8 +6441,6 @@ const printController = (db) => ({
       await ensureStudentReportPaygiraManualDataColumn(db);
       await ensureStudentReportCustomRemarksColumn(db);
       await ensureDeliveryAuditTable(db);
-      await cleanupDeliveryHistoryRetention(db);
-      await cleanupDeliveryHistoryRetention(db);
       await cleanupDeliveryHistoryRetention(db);
       const parsedClassId = parseInt(classId, 10);
       const parsedTermId = parseInt(termId, 10);
@@ -6342,131 +6495,153 @@ const printController = (db) => ({
         return res.status(400).send("One or more students do not belong to the selected class and term.");
       }
   
-      for (const studentReport of studentReports) {
-        const {
-          studentId,
-          conductRemarks,
-          attitudeRemarks,
-          interestRemarks,
-          teacherRemarks,
-          customRemarks,
-          promotionStatus,       // ✅ from frontend
-          promotionClassId,      // ✅ from frontend
-          manualAttendancePresentDays,
-          manualAttendanceTotalDays,
-          paygiraManualData,
-        } = studentReport;
-  
-        if (!studentId || isNaN(studentId) || studentId <= 0) {
-                    continue; // skip invalid rows
-        }
+      // One connection and one transaction for the whole save: every
+      // student's changes are kept, or none are.
+      const client = await db.connect();
+      const savedStudentIds = [];
+      try {
+        await client.query("BEGIN");
 
-        if (!validStudentIdSet.has(Number(studentId))) {
-          continue;
-        }
-  
-        const manualAttendanceProvided = Object.prototype.hasOwnProperty.call(studentReport, "manualAttendancePresentDays");
-        let manualAttendanceValue = null;
-        if (manualAttendanceProvided && manualAttendancePresentDays !== "" && manualAttendancePresentDays !== null && manualAttendancePresentDays !== undefined) {
-          const parsedManualAttendance = parseInt(manualAttendancePresentDays, 10);
-          manualAttendanceValue = Number.isFinite(parsedManualAttendance) && parsedManualAttendance >= 0
-            ? parsedManualAttendance
-            : null;
-        }
-
-        const manualAttendanceTotalProvided = Object.prototype.hasOwnProperty.call(studentReport, "manualAttendanceTotalDays");
-        let manualAttendanceTotalValue = null;
-        if (manualAttendanceTotalProvided && manualAttendanceTotalDays !== "" && manualAttendanceTotalDays !== null && manualAttendanceTotalDays !== undefined) {
-          const parsedManualAttendanceTotal = parseInt(manualAttendanceTotalDays, 10);
-          manualAttendanceTotalValue = Number.isFinite(parsedManualAttendanceTotal) && parsedManualAttendanceTotal >= 0
-            ? parsedManualAttendanceTotal
-            : null;
-        }
-
-        const paygiraManualDataProvided = Object.prototype.hasOwnProperty.call(studentReport, "paygiraManualData");
-        const paygiraManualDataValue = paygiraManualDataProvided && paygiraManualData && typeof paygiraManualData === 'object' && !Array.isArray(paygiraManualData)
-          ? paygiraManualData
-          : null;
-
-        const customRemarksValue = customRemarks && typeof customRemarks === 'object' && !Array.isArray(customRemarks)
-          ? customRemarks
-          : {};
-
-        await db.query(
-          `
-            INSERT INTO student_reports (
-              organization_id, class_id, term_id, student_id, 
-              conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json,
-              promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-            ON CONFLICT (organization_id, class_id, term_id, student_id)
-            DO UPDATE SET
-              conduct_remarks = EXCLUDED.conduct_remarks,
-              attitude_remarks = EXCLUDED.attitude_remarks,
-              interest_remarks = EXCLUDED.interest_remarks,
-              teacher_remarks = EXCLUDED.teacher_remarks,
-              custom_remarks_json = EXCLUDED.custom_remarks_json,
-              promotion_status = EXCLUDED.promotion_status,
-              promotion_class_id = EXCLUDED.promotion_class_id,
-              manual_attendance_present_days = CASE
-                WHEN $15 THEN EXCLUDED.manual_attendance_present_days
-                ELSE student_reports.manual_attendance_present_days
-              END,
-              manual_attendance_total_days = CASE
-                WHEN $16 THEN EXCLUDED.manual_attendance_total_days
-                ELSE student_reports.manual_attendance_total_days
-              END,
-              paygira_manual_data = CASE
-                WHEN $17 THEN EXCLUDED.paygira_manual_data
-                ELSE student_reports.paygira_manual_data
-              END,
-              updated_at = CURRENT_TIMESTAMP
-          `,
-          [
-            organizationId,
-            parsedClassId,
-            parsedTermId,
+        for (const studentReport of studentReports) {
+          const {
             studentId,
             conductRemarks,
             attitudeRemarks,
             interestRemarks,
             teacherRemarks,
-            customRemarksValue,
-            promotionStatus,
-            promotionClassId ? parseInt(promotionClassId, 10) : null, // ensure numeric or null
-            manualAttendanceValue,
-            manualAttendanceTotalValue,
-            paygiraManualDataValue,
-            manualAttendanceProvided,
-            manualAttendanceTotalProvided,
-            paygiraManualDataProvided,
-          ]
-        );
-
-        await db.query(
-          `INSERT INTO delivery_audit_history (
-             organization_id, event_domain, event_name, class_id, term_id, student_id,
-             student_name, actor_user_id, actor_name, status, batch_id, notes, metadata
-           )
-           VALUES ($1, 'report', 'report_saved', $2, $3, $4, $5, $6, $7, 'saved', $8, $9, $10::jsonb)`,
-          [
-            organizationId,
-            parsedClassId,
-            parsedTermId,
-            Number(studentId),
-            studentNameById.get(Number(studentId)) || `Student ${studentId}`,
-            actorUserId,
-            actorName,
-            activityBatchId,
-            'Report data saved from printStudentReport page.',
-            JSON.stringify({ source: 'saveReportChanges' }),
-          ]
-        );
-      }
+            customRemarks,
+            promotionStatus,       // ✅ from frontend
+            promotionClassId,      // ✅ from frontend
+            manualAttendancePresentDays,
+            manualAttendanceTotalDays,
+            paygiraManualData,
+          } = studentReport;
   
+          if (!studentId || isNaN(studentId) || studentId <= 0) {
+                      continue; // skip invalid rows
+          }
+
+          if (!validStudentIdSet.has(Number(studentId))) {
+            continue;
+          }
+  
+          const manualAttendanceProvided = Object.prototype.hasOwnProperty.call(studentReport, "manualAttendancePresentDays");
+          let manualAttendanceValue = null;
+          if (manualAttendanceProvided && manualAttendancePresentDays !== "" && manualAttendancePresentDays !== null && manualAttendancePresentDays !== undefined) {
+            const parsedManualAttendance = parseInt(manualAttendancePresentDays, 10);
+            manualAttendanceValue = Number.isFinite(parsedManualAttendance) && parsedManualAttendance >= 0
+              ? parsedManualAttendance
+              : null;
+          }
+
+          const manualAttendanceTotalProvided = Object.prototype.hasOwnProperty.call(studentReport, "manualAttendanceTotalDays");
+          let manualAttendanceTotalValue = null;
+          if (manualAttendanceTotalProvided && manualAttendanceTotalDays !== "" && manualAttendanceTotalDays !== null && manualAttendanceTotalDays !== undefined) {
+            const parsedManualAttendanceTotal = parseInt(manualAttendanceTotalDays, 10);
+            manualAttendanceTotalValue = Number.isFinite(parsedManualAttendanceTotal) && parsedManualAttendanceTotal >= 0
+              ? parsedManualAttendanceTotal
+              : null;
+          }
+
+          const paygiraManualDataProvided = Object.prototype.hasOwnProperty.call(studentReport, "paygiraManualData");
+          const paygiraManualDataValue = paygiraManualDataProvided && paygiraManualData && typeof paygiraManualData === 'object' && !Array.isArray(paygiraManualData)
+            ? paygiraManualData
+            : null;
+
+          const customRemarksValue = customRemarks && typeof customRemarks === 'object' && !Array.isArray(customRemarks)
+            ? customRemarks
+            : {};
+
+          await client.query(
+            `
+              INSERT INTO student_reports (
+                organization_id, class_id, term_id, student_id, 
+                conduct_remarks, attitude_remarks, interest_remarks, teacher_remarks, custom_remarks_json,
+                promotion_status, promotion_class_id, manual_attendance_present_days, manual_attendance_total_days, paygira_manual_data
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+              ON CONFLICT (organization_id, class_id, term_id, student_id)
+              DO UPDATE SET
+                conduct_remarks = EXCLUDED.conduct_remarks,
+                attitude_remarks = EXCLUDED.attitude_remarks,
+                interest_remarks = EXCLUDED.interest_remarks,
+                teacher_remarks = EXCLUDED.teacher_remarks,
+                custom_remarks_json = EXCLUDED.custom_remarks_json,
+                promotion_status = EXCLUDED.promotion_status,
+                promotion_class_id = EXCLUDED.promotion_class_id,
+                manual_attendance_present_days = CASE
+                  WHEN $15 THEN EXCLUDED.manual_attendance_present_days
+                  ELSE student_reports.manual_attendance_present_days
+                END,
+                manual_attendance_total_days = CASE
+                  WHEN $16 THEN EXCLUDED.manual_attendance_total_days
+                  ELSE student_reports.manual_attendance_total_days
+                END,
+                paygira_manual_data = CASE
+                  WHEN $17 THEN EXCLUDED.paygira_manual_data
+                  ELSE student_reports.paygira_manual_data
+                END,
+                updated_at = CURRENT_TIMESTAMP
+            `,
+            [
+              organizationId,
+              parsedClassId,
+              parsedTermId,
+              studentId,
+              conductRemarks,
+              attitudeRemarks,
+              interestRemarks,
+              teacherRemarks,
+              customRemarksValue,
+              promotionStatus,
+              promotionClassId ? parseInt(promotionClassId, 10) : null, // ensure numeric or null
+              manualAttendanceValue,
+              manualAttendanceTotalValue,
+              paygiraManualDataValue,
+              manualAttendanceProvided,
+              manualAttendanceTotalProvided,
+              paygiraManualDataProvided,
+            ]
+          );
+
+          savedStudentIds.push(Number(studentId));
+        }
+
+        if (savedStudentIds.length) {
+          await client.query(
+            `INSERT INTO delivery_audit_history (
+               organization_id, event_domain, event_name, class_id, term_id, student_id,
+               student_name, actor_user_id, actor_name, status, batch_id, notes, metadata
+             )
+             SELECT $1, 'report', 'report_saved', $2, $3, saved.student_id,
+                    saved.student_name, $4, $5, 'saved', $6, $7, $8::jsonb
+             FROM unnest($9::int[], $10::text[]) AS saved(student_id, student_name)`,
+            [
+              organizationId,
+              parsedClassId,
+              parsedTermId,
+              actorUserId,
+              actorName,
+              activityBatchId,
+              'Report data saved from printStudentReport page.',
+              JSON.stringify({ source: 'saveReportChanges' }),
+              savedStudentIds,
+              savedStudentIds.map((id) => studentNameById.get(id) || `Student ${id}`),
+            ]
+          );
+        }
+
+        await client.query("COMMIT");
+      } catch (saveError) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw saveError;
+      } finally {
+        client.release();
+      }
+
       res.status(200).send("Changes saved successfully.");
     } catch (error) {
-            res.status(500).send("Failed to save report changes.");
+      console.error("[saveReportChanges] Error:", error);
+      res.status(500).send("Failed to save report changes.");
     }
   },
 
@@ -6794,7 +6969,9 @@ const printController = (db) => ({
         });
       }
 
-      const forceRegenerate = req.body?.forceRegenerate === true;
+      // Always regenerate by default so a re-post after score or remark
+      // changes never leaves parents with an outdated report card.
+      const reuseExistingPdfs = req.body?.reuseExisting === true;
       const protocol = req.protocol;
       const host = req.get("host");
       const cookieHeader = String(req.headers.cookie || "");
@@ -6809,7 +6986,6 @@ const printController = (db) => ({
       });
 
       const runBackgroundPosting = async () => {
-        let browser = null;
         const posted = [];
         const postedRecords = [];
         const failed = [];
@@ -6897,18 +7073,8 @@ const printController = (db) => ({
             (existingPostedResult.rows || []).map((row) => [Number(row.student_id), row])
           );
 
-          const bucketName = String(process.env.S3_BUCKET_NAME || process.env.S3_PUBLIC_BUCKET_NAME || "oneplaces3").trim();
-          const regionName = String(process.env.AWS_REGION || "").trim();
           const parsedConcurrency = Number(process.env.POST_REPORT_CARDS_CONCURRENCY || 10);
           const concurrency = Math.max(1, Math.min(12, Number.isFinite(parsedConcurrency) ? parsedConcurrency : 10));
-
-          const buildPdfUrl = (pdfKey) => {
-            const cleanKey = String(pdfKey || "").replace(/^\/+/, "");
-            if (!regionName || regionName === "us-east-1") {
-              return `https://${bucketName}.s3.amazonaws.com/${cleanKey}`;
-            }
-            return `https://${bucketName}.s3.${regionName}.amazonaws.com/${cleanKey}`;
-          };
 
           const studentsToGenerate = [];
           const studentNameById = new Map();
@@ -6918,10 +7084,9 @@ const printController = (db) => ({
             studentNameById.set(studentIdNum, studentName);
             const existing = existingByStudentId.get(studentIdNum);
             const existingKey = String(existing?.pdf_s3_key || "").trim();
-            const existingUrl = String(existing?.pdf_url || "").trim();
-            const resolvedUrl = existingUrl || (existingKey ? buildPdfUrl(existingKey) : "");
+            const resolvedUrl = String(existing?.pdf_url || "").trim();
 
-            if (!forceRegenerate && existingKey && resolvedUrl) {
+            if (reuseExistingPdfs && existingKey && resolvedUrl) {
               postedRecords.push({
                 organizationId,
                 classId,
@@ -6941,54 +7106,14 @@ const printController = (db) => ({
 
           const studentsQueue = [...studentsToGenerate];
 
-          const processStudentWithPage = async (page, student) => {
+          const uploadStudentPdf = async (student, pdfBuffer) => {
             try {
-              const reportUrl = `${protocol}://${host}/print/printStudentReport?classId=${classId}&termId=${termId}&studentId=${student.student_id}&postingMode=1`;
-              await page.goto(reportUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-              await page.waitForSelector(".student-report", { timeout: 15000 });
-              await page.evaluate(() => {
-                document.querySelectorAll(".actions-no-print, .student-checkbox, hr, #emailModal").forEach((el) => {
-                  el.style.display = "none";
-                });
-
-                // Ensure only real report pages are emitted and avoid a trailing blank page.
-                const reports = Array.from(document.querySelectorAll('.student-report'));
-                reports.forEach((report) => {
-                  report.classList.remove('temp-last-report');
-                  report.style.pageBreakAfter = 'always';
-                  report.style.breakAfter = 'page';
-                });
-                const lastReport = reports[reports.length - 1];
-                if (lastReport) {
-                  lastReport.classList.add('temp-last-report');
-                  lastReport.style.pageBreakAfter = 'auto';
-                  lastReport.style.breakAfter = 'auto';
-                }
-              });
-
-              const pdfBuffer = await page.pdf({
-                format: "A4",
-                printBackground: true,
-                preferCSSPageSize: true,
-                margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
-              });
-
-              const safeStudentName = `${student.first_name || "student"}_${student.last_name || student.student_id}`
-                .replace(/[^a-zA-Z0-9_-]+/g, "_")
-                .replace(/_+/g, "_")
-                .replace(/^_+|_+$/g, "");
-              const pdfKey = `report-cards/org_${organizationId}/term_${termId}/class_${classId}/student_${student.student_id}_${Date.now()}_${safeStudentName}.pdf`;
-
-              await s3Client.send(
-                new PutObjectCommand({
-                  Bucket: bucketName,
-                  Key: pdfKey,
-                  Body: pdfBuffer,
-                  ContentType: "application/pdf",
-                })
+              const safeStudentName = safeFileSegment(
+                `${student.first_name || "student"}_${student.last_name || student.student_id}`,
+                `student_${student.student_id}`
               );
-
-              const pdfUrl = buildPdfUrl(pdfKey);
+              const pdfKey = `report-cards/org_${organizationId}/term_${termId}/class_${classId}/student_${student.student_id}_${Date.now()}_${safeStudentName}.pdf`;
+              const pdfUrl = await storePdf(pdfKey, pdfBuffer);
 
               postedRecords.push({
                 organizationId,
@@ -7008,44 +7133,40 @@ const printController = (db) => ({
             }
           };
 
-          if (studentsQueue.length > 0) {
-            const sessionCookieMatch = cookieHeader.match(/(?:^|;\s*)connect\.sid=([^;]+)/);
-            const sessionCookieValue = sessionCookieMatch ? sessionCookieMatch[1] : "";
-
+          if (studentsToGenerate.length > 0) {
+            const sessionCookieValue = sessionCookieFromHeader(cookieHeader);
             if (!sessionCookieValue) {
               throw new Error("Session cookie missing. Please refresh and try again.");
             }
 
-            browser = await puppeteer.launch({
-              headless: true,
-              args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
-            });
-
-            const workerCount = Math.min(concurrency, studentsQueue.length);
-            await Promise.all(
-              Array.from({ length: workerCount }, async () => {
-                const page = await browser.newPage();
-                try {
-                  await page.setJavaScriptEnabled(false);
-                  await page.setCookie({
-                    name: "connect.sid",
-                    value: sessionCookieValue,
-                    domain: String(host || "").split(":")[0],
-                    path: "/",
-                  });
-
-                  while (studentsQueue.length > 0) {
-                    const student = studentsQueue.shift();
-                    if (!student) break;
-                    await processStudentWithPage(page, student);
+            const studentById = new Map(studentsToGenerate.map((student) => [Number(student.student_id), student]));
+            // All report cards come from one page load; uploads run while the
+            // next PDFs render, a few at a time.
+            let pendingUploads = [];
+            await renderReportCardsPerStudent(
+              {
+                baseUrl: `${protocol}://${host}`,
+                sessionCookie: sessionCookieValue,
+                classId,
+                termId,
+                studentIds: Array.from(studentById.keys()),
+              },
+              {
+                onReport: async (studentId, pdfBuffer) => {
+                  const student = studentById.get(studentId);
+                  if (!student) return;
+                  pendingUploads.push(uploadStudentPdf(student, pdfBuffer));
+                  if (pendingUploads.length >= concurrency) {
+                    await Promise.all(pendingUploads);
+                    pendingUploads = [];
                   }
-                } finally {
-                  try {
-                    await page.close();
-                  } catch (_) {}
-                }
-              })
+                },
+                onError: async (studentId, error) => {
+                  failed.push({ studentId, message: error?.userMessage || error?.message || "Failed to post report card" });
+                },
+              }
             );
+            await Promise.all(pendingUploads);
           }
 
           if (postedRecords.length) {
@@ -7104,7 +7225,7 @@ const printController = (db) => ({
                WHERE u.organization_id = $1
                  AND COALESCE(u.on_hold, FALSE) = FALSE
                  AND (
-                   u.account_type IN ('Teacher', 'Manager', 'Supervisor', 'Organization')
+                   u.account_type::text IN ('Teacher', 'Manager', 'Supervisor', 'Organization')
                    OR EXISTS (
                      SELECT 1 FROM user_classes uc
                      WHERE uc.user_id = u.user_id
@@ -7131,7 +7252,7 @@ const printController = (db) => ({
                    SELECT DISTINCT g.student_id,
                           g.guardian_id,
                           g.email,
-                          COALESCE(NULLIF(TRIM(g.guardian_name), ''), 'Guardian') AS guardian_name
+                          COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name
                    FROM guardians g
                    WHERE g.organization_id = $1
                      AND g.student_id = ANY($2::int[])`,
@@ -7343,12 +7464,6 @@ const printController = (db) => ({
             error: error?.message || "Failed to post report cards.",
           });
         } finally {
-          if (browser) {
-            try {
-              await browser.close();
-            } catch (_) {}
-          }
-
           setTimeout(() => {
             const current = reportCardPostJobs.get(jobKey);
             if (!current) return;
@@ -7425,7 +7540,6 @@ const printController = (db) => ({
   },
 
   downloadReports: async (req, res) => {
-    let browser = null;
     try {
       const organizationId = Number(req.session.organizationId);
       const classId = Number(req.query?.classId || req.body?.classId);
@@ -7487,70 +7601,21 @@ const printController = (db) => ({
         return res.status(404).json({ success: false, message: "No students found for download." });
       }
 
-      const protocol = req.protocol;
-      const host = req.get("host");
-      const cookieHeader = String(req.headers.cookie || "");
-      const sessionCookieMatch = cookieHeader.match(/(?:^|;\s*)connect\.sid=([^;]+)/);
-      const sessionCookieValue = sessionCookieMatch ? sessionCookieMatch[1] : "";
-
+      const sessionCookieValue = sessionCookieFromHeader(req.headers.cookie);
       if (!sessionCookieValue) {
         return res.status(401).json({ success: false, message: "Session cookie missing. Refresh the page and try again." });
       }
 
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
+      const { buffer: pdfBinary } = await renderReportCardsPdf({
+        baseUrl: `${req.protocol}://${req.get("host")}`,
+        sessionCookie: sessionCookieValue,
+        classId,
+        termId,
+        studentIds: targetStudentIds,
       });
 
-      const page = await browser.newPage();
-      const hostName = String(host || "").split(":")[0];
-      await page.setCookie({
-        name: "connect.sid",
-        value: sessionCookieValue,
-        domain: hostName,
-        path: "/",
-      });
-
-      const studentIdsParam = targetStudentIds.join(",");
-      const reportUrl = `${protocol}://${host}/print/printStudentReport?classId=${classId}&termId=${termId}&postingMode=1${studentIdsParam ? `&studentIds=${encodeURIComponent(studentIdsParam)}` : ""}`;
-      await page.goto(reportUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
-      await page.waitForSelector(".student-report", { timeout: 20000 });
-
-      await page.evaluate(() => {
-        document.querySelectorAll(".actions-no-print, .student-checkbox, hr, #emailModal, #whatsappModal").forEach((el) => {
-          el.style.display = "none";
-        });
-
-        const kept = Array.from(document.querySelectorAll(".student-report"));
-        kept.forEach((report) => {
-          report.classList.remove("temp-last-report", "last-report");
-          report.style.pageBreakAfter = "always";
-          report.style.breakAfter = "page";
-        });
-        const lastReport = kept[kept.length - 1];
-        if (lastReport) {
-          lastReport.classList.add("temp-last-report");
-          lastReport.style.pageBreakAfter = "auto";
-          lastReport.style.breakAfter = "auto";
-        }
-      });
-
-      const pdfBuffer = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        preferCSSPageSize: true,
-        margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
-      });
-      const pdfBinary = Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
-
-      const safeClassName = className
-        .replace(/[^a-zA-Z0-9_-]+/g, "_")
-        .replace(/_+/g, "_")
-        .replace(/^_+|_+$/g, "") || `class_${classId}`;
-      const safeTermName = termName
-        .replace(/[^a-zA-Z0-9_-]+/g, "_")
-        .replace(/_+/g, "_")
-        .replace(/^_+|_+$/g, "") || `term_${termId}`;
+      const safeClassName = safeFileSegment(className, `class_${classId}`);
+      const safeTermName = safeFileSegment(termName, `term_${termId}`);
       const scopeLabel = selectedStudentIds.length ? `${targetStudentIds.length}_selected` : "all";
       const fileName = `report_cards_${safeClassName}_${safeTermName}_${scopeLabel}.pdf`;
 
@@ -7560,13 +7625,7 @@ const printController = (db) => ({
       return res.send(pdfBinary);
     } catch (error) {
       console.error("[downloadReports] Error:", error);
-      return res.status(500).json({ success: false, message: "Failed to download reports." });
-    } finally {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch (_) {}
-      }
+      return res.status(500).json({ success: false, message: error?.userMessage || "Failed to download reports. Please try again." });
     }
   },
 
@@ -7918,7 +7977,6 @@ const printController = (db) => ({
 
   // Send reports to guardians by WhatsApp (message + PDF document)
   whatsappReports: async (req, res) => {
-    let browser = null;
     try {
       const organizationId = Number(req.session.organizationId || 0);
       const { classId, termId, password, whatsappData } = req.body || {};
@@ -8077,17 +8135,6 @@ const printController = (db) => ({
       const sessionCookieValue = sessionCookieMatch ? sessionCookieMatch[1] : "";
       const host = String(req.get('host') || '').trim();
       const protocol = String(req.protocol || 'https').trim();
-      const bucketName = String(process.env.S3_BUCKET_NAME || process.env.S3_PUBLIC_BUCKET_NAME || "oneplaces3").trim();
-      const regionName = String(process.env.AWS_REGION || "").trim();
-
-      const buildPdfUrl = (pdfKey) => {
-        const cleanKey = String(pdfKey || "").replace(/^\/+/, "");
-        if (!regionName || regionName === "us-east-1") {
-          return `https://${bucketName}.s3.amazonaws.com/${cleanKey}`;
-        }
-        return `https://${bucketName}.s3.${regionName}.amazonaws.com/${cleanKey}`;
-      };
-
       const ensureStudentPdfUrl = async (studentId) => {
         const existing = String(pdfUrlByStudentId.get(studentId) || "").trim();
         if (existing) return existing;
@@ -8096,75 +8143,19 @@ const printController = (db) => ({
           throw new Error(`Session cookie missing for PDF generation (student ${studentId}). Refresh the page and retry.`);
         }
 
-        if (!browser) {
-          browser = await puppeteer.launch({
-            headless: true,
-            args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
-          });
-        }
+        const { buffer: pdfBuffer } = await renderReportCardsPdf({
+          baseUrl: `${protocol}://${host}`,
+          sessionCookie: sessionCookieValue,
+          classId: parsedClassId,
+          termId: parsedTermId,
+          studentIds: [studentId],
+        });
 
-        const page = await browser.newPage();
-        try {
-          await page.setJavaScriptEnabled(false);
-          await page.setCookie({
-            name: "connect.sid",
-            value: sessionCookieValue,
-            domain: host.split(":")[0],
-            path: "/",
-          });
-
-          const reportUrl = `${protocol}://${host}/print/printStudentReport?classId=${parsedClassId}&termId=${parsedTermId}&studentId=${studentId}&postingMode=1`;
-          await page.goto(reportUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
-          await page.waitForSelector(".student-report", { timeout: 15000 });
-          await page.evaluate(() => {
-            document.querySelectorAll(".actions-no-print, .student-checkbox, hr, #emailModal, #whatsappModal").forEach((el) => {
-              el.style.display = "none";
-            });
-            const reports = Array.from(document.querySelectorAll('.student-report'));
-            reports.forEach((report) => {
-              report.classList.remove('temp-last-report');
-              report.style.pageBreakAfter = 'always';
-              report.style.breakAfter = 'page';
-            });
-            const lastReport = reports[reports.length - 1];
-            if (lastReport) {
-              lastReport.classList.add('temp-last-report');
-              lastReport.style.pageBreakAfter = 'auto';
-              lastReport.style.breakAfter = 'auto';
-            }
-          });
-
-          const pdfBuffer = await page.pdf({
-            format: "A4",
-            printBackground: true,
-            preferCSSPageSize: true,
-            margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
-          });
-
-          const studentName = studentNameById.get(studentId) || `student_${studentId}`;
-          const safeStudentName = String(studentName)
-            .replace(/[^a-zA-Z0-9_-]+/g, "_")
-            .replace(/_+/g, "_")
-            .replace(/^_+|_+$/g, "");
-          const pdfKey = `report-cards/org_${organizationId}/term_${parsedTermId}/class_${parsedClassId}/student_${studentId}_${Date.now()}_${safeStudentName}.pdf`;
-
-          await s3Client.send(
-            new PutObjectCommand({
-              Bucket: bucketName,
-              Key: pdfKey,
-              Body: pdfBuffer,
-              ContentType: "application/pdf",
-            })
-          );
-
-          const pdfUrl = buildPdfUrl(pdfKey);
-          pdfUrlByStudentId.set(studentId, pdfUrl);
-          return pdfUrl;
-        } finally {
-          try {
-            await page.close();
-          } catch (_) {}
-        }
+        const safeStudentName = safeFileSegment(studentNameById.get(studentId), `student_${studentId}`);
+        const pdfKey = `report-cards/org_${organizationId}/term_${parsedTermId}/class_${parsedClassId}/student_${studentId}_${Date.now()}_${safeStudentName}.pdf`;
+        const pdfUrl = await storePdf(pdfKey, pdfBuffer);
+        pdfUrlByStudentId.set(studentId, pdfUrl);
+        return pdfUrl;
       };
 
       const sent = [];
@@ -8475,12 +8466,6 @@ const printController = (db) => ({
         success: false,
         message: details ? `Failed to send reports by WhatsApp. ${details}` : "Failed to send reports by WhatsApp.",
       });
-    } finally {
-      if (browser) {
-        try {
-          await browser.close();
-        } catch (_) {}
-      }
     }
   },
 

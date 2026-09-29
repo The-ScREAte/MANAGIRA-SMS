@@ -4,11 +4,9 @@ const { getFirstClassForOrganization } = require("../models/classModel");
 const bcrypt = require("bcryptjs");
 const { sendEmailSafely } = require("../utils/emailHelper");
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
-const puppeteer = require('puppeteer');
+const { renderTranscriptPdf, sessionCookieFromHeader } = require('../utils/pdfService');
 const fs = require('fs');
 const path = require('path');
-const ejs = require('ejs');
-const axios = require('axios');
 const { getMessagingChannelStatus } = require("../utils/guardianMessaging");
 
 // Ensure signature metadata columns exist on report_settings
@@ -142,23 +140,26 @@ const transcriptController = (db) => ({
                 : { rows: [] };
             const actorName = String(actorNameResult.rows[0]?.actor_name || 'Unknown').trim() || 'Unknown';
 
-            await db.query(
-                `INSERT INTO delivery_audit_history (
-                    organization_id, event_domain, event_name, class_id, term_id, student_id,
-                    student_name, actor_user_id, actor_name, recipient_emails, status, notes, metadata
-                ) VALUES ($1, 'transcript', 'transcript_saved', $2, NULL, $3, $4, $5, $6, $7, 'saved', $8, $9::jsonb)`,
-                [
-                    organizationId,
-                    student.class_id || null,
-                    Number(student.student_id),
-                    `${student.first_name} ${student.last_name}`.trim(),
-                    actorUserId,
-                    actorName,
-                    student.guardian_email ? [String(student.guardian_email).trim().toLowerCase()] : [],
-                    'Transcript generated/opened from transcript page.',
-                    JSON.stringify({ source: 'generateTranscript' }),
-                ]
-            );
+            // PDF renders (the emailed copy) are audited by emailTranscript itself.
+            if (req.query.pdf !== 'true') {
+                await db.query(
+                    `INSERT INTO delivery_audit_history (
+                        organization_id, event_domain, event_name, class_id, term_id, student_id,
+                        student_name, actor_user_id, actor_name, recipient_emails, status, notes, metadata
+                    ) VALUES ($1, 'transcript', 'transcript_saved', $2, NULL, $3, $4, $5, $6, $7, 'saved', $8, $9::jsonb)`,
+                    [
+                        organizationId,
+                        student.class_id || null,
+                        Number(student.student_id),
+                        `${student.first_name} ${student.last_name}`.trim(),
+                        actorUserId,
+                        actorName,
+                        student.guardian_email ? [String(student.guardian_email).trim().toLowerCase()] : [],
+                        'Transcript generated/opened from transcript page.',
+                        JSON.stringify({ source: 'generateTranscript' }),
+                    ]
+                );
+            }
 
                         // Fetch total percentage and grade for each subject for ended semesters
                         const scoresQuery = `
@@ -265,9 +266,6 @@ const transcriptController = (db) => ({
     },
 
     emailTranscript: async (req, res) => {
-        let browser = null;
-        let pdfPath = null;
-        
         try {
             await ensureSignatureMetaColumns(db);
             await ensureDeliveryAuditTable(db);
@@ -345,53 +343,7 @@ const transcriptController = (db) => ({
                 return res.status(400).json({ success: false, message: "No email address provided or guardian email on file." });
             }
 
-            console.log('[emailTranscript] Generating PDF with Puppeteer...');
-
-            // Fetch all the data needed for the transcript (same as generateTranscript)
-            const organizationQuery = `
-                SELECT organization_name, organization_address, organization_country, organization_province, organization_phone, email, logo_path
-                FROM organizations WHERE organization_id = $1
-            `;
-            const orgData = await db.query(organizationQuery, [organizationId]);
-            const orgDetails = orgData.rows[0];
             const websiteInfo = await getOrganizationWebsiteInfo(db, organizationId);
-            
-            // Use session logo first (already in session from middleware), fallback to logo_path
-            const logoPathFromDb = orgDetails.logo_path;
-            const logoPathFromSession = req.session.logo;
-            const effectiveLogoPath = logoPathFromSession || logoPathFromDb;
-            
-            console.log('[emailTranscript] Logo sources:', {
-                fromSession: logoPathFromSession,
-                fromDb: logoPathFromDb,
-                effective: effectiveLogoPath
-            });
-
-            // Build S3 URL for logo if it exists
-            const buildS3Url = (key) => {
-                if (!key) return null;
-                if (key.startsWith('http://') || key.startsWith('https://')) return key;
-                return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-            };
-            const orgLogoUrl = effectiveLogoPath ? buildS3Url(effectiveLogoPath) : null;
-            const fetchImageAsDataUrl = async (url, label) => {
-                try {
-                    const response = await axios.get(url, { responseType: 'arraybuffer' });
-                    const mime = response.headers['content-type'] || 'image/png';
-                    return `data:${mime};base64,${Buffer.from(response.data).toString('base64')}`;
-                } catch (err) {
-                    console.warn(`[emailTranscript] Failed to inline ${label}:`, err.message);
-                    return null;
-                }
-            };
-            const orgLogoDataUrl = orgLogoUrl ? await fetchImageAsDataUrl(orgLogoUrl, 'logo') : null;
-            
-            console.log('[emailTranscript] Logo conversion:', {
-                hasOrgLogoUrl: !!orgLogoUrl,
-                hasOrgLogoDataUrl: !!orgLogoDataUrl,
-                dataUrlLength: orgLogoDataUrl ? orgLogoDataUrl.length : 0,
-                dataUrlPreview: orgLogoDataUrl ? orgLogoDataUrl.substring(0, 50) + '...' : 'none'
-            });
 
             const fullStudentQuery = `
                 SELECT s.student_id, s.first_name, s.last_name, s.date_of_birth, s.gender, s.hometown,
@@ -423,134 +375,14 @@ const transcriptController = (db) => ({
                 : { rows: [] };
             const actorName = String(actorNameResult.rows[0]?.actor_name || 'Unknown').trim() || 'Unknown';
 
-                        const scoresQuery = `
-                                                                SELECT sub.subject_name,
-                                                                                         MAX(ar.total_percentage) AS total_percentage,
-                                                                                         MAX(
-                                                                                             COALESCE(
-                                                                                                 (
-                                                                                                     SELECT COALESCE(NULLIF(sr.grade_label, ''),
-                                                                                                         CASE
-                                                                                                             WHEN ar.total_percentage >= 90 THEN 'A'
-                                                                                                             WHEN ar.total_percentage >= 80 THEN 'B'
-                                                                                                             WHEN ar.total_percentage >= 70 THEN 'C'
-                                                                                                             ELSE 'D'
-                                                                                                         END
-                                                                                                     )
-                                                                                                     FROM score_remarks sr
-                                                                                                     WHERE sr.organization_id = ar.organization_id
-                                                                                                         AND sr.class_id = ar.class_id
-                                                                                                         AND sr.term_id = ar.term_id
-                                                                                                         AND NULLIF(TRIM(sr.grade_label), '') IS NOT NULL
-                                                                                                                                                                                                         ORDER BY
-                                                                                                                                                                                                             CASE
-                                                                                                                                                                                                                 WHEN ar.total_percentage IS NULL THEN 1000000000
-                                                                                                                                                                                                                 WHEN ar.total_percentage::numeric BETWEEN sr.from_percentage AND sr.to_percentage THEN 0
-                                                                                                                                                                                                                 WHEN ar.total_percentage::numeric < sr.from_percentage THEN sr.from_percentage - ar.total_percentage::numeric
-                                                                                                                                                                                                                 ELSE ar.total_percentage::numeric - sr.to_percentage
-                                                                                                                                                                                                             END ASC,
-                                                                                                                                                                                                             sr.from_percentage DESC
-                                                                                                     LIMIT 1
-                                                                                                 ),
-                                                                                                 CASE
-                                                                                                     WHEN ar.total_percentage IS NULL THEN NULL
-                                                                                                     WHEN ar.total_percentage >= 90 THEN 'A'
-                                                                                                     WHEN ar.total_percentage >= 80 THEN 'B'
-                                                                                                     WHEN ar.total_percentage >= 70 THEN 'C'
-                                                                                                     ELSE 'D'
-                                                                                                 END
-                                                                                             )
-                                                                                         ) AS grade,
-                                                                                         t.term_name,
-                                                                                         t.start_date,
-                                                                                         t.end_date,
-                                                                                         sy.year_label
-                                FROM assessment_results ar
-                                JOIN assessments a ON ar.assessment_id = a.assessment_id
-                                JOIN subjects sub ON a.subject_id = sub.subject_id
-                                JOIN terms t ON ar.term_id = t.term_id
-                                JOIN school_years sy ON t.school_year_id = sy.id
-                                WHERE ar.student_id = $1 AND ar.organization_id = $2
-                                                                        AND (
-                                                                                t.current = FALSE
-                                                                                OR (t.end_date IS NOT NULL AND t.end_date < CURRENT_DATE)
-                                                                        )
-                                                                GROUP BY sub.subject_name, t.term_name, t.start_date, t.end_date, sy.year_label
-                                                                ORDER BY COALESCE(t.end_date, t.start_date), t.start_date, sub.subject_name
-                        `;
-            const scoresResult = await db.query(scoresQuery, [studentId, organizationId]);
-            const scores = scoresResult.rows;
-
-            // Get signature
-            const firstClass = await getFirstClassForOrganization(db, organizationId);
-            let signatureImageUrl = null;
-            let signatureName = null;
-            let signatureTitle = null;
-            const signatureClassId = fullStudent.class_id || firstClass?.class_id;
-            if (signatureClassId) {
-                const signatureQuery = `SELECT signature_image_path, signature_name, signature_title FROM report_settings WHERE organization_id = $1 AND class_id = $2 AND term_id = -1`;
-                const signatureResult = await db.query(signatureQuery, [organizationId, signatureClassId]);
-                const signaturePath = signatureResult.rows[0]?.signature_image_path;
-                signatureImageUrl = signaturePath ? buildS3Url(signaturePath) : null;
-                signatureName = signatureResult.rows[0]?.signature_name || null;
-                signatureTitle = signatureResult.rows[0]?.signature_title || null;
-            }
-            const signatureDataUrl = signatureImageUrl ? await fetchImageAsDataUrl(signatureImageUrl, 'signature') : null;
-
-            console.log('[emailTranscript] Signature conversion:', {
-                hasSignatureUrl: !!signatureImageUrl,
-                hasSignatureDataUrl: !!signatureDataUrl
+            // Rendered from the transcript page itself, so the emailed copy has
+            // the school's theme colour, font, logo and signature exactly as
+            // staff see it.
+            const pdfBuffer = await renderTranscriptPdf({
+                baseUrl: `${req.protocol}://${req.get('host')}`,
+                sessionCookie: sessionCookieFromHeader(req.headers.cookie),
+                studentId: student.student_id,
             });
-
-            // Render EJS template to HTML string
-            const templatePath = path.join(__dirname, '../views/print/transcript.ejs');
-            const html = await ejs.renderFile(templatePath, {
-                title: `Transcript for ${fullStudent.first_name} ${fullStudent.last_name}`,
-                organization: orgDetails,
-                student: fullStudent,
-                scores,
-                signatureImageUrl: signatureDataUrl || signatureImageUrl,
-                signatureName,
-                signatureTitle,
-                official: true,
-                session: { ...req.session, logo: orgLogoDataUrl || orgLogoUrl },
-                req: { query: { official: 'true', pdf: 'true' } }
-            });
-
-            console.log('[emailTranscript] Rendering HTML to PDF...');
-            console.log('[emailTranscript] Logo being passed to template:', {
-                type: orgLogoDataUrl ? 'data-url' : (orgLogoUrl ? 's3-url' : 'none'),
-                value: orgLogoDataUrl ? 'data:...' : orgLogoUrl
-            });
-
-            // Launch browser and generate PDF from HTML
-            browser = await puppeteer.launch({
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
-            });
-            const page = await browser.newPage();
-            
-            // Set content directly instead of navigating to URL
-            await page.setContent(html, {
-                waitUntil: 'networkidle0',
-                timeout: 15000
-            });
-
-            // Generate PDF
-            const timestamp = Date.now();
-            pdfPath = path.join(__dirname, '../uploads', `transcript_${studentId}_${timestamp}.pdf`);
-            
-            await page.pdf({
-                path: pdfPath,
-                format: 'A4',
-                printBackground: true,
-                margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' }
-            });
-
-            await browser.close();
-            browser = null;
-
-            console.log('[emailTranscript] PDF generated successfully');
 
             // Read email template
             const emailTemplatePath = path.join(__dirname, '../utils/templates/transcriptEmail.html');
@@ -567,9 +399,6 @@ const transcriptController = (db) => ({
                     : '')
                 .replace(/{{year}}/g, new Date().getFullYear());
 
-            // Get logo for email
-            const logoPath = path.join(__dirname, '../public/images/managira.png');
-
             console.log('[emailTranscript] Sending email with PDF attachment...');
 
             const emailSent = await sendEmailSafely(
@@ -581,26 +410,14 @@ const transcriptController = (db) => ({
                     attachments: [
                         {
                             filename: `${student.first_name}_${student.last_name}_Transcript.pdf`,
-                            path: pdfPath
-                        },
-                        {
-                            filename: 'managira-logo.png',
-                            path: logoPath,
-                            cid: 'managira_logo'
+                            content: pdfBuffer,
+                            contentType: 'application/pdf'
                         }
                     ]
                 },
                 'Transcript Email'
             );
 
-            // Clean up PDF file
-            try {
-                await fs.promises.unlink(pdfPath);
-            } catch (cleanupError) {
-                if (cleanupError.code !== 'ENOENT') {
-                    console.warn('[emailTranscript] Failed to delete generated PDF:', cleanupError.message);
-                }
-            }
 
             if (!emailSent) {
                 console.log('[emailTranscript] Email failed to send');
@@ -645,22 +462,7 @@ const transcriptController = (db) => ({
             return res.status(200).json({ success: true, message: `Transcript sent successfully to ${recipientEmail}` });
         } catch (error) {
             console.error('[emailTranscript] Error:', error);
-            
-            // Cleanup
-            if (browser) {
-                try { await browser.close(); } catch (e) {}
-            }
-            if (pdfPath) {
-                try {
-                    await fs.promises.unlink(pdfPath);
-                } catch (cleanupError) {
-                    if (cleanupError.code !== 'ENOENT') {
-                        console.warn('[emailTranscript] Cleanup failed after error:', cleanupError.message);
-                    }
-                }
-            }
-            
-            return res.status(500).json({ success: false, message: "An error occurred while sending the transcript." });
+            return res.status(500).json({ success: false, message: error?.userMessage || "An error occurred while sending the transcript." });
         }
     },
 

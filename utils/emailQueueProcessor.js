@@ -1,14 +1,18 @@
-const puppeteer = require("puppeteer");
-const path = require("path");
-const fs = require("fs");
 const db = require("../config/db");
 const { sendEmailSafely, renderCleanEmail } = require("./emailHelper");
 const { isEmailEnabledForRecipient } = require("./emailPreferences");
 const { getOrganizationWebsiteInfo } = require("./schoolWebsiteAccess");
+const { renderReportCardsPerStudent, sessionCookieFromHeader } = require("./pdfService");
+
+async function markEmailFailed(emailRecordId, message) {
+  await db.query(
+    `UPDATE email_history SET status = 'failed', error_message = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+    [message, emailRecordId]
+  );
+}
 
 // Background email processing function
 async function processEmailBatch(batchId, organizationId, classId, termId, protocol, host, cookies, specificIds = null) {
-  let browser = null;
   try {
     console.log(`[processEmailBatch] Started processing batch ${batchId}`);
 
@@ -25,16 +29,10 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
 
     const websiteInfo = await getOrganizationWebsiteInfo(db, organizationId);
 
-    const buildS3Url = (key) => {
-      if (!key) return null;
-      if (key.startsWith('http://') || key.startsWith('https://')) return key;
-      return `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-    };
-
     // Get pending emails for this batch
     let query = `SELECT * FROM email_history WHERE batch_id = $1 AND status = 'pending'`;
     const params = [batchId];
-    
+
     if (specificIds && specificIds.length > 0) {
       query += ` AND id = ANY($2)`;
       params.push(specificIds);
@@ -45,144 +43,128 @@ async function processEmailBatch(batchId, organizationId, classId, termId, proto
     const emailHistoryLink = `/print/emailHistoryPage?classId=${encodeURIComponent(String(classId || ""))}&termId=${encodeURIComponent(String(termId || ""))}`;
 
     console.log(`[processEmailBatch] Found ${emails.length} emails to process`);
+    if (!emails.length) return;
 
-    for (const emailRecord of emails) {
-      try {
-        // Update status to sending
-        await db.query(
-          `UPDATE email_history SET status = 'sending', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-          [emailRecord.id]
-        );
+    const recordsByStudent = new Map();
+    emails.forEach((emailRecord) => {
+      const studentId = Number(emailRecord.student_id);
+      if (!recordsByStudent.has(studentId)) recordsByStudent.set(studentId, []);
+      recordsByStudent.get(studentId).push(emailRecord);
+    });
 
-        const { student_id, student_name, recipient_emails } = emailRecord;
+    await db.query(
+      `UPDATE email_history SET status = 'sending', updated_at = CURRENT_TIMESTAMP WHERE id = ANY($1::int[])`,
+      [emails.map((emailRecord) => emailRecord.id)]
+    );
 
-        // Generate PDF
-        const reportUrl = `${protocol}://${host}/print/printStudentReport?classId=${classId}&termId=${termId}&studentId=${student_id}`;
-        
-        if (!browser) {
-          browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
-          });
-        }
+    const sendRecord = async (emailRecord, pdfBuffer) => {
+      const { student_name, recipient_emails } = emailRecord;
 
-        const page = await browser.newPage();
-        
-        if (cookies) {
-          const cookieValue = cookies.match(/connect\.sid=([^;]+)/)?.[1] || '';
-          if (cookieValue) {
-            await page.setCookie({
-              name: 'connect.sid',
-              value: cookieValue,
-              domain: host.split(':')[0],
-              path: '/'
-            });
-          }
-        }
-        
-        await page.goto(reportUrl, { waitUntil: 'networkidle0', timeout: 30000 });
-        await page.evaluate(() => {
-          document.querySelectorAll('.actions-no-print, .student-checkbox, hr, #emailModal').forEach(el => el.style.display = 'none');
-        });
+      await db.query(
+        `UPDATE email_history SET pdf_generated = true WHERE id = $1`,
+        [emailRecord.id]
+      );
 
-        const timestamp = Date.now();
-        const pdfPath = path.join(__dirname, '../uploads', `report_${student_id}_${timestamp}.pdf`);
-        const uploadsDir = path.join(__dirname, '../uploads');
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+      const emailHtml = renderCleanEmail({
+        title: "Student Report Card",
+        greeting: "Dear Parent/Guardian,",
+        paragraphs: [
+          `Please find attached the <strong>academic report card</strong> for <strong>${student_name}</strong>.`,
+        ],
+        details: [
+          { label: "Student", value: student_name },
+          { label: "School", value: org.organization_name },
+          { label: "Date", value: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) },
+        ],
+        note: "This report is confidential and intended only for the student's parent/guardian. Please do not forward or share without permission.",
+        schoolWebsiteUrl: websiteInfo.websiteUrl || "",
+        schoolWebsiteHost: websiteInfo.websiteHost || "",
+      });
 
-        await page.pdf({
-          path: pdfPath,
-          format: 'A4',
-          printBackground: true,
-          margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' }
-        });
-
-        await page.close();
-
-        // Mark PDF as generated
-        await db.query(
-          `UPDATE email_history SET pdf_generated = true WHERE id = $1`,
-          [emailRecord.id]
-        );
-
-        // Send emails
-        const emailHtml = renderCleanEmail({
-          title: "Student Report Card",
-          greeting: "Dear Parent/Guardian,",
-          paragraphs: [
-            `Please find attached the <strong>academic report card</strong> for <strong>${student_name}</strong>.`,
-          ],
-          details: [
-            { label: "Student", value: student_name },
-            { label: "School", value: org.organization_name },
-            { label: "Date", value: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) },
-          ],
-          note: "This report is confidential and intended only for the student's parent/guardian. Please do not forward or share without permission.",
-          schoolWebsiteUrl: websiteInfo.websiteUrl || "",
-          schoolWebsiteHost: websiteInfo.websiteHost || "",
-        });
-
-        const logoFilePath = path.join(__dirname, '../public/images/managira.png');
-
-        // Send to all recipient emails
-        let allSent = true;
-        for (const email of recipient_emails) {
-          // Honor each guardian's preference for report card emails.
-          const allowed = await isEmailEnabledForRecipient(db, email, 'report_card_email');
-          if (!allowed) continue;
-          const sent = await sendEmailSafely({
-            to: email,
-            subject: `Report Card - ${student_name} | ${org.organization_name}`,
-            html: emailHtml,
-            failureNotification: {
-              orgId: organizationId,
-              recipientType: 'broadcast',
-              recipientId: 0,
-              title: 'Report email delivery failed',
-              body: `Report email for ${student_name} could not be delivered to ${email}. Update the saved email and resend from Email History.`,
-              link: emailHistoryLink,
-              dedupeHours: 12,
+      // Send to all recipient emails
+      let allSent = true;
+      for (const email of recipient_emails) {
+        // Honor each guardian's preference for report card emails.
+        const allowed = await isEmailEnabledForRecipient(db, email, 'report_card_email');
+        if (!allowed) continue;
+        const sent = await sendEmailSafely({
+          to: email,
+          subject: `Report Card - ${student_name} | ${org.organization_name}`,
+          html: emailHtml,
+          failureNotification: {
+            orgId: organizationId,
+            recipientType: 'broadcast',
+            recipientId: 0,
+            title: 'Report email delivery failed',
+            body: `Report email for ${student_name} could not be delivered to ${email}. Update the saved email and resend from Email History.`,
+            link: emailHistoryLink,
+            dedupeHours: 12,
+          },
+          attachments: [
+            {
+              filename: `${String(student_name || 'Student').replace(/ /g, '_')}_Report.pdf`,
+              content: pdfBuffer,
+              contentType: 'application/pdf',
             },
-            attachments: [
-              { filename: `${student_name.replace(/ /g, '_')}_Report.pdf`, path: pdfPath },
-              { filename: 'managira-logo.png', path: logoFilePath, cid: 'managira_logo' }
-            ]
-          }, 'Report Email');
+          ],
+        }, 'Report Email');
 
-          if (!sent) allSent = false;
-        }
-
-        // Clean up PDF
-        if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
-
-        // Update status
-        if (allSent) {
-          await db.query(
-            `UPDATE email_history SET status = 'sent', sent_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-            [emailRecord.id]
-          );
-        } else {
-          await db.query(
-            `UPDATE email_history SET status = 'failed', error_message = 'Some emails failed to send', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-            [emailRecord.id]
-          );
-        }
-
-      } catch (err) {
-        console.error(`[processEmailBatch] Error processing email ${emailRecord.id}:`, err.message);
-        await db.query(
-          `UPDATE email_history SET status = 'failed', error_message = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
-          [err.message, emailRecord.id]
-        );
+        if (!sent) allSent = false;
       }
+
+      if (allSent) {
+        await db.query(
+          `UPDATE email_history SET status = 'sent', sent_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+          [emailRecord.id]
+        );
+      } else {
+        await markEmailFailed(emailRecord.id, 'Some emails failed to send');
+      }
+    };
+
+    // Every report card in the batch comes from one page load of the same
+    // report page staff see, then each is emailed as its own PDF.
+    try {
+      await renderReportCardsPerStudent(
+        {
+          baseUrl: `${protocol}://${host}`,
+          sessionCookie: sessionCookieFromHeader(cookies),
+          classId,
+          termId,
+          studentIds: Array.from(recordsByStudent.keys()),
+        },
+        {
+          onReport: async (studentId, pdfBuffer) => {
+            for (const emailRecord of recordsByStudent.get(studentId) || []) {
+              try {
+                await sendRecord(emailRecord, pdfBuffer);
+              } catch (err) {
+                console.error(`[processEmailBatch] Error processing email ${emailRecord.id}:`, err.message);
+                await markEmailFailed(emailRecord.id, err.message);
+              }
+            }
+          },
+          onError: async (studentId, err) => {
+            for (const emailRecord of recordsByStudent.get(studentId) || []) {
+              await markEmailFailed(emailRecord.id, err.userMessage || err.message);
+            }
+          },
+        }
+      );
+    } catch (renderError) {
+      // Nothing could be rendered (for example the session expired): fail the
+      // remaining emails with a clear reason instead of sending a wrong PDF.
+      console.error(`[processEmailBatch] Could not render report cards for batch ${batchId}:`, renderError.message);
+      await db.query(
+        `UPDATE email_history SET status = 'failed', error_message = $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ANY($2::int[]) AND status = 'sending'`,
+        [renderError.userMessage || 'Report card PDF could not be generated.', emails.map((emailRecord) => emailRecord.id)]
+      );
     }
 
-    if (browser) await browser.close();
     console.log(`[processEmailBatch] Completed processing batch ${batchId}`);
-
   } catch (error) {
     console.error('[processEmailBatch] Fatal error:', error);
-    if (browser) try { await browser.close(); } catch (e) {}
   }
 }
 

@@ -4,12 +4,48 @@ const {
   applyDisplayPreferencesToSession,
 } = require("./organizationDisplayPreferences");
 
+// How long the organization's display settings (theme, font, name and date
+// format) stay cached in a session before being re-read.
+const ORGANIZATION_DISPLAY_REFRESH_MS = 5 * 60 * 1000;
+
+// Login stores the organization id but not all display settings, so pages
+// (and the report/transcript PDFs rendered from them) used default name and
+// date formats until some other page loaded them. Load them on the first
+// request and refresh periodically so changes by other admins show up.
+async function refreshOrganizationDisplaySettings(req) {
+  const lastLoadedAt = Number(req.session.organizationDisplayLoadedAt || 0);
+  const loadedForCurrentOrganization =
+    String(req.session.organizationDisplayLoadedFor || "") === String(req.session.organizationId);
+  if (loadedForCurrentOrganization && Date.now() - lastLoadedAt < ORGANIZATION_DISPLAY_REFRESH_MS) {
+    return;
+  }
+
+  await ensureOrganizationDisplayPreferencesSchema(db);
+  const result = await db.query(
+    `SELECT font_style, theme_color, name_display_format, date_display_format
+       FROM organizations
+      WHERE organization_id = $1
+      LIMIT 1`,
+    [req.session.organizationId]
+  );
+
+  const organization = result.rows[0];
+  if (organization) {
+    req.session.fontStyle = organization.font_style || req.session.fontStyle || null;
+    req.session.themeColor = organization.theme_color || req.session.themeColor || "teal";
+    applyDisplayPreferencesToSession(req.session, organization);
+  }
+  req.session.organizationDisplayLoadedAt = Date.now();
+  req.session.organizationDisplayLoadedFor = req.session.organizationId;
+}
+
 async function hydrateOrganizationSession(req) {
   if (!req || !req.session) {
     return false;
   }
 
   if (req.session.organizationId) {
+    await refreshOrganizationDisplaySettings(req);
     return true;
   }
 
@@ -52,6 +88,8 @@ async function hydrateOrganizationSession(req) {
   req.session.fontStyle = user.font_style || req.session.fontStyle || null;
   req.session.themeColor = user.theme_color || req.session.themeColor || "teal";
   applyDisplayPreferencesToSession(req.session, user);
+  req.session.organizationDisplayLoadedAt = Date.now();
+  req.session.organizationDisplayLoadedFor = user.organization_id;
 
   return true;
 }

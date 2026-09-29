@@ -27,6 +27,7 @@ const promotionController = require("./promotionController");
 const { transportationController, getStudentTransportationSnapshot } = require("./transportationController");
 const accountController = require("./accountController");
 const { uploadToS3 } = require("../middleware/s3Upload");
+const { renderReportCardsPdf, renderMeritSheetPdf, storePdf } = require("../utils/pdfService");
 const { reverseGeocode, geocodeAddress } = require("../utils/geocode");
 const { documentController, ensureDocumentsSchema } = require("./documentController");
 const { logOrganizationActivity, getLatestIntegrationActivity } = require("../utils/activityLog");
@@ -8451,11 +8452,9 @@ async function unarchiveStudentsApi(req, res) {
 // the Report Settings section, since generating/emailing grades is at
 // least as sensitive as changing display toggles.
 //
-// Architecture note: every existing PDF-generation code path in the real
-// app (downloadReports, postReportCards, whatsappReports,
-// utils/reportPdf.js) works by launching Puppeteer and navigating it to
-// the real printStudentReport/generateMeritSheet URL using the *browser's*
-// own session cookie, so the exact same rendering pipeline (including the
+// Architecture note: every PDF in the app is produced by utils/pdfService,
+// which renders the real printStudentReport/generateMeritSheet page as the
+// signed-in user, so the exact same rendering pipeline (including the
 // global EJS layout via express-ejs-layouts, which nothing here opts out
 // of) produces the PDF a human would get. Mira has no browser session to
 // hand over - it's called service-to-service with only a bearer token, not
@@ -8464,7 +8463,7 @@ async function unarchiveStudentsApi(req, res) {
 // session is minted server-side in the exact same `user_sessions` Postgres
 // store express-session itself uses, scoped to the exact identity Mira
 // already validated for this conversation (never a different user), handed
-// to a headless Puppeteer instance as its cookie, and explicitly destroyed
+// to pdfService as its cookie, and explicitly destroyed
 // again once the PDF is captured - deliberately narrow and short-lived,
 // not a general impersonation mechanism.
 // ============================================================
@@ -8516,102 +8515,15 @@ async function destroyPuppeteerSession(sid) {
   setTimeout(() => { destroyOnce().catch(() => {}); }, 3000).unref();
 }
 
-// Navigates a real headless browser to a real app URL using a freshly
-// minted, short-lived session, and captures the page as a PDF - the exact
-// same mechanism controllers/printController.js's downloadReports uses,
-// just with a minted session instead of copying the caller's own cookie.
-async function renderPageToPdf({ identity, path: urlPath, waitForSelector, hideSelectors }) {
-  const puppeteer = require("puppeteer");
+// Runs a PDF render (utils/pdfService) as the identity Mira already
+// validated, using a freshly minted, short-lived session that is always
+// destroyed afterwards.
+async function withMintedSession(identity, render) {
   const { protocol, host } = internalBaseUrlParts();
   const { sid, cookieValue } = await mintPuppeteerSession(identity);
-  let browser = null;
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
-    });
-    const page = await browser.newPage();
-    const hostName = String(host || "").split(":")[0];
-    await page.setCookie({ name: "connect.sid", value: cookieValue, domain: hostName, path: "/" });
-
-    const url = `${protocol}://${host}${urlPath}`;
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
-    if (waitForSelector) await page.waitForSelector(waitForSelector, { timeout: 20000 });
-    if (hideSelectors) {
-      await page.evaluate((selectors) => {
-        document.querySelectorAll(selectors).forEach((el) => {
-          el.style.display = "none";
-        });
-      }, hideSelectors);
-    }
-
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
-    });
-    return Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
+    return await render({ baseUrl: `${protocol}://${host}`, sessionCookie: cookieValue });
   } finally {
-    if (browser) await browser.close().catch(() => {});
-    await destroyPuppeteerSession(sid).catch(() => {});
-  }
-}
-
-// Merit sheets need a dedicated variant of renderPageToPdf: the real
-// generateMeritSheet GET route reads selectedSubjects/selectedAssessments
-// as repeated query-string params, but Express's default query parser
-// (`qs`) silently caps any repeated-key array at 20 entries - past that it
-// re-parses the "array" as a plain object instead, which the real
-// controller's own `Array.isArray(selectedAssessments)` check then
-// rejects, silently redirecting to a bare error page with no data at all
-// (confirmed by testing: a 31-assessment "include everything" request
-// landed on "Class or term details not found" with zero clue why). A real
-// class/term easily has more than 20 assessments across all subjects, so
-// this isn't an edge case - it's the normal "generate for everything"
-// request. Posting JSON instead (same route, POST, already covered by the
-// app's global express.json() middleware) has no such limit - Puppeteer
-// can't POST via page.goto(), so this establishes the right origin/cookie
-// context first, then runs the POST as a same-origin fetch() from inside
-// the page and loads the returned HTML directly via page.setContent().
-async function renderMeritSheetToPdf({ identity, classId, termId, subjectIds, assessmentIds }) {
-  const puppeteer = require("puppeteer");
-  const { protocol, host } = internalBaseUrlParts();
-  const { sid, cookieValue } = await mintPuppeteerSession(identity);
-  let browser = null;
-  try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-web-security"],
-    });
-    const page = await browser.newPage();
-    const hostName = String(host || "").split(":")[0];
-    await page.setCookie({ name: "connect.sid", value: cookieValue, domain: hostName, path: "/" });
-
-    const origin = `${protocol}://${host}`;
-    await page.goto(`${origin}/print/meritSheetPage?classId=${classId}&termId=${termId}`, { waitUntil: "domcontentloaded", timeout: 45000 });
-
-    const html = await page.evaluate(async (payload) => {
-      const resp = await fetch("/print/generateMeritSheet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      return await resp.text();
-    }, { classId, termId, selectedSubjects: subjectIds, selectedAssessments: assessmentIds });
-
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    await page.waitForSelector(".merit-sheet table", { timeout: 20000 });
-
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: "8mm", right: "8mm", bottom: "8mm", left: "8mm" },
-    });
-    return Buffer.isBuffer(pdfBuffer) ? pdfBuffer : Buffer.from(pdfBuffer);
-  } finally {
-    if (browser) await browser.close().catch(() => {});
     await destroyPuppeteerSession(sid).catch(() => {});
   }
 }
@@ -8664,16 +8576,13 @@ async function getOrGenerateReportCardPdf(identity, { classId, termId, studentId
     }
   }
 
-  const buffer = await renderPageToPdf({
-    identity,
-    path: `/print/printStudentReport?classId=${classId}&termId=${termId}&studentId=${studentId}&postingMode=1`,
-    waitForSelector: ".student-report",
-    hideSelectors: ".actions-no-print, .student-checkbox, hr, #emailModal, #whatsappModal",
-  });
+  const { buffer } = await withMintedSession(identity, (session) =>
+    renderReportCardsPdf({ ...session, classId, termId, studentIds: [studentId] })
+  );
 
   const safeStudentName = safeFileNameSegment(studentName, `student_${studentId}`);
   const pdfKey = `report-cards/org_${identity.organizationId}/term_${termId}/class_${classId}/student_${studentId}_${Date.now()}_${safeStudentName}.pdf`;
-  const pdfUrl = await uploadToS3({ buffer, mimetype: "application/pdf", originalname: `${safeStudentName}.pdf` }, pdfKey);
+  const pdfUrl = await storePdf(pdfKey, buffer);
 
   await db.query(
     `INSERT INTO posted_report_cards (organization_id, class_id, term_id, student_id, pdf_s3_key, pdf_url, posted_at)
@@ -9026,18 +8935,20 @@ async function generateMeritSheetPdfApi(req, res) {
     const { cls, term } = await resolveClassAndTermForPrint(organizationId, req.body?.className, req.body?.termName, req.body?.schoolYearLabel);
     const { subjectIds, assessmentIds, warnings } = await resolveMeritSheetSelections(organizationId, cls, term, req.body?.subjectNames, req.body?.assessmentTitles);
 
-    const buffer = await renderMeritSheetToPdf({
-      identity,
-      classId: cls.class_id,
-      termId: term.term_id,
-      subjectIds,
-      assessmentIds,
-    });
+    const buffer = await withMintedSession(identity, (session) =>
+      renderMeritSheetPdf({
+        ...session,
+        classId: cls.class_id,
+        termId: term.term_id,
+        subjectIds,
+        assessmentIds,
+      })
+    );
 
     const safeClassName = safeFileNameSegment(cls.class_name, `class_${cls.class_id}`);
     const safeTermName = safeFileNameSegment(term.term_name, `term_${term.term_id}`);
     const pdfKey = `merit-sheets/org_${organizationId}/term_${term.term_id}/class_${cls.class_id}/${safeClassName}_${safeTermName}_${Date.now()}.pdf`;
-    const pdfUrl = await uploadToS3({ buffer, mimetype: "application/pdf", originalname: `${safeClassName}_merit_sheet.pdf` }, pdfKey);
+    const pdfUrl = await storePdf(pdfKey, buffer);
 
     return res.json({ className: cls.class_name, termName: term.term_name, yearLabel: term.year_label, pdfUrl, warnings });
   } catch (error) {

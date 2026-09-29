@@ -457,6 +457,9 @@ async function buildConstraintErrorMessage(error, referenceId, fallbackMessage, 
 }
 
 async function deleteUserWithDependencies({ userId, actorUserId }) {
+  // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+  // connections and strand writes in an open transaction.
+  let txClient = null;
   const userResult = await db.query(
     `SELECT user_id, organization_id, first_name, last_name, email, account_type, on_hold
      FROM users
@@ -478,13 +481,14 @@ async function deleteUserWithDependencies({ userId, actorUserId }) {
   }
 
   try {
-    await db.query("BEGIN");
+    txClient = await db.connect();
+    await txClient.query("BEGIN");
 
     const organizationId = user.organization_id ? Number(user.organization_id) : null;
     let fallbackOwnerId = null;
 
     if (organizationId) {
-      const fallbackResult = await db.query(
+      const fallbackResult = await txClient.query(
         `SELECT user_id
          FROM users
          WHERE organization_id = $1
@@ -499,9 +503,9 @@ async function deleteUserWithDependencies({ userId, actorUserId }) {
       );
       fallbackOwnerId = fallbackResult.rows[0]?.user_id || null;
 
-      const docsTableExists = await db.query(`SELECT to_regclass('public.documents') AS tbl`);
+      const docsTableExists = await txClient.query(`SELECT to_regclass('public.documents') AS tbl`);
       if (docsTableExists.rows[0]?.tbl) {
-        const docsOwnedResult = await db.query(
+        const docsOwnedResult = await txClient.query(
           `SELECT COUNT(*)::int AS count
            FROM documents
            WHERE organization_id = $1 AND created_by = $2`,
@@ -516,7 +520,7 @@ async function deleteUserWithDependencies({ userId, actorUserId }) {
         }
 
         if (docsOwnedCount > 0 && fallbackOwnerId) {
-          await db.query(
+          await txClient.query(
             `UPDATE documents
              SET created_by = $1, updated_at = NOW()
              WHERE organization_id = $2 AND created_by = $3`,
@@ -526,23 +530,25 @@ async function deleteUserWithDependencies({ userId, actorUserId }) {
       }
     }
 
-    await db.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
-    await db.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
-    await db.query("DELETE FROM user_permissions WHERE user_id = $1", [userId]);
+    await txClient.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
+    await txClient.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
+    await txClient.query("DELETE FROM user_permissions WHERE user_id = $1", [userId]);
 
-    const deleteResult = await db.query("DELETE FROM users WHERE user_id = $1", [userId]);
+    const deleteResult = await txClient.query("DELETE FROM users WHERE user_id = $1", [userId]);
     if (deleteResult.rowCount === 0) {
       throw new Error("User deletion failed.");
     }
 
-    await db.query("COMMIT");
+    await txClient.query("COMMIT");
     return user;
   } catch (error) {
     try {
-      await db.query("ROLLBACK");
+      if (txClient) await txClient.query("ROLLBACK").catch(() => {});
     } catch (rollbackError) {
     }
     throw error;
+  } finally {
+    if (txClient) txClient.release();
   }
 }
 
@@ -1609,6 +1615,9 @@ const adminController = {
   },
 
   deleteOrganization: async (req, res) => {
+    // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+    // connections and strand writes in an open transaction.
+    let txClient = null;
     if (req.session?.accountType !== 'Admin') {
       req.flash('error', 'You do not have permission to perform this action.');
       return res.redirect('/admin');
@@ -1616,8 +1625,9 @@ const adminController = {
 
     const { orgId } = req.body;
     try {
-      await db.query("BEGIN");
-      const result = await db.query(
+      txClient = await db.connect();
+      await txClient.query("BEGIN");
+      const result = await txClient.query(
         `UPDATE organizations
          SET deleted = true,
              on_hold = true,
@@ -1631,17 +1641,17 @@ const adminController = {
       const organization = result.rows[0];
 
       if (!organization) {
-        await db.query("ROLLBACK");
+        if (txClient) await txClient.query("ROLLBACK").catch(() => {});
         req.flash("error", "Organization not found.");
         return res.redirect("/admin");
       }
 
-      await db.query(
+      await txClient.query(
         "UPDATE stored_cards SET is_active = false, updated_at = NOW() WHERE organization_id = $1",
         [orgId]
       );
 
-      await db.query("COMMIT");
+      await txClient.query("COMMIT");
 
       // Invalidate cache after update
       cacheManager.invalidate('admin', 'organizations:list');
@@ -1656,9 +1666,11 @@ const adminController = {
 
       res.redirect("/admin");
     } catch (error) {
-      try { await db.query("ROLLBACK"); } catch (_) {}
+      if (txClient) await txClient.query("ROLLBACK").catch(() => {});
             req.flash("error", "Failed to delete organization.");
       res.redirect("/admin");
+    } finally {
+      if (txClient) txClient.release();
     }
   },
 
@@ -2591,10 +2603,14 @@ const adminController = {
   },
 
   restoreOrganization: async (req, res) => {
+    // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+    // connections and strand writes in an open transaction.
+    let txClient = null;
     const { orgId } = req.body;
     try {
-      await db.query("BEGIN");
-      const result = await db.query(
+      txClient = await db.connect();
+      await txClient.query("BEGIN");
+      const result = await txClient.query(
         `UPDATE organizations
          SET deleted = false,
              on_hold = false,
@@ -2610,17 +2626,17 @@ const adminController = {
       const organization = result.rows[0];
 
       if (!organization) {
-        await db.query("ROLLBACK");
+        if (txClient) await txClient.query("ROLLBACK").catch(() => {});
         req.flash("error", "Organization not found.");
         return res.redirect("/admin/superDashboard");
       }
 
-      await db.query(
+      await txClient.query(
         "UPDATE stored_cards SET is_active = true, updated_at = NOW() WHERE organization_id = $1",
         [orgId]
       );
 
-      await db.query("COMMIT");
+      await txClient.query("COMMIT");
 
       req.flash("success", "Organization restored successfully.");
 
@@ -2632,9 +2648,11 @@ const adminController = {
 
       res.redirect("/admin/superDashboard");
     } catch (error) {
-      try { await db.query("ROLLBACK"); } catch (_) {}
+      if (txClient) await txClient.query("ROLLBACK").catch(() => {});
             req.flash("error", "Failed to restore organization.");
       res.redirect("/admin/superDashboard");
+    } finally {
+      if (txClient) txClient.release();
     }
   },
 
@@ -3681,11 +3699,15 @@ const adminController = {
   },
 
   permanentlyDeleteOrganization: async (req, res) => {
+    // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+    // connections and strand writes in an open transaction.
+    let txClient = null;
     const { orgId } = req.body;
     try {
-      await db.query("BEGIN");
+      txClient = await db.connect();
+      await txClient.query("BEGIN");
 
-      await db.query(
+      await txClient.query(
         `DELETE FROM user_subjects
          WHERE user_id IN (
            SELECT user_id FROM users WHERE organization_id = $1
@@ -3696,27 +3718,27 @@ const adminController = {
         [orgId]
       );
 
-      await db.query(
+      await txClient.query(
         `DELETE FROM organization_texts WHERE organization_id = $1`,
         [orgId]
       );
 
-      const deleteResult = await db.query("DELETE FROM organizations WHERE organization_id = $1", [
+      const deleteResult = await txClient.query("DELETE FROM organizations WHERE organization_id = $1", [
         orgId,
       ]);
 
       if (deleteResult.rowCount === 0) {
-        await db.query("ROLLBACK");
+        if (txClient) await txClient.query("ROLLBACK").catch(() => {});
         req.flash("error", "Organization not found or already deleted.");
         return res.redirect("/admin/superDashboard");
       }
 
-      await db.query("COMMIT");
+      await txClient.query("COMMIT");
 
       req.flash("success", "Organization permanently deleted successfully.");
       res.redirect("/admin/superDashboard");
     } catch (error) {
-      try { await db.query("ROLLBACK"); } catch (_) {}
+      if (txClient) await txClient.query("ROLLBACK").catch(() => {});
 
       let detailedMessage = "Failed to permanently delete organization.";
 
@@ -3791,6 +3813,8 @@ const adminController = {
 
       req.flash("error", detailedMessage);
       res.redirect("/admin/superDashboard");
+    } finally {
+      if (txClient) txClient.release();
     }
   },
 
@@ -6590,12 +6614,16 @@ adminController.hubResumePost = async (req, res) => {
 
 // Delete hub
 adminController.hubDeletePost = async (req, res) => {
+  // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+  // connections and strand writes in an open transaction.
+  let txClient = null;
   const { hubId } = req.body;
 
   try {
-    await db.query('BEGIN');
+    txClient = await db.connect();
+    await txClient.query('BEGIN');
 
-    const result = await db.query(
+    const result = await txClient.query(
       `UPDATE managira_hubs
        SET deleted = true, on_hold = true, updated_at = NOW()
        WHERE hub_id = $1
@@ -6605,7 +6633,7 @@ adminController.hubDeletePost = async (req, res) => {
 
     const hub = result.rows[0];
 
-    const memberOrganizations = await db.query(
+    const memberOrganizations = await txClient.query(
       `UPDATE organizations
        SET on_hold = true,
            hold_by = 'Hub',
@@ -6616,7 +6644,7 @@ adminController.hubDeletePost = async (req, res) => {
       [hubId]
     );
 
-    await db.query('COMMIT');
+    await txClient.query('COMMIT');
 
     if (hub && hub.hub_email) {
       await sendEmailNotification(
@@ -6638,9 +6666,11 @@ adminController.hubDeletePost = async (req, res) => {
     req.flash('success', `Hub moved to deleted review and placed on hold successfully. ${memberOrganizations.rows.length} linked organization(s) were also placed on hold.`);
     res.redirect('/admin/hubs');
   } catch (error) {
-    try { await db.query('ROLLBACK'); } catch (rollbackError) {}
+    if (txClient) await txClient.query('ROLLBACK').catch(() => {});
         req.flash('error', 'Error deleting hub.');
     res.redirect('/admin/hubs');
+  } finally {
+    if (txClient) txClient.release();
   }
 };
 
@@ -6677,13 +6707,17 @@ adminController.restoreHub = async (req, res) => {
 
 // Permanently delete hub
 adminController.permanentlyDeleteHub = async (req, res) => {
+  // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+  // connections and strand writes in an open transaction.
+  let txClient = null;
   const { hubId } = req.body;
 
   try {
-    await db.query('BEGIN');
+    txClient = await db.connect();
+    await txClient.query('BEGIN');
 
     // Detach all member organizations from this hub before hard delete
-    await db.query(
+    await txClient.query(
       `UPDATE organizations
        SET hub_id = NULL,
            is_hub_member = false,
@@ -6693,15 +6727,17 @@ adminController.permanentlyDeleteHub = async (req, res) => {
       [hubId]
     );
 
-    await db.query('DELETE FROM managira_hubs WHERE hub_id = $1', [hubId]);
+    await txClient.query('DELETE FROM managira_hubs WHERE hub_id = $1', [hubId]);
 
-    await db.query('COMMIT');
+    await txClient.query('COMMIT');
     req.flash('success', 'Hub permanently deleted successfully.');
     res.redirect('/admin/superDashboard');
   } catch (error) {
-    try { await db.query('ROLLBACK'); } catch (rollbackError) {}
+    if (txClient) await txClient.query('ROLLBACK').catch(() => {});
         req.flash('error', 'Failed to permanently delete hub.');
     res.redirect('/admin/superDashboard');
+  } finally {
+    if (txClient) txClient.release();
   }
 };
 
@@ -6717,21 +6753,26 @@ adminController.bulkPermanentlyDeleteOrganizations = async (req, res) => {
     let deleted = 0;
     const failures = [];
     for (const orgId of intIds) {
+      // One dedicated connection per transaction (BEGIN/COMMIT on the pool
+      // can run on different connections).
+      const txClient = await db.connect();
       try {
-        await db.query('BEGIN');
-        await db.query(
+        await txClient.query('BEGIN');
+        await txClient.query(
           `DELETE FROM user_subjects
            WHERE user_id IN (SELECT user_id FROM users WHERE organization_id = $1)
               OR subject_id IN (SELECT subject_id FROM subjects WHERE organization_id = $1)`,
           [orgId]
         );
-        await db.query(`DELETE FROM organization_texts WHERE organization_id = $1`, [orgId]);
-        const r = await db.query('DELETE FROM organizations WHERE organization_id = $1', [orgId]);
-        await db.query('COMMIT');
+        await txClient.query(`DELETE FROM organization_texts WHERE organization_id = $1`, [orgId]);
+        const r = await txClient.query('DELETE FROM organizations WHERE organization_id = $1', [orgId]);
+        await txClient.query('COMMIT');
         if (r.rowCount > 0) deleted += 1; else failures.push(orgId);
       } catch (err) {
-        try { await db.query('ROLLBACK'); } catch (_) {}
+        await txClient.query('ROLLBACK').catch(() => {});
         failures.push(orgId);
+      } finally {
+        txClient.release();
       }
     }
 
@@ -6756,9 +6797,12 @@ adminController.bulkPermanentlyDeleteHubs = async (req, res) => {
     let deleted = 0;
     const failures = [];
     for (const hubId of intIds) {
+      // One dedicated connection per transaction (BEGIN/COMMIT on the pool
+      // can run on different connections).
+      const txClient = await db.connect();
       try {
-        await db.query('BEGIN');
-        await db.query(
+        await txClient.query('BEGIN');
+        await txClient.query(
           `UPDATE organizations
              SET hub_id = NULL,
                  is_hub_member = false,
@@ -6767,12 +6811,14 @@ adminController.bulkPermanentlyDeleteHubs = async (req, res) => {
            WHERE hub_id = $1`,
           [hubId]
         );
-        const r = await db.query('DELETE FROM managira_hubs WHERE hub_id = $1', [hubId]);
-        await db.query('COMMIT');
+        const r = await txClient.query('DELETE FROM managira_hubs WHERE hub_id = $1', [hubId]);
+        await txClient.query('COMMIT');
         if (r.rowCount > 0) deleted += 1; else failures.push(hubId);
       } catch (err) {
-        try { await db.query('ROLLBACK'); } catch (_) {}
+        await txClient.query('ROLLBACK').catch(() => {});
         failures.push(hubId);
+      } finally {
+        txClient.release();
       }
     }
 
@@ -6877,6 +6923,9 @@ adminController.getOrgChart = async (req, res) => {
 };
 
 adminController.updateOrgChartMember = async (req, res) => {
+  // Dedicated connection: BEGIN/COMMIT on the pool can run on different
+  // connections and strand writes in an open transaction.
+  let txClient = null;
   try {
     await ensureInternalWorkerSchema(db);
     const memberId = parseInt(req.params.id, 10);
@@ -6912,9 +6961,10 @@ adminController.updateOrgChartMember = async (req, res) => {
       }
     }
 
-    await db.query('BEGIN');
+    txClient = await db.connect();
+    await txClient.query('BEGIN');
 
-    const memberResult = await db.query(
+    const memberResult = await txClient.query(
       `SELECT user_id, supervisor_user_id
          FROM users
         WHERE user_id = $1
@@ -6924,14 +6974,14 @@ adminController.updateOrgChartMember = async (req, res) => {
     );
 
     if (!memberResult.rows.length) {
-      await db.query('ROLLBACK');
+      if (txClient) await txClient.query('ROLLBACK').catch(() => {});
       req.flash('error', 'Team member not found.');
       return res.redirect('/admin/org-chart');
     }
 
     const currentSupervisorUserId = memberResult.rows[0].supervisor_user_id || null;
 
-    const siblingResult = await db.query(
+    const siblingResult = await txClient.query(
       `SELECT user_id
          FROM users
         WHERE account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
@@ -6970,21 +7020,21 @@ adminController.updateOrgChartMember = async (req, res) => {
     }
     params.push(memberId);
 
-    await db.query(
+    await txClient.query(
       `UPDATE users SET ${sets.join(', ')} WHERE user_id = $${params.length}
         AND account_type IN ('Admin', 'Mini Admin', 'Internal Worker')`,
       params
     );
 
     for (let index = 0; index < siblingIds.length; index += 1) {
-      await db.query(
+      await txClient.query(
         `UPDATE users SET org_chart_position = $1 WHERE user_id = $2`,
         [index + 1, siblingIds[index]]
       );
     }
 
     if (currentSupervisorUserId !== supervisorUserId) {
-      const previousSiblingResult = await db.query(
+      const previousSiblingResult = await txClient.query(
         `SELECT user_id
            FROM users
           WHERE account_type IN ('Admin', 'Mini Admin', 'Internal Worker')
@@ -7004,22 +7054,24 @@ adminController.updateOrgChartMember = async (req, res) => {
       );
 
       for (let index = 0; index < previousSiblingResult.rows.length; index += 1) {
-        await db.query(
+        await txClient.query(
           `UPDATE users SET org_chart_position = $1 WHERE user_id = $2`,
           [index + 1, previousSiblingResult.rows[index].user_id]
         );
       }
     }
 
-    await db.query('COMMIT');
+    await txClient.query('COMMIT');
 
     req.flash('success', 'Team member updated.');
     res.redirect('/admin/org-chart');
   } catch (err) {
-    try { await db.query('ROLLBACK'); } catch (rollbackErr) {}
+    if (txClient) await txClient.query('ROLLBACK').catch(() => {});
     console.error('[updateOrgChartMember]', err);
     req.flash('error', 'Failed to update team member.');
     res.redirect('/admin/org-chart');
+  } finally {
+    if (txClient) txClient.release();
   }
 };
 
