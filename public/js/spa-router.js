@@ -239,8 +239,12 @@
         this.currentPath
       );
 
-      // 2. Intercept link clicks (single delegated listener)
-      document.addEventListener('click', this._onLinkClick.bind(this), true);
+      // 2. Intercept link clicks (single delegated listener). Not inside an
+      //    iframe pane: there a real navigation lets the server see
+      //    Sec-Fetch-Dest: iframe and render the page without header/footer.
+      if (window.self === window.top) {
+        document.addEventListener('click', this._onLinkClick.bind(this), true);
+      }
 
       // 3. Hover preloading with debounce
       document.addEventListener('mouseover', this._onLinkHover.bind(this));

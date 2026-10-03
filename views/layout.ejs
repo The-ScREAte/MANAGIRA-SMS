@@ -1,4 +1,12 @@
-
+<%
+  // Inside a workspace pane (iframe): never show the global chrome, even when
+  // a page's controller passed its own hideGlobalHeader: false.
+  if (locals.isEmbeddedFrame) {
+    locals.hideGlobalHeader = true;
+    locals.hideGlobalFooter = true;
+    locals.hideGlobalChatbot = true;
+  }
+%>
 <!DOCTYPE html>
 <html lang="en">
 <head>

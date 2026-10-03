@@ -8028,6 +8028,7 @@ const commonController = {
     const accountType = req.session.accountType || req.session.user?.account_type || null;
     const userId = req.session.user ? req.session.user.user_id : null;
     const normalizedUserRole = normalizeRoleKey(userRole || req.session.accountType);
+    const isEmbedded = Boolean(res.locals.isEmbeddedFrame);
 
     if (!studentId || !termId) {
       return res.status(400).send("Student ID and Term ID are required.");
@@ -8248,6 +8249,8 @@ const commonController = {
         return acc;
       }, {});
 
+      const resolveGradeLabel = await loadGradeLabelResolver(db, organizationId, classId, termId);
+
       for (const subject of subjectsMap.values()) {
         if (!subject.hasEnteredScore || !Number.isFinite(subject.totalScore) || subject.totalMaxScore <= 0) {
           subject.totalScore = null;
@@ -8258,13 +8261,7 @@ const commonController = {
         }
 
         subject.totalPercentage = (subject.totalScore / subject.totalMaxScore) * 100;
-        subject.grade = await getGradeLabelFromScoreRemark(
-          db,
-          organizationId,
-          classId,
-          termId,
-          subject.totalPercentage
-        );
+        subject.grade = resolveGradeLabel(subject.totalPercentage);
         subject.position = positions[subject.subject_id] || "-";
       }
 
@@ -8278,7 +8275,7 @@ const commonController = {
       });
 
       // Fetch guardians associated with the student
-      const guardiansResult = await db.query(
+      const guardiansResultPromise = db.query(
         `
           SELECT * FROM guardians
           WHERE student_id = $1
@@ -8327,10 +8324,8 @@ const commonController = {
         }
       }
 
-      const guardians = guardiansResult.rows;
-
-      // Get enrolled class for this term
-      const enrolledClassResult = await db.query(
+      // Independent lookups - run concurrently instead of one round trip each.
+      const enrolledClassResultPromise = db.query(
         `
   SELECT c.class_name
   FROM enrolled_students es
@@ -8344,10 +8339,7 @@ const commonController = {
         [studentId, termId, organizationId]
       );
 
-      const enrolledClassForTerm =
-        enrolledClassResult.rows[0]?.class_name || "Not enrolled";
-
-      const termResult = await db.query(
+      const termResultPromise = db.query(
         `
   SELECT term_name
   FROM terms
@@ -8357,16 +8349,26 @@ const commonController = {
         [termId, organizationId]
       );
 
-      const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
-
-      // Fetch student ID settings for display
-      const sidSettingsResult = await db.query(
+      const sidSettingsResultPromise = db.query(
         `SELECT use_custom_student_id, student_id_prefix FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
+
+      const [guardiansResult, enrolledClassResult, termResult, sidSettingsResult] = await Promise.all([
+        guardiansResultPromise,
+        enrolledClassResultPromise,
+        termResultPromise,
+        sidSettingsResultPromise,
+      ]);
+
+      const guardians = guardiansResult.rows;
+      const enrolledClassForTerm =
+        enrolledClassResult.rows[0]?.class_name || "Not enrolled";
+      const termNameForPage = termResult.rows[0]?.term_name || "Unknown";
       const studentIdSettings = sidSettingsResult.rows[0] || {};
 
       res.render("common/studentDetails", {
+        isEmbedded,
         title: "Student Details",
         student,
         studentIdSettings,

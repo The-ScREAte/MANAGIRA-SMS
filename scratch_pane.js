@@ -1,0 +1,27 @@
+const puppeteer = require('puppeteer');
+(async () => {
+  const browser = await puppeteer.launch({ headless: 'new' });
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1440, height: 900 });
+  await page.goto('http://localhost:4000/account/login', { waitUntil: 'networkidle0' });
+  await page.type('input[name="email"]', 'test.manager@example.com');
+  await page.type('input[name="password"]', 'TestAccount@2026');
+  await Promise.all([page.click('button[type="submit"]'), page.waitForNavigation({ waitUntil: 'networkidle0' }).catch(() => {})]);
+  await page.goto('http://localhost:4000/common/classDashboard/46/student/208?termId=150', { waitUntil: 'networkidle0' });
+  await new Promise(r => setTimeout(r, 2000));
+  await page.evaluate(() => document.querySelectorAll('.mfb-overlay,#ann-modal-overlay').forEach(e => e.remove()));
+  const fh = await page.$('iframe.workspace-frame'); const frame = await fh.contentFrame();
+  const btns = await frame.evaluate(() => [...document.querySelectorAll('a.btn')].map(a => { const cs = getComputedStyle(a); return a.textContent.trim() + ' bg=' + cs.backgroundColor + ' color=' + cs.color + ' target=' + (a.target || 'self'); }));
+  console.log('Buttons:', btns);
+  console.log('Student pane has header:', await frame.evaluate(() => !!document.querySelector('#top-header, footer')));
+  await page.screenshot({ path: 'scratch_pane1.png' });
+  page.on('response', r => { if (/guardianDetails/.test(r.url())) console.log('RESP', r.status(), r.url(), r.headers().location || ''); });
+  page.on('console', m => console.log('CONSOLE', m.text()));
+  await Promise.all([frame.waitForNavigation({ waitUntil: 'networkidle0' }).catch(() => {}), frame.evaluate(() => document.querySelector('a[href*="guardianDetails"]').click())]);
+  const f2 = await fh.contentFrame();
+  console.log('Pane now at:', f2.url());
+  console.log('Guardian pane has header/footer:', await f2.evaluate(() => ({ header: !!document.querySelector('#top-header'), footer: !!document.querySelector('footer'), chatbot: !!document.querySelector('#chatbot-bubble,.chatbot-bubble,[class*="chatbot"]') })));
+  console.log('Main app header still present:', await page.evaluate(() => !!document.querySelector('#top-header')));
+  await page.screenshot({ path: 'scratch_pane2.png' });
+  await browser.close();
+})();

@@ -669,10 +669,14 @@ app.use((req, res, next) => {
   res.locals.showFooterTopSection = false;
   res.locals.unresolvedCount = 0;
 
-  // Hide global header/footer when page is embedded inside the class dashboard workspace
-  if (req.query.embed === 'workspace') {
+  // Hide global header/footer when page is embedded inside the class dashboard workspace.
+  // Sec-Fetch-Dest: iframe covers every page reached by clicking around inside
+  // a workspace pane, even when the link didn't carry ?embed=workspace forward.
+  if (req.query.embed === 'workspace' || String(req.get('sec-fetch-dest') || '').toLowerCase() === 'iframe') {
+    res.locals.isEmbeddedFrame = true;
     res.locals.hideGlobalHeader = true;
     res.locals.hideGlobalFooter = true;
+    res.locals.hideGlobalChatbot = true;
   }
 
   // Compact UI flags — reduced headings + compact tables on authenticated app pages.
