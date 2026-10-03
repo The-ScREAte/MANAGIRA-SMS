@@ -815,6 +815,38 @@
       padding: 12px;
     }
   }
+
+  .hero-actions { position: relative; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .hero-actions .admin-btn { text-decoration: none; display: inline-flex; align-items: center; }
+  .workspace-grid.single { grid-template-columns: minmax(0, 1fr); }
+  .bc-list { display: grid; gap: 12px; }
+  .bc-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; padding: 16px 18px; border: 1px solid var(--automation-border); border-radius: 18px; background: var(--automation-surface-soft); }
+  .bc-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .bc-title-row h3 { margin: 0; font-size: 1.02rem; color: var(--automation-ink); }
+  .bc-excerpt { margin: 6px 0 8px; color: var(--automation-muted); font-size: 0.9rem; line-height: 1.5; }
+  .bc-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--automation-muted); }
+  .bc-school-tag { padding: 1px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-weight: 700; }
+  .bc-side { display: grid; gap: 10px; align-content: start; justify-items: end; }
+  .bc-stats { display: flex; gap: 12px; font-size: 0.82rem; color: var(--automation-muted); }
+  .bc-stats b { color: var(--automation-ink); }
+  .bc-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+  .bc-status { display: inline-flex; padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 800; background: #f1f5f9; color: #475569; }
+  .bc-status.live, .bc-status.active { background: #dcfce7; color: #166534; }
+  .bc-status.scheduled { background: #e0f2fe; color: #075985; }
+  .bc-status.paused, .bc-status.draft { background: #f1f5f9; color: #475569; }
+  .bc-status.ended, .bc-status.closed { background: #fee2e2; color: #991b1b; }
+  .fr-table-wrap { overflow-x: auto; }
+  .fr-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .fr-table th { text-align: left; padding: 10px 12px; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--automation-muted); border-bottom: 1px solid var(--automation-border); white-space: nowrap; }
+  .fr-table td { padding: 12px; border-bottom: 1px solid rgba(16, 37, 66, 0.06); vertical-align: top; color: var(--automation-ink); }
+  .fr-table td small { display: block; margin-top: 3px; color: var(--automation-muted); font-size: 0.78rem; }
+  .fr-table td a { color: var(--automation-ink); text-decoration: none; }
+  .fr-table tbody tr { cursor: pointer; }
+  .fr-table tbody tr:hover { background: var(--automation-surface-soft); }
+  .legacy-notices summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+  .legacy-notices summary::-webkit-details-marker { display: none; }
+  .legacy-notices[open] summary { margin-bottom: 16px; }
+  @media (max-width: 760px) { .bc-card { grid-template-columns: 1fr; } .bc-side { justify-items: start; } .bc-actions { justify-content: flex-start; } }
 </style>
 
 <%
@@ -825,6 +857,8 @@
     return sum + manualCount + userCount;
   }, 0);
   const activeCampaigns = campaignList.filter((campaign) => campaign.isActive).length;
+  const broadcastList = Array.isArray(typeof broadcasts !== 'undefined' ? broadcasts : null) ? broadcasts : [];
+  const feedbackList = Array.isArray(typeof feedbackRequests !== 'undefined' ? feedbackRequests : null) ? feedbackRequests : [];
   const generalAnnouncements = announcements.filter((a) => !a.organization_id);
   const orgAnnouncements = announcements.filter((a) => a.organization_id);
 %>
@@ -834,43 +868,125 @@
     <div class="hero-grid">
       <div>
         <span class="eyebrow">Admin Broadcast Center</span>
-        <h1 class="hero-title">Announcements and scheduled email automation in one workspace.</h1>
+        <h1 class="hero-title">Announcements, feedback and scheduled emails.</h1>
         <p class="hero-copy">
-          Publish platform announcements, build recurring email campaigns, target live users or manual email lists,
-          and keep everything on this page without leaving the admin flow. URLs in the email body are automatically sent as clickable links.
+          Reach managers, supervisors, teachers, drivers, parents and students in any school with a pop-up or banner,
+          ask them to rate their experience, and run recurring emails - all from one place.
         </p>
+        <div class="hero-actions">
+          <button type="button" class="admin-btn automation-primary" id="open-admin-announcement-drawer"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> New Announcement</button>
+          <button type="button" class="admin-btn automation-secondary open-request-feedback-drawer"><i class="fa-solid fa-star" aria-hidden="true"></i> Request Feedback</button>
+        </div>
       </div>
       <div class="hero-stats">
         <article class="hero-stat">
-          <strong><%= campaignList.length %></strong>
-          <span>Scheduled email workflows configured</span>
+          <strong><%= broadcastList.filter((b) => b.status === 'Live').length %></strong>
+          <span>Live announcements</span>
+        </article>
+        <article class="hero-stat">
+          <strong><%= feedbackList.filter((f) => f.state === 'active').length %></strong>
+          <span>Open feedback requests</span>
         </article>
         <article class="hero-stat">
           <strong><%= activeCampaigns %></strong>
-          <span>Currently active automations</span>
-        </article>
-        <article class="hero-stat">
-          <strong><%= totalRecipients %></strong>
-          <span>Total saved recipients across campaigns</span>
+          <span>Active scheduled emails</span>
         </article>
       </div>
     </div>
   </section>
 
-  <div class="workspace-grid">
+  <%- include('../partials/flash') %>
+
+  <section class="glass-panel" id="announcementList">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">Announcements</h2>
+        <p class="panel-subtitle">Pop-ups and banners people see when they open Managira. Pause or edit them any time.</p>
+      </div>
+    </div>
+    <% if (!broadcastList.length) { %>
+      <div class="empty-state">No announcements yet. Create one with "New Announcement".</div>
+    <% } else { %>
+      <div class="bc-list">
+        <% broadcastList.forEach((b) => { %>
+          <article class="bc-card" data-id="<%= b.id %>">
+            <div class="bc-main">
+              <div class="bc-title-row">
+                <h3><%= b.title %></h3>
+                <span class="bc-status <%= b.status.toLowerCase() %>"><%= b.status %></span>
+              </div>
+              <p class="bc-excerpt"><%= b.excerpt %><%= b.excerpt.length >= 160 ? '...' : '' %></p>
+              <div class="bc-meta">
+                <span><%= b.audience %></span>
+                <span><%= b.format %> &middot; <%= b.frequency %></span>
+                <span><%= new Date(b.startsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %><%= b.endsAt ? ' - ' + new Date(b.endsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '' %></span>
+                <% if (b.createdBySchool) { %><span class="bc-school-tag">Created by the school</span><% } %>
+              </div>
+            </div>
+            <div class="bc-side">
+              <div class="bc-stats"><span><b><%= b.stats.seen %></b> seen</span><span><b><%= b.stats.dismissed %></b> closed</span><% if (b.stats.acknowledged) { %><span><b><%= b.stats.acknowledged %></b> clicked</span><% } %></div>
+              <div class="bc-actions">
+                <button type="button" class="admin-btn automation-secondary" data-bc-edit="<%= b.id %>">Edit</button>
+                <button type="button" class="admin-btn <%= b.isActive ? 'automation-warm' : 'automation-primary' %>" data-bc-active="<%= b.isActive ? 'false' : 'true' %>" data-id="<%= b.id %>"><%= b.isActive ? 'Pause' : 'Resume' %></button>
+                <button type="button" class="admin-btn automation-danger" data-bc-delete="<%= b.id %>">Delete</button>
+              </div>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+
+  <section class="glass-panel" id="feedbackRequestList">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">Feedback requests</h2>
+        <p class="panel-subtitle">Star ratings and comments from the people you choose. Open one to see results and export them.</p>
+      </div>
+      <button type="button" class="admin-btn automation-primary open-request-feedback-drawer"><i class="fa-solid fa-star" aria-hidden="true"></i> Request Feedback</button>
+    </div>
+    <% if (!feedbackList.length) { %>
+      <div class="empty-state">No feedback requests yet.</div>
+    <% } else { %>
+      <div class="fr-table-wrap">
+        <table class="fr-table">
+          <thead><tr><th>Feedback request</th><th>Recipients</th><th>Responses</th><th>Average</th><th>Status</th></tr></thead>
+          <tbody>
+            <% feedbackList.forEach((f) => { %>
+              <tr data-href="/admin/feedback-requests/<%= f.id %>" tabindex="0">
+                <td><a href="/admin/feedback-requests/<%= f.id %>"><strong><%= f.title %></strong></a><small><%= f.audience %> &middot; <%= f.frequency %><%= f.anonymous ? ' &middot; Anonymous' : '' %></small></td>
+                <td><%= f.recipients %></td>
+                <td><%= f.responses %><% if (f.totalResponses !== f.responses) { %><small><%= f.totalResponses %> in total</small><% } %></td>
+                <td><%= f.averageRating !== null ? f.averageRating.toFixed(1) + ' ★' : '-' %></td>
+                <td><span class="bc-status <%= f.state %>"><%= f.stateLabel %></span></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+
+  <div class="workspace-grid single">
     <section class="glass-panel">
       <div class="panel-header">
         <div>
-          <h2 class="panel-title">Admin announcements</h2>
-          <p class="panel-subtitle">Keep the existing announcement flow available for quick global or organization-specific notices.</p>
+          <h2 class="panel-title">Scheduled emails</h2>
+          <p class="panel-subtitle">Create reusable email automations with subject, content, recipient selection, activation control, and repeat intervals like every 1, 5, 10 minutes, daily, every 2 days, weekly, monthly, or one-time delivery.</p>
         </div>
-        <button type="button" class="admin-btn automation-primary" id="open-admin-announcement-drawer">+ New Announcement</button>
+        <div class="panel-actions">
+          <button type="button" id="open-campaign-modal" class="admin-btn automation-primary">Add automated email</button>
+        </div>
       </div>
 
-      <%- include('../partials/flash') %>
+      <div id="campaign-notice" class="notice" role="status" aria-live="polite"></div>
 
-      <hr class="section-divider" />
+      <div id="campaign-grid" class="campaign-grid"></div>
+    </section>
+  </div>
 
+  <details class="glass-panel legacy-notices">
+    <summary><span class="panel-title">Older dashboard notices</span> <span class="panel-subtitle">(<%= announcements.length %>) - the previous notice system, shown on school dashboards</span></summary>
       <div class="announcement-stack">
         <div>
           <div class="panel-header">
@@ -962,24 +1078,7 @@
           <% } %>
         </div>
       </div>
-    </section>
-
-    <section class="glass-panel">
-      <div class="panel-header">
-        <div>
-          <h2 class="panel-title">Scheduled emails</h2>
-          <p class="panel-subtitle">Create reusable email automations with subject, content, recipient selection, activation control, and repeat intervals like every 1, 5, 10 minutes, daily, every 2 days, weekly, monthly, or one-time delivery.</p>
-        </div>
-        <div class="panel-actions">
-          <button type="button" id="open-campaign-modal" class="admin-btn automation-primary">Add automated email</button>
-        </div>
-      </div>
-
-      <div id="campaign-notice" class="notice" role="status" aria-live="polite"></div>
-
-      <div id="campaign-grid" class="campaign-grid"></div>
-    </section>
-  </div>
+  </details>
 </div>
 
 <section id="campaign-modal" class="modal-shell" hidden>
@@ -1096,13 +1195,50 @@
     const adminAnnouncementDrawer = ManagiraDrawer.create({
       id: 'adminAnnouncement',
       icon: '📢',
-      title: 'New Announcement',
-      subtitle: 'Global or organization-specific notice',
+      title: 'Announcement',
+      subtitle: 'Pop-up or banner for the people you choose',
       listPagePath: '/admin/announcements',
       width: 640,
     });
     document.getElementById('open-admin-announcement-drawer').addEventListener('click', function () {
-      adminAnnouncementDrawer.open('/admin/announcements/new?embed=workspace');
+      adminAnnouncementDrawer.open('/admin/announcements/compose?embed=workspace');
+    });
+    const feedbackRequestDrawer = ManagiraDrawer.create({
+      id: 'feedbackRequest',
+      icon: '⭐',
+      title: 'Request Feedback',
+      subtitle: 'Ask people to rate their experience',
+      listPagePath: '/admin/announcements',
+      width: 640,
+    });
+    document.querySelectorAll('.open-request-feedback-drawer').forEach(function (button) {
+      button.addEventListener('click', function () {
+        feedbackRequestDrawer.open('/admin/feedback-requests/new?embed=workspace');
+      });
+    });
+    document.querySelectorAll('[data-bc-edit]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        adminAnnouncementDrawer.open('/admin/announcements/compose?embed=workspace&id=' + button.getAttribute('data-bc-edit'));
+      });
+    });
+    document.querySelectorAll('[data-bc-active]').forEach(function (button) {
+      button.addEventListener('click', async function () {
+        button.disabled = true;
+        const res = await fetch('/admin/broadcasts/' + button.dataset.id + '/active', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: button.dataset.bcActive === 'true' }) });
+        if (res.ok) window.location.reload(); else { button.disabled = false; alert('Could not update the announcement.'); }
+      });
+    });
+    document.querySelectorAll('[data-bc-delete]').forEach(function (button) {
+      button.addEventListener('click', async function () {
+        if (!confirm('Delete this announcement? People will stop seeing it.')) return;
+        button.disabled = true;
+        const res = await fetch('/admin/broadcasts/' + button.getAttribute('data-bc-delete') + '/delete', { method: 'POST', credentials: 'same-origin' });
+        if (res.ok) window.location.reload(); else { button.disabled = false; alert('Could not delete the announcement.'); }
+      });
+    });
+    document.querySelectorAll('.fr-table tr[data-href]').forEach(function (row) {
+      row.addEventListener('click', function (event) { if (!event.target.closest('a')) window.location.href = row.dataset.href; });
+      row.addEventListener('keydown', function (event) { if (event.key === 'Enter') window.location.href = row.dataset.href; });
     });
   })();
 </script>

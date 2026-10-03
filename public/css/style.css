@@ -4,6 +4,26 @@
   box-sizing: border-box;
 }
 
+/* App-wide: scrolling stays fully functional everywhere (wheel, trackpad,
+   touch, keyboard, drag-to-scroll) but the visual scrollbar track/thumb is
+   hidden, on every element and in every browser - a cleaner look without
+   losing any scroll behavior. Overrides any element-specific thin-scrollbar
+   styling elsewhere in the app. */
+html,
+body,
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge/IE */
+}
+*::-webkit-scrollbar,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-track {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
 /* Centralized input fix for all forms */
 input,
 textarea,

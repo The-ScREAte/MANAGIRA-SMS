@@ -360,6 +360,8 @@ const bcrypt = require("bcryptjs");
 const bcryptjs = require("bcryptjs");
 
 const db = require("../config/db");
+const websiteExtras = require("../utils/websiteExtras");
+const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const { deriveOrgNickname, normalizeDisplayName } = require("../utils/orgNicknameSlug");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
 const crypto = require("crypto");
@@ -7634,8 +7636,56 @@ const accountController = {
         publicDashboardLayout = "wireframe1";
       }
 
+      // Extra website sections + where the live site is.
+      const websiteSettings = await websiteExtras.getWebsiteSettings(db, organizationId);
+      let publicSiteUrl = `/common/publicDashboard?organizationId=${organizationId}`;
+      if (process.env.NODE_ENV === "production") {
+        const siteInfo = await getOrganizationWebsiteInfo(db, organizationId).catch(() => null);
+        if (siteInfo?.websiteUrl) publicSiteUrl = siteInfo.websiteUrl;
+      }
+      const contactFallbackEmail = (aboutDetails?.emails || [])[0] || orgDetails?.email || "";
+      // The school's own email addresses (About Our School + account email),
+      // offered as the place contact-form messages are sent.
+      const schoolEmails = [...new Set([...(aboutDetails?.emails || []), orgDetails?.email]
+        .map((e) => String(e || "").trim().toLowerCase())
+        .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))];
+      // What each built-in website section currently has (empty ones stay hidden).
+      const [publicEvents, publicAnnouncements] = await Promise.all([
+        db.query(`SELECT COUNT(*)::int AS n FROM school_events WHERE organization_id = $1 AND (visibility = 'public' OR visibility = 'both')`, [organizationId]).catch(() => ({ rows: [{ n: 0 }] })),
+        db.query(`SELECT COUNT(*)::int AS n FROM announcements WHERE organization_id = $1 AND (visibility = 'public' OR visibility = 'both')`, [organizationId]).catch(() => ({ rows: [{ n: 0 }] })),
+      ]);
+      const pageContent = {
+        gallery: imagesResult.rows.filter((img) => String(img.allocation || "").toLowerCase() !== "slideshow").length,
+        articles: textsResult.rows.length,
+        events: publicEvents.rows[0].n,
+        announcements: publicAnnouncements.rows[0].n,
+        about: 1,
+      };
+      const registrationStatus = websiteExtras.registrationState(orgDetails);
+      const unreadWebsiteMessages = await websiteExtras.countUnreadMessages(db, organizationId).catch(() => 0);
+      const websiteOverview = websiteExtras.buildWebsiteOverview({
+        orgDetails,
+        aboutDetails,
+        settings: websiteSettings,
+        imageCount: imagesResult.rows.length,
+        articleCount: textsResult.rows.length,
+        layout: publicDashboardLayout,
+        theme: publicDashboardTheme,
+        registration: registrationStatus,
+        unreadMessages: unreadWebsiteMessages,
+      });
+
       res.render("account/managePublicContent", {
+        registrationStatus,
+        websiteOverview,
+        schoolEmails,
+        pageContent,
+        pageBlocks: websiteExtras.PAGE_BLOCKS,
         title: "Manage Public Content",
+        websiteSettings,
+        websiteLimits: websiteExtras.LIMITS,
+        publicSiteUrl,
+        contactFallbackEmail,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
@@ -7848,6 +7898,19 @@ const accountController = {
 
     const organizationId = req.session.organizationId;
 
+    const isOn = enabled === "on" || enabled === true || enabled === "true";
+    const fee = price === undefined || price === null || price === "" ? 0 : Number(price);
+    const validDate = (value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+    let problem = "";
+    if (!validDate(startDate) || !validDate(endDate)) problem = "Use valid dates for registration.";
+    else if (isOn && (!startDate || !endDate)) problem = "Set the dates registration opens and closes.";
+    else if (startDate && endDate && String(endDate) < String(startDate)) problem = "The closing date must be on or after the opening date.";
+    else if (!Number.isFinite(fee) || fee < 0) problem = "The application fee must be 0 or more.";
+    if (problem) {
+      req.flash("error", problem);
+      return res.redirect("/account/managePublicContent");
+    }
+
     try {
       await db.query(
         `UPDATE organizations 
@@ -7865,13 +7928,13 @@ const accountController = {
          WHERE organization_id = $6`,
 
         [
-          enabled === "on",
+          isOn,
 
           startDate || null,
 
           endDate || null,
 
-          price || 0,
+          fee,
 
           currency || "USD",
 
@@ -7879,7 +7942,7 @@ const accountController = {
         ]
       );
 
-      req.flash("success", "Public registration settings updated!");
+      req.flash("success", "Online registration settings saved.");
 
       // ✅ Instead of manually rendering with empty data, redirect:
 

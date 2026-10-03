@@ -3,7 +3,7 @@ const { assertIsStaff } = require("./_writeAuth");
 
 module.exports = {
   name: "get_website_settings",
-  description: "Get the school's public website layout, visual style/theme, and self-enrollment settings (enabled, dates, price, currency). Needs Manage Settings.",
+  description: "Get the school's public website: link, setup checklist (what's done and what's missing), layout, theme, online registration (self-enrollment) settings and status, unread contact-form messages, and every extra section (quick facts, programs, leadership, testimonials, FAQ, about photo, contact form) with whether it is live. Needs Manage Settings.",
   parameters: { type: "object", properties: {}, required: [] },
   async handler(_args, tenant) {
     assertIsStaff(tenant, "view website settings");

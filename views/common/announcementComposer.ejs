@@ -37,8 +37,13 @@
     }
     .ann-segmented button.active { background: var(--primary); color: #fff; }
     .ann-cta-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .ann-cta-row input { flex: 1; }
+    .ann-cta-row .cta-label { flex: 0 0 140px; min-width: 0; }
+    .ann-cta-row .cta-url { flex: 1; min-width: 0; }
     .ann-cta-row select { width: 110px; flex: 0 0 auto; }
+    @media (max-width: 600px) {
+      .ann-cta-row { flex-wrap: wrap; }
+      .ann-cta-row .cta-label, .ann-cta-row .cta-url { flex: 1 1 100%; }
+    }
     .ann-cta-row label { display: flex; align-items: center; gap: 4px; font-size: 0.7rem; white-space: nowrap; }
     .ann-cta-row button.remove { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 1rem; }
     .ann-add-link { background: none; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; cursor: pointer; color: var(--primary); width: 100%; }
@@ -53,6 +58,24 @@
     .ann-btn-secondary { background: #fff; color: var(--text-primary); border: 1px solid var(--border); }
     .ann-error { color: #dc2626; font-size: 0.8rem; margin-top: 10px; display: none; }
     .ann-image-preview { max-width: 200px; max-height: 120px; border-radius: 8px; display: none; margin-top: 8px; }
+    .ann-chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ann-chip { position: relative; cursor: pointer; margin: 0 !important; }
+    .ann-chip input { position: absolute; opacity: 0; pointer-events: none; }
+    .ann-chip span { display: inline-flex; align-items: center; padding: 7px 14px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); background: #fff; transition: all 0.15s ease; }
+    .ann-chip input:checked + span { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .ann-chip input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .ann-all-orgs { display: flex !important; align-items: center; gap: 8px; font-size: 0.85rem !important; font-weight: 600 !important; }
+    .ann-org-tools { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .ann-org-tools input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 0.82rem; }
+    .ann-mini-btn { flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; color: var(--text-primary); }
+    .ann-org-list { max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 4px; background: #fff; }
+    .ann-org-row { display: flex !important; align-items: center; gap: 8px; padding: 7px 8px; margin: 0 !important; border-radius: 6px; font-size: 0.82rem !important; font-weight: 500 !important; cursor: pointer; }
+    .ann-org-row:hover { background: #f1f5f9; }
+    .ann-advanced { margin: 4px 0 10px; font-size: 0.8rem; color: var(--text-secondary); }
+    .ann-advanced summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+    .ann-advanced input { width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 0.85rem; }
+    .ann-notify { margin: 6px 0 4px; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
+    .ann-estimate { font-weight: 600; }
   </style>
 </head>
 <body class="ann-composer-page">
@@ -65,9 +88,9 @@
       </div>
 
       <div class="ann-field">
-        <label>Body</label>
+        <label>Message</label>
         <textarea id="ann_body" required><%= a ? a.body : '' %></textarea>
-        <div class="hint">Markdown/plain text supported.</div>
+        <div class="hint">Plain text. Links are clickable.</div>
       </div>
 
       <div class="ann-field">
@@ -81,93 +104,113 @@
         <div class="ann-field">
           <label>Display type</label>
           <div class="ann-segmented" id="ann_display_type_toggle">
-            <button type="button" data-value="modal" class="<%= (!a || a.display_type === 'modal') ? 'active' : '' %>">Modal</button>
+            <button type="button" data-value="modal" class="<%= (!a || a.display_type === 'modal') ? 'active' : '' %>">Pop-up</button>
             <button type="button" data-value="banner" class="<%= (a && a.display_type === 'banner') ? 'active' : '' %>">Banner</button>
           </div>
         </div>
         <div class="ann-field">
-          <label>Variant</label>
+          <label>Style</label>
           <select id="ann_variant">
-            <% ['info','success','warning','new'].forEach(v => { %>
-              <option value="<%= v %>" <%= a && a.variant === v ? 'selected' : '' %>><%= v %></option>
+            <% [['info','Information'],['success','Good news'],['warning','Important'],['new','New feature']].forEach(([v, label]) => { %>
+              <option value="<%= v %>" <%= a && a.variant === v ? 'selected' : '' %>><%= label %></option>
             <% }) %>
           </select>
         </div>
       </div>
 
+      <div class="ann-field" id="ann_position_field">
+        <label>Pop-up position</label>
+        <div class="ann-segmented ann-segmented-3" id="ann_position_toggle">
+          <button type="button" data-value="center" class="<%= (!a || a.position === 'center' || !a.position) ? 'active' : '' %>">Center</button>
+          <button type="button" data-value="bottom-left" class="<%= (a && a.position === 'bottom-left') ? 'active' : '' %>">Bottom left</button>
+          <button type="button" data-value="bottom-right" class="<%= (a && a.position === 'bottom-right') ? 'active' : '' %>">Bottom right</button>
+        </div>
+        <div class="hint">Center shows a classic, blocking dialog. Bottom corners show a smaller card and let people keep using the page. Banners always sit at the top, so this only applies to pop-ups. Phones always use Center (no room for a corner card).</div>
+      </div>
+
       <div class="ann-field ann-toggle-row">
         <input type="checkbox" id="ann_dismissible" <%= (!a || a.dismissible) ? 'checked' : '' %>>
-        <label for="ann_dismissible" style="margin:0;">Dismissible</label>
+        <label for="ann_dismissible" style="margin:0;">People can close it</label>
       </div>
 
       <div class="ann-field">
-        <label>Call-to-action links</label>
+        <label>Buttons (optional)</label>
         <div id="ann_cta_rows"></div>
         <button type="button" class="ann-add-link" id="ann_add_cta">+ Add link</button>
       </div>
 
       <div class="ann-row">
         <div class="ann-field">
-          <label>Frequency</label>
+          <label>How often to show it</label>
           <select id="ann_frequency">
-            <% ['once','once_per_session','every_login','daily','n_times','until_dismissed','until_date'].forEach(f => { %>
-              <option value="<%= f %>" <%= a && a.frequency === f ? 'selected' : '' %>><%= f.replace(/_/g,' ') %></option>
+            <% [['once','Once'],['until_dismissed','Until they close it'],['once_per_session','Once per sign-in'],['every_login','Every time they sign in'],['daily','Once a day'],['n_times','A set number of times'],['until_date','Until the end date']].forEach(([f, label]) => { %>
+              <option value="<%= f %>" <%= a && a.frequency === f ? 'selected' : '' %>><%= label %></option>
             <% }) %>
           </select>
         </div>
         <div class="ann-field" id="ann_max_views_field" style="display:none;">
-          <label>Max views</label>
+          <label>Number of times</label>
           <input type="number" id="ann_max_views" min="1" value="<%= a && a.max_views ? a.max_views : 3 %>">
         </div>
       </div>
 
       <div class="ann-row">
         <div class="ann-field">
-          <label>Starts at</label>
+          <label>Starts</label>
           <input type="datetime-local" id="ann_starts_at" data-iso="<%= a && a.starts_at ? a.starts_at.toISOString() : '' %>">
         </div>
         <div class="ann-field">
-          <label>Ends at (optional)</label>
+          <label>Ends (optional)</label>
           <input type="datetime-local" id="ann_ends_at" data-iso="<%= a && a.ends_at ? a.ends_at.toISOString() : '' %>">
         </div>
       </div>
 
       <div class="ann-field ann-toggle-row">
         <input type="checkbox" id="ann_is_active" <%= (!a || a.is_active) ? 'checked' : '' %>>
-        <label for="ann_is_active" style="margin:0;">Active</label>
+        <label for="ann_is_active" style="margin:0;">Published (untick to save without showing it)</label>
       </div>
 
       <div class="ann-field">
-        <label>Targeting</label>
+        <label>Who should see it</label>
+        <div class="ann-target-group">
+          <h4>People</h4>
+          <div class="ann-chip-grid">
+            <% [['manager','Managers'],['supervisor','Supervisors'],['teacher','Teachers'],['driver','Drivers'],['parent','Parents'],['student','Students']].forEach(([r, label]) => {
+                 const on = existingRoleTargets.includes(r) || (r === 'manager' && existingRoleTargets.includes('org_admin')) || (r === 'parent' && existingRoleTargets.includes('guardian')); %>
+              <label class="ann-chip"><input type="checkbox" class="ann-role-check" value="<%= r %>" <%= on ? 'checked' : '' %>><span><%= label %></span></label>
+            <% }) %>
+          </div>
+          <% if (global) { %><div class="hint">Leave all unticked to reach everyone in the chosen schools.</div><% } %>
+        </div>
 
         <% if (global) { %>
           <div class="ann-target-group">
-            <h4>Scope</h4>
-            <label><input type="checkbox" id="ann_all_orgs" <%= (a && a.tenant_id === null) || !a ? 'checked' : '' %>> All organizations</label>
-            <div id="ann_org_picker" style="margin-top:8px; display:none;">
-              <select id="ann_org_select" multiple size="6" style="width:100%;">
+            <h4>Schools</h4>
+            <label class="ann-all-orgs"><input type="checkbox" id="ann_all_orgs" <%= !existingOrgTargets.length ? 'checked' : '' %>> All schools (<%= orgs.length %>)</label>
+            <div id="ann_org_picker" style="margin-top:10px; display:none;">
+              <div class="ann-org-tools">
+                <input type="search" id="ann_org_search" placeholder="Search schools" autocomplete="off">
+                <button type="button" class="ann-mini-btn" id="ann_org_all">Select all</button>
+                <button type="button" class="ann-mini-btn" id="ann_org_none">Clear</button>
+              </div>
+              <div class="ann-org-list" id="ann_org_list">
                 <% orgs.forEach(o => { %>
-                  <option value="<%= o.organization_id %>" <%= existingOrgTargets.includes(String(o.organization_id)) ? 'selected' : '' %>><%= o.organization_name %></option>
+                  <label class="ann-org-row" data-name="<%= String(o.organization_name || '').toLowerCase() %>"><input type="checkbox" class="ann-org-check" value="<%= o.organization_id %>" <%= existingOrgTargets.includes(String(o.organization_id)) ? 'checked' : '' %>> <%= o.organization_name %></label>
                 <% }) %>
-              </select>
+              </div>
+              <div class="hint" id="ann_org_count"></div>
             </div>
           </div>
         <% } %>
 
-        <div class="ann-target-group">
-          <h4>Roles</h4>
-          <div class="ann-checkbox-grid">
-            <% ['teacher','student_teacher','student','parent','guardian','driver','org_admin','super_admin'].forEach(r => { %>
-              <label><input type="checkbox" class="ann-role-check" value="<%= r %>" <%= existingRoleTargets.includes(r) ? 'checked' : '' %>> <%= r.replace(/_/g,' ') %></label>
-            <% }) %>
-          </div>
-        </div>
+        <details class="ann-advanced" <%= existingUserTargets.length ? 'open' : '' %>>
+          <summary>Specific people (optional)</summary>
+          <input type="text" id="ann_user_ids" value="<%= existingUserTargets.join(', ') %>" placeholder="Staff user IDs, separated by commas">
+        </details>
 
-        <div class="ann-target-group">
-          <h4>Specific users (comma-separated user IDs, optional)</h4>
-          <input type="text" id="ann_user_ids" value="<%= existingUserTargets.join(', ') %>">
-        </div>
-
+        <% if (!a) { %>
+          <label class="ann-toggle-row ann-notify"><input type="checkbox" id="ann_notify" checked> Also send it to their notification bell</label>
+        <% } %>
         <div class="ann-estimate" id="ann_estimate">Estimated recipients: &mdash;</div>
       </div>
 
@@ -197,9 +240,24 @@
     const isGlobal = <%= global ? 'true' : 'false' %>;
 
     // Display-type segmented toggle
+    const positionField = document.getElementById('ann_position_field');
+    function syncPositionVisibility() {
+      const type = document.querySelector('#ann_display_type_toggle button.active').dataset.value;
+      positionField.style.display = type === 'banner' ? 'none' : 'block';
+    }
     document.querySelectorAll('#ann_display_type_toggle button').forEach(btn => {
       btn.addEventListener('click', function () {
         document.querySelectorAll('#ann_display_type_toggle button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        syncPositionVisibility();
+      });
+    });
+    syncPositionVisibility();
+
+    // Position segmented toggle (pop-ups only)
+    document.querySelectorAll('#ann_position_toggle button').forEach(btn => {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('#ann_position_toggle button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
       });
     });
@@ -257,12 +315,29 @@
     }
     document.getElementById('ann_add_cta').addEventListener('click', () => addCtaRow());
 
-    // Global scope: all-orgs checkbox toggles org picker
+    // Global scope: all-schools toggle, search, select all / clear
     <% if (global) { %>
       const allOrgsCheckbox = document.getElementById('ann_all_orgs');
       const orgPicker = document.getElementById('ann_org_picker');
-      function syncOrgPicker() { orgPicker.style.display = allOrgsCheckbox.checked ? 'none' : 'block'; }
+      const orgChecks = Array.from(document.querySelectorAll('.ann-org-check'));
+      function syncOrgPicker() {
+        orgPicker.style.display = allOrgsCheckbox.checked ? 'none' : 'block';
+        const n = orgChecks.filter(c => c.checked).length;
+        document.getElementById('ann_org_count').textContent = n ? n + ' school' + (n === 1 ? '' : 's') + ' selected' : 'No schools selected yet';
+      }
       allOrgsCheckbox.addEventListener('change', syncOrgPicker);
+      orgChecks.forEach(c => c.addEventListener('change', syncOrgPicker));
+      document.getElementById('ann_org_search').addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        document.querySelectorAll('.ann-org-row').forEach(row => { row.style.display = !q || row.dataset.name.includes(q) ? '' : 'none'; });
+      });
+      document.getElementById('ann_org_all').addEventListener('click', function () {
+        document.querySelectorAll('.ann-org-row').forEach(row => { if (row.style.display !== 'none') row.querySelector('input').checked = true; });
+        syncOrgPicker(); refreshEstimate();
+      });
+      document.getElementById('ann_org_none').addEventListener('click', function () {
+        orgChecks.forEach(c => { c.checked = false; }); syncOrgPicker(); refreshEstimate();
+      });
       syncOrgPicker();
     <% } %>
 
@@ -275,9 +350,8 @@
       }
       <% if (global) { %>
         if (!allOrgsCheckbox.checked) {
-          Array.from(document.getElementById('ann_org_select').selectedOptions).forEach(opt => {
-            targets.push({ target_type: 'org', target_value: opt.value });
-          });
+          orgChecks.filter(c => c.checked).forEach(c => targets.push({ target_type: 'org', target_value: c.value }));
+          // No role ticked = everyone in the chosen schools.
         }
       <% } %>
       return targets;
@@ -294,12 +368,18 @@
 
     function refreshEstimate() {
       const params = new URLSearchParams();
-      params.set('targets', JSON.stringify(collectTargets()));
-      <% if (global) { %> if (!allOrgsCheckbox.checked) params.set('tenant_id', ''); <% } %>
+      const estimateTargets = collectTargets();
+      <% if (global) { %>
+        if (allOrgsCheckbox.checked && !estimateTargets.some(t => t.target_type === 'role')) {
+          ['manager', 'supervisor', 'teacher', 'driver', 'parent', 'student'].forEach(r => estimateTargets.push({ target_type: 'role', target_value: r }));
+        }
+      <% } %>
+      params.set('targets', JSON.stringify(estimateTargets));
+
       fetch('/announcements/estimate-recipients?' + params.toString(), { credentials: 'same-origin' })
         .then(r => r.json())
         .then(data => {
-          document.getElementById('ann_estimate').textContent = 'Estimated recipients: ' + (data.estimate != null ? data.estimate : '—');
+          document.getElementById('ann_estimate').textContent = data.estimate != null ? 'Reaches about ' + data.estimate + ' ' + (data.estimate === 1 ? 'person' : 'people') + ' who can sign in' : 'Estimated recipients: —';
         })
         .catch(() => {});
     }
@@ -316,6 +396,7 @@
         body: document.getElementById('ann_body').value,
         image_url: document.getElementById('ann_image_url').value || null,
         display_type: document.querySelector('#ann_display_type_toggle button.active').dataset.value,
+        position: document.querySelector('#ann_position_toggle button.active').dataset.value,
         variant: document.getElementById('ann_variant').value,
         dismissible: document.getElementById('ann_dismissible').checked,
         cta_links: collectCtaLinks(),
@@ -325,13 +406,28 @@
         ends_at: document.getElementById('ann_ends_at').value || null,
         is_active: document.getElementById('ann_is_active').checked,
         targets: collectTargets(),
+        notify: Boolean(document.getElementById('ann_notify') && document.getElementById('ann_notify').checked),
       };
       <% if (global) { %>
-        payload.tenant_id = allOrgsCheckbox.checked ? null : (Array.from(document.getElementById('ann_org_select').selectedOptions)[0] || {}).value || null;
+        payload.tenant_id = null;
+        if (!allOrgsCheckbox.checked && !orgChecks.some(c => c.checked)) {
+          errorBox.textContent = 'Choose at least one school, or tick All schools.';
+          errorBox.style.display = 'block';
+          return;
+        }
+        if (allOrgsCheckbox.checked && !payload.targets.some(t => t.target_type === 'role')) {
+          ['manager', 'supervisor', 'teacher', 'driver', 'parent', 'student'].forEach(r => payload.targets.push({ target_type: 'role', target_value: r }));
+        }
+      <% } else { %>
+        if (!payload.targets.length) {
+          errorBox.textContent = 'Choose who should see this announcement.';
+          errorBox.style.display = 'block';
+          return;
+        }
       <% } %>
 
       if (!payload.title || !payload.body) {
-        errorBox.textContent = 'Title and body are required.';
+        errorBox.textContent = 'Add a title and a message.';
         errorBox.style.display = 'block';
         return;
       }
@@ -359,7 +455,8 @@
           return r.json();
         })
         .then(() => {
-          if (typeof managiraDrawerNotifySaved === 'function') managiraDrawerNotifySaved();
+          if (window.parent !== window && typeof managiraDrawerNotifySaved === 'function') return managiraDrawerNotifySaved();
+          window.location.href = isGlobal ? '/admin/announcements' : '/common/manageAnnouncements';
         })
         .catch((err) => {
           errorBox.textContent = err.message;

@@ -1,0 +1,264 @@
+<%
+  // Extra website sections (Manage Website). Each one is only passed in when
+  // it is switched on and has content (utils/websiteExtras visibleSections).
+  const wx = (typeof websiteExtras !== 'undefined' && websiteExtras) || {};
+  const wxOrgId = orgDetails && orgDetails.organization_id;
+  const wxAddress = (wx.contact && wx.contact.address) || [orgDetails && orgDetails.organization_address, orgDetails && orgDetails.organization_province, orgDetails && orgDetails.organization_country].filter(Boolean).join(', ');
+  const wxEmails = (typeof aboutEmails !== 'undefined' && aboutEmails) || [];
+  const wxPhones = (typeof aboutPhones !== 'undefined' && aboutPhones) || [];
+  const wxInitials = (name) => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
+  const wxAny = wx.quickFacts || wx.programs || wx.leadership || wx.testimonials || wx.faq || wx.contact;
+  // Position chosen by the school (publicDashboard passes pdOrder).
+  const wxOrder = (key) => { const n = typeof pdOrder === 'function' ? pdOrder([key]) : 0; return n ? ' style="order:' + n + '"' : ''; };
+%>
+<% if (wxAny) { %>
+<style>
+  /* Accent per website theme; dark themes flip surfaces. */
+  .pdx { --pdx-accent: #01535b; --pdx-heading: #1f2937; --pdx-text: #374151; --pdx-muted: #6b7280; --pdx-surface: #ffffff; --pdx-soft: #f6f8fa; --pdx-line: rgba(15, 23, 42, 0.10); }
+  body[data-pd-theme="modern"] .pdx { --pdx-accent: #0284c7; --pdx-heading: #0b3a67; }
+  body[data-pd-theme="cyan"] .pdx { --pdx-accent: #0891b2; --pdx-heading: #0e7490; }
+  body[data-pd-theme="amber"] .pdx, body[data-pd-theme="gold"] .pdx { --pdx-accent: #d97706; --pdx-heading: #7a5c00; }
+  body[data-pd-theme="orange"] .pdx { --pdx-accent: #ea580c; --pdx-heading: #9a3412; }
+  body[data-pd-theme="green"] .pdx { --pdx-accent: #2e7d32; --pdx-heading: #14532d; }
+  body[data-pd-theme="yellow"] .pdx { --pdx-accent: #ca8a04; --pdx-heading: #1f2937; }
+  body[data-pd-theme="rose"] .pdx { --pdx-accent: #dc2626; --pdx-heading: #7f1d1d; }
+  body[data-pd-theme="brown"] .pdx { --pdx-accent: #b45309; --pdx-heading: #5b3a1f; }
+  body[data-pd-theme="minimal"] .pdx { --pdx-accent: #9333ea; --pdx-heading: #4c1d95; }
+  body[data-pd-theme="bold"] .pdx, body[data-pd-theme="indigo"] .pdx, body[data-pd-theme="slate"] .pdx {
+    --pdx-accent: #ffb703; --pdx-heading: #ffffff; --pdx-text: #dbe4ff; --pdx-muted: #a5b4d4; --pdx-surface: rgba(255, 255, 255, 0.06); --pdx-soft: rgba(255, 255, 255, 0.04); --pdx-line: rgba(255, 255, 255, 0.14);
+  }
+  body[data-pd-theme="charcoal"] .pdx { --pdx-accent: #94a3b8; --pdx-heading: #f9fafb; --pdx-text: #e5e7eb; --pdx-muted: #9ca3af; --pdx-surface: rgba(255, 255, 255, 0.05); --pdx-soft: rgba(255, 255, 255, 0.03); --pdx-line: rgba(255, 255, 255, 0.12); }
+
+  .pdx { max-width: 1280px; margin: 0 auto 64px; padding: 0 16px; box-sizing: border-box; color: var(--pdx-text); }
+  .pdx *, .pdx *::before, .pdx *::after { box-sizing: border-box; }
+  .pdx-head { margin: 0 0 18px; padding-bottom: 10px; border-bottom: 3px solid var(--pdx-accent); }
+  .pdx-head h2 { margin: 0; font-size: 1.6rem; font-weight: 700; color: var(--pdx-heading); text-align: left; }
+  .pdx-head p { margin: 6px 0 0; color: var(--pdx-muted); font-size: 0.98rem; line-height: 1.55; }
+  .pdx-card { background: var(--pdx-surface); border: 1px solid var(--pdx-line); border-radius: 14px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+  .pdx-program:hover, .pdx-person:hover, .pdx-quote:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.10); }
+  @media (prefers-reduced-motion: reduce) { .pdx-card { transition: none; } .pdx-card:hover { transform: none; } }
+
+  .pdx-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+  .pdx-fact { padding: 20px 18px; text-align: center; }
+  .pdx-fact strong { display: block; font-size: 2rem; line-height: 1.1; color: var(--pdx-accent); font-weight: 800; }
+  .pdx-fact span { display: block; margin-top: 6px; font-size: 0.92rem; color: var(--pdx-muted); font-weight: 600; }
+
+  .pdx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; align-items: start; }
+  .pdx-program { overflow: hidden; display: flex; flex-direction: column; }
+  .pdx-program img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; }
+  .pdx-program-body { padding: 16px 18px 18px; }
+  .pdx-program h3 { margin: 0 0 6px; font-size: 1.1rem; color: var(--pdx-heading); }
+  .pdx-program p { margin: 0; font-size: 0.95rem; line-height: 1.55; white-space: pre-line; }
+  .pdx-program-accent { height: 6px; background: var(--pdx-accent); }
+
+  .pdx-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; align-items: start; }
+  .pdx-person { padding: 22px 18px; text-align: center; }
+  .pdx-person img, .pdx-avatar { width: 112px; height: 112px; border-radius: 50%; object-fit: cover; margin: 0 auto 12px; display: block; border: 3px solid var(--pdx-accent); }
+  .pdx-avatar { display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 700; color: var(--pdx-accent); background: var(--pdx-soft); }
+  .pdx-person h3 { margin: 0; font-size: 1.05rem; color: var(--pdx-heading); }
+  .pdx-role { margin: 3px 0 0; font-size: 0.88rem; font-weight: 700; color: var(--pdx-accent); }
+  .pdx-person p.pdx-message { margin: 10px 0 0; font-size: 0.92rem; line-height: 1.55; font-style: italic; white-space: pre-line; }
+
+  .pdx-quotes { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; align-items: start; }
+  .pdx-quote { position: relative; margin: 0; padding: 26px 22px 20px; }
+  .pdx-quote::before { content: "\201C"; position: absolute; top: 2px; left: 16px; font-size: 3.4rem; line-height: 1; color: var(--pdx-accent); opacity: 0.35; font-family: Georgia, serif; }
+  .pdx-quote blockquote { margin: 0; font-size: 0.98rem; line-height: 1.6; white-space: pre-line; }
+  .pdx-quote figcaption { margin-top: 12px; font-size: 0.9rem; color: var(--pdx-muted); }
+  .pdx-quote figcaption strong { color: var(--pdx-heading); }
+
+  .pdx-faq { display: flex; flex-direction: column; gap: 10px; }
+  .pdx-faq details { padding: 0; }
+  .pdx-faq summary { list-style: none; cursor: pointer; padding: 16px 18px; font-weight: 700; color: var(--pdx-heading); display: flex; justify-content: space-between; gap: 12px; }
+  .pdx-faq summary::-webkit-details-marker { display: none; }
+  .pdx-faq summary::after { content: "+"; color: var(--pdx-accent); font-size: 1.3rem; line-height: 1; }
+  .pdx-faq details[open] summary::after { content: "\2212"; }
+  .pdx-faq .pdx-answer { padding: 0 18px 16px; line-height: 1.6; white-space: pre-line; }
+
+  .pdx-contact { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .pdx-form { padding: 22px; display: grid; gap: 12px; }
+  .pdx-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pdx-form label { display: grid; gap: 5px; font-size: 0.86rem; font-weight: 700; color: var(--pdx-heading); }
+  .pdx-form input, .pdx-form textarea { width: 100%; margin: 0; padding: 11px 12px; border: 1px solid var(--pdx-line); border-radius: 10px; font: inherit; font-size: 0.95rem; color: inherit; background: var(--pdx-soft); }
+  .pdx-form input:focus, .pdx-form textarea:focus { outline: 2px solid color-mix(in srgb, var(--pdx-accent) 45%, transparent); border-color: var(--pdx-accent); }
+  .pdx-form textarea { min-height: 130px; resize: vertical; }
+  .pdx-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+  .pdx-submit { justify-self: start; width: auto; margin: 0; padding: 11px 22px; border: 0; border-radius: 10px; background: var(--pdx-accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  body[data-pd-theme="bold"] .pdx-submit, body[data-pd-theme="indigo"] .pdx-submit, body[data-pd-theme="slate"] .pdx-submit { color: #111827; }
+  .pdx-submit[disabled] { opacity: 0.7; cursor: progress; }
+  .pdx-form-status { min-height: 20px; margin: 0; font-size: 0.92rem; font-weight: 600; }
+  .pdx-form-status.ok { color: #15803d; }
+  .pdx-form-status.err { color: #b91c1c; }
+  .pdx-info { padding: 22px; display: grid; gap: 14px; }
+  .pdx-info dl { margin: 0; display: grid; gap: 12px; }
+  .pdx-info dt { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--pdx-accent); }
+  .pdx-info dd { margin: 2px 0 0; line-height: 1.5; white-space: pre-line; }
+  .pdx-info a { color: inherit; }
+  .pdx-map { width: 100%; height: 240px; border: 0; border-radius: 12px; }
+
+  @media (max-width: 860px) {
+    .pdx-contact { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .pdx-form-row { grid-template-columns: 1fr; }
+    .pdx-head h2 { font-size: 1.35rem; }
+    .pdx-fact strong { font-size: 1.6rem; }
+  }
+</style>
+
+<% if (wx.quickFacts) { %>
+<section class="pdx" id="quick-facts"<%- wxOrder('quickFacts') %> aria-label="Quick facts">
+  <div class="pdx-facts">
+    <% wx.quickFacts.items.forEach((fact) => { %>
+    <div class="pdx-card pdx-fact"><strong><%= fact.value %></strong><span><%= fact.label %></span></div>
+    <% }); %>
+  </div>
+</section>
+<% } %>
+
+<% if (wx.programs) { %>
+<section class="pdx" id="programs"<%- wxOrder('programs') %> aria-labelledby="programs-title">
+  <div class="pdx-head"><h2 id="programs-title"><%= wx.programs.title %></h2><% if (wx.programs.intro) { %><p><%= wx.programs.intro %></p><% } %></div>
+  <div class="pdx-grid">
+    <% wx.programs.items.forEach((item) => { %>
+    <article class="pdx-card pdx-program">
+      <% if (item.imageUrl) { %><img src="<%= item.imageUrl %>" alt="<%= item.title %>" loading="lazy"><% } else { %><div class="pdx-program-accent"></div><% } %>
+      <div class="pdx-program-body">
+        <h3><%= item.title %></h3>
+        <% if (item.description) { %><p><%= item.description %></p><% } %>
+      </div>
+    </article>
+    <% }); %>
+  </div>
+</section>
+<% } %>
+
+<% if (wx.leadership) { %>
+<section class="pdx" id="leadership"<%- wxOrder('leadership') %> aria-labelledby="leadership-title">
+  <div class="pdx-head"><h2 id="leadership-title"><%= wx.leadership.title %></h2></div>
+  <div class="pdx-people">
+    <% wx.leadership.items.forEach((person) => { %>
+    <article class="pdx-card pdx-person">
+      <% if (person.imageUrl) { %><img src="<%= person.imageUrl %>" alt="<%= person.name %>" loading="lazy"><% } else { %><div class="pdx-avatar" aria-hidden="true"><%= wxInitials(person.name) %></div><% } %>
+      <h3><%= person.name %></h3>
+      <% if (person.role) { %><p class="pdx-role"><%= person.role %></p><% } %>
+      <% if (person.message) { %><p class="pdx-message">"<%= person.message %>"</p><% } %>
+    </article>
+    <% }); %>
+  </div>
+</section>
+<% } %>
+
+<% if (wx.testimonials) { %>
+<section class="pdx" id="testimonials"<%- wxOrder('testimonials') %> aria-labelledby="testimonials-title">
+  <div class="pdx-head"><h2 id="testimonials-title"><%= wx.testimonials.title %></h2></div>
+  <div class="pdx-quotes">
+    <% wx.testimonials.items.forEach((t) => { %>
+    <figure class="pdx-card pdx-quote">
+      <blockquote><%= t.quote %></blockquote>
+      <figcaption><strong><%= t.name %></strong><% if (t.relation) { %> · <%= t.relation %><% } %></figcaption>
+    </figure>
+    <% }); %>
+  </div>
+</section>
+<% } %>
+
+<% if (wx.faq) { %>
+<section class="pdx" id="faq"<%- wxOrder('faq') %> aria-labelledby="faq-title">
+  <div class="pdx-head"><h2 id="faq-title"><%= wx.faq.title %></h2></div>
+  <div class="pdx-faq">
+    <% wx.faq.items.forEach((item, index) => { %>
+    <details class="pdx-card" <%= index === 0 ? 'open' : '' %>>
+      <summary><%= item.question %></summary>
+      <div class="pdx-answer"><%= item.answer %></div>
+    </details>
+    <% }); %>
+  </div>
+</section>
+<% } %>
+
+<% if (wx.contact) { %>
+<section class="pdx" id="contact"<%- wxOrder('contact') %> aria-labelledby="contact-title">
+  <div class="pdx-head"><h2 id="contact-title"><%= wx.contact.title %></h2><% if (wx.contact.intro) { %><p><%= wx.contact.intro %></p><% } %></div>
+  <div class="pdx-contact">
+    <form class="pdx-card pdx-form" id="pdxContactForm" method="POST" action="/common/publicContact" novalidate>
+      <input type="hidden" name="organizationId" value="<%= wxOrgId %>">
+      <div class="pdx-hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      <div class="pdx-form-row">
+        <label>Your name<input type="text" name="name" required maxlength="120" autocomplete="name"></label>
+        <label>Email<input type="email" name="email" maxlength="200" autocomplete="email"></label>
+      </div>
+      <div class="pdx-form-row">
+        <label>Phone (optional)<input type="tel" name="phone" maxlength="40" autocomplete="tel"></label>
+        <label>Subject (optional)<input type="text" name="subject" maxlength="200"></label>
+      </div>
+      <label>Message<textarea name="message" required maxlength="4000"></textarea></label>
+      <button type="submit" class="pdx-submit">Send message</button>
+      <p class="pdx-form-status" id="pdxContactStatus" role="status" aria-live="polite"></p>
+    </form>
+    <aside class="pdx-card pdx-info" aria-label="Contact details">
+      <dl>
+        <% if (wxAddress) { %><div><dt>Address</dt><dd><%= wxAddress %></dd></div><% } %>
+        <% if (wxPhones.length) { %><div><dt>Phone</dt><dd><% wxPhones.forEach((p, i) => { %><a href="tel:<%= String(p).replace(/[^+\d]/g, '') %>"><%= p %></a><%= i < wxPhones.length - 1 ? ' · ' : '' %><% }); %></dd></div><% } %>
+        <% if (wxEmails.length) { %><div><dt>Email</dt><dd><% wxEmails.forEach((e, i) => { %><a href="mailto:<%= e %>"><%= e %></a><%= i < wxEmails.length - 1 ? ' · ' : '' %><% }); %></dd></div><% } %>
+        <% if (wx.contact.officeHours) { %><div><dt>Office hours</dt><dd><%= wx.contact.officeHours %></dd></div><% } %>
+      </dl>
+      <% if (wx.contact.showMap && wxAddress) { %>
+      <iframe class="pdx-map" title="Map to <%= orgDetails.organization_name %>" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q=<%= encodeURIComponent(wxAddress) %>&output=embed"></iframe>
+      <% } %>
+    </aside>
+  </div>
+</section>
+<% } %>
+<% } %>
+
+<script>
+  (function () {
+    // Hide top links for sections that aren't on this page (or are empty),
+    // so visitors never land on a missing section.
+    document.querySelectorAll('.nav-menu a[href^="#"], nav a[href^="#"]').forEach(function (link) {
+      var id = link.getAttribute('href').slice(1);
+      if (!id) return;
+      var target = document.getElementById(id);
+      var empty = !target || !target.textContent.replace(/\s+/g, '').length || window.getComputedStyle(target).display === 'none' || (target.closest('[data-pd-block]') && window.getComputedStyle(target.closest('[data-pd-block]')).display === 'none');
+      if (empty) {
+        var item = link.closest('li') || link;
+        item.style.display = 'none';
+      }
+    });
+
+    var form = document.getElementById('pdxContactForm');
+    if (!form) return;
+    var status = document.getElementById('pdxContactStatus');
+    form.addEventListener('submit', async function (event) {
+      event.preventDefault();
+      var data = new FormData(form);
+      var name = String(data.get('name') || '').trim();
+      var message = String(data.get('message') || '').trim();
+      var email = String(data.get('email') || '').trim();
+      var phone = String(data.get('phone') || '').trim();
+      status.className = 'pdx-form-status';
+      if (!name || !message) { status.textContent = 'Please add your name and a message.'; status.classList.add('err'); return; }
+      if (!email && !phone) { status.textContent = 'Please add an email address or phone number so the school can reply.'; status.classList.add('err'); return; }
+      var button = form.querySelector('.pdx-submit');
+      button.disabled = true;
+      button.textContent = 'Sending...';
+      try {
+        var response = await fetch(form.action, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+          body: new URLSearchParams(data),
+        });
+        var result = await response.json().catch(function () { return {}; });
+        status.textContent = result.message || (response.ok ? 'Thank you - your message has been sent.' : 'Your message could not be sent. Please try again.');
+        status.classList.add(response.ok ? 'ok' : 'err');
+        if (response.ok) form.reset();
+      } catch (error) {
+        status.textContent = 'Your message could not be sent. Please check your connection and try again.';
+        status.classList.add('err');
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Send message';
+      }
+    });
+  })();
+</script>

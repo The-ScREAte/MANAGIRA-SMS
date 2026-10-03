@@ -400,6 +400,12 @@
     flex-wrap: wrap;
   }
   .fee-note { color: #6b7280; font-size: .8rem; }
+  .reg-closed { text-align: center; padding: 48px 28px; }
+  .reg-closed-icon { width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; background: #f1f5f9; color: var(--pr-blue); display: flex; align-items: center; justify-content: center; }
+  .reg-closed h1 { margin: 0 0 8px; font-size: 1.45rem; color: #0f172a; }
+  .reg-closed p { margin: 0 auto 6px; max-width: 460px; color: #475569; line-height: 1.55; }
+  .reg-closed a { display: inline-block; margin-top: 22px; padding: 11px 24px; border-radius: 8px; background: var(--pr-blue); color: #fff; font-weight: 600; text-decoration: none; }
+  .reg-preview-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; font-size: .88rem; }
   .fee-badge {
     display: inline-block;
     background: var(--pr-blue);
@@ -505,6 +511,23 @@
   <%- include('../partials/flash') %>
   
   <div class="registration-container">
+  <%
+    const _reg = typeof registrationState !== 'undefined' && registrationState ? registrationState : { open: true, free: !(parseFloat(orgDetails.public_registration_price) > 0) };
+    const _regClosed = !_reg.open && !_reg.preview;
+  %>
+  <% if (_regClosed) { %>
+    <div class="reg-card reg-closed">
+      <div class="reg-closed-icon" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+      <h1><%= orgDetails.organization_name %></h1>
+      <p><strong><%= _reg.message %></strong></p>
+      <p>Please check back later or contact the school for admission details.</p>
+      <a href="/common/publicDashboard?organizationId=<%= organizationId %>">Back to the school website</a>
+    </div>
+  </div>
+  <% } else { %>
+    <% if (_reg.preview) { %>
+    <div class="reg-preview-note"><strong>Preview:</strong> <%= _reg.message %> Families can't apply until registration is open. You're seeing this form because you're signed in as school staff.</div>
+    <% } %>
     <!-- Welcome Section -->
     <div id="welcomeSection">
       <div class="reg-card">
@@ -526,8 +549,8 @@
           <div class="welcome-step">
             <div class="step-num">2</div>
             <div class="step-info">
-              <strong>Pay the application fee</strong>
-              <span>Secure online payment</span>
+              <strong><%= _reg.free ? 'Submit your application' : 'Pay the application fee' %></strong>
+              <span><%= _reg.free ? 'No application fee' : 'Secure online payment' %></span>
             </div>
           </div>
           <div class="welcome-step">
@@ -539,11 +562,15 @@
           </div>
         </div>
 
+        <% if (!_reg.free) { %>
         <div class="fee-line">
           Application fee:
           <span class="fee-badge"><%= orgDetails.public_registration_currency %> <%= orgDetails.public_registration_price %></span>
           <span class="fee-note">non-refundable</span>
         </div>
+        <% } else { %>
+        <div class="fee-line"><span class="fee-badge">Free</span><span class="fee-note">There is no application fee.</span></div>
+        <% } %>
 
         <div class="welcome-checklist">
           <span>&#128248; Recent photo of the student</span>
@@ -572,7 +599,7 @@
           </div>
           <div class="progress-step" id="ps3">
             <div class="ps-circle">3</div>
-            <div class="ps-label">Payment</div>
+            <div class="ps-label"><%= _reg.free ? 'Submit' : 'Payment' %></div>
           </div>
         </div>
         <div class="form-header"><h2>Student Registration</h2></div>
@@ -1388,4 +1415,5 @@
       return maskedPhone || maskedEmail || '';
     }
   </script>
+<% } %>
     

@@ -4,13 +4,16 @@ const { assertIsStaff } = require("./_writeAuth");
 module.exports = {
   name: "compare_classes",
   description:
-    "Compare 2+ classes side-by-side: enrolled students, average assessment score, pass/fail counts (across all terms, not scoped to just one). " +
-    "Returns a table (present as markdown) and a `chartUrl` grouped-bar-chart image - embed it in your reply with markdown image syntax, e.g. " +
-    "`![Class comparison](chartUrl)`, so the user sees the actual chart. Needs Manage Records.",
+    "Compare 2+ classes side by side for one term (default: the current term) - the same figures as the Organization Stats page's Compare classes: " +
+    "students enrolled, average score, pass rate (results at or above the pass mark) and attendance rate. Returns a table (present as markdown) and a " +
+    "`chartUrl` image - embed it with markdown image syntax, e.g. `![Class comparison](chartUrl)`. A null value means nothing is saved for that class " +
+    "in that term yet - say so rather than showing 0. Needs Manage Records.",
   parameters: {
     type: "object",
     properties: {
       classNames: { type: "array", items: { type: "string" }, description: "At least 2 class names." },
+      termName: { type: "string", description: "Defaults to the current term." },
+      schoolYearLabel: { type: "string", description: "Only needed for a term in another school year." },
     },
     required: ["classNames"],
   },
@@ -21,11 +24,10 @@ module.exports = {
     }
     const params = new URLSearchParams({
       organizationId: String(tenant.organizationId),
-      userId: String(tenant.userId || ""),
-      userRole: tenant.userRole || "",
-      accountType: tenant.accountType || "",
       classNames: args.classNames.join(","),
     });
+    if (args.termName) params.set("termName", args.termName);
+    if (args.schoolYearLabel) params.set("schoolYearLabel", args.schoolYearLabel);
     try {
       return await callInternalApi(`/internal/api/stats/compare-classes?${params.toString()}`);
     } catch (error) {

@@ -1856,13 +1856,92 @@
       transform: none;
     }
   }
+  .mpc-reg { max-width: 760px; margin: 0 auto; }
+  .mpc-reg-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 11px 14px; border-radius: 12px; font-size: 0.9rem; }
+  .mpc-reg-status.open { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+  .mpc-reg-status.closed { background: #f8fafc; border: 1px solid #e2e8f0; color: #334155; }
+  .mpc-reg-status a { font-weight: 700; color: inherit; }
+  .mpc-reg-hint { margin: 10px 0; font-size: 0.86rem; color: #64748b; }
+  .mpc-reg-switch { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-weight: 700; color: #111827; cursor: pointer; }
+  .mpc-reg-switch input { width: 18px; height: 18px; margin: 0; accent-color: var(--org-primary-color, #01535b); }
+  .mpc-reg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .mpc-reg-grid label { display: grid; gap: 5px; font-size: 0.84rem; font-weight: 700; color: #374151; }
+  .mpc-reg-grid .form-field { width: 100%; margin: 0; box-sizing: border-box; }
+  @media (max-width: 640px) { .mpc-reg-grid { grid-template-columns: 1fr; } }
+  .mpc-view-site { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 8px 16px; border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 999px; color: #fff; font-weight: 700; font-size: 0.88rem; text-decoration: none; background: rgba(255, 255, 255, 0.14); }
+  .mpc-view-site:hover { background: rgba(255, 255, 255, 0.26); color: #fff; }
+
+  /* ---- Slim, single-row collapsed panels and calm, consistent buttons ---- */
+  .manage-public-container { gap: 12px; }
+  /* Visual panel order (flex `order`, not DOM position - the panels keep
+     their own markup/scripts where they are; this just resequences how
+     they're displayed). Requested order: Website Layout, Gallery, Articles,
+     Online Registration, Page Sections & Order, About Our School,
+     Contact Form & Messages, Website Sections. The setup checklist stays
+     first as the page's overview. */
+  .manage-public-container > .mwo { order: 1; }
+  .manage-public-container > #mpcLayout { order: 2; }
+  .manage-public-container > #mpcGallery { order: 3; }
+  .manage-public-container > #mpcArticles { order: 4; }
+  .manage-public-container > #mpcRegistration { order: 5; }
+  .manage-public-container > #mpoPanel { order: 6; }
+  .manage-public-container > #mpcAbout { order: 7; }
+  .manage-public-container > #mwxContact { order: 8; }
+  .manage-public-container > #mwxSections { order: 9; }
+  .manage-public-container > .content-container,
+  .manage-public-container > .theme-panel { padding: 20px 22px; border-radius: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05); }
+  .manage-public-container > .content-container.is-collapsed,
+  .manage-public-container > .theme-panel.is-collapsed { padding: 10px 16px; }
+  .content-container.is-collapsed > .images-header,
+  .content-container.is-collapsed > .texts-header,
+  .theme-panel.is-collapsed > .theme-panel-header { margin: 0; padding: 0; border-bottom: 0; cursor: pointer; }
+  .images-header h2, .texts-header h2, .theme-panel-header h2 { font-size: 1.02rem; font-weight: 700; }
+  /* Professional panel icons (Font Awesome) in place of emoji. */
+  .images-header h2, .texts-header h2, .theme-panel-header h2, .mpc-page-header h1 { display: flex; align-items: center; gap: 9px; }
+  .mpc-h-icon { color: var(--primary); font-size: 0.92em; flex: 0 0 auto; }
+  .mpc-page-header h1 .mpc-h-icon { color: #fff; opacity: 0.92; }
+  .images-header, .texts-header, .theme-panel-header { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .section-collapse-toggle { min-width: 0; padding: 5px 12px; font-size: 0.76rem; background: #fff; }
+  .manage-public-container .btn,
+  .manage-public-container .btn-primary,
+  .manage-public-container .image-content-form button,
+  .manage-public-container .text-content-form button,
+  .manage-public-container .theme-save-btn { box-shadow: none !important; transform: none !important; border-radius: 9px; }
+  .manage-public-container .btn-primary:hover,
+  .manage-public-container .theme-save-btn:hover,
+  .manage-public-container .image-content-form button:hover,
+  .manage-public-container .text-content-form button:hover { filter: brightness(0.94); }
+  .manage-public-container .theme-save-btn { padding: 10px 22px; font-size: 0.92rem; }
+  .manage-public-container .image-content-form:hover,
+  .manage-public-container .text-content-form:hover { transform: none; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
+  /* Slim page header: one line with the action on the right. */
+  body .mpc-page-header { margin: 0 24px 14px; padding: 14px 20px !important; border-radius: 14px; box-shadow: none; }
+  body .mpc-page-header::before { display: none; }
+  body .mpc-page-header .page-header-content { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; text-align: left; }
+  body .mpc-page-header h1 { font-size: 1.15rem; line-height: 1.3; }
+  body .mpc-page-header p { margin: 2px 0 0; font-size: 0.85rem; }
+  body .mpc-page-header .mpc-view-site { margin: 0; padding: 7px 14px; font-size: 0.84rem; }
+  @media (max-width: 1024px) {
+    body .mpc-page-header { margin: 14px 8px 12px; }
+  }
+  @media (max-width: 768px) {
+    .manage-public-container > .content-container,
+    .manage-public-container > .theme-panel { padding: 14px; }
+    .manage-public-container > .content-container.is-collapsed,
+    .manage-public-container > .theme-panel.is-collapsed { padding: 9px 12px; }
+  }
 </style>
 </head>
 <body class="manage-public-page">
     <div class="mpc-page-header">
       <div class="page-header-content">
-        <h1>🌐 Manage Website Content</h1>
-        <p>Add images, text, events &amp; announcements to your school site</p>
+        <div>
+          <h1><i class="fa-solid fa-globe mpc-h-icon" aria-hidden="true"></i> Manage Website Content</h1>
+          <p>Build and update your school's public website</p>
+        </div>
+        <% if (typeof publicSiteUrl !== 'undefined' && publicSiteUrl) { %>
+        <a class="mpc-view-site" href="<%= publicSiteUrl %>" target="_blank" rel="noopener">View website ↗</a>
+        <% } %>
       </div>
     </div>
     
@@ -1871,10 +1950,74 @@
 
 <div class="manage-public-container">
 
+  <%- include('../partials/manageWebsiteOverview') %>
+  <%- include('../partials/manageWebsitePageOrder') %>
+
+        <div class="content-container" id="mpcAbout">
+            <div class="images-header">
+              <h2><i class="fa-solid fa-circle-info mpc-h-icon" aria-hidden="true"></i> About Our School</h2>
+              <div class="header-actions">
+                <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+              </div>
+            </div>
+            <form id="aboutUsForm" action="/account/update-about-us" method="POST" style="max-width: 700px; margin: 0 auto;">
+                <input type="hidden" name="organization_id" value="<%= orgDetails.organization_id %>">
+                <% const aboutMotto = (aboutDetails && Array.isArray(aboutDetails.mottos) && aboutDetails.mottos.length)
+                  ? String(aboutDetails.mottos[0] || '').trim()
+                  : (orgDetails.motto ? String(orgDetails.motto).trim() : ''); %>
+                <% const aboutEmails = (aboutDetails && Array.isArray(aboutDetails.emails) && aboutDetails.emails.length)
+                    ? aboutDetails.emails
+                    : (orgDetails.email ? [orgDetails.email] : [""]); %>
+                <% const aboutPhones = (aboutDetails && Array.isArray(aboutDetails.phones) && aboutDetails.phones.length)
+                    ? aboutDetails.phones
+                    : (orgDetails.organization_phone ? [orgDetails.organization_phone] : [""]); %>
+                <div class="form-group">
+                  <label for="aboutUs">About Our School:</label>
+                  <textarea id="aboutUs" name="aboutUs" rows="5" required class="form-field"><%= orgDetails.aboutus ? orgDetails.aboutus : '' %></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="motto">Motto:</label>
+                  <p class="form-help">Single motto shown first in the About details.</p>
+                  <input type="text" id="motto" name="motto" value="<%= aboutMotto %>" class="form-field" placeholder="School motto" required>
+                </div>
+                <div class="form-group">
+                  <label>Public Email(s):</label>
+                  <p class="form-help">Displayed on the school website About section.</p>
+                  <div id="emailsList" class="dynamic-list">
+                    <% aboutEmails.forEach((emailValue) => { %>
+                      <div class="dynamic-item-row">
+                        <input type="email" name="contactEmails" value="<%= emailValue %>" class="form-field" placeholder="school@example.com" required>
+                        <button type="button" class="btn-secondary dynamic-remove-btn">Remove</button>
+                      </div>
+                    <% }); %>
+                  </div>
+                  <button type="button" id="addEmailBtn" class="btn-secondary" style="margin-top:8px;">Add Email</button>
+                </div>
+                <div class="form-group">
+                  <label>Public Phone(s):</label>
+                  <p class="form-help">Displayed on the school website About section.</p>
+                  <div id="phonesList" class="dynamic-list">
+                    <% aboutPhones.forEach((phoneValue) => { %>
+                      <div class="dynamic-item-row">
+                        <input type="text" name="contactPhones" value="<%= phoneValue %>" class="form-field" placeholder="+233..." required>
+                        <button type="button" class="btn-secondary dynamic-remove-btn">Remove</button>
+                      </div>
+                    <% }); %>
+                  </div>
+                  <button type="button" id="addPhoneBtn" class="btn-secondary" style="margin-top:8px;">Add Phone</button>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" id="aboutUsBtn" class="btn btn-primary">
+                    <%= orgDetails.aboutus ? 'Update About Our School' : 'Add About Our School' %>
+                  </button>
+                </div>
+            </form>
+        </div>
+
   <!-- Website Layout Panel -->
-  <div class="theme-panel">
+  <div class="theme-panel" id="mpcLayout">
     <div class="theme-panel-header">
-      <h2>🎨 Website Layout</h2>
+      <h2><i class="fa-solid fa-table-cells-large mpc-h-icon" aria-hidden="true"></i> Website Layout</h2>
       <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
     </div>
 
@@ -1959,9 +2102,9 @@
     </form>
   </div>
 
-        <div class="content-container">
+        <div class="content-container" id="mpcGallery">
             <div class="images-header">
-              <h2>📷 Gallery Images</h2>
+              <h2><i class="fa-solid fa-images mpc-h-icon" aria-hidden="true"></i> Gallery Images</h2>
               <div class="header-actions">
                 <a id="toggle-upload-content-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i> Upload Image</a>
                 <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
@@ -2042,9 +2185,11 @@
             </div>
         </div>
 
-        <div class="content-container">
+        <%- include('../partials/manageWebsiteExtras') %>
+
+        <div class="content-container" id="mpcArticles">
             <div class="texts-header">
-              <h2>📝 Articles</h2>
+              <h2><i class="fa-solid fa-newspaper mpc-h-icon" aria-hidden="true"></i> Articles</h2>
               <div class="header-actions">
                 <a id="toggle-upload-text-form" class="btn-primary"><i class="fa-regular fa-square-plus"></i> Add Article</a>
                 <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
@@ -2092,122 +2237,48 @@
             </div>
         </div>
 
-        <!-- About Us Section -->
-        <div class="content-container">
+        <!-- Online Registration -->
+        <div class="content-container" id="mpcRegistration">
             <div class="images-header">
-              <h2>📖 About Our School</h2>
+              <h2><i class="fa-solid fa-graduation-cap mpc-h-icon" aria-hidden="true"></i> Online Registration</h2>
               <div class="header-actions">
                 <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
               </div>
             </div>
-            <form id="aboutUsForm" action="/account/update-about-us" method="POST" style="max-width: 700px; margin: 0 auto;">
-                <input type="hidden" name="organization_id" value="<%= orgDetails.organization_id %>">
-                <% const aboutMotto = (aboutDetails && Array.isArray(aboutDetails.mottos) && aboutDetails.mottos.length)
-                  ? String(aboutDetails.mottos[0] || '').trim()
-                  : (orgDetails.motto ? String(orgDetails.motto).trim() : ''); %>
-                <% const aboutEmails = (aboutDetails && Array.isArray(aboutDetails.emails) && aboutDetails.emails.length)
-                    ? aboutDetails.emails
-                    : (orgDetails.email ? [orgDetails.email] : [""]); %>
-                <% const aboutPhones = (aboutDetails && Array.isArray(aboutDetails.phones) && aboutDetails.phones.length)
-                    ? aboutDetails.phones
-                    : (orgDetails.organization_phone ? [orgDetails.organization_phone] : [""]); %>
-                <div class="form-group">
-                  <label for="aboutUs">About Our School:</label>
-                  <textarea id="aboutUs" name="aboutUs" rows="5" required class="form-field"><%= orgDetails.aboutus ? orgDetails.aboutus : '' %></textarea>
+            <%
+              const _rs = (typeof registrationStatus !== 'undefined' && registrationStatus) || { open: false, message: '' };
+              const _ymd = (d) => { if (!d) return ''; const x = new Date(d); return isNaN(x) ? '' : [x.getFullYear(), String(x.getMonth() + 1).padStart(2, '0'), String(x.getDate()).padStart(2, '0')].join('-'); };
+              const _cur = orgDetails.public_registration_currency || 'USD';
+            %>
+            <div class="mpc-reg">
+              <div class="mpc-reg-status <%= _rs.open ? 'open' : 'closed' %>">
+                <span><strong><%= _rs.open ? 'Open' : 'Closed' %></strong> &middot; <%= _rs.message %></span>
+                <a href="/common/publicRegister?organizationId=<%= organizationId %>" target="_blank" rel="noopener">Preview the form ↗</a>
+              </div>
+              <p class="mpc-reg-hint">Families apply from the <strong>Apply Now</strong> button on your website while registration is open. Applications appear in Admissions for you to approve.</p>
+              <form action="/account/updatePublicRegistration" method="POST" class="mpc-reg-form">
+                <label class="mpc-reg-switch">
+                  <input type="checkbox" name="enabled" <%= orgDetails.public_registration_enabled ? 'checked' : '' %> />
+                  Accept applications online
+                </label>
+                <div class="mpc-reg-grid">
+                  <label>Opens on<input type="date" name="startDate" value="<%= _ymd(orgDetails.registration_start_date) %>" class="form-field" /></label>
+                  <label>Closes on<input type="date" name="endDate" value="<%= _ymd(orgDetails.registration_end_date) %>" class="form-field" /></label>
+                  <label>Currency
+                    <select name="currency" class="form-field">
+                      <% ['USD','GHS','NGN','KES','ZAR','UGX','TZS','RWF','XAF','XOF','EUR','GBP'].forEach((code) => { %>
+                      <option value="<%= code %>" <%= _cur === code ? 'selected' : '' %>><%= code %></option>
+                      <% }) %>
+                    </select>
+                  </label>
+                  <label>Application fee<input type="number" min="0" step="0.01" name="price" value="<%= Number(orgDetails.public_registration_price) > 0 ? orgDetails.public_registration_price : '' %>" placeholder="0 (free)" class="form-field" /></label>
                 </div>
-                <div class="form-group">
-                  <label for="motto">Motto:</label>
-                  <p class="form-help">Single motto shown first in the About details.</p>
-                  <input type="text" id="motto" name="motto" value="<%= aboutMotto %>" class="form-field" placeholder="School motto" required>
-                </div>
-                <div class="form-group">
-                  <label>Public Email(s):</label>
-                  <p class="form-help">Displayed on the school website About section.</p>
-                  <div id="emailsList" class="dynamic-list">
-                    <% aboutEmails.forEach((emailValue) => { %>
-                      <div class="dynamic-item-row">
-                        <input type="email" name="contactEmails" value="<%= emailValue %>" class="form-field" placeholder="school@example.com" required>
-                        <button type="button" class="btn-secondary dynamic-remove-btn">Remove</button>
-                      </div>
-                    <% }); %>
-                  </div>
-                  <button type="button" id="addEmailBtn" class="btn-secondary" style="margin-top:8px;">Add Email</button>
-                </div>
-                <div class="form-group">
-                  <label>Public Phone(s):</label>
-                  <p class="form-help">Displayed on the school website About section.</p>
-                  <div id="phonesList" class="dynamic-list">
-                    <% aboutPhones.forEach((phoneValue) => { %>
-                      <div class="dynamic-item-row">
-                        <input type="text" name="contactPhones" value="<%= phoneValue %>" class="form-field" placeholder="+233..." required>
-                        <button type="button" class="btn-secondary dynamic-remove-btn">Remove</button>
-                      </div>
-                    <% }); %>
-                  </div>
-                  <button type="button" id="addPhoneBtn" class="btn-secondary" style="margin-top:8px;">Add Phone</button>
-                </div>
-                <div class="form-actions">
-                  <button type="submit" id="aboutUsBtn" class="btn btn-primary">
-                    <%= orgDetails.aboutus ? 'Update About Our School' : 'Add About Our School' %>
-                  </button>
-                </div>
-            </form>
+                <p class="mpc-reg-hint">Leave the fee empty for free applications. For a paid fee, make sure the school's payout account is set up in <a href="/account/settings?section=billing" target="_top">Settings &rsaquo; Billing</a>, or families won't be able to pay.</p>
+                <div class="form-actions"><button type="submit" class="btn btn-primary">Save registration settings</button></div>
+              </form>
+            </div>
         </div>
 
-        <!-- Self Enrollment Settings -->
-        <div class="content-container">
-            <div class="images-header">
-              <h2>⚙️ Self Enrollment Settings</h2>
-              <div class="header-actions">
-                <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
-              </div>
-            </div>
-            <form action="/account/updatePublicRegistration" method="POST" style="max-width: 700px; margin: 0 auto;">
-                <div class="form-group">
-                  <label class="checkbox-label">
-                    <input type="checkbox" name="enabled" <%= orgDetails.public_registration_enabled ? 'checked' : '' %> />
-                    Enable Self Enrollment
-                  </label>
-                </div>
-                <div class="form-group">
-                  <label>Start Date:</label>
-                  <input type="date" name="startDate" value="<%= orgDetails.registration_start_date?.toISOString().split('T')[0] || '' %>" class="form-field" />
-                </div>
-                <div class="form-group">
-                  <label>End Date:</label>
-                  <input type="date" name="endDate" value="<%= orgDetails.registration_end_date?.toISOString().split('T')[0] || '' %>" class="form-field" />
-                </div>
-                <div class="form-group">
-                  <label>Registration Currency:</label>
-                  <select name="currency" class="form-field">
-                    <option value="GHS" <%= orgDetails.public_registration_currency === 'GHS' ? 'selected' : '' %>>GHS</option>
-                    <option value="EUR" <%= orgDetails.public_registration_currency === 'EUR' ? 'selected' : '' %>>EUR</option>
-                    <option value="NGN" <%= orgDetails.public_registration_currency === 'NGN' ? 'selected' : '' %>>NGN</option>
-                    <option value="KES" <%= orgDetails.public_registration_currency === 'KES' ? 'selected' : '' %>>KES</option>
-                    <option value="ZAR" <%= orgDetails.public_registration_currency === 'ZAR' ? 'selected' : '' %>>ZAR</option>
-                    <option value="GBP" <%= orgDetails.public_registration_currency === 'GBP' ? 'selected' : '' %>>GBP</option>
-                    <option value="UGX" <%= orgDetails.public_registration_currency === 'UGX' ? 'selected' : '' %>>UGX</option>
-                    <option value="TZS" <%= orgDetails.public_registration_currency === 'TZS' ? 'selected' : '' %>>TZS</option>
-                    <option value="RWF" <%= orgDetails.public_registration_currency === 'RWF' ? 'selected' : '' %>>RWF</option>
-                    <option value="XAF" <%= orgDetails.public_registration_currency === 'XAF' ? 'selected' : '' %>>XAF</option>
-                    <option value="XOF" <%= orgDetails.public_registration_currency === 'XOF' ? 'selected' : '' %>>XOF</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Registration Price:</label>
-                  <input type="number" step="0.01" name="price" value="<%= orgDetails.public_registration_price || '' %>" class="form-field" />
-                </div>
-                <div class="form-actions" style="margin-bottom: 16px;">
-                  <button type="submit" class="btn btn-primary">Update Registration Settings</button>
-                </div>
-                <div class="notice-box">
-                  <p>
-                    REMEMBER TO SET PAYMENT METHODS &amp; OPTIONS OTHERWISE USERS CAN'T MAKE PAYMENT AND FOR THAT REASON PUBLIC REGISTRATION WON'T GO THROUGH.
-                    <a href="/account/settings?section=billing" class="btn-primary" style="width:fit-content; display:inline-flex;">Update Payment Method</a>
-                  </p>
-                </div>
-            </form>
-        </div>
 
 </div>
 
@@ -2557,6 +2628,12 @@
         // Collapsible content/theme sections (mobile defaults collapsed)
         document.addEventListener('DOMContentLoaded', function () {
             const containers = document.querySelectorAll('.manage-public-container .content-container, .manage-public-container .theme-panel');
+            // Panels that were open before a save reloaded the page.
+            let reopenPanels = [];
+            try {
+              reopenPanels = JSON.parse(sessionStorage.getItem('mpcOpenPanels') || '[]');
+              sessionStorage.removeItem('mpcOpenPanels');
+            } catch (_) {}
 
             containers.forEach((container) => {
               const toggleBtn = container.querySelector('.section-collapse-toggle');
@@ -2569,18 +2646,27 @@
                 toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
               };
 
-              setCollapsed(true);
+              setCollapsed(!reopenPanels.includes(container.id));
 
               toggleBtn.addEventListener('click', function () {
                 const collapsed = container.classList.contains('is-collapsed');
                 setCollapsed(!collapsed);
               });
+              // A collapsed panel opens when its row is clicked anywhere.
+              const header = toggleBtn.closest('.images-header, .texts-header, .theme-panel-header');
+              if (header) {
+                header.addEventListener('click', function (event) {
+                  if (!container.classList.contains('is-collapsed')) return;
+                  if (event.target.closest('button, a, input, label, select')) return;
+                  setCollapsed(false);
+                });
+              }
             });
         });
 
           // Async interactions for this page only (no full-page reload)
           document.addEventListener('DOMContentLoaded', function () {
-            const pageRoot = document.querySelector('.manage-public-page');
+            const pageRoot = document.querySelector('.manage-public-container');
             if (!pageRoot) return;
 
             const lightbox = document.getElementById('imageLightbox');
@@ -2748,6 +2834,12 @@
               return response;
             }
 
+            try {
+              const savedY = Number(sessionStorage.getItem('mpcScrollY'));
+              sessionStorage.removeItem('mpcScrollY');
+              if (savedY > 0) window.scrollTo(0, savedY);
+            } catch (_) {}
+
             pageRoot.addEventListener('submit', async function (event) {
               const form = event.target;
               if (!(form instanceof HTMLFormElement)) return;
@@ -2778,10 +2870,26 @@
               setElementLoading(submitter, true);
 
               try {
-                await sendFormAsync(form, submitter);
-                showStatus('Saved successfully', 'success');
-                // Reload the page after a short delay so the user sees the updated content
-                setTimeout(() => { window.location.reload(); }, 1200);
+                const response = await sendFormAsync(form, submitter);
+                // The server answers with the refreshed page; a flash error in
+                // it means the save was refused (e.g. invalid input).
+                const html = await response.text().catch(() => '');
+                const errorFlash = new DOMParser().parseFromString(html, 'text/html')
+                  .querySelector('.flash-message.error .flash-content, .flash-message.error');
+                if (errorFlash && errorFlash.textContent.trim()) {
+                  showStatus(errorFlash.textContent.replace('×', '').trim(), 'error');
+                  return;
+                }
+                showStatus('Saved', 'success');
+                // Show the updated content straight away, back at the same spot
+                // with the same panels open.
+                try {
+                  sessionStorage.setItem('mpcScrollY', String(window.scrollY));
+                  const openPanels = Array.from(document.querySelectorAll('.manage-public-container > .content-container[id], .manage-public-container > .theme-panel[id]'))
+                    .filter((panel) => !panel.classList.contains('is-collapsed')).map((panel) => panel.id);
+                  sessionStorage.setItem('mpcOpenPanels', JSON.stringify(openPanels));
+                } catch (_) {}
+                window.location.reload();
               } catch (error) {
                 showStatus('Action failed. Try again.', 'error');
               } finally {

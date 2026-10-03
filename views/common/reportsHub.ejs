@@ -26,7 +26,7 @@
     allowedFeatures.includes('Class Base Merit Sheet') ||
     allowedFeatures.includes('Class Base Merrit sheet')
   );
-  const hasOrgStats = Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights');
+  const hasOrgStats = Array.isArray(allowedFeatures) && allowedFeatures.includes('Organization Analytics & Insights') && (typeof canViewOrgStats === 'undefined' || canViewOrgStats);
 %>
 
 <style>

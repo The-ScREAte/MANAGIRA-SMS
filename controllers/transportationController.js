@@ -83,6 +83,10 @@ async function getOrganizationDestination(db, organizationId) {
   };
 }
 
+// A bus position counts as live only if the driver's phone reported it
+// recently - trips that were never ended don't show an old position as live.
+const LIVE_WINDOW_MINUTES = 30;
+
 async function getStudentTransportationSnapshot(db, organizationId, studentId) {
   await ensureTransportationSchema(db);
   const school = await getOrganizationDestination(db, organizationId).catch(() => ({
@@ -187,6 +191,8 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
          OR
          (trip.route_id IS NOT NULL AND trip.route_id = $3)
        )
+       -- A trip whose phone stopped reporting long ago (never ended) isn't live.
+       AND COALESCE(live.recorded_at, trip.started_at) > NOW() - INTERVAL '${LIVE_WINDOW_MINUTES} minutes'
      ORDER BY trip.started_at DESC
      LIMIT 1`,
     [organizationId, row.bus_id || null, row.route_id || null]
@@ -263,6 +269,7 @@ async function getStudentTransportationSnapshot(db, organizationId, studentId) {
           longitude: Number(live.longitude),
           speedKmh: live.speed_kmh !== null ? Number(live.speed_kmh) : null,
           headingDeg: live.heading_deg !== null ? Number(live.heading_deg) : null,
+          busNumber: row.bus_number || null,
           recordedAt: live.recorded_at,
           startedAt: live.started_at,
         }
@@ -2479,6 +2486,13 @@ const transportationController = {
         return res.status(403).json({ success: false, message: "This route is not assigned to you." });
       }
 
+      // Close any trip this driver left running (e.g. phone died before "End trip").
+      await db.query(
+        `UPDATE transport_trip_sessions SET status = 'completed', ended_at = NOW()
+          WHERE organization_id = $1 AND driver_user_id = $2 AND status = 'active'`,
+        [organizationId, userId]
+      );
+
       const result = await db.query(
         `INSERT INTO transport_trip_sessions (organization_id, route_id, bus_id, driver_user_id, status)
          VALUES ($1, $2, $3, $4, 'active')
@@ -2660,6 +2674,7 @@ const transportationController = {
          WHERE t.organization_id = $1
            AND t.route_id = $2
            AND t.status = 'active'
+           AND l.recorded_at > NOW() - INTERVAL '${LIVE_WINDOW_MINUTES} minutes'
          ORDER BY l.recorded_at DESC
          LIMIT 1`,
         [organizationId, routeId]

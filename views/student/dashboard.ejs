@@ -1156,6 +1156,7 @@
   </div>
 </div>
 
+<script src="/js/managiraMaps.js"></script>
 <script>
 (function () {
   var tiles      = document.querySelectorAll('.sp-action-tile[data-panel]');
@@ -1206,21 +1207,9 @@
       }
       var map = L.map(el, { scrollWheelZoom: false, zoomControl: true }).setView([40.767304, -111.939857], 12);
       el.__leafletMap = map;
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+      window.ManagiraMaps.addTiles(map);
       map.attributionControl.setPrefix(false);
       var points = [];
-      function emojiIcon(L, emoji, size) {
-        size = size || 26;
-        return L.divIcon({
-          className: '',
-          html: '<div style="font-size:' + Math.round(size * 0.75) + 'px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));">' + emoji + '</div>',
-          iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2],
-        });
-      }
       function normalizeCoord(value, axis) {
         if (value === null || value === undefined) return null;
         var raw = String(value).trim();
@@ -1239,24 +1228,10 @@
         var opts = icon ? { icon: icon } : {};
         return L.marker([latNum, lngNum], opts).addTo(map).bindPopup(label || 'Location');
       }
+      // Road-following geometry from the server; [] = no route (nothing drawn).
       function fetchRoadGeometry(latlngs) {
-        if (!Array.isArray(latlngs) || latlngs.length < 2) return Promise.resolve(latlngs || []);
-        var coordinates = latlngs.map(function(entry) {
-          return Number(entry[1]).toFixed(7) + ',' + Number(entry[0]).toFixed(7);
-        }).join(';');
-        var url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson&steps=false';
-        return fetch(url)
-          .then(function(response) { return response.json(); })
-          .then(function(payload) {
-            var geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
-            var resolved = Array.isArray(geometry && geometry.coordinates)
-              ? geometry.coordinates.map(function(entry) { return [Number(entry[1]), Number(entry[0])]; })
-              : null;
-            return resolved && resolved.length >= 2 ? resolved : latlngs;
-          })
-          .catch(function() {
-            return latlngs;
-          });
+        if (!Array.isArray(latlngs) || latlngs.length < 2 || !window.ManagiraMaps) return Promise.resolve([]);
+        return window.ManagiraMaps.roadPoints(latlngs).then(function(points) { return points || []; });
       }
       var school = snapshot.school || null;
       var stop = snapshot.stop || null;
@@ -1266,9 +1241,10 @@
             return normalizeCoord(entry && entry.latitude, 'lat') !== null && normalizeCoord(entry && entry.longitude, 'lng') !== null;
           })
         : [];
-      addMarker(school && school.latitude, school && school.longitude, school && school.address ? 'School: ' + school.address : 'School', emojiIcon(L, '🏫'));
-      addMarker(stop && stop.latitude, stop && stop.longitude, stop && stop.stopName ? 'Stop: ' + stop.stopName : 'Stop', emojiIcon(L, '🚏'));
-      el.__busMarker = addMarker(live && live.latitude, live && live.longitude, 'Live bus position', emojiIcon(L, '🚌'));
+      addMarker(school && school.latitude, school && school.longitude, school && school.address ? 'School: ' + school.address : 'School', window.ManagiraMaps.schoolIcon());
+      addMarker(stop && stop.latitude, stop && stop.longitude, stop && stop.stopName ? 'Your stop: ' + stop.stopName : 'Your stop', window.ManagiraMaps.stopIcon('', { highlight: true }));
+      el.__busMarker = addMarker(live && live.latitude, live && live.longitude, 'Bus ' + ((live && (live.busNumber || live.bus_number)) || '') + (live && (live.recordedAt || live.recorded_at) ? ' - updated ' + window.ManagiraMaps.ago((live.recordedAt || live.recorded_at)) : ''), window.ManagiraMaps.busIcon({ heading: live && (live.headingDeg != null ? live.headingDeg : live.heading_deg), label: (live && (live.busNumber || live.bus_number)) || 'Bus' }));
+      if (el.__busMarker) el.__busMarker.setZIndexOffset(1000);
       var routeLatLngs = [];
       var schoolLat = school ? normalizeCoord(school.latitude, 'lat') : null;
       var schoolLng = school ? normalizeCoord(school.longitude, 'lng') : null;
@@ -1290,20 +1266,16 @@
       var liveLat = live ? normalizeCoord(live.latitude, 'lat') : null;
       var liveLng = live ? normalizeCoord(live.longitude, 'lng') : null;
       if (stopLat !== null && stopLng !== null && liveLat !== null && liveLng !== null) {
-        fetchRoadGeometry([[stopLat, stopLng], [liveLat, liveLng]]).then(function (roadPoints) {
+        fetchRoadGeometry([[liveLat, liveLng], [stopLat, stopLng]]).then(function (roadPoints) {
+          if (roadPoints.length < 2) return;
           el.__stopToBusLine = L.polyline(roadPoints, {
             color: '#d97706', weight: 3, opacity: 0.8, dashArray: '6,6',
           }).addTo(map);
         });
       }
       fetchRoadGeometry(routeLatLngs).then(function(roadLatLngs) {
-        var geometry = roadLatLngs.length ? roadLatLngs : routeLatLngs;
-        if (geometry.length >= 2) {
-          L.polyline(geometry, {
-            color: '#0f5a66', weight: 4, opacity: 0.85,
-          }).addTo(map);
-        }
-        var boundsSource = geometry.length ? geometry.slice() : (routeLatLngs.length ? routeLatLngs.slice() : points.slice());
+        if (roadLatLngs.length >= 2) window.ManagiraMaps.drawRoute(map, roadLatLngs, { color: '#1a73e8', weight: 5 });
+        var boundsSource = roadLatLngs.length ? roadLatLngs.concat(points) : (routeLatLngs.length ? routeLatLngs.concat(points) : points.slice());
         setTimeout(function() {
           map.invalidateSize();
           if (boundsSource.length) {
@@ -1338,22 +1310,19 @@
         var lat = Number(live.latitude);
         var lng = Number(live.longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        var busIcon = window.ManagiraMaps.busIcon({ heading: (live.headingDeg != null ? live.headingDeg : live.heading_deg), label: (live.busNumber || live.bus_number) || 'Bus', stale: (live.recordedAt || live.recorded_at) && (Date.now() - new Date((live.recordedAt || live.recorded_at)).getTime()) > 2 * 60 * 1000 });
+        var busPopup = 'Bus ' + ((live.busNumber || live.bus_number) || '') + ' - updated ' + window.ManagiraMaps.ago((live.recordedAt || live.recorded_at) || Date.now());
         if (!el.__busMarker) {
-          el.__busMarker = window.L.marker([lat, lng], {
-            icon: window.L.divIcon({
-              className: '',
-              html: '<div style="font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4));">🚌</div>',
-              iconSize: [26, 26],
-              iconAnchor: [13, 13],
-            }),
-          }).addTo(el.__leafletMap).bindPopup('Live bus position');
+          el.__busMarker = window.L.marker([lat, lng], { icon: busIcon, zIndexOffset: 1000 }).addTo(el.__leafletMap).bindPopup(busPopup);
         } else {
           el.__busMarker.setLatLng([lat, lng]);
+          el.__busMarker.setIcon(busIcon);
+          el.__busMarker.setPopupContent(busPopup);
         }
-        // Keep the stop<->bus connector snapped to real roads as the bus moves,
-        // instead of leaving a stale straight line cutting through buildings.
+        // Keep the bus<->stop connector on the roads as the bus moves.
         if (el.__stopLatLng && typeof el.__fetchRoadGeometry === 'function') {
-          el.__fetchRoadGeometry([el.__stopLatLng, [lat, lng]]).then(function (roadPoints) {
+          el.__fetchRoadGeometry([[lat, lng], el.__stopLatLng]).then(function (roadPoints) {
+            if (roadPoints.length < 2) return;
             if (el.__stopToBusLine) {
               el.__stopToBusLine.setLatLngs(roadPoints);
             } else {

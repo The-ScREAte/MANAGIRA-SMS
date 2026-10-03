@@ -1837,6 +1837,7 @@
   crossorigin=""
 ></script>
 
+<script src="/js/managiraMaps.js"></script>
 <script src="/js/dialCodes.js"></script>
 <script>
   (function () {
@@ -2034,34 +2035,16 @@
       mapInstance.addControl(new LocateControl());
     }
 
+    // Road-following geometry from the server (shared ManagiraMaps helper).
+    // null = no road route available; nothing is drawn rather than a straight
+    // line through buildings.
     async function fetchRoadGeometry(latlngs) {
-      if (!Array.isArray(latlngs) || latlngs.length < 2) return latlngs;
+      if (!Array.isArray(latlngs) || latlngs.length < 2) return null;
       const key = makeRouteGeometryKey(latlngs);
       if (roadGeometryCache.has(key)) return roadGeometryCache.get(key);
-
-      const coordinates = latlngs
-        .map((entry) => `${Number(entry[1]).toFixed(7)},${Number(entry[0]).toFixed(7)}`)
-        .join(';');
-      const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
-
-      try {
-        const response = await fetch(url);
-        const payload = await response.json();
-        const geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
-        const points = Array.isArray(geometry && geometry.coordinates)
-          ? geometry.coordinates.map((entry) => [Number(entry[1]), Number(entry[0])])
-          : null;
-
-        if (points && points.length >= 2) {
-          roadGeometryCache.set(key, points);
-          return points;
-        }
-      } catch (_error) {
-        // Fallback to direct segment when road routing is unavailable.
-      }
-
-      roadGeometryCache.set(key, latlngs);
-      return latlngs;
+      const points = window.ManagiraMaps ? await window.ManagiraMaps.roadPoints(latlngs) : null;
+      if (points) roadGeometryCache.set(key, points);
+      return points;
     }
 
     const map = L.map(mapEl, {
@@ -2074,10 +2057,7 @@
       minZoom: 4,
       maxZoom: 18,
     }).setView(mapDefaultCenter, mapDefaultZoom);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    window.ManagiraMaps.addTiles(map);
     // Keep the required OpenStreetMap credit, drop Leaflet's own branding flag.
     map.attributionControl.setPrefix(false);
 
@@ -2246,10 +2226,7 @@
       function ensureMap() {
         if (pickerMap || !mapContainer || !window.L) return;
         pickerMap = L.map(mapContainer, { zoomControl: true }).setView(mapDefaultCenter, mapDefaultZoom);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(pickerMap);
+        window.ManagiraMaps.addTiles(pickerMap);
         pickerMap.attributionControl.setPrefix(false);
 
         pickerMap.on('click', async (event) => {
@@ -3169,7 +3146,11 @@
       const currentRevision = ++drawRevision;
       mapLayer.clearLayers();
       busLayer.clearLayers();
-      if (typeof liveBusMarkers !== 'undefined') liveBusMarkers.clear();
+      if (typeof liveBusMarkers !== 'undefined') {
+        liveBusMarkers.clear();
+        // Put live buses straight back instead of waiting for the next poll.
+        setTimeout(() => { if (typeof pollLiveBuses === 'function') pollLiveBuses(); }, 0);
+      }
       const points = [];
       const grouped = {};
       const routeDrawTasks = [];
@@ -3257,7 +3238,7 @@
                 ? [[schoolLat, schoolLng], ...latlngs, [schoolLat, schoolLng]]
                 : latlngs;
               const roadLatlngs = await fetchRoadGeometry(routeGeometrySource);
-              if (currentRevision !== drawRevision) return;
+              if (currentRevision !== drawRevision || !roadLatlngs) return;
               L.polyline(roadLatlngs, {
                 color: '#ffffff',
                 weight: mainRouteCasingWeight,
@@ -3293,18 +3274,20 @@
                 const roadLeg = await fetchRoadGeometry(destinationPath);
                 if (currentRevision !== drawRevision) return;
 
-                L.polyline(roadLeg, {
-                  color: '#ffffff',
-                  weight: customLegWeight + 2,
-                  opacity: 0.9,
-                }).addTo(mapLayer);
+                if (roadLeg) {
+                  L.polyline(roadLeg, {
+                    color: '#ffffff',
+                    weight: customLegWeight + 2,
+                    opacity: 0.9,
+                  }).addTo(mapLayer);
 
-                L.polyline(roadLeg, {
-                  color: colorForRoute(routeId),
-                  weight: customLegWeight,
-                  opacity: 0.92,
-                  dashArray: '6,6',
-                }).addTo(mapLayer);
+                  L.polyline(roadLeg, {
+                    color: colorForRoute(routeId),
+                    weight: customLegWeight,
+                    opacity: 0.92,
+                    dashArray: '6,6',
+                  }).addTo(mapLayer);
+                }
 
                 L.circleMarker(destinationPoint, {
                   radius: 7,
@@ -3419,9 +3402,10 @@
     // at a static schedule-anchor stop.
     const liveBusMarkers = new Map();
     let liveBusPollInFlight = false;
+    let liveBusPollQueued = false;
 
     async function pollLiveBuses() {
-      if (liveBusPollInFlight) return;
+      if (liveBusPollInFlight) { liveBusPollQueued = true; return; }
       liveBusPollInFlight = true;
       try {
         const routeIds = Object.keys(routeNameById).map(Number);
@@ -3444,18 +3428,15 @@
             return;
           }
 
+          const stale = live.recorded_at && (Date.now() - new Date(live.recorded_at).getTime()) > 2 * 60 * 1000;
+          const busIcon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', stale });
           if (existing) {
             existing.setLatLng([lat, lng]);
+            existing.setIcon(busIcon);
           } else {
             const bus = busById[live.bus_id] || null;
             const marker = L.marker([lat, lng], {
-              icon: L.divIcon({
-                className: '',
-                html: '<div class="tm-bus-pin" title="Live bus">🚌</div>',
-                iconSize: [24, 24],
-                iconAnchor: [12, 12],
-                popupAnchor: [0, -10],
-              }),
+              icon: busIcon,
               zIndexOffset: 1000,
             }).addTo(busLayer);
             liveBusMarkers.set(routeId, marker);
@@ -3464,6 +3445,7 @@
         }));
       } finally {
         liveBusPollInFlight = false;
+        if (liveBusPollQueued) { liveBusPollQueued = false; pollLiveBuses(); }
       }
     }
 

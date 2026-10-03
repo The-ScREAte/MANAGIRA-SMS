@@ -128,52 +128,7 @@ const statsController = {
     if (!selectedClasses.length) return res.status(400).json({ error: "No classes selected." });
 
     try {
-      const rows = (await db.query(
-        `WITH ${STUDENT_SUBJECT_SCORES_CTE},
-         enrolled AS (
-           SELECT es.class_id, COUNT(DISTINCT es.student_id)::int AS enrolled
-           FROM enrollments e
-           JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
-           WHERE e.organization_id = $1 AND e.term_id = $2
-           GROUP BY es.class_id
-         ),
-         scores AS (
-           SELECT class_id,
-                  AVG(pct) AS average_score,
-                  COUNT(*) FILTER (WHERE pct >= $4)::int AS passed,
-                  COUNT(*)::int AS results
-           FROM student_subject
-           GROUP BY class_id
-         ),
-         attendance AS (
-           SELECT class_id,
-                  COUNT(*) FILTER (WHERE status = 'Present')::int AS present,
-                  COUNT(*)::int AS marked
-           FROM attendance_records
-           WHERE organization_id = $1 AND term_id = $2
-           GROUP BY class_id
-         )
-         SELECT c.class_id, c.class_name,
-                COALESCE(en.enrolled, 0) AS enrolled,
-                sc.average_score,
-                sc.passed, sc.results,
-                at.present, at.marked
-         FROM classes c
-         LEFT JOIN enrolled en ON en.class_id = c.class_id
-         LEFT JOIN scores sc ON sc.class_id = c.class_id
-         LEFT JOIN attendance at ON at.class_id = c.class_id
-         WHERE c.organization_id = $1 AND c.class_id = ANY($3::int[])
-         ORDER BY ${CLASS_ORDER_SQL}`,
-        [organizationId, termId, selectedClasses, PASS_MARK]
-      )).rows;
-
-      res.json(rows.map((row) => ({
-        class_name: row.class_name,
-        enrolled: row.enrolled,
-        average_score: round1(row.average_score),
-        pass_rate: row.results ? round1((row.passed / row.results) * 100) : null,
-        attendance_rate: row.marked ? round1((row.present / row.marked) * 100) : null,
-      })));
+      res.json(await compareClasses(organizationId, termId, selectedClasses));
     } catch (err) {
       console.error("[stats/compareClassesStats]", err);
       res.status(500).json({ error: "Failed to compare classes." });
@@ -248,6 +203,57 @@ function pickTerm(terms, requestedTermId) {
     terms.find((term) => term.current) ||
     terms[terms.length - 1]
   );
+}
+
+// Side-by-side figures for chosen classes in one term (the page's Compare
+// classes panel, and Mira).
+async function compareClasses(organizationId, termId, classIds) {
+  const rows = (await db.query(
+    `WITH ${STUDENT_SUBJECT_SCORES_CTE},
+     enrolled AS (
+       SELECT es.class_id, COUNT(DISTINCT es.student_id)::int AS enrolled
+       FROM enrollments e
+       JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+       WHERE e.organization_id = $1 AND e.term_id = $2
+       GROUP BY es.class_id
+     ),
+     scores AS (
+       SELECT class_id,
+              AVG(pct) AS average_score,
+              COUNT(*) FILTER (WHERE pct >= $4)::int AS passed,
+              COUNT(*)::int AS results
+       FROM student_subject
+       GROUP BY class_id
+     ),
+     attendance AS (
+       SELECT class_id,
+              COUNT(*) FILTER (WHERE status = 'Present')::int AS present,
+              COUNT(*)::int AS marked
+       FROM attendance_records
+       WHERE organization_id = $1 AND term_id = $2
+       GROUP BY class_id
+     )
+     SELECT c.class_id, c.class_name,
+            COALESCE(en.enrolled, 0) AS enrolled,
+            sc.average_score,
+            sc.passed, sc.results,
+            at.present, at.marked
+     FROM classes c
+     LEFT JOIN enrolled en ON en.class_id = c.class_id
+     LEFT JOIN scores sc ON sc.class_id = c.class_id
+     LEFT JOIN attendance at ON at.class_id = c.class_id
+     WHERE c.organization_id = $1 AND c.class_id = ANY($3::int[])
+     ORDER BY ${CLASS_ORDER_SQL}`,
+    [organizationId, termId, classIds, PASS_MARK]
+  )).rows;
+
+  return rows.map((row) => ({
+    class_name: row.class_name,
+    enrolled: row.enrolled,
+    average_score: round1(row.average_score),
+    pass_rate: row.results ? round1((row.passed / row.results) * 100) : null,
+    attendance_rate: row.marked ? round1((row.present / row.marked) * 100) : null,
+  }));
 }
 
 const termLabel = (term) => `${term.term_name} (${term.year_label})`;
@@ -589,3 +595,9 @@ function statsToCsv(term, stats) {
 }
 
 module.exports = statsController;
+// Shared with Mira (controllers/internalApiController.js) so its numbers
+// match this page exactly.
+module.exports.buildOrganizationStats = buildOrganizationStats;
+module.exports.compareClasses = compareClasses;
+module.exports.PASS_MARK = PASS_MARK;
+module.exports.LOW_ATTENDANCE_RATE = LOW_ATTENDANCE_RATE;

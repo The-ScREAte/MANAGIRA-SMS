@@ -21,9 +21,16 @@ function safeString(value) {
 // means the employee is scoped to only the guardians of students in those
 // classes — set via the mailroom scope control on Add/Edit Employee.
 async function getMailroomAllowedClassIds(req) {
-  const orgId = req.session.organizationId;
-  const userRole = req.session?.userRole || req.session?.user?.account_type || null;
-  const accountType = req.session?.accountType || req.session?.user?.account_type || null;
+  return getMailroomAllowedClassIdsFor({
+    orgId: req.session.organizationId,
+    userId: req.session?.user?.user_id || req.session?.userId || null,
+    userRole: req.session?.userRole || req.session?.user?.account_type || null,
+    accountType: req.session?.accountType || req.session?.user?.account_type || null,
+  });
+}
+
+// Same rule for a caller identified without a browser session (Mira).
+async function getMailroomAllowedClassIdsFor({ orgId, userId, userRole, accountType }) {
   if (isManagerLikeRole(userRole) || isManagerLikeRole(accountType)) return null;
   if (
     String(userRole || "").trim().toLowerCase() === "manager" &&
@@ -32,7 +39,6 @@ async function getMailroomAllowedClassIds(req) {
     return null;
   }
 
-  const userId = req.session?.user?.user_id || req.session?.userId || null;
   if (!userId) return [];
 
   const permissions = await getUserPermissions(db, userId, orgId);
@@ -74,6 +80,98 @@ async function getMailroomContactsMap(orgId, restrictedClassIds) {
     map.set(`${row.source}:${row.guardian_id}`, { phone: safeString(row.phone), email: safeString(row.email) });
   });
   return map;
+}
+
+// The Mailroom contact directory: one entry per guardian contact, with the
+// students (and their classes) they're linked to. The same parent is often
+// stored once per child, so rows with the same name, phone and email are
+// merged into one contact (keys lists every underlying "source:guardianId").
+// null restrictedClassIds = every guardian in the school.
+async function loadMailroomDirectory(orgId, restrictedClassIds) {
+  const restrictClause = restrictedClassIds ? "AND s.class_id = ANY($2::int[])" : "";
+  const params = restrictedClassIds ? [orgId, restrictedClassIds] : [orgId];
+  const joinType = restrictedClassIds ? "JOIN" : "LEFT JOIN";
+
+  const result = await db.query(
+    `SELECT gp.guardian_id, 'profile' AS source,
+            NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), '') AS guardian_name,
+            NULLIF(TRIM(gp.phone), '') AS phone,
+            NULLIF(TRIM(gp.email), '') AS email,
+            NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), '') AS student_name,
+            c.class_name
+     FROM guardian_profiles gp
+     ${joinType} guardian_students gs ON gs.guardian_id = gp.guardian_id
+     ${joinType} students s ON s.student_id = gs.student_id AND s.organization_id = $1
+     LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = $1
+     WHERE gp.organization_id = $1
+       AND (TRIM(COALESCE(gp.phone, '')) <> '' OR TRIM(COALESCE(gp.email, '')) <> '')
+       ${restrictClause}
+
+     UNION ALL
+
+     SELECT g.guardian_id, 'legacy' AS source,
+            NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), '') AS guardian_name,
+            NULLIF(TRIM(g.phone), '') AS phone,
+            NULLIF(TRIM(g.email), '') AS email,
+            NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), '') AS student_name,
+            c.class_name
+     FROM guardians g
+     ${joinType} students s ON s.student_id = g.student_id AND s.organization_id = $1
+     LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = $1
+     WHERE g.organization_id = $1
+       AND (TRIM(COALESCE(g.phone, '')) <> '' OR TRIM(COALESCE(g.email, '')) <> '')
+       ${restrictClause}`,
+    params
+  );
+
+  const byPerson = new Map();
+  (result.rows || []).forEach((row) => {
+    const name = safeString(row.guardian_name) || "Guardian";
+    const phone = safeString(row.phone);
+    const email = safeString(row.email);
+    const mergeKey = `${name.toLowerCase()}|${phone.replace(/\D/g, "")}|${email.toLowerCase()}`;
+    if (!byPerson.has(mergeKey)) {
+      byPerson.set(mergeKey, { guardianName: name, phone, email, keys: new Set(), students: new Set(), classes: new Set() });
+    }
+    const contact = byPerson.get(mergeKey);
+    contact.keys.add(`${row.source}:${row.guardian_id}`);
+    if (row.student_name) contact.students.add(safeString(row.student_name));
+    if (row.class_name) contact.classes.add(safeString(row.class_name));
+  });
+
+  return [...byPerson.values()]
+    .map((contact) => {
+      const keys = [...contact.keys].sort();
+      const [source, guardianId] = keys[0].split(":");
+      return {
+        id: keys[0],
+        keys,
+        guardianId: Number(guardianId),
+        source,
+        guardianName: contact.guardianName,
+        phone: contact.phone,
+        email: contact.email,
+        studentNames: [...contact.students].sort((a, b) => a.localeCompare(b)),
+        classNames: [...contact.classes].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+      };
+    })
+    .sort((a, b) => a.guardianName.localeCompare(b.guardianName) || a.id.localeCompare(b.id));
+}
+
+// Mailroom sends need the sender's password. Once it's been entered
+// correctly, the server remembers that for a short while (in the session,
+// never the password itself), so several sends in a row don't each ask
+// again - and the browser never has to store the password.
+const MAILROOM_VERIFY_WINDOW_MS = 15 * 60 * 1000;
+
+async function confirmMailroomSender(req, password) {
+  if (password) {
+    const ok = await verifyActorPassword(req, password);
+    if (ok && req.session) req.session.mailroomVerifiedUntil = Date.now() + MAILROOM_VERIFY_WINDOW_MS;
+    return { ok, message: ok ? "" : "Incorrect password." };
+  }
+  if (req.session && Number(req.session.mailroomVerifiedUntil) > Date.now()) return { ok: true };
+  return { ok: false, needsPassword: true, message: "Enter your password to confirm." };
 }
 
 // Builds a recipient list straight from the "edit contacts" panel in the
@@ -154,7 +252,7 @@ async function getGuardiansForStudent(dbClient, organizationId, studentId) {
 
        UNION ALL
 
-       SELECT 'Guardian' AS guardian_name, NULLIF(TRIM(g.phone), '') AS phone, NULLIF(TRIM(g.email), '') AS email, TRIM(CONCAT(s.first_name, ' ', s.last_name)) AS student_name
+       SELECT COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name, NULLIF(TRIM(g.phone), '') AS phone, NULLIF(TRIM(g.email), '') AS email, TRIM(CONCAT(s.first_name, ' ', s.last_name)) AS student_name
        FROM guardians g
        JOIN students s ON s.student_id = g.student_id
        WHERE g.student_id = $1 AND g.organization_id = $2
@@ -186,7 +284,7 @@ async function getGuardiansForClass(dbClient, organizationId, classId) {
 
        UNION ALL
 
-       SELECT 'Guardian' AS guardian_name, g.phone AS phone, TRIM(CONCAT(s.first_name, ' ', s.last_name)) AS student_name
+       SELECT COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name, g.phone AS phone, TRIM(CONCAT(s.first_name, ' ', s.last_name)) AS student_name
        FROM students s
        JOIN guardians g ON g.student_id = s.student_id
        WHERE s.class_id = $1 AND s.organization_id = $2 AND g.organization_id = $2 AND g.phone IS NOT NULL AND TRIM(g.phone) <> ''
@@ -213,7 +311,7 @@ async function getAllGuardianContacts(dbClient, organizationId) {
 
        UNION ALL
 
-       SELECT 'Guardian' AS guardian_name, g.phone AS phone
+       SELECT COALESCE(NULLIF(TRIM(CONCAT(g.first_name, ' ', g.last_name)), ''), 'Guardian') AS guardian_name, g.phone AS phone
        FROM guardians g
        WHERE g.organization_id = $1 AND g.phone IS NOT NULL AND TRIM(g.phone) <> ''
      ) contacts
@@ -504,10 +602,84 @@ async function resolveContext(dbClient, req, body, { generatePdf = true } = {}) 
   throw new Error("Unsupported recipient scope.");
 }
 
+// Records one "pending" Mailroom history row per recipient and sends in the
+// background, flipping each row to sent/failed as it resolves. Shared by the
+// Mailroom page and Mira. recipients: [{ phone|email, guardianName,
+// guardianTitleLastName, studentName }] already validated and de-duplicated.
+async function dispatchMailroomSend({ orgId, actorUserId, actorName, channel, recipients, message, emailSubject }) {
+  const batchId = `mailroom-${Date.now()}`;
+  const subjectMeta = channel === "email" && emailSubject ? { emailSubject } : {};
+  const pendingRows = await Promise.all(
+    recipients.map((r) =>
+      recordDeliveryAuditRow(db, {
+        organizationId: orgId,
+        eventDomain: channel,
+        eventName: "mailroom_send",
+        actorUserId,
+        actorName,
+        recipient: r.phone || r.email,
+        status: "pending",
+        batchId,
+        metadata: { guardianName: r.guardianName, message, ...subjectMeta },
+      })
+    )
+  );
+
+  const schoolName = await getSchoolName(db, orgId);
+  sendGuardianMessages(db, orgId, {
+    channel,
+    recipients,
+    messageTemplate: message,
+    schoolName,
+    emailSubject,
+    onResult: (result, index) => {
+      const rowId = pendingRows[index]?.id;
+      if (!rowId) return;
+      updateDeliveryAuditRowStatus(db, {
+        id: rowId,
+        status: result.success ? "sent" : "failed",
+        metadata: { guardianName: result.guardianName, message, ...subjectMeta, error: result.error || null },
+      }).catch(() => {});
+    },
+  }).catch((error) => {
+    // The batch never started (e.g. provider not configured) — every row
+    // that's still pending gets marked failed instead of hanging.
+    console.error("[Mailroom] Send batch failed to start:", error);
+    pendingRows.forEach((row) => {
+      updateDeliveryAuditRowStatus(db, {
+        id: row.id,
+        status: "failed",
+        metadata: { message, ...subjectMeta, error: error?.message || "Send failed." },
+      }).catch(() => {});
+    });
+  });
+
+  return { batchId, pendingRows };
+}
+
+async function getActorName(orgId, actorUserId) {
+  if (!actorUserId) return "Unknown";
+  const row = (
+    await db.query(
+      `SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown') AS actor_name
+       FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+      [actorUserId, orgId]
+    )
+  ).rows[0];
+  return row?.actor_name || "Unknown";
+}
+
 module.exports = {
   getGuardiansForStudent,
   getGuardiansForClass,
   getAllGuardianContacts,
+  getGuardiansForSelectedStudents,
+  loadMailroomDirectory,
+  getMailroomContactsMap,
+  getMailroomAllowedClassIdsFor,
+  dispatchMailroomSend,
+  getActorName,
+  getSchoolName,
 
   // Org-wide directory for the Mailroom page — every guardian with a phone
   // and/or email on file, grouped by guardian so one row shows both,
@@ -516,57 +688,14 @@ module.exports = {
     const orgId = req.session.organizationId;
     if (!orgId) return res.status(401).json({ success: false, message: "Not authenticated." });
     try {
-      const restrictedClassIds = await getMailroomAllowedClassIds(req);
       // null = unrestricted (every guardian org-wide); an array (possibly
       // empty) means the employee's mailroom access is scoped to specific
-      // classes only — a student with no class in that list stays hidden,
-      // and a guardian with no linked student at all is unresolvable so it
-      // stays hidden too rather than guessing.
-      const restrictClause = restrictedClassIds ? "AND s.class_id = ANY($2::int[])" : "";
-      const params = restrictedClassIds ? [orgId, restrictedClassIds] : [orgId];
-
-      const result = await db.query(
-        `SELECT guardian_id, source, guardian_name, phone, email,
-                array_remove(array_agg(DISTINCT student_name), NULL) AS student_names
-         FROM (
-           SELECT gp.guardian_id, 'profile' AS source,
-                  COALESCE(NULLIF(TRIM(CONCAT(gp.first_name, ' ', gp.last_name)), ''), 'Guardian') AS guardian_name,
-                  NULLIF(TRIM(gp.phone), '') AS phone,
-                  NULLIF(TRIM(gp.email), '') AS email,
-                  NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), '') AS student_name
-           FROM guardian_profiles gp
-           ${restrictedClassIds ? "JOIN" : "LEFT JOIN"} guardian_students gs ON gs.guardian_id = gp.guardian_id
-           ${restrictedClassIds ? "JOIN" : "LEFT JOIN"} students s ON s.student_id = gs.student_id AND s.organization_id = $1
-           WHERE gp.organization_id = $1 AND (gp.phone IS NOT NULL OR gp.email IS NOT NULL)
-             AND (TRIM(COALESCE(gp.phone, '')) <> '' OR TRIM(COALESCE(gp.email, '')) <> '')
-             ${restrictClause}
-
-           UNION ALL
-
-           SELECT g.guardian_id, 'legacy' AS source, 'Guardian' AS guardian_name,
-                  NULLIF(TRIM(g.phone), '') AS phone,
-                  NULLIF(TRIM(g.email), '') AS email,
-                  NULLIF(TRIM(CONCAT(s.first_name, ' ', s.last_name)), '') AS student_name
-           FROM guardians g
-           ${restrictedClassIds ? "JOIN" : "LEFT JOIN"} students s ON s.student_id = g.student_id AND s.organization_id = $1
-           WHERE g.organization_id = $1 AND (g.phone IS NOT NULL OR g.email IS NOT NULL)
-             AND (TRIM(COALESCE(g.phone, '')) <> '' OR TRIM(COALESCE(g.email, '')) <> '')
-             ${restrictClause}
-         ) contacts
-         GROUP BY guardian_id, source, guardian_name, phone, email
-         ORDER BY guardian_name`,
-        params
-      );
-      const contacts = (result.rows || []).map((row) => ({
-        guardianId: row.guardian_id,
-        source: row.source,
-        guardianName: row.guardian_name,
-        phone: safeString(row.phone),
-        email: safeString(row.email),
-        studentNames: Array.isArray(row.student_names) ? row.student_names : [],
-      }));
-      return res.json({ success: true, contacts });
+      // classes only.
+      const restrictedClassIds = await getMailroomAllowedClassIds(req);
+      const contacts = await loadMailroomDirectory(orgId, restrictedClassIds);
+      return res.json({ success: true, contacts, restricted: restrictedClassIds !== null });
     } catch (error) {
+      console.error("[Mailroom] Unable to load contacts:", error?.message || error);
       return res.status(500).json({ success: false, message: "Unable to load contacts." });
     }
   },
@@ -582,6 +711,7 @@ module.exports = {
       const channel = safeString(req.body?.channel).toLowerCase();
       const message = safeString(req.body?.message);
       const password = safeString(req.body?.password);
+      const emailSubject = safeString(req.body?.emailSubject).slice(0, 150);
       const recipients = Array.isArray(req.body?.recipients) ? req.body.recipients : [];
 
       if (!["sms", "whatsapp", "email"].includes(channel)) {
@@ -589,10 +719,16 @@ module.exports = {
       }
       if (!message) return res.status(400).json({ success: false, message: "Message is required." });
       if (!recipients.length) return res.status(400).json({ success: false, message: "Select at least one recipient." });
-      if (!password) return res.status(400).json({ success: false, message: "Enter your password to confirm." });
 
-      const passwordOk = await verifyActorPassword(req, password);
-      if (!passwordOk) return res.status(401).json({ success: false, message: "Incorrect password." });
+      const confirmation = await confirmMailroomSender(req, password);
+      if (!confirmation.ok) {
+        return res.status(401).json({ success: false, needsPassword: Boolean(confirmation.needsPassword), message: confirmation.message });
+      }
+
+      const channelStatus = await getMessagingChannelStatus(db, orgId);
+      if (!channelStatus[channel]?.ready) {
+        return res.status(400).json({ success: false, message: `${channel === "sms" ? "Text (SMS)" : "WhatsApp"} isn't set up for this school yet.` });
+      }
 
       // Never trust a client-submitted phone/email directly — validate every
       // recipient against this employee's actual (permission-scoped)
@@ -603,17 +739,25 @@ module.exports = {
       const allowedContacts = await getMailroomContactsMap(orgId, restrictedClassIds);
       const field = channel === "email" ? "email" : "phone";
 
+      // A contact is identified by its directory keys (one per underlying
+      // guardian record); the same phone/email is only messaged once even if
+      // it was selected through several contacts.
       const normalizedRecipients = [];
+      const seenValues = new Set();
       let skippedOutOfScope = 0;
       recipients.forEach((r) => {
-        const guardianId = safeString(r.guardianId);
-        const source = safeString(r.source);
-        const allowed = guardianId && source ? allowedContacts.get(`${source}:${guardianId}`) : null;
+        const keys = Array.isArray(r.keys) && r.keys.length
+          ? r.keys.map(safeString)
+          : [`${safeString(r.source)}:${safeString(r.guardianId)}`];
+        const allowed = keys.map((key) => allowedContacts.get(key)).find((contact) => contact && contact[field]);
         const value = allowed ? allowed[field] : "";
         if (!value) {
           skippedOutOfScope += 1;
           return;
         }
+        const dedupeKey = field === "email" ? value.toLowerCase() : value.replace(/\D/g, "");
+        if (seenValues.has(dedupeKey)) return;
+        seenValues.add(dedupeKey);
         normalizedRecipients.push({
           phone: field === "phone" ? value : "",
           email: field === "email" ? value : "",
@@ -630,50 +774,31 @@ module.exports = {
         });
       }
 
+      // Provider round trips are the slow part, so each recipient gets a
+      // "pending" history row and the response goes back immediately; the
+      // page polls history for the flip to sent/failed.
       const actorUserId = Number(req.session.userId || req.session.user?.user_id) || null;
-      const actorNameRow = actorUserId
-        ? (
-            await db.query(
-              `SELECT COALESCE(NULLIF(TRIM(CONCAT(first_name, ' ', last_name)), ''), email, 'Unknown') AS actor_name
-               FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
-              [actorUserId, orgId]
-            )
-          ).rows[0]
-        : null;
-      const actorName = actorNameRow?.actor_name || "Unknown";
-      const batchId = `mailroom-${Date.now()}`;
-
-      // The provider round trips (SMTP/SMS/WhatsApp API calls) are the slow
-      // part, not the DB writes — so write a "pending" row per recipient and
-      // respond immediately, then do the actual sending in the background.
-      // The client shows these as pending and polls history for the flip to
-      // sent/failed, instead of the Send button sitting frozen for however
-      // long every provider call takes to round-trip.
-      const pendingRows = await Promise.all(
-        normalizedRecipients.map((r) =>
-          recordDeliveryAuditRow(db, {
-            organizationId: orgId,
-            eventDomain: channel,
-            eventName: "mailroom_send",
-            actorUserId,
-            actorName,
-            recipient: r.phone || r.email,
-            status: "pending",
-            batchId,
-            metadata: { guardianName: r.guardianName, message },
-          })
-        )
-      );
+      const actorName = await getActorName(orgId, actorUserId);
+      const { batchId, pendingRows } = await dispatchMailroomSend({
+        orgId,
+        actorUserId,
+        actorName,
+        channel,
+        recipients: normalizedRecipients,
+        message,
+        emailSubject,
+      });
 
       const skippedNote = skippedOutOfScope
         ? ` (${skippedOutOfScope} recipient${skippedOutOfScope === 1 ? "" : "s"} outside your mailroom access were skipped.)`
         : "";
 
-      res.json({
+      return res.json({
         success: true,
         pending: true,
         batchId,
         skippedOutOfScope,
+        verifiedForMinutes: MAILROOM_VERIFY_WINDOW_MS / 60000,
         rows: pendingRows.map((row, i) => ({
           id: row.id,
           recipient: normalizedRecipients[i].phone || normalizedRecipients[i].email,
@@ -682,34 +807,6 @@ module.exports = {
           status: "pending",
         })),
         message: `Sending to ${normalizedRecipients.length} recipient${normalizedRecipients.length === 1 ? "" : "s"}...${skippedNote}`,
-      });
-
-      const schoolName = await getSchoolName(db, orgId);
-      sendGuardianMessages(db, orgId, {
-        channel,
-        recipients: normalizedRecipients,
-        messageTemplate: message,
-        schoolName,
-        onResult: (result, index) => {
-          const rowId = pendingRows[index]?.id;
-          if (!rowId) return;
-          updateDeliveryAuditRowStatus(db, {
-            id: rowId,
-            status: result.success ? "sent" : "failed",
-            metadata: { guardianName: result.guardianName, message, error: result.error || null },
-          }).catch(() => {});
-        },
-      }).catch((error) => {
-        // The batch never started (e.g. provider not configured) — every
-        // row that's still pending gets marked failed instead of hanging.
-        console.error("[Mailroom] Send batch failed to start:", error);
-        pendingRows.forEach((row) => {
-          updateDeliveryAuditRowStatus(db, {
-            id: row.id,
-            status: "failed",
-            metadata: { message, error: error?.message || "Send failed." },
-          }).catch(() => {});
-        });
       });
     } catch (error) {
       if (!res.headersSent) {
@@ -727,10 +824,11 @@ module.exports = {
       const id = Number(req.body?.id);
       const password = safeString(req.body?.password);
       if (!id) return res.status(400).json({ success: false, message: "Missing message id." });
-      if (!password) return res.status(400).json({ success: false, message: "Enter your password to confirm." });
 
-      const passwordOk = await verifyActorPassword(req, password);
-      if (!passwordOk) return res.status(401).json({ success: false, message: "Incorrect password." });
+      const confirmation = await confirmMailroomSender(req, password);
+      if (!confirmation.ok) {
+        return res.status(401).json({ success: false, needsPassword: Boolean(confirmation.needsPassword), message: confirmation.message });
+      }
 
       const row = (
         await db.query(
@@ -760,7 +858,7 @@ module.exports = {
         guardianTitleLastName: safeString(metadata.guardianName) || "Guardian",
         studentName: "",
       };
-      sendGuardianMessages(db, orgId, { channel, recipients: [recipient], messageTemplate: message, schoolName })
+      sendGuardianMessages(db, orgId, { channel, recipients: [recipient], messageTemplate: message, schoolName, emailSubject: safeString(metadata.emailSubject) })
         .then((results) => {
           const r = results[0] || { success: false, error: "Send failed." };
           return updateDeliveryAuditRowStatus(db, {
@@ -793,27 +891,28 @@ module.exports = {
       // messages THEY sent (which, since sends are already scope-validated,
       // is guaranteed to be within their own scope) — never other
       // employees' sends, which could reveal contacts outside their access.
+      // Paged (newest first) over everything kept (3 months retention).
       const restrictedClassIds = await getMailroomAllowedClassIds(req);
       const isRestricted = restrictedClassIds !== null;
       const actorUserId = req.session.userId || req.session.user?.user_id || null;
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
+      const offset = Math.max(0, Number(req.query.offset) || 0);
+      const channel = safeString(req.query.channel).toLowerCase();
+      const channelFilter = ["sms", "whatsapp", "email"].includes(channel) ? channel : null;
 
+      const params = [orgId, isRestricted ? actorUserId : null, channelFilter, limit + 1, offset];
       const result = await db.query(
-        isRestricted
-          ? `SELECT id, event_domain, recipient_emails, status, batch_id, actor_name, metadata, created_at
-             FROM delivery_audit_history
-             WHERE organization_id = $1 AND event_name = 'mailroom_send' AND actor_user_id = $2
-               AND created_at >= NOW() - INTERVAL '30 days'
-             ORDER BY COALESCE(updated_at, created_at) DESC
-             LIMIT 200`
-          : `SELECT id, event_domain, recipient_emails, status, batch_id, actor_name, metadata, created_at
-             FROM delivery_audit_history
-             WHERE organization_id = $1 AND event_name = 'mailroom_send'
-               AND created_at >= NOW() - INTERVAL '30 days'
-             ORDER BY COALESCE(updated_at, created_at) DESC
-             LIMIT 200`,
-        isRestricted ? [orgId, actorUserId] : [orgId]
+        `SELECT id, event_domain, recipient_emails, status, batch_id, actor_name, metadata, created_at, updated_at
+         FROM delivery_audit_history
+         WHERE organization_id = $1 AND event_name = 'mailroom_send'
+           AND ($2::int IS NULL OR actor_user_id = $2)
+           AND ($3::text IS NULL OR event_domain = $3)
+         ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+         LIMIT $4 OFFSET $5`,
+        params
       );
-      return res.json({ success: true, history: result.rows || [] });
+      const rows = result.rows || [];
+      return res.json({ success: true, history: rows.slice(0, limit), hasMore: rows.length > limit, offset, limit });
     } catch (error) {
       return res.status(500).json({ success: false, message: "Unable to load history." });
     }

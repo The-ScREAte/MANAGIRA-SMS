@@ -27,7 +27,16 @@ const promotionController = require("./promotionController");
 const { transportationController, getStudentTransportationSnapshot } = require("./transportationController");
 const accountController = require("./accountController");
 const { uploadToS3 } = require("../middleware/s3Upload");
-const { renderReportCardsPdf, renderMeritSheetPdf, storePdf } = require("../utils/pdfService");
+const { renderReportCardsPerStudent, renderMeritSheetPdf, storePdf } = require("../utils/pdfService");
+const { parseMeritSheetColumns, buildMeritSheetData } = require("../utils/meritSheetData");
+const websiteExtras = require("../utils/websiteExtras");
+const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
+const statsController = require("./statsController");
+const guardianMessaging = require("./guardianMessagingController");
+const { getMessagingChannelStatus, sendGuardianMessages, countSmsSegments, sanitizeForSms } = require("../utils/guardianMessaging");
+const { createShortLink } = require("../utils/shortLink");
+const { recordMessageSent, recordDeliveryAuditRow } = require("../utils/messageDeliveryLog");
+const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const { reverseGeocode, geocodeAddress } = require("../utils/geocode");
 const { documentController, ensureDocumentsSchema } = require("./documentController");
 const { logOrganizationActivity, getLatestIntegrationActivity } = require("../utils/activityLog");
@@ -39,7 +48,6 @@ const { getSmsIntegrationStatus } = require("../utils/smsIntegration");
 const { getMiraIntegrationStatus } = require("../utils/miraIntegration");
 const commonValidation = require("../validation/commonValidation");
 const printController = require("./printController")(db);
-const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { formatDisplayName } = require("../utils/organizationDisplayPreferences");
 const notifSvc = require("../utils/notificationService");
 
@@ -142,6 +150,11 @@ async function validateSession(req, res) {
 // layer of tenant enforcement.
 async function searchStudents(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_STUDENTS], "You don't have permission to view student records.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     const q = String(req.query.q || "").trim();
     const className = String(req.query.className || "").trim();
@@ -205,6 +218,11 @@ async function searchGuardians(req, res) {
 // not a full Paygira billing-status mirror, which is a much larger system.
 async function getStudentFees(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_PAYGIRA, PERMISSIONS.MANAGE_BILLING], "You don't have permission to view fees and payments.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     const studentId = parseInt(req.params.studentId, 10);
     if (!Number.isInteger(organizationId) || !Number.isInteger(studentId)) {
@@ -242,6 +260,11 @@ async function getStudentFees(req, res) {
 // GET /internal/api/students/:studentId/attendance?organizationId=63&days=30
 async function getStudentAttendance(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MARK_ATTENDANCE, PERMISSIONS.MANAGE_STUDENTS], "You don't have permission to view attendance.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     const studentId = parseInt(req.params.studentId, 10);
     const days = Math.min(parseInt(req.query.days, 10) || 30, 180);
@@ -642,6 +665,31 @@ async function assertHasPermission(req, permissionKey, deniedMessage) {
 
 async function assertHasPermissionQuery(req, permissionKey, deniedMessage) {
   return assertHasPermissionFrom(req.query, permissionKey, deniedMessage);
+}
+
+// Read endpoints: the caller needs at least one of the permissions the
+// matching website page requires (identity comes from Mira's validated
+// session, added to every call by mira/internalApiClient.js).
+async function assertHasAnyPermissionQuery(req, permissionKeys, deniedMessage) {
+  const { organizationId, userId, userRole, accountType, userEmail } = req.query || {};
+  const orgId = parseInt(organizationId, 10);
+  if (!Number.isInteger(orgId)) {
+    const error = new Error("organizationId is required.");
+    error.status = 400;
+    throw error;
+  }
+  for (const permissionKey of permissionKeys) {
+    if (await userHasPermission(db, { userId, userRole, organizationId: orgId, accountType, userEmail }, permissionKey)) {
+      return orgId;
+    }
+  }
+  const error = new Error(deniedMessage);
+  error.status = 403;
+  throw error;
+}
+
+function sendPermissionError(res, error) {
+  return res.status(error.status).json({ error: error.message });
 }
 
 // Real school_year_label data is inconsistently spaced ("2026 - 2027" next
@@ -3303,6 +3351,15 @@ async function listTransportSchedulesApi(req, res) {
 // GET /internal/api/transportation/student?organizationId&...&viewerType&studentName?
 async function getStudentTransportationApi(req, res) {
   try {
+    // Guardians and students only ever see their own record (resolved
+    // below); staff need the same permission as the website's transport pages.
+    if (req.query.viewerType !== "guardian" && req.query.viewerType !== "student") {
+      try {
+        await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_STUDENTS], "You don't have permission to view student transportation.");
+      } catch (permissionError) {
+        return sendPermissionError(res, permissionError);
+      }
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
     const tenant = { viewerType: req.query.viewerType, userId: req.query.userId };
@@ -4655,7 +4712,10 @@ async function getWebsiteSettingsApi(req, res) {
     );
     const org = orgRows.rows[0] || {};
     const { theme, layout } = await getWebsiteDashboardBlob(organizationId);
+    const registration = websiteExtras.registrationState(org);
+    const { overview, sections } = await loadWebsiteOverview(organizationId);
     return res.json({
+      publicUrl: await websitePublicUrl(req, organizationId),
       layout,
       theme,
       selfEnrollment: {
@@ -4664,12 +4724,206 @@ async function getWebsiteSettingsApi(req, res) {
         endDate: org.registration_end_date,
         price: org.public_registration_price !== null ? Number(org.public_registration_price) : 0,
         currency: org.public_registration_currency || "USD",
+        status: registration.message,
       },
+      setupChecklist: overview.items.map(({ label, done, detail, optional }) => ({ label, done, detail, optional: Boolean(optional) })),
+      unreadWebsiteMessages: overview.unreadMessages,
+      sections,
     });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
     console.error("[internalApi/getWebsiteSettingsApi]", error);
     return res.status(500).json({ error: "Unable to load website settings." });
+  }
+}
+
+// ---- Website sections (quick facts, programs, leadership, testimonials,
+// FAQ, about photo, contact form) - same storage and rules as the Manage
+// Website page (utils/websiteExtras.js).
+
+async function websitePublicUrl(req, organizationId) {
+  if (process.env.NODE_ENV === "production") {
+    const info = await getOrganizationWebsiteInfo(db, organizationId).catch(() => null);
+    if (info?.websiteUrl) return info.websiteUrl;
+  }
+  return `${req.protocol}://${req.get("host")}/common/publicDashboard?organizationId=${organizationId}`;
+}
+
+async function loadWebsiteOverview(organizationId) {
+  const [orgRow, counts, blob, settings, unread] = await Promise.all([
+    db.query(`SELECT aboutus, email, organization_phone, public_registration_enabled, registration_start_date, registration_end_date, public_registration_price FROM organizations WHERE organization_id = $1`, [organizationId]),
+    db.query(
+      `SELECT (SELECT COUNT(*)::int FROM organization_images WHERE organization_id = $1) AS images,
+              (SELECT COUNT(*)::int FROM organization_texts WHERE organization_id = $1) AS articles`,
+      [organizationId]
+    ),
+    getWebsiteDashboardBlob(organizationId),
+    websiteExtras.getWebsiteSettings(db, organizationId),
+    websiteExtras.countUnreadMessages(db, organizationId).catch(() => 0),
+  ]);
+  const org = orgRow.rows[0] || {};
+  const list = (value, fallback) => {
+    const values = (Array.isArray(value) ? value : [value]).map((v) => String(v || "").trim()).filter(Boolean);
+    return values.length ? values : fallback ? [fallback] : [];
+  };
+  const overview = websiteExtras.buildWebsiteOverview({
+    orgDetails: org,
+    aboutDetails: { emails: list(blob.aboutDetails?.emails, org.email), phones: list(blob.aboutDetails?.phones, org.organization_phone) },
+    settings,
+    imageCount: counts.rows[0].images,
+    articleCount: counts.rows[0].articles,
+    layout: blob.layout,
+    theme: blob.theme,
+    registration: websiteExtras.registrationState(org),
+    unreadMessages: unread,
+  });
+  const visible = websiteExtras.visibleSections(settings);
+  const sections = {};
+  websiteExtras.SECTION_KEYS.forEach((key) => {
+    sections[key] = { ...settings[key], liveOnWebsite: Boolean(visible[key]) };
+  });
+  return { overview, sections };
+}
+
+const SECTION_ITEM_LABEL = (item) => String(item?.title || item?.name || item?.question || item?.label || item?.quote || "").trim().toLowerCase();
+
+function hiddenReason(key, section) {
+  if (key === "page") return "";
+  if (key === "about") return section.imageUrl ? "" : "No photo yet.";
+  if (key === "contact") return !section.enabled ? "The contact form is switched off." : !section.notifyEmail ? "It needs the school email address messages should go to." : "";
+  if (!section.enabled) return "The section is switched off.";
+  if (!section.items || !section.items.length) return "It has no items yet.";
+  return "";
+}
+
+// POST /internal/api/website/sections/save
+// { section, enabled?, title?, intro?, items? (replace), addItems?, updateItems? [{match, ...}],
+//   removeItems? [names], notifyEmail?, address?, officeHours?, showMap?, imageUrl?, imageCaption?, confirm? }
+async function saveWebsiteSectionApi(req, res) {
+  try {
+    const organizationId = await assertCanManageWebsite(req);
+    const body = req.body || {};
+    const key = String(body.section || "");
+    if (!websiteExtras.SECTION_KEYS.includes(key)) {
+      return res.status(400).json({ error: `Unknown section. Use one of: ${websiteExtras.SECTION_KEYS.join(", ")}.` });
+    }
+    const settings = await websiteExtras.getWebsiteSettings(db, organizationId);
+    const current = settings[key];
+    const next = { ...current };
+    ["title", "intro", "notifyEmail", "address", "officeHours", "imageUrl", "imageCaption"].forEach((field) => {
+      if (typeof body[field] === "string") next[field] = body[field];
+    });
+    if (typeof body.enabled === "boolean") next.enabled = body.enabled;
+    if (typeof body.showMap === "boolean") next.showMap = body.showMap;
+    if (key === "page") {
+      if (Array.isArray(body.order)) next.order = body.order;
+      if (Array.isArray(body.hidden)) next.hidden = body.hidden;
+      if (body.titles && typeof body.titles === "object") next.titles = { ...(current.titles || {}), ...body.titles };
+    }
+
+    const notFound = [];
+    if (Array.isArray(current.items)) {
+      let items = Array.isArray(body.items) ? body.items : current.items.map((item) => ({ ...item }));
+      (Array.isArray(body.updateItems) ? body.updateItems : []).forEach((change) => {
+        const match = String(change?.match || "").trim().toLowerCase();
+        const target = items.find((item) => SECTION_ITEM_LABEL(item) === match) || items.find((item) => match && SECTION_ITEM_LABEL(item).includes(match));
+        if (!target) return notFound.push(change?.match);
+        Object.keys(change).forEach((field) => { if (field !== "match" && change[field] !== undefined && change[field] !== null) target[field] = change[field]; });
+      });
+      if (Array.isArray(body.removeItems) && body.removeItems.length) {
+        const drop = body.removeItems.map((name) => String(name || "").trim().toLowerCase()).filter(Boolean);
+        drop.forEach((name) => { if (!items.some((item) => SECTION_ITEM_LABEL(item) === name)) notFound.push(name); });
+        items = items.filter((item) => !drop.includes(SECTION_ITEM_LABEL(item)));
+      }
+      if (Array.isArray(body.addItems)) items = items.concat(body.addItems);
+      const limit = websiteExtras.LIMITS[key];
+      if (limit && items.length > limit) {
+        return res.status(400).json({ error: `This section holds up to ${limit} items - it would have ${items.length}. Remove some first.` });
+      }
+      next.items = items;
+    }
+
+    const section = websiteExtras.normalizeSection(key, next);
+    if (Array.isArray(next.items) && section.items.length < next.items.length) {
+      const required = { quickFacts: "a value and a label", programs: "a name", leadership: "a name", testimonials: "a quote and a name", faq: "a question and an answer" }[key];
+      return res.status(400).json({ error: `Every item needs ${required}. ${next.items.length - section.items.length} item(s) are missing it.` });
+    }
+    if (key === "contact" && section.enabled && !section.notifyEmail) {
+      return res.status(400).json({ error: "The contact form needs the school email address where messages should go. Ask the user for it." });
+    }
+    const reason = hiddenReason(key, section);
+    if (body.confirm !== true) {
+      return res.json({
+        status: "confirmation_required",
+        section: key,
+        willBe: section,
+        liveOnWebsite: !reason,
+        hiddenBecause: reason || undefined,
+        notFound: notFound.length ? notFound : undefined,
+        message: "Nothing saved yet. Show the user this content and save with confirm=true after they agree.",
+      });
+    }
+    const saved = await websiteExtras.saveWebsiteSection(db, organizationId, key, section);
+    return res.json({
+      status: "saved",
+      section: key,
+      saved,
+      liveOnWebsite: !reason,
+      hiddenBecause: reason || undefined,
+      notFound: notFound.length ? notFound : undefined,
+      publicUrl: await websitePublicUrl(req, organizationId),
+    });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("[internalApi/saveWebsiteSectionApi]", error);
+    return res.status(500).json({ error: "Unable to save the website section." });
+  }
+}
+
+// POST /internal/api/website/sections/image { imageDataUrl } -> { imageUrl }
+// For section photos (programs, leadership, about); not added to the gallery.
+async function uploadWebsiteSectionImageApi(req, res) {
+  try {
+    const organizationId = await assertCanManageWebsite(req);
+    const match = /^data:(image\/(?:jpeg|jpg|png|webp|gif));base64,(.+)$/i.exec(String(req.body?.imageDataUrl || ""));
+    if (!match) return res.status(400).json({ error: "Attach a JPG, PNG, WebP or GIF image." });
+    const buffer = Buffer.from(match[2], "base64");
+    if (!buffer.length) return res.status(400).json({ error: "The image data is empty." });
+    if (buffer.length > WEBSITE_IMAGE_MAX_BYTES) return res.status(400).json({ error: "The image is too large (max 8MB)." });
+    const mimeType = match[1].toLowerCase().replace("jpg", "jpeg");
+    const extension = mimeType.split("/")[1] === "jpeg" ? "jpg" : mimeType.split("/")[1];
+    const key = `images/website/org_${organizationId}/mira-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${extension}`;
+    const imageUrl = await uploadToS3({ buffer, mimetype: mimeType, originalname: `mira-section.${extension}` }, key);
+    return res.json({ imageUrl });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("[internalApi/uploadWebsiteSectionImageApi]", error);
+    return res.status(500).json({ error: "Unable to upload the image." });
+  }
+}
+
+// GET /internal/api/website/messages?status=new|read|archived
+async function listWebsiteMessagesApi(req, res) {
+  try {
+    const organizationId = await assertCanManageWebsiteQuery(req);
+    await websiteExtras.ensureWebsiteSchema(db);
+    const status = ["new", "read", "archived"].includes(req.query.status) ? req.query.status : null;
+    const rows = (await db.query(
+      `SELECT name, email, phone, subject, message, status, created_at
+       FROM website_contact_messages
+       WHERE organization_id = $1 AND ($2::text IS NULL OR status = $2) AND ($2::text IS NOT NULL OR status <> 'archived')
+       ORDER BY created_at DESC LIMIT 25`,
+      [organizationId, status]
+    )).rows;
+    return res.json({
+      messages: rows.map((r) => ({ ...r, message: r.message.length > 600 ? `${r.message.slice(0, 600)}...` : r.message })),
+      unread: rows.filter((r) => r.status === "new").length,
+      note: "Replies go by email from the user's own mailbox. Staff manage messages in Manage Website > Contact Form & Messages.",
+    });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("[internalApi/listWebsiteMessagesApi]", error);
+    return res.status(500).json({ error: "Unable to load website messages." });
   }
 }
 
@@ -5078,18 +5332,23 @@ async function resolveTermId(organizationId, termName, yearLabel) {
       params.push(yearLabel);
       yearFilter = `AND EXISTS (SELECT 1 FROM school_years sy WHERE sy.id = t.school_year_id AND REPLACE(sy.year_label, ' ', '') = REPLACE($3, ' ', ''))`;
     }
+    // Ordered so that, when the same term name exists in several school
+    // years and no year was given, the current school year's term wins,
+    // then the most recent one - "the 1st Semester" means this year's
+    // unless the user says otherwise.
     const rows = await db.query(
-      `SELECT t.term_id, t.term_name FROM terms t WHERE t.organization_id = $1 AND LOWER(TRIM(t.term_name)) = LOWER(TRIM($2)) ${yearFilter}`,
+      `SELECT t.term_id, t.term_name
+       FROM terms t
+       LEFT JOIN school_years sy ON sy.id = t.school_year_id
+       WHERE t.organization_id = $1 AND LOWER(TRIM(t.term_name)) = LOWER(TRIM($2)) ${yearFilter}
+       ORDER BY COALESCE(sy.current, FALSE) DESC,
+                EXISTS (SELECT 1 FROM terms ct WHERE ct.school_year_id = t.school_year_id AND COALESCE(ct.current, FALSE)) DESC,
+                t.start_date DESC NULLS LAST, t.term_id DESC`,
       params
     );
     if (!rows.rows.length) {
       const error = new Error(`No term named "${termName}"${yearLabel ? ` in school year "${yearLabel}"` : ""} was found.`);
       error.status = 404;
-      throw error;
-    }
-    if (rows.rows.length > 1) {
-      const error = new Error(`More than one term is named "${termName}"; also specify the school year (e.g. "2026-2027") to pick the right one.`);
-      error.status = 409;
       throw error;
     }
     return rows.rows[0].term_id;
@@ -5140,6 +5399,11 @@ async function resolveEnrolledClassIds(organizationId, termId, classNames) {
 // GET /internal/api/assessments?organizationId=63&termId=150 (or &termName=...)
 async function listAssessments(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_ASSESSMENTS], "You don't have permission to view assessments.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
     const termId = req.query.termId ? parseInt(req.query.termId, 10) : await resolveTermId(organizationId, req.query.termName, req.query.yearLabel);
@@ -5384,6 +5648,11 @@ async function modifyTest(req, res) {
 // delete below.
 async function getAssessmentDeleteImpact(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_ASSESSMENTS], "You don't have permission to manage assessments.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     const title = String(req.query.title || "").trim();
     if (!Number.isInteger(organizationId) || !title) return res.status(400).json({ error: "organizationId and title are required." });
@@ -5651,6 +5920,11 @@ function fakeJsonRes() {
 // member sees when previewing the set.
 async function listQuestionSets(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_ASSESSMENTS], "You don't have permission to view question sets.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     const className = String(req.query.className || "").trim();
     const subjectName = String(req.query.subjectName || "").trim();
@@ -5685,6 +5959,11 @@ async function listQuestionSets(req, res) {
 // across all of them for a term-level view.
 async function listQuestionSetsOverview(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_ASSESSMENTS], "You don't have permission to view question sets.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
     const termId = req.query.termId ? parseInt(req.query.termId, 10) : await resolveTermId(organizationId, req.query.termName, req.query.yearLabel);
@@ -5790,6 +6069,11 @@ async function setTestQuestions(req, res) {
 // Preview of attempt/response counts before the (now-blocked-if-non-zero) delete/edit below.
 async function getQuestionSetDeleteImpact(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_ASSESSMENTS], "You don't have permission to manage question sets.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     const className = String(req.query.className || "").trim();
     const subjectName = String(req.query.subjectName || "").trim();
@@ -5926,6 +6210,11 @@ async function reuseQuestionSetApi(req, res) {
 // GET /internal/api/assessments/question-sets/students
 async function listQuestionSetStudents(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_ASSESSMENTS], "You don't have permission to view question set results.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     const className = String(req.query.className || "").trim();
     const subjectName = String(req.query.subjectName || "").trim();
@@ -6032,6 +6321,11 @@ async function setStudentAssessmentStatusApi(req, res) {
 // GET /internal/api/assessments/question-sets/grade?...&studentName=
 async function getAttemptForGradingApi(req, res) {
   try {
+    try {
+      await assertHasAnyPermissionQuery(req, [PERMISSIONS.MANAGE_ASSESSMENTS], "You don't have permission to grade question sets.");
+    } catch (permissionError) {
+      return sendPermissionError(res, permissionError);
+    }
     const organizationId = parseInt(req.query.organizationId, 10);
     const className = String(req.query.className || "").trim();
     const subjectName = String(req.query.subjectName || "").trim();
@@ -7665,12 +7959,8 @@ async function rejectPendingAdmissionApi(req, res) {
 // doesn't become a general "render any external image" capability. Only
 // aggregate counts/percentages/class names are ever sent to build a chart
 // URL - never individual student names/PII.
-// One real bug found in the source query while building this: the real
-// organizationGrowth query joins classes/users unconditionally (not
-// through the year), so total_classes/total_users end up duplicated by
-// however many enrollment rows exist that year - only total_students (via
-// the real enrollment chain) is a trustworthy per-year count. Mira's
-// version only reports total_students per year for that reason.
+// The numbers come from the Organization Stats page's own code
+// (controllers/statsController), so Mira and the page always agree.
 // ============================================================
 
 function buildQuickChartUrl(chartConfig, { width = 600, height = 350 } = {}) {
@@ -7678,165 +7968,143 @@ function buildQuickChartUrl(chartConfig, { width = 600, height = 350 } = {}) {
   return `https://quickchart.io/chart?width=${width}&height=${height}&backgroundColor=white&c=${encoded}`;
 }
 
-const CHART_PALETTE = ["#0f766e", "#f59e0b", "#6366f1", "#ef4444", "#10b981", "#8b5cf6", "#ec4899", "#14b8a6"];
+// A short QuickChart link (about 60 characters instead of hundreds), so
+// replies stay small and the link is copied exactly. Falls back to the
+// self-contained long link if QuickChart doesn't answer quickly.
+async function shortChartUrl(chartConfig, { width = 600, height = 350 } = {}) {
+  try {
+    const response = await fetch("https://quickchart.io/chart/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chart: chartConfig, width, height, backgroundColor: "white" }),
+      signal: AbortSignal.timeout(4000),
+    });
+    const body = await response.json();
+    if (response.ok && body.success && body.url) return body.url;
+  } catch (_) {
+    // fall through to the long link
+  }
+  return buildQuickChartUrl(chartConfig, { width, height });
+}
 
-// GET /internal/api/stats/organization?organizationId&...&schoolYearLabel?&termName?
+// Resolves { name: { config, width, height } } to { name: url } in parallel.
+async function shortChartUrls(specs) {
+  const entries = await Promise.all(
+    Object.entries(specs).map(async ([name, spec]) => [name, await shortChartUrl(spec.config, spec)])
+  );
+  return Object.fromEntries(entries);
+}
+
+
+// Charts use one colour per chart (a single series) so they read the same as
+// the Organization Stats page.
+const CHART_BLUE = "#2a78d6";
+
+function horizontalBarChart(title, labels, values, { max } = {}) {
+  return {
+    config: {
+      type: "horizontalBar",
+      data: { labels, datasets: [{ label: title, backgroundColor: CHART_BLUE, data: values }] },
+      options: {
+        legend: { display: false },
+        title: { display: true, text: title },
+        scales: { xAxes: [{ ticks: { beginAtZero: true, ...(max ? { suggestedMax: max } : {}) } }] },
+      },
+    },
+    width: 600,
+    height: Math.max(220, labels.length * 34 + 80),
+  };
+}
+
+// GET /internal/api/stats/organization?organizationId&...&termName?&schoolYearLabel?
+// The same numbers as the Organization Stats page (controllers/statsController
+// buildOrganizationStats): term-scoped, enrollment-based, one result per
+// student per subject. When the term has no scores yet, the academic figures
+// come from the latest term with results and are labelled as such.
 async function getOrganizationStatisticsApi(req, res) {
   try {
     const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_RECORDS, "You don't have permission to view organization statistics.");
-    const currentTerm = await getTermContext(organizationId, req.query.termName, req.query.schoolYearLabel);
+    const requestedTerm = req.query.termName || req.query.schoolYearLabel
+      ? await getTermContext(organizationId, req.query.termName, req.query.schoolYearLabel)
+      : null;
+    const { currentTerm, stats } = await statsController.buildOrganizationStats(organizationId, requestedTerm?.term_id);
+    if (!stats) {
+      return res.status(404).json({ error: "No statistics yet - nothing has been saved for any term." });
+    }
 
-    const organizationData = (await db.query(
-      `SELECT
-         (SELECT COUNT(*) FROM students WHERE organization_id = $1) AS total_students,
-         (SELECT COUNT(*) FROM users WHERE organization_id = $1) AS total_employees,
-         (SELECT COUNT(*) FROM classes WHERE organization_id = $1) AS total_classes,
-         (SELECT COUNT(DISTINCT LOWER(TRIM(subject_name))) FROM subjects WHERE organization_id = $1 AND subject_name IS NOT NULL AND TRIM(subject_name) <> '') AS total_subjects`,
-      [organizationId]
-    )).rows[0];
+    const k = stats.kpis;
+    const a = stats.academic;
+    const { protocol, host } = publicBaseUrlParts();
+    const pageUrl = `${protocol}://${host}/stats/organization?selectedTermId=${currentTerm.term_id}`;
+    const entryByClass = new Map(stats.scoreEntry.map((row) => [row.class_name, row]));
+    const academicByClass = new Map((a?.classes || []).map((row) => [row.class_name, row]));
 
-    const attendanceByClass = (await db.query(
-      `SELECT c.class_name, COUNT(a.student_id) AS total_attendance,
-              COUNT(CASE WHEN a.status = 'Present' THEN 1 END) AS present_days,
-              COUNT(CASE WHEN a.status = 'Absent' THEN 1 END) AS absent_days
-       FROM classes c
-       LEFT JOIN students s ON c.class_id = s.class_id
-       LEFT JOIN attendance_records a ON s.student_id = a.student_id AND a.term_id = $2
-       WHERE c.organization_id = $1
-       GROUP BY c.class_name
-       ORDER BY MIN(COALESCE(c.dashboard_sort_order, 2147483647)), c.class_name`,
-      [organizationId, currentTerm.term_id]
-    )).rows;
-
-    const assessmentByClass = (await db.query(
-      `SELECT c.class_name, COUNT(DISTINCT a.assessment_id) AS total_assessments,
-              AVG(ar.total_percentage) AS average_score,
-              COUNT(CASE WHEN ar.total_percentage >= 50 THEN 1 END) AS pass_count,
-              COUNT(CASE WHEN ar.total_percentage < 50 THEN 1 END) AS fail_count
-       FROM classes c
-       LEFT JOIN students s ON c.class_id = s.class_id
-       LEFT JOIN assessment_results ar ON s.student_id = ar.student_id AND ar.term_id = $2
-       LEFT JOIN assessments a ON ar.assessment_id = a.assessment_id
-       WHERE c.organization_id = $1
-       GROUP BY c.class_name
-       ORDER BY average_score DESC NULLS LAST
-       LIMIT 5`,
-      [organizationId, currentTerm.term_id]
-    )).rows;
-
-    // Corrected version of the real page's buggy per-year growth query -
-    // see section header comment. Only total_students is trustworthy.
-    const organizationGrowth = (await db.query(
-      `SELECT sy.year_label, COUNT(DISTINCT es.student_id) AS total_students
-       FROM school_years sy
-       LEFT JOIN enrollments e ON e.school_year_id = sy.id AND e.organization_id = $1
-       LEFT JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
-       WHERE sy.organization_id = $1
-       GROUP BY sy.year_label
-       ORDER BY sy.year_label`,
-      [organizationId]
-    )).rows;
-
-    const enrollmentOverTerms = (await db.query(
-      `SELECT t.term_name, COUNT(DISTINCT es.student_id) AS enrolled_students
-       FROM terms t
-       LEFT JOIN enrollments e ON t.term_id = e.term_id
-       LEFT JOIN enrolled_students es ON e.enrollment_id = es.enrollment_id
-       WHERE t.organization_id = $1
-       GROUP BY t.term_name, t.start_date
-       ORDER BY t.start_date`,
-      [organizationId]
-    )).rows;
-
-    const genderDistribution = (await db.query(`SELECT gender, COUNT(*) AS count FROM students WHERE organization_id = $1 GROUP BY gender`, [organizationId])).rows;
-    const employeeRoles = (await db.query(`SELECT account_type, COUNT(*) AS count FROM users WHERE organization_id = $1 GROUP BY account_type`, [organizationId])).rows;
-
-    const classStrengthProfile = (await db.query(
-      `SELECT sub.subject_name, ROUND(AVG(ar.total_percentage), 2) AS avg_score
-       FROM assessment_results ar
-       JOIN students s ON ar.student_id = s.student_id
-       JOIN subjects sub ON ar.subject_id = sub.subject_id
-       WHERE s.organization_id = $1 AND ar.term_id = $2
-       GROUP BY sub.subject_name
-       ORDER BY sub.subject_name`,
-      [organizationId, currentTerm.term_id]
-    )).rows;
-
-    const studentCountPerClass = (await db.query(
-      `SELECT c.class_name, COUNT(s.student_id) AS student_count
-       FROM classes c LEFT JOIN students s ON c.class_id = s.class_id
-       WHERE c.organization_id = $1
-       GROUP BY c.class_name
-       ORDER BY student_count DESC`,
-      [organizationId]
-    )).rows;
-
-    const charts = {
-      attendanceByClass: buildQuickChartUrl({
-        type: "bar",
-        data: {
-          labels: attendanceByClass.map((r) => r.class_name),
-          datasets: [
-            { label: "Present", backgroundColor: CHART_PALETTE[0], data: attendanceByClass.map((r) => Number(r.present_days)) },
-            { label: "Absent", backgroundColor: CHART_PALETTE[3], data: attendanceByClass.map((r) => Number(r.absent_days)) },
-          ],
+    const chartSpecs = {};
+    if (a?.classes.length) chartSpecs.averageScoreByClass = horizontalBarChart("Average score by class (%)", a.classes.map((c) => c.class_name), a.classes.map((c) => c.average_score), { max: 100 });
+    if (a?.subjects.length) chartSpecs.subjectPerformance = horizontalBarChart("Average score by subject (%)", a.subjects.slice(0, 12).map((s) => s.subject_name), a.subjects.slice(0, 12).map((s) => s.average_score), { max: 100 });
+    const attendanceClasses = stats.classes.filter((c) => c.attendance_rate !== null);
+    if (attendanceClasses.length) chartSpecs.attendanceByClass = horizontalBarChart("Attendance rate by class (%)", attendanceClasses.map((c) => c.class_name), attendanceClasses.map((c) => c.attendance_rate), { max: 100 });
+    if (stats.enrollmentTrend.length > 1) {
+      chartSpecs.enrollmentOverTerms = {
+        config: {
+          type: "line",
+          data: { labels: stats.enrollmentTrend.map((t) => t.label), datasets: [{ label: "Enrolled students", borderColor: CHART_BLUE, backgroundColor: CHART_BLUE, fill: false, data: stats.enrollmentTrend.map((t) => t.enrolled) }] },
+          options: { legend: { display: false }, title: { display: true, text: "Enrolled students by term" }, scales: { yAxes: [{ ticks: { beginAtZero: true } }] } },
         },
-        options: { title: { display: true, text: "Attendance by Class" }, scales: { yAxes: [{ ticks: { beginAtZero: true } }] } },
-      }),
-      topPerformingClasses: buildQuickChartUrl({
-        type: "bar",
-        data: { labels: assessmentByClass.map((r) => r.class_name), datasets: [{ label: "Average Score (%)", backgroundColor: CHART_PALETTE[1], data: assessmentByClass.map((r) => Number(r.average_score) || 0) }] },
-        options: { title: { display: true, text: "Top Performing Classes" }, scales: { yAxes: [{ ticks: { beginAtZero: true, max: 100 } }] } },
-      }),
-      organizationGrowth: buildQuickChartUrl({
-        type: "line",
-        data: { labels: organizationGrowth.map((r) => r.year_label), datasets: [{ label: "Total Students", borderColor: CHART_PALETTE[2], fill: false, data: organizationGrowth.map((r) => Number(r.total_students)) }] },
-        options: { title: { display: true, text: "Student Enrollment Growth by Year" } },
-      }),
-      enrollmentOverTerms: buildQuickChartUrl({
-        type: "line",
-        data: { labels: enrollmentOverTerms.map((r) => r.term_name), datasets: [{ label: "Enrolled Students", borderColor: CHART_PALETTE[0], fill: false, data: enrollmentOverTerms.map((r) => Number(r.enrolled_students)) }] },
-        options: { title: { display: true, text: "Enrollment Over Terms" } },
-      }),
-      genderDistribution: buildQuickChartUrl({
-        type: "doughnut",
-        data: { labels: genderDistribution.map((r) => r.gender || "Unspecified"), datasets: [{ backgroundColor: CHART_PALETTE, data: genderDistribution.map((r) => Number(r.count)) }] },
-        options: { title: { display: true, text: "Gender Distribution" } },
-      }),
-      employeeRoles: buildQuickChartUrl({
-        type: "doughnut",
-        data: { labels: employeeRoles.map((r) => r.account_type), datasets: [{ backgroundColor: CHART_PALETTE, data: employeeRoles.map((r) => Number(r.count)) }] },
-        options: { title: { display: true, text: "Employee Roles" } },
-      }),
-      classStrengthProfile: buildQuickChartUrl({
-        type: "radar",
-        data: { labels: classStrengthProfile.map((r) => r.subject_name), datasets: [{ label: "Average Score (%)", borderColor: CHART_PALETTE[4], backgroundColor: "rgba(16,185,129,0.2)", data: classStrengthProfile.map((r) => Number(r.avg_score) || 0) }] },
-        options: { title: { display: true, text: "Subject Strength Profile" } },
-      }),
-      studentCountPerClass: buildQuickChartUrl({
-        type: "bar",
-        data: { labels: studentCountPerClass.map((r) => r.class_name), datasets: [{ label: "Students", backgroundColor: CHART_PALETTE[5], data: studentCountPerClass.map((r) => Number(r.student_count)) }] },
-        options: { title: { display: true, text: "Student Count per Class" }, scales: { yAxes: [{ ticks: { beginAtZero: true } }] } },
-      }),
-    };
+        width: 600,
+        height: 320,
+      };
+    }
+    const charts = await shortChartUrls(chartSpecs);
 
     return res.json({
-      term: { termName: currentTerm.term_name, yearLabel: currentTerm.year_label },
+      term: { termName: currentTerm.term_name, yearLabel: currentTerm.year_label, isCurrent: !!currentTerm.current },
+      academicResultsTerm: a ? { label: a.term.label, isLatestResultsFromEarlierTerm: a.isFallback } : null,
+      passMark: statsController.PASS_MARK,
       summary: {
-        totalStudents: Number(organizationData.total_students),
-        totalEmployees: Number(organizationData.total_employees),
-        totalClasses: Number(organizationData.total_classes),
-        totalSubjects: Number(organizationData.total_subjects),
+        enrolledStudents: k.enrolled,
+        changeFromPreviousTerm: k.enrolledChange,
+        previousTerm: k.previousTermLabel,
+        averageScore: a ? a.averageScore : null,
+        passRate: a ? a.passRate : null,
+        studentsWithScores: a ? a.studentsWithScores : 0,
+        studentsNeedingSupport: a ? a.needsSupportCount : null,
+        attendanceRate: k.attendanceRate,
+        studentsBelowAttendanceThreshold: k.lowAttendance,
+        attendanceThreshold: statsController.LOW_ATTENDANCE_RATE,
+        scoreEntryRate: k.scoreEntryRate,
+        scoresEntered: k.scoresEntered,
+        scoresExpected: k.scoresExpected,
+        activeClasses: k.activeClasses,
+        totalClasses: k.totalClasses,
+        staff: k.staff,
+        teachers: k.teachers,
       },
-      attendanceByClass: attendanceByClass.map((r) => ({ className: r.class_name, presentDays: Number(r.present_days), absentDays: Number(r.absent_days), totalRecords: Number(r.total_attendance) })),
-      topPerformingClasses: assessmentByClass.map((r) => ({ className: r.class_name, totalAssessments: Number(r.total_assessments), averageScore: r.average_score !== null ? Number(r.average_score).toFixed(1) : null, passCount: Number(r.pass_count), failCount: Number(r.fail_count) })),
-      organizationGrowthByYear: organizationGrowth.map((r) => ({ yearLabel: r.year_label, totalStudents: Number(r.total_students) })),
-      enrollmentOverTerms: enrollmentOverTerms.map((r) => ({ termName: r.term_name, enrolledStudents: Number(r.enrolled_students) })),
-      genderDistribution: genderDistribution.map((r) => ({ gender: r.gender || "Unspecified", count: Number(r.count) })),
-      employeeRoles: employeeRoles.map((r) => ({ accountType: r.account_type, count: Number(r.count) })),
-      classStrengthProfile: classStrengthProfile.map((r) => ({ subjectName: r.subject_name, averageScore: Number(r.avg_score) })),
-      studentCountPerClass: studentCountPerClass.map((r) => ({ className: r.class_name, studentCount: Number(r.student_count) })),
+      classes: stats.classes.map((c) => {
+        const academic = academicByClass.get(c.class_name);
+        const entry = entryByClass.get(c.class_name);
+        return {
+          className: c.class_name,
+          enrolled: c.enrolled,
+          averageScore: academic ? academic.average_score : null,
+          passRate: academic ? academic.pass_rate : null,
+          attendanceRate: c.attendance_rate,
+          scoreEntryRate: entry ? entry.rate : null,
+        };
+      }),
+      subjects: (a?.subjects || []).map((sub) => ({ subjectName: sub.subject_name, averageScore: sub.average_score, passRate: sub.pass_rate, results: sub.results })),
+      scoreDistribution: a?.distribution || [],
+      topStudents: (a?.topStudents || []).slice(0, 5).map((st) => ({ name: st.name, className: st.class_name, averageScore: st.average_score })),
+      studentsNeedingSupport: (a?.needsSupport || []).map((st) => ({ name: st.name, className: st.class_name, averageScore: st.average_score, subjects: st.subjects })),
+      enrollmentByTerm: stats.enrollmentTrend.map((t) => ({ term: t.label, enrolled: t.enrolled })),
+      gender: stats.gender,
+      staffByRole: stats.staff,
       charts,
+      pageUrl,
+      downloads: {
+        pdf: `${protocol}://${host}/stats/organization/pdf?selectedTermId=${currentTerm.term_id}`,
+        excel: `${protocol}://${host}/stats/organization/export?selectedTermId=${currentTerm.term_id}`,
+      },
     });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
@@ -7845,7 +8113,9 @@ async function getOrganizationStatisticsApi(req, res) {
   }
 }
 
-// GET /internal/api/stats/compare-classes?organizationId&...&classNames=A,B,C
+// GET /internal/api/stats/compare-classes?organizationId&...&classNames=A,B,C&termName?&schoolYearLabel?
+// Same figures as the page's Compare classes panel, for one term (default
+// the current term).
 async function compareClassesApi(req, res) {
   try {
     const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_RECORDS, "You don't have permission to view organization statistics.");
@@ -7853,44 +8123,31 @@ async function compareClassesApi(req, res) {
     if (classNames.length < 2) return res.status(400).json({ error: "Give at least 2 class names to compare." });
 
     const classes = await resolveClassesByNames(organizationId, classNames);
-    const classIds = classes.map((c) => c.class_id);
+    const term = await getTermContext(organizationId, req.query.termName, req.query.schoolYearLabel);
+    const rows = await statsController.compareClasses(organizationId, term.term_id, classes.map((c) => c.class_id));
 
-    const rows = (await db.query(
-      `SELECT c.class_name, COUNT(DISTINCT s.student_id) AS enrolled_students,
-              AVG(ar.total_percentage) AS average_score,
-              COUNT(CASE WHEN ar.total_percentage >= 50 THEN 1 END) AS pass_count,
-              COUNT(CASE WHEN ar.total_percentage < 50 THEN 1 END) AS fail_count
-       FROM classes c
-       LEFT JOIN students s ON c.class_id = s.class_id AND s.organization_id = $2
-       LEFT JOIN assessment_results ar ON s.student_id = ar.student_id AND ar.organization_id = $2
-       WHERE c.class_id = ANY($1::int[]) AND c.organization_id = $2
-       GROUP BY c.class_name
-       ORDER BY MIN(COALESCE(c.dashboard_sort_order, 2147483647)), c.class_name`,
-      [classIds, organizationId]
-    )).rows;
-
-    const chartUrl = buildQuickChartUrl({
+    const metrics = [["Average score (%)", "average_score"], ["Pass rate (%)", "pass_rate"], ["Attendance (%)", "attendance_rate"]];
+    const chartUrl = await shortChartUrl({
       type: "bar",
       data: {
         labels: rows.map((r) => r.class_name),
-        datasets: [
-          { label: "Enrolled", backgroundColor: CHART_PALETTE[0], data: rows.map((r) => Number(r.enrolled_students)) },
-          { label: "Avg Score (%)", backgroundColor: CHART_PALETTE[1], data: rows.map((r) => Number(r.average_score) || 0) },
-          { label: "Pass", backgroundColor: CHART_PALETTE[4], data: rows.map((r) => Number(r.pass_count)) },
-          { label: "Fail", backgroundColor: CHART_PALETTE[3], data: rows.map((r) => Number(r.fail_count)) },
-        ],
+        datasets: metrics.map(([label, key], i) => ({ label, backgroundColor: ["#2a78d6", "#eb6834", "#1baf7a"][i], data: rows.map((r) => r[key] ?? 0) })),
       },
-      options: { title: { display: true, text: `Class Comparison: ${rows.map((r) => r.class_name).join(" vs ")}` } },
+      options: { title: { display: true, text: `${term.term_name} (${term.year_label})` }, scales: { yAxes: [{ ticks: { beginAtZero: true, suggestedMax: 100 } }] } },
     });
 
     return res.json({
+      termName: term.term_name,
+      yearLabel: term.year_label,
+      passMark: statsController.PASS_MARK,
       classes: rows.map((r) => ({
         className: r.class_name,
-        enrolledStudents: Number(r.enrolled_students),
-        averageScore: r.average_score !== null ? Number(r.average_score).toFixed(1) : null,
-        passCount: Number(r.pass_count),
-        failCount: Number(r.fail_count),
+        enrolled: r.enrolled,
+        averageScore: r.average_score,
+        passRate: r.pass_rate,
+        attendanceRate: r.attendance_rate,
       })),
+      note: "A null value means nothing has been saved for that class in this term yet.",
       chartUrl,
     });
   } catch (error) {
@@ -8528,71 +8785,47 @@ async function withMintedSession(identity, render) {
   }
 }
 
-async function ensurePostedReportCardsTable() {
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS posted_report_cards (
-      posted_report_card_id SERIAL PRIMARY KEY,
-      organization_id INT NOT NULL,
-      class_id INT NOT NULL,
-      term_id INT NOT NULL,
-      school_year_id INT NULL,
-      student_id INT NOT NULL,
-      pdf_s3_key TEXT NOT NULL,
-      pdf_url TEXT NOT NULL,
-      posted_by INT NULL,
-      posted_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE (organization_id, class_id, term_id, student_id)
-    )
-  `);
-}
-
 function safeFileNameSegment(value, fallback) {
   const cleaned = String(value || fallback).replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
   return cleaned || fallback;
 }
 
-// Cached per (org, class, term, student) in the same posted_report_cards
-// table the real "Post Report"/WhatsApp flows already use - a repeat
-// request for the same student's report reuses the existing S3 file
-// instead of re-running Puppeteer every time.
-async function getOrGenerateReportCardPdf(identity, { classId, termId, studentId, studentName, forceRegenerate = false }) {
-  await ensurePostedReportCardsTable();
+// Report card PDFs for Mira: always rendered fresh from the real report page
+// (the same output as Download on the website), so they reflect the latest
+// scores and settings. They are stored under their own "mira-reports" prefix
+// and never written to posted_report_cards - that table is what guardians
+// see in the portal, and only the website's "Post Report" action publishes.
+// All requested students come from one page load.
+async function renderFreshReportCardPdfs(identity, { classId, termId, students }) {
+  const results = new Map();
+  await withMintedSession(identity, (session) =>
+    renderReportCardsPerStudent(
+      { ...session, classId, termId, studentIds: students.map((student) => student.student_id) },
+      {
+        onReport: async (studentId, buffer) => {
+          results.set(Number(studentId), { buffer });
+        },
+        onError: async (studentId, error) => {
+          results.set(Number(studentId), { error: error.userMessage || "The report card could not be generated." });
+        },
+      }
+    )
+  );
 
-  if (!forceRegenerate) {
-    const cached = (await db.query(
-      `SELECT pdf_url FROM posted_report_cards WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id = $4`,
-      [identity.organizationId, classId, termId, studentId]
-    )).rows[0];
-    if (cached?.pdf_url) {
-      try {
-        const resp = await fetch(cached.pdf_url);
-        if (resp.ok) {
-          const buffer = Buffer.from(await resp.arrayBuffer());
-          return { url: cached.pdf_url, buffer, cached: true };
-        }
-      } catch { /* fall through to regenerate */ }
+  const reports = [];
+  for (const student of students) {
+    const studentName = `${student.first_name} ${student.last_name}`;
+    const outcome = results.get(Number(student.student_id));
+    if (!outcome || !outcome.buffer) {
+      reports.push({ studentId: student.student_id, studentName, error: outcome?.error || "The report card could not be generated." });
+      continue;
     }
+    const safeStudentName = safeFileNameSegment(studentName, `student_${student.student_id}`);
+    const pdfKey = `mira-reports/org_${identity.organizationId}/term_${termId}/class_${classId}/student_${student.student_id}_${Date.now()}_${safeStudentName}.pdf`;
+    const pdfUrl = await storePdf(pdfKey, outcome.buffer);
+    reports.push({ studentId: student.student_id, studentName, pdfUrl, buffer: outcome.buffer });
   }
-
-  const { buffer } = await withMintedSession(identity, (session) =>
-    renderReportCardsPdf({ ...session, classId, termId, studentIds: [studentId] })
-  );
-
-  const safeStudentName = safeFileNameSegment(studentName, `student_${studentId}`);
-  const pdfKey = `report-cards/org_${identity.organizationId}/term_${termId}/class_${classId}/student_${studentId}_${Date.now()}_${safeStudentName}.pdf`;
-  const pdfUrl = await storePdf(pdfKey, buffer);
-
-  await db.query(
-    `INSERT INTO posted_report_cards (organization_id, class_id, term_id, student_id, pdf_s3_key, pdf_url, posted_at)
-     VALUES ($1,$2,$3,$4,$5,$6,NOW())
-     ON CONFLICT (organization_id, class_id, term_id, student_id)
-     DO UPDATE SET pdf_s3_key = EXCLUDED.pdf_s3_key, pdf_url = EXCLUDED.pdf_url, posted_at = NOW()`,
-    [identity.organizationId, classId, termId, studentId, pdfKey, pdfUrl]
-  );
-
-  return { url: pdfUrl, buffer, cached: false };
+  return reports;
 }
 
 // Same enrolled-student scoping query downloadReports uses.
@@ -8616,6 +8849,35 @@ async function resolveClassAndTermForPrint(organizationId, className, termName, 
   return { cls, term };
 }
 
+// Which enrolled students a report request is about: allInClass, or each of
+// studentNames matched (partial, case-insensitive) to exactly one student.
+function pickReportStudents(enrolled, body, cls, term) {
+  if (body?.allInClass === true) return enrolled;
+  const names = Array.isArray(body?.studentNames) ? body.studentNames : [];
+  if (!names.length) {
+    const error = new Error("Give studentNames, or allInClass: true.");
+    error.status = 400;
+    throw error;
+  }
+  const targets = [];
+  for (const name of names) {
+    const trimmed = String(name || "").trim().toLowerCase();
+    const matches = enrolled.filter((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(trimmed) || `${s.last_name} ${s.first_name}`.toLowerCase().includes(trimmed));
+    if (!matches.length) {
+      const error = new Error(`No student matching "${name}" is enrolled in ${cls.class_name} for ${term.term_name}.`);
+      error.status = 404;
+      throw error;
+    }
+    if (matches.length > 1) {
+      const error = new Error(`More than one student in ${cls.class_name} matches "${name}" - be more specific.`);
+      error.status = 409;
+      throw error;
+    }
+    if (!targets.some((t) => t.student_id === matches[0].student_id)) targets.push(matches[0]);
+  }
+  return targets;
+}
+
 // GET/POST /internal/api/reports/generate - { organizationId, ..., className, termName?,
 // schoolYearLabel?, studentNames?: string[], allInClass?: bool } - caps at 10 students per call.
 async function generateReportPdfApi(req, res) {
@@ -8631,47 +8893,18 @@ async function generateReportPdfApi(req, res) {
       throw error;
     }
 
-    let targets;
-    if (req.body?.allInClass === true) {
-      targets = enrolled;
-    } else {
-      const names = Array.isArray(req.body?.studentNames) ? req.body.studentNames : [];
-      if (!names.length) {
-        const error = new Error("Give studentNames, or allInClass: true.");
-        error.status = 400;
-        throw error;
-      }
-      targets = [];
-      for (const name of names) {
-        const trimmed = String(name || "").trim().toLowerCase();
-        const matches = enrolled.filter((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(trimmed));
-        if (!matches.length) {
-          const error = new Error(`No student matching "${name}" is enrolled in ${cls.class_name} for ${term.term_name}.`);
-          error.status = 404;
-          throw error;
-        }
-        if (matches.length > 1) {
-          const error = new Error(`More than one student in ${cls.class_name} matches "${name}" - be more specific.`);
-          error.status = 409;
-          throw error;
-        }
-        targets.push(matches[0]);
-      }
-    }
+    const targets = pickReportStudents(enrolled, req.body, cls, term);
 
     if (targets.length > 10) {
       return res.status(400).json({ error: `That's ${targets.length} students in one call - generate at most 10 at a time (ask for allInClass in smaller groups, or specific students).` });
     }
 
-    const reports = [];
-    for (const student of targets) {
-      const { url, cached } = await getOrGenerateReportCardPdf(identity, {
-        classId: cls.class_id,
-        termId: term.term_id,
-        studentId: student.student_id,
-        studentName: `${student.first_name} ${student.last_name}`,
-      });
-      reports.push({ studentName: `${student.first_name} ${student.last_name}`, pdfUrl: url, cached });
+    const rendered = await renderFreshReportCardPdfs(identity, { classId: cls.class_id, termId: term.term_id, students: targets });
+    const reports = rendered.map(({ studentName, pdfUrl, error }) => (error ? { studentName, error } : { studentName, pdfUrl }));
+    if (!reports.some((report) => report.pdfUrl)) {
+      const error = new Error(reports[0]?.error || "The report cards could not be generated.");
+      error.status = 502;
+      throw error;
     }
 
     return res.json({ className: cls.class_name, termName: term.term_name, yearLabel: term.year_label, reports });
@@ -8682,100 +8915,389 @@ async function generateReportPdfApi(req, res) {
   }
 }
 
-// POST /internal/api/reports/email - { organizationId, ..., studentName, className, termName?,
-// schoolYearLabel?, confirm } - real PDF attached, no password gate (the real app's password
-// requirement on this exact flow is substituted with Mira's own confirm-then-send pattern,
-// backed by the real MANAGE_REPORTS permission check).
-async function emailReportPdfApi(req, res) {
+// ---- Report cards: post to the parent portal and/or send to guardians ----
+// One request covers what the website's Send Report modal does:
+//   post      - publish to the parent portal using the website's own Post
+//               Report Cards action (always freshly generated; guardians get
+//               the portal notification and "report card ready" email it sends)
+//   channels  - send directly: email attaches the PDF; text/WhatsApp send a
+//               short link to a freshly generated PDF. Only channels the
+//               school has turned on can be used (Email is always on).
+// Without confirm it returns a preview (who gets what) for the user to
+// approve; nothing is posted or sent until confirm=true.
+const REPORT_CHANNEL_LABELS = { email: "Email", sms: "Text (SMS)", whatsapp: "WhatsApp" };
+const DEFAULT_REPORT_MESSAGE = "Hi {{guardianTitleLastName}}, {{schoolName}}: {{studentName}}'s {{className}} report card ({{term}}) is ready. View: {{shortLink}}";
+const MAX_REPORT_STUDENTS_PER_SEND = 60;
+
+function normalizeChannels(input) {
+  const list = Array.isArray(input) ? input : input ? [input] : [];
+  const aliases = { text: "sms", texts: "sms", sms: "sms", whatsapp: "whatsapp", "whats app": "whatsapp", email: "email", mail: "email", "e-mail": "email" };
+  return [...new Set(list.map((c) => aliases[String(c || "").trim().toLowerCase()]).filter(Boolean))];
+}
+
+function availableChannelList(channelStatus) {
+  return Object.keys(REPORT_CHANNEL_LABELS).filter((c) => channelStatus[c]?.ready);
+}
+
+// Starts the website's own Post Report Cards action as the caller. Posting
+// runs in the background there; the short-lived session it renders with is
+// removed once the job finishes.
+async function startReportCardPosting(identity, { classId, termId, studentIds }) {
+  const { protocol, host } = internalBaseUrlParts();
+  const { sid, cookieValue } = await mintPuppeteerSession(identity);
+  let statusCode = 200;
+  let payload = null;
+  const fakeReq = {
+    session: { organizationId: identity.organizationId, userId: identity.userId, user: { user_id: identity.userId } },
+    body: { classId, termId, studentIds },
+    protocol,
+    get: (header) => (String(header).toLowerCase() === "host" ? host : undefined),
+    headers: { cookie: `connect.sid=${cookieValue}` },
+  };
+  const fakeRes = {
+    status(code) { statusCode = code; return this; },
+    json(body) { payload = body; return this; },
+  };
+  await printController.postReportCards(fakeReq, fakeRes);
+
+  const startedAt = Date.now();
+  const timer = setInterval(async () => {
+    let jobStatus = "unknown";
+    await printController.getReportPostJobStatus(
+      { session: { organizationId: identity.organizationId }, query: { classId, termId } },
+      { status() { return this; }, json(body) { jobStatus = body?.status || "unknown"; return this; } }
+    ).catch(() => {});
+    if (!["queued", "running"].includes(jobStatus) || Date.now() - startedAt > 15 * 60 * 1000) {
+      clearInterval(timer);
+      destroyPuppeteerSession(sid).catch(() => {});
+    }
+  }, 5000);
+  timer.unref();
+
+  return { statusCode, payload };
+}
+
+// POST /internal/api/reports/send - { organizationId, ..., className, termName?, schoolYearLabel?,
+// studentNames?: string[] | allInClass?: bool, post?: bool, channels?: ["email","sms","whatsapp"],
+// message?: string (text/WhatsApp only; {{placeholders}} as the website), confirm?: bool }
+async function sendReportCardsApi(req, res) {
   try {
-    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to email report cards.");
+    const organizationId = await assertHasPermission(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to post or send report cards.");
     const identity = { organizationId, userId: Number(req.body?.userId) || null, userRole: req.body?.userRole, accountType: req.body?.accountType, userEmail: req.body?.userEmail };
     const { cls, term } = await resolveClassAndTermForPrint(organizationId, req.body?.className, req.body?.termName, req.body?.schoolYearLabel);
 
-    if (!req.body?.studentName) {
-      const error = new Error("studentName is required.");
-      error.status = 400;
-      throw error;
-    }
-    const enrolled = await resolveEnrolledStudentIds(organizationId, cls.class_id, term.term_id, null);
-    const trimmed = String(req.body.studentName).trim().toLowerCase();
-    const matches = enrolled.filter((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(trimmed));
-    if (!matches.length) {
-      const error = new Error(`No student matching "${req.body.studentName}" is enrolled in ${cls.class_name} for ${term.term_name}.`);
-      error.status = 404;
-      throw error;
-    }
-    if (matches.length > 1) {
-      const error = new Error(`More than one student in ${cls.class_name} matches "${req.body.studentName}" - be more specific.`);
-      error.status = 409;
-      throw error;
-    }
-    const student = matches[0];
-    const studentName = `${student.first_name} ${student.last_name}`;
-
-    const guardianRows = (await db.query(
-      `SELECT DISTINCT ge.email FROM (
-         SELECT gs.student_id, gp.email FROM guardian_students gs
-         JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = $2
-         WHERE gp.email IS NOT NULL
-         UNION ALL
-         SELECT g.student_id, g.email FROM guardians g WHERE g.organization_id = $2 AND g.email IS NOT NULL
-       ) ge WHERE ge.student_id = $1`,
-      [student.student_id, organizationId]
-    )).rows;
-    const guardianEmails = guardianRows.map((r) => r.email).filter(Boolean);
-    if (!guardianEmails.length) {
-      const error = new Error(`${studentName} has no guardian email on file to send this report to.`);
-      error.status = 409;
-      throw error;
+    const post = req.body?.post === true;
+    const channels = normalizeChannels(req.body?.channels);
+    if (!post && !channels.length) {
+      return res.status(400).json({ error: "Say whether to post the report cards to the parent portal, send them (by email, text or WhatsApp), or both." });
     }
 
-    if (req.body?.confirm !== true) {
-      return res.json({
-        status: "confirmation_required",
-        studentName,
-        className: cls.class_name,
-        termName: term.term_name,
-        guardianEmails,
-        warning: `Email ${studentName}'s report card (${cls.class_name}, ${term.term_name}) to ${guardianEmails.join(", ")}? Ask the user to explicitly confirm before calling again with confirm=true.`,
+    const channelStatus = await getMessagingChannelStatus(db, organizationId);
+    const available = availableChannelList(channelStatus);
+    const unavailable = channels.filter((c) => !available.includes(c));
+    if (unavailable.length) {
+      return res.status(409).json({
+        error: `${unavailable.map((c) => REPORT_CHANNEL_LABELS[c]).join(" and ")} ${unavailable.length === 1 ? "isn't" : "aren't"} set up for this school. Available: ${available.map((c) => REPORT_CHANNEL_LABELS[c]).join(", ")}.`,
       });
     }
 
-    const { buffer } = await getOrGenerateReportCardPdf(identity, {
-      classId: cls.class_id,
-      termId: term.term_id,
-      studentId: student.student_id,
-      studentName,
+    const enrolled = await resolveEnrolledStudentIds(organizationId, cls.class_id, term.term_id, null);
+    if (!enrolled.length) {
+      return res.status(404).json({ error: `No students are enrolled in ${cls.class_name} for ${term.term_name} (${term.year_label}).` });
+    }
+    const targets = pickReportStudents(enrolled, req.body, cls, term);
+    if (targets.length > MAX_REPORT_STUDENTS_PER_SEND) {
+      return res.status(400).json({ error: `That's ${targets.length} students - send at most ${MAX_REPORT_STUDENTS_PER_SEND} at a time.` });
+    }
+    const targetIds = targets.map((t) => t.student_id);
+    const studentName = (t) => `${t.first_name} ${t.last_name}`.trim();
+
+    // Guardian contacts per student (same lookup as the website's Send Report).
+    const guardians = await guardianMessaging.getGuardiansForSelectedStudents(db, organizationId, targetIds, cls.class_id, term.term_id);
+    const contactsByStudent = new Map(targetIds.map((id) => [Number(id), []]));
+    guardians.forEach((g) => contactsByStudent.get(Number(g.studentId))?.push(g));
+    const reach = {};
+    const missing = {};
+    channels.forEach((channel) => {
+      const field = channel === "email" ? "email" : "phone";
+      reach[channel] = new Set(guardians.filter((g) => g[field]).map((g) => `${g.studentId}|${String(g[field]).toLowerCase()}`)).size;
+      missing[channel] = targets.filter((t) => !(contactsByStudent.get(Number(t.student_id)) || []).some((g) => g[field])).map(studentName);
     });
+    const alreadyPosted = Number((await db.query(
+      `SELECT COUNT(*)::int AS n FROM posted_report_cards WHERE organization_id = $1 AND class_id = $2 AND term_id = $3 AND student_id = ANY($4::int[])`,
+      [organizationId, cls.class_id, term.term_id, targetIds]
+    )).rows[0]?.n || 0);
 
-    const orgRow = (await db.query(`SELECT organization_name FROM organizations WHERE organization_id = $1`, [organizationId])).rows[0];
-    const orgName = orgRow?.organization_name || "the school";
+    const message = String(req.body?.message || "").trim();
+    const textMessage = message ? (/\{\{\s*shortLink\s*\}\}/.test(message) ? message : `${message} View: {{shortLink}}`) : DEFAULT_REPORT_MESSAGE;
 
-    const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
-    const html = renderCleanEmail({
-      title: "Report Card",
-      greeting: "Dear Guardian,",
-      paragraphs: [`Please find attached ${studentName}'s report card for ${term.term_name} (${term.year_label}), ${cls.class_name}, from ${orgName}.`],
-      noReply: true,
-    });
-    const sent = await sendEmailSafely({
-      to: guardianEmails,
-      subject: `Report Card: ${studentName} - ${term.term_name}`,
-      html,
-      attachments: [{ filename: `${safeFileNameSegment(studentName, "report")}_Report.pdf`, content: buffer }],
-    }, "Mira-ReportCardEmail");
-
-    if (!sent) {
-      const error = new Error("Email delivery failed - the address(es) may be invalid or unreachable.");
-      error.status = 502;
-      throw error;
+    if (req.body?.confirm !== true) {
+      const steps = [];
+      if (post) steps.push(`post ${targets.length} report card${targets.length === 1 ? "" : "s"} to the parent portal (freshly generated; guardians are notified in the portal and by email)${alreadyPosted ? ` - ${alreadyPosted} ${alreadyPosted === 1 ? "is" : "are"} already posted and will be replaced with the latest version` : ""}`);
+      channels.forEach((channel) => {
+        steps.push(channel === "email"
+          ? `email the report card PDF to ${reach.email} guardian address${reach.email === 1 ? "" : "es"}`
+          : `send a ${REPORT_CHANNEL_LABELS[channel]} message with a link to the report card to ${reach[channel]} guardian number${reach[channel] === 1 ? "" : "s"}`);
+      });
+      return res.json({
+        status: "confirmation_required",
+        className: cls.class_name,
+        termName: term.term_name,
+        yearLabel: term.year_label,
+        studentCount: targets.length,
+        students: targets.slice(0, 15).map(studentName),
+        post,
+        channels,
+        availableChannels: available.map((c) => REPORT_CHANNEL_LABELS[c]),
+        alreadyPosted,
+        guardiansReached: reach,
+        studentsWithoutContact: missing,
+        textMessagePreview: channels.some((c) => c !== "email") ? textMessage : undefined,
+        warning: `This will ${steps.join("; and ")}. ${Object.entries(missing).filter(([, list]) => list.length).map(([c, list]) => `${list.length} student${list.length === 1 ? " has" : "s have"} no guardian ${c === "email" ? "email" : "phone number"} for ${REPORT_CHANNEL_LABELS[c]}.`).join(" ")} Ask the user to confirm before calling again with confirm=true.`.replace(/\s+/g, " ").trim(),
+      });
     }
 
-    return res.json({ studentName, className: cls.class_name, termName: term.term_name, sentTo: guardianEmails, message: `Report card emailed to ${guardianEmails.join(", ")}.` });
+    const result = { className: cls.class_name, termName: term.term_name, yearLabel: term.year_label, studentCount: targets.length };
+
+    if (post) {
+      const { statusCode, payload } = await startReportCardPosting(identity, { classId: cls.class_id, termId: term.term_id, studentIds: targetIds });
+      result.posting = statusCode < 400 && payload?.success !== false
+        ? { started: true, message: payload?.message || "Posting started." }
+        : { started: false, message: payload?.message || "Posting could not be started." };
+    }
+
+    if (channels.length) {
+      const rendered = await renderFreshReportCardPdfs(identity, { classId: cls.class_id, termId: term.term_id, students: targets });
+      const pdfByStudent = new Map(rendered.filter((r) => r.pdfUrl).map((r) => [Number(r.studentId), r]));
+      const schoolName = await guardianMessaging.getSchoolName(db, organizationId);
+      const actorName = await guardianMessaging.getActorName(organizationId, identity.userId);
+      const batchId = `mira_${Date.now()}`;
+      const { protocol: publicProtocol, host: publicHost } = publicBaseUrlParts();
+      const { sendEmailSafely, renderCleanEmail } = require("../utils/emailHelper");
+      result.sent = {};
+      result.failed = {};
+      result.notGenerated = rendered.filter((r) => !r.pdfUrl).map((r) => r.studentName);
+
+      const logSent = async (channel, student, contact) => {
+        await recordMessageSent(db, { organizationId, context: "report", contextKey: `${cls.class_id}:${term.term_id}:${student.student_id}`, channel, recipient: contact }).catch(() => {});
+        await recordDeliveryAuditRow(db, {
+          organizationId, eventDomain: channel, eventName: "report_notify_sent", classId: cls.class_id, termId: term.term_id,
+          studentId: student.student_id, studentName: studentName(student), actorUserId: identity.userId, actorName,
+          recipient: contact, status: "sent", batchId, metadata: { source: "mira" },
+        }).catch(() => {});
+      };
+
+      for (const channel of channels) {
+        let sent = 0;
+        const failures = [];
+        if (channel === "email") {
+          for (const student of targets) {
+            const pdf = pdfByStudent.get(Number(student.student_id));
+            if (!pdf) continue;
+            const emails = [...new Set((contactsByStudent.get(Number(student.student_id)) || []).map((g) => String(g.email || "").trim().toLowerCase()).filter(Boolean))];
+            for (const email of emails) {
+              const allowed = await isEmailEnabledForRecipient(db, email, "report_card_email").catch(() => true);
+              if (!allowed) { failures.push(`${email} (turned off report card emails)`); continue; }
+              const html = renderCleanEmail({
+                title: "Report Card",
+                greeting: "Dear Parent/Guardian,",
+                paragraphs: [`Please find attached ${studentName(student)}'s report card for ${term.term_name} (${term.year_label}), ${cls.class_name}.`],
+                details: [
+                  { label: "Student", value: studentName(student) },
+                  { label: "Class", value: cls.class_name },
+                  { label: "Term", value: `${term.term_name} (${term.year_label})` },
+                  { label: "School", value: schoolName },
+                ],
+                note: "This report is confidential and intended only for the student's parent/guardian.",
+                noReply: true,
+              });
+              const ok = await sendEmailSafely({
+                to: email,
+                subject: `Report Card - ${studentName(student)} | ${schoolName}`,
+                html,
+                attachments: [{ filename: `${safeFileNameSegment(studentName(student), "report")}_Report.pdf`, content: pdf.buffer, contentType: "application/pdf" }],
+              }, "Mira-ReportCardEmail");
+              if (ok) { sent += 1; await logSent("email", student, email); } else failures.push(email);
+            }
+          }
+        } else {
+          const recipients = [];
+          for (const student of targets) {
+            const pdf = pdfByStudent.get(Number(student.student_id));
+            if (!pdf) continue;
+            const shortLink = await createShortLink(db, { targetUrl: pdf.pdfUrl, organizationId, baseUrl: `${publicProtocol}://${publicHost}` });
+            const seen = new Set();
+            (contactsByStudent.get(Number(student.student_id)) || []).forEach((g) => {
+              const digits = String(g.phone || "").replace(/\D/g, "");
+              if (!digits || seen.has(digits)) return;
+              seen.add(digits);
+              recipients.push({ ...g, student, className: cls.class_name, term: term.term_name, shortLink });
+            });
+          }
+          if (recipients.length) {
+            const results = await sendGuardianMessages(db, organizationId, { channel, recipients, messageTemplate: textMessage, schoolName })
+              .catch((error) => recipients.map((r) => ({ success: false, phone: r.phone, error: error.message })));
+            for (const [index, outcome] of results.entries()) {
+              if (outcome.success) { sent += 1; await logSent(channel, recipients[index].student, outcome.phone || recipients[index].phone); }
+              else failures.push(`${outcome.phone || recipients[index].phone}${outcome.error ? ` (${outcome.error})` : ""}`);
+            }
+          }
+        }
+        result.sent[channel] = sent;
+        if (failures.length) result.failed[channel] = failures.slice(0, 20);
+      }
+    }
+
+    result.message = [
+      result.posting ? (result.posting.started ? "Posting to the parent portal has started - it finishes in the background and guardians are notified when it's done." : `Posting failed: ${result.posting.message}`) : null,
+      result.sent ? Object.entries(result.sent).map(([c, n]) => `${REPORT_CHANNEL_LABELS[c]}: sent to ${n}`).join("; ") : null,
+    ].filter(Boolean).join(" ");
+    return res.json(result);
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
-    console.error("[internalApi/emailReportPdfApi]", error);
-    return res.status(500).json({ error: "Unable to email the report card." });
+    console.error("[internalApi/sendReportCardsApi]", error);
+    return res.status(500).json({ error: "Unable to post or send the report cards." });
+  }
+}
+
+// ---- Messages to guardians (the Mailroom) ----
+// POST /internal/api/messages/send - { organizationId, ..., audience: { all?: bool, classNames?: string[],
+// studentNames?: string[], guardianNames?: string[] }, channels: [...], message, emailSubject?, confirm? }
+// Uses the Mailroom's own directory, access rules (class-restricted staff
+// only reach their classes' guardians) and sending, so messages appear in
+// Mailroom history. Preview first; nothing is sent until confirm=true.
+async function sendMessagesApi(req, res) {
+  try {
+    const organizationId = await assertHasPermission(req, PERMISSIONS.MAILROOM, "You don't have permission to send messages (Mailroom).");
+    const userId = Number(req.body?.userId) || null;
+    const message = String(req.body?.message || "").trim();
+    const emailSubject = String(req.body?.emailSubject || "").trim().slice(0, 150);
+    const channels = normalizeChannels(req.body?.channels);
+    const audience = req.body?.audience || {};
+    if (!message) return res.status(400).json({ error: "What should the message say?" });
+    if (!channels.length) return res.status(400).json({ error: "Which channel - email, text (SMS) or WhatsApp?" });
+
+    const channelStatus = await getMessagingChannelStatus(db, organizationId);
+    const available = availableChannelList(channelStatus);
+    const unavailable = channels.filter((c) => !available.includes(c));
+    if (unavailable.length) {
+      return res.status(409).json({
+        error: `${unavailable.map((c) => REPORT_CHANNEL_LABELS[c]).join(" and ")} ${unavailable.length === 1 ? "isn't" : "aren't"} set up for this school. Available: ${available.map((c) => REPORT_CHANNEL_LABELS[c]).join(", ")}.`,
+      });
+    }
+
+    const restrictedClassIds = await guardianMessaging.getMailroomAllowedClassIdsFor({
+      orgId: organizationId, userId, userRole: req.body?.userRole, accountType: req.body?.accountType,
+    });
+    const directory = await guardianMessaging.loadMailroomDirectory(organizationId, restrictedClassIds);
+
+    const lower = (value) => String(value || "").trim().toLowerCase();
+    const classNames = (Array.isArray(audience.classNames) ? audience.classNames : []).map(lower).filter(Boolean);
+    const studentNames = (Array.isArray(audience.studentNames) ? audience.studentNames : []).map(lower).filter(Boolean);
+    const guardianNames = (Array.isArray(audience.guardianNames) ? audience.guardianNames : []).map(lower).filter(Boolean);
+    if (!audience.all && !classNames.length && !studentNames.length && !guardianNames.length) {
+      return res.status(400).json({ error: "Who should get it - all guardians, the guardians of certain classes, or of certain students?" });
+    }
+    const contacts = audience.all ? directory : directory.filter((c) =>
+      c.classNames.some((n) => classNames.includes(lower(n))) ||
+      c.studentNames.some((n) => studentNames.some((wanted) => lower(n).includes(wanted))) ||
+      guardianNames.some((wanted) => lower(c.guardianName).includes(wanted))
+    );
+    if (!contacts.length) {
+      return res.status(404).json({
+        error: restrictedClassIds !== null
+          ? "No guardian contacts match that within your Mailroom access (you can only message the guardians of your assigned classes)."
+          : "No guardian contacts match that.",
+      });
+    }
+
+    const perChannel = channels.map((channel) => {
+      const field = channel === "email" ? "email" : "phone";
+      const seen = new Set();
+      const recipients = [];
+      contacts.forEach((c) => {
+        const value = String(c[field] || "").trim();
+        const key = field === "email" ? value.toLowerCase() : value.replace(/\D/g, "");
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        recipients.push({ phone: field === "phone" ? value : "", email: field === "email" ? value : "", guardianName: c.guardianName, guardianTitleLastName: c.guardianName, studentName: c.studentNames[0] || "" });
+      });
+      return { channel, recipients, withoutContact: contacts.length - recipients.length };
+    });
+
+    if (req.body?.confirm !== true) {
+      const smsInfo = channels.includes("sms") ? countSmsSegments(sanitizeForSms(message)) : null;
+      return res.json({
+        status: "confirmation_required",
+        contactCount: contacts.length,
+        sample: contacts.slice(0, 10).map((c) => `${c.guardianName} (${c.studentNames.slice(0, 2).join(", ") || "no linked student"})`),
+        perChannel: perChannel.map((p) => ({ channel: REPORT_CHANNEL_LABELS[p.channel], recipients: p.recipients.length, withoutContactInfo: p.withoutContact })),
+        availableChannels: available.map((c) => REPORT_CHANNEL_LABELS[c]),
+        smsMessagesPerRecipient: smsInfo ? smsInfo.segments : undefined,
+        restrictedToYourClasses: restrictedClassIds !== null,
+        warning: `This sends the message to ${perChannel.map((p) => `${p.recipients.length} guardian${p.recipients.length === 1 ? "" : "s"} by ${REPORT_CHANNEL_LABELS[p.channel]}`).join(" and ")}. Show the user the message and the counts, and ask them to confirm before calling again with confirm=true.`,
+      });
+    }
+
+    const actorName = await guardianMessaging.getActorName(organizationId, userId);
+    const sending = [];
+    for (const entry of perChannel) {
+      if (!entry.recipients.length) continue;
+      await guardianMessaging.dispatchMailroomSend({ orgId: organizationId, actorUserId: userId, actorName, channel: entry.channel, recipients: entry.recipients, message, emailSubject });
+      sending.push(`${entry.recipients.length} by ${REPORT_CHANNEL_LABELS[entry.channel]}`);
+    }
+    return res.json({
+      status: "sending",
+      message: `Sending to ${sending.join(" and ")}. It goes out in the background; delivery results appear in Mailroom history (ask me to check them).`,
+    });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("[internalApi/sendMessagesApi]", error);
+    return res.status(500).json({ error: "Unable to send the message." });
+  }
+}
+
+// GET /internal/api/messages/history?organizationId&...&limit?&channel?&status?
+// Recent Mailroom sends and their delivery status. Class-restricted staff
+// see only their own sends, as on the Mailroom page.
+async function listSentMessagesApi(req, res) {
+  try {
+    const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MAILROOM, "You don't have permission to view Mailroom history.");
+    const userId = Number(req.query.userId) || null;
+    const restricted = (await guardianMessaging.getMailroomAllowedClassIdsFor({
+      orgId: organizationId, userId, userRole: req.query.userRole, accountType: req.query.accountType,
+    })) !== null;
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+    const channel = normalizeChannels(req.query.channel)[0] || null;
+    const status = ["sent", "failed", "pending"].includes(String(req.query.status || "").toLowerCase()) ? String(req.query.status).toLowerCase() : null;
+    const rows = (await db.query(
+      `SELECT event_domain, recipient_emails, status, actor_name, metadata, COALESCE(updated_at, created_at) AS at
+       FROM delivery_audit_history
+       WHERE organization_id = $1 AND event_name = 'mailroom_send'
+         AND ($2::int IS NULL OR actor_user_id = $2)
+         AND ($3::text IS NULL OR event_domain = $3)
+         AND ($4::text IS NULL OR status = $4)
+       ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+       LIMIT $5`,
+      [organizationId, restricted ? userId : null, channel, status, limit]
+    )).rows;
+    return res.json({
+      messages: rows.map((r) => ({
+        channel: REPORT_CHANNEL_LABELS[r.event_domain] || r.event_domain,
+        to: r.metadata?.guardianName && r.metadata.guardianName !== "Guardian" ? `${r.metadata.guardianName} (${(r.recipient_emails || [])[0] || ""})` : (r.recipient_emails || [])[0] || "",
+        status: r.status,
+        message: String(r.metadata?.message || "").slice(0, 160),
+        subject: r.metadata?.emailSubject || undefined,
+        error: r.status === "failed" ? r.metadata?.error || undefined : undefined,
+        sentBy: r.actor_name,
+        at: r.at,
+      })),
+      onlyYourOwnSends: restricted,
+    });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error("[internalApi/listSentMessagesApi]", error);
+    return res.status(500).json({ error: "Unable to load Mailroom history." });
   }
 }
 
@@ -8826,99 +9348,90 @@ async function resolveMeritSheetSelections(organizationId, cls, term, subjectNam
   return { subjectIds, assessmentIds, warnings };
 }
 
-function getOrdinalSuffix(n) {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
-}
-
-// GET /internal/api/merit-sheets - the actual ranked table data (no PDF, no Puppeteer - just the
-// numbers), for Mira to present as a markdown table. generate_merit_sheet_pdf is the separate,
-// slower step for when a real PDF file is actually wanted.
+// GET /internal/api/merit-sheets - the ranked table data (no PDF), computed by
+// the same code as the merit sheet page (utils/meritSheetData), so Mira's
+// totals, grades and positions always match the page and its PDF.
+// columns: optional comma list of merit sheet column keys (same as the page).
 async function getMeritSheetApi(req, res) {
   try {
     const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to view merit sheets.");
     const { cls, term } = await resolveClassAndTermForPrint(organizationId, req.query.className, req.query.termName, req.query.schoolYearLabel);
     const subjectNames = req.query.subjectNames ? String(req.query.subjectNames).split(",").map((s) => s.trim()).filter(Boolean) : null;
     const assessmentTitles = req.query.assessmentTitles ? String(req.query.assessmentTitles).split(",").map((s) => s.trim()).filter(Boolean) : null;
+    const columnKeys = parseMeritSheetColumns(req.query.columns || undefined);
+    const includeAssessmentScores = String(req.query.includeAssessmentScores || "") === "true";
     const { subjectIds, assessmentIds, warnings } = await resolveMeritSheetSelections(organizationId, cls, term, subjectNames, assessmentTitles);
 
-    const [studentIdSettings, orgRow, subjectsResult] = await Promise.all([
-      getOrganizationStudentIdSettings(db, organizationId),
-      db.query(`SELECT name_display_format FROM organizations WHERE organization_id = $1`, [organizationId]),
-      db.query(`SELECT subject_id, subject_name FROM subjects WHERE subject_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3`, [subjectIds, cls.class_id, organizationId]),
-    ]);
-    const nameDisplayFormat = orgRow.rows[0]?.name_display_format;
+    const orgRow = (await db.query(`SELECT name_display_format FROM organizations WHERE organization_id = $1`, [organizationId])).rows[0];
+    const data = await buildMeritSheetData(db, {
+      organizationId,
+      classId: cls.class_id,
+      termId: term.term_id,
+      subjectIds,
+      assessmentIds,
+      nameDisplayFormat: orgRow?.name_display_format,
+    });
+    if (!data.classDetails) {
+      return res.status(404).json({ error: `${cls.class_name} or ${term.term_name} could not be found.` });
+    }
 
-    const selectedSubjectsData = await Promise.all(
-      subjectsResult.rows.map(async (subject) => {
-        const assessmentsResult = await db.query(
-          `SELECT assessment_id, title, weight FROM assessments WHERE assessment_id = ANY($1::int[]) AND subject_id = $2 AND class_id = $3 AND term_id = $4 AND organization_id = $5`,
-          [assessmentIds, subject.subject_id, cls.class_id, term.term_id, organizationId]
-        );
-        return { ...subject, assessments: assessmentsResult.rows };
-      })
-    );
+    // One compact markdown table (a row per student) instead of nested JSON:
+    // the same data at a fraction of the size, ready to show as-is.
+    // Subject totals are always shown; individual assessment scores (and
+    // their grades) only when asked for, since they make the table very wide.
+    const show = new Set(columnKeys);
+    const perAssessment = includeAssessmentScores;
+    const cell = (value) => String(value === null || value === undefined || value === "" ? "-" : value).replace(/\|/g, "/");
+    const header = [];
+    if (show.has("position")) header.push("Pos");
+    header.push("Student");
+    if (show.has("studentId")) header.push("Student ID");
+    if (show.has("gender")) header.push("Gender");
+    data.subjects.forEach((subject) => {
+      if (perAssessment) subject.assessments.forEach((assessment) => header.push(`${subject.subject_name}: ${assessment.title}`));
+      header.push(perAssessment ? `${subject.subject_name} total` : subject.subject_name);
+    });
+    if (show.has("total")) header.push("Total");
+    if (show.has("average")) header.push("Average");
+    if (show.has("percentage")) header.push("%");
+    if (show.has("overallGrade")) header.push("Grade");
+    if (show.has("remark")) header.push("Remark");
 
-    const students = (await db.query(
-      `SELECT es.student_id, s.custom_student_id, s.first_name, s.last_name
-       FROM enrolled_students es JOIN students s ON es.student_id = s.student_id JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-       WHERE es.class_id = $1 AND e.term_id = $2 AND e.organization_id = $3`,
-      [cls.class_id, term.term_id, organizationId]
-    )).rows;
-
-    const scores = (await db.query(
-      `SELECT ar.student_id, a.subject_id, a.title AS assessment_title, ar.score,
-         COALESCE(
-           (SELECT NULLIF(sr.grade_label, '') FROM score_remarks sr
-            WHERE sr.organization_id = $3 AND sr.class_id = $1 AND sr.term_id = $2
-            ORDER BY
-              CASE WHEN ar.total_percentage >= sr.from_percentage AND ar.total_percentage <= sr.to_percentage THEN 0 ELSE 1 END,
-              CASE WHEN ar.total_percentage > sr.to_percentage THEN ar.total_percentage - sr.to_percentage
-                   WHEN ar.total_percentage < sr.from_percentage THEN sr.from_percentage - ar.total_percentage
-                   ELSE 0 END,
-              sr.from_percentage DESC
-            LIMIT 1),
-           CASE WHEN ar.total_percentage IS NULL THEN NULL
-                WHEN ar.total_percentage >= 90 THEN 'A' WHEN ar.total_percentage >= 80 THEN 'B'
-                WHEN ar.total_percentage >= 70 THEN 'C' ELSE 'D' END
-         ) AS grade
-       FROM assessment_results ar JOIN assessments a ON ar.assessment_id = a.assessment_id
-       WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3`,
-      [cls.class_id, term.term_id, organizationId]
-    )).rows;
-
-    const meritSheetData = students.map((student) => {
-      const subjectTotals = selectedSubjectsData.map((subject) => {
-        const total = subject.assessments.reduce((sum, assessment) => {
-          const scoreRow = scores.find((s) => s.student_id === student.student_id && s.subject_id === subject.subject_id && s.assessment_title === assessment.title);
-          return sum + (scoreRow?.score !== undefined && scoreRow?.score !== null ? parseFloat(scoreRow.score) : 0);
-        }, 0);
-        return { subjectName: subject.subject_name, totalScore: total };
+    const rows = data.meritSheet.map((row) => {
+      const cells = [];
+      if (show.has("position")) cells.push(row.position);
+      cells.push(row.name);
+      if (show.has("studentId")) cells.push(row.studentId);
+      if (show.has("gender")) cells.push(row.gender);
+      row.scores.forEach((subject) => {
+        if (perAssessment) {
+          subject.assessments.forEach((assessment) => {
+            cells.push(show.has("grade") && assessment.grade && assessment.grade !== "-" ? `${assessment.score} (${assessment.grade})` : assessment.score);
+          });
+        }
+        cells.push(Number(subject.totalScore.toFixed(2)));
       });
-      const totalScore = subjectTotals.reduce((sum, s) => sum + s.totalScore, 0);
-      const averageScore = subjectTotals.length ? totalScore / subjectTotals.length : 0;
-      return {
-        studentId: buildStudentDisplayId(student, studentIdSettings),
-        name: formatDisplayName(student, nameDisplayFormat) || [student.first_name, student.last_name].filter(Boolean).join(" ").trim(),
-        subjects: subjectTotals,
-        totalScore: Number(totalScore.toFixed(2)),
-        averageScore: Number(averageScore.toFixed(2)),
-      };
+      if (show.has("total")) cells.push(row.totalScore);
+      if (show.has("average")) cells.push(row.averageScore);
+      if (show.has("percentage")) cells.push(row.percentage);
+      if (show.has("overallGrade")) cells.push(row.overallGrade);
+      if (show.has("remark")) cells.push(row.remark);
+      return `| ${cells.map(cell).join(" | ")} |`;
     });
-
-    meritSheetData.sort((a, b) => b.totalScore - a.totalScore);
-    const hasAnyRecordedScore = scores.length > 0;
-    meritSheetData.forEach((student, index) => {
-      student.position = hasAnyRecordedScore ? `${index + 1}${getOrdinalSuffix(index + 1)}` : "-";
-    });
+    const table = [`| ${header.map(cell).join(" | ")} |`, `| ${header.map(() => "---").join(" | ")} |`, ...rows].join("\n");
 
     return res.json({
-      className: cls.class_name,
-      termName: term.term_name,
-      yearLabel: term.year_label,
-      subjectNames: selectedSubjectsData.map((s) => s.subject_name),
-      students: meritSheetData,
+      className: data.classDetails.class_name,
+      termName: data.classDetails.term_name,
+      yearLabel: data.classDetails.year_label,
+      columns: columnKeys,
+      subjectNames: data.subjects.map((s) => s.subject_name),
+      studentCount: data.meritSheet.length,
+      hasScores: data.hasAnyRecordedScore,
+      table,
+      note: data.hasAnyRecordedScore
+        ? "Sorted by total (ties share a position). Subject columns are each subject's total score."
+        : "No scores have been saved for this class and term yet.",
       warnings,
     });
   } catch (error) {
@@ -8935,6 +9448,7 @@ async function generateMeritSheetPdfApi(req, res) {
     const { cls, term } = await resolveClassAndTermForPrint(organizationId, req.body?.className, req.body?.termName, req.body?.schoolYearLabel);
     const { subjectIds, assessmentIds, warnings } = await resolveMeritSheetSelections(organizationId, cls, term, req.body?.subjectNames, req.body?.assessmentTitles);
 
+    const columnKeys = parseMeritSheetColumns(req.body?.columns || undefined);
     const buffer = await withMintedSession(identity, (session) =>
       renderMeritSheetPdf({
         ...session,
@@ -8942,6 +9456,7 @@ async function generateMeritSheetPdfApi(req, res) {
         termId: term.term_id,
         subjectIds,
         assessmentIds,
+        columns: columnKeys,
       })
     );
 
@@ -8950,7 +9465,7 @@ async function generateMeritSheetPdfApi(req, res) {
     const pdfKey = `merit-sheets/org_${organizationId}/term_${term.term_id}/class_${cls.class_id}/${safeClassName}_${safeTermName}_${Date.now()}.pdf`;
     const pdfUrl = await storePdf(pdfKey, buffer);
 
-    return res.json({ className: cls.class_name, termName: term.term_name, yearLabel: term.year_label, pdfUrl, warnings });
+    return res.json({ className: cls.class_name, termName: term.term_name, yearLabel: term.year_label, columns: columnKeys, pdfUrl, warnings });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
     console.error("[internalApi/generateMeritSheetPdfApi]", error);
@@ -9356,6 +9871,9 @@ module.exports = {
   listWebsiteArticlesApi,
   getWebsiteAboutUsApi,
   getWebsiteSettingsApi,
+  saveWebsiteSectionApi,
+  uploadWebsiteSectionImageApi,
+  listWebsiteMessagesApi,
   uploadWebsiteImageApi,
   updateWebsiteImageApi,
   deleteWebsiteImageApi,
@@ -9428,7 +9946,9 @@ module.exports = {
   listArchivedStudentsApi,
   unarchiveStudentsApi,
   generateReportPdfApi,
-  emailReportPdfApi,
+  sendReportCardsApi,
+  sendMessagesApi,
+  listSentMessagesApi,
   getMeritSheetApi,
   generateMeritSheetPdfApi,
   getNotificationPreferencesApi,

@@ -599,6 +599,7 @@
   </div>
 </div>
 
+<script src="/js/managiraMaps.js"></script>
 <script>
   (function () {
     var driverBus = <%- JSON.stringify(driverBus || null) %>;
@@ -614,32 +615,16 @@
 
     var activeTripId = activeTrip && activeTrip.trip_id ? Number(activeTrip.trip_id) : null;
     var locationTimer = null;
-    var roadGeometryCache = {};
-    var roadGeometryRequestId = 0;
+        var roadGeometryRequestId = 0;
 
-    // Snaps a list of [lat,lng] points to the actual road network so the
-    // route line follows streets instead of cutting straight through
-    // buildings. Falls back to the straight-line points on any failure.
+    // Road-following geometry from the server (shared ManagiraMaps helper).
+    // Resolves null when no road route is available - nothing is drawn rather
+    // than a straight line through buildings. The live position is rounded
+    // to ~10 m so small GPS jitter reuses the cached route.
     function fetchRoadGeometry(latlngs) {
-      if (!Array.isArray(latlngs) || latlngs.length < 2) return Promise.resolve(latlngs || []);
-      var key = latlngs.map(function (p) { return p[0].toFixed(5) + ',' + p[1].toFixed(5); }).join(';');
-      if (roadGeometryCache[key]) return Promise.resolve(roadGeometryCache[key]);
-
-      var coordinates = latlngs.map(function (p) { return p[1].toFixed(7) + ',' + p[0].toFixed(7); }).join(';');
-      var url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson&steps=false';
-
-      return fetch(url)
-        .then(function (response) { return response.json(); })
-        .then(function (payload) {
-          var geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
-          var points = Array.isArray(geometry && geometry.coordinates)
-            ? geometry.coordinates.map(function (entry) { return [Number(entry[1]), Number(entry[0])]; })
-            : null;
-          var resolved = points && points.length >= 2 ? points : latlngs;
-          roadGeometryCache[key] = resolved;
-          return resolved;
-        })
-        .catch(function () { return latlngs; });
+      if (!Array.isArray(latlngs) || latlngs.length < 2 || !window.ManagiraMaps) return Promise.resolve(null);
+      var rounded = latlngs.map(function (p) { return [Math.round(p[0] * 1e4) / 1e4, Math.round(p[1] * 1e4) / 1e4]; });
+      return window.ManagiraMaps.roadPoints(rounded);
     }
     var map = null;
     var busMarker = null;
@@ -883,7 +868,7 @@
         var passedLatLngs = passedStops.map(function (s) { return [Number(s.latitude), Number(s.longitude)]; });
         if (hasPosition) passedLatLngs.push([lat, lng]);
         fetchRoadGeometry(passedLatLngs).then(function (roadPoints) {
-          if (thisRequestId !== roadGeometryRequestId) return;
+          if (thisRequestId !== roadGeometryRequestId || !roadPoints) return;
           window.L.polyline(roadPoints, { color: '#94a3b8', weight: 4, opacity: 0.6, dashArray: '1,8' }).addTo(routeLayer);
         });
       }
@@ -897,7 +882,7 @@
         // stroke, so the path reads clearly over any part of the basemap.
         // Snapped to the actual road network so it never cuts through buildings.
         fetchRoadGeometry(remainingLatLngs).then(function (roadPoints) {
-          if (thisRequestId !== roadGeometryRequestId) return;
+          if (thisRequestId !== roadGeometryRequestId || !roadPoints) return;
           window.L.polyline(roadPoints, { color: '#ffffff', weight: 11, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
           window.L.polyline(roadPoints, { color: routeColor, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
         });
@@ -1030,12 +1015,7 @@
 
         // A calm, Google-Maps-like basemap: soft land, white roads, muted
         // labels — so the route line is the only thing that pops.
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          maxZoom: 20,
-          subdomains: 'abcd',
-          detectRetina: true,
-          attribution: '&copy; OpenStreetMap &copy; CARTO'
-        }).addTo(map);
+        window.ManagiraMaps.addTiles(map);
         // Keep the required OpenStreetMap credit, drop Leaflet's own branding flag.
         map.attributionControl.setPrefix(false);
 

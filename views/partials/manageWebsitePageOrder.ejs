@@ -1,0 +1,251 @@
+<%
+  const mpoBlocks = (typeof pageBlocks !== 'undefined' && pageBlocks) || [];
+  const mpoSettings = (typeof websiteSettings !== 'undefined' && websiteSettings) || {};
+  const mpoPage = mpoSettings.page || { order: [], hidden: [], titles: {} };
+  const mpoContent = (typeof pageContent !== 'undefined' && pageContent) || {};
+  const mpoEditTarget = { quickFacts: 'mwxSections', programs: 'mwxSections', leadership: 'mwxSections', testimonials: 'mwxSections', faq: 'mwxSections', contact: 'mwxContact', about: 'mpcAbout', gallery: 'mpcGallery', articles: 'mpcArticles', events: '', announcements: '' };
+  const mpoExtraLive = (key) => {
+    const section = mpoSettings[key] || {};
+    if (key === 'contact') return section.enabled && section.notifyEmail ? 'live' : (section.enabled ? 'Needs the school email' : 'Switched off');
+    if (!section.enabled) return 'Switched off';
+    return Array.isArray(section.items) && section.items.length ? 'live' : 'Nothing added yet';
+  };
+  // Saved order first, then anything new in its default position.
+  const mpoOrdered = (mpoPage.order || []).map((k) => mpoBlocks.find((b) => b.key === k)).filter(Boolean)
+    .concat(mpoBlocks.filter((b) => !(mpoPage.order || []).includes(b.key)));
+%>
+<style>
+  .mpo-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .mpo-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; }
+  .mpo-row { cursor: grab; transition: box-shadow 0.15s ease, border-color 0.15s ease; }
+  .mpo-row input, .mpo-row label { cursor: auto; }
+  .mpo-row button { cursor: pointer; }
+  .mpo-row.dragging { position: relative; z-index: 2; border-color: var(--org-primary-color, #01535b); background: #f8fafc; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18); }
+  .mpo-list.is-sorting, .mpo-list.is-sorting .mpo-row { cursor: grabbing; user-select: none; }
+  .mpo-handle { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; color: #94a3b8; cursor: grab; font-size: 1.1rem; line-height: 1; user-select: none; touch-action: none; }
+  .mpo-handle:hover { background: #f1f5f9; color: #475569; }
+  .mpo-main { display: grid; gap: 4px; min-width: 0; }
+  .mpo-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 700; color: #0f172a; }
+  .mpo-chip { display: inline-flex; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; }
+  .mpo-chip.live { background: #dcfce7; color: #166534; }
+  .mpo-chip.off { background: #f1f5f9; color: #64748b; }
+  .mpo-title { width: 100%; max-width: 360px; margin: 0; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; font-size: 0.84rem; color: #111827; background: #fff; box-sizing: border-box; }
+  .mpo-side { display: flex; align-items: center; gap: 6px; }
+  .mpo-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: #334155; cursor: pointer; white-space: nowrap; }
+  .mpo-switch input { width: 16px; height: 16px; margin: 0; accent-color: var(--org-primary-color, #01535b); }
+  .mpo-move { width: 30px !important; height: 30px; margin: 0; padding: 0; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #334155; font-size: 0.85rem; line-height: 1; cursor: pointer; box-shadow: none; }
+  .mpo-move:hover { border-color: #94a3b8; }
+  .mpo-move[disabled] { opacity: 0.35; cursor: default; }
+  .mpo-edit { font-size: 0.8rem; font-weight: 700; color: var(--org-primary-color, #01535b); background: none; border: 0; padding: 0 4px; width: auto !important; margin: 0; cursor: pointer; box-shadow: none; text-decoration: underline; }
+  .mpo-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+  .mpo-foot .mpo-note { font-size: 0.82rem; color: #64748b; }
+  .mpo-foot-actions { display: flex; gap: 8px; }
+  @media (max-width: 640px) {
+    .mpo-row { grid-template-columns: auto minmax(0, 1fr); }
+    .mpo-side { grid-column: 1 / -1; flex-wrap: wrap; justify-content: flex-end; }
+  }
+</style>
+
+<div class="content-container" id="mpoPanel">
+  <div class="images-header">
+    <h2><i class="fa-solid fa-list-ol mpc-h-icon" aria-hidden="true"></i> Page Sections &amp; Order</h2>
+    <div class="header-actions">
+      <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+    </div>
+  </div>
+  <p class="mwx-hint" style="margin:0 0 12px;color:#64748b;font-size:0.88rem;">Drag sections by the ⋮⋮ handle (or use the arrows) to set the order they appear on your website, below the slideshow. Rename built-in headings and hide any you don't want. Sections with nothing in them are hidden automatically.</p>
+  <ol class="mpo-list" id="mpoList">
+    <% mpoOrdered.forEach((b) => {
+         let status; let live;
+         if (b.builtin) {
+           const hidden = (mpoPage.hidden || []).includes(b.key);
+           const has = Number(mpoContent[b.key] || 0) > 0;
+           live = !hidden && has;
+           status = hidden ? 'Hidden by you' : has ? 'Live' : 'Nothing added yet';
+         } else {
+           const st = mpoExtraLive(b.key);
+           live = st === 'live';
+           status = live ? 'Live' : st;
+         } %>
+      <li class="mpo-row" data-key="<%= b.key %>">
+        <span class="mpo-handle" aria-hidden="true">⋮⋮</span>
+        <div class="mpo-main">
+          <span class="mpo-name"><%= b.label %> <span class="mpo-chip <%= live ? 'live' : 'off' %>" data-mpo-status><%= status %></span></span>
+          <% if (b.builtin) { %>
+            <input type="text" class="mpo-title" maxlength="80" data-mpo-title placeholder="<%= b.defaultTitle %>" value="<%= (mpoPage.titles || {})[b.key] || '' %>" aria-label="Heading for <%= b.label %>">
+          <% } %>
+        </div>
+        <div class="mpo-side">
+          <% if (b.builtin) { %>
+            <label class="mpo-switch"><input type="checkbox" data-mpo-show <%= (mpoPage.hidden || []).includes(b.key) ? '' : 'checked' %>> Show</label>
+          <% } %>
+          <% if (mpoEditTarget[b.key]) { %><button type="button" class="mpo-edit" data-mpo-edit="<%= mpoEditTarget[b.key] %>">Edit</button><% } %>
+          <button type="button" class="mpo-move" data-mpo-up aria-label="Move <%= b.label %> up">▲</button>
+          <button type="button" class="mpo-move" data-mpo-down aria-label="Move <%= b.label %> down">▼</button>
+        </div>
+      </li>
+    <% }) %>
+  </ol>
+  <div class="mpo-foot">
+    <span class="mpo-note" id="mpoNote">Events and announcements are managed in Events &amp; Announcements.</span>
+    <div class="mpo-foot-actions">
+      <button type="button" class="mwx-btn mwx-btn-ghost" id="mpoReset">Default order</button>
+      <button type="button" class="mwx-btn mwx-btn-primary" id="mpoSave">Save order</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var list = document.getElementById('mpoList');
+    if (!list) return;
+    var defaultOrder = <%- JSON.stringify(mpoBlocks.map((b) => b.key)) %>;
+    var dirty = false;
+    function rows() { return Array.prototype.slice.call(list.querySelectorAll('.mpo-row')); }
+    function syncArrows() {
+      var all = rows();
+      all.forEach(function (row, i) {
+        row.querySelector('[data-mpo-up]').disabled = i === 0;
+        row.querySelector('[data-mpo-down]').disabled = i === all.length - 1;
+      });
+    }
+    function markDirty() {
+      dirty = true;
+      var note = document.getElementById('mpoNote');
+      note.textContent = 'Unsaved changes - click "Save order" to update your website.';
+      note.style.color = '#92400e';
+    }
+    function toast(message, isError) {
+      var el = document.getElementById('mwxToast');
+      if (!el) return alert(message);
+      el.textContent = message;
+      el.classList.toggle('error', Boolean(isError));
+      el.classList.add('show');
+      setTimeout(function () { el.classList.remove('show'); }, 2400);
+    }
+
+    list.addEventListener('click', function (event) {
+      var row = event.target.closest('.mpo-row');
+      if (!row) return;
+      if (event.target.closest('[data-mpo-up]') && row.previousElementSibling) {
+        list.insertBefore(row, row.previousElementSibling); syncArrows(); markDirty(); row.querySelector('[data-mpo-up]').focus();
+      } else if (event.target.closest('[data-mpo-down]') && row.nextElementSibling) {
+        list.insertBefore(row.nextElementSibling, row); syncArrows(); markDirty(); row.querySelector('[data-mpo-down]').focus();
+      } else if (event.target.closest('[data-mpo-edit]')) {
+        var panel = document.getElementById(event.target.closest('[data-mpo-edit]').getAttribute('data-mpo-edit'));
+        if (!panel) return;
+        var toggle = panel.querySelector('.section-collapse-toggle');
+        if (toggle && toggle.getAttribute('aria-expanded') === 'false') toggle.click();
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+    list.addEventListener('input', markDirty);
+    list.addEventListener('change', markDirty);
+
+    // Drag to reorder (mouse, trackpad and touch). Uses pointer events and
+    // finds the row under the pointer directly, so the page's CSS zoom can't
+    // throw the positions off. Mouse: drag anywhere on a row. Touch: drag the
+    // ⋮⋮ handle (the rest of the row still scrolls the page).
+    var sorting = null;
+    list.addEventListener('pointerdown', function (event) {
+      if (event.button !== undefined && event.button !== 0) return;
+      var row = event.target.closest('.mpo-row');
+      if (!row || event.target.closest('input, button, label, select, textarea, a')) return;
+      var onHandle = Boolean(event.target.closest('.mpo-handle'));
+      if (event.pointerType !== 'mouse' && !onHandle) return;
+      sorting = { row: row, pointerId: event.pointerId, startY: event.clientY, started: false };
+      event.preventDefault(); // no text selection while dragging
+    });
+    document.addEventListener('pointermove', function (event) {
+      if (!sorting || event.pointerId !== sorting.pointerId) return;
+      if (!sorting.started) {
+        if (Math.abs(event.clientY - sorting.startY) < 4) return;
+        sorting.started = true;
+        sorting.row.classList.add('dragging');
+        list.classList.add('is-sorting');
+        try { window.getSelection().removeAllRanges(); } catch (_) {}
+      }
+      event.preventDefault();
+      var under = document.elementFromPoint(event.clientX, event.clientY);
+      var over = under && under.closest ? under.closest('.mpo-row') : null;
+      if (over && over !== sorting.row && over.parentNode === list) {
+        var all = rows();
+        if (all.indexOf(over) < all.indexOf(sorting.row)) list.insertBefore(sorting.row, over);
+        else list.insertBefore(sorting.row, over.nextElementSibling);
+      }
+      if (event.clientY < 70) window.scrollBy(0, -14);
+      else if (event.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
+    }, { passive: false });
+    function endSorting() {
+      if (!sorting) return;
+      if (sorting.started) {
+        sorting.row.classList.remove('dragging');
+        list.classList.remove('is-sorting');
+        syncArrows();
+        markDirty();
+      }
+      sorting = null;
+    }
+    document.addEventListener('pointerup', endSorting);
+    document.addEventListener('pointercancel', endSorting);
+    list.addEventListener('dragstart', function (event) { event.preventDefault(); });
+
+    document.getElementById('mpoReset').addEventListener('click', function () {
+      defaultOrder.forEach(function (key) {
+        var row = list.querySelector('.mpo-row[data-key="' + key + '"]');
+        if (row) list.appendChild(row);
+      });
+      syncArrows();
+      markDirty();
+    });
+
+    document.getElementById('mpoSave').addEventListener('click', async function () {
+      var button = this;
+      var payload = { order: [], hidden: [], titles: {} };
+      rows().forEach(function (row) {
+        var key = row.dataset.key;
+        payload.order.push(key);
+        var show = row.querySelector('[data-mpo-show]');
+        if (show && !show.checked) payload.hidden.push(key);
+        var title = row.querySelector('[data-mpo-title]');
+        if (title && title.value.trim()) payload.titles[key] = title.value.trim();
+      });
+      button.disabled = true;
+      button.textContent = 'Saving...';
+      try {
+        var res = await fetch('/account/website/section/page', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error(data.message || 'Could not save. Please try again.');
+        dirty = false;
+        var note = document.getElementById('mpoNote');
+        note.textContent = 'Saved. Your website now shows sections in this order.';
+        note.style.color = '#166534';
+        rows().forEach(function (row) {
+          var show = row.querySelector('[data-mpo-show]');
+          var chip = row.querySelector('[data-mpo-status]');
+          if (!show || !chip) return;
+          if (!show.checked) { chip.textContent = 'Hidden by you'; chip.className = 'mpo-chip off'; }
+          else if (chip.textContent === 'Hidden by you') { chip.textContent = 'Shown when it has content'; chip.className = 'mpo-chip off'; }
+        });
+        toast('Order saved.');
+      } catch (error) {
+        toast(error.message, true);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Save order';
+      }
+    });
+
+    window.addEventListener('beforeunload', function (event) {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    });
+    syncArrows();
+  })();
+</script>

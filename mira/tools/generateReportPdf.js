@@ -4,10 +4,10 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 module.exports = {
   name: "generate_report_pdf",
   description:
-    "Generate a student's report card as a real PDF (Terminal Report) and get a download link - the exact same report the real print page produces, " +
-    "already reflecting whatever grading scale/promotion/display settings are configured (see the Report Settings tools). Give one or more studentNames, " +
-    "or allInClass:true for everyone (max 10 per call - ask again for more). Defaults to the org's current school year/term unless you name a different " +
-    "one. This tool only generates and hands over the PDF - it doesn't change any report content or settings. Needs Manage Reports.",
+    "Generate students' report cards as PDFs (Terminal Report) with download links - always freshly generated from the website's own report page, so " +
+    "they show the latest scores, grading scale, positions and display settings, in the school's colours. Give one or more studentNames, or " +
+    "allInClass:true (max 10 per call - offer to continue for more). Defaults to the current school year/term. This only creates download links: it " +
+    "does NOT post the report to parents or change anything. Needs Manage Reports.",
   parameters: {
     type: "object",
     properties: {

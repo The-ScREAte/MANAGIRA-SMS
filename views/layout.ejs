@@ -104,6 +104,10 @@
 
         <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>
             <%- include('partials/announcementFeed') %>
+            <% if (session && session.organizationId && !session.superAdminOrgSwitch && !(typeof noFeedbackPrompt !== 'undefined' && noFeedbackPrompt)) { %>
+                <link rel="stylesheet" href="/css/feedbackPrompt.css">
+                <script src="/js/feedbackPrompt.js" data-autoprompt="1" defer></script>
+            <% } %>
         <% } %>
 
         <main>

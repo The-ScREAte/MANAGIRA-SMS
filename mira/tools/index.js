@@ -8,6 +8,7 @@
 // vision, but which a tool (like upload_website_image) needs the actual
 // bytes for, not a model-retyped description of them. Existing tools that
 // don't declare a third parameter are unaffected; JS simply ignores it.
+const { runAsCaller } = require("../internalApiClient");
 const findStudent = require("./findStudent");
 const findContact = require("./findContact");
 const getFees = require("./getFees");
@@ -88,6 +89,8 @@ const listWebsiteArticles = require("./listWebsiteArticles");
 const getWebsiteAboutUs = require("./getWebsiteAboutUs");
 const getWebsiteSettings = require("./getWebsiteSettings");
 const uploadWebsiteImage = require("./uploadWebsiteImage");
+const updateWebsiteSection = require("./updateWebsiteSection");
+const listWebsiteMessages = require("./listWebsiteMessages");
 const updateWebsiteImage = require("./updateWebsiteImage");
 const deleteWebsiteImage = require("./deleteWebsiteImage");
 const createWebsiteArticle = require("./createWebsiteArticle");
@@ -155,7 +158,9 @@ const closeGraduationYearGroup = require("./closeGraduationYearGroup");
 const listArchivedStudents = require("./listArchivedStudents");
 const unarchiveStudents = require("./unarchiveStudents");
 const generateReportPdf = require("./generateReportPdf");
-const emailReportPdf = require("./emailReportPdf");
+const postOrSendReportCards = require("./postOrSendReportCards");
+const sendMessage = require("./sendMessage");
+const listSentMessages = require("./listSentMessages");
 const getMeritSheet = require("./getMeritSheet");
 const generateMeritSheetPdf = require("./generateMeritSheetPdf");
 const getNotificationPreferences = require("./getNotificationPreferences");
@@ -250,6 +255,8 @@ const ALL_TOOLS = [
   getWebsiteAboutUs,
   getWebsiteSettings,
   uploadWebsiteImage,
+  updateWebsiteSection,
+  listWebsiteMessages,
   updateWebsiteImage,
   deleteWebsiteImage,
   createWebsiteArticle,
@@ -317,7 +324,9 @@ const ALL_TOOLS = [
   listArchivedStudents,
   unarchiveStudents,
   generateReportPdf,
-  emailReportPdf,
+  postOrSendReportCards,
+  sendMessage,
+  listSentMessages,
   getMeritSheet,
   generateMeritSheetPdf,
   getNotificationPreferences,
@@ -344,7 +353,10 @@ async function runTool(name, args, tenant, context) {
     return { status: "denied", result: `Unknown tool: ${name}` };
   }
   try {
-    const result = await tool.handler(args, tenant, context);
+    // Every internal API call this tool makes carries the caller's identity
+    // (see internalApiClient.js), so the main app applies its own
+    // permission checks to reads as well as writes.
+    const result = await runAsCaller(tenant, () => tool.handler(args, tenant, context));
     return { status: "ok", result };
   } catch (error) {
     if (error.denied) {

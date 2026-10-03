@@ -6,6 +6,7 @@ const { isAuthenticated, blockGuardians } = require("../middleware/middleware");
 const { upload } = require("../middleware/s3Upload");
 const checkFeatureAccess = require("../middleware/checkFeatureAccess");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
+const websiteController = require("../controllers/websiteController");
 const multer = require('multer');
 const path = require('path');
 
@@ -78,6 +79,8 @@ module.exports = (db) => {
       return commonController.orgDashboardRestricted(req, res, db);
     }
   );
+  // Public website contact form (no sign-in).
+  router.post("/publicContact", websiteController.publicContact);
   router.get("/publicDashboard", checkFeatureAccess, (req, res) => {
     const isProduction = process.env.NODE_ENV === "production";
 

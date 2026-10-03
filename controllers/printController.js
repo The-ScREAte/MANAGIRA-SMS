@@ -19,6 +19,7 @@ const { sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelpe
 const { getOrganizationWebsiteInfo } = require("../utils/schoolWebsiteAccess");
 const { buildStudentDisplayId, getOrganizationStudentIdSettings } = require("../utils/studentIdDisplay");
 const { formatDisplayDate, formatDisplayName } = require("../utils/organizationDisplayPreferences");
+const { parseMeritSheetColumns, meritSheetColumnFlags, buildMeritSheetData } = require("../utils/meritSheetData");
 const notificationService = require("../utils/notificationService");
 const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const {
@@ -1434,59 +1435,6 @@ const assignScoreRemark = async (percentage, organizationId, db) => {
   cache.set(cacheKey, remark); // Cache the data
   return remark;
 };
-
-// Optional merit sheet columns staff can show or hide. S/N, student name and
-// the assessment scores are always shown. The defaults are the original
-// layout, so links and callers that do not choose columns are unchanged.
-const MERIT_SHEET_COLUMN_KEYS = [
-  "studentId",
-  "gender",
-  "grade",
-  "subjectTotal",
-  "total",
-  "average",
-  "percentage",
-  "overallGrade",
-  "position",
-  "remark",
-];
-const DEFAULT_MERIT_SHEET_COLUMNS = ["studentId", "grade", "total", "average", "position"];
-
-// Accepts an array or comma-separated list of column keys; undefined means
-// "not chosen" and gives the defaults. Returns the enabled keys in order.
-function parseMeritSheetColumns(input) {
-  if (input === undefined || input === null) return [...DEFAULT_MERIT_SHEET_COLUMNS];
-  const requested = new Set(
-    (Array.isArray(input) ? input : String(input).split(","))
-      .map((value) => String(value || "").trim())
-      .filter(Boolean)
-  );
-  return MERIT_SHEET_COLUMN_KEYS.filter((key) => requested.has(key));
-}
-
-// Picks the school's grade band for a percentage (Report Settings grading
-// scale): the band containing it, else the nearest band, else the higher one.
-function resolveScoreBand(bands, percentage) {
-  if (!Number.isFinite(percentage) || !bands.length) return null;
-  let best = null;
-  let bestDistance = Infinity;
-  bands.forEach((band) => {
-    const from = Number(band.from_percentage);
-    const to = Number(band.to_percentage);
-    if (!Number.isFinite(from) || !Number.isFinite(to)) return;
-    const distance = percentage >= from && percentage <= to ? 0 : percentage < from ? from - percentage : percentage - to;
-    if (!best || distance < bestDistance || (distance === bestDistance && from > Number(best.from_percentage))) {
-      best = band;
-      bestDistance = distance;
-    }
-  });
-  return best;
-}
-
-function meritSheetColumnFlags(columnKeys) {
-  const enabled = new Set(columnKeys);
-  return Object.fromEntries(MERIT_SHEET_COLUMN_KEYS.map((key) => [key, enabled.has(key)]));
-}
 
 const printController = (db) => ({
   printStudentReport: async (req, res) => {
@@ -6139,121 +6087,25 @@ const printController = (db) => ({
         return res.redirect(meritSheetBaseUrl);
       }
 
-      // Everything below depends only on the organization, class, term and
-      // selection, so the reads run together.
-      const [
-        organizationResult,
-        studentIdSettings,
-        classDetailsResult,
-        subjectsResult,
-        assessmentsResult,
-        studentsResult,
-        scoresResult,
-        scoreBandsResult,
-      ] = await Promise.all([
-        db.query(
-          `
-            SELECT organization_name, logo_path
-            FROM organizations
-            WHERE organization_id = $1
-        `,
-          [organizationId]
-        ),
-        getOrganizationStudentIdSettings(db, organizationId),
-        db.query(
-          `
-            SELECT c.class_name, t.term_name, sy.year_label
-            FROM classes c
-            JOIN terms t ON t.term_id = $1 AND t.organization_id = $2
-            JOIN school_years sy ON t.school_year_id = sy.id
-            WHERE c.class_id = $3 AND c.organization_id = $2
-        `,
-          [parsedTermId, organizationId, parsedClassId]
-        ),
-        db.query(
-          `SELECT subject_id, subject_name
-           FROM subjects
-           WHERE subject_id = ANY($1::int[]) AND class_id = $2 AND organization_id = $3
-           ORDER BY subject_name ASC, subject_id ASC`,
-          [subjectIds, parsedClassId, organizationId]
-        ),
-        db.query(
-          `SELECT assessment_id, subject_id, title, weight, category, max_score
-           FROM assessments
-           WHERE assessment_id = ANY($1::int[]) AND class_id = $2 AND term_id = $3 AND organization_id = $4
-           ORDER BY assessment_id ASC`,
-          [assessmentIds, parsedClassId, parsedTermId, organizationId]
-        ),
-        db.query(`SELECT es.student_id, s.custom_student_id, s.first_name, s.last_name, s.gender
-         FROM enrolled_students es
-         JOIN students s ON es.student_id = s.student_id
-         JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-         WHERE es.class_id = $1
-           AND e.term_id = $2
-           AND e.organization_id = $3`, [parsedClassId, parsedTermId, organizationId]),
-        db.query(
-          `
-            SELECT
-              ar.student_id,
-              a.subject_id,
-              a.title AS assessment_title,
-              ar.score,
-              COALESCE(
-                (
-                  SELECT NULLIF(sr.grade_label, '')
-                  FROM score_remarks sr
-                  WHERE sr.organization_id = $3
-                    AND sr.class_id = $1
-                    AND sr.term_id = $2
-                  ORDER BY
-                    CASE
-                      WHEN ar.total_percentage >= sr.from_percentage
-                           AND ar.total_percentage <= sr.to_percentage THEN 0
-                      ELSE 1
-                    END,
-                    CASE
-                      WHEN ar.total_percentage > sr.to_percentage THEN ar.total_percentage - sr.to_percentage
-                      WHEN ar.total_percentage < sr.from_percentage THEN sr.from_percentage - ar.total_percentage
-                      ELSE 0
-                    END,
-                    sr.from_percentage DESC
-                  LIMIT 1
-                ),
-                CASE
-                  WHEN ar.total_percentage IS NULL THEN NULL
-                  WHEN ar.total_percentage >= 90 THEN 'A'
-                  WHEN ar.total_percentage >= 80 THEN 'B'
-                  WHEN ar.total_percentage >= 70 THEN 'C'
-                  ELSE 'D'
-                END
-              ) AS grade,
-              a.weight
-            FROM assessment_results ar
-            JOIN assessments a ON ar.assessment_id = a.assessment_id
-            WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3
-        `,
-          [parsedClassId, parsedTermId, organizationId]
-        ),
-        // The class's grading scale for this term (Overall Grade and Remark).
-        db.query(
-          `SELECT from_percentage, to_percentage, NULLIF(TRIM(grade_label), '') AS grade_label, NULLIF(TRIM(remark), '') AS remark
-         FROM score_remarks
-         WHERE organization_id = $1 AND class_id = $2 AND term_id = $3`,
-          [organizationId, parsedClassId, parsedTermId]
-        ),
-      ]);
+      const meritSheetResult = await buildMeritSheetData(db, {
+        organizationId,
+        classId: parsedClassId,
+        termId: parsedTermId,
+        subjectIds,
+        assessmentIds,
+        nameDisplayFormat: req.session?.nameDisplayFormat,
+      });
 
-      const organization = organizationResult.rows[0];
+      const organization = meritSheetResult.organization;
       if (!organization) {
         return res.status(404).send("Organization not found.");
       }
 
-      const orgNameDisplayFormat = req.session?.nameDisplayFormat;
       const logoUrl = organization.logo_path
         ? `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${organization.logo_path}`
         : null;
 
-      if (classDetailsResult.rows.length === 0) {
+      if (!meritSheetResult.classDetails) {
         req.flash("error", "Class or term details not found. Please regenerate.");
         const qs = parsedClassId && parsedTermId
           ? `?classId=${parsedClassId}&termId=${parsedTermId}${isEmbedded ? "&embed=workspace" : ""}`
@@ -6265,118 +6117,9 @@ const printController = (db) => ({
         class_name: className,
         term_name: termName,
         year_label: schoolYear,
-      } = classDetailsResult.rows[0];
-
-      const assessmentsBySubject = new Map();
-      assessmentsResult.rows.forEach((assessment) => {
-        const key = Number(assessment.subject_id);
-        if (!assessmentsBySubject.has(key)) assessmentsBySubject.set(key, []);
-        assessmentsBySubject.get(key).push(assessment);
-      });
-      const selectedSubjectsData = subjectsResult.rows.map((subject) => ({
-        ...subject,
-        assessments: assessmentsBySubject.get(Number(subject.subject_id)) || [],
-      }));
-
-      const students = studentsResult.rows;
-      const scoreBands = scoreBandsResult.rows;
-
-      // Scores indexed by student, subject and assessment title.
-      const scoreByKey = new Map();
-      scoresResult.rows.forEach((score) => {
-        const key = `${score.student_id}|${score.subject_id}|${score.assessment_title}`;
-        if (!scoreByKey.has(key)) scoreByKey.set(key, score);
-      });
-
-      // Highest possible total across the selected assessments (for Percentage).
-      const maxPossibleTotal = selectedSubjectsData.reduce(
-        (sum, subject) =>
-          sum + subject.assessments.reduce((subjectSum, assessment) => subjectSum + (Number(assessment.max_score) || 0), 0),
-        0
-      );
-
-      // Process students and attach scores, grades, and positions
-      const meritSheetData = students.map((student) => {
-        const studentScores = selectedSubjectsData.map((subject) => {
-          const subjectAssessments = subject.assessments.map((assessment) => {
-            const scoreData = scoreByKey.get(`${student.student_id}|${subject.subject_id}|${assessment.title}`);
-
-            return {
-              title: assessment.title,
-              score: scoreData ? scoreData.score : "-",
-              grade: scoreData ? scoreData.grade : "-",
-              weight: assessment.weight,
-            };
-          });
-
-          const totalSubjectScore = subjectAssessments.reduce(
-            (total, assessment) => {
-              return (
-                total +
-                (assessment.score !== "-" ? parseFloat(assessment.score) : 0)
-              );
-            },
-            0
-          );
-
-          return {
-            subjectName: subject.subject_name,
-            assessments: subjectAssessments,
-            totalScore: totalSubjectScore,
-          };
-        });
-
-        const totalScore = studentScores.reduce(
-          (total, subject) => total + subject.totalScore,
-          0
-        );
-        const averageScore = totalScore / studentScores.length;
-        const percentageValue = maxPossibleTotal > 0 ? (totalScore / maxPossibleTotal) * 100 : null;
-        const hasRecordedScore = studentScores.some((subject) =>
-          subject.assessments.some((assessment) => assessment.score !== "-" && assessment.score !== null)
-        );
-        // No scores yet: no grade band, rather than the lowest band.
-        const scoreBand = percentageValue === null || !hasRecordedScore ? null : resolveScoreBand(scoreBands, percentageValue);
-        const genderText = String(student.gender || "").trim();
-
-        return {
-          studentId: buildStudentDisplayId(student, studentIdSettings),
-          name:
-            formatDisplayName(student, orgNameDisplayFormat) ||
-            [student.first_name, student.last_name].filter(Boolean).join(" ").trim(),
-          scores: studentScores,
-          totalScore: totalScore.toFixed(2),
-          averageScore: averageScore.toFixed(2),
-          percentage: percentageValue === null ? "-" : `${percentageValue.toFixed(2)}%`,
-          gender: genderText ? genderText.charAt(0).toUpperCase() + genderText.slice(1).toLowerCase() : "-",
-          overallGrade: scoreBand?.grade_label || "-",
-          remark: scoreBand?.remark || "-",
-        };
-      });
-
-      // Sort students by total score and assign positions
-      meritSheetData.sort((a, b) => b.totalScore - a.totalScore);
-      const hasAnyRecordedScore = meritSheetData.some((student) =>
-        Array.isArray(student.scores) &&
-        student.scores.some((subject) =>
-          Array.isArray(subject.assessments) &&
-          subject.assessments.some((assessment) => assessment.score !== "-" && assessment.score !== null)
-        )
-      );
-
-      // Standard competition ranking (1, 1, 3) so tied totals share a
-      // position, matching the report card and score sheet.
-      let previousRoundedTotal = null;
-      let previousPosition = 0;
-      meritSheetData.forEach((student, index) => {
-        const roundedTotal = Math.round((Number(student.totalScore) || 0) * 100) / 100;
-        const position = roundedTotal === previousRoundedTotal ? previousPosition : index + 1;
-        previousRoundedTotal = roundedTotal;
-        previousPosition = position;
-        student.position = hasAnyRecordedScore
-          ? `${position}${getOrdinalSuffix(position)}`
-          : "-";
-      });
+      } = meritSheetResult.classDetails;
+      const selectedSubjectsData = meritSheetResult.subjects;
+      const meritSheetData = meritSheetResult.meritSheet;
 
       // Cache last run to support refresh on the same URL (before render in case render fails)
       req.session.lastMeritSheet = {
@@ -6387,7 +6130,6 @@ const printController = (db) => ({
         columns: columnKeys,
       };
 
-      const isEmbedded = isEmbeddedRequest(req, "meritSheetPage");
       res.render("print/meritSheetPage", {
         title: "Merit Sheet",
         isEmbedded,
@@ -7219,7 +6961,7 @@ const printController = (db) => ({
               `INSERT INTO posted_report_cards (
                  organization_id, class_id, term_id, school_year_id, student_id, pdf_s3_key, pdf_url, posted_by, posted_at, updated_at
                )
-               SELECT *
+               SELECT batch.*, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                FROM UNNEST(
                  $1::int[],
                  $2::int[],
@@ -7365,11 +7107,16 @@ const printController = (db) => ({
 
             if (postedRecords.length) {
               await db.query(
+                // Each row's recipient list goes in as a JSON array: UNNEST would
+                // flatten a two-dimensional text array into single emails.
                 `INSERT INTO delivery_audit_history (
                    organization_id, event_domain, event_name, class_id, term_id, student_id,
                    student_name, actor_user_id, actor_name, recipient_emails, status, batch_id, pdf_url, notes, metadata
                  )
-                 SELECT *
+                 SELECT b.organization_id, b.event_domain, b.event_name, b.class_id, b.term_id, b.student_id,
+                        b.student_name, b.actor_user_id, b.actor_name,
+                        ARRAY(SELECT jsonb_array_elements_text(b.recipients)),
+                        b.status, b.batch_id, b.pdf_url, b.notes, b.metadata
                  FROM UNNEST(
                    $1::int[],
                    $2::text[],
@@ -7380,13 +7127,14 @@ const printController = (db) => ({
                    $7::text[],
                    $8::int[],
                    $9::text[],
-                   $10::text[][],
+                   $10::jsonb[],
                    $11::text[],
                    $12::text[],
                    $13::text[],
                    $14::text[],
                    $15::jsonb[]
-                 )`,
+                 ) AS b(organization_id, event_domain, event_name, class_id, term_id, student_id,
+                        student_name, actor_user_id, actor_name, recipients, status, batch_id, pdf_url, notes, metadata)`,
                 [
                   postedRecords.map(() => organizationId),
                   postedRecords.map(() => 'report'),
@@ -7397,12 +7145,12 @@ const printController = (db) => ({
                   postedRecords.map((item) => studentNameById.get(Number(item.studentId)) || `Student ${item.studentId}`),
                   postedRecords.map(() => postedBy),
                   postedRecords.map(() => postActorName),
-                  postedRecords.map((item) => Array.from(guardianEmailsByStudent.get(Number(item.studentId)) || [])),
+                  postedRecords.map((item) => JSON.stringify(Array.from(guardianEmailsByStudent.get(Number(item.studentId)) || []))),
                   postedRecords.map(() => 'posted'),
                   postedRecords.map(() => activityBatchId),
                   postedRecords.map((item) => String(item.pdfUrl || '')),
                   postedRecords.map(() => `Report posted for ${className} (${termName}).`),
-                  postedRecords.map(() => ({ source: 'postReportCards' })),
+                  postedRecords.map(() => JSON.stringify({ source: 'postReportCards' })),
                 ]
               );
             }

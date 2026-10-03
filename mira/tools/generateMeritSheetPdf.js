@@ -4,9 +4,9 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 module.exports = {
   name: "generate_merit_sheet_pdf",
   description:
-    "Generate a class merit sheet as a real downloadable PDF. This is the SECOND step, not the first: call get_merit_sheet first and show the user the " +
-    "table - only call this (slower, launches a real browser to render the file) once they actually want a PDF file, not just to see the numbers. Same " +
-    "subject/assessment/term defaults as get_merit_sheet - pass the same arguments so the PDF matches what they already saw. Needs Manage Reports.",
+    "Generate a class merit sheet as a real downloadable PDF - the same file the website's Merit Sheet Download button produces (school colours, " +
+    "wide sheets split across pages). This is the SECOND step: call get_merit_sheet first and show the table; call this (slower) once the user wants a " +
+    "PDF file. Pass the same arguments as get_merit_sheet (subjects, assessments, term, columns) so the PDF matches what they saw. Needs Manage Reports.",
   parameters: {
     type: "object",
     properties: {
@@ -15,6 +15,11 @@ module.exports = {
       schoolYearLabel: { type: "string" },
       subjectNames: { type: "array", items: { type: "string" }, description: "Defaults to every subject in the class." },
       assessmentTitles: { type: "array", items: { type: "string" }, description: "Defaults to every assessment for the selected subjects/term." },
+      columns: {
+        type: "array",
+        items: { type: "string", enum: ["studentId", "gender", "grade", "subjectTotal", "total", "average", "percentage", "overallGrade", "position", "remark"] },
+        description: "Same column choice as get_merit_sheet - pass what the user saw. Omit for the default columns.",
+      },
     },
     required: ["className"],
   },
@@ -34,6 +39,7 @@ module.exports = {
         schoolYearLabel: args.schoolYearLabel,
         subjectNames: args.subjectNames,
         assessmentTitles: args.assessmentTitles,
+        columns: args.columns,
       });
 
       await logMiraActivity(tenant, {

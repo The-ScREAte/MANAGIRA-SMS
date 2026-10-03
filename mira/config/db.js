@@ -10,16 +10,21 @@
 require("dotenv").config({ path: require("path").resolve(__dirname, "../../.env") });
 const { Pool } = require("pg");
 
-const connectionString = process.env.MIRA_DB_CONNECTION_STRING || process.env.DB_CONNECTION_STRING;
+const rawConnectionString = process.env.MIRA_DB_CONNECTION_STRING || process.env.DB_CONNECTION_STRING;
 
-if (!connectionString) {
+if (!rawConnectionString) {
   throw new Error(
     "MIRA_DB_CONNECTION_STRING (or DB_CONNECTION_STRING as a fallback) is not set. Mira cannot start without a database."
   );
 }
 
 const shouldUseSsl =
-  String(process.env.MIRA_DB_SSL || "").toLowerCase() === "true" || connectionString.includes("sslmode=require");
+  String(process.env.MIRA_DB_SSL || "").toLowerCase() === "true" || /sslmode=(require|prefer|verify-ca|verify-full)\b/.test(rawConnectionString);
+
+// The pg driver already treats sslmode=require/prefer/verify-ca as
+// verify-full and prints a SECURITY WARNING on every start; saying
+// verify-full explicitly keeps exactly the same behaviour without the noise.
+const connectionString = rawConnectionString.replace(/sslmode=(require|prefer|verify-ca)\b/, "sslmode=verify-full");
 
 const pool = new Pool({
   connectionString,

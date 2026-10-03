@@ -1,9 +1,14 @@
 /* Shared broadcast UI: banner stack + modal queue rendered by
    public/js/announcementFeed.js from GET /me/announcements. */
 
+/* The site header is position:fixed (out of document flow), so this stack -
+   the first thing in normal flow right after it - needs its own offset to
+   clear it; "top: 0" alone would tuck it underneath the header instead of
+   below it. Sticking at --header-height keeps it pinned just under the
+   header on scroll instead of jumping to the real viewport top. */
 .ann-banner-stack {
   position: sticky;
-  top: 0;
+  top: var(--header-height, 64px);
   z-index: 9000;
   display: flex;
   flex-direction: column;
@@ -14,12 +19,13 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 10px 44px 10px 16px;
+  padding: 12px 44px 12px 16px;
   font-size: 14px;
   line-height: 1.4;
   position: relative;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
 }
+.ann-banner + .ann-banner { margin-top: 1px; }
 
 .ann-banner-info    { background: #eef4ff; color: #1d3a8a; }
 .ann-banner-success  { background: #eafaf0; color: #17643c; }
@@ -63,10 +69,35 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
+  transition: background 0.15s ease;
 }
 .ann-modal-overlay[hidden] { display: none; }
 
+/* Bottom-right / bottom-left: a non-blocking corner card instead of a
+   centered, backdrop-blocking dialog - the page stays usable behind it.
+   Only on screens with room for it; phones keep the classic centered
+   dialog (set on the JS side, see announcementFeed.js). */
+.ann-modal-overlay.ann-pos-bottom-right,
+.ann-modal-overlay.ann-pos-bottom-left {
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: none;
+  /* Clears the chatbot bubble (fixed, bottom:20px/right:20px, 52px). */
+  padding: 0 20px 92px 20px;
+}
+.ann-modal-overlay.ann-pos-bottom-right { justify-content: flex-end; align-items: flex-end; }
+.ann-modal-overlay.ann-pos-bottom-left  { justify-content: flex-start; align-items: flex-end; }
+.ann-modal-overlay.ann-pos-bottom-right .ann-modal,
+.ann-modal-overlay.ann-pos-bottom-left .ann-modal {
+  pointer-events: auto;
+  margin: 0;
+  width: min(380px, 100%);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.2), 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
 .ann-modal {
+  position: relative;
   background: #fff;
   border-radius: 14px;
   max-width: 480px;
@@ -138,7 +169,7 @@
 .ann-modal-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-top: 18px;
   padding-top: 14px;
   border-top: 1px solid #eef0f4;
@@ -147,11 +178,19 @@
 .ann-modal-queue-hint { font-size: 12px; color: #8a90a0; }
 
 .ann-modal-close {
-  background: none;
-  border: none;
-  font-size: 14px;
-  color: #8a90a0;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 50%;
+  background: transparent !important;
+  color: #94a3b8;
+  font-size: 1.4rem;
+  line-height: 1;
   cursor: pointer;
-  font-weight: 600;
 }
-.ann-modal-close:hover { color: #23262f; }
+.ann-modal-close:hover { background: #f1f5f9 !important; color: #0f172a; }

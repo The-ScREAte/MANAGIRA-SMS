@@ -1,0 +1,31 @@
+<link rel="stylesheet" href="/css/feedbackPrompt.css">
+<style>
+  .mfb-page { min-height: calc(100vh - 160px); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; background: #f8fafc; }
+  .mfb-page-card { width: min(100%, 520px); border-radius: 20px; background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06); padding: 30px 26px 24px; }
+  .mfb-page-msg { text-align: center; color: #334155; }
+  .mfb-page-msg a { display: inline-block; margin-top: 16px; padding: 10px 18px; border-radius: 10px; background: #0f766e; color: #fff; font-weight: 700; text-decoration: none; }
+</style>
+<div class="mfb-page">
+  <div class="mfb-page-card" id="mfbPage">
+    <% if (!feedback) { %>
+      <div class="mfb-page-msg">
+        <h2 class="mfb-title"><%= errorMessage || 'This feedback request is not available.' %></h2>
+        <a href="/">Go back</a>
+      </div>
+    <% } else if (existing && !canEdit) { %>
+      <div class="mfb-done">
+        <div class="mfb-check" aria-hidden="true">✓</div>
+        <h2 class="mfb-title">You've already shared your feedback</h2>
+        <p class="mfb-desc">Thank you! Your response for this period has been recorded.</p>
+      </div>
+    <% } %>
+  </div>
+</div>
+<% if (feedback && (!existing || canEdit)) { %>
+<script src="/js/feedbackPrompt.js"></script>
+<script>
+  window.ManagiraFeedback.render(document.getElementById('mfbPage'), <%- JSON.stringify(feedback).replace(/</g, '\\u003c') %>, {
+    existing: <%- JSON.stringify(existing ? { rating: existing.rating, comment: existing.comment || '' } : null).replace(/</g, '\\u003c') %>,
+  });
+</script>
+<% } %>

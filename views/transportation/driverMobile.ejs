@@ -178,6 +178,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/js/managiraMaps.js"></script>
 
 <script>
   (function() {
@@ -464,10 +465,7 @@
       // CARTO Voyager: a clean, modern light basemap with clearer road
       // contrast than stock OSM tiles — free, no API key, same road/building
       // vector data underneath (still OpenStreetMap), just better styled.
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-      }).addTo(driverMap);
+      window.ManagiraMaps.addTiles(driverMap);
       driverMap.attributionControl.setPrefix(false);
       driverMapLayer = L.layerGroup().addTo(driverMap);
 
@@ -492,28 +490,10 @@
       return driverMap;
     }
 
+    // Road-following geometry from the server; null = don't draw a line.
     async function fetchRoadGeometry(latlngs) {
-      if (!Array.isArray(latlngs) || latlngs.length < 2) return latlngs;
-      const key = latlngs.map(function(p) { return p[0].toFixed(5) + ',' + p[1].toFixed(5); }).join(';');
-      if (roadGeometryCache.has(key)) return roadGeometryCache.get(key);
-      const coordinates = latlngs.map(function(p) { return p[1].toFixed(7) + ',' + p[0].toFixed(7); }).join(';');
-      const url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson&steps=false';
-      try {
-        const response = await fetch(url);
-        const payload = await response.json();
-        const geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
-        const points = Array.isArray(geometry && geometry.coordinates)
-          ? geometry.coordinates.map(function(p) { return [Number(p[1]), Number(p[0])]; })
-          : null;
-        if (points && points.length >= 2) {
-          roadGeometryCache.set(key, points);
-          return points;
-        }
-      } catch (_error) {
-        // Fall back to the straight segment if the routing service is unreachable.
-      }
-      roadGeometryCache.set(key, latlngs);
-      return latlngs;
+      if (!Array.isArray(latlngs) || latlngs.length < 2) return null;
+      return window.ManagiraMaps ? window.ManagiraMaps.roadPoints(latlngs) : null;
     }
 
     async function drawRouteOnMap(routeId) {
@@ -553,8 +533,7 @@
 
       const roadPoints = await fetchRoadGeometry(points);
       if (token !== driverMapDrawToken) return;
-      L.polyline(roadPoints, { color: '#ffffff', weight: 7, opacity: 0.9 }).addTo(driverMapLayer);
-      L.polyline(roadPoints, { color: '#0f5a66', weight: 4, opacity: 0.95 }).addTo(driverMapLayer);
+      if (roadPoints) window.ManagiraMaps.drawRoute(driverMapLayer, roadPoints, { color: '#1a73e8', weight: 5 });
 
       const bounds = L.latLngBounds(points);
       map.invalidateSize();

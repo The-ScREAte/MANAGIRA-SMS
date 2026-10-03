@@ -4131,6 +4131,7 @@ main {
     </div>
   </div>
 
+  <script src="/js/managiraMaps.js"></script>
   <script>
     var classScheduleContext;
     var classScheduleState;
@@ -4757,31 +4758,19 @@ main {
         }).join('|');
       }
 
+      // Road-following geometry from the server (ManagiraMaps). Resolves []
+      // when no road route is available, so no straight line is drawn.
       function fetchRoadGeometry(latlngs) {
-        if (!Array.isArray(latlngs) || latlngs.length < 2) return Promise.resolve(latlngs || []);
+        if (!Array.isArray(latlngs) || latlngs.length < 2 || !window.ManagiraMaps) return Promise.resolve([]);
         var cacheKey = buildGeometryCacheKey(latlngs);
         if (studentTransportState.geometryCache[cacheKey]) {
           return Promise.resolve(studentTransportState.geometryCache[cacheKey]);
         }
-        var coordinates = latlngs.map(function(entry) {
-          return Number(entry[1]).toFixed(7) + ',' + Number(entry[0]).toFixed(7);
-        }).join(';');
-        var url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson&steps=false';
-        return fetch(url)
-          .then(function(response) { return response.json(); })
-          .then(function(payload) {
-            var geometry = payload && payload.routes && payload.routes[0] && payload.routes[0].geometry;
-            var points = Array.isArray(geometry && geometry.coordinates)
-              ? geometry.coordinates.map(function(entry) { return [Number(entry[1]), Number(entry[0])]; })
-              : null;
-            var resolved = points && points.length >= 2 ? points : latlngs;
-            studentTransportState.geometryCache[cacheKey] = resolved;
-            return resolved;
-          })
-          .catch(function() {
-            studentTransportState.geometryCache[cacheKey] = latlngs;
-            return latlngs;
-          });
+        return window.ManagiraMaps.roadPoints(latlngs).then(function(points) {
+          if (!points) return [];
+          studentTransportState.geometryCache[cacheKey] = points;
+          return points;
+        });
       }
 
       function ensureLeafletAssets() {
@@ -4860,10 +4849,7 @@ main {
           var layersKey = reuseClassMap ? 'classLayers' : 'modalLayers';
           if (!studentTransportState[mapKey]) {
             studentTransportState[mapKey] = L.map(el, { scrollWheelZoom: false, zoomControl: true }).setView([40.767304, -111.939857], 12);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              maxZoom: 19,
-              attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(studentTransportState[mapKey]);
+            window.ManagiraMaps.addTiles(studentTransportState[mapKey]);
             studentTransportState[layersKey] = L.layerGroup().addTo(studentTransportState[mapKey]);
           }
           var map = studentTransportState[mapKey];
@@ -4900,9 +4886,12 @@ main {
           var stopPoint = points.find(function(point) { return point.type === 'stop'; });
           var livePoint = points.find(function(point) { return point.type === 'live'; });
           if (stopPoint && livePoint) {
-            L.polyline([[stopPoint.lat, stopPoint.lng], [livePoint.lat, livePoint.lng]], {
-              color: '#d97706', weight: 3, opacity: 0.8, dashArray: '6,6',
-            }).addTo(layerGroup);
+            // Bus -> the student's stop, along the roads.
+            fetchRoadGeometry([[livePoint.lat, livePoint.lng], [stopPoint.lat, stopPoint.lng]]).then(function(legPoints) {
+              if (legPoints.length >= 2) {
+                L.polyline(legPoints, { color: '#d97706', weight: 4, opacity: 0.85, dashArray: '6,8' }).addTo(layerGroup);
+              }
+            });
           }
           var assignedStopLat = snapshot && snapshot.stop ? normalizeCoord(snapshot.stop.latitude, 'lat') : null;
           var assignedStopLng = snapshot && snapshot.stop ? normalizeCoord(snapshot.stop.longitude, 'lng') : null;
@@ -5202,6 +5191,9 @@ main {
           markStudentTeacherRemarkState(studentId, hasRemark);
         });
       }
+      // Called from the page's DOMContentLoaded handler, which is outside this
+      // function's scope.
+      window.applyInitialStudentTeacherRemarkIndicators = applyInitialStudentTeacherRemarkIndicators;
 
       function shouldRefreshTeacherRemarkOptions() {
         var ageMs = Date.now() - Number(studentTeacherRemarkState.optionsLoadedAt || 0);
@@ -5493,13 +5485,17 @@ main {
             var live = payload && payload.success ? payload.data : null;
             if (!live || live.latitude === null || live.latitude === undefined) return;
             var marker = classRouteLiveMarkers[routeId];
-            var popupText = 'Bus ' + (live.bus_number || '') + ' — live position';
+            var stale = live.recorded_at && (Date.now() - new Date(live.recorded_at).getTime()) > 2 * 60 * 1000;
+            var icon = window.ManagiraMaps.busIcon({ heading: live.heading_deg, label: live.bus_number || 'Bus', stale: stale });
+            var popupText = 'Bus ' + (live.bus_number || '') + ' - updated ' + window.ManagiraMaps.ago(live.recorded_at || Date.now());
             if (!marker) {
-              marker = L.marker([live.latitude, live.longitude], { title: popupText }).bindPopup(popupText);
+              marker = L.marker([live.latitude, live.longitude], { icon: icon, title: 'Bus ' + (live.bus_number || ''), zIndexOffset: 1000 }).bindPopup(popupText);
               marker.addTo(layerGroup);
               classRouteLiveMarkers[routeId] = marker;
             } else {
               marker.setLatLng([live.latitude, live.longitude]);
+              marker.setIcon(icon);
+              marker.setPopupContent(popupText);
             }
           }).catch(function () {});
         };
@@ -5558,10 +5554,9 @@ main {
             });
 
             return fetchRoadGeometry(routeLatLngs).then(function(roadLatLngs) {
-              var geometry = roadLatLngs.length ? roadLatLngs : routeLatLngs;
-              geometry.forEach(function(latlng) { boundsSource.push(latlng); });
-              if (geometry.length >= 2) {
-                L.polyline(geometry, { color: '#0f5a66', weight: 3, opacity: 0.65 }).addTo(layerGroup);
+              (roadLatLngs.length ? roadLatLngs : routeLatLngs).forEach(function(latlng) { boundsSource.push(latlng); });
+              if (roadLatLngs.length >= 2) {
+                L.polyline(roadLatLngs, { color: '#0f5a66', weight: 3, opacity: 0.65 }).addTo(layerGroup);
               }
               startClassRouteLivePolling(Number(routeIdKey), layerGroup, L);
             });

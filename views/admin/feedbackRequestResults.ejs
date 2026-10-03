@@ -1,0 +1,183 @@
+<%
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const maxCount = Math.max(1, ...counts.map((c) => c.n));
+  const rate = recipients ? Math.round((total / recipients) * 100) : 0;
+  const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+  const isCurrent = periodParam !== 'all' && Number(periodParam) === currentPeriod;
+  const periodLabel = (p) => request.frequency === 'once' ? 'All responses' : `Period ${p + 1}${p === currentPeriod ? ' (current)' : ''}`;
+%>
+<link rel="stylesheet" href="/css/admin.css" />
+<style>
+  .frr { --ink: #102542; --muted: #5b6b82; --line: #e2e8f0; --accent: #0f766e; --star: #f59e0b; max-width: 1100px; margin: 0 auto; padding: 24px 18px 60px; color: var(--ink); }
+  .frr * { box-sizing: border-box; }
+  .frr-back { display: inline-flex; gap: 6px; font-size: 0.85rem; font-weight: 600; color: var(--muted); text-decoration: none; margin-bottom: 12px; }
+  .frr-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 18px; }
+  .frr-head h1 { margin: 0 0 6px; font-size: 1.5rem; font-weight: 800; }
+  .frr-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 0.86rem; }
+  .frr-chip { display: inline-flex; padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 800; }
+  .frr-chip.active { background: #dcfce7; color: #166534; }
+  .frr-chip.scheduled { background: #e0f2fe; color: #075985; }
+  .frr-chip.draft { background: #f1f5f9; color: #475569; }
+  .frr-chip.closed { background: #fee2e2; color: #991b1b; }
+  .frr-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .frr-btn { display: inline-flex; align-items: center; width: auto; margin: 0; padding: 9px 14px; border-radius: 10px; border: 1px solid #cbd5e1; background: #fff; color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 700; text-decoration: none; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+  .frr-btn:hover { background: #f8fafc; border-color: #b8c2d1; color: var(--ink); }
+  .frr-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .frr-btn.primary:hover { background: #0b5c62; border-color: #0b5c62; color: #fff; }
+  .frr-btn.danger { color: #b91c1c; }
+  .frr-btn.danger:hover { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+  .frr-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .frr-toolbar select { width: auto; margin: 0; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; font-size: 0.86rem; }
+  .frr-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .frr-kpi { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .frr-kpi span { display: block; font-size: 0.78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .frr-kpi strong { display: block; margin-top: 6px; font-size: 1.7rem; font-weight: 800; }
+  .frr-kpi small { color: var(--muted); font-size: 0.8rem; }
+  .frr-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .frr-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .frr-card h2 { margin: 0 0 12px; font-size: 1rem; }
+  .frr-dist { display: grid; gap: 8px; }
+  .frr-dist-row { display: grid; grid-template-columns: 54px 1fr 64px; gap: 10px; align-items: center; font-size: 0.86rem; }
+  .frr-dist-row b { color: var(--star); letter-spacing: 1px; }
+  .frr-track { height: 10px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+  .frr-track i { display: block; height: 100%; border-radius: 999px; background: var(--star); }
+  .frr-dist-row span { text-align: right; color: var(--muted); }
+  .frr-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .frr-table th { text-align: left; padding: 8px 10px; font-size: 0.76rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--line); }
+  .frr-table td { padding: 9px 10px; border-bottom: 1px solid #f1f5f9; }
+  .frr-comments { display: grid; gap: 10px; }
+  .frr-comment { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .frr-comment-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 0.84rem; color: var(--muted); }
+  .frr-comment-head b { color: var(--star); letter-spacing: 1px; font-size: 0.95rem; }
+  .frr-comment p { margin: 8px 0 0; font-size: 0.92rem; white-space: pre-wrap; word-break: break-word; }
+  .frr-empty { padding: 22px; text-align: center; color: var(--muted); border: 1px dashed #cbd5e1; border-radius: 12px; }
+  .frr-toast { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; background: #ecfdf5; color: #065f46; font-weight: 600; font-size: 0.9rem; }
+  @media (max-width: 860px) { .frr-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .frr-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="frr">
+  <a class="frr-back" href="/admin/announcements">&larr; Announcements</a>
+  <div id="frrSaved"></div>
+  <%- include('../partials/flash') %>
+
+  <div class="frr-head">
+    <div>
+      <h1><%= request.title %></h1>
+      <div class="frr-meta">
+        <span class="frr-chip <%= state %>"><%= stateLabel %></span>
+        <span><%= audience %></span>
+        <span>&middot; <%= frequency %></span>
+        <% if (request.anonymous) { %><span>&middot; Anonymous</span><% } %>
+        <% if (state === 'scheduled') { %><span>&middot; Opens <%= fmtDate(request.starts_at) %></span><% } %>
+        <% if (request.ends_at) { %><span>&middot; Ends <%= fmtDate(request.ends_at) %></span><% } %>
+      </div>
+    </div>
+    <div class="frr-actions">
+      <a class="frr-btn" href="/admin/feedback-requests/<%= request.id %>/edit">Edit</a>
+      <% if (state === 'active' || state === 'scheduled') { %>
+        <button type="button" class="frr-btn" data-status="closed">Close</button>
+      <% } else { %>
+        <button type="button" class="frr-btn primary" data-status="active"><%= state === 'draft' ? 'Send now' : 'Reopen' %></button>
+      <% } %>
+      <a class="frr-btn" href="/admin/feedback-requests/<%= request.id %>/export.csv?period=<%= periodParam %>">Export CSV</a>
+      <button type="button" class="frr-btn danger" id="frrDelete">Delete</button>
+    </div>
+  </div>
+
+  <div class="frr-toolbar">
+    <% if (request.frequency !== 'once') { %>
+      <label>Showing
+        <select id="frrPeriod">
+          <% periods.forEach((p) => { %><option value="<%= p %>" <%= String(p) === String(periodParam) ? 'selected' : '' %>><%= periodLabel(p) %></option><% }) %>
+          <option value="all" <%= periodParam === 'all' ? 'selected' : '' %>>All periods</option>
+        </select>
+      </label>
+      <% if (nextPeriodStart && state === 'active') { %><span style="color:#5b6b82;font-size:0.85rem;">Next period starts <%= fmtDate(nextPeriodStart) %></span><% } %>
+    <% } else { %><span></span><% } %>
+  </div>
+
+  <div class="frr-kpis">
+    <div class="frr-kpi"><span>Average rating</span><strong><%= average !== null ? average.toFixed(1) : '-' %> <small style="color:#f59e0b;font-size:1.1rem;">★</small></strong><small>out of 5</small></div>
+    <div class="frr-kpi"><span>Responses</span><strong><%= total %></strong><small><%= periodParam === 'all' ? 'all periods' : (isCurrent ? 'this period' : 'in this period') %></small></div>
+    <div class="frr-kpi"><span>Recipients</span><strong><%= recipients %></strong><small>people who can sign in</small></div>
+    <div class="frr-kpi"><span>Response rate</span><strong><%= periodParam === 'all' ? '-' : rate + '%' %></strong><small><%= periodParam === 'all' ? 'choose a period' : total + ' of ' + recipients %></small></div>
+  </div>
+
+  <div class="frr-grid">
+    <div class="frr-card">
+      <h2>Ratings</h2>
+      <div class="frr-dist">
+        <% counts.forEach((c) => { %>
+          <div class="frr-dist-row">
+            <b aria-label="<%= c.stars %> stars"><%= c.stars %> ★</b>
+            <div class="frr-track"><i style="width: <%= Math.round((c.n / maxCount) * 100) %>%"></i></div>
+            <span><%= c.n %><%= total ? ' (' + Math.round((c.n / total) * 100) + '%)' : '' %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+    <div class="frr-card">
+      <h2>By role</h2>
+      <% if (byRole.length) { %>
+        <table class="frr-table"><thead><tr><th>Role</th><th>Responses</th><th>Average</th></tr></thead><tbody>
+          <% byRole.forEach((r) => { %><tr><td><%= r.label %></td><td><%= r.n %></td><td><%= r.avg.toFixed(1) %> ★</td></tr><% }) %>
+        </tbody></table>
+      <% } else { %><div class="frr-empty">No responses yet.</div><% } %>
+    </div>
+  </div>
+
+  <div class="frr-card" style="margin-bottom:14px;">
+    <h2>By school</h2>
+    <% if (bySchool.length) { %>
+      <table class="frr-table"><thead><tr><th>School</th><th>Responses</th><th>Average</th></tr></thead><tbody>
+        <% bySchool.forEach((r) => { %><tr><td><%= r.label %></td><td><%= r.n %></td><td><%= r.avg.toFixed(1) %> ★</td></tr><% }) %>
+      </tbody></table>
+    <% } else { %><div class="frr-empty">No responses yet.</div><% } %>
+  </div>
+
+  <div class="frr-card">
+    <h2>Responses <% if (comments.length) { %><span style="color:#5b6b82;font-weight:600;font-size:0.85rem;">(newest first)</span><% } %></h2>
+    <% if (comments.length) { %>
+      <div class="frr-comments">
+        <% comments.forEach((c) => { %>
+          <div class="frr-comment">
+            <div class="frr-comment-head">
+              <span><b><%= stars(c.rating) %></b>&nbsp; <%= request.anonymous ? 'Anonymous' : (c.respondent_name || 'Unknown') %><%= !request.anonymous && c.respondent_email ? ' - ' + c.respondent_email : '' %></span>
+              <span><%= c.roleLabel %> &middot; <%= c.school %> &middot; <%= fmtDate(c.updated_at || c.created_at) %></span>
+            </div>
+            <% if (c.comment) { %><p><%= c.comment %></p><% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %><div class="frr-empty"><%= state === 'draft' ? 'This request is a draft - send it to start collecting feedback.' : 'No responses yet.' %></div><% } %>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var id = <%- JSON.stringify(request.id) %>;
+    var saved = new URLSearchParams(location.search).get('saved');
+    if (saved) {
+      var box = document.getElementById('frrSaved');
+      box.className = 'frr-toast';
+      box.textContent = saved;
+      history.replaceState(null, '', location.pathname + (location.search.replace(/[?&]saved=[^&]*/, '').replace(/^&/, '?')));
+    }
+    var period = document.getElementById('frrPeriod');
+    if (period) period.addEventListener('change', function () { location.href = '/admin/feedback-requests/' + id + '?period=' + period.value; });
+    document.querySelectorAll('[data-status]').forEach(function (button) {
+      button.addEventListener('click', async function () {
+        var status = button.dataset.status;
+        if (status === 'closed' && !confirm('Close this request? People will no longer be asked.')) return;
+        button.disabled = true;
+        var res = await fetch('/admin/feedback-requests/' + id + '/status', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: status }) });
+        if (res.ok) location.reload(); else { button.disabled = false; alert('Could not update the request.'); }
+      });
+    });
+    document.getElementById('frrDelete').addEventListener('click', async function () {
+      if (!confirm('Delete this feedback request and all its responses? This cannot be undone.')) return;
+      var res = await fetch('/admin/feedback-requests/' + id + '/delete', { method: 'POST', credentials: 'same-origin' });
+      if (res.ok) location.href = '/admin/announcements'; else alert('Could not delete the request.');
+    });
+  })();
+</script>

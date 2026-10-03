@@ -1,0 +1,372 @@
+<%
+  const r = request || null;
+  const orgs = organizations || [];
+  const has = (list, value) => Array.isArray(list) && list.includes(value);
+  const roleOptions = [['student', 'Students'], ['teacher', 'Teachers'], ['parent', 'Parents'], ['manager', 'Managers'], ['supervisor', 'Supervisors'], ['driver', 'Drivers']];
+  const freq = r ? r.frequency : 'once';
+%>
+<link rel="stylesheet" href="/css/admin.css" />
+<style>
+  .frq { --ink: #102542; --muted: #5b6b82; --line: #e2e8f0; --accent: #0f766e; --accent-soft: #ecfdf5; max-width: 860px; margin: 0 auto; padding: 24px 18px 90px; color: var(--ink); font-family: inherit; }
+  .frq * { box-sizing: border-box; }
+  .frq-back { display: inline-flex; gap: 6px; font-size: 0.85rem; font-weight: 600; color: var(--muted); text-decoration: none; margin-bottom: 12px; }
+  .frq h1 { margin: 0 0 4px; font-size: 1.5rem; font-weight: 800; }
+  .frq-sub { margin: 0 0 18px; color: var(--muted); font-size: 0.92rem; }
+  .frq-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0 0 18px; padding: 0; list-style: none; counter-reset: step; }
+  .frq-steps li { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; font-size: 0.84rem; font-weight: 700; color: var(--muted); cursor: pointer; }
+  .frq-steps li::before { counter-increment: step; content: counter(step); display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; background: #f1f5f9; font-size: 0.78rem; }
+  .frq-steps li.current { border-color: var(--accent); color: var(--ink); box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12); }
+  .frq-steps li.current::before, .frq-steps li.done::before { background: var(--accent); color: #fff; }
+  .frq-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+  .frq-card h2 { margin: 0 0 4px; font-size: 1.1rem; }
+  .frq-card > p.hint { margin: 0 0 16px; color: var(--muted); font-size: 0.86rem; }
+  .frq-field { display: grid; gap: 6px; margin-bottom: 16px; }
+  .frq-field > span { font-size: 0.84rem; font-weight: 700; }
+  .frq-field small { color: var(--muted); font-size: 0.78rem; }
+  .frq input[type="text"], .frq input[type="number"], .frq input[type="date"], .frq input[type="search"], .frq textarea, .frq select { width: 100%; margin: 0; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; font-size: 0.92rem; color: var(--ink); background: #fff; }
+  .frq textarea { min-height: 90px; resize: vertical; }
+  .frq-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .frq-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .frq-seg label, .frq-chip { position: relative; cursor: pointer; }
+  .frq-seg input, .frq-chip input { position: absolute; opacity: 0; pointer-events: none; }
+  .frq-seg span, .frq-chip span { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 999px; font-size: 0.86rem; font-weight: 700; color: var(--muted); background: #fff; transition: all 0.15s ease; }
+  .frq-seg input:checked + span, .frq-chip input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .frq-seg input:focus-visible + span, .frq-chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .frq-switch { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; cursor: pointer; }
+  .frq-switch input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); flex: 0 0 auto; }
+  .frq-switch strong { display: block; font-size: 0.9rem; }
+  .frq-switch small { display: block; color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+  .frq-orgs { border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .frq-org-tools { display: flex; gap: 8px; margin-bottom: 8px; }
+  .frq-org-tools input { flex: 1; min-width: 0; }
+  .frq-mini { width: auto; margin: 0; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font: inherit; font-size: 0.8rem; font-weight: 700; color: var(--ink); cursor: pointer; white-space: nowrap; }
+  .frq-org-list { max-height: 240px; overflow-y: auto; display: grid; gap: 2px; }
+  .frq-org-list label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; cursor: pointer; }
+  .frq-org-list label:hover { background: #f8fafc; }
+  .frq-org-list input { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); }
+  .frq-estimate { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); color: #065f46; font-size: 0.9rem; font-weight: 600; }
+  .frq-preview { border: 1px dashed #cbd5e1; border-radius: 16px; padding: 22px; background: #f8fafc; text-align: center; }
+  .frq-preview h3 { margin: 0 0 6px; font-size: 1.1rem; }
+  .frq-preview p { margin: 0 0 12px; color: var(--muted); font-size: 0.9rem; white-space: pre-line; }
+  .frq-preview .stars { font-size: 1.8rem; letter-spacing: 6px; color: #cbd5e1; }
+  .frq-review { display: grid; grid-template-columns: 160px 1fr; gap: 8px 14px; margin: 18px 0 0; font-size: 0.9rem; }
+  .frq-review dt { color: var(--muted); font-weight: 700; }
+  .frq-review dd { margin: 0; }
+  .frq-bar { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin-top: 16px; padding: 14px 0; background: linear-gradient(to top, #f8fafc 70%, rgba(248, 250, 252, 0)); }
+  .frq-btn { width: auto; margin: 0; padding: 11px 20px; border-radius: 10px; font: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; color: var(--ink); transition: background 0.15s ease, border-color 0.15s ease; }
+  .frq-btn:hover { background: #f8fafc; border-color: #b8c2d1; }
+  .frq-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .frq-btn.primary:hover { background: #0b5c62; border-color: #0b5c62; }
+  .frq-btn[disabled] { opacity: 0.6; cursor: progress; }
+  .frq-error { display: none; margin: 12px 0 0; padding: 10px 14px; border-radius: 10px; background: #fef2f2; color: #991b1b; font-size: 0.88rem; font-weight: 600; }
+  .frq-step[hidden] { display: none; }
+  @media (max-width: 680px) {
+    .frq-steps { grid-template-columns: repeat(2, 1fr); }
+    .frq-row { grid-template-columns: 1fr; }
+    .frq-review { grid-template-columns: 1fr; }
+  }
+</style>
+
+<% const embedded = typeof isEmbedded !== 'undefined' && isEmbedded; %>
+<% if (embedded) { %><%- include('../partials/adminDrawer') %><% } %>
+<div class="frq">
+  <% if (!embedded) { %><a class="frq-back" href="/admin/announcements">&larr; Announcements</a><% } %>
+  <h1><%= r ? 'Edit feedback request' : 'Request feedback' %></h1>
+  <p class="frq-sub">Ask schools, staff, parents and students to rate their experience with stars and a short comment.</p>
+  <%- include('../partials/flash') %>
+  <% if (r && r.hasResponses) { %>
+    <p class="frq-sub" style="color:#92400e;">People have already answered this request. Changes apply to new answers.</p>
+  <% } %>
+
+  <ol class="frq-steps" id="frqSteps">
+    <li data-go="1" class="current">Details</li>
+    <li data-go="2">Audience</li>
+    <li data-go="3">Schedule</li>
+    <li data-go="4">Review &amp; send</li>
+  </ol>
+
+  <form id="frqForm" novalidate>
+    <!-- 1. Details -->
+    <section class="frq-card frq-step" data-step="1">
+      <h2>Feedback details</h2>
+      <p class="hint">What people will see when they're asked.</p>
+      <label class="frq-field"><span>Title</span><input type="text" name="title" maxlength="160" value="<%= r ? r.title : 'How are we doing?' %>" required></label>
+      <label class="frq-field"><span>Message (optional)</span><textarea name="description" maxlength="1200" placeholder="We value your feedback. Please rate your experience and share anything that could help us improve."><%= r ? (r.description || '') : 'We value your feedback. Please rate your experience and share any comments that could help us improve.' %></textarea></label>
+      <label class="frq-field"><span>Rating question</span><input type="text" name="question" maxlength="200" value="<%= r ? r.question : 'How would you rate your experience?' %>"></label>
+      <div class="frq-field">
+        <span>Comment</span>
+        <div class="frq-seg">
+          <% [['optional', 'Optional'], ['required', 'Required'], ['off', 'No comment box']].forEach(([v, label]) => { %>
+            <label><input type="radio" name="commentMode" value="<%= v %>" <%= (r ? r.comment_mode : 'optional') === v ? 'checked' : '' %>><span><%= label %></span></label>
+          <% }) %>
+        </div>
+      </div>
+      <label class="frq-field" id="frqPromptField"><span>Comment label</span><input type="text" name="commentPrompt" maxlength="160" value="<%= r && r.comment_prompt ? r.comment_prompt : '' %>" placeholder="Tell us more"></label>
+      <label class="frq-switch"><input type="checkbox" name="anonymous" <%= r && r.anonymous ? 'checked' : '' %> <%= r && r.hasResponses ? 'disabled' : '' %>><span><strong>Anonymous</strong><small>Names and emails are not saved. You still see role and school, and each person can answer only once.</small></span></label>
+      <label class="frq-switch"><input type="checkbox" name="allowEdit" <%= r && r.allow_edit ? 'checked' : '' %>><span><strong>Let people edit their answer</strong><small>They can change their rating and comment until the next period starts.</small></span></label>
+    </section>
+
+    <!-- 2. Audience -->
+    <section class="frq-card frq-step" data-step="2" hidden>
+      <h2>Who should answer</h2>
+      <p class="hint">Choose one or more groups, then the schools.</p>
+      <div class="frq-field">
+        <span>People</span>
+        <div class="frq-seg">
+          <% roleOptions.forEach(([v, label]) => { %>
+            <label class="frq-chip"><input type="checkbox" name="roles" value="<%= v %>" <%= r ? (has(r.roles, v) ? 'checked' : '') : (['teacher', 'manager', 'supervisor'].includes(v) ? 'checked' : '') %>><span><%= label %></span></label>
+          <% }) %>
+        </div>
+      </div>
+      <div class="frq-field">
+        <span>Schools</span>
+        <label class="frq-switch"><input type="checkbox" name="allOrganizations" id="frqAllOrgs" <%= !r || r.all_organizations ? 'checked' : '' %>><span><strong>All schools (<%= orgs.length %>)</strong><small>Includes schools that join later.</small></span></label>
+        <div class="frq-orgs" id="frqOrgPicker" hidden>
+          <div class="frq-org-tools">
+            <input type="search" id="frqOrgSearch" placeholder="Search schools" autocomplete="off">
+            <button type="button" class="frq-mini" id="frqOrgAll">Select all</button>
+            <button type="button" class="frq-mini" id="frqOrgNone">Clear</button>
+          </div>
+          <div class="frq-org-list" id="frqOrgList">
+            <% orgs.forEach((o) => { %>
+              <label data-name="<%= String(o.organization_name || '').toLowerCase() %>"><input type="checkbox" name="organizationIds" value="<%= o.organization_id %>" <%= r && has(r.organization_ids, o.organization_id) ? 'checked' : '' %>> <%= o.organization_name %></label>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+      <div class="frq-estimate" id="frqEstimate">Counting recipients...</div>
+    </section>
+
+    <!-- 3. Schedule -->
+    <section class="frq-card frq-step" data-step="3" hidden>
+      <h2>Schedule</h2>
+      <p class="hint">How often people are asked. Each person answers once per period.</p>
+      <div class="frq-row">
+        <label class="frq-field"><span>Frequency</span>
+          <select name="frequency" id="frqFrequency">
+            <% [['once', 'Once'], ['monthly', 'Once a month'], ['quarterly', 'Every 3 months'], ['semiannual', 'Every 6 months'], ['yearly', 'Once a year'], ['custom', 'Custom']].forEach(([v, label]) => { %>
+              <option value="<%= v %>" <%= freq === v ? 'selected' : '' %>><%= label %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label class="frq-field" id="frqCustomField" hidden><span>Every how many days</span><input type="number" name="customDays" min="1" max="730" value="<%= r && r.custom_days ? r.custom_days : 60 %>"></label>
+      </div>
+      <div class="frq-row">
+        <label class="frq-field"><span>Start date</span><input type="date" name="startsAt" value="<%= r ? r.startsAt : '' %>"><small>Leave empty to start now.</small></label>
+        <label class="frq-field"><span>End date (optional)</span><input type="date" name="endsAt" value="<%= r ? r.endsAt : '' %>"><small>Stops asking after this date.</small></label>
+      </div>
+      <label class="frq-switch"><input type="checkbox" name="requireResponse" <%= r && r.require_response ? 'checked' : '' %>><span><strong>Require a response</strong><small>People can't close the request until they answer. Otherwise they can choose "Not now" and are reminded later.</small></span></label>
+      <label class="frq-switch"><input type="checkbox" name="notify" <%= !r || r.notify ? 'checked' : '' %>><span><strong>Send a notification</strong><small>Adds it to their notification bell when it opens (and at the start of each new period).</small></span></label>
+    </section>
+
+    <!-- 4. Review -->
+    <section class="frq-card frq-step" data-step="4" hidden>
+      <h2>Review &amp; send</h2>
+      <p class="hint">This is what people will see.</p>
+      <div class="frq-preview" aria-hidden="true">
+        <h3 id="pvTitle"></h3>
+        <p id="pvDescription"></p>
+        <strong id="pvQuestion" style="display:block;margin-bottom:6px;"></strong>
+        <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+        <p id="pvComment" style="margin-top:10px;"></p>
+      </div>
+      <dl class="frq-review">
+        <dt>Audience</dt><dd id="rvAudience"></dd>
+        <dt>Recipients</dt><dd id="rvRecipients"></dd>
+        <dt>Frequency</dt><dd id="rvFrequency"></dd>
+        <dt>Dates</dt><dd id="rvDates"></dd>
+        <dt>Settings</dt><dd id="rvSettings"></dd>
+      </dl>
+    </section>
+
+    <div class="frq-error" id="frqError" role="alert"></div>
+
+    <div class="frq-bar">
+      <button type="button" class="frq-btn" id="frqBack">Back</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button type="button" class="frq-btn" id="frqDraft">Save draft</button>
+        <button type="button" class="frq-btn primary" id="frqNext">Next</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+  (function () {
+    var form = document.getElementById('frqForm');
+    var steps = Array.prototype.slice.call(document.querySelectorAll('.frq-step'));
+    var stepTabs = Array.prototype.slice.call(document.querySelectorAll('#frqSteps li'));
+    var errorBox = document.getElementById('frqError');
+    var requestId = <%- JSON.stringify(r ? r.id : null) %>;
+    var roleLabels = <%- JSON.stringify(roleLabels || {}) %>;
+    var current = 1;
+    var lastEstimate = null;
+
+    function value(name) { var el = form.elements[name]; return el ? el.value.trim() : ''; }
+    function checked(name) { var el = form.elements[name]; return Boolean(el && el.checked); }
+    function checkedValues(name) { return Array.prototype.slice.call(form.querySelectorAll('input[name="' + name + '"]:checked')).map(function (el) { return el.value; }); }
+    function radio(name) { var el = form.querySelector('input[name="' + name + '"]:checked'); return el ? el.value : ''; }
+
+    function payload(action) {
+      return {
+        action: action,
+        title: value('title'), description: form.elements.description.value.trim(), question: value('question'),
+        commentMode: radio('commentMode'), commentPrompt: value('commentPrompt'),
+        anonymous: checked('anonymous'), allowEdit: checked('allowEdit'), requireResponse: checked('requireResponse'), notify: checked('notify'),
+        roles: checkedValues('roles'), allOrganizations: checked('allOrganizations'), organizationIds: checkedValues('organizationIds'),
+        frequency: value('frequency'), customDays: value('customDays'), startsAt: value('startsAt'), endsAt: value('endsAt'),
+      };
+    }
+
+    function validate(step) {
+      var p = payload('draft');
+      if (step >= 1 && !p.title) return { step: 1, message: 'Add a title.' };
+      if (step >= 2 && !p.roles.length) return { step: 2, message: 'Choose at least one group of people.' };
+      if (step >= 2 && !p.allOrganizations && !p.organizationIds.length) return { step: 2, message: 'Choose at least one school, or select all schools.' };
+      if (step >= 3 && p.frequency === 'custom' && !(Number(p.customDays) > 0)) return { step: 3, message: 'Set how many days between requests.' };
+      if (step >= 3 && p.startsAt && p.endsAt && p.endsAt <= p.startsAt) return { step: 3, message: 'The end date must be after the start date.' };
+      return null;
+    }
+
+    function showError(message) { errorBox.textContent = message || ''; errorBox.style.display = message ? 'block' : 'none'; }
+
+    function go(step) {
+      current = Math.max(1, Math.min(4, step));
+      steps.forEach(function (s) { s.hidden = Number(s.dataset.step) !== current; });
+      stepTabs.forEach(function (li) {
+        var n = Number(li.dataset.go);
+        li.classList.toggle('current', n === current);
+        li.classList.toggle('done', n < current);
+      });
+      document.getElementById('frqBack').style.visibility = current === 1 ? 'hidden' : 'visible';
+      var next = document.getElementById('frqNext');
+      var startsLater = value('startsAt') && new Date(value('startsAt') + 'T00:00:00') > new Date();
+      next.textContent = current < 4 ? 'Next' : (startsLater ? 'Schedule' : 'Send now');
+      if (current === 4) renderReview();
+      showError('');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    stepTabs.forEach(function (li) {
+      li.addEventListener('click', function () {
+        var target = Number(li.dataset.go);
+        var problem = target > current ? validate(target - 1) : null;
+        if (problem) { go(problem.step); return showError(problem.message); }
+        go(target);
+      });
+    });
+    document.getElementById('frqBack').addEventListener('click', function () { go(current - 1); });
+    document.getElementById('frqNext').addEventListener('click', function () {
+      var problem = validate(current);
+      if (problem) { go(problem.step); return showError(problem.message); }
+      if (current < 4) return go(current + 1);
+      save('send');
+    });
+    document.getElementById('frqDraft').addEventListener('click', function () {
+      if (!value('title')) { go(1); return showError('Add a title.'); }
+      save('draft');
+    });
+
+    // Comment label only when there's a comment box.
+    function syncComment() { document.getElementById('frqPromptField').hidden = radio('commentMode') === 'off'; }
+    form.querySelectorAll('input[name="commentMode"]').forEach(function (el) { el.addEventListener('change', syncComment); });
+    syncComment();
+
+    // Frequency
+    function syncFrequency() { document.getElementById('frqCustomField').hidden = value('frequency') !== 'custom'; }
+    document.getElementById('frqFrequency').addEventListener('change', syncFrequency);
+    syncFrequency();
+
+    // Schools
+    var allOrgs = document.getElementById('frqAllOrgs');
+    function syncOrgs() { document.getElementById('frqOrgPicker').hidden = allOrgs.checked; estimate(); }
+    allOrgs.addEventListener('change', syncOrgs);
+    document.getElementById('frqOrgSearch').addEventListener('input', function () {
+      var q = this.value.trim().toLowerCase();
+      document.querySelectorAll('#frqOrgList label').forEach(function (row) { row.hidden = q && row.dataset.name.indexOf(q) === -1; });
+    });
+    document.getElementById('frqOrgAll').addEventListener('click', function () {
+      document.querySelectorAll('#frqOrgList label').forEach(function (row) { if (!row.hidden) row.querySelector('input').checked = true; });
+      estimate();
+    });
+    document.getElementById('frqOrgNone').addEventListener('click', function () {
+      document.querySelectorAll('#frqOrgList input').forEach(function (el) { el.checked = false; });
+      estimate();
+    });
+    form.querySelectorAll('input[name="roles"], input[name="organizationIds"]').forEach(function (el) { el.addEventListener('change', estimate); });
+    document.getElementById('frqOrgPicker').hidden = allOrgs.checked;
+
+    var estimateTimer = null;
+    function estimate() {
+      clearTimeout(estimateTimer);
+      estimateTimer = setTimeout(function () {
+        var p = payload('draft');
+        var box = document.getElementById('frqEstimate');
+        if (!p.roles.length || (!p.allOrganizations && !p.organizationIds.length)) {
+          lastEstimate = null;
+          box.textContent = 'Choose who should answer to see how many people this reaches.';
+          return;
+        }
+        var params = new URLSearchParams({ roles: p.roles.join(','), organizationIds: p.organizationIds.join(','), allOrganizations: p.allOrganizations ? '1' : '0' });
+        fetch('/admin/feedback-requests/estimate?' + params.toString(), { credentials: 'same-origin' })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            if (!data.success) throw new Error();
+            lastEstimate = data;
+            var parts = Object.keys(data.byRole).map(function (k) { return data.byRole[k] + ' ' + (roleLabels[k] || k).toLowerCase(); });
+            box.textContent = 'Reaches ' + data.total + ' ' + (data.total === 1 ? 'person' : 'people') + ' in ' + data.schools + ' ' + (data.schools === 1 ? 'school' : 'schools') + (parts.length ? ' (' + parts.join(', ') + ')' : '') + '.';
+          })
+          .catch(function () { box.textContent = 'Could not count recipients right now.'; });
+      }, 200);
+    }
+    estimate();
+
+    function renderReview() {
+      var p = payload('send');
+      document.getElementById('pvTitle').textContent = p.title;
+      document.getElementById('pvDescription').textContent = p.description;
+      document.getElementById('pvQuestion').textContent = p.question || 'How would you rate your experience?';
+      document.getElementById('pvComment').textContent = p.commentMode === 'off' ? '' : (p.commentPrompt || (p.commentMode === 'required' ? 'Tell us more' : 'Tell us more (optional)')) + (p.commentMode === 'required' ? ' - required' : '');
+      var orgCount = p.organizationIds.length;
+      document.getElementById('rvAudience').textContent = p.roles.map(function (r) { return roleLabels[r] || r; }).join(', ') + ' in ' + (p.allOrganizations ? 'all schools' : orgCount + ' ' + (orgCount === 1 ? 'school' : 'schools'));
+      document.getElementById('rvRecipients').textContent = lastEstimate ? lastEstimate.total + ' people who can sign in' : '-';
+      var freqText = document.getElementById('frqFrequency').selectedOptions[0].textContent;
+      document.getElementById('rvFrequency').textContent = p.frequency === 'custom' ? 'Every ' + p.customDays + ' days' : freqText;
+      document.getElementById('rvDates').textContent = (p.startsAt ? 'From ' + p.startsAt : 'Starts now') + (p.endsAt ? ', until ' + p.endsAt : ', no end date');
+      var settings = [];
+      settings.push(p.anonymous ? 'Anonymous' : 'Names recorded');
+      settings.push(p.commentMode === 'off' ? 'Stars only' : 'Comment ' + p.commentMode);
+      if (p.requireResponse) settings.push('Response required');
+      if (p.allowEdit) settings.push('Answers can be edited');
+      if (p.notify) settings.push('Bell notification');
+      document.getElementById('rvSettings').textContent = settings.join(' - ');
+    }
+
+    var saving = false;
+    async function save(action) {
+      if (saving) return;
+      saving = true;
+      var buttons = document.querySelectorAll('.frq-bar button');
+      buttons.forEach(function (b) { b.disabled = true; });
+      showError('');
+      try {
+        var res = await fetch('/admin/feedback-requests' + (requestId ? '/' + requestId : ''), {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload(action)),
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error(data.message || 'Could not save. Please try again.');
+        if (window.parent !== window && typeof managiraDrawerNotifySaved === 'function') return managiraDrawerNotifySaved();
+        window.location.href = data.redirect + '?saved=' + encodeURIComponent(data.message || 'Saved.');
+      } catch (error) {
+        showError(error.message);
+        buttons.forEach(function (b) { b.disabled = false; });
+        saving = false;
+      }
+    }
+
+    go(1);
+  })();
+</script>

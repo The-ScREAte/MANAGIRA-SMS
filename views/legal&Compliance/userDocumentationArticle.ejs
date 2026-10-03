@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= title %></title>
   <meta name="description" content="<%= description %>">
+  <style>
+    html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
+    *::-webkit-scrollbar, *::-webkit-scrollbar-thumb, *::-webkit-scrollbar-track { display: none !important; width: 0 !important; height: 0 !important; }
+  </style>
   <% if (keywords) { %><meta name="keywords" content="<%= keywords %>"><% } %>
   <link rel="canonical" href="<%= canonicalUrl %>">
   <% if (structuredData) { %>

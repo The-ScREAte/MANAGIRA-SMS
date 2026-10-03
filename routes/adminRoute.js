@@ -306,6 +306,26 @@ module.exports = (db) => {
 
     router.get("/announcements", isAuthenticated, ensureAdmin, adminController.getAdminAnnouncements);
     router.get("/announcements/new", isAuthenticated, ensureAdmin, adminController.newAdminAnnouncementForm);
+    // Request Feedback (star rating + comment) from chosen roles in chosen schools.
+    const feedbackRequests = require("../controllers/feedbackRequestController");
+    router.get("/feedback-requests/new", isAuthenticated, ensureAdmin, feedbackRequests.formPage);
+    router.get("/feedback-requests/estimate", isAuthenticated, ensureAdmin, feedbackRequests.estimate);
+    router.post("/feedback-requests", isAuthenticated, ensureAdmin, express.json(), feedbackRequests.save);
+    router.get("/feedback-requests/:id(\\d+)", isAuthenticated, ensureAdmin, feedbackRequests.resultsPage);
+    router.get("/feedback-requests/:id(\\d+)/edit", isAuthenticated, ensureAdmin, feedbackRequests.formPage);
+    router.get("/feedback-requests/:id(\\d+)/export.csv", isAuthenticated, ensureAdmin, feedbackRequests.exportCsv);
+    router.post("/feedback-requests/:id(\\d+)", isAuthenticated, ensureAdmin, express.json(), feedbackRequests.save);
+    router.post("/feedback-requests/:id(\\d+)/status", isAuthenticated, ensureAdmin, express.json(), feedbackRequests.setStatus);
+    router.post("/feedback-requests/:id(\\d+)/delete", isAuthenticated, ensureAdmin, feedbackRequests.remove);
+
+    router.post("/broadcasts/:id(\\d+)/active", isAuthenticated, ensureAdmin, express.json(), adminController.setBroadcastActive);
+    router.post("/broadcasts/:id(\\d+)/delete", isAuthenticated, ensureAdmin, adminController.deleteBroadcast);
+
+    // The announcement composer for every school (pop-ups/banners by role and school).
+    router.get("/announcements/compose", isAuthenticated, ensureAdmin, (req, res) => {
+        req.query.global = "1";
+        return require("../controllers/commonController").commonController.announcementComposerGet(req, res, db);
+    });
     router.post("/announcements", isAuthenticated, ensureAdmin, adminController.createAdminAnnouncement);
     router.post("/announcements/toggle/:id", isAuthenticated, ensureAdmin, adminController.toggleAdminAnnouncement);
     router.post("/announcements/delete/:id", isAuthenticated, ensureAdmin, adminController.deleteAdminAnnouncement);

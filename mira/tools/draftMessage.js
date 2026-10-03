@@ -15,7 +15,7 @@ function buildDraft({ guardianName, studentName, topic, schoolName }) {
 module.exports = {
   name: "draft_message",
   description:
-    "Draft (but do not send) a message to a student's guardian about a topic. Looks up the guardian's contact info for the given student within the caller's own school. Requires the student's numeric ID (use find_student first).",
+    "Draft (but do not send) a message to a student's guardian about a topic, with the guardian's contact details. Requires the student's numeric ID (use find_student first). To actually send a message, use send_message.",
   parameters: {
     type: "object",
     properties: {

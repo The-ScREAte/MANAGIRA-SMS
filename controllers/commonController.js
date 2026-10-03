@@ -1,5 +1,6 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getMessagingChannelStatus } = require("./../utils/guardianMessaging");
+const websiteExtrasUtil = require("../utils/websiteExtras");
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
@@ -3491,10 +3492,8 @@ const commonController = {
           );
         }
 
-        const shouldShow =
-          viewResult.rows.length === 0 ||
-          new Date() - new Date(viewResult.rows[0].last_viewed) >
-            14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds
+        // Shown once per person; admins can still reactivate or edit it.
+        const shouldShow = viewResult.rows.length === 0;
 
         if (shouldShow) {
           adminAnnouncements.push(announcement);
@@ -3973,10 +3972,8 @@ const commonController = {
           );
         }
 
-        const shouldShow =
-          viewResult.rows.length === 0 ||
-          new Date() - new Date(viewResult.rows[0].last_viewed) >
-            14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds
+        // Shown once per person; admins can still reactivate or edit it.
+        const shouldShow = viewResult.rows.length === 0;
 
         if (shouldShow) {
           adminAnnouncements.push(announcement);
@@ -4551,7 +4548,20 @@ const commonController = {
         res.set("Expires", "0");
       }
 
+      // Extra sections (Manage Website): only those switched on and filled in.
+      let websiteExtras = {};
+      let websitePage = { order: [], hidden: [], titles: {} };
+      try {
+        const websiteSettings = await websiteExtrasUtil.getWebsiteSettings(db, organizationId);
+        websiteExtras = websiteExtrasUtil.visibleSections(websiteSettings);
+        websitePage = websiteSettings.page || websitePage;
+      } catch (websiteError) {
+        console.error("[PublicDashboard] website sections unavailable:", websiteError.message);
+      }
+
       res.render("common/publicDashboard", {
+        websiteExtras,
+        websitePage,
         layout: false,
         title: seoTitle,
         siteName: _schoolSiteName,
@@ -5970,6 +5980,26 @@ const commonController = {
 
       const orgDetails = orgResult.rows[0];
 
+      // Closed registration shows a clear notice instead of the form. The
+      // school's own staff still see the form (marked as a preview).
+      const registrationState = websiteExtrasUtil.registrationState(orgDetails);
+      const isOwnStaff = String(req.session?.organizationId || "") === String(organizationId)
+        && !["Guardian", "Student"].includes(req.session?.userRole);
+      registrationState.preview = !registrationState.open && isOwnStaff;
+      if (!registrationState.open && !registrationState.preview) {
+        return res.render("common/publicRegisterStudent", {
+          title: "Online Registration",
+          organizationId,
+          orgDetails,
+          registrationState,
+          classes: [], graduationYearGroups: [], subjects: [], schoolYears: [], currentTerm: null,
+          paystackSubaccounts: [], fallbackCard: null, publishableKey: "", stripePublishableKey: "",
+          hasPayoutAccount: false, stripePayoutReady: false, stripeSelectable: false, paystackPayoutReady: false,
+          payoutProvider: null, stripeConnectAccountId: null, platformFeePercentage: 0, platformFeeBearer: "parent",
+          messages: req.flash(),
+        });
+      }
+
       const classResult = await db.query(
         `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId]
@@ -6133,6 +6163,7 @@ const commonController = {
 
       res.render("common/publicRegisterStudent", {
         title: "Public Student Registration",
+        registrationState,
         classes: classResult.rows,
         graduationYearGroups: graduationYearGroupResult.rows,
         subjects: subjectResult.rows,
@@ -6182,7 +6213,9 @@ const commonController = {
           .json({ success: false, error: "Missing required fields." });
       }
       const orgResult = await db.query(
-        `SELECT public_registration_price, public_registration_currency FROM organizations WHERE organization_id = $1`,
+        `SELECT public_registration_price, public_registration_currency, public_registration_enabled,
+                registration_start_date, registration_end_date
+         FROM organizations WHERE organization_id = $1`,
         [organizationId]
       );
 
@@ -6190,6 +6223,18 @@ const commonController = {
         return res
           .status(400)
           .json({ success: false, error: "Organization not found." });
+      }
+
+      const registrationState = websiteExtrasUtil.registrationState(orgResult.rows[0]);
+      if (!registrationState.open) {
+        return res.status(403).json({ success: false, error: registrationState.message });
+      }
+      const classCheck = await db.query(
+        `SELECT 1 FROM classes WHERE class_id = $1 AND organization_id = $2`,
+        [body.classId, organizationId]
+      );
+      if (!classCheck.rows.length) {
+        return res.status(400).json({ success: false, error: "Please choose a class from the list." });
       }
 
       const {
@@ -6201,7 +6246,7 @@ const commonController = {
       let imageUrl = "profilePlaceholder.png";
       if (files && files.studentImage && files.studentImage[0]) {
         const file = files.studentImage[0];
-        const s3Key = `images/studentimages/${organizationId}/${file.originalname}`;
+        const s3Key = `images/studentimages/${organizationId}/${Date.now()}_${String(file.originalname || "photo").replace(/[^a-zA-Z0-9._-]+/g, "_")}`;
         imageUrl = await uploadToS3(file, s3Key);
       }
 
@@ -6209,7 +6254,7 @@ const commonController = {
       let guardianImageUrl = null;
       if (files && files.guardianImage0 && files.guardianImage0[0]) {
         const guardianFile = files.guardianImage0[0];
-        const s3Key = `images/guardians/${organizationId}/${guardianFile.originalname}`;
+        const s3Key = `images/guardians/${organizationId}/${Date.now()}_${String(guardianFile.originalname || "photo").replace(/[^a-zA-Z0-9._-]+/g, "_")}`;
         guardianImageUrl = await uploadToS3(guardianFile, s3Key);
       }
 
@@ -6331,9 +6376,10 @@ const commonController = {
         ? req.session.save(() => res.json(payload))
         : res.json(payload);
     } catch (err) {
+      console.error("[publicRegister] could not save application:", err.message);
       res
         .status(500)
-        .json({ success: false, error: "Failed to save pending student." });
+        .json({ success: false, error: "Your application could not be saved. Please check the details and try again." });
     }
   },
 
@@ -9618,11 +9664,8 @@ const commonController = {
 
     // Persist exactly what was selected in the form (after safety filtering)
     // so the permission page remains authoritative for every employee role.
-    // Drivers are restricted to the student roster only — no other
-    // permission can be granted to them from this form, even if requested.
-    const effectivePermissions = account_type === "Driver"
-      ? sanitizedRequestedPermissions.filter((permission) => permission === PERMISSIONS.MANAGE_STUDENTS)
-      : sanitizedRequestedPermissions;
+    // Drivers get no school-management permissions, even if requested.
+    const effectivePermissions = account_type === "Driver" ? [] : sanitizedRequestedPermissions;
 
     // Mailroom scope is a separate marker, not a checkbox in the permission
     // list — "all" means every guardian contact org-wide; "classes" means
@@ -10581,10 +10624,8 @@ const commonController = {
       : featureFilteredPermissions.filter((permission) => !highRiskPermissions.has(permission));
 
     // Persist exactly what was selected in the form (after safety filtering).
-    // Drivers are restricted to the student roster only.
-    const effectivePermissions = accountType === "Driver"
-      ? sanitizedRequestedPermissions.filter((permission) => permission === PERMISSIONS.MANAGE_STUDENTS)
-      : sanitizedRequestedPermissions;
+    // Drivers get no school-management permissions.
+    const effectivePermissions = accountType === "Driver" ? [] : sanitizedRequestedPermissions;
 
     // Mailroom scope is a separate marker, not a checkbox in the permission
     // list — "all" means every guardian contact org-wide; "classes" means
@@ -23532,10 +23573,20 @@ NUMBERING:
         // its own defaults via its normal redirect, just with one extra hop.
       }
 
+      // Organization Stats follows the same rule as Mira's statistics.
+      const canViewOrgStats = await userHasPermission(db, {
+        userId: req.session.user?.user_id || req.session.userId || null,
+        userRole: req.session.userRole || req.session.user?.account_type || null,
+        organizationId,
+        accountType: req.session.accountType || req.session.user?.account_type || null,
+        userEmail: req.session.user?.email || null,
+      }, PERMISSIONS.MANAGE_RECORDS).catch(() => false);
+
       res.render("common/reportsHub", {
         title: "Reports",
         disableMainZoom: true,
         defaultReportSettingsUrl,
+        canViewOrgStats,
         messages: req.flash(),
       });
     } catch (error) {

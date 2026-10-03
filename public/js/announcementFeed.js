@@ -19,6 +19,16 @@
     }).catch(() => {});
   }
 
+  // Waits for a feedback-request popup (public/js/feedbackPrompt.js), if one
+  // is already open, to close before an announcement modal takes the same
+  // screen space - the two systems load independently, so without this they
+  // can both open at once.
+  function waitForFeedbackPrompt(cb, attempts) {
+    attempts = attempts || 0;
+    if (!document.querySelector(".mfb-overlay") || attempts > 40) { cb(); return; }
+    setTimeout(function () { waitForFeedbackPrompt(cb, attempts + 1); }, 250);
+  }
+
   function renderCta(link, announcementId) {
     const a = document.createElement("a");
     a.className = "ann-modal-cta " + (["primary", "secondary", "link"].includes(link.style) ? link.style : "primary");
@@ -100,6 +110,14 @@
       const item = items[index];
       overlay.hidden = false;
       container.innerHTML = "";
+      // Corner placement only where there's room for it (matches the
+      // feedback-prompt widget's own breakpoint); phones always get the
+      // classic centered dialog.
+      overlay.classList.remove("ann-pos-bottom-right", "ann-pos-bottom-left");
+      const pos = item.position || "center";
+      if (window.innerWidth >= 768 && (pos === "bottom-right" || pos === "bottom-left")) {
+        overlay.classList.add("ann-pos-" + pos);
+      }
 
       const bar = document.createElement("div");
       bar.className = "ann-modal-banner-bar ann-" + (item.variant || "info");
@@ -134,34 +152,36 @@
         body.appendChild(ctaRow);
       }
 
-      const footer = document.createElement("div");
-      footer.className = "ann-modal-footer";
+      if (items.length > 1) {
+        const footer = document.createElement("div");
+        footer.className = "ann-modal-footer";
+        const hint = document.createElement("span");
+        hint.className = "ann-modal-queue-hint";
+        hint.textContent = index + 1 + " of " + items.length;
+        footer.appendChild(hint);
+        body.appendChild(footer);
+      }
 
-      const hint = document.createElement("span");
-      hint.className = "ann-modal-queue-hint";
-      hint.textContent = items.length > 1 ? index + 1 + " of " + items.length : "";
-      footer.appendChild(hint);
+      container.appendChild(body);
 
       if (item.dismissible) {
         const close = document.createElement("button");
         close.type = "button";
         close.className = "ann-modal-close";
-        close.textContent = "Close";
+        close.setAttribute("aria-label", "Close");
+        close.innerHTML = "&times;";
         close.addEventListener("click", function () {
           post("/announcements/" + item.id + "/dismiss");
           index += 1;
           showNext();
         });
-        footer.appendChild(close);
+        container.appendChild(close);
       }
-
-      body.appendChild(footer);
-      container.appendChild(body);
 
       post("/announcements/" + item.id + "/seen");
     }
 
-    showNext();
+    waitForFeedbackPrompt(showNext);
   }
 
   function init() {

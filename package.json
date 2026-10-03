@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "node server.js",
+    "predev": "node scripts/dev-preflight.js",
     "dev": "concurrently -n MAIN,MIRA -c blue,green \"npm:dev:main\" \"npm:dev:mira\"",
     "dev:main": "nodemon",
     "dev:mira": "npm --prefix mira run dev",

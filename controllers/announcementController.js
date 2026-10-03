@@ -7,6 +7,7 @@ const { ensureAnnouncementSchema } = require("../utils/announcementSystem");
 const { isFrequencyExhausted } = require("../utils/announcementFrequency");
 const { isManagerLikeRole } = require("../middleware/permissionMiddleware");
 const { uploadToS3 } = require("../middleware/s3Upload");
+const { audienceMembers, notifyMembers } = require("../utils/platformNotices");
 
 function safeString(value) {
   return String(value == null ? "" : value).trim();
@@ -46,11 +47,18 @@ function resolveViewerRoleTags(req) {
   if (session.studentId && userRole === "Student") tags.push("student");
   if (/^teacher$/i.test(userRole)) tags.push("teacher");
   if (/^student teacher$/i.test(userRole)) tags.push("student_teacher");
+  if (/^supervisor$/i.test(userRole)) tags.push("supervisor");
   if (/^driver$/i.test(userRole) || /^driver$/i.test(accountType)) tags.push("driver");
-  if (isManagerLikeRole(userRole) || isManagerLikeRole(accountType)) tags.push("org_admin");
-  if (accountType.toLowerCase() === "admin") tags.push("super_admin");
+  // School managers and the school's own account ("org_admin" is the older name).
+  if (/^manager$/i.test(userRole) || /^organization$/i.test(accountType)) tags.push("manager", "org_admin");
+  if (isManagerLikeRole(accountType) && !/^organization$/i.test(accountType)) tags.push("super_admin");
 
   return [...new Set(tags)];
+}
+
+const VALID_POSITIONS = new Set(["center", "bottom-right", "bottom-left"]);
+function normalizePosition(value, fallback) {
+  return VALID_POSITIONS.has(value) ? value : (fallback || "center");
 }
 
 function parseCtaLinks(raw) {
@@ -74,6 +82,8 @@ function parseCtaLinks(raw) {
 }
 
 const ROLE_TARGET_VALUES = new Set([
+  "manager",
+  "supervisor",
   "teacher",
   "student_teacher",
   "student",
@@ -132,6 +142,7 @@ async function createAnnouncement(req, res) {
     const body = req.body || {};
     const displayType = body.display_type === "banner" ? "banner" : "modal";
     const variant = ["info", "success", "warning", "new"].includes(body.variant) ? body.variant : "info";
+    const position = normalizePosition(body.position);
     const frequency = require("../utils/announcementFrequency").VALID_FREQUENCIES.has(body.frequency)
       ? body.frequency
       : "once";
@@ -144,8 +155,8 @@ async function createAnnouncement(req, res) {
 
     const result = await db.query(
       `INSERT INTO broadcast_announcements
-        (tenant_id, title, body, image_url, display_type, variant, cta_links, dismissible, frequency, max_views, starts_at, ends_at, is_active, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, COALESCE($11, now()), $12, $13, $14)
+        (tenant_id, title, body, image_url, display_type, variant, position, cta_links, dismissible, frequency, max_views, starts_at, ends_at, is_active, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, COALESCE($12, now()), $13, $14, $15)
        RETURNING *`,
       [
         organizationId,
@@ -154,6 +165,7 @@ async function createAnnouncement(req, res) {
         safeString(body.image_url) || null,
         displayType,
         variant,
+        position,
         JSON.stringify(ctaLinks),
         body.dismissible !== false,
         frequency,
@@ -165,7 +177,8 @@ async function createAnnouncement(req, res) {
       ]
     );
     await insertTargets(db, result.rows[0].id, targets);
-    return res.status(201).json({ announcement: result.rows[0] });
+    const notified = body.notify === true && result.rows[0].is_active ? await notifyAnnouncement(result.rows[0], targets) : 0;
+    return res.status(201).json({ announcement: result.rows[0], notified });
   } catch (error) {
     console.error("[createAnnouncement]", error);
     return res.status(500).json({ error: "Unable to create announcement." });
@@ -178,20 +191,22 @@ async function createGlobalAnnouncement(req, res) {
     const body = req.body || {};
     const displayType = body.display_type === "banner" ? "banner" : "modal";
     const variant = ["info", "success", "warning", "new"].includes(body.variant) ? body.variant : "info";
+    const position = normalizePosition(body.position);
     const frequency = require("../utils/announcementFrequency").VALID_FREQUENCIES.has(body.frequency)
       ? body.frequency
       : "once";
     const maxViews = frequency === "n_times" ? parseInt(body.max_views, 10) || null : null;
     const ctaLinks = parseCtaLinks(body.cta_links);
     const targets = normalizeTargets(body.targets, { allowOrgTargets: true });
-    // tenant_id: null = all orgs (platform staff only), else a specific org.
-    const tenantId = body.tenant_id ? parseInt(body.tenant_id, 10) : null;
+    // tenant_id: null = every school (narrowed by any school targets), else one school.
+    const hasOrgTargets = targets.some((t) => t.target_type === "org");
+    const tenantId = body.tenant_id && !hasOrgTargets ? parseInt(body.tenant_id, 10) : null;
     const userId = req.session.userId || req.session.user?.user_id || null;
 
     const result = await db.query(
       `INSERT INTO broadcast_announcements
-        (tenant_id, title, body, image_url, display_type, variant, cta_links, dismissible, frequency, max_views, starts_at, ends_at, is_active, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, COALESCE($11, now()), $12, $13, $14)
+        (tenant_id, title, body, image_url, display_type, variant, position, cta_links, dismissible, frequency, max_views, starts_at, ends_at, is_active, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, COALESCE($12, now()), $13, $14, $15)
        RETURNING *`,
       [
         tenantId,
@@ -200,6 +215,7 @@ async function createGlobalAnnouncement(req, res) {
         safeString(body.image_url) || null,
         displayType,
         variant,
+        position,
         JSON.stringify(ctaLinks),
         body.dismissible !== false,
         frequency,
@@ -211,7 +227,8 @@ async function createGlobalAnnouncement(req, res) {
       ]
     );
     await insertTargets(db, result.rows[0].id, targets);
-    return res.status(201).json({ announcement: result.rows[0] });
+    const notified = body.notify === true && result.rows[0].is_active ? await notifyAnnouncement(result.rows[0], targets) : 0;
+    return res.status(201).json({ announcement: result.rows[0], notified });
   } catch (error) {
     console.error("[createGlobalAnnouncement]", error);
     return res.status(500).json({ error: "Unable to create announcement." });
@@ -238,6 +255,7 @@ async function updateAnnouncement(req, res) {
     const body = req.body || {};
     const displayType = body.display_type === "banner" ? "banner" : "modal";
     const variant = ["info", "success", "warning", "new"].includes(body.variant) ? body.variant : row.variant;
+    const position = body.position !== undefined ? normalizePosition(body.position, row.position) : row.position;
     const frequency = require("../utils/announcementFrequency").VALID_FREQUENCIES.has(body.frequency)
       ? body.frequency
       : row.frequency;
@@ -247,16 +265,17 @@ async function updateAnnouncement(req, res) {
 
     const result = await db.query(
       `UPDATE broadcast_announcements SET
-        title=$1, body=$2, image_url=$3, display_type=$4, variant=$5, cta_links=$6,
-        dismissible=$7, frequency=$8, max_views=$9, starts_at=COALESCE($10, starts_at),
-        ends_at=$11, is_active=$12, updated_at=now()
-       WHERE id=$13 RETURNING *`,
+        title=$1, body=$2, image_url=$3, display_type=$4, variant=$5, position=$6, cta_links=$7,
+        dismissible=$8, frequency=$9, max_views=$10, starts_at=COALESCE($11, starts_at),
+        ends_at=$12, is_active=$13, updated_at=now()
+       WHERE id=$14 RETURNING *`,
       [
         safeString(body.title).slice(0, 255) || row.title,
         body.body !== undefined ? safeString(body.body) : row.body,
         body.image_url !== undefined ? safeString(body.image_url) || null : row.image_url,
         displayType,
         variant,
+        position,
         JSON.stringify(ctaLinks),
         body.dismissible !== undefined ? body.dismissible !== false : row.dismissible,
         frequency,
@@ -312,8 +331,8 @@ async function duplicateAnnouncement(req, res) {
     const userId = req.session.userId || req.session.user?.user_id || null;
     const insertResult = await db.query(
       `INSERT INTO broadcast_announcements
-        (tenant_id, title, body, image_url, display_type, variant, cta_links, dismissible, frequency, max_views, starts_at, ends_at, is_active, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now(), $11, false, $12)
+        (tenant_id, title, body, image_url, display_type, variant, position, cta_links, dismissible, frequency, max_views, starts_at, ends_at, is_active, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now(), $12, false, $13)
        RETURNING *`,
       [
         row.tenant_id,
@@ -322,6 +341,7 @@ async function duplicateAnnouncement(req, res) {
         row.image_url,
         row.display_type,
         row.variant,
+        row.position,
         JSON.stringify(row.cta_links),
         row.dismissible,
         row.frequency,
@@ -397,75 +417,72 @@ async function listAnnouncements(req, res) {
 async function uploadImage(req, res) {
   try {
     if (!req.file) return res.status(400).json({ error: "No image uploaded." });
-    const result = await uploadToS3(req.file, `images/announcements/${Date.now()}_${req.file.originalname}`);
-    return res.json({ image_url: result.Location });
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(req.file.mimetype)) return res.status(400).json({ error: "Use a JPG, PNG, WebP or GIF image." });
+    const safeName = String(req.file.originalname || "image").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(-60);
+    const result = await uploadToS3(req.file, `images/announcements/${Date.now()}_${safeName}`);
+    const imageUrl = typeof result === "string" ? result : result?.Location;
+    if (!imageUrl) return res.status(500).json({ error: "Unable to upload image." });
+    return res.json({ image_url: imageUrl });
   } catch (error) {
     console.error("[announcement/uploadImage]", error);
     return res.status(500).json({ error: "Unable to upload image." });
   }
 }
 
-// Role tags that live in users.account_type (a free-text role string - there
-// is no user_role column). student/parent/guardian live in separate tables
-// entirely, and super_admin is Managira platform staff (the `admins` table),
-// not an org user at all.
-const ROLE_TAG_ACCOUNT_TYPES = {
-  teacher: ["Teacher"],
-  student_teacher: ["Student Teacher"],
-  driver: ["Driver"],
-  org_admin: ["Organization", "Admin", "Mini Admin"],
-};
+// Announcement role tags -> the audience groups used for counting and
+// bell notifications (utils/platformNotices).
+const TAG_TO_AUDIENCE_ROLE = { manager: "manager", org_admin: "manager", supervisor: "supervisor", teacher: "teacher", driver: "driver", parent: "parent", guardian: "parent", student: "student" };
+const ALL_AUDIENCE_ROLES = ["manager", "supervisor", "teacher", "driver", "parent", "student"];
+
+// Everyone an announcement reaches (people who can sign in), for the
+// recipient estimate and bell notifications.
+async function announcementAudience({ targets, tenantId, admin }) {
+  const roleTags = targets.filter((t) => t.target_type === "role").map((t) => t.target_value);
+  const orgTargets = targets.filter((t) => t.target_type === "org").map((t) => parseInt(t.target_value, 10)).filter(Boolean);
+  const userIds = targets.filter((t) => t.target_type === "user").map((t) => parseInt(t.target_value, 10)).filter(Boolean);
+  let roles = [...new Set(roleTags.map((tag) => TAG_TO_AUDIENCE_ROLE[tag]).filter(Boolean))];
+  if (!roles.length && orgTargets.length) roles = ALL_AUDIENCE_ROLES;
+  const orgScope = tenantId ? [tenantId] : orgTargets.length ? orgTargets : null;
+  const members = roles.length && (orgScope || admin)
+    ? await audienceMembers(db, { roles, allOrganizations: !orgScope, organizationIds: orgScope || [] })
+    : [];
+  if (userIds.length) {
+    const rows = (await db.query(`SELECT user_id, organization_id FROM users WHERE user_id = ANY($1::int[]) AND organization_id IS NOT NULL`, [userIds])).rows;
+    rows.forEach((r) => {
+      if (!members.some((m) => m.type === "staff" && m.id === r.user_id && m.orgId === r.organization_id)) {
+        members.push({ type: "staff", id: r.user_id, orgId: r.organization_id });
+      }
+    });
+  }
+  return members;
+}
+
+async function notifyAnnouncement(announcement, targets) {
+  try {
+    const members = await announcementAudience({ targets, tenantId: announcement.tenant_id, admin: true });
+    const plain = safeString(announcement.body).replace(/[#*_`>]/g, "").replace(/\s+/g, " ");
+    return await notifyMembers(db, members, {
+      type: "announcement",
+      title: safeString(announcement.title).slice(0, 200),
+      body: plain.length > 280 ? `${plain.slice(0, 277)}...` : plain,
+      link: null,
+      refId: announcement.id,
+    });
+  } catch (error) {
+    console.error("[announcement/notify]", error.message);
+    return 0;
+  }
+}
 
 async function estimateRecipients(req, res) {
   try {
     await ensureAnnouncementSchema(db);
     const admin = isPlatformAdmin(req);
-    const organizationId = req.session.organizationId;
     const targets = normalizeTargets(req.query.targets, { allowOrgTargets: admin });
-    const tenantId = admin && req.query.tenant_id ? parseInt(req.query.tenant_id, 10) : organizationId;
-
     if (!targets.length) return res.json({ estimate: 0 });
-
-    const roleValues = targets.filter((t) => t.target_type === "role").map((t) => t.target_value);
-    const userValues = targets.filter((t) => t.target_type === "user").map((t) => parseInt(t.target_value, 10));
-    const orgValues = targets.filter((t) => t.target_type === "org").map((t) => parseInt(t.target_value, 10));
-
-    let estimate = 0;
-
-    const staffAccountTypes = roleValues.flatMap((r) => ROLE_TAG_ACCOUNT_TYPES[r] || []);
-    if (staffAccountTypes.length && tenantId) {
-      const roleResult = await db.query(
-        `SELECT COUNT(*) FROM users WHERE organization_id = $1 AND account_type = ANY($2::text[])`,
-        [tenantId, staffAccountTypes]
-      );
-      estimate += Number(roleResult.rows[0].count);
-    }
-    if (roleValues.includes("student") && tenantId) {
-      const studentResult = await db.query(`SELECT COUNT(*) FROM students WHERE organization_id = $1`, [tenantId]);
-      estimate += Number(studentResult.rows[0].count);
-    }
-    if ((roleValues.includes("parent") || roleValues.includes("guardian")) && tenantId) {
-      const guardianResult = await db.query(
-        `SELECT COUNT(*) FROM guardian_profiles WHERE organization_id = $1`,
-        [tenantId]
-      );
-      estimate += Number(guardianResult.rows[0].count);
-    }
-    if (roleValues.includes("super_admin")) {
-      const adminResult = await db.query(`SELECT COUNT(*) FROM admins`).catch(() => ({ rows: [{ count: 0 }] }));
-      estimate += Number(adminResult.rows[0].count);
-    }
-
-    estimate += userValues.length;
-    if (orgValues.length && admin) {
-      const orgResult = await db.query(
-        `SELECT COUNT(*) FROM users WHERE organization_id = ANY($1::int[])`,
-        [orgValues]
-      );
-      estimate += Number(orgResult.rows[0].count);
-    }
-
-    return res.json({ estimate });
+    const tenantId = admin ? (req.query.tenant_id ? parseInt(req.query.tenant_id, 10) : null) : req.session.organizationId;
+    const members = await announcementAudience({ targets, tenantId, admin });
+    return res.json({ estimate: members.length });
   } catch (error) {
     console.error("[estimateRecipients]", error);
     return res.status(500).json({ error: "Unable to estimate recipients." });
@@ -491,12 +508,21 @@ async function getMyAnnouncements(req, res) {
        WHERE a.is_active = TRUE
          AND now() BETWEEN a.starts_at AND COALESCE(a.ends_at, 'infinity'::timestamptz)
          AND (a.tenant_id IS NULL OR a.tenant_id = $3)
-         AND EXISTS (
-           SELECT 1 FROM broadcast_announcement_targets t
-           WHERE t.announcement_id = a.id
-             AND ((t.target_type = 'role' AND t.target_value = ANY($4::text[]))
-               OR (t.target_type = 'org' AND t.target_value = $3::text)
-               OR (t.target_type = 'user' AND t.target_value = $1::text))
+         AND (
+           -- named people always get it
+           EXISTS (SELECT 1 FROM broadcast_announcement_targets t
+                   WHERE t.announcement_id = a.id AND t.target_type = 'user' AND t.target_value = $1::text)
+           OR (
+             -- otherwise: one of the chosen roles AND one of the chosen schools
+             EXISTS (SELECT 1 FROM broadcast_announcement_targets t
+                     WHERE t.announcement_id = a.id AND t.target_type IN ('role', 'org'))
+             AND (NOT EXISTS (SELECT 1 FROM broadcast_announcement_targets t WHERE t.announcement_id = a.id AND t.target_type = 'role')
+                  OR EXISTS (SELECT 1 FROM broadcast_announcement_targets t
+                             WHERE t.announcement_id = a.id AND t.target_type = 'role' AND t.target_value = ANY($4::text[])))
+             AND (NOT EXISTS (SELECT 1 FROM broadcast_announcement_targets t WHERE t.announcement_id = a.id AND t.target_type = 'org')
+                  OR EXISTS (SELECT 1 FROM broadcast_announcement_targets t
+                             WHERE t.announcement_id = a.id AND t.target_type = 'org' AND t.target_value = $3::text))
+           )
          )
        ORDER BY a.display_type ASC, a.created_at DESC`,
       [identity.userId, identity.viewerType, orgId, roleTags]

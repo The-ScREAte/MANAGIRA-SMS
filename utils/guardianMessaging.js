@@ -122,6 +122,7 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
     schoolName,
     documentUrl,
     documentCaption,
+    emailSubject,
     onResult,
   } = options;
 
@@ -188,7 +189,7 @@ async function sendGuardianMessages(dbClient, organizationId, options) {
         });
         // eslint-disable-next-line no-await-in-loop
         const sent = await sendEmailSafely(
-          { to: email, subject: `${safeString(schoolName)}: Notification`, html },
+          { to: email, subject: safeString(emailSubject) || `${safeString(schoolName)}: Notification`, html },
           "Guardian Notification Email"
         );
         push({ email, guardianName: recipient.guardianName || "", success: Boolean(sent), error: sent ? undefined : "Send failed." });

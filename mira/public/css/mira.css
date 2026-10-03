@@ -2,6 +2,20 @@
    (public/css/buttons.css, views/partials/head.ejs, site.webmanifest) -
    #01535b is Managira's confirmed brand color, not invented here. */
 
+/* Scrolling stays fully functional everywhere in Mira; the visual
+   scrollbar is hidden, matching the main app. */
+html, body, * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-track {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 :root {
   --mira-primary: #01535b;
   --mira-primary-hover: #014a51;
@@ -1093,15 +1107,23 @@ button { font-family: inherit; }
   text-align: left;
   white-space: nowrap;
 }
+/* Header text uses the normal text colour on a tint of the brand colour,
+   so it reads clearly in both light and dark themes. */
 .mira-md-table th {
-  background: var(--mira-primary-soft);
-  color: var(--mira-primary);
+  background: var(--mira-primary-soft-strong);
+  color: var(--mira-text-primary);
   font-weight: 600;
 }
 .mira-md-table tbody tr:nth-child(even) { background: var(--mira-bg-hover, rgba(0,0,0,0.02)); }
 
+.mira-md-hr {
+  border: 0;
+  border-top: 1px solid var(--mira-border);
+  margin: 14px 0;
+}
+
 .mira-md-image {
-  max-width: 100%;
+  max-width: min(100%, 560px);
   height: auto;
   display: block;
   margin: 4px 0 10px;

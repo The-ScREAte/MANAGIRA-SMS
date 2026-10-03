@@ -5,50 +5,56 @@ module.exports = (db) => {
   const { isAuthenticated, ensureAdmin } = require("../middleware/authMiddleware");
   const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
   const { upload } = require("../middleware/s3Upload");
+  // Managira platform admins manage announcements for every school; school
+  // staff need the Publish Events & Announcements permission.
+  const canPublish = (req, res, next) => {
+    if (String(req.session?.accountType || "").trim().toLowerCase() === "admin") return next();
+    return requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS)(req, res, next);
+  };
 
   // Admin/org-portal composer + list (staff-only permission gate).
   router.post(
     "/",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    canPublish,
     announcementController.createAnnouncement
   );
   router.post("/global", isAuthenticated, ensureAdmin, announcementController.createGlobalAnnouncement);
   router.put(
     "/:id",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    canPublish,
     announcementController.updateAnnouncement
   );
   router.delete(
     "/:id",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    canPublish,
     announcementController.deleteAnnouncement
   );
   router.post(
     "/:id/duplicate",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    canPublish,
     announcementController.duplicateAnnouncement
   );
   router.get(
     "/",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    canPublish,
     announcementController.listAnnouncements
   );
   router.post(
     "/upload-image",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    canPublish,
     upload.single("image"),
     announcementController.uploadImage
   );
   router.get(
     "/estimate-recipients",
     isAuthenticated,
-    requirePermission(PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS),
+    canPublish,
     announcementController.estimateRecipients
   );
 

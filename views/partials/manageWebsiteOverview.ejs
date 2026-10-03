@@ -1,0 +1,66 @@
+<%
+  const mwo = (typeof websiteOverview !== 'undefined' && websiteOverview) || null;
+%>
+<% if (mwo) { %>
+<style>
+  .mwo { margin: 0 0 18px; padding: 18px 20px; border: 1px solid #e5e7eb; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
+  .mwo-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  .mwo-head h2 { margin: 0; font-size: 1.08rem; font-weight: 800; color: #0f172a; text-align: left; }
+  .mwo-head p { margin: 2px 0 0; font-size: 0.86rem; color: #64748b; }
+  .mwo-progress { display: flex; align-items: center; gap: 10px; min-width: 200px; font-size: 0.82rem; font-weight: 700; color: #334155; }
+  .mwo-bar { flex: 1; height: 8px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+  .mwo-bar span { display: block; height: 100%; border-radius: 999px; background: var(--org-primary-color, #01535b); }
+  .mwo-alert { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; font-size: 0.9rem; font-weight: 600; }
+  .mwo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .mwo-item { display: flex; align-items: flex-start; gap: 10px; width: 100%; margin: 0; padding: 11px 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; text-align: left; font: inherit; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+  .mwo-item:hover, .mwo-item:focus-visible { border-color: var(--org-primary-color, #01535b); background: #fff; }
+  .mwo-dot { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; }
+  .mwo-item.done .mwo-dot { background: #dcfce7; color: #166534; }
+  .mwo-item.todo .mwo-dot { background: #fef3c7; color: #92400e; }
+  .mwo-item.optional.todo .mwo-dot { background: #f1f5f9; color: #64748b; }
+  .mwo-text { min-width: 0; }
+  .mwo-text strong { display: block; font-size: 0.88rem; color: #0f172a; }
+  .mwo-text span { display: block; margin-top: 2px; font-size: 0.8rem; color: #64748b; overflow-wrap: anywhere; }
+  .mwo-btn { width: auto; margin: 0; padding: 7px 14px; border-radius: 9px; border: 1px solid var(--org-primary-color, #01535b); background: var(--org-primary-color, #01535b); color: #fff; font: inherit; font-size: 0.84rem; font-weight: 700; cursor: pointer; }
+  @media (max-width: 640px) { .mwo { padding: 14px; } .mwo-progress { min-width: 0; width: 100%; } }
+</style>
+<section class="mwo" aria-labelledby="mwoTitle">
+  <div class="mwo-head">
+    <div>
+      <h2 id="mwoTitle">Your website setup</h2>
+      <p>Click any item to jump to it. Anything not set up stays hidden from visitors.</p>
+    </div>
+    <div class="mwo-progress" aria-label="<%= mwo.doneCount %> of <%= mwo.totalCount %> essentials done">
+      <span><%= mwo.doneCount %> of <%= mwo.totalCount %> done</span>
+      <div class="mwo-bar"><span style="width: <%= Math.round((mwo.doneCount / Math.max(mwo.totalCount, 1)) * 100) %>%"></span></div>
+    </div>
+  </div>
+  <% if (mwo.unreadMessages > 0) { %>
+  <div class="mwo-alert" role="status">
+    <span>You have <%= mwo.unreadMessages %> new message<%= mwo.unreadMessages > 1 ? 's' : '' %> from your website.</span>
+    <button type="button" class="mwo-btn" data-mwo-target="mwxContact">Read messages</button>
+  </div>
+  <% } %>
+  <div class="mwo-grid">
+    <% mwo.items.forEach((item) => { %>
+    <button type="button" class="mwo-item <%= item.done ? 'done' : 'todo' %><%= item.optional ? ' optional' : '' %>" data-mwo-target="<%= item.target %>">
+      <span class="mwo-dot" aria-hidden="true"><%= item.done ? '✓' : (item.optional ? '–' : '!') %></span>
+      <span class="mwo-text"><strong><%= item.label %></strong><span><%= item.detail %></span></span>
+    </button>
+    <% }) %>
+  </div>
+</section>
+<script>
+  (function () {
+    document.querySelectorAll('[data-mwo-target]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var panel = document.getElementById(button.getAttribute('data-mwo-target'));
+        if (!panel) return;
+        var toggle = panel.querySelector('.section-collapse-toggle');
+        if (toggle && toggle.getAttribute('aria-expanded') === 'false') toggle.click();
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  })();
+</script>
+<% } %>

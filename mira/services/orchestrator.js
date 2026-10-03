@@ -1,40 +1,66 @@
 // Per-turn orchestration: persist the user's message, run the model+tools
 // loop, stream the reply over SSE, persist the assistant's reply + any
-// tool calls to the audit log. RAG retrieval (phase 5) slots in right
-// before the modelRouter call, once ragService exists; rate limiting and
-// usage-cap checks (phase 5c) slot in right before that.
+// tool calls to the audit log.
 const db = require("../config/db");
 const { ensureMiraSchema } = require("../db/schema");
 const { streamCompletion } = require("./modelRouter");
 const { listToolSchemas, runTool } = require("../tools");
 const { retrieveContext } = require("./ragService");
 const { checkBudget, recordUsage } = require("./usageLedger");
+const { callInternalApi } = require("../internalApiClient");
+const {
+  LOAD_TOOLS_NAME,
+  selectAreas,
+  selectToolSchemas,
+  normalizeRequestedAreas,
+  toolNamesForAreas,
+} = require("./toolSelector");
 
-const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff - finding records, drafting communications, summarizing data, and taking action via your tools. Only ever act within the current user's own school. Be concise and warm.
+const SYSTEM_PROMPT = `You are Mira, Managira's AI assistant for school staff: you find records, explain data, draft communications and make changes through your tools. Only ever act within the current user's own school. Be warm, clear and professional.
 
-Your real capability span, so you never undersell yourself when asked "what can you do": Admissions & Students, Guardians, Attendance, Assessments & Grading, Report Cards & Merit Sheets, Enrollment, Promotion, Employees, Transportation, Announcements, School Years & Terms, Classes/Subjects/Graduation Year Groups, the public School Website, and Docs/Sheets - both looking things up and making real changes, via the full tool list available to you this turn. If asked what you can do, answer from that actual span and your live tool list, not a guess at a narrower scope. You do not activate/connect/configure integrations (Google Classroom, WhatsApp, SMS, Student Portal, Transportation) - only report their status.
+## Scope
+- Unless the user names another term or school year, everything is about the CURRENT school year and term (given below). Say which term a figure is for when it matters.
+- Stay on Managira and school-administration topics; decline anything else in one short sentence.
+- You can work on Admissions & Students, Guardians, Attendance, Assessments & Grading, Report Cards & Merit Sheets, Statistics, Enrollment & Promotion, Employees, Transportation, Events & Announcements, School Years/Terms/Classes/Subjects, the public School Website, Docs & Sheets and school settings. You only see the tools for the current topic; if you need another area, call load_tools - never tell the user you can't do something before checking. You report integration status (Google Classroom, WhatsApp, SMS, Student Portal, Transportation) but don't connect or configure them.
 
-Attached files arrive between "[Attached file: ...]" and "---" - read them and actually carry out any request/instruction inside, don't just describe the contents. If a tool call is denied, say why plainly; never claim to have done something you didn't.
+## Conversation
+- This is one continuous conversation. Earlier messages, your earlier tool calls and their results are all above - use them.
+- A short reply ("yes", "no", "ok", "go ahead", "the first one", "both", "do it", a bare name or number) answers YOUR most recent question. Resolve it from that question and carry out the plan you proposed with the exact same details (student, class, term, file) - never make the user repeat themselves, and never ask the same thing twice.
+- "No, I meant X" means your last answer missed - fix it, don't repeat it.
+- Only ask when something is genuinely missing or ambiguous, or before a destructive action. Ask one clear question that restates what you already know. Never ask permission for a lookup - just do it, and chain every tool call a request needs in the same turn.
+- For a compound request, work out the whole plan first and present it once; a clear yes confirms the whole plan.
 
-Actions that change/delete data: never guess a required value - ask for what's missing. Deletes follow the tool's own warn-then-confirm flow exactly (your warning is not the user's consent - wait for their explicit go-ahead in a LATER message); creating/renaming/adding is not destructive, so once every value is known, just call the tool - no extra "please confirm" round. After any action, say specifically what happened (or why it didn't), not just "done."
+## Actions
+- Never guess a required value. Creating/renaming/adding is not destructive: once every value is known, do it.
+- Deletes, emails to parents and similar actions follow the tool's warn-then-confirm flow: show the warning, wait for an explicit yes in a later message, then call again with confirm=true.
+- After any action, say exactly what happened (or why it didn't). If a tool is denied, explain plainly; never claim to have done something you didn't.
+- For questions about the current state, call the tool fresh rather than trusting an older result.
 
-For questions about CURRENT state (what's current, what's blocking, counts), call the tool fresh rather than trusting an earlier result in this conversation. Before saying you can't help, actually check each candidate tool's full description (not just its name) - many cover more than their name suggests via an optional parameter. A user saying "no, I mean X not Y" means your last answer missed the mark, not that they were unclear; don't repeat it. Never send someone to click through the UI for something a tool can already check or do.
+## Report cards and messages
+- Whenever report cards are requested for parents (send, share, give to guardians), first ask: "Would you like me to post them to the parent portal as well, or just send them?" - and, if sending, by which channel (only the channels the school has turned on; Email is always available). If they only wanted download links, give them, then offer to post or send.
+- Then use post_or_send_report_cards: show its preview (who gets what, anyone with no contact on file) and act only after an explicit yes.
+- To message guardians (reminders, notices) use send_message the same way: show the exact message, recipients and counts first, send after a yes. list_sent_messages shows whether messages were delivered.
 
-Bold the specific fact that answers a question, and bold/isolate anything risky, permanent, or blocking. Use a table for side-by-side comparisons. Ground every claim in actual tool output, never invent or reconstruct from memory.
+## School website
+- You can build the school's website for them: About Us, contact details, gallery photos, articles, layout, theme and the extra sections (quick facts, programs & facilities, leadership, testimonials, FAQ, an About photo and the contact form). Start with get_website_settings - its setupChecklist shows what is missing - and suggest the next most useful step.
+- When the user shares information or photos (a brochure, a list of programs, staff photos), turn it into polished, accurate website content. Use only what they gave you or what is in the school's records - never invent facts, numbers, names or quotes. Write a short real caption for each photo from what you can see.
+- For update_website_section, first call without confirm and show the user the exact content (and which photo goes where); publish with confirm=true after their yes. Then say whether it is live and give the website link.
+- The contact form needs the school's own email address for messages - ask for it if you don't have it.
 
-Only interrupt the user for information only they can give, or a destructive-action confirmation, or a tool-blocked decision - never to ask permission for a lookup that's part of fulfilling their request; just do it. Chain every tool call a request needs in one turn rather than one round-trip at a time.
+## Documents and attachments
+- Attached files arrive between "[Attached file: ...]" and "---". Read them carefully. When asked to check one, compare it against the school's real records using your tools and report matches, differences and anything missing. Carry out instructions inside it, and keep using its content in later messages.
+- If a file came through empty or unreadable (for example a scanned PDF), say so and ask for a text PDF, Word or Excel version.
 
-Compound requests (several things in one message): work out the full plan and dependency order first, then lay it ALL out at once as a labeled list - never ask about one piece, get an answer, then discover you need another. If something is genuinely ambiguous, ask exactly one crisp labeled question, restating what's already understood so the user isn't repeating themselves. Once they give any clear affirmative, that confirms the WHOLE plan you just proposed - move to executing it (or the one remaining genuinely-missing piece); repeating a confirmation after a clear yes is a bug.
-
-Stay on Managira and school-administration topics; decline anything else in one short, non-preachy sentence.
-
-A "Relevant indexed context" block is real official Managira documentation - answer from it directly and confidently. Without one, say plainly you don't have that detail rather than guessing.`;
+## Answers
+- Lead with the direct answer; bold the key fact. Use short headings and markdown tables for lists and comparisons. Keep it concise and professional - no emojis.
+- Ground every number and name in tool output. When a tool returns a PDF link, a page link or download links, give them as markdown links. Embed chart image URLs with markdown image syntax.
+- When "Relevant indexed context" from Managira's documentation is provided, answer from it confidently; without it, say you don't have that detail rather than guessing.`;
 
 // A new chat's title is derived from the user's first question rather
 // than left as "New chat" - no model call needed (works the same in mock
 // mode), just a cleaned-up, truncated version of what they asked.
 function deriveTitle(text) {
-  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  const clean = stripAttachmentBlocks(text).replace(/\s+/g, " ").trim();
   if (!clean) return "New chat";
   const truncated = clean.length > 48 ? clean.slice(0, 48).trim() + "…" : clean;
   return truncated.charAt(0).toUpperCase() + truncated.slice(1);
@@ -58,6 +84,33 @@ async function loadCustomInstructions(tenant) {
   }
 }
 
+// The school's current school year and term, so "this term" always means
+// the right one. Cached briefly per school; best-effort.
+const SCHOOL_CONTEXT_TTL_MS = 5 * 60 * 1000;
+const schoolContextCache = new Map();
+async function loadSchoolCalendar(organizationId) {
+  const cached = schoolContextCache.get(organizationId);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  let value = null;
+  try {
+    const { terms } = await callInternalApi(`/internal/api/terms?organizationId=${encodeURIComponent(organizationId)}`);
+    const list = Array.isArray(terms) ? terms : [];
+    const current = list.find((term) => term.current || term.current_term) || null;
+    value = current ? { termName: current.term_name, yearLabel: current.year_label, startDate: current.start_date, endDate: current.end_date } : null;
+  } catch (error) {
+    console.error("[mira/orchestrator] could not load the current term:", error.message);
+  }
+  schoolContextCache.set(organizationId, { value, expiresAt: Date.now() + SCHOOL_CONTEXT_TTL_MS });
+  return value;
+}
+
+function formatDay(value) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })
+    : null;
+}
+
 async function getOrCreateChat({ tenant, chatId, firstMessage }) {
   await ensureMiraSchema(db);
   if (chatId) {
@@ -74,18 +127,84 @@ async function getOrCreateChat({ tenant, chatId, firstMessage }) {
   return created.rows[0];
 }
 
-// `ORDER BY created_at ASC LIMIT N` (the previous query) takes the OLDEST N
-// messages - for any chat that ever grew past that cap, the model was
-// permanently stuck seeing only the very first exchanges, never the actual
-// recent conversation. Pulling the newest N (DESC) then re-reversing to
-// chronological order for the prompt fixes that; the smaller cap also
-// meaningfully cuts prompt-token cost per turn.
+// ---- Conversation history ----
+// The newest messages are sent back to the model each turn. The most recent
+// turns also carry the tool calls Mira made and their (compacted) results,
+// in the real tool-calling format, so a follow-up like "yes" or "the
+// second one" can act on exactly the records already found.
+const HISTORY_MESSAGES = 20;
+const TURNS_WITH_TOOL_DETAIL = 4;
+const TOOL_RESULT_MAX_CHARS = 2500;
+const TOOL_RESULTS_PER_TURN_MAX_CHARS = 7000;
+const OLD_ATTACHMENT_MAX_CHARS = 1500;
+
+const ATTACHMENT_BLOCK = /^\[Attached (file|image): ([^\]]+)\]/;
+
+function stripAttachmentBlocks(text) {
+  return String(text || "")
+    .split("\n\n---\n\n")
+    .filter((block) => !ATTACHMENT_BLOCK.test(block))
+    .join("\n\n");
+}
+
+// Older attachments are shortened in the history (the latest stays whole)
+// so a long file doesn't get re-sent in full on every later turn.
+function shortenAttachments(text) {
+  return String(text || "")
+    .split("\n\n---\n\n")
+    .map((block) => {
+      if (!ATTACHMENT_BLOCK.test(block) || block.length <= OLD_ATTACHMENT_MAX_CHARS) return block;
+      return `${block.slice(0, OLD_ATTACHMENT_MAX_CHARS)}\n[... rest of this earlier attachment omitted - ask the user to re-attach it if you need the full text ...]`;
+    })
+    .join("\n\n---\n\n");
+}
+
+function compactToolResult(result, maxChars) {
+  const text = typeof result === "string" ? result : JSON.stringify(result);
+  if (!text) return "";
+  return text.length > maxChars ? `${text.slice(0, maxChars)} ...[truncated]` : text;
+}
+
 async function loadHistory(chatId) {
   const result = await db.query(
-    `SELECT role, content FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 20`,
+    `SELECT id, role, content, tool_calls FROM mira_chat_messages WHERE chat_id = $1 ORDER BY created_at DESC, id DESC LIMIT ${HISTORY_MESSAGES}`,
     [chatId]
   );
-  return result.rows.reverse().map((r) => ({ role: r.role, content: r.content }));
+  const rows = result.rows.reverse();
+
+  const latestAttachmentIndex = rows.reduce(
+    (latest, row, index) => (row.role === "user" && ATTACHMENT_BLOCK.test(String(row.content || "").trimStart()) ? index : latest),
+    -1
+  );
+  const assistantIndexes = rows.map((row, index) => (row.role === "assistant" ? index : -1)).filter((index) => index >= 0);
+  const detailedAssistant = new Set(assistantIndexes.slice(-TURNS_WITH_TOOL_DETAIL));
+
+  // forModel: provider-neutral messages for the prompt.
+  // summary: role/content/tool names, used to pick this turn's tools.
+  const forModel = [];
+  const summary = [];
+  rows.forEach((row, index) => {
+    const toolCalls = Array.isArray(row.tool_calls) ? row.tool_calls : [];
+    summary.push({ role: row.role, content: stripAttachmentBlocks(row.content), toolCalls: toolCalls.map((call) => ({ name: call.name })) });
+
+    if (row.role === "user") {
+      forModel.push({ role: "user", content: index === latestAttachmentIndex ? row.content : shortenAttachments(row.content) });
+      return;
+    }
+
+    const replayable = detailedAssistant.has(index) ? toolCalls.filter((call) => call.name && call.result !== undefined) : [];
+    if (replayable.length) {
+      const calls = replayable.map((call, callIndex) => ({ id: `h${row.id}_${callIndex}`, name: call.name, args: call.args || {} }));
+      forModel.push({ role: "assistant", content: null, toolCalls: calls });
+      forModel.push({
+        role: "tool_results",
+        results: replayable.map((call, callIndex) => ({ toolCallId: `h${row.id}_${callIndex}`, content: String(call.result) })),
+      });
+    }
+    forModel.push({ role: "assistant", content: row.content || "" });
+  });
+
+  return { forModel, summary };
 }
 
 async function saveMessage(chatId, role, content, toolCalls, classScope) {
@@ -113,6 +232,83 @@ function summarizeToolResult(toolName, result) {
   return typeof result === "string" ? result.slice(0, 200) : JSON.stringify(result).slice(0, 200);
 }
 
+// Shown to the user when no AI provider can answer (outage, billing, key).
+const PROVIDER_UNAVAILABLE_MESSAGE =
+  "Mira's AI service isn't available right now, so I couldn't answer. Your message was saved - please try again in a few minutes. If this keeps happening, let your school administrator know.";
+
+async function buildContextMessages({ tenant, userText, history, classScope }) {
+  const calendar = await loadSchoolCalendar(tenant.organizationId);
+  const today = formatDay(new Date());
+  const calendarLine = calendar
+    ? `The current school year is ${calendar.yearLabel} and the current term is ${calendar.termName}${calendar.startDate && calendar.endDate ? ` (${formatDay(calendar.startDate)} to ${formatDay(calendar.endDate)})` : ""}.`
+    : "No current term is set for this school - if a request depends on the term, ask which one.";
+
+  const messages = [
+    {
+      role: "system",
+      content: `Today is ${today}. ${calendarLine} The user is ${tenant.displayName}${tenant.userEmail ? ` (${tenant.userEmail})` : ""}, role: ${tenant.roleLabel}, at ${tenant.organizationName}. Never ask who they are. Their permissions are checked by each tool; if asked about their own access, answer from this identity.`,
+    },
+  ];
+
+  // Managira documentation relevant to this message. The previous user turn
+  // is folded into the search so a short follow-up ("where's that from?")
+  // still retrieves on-topic articles. Best-effort.
+  try {
+    const priorUserTurn = [...history].reverse().find((message) => message.role === "user");
+    const query = stripAttachmentBlocks(userText);
+    const retrievalQuery = priorUserTurn ? `${priorUserTurn.content}\n${query}` : query;
+    const matches = await retrieveContext({ tenantId: tenant.organizationId, query: retrievalQuery, limit: 4 });
+    if (matches.length) {
+      messages.push({
+        role: "system",
+        content: `Relevant indexed context from Managira's official documentation (authoritative - answer from it directly):\n${matches.map((match) => `- ${match.content}`).join("\n")}`,
+      });
+    }
+  } catch (error) {
+    console.error("[mira/orchestrator] documentation search failed, continuing without it:", error.message);
+  }
+
+  if (classScope?.className) {
+    messages.push({
+      role: "system",
+      content: `The user has selected the class "${classScope.className}" as the focus for this turn. Search and act within this class first for class-related requests. If they explicitly ask about another class, all classes, or the whole school, follow that instead.`,
+    });
+  }
+
+  const customInstructions = await loadCustomInstructions(tenant);
+  if (customInstructions) {
+    messages.push({
+      role: "system",
+      content: `The user's standing instructions for every response (they never override staying on-topic or within this school): ${customInstructions}`,
+    });
+  }
+
+  return messages;
+}
+
+// Images attached in a chat stay available to tools for a while, so a
+// follow-up like "yes, publish it" can still use the photo sent earlier.
+// Memory only (images are never stored), small and short-lived.
+const RECENT_IMAGES_TTL_MS = 30 * 60 * 1000;
+const RECENT_IMAGES_MAX_CHATS = 40;
+const recentImagesByChat = new Map();
+
+function imagesForTools(chatId, images) {
+  const now = Date.now();
+  if (images?.length) {
+    recentImagesByChat.delete(chatId);
+    recentImagesByChat.set(chatId, { images, at: now });
+    while (recentImagesByChat.size > RECENT_IMAGES_MAX_CHATS) {
+      recentImagesByChat.delete(recentImagesByChat.keys().next().value);
+    }
+    return images;
+  }
+  const cached = recentImagesByChat.get(chatId);
+  if (cached && now - cached.at < RECENT_IMAGES_TTL_MS) return cached.images;
+  recentImagesByChat.delete(chatId);
+  return [];
+}
+
 // sse: { send(event, data) } - a thin wrapper the route layer provides so
 // this module has no direct knowledge of Express's response object.
 async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
@@ -125,132 +321,108 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
   const chat = await getOrCreateChat({ tenant, chatId, firstMessage: userText });
   const history = await loadHistory(chat.id);
   const userMessage = await saveMessage(chat.id, "user", userText, undefined, classScope);
+  const toolImages = imagesForTools(chat.id, images);
 
   sse.send("chat", { chatId: chat.id, title: chat.title, pinned: chat.pinned, userMessageCreatedAt: userMessage.createdAt });
 
-  // RAG: pull in any previously-indexed content relevant to this message
-  // (scoped to the caller's own tenant - vectorStore.search() enforces
-  // this in SQL, not just in application code). Best-effort: indexing
-  // failures should never block a chat turn.
-  //
-  // The retrieval query folds in the last user turn too, not just the
-  // current message - a short follow-up like "where's that from?" or
-  // "are you sure?" carries no topic keywords of its own, so search on
-  // it alone. Including the prior turn keeps retrieval on-topic across
-  // that kind of natural follow-up.
-  let contextMessages = [
-    {
-      role: "system",
-      content: `The current user talking to you right now is ${tenant.displayName}${tenant.userEmail ? ` (${tenant.userEmail})` : ""}, role: ${tenant.roleLabel}, at ${tenant.organizationName}. Never ask them who they are or which employee they are - you already know. If asked about their own permissions/role/access, answer directly from this identity (cross-referenced with the employee list or role documentation if needed) rather than listing all staff and asking them to self-identify.`,
-    },
-  ];
-  try {
-    const priorUserTurn = [...history].reverse().find((m) => m.role === "user");
-    const retrievalQuery = priorUserTurn ? `${priorUserTurn.content}\n${userText}` : userText;
-    const matches = await retrieveContext({ tenantId: tenant.organizationId, query: retrievalQuery, limit: 4 });
-    if (matches.length) {
-      const contextText = matches.map((m) => `- ${m.content}`).join("\n");
-      contextMessages = [{
-        role: "system",
-        content: `The following is pulled directly from Managira's own official documentation (FAQ / knowledge base). Treat it as authoritative and answer confidently from it - don't say you lack access to documentation when it's provided right here:\n${contextText}`,
-      }];
-    }
-  } catch (error) {
-    console.error("[mira/orchestrator] RAG retrieval failed, continuing without it:", error.message);
-  }
+  const contextMessages = await buildContextMessages({ tenant, userText, history: history.summary, classScope });
 
-  if (classScope?.className) {
-    contextMessages.push({
-      role: "system",
-      content: `The user has selected the class "${classScope.className}" as the default focus for this turn. Search and act within this class first for class-related requests. If the user explicitly asks about another class, all classes, or an organization-wide topic, follow that broader request instead.`,
-    });
-  }
-
-  const customInstructions = await loadCustomInstructions(tenant);
-  if (customInstructions) {
-    contextMessages.push({
-      role: "system",
-      content: `The user has set these standing instructions for you to follow in every response, in addition to everything above (they do not override staying on-topic or tenant-scoped): ${customInstructions}`,
-    });
-  }
-
-  // Only the current turn's message can carry images - history loaded
-  // from the DB is always plain text, since images are never persisted
-  // (kept out of mira_chat_messages to avoid storing base64 blobs there).
+  // Only the current turn's message can carry images - history is always
+  // plain text, since images are never persisted.
   const currentUserContent = images?.length
     ? [{ type: "text", text: userText }, ...images.map((image) => ({ type: "image", image }))]
     : userText;
-  const tools = listToolSchemas();
 
-  // Multi-step tool loop: a single user request can legitimately need more
-  // than one tool call (e.g. "create school year X with 3 terms" led the
-  // model to first call get_term to see what's already there, then needed
-  // a second call to actually create it) - previously this only allowed
-  // exactly one tool call per turn (a hardcoded "first pass" + "second
-  // pass" with tools:[] on the second), so the model's first, exploratory
-  // tool call silently used up its only chance to act. A round can also
-  // contain SEVERAL tool calls at once - models routinely call multiple
-  // tools in parallel for a compound request ("create this class, this
-  // subject, and these two grad year groups" naturally becomes 4 parallel
-  // calls) - all of them are executed and answered before the next round.
-  // Capped so a model that gets stuck can't loop indefinitely at cost to
-  // the org's usage budget; the final, forced-text round (tools:[])
-  // guarantees the turn always ends in a reply rather than a dropped call.
-  const MAX_TOOL_CALLS_PER_TURN = 6;
-  let workingMessages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history, { role: "user", content: currentUserContent }];
+  // Tools for this turn: core + the areas this conversation is about (see
+  // toolSelector.js). load_tools adds areas mid-turn.
+  const allSchemas = listToolSchemas();
+  const areas = selectAreas({ userText, history: history.summary });
+
+  // Multi-step tool loop: a request can need several tool calls, and one
+  // round can contain several parallel calls - all are executed and answered
+  // before the next round. Capped so a stuck model can't loop at the
+  // school's expense; the final round has no tools so the turn always ends
+  // in a reply.
+  const MAX_TOOL_ROUNDS = 8;
+  let workingMessages = [{ role: "system", content: SYSTEM_PROMPT }, ...contextMessages, ...history.forModel, { role: "user", content: currentUserContent }];
   let assistantText = "";
+  let turnFailed = false;
   const toolCallsThisTurn = [];
+  let toolResultChars = 0;
 
-  for (let round = 0; round <= MAX_TOOL_CALLS_PER_TURN; round++) {
+  for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
     const toolCallsInfo = [];
     assistantText = "";
-    const roundTools = round < MAX_TOOL_CALLS_PER_TURN ? tools : [];
+    const roundTools = round < MAX_TOOL_ROUNDS ? selectToolSchemas(allSchemas, areas) : [];
 
-    const pass = await streamCompletion({
-      task: "default",
-      messages: workingMessages,
-      tools: roundTools,
-      onToken: (text) => {
-        assistantText += text;
-        sse.send("token", { text });
-      },
-      onToolCall: (name, args, id) => {
-        toolCallsInfo.push({ name, args, id });
-      },
-    });
+    let pass;
+    try {
+      pass = await streamCompletion({
+        task: "default",
+        messages: workingMessages,
+        tools: roundTools,
+        onToken: (text) => {
+          assistantText += text;
+          sse.send("token", { text });
+        },
+        onToolCall: (name, args, id) => {
+          // Ids are kept to letters, digits, _ and - (some providers use
+          // ids like "functions.get_term:0", which others reject).
+          const safeId = String(id || "").replace(/[^a-zA-Z0-9_-]/g, "_") || `call_${round}_${toolCallsInfo.length}`;
+          toolCallsInfo.push({ name, args, id: safeId });
+        },
+      });
+    } catch (error) {
+      console.error("[mira/orchestrator] no AI provider could answer:", error.message);
+      if (!assistantText.trim()) {
+        turnFailed = true;
+        sse.send("error", { message: PROVIDER_UNAVAILABLE_MESSAGE });
+      }
+      break;
+    }
+
     await recordUsage({
       tenantId: tenant.organizationId,
       userId: tenant.userId,
       provider: pass.provider,
       model: pass.model,
-      promptTokens: pass.usage?.promptTokens || pass.usage?.prompt_tokens || 0,
-      completionTokens: pass.usage?.completionTokens || pass.usage?.completion_tokens || 0,
+      promptTokens: pass.usage?.promptTokens || pass.usage?.prompt_tokens || pass.usage?.input_tokens || 0,
+      completionTokens: pass.usage?.completionTokens || pass.usage?.completion_tokens || pass.usage?.output_tokens || 0,
     }).catch((err) => console.error("[mira/orchestrator] usage recording failed:", err.message));
 
     if (!toolCallsInfo.length) break;
 
     const results = [];
     for (const toolCallInfo of toolCallsInfo) {
+      // load_tools is handled here: it widens this turn's tool list.
+      if (toolCallInfo.name === LOAD_TOOLS_NAME) {
+        const requested = normalizeRequestedAreas(toolCallInfo.args);
+        requested.forEach((area) => areas.add(area));
+        const loaded = requested.length
+          ? `Loaded: ${requested.join(", ")}. These tools are now available: ${[...toolNamesForAreas(new Set(requested))].join(", ")}.`
+          : "No valid area given - choose from the areas listed in this tool's description.";
+        results.push({ toolCallId: toolCallInfo.id, content: loaded });
+        continue;
+      }
+
       sse.send("tool_call", { name: toolCallInfo.name, args: toolCallInfo.args });
-      // Images the user attached to this turn are passed via `context`, not
-      // as tool args - the model never has to (and can't practically)
-      // retype base64 image bytes as a tool-call parameter; a tool that
-      // needs the actual pixels (e.g. upload_website_image) reads
-      // context.images directly. See mira/tools/index.js's runTool header.
-      const { status, result } = await runTool(toolCallInfo.name, toolCallInfo.args, tenant, { images, classScope });
+      // Images attached to this turn reach tools through `context`, never
+      // as model-typed arguments (see tools/index.js runTool).
+      const { status, result } = await runTool(toolCallInfo.name, toolCallInfo.args, tenant, { images: toolImages, classScope });
       const summary = summarizeToolResult(toolCallInfo.name, result);
       await logToolCall({ tenant, chatId: chat.id, toolName: toolCallInfo.name, args: toolCallInfo.args, status, resultSummary: summary });
       sse.send("tool_result", { name: toolCallInfo.name, status, result });
-      toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status });
+
+      // Kept with the reply so later turns can see what was found.
+      const budgetLeft = TOOL_RESULTS_PER_TURN_MAX_CHARS - toolResultChars;
+      const stored = compactToolResult(result, Math.max(400, Math.min(TOOL_RESULT_MAX_CHARS, budgetLeft)));
+      toolResultChars += stored.length;
+      toolCallsThisTurn.push({ name: toolCallInfo.name, args: toolCallInfo.args, status, result: stored });
       results.push({ toolCallId: toolCallInfo.id, content: JSON.stringify(result) });
     }
 
-    // Real tool-calling protocol (not faked as plain text - see
-    // modelRouter.js's toOpenAIMessages/toAnthropicMessages) so the model
-    // has an unambiguous, structured signal that it's mid-tool-loop rather
-    // than having to reinterpret prose each round, and so parallel calls
-    // stay correctly paired with their own result instead of being
-    // collapsed into one.
+    // Real tool-calling protocol (see modelRouter.js toOpenAIMessages /
+    // toAnthropicMessages) so parallel calls stay paired with their results.
     workingMessages = [
       ...workingMessages,
       { role: "assistant", content: null, toolCalls: toolCallsInfo.map((tc) => ({ id: tc.id, name: tc.name, args: tc.args })) },
@@ -258,9 +430,15 @@ async function runTurn({ tenant, chatId, userText, sse, classScope, images }) {
     ];
   }
 
+  if (turnFailed) {
+    // Keep what the tools already found so the next turn can continue.
+    if (toolCallsThisTurn.length) await saveMessage(chat.id, "assistant", "", toolCallsThisTurn, classScope);
+    return;
+  }
+
   const assistantMessage = await saveMessage(chat.id, "assistant", assistantText, toolCallsThisTurn.length ? toolCallsThisTurn : undefined, classScope);
 
   sse.send("done", { chatId: chat.id, messageId: assistantMessage.id, createdAt: assistantMessage.createdAt, classScope: classScope || null });
 }
 
-module.exports = { runTurn };
+module.exports = { runTurn, loadHistory, deriveTitle };

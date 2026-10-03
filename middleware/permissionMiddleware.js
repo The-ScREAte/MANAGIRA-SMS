@@ -86,11 +86,9 @@ const ROLE_DEFAULT_PERMISSIONS = {
     PERMISSIONS.GENERATE_TRANSCRIPTS,
     PERMISSIONS.MANAGE_PROMOTIONS,
   ],
-  // Drivers only need to see/manage the student roster (e.g. confirming who
-  // rides their bus, across classes). No employee/finance/settings access.
-  Driver: [
-    PERMISSIONS.MANAGE_STUDENTS,
-  ],
+  // Drivers work only from the Driver dashboard (their routes and riders),
+  // so they get no school-management permissions.
+  Driver: [],
 };
 
 // Store the singleton on `global` so it is shared even if this module is
@@ -407,6 +405,9 @@ async function userHasPermission(database, { userId, userRole, organizationId, a
 
   if (isManagerLikeRole(userRole)) return true;
   if (!userId) return false;
+  // Older driver records may still carry saved permission rows; drivers never
+  // get school-management access (see ROLE_DEFAULT_PERMISSIONS.Driver).
+  if (normalizedUserRole === "Driver") return false;
 
   await ensurePermissionsSchema(database);
 

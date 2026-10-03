@@ -504,16 +504,16 @@ async function streamCompletion({ task = "default", messages, tools = [], onToke
 
   let configuredProviders = PROVIDER_PRIORITY.filter(isProviderConfigured);
 
-  // Skip a doomed OpenRouter round-trip outright once we can already tell
-  // this prompt will blow its prompt-token cap - saves the latency and the
-  // guaranteed 402 on every real turn (Mira's real system prompt + full
-  // tool schema is consistently ~30k tokens, this account's cap is ~10.7k).
+  // A prompt that looks bigger than the OpenRouter account's prompt-token
+  // cap tries the other providers first, but OpenRouter stays as the last
+  // resort rather than being dropped: if every other provider is down (e.g.
+  // an account issue), one more fast attempt is better than no answer.
   if (
     configuredProviders.length > 1 &&
     configuredProviders.includes("openrouter") &&
     estimateTokens(messages, tools) > OPENROUTER_PROMPT_TOKEN_CAP
   ) {
-    configuredProviders = configuredProviders.filter((p) => p !== "openrouter");
+    configuredProviders = [...configuredProviders.filter((p) => p !== "openrouter"), "openrouter"];
   }
 
   let lastError = null;

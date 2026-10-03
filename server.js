@@ -965,6 +965,9 @@ app.use("/transcript", fetchNotifCount);
 const notificationsRoute = require("./routes/notificationsRoute");
 app.use("/notifications", notificationsRoute);
 
+// Admin feedback requests and announcements for signed-in school users
+app.use("/notices", require("./routes/noticesRoute"));
+
 // Health check endpoint for keep-alive pings
 app.get("/health", (req, res) => {
   res.status(200).json({

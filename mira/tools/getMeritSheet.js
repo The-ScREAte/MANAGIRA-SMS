@@ -4,10 +4,10 @@ const { assertIsStaff } = require("./_writeAuth");
 module.exports = {
   name: "get_merit_sheet",
   description:
-    "Compute a class merit sheet - every enrolled student's total score per subject, overall total, average, and rank - as data, not a PDF. This is the " +
-    "normal first step: present the result as a clean markdown table in your reply. Only call generate_merit_sheet_pdf afterward if the user actually " +
-    "wants a downloadable/printable PDF file. Defaults to every subject and every assessment for the class/term if you don't name specific ones; " +
-    "defaults to the org's current school year/term unless you name a different one. Needs Manage Reports.",
+    "Compute a class merit sheet (not a PDF) - the exact same numbers as the website's Merit Sheet page. Returns `table`, a ready markdown table " +
+    "(a row per student: position, name, each subject's total and the chosen columns) - show it as-is (for a very long class, show it and say how " +
+    "many students there are). Then offer the PDF; if the user wants it, call generate_merit_sheet_pdf with the same arguments. Defaults: every " +
+    "subject and assessment for the class, the current school year/term, and the page's default columns. Needs Manage Reports.",
   parameters: {
     type: "object",
     properties: {
@@ -16,6 +16,12 @@ module.exports = {
       schoolYearLabel: { type: "string" },
       subjectNames: { type: "array", items: { type: "string" }, description: "Defaults to every subject in the class." },
       assessmentTitles: { type: "array", items: { type: "string" }, description: "Defaults to every assessment for the selected subjects/term." },
+      columns: {
+        type: "array",
+        items: { type: "string", enum: ["studentId", "gender", "grade", "subjectTotal", "total", "average", "percentage", "overallGrade", "position", "remark"] },
+        description: "Which optional columns to show (same choices as the website). grade = each assessment's grade (shown with includeAssessmentScores). Omit for the default columns.",
+      },
+      includeAssessmentScores: { type: "boolean", description: "Add a column per assessment (not just subject totals). Only when the user asks for individual test scores - it makes the table much wider." },
     },
     required: ["className"],
   },
@@ -25,15 +31,14 @@ module.exports = {
 
     const params = new URLSearchParams({
       organizationId: String(tenant.organizationId),
-      userId: String(tenant.userId || ""),
-      userRole: tenant.userRole || "",
-      accountType: tenant.accountType || "",
       className: args.className,
     });
     if (args.termName) params.set("termName", args.termName);
     if (args.schoolYearLabel) params.set("schoolYearLabel", args.schoolYearLabel);
     if (args.subjectNames?.length) params.set("subjectNames", args.subjectNames.join(","));
     if (args.assessmentTitles?.length) params.set("assessmentTitles", args.assessmentTitles.join(","));
+    if (args.columns?.length) params.set("columns", args.columns.join(","));
+    if (args.includeAssessmentScores) params.set("includeAssessmentScores", "true");
 
     try {
       return await callInternalApi(`/internal/api/merit-sheets?${params.toString()}`);

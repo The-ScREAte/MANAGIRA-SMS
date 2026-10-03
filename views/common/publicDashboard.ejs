@@ -13,6 +13,11 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title><%= title %></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      /* Scrolling stays fully functional; the visual scrollbar is hidden. */
+      html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
+      *::-webkit-scrollbar, *::-webkit-scrollbar-thumb, *::-webkit-scrollbar-track { display: none !important; width: 0 !important; height: 0 !important; }
+    </style>
 
     <!-- SEO Meta Tags -->
     <% if (typeof description !== 'undefined' && description) { %>
@@ -5700,7 +5705,7 @@ body[data-page="publicDashboard"] #modalCaption{
       const startDate = orgDetails?.registration_start_date ? new Date(orgDetails.registration_start_date) : null;
       const endDate = orgDetails?.registration_end_date ? new Date(orgDetails.registration_end_date) : null;
       const isEnabled = orgDetails?.public_registration_enabled;
-      const isWithinRange = startDate && endDate && startDate <= now && now <= endDate;
+      const isWithinRange = startDate && endDate && startDate <= now && now < new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1);
       const orgId = orgDetails?.organization_id;
       const registrationEndLabel = endDate
         ? endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -5744,6 +5749,39 @@ body[data-page="publicDashboard"] #modalCaption{
       <!-- Container for all draggable sections -->
       <div id="dashboard-sections"></div>
 
+      <%
+        // Section order, visibility and headings set by the school (Manage
+        // Website > Page sections & order). Empty sections are never shown.
+        const pdPage = (typeof websitePage !== 'undefined' && websitePage) || { order: [], hidden: [], titles: {} };
+        const pdHas = {
+          gallery: orderedItems.some((i) => i.id === 'image-gallery' && i.data && i.data.length),
+          articles: orderedItems.some((i) => i.id === 'text-articles' && i.data && i.data.length),
+          events: orderedItems.some((i) => i.type === 'events' && i.data && i.data.length),
+          announcements: orderedItems.some((i) => i.type === 'announcements' && (i.data || []).some((a) => a.visibility === 'public' || a.visibility === 'both')),
+          about: true,
+        };
+        const pdVisible = (key) => !(pdPage.hidden || []).includes(key) && pdHas[key] !== false;
+        const pdOrder = (keys) => {
+          const order = pdPage.order || [];
+          if (!order.length) return 0;
+          const positions = keys.map((k) => order.indexOf(k)).filter((i) => i >= 0);
+          return positions.length ? Math.min(...positions) + 1 : 90;
+        };
+        const pdAttrs = (keys) => {
+          const list = [].concat(keys);
+          const visible = list.filter(pdVisible);
+          const order = pdOrder(list);
+          const style = !visible.length ? 'display:none' : (order ? 'order:' + order : '');
+          return ' data-pd-block="' + list.join(' ') + '"' + (style ? ' style="' + style + '"' : '') + (list.length > 1 && visible.length === 1 ? ' data-pd-single="1"' : '');
+        };
+        const pdTitle = (key, fallback) => (pdPage.titles && pdPage.titles[key]) || fallback;
+      %>
+      <style>
+        .pd-flow { display: flex; flex-direction: column; }
+        .pd-flow > * { width: 100%; box-sizing: border-box; }
+        .pd-flow [data-pd-single] { grid-template-columns: 1fr !important; }
+      </style>
+      <div class="pd-flow">
       <% const pdLayout = (publicDashboardLayout || 'wireframe1'); %>
         <% const aboutMottos = (aboutDetails && Array.isArray(aboutDetails.mottos) ? aboutDetails.mottos : [])
           .map((value) => String(value || '').trim())
@@ -5766,8 +5804,8 @@ body[data-page="publicDashboard"] #modalCaption{
         <!-- WIREFRAME 1: Linear / Traditional School Website - Simple vertical flow -->
         
         <!-- Gallery -->
-        <div class="content-section wf1-section" id="image-gallery">
-          <h2>Campus Gallery 📷</h2>
+        <div class="content-section wf1-section" id="image-gallery"<%- pdAttrs('gallery') %>>
+          <h2><%= pdTitle('gallery', 'Campus Gallery') %></h2>
           <div class="wf1-gallery">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
               <% item.data.forEach(image => { %>
@@ -5783,8 +5821,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- Articles (Simple cards) -->
-        <div class="content-section wf1-section" id="text-articles">
-          <h2>School Highlights 📝</h2>
+        <div class="content-section wf1-section" id="text-articles"<%- pdAttrs('articles') %>>
+          <h2><%= pdTitle('articles', 'School News') %></h2>
           <div class="wf1-articles">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
               <% item.data.forEach(text => { %>
@@ -5798,8 +5836,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- Events (Simple list) -->
-        <div class="content-section wf1-section" id="events">
-          <h2>Upcoming Events</h2>
+        <div class="content-section wf1-section" id="events"<%- pdAttrs('events') %>>
+          <h2><%= pdTitle('events', 'Upcoming Events') %></h2>
           <div class="wf1-events">
             <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
               <% item.data.forEach((event) => { %>
@@ -5814,8 +5852,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- Announcements -->
-        <div class="content-section wf1-section" id="announcements">
-          <h2>Notices & Announcements 📢</h2>
+        <div class="content-section wf1-section" id="announcements"<%- pdAttrs('announcements') %>>
+          <h2><%= pdTitle('announcements', 'Announcements') %></h2>
           <div class="wf1-announcements">
             <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
               <% item.data.forEach((announcement) => { %>
@@ -5830,8 +5868,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- About Us -->
-        <div class="content-section wf1-section" id="about-us">
-          <h2>About the School</h2>
+        <div class="content-section wf1-section" id="about-us"<%- pdAttrs('about') %>>
+          <h2><%= pdTitle('about', 'About Our School') %></h2>
           <div class="about-school-split">
             <% if (aboutMotto) { %>
               <div class="about-motto-row">
@@ -5840,6 +5878,7 @@ body[data-page="publicDashboard"] #modalCaption{
               </div>
             <% } %>
             <div class="about-school-main">
+              <%- include('../partials/publicAboutImage') %>
               <p><%= orgDetails.aboutus %></p>
             </div>
             <div class="about-school-side">
@@ -5876,9 +5915,9 @@ body[data-page="publicDashboard"] #modalCaption{
         <!-- WIREFRAME 2: Split Dashboard - Gallery LEFT + Events RIGHT -->
         
         <!-- Top Split: Gallery (Left) + Events/Announcements (Right) -->
-        <div class="wf2-hero-split">
-          <div class="wf2-left-panel" id="image-gallery">
-            <h2>Campus Gallery 📷</h2>
+        <div class="wf2-hero-split"<%- pdAttrs(['gallery', 'events', 'announcements']) %>>
+          <div class="wf2-left-panel" id="image-gallery"<%- pdVisible('gallery') ? '' : ' style="display:none"' %>>
+            <h2><%= pdTitle('gallery', 'Campus Gallery') %></h2>
             <div class="wf2-gallery-masonry">
               <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
                 <% item.data.forEach(image => { %>
@@ -5893,9 +5932,9 @@ body[data-page="publicDashboard"] #modalCaption{
             </div>
           </div>
 
-          <div class="wf2-right-panel" id="events">
-            <div class="wf2-right-block wf2-right-events">
-              <h2>⚡ Upcoming Events</h2>
+          <div class="wf2-right-panel" id="events"<%- pdVisible('events') || pdVisible('announcements') ? '' : ' style="display:none"' %><%- pdVisible('events') ? '' : ' data-pd-nav-hidden="1"' %>>
+            <div class="wf2-right-block wf2-right-events"<%- pdVisible('events') ? '' : ' style="display:none"' %>>
+              <h2><%= pdTitle('events', 'Upcoming Events') %></h2>
               <div class="wf2-events-priority">
                 <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
                   <% item.data.forEach((event) => { %>
@@ -5915,8 +5954,8 @@ body[data-page="publicDashboard"] #modalCaption{
               </div>
             </div>
 
-            <div class="wf2-right-block wf2-right-announcements" id="announcements">
-              <h2>📢 Notices & Announcements</h2>
+            <div class="wf2-right-block wf2-right-announcements" id="announcements"<%- pdVisible('announcements') ? '' : ' style="display:none"' %>>
+              <h2><%= pdTitle('announcements', 'Announcements') %></h2>
               <div class="wf2-announcements-list">
                 <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
                   <% item.data.forEach((announcement) => { %>
@@ -5934,8 +5973,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- Articles Below (Horizontal Scroll Cards) -->
-        <div class="content-section wf2-articles-section" id="text-articles">
-          <h2>Featured Highlights</h2>
+        <div class="content-section wf2-articles-section" id="text-articles"<%- pdAttrs('articles') %>>
+          <h2><%= pdTitle('articles', 'School News') %></h2>
           <div class="wf2-articles-scroll">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
               <% item.data.forEach(text => { %>
@@ -5949,8 +5988,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- About Us -->
-        <div class="content-section wf1-section" id="about-us">
-          <h2>About the School</h2>
+        <div class="content-section wf1-section" id="about-us"<%- pdAttrs('about') %>>
+          <h2><%= pdTitle('about', 'About Our School') %></h2>
           <div class="about-school-split">
             <% if (aboutMotto) { %>
               <div class="about-motto-row">
@@ -5959,6 +5998,7 @@ body[data-page="publicDashboard"] #modalCaption{
               </div>
             <% } %>
             <div class="about-school-main">
+              <%- include('../partials/publicAboutImage') %>
               <p><%= orgDetails.aboutus %></p>
             </div>
             <div class="about-school-side">
@@ -5995,8 +6035,8 @@ body[data-page="publicDashboard"] #modalCaption{
         <!-- WIREFRAME 3: Content-First - Articles CENTER + Announcements RIGHT -->
         
         <!-- Gallery Full Width -->
-        <div class="content-section wf3-gallery-section" id="image-gallery">
-          <h2>Campus Gallery 📷</h2>
+        <div class="content-section wf3-gallery-section" id="image-gallery"<%- pdAttrs('gallery') %>>
+          <h2><%= pdTitle('gallery', 'Campus Gallery') %></h2>
           <div class="wf3-gallery-grid">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
               <% item.data.forEach(image => { %>
@@ -6012,9 +6052,9 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- Articles (LEFT) + Announcements/Events (RIGHT) -->
-        <div class="wf3-content-split">
-          <div class="wf3-articles-main" id="text-articles">
-            <h2>📝 Featured Highlights</h2>
+        <div class="wf3-content-split"<%- pdAttrs(['articles', 'announcements', 'events']) %>>
+          <div class="wf3-articles-main" id="text-articles"<%- pdVisible('articles') ? '' : ' style="display:none"' %>>
+            <h2><%= pdTitle('articles', 'School News') %></h2>
             <div class="wf3-articles-masonry">
               <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
                 <% item.data.forEach(text => { %>
@@ -6027,9 +6067,9 @@ body[data-page="publicDashboard"] #modalCaption{
             </div>
           </div>
 
-          <div class="wf3-right-column">
-            <div class="wf3-right-block" id="announcements">
-              <h2>📢 School Announcements</h2>
+          <div class="wf3-right-column"<%- pdVisible('announcements') || pdVisible('events') ? '' : ' style="display:none"' %>>
+            <div class="wf3-right-block" id="announcements"<%- pdVisible('announcements') ? '' : ' style="display:none"' %>>
+              <h2><%= pdTitle('announcements', 'Announcements') %></h2>
               <div class="wf3-announcements-feed">
                 <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
                   <% item.data.forEach((announcement) => { %>
@@ -6044,8 +6084,8 @@ body[data-page="publicDashboard"] #modalCaption{
               </div>
             </div>
 
-            <div class="wf3-right-block" id="events">
-              <h2>Upcoming Events</h2>
+            <div class="wf3-right-block" id="events"<%- pdVisible('events') ? '' : ' style="display:none"' %>>
+              <h2><%= pdTitle('events', 'Upcoming Events') %></h2>
               <div class="wf3-events-grid">
                 <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
                   <% item.data.forEach((event) => { %>
@@ -6062,8 +6102,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- About Us -->
-        <div class="content-section wf1-section" id="about-us">
-          <h2>About the School</h2>
+        <div class="content-section wf1-section" id="about-us"<%- pdAttrs('about') %>>
+          <h2><%= pdTitle('about', 'About Our School') %></h2>
           <div class="about-school-split">
             <% if (aboutMotto) { %>
               <div class="about-motto-row">
@@ -6072,6 +6112,7 @@ body[data-page="publicDashboard"] #modalCaption{
               </div>
             <% } %>
             <div class="about-school-main">
+              <%- include('../partials/publicAboutImage') %>
               <p><%= orgDetails.aboutus %></p>
             </div>
             <div class="about-school-side">
@@ -6108,8 +6149,8 @@ body[data-page="publicDashboard"] #modalCaption{
         <!-- WIREFRAME 4: Narrative Flow - Timeline & Storytelling -->
         
         <!-- Gallery Compact -->
-        <div class="content-section wf4-gallery-section" id="image-gallery">
-          <h2>Our Story in Pictures 📷</h2>
+        <div class="content-section wf4-gallery-section" id="image-gallery"<%- pdAttrs('gallery') %>>
+          <h2><%= pdTitle('gallery', 'Our Story in Pictures') %></h2>
           <div class="wf4-gallery-compact">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
               <% item.data.forEach(image => { %>
@@ -6125,8 +6166,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- Events as TIMELINE (Paired Blocks) -->
-        <div class="content-section wf4-timeline-section" id="events">
-          <h2>📅 Event Timeline</h2>
+        <div class="content-section wf4-timeline-section" id="events"<%- pdAttrs('events') %>>
+          <h2><%= pdTitle('events', 'Events') %></h2>
           <div class="wf4-timeline-container">
             <% orderedItems.filter(item => item.type === 'events').forEach((item, idx) => { %>
               <% item.data.forEach((event, eventIdx) => { %>
@@ -6153,8 +6194,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- Announcements as Highlight Cards -->
-        <div class="content-section wf4-announcements-section" id="announcements">
-          <h2>🔔 Announcements & Updates</h2>
+        <div class="content-section wf4-announcements-section" id="announcements"<%- pdAttrs('announcements') %>>
+          <h2><%= pdTitle('announcements', 'Announcements & Updates') %></h2>
           <div class="wf4-announcements-grid">
             <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
               <% item.data.forEach((announcement) => { %>
@@ -6169,8 +6210,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- About Us EXPANDED (More Prominent) -->
-        <div class="content-section wf4-about-section" id="about-us">
-          <h2>Our Mission & Values</h2>
+        <div class="content-section wf4-about-section" id="about-us"<%- pdAttrs('about') %>>
+          <h2><%= pdTitle('about', 'Our Mission & Values') %></h2>
           <div class="about-school-split">
             <% if (aboutMotto) { %>
               <div class="about-motto-row">
@@ -6179,6 +6220,7 @@ body[data-page="publicDashboard"] #modalCaption{
               </div>
             <% } %>
             <div class="about-school-main">
+              <%- include('../partials/publicAboutImage') %>
               <p><%= orgDetails.aboutus %></p>
             </div>
             <div class="about-school-side">
@@ -6212,8 +6254,8 @@ body[data-page="publicDashboard"] #modalCaption{
         </div>
 
         <!-- Articles ("Our Stories") -->
-        <div class="content-section wf4-stories-section" id="text-articles">
-          <h2>📖 School Stories</h2>
+        <div class="content-section wf4-stories-section" id="text-articles"<%- pdAttrs('articles') %>>
+          <h2><%= pdTitle('articles', 'School Stories') %></h2>
           <div class="wf4-stories-grid">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
               <% item.data.forEach(text => { %>
@@ -6228,8 +6270,8 @@ body[data-page="publicDashboard"] #modalCaption{
 
       <% } else { %>
         <!-- Fallback: Interactive layout (original scroll-based) -->
-        <div class="content-section draggable-section" id="image-gallery" data-section-id="image-gallery">
-          <h2>Campus Gallery 📷</h2>
+        <div class="content-section draggable-section" id="image-gallery" data-section-id="image-gallery"<%- pdAttrs('gallery') %>>
+          <h2><%= pdTitle('gallery', 'Campus Gallery') %></h2>
           <div class="image-container">
             <% orderedItems.filter(item => item.id === 'image-gallery').forEach(item => { %>
               <% item.data.forEach(image => { %>
@@ -6244,8 +6286,8 @@ body[data-page="publicDashboard"] #modalCaption{
           </div>
         </div>
 
-        <div class="content-section draggable-section" id="text-articles" data-section-id="text-articles">
-          <h2>School Highlights 📝</h2>
+        <div class="content-section draggable-section" id="text-articles" data-section-id="text-articles"<%- pdAttrs('articles') %>>
+          <h2><%= pdTitle('articles', 'School News') %></h2>
           <div class="text-container">
             <% orderedItems.filter(item => item.id === 'text-articles').forEach(item => { %>
               <% item.data.forEach(text => { %>
@@ -6258,8 +6300,8 @@ body[data-page="publicDashboard"] #modalCaption{
           </div>
         </div>
 
-        <div class="content-section draggable-section" id="events" data-section-id="events">
-          <h2>Upcoming Events</h2>
+        <div class="content-section draggable-section" id="events" data-section-id="events"<%- pdAttrs('events') %>>
+          <h2><%= pdTitle('events', 'Upcoming Events') %></h2>
           <div class="events-section">
             <% orderedItems.filter(item => item.type === 'events').forEach(item => { %>
               <% item.data.forEach((event) => { %>
@@ -6273,8 +6315,8 @@ body[data-page="publicDashboard"] #modalCaption{
           </div>
         </div>
 
-        <div class="content-section draggable-section" id="announcements" data-section-id="announcements">
-          <h2>Notices & Announcements 📢</h2>
+        <div class="content-section draggable-section" id="announcements" data-section-id="announcements"<%- pdAttrs('announcements') %>>
+          <h2><%= pdTitle('announcements', 'Announcements') %></h2>
           <div class="announcements-section">
             <% orderedItems.filter(item => item.type === 'announcements').forEach(item => { %>
               <% item.data.forEach((announcement) => { %>
@@ -6288,8 +6330,8 @@ body[data-page="publicDashboard"] #modalCaption{
           </div>
         </div>
 
-        <div class="content-section draggable-section" id="about-us" data-section-id="about-us">
-          <h2>About the School</h2>
+        <div class="content-section draggable-section" id="about-us" data-section-id="about-us"<%- pdAttrs('about') %>>
+          <h2><%= pdTitle('about', 'About Our School') %></h2>
           <div class="about-school-split">
             <% if (aboutMotto) { %>
               <div class="about-motto-row">
@@ -6298,6 +6340,7 @@ body[data-page="publicDashboard"] #modalCaption{
               </div>
             <% } %>
             <div class="about-school-main">
+              <%- include('../partials/publicAboutImage') %>
               <p><%= orgDetails.aboutus %></p>
             </div>
             <div class="about-school-side">
@@ -6330,6 +6373,22 @@ body[data-page="publicDashboard"] #modalCaption{
           </div>
         </div>
       <% } %>
+      <%- include('../partials/publicWebsiteExtras', { pdOrder: pdOrder }) %>
+      </div>
+      <script>
+        // Menu links never point at a section the school hid or hasn't filled in.
+        (function () {
+          document.querySelectorAll('.nav-menu a[href^="#"], nav a[href^="#"]').forEach(function (link) {
+            var id = link.getAttribute('href').slice(1);
+            var target = id && document.getElementById(id);
+            if (!target) return;
+            var block = target.closest('[data-pd-block]');
+            if (target.hasAttribute('data-pd-nav-hidden') || window.getComputedStyle(target).display === 'none' || (block && window.getComputedStyle(block).display === 'none')) {
+              (link.closest('li') || link).style.display = 'none';
+            }
+          });
+        })();
+      </script>
       </div>
     </div>
 

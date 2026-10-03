@@ -43,6 +43,16 @@ async function isAuthenticated(req, res, next) {
             return res.redirect('/student/dashboard');
         }
 
+        // Drivers work only from their own portal (/driver) and its trip and
+        // live-location endpoints; every other staff page is off limits.
+        if (req.session && req.session.userRole === 'Driver' && !/^\/transportation\/driver\//.test(req.originalUrl || '')) {
+            if (expectsJsonResponse(req)) {
+                return res.status(403).json({ success: false, message: 'You do not have permission to access this resource.' });
+            }
+            req.flash('error', 'You do not have permission to access that page.');
+            return res.redirect('/driver/dashboard');
+        }
+
         if (!req.session || (!req.session.organizationId && !req.session.userId)) {
             if (expectsJsonResponse(req)) {
                 return res.status(401).json({ success: false, message: 'Your session has expired. Please log in again.' });

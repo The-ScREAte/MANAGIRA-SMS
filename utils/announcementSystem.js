@@ -31,6 +31,25 @@ async function ensureAnnouncementSchema(dbClient) {
       updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  // Added after the table already existed in some environments - where a
+  // pop-up (display_type='modal') shows: center (classic, blocking dialog)
+  // or a non-blocking corner card, bottom-right/bottom-left. Banners always
+  // sit at the top, so position is ignored for those.
+  await dbClient.query(`
+    ALTER TABLE broadcast_announcements
+      ADD COLUMN IF NOT EXISTS position VARCHAR(12) NOT NULL DEFAULT 'center'
+  `);
+  await dbClient.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'broadcast_announcements_position_check'
+      ) THEN
+        ALTER TABLE broadcast_announcements
+          ADD CONSTRAINT broadcast_announcements_position_check
+          CHECK (position IN ('center','bottom-right','bottom-left'));
+      END IF;
+    END $$;
+  `);
   await dbClient.query(`
     CREATE INDEX IF NOT EXISTS broadcast_announcements_tenant_active_idx ON broadcast_announcements(tenant_id, is_active)
   `);

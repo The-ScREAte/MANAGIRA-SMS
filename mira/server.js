@@ -87,11 +87,29 @@ app.use((err, req, res, next) => {
 // before. Co-started from the main app's server.js, it isn't: Mira just
 // won't be available, but the main app (and everything unrelated to Mira)
 // keeps running rather than going down because of a Mira-only problem.
+// Network blips (DNS, Wi-Fi reconnecting, the database waking up) are retried
+// for about a minute instead of exiting - otherwise nodemon would leave Mira
+// down until the next file change.
+const TRANSIENT_DB_ERRORS = new Set(["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH", "57P03"]);
+
+async function ensureSchemaWithRetry(db, ensureMiraSchema, attempts = 12, delayMs = 5000) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await ensureMiraSchema(db);
+    } catch (error) {
+      const transient = TRANSIENT_DB_ERRORS.has(error && error.code) || /timeout|terminated/i.test(String(error && error.message));
+      if (!transient || attempt >= attempts) throw error;
+      console.warn(`[Mira] Database not reachable yet (${error.code || error.message}); retrying in ${delayMs / 1000}s (${attempt}/${attempts - 1})...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 async function start() {
   const db = require("./config/db");
   const { ensureMiraSchema } = require("./db/schema");
 
-  await ensureMiraSchema(db);
+  await ensureSchemaWithRetry(db, ensureMiraSchema);
 
   return new Promise((resolve, reject) => {
     const server = app.listen(PORT, () => {

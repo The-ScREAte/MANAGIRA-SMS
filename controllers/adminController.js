@@ -4986,15 +4986,57 @@ const adminController = {
     try {
       await ensureAdminEmailCampaignSchema(db);
       await ensureAdminAnnouncementSchema(db);
-      const [announcementResult, campaigns] = await Promise.all([
+      await require("../utils/announcementSystem").ensureAnnouncementSchema(db);
+      const [announcementResult, campaigns, broadcastResult, orgResult, feedbackRequests] = await Promise.all([
         db.query(`SELECT * FROM admin_announcements ORDER BY created_at DESC`),
         fetchAdminEmailCampaigns(),
+        db.query(`SELECT * FROM broadcast_announcements ORDER BY created_at DESC LIMIT 100`),
+        db.query(`SELECT organization_id, organization_name FROM organizations WHERE COALESCE(deleted, false) = false`),
+        require("./feedbackRequestController").listFeedbackRequests(),
       ]);
+      const orgNames = new Map(orgResult.rows.map((o) => [String(o.organization_id), o.organization_name]));
+      const ids = broadcastResult.rows.map((r) => r.id);
+      const [targetRows, receiptRows] = ids.length ? await Promise.all([
+        db.query(`SELECT announcement_id, target_type, target_value FROM broadcast_announcement_targets WHERE announcement_id = ANY($1::int[])`, [ids]),
+        db.query(
+          `SELECT announcement_id, COUNT(*) FILTER (WHERE view_count > 0)::int AS seen,
+                  COUNT(*) FILTER (WHERE dismissed_at IS NOT NULL)::int AS dismissed,
+                  COUNT(*) FILTER (WHERE acknowledged_at IS NOT NULL)::int AS acknowledged
+           FROM broadcast_announcement_receipts WHERE announcement_id = ANY($1::int[]) GROUP BY announcement_id`, [ids]),
+      ]) : [{ rows: [] }, { rows: [] }];
+      const ROLE_NAMES = { manager: "Managers", org_admin: "Managers", supervisor: "Supervisors", teacher: "Teachers", driver: "Drivers", parent: "Parents", guardian: "Parents", student: "Students", student_teacher: "Student teachers", super_admin: "Managira admins" };
+      const FREQ_NAMES = { once: "Once", until_dismissed: "Until closed", once_per_session: "Once per sign-in", every_login: "Every sign-in", daily: "Daily", n_times: "Set number of times", until_date: "Until end date" };
+      const now = new Date();
+      const broadcasts = broadcastResult.rows.map((b) => {
+        const targets = targetRows.rows.filter((t) => t.announcement_id === b.id);
+        const roles = [...new Set(targets.filter((t) => t.target_type === "role").map((t) => ROLE_NAMES[t.target_value] || t.target_value))];
+        const orgs = targets.filter((t) => t.target_type === "org").map((t) => orgNames.get(String(t.target_value)) || `School #${t.target_value}`);
+        const people = targets.filter((t) => t.target_type === "user").length;
+        const schools = b.tenant_id ? (orgNames.get(String(b.tenant_id)) || `School #${b.tenant_id}`) : orgs.length ? (orgs.length <= 2 ? orgs.join(", ") : `${orgs.length} schools`) : "All schools";
+        const stats = receiptRows.rows.find((r) => r.announcement_id === b.id) || { seen: 0, dismissed: 0, acknowledged: 0 };
+        const status = !b.is_active ? "Paused" : new Date(b.starts_at) > now ? "Scheduled" : b.ends_at && new Date(b.ends_at) <= now ? "Ended" : "Live";
+        return {
+          id: b.id,
+          title: b.title,
+          excerpt: String(b.body || "").replace(/\s+/g, " ").slice(0, 160),
+          audience: `${roles.length ? roles.join(", ") : "Everyone"} - ${schools}${people ? ` + ${people} named ${people === 1 ? "person" : "people"}` : ""}`,
+          format: b.display_type === "banner" ? "Banner" : "Pop-up",
+          frequency: FREQ_NAMES[b.frequency] || b.frequency,
+          startsAt: b.starts_at,
+          endsAt: b.ends_at,
+          isActive: b.is_active,
+          createdBySchool: Boolean(b.tenant_id),
+          status,
+          stats,
+        };
+      });
 
       res.render("admin/adminAnnouncements", {
-        title: "Manage Admin Announcements",
+        title: "Announcements & Feedback",
         announcements: announcementResult.rows,
         campaigns,
+        broadcasts,
+        feedbackRequests,
         messages: req.flash(),
       });
     } catch (error) {
@@ -5140,6 +5182,30 @@ const adminController = {
     } catch (error) {
       console.error('[markAdminAnnouncementSeen] error:', error && error.message);
       return res.status(500).json({ success: false, message: "Could not mark announcement as seen." });
+    }
+  },
+
+  // POST /admin/broadcasts/:id/active { active } and /admin/broadcasts/:id/delete
+  setBroadcastActive: async (req, res) => {
+    try {
+      const active = req.body?.active === true || req.body?.active === "true";
+      const result = await db.query(`UPDATE broadcast_announcements SET is_active = $1, updated_at = now() WHERE id = $2`, [active, Number(req.params.id)]);
+      if (!result.rowCount) return res.status(404).json({ success: false, message: "Announcement not found." });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[admin/setBroadcastActive]", error.message);
+      return res.status(500).json({ success: false, message: "Could not update the announcement." });
+    }
+  },
+  deleteBroadcast: async (req, res) => {
+    try {
+      await db.query(`DELETE FROM broadcast_announcement_targets WHERE announcement_id = $1`, [Number(req.params.id)]);
+      await db.query(`DELETE FROM broadcast_announcement_receipts WHERE announcement_id = $1`, [Number(req.params.id)]);
+      await db.query(`DELETE FROM broadcast_announcements WHERE id = $1`, [Number(req.params.id)]);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[admin/deleteBroadcast]", error.message);
+      return res.status(500).json({ success: false, message: "Could not delete the announcement." });
     }
   },
 

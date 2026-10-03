@@ -27,8 +27,8 @@
     overflow-x: hidden;
   }
   #mailroomRoot * { box-sizing: border-box; }
-  .mr-header { margin-bottom: 16px; }
-  .mr-header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; color: var(--mr-primary); }
+  .mr-header { margin-bottom: 16px; text-align: left; }
+  .mr-header h1 { margin: 0 0 4px; padding: 0; font-size: 22px; font-weight: 800; color: var(--mr-primary); text-align: left; }
   .mr-header p { margin: 0; color: var(--mr-muted); font-size: 13.5px; }
 
   .mr-layout { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -60,8 +60,13 @@
   .mr-directory-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--mr-line); }
   .mr-directory-head h2 { margin: 0 0 8px; font-size: 14px; font-weight: 800; }
   .mr-search { width: 100%; border: 1px solid var(--mr-line); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13px; background: #f8fafc; }
-  .mr-select-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--mr-muted); }
-  .mr-select-row button { border: none; background: none; color: var(--mr-primary); font-weight: 700; cursor: pointer; font-size: 12px; padding: 0; }
+  .mr-filter-row { display: flex; gap: 8px; margin-top: 8px; }
+  .mr-class-filter { flex: 1; min-width: 0; width: auto; margin: 0; border: 1px solid var(--mr-line); border-radius: 9px; padding: 7px 9px; font: inherit; font-size: 12.5px; background: #f8fafc; color: var(--mr-text); }
+  .mr-select-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--mr-muted); }
+  .mr-select-row span { white-space: nowrap; }
+  .mr-select-actions { display: flex; align-items: center; gap: 10px; }
+  .mr-select-row button { width: auto; margin: 0; border: none; background: none; color: var(--mr-primary); font-weight: 700; cursor: pointer; font-size: 12px; padding: 0; white-space: nowrap; }
+  .mr-select-row button[hidden] { display: none; }
   .mr-contact-list { overflow-y: auto; flex: 1; padding: 6px 8px; }
   .mr-contact { display: flex; align-items: flex-start; gap: 9px; padding: 9px 8px; border-radius: 9px; cursor: pointer; }
   .mr-contact:hover { background: #f6fbfc; }
@@ -73,7 +78,10 @@
   .mr-pill-row { display: flex; gap: 5px; flex-wrap: wrap; }
   .mr-pill { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--mr-line); color: #334a5f; background: #f8fafc; }
   .mr-pill.mr-pill-missing { color: #b8c2cc; border-style: dashed; }
+  .mr-contact-classes { color: var(--mr-primary); font-weight: 700; }
   .mr-empty { padding: 24px; text-align: center; color: var(--mr-muted); font-size: 13px; }
+  .mr-more-btn { display: block; width: calc(100% - 8px); margin: 6px 4px 8px; padding: 8px 10px; border: 1px dashed var(--mr-line); border-radius: 9px; background: #f8fafc; color: var(--mr-primary); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .mr-more-btn:hover { border-style: solid; background: #f1f7f8; }
 
   /* Right: compose + history */
   .mr-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -88,6 +96,10 @@
   .mr-channel-empty { font-size: 12.5px; color: var(--mr-muted); }
   .mr-channel-hint { display: none; margin-bottom: 10px; padding: 8px 11px; border-radius: 8px; background: #fff7d6; border: 1px solid #f0df94; color: #664400; font-size: 12.5px; line-height: 1.4; }
   .mr-compose-textarea { width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--mr-line); border-radius: 9px; padding: 10px 12px; font: inherit; font-size: 13.5px; }
+  .mr-subject { display: none; width: 100%; margin: 0 0 8px; border: 1px solid var(--mr-line); border-radius: 9px; padding: 8px 12px; font: inherit; font-size: 13.5px; }
+  .mr-subject.mr-visible { display: block; }
+  .mr-sms-counter { display: none; margin: 6px 0 0; font-size: 11.5px; color: var(--mr-muted); }
+  .mr-sms-counter.mr-visible { display: block; }
   .mr-compose-meta { display: flex; align-items: center; justify-content: flex-start; margin-top: 10px; gap: 14px; flex-wrap: wrap; }
   .mr-recipient-count { font-size: 12.5px; color: var(--mr-muted); font-weight: 600; }
   .mr-send-btn { width: auto; align-self: flex-start; background: linear-gradient(130deg, var(--mr-primary), #0e4650); color: #fff; border: none; border-radius: 7px; padding: 6px 14px; font-weight: 700; font-size: 13px; cursor: pointer; order: -1; }
@@ -118,6 +130,24 @@
   .mr-message-text.mr-expanded { -webkit-line-clamp: unset; display: block; overflow: visible; white-space: pre-wrap; }
   .mr-readmore { display: inline-block; margin-top: 2px; font-size: 12px; color: var(--mr-primary); cursor: pointer; text-decoration: underline; }
   .mr-message-actor { font-size: 11px; color: var(--mr-muted); word-break: break-word; }
+  .mr-message-contact { font-size: 12px; color: var(--mr-muted); }
+  .mr-message-subject { flex-basis: 100%; font-size: 12px; color: var(--mr-muted); }
+
+  /* Confirm-and-send dialog */
+  .mr-modal-backdrop { position: fixed; inset: 0; z-index: 13000; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(3px); }
+  .mr-modal-backdrop.mr-open { display: flex; }
+  .mr-modal { width: 100%; max-width: 440px; max-height: calc(100vh - 32px); overflow-y: auto; background: #fff; border-radius: 14px; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25); padding: 18px 20px; font-family: inherit; color: var(--mr-text); }
+  .mr-modal h3 { margin: 0 0 6px; font-size: 16px; font-weight: 800; }
+  .mr-modal-summary { margin: 0 0 10px; font-size: 13px; color: var(--mr-muted); }
+  .mr-modal-preview { margin: 0 0 12px; padding: 10px 12px; border-radius: 9px; background: #f8fafc; border: 1px solid var(--mr-line); font-size: 13px; white-space: pre-wrap; word-break: break-word; max-height: 160px; overflow-y: auto; }
+  .mr-modal label { display: block; margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--mr-muted); }
+  .mr-modal input[type="password"] { width: 100%; margin: 0 0 6px; border: 1px solid var(--mr-line); border-radius: 9px; padding: 9px 11px; font: inherit; font-size: 13.5px; }
+  .mr-modal-error { min-height: 18px; margin: 0 0 8px; font-size: 12.5px; color: #b91c1c; }
+  .mr-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .mr-modal-actions button { width: auto; margin: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .mr-modal-cancel { border: 1px solid var(--mr-line); background: #fff; color: var(--mr-text); }
+  .mr-modal-confirm { border: none; background: var(--mr-primary); color: #fff; }
+  .mr-modal-confirm:disabled { opacity: 0.6; cursor: progress; }
   .mr-setup-banner {
     display: none;
     align-items: center;
@@ -225,6 +255,7 @@
 <div id="mailroomRoot">
   <div class="mr-header">
     <h1>Mailroom</h1>
+    <p>Message guardians by email, text or WhatsApp.</p>
   </div>
 
   <div class="mr-setup-banner" id="mrSetupBanner">
@@ -249,10 +280,18 @@
       <div class="mr-directory-head">
         <button type="button" class="mr-directory-close" id="mrDirectoryClose" aria-label="Close">&times;</button>
         <h2>Contacts</h2>
-        <input type="text" id="mrSearch" class="mr-search" placeholder="Search name, student, phone, email...">
+        <input type="text" id="mrSearch" class="mr-search" placeholder="Search name, student, phone, email..." aria-label="Search contacts">
+        <div class="mr-filter-row" id="mrFilterRow" hidden>
+          <select id="mrClassFilter" class="mr-class-filter" aria-label="Filter by class">
+            <option value="">All classes</option>
+          </select>
+        </div>
         <div class="mr-select-row">
           <span id="mrContactCount">Loading contacts...</span>
-          <button type="button" id="mrSelectAll">Select all</button>
+          <span class="mr-select-actions">
+            <button type="button" id="mrClearSelection" hidden>Clear</button>
+            <button type="button" id="mrSelectAll">Select all</button>
+          </span>
         </div>
       </div>
       <div class="mr-contact-list" id="mrContactList">
@@ -262,7 +301,9 @@
 
     <section class="mr-right">
       <div class="mr-panel mr-compose">
-        <textarea id="mrMessage" class="mr-compose-textarea" placeholder="Type your message..."></textarea>
+        <input type="text" id="mrSubject" class="mr-subject" maxlength="150" placeholder="Email subject (optional)" aria-label="Email subject">
+        <textarea id="mrMessage" class="mr-compose-textarea" placeholder="Type your message..." aria-label="Message"></textarea>
+        <div class="mr-sms-counter" id="mrSmsCounter"></div>
         <div class="mr-channels" id="mrChannels"></div>
         <div class="mr-channel-hint" id="mrChannelHint"></div>
         <div class="mr-compose-meta">
@@ -285,14 +326,41 @@
         <div class="mr-history-rows" id="mrHistoryRows">
           <div class="mr-empty">Loading history...</div>
         </div>
+        <button type="button" class="mr-more-btn" id="mrHistoryMore" hidden>Show more</button>
       </div>
     </section>
+  </div>
+
+  <div class="mr-modal-backdrop" id="mrConfirmBackdrop" role="dialog" aria-modal="true" aria-labelledby="mrConfirmTitle">
+    <div class="mr-modal">
+      <h3 id="mrConfirmTitle">Send message</h3>
+      <p class="mr-modal-summary" id="mrConfirmSummary"></p>
+      <div class="mr-modal-preview" id="mrConfirmPreview"></div>
+      <div id="mrConfirmPasswordWrap">
+        <label for="mrConfirmPassword">Your password</label>
+        <input type="password" id="mrConfirmPassword" autocomplete="current-password">
+      </div>
+      <div class="mr-modal-error" id="mrConfirmError" role="alert"></div>
+      <div class="mr-modal-actions">
+        <button type="button" class="mr-modal-cancel" id="mrConfirmCancel">Cancel</button>
+        <button type="button" class="mr-modal-confirm" id="mrConfirmOk">Send</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
 (function () {
-  const state = { contacts: [], channels: new Set(), selected: new Map(), orgChannels: { sms: false, whatsapp: false, email: false } };
+  const state = {
+    contacts: [],
+    channels: new Set(),
+    selected: new Map(),
+    orgChannels: { sms: false, whatsapp: false, email: false },
+    contactLimit: 30,
+    verifiedUntil: 0,
+  };
+  const CONTACT_PAGE = 30;
+  const HISTORY_PAGE = 25;
 
   const CHANNEL_META = {
     sms: { label: 'Text (SMS)', field: 'phone', missing: 'no phone number' },
@@ -300,11 +368,11 @@
     email: { label: 'Email', field: 'email', missing: 'no email address' },
   };
 
+  const $ = (id) => document.getElementById(id);
+
   function escapeHtml(v) {
     return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
-
-  function contactKey(c) { return `${c.source}:${c.guardianId}`; }
 
   // SMS and WhatsApp both need a phone; Email needs an email.
   function channelField(channel) { return CHANNEL_META[channel]?.field || 'phone'; }
@@ -314,105 +382,143 @@
     try { return new Date(v).toLocaleString(); } catch (_) { return '-'; }
   }
 
-  function renderContacts() {
-    const list = document.getElementById('mrContactList');
-    const query = (document.getElementById('mrSearch').value || '').trim().toLowerCase();
-    const filtered = state.contacts.filter((c) => {
+  // ---- Contacts ----
+  function filteredContacts() {
+    const query = ($('mrSearch').value || '').trim().toLowerCase();
+    const className = $('mrClassFilter').value;
+    return state.contacts.filter((c) => {
+      if (className && !(c.classNames || []).includes(className)) return false;
       if (!query) return true;
-      const hay = `${c.guardianName} ${(c.studentNames || []).join(' ')} ${c.phone} ${c.email}`.toLowerCase();
+      const hay = `${c.guardianName} ${(c.studentNames || []).join(' ')} ${(c.classNames || []).join(' ')} ${c.phone} ${c.email}`.toLowerCase();
       return hay.includes(query);
     });
+  }
 
-    document.getElementById('mrContactCount').textContent = `${filtered.length} contact${filtered.length === 1 ? '' : 's'}`;
+  function renderContacts() {
+    const list = $('mrContactList');
+    const filtered = filteredContacts();
+    $('mrContactCount').textContent = `${filtered.length} contact${filtered.length === 1 ? '' : 's'}`;
 
     if (!filtered.length) {
-      list.innerHTML = '<div class="mr-empty">No contacts found.</div>';
+      list.innerHTML = `<div class="mr-empty">${state.contacts.length ? 'No contacts match.' : 'No guardian contacts on file yet.'}</div>`;
+      updateSelectAllLabel(filtered);
       return;
     }
 
+    // Long lists show a page at a time; "Show more" adds the next page.
+    const shown = filtered.slice(0, state.contactLimit);
+    const remaining = filtered.length - shown.length;
+
     // Recipient selection is independent of channel — which contacts can
     // actually be reached on a given channel is resolved at send time.
-    list.innerHTML = filtered.map((c) => {
-      const key = contactKey(c);
-      const checked = state.selected.has(key);
+    list.innerHTML = shown.map((c) => {
+      const checked = state.selected.has(c.id);
       const students = (c.studentNames || []).join(', ');
-      return `<label class="mr-contact" data-key="${escapeHtml(key)}">
-        <input type="checkbox" ${checked ? 'checked' : ''}>
+      const classes = (c.classNames || []).join(', ');
+      return `<label class="mr-contact" data-key="${escapeHtml(c.id)}">
+        <input type="checkbox" ${checked ? 'checked' : ''} aria-label="Select ${escapeHtml(c.guardianName)}">
         <div class="mr-contact-body">
           <div class="mr-contact-name">${escapeHtml(c.guardianName)}</div>
-          <div class="mr-contact-sub">${escapeHtml(students || 'No linked student on file')}</div>
+          <div class="mr-contact-sub" title="${escapeHtml(students)}">${classes ? `<span class="mr-contact-classes">${escapeHtml(classes)}</span> · ` : ''}${escapeHtml(students || 'No linked student on file')}</div>
           <div class="mr-pill-row">
             <span class="mr-pill ${c.phone ? '' : 'mr-pill-missing'}">${c.phone ? escapeHtml(c.phone) : 'No phone'}</span>
             <span class="mr-pill ${c.email ? '' : 'mr-pill-missing'}">${c.email ? escapeHtml(c.email) : 'No email'}</span>
           </div>
         </div>
       </label>`;
-    }).join('');
+    }).join('') + (remaining > 0
+      ? `<button type="button" class="mr-more-btn" data-action="more-contacts">Show ${Math.min(CONTACT_PAGE, remaining)} more (${remaining} not shown)</button>`
+      : '');
 
-    list.querySelectorAll('.mr-contact').forEach((el) => {
-      const checkbox = el.querySelector('input[type="checkbox"]');
-      el.addEventListener('click', (e) => {
-        if (e.target === checkbox) return;
-        checkbox.checked = !checkbox.checked;
-        checkbox.dispatchEvent(new Event('change'));
-      });
-      checkbox.addEventListener('change', () => {
-        const key = el.getAttribute('data-key');
-        const contact = state.contacts.find((c) => contactKey(c) === key);
-        if (!contact) return;
-        if (checkbox.checked) state.selected.set(key, contact);
-        else state.selected.delete(key);
-        updateRecipientCount();
-      });
-    });
-
-    updateSelectAllLabel();
+    updateSelectAllLabel(filtered);
   }
+
+  // One listener for the whole list (rows are re-rendered often).
+  $('mrContactList').addEventListener('change', (e) => {
+    const checkbox = e.target.closest('.mr-contact input[type="checkbox"]');
+    if (!checkbox) return;
+    const key = checkbox.closest('.mr-contact').getAttribute('data-key');
+    const contact = state.contacts.find((c) => c.id === key);
+    if (!contact) return;
+    if (checkbox.checked) state.selected.set(key, contact);
+    else state.selected.delete(key);
+    updateRecipientCount();
+  });
+  $('mrContactList').addEventListener('click', (e) => {
+    if (e.target.closest('[data-action="more-contacts"]')) {
+      state.contactLimit += CONTACT_PAGE;
+      renderContacts();
+    }
+  });
 
   function updateRecipientCount() {
     const n = state.selected.size;
-    document.getElementById('mrRecipientCount').textContent = `${n} recipient${n === 1 ? '' : 's'} selected`;
-    document.getElementById('mrSendBtn').disabled = n === 0 || state.channels.size === 0;
+    $('mrRecipientCount').textContent = `${n} recipient${n === 1 ? '' : 's'} selected`;
+    $('mrSendBtn').disabled = n === 0 || state.channels.size === 0;
+    $('mrClearSelection').hidden = n === 0;
     updateChannelReachability();
     updateChannelsVisibility();
-    updateSelectAllLabel();
+    updateSelectAllLabel(filteredContacts());
     updateDirectoryToggleCount();
   }
 
   // On mobile the contact list is collapsed behind a toggle — show how many
   // are selected right on the toggle so that's visible without opening it.
   function updateDirectoryToggleCount() {
-    const badge = document.getElementById('mrDirectoryToggleCount');
+    const badge = $('mrDirectoryToggleCount');
     const n = state.selected.size;
-    if (n > 0) {
-      badge.textContent = `${n} selected`;
-      badge.style.display = 'inline-block';
-    } else {
-      badge.style.display = 'none';
-    }
+    badge.textContent = n > 0 ? `${n} selected` : '';
+    badge.style.display = n > 0 ? 'inline-block' : 'none';
   }
 
-  // Flips between "Select all" and "Deselect all" based on whether every
-  // currently visible (search-filtered) contact is already selected.
-  function updateSelectAllLabel() {
-    const visibleKeys = Array.from(document.querySelectorAll('#mrContactList .mr-contact')).map((el) => el.getAttribute('data-key'));
-    const allSelected = visibleKeys.length > 0 && visibleKeys.every((key) => state.selected.has(key));
-    document.getElementById('mrSelectAll').textContent = allSelected ? 'Deselect all' : 'Select all';
+  // "Select all" covers every contact matching the search and class filter,
+  // not just the ones currently shown.
+  function updateSelectAllLabel(filtered) {
+    const allSelected = filtered.length > 0 && filtered.every((c) => state.selected.has(c.id));
+    const button = $('mrSelectAll');
+    button.hidden = filtered.length === 0;
+    button.textContent = allSelected ? 'Deselect all' : `Select all ${filtered.length}`;
   }
 
+  function populateClassFilter() {
+    const classes = [...new Set(state.contacts.flatMap((c) => c.classNames || []))]
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const select = $('mrClassFilter');
+    select.innerHTML = '<option value="">All classes</option>' + classes.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+    $('mrFilterRow').hidden = classes.length < 2;
+  }
+
+  // ---- Compose ----
   // The channel checkboxes only matter once there's a message and/or a
   // recipient to send it to — keep them out of the way until then.
   function updateChannelsVisibility() {
-    const hasMessage = Boolean(document.getElementById('mrMessage').value.trim());
+    const hasMessage = Boolean($('mrMessage').value.trim());
     const hasRecipients = state.selected.size > 0;
-    document.getElementById('mrChannels').classList.toggle('mr-visible', hasMessage || hasRecipients);
+    $('mrChannels').classList.toggle('mr-visible', hasMessage || hasRecipients);
+    $('mrSubject').classList.toggle('mr-visible', state.channels.has('email'));
+    updateSmsCounter();
+  }
+
+  // Same segment maths as the server (utils/guardianMessaging countSmsSegments):
+  // plain text fits 160 characters per message, 153 per part after that.
+  function updateSmsCounter() {
+    const counter = $('mrSmsCounter');
+    const show = state.channels.has('sms');
+    counter.classList.toggle('mr-visible', show);
+    if (!show) return;
+    const text = $('mrMessage').value.trim();
+    const gsm = /^[\x00-\x7F]*$/.test(text);
+    const single = gsm ? 160 : 70;
+    const part = gsm ? 153 : 67;
+    const parts = !text.length ? 0 : text.length <= single ? 1 : Math.ceil(text.length / part);
+    counter.textContent = `${text.length} characters · ${parts} text message${parts === 1 ? '' : 's'} per recipient`;
   }
 
   // Only channels this org actually has switched on ever appear — SMS/
   // WhatsApp are hidden entirely (not just disabled) when the org has no
   // active provider for them. Email always shows (Managira sends it directly).
   function renderChannelCheckboxes() {
-    const container = document.getElementById('mrChannels');
+    const container = $('mrChannels');
     const available = Object.keys(CHANNEL_META).filter((c) => state.orgChannels[c]);
 
     if (!available.length) {
@@ -441,12 +547,10 @@
   }
 
   // Beyond the org having a channel switched on, the currently selected
-  // recipients also need the right contact info for it — a guardian with
-  // no phone number can't be reached by SMS/WhatsApp no matter how the
-  // org is configured. Grey out and disable channels that can't reach
-  // anyone selected, and explain why instead of failing silently on Send.
+  // recipients also need the right contact info for it. Grey out channels
+  // that can't reach anyone selected, and explain why.
   function updateChannelReachability() {
-    const container = document.getElementById('mrChannels');
+    const container = $('mrChannels');
     const contacts = Array.from(state.selected.values());
     let anyUsable = false;
 
@@ -481,7 +585,7 @@
       }
     });
 
-    const hint = document.getElementById('mrChannelHint');
+    const hint = $('mrChannelHint');
     if (contacts.length && Object.keys(CHANNEL_META).some((c) => state.orgChannels[c]) && !anyUsable) {
       hint.style.display = 'block';
       hint.textContent = 'None of the selected recipients have a phone number or email on file for any active channel — add contact info for them first.';
@@ -491,7 +595,7 @@
   }
 
   function showStatus(message, ok) {
-    const el = document.getElementById('mrStatus');
+    const el = $('mrStatus');
     el.style.display = 'block';
     el.style.background = ok ? '#f0fdf4' : '#fef2f2';
     el.style.color = ok ? '#166534' : '#b91c1c';
@@ -519,32 +623,21 @@
     updateHistoryFilterVisibility();
   }
 
-  // Text/WhatsApp filter chips (and their compose checkboxes, handled by
-  // renderChannelCheckboxes) only ever appear once that channel is
-  // activated under Settings -> Integrations — never unconditionally.
+  // Text/WhatsApp filter chips (and their compose checkboxes) only ever
+  // appear once that channel is activated under Settings -> Integrations.
   function updateHistoryFilterVisibility() {
-    const smsChip = document.getElementById('mrFilterChipSms');
-    const waChip = document.getElementById('mrFilterChipWhatsapp');
-    smsChip.style.display = state.orgChannels.sms ? '' : 'none';
-    waChip.style.display = state.orgChannels.whatsapp ? '' : 'none';
-
-    // If the active filter just lost its channel (deactivated mid-session),
-    // fall back to "All" rather than leaving an inaccessible filter engaged.
-    if ((historyFilter === 'sms' && !state.orgChannels.sms) || (historyFilter === 'whatsapp' && !state.orgChannels.whatsapp)) {
-      historyFilter = 'all';
-      document.querySelectorAll('#mrHistoryFilters .mr-filter-chip').forEach((el) => {
-        el.classList.toggle('mr-filter-active', el.dataset.channel === 'all');
-      });
-      renderHistoryList();
+    $('mrFilterChipSms').style.display = state.orgChannels.sms ? '' : 'none';
+    $('mrFilterChipWhatsapp').style.display = state.orgChannels.whatsapp ? '' : 'none';
+    if ((historyState.filter === 'sms' && !state.orgChannels.sms) || (historyState.filter === 'whatsapp' && !state.orgChannels.whatsapp)) {
+      setHistoryFilter('all');
     }
   }
 
   // Text and WhatsApp both depend on the school activating a provider —
-  // Email always works. Point straight at Integrations so it's a one-click
-  // fix, not a support ticket.
+  // Email always works. Point straight at Integrations.
   function updateSetupBanner() {
-    const banner = document.getElementById('mrSetupBanner');
-    const textEl = document.getElementById('mrSetupBannerText');
+    const banner = $('mrSetupBanner');
+    const textEl = $('mrSetupBannerText');
     const smsOn = state.orgChannels.sms;
     const waOn = state.orgChannels.whatsapp;
     if (smsOn && waOn) {
@@ -565,152 +658,302 @@
     try {
       const res = await fetch('/account/messaging/mailroomDirectory');
       const data = await res.json();
-      if (!data.success) { document.getElementById('mrContactList').innerHTML = '<div class="mr-empty">Failed to load contacts.</div>'; return; }
+      if (!data.success) { $('mrContactList').innerHTML = '<div class="mr-empty">Failed to load contacts.</div>'; return; }
       state.contacts = data.contacts || [];
+      populateClassFilter();
       renderContacts();
     } catch (_) {
-      document.getElementById('mrContactList').innerHTML = '<div class="mr-empty">Error loading contacts.</div>';
+      $('mrContactList').innerHTML = '<div class="mr-empty">Error loading contacts.</div>';
     }
   }
 
+  // ---- History (paged, newest first) ----
   const READMORE_THRESHOLD = 140;
   const STATUS_BADGE_CLASS = { sent: 'mr-badge-sent', failed: 'mr-badge-failed', pending: 'mr-badge-pending' };
-  let historyPollTimer = null;
+  const CHANNEL_LABEL = { sms: 'Text', whatsapp: 'WhatsApp', email: 'Email' };
+  const historyState = { rows: [], filter: 'all', hasMore: false, pollTimer: null };
 
   function renderHistoryRow(row) {
-    const recipient = Array.isArray(row.recipient_emails) && row.recipient_emails.length ? row.recipient_emails[0] : '-';
+    const contact = Array.isArray(row.recipient_emails) && row.recipient_emails.length ? row.recipient_emails[0] : '-';
+    const metadata = row.metadata || {};
+    const name = metadata.guardianName && metadata.guardianName !== 'Guardian' ? metadata.guardianName : '';
     const status = String(row.status || '').toLowerCase();
     const statusClass = STATUS_BADGE_CLASS[status] || 'mr-badge-failed';
-    const messageText = (row.metadata && row.metadata.message) ? row.metadata.message : '';
-    const errorText = (row.metadata && row.metadata.error) ? row.metadata.error : '';
+    const messageText = metadata.message || '';
+    const errorText = metadata.error || '';
     const isLong = messageText.length > READMORE_THRESHOLD;
     return `<div class="mr-message-card">
       <div class="mr-message-main">
-        <span class="mr-badge mr-badge-channel">${escapeHtml(String(row.event_domain || '-').toUpperCase())}</span>
-        <span class="mr-message-recipient">${escapeHtml(recipient)}</span>
+        <span class="mr-badge mr-badge-channel">${escapeHtml(CHANNEL_LABEL[String(row.event_domain || '').toLowerCase()] || row.event_domain || '-')}</span>
+        <span class="mr-message-recipient">${escapeHtml(name || contact)}</span>
+        ${name ? `<span class="mr-message-contact">${escapeHtml(contact)}</span>` : ''}
         <span class="mr-badge ${statusClass}">${escapeHtml(row.status || '-')}</span>
         <span class="mr-message-actor">by ${escapeHtml(row.actor_name || '-')}</span>
         ${status === 'failed' ? `<button type="button" class="mr-resend-btn" data-action="resend" data-id="${row.id}">Resend</button>` : ''}
       </div>
+      ${metadata.emailSubject ? `<div class="mr-message-subject">Subject: ${escapeHtml(metadata.emailSubject)}</div>` : ''}
       ${messageText ? `<div class="mr-message-text-wrap">
         <div class="mr-message-text">${escapeHtml(messageText)}</div>
         ${isLong ? `<span class="mr-readmore" data-action="toggle-message">Read more</span>` : ''}
       </div>` : ''}
       ${status === 'failed' && errorText ? `<div class="mr-message-error">${escapeHtml(errorText)}</div>` : ''}
-      <span class="mr-message-when">${escapeHtml(fmtDate(row.created_at))}</span>
+      <span class="mr-message-when">${escapeHtml(fmtDate(row.updated_at || row.created_at))}</span>
     </div>`;
   }
 
-  let historyData = [];
-  let historyFilter = 'all';
-
-  // Re-renders from the already-fetched data using the active channel
-  // filter — no network round trip, so switching filters is instant.
-  function renderHistoryList() {
-    const wrap = document.getElementById('mrHistoryRows');
-    const rows = historyFilter === 'all'
-      ? historyData
-      : historyData.filter((row) => String(row.event_domain || '').toLowerCase() === historyFilter);
-    if (!rows.length) {
-      wrap.innerHTML = `<div class="mr-empty">${historyData.length ? 'No messages for this channel.' : 'No messages sent yet.'}</div>`;
-      return;
+  function renderHistory() {
+    const wrap = $('mrHistoryRows');
+    if (!historyState.rows.length) {
+      wrap.innerHTML = `<div class="mr-empty">${historyState.filter === 'all' ? 'No messages sent yet.' : 'No messages on this channel yet.'}</div>`;
+    } else {
+      wrap.innerHTML = historyState.rows.map(renderHistoryRow).join('');
     }
-    wrap.innerHTML = rows.map(renderHistoryRow).join('');
+    $('mrHistoryMore').hidden = !historyState.hasMore;
   }
 
-  // Returns true if any row is still pending, so the caller knows whether
-  // to keep polling.
-  async function loadHistory() {
-    const wrap = document.getElementById('mrHistoryRows');
-    if (!wrap.querySelector('.mr-message-card')) {
+  // reset = reload from the newest; otherwise append the next page.
+  // Returns true if any loaded row is still pending.
+  async function loadHistory({ reset = true } = {}) {
+    const wrap = $('mrHistoryRows');
+    if (reset && !wrap.querySelector('.mr-message-card')) {
       wrap.innerHTML = '<div class="mr-empty">Loading history...</div>';
     }
+    const offset = reset ? 0 : historyState.rows.length;
+    const limit = reset ? Math.max(HISTORY_PAGE, historyState.rows.length) : HISTORY_PAGE;
+    const params = new URLSearchParams({ limit: String(Math.min(limit, 100)), offset: String(offset) });
+    if (historyState.filter !== 'all') params.set('channel', historyState.filter);
     try {
-      const res = await fetch('/account/messaging/mailroomHistory');
+      const res = await fetch(`/account/messaging/mailroomHistory?${params}`);
       const data = await res.json();
       if (!data.success || !Array.isArray(data.history)) {
         wrap.innerHTML = '<div class="mr-empty">Error loading history.</div>';
         return false;
       }
-      // Already sorted most-recent-first by the server (resends bump their
-      // row back to the top too, since they update the same row in place).
-      historyData = data.history;
-      renderHistoryList();
-      return historyData.some((row) => String(row.status || '').toLowerCase() === 'pending');
+      historyState.rows = reset ? data.history : historyState.rows.concat(data.history);
+      historyState.hasMore = Boolean(data.hasMore);
+      renderHistory();
+      return historyState.rows.some((row) => String(row.status || '').toLowerCase() === 'pending');
     } catch (_) {
       wrap.innerHTML = '<div class="mr-empty">Error loading history.</div>';
       return false;
     }
   }
 
-  // Refreshes history every couple seconds until nothing is left pending
-  // (or a generous cap is hit), so a send/resend's pending -> sent/failed
-  // flip shows up without the admin manually reloading the page. Capped at
-  // 3 minutes rather than 30s — a cold SMTP connection plus the MX-lookup
-  // timeout can legitimately take a while, and giving up too early is what
-  // made the UI look "stuck" even though the row had already settled.
+  function setHistoryFilter(channel) {
+    historyState.filter = channel;
+    document.querySelectorAll('#mrHistoryFilters .mr-filter-chip').forEach((el) => {
+      el.classList.toggle('mr-filter-active', el.dataset.channel === channel);
+    });
+    historyState.rows = [];
+    loadHistory();
+  }
+
+  // Refreshes history every couple of seconds until nothing is pending (or
+  // 3 minutes pass), so a send's pending -> sent/failed flip shows up
+  // without reloading the page.
   function pollHistoryUntilSettled() {
-    if (historyPollTimer) clearInterval(historyPollTimer);
+    if (historyState.pollTimer) clearInterval(historyState.pollTimer);
     let attempts = 0;
-    historyPollTimer = setInterval(async () => {
+    historyState.pollTimer = setInterval(async () => {
       attempts += 1;
       const stillPending = await loadHistory();
       if (!stillPending || attempts >= 90) {
-        clearInterval(historyPollTimer);
-        historyPollTimer = null;
+        clearInterval(historyState.pollTimer);
+        historyState.pollTimer = null;
       }
     }, 2000);
   }
 
-  // Also poll while the tab is merely in the background/hidden — timers
-  // can get throttled there, so catch up immediately when it becomes
-  // visible again instead of leaving a stale "pending" row on screen.
+  // Timers can be throttled in a background tab — catch up when it's back.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && historyPollTimer) {
-      loadHistory();
-    }
+    if (document.visibilityState === 'visible' && historyState.pollTimer) loadHistory();
   });
 
-  function getVerifiedPassword(promptText) {
-    const PASSWORD_KEY = 'mailroomVerifiedPassword';
-    let password = window.sessionStorage ? sessionStorage.getItem(PASSWORD_KEY) : null;
-    if (!password) password = prompt(promptText);
-    return password;
+  // ---- Confirm dialog (summary + password when needed) ----
+  // The password is never stored in the browser. After a correct password
+  // the server remembers it for a short while, so the field is only shown
+  // when it's actually needed.
+  const confirmDialog = { onConfirm: null };
+
+  function openConfirm({ title, summary, preview, confirmLabel, onConfirm }) {
+    $('mrConfirmTitle').textContent = title;
+    $('mrConfirmSummary').textContent = summary;
+    $('mrConfirmPreview').textContent = preview || '';
+    $('mrConfirmPreview').style.display = preview ? 'block' : 'none';
+    $('mrConfirmOk').textContent = confirmLabel;
+    $('mrConfirmOk').disabled = false;
+    $('mrConfirmError').textContent = '';
+    $('mrConfirmPassword').value = '';
+    $('mrConfirmPasswordWrap').style.display = Date.now() < state.verifiedUntil ? 'none' : 'block';
+    confirmDialog.onConfirm = onConfirm;
+    $('mrConfirmBackdrop').classList.add('mr-open');
+    if ($('mrConfirmPasswordWrap').style.display !== 'none') $('mrConfirmPassword').focus();
+    else $('mrConfirmOk').focus();
   }
 
-  function rememberVerifiedPassword(password) {
-    if (window.sessionStorage) sessionStorage.setItem('mailroomVerifiedPassword', password);
+  function closeConfirm() {
+    $('mrConfirmBackdrop').classList.remove('mr-open');
+    $('mrConfirmPassword').value = '';
+    confirmDialog.onConfirm = null;
   }
 
-  function forgetVerifiedPassword() {
-    if (window.sessionStorage) sessionStorage.removeItem('mailroomVerifiedPassword');
+  async function runConfirm() {
+    if (!confirmDialog.onConfirm) return;
+    const passwordShown = $('mrConfirmPasswordWrap').style.display !== 'none';
+    const password = passwordShown ? $('mrConfirmPassword').value : '';
+    if (passwordShown && !password) {
+      $('mrConfirmError').textContent = 'Enter your password to confirm.';
+      return;
+    }
+    $('mrConfirmOk').disabled = true;
+    $('mrConfirmError').textContent = '';
+    const outcome = await confirmDialog.onConfirm(password);
+    if (outcome && outcome.needsPassword) {
+      // The remembered confirmation expired or the password was wrong.
+      state.verifiedUntil = 0;
+      $('mrConfirmPasswordWrap').style.display = 'block';
+      $('mrConfirmError').textContent = outcome.message || 'Enter your password to confirm.';
+      $('mrConfirmPassword').value = '';
+      $('mrConfirmPassword').focus();
+      $('mrConfirmOk').disabled = false;
+      return;
+    }
+    closeConfirm();
   }
 
-  async function resendMessage(id) {
-    const password = getVerifiedPassword('Enter your password to confirm this resend:');
-    if (!password) return;
+  function rememberVerification(minutes) {
+    // A minute shorter than the server's window, so the field reappears
+    // before the server would ask for it.
+    state.verifiedUntil = Date.now() + Math.max(0, (Number(minutes) || 15) - 1) * 60000;
+  }
+
+  $('mrConfirmOk').addEventListener('click', runConfirm);
+  $('mrConfirmCancel').addEventListener('click', closeConfirm);
+  $('mrConfirmBackdrop').addEventListener('click', (e) => { if (e.target === $('mrConfirmBackdrop')) closeConfirm(); });
+  $('mrConfirmPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') runConfirm(); });
+
+  // ---- Send / resend ----
+  function sendMessage() {
+    const message = $('mrMessage').value.trim();
+    const channels = Array.from(state.channels);
+    if (!message) { showStatus('Type a message first.', false); return; }
+    if (!state.selected.size) { showStatus('Select at least one recipient.', false); return; }
+    if (!channels.length) { showStatus('Choose at least one channel.', false); return; }
+
+    const contacts = Array.from(state.selected.values());
+    const perChannel = channels.map((channel) => {
+      const field = channelField(channel);
+      const recipients = contacts.filter((c) => c[field]).map((c) => ({
+        keys: c.keys,
+        guardianId: c.guardianId,
+        source: c.source,
+        guardianName: c.guardianName,
+        studentName: (c.studentNames || [])[0] || '',
+      }));
+      return { channel, recipients };
+    }).filter((entry) => entry.recipients.length);
+
+    if (!perChannel.length) {
+      showStatus('None of the selected recipients have the contact info the chosen channel(s) need.', false);
+      return;
+    }
+
+    const emailSubject = $('mrSubject').value.trim();
+    const summary = perChannel.map((entry) => `${CHANNEL_META[entry.channel].label}: ${entry.recipients.length}`).join(' · ');
+    openConfirm({
+      title: 'Send message',
+      summary: `To ${contacts.length} contact${contacts.length === 1 ? '' : 's'} — ${summary}${emailSubject && state.channels.has('email') ? ` · Subject: ${emailSubject}` : ''}`,
+      preview: message,
+      confirmLabel: 'Send',
+      onConfirm: (password) => submitSend({ perChannel, message, emailSubject, password }),
+    });
+  }
+
+  async function submitSend({ perChannel, message, emailSubject, password }) {
+    const sendBtn = $('mrSendBtn');
+    sendBtn.disabled = true;
+    const previousLabel = sendBtn.textContent;
+    sendBtn.textContent = 'Sending...';
     try {
-      const res = await fetch('/account/messaging/mailroomResend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ id, password }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!data.success) {
-        if (data.message && /incorrect password/i.test(data.message)) forgetVerifiedPassword();
-        showStatus(data.message || 'Unable to resend.', false);
-        return;
+      // The server writes each recipient as "pending" and answers right away;
+      // the provider round trips happen in the background. The password (if
+      // any) is checked by the first request; the rest use the server's
+      // remembered confirmation.
+      const results = [];
+      for (const [index, entry] of perChannel.entries()) {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await fetch('/account/messaging/mailroomSend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            channel: entry.channel,
+            message,
+            emailSubject: entry.channel === 'email' ? emailSubject : '',
+            recipients: entry.recipients,
+            password: index === 0 ? password : '',
+          }),
+        });
+        // eslint-disable-next-line no-await-in-loop
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401 && index === 0) return { needsPassword: true, message: data.message };
+        results.push(data);
+        if (data.success && data.verifiedForMinutes) rememberVerification(data.verifiedForMinutes);
       }
-      rememberVerifiedPassword(password);
-      showStatus('Resending...', true);
-      loadHistory();
-      pollHistoryUntilSettled();
+
+      const failure = results.find((r) => r.success === false);
+      const total = results.reduce((sum, r) => sum + (Array.isArray(r.rows) ? r.rows.length : 0), 0);
+      const skipped = results.reduce((sum, r) => sum + (Number(r.skippedOutOfScope) || 0), 0);
+      if (failure && !total) {
+        showStatus(failure.message || 'Unable to send.', false);
+      } else {
+        showStatus(`Sending to ${total} recipient${total === 1 ? '' : 's'}...${skipped ? ` ${skipped} outside your mailroom access were skipped.` : ''}${failure ? ` Some channels failed: ${failure.message}` : ''}`, !failure);
+        $('mrMessage').value = '';
+        $('mrSubject').value = '';
+        updateChannelsVisibility();
+        loadHistory();
+        pollHistoryUntilSettled();
+      }
+      return null;
     } catch (_) {
-      showStatus('Network error — resend failed.', false);
+      showStatus('Network error — nothing was confirmed as sent. Check History before trying again.', false);
+      return null;
+    } finally {
+      sendBtn.textContent = previousLabel;
+      sendBtn.disabled = state.selected.size === 0 || state.channels.size === 0;
     }
   }
 
-  document.getElementById('mrHistoryRows').addEventListener('click', (e) => {
+  function resendMessage(id) {
+    const row = historyState.rows.find((r) => String(r.id) === String(id));
+    const contact = row && Array.isArray(row.recipient_emails) ? row.recipient_emails[0] : '';
+    openConfirm({
+      title: 'Resend message',
+      summary: contact ? `Resend to ${contact}` : 'Resend this message',
+      preview: row?.metadata?.message || '',
+      confirmLabel: 'Resend',
+      onConfirm: async (password) => {
+        try {
+          const res = await fetch('/account/messaging/mailroomResend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ id, password }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 401) return { needsPassword: true, message: data.message };
+          if (!data.success) { showStatus(data.message || 'Unable to resend.', false); return null; }
+          if (password) rememberVerification(15);
+          showStatus('Resending...', true);
+          loadHistory();
+          pollHistoryUntilSettled();
+        } catch (_) {
+          showStatus('Network error — resend failed.', false);
+        }
+        return null;
+      },
+    });
+  }
+
+  $('mrHistoryRows').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     if (btn.dataset.action === 'resend') {
@@ -721,136 +964,56 @@
       btn.textContent = expanded ? 'Show less' : 'Read more';
     }
   });
-
-  document.getElementById('mrHistoryFilters').addEventListener('click', (e) => {
+  $('mrHistoryMore').addEventListener('click', () => loadHistory({ reset: false }));
+  $('mrHistoryFilters').addEventListener('click', (e) => {
     const chip = e.target.closest('.mr-filter-chip');
-    if (!chip) return;
-    historyFilter = chip.dataset.channel;
-    document.querySelectorAll('#mrHistoryFilters .mr-filter-chip').forEach((el) => {
-      el.classList.toggle('mr-filter-active', el === chip);
+    if (chip) setHistoryFilter(chip.dataset.channel);
+  });
+
+  $('mrSearch').addEventListener('input', () => { state.contactLimit = CONTACT_PAGE; renderContacts(); });
+  $('mrClassFilter').addEventListener('change', () => { state.contactLimit = CONTACT_PAGE; renderContacts(); });
+  $('mrMessage').addEventListener('input', updateChannelsVisibility);
+  $('mrSelectAll').addEventListener('click', () => {
+    const filtered = filteredContacts();
+    const allSelected = filtered.length > 0 && filtered.every((c) => state.selected.has(c.id));
+    filtered.forEach((c) => {
+      if (allSelected) state.selected.delete(c.id);
+      else state.selected.set(c.id, c);
     });
-    renderHistoryList();
-  });
-
-  async function sendMessage() {
-    const message = document.getElementById('mrMessage').value.trim();
-    const channels = Array.from(state.channels);
-    if (!message) { showStatus('Type a message first.', false); return; }
-    if (!state.selected.size) { showStatus('Select at least one recipient.', false); return; }
-    if (!channels.length) { showStatus('Check at least one channel: Text, WhatsApp, or Email.', false); return; }
-
-    const contacts = Array.from(state.selected.values());
-    const perChannel = channels.map((channel) => {
-      const field = channelField(channel);
-      const recipients = contacts.filter((c) => c[field]).map((c) => ({
-        guardianId: c.guardianId,
-        source: c.source,
-        phone: field === 'phone' ? c.phone : '',
-        email: field === 'email' ? c.email : '',
-        guardianName: c.guardianName,
-        studentName: (c.studentNames || [])[0] || '',
-      }));
-      return { channel, recipients };
-    }).filter((entry) => entry.recipients.length);
-
-    if (!perChannel.length) {
-      showStatus('None of the selected recipients have the contact info the checked channel(s) need.', false);
-      return;
-    }
-
-    const summary = perChannel.map((entry) => `${entry.channel.toUpperCase()}: ${entry.recipients.length}`).join(', ');
-    const confirmed = confirm(`Send this message via ${summary}?`);
-    if (!confirmed) return;
-
-    const password = getVerifiedPassword('Enter your password to confirm this send:');
-    if (!password) return;
-
-    const sendBtn = document.getElementById('mrSendBtn');
-    sendBtn.disabled = true;
-    const previousLabel = sendBtn.textContent;
-    sendBtn.textContent = 'Sending...';
-
-    try {
-      // The server writes each recipient as a "pending" row and responds
-      // right away — the actual SMS/email/WhatsApp round trips happen in
-      // the background, so this resolves almost immediately regardless of
-      // how slow the provider is.
-      const results = await Promise.all(perChannel.map((entry) =>
-        fetch('/account/messaging/mailroomSend', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ channel: entry.channel, message, recipients: entry.recipients, password }),
-        }).then((res) => res.json().catch(() => ({})))
-      ));
-
-      const anyAuthError = results.some((r) => r.message && /incorrect password/i.test(r.message));
-      const anyOtherError = results.some((r) => r.success === false && !(r.message && /incorrect password/i.test(r.message)));
-
-      if (anyAuthError) {
-        forgetVerifiedPassword();
-        showStatus('Incorrect password — nothing was sent.', false);
-      } else if (anyOtherError) {
-        const errMsg = results.find((r) => r.success === false)?.message || 'Unable to send.';
-        showStatus(errMsg, false);
-      } else {
-        rememberVerifiedPassword(password);
-        const totalRecipients = results.reduce((sum, r) => sum + (Array.isArray(r.rows) ? r.rows.length : 0), 0);
-        showStatus(`Sending to ${totalRecipients} recipient${totalRecipients === 1 ? '' : 's'}...`, true);
-        document.getElementById('mrMessage').value = '';
-        updateChannelsVisibility();
-        loadHistory();
-        pollHistoryUntilSettled();
-      }
-    } catch (_) {
-      showStatus('Network error — send failed.', false);
-    } finally {
-      sendBtn.textContent = previousLabel;
-      sendBtn.disabled = state.selected.size === 0 || state.channels.size === 0;
-    }
-  }
-
-  document.getElementById('mrSearch').addEventListener('input', renderContacts);
-  document.getElementById('mrMessage').addEventListener('input', updateChannelsVisibility);
-  document.getElementById('mrSelectAll').addEventListener('click', () => {
-    const visibleEls = Array.from(document.querySelectorAll('#mrContactList .mr-contact'));
-    const visibleKeys = visibleEls.map((el) => el.getAttribute('data-key'));
-    const allSelected = visibleKeys.length > 0 && visibleKeys.every((key) => state.selected.has(key));
-
-    if (allSelected) {
-      visibleKeys.forEach((key) => state.selected.delete(key));
-    } else {
-      visibleEls.forEach((el) => {
-        const key = el.getAttribute('data-key');
-        const contact = state.contacts.find((c) => contactKey(c) === key);
-        if (contact) state.selected.set(key, contact);
-      });
-    }
-    updateRecipientCount();
     renderContacts();
+    updateRecipientCount();
   });
-  document.getElementById('mrSendBtn').addEventListener('click', sendMessage);
+  $('mrClearSelection').addEventListener('click', () => {
+    state.selected.clear();
+    renderContacts();
+    updateRecipientCount();
+  });
+  $('mrSendBtn').addEventListener('click', sendMessage);
 
-  // Mobile-only right-side drawer for the contact list — mirrors the same
-  // slide-in-over-a-backdrop pattern used for panels elsewhere in the app,
-  // so it floats on top of the page instead of pushing/expanding it.
+  // Mobile-only right-side drawer for the contact list.
   function openContactsDrawer() {
-    document.getElementById('mrDirectory').classList.add('mr-drawer-open');
-    document.getElementById('mrDrawerBackdrop').classList.add('mr-drawer-open');
-    document.getElementById('mrDirectoryToggle').setAttribute('aria-expanded', 'true');
+    $('mrDirectory').classList.add('mr-drawer-open');
+    $('mrDrawerBackdrop').classList.add('mr-drawer-open');
+    $('mrDirectoryToggle').setAttribute('aria-expanded', 'true');
     document.body.style.overflow = 'hidden';
   }
   function closeContactsDrawer() {
-    document.getElementById('mrDirectory').classList.remove('mr-drawer-open');
-    document.getElementById('mrDrawerBackdrop').classList.remove('mr-drawer-open');
-    document.getElementById('mrDirectoryToggle').setAttribute('aria-expanded', 'false');
+    $('mrDirectory').classList.remove('mr-drawer-open');
+    $('mrDrawerBackdrop').classList.remove('mr-drawer-open');
+    $('mrDirectoryToggle').setAttribute('aria-expanded', 'false');
     document.body.style.overflow = '';
   }
-  document.getElementById('mrDirectoryToggle').addEventListener('click', openContactsDrawer);
-  document.getElementById('mrDirectoryClose').addEventListener('click', closeContactsDrawer);
-  document.getElementById('mrDrawerBackdrop').addEventListener('click', closeContactsDrawer);
+  $('mrDirectoryToggle').addEventListener('click', openContactsDrawer);
+  $('mrDirectoryClose').addEventListener('click', closeContactsDrawer);
+  $('mrDrawerBackdrop').addEventListener('click', closeContactsDrawer);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeContactsDrawer();
+    if (e.key !== 'Escape') return;
+    if ($('mrConfirmBackdrop').classList.contains('mr-open')) closeConfirm();
+    else closeContactsDrawer();
   });
+
+  // Passwords were kept in this tab by an earlier version; clear any left over.
+  try { window.sessionStorage && sessionStorage.removeItem('mailroomVerifiedPassword'); } catch (_) {}
 
   loadChannelStatus();
   loadContacts();

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { isAuthenticated, blockGuardians } = require("../middleware/middleware");
+const { roadRoute } = require("../utils/roadRouting");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const { transportationController } = require("../controllers/transportationController");
 const { upload } = require("../middleware/s3Upload");
@@ -225,6 +226,22 @@ module.exports = (db) => {
   router.post("/driver/live-location", isAuthenticated, (req, res) =>
     transportationController.postLiveLocation(req, res, db)
   );
+
+  // Road-following route between points, for every bus map (staff, drivers,
+  // parents, students). ?points=lat,lng;lat,lng;...
+  router.get("/road-route", async (req, res) => {
+    if (!req.session || !req.session.organizationId) {
+      return res.status(401).json({ success: false, message: "Please sign in." });
+    }
+    try {
+      const route = await roadRoute(req.query.points);
+      res.set("Cache-Control", "private, max-age=3600");
+      if (!route) return res.json({ success: false, message: "Road route unavailable right now." });
+      return res.json({ success: true, ...route });
+    } catch (error) {
+      return res.json({ success: false, message: "Road route unavailable right now." });
+    }
+  });
 
   router.get("/live/student/:studentId", authorizeStudentLiveAccess, (req, res) =>
     transportationController.getLiveByStudent(req, res, db)

@@ -1,0 +1,485 @@
+<%
+  const mwxSettings = (typeof websiteSettings !== 'undefined' && websiteSettings) || {};
+  const mwxLimits = (typeof websiteLimits !== 'undefined' && websiteLimits) || {};
+  const mwxFallbackEmail = (typeof contactFallbackEmail !== 'undefined' && contactFallbackEmail) || '';
+  const mwxAddress = [orgDetails && orgDetails.organization_address, orgDetails && orgDetails.organization_province, orgDetails && orgDetails.organization_country].filter(Boolean).join(', ');
+%>
+<style>
+  .mwx-grid { display: grid; gap: 16px; }
+  .mwx-card { border: 1px solid #e5e7eb; border-radius: 14px; background: #fff; padding: 16px 18px; }
+  .mwx-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+  .mwx-card-head h3 { margin: 0; font-size: 1.02rem; font-weight: 700; color: #111827; text-align: left; }
+  .mwx-card > p.mwx-hint { margin: 2px 0 12px; font-size: 0.86rem; color: #6b7280; }
+  .mwx-status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 0.76rem; font-weight: 700; }
+  .mwx-status.live { background: #dcfce7; color: #166534; }
+  .mwx-status.hidden { background: #f1f5f9; color: #475569; }
+  .mwx-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 600; color: #111827; cursor: pointer; }
+  .mwx-switch input { width: 18px; height: 18px; margin: 0; accent-color: var(--org-primary-color, #01535b); }
+  .mwx-field { display: grid; gap: 4px; margin: 0 0 10px; font-size: 0.82rem; font-weight: 700; color: #374151; }
+  .mwx-field input[type="text"], .mwx-field input[type="email"], .mwx-field textarea, .mwx-field select { width: 100%; margin: 0; padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 9px; font: inherit; font-size: 0.9rem; font-weight: 400; color: #111827; background: #fff; box-sizing: border-box; }
+  .mwx-field textarea { min-height: 70px; resize: vertical; }
+  .mwx-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mwx-items { display: grid; gap: 10px; margin: 6px 0 10px; }
+  .mwx-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 11px; background: #f9fafb; }
+  .mwx-item-fields { display: grid; gap: 8px; min-width: 0; }
+  .mwx-item-fields .mwx-field { margin: 0; }
+  .mwx-item-actions { display: flex; flex-direction: column; gap: 6px; }
+  .mwx-icon-btn { width: 32px; height: 32px; margin: 0; padding: 0; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #374151; cursor: pointer; font-size: 0.95rem; line-height: 1; }
+  .mwx-icon-btn:hover { border-color: #9ca3af; }
+  .mwx-icon-btn.danger:hover { border-color: #fca5a5; color: #b91c1c; }
+  .mwx-image { display: flex; align-items: center; gap: 10px; }
+  .mwx-image img { width: 72px; height: 52px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; }
+  .mwx-image .mwx-image-empty { width: 72px; height: 52px; border-radius: 8px; border: 1px dashed #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #94a3b8; }
+  .mwx-btn { width: auto; margin: 0; padding: 8px 14px; border-radius: 9px; font: inherit; font-size: 0.86rem; font-weight: 700; cursor: pointer; }
+  .mwx-btn-ghost { border: 1px solid #d1d5db; background: #fff; color: #111827; }
+  .mwx-btn-primary { border: 1px solid var(--org-primary-color, #01535b); background: var(--org-primary-color, #01535b); color: #fff; }
+  .mwx-btn[disabled] { opacity: 0.6; cursor: progress; }
+  .mwx-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+  .mwx-count { font-size: 0.8rem; color: #6b7280; }
+  .mwx-req { color: #b91c1c; font-weight: 800; }
+  .mwx-link { width: auto; margin: 0 0 0 4px; padding: 0; border: 0; background: none; color: var(--org-primary-color, #01535b); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+  .mwx-toast { position: fixed; left: 50%; bottom: 24px; z-index: 13000; transform: translateX(-50%); padding: 10px 16px; border-radius: 10px; font-size: 0.9rem; font-weight: 600; color: #fff; background: #166534; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+  .mwx-toast.show { opacity: 1; }
+  .mwx-toast.error { background: #b91c1c; }
+  .mwx-messages { display: grid; gap: 10px; }
+  .mwx-msg { border: 1px solid #e5e7eb; border-radius: 11px; padding: 12px 14px; background: #fff; }
+  .mwx-msg.new { border-left: 4px solid var(--org-primary-color, #01535b); }
+  .mwx-msg-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 0.86rem; }
+  .mwx-msg-head strong { color: #111827; }
+  .mwx-msg-meta { color: #6b7280; font-size: 0.8rem; }
+  .mwx-msg-body { margin: 8px 0; font-size: 0.9rem; color: #1f2937; white-space: pre-wrap; word-break: break-word; }
+  .mwx-msg-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mwx-msg-actions a, .mwx-msg-actions button { font-size: 0.8rem; padding: 5px 10px; }
+  .mwx-badge { display: inline-flex; min-width: 20px; height: 20px; padding: 0 6px; align-items: center; justify-content: center; border-radius: 999px; background: #dc2626; color: #fff; font-size: 0.72rem; font-weight: 800; }
+  .mwx-badge[hidden] { display: none; }
+  .mwx-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mwx-tab { width: auto; margin: 0; padding: 5px 12px; border: 1px solid #d1d5db; border-radius: 999px; background: #fff; font: inherit; font-size: 0.8rem; font-weight: 700; color: #475569; cursor: pointer; }
+  .mwx-tab.active { background: var(--org-primary-color, #01535b); border-color: var(--org-primary-color, #01535b); color: #fff; }
+  .mwx-empty { padding: 18px; text-align: center; color: #6b7280; font-size: 0.9rem; border: 1px dashed #d1d5db; border-radius: 11px; }
+  @media (max-width: 640px) {
+    .mwx-row-2 { grid-template-columns: 1fr; }
+    .mwx-item { grid-template-columns: 1fr; }
+    .mwx-item-actions { flex-direction: row; }
+  }
+</style>
+
+<!-- Website sections -->
+<div class="content-container" id="mwxSections">
+  <div class="images-header">
+    <h2><i class="fa-solid fa-layer-group mpc-h-icon" aria-hidden="true"></i> Website Sections</h2>
+    <div class="header-actions">
+      <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+    </div>
+  </div>
+  <p class="mwx-hint" style="margin:0 0 14px;color:#6b7280;font-size:0.9rem;">Each section appears on your website only when it's switched on and has content. Images can be added to programs, leadership and the About section.</p>
+  <div class="mwx-grid">
+    <div class="mwx-card" data-mwx-section="quickFacts"></div>
+    <div class="mwx-card" data-mwx-section="programs"></div>
+    <div class="mwx-card" data-mwx-section="about"></div>
+    <div class="mwx-card" data-mwx-section="leadership"></div>
+    <div class="mwx-card" data-mwx-section="testimonials"></div>
+    <div class="mwx-card" data-mwx-section="faq"></div>
+  </div>
+</div>
+
+<!-- Contact form + inbox -->
+<div class="content-container" id="mwxContact">
+  <div class="images-header">
+    <h2><i class="fa-solid fa-envelope mpc-h-icon" aria-hidden="true"></i> Contact Form &amp; Messages <span class="mwx-badge" id="mwxUnread" hidden></span></h2>
+    <div class="header-actions">
+      <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+    </div>
+  </div>
+  <div class="mwx-grid">
+    <div class="mwx-card" data-mwx-section="contact"></div>
+    <div class="mwx-card">
+      <div class="mwx-card-head">
+        <h3>Messages from your website</h3>
+        <div class="mwx-tabs" id="mwxMsgTabs">
+          <button type="button" class="mwx-tab active" data-status="">Inbox</button>
+          <button type="button" class="mwx-tab" data-status="new">Unread</button>
+          <button type="button" class="mwx-tab" data-status="archived">Archived</button>
+        </div>
+      </div>
+      <p class="mwx-hint">Messages people send through the contact form. They're also emailed to the school.</p>
+      <div class="mwx-messages" id="mwxMessages"><div class="mwx-empty">Loading messages...</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="mwx-toast" id="mwxToast" role="status" aria-live="polite"></div>
+<input type="file" id="mwxFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+
+<script>
+  (function () {
+    var settings = <%- JSON.stringify(mwxSettings).replace(/</g, '\\u003c') %>;
+    var limits = <%- JSON.stringify(mwxLimits) %>;
+    var fallbackEmail = <%- JSON.stringify(mwxFallbackEmail) %>;
+    var schoolEmails = <%- JSON.stringify(typeof schoolEmails !== 'undefined' && Array.isArray(schoolEmails) ? schoolEmails : []) %>;
+    var schoolAddress = <%- JSON.stringify(mwxAddress) %>;
+
+    // What each section edits. type: text | textarea | image.
+    var SCHEMAS = {
+      quickFacts: {
+        title: 'Quick Facts', hint: 'Short highlights shown as numbers near the top, e.g. "450+ Students", "25 Years of excellence".',
+        noun: 'fact', fields: [{ key: 'value', label: 'Number or short value', ph: '450+' }, { key: 'label', label: 'What it means', ph: 'Students enrolled' }], pair: true,
+      },
+      programs: {
+        title: 'Programs & Facilities', hint: 'Show what your school offers - programs, clubs, labs, sports, boarding - each with a photo.',
+        noun: 'item', heading: 'Programs & Facilities', intro: true,
+        fields: [{ key: 'title', label: 'Name', ph: 'Science Laboratory' }, { key: 'description', label: 'Description', type: 'textarea', ph: 'What students do here...' }, { key: 'imageUrl', label: 'Photo', type: 'image' }],
+      },
+      leadership: {
+        title: 'Leadership', hint: 'Introduce your head teacher and school leaders, with a photo and a short message.',
+        noun: 'person', heading: 'Our Leadership',
+        fields: [{ key: 'name', label: 'Name', ph: 'Mrs. Ama Mensah' }, { key: 'role', label: 'Role', ph: 'Head Teacher' }, { key: 'message', label: 'Short message (optional)', type: 'textarea', ph: 'A welcome from...' }, { key: 'imageUrl', label: 'Photo', type: 'image' }],
+      },
+      testimonials: {
+        title: 'Testimonials', hint: 'Kind words from parents, students and alumni.',
+        noun: 'testimonial', heading: 'What Families Say',
+        fields: [{ key: 'quote', label: 'What they said', type: 'textarea', ph: 'My children love...' }, { key: 'name', label: 'Name', ph: 'Kofi Asare' }, { key: 'relation', label: 'Relation (optional)', ph: 'Parent, JSS 2' }],
+      },
+      faq: {
+        title: 'FAQ', hint: 'Answer the questions parents ask most - admissions, fees, uniforms, transport.',
+        noun: 'question', heading: 'Frequently Asked Questions',
+        fields: [{ key: 'question', label: 'Question', ph: 'When do admissions open?' }, { key: 'answer', label: 'Answer', type: 'textarea', ph: 'Admissions open in...' }],
+      },
+    };
+
+    var toastTimer = null;
+    function toast(message, isError) {
+      var el = document.getElementById('mwxToast');
+      el.textContent = message;
+      el.classList.toggle('error', Boolean(isError));
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2400);
+    }
+
+    function esc(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]; });
+    }
+
+    function statusHtml(key, data) {
+      var live;
+      if (key === 'about') live = Boolean(data.imageUrl);
+      else if (key === 'contact') live = Boolean(data.enabled && data.notifyEmail);
+      else live = Boolean(data.enabled && data.items && data.items.length);
+      var reason = '';
+      if (!live) {
+        if (key === 'about') reason = 'No image';
+        else if (key === 'contact') reason = data.enabled ? 'Add an email to receive messages' : 'Switched off';
+        else reason = !data.enabled ? 'Switched off' : 'No content yet';
+      }
+      return live ? '<span class="mwx-status live">● Live on website</span>' : '<span class="mwx-status hidden">Hidden · ' + esc(reason) + '</span>';
+    }
+
+    // ---- Image uploads (shared) ----
+    var pendingImageTarget = null;
+    var fileInput = document.getElementById('mwxFile');
+    fileInput.addEventListener('change', async function () {
+      var file = fileInput.files[0];
+      var target = pendingImageTarget;
+      fileInput.value = '';
+      if (!file || !target) return;
+      if (file.size > 5 * 1024 * 1024) { toast('Images can be up to 5 MB.', true); return; }
+      var button = target.querySelector('[data-mwx-upload]');
+      button.disabled = true;
+      button.textContent = 'Uploading...';
+      try {
+        var body = new FormData();
+        body.append('image', file);
+        var res = await fetch('/account/website/image', { method: 'POST', body: body, credentials: 'same-origin' });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.url) throw new Error(data.message || 'Upload failed.');
+        target.querySelector('input[data-key]').value = data.url;
+        renderImagePreview(target, data.url);
+        toast('Image uploaded - remember to save.');
+      } catch (error) {
+        toast(error.message || 'Upload failed.', true);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Choose image';
+      }
+    });
+
+    function renderImagePreview(wrap, url) {
+      var preview = wrap.querySelector('.mwx-image-preview');
+      preview.innerHTML = url ? '<img src="' + esc(url) + '" alt="">' : '<span class="mwx-image-empty">No image</span>';
+      var remove = wrap.querySelector('[data-mwx-remove-image]');
+      if (remove) remove.hidden = !url;
+    }
+
+    function imageFieldHtml(field, value) {
+      return '<div class="mwx-field"><span>' + esc(field.label) + '</span><div class="mwx-image" data-mwx-image>' +
+        '<span class="mwx-image-preview"></span>' +
+        '<input type="hidden" data-key="' + field.key + '" value="' + esc(value || '') + '">' +
+        '<button type="button" class="mwx-btn mwx-btn-ghost" data-mwx-upload>Choose image</button>' +
+        '<button type="button" class="mwx-btn mwx-btn-ghost" data-mwx-remove-image>Remove</button>' +
+        '</div></div>';
+    }
+
+    function fieldHtml(field, value) {
+      if (field.type === 'image') return imageFieldHtml(field, value);
+      var input = field.type === 'textarea'
+        ? '<textarea data-key="' + field.key + '" placeholder="' + esc(field.ph || '') + '">' + esc(value || '') + '</textarea>'
+        : '<input type="text" data-key="' + field.key + '" value="' + esc(value || '') + '" placeholder="' + esc(field.ph || '') + '">';
+      return '<label class="mwx-field"><span>' + esc(field.label) + '</span>' + input + '</label>';
+    }
+
+    // ---- Item-list sections ----
+    function renderListSection(card, key) {
+      var schema = SCHEMAS[key];
+      var data = settings[key] || { enabled: false, items: [] };
+      var max = limits[key] || 10;
+      card.innerHTML =
+        '<div class="mwx-card-head"><h3>' + esc(schema.title) + '</h3><span data-mwx-status>' + statusHtml(key, data) + '</span></div>' +
+        '<p class="mwx-hint">' + esc(schema.hint) + '</p>' +
+        '<label class="mwx-switch"><input type="checkbox" data-mwx-enabled ' + (data.enabled ? 'checked' : '') + '> Show on website</label>' +
+        (schema.heading ? '<div style="margin-top:10px;">' + fieldHtml({ key: 'title', label: 'Section heading', ph: schema.heading }, data.title) + '</div>' : '') +
+        (schema.intro ? fieldHtml({ key: 'intro', label: 'Intro (optional)', type: 'textarea', ph: 'A sentence or two introducing this section' }, data.intro) : '') +
+        '<div class="mwx-items" data-mwx-items></div>' +
+        '<div class="mwx-actions"><div><button type="button" class="mwx-btn mwx-btn-ghost" data-mwx-add>+ Add ' + esc(schema.noun) + '</button> <span class="mwx-count" data-mwx-count></span></div>' +
+        '<button type="button" class="mwx-btn mwx-btn-primary" data-mwx-save>Save</button></div>';
+      var itemsEl = card.querySelector('[data-mwx-items]');
+      (data.items || []).forEach(function (item) { addItem(card, key, item); });
+      if (!(data.items || []).length) addItem(card, key, {});
+      updateCount(card, key, max);
+      card.querySelector('[data-mwx-add]').addEventListener('click', function () {
+        if (itemsEl.children.length >= max) { toast('You can add up to ' + max + '.', true); return; }
+        addItem(card, key, {});
+        updateCount(card, key, max);
+      });
+      card.querySelector('[data-mwx-save]').addEventListener('click', function () { saveSection(card, key); });
+    }
+
+    function updateCount(card, key, max) {
+      var n = card.querySelector('[data-mwx-items]').children.length;
+      card.querySelector('[data-mwx-count]').textContent = n + ' of ' + max;
+      card.querySelector('[data-mwx-add]').disabled = n >= max;
+    }
+
+    function addItem(card, key, item) {
+      var schema = SCHEMAS[key];
+      var row = document.createElement('div');
+      row.className = 'mwx-item';
+      var fields = schema.fields.map(function (f) { return fieldHtml(f, item[f.key]); }).join('');
+      row.innerHTML = '<div class="mwx-item-fields' + (schema.pair ? ' mwx-row-2' : '') + '">' + fields + '</div>' +
+        '<div class="mwx-item-actions">' +
+        '<button type="button" class="mwx-icon-btn" data-move="-1" title="Move up" aria-label="Move up">↑</button>' +
+        '<button type="button" class="mwx-icon-btn" data-move="1" title="Move down" aria-label="Move down">↓</button>' +
+        '<button type="button" class="mwx-icon-btn danger" data-remove title="Remove" aria-label="Remove">✕</button></div>';
+      card.querySelector('[data-mwx-items]').appendChild(row);
+      row.querySelectorAll('[data-mwx-image]').forEach(function (wrap) { renderImagePreview(wrap, wrap.querySelector('input[data-key]').value); });
+    }
+
+    function readItems(card, key) {
+      return Array.prototype.map.call(card.querySelectorAll('[data-mwx-items] > .mwx-item'), function (row) {
+        var item = {};
+        row.querySelectorAll('[data-key]').forEach(function (input) { item[input.dataset.key] = input.value.trim(); });
+        return item;
+      });
+    }
+
+    // ---- About image ----
+    function renderAbout(card) {
+      var data = settings.about || {};
+      card.innerHTML =
+        '<div class="mwx-card-head"><h3>About Section Image</h3><span data-mwx-status>' + statusHtml('about', data) + '</span></div>' +
+        '<p class="mwx-hint">A photo shown with your About Us text - your building, students or campus.</p>' +
+        imageFieldHtml({ key: 'imageUrl', label: 'Image' }, data.imageUrl) +
+        fieldHtml({ key: 'imageCaption', label: 'Caption (optional)', ph: 'Our main campus' }, data.imageCaption) +
+        '<div class="mwx-actions"><span></span><button type="button" class="mwx-btn mwx-btn-primary" data-mwx-save>Save</button></div>';
+      card.querySelectorAll('[data-mwx-image]').forEach(function (wrap) { renderImagePreview(wrap, wrap.querySelector('input[data-key]').value); });
+      card.querySelector('[data-mwx-save]').addEventListener('click', function () { saveSection(card, 'about'); });
+    }
+
+    // ---- Contact settings ----
+    function renderContact(card) {
+      var data = settings.contact || {};
+      card.innerHTML =
+        '<div class="mwx-card-head"><h3>Contact Form</h3><span data-mwx-status>' + statusHtml('contact', data) + '</span></div>' +
+        '<p class="mwx-hint">Lets visitors message the school from your website. Your phone numbers and emails from About Our School are shown beside it.</p>' +
+        '<label class="mwx-switch"><input type="checkbox" data-mwx-enabled ' + (data.enabled ? 'checked' : '') + '> Show the contact form on the website</label>' +
+        '<div class="mwx-row-2" style="margin-top:10px;">' +
+        fieldHtml({ key: 'title', label: 'Section heading', ph: 'Contact Us' }, data.title) +
+        emailPickerHtml(data.notifyEmail) +
+        '</div>' +
+        fieldHtml({ key: 'intro', label: 'Intro (optional)', type: 'textarea', ph: 'We would love to hear from you...' }, data.intro) +
+        '<div class="mwx-row-2">' +
+        fieldHtml({ key: 'address', label: 'Address (optional)', ph: schoolAddress || 'Street, city' }, data.address) +
+        fieldHtml({ key: 'officeHours', label: 'Office hours (optional)', ph: 'Mon-Fri, 8am-4pm' }, data.officeHours) +
+        '</div>' +
+        '<label class="mwx-switch"><input type="checkbox" data-mwx-map ' + (data.showMap ? 'checked' : '') + '> Show a map of the address</label>' +
+        '<div class="mwx-actions"><span class="mwx-count">Every message is emailed to this address and kept in Messages below.</span><button type="button" class="mwx-btn mwx-btn-primary" data-mwx-save>Save</button></div>';
+      card.querySelector('[data-mwx-save]').addEventListener('click', function () { saveSection(card, 'contact'); });
+      bindEmailPicker(card);
+    }
+
+    // "Send messages to": the school's own emails (About Our School), or another.
+    function emailPickerHtml(current) {
+      var value = String(current || '').toLowerCase();
+      var inList = value && schoolEmails.indexOf(value) !== -1;
+      var chosen = value || schoolEmails[0] || '';
+      var options = schoolEmails.map(function (email) {
+        return '<option value="' + esc(email) + '"' + (email === chosen ? ' selected' : '') + '>' + esc(email) + '</option>';
+      }).join('') + '<option value="__other"' + ((value && !inList) || !schoolEmails.length ? ' selected' : '') + '>Another email...</option>';
+      var showOther = (value && !inList) || !schoolEmails.length;
+      return '<div class="mwx-field"><span>Send messages to <b class="mwx-req">*</b></span>' +
+        '<select data-mwx-email-choice>' + options + '</select>' +
+        '<input type="email" data-key="notifyEmail" value="' + esc(showOther ? value : chosen) + '" placeholder="office@yourschool.com" autocomplete="email"' + (showOther ? '' : ' hidden') + '>' +
+        '<small class="mwx-count">' + (schoolEmails.length ? 'Your school emails from About Our School.' : 'Add your school email in About Our School to pick it here.') + '</small></div>';
+    }
+    function bindEmailPicker(card) {
+      var select = card.querySelector('[data-mwx-email-choice]');
+      var input = card.querySelector('[data-key="notifyEmail"]');
+      if (!select || !input) return;
+      select.addEventListener('change', function () {
+        if (select.value === '__other') { input.hidden = false; input.value = ''; input.focus(); }
+        else { input.hidden = true; input.value = select.value; }
+      });
+    }
+
+    function collect(card, key) {
+      var payload = {};
+      var enabled = card.querySelector('[data-mwx-enabled]');
+      if (enabled) payload.enabled = enabled.checked;
+      // Section-level fields (heading, intro, image...); item fields are read separately.
+      card.querySelectorAll('[data-key]').forEach(function (input) {
+        if (!input.closest('[data-mwx-items]')) payload[input.dataset.key] = input.value.trim();
+      });
+      if (SCHEMAS[key]) payload.items = readItems(card, key);
+      var map = card.querySelector('[data-mwx-map]');
+      if (map) payload.showMap = map.checked;
+      return payload;
+    }
+
+    async function saveSection(card, key) {
+      var button = card.querySelector('[data-mwx-save]');
+      var payload = collect(card, key);
+      if (key === 'contact' && payload.notifyEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.notifyEmail)) {
+        toast('Check the school email address.', true);
+        return;
+      }
+      if (key === 'contact' && payload.enabled && !payload.notifyEmail) {
+        toast('Add the school email where messages should go.', true);
+        card.querySelector('[data-key="notifyEmail"]').focus();
+        return;
+      }
+      button.disabled = true;
+      button.textContent = 'Saving...';
+      try {
+        var res = await fetch('/account/website/section/' + key, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error(data.message || 'Could not save.');
+        settings[key] = data.section;
+        card.querySelector('[data-mwx-status]').innerHTML = statusHtml(key, data.section);
+        var dropped = SCHEMAS[key] && payload.items.length > (data.section.items || []).length;
+        toast(dropped ? 'Saved. Empty rows were left out.' : 'Saved - your website is updated.');
+        if (dropped) render(card, key);
+      } catch (error) {
+        toast(error.message || 'Could not save.', true);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Save';
+      }
+    }
+
+    function render(card, key) {
+      if (key === 'about') renderAbout(card);
+      else if (key === 'contact') renderContact(card);
+      else renderListSection(card, key);
+    }
+
+    document.querySelectorAll('[data-mwx-section]').forEach(function (card) { render(card, card.dataset.mwxSection); });
+
+    // Shared clicks inside section cards (move/remove items, images).
+    document.addEventListener('click', function (event) {
+      var card = event.target.closest('[data-mwx-section]');
+      if (!card) return;
+      var key = card.dataset.mwxSection;
+      var row = event.target.closest('.mwx-item');
+      if (event.target.closest('[data-remove]') && row) {
+        row.remove();
+        if (SCHEMAS[key]) updateCount(card, key, limits[key] || 10);
+      } else if (event.target.closest('[data-move]') && row) {
+        var dir = Number(event.target.closest('[data-move]').dataset.move);
+        var sibling = dir < 0 ? row.previousElementSibling : row.nextElementSibling;
+        if (sibling) row.parentNode.insertBefore(row, dir < 0 ? sibling : sibling.nextElementSibling);
+      } else if (event.target.closest('[data-mwx-upload]')) {
+        pendingImageTarget = event.target.closest('[data-mwx-image]');
+        fileInput.click();
+      } else if (event.target.closest('[data-mwx-remove-image]')) {
+        var wrap = event.target.closest('[data-mwx-image]');
+        wrap.querySelector('input[data-key]').value = '';
+        renderImagePreview(wrap, '');
+      }
+    });
+
+    // ---- Messages ----
+    var msgStatus = '';
+    async function loadMessages() {
+      var list = document.getElementById('mwxMessages');
+      try {
+        var res = await fetch('/account/website/messages' + (msgStatus ? '?status=' + msgStatus : ''), { credentials: 'same-origin' });
+        var data = await res.json();
+        if (!data.success) throw new Error();
+        var badge = document.getElementById('mwxUnread');
+        if (!msgStatus) { badge.textContent = data.unread; badge.hidden = !data.unread; }
+        if (!data.messages.length) {
+          list.innerHTML = '<div class="mwx-empty">' + (msgStatus === 'archived' ? 'No archived messages.' : msgStatus === 'new' ? 'No unread messages.' : (settings.contact && settings.contact.enabled && settings.contact.notifyEmail ? 'No messages yet. New messages will appear here.' : 'No messages yet. Switch on the contact form to start receiving them.')) + '</div>';
+          return;
+        }
+        list.innerHTML = data.messages.map(function (m) {
+          var when = new Date(m.created_at).toLocaleString();
+          var contact = [m.email ? '<a href="mailto:' + esc(m.email) + '">' + esc(m.email) + '</a>' : '', m.phone ? '<a href="tel:' + esc(m.phone) + '">' + esc(m.phone) + '</a>' : ''].filter(Boolean).join(' · ');
+          return '<div class="mwx-msg ' + (m.status === 'new' ? 'new' : '') + '" data-id="' + m.id + '">' +
+            '<div class="mwx-msg-head"><div><strong>' + esc(m.name) + '</strong>' + (m.subject ? ' — ' + esc(m.subject) : '') + '<div class="mwx-msg-meta">' + contact + '</div></div><span class="mwx-msg-meta">' + esc(when) + '</span></div>' +
+            '<div class="mwx-msg-body">' + esc(m.message) + '</div>' +
+            '<div class="mwx-msg-actions">' +
+            (m.email ? '<a class="mwx-btn mwx-btn-primary" href="mailto:' + esc(m.email) + '?subject=' + encodeURIComponent('Re: ' + (m.subject || 'Your message')) + '">Reply</a>' : '') +
+            (m.status === 'new' ? '<button type="button" class="mwx-btn mwx-btn-ghost" data-msg-status="read">Mark as read</button>' : m.status === 'read' ? '<button type="button" class="mwx-btn mwx-btn-ghost" data-msg-status="new">Mark unread</button>' : '') +
+            (m.status === 'archived' ? '<button type="button" class="mwx-btn mwx-btn-ghost" data-msg-status="read">Restore</button>' : '<button type="button" class="mwx-btn mwx-btn-ghost" data-msg-status="archived">Archive</button>') +
+            '</div></div>';
+        }).join('');
+      } catch (error) {
+        list.innerHTML = '<div class="mwx-empty">Messages could not be loaded.</div>';
+      }
+    }
+
+    document.getElementById('mwxMessages').addEventListener('click', async function (event) {
+      var button = event.target.closest('[data-msg-status]');
+      if (!button) return;
+      var id = button.closest('[data-id]').dataset.id;
+      button.disabled = true;
+      var res = await fetch('/account/website/messages/' + id, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ status: button.dataset.msgStatus }),
+      }).catch(function () { return null; });
+      if (!res || !res.ok) { toast('Could not update the message.', true); button.disabled = false; return; }
+      loadMessages();
+      if (msgStatus) {
+        // keep the Inbox badge current
+        fetch('/account/website/messages', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+          var badge = document.getElementById('mwxUnread'); badge.textContent = d.unread; badge.hidden = !d.unread;
+        }).catch(function () {});
+      }
+    });
+
+    document.getElementById('mwxMsgTabs').addEventListener('click', function (event) {
+      var tab = event.target.closest('.mwx-tab');
+      if (!tab) return;
+      msgStatus = tab.dataset.status;
+      document.querySelectorAll('#mwxMsgTabs .mwx-tab').forEach(function (t) { t.classList.toggle('active', t === tab); });
+      loadMessages();
+    });
+
+    loadMessages();
+  })();
+</script>

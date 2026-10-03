@@ -4,11 +4,12 @@ const { assertIsStaff } = require("./_writeAuth");
 module.exports = {
   name: "get_organization_statistics",
   description:
-    "Full organization statistics dashboard for one term - student/employee/class/subject counts, attendance by class, top performing classes, " +
-    "enrollment growth by year, enrollment over terms, gender distribution, employee roles, subject strength profile, and student count per class. " +
-    "Returns both the raw numbers (present them as markdown tables) AND ready-to-embed chart image URLs in `charts` (bar/line/doughnut/radar) - " +
-    "embed these directly in your reply using markdown image syntax, e.g. `![Attendance by Class](charts.attendanceByClass)`, so the user actually " +
-    "sees the graphs, not just numbers. Defaults to the org's current term if none given. Needs Manage Records.",
+    "Organization statistics for one term (default: the current term) - the exact same numbers as the website's Organization Stats page: enrolled " +
+    "students (and change from the previous term), average score, pass rate, attendance rate, score entry progress, students needing support, active " +
+    "classes, staff, per-class and per-subject results, score distribution, top students, enrollment by term, gender and staff by role. If the term has " +
+    "no scores yet, academic figures come from the latest term with results - say which term (academicResultsTerm) whenever that happens. Present the " +
+    "headline numbers first, then tables; embed the `charts` image URLs with markdown image syntax. Offer `pageUrl` and the `downloads` (PDF / Excel) " +
+    "links when the user wants the full report or a file. Needs Manage Records.",
   parameters: {
     type: "object",
     properties: {

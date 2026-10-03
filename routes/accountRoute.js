@@ -10,6 +10,7 @@ const { upload } = require("../middleware/s3Upload");
 const db = require("../config/db");
 const checkFeatureAccess = require("../middleware/checkFeatureAccess");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
+const websiteController = require("../controllers/websiteController");
 
 // Registration Routes
 router.get("/register", (req, res) => accountController.registerGet(req, res));
@@ -173,6 +174,11 @@ router.post(
   accountValidation.validateTextSectionResult,
   (req, res) => accountController.addTextSection(req, res, db)
 );
+// School website extras (sections, images, contact-form inbox).
+router.post("/website/section/:key", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), websiteController.saveSection);
+router.post("/website/image", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), upload.single("image"), websiteController.uploadImage);
+router.get("/website/messages", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), websiteController.listMessages);
+router.post("/website/messages/:id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), websiteController.updateMessage);
 router.post("/updateImage", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.updateImagePost(req, res, db)
 );

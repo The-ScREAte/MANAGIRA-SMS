@@ -372,6 +372,11 @@
         align-items: center;
         justify-content: space-between;
         gap: 10px;
+        cursor: pointer;
+      }
+
+      .card-collapse-head .settings-collapse-toggle {
+        cursor: pointer;
       }
 
       .card-collapse-head h4,
@@ -2700,6 +2705,249 @@
         top: auto !important;
         bottom: calc(100% + 8px) !important;
       }
+
+      /* ===================================================================
+         Integrations — classy, professional redesign (scoped to this tab
+         only; reuses the existing markup/classes, so activation, connect,
+         and modal behavior are untouched).
+         =================================================================== */
+
+      #integrations h1 {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 24px;
+        letter-spacing: -0.01em;
+        color: #0f172a;
+      }
+
+      .settings-h1-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 11px;
+        background: color-mix(in srgb, var(--primary) 12%, white);
+        color: var(--primary);
+        font-size: 17px;
+        flex: 0 0 auto;
+      }
+
+      #integrations > p.lead {
+        max-width: 640px;
+        color: #64748b;
+        margin-bottom: 8px;
+      }
+
+      /* !important: the tab-switcher JS sets style="display:block" inline
+         on the active .settings-section, which otherwise beats this rule. */
+      #integrations {
+        display: flex !important;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* Card shell - a slim single-line row when collapsed (the default),
+         a full card once expanded. */
+      #integrations .card {
+        margin-bottom: 0;
+        padding: 20px 22px;
+        border: 1px solid #e7eaf0;
+        border-radius: 16px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease, padding 0.15s ease;
+      }
+
+      #integrations .card.is-collapsed {
+        padding: 12px 16px;
+      }
+
+      #integrations .card:hover {
+        border-color: #d8dee8;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+        transform: translateY(-1px);
+      }
+
+      /* Collapsed = title row only; description/actions/forms stay hidden
+         until "Expand" is clicked (overrides the older force-visible rule
+         further up with a more specific, later-declared selector). */
+      #integrations .card.is-collapsed .google-integration-toolbar,
+      #integrations .card.is-collapsed .google-integration-actions,
+      #integrations .card.is-collapsed .google-integration-description {
+        display: none !important;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #integrations .card {
+          transition: none;
+        }
+        #integrations .card:hover {
+          transform: none;
+        }
+      }
+
+      /* Title row */
+      #integrations .card > h4 {
+        align-items: center;
+        gap: 10px 12px;
+        margin-bottom: 2px;
+      }
+
+      #integrations .google-classroom-title span,
+      #integrations .student-portal-title span {
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: #0f172a;
+        letter-spacing: -0.01em;
+      }
+
+      /* Give every logo a consistent, professional chip - even the plain
+         <img> ones that previously floated with just a drop-shadow. */
+      #integrations .student-portal-logo,
+      #integrations .transportation-logo {
+        background: #fff;
+        border: 1px solid #e9edf3;
+        border-radius: 10px;
+        padding: 6px;
+        box-shadow: none;
+        filter: none;
+        width: 60px;
+        height: 44px;
+      }
+
+      #integrations .sms-provider-logo-chip {
+        box-shadow: none;
+        border-color: #e9edf3;
+      }
+
+      #integrations .google-classroom-logo,
+      #integrations .google-classroom-logo--compact {
+        filter: none;
+        border-radius: 10px;
+      }
+
+      /* Status pill - a small color dot reads cleaner than a solid block. */
+      #integrations .card > h4 .pill {
+        padding: 4px 11px 4px 9px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        gap: 6px;
+      }
+
+      #integrations .card > h4 .pill::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        flex: 0 0 auto;
+      }
+
+      #integrations .sms-coverage-badge {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        border: 1px solid rgba(15, 23, 42, 0.06);
+      }
+
+      /* Description copy */
+      #integrations .google-integration-description {
+        font-size: 13.5px;
+        line-height: 1.6;
+        color: #64748b;
+      }
+
+      #integrations .google-integration-description strong {
+        color: #334155;
+      }
+
+      /* Footer toolbar: read more + kebab menu, pinned to the bottom of
+         each card so action rows line up across the grid. */
+      #integrations .card {
+        display: flex;
+        flex-direction: column;
+      }
+
+      #integrations .card > form,
+      #integrations .card > .google-integration-description {
+        flex: 0 0 auto;
+      }
+
+      #integrations .google-integration-toolbar {
+        margin-top: auto;
+        padding-top: 16px;
+      }
+
+      #integrations .integration-readmore-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 4px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #475569;
+      }
+
+      #integrations .integration-readmore-link:hover {
+        color: var(--primary);
+      }
+
+      #integrations .integration-readmore-link::after {
+        content: "\f061";
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        font-size: 10px;
+        opacity: 0.7;
+      }
+
+      #integrations .google-actions-toggle {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        font-size: 16px;
+        border-color: #e5e9f0;
+        color: #475569;
+      }
+
+      #integrations .google-actions-toggle:hover {
+        background: color-mix(in srgb, var(--primary) 8%, white);
+        border-color: color-mix(in srgb, var(--primary) 35%, white);
+        color: var(--primary);
+      }
+
+      #integrations .google-actions-menu-list {
+        border-radius: 12px;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+      }
+
+      #integrations .google-action-item.is-danger {
+        color: #b91c1c;
+      }
+
+      #integrations .google-action-item.is-danger:hover {
+        background: #fef2f2;
+        color: #b91c1c;
+      }
+
+      /* Nested "setup checklist" / "test message" sub-cards (WhatsApp) read
+         as a secondary, slightly recessed panel instead of a second card. */
+      #integrations .card #whatsapp-setup-checklist-card,
+      #integrations .card #whatsapp-test-message-card {
+        background: #f8fafc !important;
+        border-color: #e9edf3 !important;
+      }
+
+      @media (max-width: 760px) {
+        #integrations .card {
+          padding: 18px;
+        }
+      }
     </style>
     <link rel="stylesheet" href="/css/workspace-shell.css" />
   </head>
@@ -3892,7 +4140,7 @@
 
         <% if (_canCustomizeSettings && !_isOnHoldRestricted) { %>
         <section id="integrations" class="settings-section">
-          <h1>Integrations</h1>
+          <h1><i class="fa-solid fa-plug settings-h1-icon" aria-hidden="true"></i> Integrations</h1>
           <p class="lead">Activate and connect third-party services used across your academic workspace.</p>
 
           <% const gi = (typeof googleIntegration !== 'undefined' && googleIntegration) ? googleIntegration : {}; %>
@@ -3982,11 +4230,11 @@
               <%- integrationActivityLine('Student Portal') %>
             </small>
 
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+            <div class="google-integration-toolbar">
+              <div class="google-integration-actions">
                 <a href="#" class="integration-readmore-link" data-integration="student-portal">Read more</a>
                 <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Student Portal actions">⋮</summary>
+                  <summary class="google-actions-toggle" aria-label="Student Portal actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
                   <div class="google-actions-menu-list">
                     <a
                       class="google-action-item"
@@ -4029,11 +4277,11 @@
               <%- integrationActivityLine('Mira') %>
             </small>
 
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+            <div class="google-integration-toolbar">
+              <div class="google-integration-actions">
                 <a href="#" class="integration-readmore-link" data-integration="mira">Read more</a>
                 <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Mira actions">⋮</summary>
+                  <summary class="google-actions-toggle" aria-label="Mira actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
                   <div class="google-actions-menu-list">
                     <a
                       class="google-action-item"
@@ -4077,11 +4325,11 @@
               <%- integrationActivityLine('Transportation') %>
             </small>
 
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+            <div class="google-integration-toolbar">
+              <div class="google-integration-actions">
                 <a href="#" class="integration-readmore-link" data-integration="transportation">Read more</a>
                 <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Transportation actions">⋮</summary>
+                  <summary class="google-actions-toggle" aria-label="Transportation actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
                   <div class="google-actions-menu-list">
                     <a
                       class="google-action-item"
@@ -4127,11 +4375,11 @@
               <%- integrationActivityLine('Google Maps') %>
             </small>
 
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+            <div class="google-integration-toolbar">
+              <div class="google-integration-actions">
                 <a href="#" class="integration-readmore-link" data-integration="google-maps">Read more</a>
                 <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Google Maps actions">⋮</summary>
+                  <summary class="google-actions-toggle" aria-label="Google Maps actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
                   <div class="google-actions-menu-list">
                     <a
                       class="google-action-item"
@@ -4177,11 +4425,11 @@
               <%- integrationActivityLine('Maps') %>
             </small>
 
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+            <div class="google-integration-toolbar">
+              <div class="google-integration-actions">
                 <a href="#" class="integration-readmore-link" data-integration="apple-maps">Read more</a>
                 <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Maps actions">⋮</summary>
+                  <summary class="google-actions-toggle" aria-label="Maps actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
                   <div class="google-actions-menu-list">
                     <a
                       class="google-action-item"
@@ -4229,11 +4477,11 @@
               <%- integrationActivityLine('Google Classroom') %>
             </small>
 
-            <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
-              <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+            <div class="google-integration-toolbar">
+              <div class="google-integration-actions">
                 <a href="#" class="integration-readmore-link" data-integration="google-classroom">Read more</a>
                 <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                  <summary class="google-actions-toggle" aria-label="Google Classroom actions">⋮</summary>
+                  <summary class="google-actions-toggle" aria-label="Google Classroom actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
                   <div class="google-actions-menu-list">
                     <% if (!giActivated) { %>
                     <a class="google-action-item" href="#" id="open-google-activate-modal">Activate</a>
@@ -4323,11 +4571,11 @@
                 <%- integrationActivityLine(def.label) %>
               </small>
 
-              <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
-                <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+              <div class="google-integration-toolbar">
+                <div class="google-integration-actions">
                   <a href="#" class="integration-readmore-link" data-integration="<%= def.key %>">Read more</a>
                   <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                    <summary class="google-actions-toggle" aria-label="<%= def.label %> actions">⋮</summary>
+                    <summary class="google-actions-toggle" aria-label="<%= def.label %> actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
                     <div class="google-actions-menu-list">
                       <% if (def.key === 'twilio' && !twilioAvailableForCountry && !psActivated) { %>
                       <span class="google-action-item" aria-disabled="true" style="color:#b91c1c;cursor:not-allowed;">Unavailable in Africa</span>
@@ -4492,11 +4740,11 @@
                 <%- integrationActivityLine('WhatsApp') %>
               </small>
 
-              <div class="google-integration-toolbar" style="display:flex !important;align-items:center !important;justify-content:flex-end !important;gap:12px !important;flex-wrap:nowrap !important;">
-                <div class="google-integration-actions" style="display:inline-flex !important;align-items:center !important;justify-content:flex-end !important;flex:0 0 auto !important;align-self:center !important;margin-left:auto !important;width:auto !important;gap:12px;">
+              <div class="google-integration-toolbar">
+                <div class="google-integration-actions">
                   <a href="#" class="integration-readmore-link" data-integration="whatsapp">Read more</a>
                   <details class="google-actions-menu" style="display:inline-flex !important;align-items:center !important;">
-                    <summary class="google-actions-toggle" aria-label="WhatsApp actions">⋮</summary>
+                    <summary class="google-actions-toggle" aria-label="WhatsApp actions"><i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i></summary>
                     <div class="google-actions-menu-list">
                       <a class="google-action-item" href="#" id="open-whatsapp-activate-modal" style="display:<%= wiActivated ? 'none' : 'block' %>">Activate</a>
                       <a class="google-action-item" href="#" id="open-whatsapp-deactivate-modal" style="display:<%= wiActivated ? 'block' : 'none' %>">Deactivate</a>
@@ -5756,9 +6004,14 @@
             };
 
             setCollapsed(true);
-            toggle.addEventListener("click", () => {
+            toggle.addEventListener("click", (event) => {
+              event.stopPropagation();
               const collapsed = card.classList.contains("is-collapsed");
               setCollapsed(!collapsed);
+            });
+            // A collapsed card also opens when its row is clicked anywhere.
+            head.addEventListener("click", () => {
+              if (card.classList.contains("is-collapsed")) setCollapsed(false);
             });
 
             head.appendChild(toggle);
