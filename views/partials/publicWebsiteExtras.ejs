@@ -74,8 +74,8 @@
   .pdx-faq details[open] summary::after { content: "\2212"; }
   .pdx-faq .pdx-answer { padding: 0 18px 16px; line-height: 1.6; white-space: pre-line; }
 
-  .pdx-contact { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
-  .pdx-form { padding: 22px; display: grid; gap: 12px; }
+  .pdx-contact { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: stretch; }
+  .pdx-form { margin: 0; padding: 22px; display: grid; gap: 12px; align-content: start; }
   .pdx-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .pdx-form label { display: grid; gap: 5px; font-size: 0.86rem; font-weight: 700; color: var(--pdx-heading); }
   .pdx-form input, .pdx-form textarea { width: 100%; margin: 0; padding: 11px 12px; border: 1px solid var(--pdx-line); border-radius: 10px; font: inherit; font-size: 0.95rem; color: inherit; background: var(--pdx-soft); }
@@ -85,15 +85,16 @@
   .pdx-submit { justify-self: start; width: auto; margin: 0; padding: 11px 22px; border: 0; border-radius: 10px; background: var(--pdx-accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
   body[data-pd-theme="bold"] .pdx-submit, body[data-pd-theme="indigo"] .pdx-submit, body[data-pd-theme="slate"] .pdx-submit { color: #111827; }
   .pdx-submit[disabled] { opacity: 0.7; cursor: progress; }
-  .pdx-form-status { min-height: 20px; margin: 0; font-size: 0.92rem; font-weight: 600; }
+  .pdx-form-status:empty { margin-top: -12px; }
+  .pdx-form-status { margin: 0; font-size: 0.92rem; font-weight: 600; }
   .pdx-form-status.ok { color: #15803d; }
   .pdx-form-status.err { color: #b91c1c; }
-  .pdx-info { padding: 22px; display: grid; gap: 14px; }
+  .pdx-info { padding: 22px; display: grid; grid-template-rows: auto 1fr; gap: 14px; }
   .pdx-info dl { margin: 0; display: grid; gap: 12px; }
   .pdx-info dt { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--pdx-accent); }
   .pdx-info dd { margin: 2px 0 0; line-height: 1.5; white-space: pre-line; }
   .pdx-info a { color: inherit; }
-  .pdx-map { width: 100%; height: 240px; border: 0; border-radius: 12px; }
+  .pdx-map { display: block; width: 100%; height: 100%; min-height: 240px; border: 0; border-radius: 12px; }
 
   @media (max-width: 860px) {
     .pdx-contact { grid-template-columns: 1fr; }
