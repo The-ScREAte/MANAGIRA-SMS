@@ -72,16 +72,6 @@
 
       <div class="sync-connect" data-sync-connect></div>
 
-      <details class="sync-other">
-        <summary>Other calendar apps (Apple Calendar and more)</summary>
-        <div class="sync-url">
-          <input class="ws-input" readonly data-sync-url aria-label="Your private calendar link" value="Loading…">
-          <button type="button" class="ws-btn" data-sync-copy><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
-          <a class="ws-btn" data-send="apple"><i class="fa-brands fa-apple" aria-hidden="true"></i> Open</a>
-        </div>
-        <p class="ws-hint">This link is private to you. <button type="button" class="sync-link" data-sync-reset>Reset it</button> if it was shared by mistake.</p>
-      </details>
-
       <section class="sync-share">
         <div class="sync-share__head">
           <span class="sync-sec__icon"><i class="fa-solid fa-user-group" aria-hidden="true"></i></span>
@@ -386,8 +376,6 @@
     }
     function renderSync() {
       const enc = encodeURIComponent;
-      syncDialog.querySelectorAll('[data-send="apple"]').forEach((a) => { a.href = syncState.webcalUrl; });
-      syncDialog.querySelector('[data-sync-url]').value = syncState.feedUrl;
       const conns = syncState.connections || [];
       const configured = syncState.providers || {};
       const logoOf = (key) => (PROVIDERS.find((p) => p.key === key) || PROVIDERS[0]).logo;
@@ -483,15 +471,6 @@
         try { await W.post(`/common/calendar/connections/${remove.dataset.connRemove}/disconnect`); await loadSync(false); refresh(); W.toast('Disconnected'); }
         catch (err) { syncError.textContent = err.message; }
       }
-    });
-    syncDialog.querySelector('[data-sync-copy]').addEventListener('click', async () => {
-      const input = syncDialog.querySelector('[data-sync-url]');
-      try { await navigator.clipboard.writeText(input.value); } catch (_e) { input.select(); document.execCommand('copy'); }
-      W.toast('Link copied');
-    });
-    syncDialog.querySelector('[data-sync-reset]').addEventListener('click', async () => {
-      if (!confirm('Reset your private link? Calendars using the old link stop updating until you add Managira again.')) return;
-      try { await loadSync(true); W.toast('New private link created'); } catch (err) { syncError.textContent = err.message; }
     });
     syncDialog.querySelector('[data-share-save]').addEventListener('click', async (e) => {
       const btn = e.currentTarget;
