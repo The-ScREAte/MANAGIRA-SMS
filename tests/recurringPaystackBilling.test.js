@@ -131,7 +131,8 @@ function createHarness(options = {}) {
         return { rows: allOrgsRows };
       }
 
-      if (sql.includes('SELECT COUNT(*) AS cnt FROM students WHERE organization_id = $1')) {
+      // Billable (active) student count - see utils/activeStudents.js.
+      if (/SELECT COUNT\(\*\)(::int)? AS cnt FROM students/.test(sql)) {
         return { rows: [{ cnt: String(studentCount) }] };
       }
 

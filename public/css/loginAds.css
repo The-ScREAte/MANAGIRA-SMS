@@ -205,14 +205,17 @@ a.ad-stage:focus-visible {
   background: rgba(15, 23, 42, 0.45);
 }
 
+/* Scales with the screen: a compact card on laptops, larger on big monitors,
+   always well under the size of the sign-in page ad. */
 .app-ad .ad-stage {
-  --stage-h: min(340px, 52vh);
-  width: min(280px, calc(var(--stage-h) * var(--ar)), calc(100vw - 40px));
+  --stage-h: clamp(360px, 68vh, 820px);
+  width: min(clamp(300px, calc(36vw - 190px), 600px), calc(var(--stage-h) * var(--ar)), calc(100vw - 40px));
   border-radius: 16px;
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22), 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 .app-ad__panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -220,29 +223,44 @@ a.ad-stage:focus-visible {
 }
 
 .app-ad--center .ad-stage {
-  --stage-h: min(520px, 72vh);
-  width: min(420px, calc(var(--stage-h) * var(--ar)), calc(100vw - 40px));
+  --stage-h: clamp(420px, 74vh, 760px);
+  width: min(clamp(340px, 34vw, 600px), calc(var(--stage-h) * var(--ar)), calc(100vw - 40px));
 }
 
+/* Close button sits inside the card's top-right corner. */
 .app-ad__close {
-  width: 30px;
-  height: 30px;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
   margin: 0;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(15, 23, 42, 0.1);
+  border: none;
   border-radius: 50%;
-  background: #fff;
-  color: #334155;
-  font-size: 1.1rem;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1e293b;
+  font-size: 1.15rem;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: background 0.15s ease, transform 0.15s ease;
 }
 
-.app-ad__close:hover { background: #f1f5f9; }
+.app-ad__close:hover { background: #fff; transform: scale(1.06); }
+.app-ad__close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.app-ad .ad-stage { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.app-ad:not(.app-ad--center) .ad-stage:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 54px rgba(15, 23, 42, 0.26), 0 2px 8px rgba(15, 23, 42, 0.08);
+}
 
 .app-ad.is-leaving {
   opacity: 0;

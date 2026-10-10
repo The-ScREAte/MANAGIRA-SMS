@@ -1,3 +1,4 @@
+const { activeStudentSql } = require("../utils/activeStudents");
 const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
@@ -173,11 +174,11 @@ const hubController = {
 
       // Get total students across all organizations
       const studentsResult = await db.query(
-        `SELECT COUNT(*) as count FROM students 
-         WHERE organization_id IN (
-           SELECT organization_id FROM organizations 
+        `SELECT COUNT(*) as count FROM students s
+         WHERE s.organization_id IN (
+           SELECT organization_id FROM organizations
            WHERE hub_id = $1 AND deleted = false AND is_hub_member = true
-         )`,
+         ) AND ${activeStudentSql("s")}`,
         [hubId]
       );
       const totalStudents = parseInt(studentsResult.rows[0].count);
@@ -208,7 +209,7 @@ const hubController = {
       const orgsResult = await db.query(
         `SELECT o.organization_id, o.organization_name, o.email as organization_email, 
                 o.first_name, o.last_name, o.created_at, o.nickname, o.joined_hub_at, o.on_hold,
-                (SELECT COUNT(*) FROM students WHERE organization_id = o.organization_id) as student_count,
+                (SELECT COUNT(*) FROM students st WHERE st.organization_id = o.organization_id AND ${activeStudentSql("st")}) as student_count,
                 (SELECT COUNT(*) FROM users WHERE organization_id = o.organization_id) as teacher_count,
                 (SELECT COUNT(*) FROM classes WHERE organization_id = o.organization_id) as class_count
          FROM organizations o
@@ -296,7 +297,7 @@ const hubController = {
       currentStep = 'enrollmentStaffingResult';
       const enrollmentStaffingResult = await db.query(
         `SELECT
-           (SELECT COUNT(*)::int FROM students WHERE organization_id IN (${organizationIdScopeSql})) AS total_students,
+           (SELECT COUNT(*)::int FROM students s WHERE s.organization_id IN (${organizationIdScopeSql}) AND ${activeStudentSql("s")}) AS total_students,
            (SELECT COUNT(*)::int FROM users WHERE organization_id IN (${organizationIdScopeSql})) AS total_staff,
            (SELECT COUNT(*)::int FROM classes WHERE organization_id IN (${organizationIdScopeSql})) AS total_classes,
            (SELECT COUNT(*)::int FROM subjects WHERE organization_id IN (${organizationIdScopeSql})) AS total_subjects`,
@@ -383,21 +384,15 @@ const hubController = {
            o.organization_id,
            o.organization_name,
            o.on_hold,
-           COUNT(DISTINCT s.student_id)::int AS student_count,
-           COUNT(DISTINCT u.user_id)::int AS staff_count,
-           COUNT(DISTINCT c.class_id)::int AS class_count,
-           COUNT(DISTINCT sub.subject_id)::int AS subject_count
+           (SELECT COUNT(*)::int FROM students s WHERE s.organization_id = o.organization_id AND ${activeStudentSql("s")}) AS student_count,
+           (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id) AS staff_count,
+           (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id) AS class_count,
+           (SELECT COUNT(*)::int FROM subjects sub WHERE sub.organization_id = o.organization_id) AS subject_count
          FROM organizations o
-         LEFT JOIN students s ON s.organization_id = o.organization_id
-         LEFT JOIN users u ON u.organization_id = o.organization_id
-         LEFT JOIN classes c ON c.organization_id = o.organization_id
-         LEFT JOIN subjects sub ON sub.organization_id = o.organization_id
          WHERE o.hub_id = $1
            AND o.deleted = false
            AND o.is_hub_member = true
-         GROUP BY o.organization_id, o.organization_name, o.on_hold
-         ORDER BY student_count DESC, o.organization_name ASC
-         LIMIT 10`,
+         ORDER BY student_count DESC, o.organization_name ASC`,
         [hubId]
       );
 

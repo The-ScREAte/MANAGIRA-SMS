@@ -19967,23 +19967,35 @@ NUMBERING:
 
   closeGraduationYearGroup: async (req, res, db) => {
     try {
+      const organizationId = req.session.organizationId;
       const isEmbedded = isEmbeddedRequest(req, "closeGraduationYearGroup");
-      const gradYearGroupsResult = await db.query(
-        "SELECT * FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name",
-        [req.session.organizationId]
-      );
-
-      const studentsResult = await db.query(
-        "SELECT * FROM students WHERE organization_id = $1 ORDER BY first_name, last_name",
-        [req.session.organizationId]
-      );
-
-      const gradYearGroups = gradYearGroupsResult.rows.map((group) => ({
-        ...group,
-        students: studentsResult.rows.filter(
-          (student) => student.graduation_year_group_id === group.id
+      const [groupsResult, studentsResult] = await Promise.all([
+        db.query(
+          "SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name",
+          [organizationId]
         ),
-      }));
+        db.query(
+          `SELECT s.student_id, s.first_name, s.last_name, s.custom_student_id, s.image_url,
+                  s.graduation_year_group_id, c.class_name,
+                  (COALESCE(s.graduated, FALSE) OR a.archived_at IS NOT NULL) AS is_archived,
+                  a.archived_at
+             FROM students s
+             LEFT JOIN classes c ON c.class_id = s.class_id
+             LEFT JOIN LATERAL (
+               SELECT MAX(archived_at) AS archived_at FROM archived_student_info
+                WHERE student_id = s.student_id AND organization_id = s.organization_id
+             ) a ON TRUE
+            WHERE s.organization_id = $1 AND s.graduation_year_group_id IS NOT NULL
+            ORDER BY s.first_name, s.last_name`,
+          [organizationId]
+        ),
+      ]);
+
+      const gradYearGroups = groupsResult.rows.map((group) => {
+        const students = studentsResult.rows.filter((student) => student.graduation_year_group_id === group.id);
+        const archivedCount = students.filter((student) => student.is_archived).length;
+        return { ...group, students, archivedCount, activeCount: students.length - archivedCount };
+      });
 
       res.render("common/closeGraduationYearGroup", {
         title: "Close Graduation Year Group",
@@ -19992,101 +20004,147 @@ NUMBERING:
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
         gradYearGroups,
+        totalArchived: studentsResult.rows.filter((student) => student.is_archived).length,
+        messages: req.flash(),
       });
     } catch (error) {
-            res.status(500).send("Failed to load close graduation year group page.");
+      console.error("[closeGraduationYearGroup]", error.message);
+      res.status(500).send("Failed to load close graduation year group page.");
     }
   },
 
+  // Graduates and archives the chosen students: their records are kept, and
+  // they stop counting as active students for billing and new fee charges
+  // (utils/activeStudents.js). Already-archived students are skipped.
   closeGraduationYearGroupPost: async (req, res, db) => {
-    const { students, action } = req.body;
+    const organizationId = req.session.organizationId;
+    const redirectTo = `/common/closeGraduationYearGroup${req.body.embed === "workspace" ? "?embed=workspace" : ""}`;
+    const studentIds = [...new Set([].concat(req.body.students || []).map((id) => Number.parseInt(id, 10)))]
+      .filter((id) => Number.isInteger(id) && id > 0);
 
-    try {
-      const studentIds = Array.isArray(students) ? students : [students];
-
-      if (action === "archive") {
-        // Archive selected students
-        const studentData = await db.query(
-          "SELECT student_id, graduation_year_group_id FROM students WHERE student_id = ANY($1) AND organization_id = $2",
-          [studentIds, req.session.organizationId]
-        );
-
-        const archiveQueries = studentData.rows.map((student) =>
-          db.query(
-            "INSERT INTO archived_student_info (student_id, graduation_year_group_id, organization_id) VALUES ($1, $2, $3)",
-            [
-              student.student_id,
-              student.graduation_year_group_id,
-              req.session.organizationId,
-            ]
-          )
-        );
-
-        await Promise.all(archiveQueries);
-
-        // Mark students as graduated
-        await db.query(
-          "UPDATE students SET graduated = TRUE WHERE student_id = ANY($1) AND organization_id = $2",
-          [studentIds, req.session.organizationId]
-        );
-      }
-
-      res.redirect("/common/closeGraduationYearGroup");
-    } catch (error) {
-            res.status(500).send("Failed to close graduation year group.");
+    if (req.body.action !== "archive" || !studentIds.length) {
+      req.flash("error", "Choose at least one student to archive.");
+      return res.redirect(redirectTo);
     }
+
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      const archived = await client.query(
+        `INSERT INTO archived_student_info (student_id, graduation_year_group_id, organization_id)
+         SELECT s.student_id, s.graduation_year_group_id, s.organization_id
+           FROM students s
+          WHERE s.student_id = ANY($1::int[])
+            AND s.organization_id = $2
+            AND s.graduation_year_group_id IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1 FROM archived_student_info a
+               WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id
+            )
+         RETURNING student_id`,
+        [studentIds, organizationId]
+      );
+      await client.query(
+        "UPDATE students SET graduated = TRUE WHERE student_id = ANY($1::int[]) AND organization_id = $2",
+        [studentIds, organizationId]
+      );
+      await client.query("COMMIT");
+      const count = archived.rowCount;
+      req.flash(
+        "success",
+        count
+          ? `${count} student${count === 1 ? "" : "s"} graduated and archived. They are no longer billed or counted as active students.`
+          : "Those students were already archived."
+      );
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("[closeGraduationYearGroupPost]", error.message);
+      req.flash("error", "Could not archive those students. Please try again.");
+    } finally {
+      client.release();
+    }
+    return res.redirect(redirectTo);
   },
 
   archivedStudents: async (req, res, db) => {
     try {
-      const archivedGroupsResult = await db.query(
-        "SELECT * FROM graduation_year_groups WHERE id IN (SELECT DISTINCT graduation_year_group_id FROM archived_student_info WHERE organization_id = $1)",
-        [req.session.organizationId]
+      const organizationId = req.session.organizationId;
+      const isEmbedded = isEmbeddedRequest(req, "archivedStudents");
+      const result = await db.query(
+        `SELECT s.student_id, s.first_name, s.last_name, s.custom_student_id, s.image_url,
+                c.class_name, a.graduation_year_group_id, a.archived_at,
+                COALESCE(g.name, 'No graduation group') AS group_name
+           FROM (
+             SELECT DISTINCT ON (student_id) student_id, graduation_year_group_id, archived_at
+               FROM archived_student_info
+              WHERE organization_id = $1
+              ORDER BY student_id, archived_at DESC
+           ) a
+           JOIN students s ON s.student_id = a.student_id AND s.organization_id = $1
+           LEFT JOIN classes c ON c.class_id = s.class_id
+           LEFT JOIN graduation_year_groups g ON g.id = a.graduation_year_group_id
+          ORDER BY g.name NULLS LAST, s.first_name, s.last_name`,
+        [organizationId]
       );
 
-      const archivedStudentsResult = await db.query(
-        "SELECT s.*, a.graduation_year_group_id FROM students s JOIN archived_student_info a ON s.student_id = a.student_id WHERE a.organization_id = $1",
-        [req.session.organizationId]
-      );
-
-      const archivedGroups = archivedGroupsResult.rows.map((group) => ({
-        ...group,
-        students: archivedStudentsResult.rows.filter(
-          (student) => student.graduation_year_group_id === group.id
-        ),
-      }));
+      const groups = new Map();
+      result.rows.forEach((student) => {
+        const key = student.graduation_year_group_id || 0;
+        if (!groups.has(key)) groups.set(key, { id: key, name: student.group_name, students: [] });
+        groups.get(key).students.push(student);
+      });
 
       res.render("common/archivedStudents", {
         title: "Archived Students",
-        archivedGroups,
+        isEmbedded,
+        hideGlobalHeader: isEmbedded,
+        hideGlobalFooter: isEmbedded,
+        hideGlobalChatbot: isEmbedded,
+        archivedGroups: [...groups.values()],
+        totalArchived: result.rows.length,
+        messages: req.flash(),
       });
     } catch (error) {
-            res.status(500).send("Failed to load archived students.");
+      console.error("[archivedStudents]", error.message);
+      res.status(500).send("Failed to load archived students.");
     }
   },
 
+  // Restores students: removes the archive record and the graduated flag, so
+  // they are active again (and counted for billing).
   unarchiveStudents: async (req, res, db) => {
-    const { students } = req.body;
+    const organizationId = req.session.organizationId;
+    const redirectTo = `/common/archivedStudents${req.body.embed === "workspace" ? "?embed=workspace" : ""}`;
+    const studentIds = [...new Set([].concat(req.body.students || []).map((id) => Number.parseInt(id, 10)))]
+      .filter((id) => Number.isInteger(id) && id > 0);
 
-    try {
-      const studentIds = Array.isArray(students) ? students : [students];
-
-      // Remove from archive table
-      await db.query(
-        "DELETE FROM archived_student_info WHERE student_id = ANY($1) AND organization_id = $2",
-        [studentIds, req.session.organizationId]
-      );
-
-      // Mark students as not graduated
-      await db.query(
-        "UPDATE students SET graduated = FALSE WHERE student_id = ANY($1) AND organization_id = $2",
-        [studentIds, req.session.organizationId]
-      );
-
-      res.redirect("/common/archivedStudents");
-    } catch (error) {
-            res.status(500).send("Failed to unarchive students.");
+    if (!studentIds.length) {
+      req.flash("error", "Choose at least one student to restore.");
+      return res.redirect(redirectTo);
     }
+
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "DELETE FROM archived_student_info WHERE student_id = ANY($1::int[]) AND organization_id = $2",
+        [studentIds, organizationId]
+      );
+      const restored = await client.query(
+        "UPDATE students SET graduated = FALSE WHERE student_id = ANY($1::int[]) AND organization_id = $2",
+        [studentIds, organizationId]
+      );
+      await client.query("COMMIT");
+      const count = restored.rowCount;
+      req.flash("success", `${count} student${count === 1 ? "" : "s"} restored. They are active again.`);
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("[unarchiveStudents]", error.message);
+      req.flash("error", "Could not restore those students. Please try again.");
+    } finally {
+      client.release();
+    }
+    return res.redirect(redirectTo);
   },
 
   // Delete Event (POST)
