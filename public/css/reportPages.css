@@ -1,5 +1,6 @@
-/* Close Graduation Year Group + Archived Students (views/common/*.ejs).
-   One shared design; follows the school's theme color and font. */
+/* Shared design for pages inside the Reports hub (Graduate / Archive, Archived
+   Students, Terminal Report, Report Settings, Data Migration, Activity Logs).
+   Follows the school's theme color and font. */
 .gp-page {
   --gp-primary: var(--org-primary-color, #0f5a66);
   --gp-primary-soft: color-mix(in srgb, var(--gp-primary) 9%, white);
@@ -277,3 +278,73 @@
   .gp-actionbar { left: 12px; right: 12px; transform: translateY(140%); justify-content: space-between; }
   .gp-actionbar.is-visible { transform: translateY(0); }
 }
+
+/* ---------- Generic card + term tiles (Terminal Report and others) ---------- */
+.gp-card {
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--gp-surface);
+  border: 1px solid var(--gp-line);
+}
+.gp-card + .gp-card, .gp-card + .gp-groups, .gp-groups + .gp-card { margin-top: 14px; }
+.gp-card__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.gp-card__title { margin: 0; font-size: 1rem; font-weight: 700; color: var(--gp-ink); }
+.gp-card__note { color: var(--gp-muted); font-size: 0.82rem; }
+.gp-terms { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.gp-term {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 14px 16px; border-radius: 12px; border: 1px solid var(--gp-line); background: var(--gp-surface);
+  color: var(--gp-ink); font-weight: 600; font-size: 0.92rem; text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.gp-term i { color: var(--gp-muted); font-size: 0.8rem; transition: transform 0.15s ease; }
+.gp-term:hover { border-color: var(--gp-primary); background: var(--gp-primary-soft); color: var(--gp-primary); }
+.gp-term:hover i { color: var(--gp-primary); transform: translateX(2px); }
+.gp-term small { display: block; color: var(--gp-muted); font-weight: 500; font-size: 0.76rem; margin-top: 2px; }
+.gp-group__body { padding: 14px 16px 16px; border-top: 1px solid var(--gp-line); }
+
+/* ---------- Data Migration ---------- */
+.mg-upload { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+.mg-file {
+  position: relative; flex: 1 1 320px; display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 10px 14px; border: 1px dashed #cbd5e1; border-radius: 10px;
+  background: #f8fafc; color: var(--gp-muted); font-size: 0.9rem; cursor: pointer;
+}
+.mg-file:hover { border-color: var(--gp-primary); color: var(--gp-ink); }
+.mg-file i { color: var(--gp-primary); }
+.mg-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; margin: 0; }
+.mg-files { margin: 0; padding: 0; list-style: none; }
+.mg-files li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.mg-files li:last-child { border-bottom: none; }
+.mg-files__icon { color: var(--gp-primary); font-size: 1.1rem; width: 18px; text-align: center; }
+.mg-files__name { flex: 1; min-width: 0; font-weight: 600; font-size: 0.9rem; overflow-wrap: anywhere; }
+.mg-files__actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.gp-page .mg-files__actions .gp-btn { padding: 6px 12px; font-size: 0.8rem; }
+.gp-page .gp-btn--link.mg-delete { color: var(--gp-danger); }
+.gp-page .preview-card { display: none; }
+.gp-page .preview-card input[type="text"] {
+  width: 100%; height: 40px; margin: 0 0 10px; padding: 0 12px; border: 1px solid var(--gp-line); border-radius: 10px; font: inherit; font-size: 0.9rem;
+}
+.gp-page .preview-card iframe { width: 100%; height: 560px; border: 1px solid var(--gp-line); border-radius: 10px; }
+.gp-page .preview-card pre { max-height: 560px; overflow: auto; padding: 12px; border-radius: 10px; background: #f8fafc; font-size: 0.82rem; }
+
+/* Design tokens for pages that use the shared header without the full .gp-page wrapper. */
+.gp-scope {
+  --gp-primary: var(--org-primary-color, #0f5a66);
+  --gp-primary-soft: color-mix(in srgb, var(--gp-primary) 9%, white);
+  --gp-ink: #0f172a;
+  --gp-muted: #64748b;
+  --gp-line: #e2e8f0;
+  --gp-surface: #ffffff;
+  text-align: left;
+}
+
+/* ---------- Term page: class cards ---------- */
+.gp-classes { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.gp-class {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px; border-radius: 12px; border: 1px solid var(--gp-line); background: var(--gp-surface);
+}
+.gp-class__name { font-weight: 700; font-size: 0.95rem; color: var(--gp-ink); }
+.gp-class__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.gp-page .gp-class__actions .gp-btn { padding: 7px 12px; font-size: 0.82rem; }

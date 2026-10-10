@@ -339,73 +339,76 @@
     </style>
   </head>
   <body>
-    <%- include('../partials/flash') %>
+    <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
 
-    <div class="migration-wrapper">
-      <!-- Notice Section -->
-      <div class="migration-notice">
-        <h2>ℹ️ About This Page</h2>
-        <p>
-          This section stores and manages all data files migrated from a different platform. 
-          Files are securely stored and accessible only to authorized users. 
-          Upload CSV or PDF files, then view, search, or download them anytime.
-        </p>
-      </div>
-
-      <!-- Upload Section -->
-      <div class="upload-card">
-        <h3>Upload File</h3>
-        <form
-          action="/print/upload"
-          method="POST"
-          enctype="multipart/form-data"
-        >
-          <input
-            type="file"
-            name="file"
-            id="file"
-            accept=".csv,.pdf"
-            required
-          />
-          <button type="submit">Upload File</button>
-        </form>
-      </div>
-
-      <!-- Uploaded Files -->
-      <div class="files-card">
-        <h3>Uploaded Files</h3>
-        <% if (Array.isArray(uploadedFiles) && uploadedFiles.length > 0) { %>
-        <ul>
-          <% uploadedFiles.forEach(file => { %>
-          <li>
-            <span class="file-name"><%= file.file_name %></span>
-            <div class="file-actions">
-              <a href="#" class="view-file" data-file="<%= file.s3_url %>">View</a>
-              <a href="<%= file.s3_url %>" download>Download</a>
-              <a href="#" class="delete-file" data-file="<%= file.file_name %>">Delete</a>
-            </div>
-          </li>
-          <% }) %>
-        </ul>
-        <% } else { %>
-        <div class="empty-state">
-          <p>No files uploaded yet. Use the upload section above to add your first file.</p>
+    <div class="gp-page">
+      <header class="gp-head">
+        <div>
+          <h1 class="gp-title">Data Migration</h1>
+          <p class="gp-sub">Keep files from your previous system in one secure place. Upload CSV or PDF files, then view, search or download them any time. Only authorized staff can see them.</p>
         </div>
-        <% } %>
-      </div>
+      </header>
 
-      <!-- File Preview -->
-      <div class="preview-card" id="filePreviewContainer">
-        <h3>File Preview</h3>
-        <input
-          type="text"
-          id="searchFileContent"
-          placeholder="🔍 Search inside file..."
-        />
-        <iframe id="filePreview"></iframe>
+      <%- include('../partials/flash') %>
+
+      <section class="gp-card">
+        <div class="gp-card__head"><h2 class="gp-card__title">Upload a file</h2><span class="gp-card__note">CSV or PDF</span></div>
+        <form class="mg-upload" action="/print/upload" method="POST" enctype="multipart/form-data">
+          <label class="mg-file">
+            <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
+            <span data-mg-file-label>Choose a CSV or PDF file</span>
+            <input type="file" name="file" id="file" accept=".csv,.pdf" required />
+          </label>
+          <button type="submit" class="gp-btn gp-btn--primary"><i class="fa-solid fa-upload" aria-hidden="true"></i> Upload</button>
+        </form>
+      </section>
+
+      <section class="gp-card">
+        <div class="gp-card__head">
+          <h2 class="gp-card__title">Uploaded files</h2>
+          <% if (Array.isArray(uploadedFiles) && uploadedFiles.length) { %><span class="gp-pill"><%= uploadedFiles.length %></span><% } %>
+        </div>
+        <% if (Array.isArray(uploadedFiles) && uploadedFiles.length > 0) { %>
+          <ul class="mg-files">
+            <% uploadedFiles.forEach(file => { const isPdf = /\.pdf$/i.test(file.file_name || ''); %>
+              <li>
+                <i class="fa-solid <%= isPdf ? 'fa-file-pdf' : 'fa-file-csv' %> mg-files__icon" aria-hidden="true"></i>
+                <span class="mg-files__name"><%= file.file_name %></span>
+                <span class="mg-files__actions">
+                  <a href="#" class="gp-btn gp-btn--ghost view-file" data-file="<%= file.s3_url %>">View</a>
+                  <a href="<%= file.s3_url %>" class="gp-btn gp-btn--ghost" download>Download</a>
+                  <a href="#" class="gp-btn gp-btn--link mg-delete delete-file" data-file="<%= file.file_name %>">Delete</a>
+                </span>
+              </li>
+            <% }) %>
+          </ul>
+        <% } else { %>
+          <div class="gp-empty" style="padding: 28px 16px;">
+            <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
+            <h2>No files yet</h2>
+            <p>Upload your first file above.</p>
+          </div>
+        <% } %>
+      </section>
+
+      <section class="gp-card preview-card" id="filePreviewContainer">
+        <div class="gp-card__head"><h2 class="gp-card__title">File preview</h2></div>
+        <input type="text" id="searchFileContent" placeholder="Search inside this file" />
+        <iframe id="filePreview" title="File preview"></iframe>
         <pre id="csvPreview"></pre>
-      </div>
+      </section>
     </div>
+
+    <script>
+      // Show the chosen file's name in the upload box.
+      (function () {
+        const input = document.getElementById('file');
+        const label = document.querySelector('[data-mg-file-label]');
+        if (input && label) input.addEventListener('change', () => {
+          label.textContent = input.files && input.files[0] ? input.files[0].name : 'Choose a CSV or PDF file';
+        });
+      })();
+    </script>
 
     <script>
       function escapeHtml(str) {

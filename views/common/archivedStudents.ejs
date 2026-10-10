@@ -6,7 +6,7 @@
   const _initials = (s) => ((s.first_name || '').charAt(0) + (s.last_name || '').charAt(0)).toUpperCase() || '?';
   const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 %>
-<link rel="stylesheet" href="<%= assetUrl('/css/graduationPages.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
 
 <div class="gp-page">
   <header class="gp-head">
@@ -15,7 +15,7 @@
       <p class="gp-sub">Graduated and inactive students. Their records are preserved, and they are not counted as active students or billed.</p>
     </div>
     <a class="gp-btn gp-btn--ghost" href="/common/closeGraduationYearGroup<%= _embedQs %>">
-      <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Close Graduation Year Group
+      <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Graduate / Archive
     </a>
   </header>
 
@@ -30,8 +30,8 @@
     <div class="gp-empty">
       <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
       <h2>No archived students</h2>
-      <p>When you graduate a class from Close Graduation Year Group, the students appear here.</p>
-      <a class="gp-btn gp-btn--primary" href="/common/closeGraduationYearGroup<%= _embedQs %>">Close a graduation year group</a>
+      <p>When you graduate a class from Graduate / Archive, the students appear here.</p>
+      <a class="gp-btn gp-btn--primary" href="/common/closeGraduationYearGroup<%= _embedQs %>">Go to Graduate / Archive</a>
     </div>
   <% } else { %>
     <form action="/common/unarchiveStudents" method="POST" data-gp-form data-gp-noun="student">

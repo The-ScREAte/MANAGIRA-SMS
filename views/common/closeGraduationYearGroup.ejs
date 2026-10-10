@@ -6,12 +6,12 @@
   const _activeInGroups = _groups.reduce((sum, g) => sum + g.activeCount, 0);
   const _initials = (s) => ((s.first_name || '').charAt(0) + (s.last_name || '').charAt(0)).toUpperCase() || '?';
 %>
-<link rel="stylesheet" href="<%= assetUrl('/css/graduationPages.css') %>" />
+<link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
 
 <div class="gp-page">
   <header class="gp-head">
     <div>
-      <h1 class="gp-title">Close Graduation Year Group</h1>
+      <h1 class="gp-title">Graduate / Archive</h1>
       <p class="gp-sub">Graduate a class when they finish. Their records are kept safe, and they are no longer counted as active students or billed.</p>
     </div>
     <a class="gp-btn gp-btn--ghost" href="/common/archivedStudents<%= _embedQs %>">
@@ -29,8 +29,6 @@
 
   <ul class="gp-facts">
     <li class="gp-fact"><i class="fa-solid fa-lock" aria-hidden="true"></i><div><strong>Records are preserved</strong><span>Grades, reports and history stay intact and read-only.</span></div></li>
-    <li class="gp-fact"><i class="fa-solid fa-receipt" aria-hidden="true"></i><div><strong>No longer billed</strong><span>Not counted for your plan or charged new fees. Past balances stay in finance.</span></div></li>
-    <li class="gp-fact"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i><div><strong>Restore any time</strong><span>Bring a student back from Archived students if needed.</span></div></li>
   </ul>
 
   <% if (!_groups.length) { %>

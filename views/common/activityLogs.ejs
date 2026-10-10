@@ -147,7 +147,7 @@
   }
   .log-item {
     border-top: 1px solid #f0f2f5;
-    font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
+    font-family: inherit;
     font-size: 0.86rem; line-height: 1.5; color: #334155;
   }
   /* Very faint stripe — odd rows plain white, even rows barely tinted */
@@ -161,8 +161,8 @@
 
   /* Action — plain bold text, no badge box */
   .log-action {
-    font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', monospace;
-    font-size: 0.8rem; font-weight: 700;
+    font-family: inherit;
+    font-size: 0.78rem; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.07em;
     color: #64748b;
   }
@@ -333,13 +333,20 @@
   }
 </style>
 
-<div class="logs-page">
-  <div class="logs-page-head">
+<link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
+<style>
+  /* Inside the shared page shell: no extra outer margin, header sits tight to the filters. */
+  .logs-page.gp-page { margin: 0; }
+  .logs-page.gp-page > .gp-head { margin-bottom: 4px; }
+  .logs-page .as-pagebar-label { white-space: nowrap; }
+</style>
+<div class="logs-page gp-page">
+  <header class="gp-head">
     <div>
-      <h1>Activity Logs</h1>
-      <p>Meaningful actions across your organization. Filter to audit large activity volumes quickly.</p>
+      <h1 class="gp-title">Activity Logs</h1>
+      <p class="gp-sub">Who did what across your school. Filter by date, person, action or module to find something quickly.</p>
     </div>
-  </div>
+  </header>
 
   <form class="filters-panel" method="get" action="/common/activityLogs">
     <button type="button" class="filters-toggle" id="filtersToggle" aria-expanded="false" aria-controls="filtersRow">

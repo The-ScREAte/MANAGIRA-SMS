@@ -2266,6 +2266,18 @@
   </div>
   <%- include('../partials/flash') %>
   <main>
+    <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
+    <style>
+      /* Match the other Reports pages: flat cards with a thin border. */
+      main .card { box-shadow: none; border-color: #e2e8f0; }
+      main .btn { box-shadow: none; }
+    </style>
+    <header class="gp-head gp-scope">
+      <div>
+        <h1 class="gp-title">Report Settings</h1>
+        <p class="gp-sub">Report card statuses for each class, standard remarks, and the signatures printed on reports.</p>
+      </div>
+    </header>
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
     <% const classOrderIndexMap = {}; (enrolledClasses || []).forEach((cls, idx) => { classOrderIndexMap[String(cls.class_id)] = idx; }); %>
     <% const hasTranscriptFeature = Array.isArray(allowedFeatures) && (allowedFeatures.includes('Official School Transcript') || allowedFeatures.includes('Official Transcript')); %>

@@ -19998,7 +19998,7 @@ NUMBERING:
       });
 
       res.render("common/closeGraduationYearGroup", {
-        title: "Close Graduation Year Group",
+        title: "Graduate / Archive",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
