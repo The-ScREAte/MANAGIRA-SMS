@@ -12828,6 +12828,11 @@ const accountController = {
     const orgId = req.session.organizationId;
     if (!orgId) return res.redirect("/account/login");
 
+    // The same Google redirect URI is shared with the calendar connection (Calendar → Sync & share).
+    if (require("../utils/calendarConnect").isCalendarCallback(req)) {
+      return require("./workspaceController").connectCallback(req, res, db, "google");
+    }
+
     try {
       const expectedState = req.session.googleOauthState || null;
       const stateFromQuery = String(req.query.state || "").trim();

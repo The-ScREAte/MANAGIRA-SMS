@@ -965,6 +965,9 @@
       if (typeof window.initLogoSPANavigation === 'function') {
         window.initLogoSPANavigation();
       }
+      if (typeof window.initNotifBell === 'function') {
+        window.initNotifBell();
+      }
     }
 
     // ── Header Active State ───────────────────────────────────────────
@@ -1151,7 +1154,7 @@
       if (!this.currentPath.startsWith('/common/orgDashboard')) return;
 
       const classLinks = Array.from(
-        document.querySelectorAll('.classes-container a[href^="/common/classDashboard?classId="]')
+        document.querySelectorAll('[data-od-classes] a[href^="/common/classDashboard?classId="], .classes-container a[href^="/common/classDashboard?classId="]')
       );
 
       if (classLinks.length === 0) return;

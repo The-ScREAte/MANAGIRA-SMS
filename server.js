@@ -921,6 +921,10 @@ app.use("/account/settings", financeRoute);
 app.use("/account/settings", payoutRoute);
 app.use("/account", accountRoute);
 app.use("/admin", adminRoute);
+// Private calendar subscription feed (Google Calendar / Outlook / Apple fetch it without a login).
+app.get("/calendar/ics/:token([a-f0-9]{48}).ics", (req, res) =>
+  require("./controllers/workspaceController").icsFeed(req, res, db)
+);
 app.use("/common", commonRoute);
 app.use("/announcements", announcementRoute);
 // Canonical end-user feed path per spec; alias of GET /announcements/me.

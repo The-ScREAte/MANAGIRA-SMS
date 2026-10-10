@@ -2636,6 +2636,18 @@
           </a>
         </li>
         <% } %>
+        <% if (req.session && req.session.organizationId && !['guardian', 'student'].includes(String(req.session.userRole || '').toLowerCase())) { %>
+        <li class="nav-item">
+          <a href="/common/calendar" class="nav-item-link management-link" data-no-spa>
+            <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="3" y="4.5" width="18" height="16" rx="2.5" stroke-width="2"></rect>
+              <path stroke-linecap="round" stroke-width="2" d="M3 9.5h18M8 2.5v4M16 2.5v4"></path>
+              <path stroke-linecap="round" stroke-width="2" d="M8 14h2M14 14h2M8 17.5h2"></path>
+            </svg>
+            Calendar
+          </a>
+        </li>
+        <% } %>
         <li class="nav-item">
           <a href="/common/birthdays" class="nav-item-link management-link">
             <svg style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3888,6 +3900,10 @@
     birthday_staff:             { bg: '#fdf2f8', stroke: '#db2777', icon: '<path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"/>' },
     birthday_guardian:          { bg: '#eef2ff', stroke: '#4f46e5', icon: '<path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5c2.3 0 4.5 2.6 4.5 5Z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5c-2.3 0-4.5 2.6-4.5 5Z"/>' },
     term_changed:               { bg: 'color-mix(in srgb, var(--org-primary-color, #01535b) 12%, #ffffff)', stroke: 'var(--org-primary-color, #01535b)', icon: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
+    task_assigned:              { bg: '#e0f2fe', stroke: '#0369a1', icon: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' },
+    task_done:                  { bg: '#f0fdf4', stroke: '#16a34a', icon: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>' },
+    task_reply:                 { bg: '#eff6ff', stroke: '#2563eb', icon: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' },
+    event_tagged:               { bg: '#f5f3ff', stroke: '#7c3aed', icon: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
     enrollment_added:           { bg: '#f0fdf4', stroke: '#16a34a', icon: '<path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM3 20a6 6 0 0 1 12 0v1H3v-1z"/>' },
   };
   const DEFAULT_META = {
@@ -3918,21 +3934,15 @@
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── State ────────────────────────────────────────────────────────────────
-  let panelOpen = false;
-  let loaded    = false;
-
-  const wrapper = document.getElementById('notif-bell-wrapper');
-  if (!wrapper) return; // Not logged in / not on authenticated page
-
-  const btn      = document.getElementById('notif-bell-btn');
-  const badge    = document.getElementById('notif-badge');
-  const panel    = document.getElementById('notif-panel');
-  const list     = document.getElementById('notif-list');
-  const markAllBtn   = document.getElementById('notif-mark-all-btn');
-  const clearAllBtn  = document.getElementById('notif-clear-all-btn');
+  // ── Elements ─────────────────────────────────────────────────────────────
+  // The SPA router swaps the whole header on navigation, so always look the
+  // elements up fresh and re-bind the new markup (see window.initNotifBell).
+  if (!document.getElementById('notif-bell-wrapper')) return; // Not logged in / not on authenticated page
+  const $ = (id) => document.getElementById(id);
+  const isOpen = () => { const p = $('notif-panel'); return !!(p && p.classList.contains('notif-panel--open')); };
 
   function updateBadge(count) {
+    const badge = $('notif-badge');
     if (!badge) return;
     if (count > 0) {
       badge.textContent = count > 99 ? '99+' : String(count);
@@ -3944,6 +3954,8 @@
   }
 
   function renderList(items) {
+    const list = $('notif-list');
+    if (!list) return;
     if (!items || items.length === 0) {
       list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
       return;
@@ -3959,8 +3971,10 @@
         ? (_EMAIL_ISSUE_ROLES.has(_CURRENT_ROLE) ? '/common/failedEmails' : '')
         : (n.link || '');
       const hrefAttr = href ? `href="${escapeHtml(href)}"` : 'role="button"';
+      // data-no-spa: the SPA router must not swallow these clicks — the handler
+      // below marks the item read (or dismisses it) and then navigates itself.
       return `
-        <a class="${cls}" ${hrefAttr} data-notif-id="${n.id}" data-link="${escapeHtml(href)}"${href ? '' : ' style="cursor:default;"'}>
+        <a class="${cls}" ${hrefAttr} data-no-spa data-notif-id="${n.id}" data-link="${escapeHtml(href)}"${href ? '' : ' style="cursor:default;"'}>
           <span class="notif-icon" style="background:${m.bg};">${iconSvg(n.type)}</span>
           <span class="notif-content">
             <span class="notif-title">${escapeHtml(n.title)}</span>
@@ -3974,21 +3988,24 @@
   }
 
   async function loadFeed() {
+    const list = $('notif-list');
+    if (!list) return;
     list.innerHTML = '<div class="notif-loading">Loading…</div>';
     try {
-      const r = await fetch('/notifications/feed', { credentials: 'same-origin' });
+      const r = await fetch('/notifications/feed', { credentials: 'same-origin', cache: 'no-store' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const data = await r.json();
       renderList(data.notifications || []);
-      loaded = true;
     } catch {
-      list.innerHTML = '<div class="notif-empty">Could not load notifications</div>';
+      const current = $('notif-list');
+      if (current) current.innerHTML = '<div class="notif-empty">Could not load notifications</div>';
     }
   }
 
   async function refreshCount() {
+    if (!$('notif-bell-wrapper')) return;
     try {
-      const r = await fetch('/notifications/count', { credentials: 'same-origin' });
+      const r = await fetch('/notifications/count', { credentials: 'same-origin', cache: 'no-store' });
       if (!r.ok) return;
       const data = await r.json();
       updateBadge(data.count || 0);
@@ -3996,56 +4013,46 @@
   }
 
   function openPanel() {
+    const panel = $('notif-panel');
+    if (!panel) return;
     panel.classList.add('notif-panel--open');
-    panelOpen = true;
+    const btn = $('notif-bell-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
     loadFeed();
   }
 
   function closePanel() {
-    panel.classList.remove('notif-panel--open');
-    panelOpen = false;
+    const panel = $('notif-panel');
+    if (panel) panel.classList.remove('notif-panel--open');
+    const btn = $('notif-bell-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
   }
 
-  // Toggle on bell click
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (panelOpen) { closePanel(); } else { openPanel(); }
-  });
+  function removeItem(item) {
+    item.style.transition = 'opacity 0.2s';
+    item.style.opacity = '0';
+    setTimeout(() => {
+      const list = item.parentElement;
+      item.remove();
+      if (list && !list.querySelector('.notif-item')) {
+        list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+      }
+    }, 200);
+  }
 
-  // Close on outside click
-  document.addEventListener('click', (e) => {
-    if (panelOpen && !wrapper.contains(e.target)) closePanel();
-  });
-
-  // Keyboard close
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && panelOpen) closePanel();
-  });
-
-  // Click a notification item → mark read + navigate (but not the dismiss button)
-  list.addEventListener('click', async (e) => {
-    // Handle dismiss button click
+  function onListClick(e) {
+    // Dismiss button
     const dismissBtn = e.target.closest('.notif-dismiss-btn');
     if (dismissBtn) {
       e.preventDefault();
       e.stopPropagation();
-      const id = dismissBtn.dataset.dismissId;
       const item = dismissBtn.closest('.notif-item');
-      if (item) {
-        item.style.transition = 'opacity 0.2s';
-        item.style.opacity = '0';
-        setTimeout(() => {
-          item.remove();
-          if (!list.querySelector('.notif-item')) {
-            list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
-          }
-        }, 200);
-      }
+      if (item) removeItem(item);
       fetch('/notifications/dismiss', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notifId: id }),
+        body: JSON.stringify({ notifId: dismissBtn.dataset.dismissId }),
       }).then(() => refreshCount()).catch(() => {});
       return;
     }
@@ -4053,7 +4060,6 @@
     const item = e.target.closest('.notif-item[data-notif-id]');
     if (!item) return;
     e.preventDefault();
-    const id   = item.dataset.notifId;
     const link = item.dataset.link;
 
     // Optimistically mark as read in UI
@@ -4062,75 +4068,98 @@
     const dot = item.querySelector('.notif-unread-dot');
     if (dot) dot.remove();
 
-    // Fire-and-forget mark-read
-    fetch('/notifications/mark-read', {
+    const marked = fetch('/notifications/mark-read', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notifId: id }),
+      body: JSON.stringify({ notifId: item.dataset.notifId }),
+      keepalive: true,
     }).then(() => refreshCount()).catch(() => {});
 
-    // Navigate
     if (link && link !== '#') {
       closePanel();
       if (window.spaRouter && window.spaRouter.shouldHandleRoute && window.spaRouter.shouldHandleRoute(link)) {
         window.spaRouter.navigate(link);
       } else {
-        window.location.href = link;
+        // Full page load: give mark-read a moment to leave first.
+        Promise.race([marked, new Promise((r) => setTimeout(r, 400))]).then(() => { window.location.href = link; });
       }
     }
-  });
-
-  // Mark all read
-  if (markAllBtn) {
-    markAllBtn.addEventListener('click', async () => {
-      try {
-        await fetch('/notifications/mark-all-read', {
-          method: 'POST',
-          credentials: 'same-origin',
-        });
-        updateBadge(0);
-        // Re-render items as read
-        const items = list.querySelectorAll('.notif-item--unread');
-        items.forEach(el => {
-          el.classList.remove('notif-item--unread');
-          el.classList.add('notif-item--read');
-          const dot = el.querySelector('.notif-unread-dot');
-          if (dot) dot.remove();
-        });
-      } catch { /* silent */ }
-    });
   }
 
-  // Clear all — dismiss every visible notification for this user
-  if (clearAllBtn) {
-    clearAllBtn.addEventListener('click', async () => {
-      try {
-        // Animate out all items
-        const items = list.querySelectorAll('.notif-item');
-        items.forEach(el => { el.style.transition = 'opacity 0.2s'; el.style.opacity = '0'; });
-        setTimeout(() => {
-          list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
-        }, 220);
-        await fetch('/notifications/dismiss-all', {
-          method: 'POST',
-          credentials: 'same-origin',
-        });
-        updateBadge(0);
-      } catch { /* silent */ }
-    });
+  async function onMarkAll() {
+    try {
+      await fetch('/notifications/mark-all-read', { method: 'POST', credentials: 'same-origin' });
+      updateBadge(0);
+      const list = $('notif-list');
+      if (!list) return;
+      list.querySelectorAll('.notif-item--unread').forEach(el => {
+        el.classList.remove('notif-item--unread');
+        el.classList.add('notif-item--read');
+        const dot = el.querySelector('.notif-unread-dot');
+        if (dot) dot.remove();
+      });
+    } catch { /* silent */ }
   }
 
-  // Poll for new notifications every 60 s while page is active
-  setInterval(refreshCount, 60000);
+  async function onClearAll() {
+    const list = $('notif-list');
+    if (list) {
+      list.querySelectorAll('.notif-item').forEach(el => { el.style.transition = 'opacity 0.2s'; el.style.opacity = '0'; });
+      setTimeout(() => {
+        const current = $('notif-list');
+        if (current) current.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+      }, 220);
+    }
+    try {
+      await fetch('/notifications/dismiss-all', { method: 'POST', credentials: 'same-origin' });
+      updateBadge(0);
+    } catch { /* silent */ }
+  }
+
+  // Bind the current header's bell (safe to call repeatedly).
+  function initNotifBell() {
+    const wrapper = $('notif-bell-wrapper');
+    if (!wrapper || wrapper.dataset.notifBound === '1') return;
+    wrapper.dataset.notifBound = '1';
+    const btn = $('notif-bell-btn');
+    if (btn) {
+      btn.setAttribute('aria-expanded', 'false');
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isOpen()) closePanel(); else openPanel();
+      });
+    }
+    const list = $('notif-list');
+    if (list) list.addEventListener('click', onListClick);
+    const markAllBtn = $('notif-mark-all-btn');
+    if (markAllBtn) markAllBtn.addEventListener('click', onMarkAll);
+    const clearAllBtn = $('notif-clear-all-btn');
+    if (clearAllBtn) clearAllBtn.addEventListener('click', onClearAll);
+  }
+  window.initNotifBell = initNotifBell;
+  initNotifBell();
+
+  // Page-wide listeners: register once, even if this script runs again.
+  if (!window.__notifBellGlobalsBound) {
+    window.__notifBellGlobalsBound = true;
+    document.addEventListener('click', (e) => {
+      const wrapper = $('notif-bell-wrapper');
+      if (isOpen() && wrapper && !wrapper.contains(e.target)) closePanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen()) closePanel();
+    });
+    // Poll for new notifications every 60 s while page is active
+    setInterval(refreshCount, 60000);
+    // After SPA navigation the header is new: re-bind it and refresh the count.
+    window.addEventListener('spa:pageLoaded', () => { initNotifBell(); refreshCount(); });
+  }
 
   // Fetch count immediately on page load so the badge never waits for the
   // 60-second poll interval. The server-side render may be stale (cached) or
   // zero; this corrects it within ~100 ms without blocking page load.
   refreshCount();
-
-  // Re-run count after SPA navigation
-  window.addEventListener('spa:pageLoaded', refreshCount);
 
   const ensureHeaderPopupConfettiStyles = () => {
     if (document.getElementById('header-popup-confetti-styles')) return;

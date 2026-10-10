@@ -29,6 +29,8 @@ const {
   invalidateUserPermissionCache,
 } = require("../middleware/permissionMiddleware");
 const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
+const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
+const { loadViewerActivity, resolveActor: resolveWorkspaceActor, isOrgMember: isWorkspaceMember } = require("../utils/workspace");
 const {
   toDateKey,
   ensureAttendanceCalendarSchema,
@@ -3677,15 +3679,18 @@ const commonController = {
           const matchedDay = dayMap.get(todayKey);
 
           let label = "School Day";
+          let countsForAttendance = true;
 
           if (matchedDay && String(matchedDay.source || "").toLowerCase() === "manual") {
-            label = matchedDay.label || (Boolean(matchedDay.counts_for_attendance) ? "School Day" : "Excluded");
+            countsForAttendance = Boolean(matchedDay.counts_for_attendance);
+            label = matchedDay.label || (countsForAttendance ? "School Day" : "Excluded");
           } else if (
             matchedDay &&
             String(matchedDay.source || "").toLowerCase() === "public_holiday" &&
             Boolean(attendanceCalendarProfile.include_public_holidays)
           ) {
             label = matchedDay.label || "Public Holiday";
+            countsForAttendance = false;
           } else {
             const weekendDays = new Set(
               ((attendanceCalendarProfile && attendanceCalendarProfile.weekend_days) || [])
@@ -3696,11 +3701,13 @@ const commonController = {
 
             if (weekendDays.has(todayDow)) {
               label = "Weekend";
+              countsForAttendance = false;
             }
           }
 
           todayAttendanceStatus = {
             label,
+            countsForAttendance,
           };
         }
       } catch (_calendarError) {
@@ -3858,6 +3865,35 @@ const commonController = {
       );
       const announcements = announcementsResult.rows;
 
+      // Tasks and tagged events for this person ("Activity & Announcements").
+      const viewerActivity = await loadViewerActivity(db, {
+        organizationId: Number(organizationId),
+        actorId: resolveWorkspaceActor(req).id,
+      }).catch((err) => {
+        console.error("[orgDashboard] activity failed:", err.message);
+        return null;
+      });
+
+      // Numbers, alerts and recent activity (each gated by permission; activity scoped by role).
+      let dashboardInsights = null;
+      {
+        const now = new Date();
+        const isWeekendFallback = [0, 6].includes(now.getDay());
+        dashboardInsights = await loadOrgDashboardInsights(db, {
+          organizationId,
+          termId: currentTerm.term_id,
+          classes,
+          permissions: Array.isArray(res.locals.userPermissions) ? res.locals.userPermissions : [],
+          features: Array.isArray(res.locals.allowedFeatures) ? res.locals.allowedFeatures : [],
+          termActive: now >= new Date(currentTerm.start_date) && now <= new Date(new Date(currentTerm.end_date).getTime() + 86400000),
+          isSchoolDay: todayAttendanceStatus ? todayAttendanceStatus.countsForAttendance !== false : !isWeekendFallback,
+          todayKey: toDateKey(now),
+          todayLabel: todayAttendanceStatus?.label || (isWeekendFallback ? "Weekend" : "School Day"),
+          role: isOrgAccount ? "organization" : effectiveDashboardRole,
+          actorId: resolveWorkspaceActor(req).id,
+        }).catch(() => null);
+      }
+
       let orgHeaderName = null;
       let orgHeaderLogo = null;
       let orgHeaderNickname = null;
@@ -3909,6 +3945,10 @@ const commonController = {
         classes,
         events,
         announcements,
+        dashboardInsights,
+        viewerActivity,
+        workspaceActorId: resolveWorkspaceActor(req).id,
+        workspaceMember: await isWorkspaceMember(db, req),
         organizationId,
         messages: req.flash(), // ✅ pass flash messages to the view
         showOrgHeader: req.session.superAdminOrgSwitch || false,

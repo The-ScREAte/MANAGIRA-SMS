@@ -702,6 +702,24 @@
   </div>
 
   <script>
+    // Opened from the dashboard pencil (?classId=…): preselect Teacher and tick that class.
+    (function () {
+      const classId = new URLSearchParams(window.location.search).get('classId');
+      if (!classId || !/^\d+$/.test(classId)) return;
+      const box = document.getElementById('class_' + classId);
+      if (!box) return;
+      const role = document.getElementById('account_type');
+      if (role && !role.value) { role.value = 'Teacher'; role.dispatchEvent(new Event('change', { bubbles: true })); }
+      const list = document.getElementById('collapse-all-classes');
+      const arrow = document.getElementById('arrow-all-classes');
+      if (list) list.style.display = 'block';
+      if (arrow) arrow.innerHTML = '▾';
+      if (!box.checked) { box.checked = true; box.dispatchEvent(new Event('change', { bubbles: true })); }
+      box.closest('.class-checkbox') && box.closest('.class-checkbox').scrollIntoView({ block: 'center' });
+    })();
+  </script>
+
+  <script>
     // createEmployee.ejs is a plain POST that redirects back to itself with
     // a flash message — if we land back here (inside the drawer) with a
     // success flash showing, that redirect just happened, so let the

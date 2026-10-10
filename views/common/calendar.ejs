@@ -1,0 +1,511 @@
+<%
+  const _canPublish = typeof canPublish !== 'undefined' && canPublish;
+  const _hasWebsite = typeof hasWebsite !== 'undefined' && hasWebsite;
+  const _isMember = typeof isMember === 'undefined' ? true : !!isMember;
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/workspace.css') %>" />
+<div class="cal-flash"><%- include('../partials/flash') %></div>
+
+<div class="cal-page" data-cal
+  data-can-publish="<%= _canPublish ? '1' : '0' %>"
+  data-has-website="<%= _hasWebsite ? '1' : '0' %>"
+  data-initial-date="<%= typeof initialDate !== 'undefined' ? initialDate : '' %>"
+  data-initial-compose="<%= typeof initialCompose !== 'undefined' ? initialCompose : '' %>"
+  data-open-sync="<%= typeof openSync !== 'undefined' && openSync ? '1' : '0' %>">
+  <aside class="cal-side">
+    <div class="cal-side__head">
+      <h1>Calendar</h1>
+      <p>School events, your plans and tasks in one place.</p>
+    </div>
+    <% if (_isMember) { %>
+    <div class="cal-side__actions">
+      <button type="button" class="ws-btn ws-btn--primary cal-create" data-cal-create>
+        <i class="fa-solid fa-plus" aria-hidden="true"></i> Create
+      </button>
+      <button type="button" class="ws-btn cal-sync" data-cal-sync title="Sync with Google Calendar or Outlook, and share your calendar">
+        <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Sync &amp; share
+      </button>
+    </div>
+    <% } else { %>
+    <p class="cal-empty">You're viewing this school's calendar. Creating tasks, tagging and sharing are for the school's staff.</p>
+    <% } %>
+
+    <div class="cal-conn-notice" data-cal-conn-notice hidden></div>
+    <div class="cal-card">
+      <h2 class="cal-card__title">My calendars</h2>
+      <label class="cal-layer" style="--dot:#0f766e"><input type="checkbox" data-cal-layer="event" checked><span class="cal-layer__box"></span>School events<small data-cal-count="event"></small></label>
+      <label class="cal-layer" style="--dot:#475569"><input type="checkbox" data-cal-layer="personal" checked><span class="cal-layer__box"></span>Personal<small data-cal-count="personal"></small></label>
+      <label class="cal-layer" style="--dot:#0369a1"><input type="checkbox" data-cal-layer="task" checked><span class="cal-layer__box"></span>My tasks<small data-cal-count="task"></small></label>
+      <label class="cal-layer" style="--dot:#9333ea"><input type="checkbox" data-cal-layer="announcement" checked><span class="cal-layer__box"></span>Announcements<small data-cal-count="announcement"></small></label>
+      <div data-cal-dynamic="ext"></div>
+    </div>
+
+    <div class="cal-card" data-cal-shared-card hidden>
+      <h2 class="cal-card__title">Shared with me</h2>
+      <div data-cal-dynamic="share"></div>
+    </div>
+
+    <div class="cal-card">
+      <h2 class="cal-card__title">Coming up</h2>
+      <ul class="cal-up" data-cal-upcoming><li class="cal-empty">Loading…</li></ul>
+    </div>
+  </aside>
+
+  <main class="cal-main">
+    <div id="calendar" class="no-global-sort" data-no-global-sort aria-label="School calendar"></div>
+  </main>
+</div>
+
+<div class="ws-peek" data-cal-peek hidden role="dialog" aria-modal="false"></div>
+
+<!-- Sync & share -->
+<dialog class="ws-dialog ws-dialog--wide" data-sync-dialog aria-labelledby="sync-title">
+  <form method="dialog" novalidate>
+    <div class="ws-dialog__head">
+      <div>
+        <h2 class="ws-dialog__title" id="sync-title">Sync &amp; share</h2>
+        <p class="sync-sub">Sign in once. Your Managira events appear in your calendar, and your calendar shows here.</p>
+      </div>
+      <button type="button" class="ws-close" data-sync-close aria-label="Close">×</button>
+    </div>
+    <div class="ws-dialog__body">
+
+      <div class="sync-connect" data-sync-connect></div>
+
+      <details class="sync-other">
+        <summary>Other calendar apps (Apple Calendar and more)</summary>
+        <div class="sync-url">
+          <input class="ws-input" readonly data-sync-url aria-label="Your private calendar link" value="Loading…">
+          <button type="button" class="ws-btn" data-sync-copy><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
+          <a class="ws-btn" data-send="apple"><i class="fa-brands fa-apple" aria-hidden="true"></i> Open</a>
+        </div>
+        <p class="ws-hint">This link is private to you. <button type="button" class="sync-link" data-sync-reset>Reset it</button> if it was shared by mistake.</p>
+      </details>
+
+      <section class="sync-share">
+        <div class="sync-share__head">
+          <span class="sync-sec__icon"><i class="fa-solid fa-user-group" aria-hidden="true"></i></span>
+          <div><strong>Share with colleagues</strong><p>They see your personal events and tasks in their calendar, and get an email.</p></div>
+        </div>
+        <div class="ws-people" data-share-people></div>
+        <div class="sync-share-foot">
+          <span class="ws-hint" data-share-status></span>
+          <button type="button" class="ws-btn ws-btn--primary" data-share-save>Save</button>
+        </div>
+      </section>
+      <p class="ws-error" data-sync-error role="alert"></p>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script src="<%= assetUrl('/js/workspace.js') %>"></script>
+<script>
+  (function () {
+    const root = document.querySelector('[data-cal]');
+    if (!root || root.dataset.ready === '1' || !window.FullCalendar) return;
+    root.dataset.ready = '1';
+    const W = window.Workspace;
+    const canPublish = root.dataset.canPublish === '1';
+    const hasWebsite = root.dataset.hasWebsite === '1';
+    const peek = document.querySelector('[data-cal-peek]');
+    // Calendars the person has switched off in the sidebar (remembered in this browser).
+    const HIDDEN_KEY = 'cal:hidden-layers';
+    const hidden = new Set((() => { try { return JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]'); } catch (_e) { return []; } })());
+    const saveHidden = () => { try { localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden])); } catch (_e) { /* ignore */ } };
+    let syncState = {};
+    // Everything loaded for the visible range; the calendar only shows layers that are switched on.
+    let feedCache = { key: null, items: [] };
+    let useCache = false;
+    const COLOR = { teal: '#0f766e', blue: '#2563eb', violet: '#7c3aed', amber: '#d97706', rose: '#e11d48', green: '#16a34a', slate: '#475569' };
+    const PALETTE = ['#0ea5e9', '#f97316', '#84cc16', '#ec4899', '#14b8a6', '#a855f7'];
+    const KIND_LABEL = { event: 'School event', personal: 'Personal event', announcement: 'Announcement', task: 'Task', external: 'Connected calendar' };
+    const VIS_LABEL = { org: 'Staff only', both: hasWebsite ? 'Staff, parents & website' : 'Staff & parents', public: 'Website only', personal: 'Only you and people you tag' };
+    const layerColor = {};
+    const colorOf = (ev) => {
+      const p = ev.extendedProps;
+      if (layerColor[p.layer]) return layerColor[p.layer];
+      if (p.kind === 'announcement') return '#9333ea';
+      if (p.kind === 'task') return p.priority === 'high' ? '#dc2626' : '#0369a1';
+      return COLOR[p.color] || COLOR.teal;
+    };
+    const fmtWhen = (ev) => {
+      const opts = { weekday: 'short', month: 'short', day: 'numeric' };
+      const t = { hour: 'numeric', minute: '2-digit' };
+      if (ev.allDay) {
+        const s = ev.start.toLocaleDateString(undefined, opts);
+        if (ev.end) {
+          const last = new Date(ev.end); last.setDate(last.getDate() - 1);
+          if (last > ev.start) return `${s} – ${last.toLocaleDateString(undefined, opts)}`;
+        }
+        return `${s} · All day`;
+      }
+      const s = `${ev.start.toLocaleDateString(undefined, opts)} · ${ev.start.toLocaleTimeString(undefined, t)}`;
+      return ev.end ? `${s} – ${ev.end.toLocaleTimeString(undefined, t)}` : s;
+    };
+
+    const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+      initialView: window.matchMedia('(max-width: 640px)').matches ? 'listMonth' : 'dayGridMonth',
+      initialDate: root.dataset.initialDate || undefined,
+      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth' },
+      buttonText: { today: 'Today', month: 'Month', week: 'Week', day: 'Day', list: 'Agenda' },
+      height: 'auto',
+      firstDay: 1,
+      nowIndicator: true,
+      dayMaxEvents: 4,
+      eventDisplay: 'block',
+      navLinks: true,
+      selectable: !!document.querySelector('[data-cal-create]'),
+      selectMirror: true,
+      editable: true,
+      slotMinTime: '06:00:00',
+      slotMaxTime: '21:00:00',
+      scrollTime: '08:00:00',
+      slotDuration: '00:30:00',
+      businessHours: { daysOfWeek: [1, 2, 3, 4, 5], startTime: '08:00', endTime: '16:00' },
+      eventTimeFormat: { hour: 'numeric', minute: '2-digit', meridiem: 'short' },
+      events: (info, success, failure) => {
+        const key = `${info.startStr.slice(0, 10)}|${info.endStr.slice(0, 10)}`;
+        const deliver = (items) => {
+          feedCache = { key, items };
+          success(items.filter((it) => !hidden.has(it.extendedProps.layer)));
+        };
+        if (useCache && feedCache.key === key) { useCache = false; deliver(feedCache.items); return; }
+        useCache = false;
+        fetch(`/common/calendar/feed?start=${info.startStr.slice(0, 10)}&end=${info.endStr.slice(0, 10)}`, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+          .then((r) => { if (!r.ok) throw new Error('feed'); return r.json(); })
+          .then(deliver)
+          .catch((err) => { failure(err); W.toast('The calendar could not load. Try again.'); });
+      },
+      eventsSet: () => { renderSide(); },
+      eventDidMount: (info) => {
+        const p = info.event.extendedProps;
+        if (layerColor[p.layer]) info.el.style.setProperty('--c', layerColor[p.layer]);
+        info.el.setAttribute('title', (p.owner ? p.owner + ' · ' : '') + info.event.title);
+      },
+      select: (info) => {
+        hidePeek();
+        W.open({ type: 'event', canPublish, hasWebsite, start: info.start, end: info.end, allDay: info.allDay, onSaved: refresh });
+        calendar.unselect();
+      },
+      eventClick: (info) => {
+        info.jsEvent.preventDefault();
+        showPeek(info.event, info.el);
+      },
+      eventDrop: (info) => moveEvent(info),
+      eventResize: (info) => moveEvent(info),
+    });
+    calendar.render();
+
+    function refresh() { calendar.refetchEvents(); }
+
+    async function moveEvent(info) {
+      const ev = info.event;
+      const p = ev.extendedProps;
+      const start = ev.start;
+      let end = ev.end;
+      const body = { moveOnly: true, allDay: ev.allDay, date: W.dateKey(start) };
+      if (ev.allDay) {
+        const last = end ? new Date(end) : new Date(start);
+        if (end) last.setDate(last.getDate() - 1);
+        body.endDate = W.dateKey(last);
+      } else {
+        if (!end) { end = new Date(start); end.setHours(end.getHours() + 1); }
+        body.startTime = W.timeKey(start);
+        body.endTime = W.timeKey(end);
+        body.endDate = W.dateKey(end);
+      }
+      try {
+        await W.post(`/common/calendar/${p.kind === 'personal' ? 'personal' : 'events'}/${p.recordId}`, body);
+        W.toast('Event moved');
+        refresh();
+      } catch (err) {
+        info.revert();
+        W.toast(err.message);
+      }
+    }
+
+    // ---------- peek card ----------
+    function hidePeek() { peek.hidden = true; }
+    function showPeek(ev, anchor) {
+      const p = ev.extendedProps;
+      const rows = [];
+      rows.push(`<div class="ws-peek__row"><i class="fa-regular fa-clock"></i><span>${W.esc(fmtWhen(ev))}</span></div>`);
+      if (p.owner) rows.push(`<div class="ws-peek__row"><i class="fa-regular fa-user"></i><span>${W.esc(p.owner)}'s calendar</span></div>`);
+      if (p.kind === 'external') rows.push(`<div class="ws-peek__row"><i class="fa-solid fa-link"></i><span>From ${W.esc(p.source)}${p.link ? ` · <a href="${W.esc(p.link)}" target="_blank" rel="noopener">Open</a>` : ''}</span></div>`);
+      if (p.location) rows.push(`<div class="ws-peek__row"><i class="fa-solid fa-location-dot"></i><span>${W.esc(p.location)}</span></div>`);
+      if (p.kind === 'task') {
+        rows.push(`<div class="ws-peek__row"><i class="fa-regular fa-user"></i><span>From ${W.esc(p.from || 'a colleague')} · ${W.esc(p.progress)}</span></div>`);
+        if (p.priority === 'high') rows.push(`<div class="ws-peek__row"><i class="fa-solid fa-flag"></i><span>High priority</span></div>`);
+      }
+      if ((p.kind === 'event' || p.kind === 'personal') && p.visibility) rows.push(`<div class="ws-peek__row"><i class="fa-regular fa-eye"></i><span>${W.esc(VIS_LABEL[p.visibility] || p.visibility)}</span></div>`);
+      if (p.tags && p.tags.length) rows.push(`<div class="ws-peek__row"><i class="fa-solid fa-user-tag"></i><span class="ws-peek__people">${p.tags.map((t) => `<span class="ws-chip">${W.avatar({ name: t.name })}${W.esc(t.name)}</span>`).join('')}</span></div>`);
+      if (p.details) rows.push(`<div class="ws-peek__row"><i class="fa-solid fa-align-left"></i><span class="ws-peek__details">${W.esc(p.details)}</span></div>`);
+      const actions = [];
+      const canEdit = (p.kind === 'event' && canPublish) || (p.kind === 'personal' && ev.startEditable !== false && !p.owner);
+      if (canEdit) actions.push('<button type="button" class="ws-btn" data-peek-edit><i class="fa-regular fa-pen-to-square"></i> Edit</button>');
+      if (p.kind === 'task') actions.push(`<a class="ws-btn" href="/common/orgDashboard#task-${p.recordId}"><i class="fa-regular fa-comments"></i> Open task</a>`);
+      peek.innerHTML = `
+        <div class="ws-peek__top">
+          <span class="ws-peek__bar" style="--c:${colorOf(ev)}"></span>
+          <div style="flex:1;min-width:0;"><div class="ws-peek__kind">${KIND_LABEL[p.kind] || ''}</div><h3 class="ws-peek__title">${W.esc(ev.title)}</h3></div>
+          <button type="button" class="ws-close" data-peek-close aria-label="Close">×</button>
+        </div>
+        <div class="ws-peek__rows">${rows.join('')}</div>
+        ${actions.length ? `<div class="ws-peek__actions">${actions.join('')}</div>` : ''}`;
+      peek.hidden = false;
+      const r = anchor.getBoundingClientRect();
+      const w = peek.offsetWidth;
+      const h = peek.offsetHeight;
+      let left = r.right + 10;
+      let top = r.top;
+      if (left + w > window.innerWidth - 12) left = r.left - w - 10;
+      if (left < 12) { left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left)); top = r.bottom + 8; }
+      top = Math.min(top, window.innerHeight - h - 12);
+      peek.style.left = `${Math.round(left)}px`;
+      peek.style.top = `${Math.round(Math.max(12, top))}px`;
+      peek.querySelector('[data-peek-close]').addEventListener('click', hidePeek);
+      const edit = peek.querySelector('[data-peek-edit]');
+      if (edit) edit.addEventListener('click', () => {
+        hidePeek();
+        W.open({
+          canPublish, hasWebsite, onSaved: refresh,
+          event: { id: p.recordId, kind: p.kind, title: ev.title, details: p.details, location: p.location, date: p.date, endDate: p.endDate, startTime: p.startTime, endTime: p.endTime, visibility: p.visibility, color: p.color, tags: p.tags },
+        });
+      });
+    }
+    document.addEventListener('mousedown', (e) => {
+      if (!peek.hidden && !peek.contains(e.target) && !e.target.closest('.fc-event')) hidePeek();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hidePeek(); });
+    window.addEventListener('scroll', hidePeek, { passive: true });
+
+    // ---------- sidebar ----------
+    const connProvider = {};
+    root.querySelectorAll('[data-cal-layer]').forEach((box) => { box.checked = !hidden.has(box.dataset.calLayer); });
+    function layerRow(key, label, color, count, provider) {
+      const icon = provider === 'google' ? '<img class="cal-layer__icon" src="https://www.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png" alt="Google">'
+        : (provider === 'outlook' ? '<i class="fa-brands fa-microsoft cal-layer__icon" style="color:#0078d4" aria-label="Outlook"></i>' : '');
+      return `<label class="cal-layer" style="--dot:${color}" title="${W.esc(label)}"><input type="checkbox" data-cal-layer="${W.esc(key)}"${hidden.has(key) ? '' : ' checked'}><span class="cal-layer__box"></span>${icon}<span class="cal-layer__name">${W.esc(label)}</span><small>${count || ''}</small></label>`;
+    }
+    function renderSide() {
+      const all = feedCache.items; // counts include calendars that are switched off
+      const visible = calendar.getEvents();
+      ['event', 'personal', 'announcement', 'task'].forEach((k) => {
+        const el = root.querySelector(`[data-cal-count="${k}"]`);
+        if (el) el.textContent = all.filter((e) => e.extendedProps.layer === k).length || '';
+      });
+      // Connected calendars and calendars shared with me.
+      const groups = { ext: new Map(), share: new Map() };
+      all.forEach((e) => {
+        const p = e.extendedProps;
+        const layer = String(p.layer || '');
+        const g = layer.startsWith('ext-') || layer.startsWith('conn-') ? 'ext' : layer.startsWith('share-') ? 'share' : null;
+        if (!g) return;
+        const cur = groups[g].get(p.layer) || { label: g === 'ext' ? p.source : p.owner, n: 0 };
+        cur.n += 1;
+        groups[g].set(p.layer, cur);
+      });
+      (syncState.imports || []).forEach((imp) => { const k = `ext-${imp.import_id}`; if (!groups.ext.has(k)) groups.ext.set(k, { label: imp.label, n: 0 }); });
+      const bad = (syncState.connections || []).filter((c) => c.last_error === 'reconnect');
+      const notice = root.querySelector('[data-cal-conn-notice]');
+      if (notice) {
+        notice.hidden = !bad.length;
+        notice.innerHTML = bad.map((c) => `<i class="fa-solid fa-link-slash" aria-hidden="true"></i><span><strong>${W.esc(c.account_email)}</strong> needs to be connected again.</span><a class="ws-btn" data-no-spa href="/common/calendar/connect/${c.provider}?tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || '')}">Connect</a>`).join('');
+      }
+      (syncState.connections || []).forEach((c) => { const k = `conn-${c.connection_id}`; if (!groups.ext.has(k)) groups.ext.set(k, { label: c.account_email || 'Connected calendar', n: 0 }); else groups.ext.get(k).label = c.account_email || groups.ext.get(k).label; connProvider[k] = c.provider; });
+      (syncState.sharedWithMe || []).forEach((o) => { const k = `share-${o.id}`; if (!groups.share.has(k)) groups.share.set(k, { label: o.name, n: 0 }); });
+      let i = 0;
+      ['ext', 'share'].forEach((g) => {
+        const html = [...groups[g].entries()].map(([k, v]) => {
+          if (!layerColor[k]) layerColor[k] = connProvider[k] === 'google' ? (i % 2 ? '#34a853' : '#1a73e8') : (connProvider[k] === 'outlook' ? '#0078d4' : PALETTE[i % PALETTE.length]);
+          i += 1;
+          return layerRow(k, v.label || 'Calendar', layerColor[k], v.n, connProvider[k]);
+        }).join('');
+        root.querySelector(`[data-cal-dynamic="${g}"]`).innerHTML = html;
+      });
+      root.querySelector('[data-cal-shared-card]').hidden = !groups.share.size;
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const soon = visible
+        .filter((e) => e.extendedProps.kind !== 'announcement' && (e.end || e.start) >= today)
+        .sort((a, b) => a.start - b.start)
+        .slice(0, 6);
+      const list = root.querySelector('[data-cal-upcoming]');
+      list.innerHTML = soon.length
+        ? soon.map((e) => `<li><button type="button" data-goto="${W.esc(e.id)}"><span class="cal-up__dot" style="background:${colorOf(e)}"></span><span class="cal-up__title">${W.esc(e.title)}</span><span class="cal-up__when">${W.esc(fmtWhen(e))}</span></button></li>`).join('')
+        : '<li class="cal-empty">Nothing coming up in this view.</li>';
+    }
+    root.querySelector('[data-cal-upcoming]').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-goto]');
+      if (!btn) return;
+      const ev = calendar.getEventById(btn.dataset.goto);
+      if (ev) showPeek(ev, btn);
+    });
+    root.addEventListener('change', (e) => {
+      const box = e.target.closest('[data-cal-layer]');
+      if (!box) return;
+      if (box.checked) hidden.delete(box.dataset.calLayer); else hidden.add(box.dataset.calLayer);
+      saveHidden();
+      useCache = true;
+      calendar.refetchEvents();
+    });
+
+    const createBtn = root.querySelector('[data-cal-create]');
+    if (createBtn) createBtn.addEventListener('click', () => {
+      W.open({ type: 'event', canPublish, hasWebsite, start: calendar.getDate(), allDay: true, onSaved: refresh });
+    });
+    if (root.dataset.initialCompose && createBtn) {
+      W.open({ type: root.dataset.initialCompose, canPublish, hasWebsite, onSaved: refresh });
+    }
+
+    // ---------- Sync & share ----------
+    const syncDialog = document.querySelector('[data-sync-dialog]');
+    const syncError = syncDialog.querySelector('[data-sync-error]');
+    let sharePicker = null;
+    const PROVIDERS = [
+      { key: 'google', name: 'Google Calendar', logo: '<img src="https://www.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png" alt="" width="26" height="26">' },
+      { key: 'outlook', name: 'Outlook', logo: '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="13" height="16" rx="2" fill="#0078d4"/><rect x="9" y="6" width="13" height="12" rx="2" fill="#28a8ea"/><circle cx="8.5" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.8"/></svg>' },
+    ];
+    const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+    const ago = (iso) => {
+      if (!iso) return 'Syncing…';
+      const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+      return m < 1 ? 'Synced just now' : m < 60 ? `Synced ${m} min ago` : `Synced ${new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+    };
+
+    async function loadSync(reset) {
+      const r = await fetch('/common/calendar/sync' + (reset ? '?reset=1' : ''), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      const d = await r.json();
+      if (!r.ok || !d.success) throw new Error(d.error || 'Could not load sync settings.');
+      syncState = d;
+      renderSync();
+      renderSide();
+      return d;
+    }
+    function renderSync() {
+      const enc = encodeURIComponent;
+      syncDialog.querySelectorAll('[data-send="apple"]').forEach((a) => { a.href = syncState.webcalUrl; });
+      syncDialog.querySelector('[data-sync-url]').value = syncState.feedUrl;
+      const conns = syncState.connections || [];
+      const configured = syncState.providers || {};
+      const logoOf = (key) => (PROVIDERS.find((p) => p.key === key) || PROVIDERS[0]).logo;
+      const plainStatus = (c) => {
+        if (c.last_error === 'reconnect') return { text: 'Access ended — connect again', cls: 'is-bad' };
+        if (c.last_error === 'setup') return { text: 'Getting ready — it will start syncing automatically', cls: 'is-wait' };
+        if (c.last_error) return { text: 'Will retry shortly', cls: 'is-wait' };
+        return { text: c.last_synced_at ? ago(c.last_synced_at) : 'Syncing…', cls: '' };
+      };
+      const connected = conns.map((c) => {
+        const name = c.provider === 'google' ? 'Google' : 'Outlook';
+        const st = plainStatus(c);
+        return `<div class="sync-conn" data-conn="${c.connection_id}">
+          <div class="sync-conn__top">
+            <span class="sync-btn__logo">${logoOf(c.provider)}</span>
+            <span class="sync-btn__text"><strong>${W.esc(c.account_email || name)}</strong><small class="${st.cls}">${W.esc(st.text)}</small></span>
+            ${c.last_error === 'reconnect'
+              ? `<a class="ws-btn ws-btn--primary" data-no-spa href="/common/calendar/connect/${c.provider}?tz=${enc(tz)}">Connect again</a>`
+              : `<button type="button" class="ws-btn ws-btn--ghost" data-conn-remove="${c.connection_id}">Disconnect</button>`}
+          </div>
+          <div class="sync-conn__ways">
+            <label class="sync-way"><input type="checkbox" data-conn-setting="show" ${c.show_in_managira !== false ? 'checked' : ''}><span><i class="fa-solid fa-arrow-down" aria-hidden="true"></i> Show my ${name} events in Managira</span></label>
+            <label class="sync-way"><input type="checkbox" data-conn-setting="push" ${c.push_enabled !== false ? 'checked' : ''}><span><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> Send Managira events to ${name}</span></label>
+          </div>
+        </div>`;
+      }).join('');
+      const buttons = PROVIDERS.filter((p) => !conns.some((x) => x.provider === p.key)).map((p) => {
+        if (!configured[p.key]) {
+          return `<button type="button" class="sync-pick is-disabled" data-provider-off="${p.key}"><span class="sync-btn__logo">${p.logo}</span><span>${p.name}</span></button>`;
+        }
+        return `<a class="sync-pick" data-no-spa href="/common/calendar/connect/${p.key}?tz=${enc(tz)}"><span class="sync-btn__logo">${p.logo}</span><span>Connect ${p.name}</span></a>`;
+      }).join('');
+      syncDialog.querySelector('[data-sync-connect]').innerHTML =
+        (conns.length ? `<div class="sync-connected"><h3 class="sync-h">Connected</h3>${connected}</div>` : '') +
+        (buttons ? `<div class="sync-picks">${buttons}</div><p class="ws-hint sync-pick-hint">Sign in and you're done — your calendars share both ways automatically.</p>` : '');
+      if (!sharePicker) sharePicker = W.peoplePicker(syncDialog.querySelector('[data-share-people]'), { placeholder: 'Add colleagues…' });
+      sharePicker.set(syncState.sharedWith || []);
+      const n = (syncState.sharedWith || []).length;
+      syncDialog.querySelector('[data-share-status]').textContent = n ? `Shared with ${n} ${n === 1 ? 'person' : 'people'}` : 'Not shared yet';
+    }
+    async function openSync() {
+      syncError.textContent = '';
+      if (!syncDialog.open) syncDialog.showModal();
+      try { await loadSync(false); } catch (err) { syncError.textContent = err.message; }
+    }
+    root.addEventListener('click', async (e) => {
+      const retry = e.target.closest('[data-conn-retry]');
+      if (!retry) return;
+      retry.disabled = true;
+      retry.textContent = 'Retrying…';
+      try { await W.post(`/common/calendar/connections/${retry.dataset.connRetry}/sync`); W.toast('Synced'); }
+      catch (err) { W.toast(err.message); }
+      await loadSync(false).catch(() => {});
+      refresh();
+    });
+    const syncBtn = root.querySelector('[data-cal-sync]');
+    if (syncBtn) syncBtn.addEventListener('click', openSync);
+    syncDialog.querySelector('[data-sync-close]').addEventListener('click', () => syncDialog.close());
+    syncDialog.addEventListener('change', async (e) => {
+      const box = e.target.closest('[data-conn-setting]');
+      if (!box) return;
+      const id = box.closest('[data-conn]').dataset.conn;
+      try {
+        await W.post(`/common/calendar/connections/${id}/settings`, { [box.dataset.connSetting]: box.checked });
+        await loadSync(false);
+        refresh();
+        W.toast('Saved');
+      } catch (err) { box.checked = !box.checked; syncError.textContent = err.message; }
+    });
+    syncDialog.addEventListener('click', async (e) => {
+      if (e.target === syncDialog) { syncDialog.close(); return; }
+      const syncNow = e.target.closest('[data-conn-sync]');
+      if (syncNow) {
+        syncNow.disabled = true;
+        syncNow.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin" aria-hidden="true"></i> Syncing…';
+        syncError.textContent = '';
+        try { await W.post(`/common/calendar/connections/${syncNow.dataset.connSync}/sync`); W.toast('Synced'); }
+        catch (err) { syncError.textContent = err.message; }
+        await loadSync(false).catch(() => {});
+        refresh();
+        return;
+      }
+      const off = e.target.closest('[data-provider-off]');
+      if (off) {
+        syncError.textContent = off.dataset.providerOff === 'outlook'
+          ? 'Outlook sign-in needs a one-time Microsoft app setup on the server before it can be used.'
+          : 'Google sign-in is not set up on this server.';
+        return;
+      }
+      const remove = e.target.closest('[data-conn-remove]');
+      if (remove) {
+        if (!confirm('Disconnect this calendar? The Managira calendar is removed from your account too.')) return;
+        try { await W.post(`/common/calendar/connections/${remove.dataset.connRemove}/disconnect`); await loadSync(false); refresh(); W.toast('Disconnected'); }
+        catch (err) { syncError.textContent = err.message; }
+      }
+    });
+    syncDialog.querySelector('[data-sync-copy]').addEventListener('click', async () => {
+      const input = syncDialog.querySelector('[data-sync-url]');
+      try { await navigator.clipboard.writeText(input.value); } catch (_e) { input.select(); document.execCommand('copy'); }
+      W.toast('Link copied');
+    });
+    syncDialog.querySelector('[data-sync-reset]').addEventListener('click', async () => {
+      if (!confirm('Reset your private link? Calendars using the old link stop updating until you add Managira again.')) return;
+      try { await loadSync(true); W.toast('New private link created'); } catch (err) { syncError.textContent = err.message; }
+    });
+    syncDialog.querySelector('[data-share-save]').addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        await W.post('/common/calendar/shares', { viewerIds: sharePicker.get() });
+        await loadSync(false);
+        W.toast('Sharing saved');
+      } catch (err) { syncError.textContent = err.message; }
+      btn.disabled = false;
+    });
+    if (syncBtn) {
+      loadSync(false).catch(() => {});
+      if (root.dataset.openSync === '1') openSync();
+    }
+  })();
+</script>

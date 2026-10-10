@@ -7,6 +7,8 @@ const { upload } = require("../middleware/s3Upload");
 const checkFeatureAccess = require("../middleware/checkFeatureAccess");
 const { requirePermission, PERMISSIONS } = require("../middleware/permissionMiddleware");
 const websiteController = require("../controllers/websiteController");
+const workspaceController = require("../controllers/workspaceController");
+const { isOrgMember } = require("../utils/workspace");
 const multer = require('multer');
 const path = require('path');
 
@@ -788,6 +790,64 @@ module.exports = (db) => {
   router.get("/activityLogs", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), (req, res) =>
     commonController.activityLogs(req, res, db)
   );
+
+
+  // Calendar (events, announcements, task due dates) and staff tasks.
+  const staffOnly = (req, res, next) => {
+    const role = String(req.session?.userRole || req.session?.accountType || "").toLowerCase();
+    if (!req.session?.organizationId || role === "guardian" || role === "student") {
+      return req.accepts("html") && req.method === "GET" ? res.redirect("/") : res.status(403).json({ success: false, error: "Not available." });
+    }
+    next();
+  };
+  const ws = (fn) => (req, res) => workspaceController[fn](req, res, db);
+  // Mentions, tags, tasks, sharing and sync are only for people who belong to this school
+  // (not platform admins viewing it, and never anyone from another organization).
+  const orgMemberOnly = async (req, res, next) => {
+    try {
+      const userId = Number(req.session?.userId || req.session?.user?.user_id || 0);
+      const r = userId
+        ? await db.query(
+            `SELECT 1 FROM users WHERE user_id = $1 AND organization_id = $2
+               AND LOWER(COALESCE(account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')`,
+            [userId, req.session.organizationId]
+          )
+        : { rowCount: 0 };
+      if (r.rowCount) return next();
+      return res.status(403).json({ success: false, error: "Tasks, tagging and calendar sharing are only for members of this school." });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: "Something went wrong." });
+    }
+  };
+  router.get("/calendar", isAuthenticated, staffOnly, ws("calendarPage"));
+  router.get("/calendar/feed", isAuthenticated, staffOnly, ws("calendarFeed"));
+  router.post("/calendar/events", isAuthenticated, staffOnly, orgMemberOnly, ws("saveEvent"));
+  router.post("/calendar/events/:id(\\d+)", isAuthenticated, staffOnly, orgMemberOnly, ws("saveEvent"));
+  router.post("/calendar/events/:id(\\d+)/delete", isAuthenticated, staffOnly, orgMemberOnly, ws("deleteEvent"));
+  router.post("/calendar/announcements", isAuthenticated, staffOnly, orgMemberOnly, ws("createAnnouncement"));
+  router.post("/calendar/personal", isAuthenticated, staffOnly, orgMemberOnly, ws("saveEvent"));
+  router.post("/calendar/personal/:id(\\d+)", isAuthenticated, staffOnly, orgMemberOnly, ws("saveEvent"));
+  router.post("/calendar/personal/:id(\\d+)/delete", isAuthenticated, staffOnly, orgMemberOnly, ws("deleteEvent"));
+  router.get("/calendar/sync", isAuthenticated, staffOnly, orgMemberOnly, ws("syncSettings"));
+  router.post("/calendar/imports", isAuthenticated, staffOnly, orgMemberOnly, ws("addImport"));
+  router.post("/calendar/imports/:id(\\d+)/delete", isAuthenticated, staffOnly, orgMemberOnly, ws("removeImport"));
+  router.post("/calendar/shares", isAuthenticated, staffOnly, orgMemberOnly, ws("saveShares"));
+  const orgMemberPage = async (req, res, next) => {
+    if (await isOrgMember(db, req)) return next();
+    req.flash("error", "Calendar connections are for members of this school.");
+    return res.redirect("/common/calendar");
+  };
+  router.get("/calendar/connect/:provider(google|outlook)", isAuthenticated, staffOnly, orgMemberPage, ws("connectStart"));
+  router.get("/calendar/connect/outlook/callback", isAuthenticated, staffOnly, (req, res) => workspaceController.connectCallback(req, res, db, "outlook"));
+  router.post("/calendar/connections/:id(\\d+)/disconnect", isAuthenticated, staffOnly, orgMemberOnly, ws("connectRemove"));
+  router.post("/calendar/connections/:id(\\d+)/sync", isAuthenticated, staffOnly, orgMemberOnly, ws("connectSyncNow"));
+  router.post("/calendar/connections/:id(\\d+)/settings", isAuthenticated, staffOnly, orgMemberOnly, ws("connectVisibility"));
+  router.get("/workspace/staff", isAuthenticated, staffOnly, orgMemberOnly, ws("staffDirectory"));
+  router.post("/tasks", isAuthenticated, staffOnly, orgMemberOnly, ws("createTask"));
+  router.post("/tasks/:id(\\d+)/status", isAuthenticated, staffOnly, orgMemberOnly, ws("taskStatus"));
+  router.get("/tasks/:id(\\d+)/comments", isAuthenticated, staffOnly, orgMemberOnly, ws("taskComments"));
+  router.post("/tasks/:id(\\d+)/comments", isAuthenticated, staffOnly, orgMemberOnly, ws("addTaskComment"));
+  router.post("/tasks/:id(\\d+)/react", isAuthenticated, staffOnly, orgMemberOnly, ws("reactTask"));
 
   return router;
 };

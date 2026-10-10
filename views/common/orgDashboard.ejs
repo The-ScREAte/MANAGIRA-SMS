@@ -1,77 +1,473 @@
-<body>
-  <%- include('../partials/flash') %>
+<%- include('../partials/flash') %>
+<%
+  const _fmtDate = (d) => d ? (typeof formatDisplayDate === 'function' ? formatDisplayDate(d) : new Date(d).toLocaleDateString()) : '';
+  const _roleKey = String((typeof userRole !== 'undefined' && userRole)
+    ? userRole
+    : ((typeof req !== 'undefined' && req && req.session && req.session.userRole) ? req.session.userRole : '')
+  ).trim().toLowerCase();
+  const _feats = Array.isArray(allowedFeatures) ? allowedFeatures : [];
+  const _perms = (typeof userPermissions !== 'undefined' && Array.isArray(userPermissions)) ? userPermissions : [];
+  const _perm = (k) => _perms.includes(k);
+  const _feat = (...names) => names.some((n) => _feats.includes(n));
+  const _hasWebsite = _feat('School Website', 'SchoolWebsite');
+  const _hasDashboard = !!(schoolYear && currentTerm);
+  const _sess = (typeof session !== 'undefined' && session) ? session : {};
+  const _viewerKey = String([organizationId || 'org', _sess.userId || (_sess.user && _sess.user.user_id) || (_sess.orgUser && _sess.orgUser.organization_id) || 'me'].join('-')).replace(/[^a-z0-9-]/gi, '');
 
-  <style>
-    .next-term-cta {
-      margin-top: 10px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid color-mix(in srgb, var(--org-primary-color, #0f5a66) 24%, #cbd5e1);
-      background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 10%, #f8fafc);
-      color: var(--org-primary-color, #0f5a66);
-      text-decoration: none;
-      font-size: 0.86rem;
-      font-weight: 600;
-      transition: all 0.2s ease;
-    }
+  // Quick actions: every page this person can open, in a sensible default order.
+  // The browser re-orders them by how often this person uses them.
+  const _actions = [];
+  const _addAction = (key, href, icon, label, compose) => _actions.push({ key, href, icon, label, compose });
+  const _wsMember = typeof workspaceMember === 'undefined' ? true : !!workspaceMember;
+  if (_wsMember) _addAction('new-task', '/common/calendar?new=task', 'fa-square-check', 'New task', 'task');
+  _addAction('calendar', '/common/calendar', 'fa-calendar-days', 'Calendar');
+  if (_perm('manage_students')) { _addAction('add-student', '/common/addStudent', 'fa-user-plus', 'Add student'); _addAction('students', '/common/allStudents', 'fa-user-graduate', 'All students'); }
+  if (_perm('manage_students') && !['teacher', 'driver', 'student_teacher'].includes(_roleKey)) _addAction('transport', '/transportation/manage', 'fa-bus', 'Transport');
+  if (_perm('approve_admissions') && _feat('Student and Guardian Profile', 'Student and Guadian Profile')) _addAction('admissions', '/common/admissions', 'fa-inbox', 'Admissions');
+  if (_perm('manage_employees')) { _addAction('add-staff', '/common/createEmployee', 'fa-id-badge', 'Add staff'); _addAction('management', '/common/management', 'fa-users-gear', 'Management'); }
+  if (_perm('publish_events_announcements')) _addAction('events', '/common/manageEventsAnnouncements', 'fa-calendar-plus', 'Events & announcements');
+  if (_perm('manage_paygira') && _feat('PayGira')) { _addAction('fees', '/account/settings/finance', 'fa-wallet', 'Fees & payments'); _addAction('arrears', '/account/settings/finance/arrears', 'fa-file-invoice-dollar', 'Arrears'); }
+  if (_perm('mailroom')) _addAction('mailroom', '/common/mailroom', 'fa-paper-plane', 'Send a message');
+  if (_perm('manage_reports') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) _addAction('reports', '/common/reports', 'fa-chart-column', 'Reports');
+  if (_perm('manage_records')) _addAction('records', '/common/manageRecords', 'fa-calendar-days', 'School years & terms');
+  if (_perm('manage_classes_subjects')) _addAction('classes', '/common/manageClassSubjectAndGradYr', 'fa-chalkboard', 'Classes & subjects');
+  _addAction('settings', '/account/settings', 'fa-user-gear', 'My profile & settings');
+%>
 
-    .next-term-cta:hover {
-      border-color: var(--org-primary-color, #0f5a66);
-      background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 16%, #f8fafc);
-      transform: translateY(-1px);
-    }
+<style>
+  :root {
+    --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
+  }
+  body { font-family: var(--font-family); }
 
-    .next-term-icon {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--org-primary-color, #0f5a66);
-      color: #fff;
-      font-size: 0.72rem;
-      font-weight: 700;
-      line-height: 1;
-    }
+  /* ---------- Nav row: Org Dashboard / School Website + tools ---------- */
+  .org-nav-wrap {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    width: calc(100% - 64px); max-width: 1640px; margin: 24px auto 18px; box-sizing: border-box;
+  }
+  .org-nav-wrap--center { justify-content: center; }
+  .org-nav-buttons { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .org-nav-button {
+    display: inline-flex; align-items: center; justify-content: center; padding: 10px 18px; font-size: 0.95rem; font-weight: 600;
+    border: 2px solid var(--org-primary-color, #01535b); border-radius: 8px; background-color: #ffffff;
+    color: var(--org-primary-color, #01535b); cursor: pointer; transition: all 0.2s ease; width: auto; margin: 0;
+    flex: 0 0 auto; min-width: 150px; text-align: center; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  }
+  .org-nav-button:hover { background-color: rgba(1, 83, 91, 0.08); border-color: var(--org-primary-hover-fill, var(--org-primary-hover, #014a51)); color: var(--org-primary-hover, #014a51); }
+  .org-nav-button.active { background-color: var(--org-primary-color, #01535b); color: #ffffff; border-color: var(--org-primary-color, #01535b); }
 
-    .next-term-cta-target {
-      font-weight: 600;
-      color: color-mix(in srgb, var(--org-primary-color, #0f5a66) 62%, #0f172a);
-    }
+  .od-tools { display: inline-flex; align-items: center; gap: 8px; }
+  .od-dd { position: relative; }
+  .od-tool {
+    display: inline-flex !important; align-items: center; gap: 8px; height: 44px; padding: 0 14px !important; margin: 0 !important; width: auto !important;
+    border: 1px solid color-mix(in srgb, var(--org-primary-color, #0f5a66) 35%, #e2e8f0) !important; border-radius: 8px !important; background: #fff !important; color: #0f172a !important;
+    font-size: 0.92rem; font-weight: 600; cursor: pointer; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06); white-space: nowrap;
+  }
+  .od-tool i { color: var(--org-primary-color, #0f5a66); }
+  .od-tool .od-tool__caret { font-size: 0.7rem; color: #94a3b8; transition: transform .15s ease; }
+  .od-tool:hover, .od-dd.is-open .od-tool { border-color: var(--org-primary-color, #0f5a66) !important; }
+  .od-dd.is-open .od-tool__caret { transform: rotate(180deg); }
+  .od-tool--icon { width: 44px !important; justify-content: center; padding: 0 !important; }
+  .od-tool--customize { background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 7%, #ffffff) !important; }
+  .od-tool--customize i { font-size: 0.85rem; }
+  .od-dd__panel {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; min-width: 270px; max-width: calc(100vw - 32px);
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+    padding: 10px; text-align: left; box-sizing: border-box;
+  }
+  .od-dd__panel[hidden] { display: none !important; }
+  .od-dd__panel--wide { width: 290px; }
+  .od-dd__title { font-size: 0.72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; padding: 4px 8px 8px; }
+  .od-qa { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .od-qa li { margin: 0; }
+  .od-qa:not(.is-all) li.od-qa--more { display: none; }
+  .od-qa__all { all: unset; display: block; margin: 4px 8px 2px; cursor: pointer; font-size: 0.84rem; font-weight: 600; color: var(--org-primary-color, #0f5a66); }
+  .od-qa__all:hover { text-decoration: underline; }
+  .od-qa a {
+    display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; color: #0f172a !important;
+    font-size: 0.88rem; font-weight: 600; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .od-qa a i {
+    flex: 0 0 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 9%, #fff); color: var(--org-primary-color, #0f5a66); font-size: 0.85rem;
+  }
+  .od-qa a:hover { background: #f8fafc; color: var(--org-primary-color, #0f5a66) !important; }
+  .od-dd__hint { margin: 6px 8px 2px; font-size: 0.76rem; color: #94a3b8; }
+  .od-check { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; font-size: 0.9rem; color: #0f172a; cursor: pointer; margin: 0; }
+  .od-check:hover { background: #f8fafc; }
+  .od-check.is-locked { opacity: .7; cursor: not-allowed; }
+  .od-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--org-primary-color, #0f5a66); cursor: pointer; }
+  .od-dd__foot { border-top: 1px solid #f1f5f9; margin-top: 6px; padding: 8px 8px 2px; }
+  .od-dd__reset { all: unset; cursor: pointer; font-size: 0.84rem; font-weight: 600; color: var(--org-primary-color, #0f5a66); }
+  .od-dd__reset:hover { text-decoration: underline; }
 
-    .next-term-cta-note {
-      font-size: 0.78rem;
-      color: color-mix(in srgb, var(--org-primary-color, #0f5a66) 58%, #334155);
-    }
-  </style>
+  /* ---------- Dashboard ---------- */
+  #orgDashboardSection { max-width: none; width: 100%; margin: 0; padding: 0 32px; box-sizing: border-box; }
+  .dashboard-grid { width: 100%; max-width: 1640px; margin: 0 auto; padding: 0 !important; }
+  .dashboard-grid > .od { flex: 1 1 100%; margin: 0 0 28px; }
 
-  <br />
-  <div class="org-nav-wrap">
-    <div class="org-nav-buttons">
-      <button id="orgDashboardBtn" class="org-nav-button active">Org Dashboard</button>
+  .od {
+    --od-primary: var(--org-primary-color, #0f5a66);
+    --od-primary-hover: var(--org-primary-hover, #0b4750);
+    --od-soft: color-mix(in srgb, var(--od-primary) 8%, #ffffff);
+    --od-soft-border: color-mix(in srgb, var(--od-primary) 22%, #e2e8f0);
+    --od-text: #0f172a;
+    --od-muted: #64748b;
+    --od-border: color-mix(in srgb, var(--od-primary) 30%, #e2e8f0);
+    --od-line: color-mix(in srgb, var(--od-primary) 12%, #eef2f6);
+    color: var(--od-text);
+    display: grid; gap: 20px; min-width: 0;
+  }
+  .od *, .od *::before, .od *::after { box-sizing: border-box; }
+  .od ul { list-style: none; margin: 0; padding: 0; }
+  .od li { margin: 0; text-align: left; }
+  .od p { margin: 0; }
+  .od h2, .od h3 { text-align: left; }
+  .od button { width: auto; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; box-shadow: none; }
+  .od button:hover { background: none; }
+  .od a { text-decoration: none; }
+  .od [hidden] { display: none !important; }
+  .od-row-empty { display: none !important; }
 
-      <% if (Array.isArray(allowedFeatures) && (allowedFeatures.includes("School Website") || allowedFeatures.includes("SchoolWebsite"))) { %>
-        <button
-          id="publicDashboardBtn"
-          class="org-nav-button"
-          onclick="window.location.href='/common/publicDashboard?organizationId=<%= organizationId %>'"
-        >
-          School Website
-        </button>
-      <% } %>
-    </div>
+  .od-pair { display: flex; gap: 20px 24px; align-items: flex-start; }
+  .od-pair > * { flex: 1 1 0; min-width: 0; }
+
+  .od-card {
+    border: 1px solid var(--od-border); border-radius: 14px; padding: 20px; min-width: 0;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--od-primary) 9%, #ffffff) 0, color-mix(in srgb, var(--od-primary) 3%, #ffffff) 74px, color-mix(in srgb, var(--od-primary) 3%, #ffffff) 100%);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px color-mix(in srgb, var(--od-primary) 7%, transparent);
+  }
+  .od-card .od-card__head { padding-bottom: 12px; border-bottom: 1px solid color-mix(in srgb, var(--od-primary) 14%, #eef2f6); }
+  .od-scope { margin-left: 4px; padding: 2px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--od-line); color: var(--od-muted); font-size: 0.72rem; font-weight: 600; }
+  .od-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .od-card__title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--od-text) !important; }
+  .od-card__title i { color: var(--od-primary); font-size: 0.95rem; }
+  .od-count { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--od-soft); color: var(--od-primary); font-size: 0.78rem; font-weight: 700; }
+  .od-link { color: var(--od-primary) !important; font-size: 0.88rem; font-weight: 600; white-space: nowrap; }
+  .od-link:hover { text-decoration: underline; }
+  .od-empty { color: var(--od-muted); font-size: 0.92rem; padding: 4px 0; }
+  .od-empty a { color: var(--od-primary); font-weight: 600; text-decoration: underline; }
+  .od-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; font-size: 0.9rem; font-weight: 600; line-height: 1.25; border: 1px solid var(--od-border); background: #fff; color: var(--od-text) !important; }
+  .od-btn--primary { background: var(--od-primary); border-color: var(--od-primary); color: #fff !important; }
+  .od-btn--primary:hover { background: var(--od-primary-hover); border-color: var(--od-primary-hover); }
+
+  /* Enrolled classes */
+  .od-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; }
+  .od-cols--single { grid-template-columns: minmax(0, 1fr); }
+  .od-crow { display: flex; align-items: center; gap: 8px; min-height: 42px; border-bottom: 1px solid var(--od-line); position: relative; }
+  .od-crow__name { flex: 1 1 auto; }
+  .od-crow__edit {
+    flex: 0 0 auto; width: 26px; height: 26px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center;
+    color: #94a3b8 !important; font-size: 0.72rem; transition: background-color .15s ease, color .15s ease;
+  }
+  .od-crow__edit:hover { background: var(--od-soft); color: var(--od-primary) !important; }
+  .od-col > .od-crow:last-child { border-bottom: 0; }
+  .od-crow__name { font-weight: 700; font-size: 0.93rem; color: var(--od-text) !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .od-crow__name:hover { color: var(--od-primary) !important; }
+  .od-divider { border: 0; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--od-primary) 22%, #eef2f6); margin: 12px 0; }
+  .od-teachers { position: relative; flex: 0 1 auto; min-width: 0; max-width: 62%; }
+  .od-teachers summary, .od-noteacher { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--od-muted); padding: 4px 8px; border-radius: 8px; white-space: nowrap; }
+  .od-teachers summary { cursor: pointer; list-style: none; }
+  .od-teachers summary::-webkit-details-marker { display: none; }
+  .od-teachers summary:hover, .od-teachers[open] summary { background: var(--od-soft); color: var(--od-primary); }
+  .od-teachers__lead { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .od-teachers__extra { flex: 0 0 auto; font-weight: 700; color: var(--od-primary); }
+  .od-teachers__caret { font-size: 0.62rem; transition: transform .15s ease; }
+  .od-teachers[open] .od-teachers__caret { transform: rotate(180deg); }
+  .od-noteacher { color: #b45309; }
+  .od-teachers ul {
+    position: absolute; top: calc(100% + 4px); right: 0; z-index: 30; width: max-content; min-width: 220px; max-width: 300px;
+    display: grid; gap: 7px; padding: 10px 12px; max-height: 260px; overflow-y: auto;
+    background: #fff; border: 1px solid var(--od-border); border-radius: 10px; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  }
+  .od-teacher { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 0.84rem; color: #334155; }
+  .od-teacher__name { color: #334155 !important; }
+  .od-teacher__name:hover { color: var(--od-primary) !important; text-decoration: underline; }
+  .od-tag { padding: 1px 7px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+  .od-tag--main { background: #ecfdf5; color: #047857; }
+  .od-tag--pending { background: #fffbeb; color: #b45309; }
+  .od-tag--hold { background: #fef2f2; color: #b91c1c; }
+
+  /* School year */
+  .od-chip { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; background: #f1f5f9; color: #334155; font-size: 0.8rem; font-weight: 600; }
+  .od-today { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px; background: #f8fafc; border: 1px solid var(--od-border); font-size: 0.82rem; color: #334155; white-space: nowrap; }
+  .od-today img { display: block; border-radius: 2px; }
+  .od-term { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .od-eyebrow { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--od-muted); }
+  .od-term__name { display: block; font-size: 1.2rem; font-weight: 700; margin-top: 2px; }
+  .od-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+  .od-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .od-pill--live { background: #ecfdf5; color: #047857; }
+  .od-pill--upcoming { background: #eff6ff; color: #1d4ed8; }
+  .od-pill--ended { background: #fff7ed; color: #c2410c; }
+  .term-duration { margin-top: 18px; }
+  .term-duration__row { display: flex; align-items: center; gap: 12px; }
+  .term-duration__bar { flex: 1; height: 10px; border-radius: 999px; background: #eef2f6; overflow: hidden; }
+  .term-duration__pct { flex: 0 0 auto; min-width: 52px; text-align: center; padding: 3px 9px; border-radius: 999px; background: var(--od-soft); color: var(--od-primary); font-size: 0.85rem; font-weight: 800; }
+  .term-duration__bar > span { display: block; height: 100%; border-radius: inherit; background: var(--od-primary); }
+  .term-duration__meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 7px; font-size: 0.8rem; color: var(--od-muted); }
+  .term-duration__meta strong { color: #334155; font-weight: 600; }
+  .od-next { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--od-line); display: grid; gap: 10px; justify-items: start; }
+  .od-next__text { font-size: 0.88rem; color: #475569; }
+
+  /* Numbers */
+  .od-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px 24px; }
+  .od-kpi {
+    --k: var(--od-primary);
+    display: flex; gap: 12px; align-items: flex-start; padding: 16px 18px; border-radius: 14px; color: var(--od-text) !important;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--k) 13%, #ffffff), color-mix(in srgb, var(--k) 4%, #ffffff));
+    border: 1px solid color-mix(in srgb, var(--k) 30%, #e2e8f0);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px color-mix(in srgb, var(--k) 10%, transparent);
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  }
+  .od-kpi--admissions { --k: #2563eb; }
+  .od-kpi--attendance { --k: #7c3aed; }
+  .od-kpi--fees { --k: #059669; }
+  .od-kpi--transport { --k: #d97706; }
+  a.od-kpi:hover { border-color: var(--od-soft-border); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08); transform: translateY(-1px); }
+  .od-kpi__icon { flex: 0 0 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #fff; color: var(--k); box-shadow: 0 2px 6px color-mix(in srgb, var(--k) 18%, transparent); }
+  .od-kpi__label { color: color-mix(in srgb, var(--k) 70%, #334155) !important; }
+  .od-kpi__bar > span { background: var(--k) !important; }
+  a.od-kpi:hover { border-color: color-mix(in srgb, var(--k) 55%, #e2e8f0) !important; }
+  .od-kpi__body { display: grid; gap: 2px; min-width: 0; flex: 1; }
+  .od-kpi__label { font-size: 0.8rem; color: var(--od-muted); font-weight: 600; }
+  .od-kpi__value { font-size: 1.45rem; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+  .od-kpi__note { font-size: 0.78rem; color: var(--od-muted); }
+  .od-kpi__bar { height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.85); overflow: hidden; margin: 4px 0 2px; }
+  .od-kpi__bar > span { display: block; height: 100%; background: var(--od-primary); border-radius: inherit; }
+
+  /* Lists: events, announcements, alerts, activity */
+  .od-list > li + li { border-top: 1px solid var(--od-line); }
+  .od-list:not(.is-expanded) > .od-extra { display: none; }
+  .od-showall { margin-top: 10px !important; color: var(--od-primary) !important; font-size: 0.86rem; }
+  .od-showall:hover { text-decoration: underline; }
+  .od-sublabel { margin: 0 0 6px; font-size: 0.75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--od-muted); }
+
+  .od-event > details > summary, .od-event > .od-event__row { display: flex; align-items: center; gap: 12px; padding: 10px 0; list-style: none; }
+  .od-event > details > summary { cursor: pointer; }
+  .od-event > details > summary::-webkit-details-marker { display: none; }
+  .od-event > details > summary:hover .od-event__name { color: var(--od-primary); }
+  .od-date { flex: 0 0 44px; height: 46px; border-radius: 10px; background: var(--od-soft); color: var(--od-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; }
+  .od-date__m { font-size: 0.66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .od-date__d { font-size: 1.1rem; font-weight: 800; }
+  .od-event--past .od-date { background: #f1f5f9; color: #64748b; }
+  .od-event__body { min-width: 0; flex: 1; display: grid; gap: 2px; }
+  .od-event__name { font-weight: 600; font-size: 0.93rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .od-event__meta { font-size: 0.8rem; color: var(--od-muted); }
+  .od-event__caret { color: #94a3b8; font-size: 0.7rem; transition: transform .15s ease; }
+  .od-event details[open] .od-event__caret { transform: rotate(180deg); }
+  .od-event__details { margin: 0 0 12px 56px !important; font-size: 0.88rem; color: #334155; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }
+  .od-past { margin-top: 12px; }
+  .od-past > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; font-size: 0.75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--od-muted); }
+  .od-past > summary::-webkit-details-marker { display: none; }
+  .od-past > summary i { font-size: 0.65rem; transition: transform .15s ease; }
+  .od-past[open] > summary i { transform: rotate(90deg); }
+  .od-past > summary:hover { color: var(--od-primary); }
+  .od-past > .od-list { margin-top: 4px; }
+
+  .od-ann { padding: 12px 0; }
+  .od-ann:first-child { padding-top: 0; }
+  .od-ann__text { font-size: 0.92rem; color: #1e293b; line-height: 1.55; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .od-ann.is-open .od-ann__text { display: block; -webkit-line-clamp: unset; white-space: pre-line; }
+  .od-ann__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+  .od-ann__date { font-size: 0.78rem; color: var(--od-muted); }
+  .od-ann__toggle { color: var(--od-primary) !important; font-size: 0.82rem; }
+  .od-ann__toggle:hover { text-decoration: underline; }
+
+  .od-alert { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; }
+  .od-alert:first-child { padding-top: 0; }
+  .od-alert__icon { flex: 0 0 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; }
+  .od-alert--red .od-alert__icon { background: #fef2f2; color: #b91c1c; }
+  .od-alert--amber .od-alert__icon { background: #fffbeb; color: #b45309; }
+  .od-alert--blue .od-alert__icon { background: #eff6ff; color: #1d4ed8; }
+  .od-alert__body { flex: 1; min-width: 0; display: grid; gap: 3px; }
+  .od-alert__text { font-size: 0.92rem; font-weight: 600; }
+  .od-alert__note { font-size: 0.8rem; color: var(--od-muted); }
+  .od-alert__links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .od-alert__links a, .od-alert__links span { padding: 2px 9px; border-radius: 999px; background: var(--od-soft); color: var(--od-primary) !important; font-size: 0.78rem; font-weight: 600; }
+  .od-alert__links span { background: #f1f5f9; color: var(--od-muted) !important; }
+  .od-alert__links a:hover { text-decoration: underline; }
+  .od-alert__action { align-self: center; }
+  .od-allclear { display: flex; align-items: center; gap: 8px; color: #047857; font-weight: 600; font-size: 0.92rem; }
+
+  .od-activity { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; }
+  .od-activity:first-child { padding-top: 0; }
+  .od-activity__avatar { flex: 0 0 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--od-soft); color: var(--od-primary); font-weight: 700; font-size: 0.85rem; }
+  .od-activity__body { display: grid; gap: 2px; min-width: 0; }
+  .od-activity__text { font-size: 0.88rem; color: #334155; line-height: 1.45; overflow-wrap: anywhere; }
+  .od-activity__text strong { color: var(--od-text); }
+  .od-activity__meta { font-size: 0.76rem; color: var(--od-muted); }
+
+
+  /* Activity & Announcements */
+  .od-newtask { display: inline-flex !important; align-items: center; gap: 6px; padding: 6px 10px !important; border-radius: 8px !important; }
+  .od-newtask:hover { background: var(--od-soft) !important; text-decoration: none !important; }
+  .od-tabs { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--od-line); margin: -4px 0 12px; }
+  .od-tab { display: inline-flex !important; align-items: center; gap: 7px; padding: 8px 10px !important; margin-bottom: -1px !important; border-bottom: 2px solid transparent !important; color: var(--od-muted) !important; font-size: 0.9rem; }
+  .od-tab.is-active { color: var(--od-primary) !important; border-bottom-color: var(--od-primary) !important; }
+  .od-tab:hover { color: var(--od-text) !important; }
+  .od-tabs__manage { margin-left: auto; font-size: 0.84rem; }
+  .od-ann-manage { display: inline-block; margin-top: 10px; font-size: 0.84rem; }
+  .od-feed-empty { display: grid; justify-items: center; gap: 4px; padding: 22px 10px; text-align: center; color: var(--od-muted); }
+  .od-feed-empty i { font-size: 1.6rem; color: var(--od-primary); opacity: .7; }
+  .od-feed-empty p { color: var(--od-text); font-weight: 600; }
+  .od-feed-empty span { font-size: 0.86rem; }
+  .od-tagged { margin-bottom: 6px; }
+  .od-tagged__item { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+  .od-tagged__label { font-size: 0.72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--od-primary); }
+  .od-tagged__name { color: var(--od-text) !important; }
+  .od-tagged__name:hover { color: var(--od-primary) !important; text-decoration: underline; }
+  .od-tagged + .od-tasks { border-top: 1px solid var(--od-line); }
+  .od-task { padding: 12px 0; scroll-margin-top: 90px; }
+  .od-card__links { display: inline-flex; gap: 14px; }
+  .od-event__row--link { color: inherit !important; border-radius: 10px; width: 100% !important; text-align: left; }
+  .od-event__row--link:hover .od-event__name { color: var(--od-primary); }
+  .od-kind { display: inline-block; margin-right: 6px; padding: 0 7px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; }
+  .od-kind--task { background: #e0f2fe; color: #0369a1; }
+  .od-kind--personal { background: #f1f5f9; color: #475569; }
+  .od-event--task .od-date { background: #e0f2fe; color: #0369a1; }
+  .od-event--personal .od-date { background: #f1f5f9; color: #475569; }
+  .od-feed-label { display: flex; align-items: center; gap: 8px; margin: 14px 0 2px !important; }
+  .od-feed-label:first-of-type { margin-top: 2px !important; }
+  .od-feed-label span { margin-left: auto; font-weight: 600; letter-spacing: 0; text-transform: none; font-size: 0.78rem; }
+  .od-task__people { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .od-person { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; background: #f1f5f9; color: #334155; font-weight: 600; font-size: 0.76rem; }
+  .od-person.is-done { background: #ecfdf5; color: #047857; }
+  .od-person i { font-size: 0.62rem; }
+  .od-task.is-flash { animation: od-flash 1.8s ease; border-radius: 10px; }
+  @keyframes od-flash { 0%, 40% { background: var(--od-soft); } 100% { background: transparent; } }
+  .od-task__row { display: flex; gap: 12px; align-items: flex-start; }
+  .od-task__check {
+    flex: 0 0 22px; width: 22px !important; height: 22px; margin-top: 1px !important; border-radius: 50% !important;
+    border: 2px solid color-mix(in srgb, var(--od-primary) 45%, #cbd5e1) !important; display: grid !important; place-items: center;
+    color: transparent !important; font-size: 0.66rem; transition: background-color .15s ease, border-color .15s ease;
+  }
+  .od-task__check:hover { border-color: var(--od-primary) !important; color: var(--od-primary) !important; }
+  .od-task__check[aria-pressed="true"] { background: var(--od-primary) !important; border-color: var(--od-primary) !important; color: #fff !important; }
+  .od-task__main { flex: 1; min-width: 0; display: grid; gap: 4px; }
+  .od-task__title { font-weight: 700; font-size: 0.95rem; overflow-wrap: anywhere; }
+  .od-task.is-done .od-task__title { color: var(--od-muted); text-decoration: line-through; }
+  .od-task__meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.8rem; color: var(--od-muted); }
+  .od-task__due.is-late { color: #b91c1c; font-weight: 600; }
+  .od-task__flag { padding: 0 7px; border-radius: 999px; background: #fef2f2; color: #b91c1c; font-weight: 700; font-size: 0.72rem; }
+  .od-task__details { font-size: 0.9rem; color: #334155; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+  .od-mention { color: var(--od-primary); font-weight: 600; background: var(--od-soft); padding: 0 3px; border-radius: 4px; }
+  .od-task__bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .od-reacts { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .od-react { display: inline-flex !important; align-items: center; gap: 4px; padding: 2px 8px !important; border-radius: 999px !important; border: 1px solid var(--od-line) !important; background: #fff !important; font-size: 0.82rem; }
+  .od-react span { font-size: 0.76rem; color: var(--od-muted); font-weight: 700; }
+  .od-react.is-mine { border-color: var(--od-primary) !important; background: var(--od-soft) !important; }
+  .od-react.is-mine span { color: var(--od-primary); }
+  .od-task__act { display: inline-flex !important; align-items: center; gap: 6px; padding: 4px 8px !important; border-radius: 8px !important; color: var(--od-muted) !important; font-size: 0.82rem; }
+  .od-task__act:hover { background: var(--od-soft) !important; color: var(--od-primary) !important; }
+  .od-react-pick { position: relative; display: inline-flex; }
+  .od-react-menu { position: absolute; bottom: calc(100% + 6px); left: 0; z-index: 20; display: flex; gap: 2px; padding: 5px; background: #fff; border: 1px solid var(--od-border); border-radius: 999px; box-shadow: 0 10px 24px rgba(15, 23, 42, .14); }
+  .od-react-menu[hidden] { display: none; }
+  .od-react-menu button { width: 32px !important; height: 32px; border-radius: 50% !important; font-size: 1.05rem; display: grid !important; place-items: center; }
+  .od-react-menu button:hover { background: var(--od-soft) !important; transform: scale(1.12); }
+  .od-thread { margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: #f8fafc; border: 1px solid var(--od-line); display: grid; gap: 8px; }
+  .od-thread__list { display: grid; gap: 10px; }
+  .od-thread__list:empty { display: none; }
+  .od-comment { display: flex; gap: 8px; align-items: flex-start; }
+  .od-comment__avatar { flex: 0 0 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--od-soft); color: var(--od-primary); font-size: 0.7rem; font-weight: 700; }
+  .od-comment__body { display: grid; gap: 1px; min-width: 0; }
+  .od-comment__who { font-size: 0.8rem; font-weight: 700; }
+  .od-comment__who small { font-weight: 500; color: var(--od-muted); margin-left: 6px; }
+  .od-comment__text { font-size: 0.88rem; color: #334155; white-space: pre-line; overflow-wrap: anywhere; }
+  .od-thread__form { display: flex; gap: 6px; margin: 0; }
+  .od-thread__input { flex: 1; min-width: 0; margin: 0; padding: 8px 12px; border: 1px solid #d5dde6; border-radius: 999px; font: inherit; font-size: 0.88rem; background: #fff; }
+  .od-thread__input:focus { outline: none; border-color: var(--od-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--od-primary) 15%, transparent); }
+  .od-thread__send { flex: 0 0 36px; width: 36px !important; height: 36px; border-radius: 50% !important; background: var(--od-primary) !important; color: #fff !important; display: grid !important; place-items: center; font-size: 0.8rem; }
+  .od-thread__send:hover { background: var(--od-primary-hover) !important; }
+  @media (max-width: 900px) {
+    .od-pair { flex-direction: column; align-items: stretch; }
+  }
+  @media (max-width: 768px) {
+    #orgDashboardSection { padding: 0 16px; }
+    .org-nav-wrap { width: calc(100% - 32px); margin-top: 18px; }
+    .org-nav-buttons { width: 100%; }
+    .org-nav-button { flex: 1 1 40%; font-size: 0.88rem; min-width: 0; }
+    .od-tools { width: 100%; }
+    .od-dd--actions { flex: 1; }
+    .od-dd--actions .od-tool { width: 100% !important; justify-content: center; }
+    .od-tool--customize .od-tool__text { display: none; }
+    .od-tool--customize { width: 44px !important; justify-content: center; padding: 0 !important; }
+    .od-dd { position: static; }
+    .org-nav-wrap { position: relative; }
+    .od-dd__panel { left: 0; right: 0; width: auto !important; min-width: 0; max-width: none; }
+    .od-card { padding: 16px; }
+    .od-cols { grid-template-columns: minmax(0, 1fr); }
+    .od-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .od-kpi { padding: 12px; flex-direction: column; gap: 8px; }
+    .od-kpi__value { font-size: 1.2rem; }
+  }
+
+  .welcome-page-wrapper { display: flex; justify-content: center; align-items: center; min-height: 60vh; padding: 20px; }
+  .org-welcome-card { max-width: 800px; width: 100%; margin: 0 auto; text-align: center; }
+</style>
+
+<% if (_hasDashboard) { %>
+<script>
+  // Apply hidden dashboard sections before they paint (saved per person in this browser).
+  (function () {
+    try {
+      var hidden = JSON.parse(localStorage.getItem('od:hidden:<%= _viewerKey %>') || '[]');
+      var style = document.getElementById('od-hidden-style') || document.createElement('style');
+      style.id = 'od-hidden-style';
+      style.textContent = hidden.map(function (k) { return '[data-od-section="' + String(k).replace(/[^a-z0-9-]/gi, '') + '"]{display:none!important}'; }).join('');
+      document.head.appendChild(style);
+    } catch (_e) {}
+  })();
+</script>
+<% } %>
+
+<div class="org-nav-wrap<%= _hasDashboard ? '' : ' org-nav-wrap--center' %>">
+  <div class="org-nav-buttons">
+    <button id="orgDashboardBtn" class="org-nav-button active">Org Dashboard</button>
+    <% if (_hasWebsite) { %>
+      <button id="publicDashboardBtn" class="org-nav-button" onclick="window.location.href='/common/publicDashboard?organizationId=<%= organizationId %>'">School Website</button>
+    <% } %>
   </div>
 
-  <div class="line-divider"></div>
-  <div id="ann-dashboard-notices" class="ann-dashboard-notices ann-dashboard-notices--org" aria-label="Announcements"></div>
+    <% if (_hasDashboard) { %>
+    <div class="od-tools" data-od-tools data-od-viewer="<%= _viewerKey %>">
+      <% if (_actions.length) { %>
+      <div class="od-dd od-dd--actions" data-od-dd>
+        <button type="button" class="od-tool" aria-haspopup="true" aria-expanded="false" data-od-dd-toggle>
+          <i class="fa-solid fa-bolt" aria-hidden="true"></i> Quick actions <i class="fa-solid fa-chevron-down od-tool__caret" aria-hidden="true"></i>
+        </button>
+        <div class="od-dd__panel od-dd__panel--wide" hidden data-od-dd-panel>
+          <div class="od-dd__title">Quick actions</div>
+          <ul class="od-qa" data-od-qa>
+            <% _actions.forEach(function(a, i) { %>
+              <li data-qa-key="<%= a.key %>" data-qa-index="<%= i %>"<%= i >= 6 ? ' class=od-qa--more' : '' %>><a href="<%= a.href %>"<% if (a.compose) { %> data-ws-compose="<%= a.compose %>"<% } %>><i class="fa-solid <%= a.icon %>" aria-hidden="true"></i><%= a.label %></a></li>
+            <% }) %>
+          </ul>
+          <% if (_actions.length > 6) { %><button type="button" class="od-qa__all" data-od-qa-all>Show all <%= _actions.length %></button><% } %>
+          <p class="od-dd__hint">The ones you use most move to the top.</p>
+        </div>
+      </div>
+      <% } %>
 
-  <% if (!schoolYear || !currentTerm) { %>
+      <div class="od-dd" data-od-dd>
+        <button type="button" class="od-tool od-tool--customize" aria-haspopup="true" aria-expanded="false" aria-label="Customize dashboard" title="Choose what shows on your dashboard" data-od-dd-toggle>
+          <i class="fa-solid fa-sliders" aria-hidden="true"></i><span class="od-tool__text">Customize</span>
+        </button>
+        <div class="od-dd__panel" hidden data-od-dd-panel>
+          <div class="od-dd__title">Customize your dashboard</div>
+          <p class="od-dd__hint" style="margin:0 8px 6px;">Pick what to show. Keep at least 3.</p>
+          <div data-od-checks></div>
+          <div class="od-dd__foot"><button type="button" class="od-dd__reset" data-od-reset>Show everything</button></div>
+        </div>
+      </div>
+    </div>
+    <% } %>
+</div>
+
+<% if (!_hasDashboard) { %>
+  <div id="ann-dashboard-notices" class="ann-dashboard-notices ann-dashboard-notices--org" aria-label="Announcements"></div>
   <div class="welcome-page-wrapper">
-    <!-- Show the welcome message if no school year or term is set -->
     <div id="welcomeMessage" class="org-welcome-card">
       <div class="welcome-orbit welcome-orbit-left" aria-hidden="true"></div>
       <div class="welcome-orbit welcome-orbit-right" aria-hidden="true"></div>
@@ -114,723 +510,890 @@
       <a href="/common/manageRecords" class="start-link">Begin Your Journey Here</a>
     </div>
   </div>
-  <% } else { %>
+<% } else { %>
+<%
+  // ---- Term ----
+  const _dayMs = 86400000;
+  const _today = new Date();
+  const _termStart = new Date(currentTerm.start_date);
+  const _termEnd = new Date(currentTerm.end_date);
+  const daysUntilStart = Math.ceil((_termStart - _today) / _dayMs);
+  const daysUntilEnd = Math.ceil((_termEnd - _today) / _dayMs);
+  const _termDays = Math.max(1, Math.round((_termEnd - _termStart) / _dayMs));
+  const _termPct = daysUntilStart > 0 ? 0 : (daysUntilEnd < 0 ? 100 : Math.min(100, Math.max(0, Math.round(((_today - _termStart) / _dayMs) / _termDays * 100))));
+  const _days = (n) => n + (n === 1 ? ' day' : ' days');
+  const canManageTermSwitch = _perm('manage_records');
+  const dashboardTodayLabel = (todayAttendanceStatus && todayAttendanceStatus.label)
+    ? todayAttendanceStatus.label
+    : ([0, 6].includes(new Date().getDay()) ? 'Weekend' : 'School Day');
+  const dashboardCountryFlagUrl = /^[A-Z]{2}$/.test(String(dashboardCountryCode || '').trim().toUpperCase())
+    ? `https://flagcdn.com/24x18/${String(dashboardCountryCode).trim().toLowerCase()}.png`
+    : '';
 
-    <!-- Main content when school year and term are set -->
-    <div id="orgDashboardSection">
+  // ---- Classes: admin sort order, unique names, admin's dashboard breaks, two columns ----
+  const orderedClasses = [...(classes || [])].sort(function(a, b) {
+    const orderA = Number(a.dashboard_sort_order);
+    const orderB = Number(b.dashboard_sort_order);
+    if (Number.isFinite(orderA) && Number.isFinite(orderB) && orderA !== orderB) return orderA - orderB;
+    if (Number.isFinite(orderA) && !Number.isFinite(orderB)) return -1;
+    if (!Number.isFinite(orderA) && Number.isFinite(orderB)) return 1;
+    return String(a.class_name || '').localeCompare(String(b.class_name || ''), undefined, { numeric: true, sensitivity: 'base' });
+  });
+  const seenClassNames = new Set();
+  const uniqueSortedClasses = orderedClasses.filter(function(cls) {
+    const key = String(cls.class_name || '').trim().toLowerCase();
+    if (!key || seenClassNames.has(key)) return false;
+    seenClassNames.add(key);
+    return true;
+  });
+  const classSections = [];
+  let currentSection = [];
+  uniqueSortedClasses.forEach(function(cls) {
+    currentSection.push(cls);
+    if (cls.dashboard_break_after) { classSections.push(currentSection); currentSection = []; }
+  });
+  if (currentSection.length > 0) classSections.push(currentSection);
+  const classRowGroupsFor = (section) => {
+    const groups = [];
+    for (let index = 0; index < section.length; index += 14) {
+      const chunk = section.slice(index, index + 14);
+      const splitPoint = chunk.length <= 1 ? chunk.length : Math.min(7, Math.ceil(chunk.length / 2));
+      groups.push({ left: chunk.slice(0, splitPoint), right: chunk.slice(splitPoint) });
+    }
+    return groups;
+  };
 
-      <!-- Dashboard grid layout -->
-      <div class="dashboard-grid">
-        <!-- Top row: classes and school year info -->
-        <div class="grid-row">
-          <!-- Classes Section -->
-          <!-- Classes Section -->
-          <div class="classes-container" style="text-align: center">
-            <h2>Enrolled Classes</h2>
-            <div class="classes-columns">
-              <% if (classes && classes.length > 0) { %>
-                <%
-                  const orderedClasses = [...classes].sort(function(a, b) {
-                    const orderA = Number(a.dashboard_sort_order);
-                    const orderB = Number(b.dashboard_sort_order);
+  // ---- Events: upcoming (soonest first), then past (most recent first) ----
+  const _LIST_LIMIT = 4;
+  const _startOfToday = new Date(_today.getFullYear(), _today.getMonth(), _today.getDate());
+  const _allEvents = Array.isArray(events) ? events : [];
+  const upcomingEvents = _allEvents.filter((e) => e.event_date && new Date(e.event_date) >= _startOfToday)
+    .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+  const pastEvents = _allEvents.filter((e) => !e.event_date || new Date(e.event_date) < _startOfToday)
+    .sort((a, b) => new Date(b.event_date || 0) - new Date(a.event_date || 0));
+  const _allAnnouncements = Array.isArray(announcements) ? announcements : [];
+  const _canPublish = _perm('publish_events_announcements');
+  const _canEditStaff = _perm('manage_employees');
 
-                    if (Number.isFinite(orderA) && Number.isFinite(orderB) && orderA !== orderB) {
-                      return orderA - orderB;
-                    }
+  // ---- Numbers, alerts, activity ----
+  const _ins = (typeof dashboardInsights !== 'undefined' && dashboardInsights) ? dashboardInsights : null;
+  const _termAlerts = [];
+  if (_ins && _perm('manage_records')) {
+    if (daysUntilEnd < 0 && nextTermSuggestion) {
+      _termAlerts.push({ tone: 'red', icon: 'fa-calendar-xmark', text: `${currentTerm.term_name} ended ${_days(Math.abs(daysUntilEnd))} ago`, note: `Make ${nextTermSuggestion.term_name} (${nextTermSuggestion.year_label}) the current term.`, href: '/common/manageRecords', action: 'Switch term' });
+    } else if (daysUntilEnd >= 0 && daysUntilEnd <= 14 && daysUntilStart <= 0) {
+      _termAlerts.push({ tone: 'blue', icon: 'fa-flag-checkered', text: `${currentTerm.term_name} ends in ${_days(daysUntilEnd)}`, note: 'Make sure scores are in and report cards are ready.', href: _perm('manage_reports') ? '/common/reports' : null, action: 'Reports' });
+    } else if (daysUntilStart > 0 && daysUntilStart <= 7) {
+      _termAlerts.push({ tone: 'blue', icon: 'fa-calendar-check', text: `${currentTerm.term_name} starts in ${_days(daysUntilStart)}`, note: 'Check classes, teachers and enrollment are ready.', href: '/common/manageRecords', action: 'Review' });
+    }
+  }
+  const _attention = (_ins && Array.isArray(_ins.attention)) ? _termAlerts.concat(_ins.attention) : (_termAlerts.length ? _termAlerts : null);
+  const _activity = (_ins && Array.isArray(_ins.activity)) ? _ins.activity : null;
+  const _kpis = (_ins && Array.isArray(_ins.kpis)) ? _ins.kpis : [];
+  const _timeAgo = (d) => {
+    const m = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 60000));
+    if (m < 1) return 'just now';
+    if (m < 60) return m + ' min ago';
+    const h = Math.round(m / 60); if (h < 24) return h + ' hr ago';
+    const dd = Math.round(h / 24); if (dd < 7) return dd + (dd === 1 ? ' day ago' : ' days ago');
+    return _fmtDate(d);
+  };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/workspace.css') %>" />
+<script src="<%= assetUrl('/js/workspace.js') %>"></script>
+<div id="orgDashboardSection">
+  <div id="ann-dashboard-notices" class="ann-dashboard-notices ann-dashboard-notices--org" aria-label="Announcements"></div>
+  <div class="dashboard-grid">
+    <div class="od" data-od>
 
-                    if (Number.isFinite(orderA) && !Number.isFinite(orderB)) return -1;
-                    if (!Number.isFinite(orderA) && Number.isFinite(orderB)) return 1;
-
-                    return String(a.class_name || '').localeCompare(
-                      String(b.class_name || ''),
-                      undefined,
-                      { numeric: true, sensitivity: 'base' }
-                    );
-                  });
-                  const seenClassNames = new Set();
-                  const uniqueSortedClasses = orderedClasses.filter(function(cls) {
-                    const key = String(cls.class_name || '').trim().toLowerCase();
-                    if (!key || seenClassNames.has(key)) return false;
-                    seenClassNames.add(key);
-                    return true;
-                  });
-                  const classSections = [];
-                  let currentSection = [];
-
-                  uniqueSortedClasses.forEach(function(cls, index) {
-                    currentSection.push({
-                      ...cls,
-                      dashboard_index: index,
-                    });
-
-                    if (cls.dashboard_break_after) {
-                      classSections.push(currentSection);
-                      currentSection = [];
-                    }
-                  });
-
-                  if (currentSection.length > 0) {
-                    classSections.push(currentSection);
-                  }
-                %>
-                <% classSections.forEach(function(section, sectionIndex) { %>
-                <div class="classes-section">
-                  <%
-                    const classRowGroups = [];
-                    for (let index = 0; index < section.length; index += 14) {
-                      const chunk = section.slice(index, index + 14);
-                      const splitPoint = chunk.length <= 1
-                        ? chunk.length
-                        : Math.min(7, Math.ceil(chunk.length / 2));
-                      classRowGroups.push({
-                        left: chunk.slice(0, splitPoint),
-                        right: chunk.slice(splitPoint),
-                      });
-                    }
-                  %>
-                  <% classRowGroups.forEach(function(group) { %>
-                  <div class="classes-row-group<%= group.right.length === 0 ? ' classes-row-group--single' : '' %>">
-                    <ul class="classes-column classes-column--left">
-                    <% group.left.forEach(function(cls) { %>
-                      <% const clsIndex = cls.dashboard_index; %>
-                      <li class="class-item">
-                        <div class="class-header">
-                          <a href="/common/classDashboard?classId=<%= cls.class_id %>"><%= cls.class_name %></a>
-                          - <b>Teachers:</b>
-                          <span class="teacher-toggle" onclick="toggleTeachers(<%= clsIndex %>)" title="Click to show/hide teachers">
-                            <svg class="toggle-arrow" id="arrow-<%= clsIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <polyline points="9 18 15 12 9 6"></polyline>
-                            </svg>
-                          </span>
-                        </div>
-                        <div class="teachers-list" id="teachers-<%= clsIndex %>" style="display: none;">
-                          <% const validEmployees = (cls.employees || []).filter(emp => emp && emp.name && String(emp.name).trim()); %>
-                          <% if (validEmployees.length > 0) { %>
-                            <% validEmployees.forEach(function(emp) { %>
-                              <div class="teacher-entry">
-                                <% if (emp.main) { %><span class="main" title="Main teacher">•</span><% } %>
-                                <% if (emp.reset_password_token) { %><span class="yellow-dot" title="Has not set password">•</span><% } %>
-                                <% if (emp.on_hold) { %><span class="on-hold" title="On hold">•</span><% } %>
-                                <%= emp.name %>
-                              </div>
-                            <% }); %>
+      <!-- Enrolled classes + school year -->
+      <div class="od-pair">
+        <section class="od-card" data-od-classes data-od-section="classes" data-od-label="Enrolled classes" aria-label="Enrolled classes">
+          <div class="od-card__head">
+            <h2 class="od-card__title"><i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i> Enrolled Classes <span class="od-count"><%= uniqueSortedClasses.length %></span></h2>
+          </div>
+          <% if (uniqueSortedClasses.length) { %>
+            <% classSections.forEach(function(section, sectionIndex) { %>
+              <% classRowGroupsFor(section).forEach(function(group) { %>
+                <div class="od-cols">
+                  <% [group.left, group.right].filter((col) => col.length).forEach(function(col) { %>
+                    <ul class="od-col">
+                      <% col.forEach(function(cls) {
+                        const teachers = (cls.employees || []).filter((emp) => emp && emp.name && String(emp.name).trim())
+                          .sort((a, b) => (b.main ? 1 : 0) - (a.main ? 1 : 0));
+                        const lead = teachers[0];
+                        const leadFirst = lead ? (String(lead.first_name || '').trim() || String(lead.name).split(/[ ,]+/).filter(Boolean).pop() || lead.name) : '';
+                      %>
+                        <li class="od-crow">
+                          <a class="od-crow__name" href="/common/classDashboard?classId=<%= cls.class_id %>" title="Open <%= cls.class_name %>"><%= cls.class_name %></a>
+                          <% if (teachers.length) { %>
+                            <details class="od-teachers">
+                              <summary title="Show teachers">
+                                <i class="fa-regular fa-user" aria-hidden="true"></i>
+                                <span class="od-teachers__lead"><%= leadFirst %></span>
+                                <% if (teachers.length > 1) { %><span class="od-teachers__extra">+<%= teachers.length - 1 %></span><% } %>
+                                <i class="fa-solid fa-chevron-down od-teachers__caret" aria-hidden="true"></i>
+                              </summary>
+                              <ul>
+                                <% teachers.forEach(function(emp) { %>
+                                  <li class="od-teacher">
+                                    <% if (_canEditStaff && emp.user_id) { %><a class="od-teacher__name" href="/common/employeeDetails?userId=<%= emp.user_id %>"><%= emp.name %></a><% } else { %><span><%= emp.name %></span><% } %>
+                                    <% if (emp.main) { %><span class="od-tag od-tag--main">Main</span><% } %>
+                                    <% if (emp.reset_password_token) { %><span class="od-tag od-tag--pending" title="Has not set a password yet">Invite pending</span><% } %>
+                                    <% if (emp.on_hold) { %><span class="od-tag od-tag--hold">On hold</span><% } %>
+                                  </li>
+                                <% }) %>
+                              </ul>
+                            </details>
                           <% } else { %>
-                            <div class="teacher-entry">No teacher</div>
+                            <span class="od-noteacher"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> No teacher yet</span>
                           <% } %>
-                        </div>
-                      </li>
-                    <% }); %>
-                    </ul>
-
-                    <% if (group.right.length > 0) { %>
-                    <ul class="classes-column classes-column--right">
-                    <% group.right.forEach(function(cls) { %>
-                      <% const clsIndex = cls.dashboard_index; %>
-                      <li class="class-item">
-                        <div class="class-header">
-                          <a href="/common/classDashboard?classId=<%= cls.class_id %>"><%= cls.class_name %></a>
-                          - <b>Teachers:</b>
-                          <span class="teacher-toggle" onclick="toggleTeachers(<%= clsIndex %>)" title="Click to show/hide teachers">
-                            <svg class="toggle-arrow" id="arrow-<%= clsIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <polyline points="9 18 15 12 9 6"></polyline>
-                            </svg>
-                          </span>
-                        </div>
-                        <div class="teachers-list" id="teachers-<%= clsIndex %>" style="display: none;">
-                          <% const validEmployees = (cls.employees || []).filter(emp => emp && emp.name && String(emp.name).trim()); %>
-                          <% if (validEmployees.length > 0) { %>
-                            <% validEmployees.forEach(function(emp) { %>
-                              <div class="teacher-entry">
-                                <% if (emp.main) { %><span class="main" title="Main teacher">•</span><% } %>
-                                <% if (emp.reset_password_token) { %><span class="yellow-dot" title="Has not set password">•</span><% } %>
-                                <% if (emp.on_hold) { %><span class="on-hold" title="On hold">•</span><% } %>
-                                <%= emp.name %>
-                              </div>
-                            <% }); %>
-                          <% } else { %>
-                            <div class="teacher-entry">No teacher</div>
+                          <% if (_canEditStaff) { %>
+                            <a class="od-crow__edit" href="/common/createEmployee?classId=<%= cls.class_id %>" title="<%= teachers.length ? 'Add another teacher to ' : 'Add a teacher to ' %><%= cls.class_name %>" aria-label="Add a teacher to <%= cls.class_name %>"><i class="fa-solid fa-pencil" aria-hidden="true"></i></a>
                           <% } %>
-                        </div>
-                      </li>
-                    <% }); %>
+                        </li>
+                      <% }) %>
                     </ul>
-                    <% } %>
-                  </div>
-                  <% }); %>
+                  <% }) %>
                 </div>
-                <% if (sectionIndex < classSections.length - 1) { %>
-                <div class="classes-dashboard-break" aria-hidden="true">
-                  <span></span>
-                </div>
-                <% } %>
-                <% }); %>
-              <% } else { %>
-                <div class="classes-row-group">
-                <ul class="classes-column classes-column--left">
-                <% if (userRole === "Teacher") { %>
-                  <li>You are not assigned to any classes yet.</li>
-                <% } else { %>
-                  <li>
-                    No classes have been set up for this current term yet. <a href="/enrollment/manageEnrollment">Enroll classes for this term</a>, or <a href="/common/manageClassSubjectAndGradYr">create classes for your organization</a> if you haven't done so already.
-                  </li>
-                <% } %>
-                </ul>
-                </div>
-              <% } %>
-            </div>
-          </div>
-
-          <!-- School Year and Term Section -->
-          <div class="school-year-info">
-            <h2>Current School Year: <%= schoolYear.year_label %></h2>
-            <% if (currentTerm) { %>
-            <div>
-              <strong><%= currentTerm.term_name %>:</strong>
-              Start: <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(currentTerm.start_date) : new Date(currentTerm.start_date).toLocaleDateString()) %>, End:
-              <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(currentTerm.end_date) : new Date(currentTerm.end_date).toLocaleDateString()) %>
-            </div>
-            <div>
-              <% const today = new Date(); %> <% const daysUntilStart =
-              Math.ceil((new Date(currentTerm.start_date) - today) / (1000 * 60
-              * 60 * 24)); %> <% const daysUntilEnd = Math.ceil((new
-              Date(currentTerm.end_date) - today) / (1000 * 60 * 60 * 24)); %>
-              <% const dashboardRoleKey = String((typeof userRole !== 'undefined' && userRole)
-                ? userRole
-                : ((req && req.session && req.session.userRole) ? req.session.userRole : '')
-              ).trim().toLowerCase(); %>
-              <% const canManageTermSwitch = ['manager', 'supervisor', 'superviser'].includes(dashboardRoleKey); %>
-              <% if (daysUntilStart > 0) { %>
-              <strong><%= currentTerm.term_name %> starts in:</strong>
-              <span id="daysUntilStart"><%= daysUntilStart %></span>
-              <% } else if (daysUntilEnd >= 0) { %>
-              <strong>Days until <%= currentTerm.term_name %> ends:</strong>
-              <span id="daysUntilEnd"><%= daysUntilEnd %></span>
-              <% } else { %>
-              <strong><%= currentTerm.term_name %> has ended successfully.</strong>
-              <span style="margin-left:4px; color:#475569;"><%= Math.abs(daysUntilEnd) %> days ago.</span>
-              <span style="display:block; margin-top:4px; color:#334155;">Activate the next term/semester.</span>
-              <% } %>
-            </div>
-            <% if (daysUntilEnd < 0 && nextTermSuggestion && canManageTermSwitch) { %>
-            <div style="margin-top: 8px;">
-              <a
-                href="/common/manageRecords"
-                class="next-term-cta"
-                title="Switch to <%= nextTermSuggestion.term_name %> in <%= nextTermSuggestion.year_label %>. Open Manage Records to set it as current."
-              >
-                <span class="next-term-icon">⏭</span>
-                Switch to
-                <span class="next-term-cta-target">(<%= nextTermSuggestion.term_name %> - <%= nextTermSuggestion.year_label %>)</span>
-                <span class="next-term-cta-note">by selecting Current on <%= nextTermSuggestion.term_name %>.</span>
-              </a>
-            </div>
-            <% } %>
-            <% const dashboardTodayLabel = (todayAttendanceStatus && todayAttendanceStatus.label)
-              ? todayAttendanceStatus.label
-              : ([0, 6].includes(new Date().getDay()) ? 'Weekend' : 'School Day'); %>
-            <% if (dashboardCountryCode || dashboardTodayLabel) { %>
-            <div style="margin-top:6px; font-size:0.9rem; color:#334155; display:inline-flex; align-items:center; gap:6px;">
-              <% const dashboardCountryFlagUrl = /^[A-Z]{2}$/.test(String(dashboardCountryCode || '').trim().toUpperCase()) ? `https://flagcdn.com/24x18/${String(dashboardCountryCode).trim().toLowerCase()}.png` : ''; %>
-              <% if (dashboardCountryFlagUrl) { %>
-              <span style="display:inline-flex; align-items:center; line-height:1;" title="Organization country: <%= dashboardCountryName || dashboardCountryCode %>" aria-label="Organization country: <%= dashboardCountryName || dashboardCountryCode %>"><img src="<%= dashboardCountryFlagUrl %>" alt="" width="20" height="15" style="border-radius:2px;"></span>
-              <% } else { %>
-              <span style="display:inline-flex; align-items:center; font-size:1.05rem; line-height:1;" aria-hidden="true">🌍</span>
-              <% } %>
-              <span><%= dashboardTodayLabel %></span>
-            </div>
-            <% } %>
-            <% } else { %>
-            <p>No active term available.</p>
-            <% } %>
-          </div>
-        </div>
-
-        <!-- Bottom row: events and announcements -->
-        <div class="grid-row">
-          <!-- Events Section (Hidden for Teachers) -->
-          <% if (userRole !== "teacher") { %>
-          <div class="events-container">
-            <h2>Events</h2>
-            <ul>
-              <% if (events && events.length > 0) { %>
-                <% events.forEach(function(event, eventIndex) { %>
-                  <li class="event-item" id="event-item-<%= eventIndex %>">
-                    <div class="event-header" onclick="toggleEvent(<%= eventIndex %>)" style="cursor: pointer;">
-                      <div class="event-title-row">
-                        <strong><%= event.name %></strong> - <%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(event.event_date) : new Date(event.event_date).toLocaleDateString()) %>
-                        <span class="event-toggle" title="Click to show/hide details">
-                          <svg class="toggle-arrow" id="event-arrow-<%= eventIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="9 18 15 12 9 6"></polyline>
-                          </svg>
-                        </span>
-                      </div>
-                      <div class="event-preview" id="event-preview-<%= eventIndex %>"><%= event.details.substring(0, 60) %>...</div>
-                    </div>
-                  
-                    <div class="event-details" id="event-details-<%= eventIndex %>" style="display: none;">
-                      <%= event.details %>
-                    </div>
-                    <% if (eventIndex < events.length - 1) { %>
-                      <hr class="event-divider">
-                    <% } %>
-                  </li>
-                <% }); %>
-              <% } else { %>
-                <li>No upcoming events.</li>
-              <% } %>
-            </ul>
-          </div>
+              <% }) %>
+              <% if (sectionIndex < classSections.length - 1) { %><hr class="od-divider" /><% } %>
+            <% }) %>
+          <% } else if (_roleKey === 'teacher') { %>
+            <p class="od-empty">You are not assigned to any classes yet.</p>
+          <% } else { %>
+            <p class="od-empty">
+              No classes have been set up for this term yet. <a href="/enrollment/manageEnrollment">Enroll classes for this term</a>,
+              or <a href="/common/manageClassSubjectAndGradYr">create classes for your organization</a> if you haven't done so already.
+            </p>
           <% } %>
+        </section>
 
-          <!-- Announcements Section (Hidden for Managers & Supervisors) -->
+        <section class="od-card" data-od-section="year" data-od-label="Current school year" aria-label="Current school year">
+          <div class="od-card__head">
+            <h2 class="od-card__title"><i class="fa-regular fa-calendar" aria-hidden="true"></i> School Year <span class="od-chip"><%= schoolYear.year_label %></span></h2>
+            <span class="od-today" title="Organization country: <%= dashboardCountryName || dashboardCountryCode || '—' %>">
+              <% if (dashboardCountryFlagUrl) { %><img src="<%= dashboardCountryFlagUrl %>" alt="" width="20" height="15"><% } else { %><i class="fa-solid fa-earth-africa" aria-hidden="true"></i><% } %>
+              <%= dashboardTodayLabel %>
+            </span>
+          </div>
 
-          <div class="announcements-container">
-            <h2>Announcements</h2>
-            <ul>
-              <% if (announcements && announcements.length > 0) { %>
-                <% announcements.forEach(function(announcement, announcementIndex) { %>
-                  <li class="announcement-item" id="announcement-item-<%= announcementIndex %>">
-                    <div class="announcement-header" onclick="toggleAnnouncement(<%= announcementIndex %>)" style="cursor: pointer;">
-                      <div class="announcement-preview-row">
-                        <span class="announcement-preview" id="announcement-preview-<%= announcementIndex %>"><%= announcement.message.substring(0, 60) %>...</span>
-                        <span class="announcement-toggle" title="Click to show/hide full message">
-                          <svg class="toggle-arrow" id="announcement-arrow-<%= announcementIndex %>" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="9 18 15 12 9 6"></polyline>
-                          </svg>
-                        </span>
+          <div class="od-term">
+            <div>
+              <span class="od-eyebrow">Current term</span>
+              <strong class="od-term__name"><%= currentTerm.term_name %></strong>
+            </div>
+            <% if (daysUntilStart > 0) { %>
+              <span class="od-pill od-pill--upcoming">Starts in&nbsp;<span id="daysUntilStart"><%= daysUntilStart %></span>&nbsp;<%= daysUntilStart === 1 ? 'day' : 'days' %></span>
+            <% } else if (daysUntilEnd >= 0) { %>
+              <span class="od-pill od-pill--live"><span id="daysUntilEnd"><%= daysUntilEnd %></span>&nbsp;<%= daysUntilEnd === 1 ? 'day' : 'days' %> left</span>
+            <% } else { %>
+              <span class="od-pill od-pill--ended">Ended <%= _days(Math.abs(daysUntilEnd)) %> ago</span>
+            <% } %>
+          </div>
+
+          <div class="term-duration" title="<%= _termPct %>% of <%= currentTerm.term_name %> complete">
+            <div class="term-duration__row">
+              <div class="term-duration__bar" role="progressbar" aria-label="Term progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= _termPct %>"><span style="width: <%= _termPct %>%"></span></div>
+              <span class="term-duration__pct"><%= _termPct %>%</span>
+            </div>
+            <div class="term-duration__meta">
+              <span><%= _fmtDate(currentTerm.start_date) %></span>
+              <strong><% if (daysUntilStart > 0) { %>Not started<% } else if (daysUntilEnd < 0) { %>Term complete<% } else { %>Day <%= Math.min(_termDays, Math.max(1, Math.ceil((_today - _termStart) / _dayMs))) %> of <%= _termDays %><% } %></strong>
+              <span><%= _fmtDate(currentTerm.end_date) %></span>
+            </div>
+          </div>
+
+          <% if (daysUntilEnd < 0) { %>
+            <div class="od-next">
+              <% if (nextTermSuggestion && canManageTermSwitch) { %>
+                <span class="od-next__text">This term has ended. Make the next term current in Manage Records.</span>
+                <a class="od-btn od-btn--primary" href="/common/manageRecords" title="Open Manage Records and select Current on <%= nextTermSuggestion.term_name %> (<%= nextTermSuggestion.year_label %>).">
+                  Switch to <%= nextTermSuggestion.term_name %> · <%= nextTermSuggestion.year_label %>
+                  <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                </a>
+              <% } else { %>
+                <span class="od-next__text">This term has ended. Activate the next term/semester.</span>
+              <% } %>
+            </div>
+          <% } %>
+        </section>
+      </div>
+
+      <% if (_kpis.length) { %>
+      <!-- Numbers -->
+      <div class="od-kpis">
+        <% _kpis.forEach(function(k) { const tag = k.href ? 'a' : 'div'; %>
+          <<%= tag %> class="od-kpi od-kpi--<%= k.key %>" data-od-section="kpi-<%= k.key %>" data-od-label="<%= k.label %>"<% if (k.href) { %> href="<%= k.href %>"<% } %>>
+            <span class="od-kpi__icon"><i class="fa-solid <%= k.icon %>" aria-hidden="true"></i></span>
+            <span class="od-kpi__body">
+              <span class="od-kpi__label"><%= k.label %></span>
+              <span class="od-kpi__value"><%= k.value %></span>
+              <% if (k.progress !== null && k.progress !== undefined) { %><span class="od-kpi__bar"><span style="width: <%= Math.min(100, k.progress) %>%"></span></span><% } %>
+              <span class="od-kpi__note"><%= k.note %></span>
+            </span>
+          </<%= tag %>>
+        <% }) %>
+      </div>
+      <% } %>
+
+      <!-- Events + announcements -->
+      <div class="od-pair">
+        <%
+          const _eventHead = (event) => {
+            const d = event.event_date ? new Date(event.event_date) : null;
+            const t = event.start_time && !event.all_day ? new Date('2000-01-01T' + String(event.start_time).slice(0, 5)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+            return {
+              month: d ? d.toLocaleDateString('en-US', { month: 'short' }) : '—',
+              day: d ? d.getDate() : '',
+              meta: (d ? _fmtDate(event.event_date) : 'No date') + (t ? ' · ' + t : '') + (event.location ? ' · ' + event.location : ''),
+              details: String(event.details || '').trim(),
+            };
+          };
+          // School events plus this person's own dated items (tasks due, personal events) for "Upcoming".
+          const _pad2 = (n) => String(n).padStart(2, '0');
+          const _myUpcoming = (((typeof viewerActivity !== 'undefined' && viewerActivity) || {}).upcoming || []).map((u) => {
+            const d = new Date(u.event_date);
+            return {
+              name: u.name, event_date: u.event_date, start_time: u.start_time, all_day: u.all_day, location: u.location, details: '',
+              _kind: u.kind,
+              _goto: u.kind === 'task' ? 'task-' + u.id : null,
+              _href: u.kind === 'task' ? null : '/common/calendar?date=' + d.getFullYear() + '-' + _pad2(d.getMonth() + 1) + '-' + _pad2(d.getDate()),
+            };
+          });
+          const _upcomingAll = upcomingEvents.concat(_myUpcoming).sort((a, b) => (new Date(a.event_date) - new Date(b.event_date)) || String(a.start_time || '').localeCompare(String(b.start_time || '')));
+          const _KIND = { task: 'Task', personal: 'Personal' };
+        %>
+        <% const _eventList = (list, isPast) => { %>
+          <ul class="od-list">
+            <% list.forEach(function(event, index) { const ev = _eventHead(event); %>
+              <li class="od-event<%= isPast ? ' od-event--past' : '' %><%= index >= _LIST_LIMIT ? ' od-extra' : '' %>">
+                <% if (ev.details) { %>
+                  <details>
+                    <summary>
+                      <span class="od-date"><span class="od-date__m"><%= ev.month %></span><span class="od-date__d"><%= ev.day %></span></span>
+                      <span class="od-event__body"><span class="od-event__name"><%= event.name %></span><span class="od-event__meta"><%= ev.meta %></span></span>
+                      <i class="fa-solid fa-chevron-down od-event__caret" aria-hidden="true"></i>
+                    </summary>
+                    <p class="od-event__details"><%= ev.details %></p>
+                  </details>
+                <% } else if (event._href || event._goto) { %>
+                  <<%= event._goto ? 'button type="button"' : 'a' %> class="od-event__row od-event__row--link od-event--<%= event._kind %>" <% if (event._goto) { %>data-od-goto="<%= event._goto %>"<% } else { %>href="<%= event._href %>"<% } %>>
+                    <span class="od-date"><span class="od-date__m"><%= ev.month %></span><span class="od-date__d"><%= ev.day %></span></span>
+                    <span class="od-event__body"><span class="od-event__name"><%= event.name %></span><span class="od-event__meta"><span class="od-kind od-kind--<%= event._kind %>"><%= _KIND[event._kind] || '' %></span><%= ev.meta %></span></span>
+                    <i class="fa-solid fa-chevron-right od-event__caret" aria-hidden="true"></i>
+                  </<%= event._goto ? 'button' : 'a' %>>
+                <% } else { %>
+                  <div class="od-event__row">
+                    <span class="od-date"><span class="od-date__m"><%= ev.month %></span><span class="od-date__d"><%= ev.day %></span></span>
+                    <span class="od-event__body"><span class="od-event__name"><%= event.name %></span><span class="od-event__meta"><%= ev.meta %></span></span>
+                  </div>
+                <% } %>
+              </li>
+            <% }) %>
+          </ul>
+          <% if (list.length > _LIST_LIMIT) { %>
+            <button type="button" class="od-showall" data-od-showall data-more="Show all <%= list.length %>">Show all <%= list.length %></button>
+          <% } %>
+        <% } %>
+
+        <% if (userRole !== "teacher") { %>
+        <section class="od-card" data-od-section="events" data-od-label="Events" aria-label="Events">
+          <div class="od-card__head">
+            <h2 class="od-card__title"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Events <span class="od-count"><%= _allEvents.length %></span></h2>
+            <span class="od-card__links">
+              <a class="od-link" href="/common/calendar">Calendar</a>
+              <% if (_canPublish) { %><a class="od-link" href="/common/manageEventsAnnouncements">Manage</a><% } %>
+            </span>
+          </div>
+          <% if (_upcomingAll.length) { %>
+            <h3 class="od-sublabel">Upcoming</h3>
+            <% _eventList(_upcomingAll, false) %>
+          <% } else { %>
+            <p class="od-empty">Nothing coming up.</p>
+          <% } %>
+          <% if (pastEvents.length) { %>
+            <details class="od-past"<%= _upcomingAll.length ? '' : ' open' %>>
+              <summary><i class="fa-solid fa-chevron-right" aria-hidden="true"></i> Past events <span class="od-count"><%= pastEvents.length %></span></summary>
+              <% _eventList(pastEvents, true) %>
+            </details>
+          <% } %>
+        </section>
+        <% } %>
+
+        <%
+          const _act = (typeof viewerActivity !== 'undefined' && viewerActivity) ? viewerActivity : { tasks: [], taggedEvents: [] };
+          const _me = typeof workspaceActorId !== 'undefined' ? Number(workspaceActorId) : 0;
+          const _escHtml = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+          const _mentionify = (text) => _escHtml(text).replace(/(^|\s)@([A-Z][\w'’-]*(?: [A-Z][\w'’-]*)?)/g, '$1<span class="od-mention">@$2</span>');
+          const _taskState = (t) => {
+            const total = (t.assignees || []).length;
+            const done = (t.assignees || []).filter((a) => a.status === 'done').length;
+            const isAssignee = (t.assignees || []).some((a) => Number(a.id) === _me);
+            const myDone = t.my_status === 'done';
+            const allDone = total > 0 && done === total;
+            return { total, done, isAssignee, myDone, allDone, isCreator: Number(t.created_by) === _me, closed: isAssignee ? myDone : allDone };
+          };
+          const _tasks = (_act.tasks || []).slice().sort((a, b) => {
+            const sa = _taskState(a), sb = _taskState(b);
+            if (sa.closed !== sb.closed) return sa.closed ? 1 : -1;
+            const da = a.due_date ? new Date(a.due_date).getTime() : Infinity, db = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+            if (da !== db) return da - db;
+            return new Date(b.updated_at) - new Date(a.updated_at);
+          });
+          const _openForMe = _tasks.filter((t) => !_taskState(t).closed).length + (_act.taggedEvents || []).length;
+          const _defaultTab = _openForMe || !_allAnnouncements.length ? 'you' : 'ann';
+          const _dueLabel = (t) => {
+            if (!t.due_date) return '';
+            const d = new Date(t.due_date);
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - today) / 86400000);
+            const day = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff === -1 ? 'Yesterday' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            const time = t.due_time ? ' · ' + new Date('2000-01-01T' + String(t.due_time).slice(0, 5)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+            return { text: 'Due ' + day + time, overdue: diff < 0 };
+          };
+        %>
+        <section class="od-card od-activity-card" data-od-section="announcements" data-od-label="Activity & announcements" aria-label="Activity and announcements" data-od-feed data-od-me="<%= _me %>">
+          <div class="od-card__head">
+            <h2 class="od-card__title"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Activity &amp; Announcements</h2>
+            <% if (_wsMember) { %><button type="button" class="od-link od-newtask" data-ws-compose="task"><i class="fa-solid fa-plus" aria-hidden="true"></i> New task</button><% } %>
+          </div>
+
+          <div class="od-tabs" role="tablist">
+            <button type="button" class="od-tab<%= _defaultTab === 'you' ? ' is-active' : '' %>" role="tab" data-od-tab="you" aria-selected="<%= _defaultTab === 'you' %>">For you <% if (_openForMe) { %><span class="od-count"><%= _openForMe %></span><% } %></button>
+            <button type="button" class="od-tab<%= _defaultTab === 'ann' ? ' is-active' : '' %>" role="tab" data-od-tab="ann" aria-selected="<%= _defaultTab === 'ann' %>">Announcements <span class="od-count"><%= _allAnnouncements.length %></span></button>
+            <% if (_canPublish) { %><a class="od-link od-tabs__manage" href="/common/calendar">Calendar</a><% } %>
+          </div>
+
+          <div class="od-tabpane" data-od-pane="you"<%= _defaultTab === 'you' ? '' : ' hidden' %>>
+            <% if (!_tasks.length && !(_act.taggedEvents || []).length) { %>
+              <div class="od-feed-empty">
+                <i class="fa-regular fa-circle-check" aria-hidden="true"></i>
+                <p>You're all caught up.</p>
+                <span>Tasks assigned to you and events you're tagged in show up here.</span>
+              </div>
+            <% } %>
+
+            <% if ((_act.taggedEvents || []).length) { %>
+              <ul class="od-list od-tagged">
+                <% _act.taggedEvents.forEach(function(ev) {
+                  const d = new Date(ev.event_date);
+                  const when = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + (!ev.all_day && ev.start_time ? ' · ' + new Date('2000-01-01T' + String(ev.start_time).slice(0, 5)).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '');
+                  const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                %>
+                  <li class="od-tagged__item">
+                    <span class="od-date"><span class="od-date__m"><%= d.toLocaleDateString('en-US', { month: 'short' }) %></span><span class="od-date__d"><%= d.getDate() %></span></span>
+                    <span class="od-event__body">
+                      <span class="od-tagged__label"><i class="fa-solid fa-user-tag" aria-hidden="true"></i> <%= ev.kind === 'personal' && ev.owner_name ? ev.owner_name + ' added you' : "You're added" %></span>
+                      <a class="od-event__name od-tagged__name" href="/common/calendar?date=<%= key %>"><%= ev.name %></a>
+                      <span class="od-event__meta"><%= when %><%= ev.location ? ' · ' + ev.location : '' %></span>
+                    </span>
+                  </li>
+                <% }) %>
+              </ul>
+            <% } %>
+
+            <% const _taskList = (list) => { %>
+              <ul class="od-list od-tasks">
+                <% list.forEach(function(t, index) {
+                  const st = _taskState(t);
+                  const due = _dueLabel(t);
+                  const others = (t.assignees || []);
+                %>
+                  <li class="od-task<%= st.closed ? ' is-done' : '' %><%= index >= 5 ? ' od-extra' : '' %>" id="task-<%= t.task_id %>" data-task-id="<%= t.task_id %>">
+                    <div class="od-task__row">
+                      <% if (st.isAssignee || st.isCreator) { %>
+                        <button type="button" class="od-task__check" data-task-done aria-pressed="<%= st.closed %>" title="<%= st.closed ? 'Mark as not done' : (st.isAssignee ? 'Mark done' : 'Mark complete for everyone') %>">
+                          <i class="fa-solid fa-check" aria-hidden="true"></i>
+                        </button>
+                      <% } %>
+                      <div class="od-task__main">
+                        <div class="od-task__title"><%= t.title %></div>
+                        <div class="od-task__meta">
+                          <% if (st.isCreator && !st.isAssignee) { %>
+                            <span class="od-task__people"><% others.forEach(function(a) { %><span class="od-person<%= a.status === 'done' ? ' is-done' : '' %>" title="<%= a.name %><%= a.status === 'done' ? ' · done' : ' · open' %>"><% if (a.status === 'done') { %><i class="fa-solid fa-check" aria-hidden="true"></i><% } %><%= a.first || a.name %></span><% }) %></span>
+                          <% } else { %>
+                            <span>From <%= st.isCreator ? 'you' : (t.created_by_name || 'a colleague') %><%= others.length > 1 ? ' · with ' + others.filter((a) => Number(a.id) !== _me).map((a) => a.first || a.name).join(', ') : '' %></span>
+                          <% } %>
+                          <% if (due) { %><span class="od-task__due<%= due.overdue && !st.closed ? ' is-late' : '' %>"><i class="fa-regular fa-clock" aria-hidden="true"></i> <%= due.text %></span><% } %>
+                          <% if (t.priority === 'high') { %><span class="od-task__flag">High</span><% } %>
+                          <% if (st.total > 1) { %><span><%= st.done %>/<%= st.total %> done</span><% } %>
+                        </div>
+                        <% if (t.details && String(t.details).trim() !== String(t.title).trim()) { %>
+                          <p class="od-task__details"><%- _mentionify(t.details) %></p>
+                        <% } %>
+                        <div class="od-task__bar">
+                          <span class="od-reacts" data-reacts>
+                            <% (t.reactions || []).forEach(function(r) { %>
+                              <button type="button" class="od-react<%= r.mine ? ' is-mine' : '' %>" data-react="<%= r.emoji %>"><%= r.emoji %> <span><%= r.n %></span></button>
+                            <% }) %>
+                          </span>
+                          <span class="od-react-pick">
+                            <button type="button" class="od-task__act" data-react-open aria-label="Add a reaction" title="React"><i class="fa-regular fa-face-smile" aria-hidden="true"></i></button>
+                            <span class="od-react-menu" hidden>
+                              <% ['👍', '✅', '🙌', '❤️', '👀'].forEach(function(e) { %><button type="button" data-react="<%= e %>"><%= e %></button><% }) %>
+                            </span>
+                          </span>
+                          <button type="button" class="od-task__act" data-thread-toggle>
+                            <i class="fa-regular fa-comment" aria-hidden="true"></i> Reply<% if (t.comment_count) { %> · <span data-comment-count><%= t.comment_count %></span><% } %>
+                          </button>
+                        </div>
+                        <div class="od-thread" data-thread hidden>
+                          <ul class="od-thread__list" data-thread-list></ul>
+                          <form class="od-thread__form" data-thread-form>
+                            <input type="text" class="od-thread__input" name="body" placeholder="Write a reply…" maxlength="2000" autocomplete="off" aria-label="Write a reply">
+                            <button type="submit" class="od-thread__send" aria-label="Send reply"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
+                          </form>
+                        </div>
                       </div>
                     </div>
-                    <div class="announcement-full" id="announcement-full-<%= announcementIndex %>" style="display: none;">
-                      <%= announcement.message %>
-                    </div>
-                    <% if (announcementIndex < announcements.length - 1) { %>
-                      <hr class="announcement-divider">
-                    <% } %>
                   </li>
-                <% }); %>
-              <% } else { %>
-                <li>No announcements available.</li>
+                <% }) %>
+              </ul>
+              <% if (list.length > 5) { %>
+                <button type="button" class="od-showall" data-od-showall data-more="Show all <%= list.length %>">Show all <%= list.length %></button>
               <% } %>
-            </ul>
+            <% } %>
+            <% const _toMe = _tasks.filter((t) => _taskState(t).isAssignee); const _byMe = _tasks.filter((t) => { const st = _taskState(t); return st.isCreator && !st.isAssignee; }); %>
+            <div id="tasks"></div>
+            <% if (_toMe.length) { %>
+              <h3 class="od-sublabel od-feed-label"><i class="fa-solid fa-inbox" aria-hidden="true"></i> Assigned to you <span><%= _toMe.filter((t) => !_taskState(t).closed).length %> open</span></h3>
+              <% _taskList(_toMe) %>
+            <% } %>
+            <% if (_byMe.length) { %>
+              <h3 class="od-sublabel od-feed-label"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> You assigned <span><%= _byMe.filter((t) => !_taskState(t).closed).length %> open</span></h3>
+              <% _taskList(_byMe) %>
+            <% } %>
           </div>
-        </div>
+
+          <div class="od-tabpane" data-od-pane="ann"<%= _defaultTab === 'ann' ? '' : ' hidden' %>>
+            <% if (_allAnnouncements.length) { %>
+              <ul class="od-list">
+                <% _allAnnouncements.forEach(function(announcement, index) { %>
+                  <li class="od-ann<%= index >= _LIST_LIMIT ? ' od-extra' : '' %>">
+                    <p class="od-ann__text"><%= String(announcement.message || '') %></p>
+                    <div class="od-ann__foot">
+                      <span class="od-ann__date"><%= announcement.created_at ? 'Posted ' + _fmtDate(announcement.created_at) : '' %></span>
+                      <button type="button" class="od-ann__toggle" data-od-expand aria-expanded="false" hidden>Read more</button>
+                    </div>
+                  </li>
+                <% }) %>
+              </ul>
+              <% if (_allAnnouncements.length > _LIST_LIMIT) { %>
+                <button type="button" class="od-showall" data-od-showall data-more="Show all <%= _allAnnouncements.length %>">Show all <%= _allAnnouncements.length %></button>
+              <% } %>
+            <% } else { %>
+              <p class="od-empty">No announcements yet.</p>
+            <% } %>
+            <% if (_canPublish) { %><a class="od-link od-ann-manage" href="/common/manageEventsAnnouncements">Manage announcements</a><% } %>
+          </div>
+        </section>
       </div>
+
+      <% if (_attention || _activity) { %>
+      <!-- Needs attention + recent activity -->
+      <div class="od-pair">
+        <% if (_attention) { %>
+        <section class="od-card" data-od-section="attention" data-od-label="Needs attention" aria-label="Needs attention">
+          <div class="od-card__head">
+            <h2 class="od-card__title"><i class="fa-solid fa-bell" aria-hidden="true"></i> Needs attention <% if (_attention.length) { %><span class="od-count"><%= _attention.length %></span><% } %></h2>
+          </div>
+          <% if (_attention.length) { %>
+            <ul class="od-list">
+              <% _attention.forEach(function(item) { %>
+                <li class="od-alert od-alert--<%= item.tone %>">
+                  <span class="od-alert__icon"><i class="fa-solid <%= item.icon %>" aria-hidden="true"></i></span>
+                  <span class="od-alert__body">
+                    <span class="od-alert__text"><%= item.text %></span>
+                    <% if (item.note) { %><span class="od-alert__note"><%= item.note %></span><% } %>
+                    <% if (item.links && item.links.length) { %>
+                      <span class="od-alert__links">
+                        <% item.links.forEach(function(l) { %><a href="<%= l.href %>"><%= l.label %></a><% }) %>
+                        <% if (item.more) { %><span>+<%= item.more %> more</span><% } %>
+                      </span>
+                    <% } %>
+                  </span>
+                  <% if (item.href && String(item.href).startsWith('/common/orgDashboard#')) { %><button type="button" class="od-link od-alert__action" data-od-goto="<%= String(item.href).split('#')[1] %>"><%= item.action || 'Open' %></button><% } else if (item.href) { %><a class="od-link od-alert__action" href="<%= item.href %>"><%= item.action || 'Open' %></a><% } %>
+                </li>
+              <% }) %>
+            </ul>
+          <% } else { %>
+            <p class="od-allclear"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> All clear. Nothing needs your attention right now.</p>
+          <% } %>
+        </section>
+        <% } %>
+
+        <% if (_activity) { %>
+        <section class="od-card" data-od-section="activity" data-od-label="Recent activity" aria-label="Recent activity">
+          <div class="od-card__head">
+            <h2 class="od-card__title"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Recent activity
+              <span class="od-scope"><%= { all: 'Everyone', 'no-managers': 'Staff', mine: 'Just you' }[(_ins && _ins.activityScope) || 'mine'] %></span></h2>
+            <% if (_perm('manage_reports') && _feat('Terminal Report', 'Progressive Student Report', 'Progressive Student Report ', 'Class Base Merit Sheet', 'Class Base Merrit sheet', 'Official School Transcript')) { %>
+              <a class="od-link" href="/common/reports?panel=activity-logs&page=%2Fcommon%2FactivityLogs&label=View%20Activity%20Logs">View all</a>
+            <% } %>
+          </div>
+          <% if (_activity.length) { %>
+            <ul class="od-list">
+              <% _activity.forEach(function(log) { const who = String(log.user_name || 'Someone'); %>
+                <li class="od-activity">
+                  <span class="od-activity__avatar" aria-hidden="true"><%= who.trim().charAt(0).toUpperCase() || '?' %></span>
+                  <span class="od-activity__body">
+                    <span class="od-activity__text"><strong><%= who %></strong> <%= log.description || [log.action_type, log.module_name].filter(Boolean).join(' · ') %></span>
+                    <span class="od-activity__meta"><%= log.module_name || '' %><%= log.module_name ? ' · ' : '' %><%= _timeAgo(log.created_at) %></span>
+                  </span>
+                </li>
+              <% }) %>
+            </ul>
+          <% } else { %>
+            <p class="od-empty">No activity yet.</p>
+          <% } %>
+        </section>
+        <% } %>
+      </div>
+      <% } %>
     </div>
+  </div>
+</div>
 
-    <% } %>
+<script>
+  (function () {
+    const root = document.querySelector('[data-od]');
+    const tools = document.querySelector('[data-od-tools]');
+    if (!root || root.dataset.ready === '1') return;
+    root.dataset.ready = '1';
+    const viewer = tools ? tools.dataset.odViewer : 'me';
+    const HIDDEN_KEY = 'od:hidden:' + viewer;
+    const USE_KEY = 'od:qa-use:' + viewer;
+    const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (_e) { return fallback; } };
+    const write = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch (_e) {} };
 
-  <script>
-    // Hide or show the welcome message or orgDashboardSection based on schoolYear and currentTerm
-    document.addEventListener('DOMContentLoaded', () => {
-      const orgDashboardSection = document.getElementById('orgDashboardSection');
-      const welcomeMessage = document.getElementById('welcomeMessage');
-      if (!orgDashboardSection || !welcomeMessage) return;
-
-      const schoolYear = JSON.parse('<%- JSON.stringify(schoolYear) %>');
-      const currentTerm = JSON.parse('<%- JSON.stringify(currentTerm) %>');
-
-      if (!schoolYear || !currentTerm) {
-        orgDashboardSection.style.display = 'none';
-        welcomeMessage.style.display = 'block';
-      } else {
-        orgDashboardSection.style.display = 'block';
-        welcomeMessage.style.display = 'none';
+    // ---- Lists: show all, read more ----
+    root.addEventListener('click', function (e) {
+      const more = e.target.closest('[data-od-showall]');
+      if (more) {
+        const list = more.previousElementSibling;
+        if (!list) return;
+        const open = list.classList.toggle('is-expanded');
+        more.textContent = open ? 'Show less' : more.dataset.more;
+        return;
+      }
+      const expand = e.target.closest('[data-od-expand]');
+      if (expand) {
+        const item = expand.closest('.od-ann');
+        const open = item.classList.toggle('is-open');
+        expand.textContent = open ? 'Show less' : 'Read more';
+        expand.setAttribute('aria-expanded', open ? 'true' : 'false');
       }
     });
+    root.querySelectorAll('.od-ann').forEach(function (item) {
+      const text = item.querySelector('.od-ann__text');
+      const btn = item.querySelector('[data-od-expand]');
+      if (text && btn && text.scrollHeight > text.clientHeight + 2) btn.hidden = false;
+    });
 
-  </script>
+    // ---- Teacher lists: one open at a time ----
+    const teacherLists = root.querySelectorAll('.od-teachers');
+    teacherLists.forEach(function (d) {
+      d.addEventListener('toggle', function () {
+        if (d.open) teacherLists.forEach(function (o) { if (o !== d) o.open = false; });
+      });
+    });
 
-  <script>
-    function toggleTeachers(index) {
-      const teachersList = document.getElementById('teachers-' + index);
-      const arrow = document.getElementById('arrow-' + index);
-      const isOpen = teachersList.classList.contains('show');
+    // ---- Dropdowns (quick actions, customize) ----
+    const dropdowns = tools ? Array.from(tools.querySelectorAll('[data-od-dd]')) : [];
+    const closeAll = (except) => dropdowns.forEach(function (dd) {
+      if (dd === except) return;
+      dd.classList.remove('is-open');
+      dd.querySelector('[data-od-dd-panel]').hidden = true;
+      dd.querySelector('[data-od-dd-toggle]').setAttribute('aria-expanded', 'false');
+    });
+    dropdowns.forEach(function (dd) {
+      const btn = dd.querySelector('[data-od-dd-toggle]');
+      const panel = dd.querySelector('[data-od-dd-panel]');
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const open = panel.hidden;
+        closeAll(dd);
+        teacherLists.forEach(function (d) { d.open = false; });
+        panel.hidden = !open;
+        dd.classList.toggle('is-open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    });
+    document.addEventListener('click', function (e) {
+      if (!document.body.contains(root)) return;
+      if (!e.target.closest('[data-od-dd]')) closeAll();
+      if (!e.target.closest('.od-teachers')) teacherLists.forEach(function (d) { d.open = false; });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || !document.body.contains(root)) return;
+      closeAll();
+      teacherLists.forEach(function (d) { d.open = false; });
+    });
 
-      // Close all other teacher lists
-      document.querySelectorAll('.teachers-list').forEach((list, idx) => {
-        if (idx !== index && list.classList.contains('show')) {
-          list.classList.remove('show');
-          const otherArrow = document.getElementById('arrow-' + idx);
-          if (otherArrow) otherArrow.classList.remove('expanded');
-          setTimeout(() => {
-            if (!list.classList.contains('show')) {
-              list.style.display = 'none';
-            }
-          }, 400);
+    // ---- Quick actions: most used first ----
+    const qa = tools && tools.querySelector('[data-od-qa]');
+    if (qa) {
+      const uses = read(USE_KEY, {});
+      Array.from(qa.children)
+        .sort(function (a, b) {
+          return ((uses[b.dataset.qaKey] || 0) - (uses[a.dataset.qaKey] || 0)) || (a.dataset.qaIndex - b.dataset.qaIndex);
+        })
+        .forEach(function (li, i) { li.classList.toggle('od-qa--more', i >= 6); qa.appendChild(li); });
+      const allBtn = tools.querySelector('[data-od-qa-all]');
+      if (allBtn) allBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const all = qa.classList.toggle('is-all');
+        allBtn.textContent = all ? 'Show fewer' : 'Show all ' + qa.children.length;
+      });
+      // Count on pointerdown/Enter: the SPA router swallows link clicks before they bubble here.
+      const countUse = function (e) {
+        if (e.type === 'keydown' && e.key !== 'Enter') return;
+        const li = e.target.closest('[data-qa-key]');
+        if (!li) return;
+        const counts = read(USE_KEY, {});
+        counts[li.dataset.qaKey] = (counts[li.dataset.qaKey] || 0) + 1;
+        write(USE_KEY, counts);
+      };
+      qa.addEventListener('pointerdown', countUse);
+      qa.addEventListener('keydown', countUse);
+    }
+
+    // ---- Activity & Announcements ----
+    const feed = root.querySelector('[data-od-feed]');
+    const canPublishFlag = <%= _perm('publish_events_announcements') ? 'true' : 'false' %>;
+    const hasWebsiteFlag = <%= _hasWebsite ? 'true' : 'false' %>;
+    const escText = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const postJson = (url, body) => fetch(url, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body || {}),
+    }).then((r) => r.json().catch(() => ({})).then((d) => { if (!r.ok || d.success === false) throw new Error(d.error || 'Something went wrong.'); return d; }));
+    const say = (msg) => { if (window.Workspace) window.Workspace.toast(msg); };
+    function detectClamp(scope) {
+      (scope || root).querySelectorAll('.od-ann').forEach(function (item) {
+        const text = item.querySelector('.od-ann__text');
+        const btn = item.querySelector('[data-od-expand]');
+        if (text && btn && !item.classList.contains('is-open')) btn.hidden = !(text.scrollHeight > text.clientHeight + 2);
+      });
+    }
+    function timeAgoShort(iso) {
+      const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+      if (m < 1) return 'just now';
+      if (m < 60) return m + 'm';
+      const h = Math.round(m / 60); if (h < 24) return h + 'h';
+      return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+    function commentHtml(c) {
+      const name = c.author_name || 'Someone';
+      const init = name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+      return `<li class="od-comment"><span class="od-comment__avatar">${escText(init)}</span><span class="od-comment__body"><span class="od-comment__who">${escText(name)}<small>${escText(timeAgoShort(c.created_at))}</small></span><span class="od-comment__text">${escText(c.body)}</span></span></li>`;
+    }
+    async function openThread(task, focus) {
+      const thread = task.querySelector('[data-thread]');
+      thread.hidden = false;
+      const list = thread.querySelector('[data-thread-list]');
+      if (!thread.dataset.loaded) {
+        list.innerHTML = '<li class="od-comment__text" style="color:#94a3b8">Loading…</li>';
+        try {
+          const r = await fetch(`/common/tasks/${task.dataset.taskId}/comments`, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+          const d = await r.json();
+          list.innerHTML = (d.comments || []).map(commentHtml).join('');
+          thread.dataset.loaded = '1';
+        } catch (_e) { list.innerHTML = ''; }
+      }
+      if (focus) thread.querySelector('input').focus();
+    }
+    if (feed) {
+      feed.addEventListener('click', async function (e) {
+        const tab = e.target.closest('[data-od-tab]');
+        if (tab) {
+          feed.querySelectorAll('[data-od-tab]').forEach((t) => { const on = t === tab; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); });
+          feed.querySelectorAll('[data-od-pane]').forEach((p) => { p.hidden = p.dataset.odPane !== tab.dataset.odTab; });
+          detectClamp(feed);
+          return;
+        }
+        const task = e.target.closest('[data-task-id]');
+        if (!task) return;
+        const id = task.dataset.taskId;
+
+        const doneBtn = e.target.closest('[data-task-done]');
+        if (doneBtn) {
+          const done = doneBtn.getAttribute('aria-pressed') !== 'true';
+          doneBtn.setAttribute('aria-pressed', done ? 'true' : 'false');
+          task.classList.toggle('is-done', done);
+          try { await postJson(`/common/tasks/${id}/status`, { done }); say(done ? 'Marked done' : 'Marked not done'); }
+          catch (err) { doneBtn.setAttribute('aria-pressed', done ? 'false' : 'true'); task.classList.toggle('is-done', !done); say(err.message); }
+          return;
+        }
+        const pickBtn = e.target.closest('[data-react-open]');
+        if (pickBtn) {
+          const menu = pickBtn.parentElement.querySelector('.od-react-menu');
+          root.querySelectorAll('.od-react-menu').forEach((m) => { if (m !== menu) m.hidden = true; });
+          menu.hidden = !menu.hidden;
+          return;
+        }
+        const reactBtn = e.target.closest('[data-react]');
+        if (reactBtn) {
+          task.querySelectorAll('.od-react-menu').forEach((m) => { m.hidden = true; });
+          try {
+            const d = await postJson(`/common/tasks/${id}/react`, { emoji: reactBtn.dataset.react });
+            task.querySelector('[data-reacts]').innerHTML = (d.reactions || []).map((r) => `<button type="button" class="od-react${r.mine ? ' is-mine' : ''}" data-react="${escText(r.emoji)}">${escText(r.emoji)} <span>${r.n}</span></button>`).join('');
+          } catch (err) { say(err.message); }
+          return;
+        }
+        if (e.target.closest('[data-thread-toggle]')) {
+          const thread = task.querySelector('[data-thread]');
+          if (thread.hidden) openThread(task, true); else thread.hidden = true;
         }
       });
-
-      if (isOpen) {
-        teachersList.classList.remove('show');
-        arrow.classList.remove('expanded');
-        setTimeout(() => {
-          if (!teachersList.classList.contains('show')) {
-            teachersList.style.display = 'none';
-          }
-        }, 400);
-      } else {
-        teachersList.style.display = 'block';
-        requestAnimationFrame(() => {
-          teachersList.classList.add('show');
-          arrow.classList.add('expanded');
-        });
-      }
-    }
-
-    function toggleEvent(index) {
-      const eventDetails = document.getElementById('event-details-' + index);
-      const eventPreview = document.getElementById('event-preview-' + index);
-      const eventItem = document.getElementById('event-item-' + index);
-      const arrow = document.getElementById('event-arrow-' + index);
-      const isOpen = eventDetails.classList.contains('show');
-
-      // Close all other event details
-      document.querySelectorAll('.event-details').forEach((details, idx) => {
-        if (idx !== index && details.classList.contains('show')) {
-          details.classList.remove('show');
-          const otherArrow = document.getElementById('event-arrow-' + idx);
-          const otherPreview = document.getElementById('event-preview-' + idx);
-          const otherItem = document.getElementById('event-item-' + idx);
-          if (otherArrow) otherArrow.classList.remove('expanded');
-          if (otherPreview) otherPreview.style.display = 'block';
-          if (otherItem) otherItem.classList.remove('expanded');
-          setTimeout(() => {
-            if (!details.classList.contains('show')) {
-              details.style.display = 'none';
-            }
-          }, 400);
-        }
+      feed.addEventListener('submit', async function (e) {
+        const form = e.target.closest('[data-thread-form]');
+        if (!form) return;
+        e.preventDefault();
+        const input = form.querySelector('input');
+        const body = input.value.trim();
+        if (!body) return;
+        const task = form.closest('[data-task-id]');
+        input.disabled = true;
+        try {
+          const d = await postJson(`/common/tasks/${task.dataset.taskId}/comments`, { body });
+          task.querySelector('[data-thread-list]').insertAdjacentHTML('beforeend', commentHtml(d.comment));
+          input.value = '';
+          const btn = task.querySelector('[data-thread-toggle]');
+          const count = btn.querySelector('[data-comment-count]');
+          if (count) count.textContent = Number(count.textContent || 0) + 1;
+          else btn.insertAdjacentHTML('beforeend', ' · <span data-comment-count>1</span>');
+        } catch (err) { say(err.message); }
+        input.disabled = false;
+        input.focus();
       });
-
-      if (isOpen) {
-        eventDetails.classList.remove('show');
-        arrow.classList.remove('expanded');
-        eventPreview.style.display = 'block';
-        eventItem.classList.remove('expanded');
-        setTimeout(() => {
-          if (!eventDetails.classList.contains('show')) {
-            eventDetails.style.display = 'none';
-          }
-        }, 400);
-      } else {
-        eventDetails.style.display = 'block';
-        eventPreview.style.display = 'none';
-        eventItem.classList.add('expanded');
-        requestAnimationFrame(() => {
-          eventDetails.classList.add('show');
-          arrow.classList.add('expanded');
-        });
-      }
-    }
-
-    function toggleAnnouncement(index) {
-      const announcementFull = document.getElementById('announcement-full-' + index);
-      const announcementPreview = document.getElementById('announcement-preview-' + index);
-      const announcementItem = document.getElementById('announcement-item-' + index);
-      const arrow = document.getElementById('announcement-arrow-' + index);
-      const isOpen = announcementFull.classList.contains('show');
-
-      // Close all other announcements
-      document.querySelectorAll('.announcement-full').forEach((full, idx) => {
-        if (idx !== index && full.classList.contains('show')) {
-          full.classList.remove('show');
-          const otherArrow = document.getElementById('announcement-arrow-' + idx);
-          const otherPreview = document.getElementById('announcement-preview-' + idx);
-          const otherItem = document.getElementById('announcement-item-' + idx);
-          if (otherArrow) otherArrow.classList.remove('expanded');
-          if (otherPreview) otherPreview.style.display = 'inline';
-          if (otherItem) otherItem.classList.remove('expanded');
-          setTimeout(() => {
-            if (!full.classList.contains('show')) {
-              full.style.display = 'none';
-            }
-          }, 400);
-        }
+      document.addEventListener('click', function (e) {
+        if (!document.body.contains(root)) return;
+        if (!e.target.closest('.od-react-pick')) root.querySelectorAll('.od-react-menu').forEach((m) => { m.hidden = true; });
       });
+    }
 
-      if (isOpen) {
-        announcementFull.classList.remove('show');
-        arrow.classList.remove('expanded');
-        announcementPreview.style.display = 'inline';
-        announcementItem.classList.remove('expanded');
-        setTimeout(() => {
-          if (!announcementFull.classList.contains('show')) {
-            announcementFull.style.display = 'none';
-          }
-        }, 400);
-      } else {
-        announcementFull.style.display = 'block';
-        announcementPreview.style.display = 'none';
-        announcementItem.classList.add('expanded');
-        requestAnimationFrame(() => {
-          announcementFull.classList.add('show');
-          arrow.classList.add('expanded');
-        });
+    // New task / compose buttons (card button and Quick actions).
+    document.addEventListener('click', function (e) {
+      const trigger = e.target.closest('[data-ws-compose]');
+      if (!trigger || !document.body.contains(root) || !window.Workspace) return;
+      e.preventDefault();
+      closeAll();
+      window.Workspace.open({
+        type: trigger.dataset.wsCompose, canPublish: canPublishFlag, hasWebsite: hasWebsiteFlag,
+        onSaved: function () { window.location.reload(); },
+      });
+    });
+
+    // Deep link from a notification: /common/orgDashboard#task-123
+    function goTo(target) {
+      if (!feed) return;
+      const tab = feed.querySelector('[data-od-tab="you"]');
+      if (tab && !tab.classList.contains('is-active')) tab.click();
+      if (target === 'tasks') {
+        const anchor = document.getElementById('tasks');
+        if (anchor) anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
       }
+      const m = String(target || '').match(/^task-(\d+)$/);
+      if (!m) return;
+      const task = document.getElementById('task-' + m[1]);
+      if (!task) return;
+      const list = task.closest('.od-list');
+      if (list && task.classList.contains('od-extra')) list.classList.add('is-expanded');
+      setTimeout(function () {
+        task.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        task.classList.remove('is-flash');
+        void task.offsetWidth;
+        task.classList.add('is-flash');
+        openThread(task, false);
+      }, 120);
     }
-  </script>
-
-  <style>
-    /* Scoped styles for org dashboard nav buttons (unique classes to avoid conflicts) */
-    .org-nav-wrap {
-      display: flex;
-      justify-content: center;
-      width: 100%;
-      margin-bottom: 16px;
+    document.addEventListener('click', function (e) {
+      const go = e.target.closest('[data-od-goto]');
+      if (!go || !document.body.contains(root)) return;
+      e.preventDefault();
+      goTo(go.dataset.odGoto);
+    });
+    function openTaskFromHash() {
+      const hash = String(window.location.hash || '');
+      if (hash === '#tasks') { goTo('tasks'); return; }
+      const m = hash.match(/^#task-(\d+)$/);
+      if (!m || !feed) return;
+      const task = document.getElementById('task-' + m[1]);
+      if (!task) return;
+      const tab = feed.querySelector('[data-od-tab="you"]');
+      if (tab && !tab.classList.contains('is-active')) tab.click();
+      const list = task.closest('.od-list');
+      if (list && task.classList.contains('od-extra')) list.classList.add('is-expanded');
+      setTimeout(function () {
+        task.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        task.classList.remove('is-flash');
+        void task.offsetWidth;
+        task.classList.add('is-flash');
+        openThread(task, false);
+      }, 150);
     }
+    openTaskFromHash();
+    window.addEventListener('hashchange', function () { if (document.body.contains(root)) openTaskFromHash(); });
 
-    .org-nav-buttons {
-      display: flex;
-      gap: 12px;
-      flex-wrap: nowrap;
-      justify-content: center;
-      align-items: center;
+    // ---- Customize: choose which sections show ----
+    const checks = tools && tools.querySelector('[data-od-checks]');
+    const sections = Array.from(root.querySelectorAll('[data-od-section]'));
+    const styleEl = () => {
+      let el = document.getElementById('od-hidden-style');
+      if (!el) { el = document.createElement('style'); el.id = 'od-hidden-style'; document.head.appendChild(el); }
+      return el;
+    };
+    function applyHidden(hidden) {
+      styleEl().textContent = hidden.map(function (k) { return '[data-od-section="' + k.replace(/[^a-z0-9-]/gi, '') + '"]{display:none!important}'; }).join('');
+      // Hide rows whose sections are all switched off, so no empty gaps remain.
+      root.querySelectorAll('.od-pair, .od-kpis').forEach(function (row) {
+        const kids = Array.from(row.querySelectorAll(':scope > [data-od-section]'));
+        row.classList.toggle('od-row-empty', kids.length > 0 && kids.every(function (k) { return hidden.includes(k.dataset.odSection); }));
+      });
     }
-
-    .org-nav-button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 18px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      border: 2px solid var(--org-primary-color, #01535b);
-      border-radius: 8px;
-      background-color: #ffffff;
-      color: var(--org-primary-color, #01535b);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      width: auto;
-      margin: 0;
-      flex: 0 0 auto;
-      min-width: 150px;
-      text-align: center;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    const MIN_VISIBLE = 3;
+    function lockMinimum() {
+      const boxes = Array.from(checks.querySelectorAll('[data-od-toggle]'));
+      const on = boxes.filter((b) => b.checked);
+      boxes.forEach((b) => {
+        const locked = b.checked && on.length <= MIN_VISIBLE;
+        b.disabled = locked;
+        b.closest('.od-check').classList.toggle('is-locked', locked);
+        b.closest('.od-check').title = locked ? 'Keep at least ' + MIN_VISIBLE + ' sections on your dashboard' : '';
+      });
     }
-
-    .org-nav-button:hover {
-      background-color: rgba(1, 83, 91, 0.08);
-      border-color: var(--org-primary-hover-fill, var(--org-primary-hover, #014a51));
-      color: var(--org-primary-hover, #014a51);
+    if (checks) {
+      let hidden = read(HIDDEN_KEY, []).filter((k) => sections.some((s) => s.dataset.odSection === k));
+      // Older saved choices may hide too much: always keep at least 3 sections visible.
+      while (sections.length - hidden.length < Math.min(MIN_VISIBLE, sections.length)) hidden.pop();
+      const esc = (v) => String(v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+      checks.innerHTML = sections.map(function (s) {
+        const key = s.dataset.odSection;
+        return '<label class="od-check"><input type="checkbox" data-od-toggle="' + esc(key) + '"' + (hidden.includes(key) ? '' : ' checked') + '> ' + esc(s.dataset.odLabel || key) + '</label>';
+      }).join('');
+      checks.addEventListener('change', function (e) {
+        const boxes = Array.from(checks.querySelectorAll('[data-od-toggle]'));
+        if (boxes.filter((b) => b.checked).length < Math.min(MIN_VISIBLE, boxes.length)) {
+          if (e.target) e.target.checked = true;
+          if (window.Workspace) window.Workspace.toast('Keep at least ' + MIN_VISIBLE + ' sections on your dashboard');
+        }
+        const next = boxes.filter(function (i) { return !i.checked; }).map(function (i) { return i.dataset.odToggle; });
+        write(HIDDEN_KEY, next);
+        applyHidden(next);
+        lockMinimum();
+      });
+      tools.querySelector('[data-od-reset]').addEventListener('click', function () {
+        checks.querySelectorAll('[data-od-toggle]').forEach(function (i) { i.checked = true; });
+        write(HIDDEN_KEY, []);
+        applyHidden([]);
+        lockMinimum();
+      });
+      applyHidden(hidden);
+      lockMinimum();
     }
-
-    .org-nav-button.active {
-      background-color: var(--org-primary-color, #01535b);
-      color: #ffffff;
-      border-color: var(--org-primary-color, #01535b);
-    }
-
-    @media (max-width: 768px) {
-      .org-nav-wrap {
-        padding: 0 8px;
-      }
-
-      .org-nav-buttons {
-        width: 100%;
-        flex-wrap: nowrap;
-      }
-
-      .org-nav-button {
-        flex: 1 1 50%;
-        font-size: 0.88rem;
-        min-width: 0;
-      }
-    }
-
-      :root {
-        --font-family: "<%= (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
-      }
-
-
-    body {
-      font-family: var(--font-family);
-    }
-
-    /* Dashboard Content Centering */
-    #orgDashboardSection {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 0 20px;
-    }
-
-    .dashboard-grid {
-      width: 100%;
-      max-width: 100%;
-      margin: 0 auto;
-    }
-
-    .grid-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-
-    .classes-container,
-    .school-year-info,
-    .events-container,
-    .announcements-container {
-      flex: 1;
-      min-width: 300px;
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      border: 1px solid #e5e7eb;
-    }
-
-    .welcome-page-wrapper {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 60vh;
-      padding: 20px;
-    }
-
-    .org-welcome-card {
-      max-width: 800px;
-      width: 100%;
-      margin: 0 auto;
-      text-align: center;
-    }
-
-    @media (max-width: 768px) {
-      #orgDashboardSection {
-        padding: 0 10px;
-      }
-
-      .grid-row {
-        flex-direction: column;
-      }
-
-      .classes-container,
-      .school-year-info,
-      .events-container,
-      .announcements-container {
-        min-width: 100%;
-      }
-    }
-  </style>
-  <style>
-    .yellow-dot {
-      color: rgb(204, 173, 0);
-      font-size: 0.75rem;
-      margin-left: 2px;
-      vertical-align: middle;
-    }
-
-    /* Make action links stand out - use theme color */
-    .classes-container ul {
-      padding: 0;
-      margin: 0;
-      list-style: none;
-      text-align: left;
-    }
-
-    .class-item {
-      list-style: none;
-    }
-
-    .class-header {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 0;
-      white-space: nowrap;
-      font-size: 0.82rem;
-    }
-
-    .class-header > a {
-      min-width: 6em;
-      flex-shrink: 0;
-    }
-
-    .teachers-list {
-      padding-left: 8px;
-      padding-bottom: 4px;
-    }
-
-    .teacher-entry {
-      font-size: 0.72rem;
-      color: #475569;
-      padding: 0;
-      line-height: 1.4;
-    }
-
-    .teacher-toggle svg {
-      width: 10px;
-      height: 10px;
-    }
-
-    .classes-container li a {
-      color: var(--org-primary-color);
-      text-decoration: none;
-      font-weight: 600;
-    }
-
-    .classes-container li a:hover {
-      text-decoration: underline;
-      color: var(--org-primary-hover);
-    }
-
-    /* Special styling for Create and Here links in the no-classes message */
-    .classes-container li a[href="/common/manageClassSubjectAndGradYr"],
-    .classes-container li a[href="/enrollment/manageEnrollment"] {
-      color: var(--org-primary-color);
-      font-weight: 700;
-      text-decoration: underline;
-    }
-
-    .classes-container li a[href="/common/manageClassSubjectAndGradYr"]:hover,
-    .classes-container li a[href="/enrollment/manageEnrollment"]:hover {
-      color: var(--org-primary-hover);
-      text-decoration: underline;
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-      margin-left: 10px;
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    @media (max-width: 768px) {
-      /* Events and Announcements */
-      .events-container,
-      .announcements-container {
-        padding: 10px;
-        text-align: center;
-      }
-      .classes-container li {
-        font-size: 1rem;
-        padding: 0;
-      }
-    }
-
-    /* 🔹 Responsive Adjustments for Small Screens (Mobile) */
-    @media screen and (max-width: 768px) {
-      .welcome-message {
-        text-align: center;
-        margin: 50px auto;
-        padding: 20px;
-        background-color: #f9f9f9;
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        width: 90%;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      }
-    }
-  </style>
-</body>
+  })();
+</script>
+<% } %>
