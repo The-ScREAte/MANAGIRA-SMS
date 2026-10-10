@@ -2,6 +2,7 @@
 // PayGira — Finance & Billing Management — multi-tenant scoped by organization_id.
 // All queries filter by req.session.organizationId. The page is admin-only.
 
+const { activeStudentSql } = require("../utils/activeStudents");
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
@@ -2492,6 +2493,7 @@ async function loadBillAudienceTargets(database, orgId, billId, appliesTo, targe
   return { targetClassIds: [], targetStudentIds: [] };
 }
 
+// New bill assignments go to active students only (graduated/archived are skipped).
 async function loadEligibleBillStudents(database, orgId, schoolYearId, termId, appliesTo, targetClassIds, targetStudentIds) {
   const audience = String(appliesTo || "school").toLowerCase();
   const classIds = normalizeIdArray(targetClassIds);
@@ -2504,6 +2506,7 @@ async function loadEligibleBillStudents(database, orgId, schoolYearId, termId, a
          FROM enrollments e
          JOIN enrolled_classes ec ON ec.enrollment_id = e.enrollment_id
          JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id AND es.class_id = ec.class_id
+         JOIN students s ON s.student_id = es.student_id AND ${activeStudentSql("s")}
         WHERE e.organization_id = $1
           AND e.school_year_id = $2
           AND e.term_id = $3
@@ -2520,6 +2523,7 @@ async function loadEligibleBillStudents(database, orgId, schoolYearId, termId, a
       `SELECT DISTINCT es.student_id
          FROM enrollments e
          JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+         JOIN students s ON s.student_id = es.student_id AND ${activeStudentSql("s")}
         WHERE e.organization_id = $1
           AND e.school_year_id = $2
           AND e.term_id = $3
@@ -2534,6 +2538,7 @@ async function loadEligibleBillStudents(database, orgId, schoolYearId, termId, a
     `SELECT DISTINCT es.student_id
        FROM enrollments e
        JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+       JOIN students s ON s.student_id = es.student_id AND ${activeStudentSql("s")}
       WHERE e.organization_id = $1
         AND e.school_year_id = $2
         AND e.term_id = $3

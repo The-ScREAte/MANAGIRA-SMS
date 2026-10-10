@@ -778,6 +778,7 @@ app.use((req, res, next) => {
 });
 
 // Template engine setup
+app.locals.assetUrl = require("./utils/assetUrl").assetUrl;
 app.use(expressLayouts);
 app.set("layout", "layout"); // Set default layout file
 app.set("view engine", "ejs");
@@ -903,6 +904,18 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
+// Ads beside the sign-in form on every sign-in page (views/partials/loginAdsPanel.ejs).
+{
+  const { SIGN_IN_PAGES, getActiveLoginAds, adFileUrl } = require("./utils/loginAds");
+  app.use(async (req, res, next) => {
+    if (req.method === "GET" && SIGN_IN_PAGES.has(req.path)) {
+      const ads = await getActiveLoginAds(db);
+      res.locals.loginAds = ads.map((ad) => ({ ...ad, file_url: adFileUrl(ad) }));
+    }
+    next();
+  });
+}
+
 // Use routes
 app.use("/account/settings", financeRoute);
 app.use("/account/settings", payoutRoute);
@@ -912,6 +925,8 @@ app.use("/common", commonRoute);
 app.use("/announcements", announcementRoute);
 // Canonical end-user feed path per spec; alias of GET /announcements/me.
 app.get("/me/announcements", announcementController.getMyAnnouncements);
+// In-app ad card receipts (seen / dismiss / click) - see announcementFeed.js.
+app.post("/me/ads/:id(\\d+)/:action(seen|dismiss|click)", require("./controllers/loginAdsController").recordViewerEvent);
 app.use("/print", printRoute);
 // Service-to-service only (shared-token gated) - consumed by the separate
 // Mira AI service, never reachable from a browser session.

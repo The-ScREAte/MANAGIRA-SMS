@@ -164,7 +164,7 @@
     <textarea name="description" placeholder="Campaign Description" required></textarea>
     <input type="url" name="external_link" placeholder="External Donation Link (e.g., GoFundMe)" required />
     <input type="file" name="image" accept="image/*" required />
-    <button type="submit" class="admin-btn admin-btn-success admin-btn-lg" style="width: 100%;">
+    <button type="submit" class="admin-btn admin-btn-success admin-btn-lg">
       + Add Donation Campaign
     </button>
   </form>
@@ -184,7 +184,7 @@
           <p><%= d.description %></p>
           <a href="<%= d.external_link %>" class="donation-link" target="_blank">🔗 View Donation Link</a>
           <form action="/admin/donations/delete/<%= d.id %>?imageKey=<%= d.s3_key %>" method="POST">
-            <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" onclick="return confirm('Delete this donation campaign and its image?')" style="width: 100%;">
+            <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" onclick="return confirm('Delete this donation campaign and its image?')">
               🗑 Delete Campaign
             </button>
           </form>

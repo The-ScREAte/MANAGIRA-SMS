@@ -81,43 +81,9 @@ function parseDateInput(value) {
   return parsed;
 }
 
+// Plans and invoices are priced per active student (see utils/activeStudents.js).
 async function getOrganizationStudentCount(dbClient, organizationId) {
-  if (!organizationId) return 0;
-  try {
-    // Bill only active students: exclude graduated and archived records.
-    const activeResult = await dbClient.query(
-      `SELECT COUNT(*)::int AS cnt
-       FROM students s
-       WHERE s.organization_id = $1
-         AND COALESCE(s.graduated, FALSE) = FALSE
-         AND NOT EXISTS (
-           SELECT 1
-           FROM archived_student_info a
-           WHERE a.organization_id = s.organization_id
-             AND a.student_id = s.student_id
-         )`,
-      [organizationId]
-    );
-    return Number(activeResult.rows[0]?.cnt || 0);
-  } catch (_) {
-    try {
-      // Fallback if archive table is unavailable in older environments.
-      const graduatedOnlyResult = await dbClient.query(
-        `SELECT COUNT(*)::int AS cnt
-         FROM students
-         WHERE organization_id = $1
-           AND COALESCE(graduated, FALSE) = FALSE`,
-        [organizationId]
-      );
-      return Number(graduatedOnlyResult.rows[0]?.cnt || 0);
-    } catch (_) {
-      const totalResult = await dbClient.query(
-        'SELECT COUNT(*)::int AS cnt FROM students WHERE organization_id = $1',
-        [organizationId]
-      );
-      return Number(totalResult.rows[0]?.cnt || 0);
-    }
-  }
+  return countActiveStudents(dbClient, organizationId);
 }
 
 async function getActivePlanBillingPeriods(dbClient) {
@@ -544,6 +510,7 @@ const {
   recordDeliveryStatus,
 } = require("../utils/smsIntegration");
 const { checkRateLimit } = require("../utils/rateLimiter");
+const { countActiveStudents } = require("../utils/activeStudents");
 const {
   syncGoogleClassroomForOrganization,
   pushPendingAssessmentsForOrganization,

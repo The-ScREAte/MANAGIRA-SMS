@@ -68,6 +68,10 @@ router.post(
 
 // Login and Logout Routes
 router.get("/login", (req, res) => accountController.loginGet(req, res, db));
+// Sign-in page ads: PDFs served same-origin so PDF.js can render them, plus click counts.
+const loginAdsController = require("../controllers/loginAdsController");
+router.get("/login-ads/:id(\\d+)/file", loginAdsController.serveFile);
+router.post("/login-ads/:id(\\d+)/click", loginAdsController.recordSignInClick);
 router.post(
   "/login",
   accountValidation.validateLogin,

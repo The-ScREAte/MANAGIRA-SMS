@@ -50,46 +50,91 @@
             </div>
           </li>
           <li class="admin-hamburger-container">
-            <div class="admin-hamburger" id="admin-hamburger">
+            <div class="admin-hamburger" id="admin-hamburger" role="button" tabindex="0" aria-label="Open menu" aria-controls="admin-hamburger-menu" aria-expanded="false">
               <span class="bar"></span>
               <span class="bar"></span>
               <span class="bar"></span>
             </div>
           </li>
         </ul>
+        <%
+          const _ahPath = (typeof currentPath !== 'undefined' && currentPath) ? String(currentPath) : '';
+          const _ahActive = (href) => href === '/admin' ? _ahPath === '/admin' || _ahPath === '/admin/' : _ahPath === href || _ahPath.startsWith(href + '/');
+          const _ahGroups = [];
+          if (_ahIsInternal) {
+            _ahGroups.push({ label: 'Workspace', items: [
+              { href: '/admin', icon: 'fa-gauge', text: 'Dashboard' },
+              ...(_ahCanViewOrgChart ? [{ href: '/admin/org-chart', icon: 'fa-sitemap', text: 'Team Org Chart' }] : []),
+            ] });
+            _ahGroups.push({ label: 'Resources', items: [
+              { href: '/legal/app-demo', icon: 'fa-desktop', text: 'App Demo', external: true },
+            ] });
+          } else {
+            _ahGroups.push({ label: 'Overview', items: [
+              { href: '/admin', icon: 'fa-gauge', text: 'Dashboard' },
+              ...(_ahIsFullAdmin ? [{ href: '/admin/superDashboard', icon: 'fa-user-shield', text: 'Super Admin' }] : []),
+            ] });
+            if (_ahIsFullAdmin) {
+              _ahGroups.push({ label: 'Schools & billing', items: [
+                { href: '/admin/scheduled-holds', icon: 'fa-calendar-xmark', text: 'Subscription Cancellation' },
+                { href: '/admin/create-promo', icon: 'fa-tags', text: 'Discounts' },
+                { href: '/admin/servicePricing', icon: 'fa-money-bill-wave', text: 'Service Pricing' },
+                { href: '/admin/data-export', icon: 'fa-file-export', text: 'Data Export' },
+              ] });
+              _ahGroups.push({ label: 'Communication', items: [
+                { href: '/admin/announcements', icon: 'fa-bullhorn', text: 'Announcements & Ads' },
+                { href: '/admin/email-suppressions', icon: 'fa-envelope', text: 'Email Suppressions' },
+              ] });
+              _ahGroups.push({ label: 'Team', items: [
+                { href: '/admin/org-chart', icon: 'fa-sitemap', text: 'Team Org Chart' },
+                { href: '/admin/employment', icon: 'fa-briefcase', text: 'Employment' },
+                { href: '/admin/donations', icon: 'fa-hand-holding-heart', text: 'Donations' },
+              ] });
+            }
+            _ahGroups.push({ label: 'Resources', items: [
+              { href: 'https://forms.gle/uc9qatwCgWf1jMnv6', icon: 'fa-clipboard-list', text: 'Weekly Internal Report', external: true },
+              { href: 'https://calendly.com/managirasms/managira-team-review-meeting', icon: 'fa-calendar-days', text: 'Calendar', external: true },
+              { href: '/legal/app-demo', icon: 'fa-desktop', text: 'App Demo', external: true },
+              { href: '/legal/help', icon: 'fa-circle-question', text: 'Help Center', external: true },
+              { href: '/legal/user-documentation', icon: 'fa-book', text: 'Documentation', external: true },
+            ] });
+          }
+        %>
         <div class="admin-hamburger-overlay" id="admin-hamburger-overlay">
-          <ul class="admin-hamburger-menu" id="admin-hamburger-menu">
-            <% if (_ahIsInternal) { %>
-              <li><a href="/admin" class="admin-header-link" data-no-spa>Dashboard</a></li>
-              <% if (_ahCanViewOrgChart) { %>
-                <li><a href="/admin/org-chart" class="admin-header-link" data-no-spa>Team Org Chart</a></li>
-              <% } %>
-              <li><a href="/legal/app-demo" class="admin-header-link" target="_blank" rel="noopener" data-no-spa>App Demo</a></li>
-              <li><a href="/admin/profile" class="admin-header-link" data-no-spa>Profile Settings</a></li>
-              <li><a href="/account/logout" class="admin-header-link" data-no-spa>Logout</a></li>
-            <% } else { %>
-            <li><a href="/admin" class="admin-header-link">Dashboard</a></li>
-            <% if (_ahIsFullAdmin) { %>
-              <li><a href="/admin/superDashboard" class="admin-header-link">Super Admin</a></li>
-              <li><a href="/admin/scheduled-holds" class="admin-header-link">Subscription Cancellation</a></li>
-              <li><a href="/admin/create-promo" class="admin-header-link">DISCOUNTS</a></li>
-              <li><a href="/admin/servicePricing" class="admin-header-link">Service Pricing</a></li>
-              <li><a href="/admin/data-export" class="admin-header-link">Data Export</a></li>
-              <li><a href="/admin/employment" class="admin-header-link">Employment</a></li>
-              <li><a href="/admin/donations" class="admin-header-link">Donations</a></li>
-              <li><a href="/admin/announcements" class="admin-header-link">Announcements</a></li>
-              <li><a href="/admin/email-suppressions" class="admin-header-link">Email Suppressions</a></li>
-              <li><a href="/admin/org-chart" class="admin-header-link">Team Org Chart</a></li>
-            <% } %>
-            <li><a href="https://forms.gle/uc9qatwCgWf1jMnv6" class="admin-header-link" target="_blank" rel="noopener" data-no-spa>Weekly Internal Report</a></li>
-            <li><a href="https://calendly.com/managirasms/managira-team-review-meeting" class="admin-header-link" target="_blank" rel="noopener" data-no-spa>Calendar</a></li>
-            <li><a href="/legal/app-demo" class="admin-header-link" target="_blank" rel="noopener" data-no-spa>App Demo</a></li>
-            <li><a href="/legal/help" class="admin-header-link" target="_blank" rel="noopener">Help Center</a></li>
-            <li><a href="/legal/user-documentation" class="admin-header-link" target="_blank" rel="noopener">Documentation</a></li>
-            <li><a href="/admin/profile" class="admin-header-link">Profile Settings</a></li>
-            <li><a href="/account/logout" class="admin-header-link" data-no-spa>Logout</a></li>
-            <% } %>
-          </ul>
+          <nav class="admin-menu" id="admin-hamburger-menu" aria-label="Admin menu">
+            <div class="admin-menu__head">
+              <span class="admin-menu__avatar" aria-hidden="true">
+                <% if (session.profileImageUrl) { %>
+                  <img src="<%= session.profileImageUrl %>" alt="" />
+                <% } else { %>
+                  <%= (session.firstName || '?').charAt(0).toUpperCase() %>
+                <% } %>
+              </span>
+              <span class="admin-menu__who">
+                <span class="admin-menu__name"><%= session.firstName %><% if (session.lastName) { %> <%= session.lastName %><% } %></span>
+                <span class="admin-menu__role"><%= session.accountType %></span>
+              </span>
+              <button type="button" class="admin-menu__close" data-admin-menu-close aria-label="Close menu">&times;</button>
+            </div>
+            <div class="admin-menu__body">
+              <% _ahGroups.forEach((group) => { %>
+                <div class="admin-menu__group">
+                  <div class="admin-menu__label"><%= group.label %></div>
+                  <% group.items.forEach((item) => { const active = !item.external && _ahActive(item.href); %>
+                    <a href="<%= item.href %>" class="admin-menu__link<%= active ? ' is-active' : '' %>"<%- item.external ? ' target="_blank" rel="noopener"' : '' %><%- (item.external || _ahIsInternal) ? ' data-no-spa' : '' %><%- active ? ' aria-current="page"' : '' %>>
+                      <i class="fa-solid <%= item.icon %>" aria-hidden="true"></i>
+                      <span><%= item.text %></span>
+                      <% if (item.external) { %><i class="fa-solid fa-arrow-up-right-from-square admin-menu__ext" aria-hidden="true"></i><% } %>
+                    </a>
+                  <% }) %>
+                </div>
+              <% }) %>
+            </div>
+            <div class="admin-menu__foot">
+              <a href="/admin/profile" class="admin-menu__link<%= _ahActive('/admin/profile') ? ' is-active' : '' %>"<%- _ahIsInternal ? ' data-no-spa' : '' %>><i class="fa-solid fa-gear" aria-hidden="true"></i><span>Profile Settings</span></a>
+              <a href="/account/logout" class="admin-menu__link admin-menu__link--danger" data-no-spa><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span>Logout</span></a>
+            </div>
+          </nav>
         </div>
       </nav>
     </div>
@@ -203,77 +248,121 @@
     .admin-hamburger-overlay {
       display: none;
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(15, 23, 42, 0.4);
+      inset: 0;
+      background: rgba(15, 23, 42, 0.42);
+      backdrop-filter: blur(2px);
       z-index: 3000;
       justify-content: flex-end;
       align-items: stretch;
-      pointer-events: auto;
     }
     .admin-hamburger-overlay.show {
       display: flex;
+      animation: adminMenuFade 0.18s ease;
     }
-    .admin-hamburger-menu {
-      background: #fff;
-      border-radius: 0;
-      box-shadow: 0 8px 32px rgba(30,41,59,0.18);
-      width: 280px;
-      max-width: 85vw;
-      height: 100vh;
-      padding: 74px 14px 16px;
-      z-index: 3100;
-      flex-direction: column;
-      list-style: none;
-      margin: 0;
+    .admin-menu {
+      text-align: left;
+      width: 300px;
+      max-width: 88vw;
+      height: 100%;
       display: flex;
-      align-items: stretch;
-      justify-content: flex-start;
-      gap: 2px;
-      position: relative;
-      pointer-events: auto;
+      flex-direction: column;
+      background: #fff;
       border-left: 1px solid #e5e7eb;
+      box-shadow: -12px 0 40px rgba(15, 23, 42, 0.18);
+      animation: adminMenuIn 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .admin-menu__head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 16px 16px 18px;
+      border-bottom: 1px solid #eef2f7;
+    }
+    .admin-menu__avatar {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #01535b;
+      color: #fff;
+      font-weight: 700;
+    }
+    .admin-menu__avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .admin-menu__who { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .admin-menu__name { font-weight: 700; color: #0f172a; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .admin-menu__role { color: #64748b; font-size: 0.78rem; }
+    .admin-menu__close {
+      width: 34px !important;
+      height: 34px;
+      margin: 0 !important;
+      padding: 0 !important;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #e5e7eb !important;
+      border-radius: 50%;
+      background: #fff !important;
+      color: #334155 !important;
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .admin-menu__close:hover { background: #f1f5f9 !important; }
+    .admin-menu__body {
+      flex: 1;
       overflow-y: auto;
+      padding: 8px 10px 12px;
+    }
+    .admin-menu__group { padding: 8px 0 4px; }
+    .admin-menu__group + .admin-menu__group { border-top: 1px solid #f1f5f9; }
+    .admin-menu__label {
+      padding: 4px 10px 6px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+    }
+    .admin-menu__link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      color: #1e293b;
+      font-size: 0.9rem;
+      font-weight: 600;
+      line-height: 1.25;
+      text-decoration: none;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .admin-menu__link > i:first-child { width: 18px; text-align: center; color: #64748b; font-size: 0.9rem; }
+    .admin-menu__link:hover { background: #f1f5f9; color: #0f172a; }
+    .admin-menu__link:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+    .admin-menu__link.is-active { background: #eff6ff; color: #1d4ed8; }
+    .admin-menu__link.is-active > i:first-child { color: #2563eb; }
+    .admin-menu__ext { margin-left: auto; font-size: 0.68rem; color: #cbd5e1; }
+    .admin-menu__foot {
+      padding: 10px;
+      border-top: 1px solid #eef2f7;
+      display: grid;
+      gap: 2px;
+    }
+    .admin-menu__link--danger { color: #b91c1c; }
+    .admin-menu__link--danger > i:first-child { color: #dc2626; }
+    .admin-menu__link--danger:hover { background: #fef2f2; color: #991b1b; }
+    @keyframes adminMenuFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes adminMenuIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      .admin-hamburger-overlay.show, .admin-menu { animation: none; }
     }
     body {
       overflow: auto !important;
-    }
-    .admin-hamburger-menu li {
-      width: 100%;
-      text-align: left;
-      padding: 0;
-      margin: 0;
-      display: block;
-      flex: 0 0 auto;
-    }
-    .admin-hamburger-menu .admin-header-link {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      padding: 9px 12px;
-      color: #1f2937;
-      text-decoration: none;
-      font-size: 0.95rem;
-      line-height: 1.25;
-      font-weight: 600;
-      border-radius: 8px;
-      background: transparent;
-      border: 1px solid transparent;
-      box-shadow: none;
-      margin: 0;
-      transition: background 0.18s, color 0.18s, border-color 0.18s;
-    }
-    .admin-hamburger-menu .admin-header-link:hover {
-      background: #f3f4f6;
-      border-color: #e5e7eb;
-      color: #111827;
-    }
-    .admin-hamburger-menu li:last-child {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid #e5e7eb;
     }
     .admin-header-link {
       text-decoration: none;
@@ -361,15 +450,6 @@
       }
       .admin-hamburger-container {
         margin-left: 0;
-      }
-      .admin-hamburger-menu {
-        width: 280px;
-        max-width: 88vw;
-        padding-top: 72px;
-      }
-      .admin-hamburger-menu .admin-header-link {
-        font-size: 0.94rem;
-        padding: 10px 12px;
       }
       .notification-icon {
         margin-bottom: 0;
@@ -520,16 +600,34 @@
       hamburger.dataset.menuBound = "1";
 
       const closeMenu = function () {
+        if (!overlay.classList.contains("show")) return;
         overlay.classList.remove("show");
         hamburger.classList.remove("active");
+        hamburger.setAttribute("aria-expanded", "false");
+        hamburger.focus();
       };
-
-      hamburger.addEventListener("click", function (e) {
+      const openMenu = function () {
+        overlay.classList.add("show");
+        hamburger.classList.add("active");
+        hamburger.setAttribute("aria-expanded", "true");
+        const current = menu.querySelector(".is-active") || menu.querySelector("a");
+        if (current) current.focus({ preventScroll: true });
+      };
+      const toggleMenu = function (e) {
         e.preventDefault();
         e.stopPropagation();
-        const shouldOpen = !overlay.classList.contains("show");
-        overlay.classList.toggle("show", shouldOpen);
-        hamburger.classList.toggle("active", shouldOpen);
+        if (overlay.classList.contains("show")) closeMenu(); else openMenu();
+      };
+
+      hamburger.addEventListener("click", toggleMenu);
+      hamburger.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") toggleMenu(e);
+      });
+      menu.querySelectorAll("[data-admin-menu-close]").forEach(function (btn) {
+        btn.addEventListener("click", closeMenu);
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") closeMenu();
       });
 
       overlay.addEventListener("click", function (e) {
@@ -553,7 +651,25 @@
       initAdminHamburger();
     }
 
-    window.addEventListener("spa:pageLoaded", initAdminHamburger);
+    // Keep the current-page highlight right after in-app (SPA) navigation.
+    function markActiveLink() {
+      const menu = document.getElementById("admin-hamburger-menu");
+      if (!menu) return;
+      const path = window.location.pathname.replace(/\/$/, "") || "/";
+      menu.querySelectorAll("a.admin-menu__link").forEach(function (link) {
+        const href = (link.getAttribute("href") || "").replace(/\/$/, "");
+        if (!href.startsWith("/") || link.target === "_blank") return;
+        const active = href === "/admin" ? path === "/admin" : path === href || path.startsWith(href + "/");
+        link.classList.toggle("is-active", active);
+        if (active) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+      });
+    }
+
+    window.addEventListener("spa:pageLoaded", function () {
+      initAdminHamburger();
+      markActiveLink();
+    });
   })();
 
   // Profile dropdown toggle

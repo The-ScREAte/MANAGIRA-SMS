@@ -1,0 +1,266 @@
+/* Login-page ad "stage": shared by /account/login and the editor on
+   /admin/announcements so a button placed in the editor lands in the same
+   spot on the login page. The stage takes the media's aspect ratio (--ar)
+   and fits inside --stage-h, and button size scales with the stage width. */
+
+.ad-stage {
+  --ar: 0.75;
+  --stage-h: 640px;
+  position: relative;
+  display: block;
+  aspect-ratio: var(--ar);
+  width: min(100%, calc(var(--stage-h) * var(--ar)));
+  border-radius: 20px;
+  overflow: hidden;
+  background: #f1f5f9;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.06);
+  container-type: inline-size;
+  text-decoration: none;
+}
+
+.ad-stage > img,
+.ad-stage > video,
+.ad-stage > canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.ad-stage__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font: 600 0.9rem/1.2 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.ad-btn {
+  --btn-scale: 1;
+  position: absolute;
+  left: 50%;
+  top: 85%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55em 1.35em;
+  border-radius: 0.35em;
+  background: #e4572e;
+  color: #fff;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  font-size: clamp(10px, calc(var(--btn-scale) * 3.2cqw), 40px);
+  line-height: 1.2;
+  white-space: nowrap;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+
+a.ad-btn:hover,
+a.ad-btn:focus-visible {
+  filter: brightness(1.08);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
+  text-decoration: none;
+}
+
+a.ad-btn:focus-visible,
+a.ad-stage:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+.ad-btn--sm { --btn-scale: 0.75; }
+.ad-btn--md { --btn-scale: 1; }
+.ad-btn--lg { --btn-scale: 1.3; }
+
+/* ---------- Sign-in pages: form on the left, ads on the right ----------
+   Applied by adding .auth-split to the page wrapper of /account/login,
+   /account/guardian-login, /account/student-login, /account/forget-password
+   and /hub/login when live ads exist (views/partials/loginAdsPanel.ejs). */
+.page-wrapper.auth-split,
+.forgot-page.auth-split {
+  --ad-panel-h: clamp(460px, calc(100vh - 104px), 920px);
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 64px);
+  width: 100%;
+  max-width: 1480px;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 16px clamp(20px, 4vw, 56px) 20px;
+  box-sizing: border-box;
+}
+
+.auth-split > :first-child {
+  justify-self: center;
+  width: 100%;
+}
+
+.login-ads {
+  display: flex;
+  flex-direction: column;
+  height: var(--ad-panel-h);
+  min-width: 0;
+}
+
+.login-ads__viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.login-ad {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+
+.login-ad.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.login-ad .ad-stage {
+  --stage-h: calc(var(--ad-panel-h) - var(--ad-dots-h, 0px));
+}
+
+.login-ads.has-dots {
+  --ad-dots-h: 28px;
+}
+
+.login-ads__dots {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 8px;
+  height: 28px;
+}
+
+.login-ads__dot {
+  width: 9px;
+  height: 9px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.login-ads__dot.is-active {
+  width: 24px;
+  background: #01535b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-ad { transition: none; }
+}
+
+@media (max-width: 960px) {
+  .page-wrapper.auth-split,
+  .forgot-page.auth-split {
+    --ad-panel-h: min(78vh, 620px);
+    grid-template-columns: minmax(0, 1fr);
+    padding: 24px 16px 32px;
+  }
+}
+
+/* ---------- In-app ad card (signed in), see announcementFeed.js ---------- */
+.app-ad {
+  position: fixed;
+  z-index: 10400;
+  bottom: 92px; /* clears the chat bubble (bottom 20px, 52px tall) */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: app-ad-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-ad--bottom-right { right: 20px; align-items: flex-end; }
+.app-ad--bottom-left { left: 20px; align-items: flex-start; }
+
+.app-ad--center {
+  inset: 0;
+  bottom: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.app-ad .ad-stage {
+  --stage-h: min(340px, 52vh);
+  width: min(280px, calc(var(--stage-h) * var(--ar)), calc(100vw - 40px));
+  border-radius: 16px;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22), 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.app-ad__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.app-ad--center .ad-stage {
+  --stage-h: min(520px, 72vh);
+  width: min(420px, calc(var(--stage-h) * var(--ar)), calc(100vw - 40px));
+}
+
+.app-ad__close {
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 50%;
+  background: #fff;
+  color: #334155;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+}
+
+.app-ad__close:hover { background: #f1f5f9; }
+
+.app-ad.is-leaving {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+@keyframes app-ad-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 767px) {
+  .app-ad--bottom-right,
+  .app-ad--bottom-left { left: 50%; right: auto; align-items: center; transform: translateX(-50%); animation: none; }
+  .app-ad .ad-stage { --stage-h: min(260px, 42vh); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-ad { animation: none; }
+}

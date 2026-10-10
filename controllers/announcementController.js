@@ -8,6 +8,7 @@ const { isFrequencyExhausted } = require("../utils/announcementFrequency");
 const { isManagerLikeRole } = require("../middleware/permissionMiddleware");
 const { uploadToS3 } = require("../middleware/s3Upload");
 const { audienceMembers, notifyMembers } = require("../utils/platformNotices");
+const { getInAppAdForViewer } = require("../utils/loginAds");
 
 function safeString(value) {
   return String(value == null ? "" : value).trim();
@@ -54,6 +55,13 @@ function resolveViewerRoleTags(req) {
   if (isManagerLikeRole(accountType) && !/^organization$/i.test(accountType)) tags.push("super_admin");
 
   return [...new Set(tags)];
+}
+
+// modal = pop-up, banner = strip at the top of every page,
+// dashboard = notice inside the school / admin dashboard.
+const VALID_DISPLAY_TYPES = new Set(["modal", "banner", "dashboard"]);
+function normalizeDisplayType(value) {
+  return VALID_DISPLAY_TYPES.has(value) ? value : "modal";
 }
 
 const VALID_POSITIONS = new Set(["center", "bottom-right", "bottom-left"]);
@@ -140,7 +148,7 @@ async function createAnnouncement(req, res) {
     if (!organizationId) return res.status(400).json({ error: "No organization in session." });
 
     const body = req.body || {};
-    const displayType = body.display_type === "banner" ? "banner" : "modal";
+    const displayType = normalizeDisplayType(body.display_type);
     const variant = ["info", "success", "warning", "new"].includes(body.variant) ? body.variant : "info";
     const position = normalizePosition(body.position);
     const frequency = require("../utils/announcementFrequency").VALID_FREQUENCIES.has(body.frequency)
@@ -189,7 +197,7 @@ async function createGlobalAnnouncement(req, res) {
   try {
     await ensureAnnouncementSchema(db);
     const body = req.body || {};
-    const displayType = body.display_type === "banner" ? "banner" : "modal";
+    const displayType = normalizeDisplayType(body.display_type);
     const variant = ["info", "success", "warning", "new"].includes(body.variant) ? body.variant : "info";
     const position = normalizePosition(body.position);
     const frequency = require("../utils/announcementFrequency").VALID_FREQUENCIES.has(body.frequency)
@@ -253,7 +261,7 @@ async function updateAnnouncement(req, res) {
     if (!allowed) return res.status(403).json({ error: "Not permitted to edit this announcement." });
 
     const body = req.body || {};
-    const displayType = body.display_type === "banner" ? "banner" : "modal";
+    const displayType = normalizeDisplayType(body.display_type);
     const variant = ["info", "success", "warning", "new"].includes(body.variant) ? body.variant : row.variant;
     const position = body.position !== undefined ? normalizePosition(body.position, row.position) : row.position;
     const frequency = require("../utils/announcementFrequency").VALID_FREQUENCIES.has(body.frequency)
@@ -543,8 +551,23 @@ async function getMyAnnouncements(req, res) {
 
     const banners = eligible.filter((r) => r.display_type === "banner");
     const modals = eligible.filter((r) => r.display_type === "modal");
+    const notices = eligible.filter((r) => r.display_type === "dashboard");
 
-    return res.json({ banners, modals });
+    // The in-app ad card is the lowest-priority item; the client shows it
+    // only after pop-ups and feedback requests are out of the way.
+    let ads = [];
+    try {
+      const ad = await getInAppAdForViewer(db, {
+        identity,
+        roleTags,
+        seenThisSession: req.session.seenLoginAdIds,
+      });
+      if (ad) ads = [ad];
+    } catch (adError) {
+      console.error("[getMyAnnouncements] ads:", adError.message);
+    }
+
+    return res.json({ banners, modals, notices, ads });
   } catch (error) {
     console.error("[getMyAnnouncements]", error);
     return res.status(500).json({ error: "Unable to load announcements." });

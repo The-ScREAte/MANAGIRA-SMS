@@ -2,7 +2,7 @@ const { assertIsStaff, callWriteApi } = require("./_writeAuth");
 
 module.exports = {
   name: "create_announcement",
-  description: "Create a banner announcement visible to staff/guardians in the caller's own school. Needs Publish Events & Announcements.",
+  description: "Create a dashboard notice shown to staff on the caller's own school dashboard. Needs Publish Events & Announcements.",
   parameters: {
     type: "object",
     properties: {

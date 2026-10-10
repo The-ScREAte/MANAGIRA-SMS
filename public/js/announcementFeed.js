@@ -1,6 +1,11 @@
 (function () {
   "use strict";
 
+  // Versioned URLs for the ad card's assets (set on this script tag in announcementFeed.ejs).
+  const feedScript = document.currentScript;
+  const AD_CSS_URL = (feedScript && feedScript.dataset.adCss) || "/css/loginAds.css";
+  const AD_JS_URL = (feedScript && feedScript.dataset.adJs) || "/js/loginAds.js";
+
   function escapeHtml(value) {
     const div = document.createElement("div");
     div.textContent = String(value == null ? "" : value);
@@ -93,11 +98,183 @@
     });
   }
 
-  function renderModalQueue(items) {
-    if (!items.length) return;
+  // Dashboard notices render only on pages that have a notices container
+  // (school dashboard, admin dashboard); elsewhere they wait, unseen.
+  function renderNotices(items) {
+    const container = document.getElementById("ann-dashboard-notices");
+    if (!container || !items.length) return;
+    const empty = document.getElementById("ann-dashboard-empty");
+    if (empty) empty.hidden = true;
+
+    items.forEach((item) => {
+      const card = document.createElement("article");
+      card.className = "ann-notice ann-notice-" + (item.variant || "info");
+
+      const head = document.createElement("div");
+      head.className = "ann-notice-head";
+      const title = document.createElement("h3");
+      title.className = "ann-notice-title";
+      title.textContent = item.title;
+      head.appendChild(title);
+      if (item.dismissible) {
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "ann-notice-close";
+        close.setAttribute("aria-label", "Dismiss");
+        close.innerHTML = "&times;";
+        close.addEventListener("click", function () {
+          card.remove();
+          post("/announcements/" + item.id + "/dismiss");
+          if (empty && !container.querySelector(".ann-notice")) empty.hidden = false;
+        });
+        head.appendChild(close);
+      }
+      card.appendChild(head);
+
+      if (item.body) {
+        const text = document.createElement("div");
+        text.className = "ann-notice-text";
+        text.textContent = item.body;
+        card.appendChild(text);
+      }
+
+      const links = item.cta_links || [];
+      if (links.length) {
+        const row = document.createElement("div");
+        row.className = "ann-notice-ctas";
+        links.forEach((link) => row.appendChild(renderCta(link, item.id)));
+        card.appendChild(row);
+      }
+
+      container.appendChild(card);
+      post("/announcements/" + item.id + "/seen");
+    });
+  }
+
+  // ---------- In-app ad card (lowest priority) ----------
+  const AD_SETTLE_MS = 3500; // lets a feedback request (feedbackPrompt.js) open first
+  const pageStart = Date.now();
+
+  function cornerBusy() {
+    const modal = document.getElementById("ann-modal-overlay");
+    return Boolean(document.querySelector(".mfb-overlay") || (modal && !modal.hidden));
+  }
+
+  function loadAdAssets(cb) {
+    if (!document.querySelector('link[href^="/css/loginAds.css"]')) {
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = AD_CSS_URL;
+      document.head.appendChild(css);
+    }
+    if (window.LoginAds) { cb(); return; }
+    const script = document.createElement("script");
+    script.src = AD_JS_URL;
+    script.onload = cb;
+    script.onerror = cb;
+    document.head.appendChild(script);
+  }
+
+  function adBeacon(id, action) {
+    const url = "/me/ads/" + encodeURIComponent(id) + "/" + action;
+    if (action === "click" && navigator.sendBeacon) navigator.sendBeacon(url);
+    else post(url);
+  }
+
+  function renderAd(ad) {
+    const position = ["bottom-right", "bottom-left", "center"].includes(ad.app_position) ? ad.app_position : "bottom-right";
+    const wrap = document.createElement("div");
+    wrap.className = "app-ad app-ad--" + position;
+    wrap.setAttribute("role", position === "center" ? "dialog" : "complementary");
+    wrap.setAttribute("aria-label", ad.title || "Featured");
+
+    function close() {
+      adBeacon(ad.id, "dismiss");
+      wrap.classList.add("is-leaving");
+      document.removeEventListener("keydown", onKey);
+      setTimeout(function () { wrap.remove(); }, 200);
+    }
+    function onKey(e) { if (e.key === "Escape") close(); }
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "app-ad__close";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.innerHTML = "&times;";
+    closeBtn.addEventListener("click", close);
+
+    const hasLink = Boolean(ad.link_url);
+    const asButton = hasLink && ad.show_as_button;
+    const stage = document.createElement(hasLink && !asButton ? "a" : "div");
+    stage.className = "ad-stage";
+    const ar = ad.media_width && ad.media_height ? ad.media_width / ad.media_height : 0.75;
+    stage.style.setProperty("--ar", ar.toFixed(4));
+
+    function linkUp(a) {
+      a.href = ad.link_url;
+      if (!isInternalUrl(ad.link_url)) { a.target = "_blank"; a.rel = "noopener sponsored"; }
+      a.addEventListener("click", function () { adBeacon(ad.id, "click"); });
+    }
+    if (stage.tagName === "A") linkUp(stage);
+
+    let media;
+    if (ad.media_type === "video") {
+      media = document.createElement("video");
+      Object.assign(media, { src: ad.file_url, muted: true, loop: true, autoplay: true, playsInline: true });
+    } else if (ad.media_type === "pdf") {
+      media = document.createElement("canvas");
+      media.dataset.pdfSrc = ad.file_url;
+    } else {
+      media = document.createElement("img");
+      media.src = ad.file_url;
+      media.alt = ad.title || "";
+    }
+    stage.appendChild(media);
+
+    if (asButton) {
+      const btn = document.createElement("a");
+      btn.className = "ad-btn ad-btn--" + (["sm", "md", "lg"].includes(ad.button_size) ? ad.button_size : "md");
+      btn.textContent = ad.link_label || "Learn more";
+      btn.style.left = ad.button_x + "%";
+      btn.style.top = ad.button_y + "%";
+      btn.style.background = ad.button_color;
+      btn.style.color = ad.button_text_color;
+      linkUp(btn);
+      stage.appendChild(btn);
+    }
+
+    if (position === "center") {
+      wrap.addEventListener("click", function (e) { if (e.target === wrap) close(); });
+      document.addEventListener("keydown", onKey);
+      const panel = document.createElement("div");
+      panel.className = "app-ad__panel";
+      panel.appendChild(closeBtn);
+      panel.appendChild(stage);
+      wrap.appendChild(panel);
+    } else {
+      wrap.appendChild(closeBtn);
+      wrap.appendChild(stage);
+    }
+
+    document.body.appendChild(wrap);
+    if (ad.media_type === "pdf" && window.LoginAds) window.LoginAds.renderPdfsIn(wrap);
+    adBeacon(ad.id, "seen");
+  }
+
+  function showAdWhenClear(ad, attempts) {
+    attempts = attempts || 0;
+    const wait = Math.max(0, AD_SETTLE_MS - (Date.now() - pageStart));
+    if (wait > 0 || (cornerBusy() && attempts < 900)) {
+      setTimeout(function () { showAdWhenClear(ad, attempts + 1); }, wait || 700);
+      return;
+    }
+    loadAdAssets(function () { renderAd(ad); });
+  }
+
+  function renderModalQueue(items, onDone) {
     const overlay = document.getElementById("ann-modal-overlay");
     const container = document.getElementById("ann-modal");
-    if (!overlay || !container) return;
+    if (!items.length || !overlay || !container) { if (onDone) onDone(); return; }
 
     let index = 0;
 
@@ -105,6 +282,7 @@
       if (index >= items.length) {
         overlay.hidden = true;
         container.innerHTML = "";
+        if (onDone) onDone();
         return;
       }
       const item = items[index];
@@ -186,10 +364,14 @@
 
   function init() {
     fetch("/me/announcements", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : { banners: [], modals: [] }))
+      .then((r) => (r.ok ? r.json() : { banners: [], modals: [], notices: [], ads: [] }))
       .then((data) => {
         renderBanners(data.banners || []);
-        renderModalQueue(data.modals || []);
+        renderNotices(data.notices || []);
+        const ad = (data.ads || [])[0];
+        renderModalQueue(data.modals || [], function () {
+          if (ad) showAdWhenClear(ad);
+        });
       })
       .catch(() => {});
   }

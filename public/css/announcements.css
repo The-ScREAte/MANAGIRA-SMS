@@ -194,3 +194,75 @@
   cursor: pointer;
 }
 .ann-modal-close:hover { background: #f1f5f9 !important; color: #0f172a; }
+
+/* Dashboard notices: rendered into #ann-dashboard-notices on the school
+   dashboard and the admin dashboard (announcementFeed.js). */
+.ann-dashboard-notices {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+.ann-dashboard-notices:empty { display: none; }
+.ann-notice {
+  position: relative;
+  padding: 14px 16px 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-left: 4px solid #2563eb;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  text-align: left;
+}
+.ann-notice-success { border-left-color: #16a34a; }
+.ann-notice-warning { border-left-color: #d97706; }
+.ann-notice-new     { border-left-color: #7c3aed; }
+.ann-notice-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ann-notice-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #0f172a;
+}
+.ann-notice-text {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: #475569;
+  white-space: pre-line;
+}
+.ann-notice-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ann-notice-ctas .ann-modal-cta { width: auto; margin: 0; }
+.ann-notice-close {
+  flex-shrink: 0;
+  width: 28px !important;
+  height: 28px;
+  margin: -4px -6px 0 0 !important;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none !important;
+  border-radius: 50%;
+  background: transparent !important;
+  color: #94a3b8 !important;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.ann-notice-close:hover { background: #f1f5f9 !important; color: #0f172a !important; }
+.ann-dashboard-notices--org {
+  max-width: 1200px;
+  margin: 16px auto;
+  padding: 0 16px;
+}

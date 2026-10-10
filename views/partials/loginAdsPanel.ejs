@@ -1,0 +1,43 @@
+<%# Ad panel beside the sign-in form. res.locals.loginAds is set for sign-in pages in server.js. %>
+<% const _signInAds = (typeof loginAds !== 'undefined' && Array.isArray(loginAds)) ? loginAds : []; %>
+<% if (_signInAds.length) { %>
+  <link rel="stylesheet" href="<%= assetUrl('/css/loginAds.css') %>" />
+  <aside class="login-ads<%= _signInAds.length > 1 ? ' has-dots' : '' %>" data-login-ads aria-label="Featured">
+    <div class="login-ads__viewport">
+      <% _signInAds.forEach((ad, i) => {
+           const ar = (ad.media_width && ad.media_height) ? (ad.media_width / ad.media_height).toFixed(4) : '0.75';
+           const hasLink = !!ad.link_url;
+           const asButton = hasLink && ad.show_as_button;
+           const external = hasLink && !ad.link_url.startsWith('/');
+           const linkAttrs = (external ? ' target="_blank" rel="noopener sponsored"' : '') + ' data-ad-click="' + ad.id + '"';
+           const stageTag = hasLink && !asButton ? 'a' : 'div';
+           const size = ['sm', 'md', 'lg'].includes(ad.button_size) ? ad.button_size : 'md';
+      %>
+        <div class="login-ad<%= i === 0 ? ' is-active' : '' %>" aria-hidden="<%= i === 0 ? 'false' : 'true' %>">
+          <<%= stageTag %> class="ad-stage" style="--ar: <%= ar %>;"<% if (stageTag === 'a') { %> href="<%= ad.link_url %>"<%- linkAttrs %> aria-label="<%= ad.title || ad.link_label || 'Learn more' %>"<% } %>>
+            <% if (ad.media_type === 'video') { %>
+              <video src="<%= ad.file_url %>" muted loop playsinline preload="metadata"<%= i === 0 ? ' autoplay' : '' %>></video>
+            <% } else if (ad.media_type === 'pdf') { %>
+              <span class="ad-stage__loading">Loading…</span>
+              <canvas data-pdf-src="<%= ad.file_url %>" aria-label="<%= ad.title || 'Advertisement' %>"></canvas>
+            <% } else { %>
+              <img src="<%= ad.file_url %>" alt="<%= ad.title || 'Advertisement' %>"<%= i === 0 ? '' : ' loading="lazy"' %> />
+            <% } %>
+            <% if (asButton) { %>
+              <a class="ad-btn ad-btn--<%= size %>" href="<%= ad.link_url %>"<%- linkAttrs %>
+                 style="left: <%= ad.button_x %>%; top: <%= ad.button_y %>%; background: <%= ad.button_color %>; color: <%= ad.button_text_color %>;"><%= ad.link_label || 'Learn more' %></a>
+            <% } %>
+          </<%= stageTag %>>
+        </div>
+      <% }) %>
+    </div>
+    <% if (_signInAds.length > 1) { %>
+      <div class="login-ads__dots" aria-label="Choose ad">
+        <% _signInAds.forEach((ad, i) => { %>
+          <button type="button" class="login-ads__dot<%= i === 0 ? ' is-active' : '' %>" data-ad-dot="<%= i %>" aria-label="Show ad <%= i + 1 %>"></button>
+        <% }) %>
+      </div>
+    <% } %>
+  </aside>
+  <script src="<%= assetUrl('/js/loginAds.js') %>" defer></script>
+<% } %>

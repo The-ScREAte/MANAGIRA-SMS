@@ -386,7 +386,7 @@
   </style>
 </head>
 <body>
-  <div class="page-wrapper">
+  <div class="page-wrapper<%= (typeof loginAds !== 'undefined' && loginAds && loginAds.length) ? ' auth-split' : '' %>">
     <div class="login-container">
       <div class="login-card">
         <div class="login-header">
@@ -470,6 +470,7 @@
       </div>
       </div>
     </div>
+    <%- include('../partials/loginAdsPanel') %>
   </div>
 
   <script>

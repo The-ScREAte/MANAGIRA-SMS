@@ -178,12 +178,13 @@
     if (firstStar) firstStar.focus();
   }
 
-  // Wait while an announcement pop-up is open so the two never stack.
+  // Wait while an announcement pop-up or ad card is open so they never stack.
   // (Not an offsetParent check: that's always null for position:fixed
   // elements like this overlay, in every browser, so it never worked.)
   function announcementOpen() {
     var overlay = document.getElementById("ann-modal-overlay");
-    return Boolean(overlay && !overlay.hidden);
+    // An in-app ad card (announcementFeed.js) also holds the corner until closed.
+    return Boolean((overlay && !overlay.hidden) || document.querySelector(".app-ad"));
   }
   function showWhenClear(request, attempts) {
     if (document.querySelector(".mfb-overlay")) return;

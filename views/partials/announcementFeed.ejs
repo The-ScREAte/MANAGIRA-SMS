@@ -1,6 +1,6 @@
-<link rel="stylesheet" href="/css/announcements.css">
+<link rel="stylesheet" href="<%= assetUrl('/css/announcements.css') %>">
 <div id="ann-banner-stack" class="ann-banner-stack" aria-live="polite"></div>
 <div id="ann-modal-overlay" class="ann-modal-overlay" hidden>
   <div id="ann-modal" class="ann-modal" role="dialog" aria-modal="true"></div>
 </div>
-<script src="/js/announcementFeed.js" defer></script>
+<script src="<%= assetUrl('/js/announcementFeed.js') %>" data-ad-css="<%= assetUrl('/css/loginAds.css') %>" data-ad-js="<%= assetUrl('/js/loginAds.js') %>" defer></script>

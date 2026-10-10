@@ -563,10 +563,10 @@ async function getGuardianDetailsApi(req, res) {
 
 // POST /internal/api/announcements
 // { organizationId, title, body }
-// Uses the admin_announcements table (org-targeted via organization_id,
-// same table the /admin/announcements page reads from today) - the newer
-// broadcast_announcements engine lives on a different, not-yet-merged
-// branch, so this deliberately doesn't take a dependency on it.
+// Creates a dashboard notice for the caller's school staff in the unified
+// announcement system (broadcast_announcements, display_type 'dashboard'),
+// shown once per person on the school dashboard - the same behavior the
+// older admin_announcements notices had.
 async function createAnnouncement(req, res) {
   try {
     // Previously this endpoint had NO permission check at all - the entire
@@ -587,14 +587,25 @@ async function createAnnouncement(req, res) {
       return res.status(400).json({ error: "title and body are required." });
     }
 
+    const { ensureAnnouncementSchema, SCHOOL_STAFF_ROLES } = require("../utils/announcementSystem");
+    await ensureAnnouncementSchema(db);
+    const createdBy = Number.parseInt(req.body?.userId, 10);
     const inserted = await db.query(
-      `INSERT INTO admin_announcements (title, description, is_active, organization_id)
-       VALUES ($1, $2, TRUE, $3)
+      `INSERT INTO broadcast_announcements
+         (tenant_id, title, body, display_type, variant, position, frequency, dismissible, is_active, created_by)
+       VALUES ($1, $2, $3, 'dashboard', 'info', 'center', 'once', TRUE, TRUE, $4)
        RETURNING *`,
-      [title.slice(0, 255), body, organizationId]
+      [organizationId, title.slice(0, 255), body, Number.isFinite(createdBy) ? createdBy : null]
     );
+    const announcement = inserted.rows[0];
+    for (const role of SCHOOL_STAFF_ROLES) {
+      await db.query(
+        `INSERT INTO broadcast_announcement_targets (announcement_id, target_type, target_value) VALUES ($1, 'role', $2)`,
+        [announcement.id, role]
+      );
+    }
 
-    return res.status(201).json({ announcement: inserted.rows[0] });
+    return res.status(201).json({ announcement });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
     console.error("[internalApi/createAnnouncement]", error);

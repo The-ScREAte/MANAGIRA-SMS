@@ -435,6 +435,8 @@
       gap: 12px;
       flex-wrap: wrap;
     }
+    /* The collapsible header is a <button>; style.css would make its text white. */
+    .iw-card__header--toggle { width: 100%; margin: 0; background: transparent; color: var(--text-primary); text-align: left; }
     .iw-card__title { font-size: 1.05rem; font-weight: 700; margin: 0; }
     .iw-card__subtitle { font-size: 0.85rem; color: var(--text-secondary); margin: 2px 0 0; }
     .iw-card__body { padding: 18px 22px; }
@@ -1049,200 +1051,10 @@
       }
     }
 
-    /* === Admin announcement list (collapsible) === */
-    .iw-ann-list {
+    /* Dashboard notices (rendered by announcementFeed.js) */
+    .ann-dashboard-notices--admin {
       max-width: 1400px;
       margin: 0 auto 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .iw-ann-card {
-      background: linear-gradient(135deg, rgba(1, 83, 91, 0.06), rgba(1, 83, 91, 0.02));
-      border: 1px solid rgba(1, 83, 91, 0.18);
-      border-left: 4px solid var(--primary);
-      border-radius: 12px;
-      overflow: hidden;
-      transition: box-shadow 150ms ease, transform 150ms ease;
-    }
-    .iw-ann-card.is-dismissing {
-      opacity: 0;
-      transform: translateY(-8px);
-      transition: opacity 200ms ease, transform 200ms ease;
-    }
-    .iw-ann-card__toggle {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      width: 100%;
-      padding: 14px 18px;
-      background: transparent;
-      border: 0;
-      cursor: pointer;
-      text-align: left;
-      font-family: inherit;
-      color: inherit;
-    }
-    .iw-ann-card__toggle:hover { background: rgba(1, 83, 91, 0.05); }
-    .iw-ann-card__toggle:focus-visible {
-      outline: 2px solid var(--primary);
-      outline-offset: -2px;
-    }
-    .iw-ann-card__head {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
-      flex: 1;
-    }
-    .iw-ann-card__eyebrow {
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--primary);
-    }
-    .iw-ann-card__title {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .iw-ann-card__chev {
-      font-size: 1.1rem;
-      color: var(--primary);
-      transition: transform 180ms ease;
-      flex-shrink: 0;
-    }
-    .iw-ann-card__toggle[aria-expanded="true"] .iw-ann-card__chev {
-      transform: rotate(180deg);
-    }
-    .iw-ann-card__toggle[aria-expanded="true"] .iw-ann-card__title {
-      white-space: normal;
-    }
-    .iw-ann-card__body {
-      padding: 0 18px 16px;
-      border-top: 1px solid rgba(1, 83, 91, 0.12);
-    }
-    .iw-ann-card__text {
-      padding-top: 12px;
-      color: var(--text-secondary);
-      font-size: 0.92rem;
-      line-height: 1.55;
-      white-space: pre-line;
-    }
-    .iw-ann-card__actions {
-      margin-top: 14px;
-      display: flex;
-      justify-content: flex-end;
-    }
-    .iw-ann-card__seen {
-      background: var(--primary);
-      color: #fff;
-      border: 0;
-      border-radius: 8px;
-      padding: 8px 18px;
-      font-size: 0.88rem;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 150ms ease, transform 100ms ease;
-    }
-    .iw-ann-card__seen:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
-    .iw-ann-card__seen:active { transform: translateY(1px); }
-    .iw-ann-card__seen[disabled] { opacity: 0.6; cursor: progress; }
-
-    @media (max-width: 600px) {
-      .iw-ann-card__toggle { padding: 12px 14px; }
-      .iw-ann-card__body { padding: 0 14px 14px; }
-      .iw-ann-card__title { font-size: 0.95rem; }
-    }
-
-    /* === Seen confirmation popup === */
-    .ann-seen-popup {
-      position: fixed;
-      inset: 0;
-      z-index: 2500;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-    .ann-seen-popup[hidden] { display: none; }
-    .ann-seen-popup__backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.55);
-      backdrop-filter: blur(2px);
-    }
-    .ann-seen-popup__panel {
-      position: relative;
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
-      max-width: 420px;
-      width: 100%;
-      padding: 22px 22px 18px;
-      animation: annSeenPopIn 160ms ease-out;
-    }
-    @keyframes annSeenPopIn {
-      from { opacity: 0; transform: translateY(8px) scale(0.98); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    .ann-seen-popup__title {
-      margin: 0 0 8px;
-      font-size: 1.08rem;
-      font-weight: 700;
-      color: var(--text-primary);
-    }
-    .ann-seen-popup__body {
-      margin: 0 0 14px;
-      font-size: 0.92rem;
-      color: var(--text-secondary);
-      line-height: 1.5;
-    }
-    .ann-seen-popup__check {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.88rem;
-      color: var(--text-primary);
-      margin-bottom: 16px;
-      cursor: pointer;
-    }
-    .ann-seen-popup__check input { width: 16px; height: 16px; }
-    .ann-seen-popup__actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .ann-seen-popup__btn {
-      border: 0;
-      border-radius: 8px;
-      padding: 9px 16px;
-      font-size: 0.88rem;
-      font-weight: 700;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .ann-seen-popup__btn--ghost {
-      background: #f1f5f9;
-      color: var(--text-primary);
-    }
-    .ann-seen-popup__btn--ghost:hover { background: #e2e8f0; }
-    .ann-seen-popup__btn--primary {
-      background: var(--primary);
-      color: #fff;
-    }
-    .ann-seen-popup__btn--primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
-    @media (max-width: 480px) {
-      .ann-seen-popup__panel { padding: 18px; }
-      .ann-seen-popup__actions { justify-content: stretch; }
-      .ann-seen-popup__btn { flex: 1; }
     }
   </style>
 </head>
@@ -1251,8 +1063,6 @@
     <% const _isInternal = (typeof isInternalWorker !== 'undefined') && isInternalWorker; %>
     <% const _isFullAdmin = (typeof isFullAdmin !== 'undefined') && isFullAdmin; %>
     <% const _contacts = (typeof contacts !== 'undefined' && Array.isArray(contacts)) ? contacts : []; %>
-    <% const _adminAnnouncements = (typeof adminAnnouncements !== 'undefined' && Array.isArray(adminAnnouncements)) ? adminAnnouncements : []; %>
-    <% const _latestAnnouncement = (typeof latestAnnouncement !== 'undefined') ? latestAnnouncement : null; %>
     <% const _displayName = (session && (session.firstName || session.lastName)) ? `${session.firstName || ''} ${session.lastName || ''}`.trim() : ''; %>
     <% const _canAccessFeedbackInbox = ['admin', 'mini admin'].includes(String(session && session.accountType ? session.accountType : '').trim().toLowerCase()); %>
 
@@ -1279,52 +1089,14 @@
 
     <%- include('../partials/flash') %>
 
-    <% if (_adminAnnouncements.length > 0) { %>
-      <section class="iw-ann-list" aria-label="Admin announcements">
-        <% _adminAnnouncements.forEach(function(ann, idx) { %>
-          <article class="iw-ann-card" data-ann-id="<%= ann.id %>">
-            <button type="button" class="iw-ann-card__toggle" aria-expanded="false" data-ann-toggle>
-              <span class="iw-ann-card__head">
-                <span class="iw-ann-card__eyebrow">📣 Announcement</span>
-                <span class="iw-ann-card__title"><%= ann.title %></span>
-              </span>
-              <span class="iw-ann-card__chev" aria-hidden="true">▾</span>
-            </button>
-            <div class="iw-ann-card__body" hidden>
-              <div class="iw-ann-card__text"><%= ann.description %></div>
-              <div class="iw-ann-card__actions">
-                <button type="button" class="iw-ann-card__seen" data-ann-seen data-ann-id="<%= ann.id %>">
-                  Seen
-                </button>
-              </div>
-            </div>
-          </article>
-        <% }); %>
-      </section>
-    <% } else if (_isInternal) { %>
-      <div class="iw-announcement">
+    <div id="ann-dashboard-notices" class="ann-dashboard-notices ann-dashboard-notices--admin" aria-label="Announcements"></div>
+    <% if (_isInternal) { %>
+      <div class="iw-announcement" id="ann-dashboard-empty">
         <div class="iw-announcement__eyebrow">📣 Announcement</div>
         <div class="iw-announcement__title">No announcements right now</div>
         <div class="iw-announcement__body">Check back later for the latest updates from the Managira team.</div>
       </div>
     <% } %>
-
-    <!-- First-time confirmation popup for "Seen" -->
-    <div id="annSeenPopup" class="ann-seen-popup" role="dialog" aria-modal="true" aria-labelledby="annSeenPopupTitle" hidden>
-      <div class="ann-seen-popup__backdrop" data-ann-popup-cancel></div>
-      <div class="ann-seen-popup__panel">
-        <h3 id="annSeenPopupTitle" class="ann-seen-popup__title">You won’t see this message again</h3>
-        <p class="ann-seen-popup__body">Once you click <strong>Seen</strong>, this announcement will be dismissed for your account and won’t show up here again.</p>
-        <label class="ann-seen-popup__check">
-          <input type="checkbox" id="annSeenPopupSkip" />
-          <span>Don’t show this confirmation again</span>
-        </label>
-        <div class="ann-seen-popup__actions">
-          <button type="button" class="ann-seen-popup__btn ann-seen-popup__btn--ghost" data-ann-popup-cancel>Cancel</button>
-          <button type="button" class="ann-seen-popup__btn ann-seen-popup__btn--primary" id="annSeenPopupConfirm">Got it, mark as seen</button>
-        </div>
-      </div>
-    </div>
 
     <% if (!_isInternal) { %>
     <div class="stats-grid">
@@ -1586,106 +1358,6 @@
       });
     });
 
-    // === Admin announcement collapse/expand + Seen flow ===
-    (function () {
-      var STORAGE_KEY = 'managira:annSeenSkipPopup';
-
-      function setExpanded(card, expanded) {
-        var toggle = card.querySelector('[data-ann-toggle]');
-        var body = card.querySelector('.iw-ann-card__body');
-        if (!toggle || !body) return;
-        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-        if (expanded) body.removeAttribute('hidden');
-        else body.setAttribute('hidden', '');
-      }
-
-      document.querySelectorAll('.iw-ann-card').forEach(function (card) {
-        var toggle = card.querySelector('[data-ann-toggle]');
-        if (!toggle) return;
-        toggle.addEventListener('click', function () {
-          var isExpanded = toggle.getAttribute('aria-expanded') === 'true';
-          setExpanded(card, !isExpanded);
-        });
-      });
-
-      var popup = document.getElementById('annSeenPopup');
-      var popupConfirm = document.getElementById('annSeenPopupConfirm');
-      var popupSkip = document.getElementById('annSeenPopupSkip');
-      var pendingCard = null;
-
-      function openPopup(card) {
-        if (!popup) return;
-        pendingCard = card;
-        if (popupSkip) popupSkip.checked = false;
-        popup.removeAttribute('hidden');
-      }
-      function closePopup() {
-        if (!popup) return;
-        pendingCard = null;
-        popup.setAttribute('hidden', '');
-      }
-
-      function dismissAnnouncement(card) {
-        if (!card) return;
-        var id = card.getAttribute('data-ann-id');
-        var btn = card.querySelector('[data-ann-seen]');
-        if (btn) btn.disabled = true;
-        fetch('/admin/announcements/seen/' + encodeURIComponent(id), {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        }).then(function (r) {
-          // Animate out regardless of success — backend just records; UI stays clean.
-          card.classList.add('is-dismissing');
-          setTimeout(function () {
-            card.parentNode && card.parentNode.removeChild(card);
-            // If the list is now empty, remove the wrapper too.
-            var list = document.querySelector('.iw-ann-list');
-            if (list && !list.querySelector('.iw-ann-card')) {
-              list.parentNode && list.parentNode.removeChild(list);
-            }
-          }, 220);
-          return r;
-        }).catch(function () {
-          if (btn) btn.disabled = false;
-        });
-      }
-
-      document.querySelectorAll('[data-ann-seen]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var card = btn.closest('.iw-ann-card');
-          if (!card) return;
-          var skip = false;
-          try { skip = localStorage.getItem(STORAGE_KEY) === '1'; } catch (e) { skip = false; }
-          if (skip) {
-            dismissAnnouncement(card);
-          } else {
-            openPopup(card);
-          }
-        });
-      });
-
-      if (popupConfirm) {
-        popupConfirm.addEventListener('click', function () {
-          if (popupSkip && popupSkip.checked) {
-            try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) { /* ignore */ }
-          }
-          var card = pendingCard;
-          closePopup();
-          dismissAnnouncement(card);
-        });
-      }
-
-      document.querySelectorAll('[data-ann-popup-cancel]').forEach(function (el) {
-        el.addEventListener('click', closePopup);
-      });
-
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && popup && !popup.hasAttribute('hidden')) {
-          closePopup();
-        }
-      });
-    })();
   </script>
 </body>
 </html>

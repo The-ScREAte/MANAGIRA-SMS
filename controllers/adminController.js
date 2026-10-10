@@ -586,32 +586,6 @@ const adminController = {
         );
       }
 
-      // Active announcements flagged for the admin dashboard, excluding any
-      // the current user has already marked as seen.
-      let latestAnnouncement = null;
-      let adminAnnouncements = [];
-      try {
-        await ensureAdminAnnouncementSchema(db);
-        const annResult = await db.query(
-          `
-          SELECT a.id, a.title, a.description, a.created_at
-          FROM admin_announcements a
-          LEFT JOIN announcement_views v
-            ON v.announcement_id = a.id AND v.user_id = $1
-          WHERE a.is_active = TRUE
-            AND a.show_for_admins = TRUE
-            AND v.view_id IS NULL
-          ORDER BY a.created_at DESC
-          `,
-          [req.session.userId]
-        );
-        adminAnnouncements = annResult.rows;
-        latestAnnouncement = adminAnnouncements[0] || null;
-      } catch (_) {
-        latestAnnouncement = null;
-        adminAnnouncements = [];
-      }
-
       // Contacts / referrals.
       // - Internal Worker sees only their own.
       // - Admin / Mini Admin sees all contacts with the creator's name.
@@ -710,8 +684,6 @@ const adminController = {
         title: "Admin Dashboard",
         applications,
         contacts,
-        latestAnnouncement,
-        adminAnnouncements,
         isInternalWorker,
         isFullAdmin,
         canManageAllContacts,
@@ -728,8 +700,6 @@ const adminController = {
         title: "Admin Dashboard",
         applications: [],
         contacts: [],
-        latestAnnouncement: null,
-        adminAnnouncements: [],
         isInternalWorker: req.session.accountType === 'Internal Worker',
         isFullAdmin: req.session.accountType === 'Admin',
         canManageAllContacts: isAdminSideManager(req.session.accountType),
@@ -4987,12 +4957,12 @@ const adminController = {
       await ensureAdminEmailCampaignSchema(db);
       await ensureAdminAnnouncementSchema(db);
       await require("../utils/announcementSystem").ensureAnnouncementSchema(db);
-      const [announcementResult, campaigns, broadcastResult, orgResult, feedbackRequests] = await Promise.all([
-        db.query(`SELECT * FROM admin_announcements ORDER BY created_at DESC`),
+      const [campaigns, broadcastResult, orgResult, feedbackRequests, loginAds] = await Promise.all([
         fetchAdminEmailCampaigns(),
         db.query(`SELECT * FROM broadcast_announcements ORDER BY created_at DESC LIMIT 100`),
         db.query(`SELECT organization_id, organization_name FROM organizations WHERE COALESCE(deleted, false) = false`),
         require("./feedbackRequestController").listFeedbackRequests(),
+        require("./loginAdsController").listAds(),
       ]);
       const orgNames = new Map(orgResult.rows.map((o) => [String(o.organization_id), o.organization_name]));
       const ids = broadcastResult.rows.map((r) => r.id);
@@ -5020,12 +4990,17 @@ const adminController = {
           title: b.title,
           excerpt: String(b.body || "").replace(/\s+/g, " ").slice(0, 160),
           audience: `${roles.length ? roles.join(", ") : "Everyone"} - ${schools}${people ? ` + ${people} named ${people === 1 ? "person" : "people"}` : ""}`,
-          format: b.display_type === "banner" ? "Banner" : "Pop-up",
+          format: b.display_type === "banner"
+            ? "Banner (top of page)"
+            : b.display_type === "dashboard"
+              ? "Dashboard notice"
+              : `Pop-up (${{ "bottom-right": "bottom right", "bottom-left": "bottom left" }[b.position] || "center"})`,
           frequency: FREQ_NAMES[b.frequency] || b.frequency,
           startsAt: b.starts_at,
           endsAt: b.ends_at,
           isActive: b.is_active,
-          createdBySchool: Boolean(b.tenant_id),
+          // School-scoped and made by a school user (moved-over Managira notices have no creator).
+          createdBySchool: Boolean(b.tenant_id && b.created_by),
           status,
           stats,
         };
@@ -5033,10 +5008,10 @@ const adminController = {
 
       res.render("admin/adminAnnouncements", {
         title: "Announcements & Feedback",
-        announcements: announcementResult.rows,
         campaigns,
         broadcasts,
         feedbackRequests,
+        loginAds,
         messages: req.flash(),
       });
     } catch (error) {

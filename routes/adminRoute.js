@@ -305,7 +305,9 @@ module.exports = (db) => {
     router.get('/scheduled-holds', ensureAdmin, adminController.scheduledHoldsPage);
 
     router.get("/announcements", isAuthenticated, ensureAdmin, adminController.getAdminAnnouncements);
-    router.get("/announcements/new", isAuthenticated, ensureAdmin, adminController.newAdminAnnouncementForm);
+    // Dashboard notices are now a format of the unified announcements; the
+    // older notice form and create route point back to the Announcements page.
+    router.get("/announcements/new", isAuthenticated, ensureAdmin, (req, res) => res.redirect("/admin/announcements"));
     // Request Feedback (star rating + comment) from chosen roles in chosen schools.
     const feedbackRequests = require("../controllers/feedbackRequestController");
     router.get("/feedback-requests/new", isAuthenticated, ensureAdmin, feedbackRequests.formPage);
@@ -326,7 +328,28 @@ module.exports = (db) => {
         req.query.global = "1";
         return require("../controllers/commonController").commonController.announcementComposerGet(req, res, db);
     });
-    router.post("/announcements", isAuthenticated, ensureAdmin, adminController.createAdminAnnouncement);
+    // Login page ads (managed from the Announcements page, shown on /account/login).
+    const loginAdsController = require('../controllers/loginAdsController');
+    const { MEDIA_TYPES, MAX_FILE_BYTES } = require('../utils/loginAds');
+    const loginAdUpload = multer({
+        dest: 'uploads/',
+        limits: { fileSize: MAX_FILE_BYTES },
+        fileFilter: (req, file, cb) => cb(null, Boolean(MEDIA_TYPES[file.mimetype])),
+    });
+    const loginAdFile = (req, res, next) => loginAdUpload.single('file')(req, res, (err) => {
+        if (!err) return next();
+        const message = err.code === 'LIMIT_FILE_SIZE' ? 'File is larger than 50 MB.' : 'Upload failed.';
+        return res.status(400).json({ success: false, message });
+    });
+    router.post("/announcements/ads", isAuthenticated, ensureAdmin, loginAdFile, loginAdsController.create);
+    router.post("/announcements/ads/reorder", isAuthenticated, ensureAdmin, express.json(), loginAdsController.reorder);
+    router.post("/announcements/ads/:id(\\d+)", isAuthenticated, ensureAdmin, loginAdFile, loginAdsController.update);
+    router.post("/announcements/ads/:id(\\d+)/delete", isAuthenticated, ensureAdmin, loginAdsController.remove);
+
+    router.post("/announcements", isAuthenticated, ensureAdmin, (req, res) => {
+        req.flash("info", 'Dashboard notices are now created with "New Announcement" (choose Dashboard notice).');
+        res.redirect("/admin/announcements");
+    });
     router.post("/announcements/toggle/:id", isAuthenticated, ensureAdmin, adminController.toggleAdminAnnouncement);
     router.post("/announcements/delete/:id", isAuthenticated, ensureAdmin, adminController.deleteAdminAnnouncement);
     router.get('/email-suppressions', isAuthenticated, ensureAdmin, adminController.getEmailSuppressionsPage);

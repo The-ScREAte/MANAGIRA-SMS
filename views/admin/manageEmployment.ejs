@@ -1000,7 +1000,7 @@
           In-app mode uses the built-in application form with resume upload, contact info, and cover letter.
         </p>
 
-        <button type="submit" class="admin-btn admin-btn-primary admin-btn-lg" style="width: 100%;">
+        <button type="submit" class="admin-btn admin-btn-primary admin-btn-lg">
           Post Job Opening
         </button>
       </form>
@@ -1040,7 +1040,7 @@
             <p class="job-description"><%= job.description %></p>
 
             <form action="/admin/employment/toggle-status/<%= job.id %>" method="POST" style="margin: 0 0 14px;">
-              <button type="submit" class="admin-btn admin-btn-sm" style="width: 100%; background: <%= job.is_active ? '#b91c1c' : '#0f766e' %>; color: #fff; border: 1px solid <%= job.is_active ? '#991b1b' : '#115e59' %>;">
+              <button type="submit" class="admin-btn admin-btn-sm" style="background: <%= job.is_active ? '#b91c1c' : '#0f766e' %>; color: #fff; border: 1px solid <%= job.is_active ? '#991b1b' : '#115e59' %>;">
                 <%= job.is_active ? 'Set Inactive (Hide from Job Posting)' : 'Set Active (Show on Job Posting)' %>
               </button>
             </form>
@@ -1062,7 +1062,7 @@
                   <input class="edit-external-link" type="url" name="external_link" value="<%= job.external_link || '' %>" placeholder="External Link (required for external mode)" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box;" />
                 </div>
 
-                <button type="submit" class="admin-btn admin-btn-primary admin-btn-sm" style="width: 100%;">
+                <button type="submit" class="admin-btn admin-btn-primary admin-btn-sm">
                   Save Changes
                 </button>
               </form>
@@ -1123,7 +1123,7 @@
                               <button
                                 type="submit"
                                 class="admin-btn admin-btn-sm"
-                                style="width: 100%; background: #0f766e; color: #fff; border: 1px solid #115e59;"
+                                style="background: #0f766e; color: #fff; border: 1px solid #115e59;"
                                 <%= application.status !== 'pending' ? 'disabled' : '' %>
                               >
                                 <%= application.status === 'approved' ? 'Already Approved' : (application.status === 'rejected' ? 'Approve Disabled Until Reversed' : 'Approve and Send Email') %>
@@ -1139,7 +1139,7 @@
                               <button
                                 type="submit"
                                 class="admin-btn admin-btn-sm"
-                                style="width: 100%; background: #b91c1c; color: #fff; border: 1px solid #991b1b;"
+                                style="background: #b91c1c; color: #fff; border: 1px solid #991b1b;"
                                 <%= application.status !== 'pending' ? 'disabled' : '' %>
                               >
                                 <%= application.status === 'rejected' ? 'Already Rejected' : (application.status === 'approved' ? 'Reject Disabled After Approval' : 'Reject and Send Email') %>
@@ -1151,11 +1151,11 @@
                                 <label style="font-size: 0.8rem; font-weight: 600; color: #0f766e;">2nd Interview Message (leave empty or check Use Template)</label>
                                 <textarea name="custom_message" placeholder="Optional custom message" style="width:100%; min-height:60px; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box;"></textarea>
                                 <label style="display:flex; gap:6px; align-items:center; font-size:0.8rem;"><input type="checkbox" name="use_template" value="true" checked /> Use template (proposal request to managirasms@gmail.com)</label>
-                                <button type="submit" class="admin-btn admin-btn-sm" style="background:#0f766e; color:#fff; border:1px solid #115e59;">Send 2nd Interview Invite</button>
+                                <button type="submit" class="admin-btn admin-btn-sm" style="justify-self:start; background:#0f766e; color:#fff; border:1px solid #115e59;">Send 2nd Interview Invite</button>
                               </form>
                               <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" onsubmit="return confirm('Send rejection email after first interview?');" style="margin: 0;">
                                 <input type="text" name="rejection_reason" placeholder="Optional reason" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box; margin-bottom:6px;" />
-                                <button type="submit" class="admin-btn admin-btn-sm" style="width:100%; background:#b91c1c; color:#fff; border:1px solid #991b1b;">Reject After 1st Interview</button>
+                                <button type="submit" class="admin-btn admin-btn-sm" style="background:#b91c1c; color:#fff; border:1px solid #991b1b;">Reject After 1st Interview</button>
                               </form>
                             <% } %>
 
@@ -1163,11 +1163,11 @@
                               <form method="POST" action="/admin/employment/applications/<%= application.id %>/final-interview" onsubmit="return confirm('Send final interview invitation?');" style="margin: 0; display:grid; gap:6px; padding:8px; border:1px dashed #1d4ed8; border-radius:8px;">
                                 <label style="font-size:0.8rem; font-weight:600; color:#1d4ed8;">Last Interview With Team (optional message)</label>
                                 <textarea name="custom_message" placeholder="Optional custom message" style="width:100%; min-height:60px; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box;"></textarea>
-                                <button type="submit" class="admin-btn admin-btn-sm" style="background:#1d4ed8; color:#fff; border:1px solid #1e40af;">Send Last Interview Invite</button>
+                                <button type="submit" class="admin-btn admin-btn-sm" style="justify-self:start; background:#1d4ed8; color:#fff; border:1px solid #1e40af;">Send Last Interview Invite</button>
                               </form>
                               <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" onsubmit="return confirm('Send rejection email after second interview?');" style="margin: 0;">
                                 <input type="text" name="rejection_reason" placeholder="Optional reason" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box; margin-bottom:6px;" />
-                                <button type="submit" class="admin-btn admin-btn-sm" style="width:100%; background:#b91c1c; color:#fff; border:1px solid #991b1b;">Reject After 2nd Interview</button>
+                                <button type="submit" class="admin-btn admin-btn-sm" style="background:#b91c1c; color:#fff; border:1px solid #991b1b;">Reject After 2nd Interview</button>
                               </form>
                             <% } %>
 
@@ -1175,7 +1175,7 @@
                               <p style="margin:6px 0; padding:8px; background:#ecfeff; border-left:3px solid #0891b2; font-size:0.82rem; color:#0e7490;">Final interview invitation has been sent. Awaiting completion.</p>
                               <form method="POST" action="/admin/employment/applications/<%= application.id %>/stage-reject" onsubmit="return confirm('Send rejection email after final interview?');" style="margin: 0;">
                                 <input type="text" name="rejection_reason" placeholder="Optional reason" style="width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px; font-size:0.82rem; box-sizing:border-box; margin-bottom:6px;" />
-                                <button type="submit" class="admin-btn admin-btn-sm" style="width:100%; background:#b91c1c; color:#fff; border:1px solid #991b1b;">Reject After Final Interview</button>
+                                <button type="submit" class="admin-btn admin-btn-sm" style="background:#b91c1c; color:#fff; border:1px solid #991b1b;">Reject After Final Interview</button>
                               </form>
                             <% } %>
 
@@ -1184,15 +1184,15 @@
                                 <button
                                   type="submit"
                                   class="admin-btn admin-btn-sm"
-                                  style="width: 100%; background: #1d4ed8; color: #fff; border: 1px solid #1e40af;"
-                                >
+                                  style="background: #1d4ed8; color: #fff; border: 1px solid #1e40af;"
+                               >
                                   Reverse Rejection and Notify
                                 </button>
                               </form>
                             <% } %>
 
                             <form method="POST" action="/admin/employment/applications/<%= application.id %>/delete" onsubmit="return confirm('Delete this application permanently?');" style="margin: 0;">
-                              <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" style="width: 100%;">
+                              <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm">
                                 Delete Application
                               </button>
                             </form>
@@ -1206,7 +1206,7 @@
             <% } %>
 
             <form action="/admin/employment/delete/<%= job.id %>" method="POST">
-              <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" onclick="return confirm('Delete this job posting?')" style="width: 100%;">
+              <button type="submit" class="admin-btn admin-btn-delete admin-btn-sm" onclick="return confirm('Delete this job posting?')">
                 Delete Job
               </button>
             </form>

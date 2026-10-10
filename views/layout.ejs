@@ -60,7 +60,7 @@
     <link rel="stylesheet" href="/css/globalScale.css">
     <% } %>
 </head>
-<body class="<%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %>">
+<body class="<%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
     <div id="app-scale-root">
         <!-- Loading overlay for smooth transitions -->
         <div class="page-loading-overlay">
@@ -113,8 +113,8 @@
         <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>
             <%- include('partials/announcementFeed') %>
             <% if (session && session.organizationId && !session.superAdminOrgSwitch && !(typeof noFeedbackPrompt !== 'undefined' && noFeedbackPrompt)) { %>
-                <link rel="stylesheet" href="/css/feedbackPrompt.css">
-                <script src="/js/feedbackPrompt.js" data-autoprompt="1" defer></script>
+                <link rel="stylesheet" href="<%= assetUrl('/css/feedbackPrompt.css') %>">
+                <script src="<%= assetUrl('/js/feedbackPrompt.js') %>" data-autoprompt="1" defer></script>
             <% } %>
         <% } %>
 
@@ -124,6 +124,14 @@
 
         <%# Compact UI styles — injected AFTER view body so these rules win against any view-level inline <style> blocks with matching specificity. %>
         <style>
+            /* Admin area: style.css gives every <button> full width and a 20px top
+               margin. Here buttons size to their text and line up side by side.
+               Same specificity as that rule, so any button with its own class-based
+               width or margin keeps it. */
+            :where(body.admin-area) button {
+                width: auto;
+                margin-top: 0;
+            }
             .back-to-admin-chip {
                 position: fixed;
                 top: 12px;

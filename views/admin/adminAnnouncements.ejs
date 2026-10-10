@@ -16,96 +16,44 @@
 
   .announcements-shell {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 24px;
     max-width: 1220px;
     margin: 0 auto;
   }
 
-  .hero-panel {
-    position: relative;
-    overflow: hidden;
-    background:
-      radial-gradient(circle at top left, rgba(20, 184, 166, 0.18), transparent 38%),
-      radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.14), transparent 32%),
-      linear-gradient(135deg, #ffffff 0%, #f4fafb 48%, #fff7ed 100%);
-    border: 1px solid rgba(15, 118, 110, 0.18);
-    border-radius: 28px;
-    padding: 28px;
+  .page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    padding: 22px 24px;
+    background: var(--automation-surface);
+    border: 1px solid var(--automation-border);
+    border-radius: 24px;
     box-shadow: var(--automation-shadow);
-  }
-
-  .hero-panel::after {
-    content: "";
-    position: absolute;
-    width: 180px;
-    height: 180px;
-    border-radius: 50%;
-    background: rgba(15, 118, 110, 0.08);
-    top: -70px;
-    right: -60px;
-  }
-
-  .hero-grid {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.95fr);
-    gap: 20px;
-    align-items: start;
   }
 
   .eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
+    padding: 4px 10px;
     border-radius: 999px;
-    font-size: 0.82rem;
+    font-size: 0.72rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     font-weight: 700;
-    background: rgba(16, 37, 66, 0.08);
+    background: rgba(15, 118, 110, 0.08);
+    color: var(--automation-accent);
+  }
+
+  .page-head__title {
+    margin: 10px 0 0;
+    font-size: 1.5rem;
+    line-height: 1.25;
+    text-align: left;
     color: var(--automation-ink);
-  }
-
-  .hero-title {
-    margin: 14px 0 10px;
-    font-size: clamp(2rem, 3vw, 3rem);
-    line-height: 1.05;
-    color: var(--automation-ink);
-  }
-
-  .hero-copy {
-    margin: 0;
-    color: var(--automation-muted);
-    max-width: 680px;
-    line-height: 1.7;
-    font-size: 1rem;
-  }
-
-  .hero-stats {
-    display: grid;
-    gap: 14px;
-  }
-
-  .hero-stat {
-    background: rgba(255, 255, 255, 0.82);
-    border: 1px solid rgba(16, 37, 66, 0.08);
-    border-radius: 20px;
-    padding: 18px;
-    backdrop-filter: blur(10px);
-  }
-
-  .hero-stat strong {
-    display: block;
-    font-size: 1.9rem;
-    color: var(--automation-ink);
-  }
-
-  .hero-stat span {
-    display: block;
-    margin-top: 4px;
-    color: var(--automation-muted);
-    font-size: 0.92rem;
   }
 
   .workspace-grid {
@@ -725,7 +673,7 @@
     background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
     border: none;
     color: #fff;
-    box-shadow: 0 16px 30px rgba(20, 184, 166, 0.24);
+    box-shadow: 0 2px 8px rgba(15, 118, 110, 0.22);
   }
 
   .admin-btn.automation-secondary {
@@ -758,14 +706,13 @@
   }
 
   @media (max-width: 1040px) {
-    .hero-grid,
     .workspace-grid {
       grid-template-columns: 1fr;
     }
   }
 
   @media (max-width: 720px) {
-    .hero-panel,
+    .page-head,
     .glass-panel,
     .modal-panel {
       padding: 20px;
@@ -816,8 +763,14 @@
     }
   }
 
-  .hero-actions { position: relative; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-  .hero-actions .admin-btn { text-decoration: none; display: inline-flex; align-items: center; }
+  /* The site stylesheet gives every button full width, white text and top margins;
+     reset that here so this page's buttons size to their text and line up. */
+  .announcements-shell .admin-btn,
+  .modal-shell .admin-btn { width: auto; margin: 0; padding: 0.625rem 1.25rem; font-size: 0.875rem; }
+  .modal-shell .close-modal-btn { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin: 0; padding: 0; color: var(--automation-ink); line-height: 1; }
+  .la-order button { margin: 0; padding: 0; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .hero-actions .admin-btn { text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
   .workspace-grid.single { grid-template-columns: minmax(0, 1fr); }
   .bc-list { display: grid; gap: 12px; }
   .bc-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; padding: 16px 18px; border: 1px solid var(--automation-border); border-radius: 18px; background: var(--automation-surface-soft); }
@@ -843,11 +796,82 @@
   .fr-table td a { color: var(--automation-ink); text-decoration: none; }
   .fr-table tbody tr { cursor: pointer; }
   .fr-table tbody tr:hover { background: var(--automation-surface-soft); }
-  .legacy-notices summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
-  .legacy-notices summary::-webkit-details-marker { display: none; }
-  .legacy-notices[open] summary { margin-bottom: 16px; }
   @media (max-width: 760px) { .bc-card { grid-template-columns: 1fr; } .bc-side { justify-items: start; } .bc-actions { justify-content: flex-start; } }
+  /* Login page ads */
+  .la-list { display: grid; gap: 14px; }
+  .la-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 20px; align-items: center; padding: 14px; border-radius: 18px; border: 1px solid var(--automation-border); background: #fff; }
+  .la-card.is-paused { background: #f8fafc; }
+  .la-card.is-paused .ad-stage { opacity: 0.55; }
+  .la-thumb { width: 168px; height: 188px; padding: 10px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #f1f5f9; }
+  .la-thumb .ad-stage { --stage-h: 168px; border-radius: 8px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14); }
+  .la-thumb .ad-btn { font-size: calc(var(--btn-scale) * 3.2cqw); box-shadow: none; }
+  .la-info h3 { margin: 0 0 8px; font-size: 1.02rem; color: var(--automation-ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .la-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--automation-muted); font-size: 0.84rem; }
+  .la-meta a { color: inherit; overflow-wrap: anywhere; }
+  .la-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: flex-end; }
+  .la-places { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .la-place { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: #f0fdfa; border: 1px solid rgba(15, 118, 110, 0.18); color: #115e59; font-size: 0.78rem; font-weight: 600; }
+  .la-place i { font-size: 0.72rem; opacity: 0.8; }
+  .la-place--warn { background: #fff7ed; border-color: rgba(217, 119, 6, 0.25); color: #b45309; }
+  .la-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 0.8rem; color: var(--automation-muted); }
+  .la-stats b { color: var(--automation-ink); }
+  .la-order { display: inline-flex; gap: 4px; margin-right: 4px; }
+  .la-order button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(16, 37, 66, 0.14); background: #fff; cursor: pointer; color: var(--automation-ink); font-size: 0.95rem; }
+  .la-order button:hover:not(:disabled) { background: #f1f5f9; }
+  .la-order button:disabled { opacity: 0.35; cursor: default; }
+
+  .la-editor { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .la-preview { position: sticky; top: 0; display: flex; flex-direction: column; gap: 10px; }
+  .la-preview-frame { min-height: 320px; display: flex; align-items: center; justify-content: center; padding: 16px; border-radius: 20px; background: repeating-conic-gradient(#f1f5f9 0% 25%, #fff 0% 50%) 50% / 20px 20px; border: 1px solid var(--automation-border); }
+  .la-preview-frame .ad-stage { --stage-h: 520px; }
+  .la-preview-empty { color: var(--automation-muted); text-align: center; font-size: 0.92rem; line-height: 1.6; }
+  .la-preview .ad-btn { cursor: grab; touch-action: none; user-select: none; }
+  .la-preview .ad-btn.is-dragging { cursor: grabbing; outline: 2px dashed rgba(255, 255, 255, 0.9); outline-offset: 3px; }
+  .la-guide { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; border-left: 2px dashed rgba(255, 255, 255, 0.85); z-index: 1; display: none; pointer-events: none; }
+  .la-guide.is-visible { display: block; }
+  .la-hint { color: var(--automation-muted); font-size: 0.84rem; text-align: center; margin: 0; }
+  .la-fields { display: grid; gap: 14px; }
+  .la-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px; border-radius: 16px; border: 2px dashed rgba(15, 118, 110, 0.35); background: rgba(15, 118, 110, 0.04); text-align: center; cursor: pointer; color: var(--automation-ink); }
+  .la-drop.is-over { background: rgba(15, 118, 110, 0.1); }
+  .la-drop small { color: var(--automation-muted); }
+  .la-drop input { display: none; }
+  .la-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .la-color { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 16px; border: 1px solid rgba(16, 37, 66, 0.14); background: #fff; }
+  .la-color input[type="color"] { width: 34px; height: 34px; border: none; padding: 0; background: none; cursor: pointer; }
+  .la-sizes { display: inline-flex; border: 1px solid rgba(16, 37, 66, 0.14); border-radius: 12px; overflow: hidden; }
+  .la-sizes label { position: relative; }
+  .la-sizes input { position: absolute; opacity: 0; }
+  .la-sizes span { display: block; padding: 9px 16px; cursor: pointer; font-weight: 700; font-size: 0.85rem; color: var(--automation-muted); }
+  .la-sizes input:checked + span { background: var(--automation-ink, #0f172a); color: #fff; }
+  .la-sizes input:focus-visible + span { outline: 2px solid #14b8a6; outline-offset: -2px; }
+  .la-button-fields[hidden], .la-app-fields[hidden], #la-max-views-field[hidden] { display: none; }
+  .la-section { margin: 0; padding: 0; border: none; display: grid; gap: 10px; min-width: 0; }
+  .la-section legend { padding: 0; margin-bottom: 8px; }
+  .la-place-option { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--automation-border); background: #fff; cursor: pointer; }
+  .la-place-option:has(input:checked) { border-color: rgba(15, 118, 110, 0.45); background: rgba(15, 118, 110, 0.05); }
+  .la-place-option input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: #0f766e; flex-shrink: 0; }
+  .la-place-option strong { display: block; color: var(--automation-ink); font-size: 0.92rem; }
+  .la-place-option small { display: block; margin-top: 2px; color: var(--automation-muted); font-size: 0.8rem; line-height: 1.45; }
+  .la-app-fields { display: grid; gap: 14px; padding: 14px; border-radius: 14px; background: #f8fafc; border: 1px dashed rgba(16, 37, 66, 0.14); }
+  .la-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .la-chip { position: relative; cursor: pointer; }
+  .la-chip input { position: absolute; opacity: 0; pointer-events: none; }
+  .la-chip span { display: inline-block; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(16, 37, 66, 0.16); background: #fff; font-size: 0.82rem; font-weight: 600; color: var(--automation-muted); }
+  .la-chip input:checked + span { background: #0f766e; border-color: #0f766e; color: #fff; }
+  .la-chip input:focus-visible + span { outline: 2px solid #14b8a6; outline-offset: 2px; }
+  .la-error { color: var(--automation-danger, #dc2626); font-weight: 600; font-size: 0.88rem; min-height: 1.2em; margin: 0; }
+  .la-fields .modal-actions { position: sticky; bottom: 0; margin: 0 -4px; padding: 12px 4px 4px; background: linear-gradient(180deg, rgba(247, 251, 255, 0) 0%, #f7fbff 30%); }
+  @media (max-width: 820px) {
+    .la-editor { grid-template-columns: minmax(0, 1fr); }
+    .la-preview { position: static; }
+    .la-preview-frame .ad-stage { --stage-h: 420px; }
+    .la-card { grid-template-columns: auto minmax(0, 1fr); gap: 14px; }
+    .la-thumb { width: 124px; height: 140px; padding: 8px; }
+    .la-thumb .ad-stage { --stage-h: 124px; }
+    .la-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  }
 </style>
+<link rel="stylesheet" href="<%= assetUrl('/css/loginAds.css') %>" />
 
 <%
   const campaignList = Array.isArray(campaigns) ? campaigns : [];
@@ -856,42 +880,21 @@
     const userCount = Array.isArray(campaign.targetUserIds) ? campaign.targetUserIds.length : 0;
     return sum + manualCount + userCount;
   }, 0);
-  const activeCampaigns = campaignList.filter((campaign) => campaign.isActive).length;
   const broadcastList = Array.isArray(typeof broadcasts !== 'undefined' ? broadcasts : null) ? broadcasts : [];
   const feedbackList = Array.isArray(typeof feedbackRequests !== 'undefined' ? feedbackRequests : null) ? feedbackRequests : [];
-  const generalAnnouncements = announcements.filter((a) => !a.organization_id);
-  const orgAnnouncements = announcements.filter((a) => a.organization_id);
+  const loginAdList = Array.isArray(typeof loginAds !== 'undefined' ? loginAds : null) ? loginAds : [];
 %>
 
 <div class="announcements-shell">
-  <section class="hero-panel">
-    <div class="hero-grid">
-      <div>
-        <span class="eyebrow">Admin Broadcast Center</span>
-        <h1 class="hero-title">Announcements, feedback and scheduled emails.</h1>
-        <p class="hero-copy">
-          Reach managers, supervisors, teachers, drivers, parents and students in any school with a pop-up or banner,
-          ask them to rate their experience, and run recurring emails - all from one place.
-        </p>
-        <div class="hero-actions">
-          <button type="button" class="admin-btn automation-primary" id="open-admin-announcement-drawer"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> New Announcement</button>
-          <button type="button" class="admin-btn automation-secondary open-request-feedback-drawer"><i class="fa-solid fa-star" aria-hidden="true"></i> Request Feedback</button>
-        </div>
-      </div>
-      <div class="hero-stats">
-        <article class="hero-stat">
-          <strong><%= broadcastList.filter((b) => b.status === 'Live').length %></strong>
-          <span>Live announcements</span>
-        </article>
-        <article class="hero-stat">
-          <strong><%= feedbackList.filter((f) => f.state === 'active').length %></strong>
-          <span>Open feedback requests</span>
-        </article>
-        <article class="hero-stat">
-          <strong><%= activeCampaigns %></strong>
-          <span>Active scheduled emails</span>
-        </article>
-      </div>
+  <section class="page-head">
+    <div>
+      <span class="eyebrow">Admin Broadcast Center</span>
+      <h1 class="page-head__title">Announcements, feedback and scheduled emails</h1>
+    </div>
+    <div class="hero-actions">
+      <button type="button" class="admin-btn automation-primary" id="open-admin-announcement-drawer"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i> New Announcement</button>
+      <button type="button" class="admin-btn automation-secondary open-request-feedback-drawer"><i class="fa-solid fa-star" aria-hidden="true"></i> Request Feedback</button>
+      <button type="button" class="admin-btn automation-secondary" data-la-new><i class="fa-solid fa-rectangle-ad" aria-hidden="true"></i> New Ad</button>
     </div>
   </section>
 
@@ -901,7 +904,7 @@
     <div class="panel-header">
       <div>
         <h2 class="panel-title">Announcements</h2>
-        <p class="panel-subtitle">Pop-ups and banners people see when they open Managira. Pause or edit them any time.</p>
+        <p class="panel-subtitle">Pop-ups, banners and dashboard notices. Each shows where and how often you chose.</p>
       </div>
     </div>
     <% if (!broadcastList.length) { %>
@@ -930,6 +933,87 @@
                 <button type="button" class="admin-btn <%= b.isActive ? 'automation-warm' : 'automation-primary' %>" data-bc-active="<%= b.isActive ? 'false' : 'true' %>" data-id="<%= b.id %>"><%= b.isActive ? 'Pause' : 'Resume' %></button>
                 <button type="button" class="admin-btn automation-danger" data-bc-delete="<%= b.id %>">Delete</button>
               </div>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+
+  <section class="glass-panel" id="loginAdsPanel">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">Ads</h2>
+        <p class="panel-subtitle">Beside the sign-in form and as a small card inside the app. Live ads rotate in this order; in the app an ad waits until pop-ups and feedback requests are closed.</p>
+      </div>
+      <button type="button" class="admin-btn automation-primary" data-la-new><i class="fa-solid fa-plus" aria-hidden="true"></i> New Ad</button>
+    </div>
+    <% if (!loginAdList.length) { %>
+      <div class="empty-state">No ads yet. Add one with "New Ad".</div>
+    <% } else { %>
+      <%
+        const AD_POSITIONS = { 'bottom-right': 'Bottom right', 'bottom-left': 'Bottom left', center: 'Center' };
+        const AD_FREQUENCIES = { once: 'Once', until_dismissed: 'Until closed', once_per_session: 'Once per sign-in', every_login: 'Every page', daily: 'Once a day', n_times: 'times' };
+        const AD_ROLES = { manager: 'Managers', supervisor: 'Supervisors', teacher: 'Teachers', driver: 'Drivers', parent: 'Parents', student: 'Students', super_admin: 'Managira team' };
+        const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const nowTs = Date.now();
+      %>
+      <div class="la-list">
+        <% loginAdList.forEach((ad, i) => {
+             const ar = (ad.media_width && ad.media_height) ? (ad.media_width / ad.media_height).toFixed(4) : '0.75';
+             const typeLabel = { image: 'Image', pdf: 'PDF', video: 'Video' }[ad.media_type] || 'File';
+             const status = !ad.is_active ? 'Paused'
+               : (ad.starts_at && new Date(ad.starts_at).getTime() > nowTs) ? 'Scheduled'
+               : (ad.ends_at && new Date(ad.ends_at).getTime() <= nowTs) ? 'Ended' : 'Live';
+             const roles = (ad.app_roles || []).map((r) => AD_ROLES[r] || r);
+             const freq = ad.app_frequency === 'n_times' ? `${ad.app_max_views || 3} times` : (AD_FREQUENCIES[ad.app_frequency] || 'Once per sign-in');
+        %>
+          <article class="la-card<%= status === 'Live' ? '' : ' is-paused' %>" data-la-id="<%= ad.id %>">
+            <div class="la-thumb">
+              <div class="ad-stage" style="--ar: <%= ar %>;">
+                <% if (ad.media_type === 'video') { %>
+                  <video src="<%= ad.file_url %>" muted playsinline preload="metadata"></video>
+                <% } else if (ad.media_type === 'pdf') { %>
+                  <canvas data-pdf-src="<%= ad.file_url %>"></canvas>
+                <% } else { %>
+                  <img src="<%= ad.file_url %>" alt="" loading="lazy" />
+                <% } %>
+                <% if (ad.link_url && ad.show_as_button) { %>
+                  <span class="ad-btn ad-btn--<%= ad.button_size %>" style="left: <%= ad.button_x %>%; top: <%= ad.button_y %>%; background: <%= ad.button_color %>; color: <%= ad.button_text_color %>;"><%= ad.link_label || 'Learn more' %></span>
+                <% } %>
+              </div>
+            </div>
+            <div class="la-info">
+              <h3><%= ad.title || ('Ad #' + ad.id) %> <span class="bc-status <%= status.toLowerCase() %>"><%= status %></span></h3>
+              <div class="la-places">
+                <% if (ad.show_on_login) { %><span class="la-place"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Sign-in pages</span><% } %>
+                <% if (ad.show_in_app) { %><span class="la-place"><i class="fa-solid fa-window-maximize" aria-hidden="true"></i> In app &middot; <%= AD_POSITIONS[ad.app_position] || 'Bottom right' %> &middot; <%= freq %> &middot; <%= roles.length ? roles.join(', ') : 'Everyone' %></span><% } %>
+                <% if (!ad.show_on_login && !ad.show_in_app) { %><span class="la-place la-place--warn">Not shown anywhere yet</span><% } %>
+              </div>
+              <div class="la-meta">
+                <span><%= typeLabel %></span>
+                <% if (ad.link_url) { %>
+                  <span><%= ad.show_as_button ? 'Button' : 'Whole ad' %> &rarr; <a href="<%= ad.link_url %>" target="_blank" rel="noopener"><%= ad.link_url %></a></span>
+                <% } else { %>
+                  <span>No link</span>
+                <% } %>
+                <% if (ad.starts_at || ad.ends_at) { %>
+                  <span><%= ad.starts_at ? fmtDate(ad.starts_at) : 'Now' %> &ndash; <%= ad.ends_at ? fmtDate(ad.ends_at) : 'No end' %></span>
+                <% } %>
+              </div>
+              <div class="la-stats">
+                <% if (ad.show_on_login || ad.login_clicks) { %><span><b><%= ad.login_clicks || 0 %></b> sign-in clicks</span><% } %>
+                <% if (ad.show_in_app || ad.app_seen) { %><span><b><%= ad.app_seen || 0 %></b> seen in app</span><span><b><%= ad.app_clicked || 0 %></b> clicked</span><span><b><%= ad.app_closed || 0 %></b> closed</span><% } %>
+              </div>
+            </div>
+            <div class="la-actions">
+              <span class="la-order">
+                <button type="button" data-la-move="-1" aria-label="Move up"<%= i === 0 ? ' disabled' : '' %>>&uarr;</button>
+                <button type="button" data-la-move="1" aria-label="Move down"<%= i === loginAdList.length - 1 ? ' disabled' : '' %>>&darr;</button>
+              </span>
+              <button type="button" class="admin-btn automation-secondary" data-la-edit>Edit</button>
+              <button type="button" class="admin-btn <%= ad.is_active ? 'automation-warm' : 'automation-primary' %>" data-la-toggle="<%= ad.is_active ? 'false' : 'true' %>"><%= ad.is_active ? 'Pause' : 'Go live' %></button>
+              <button type="button" class="admin-btn automation-danger" data-la-delete>Delete</button>
             </div>
           </article>
         <% }) %>
@@ -972,7 +1056,7 @@
       <div class="panel-header">
         <div>
           <h2 class="panel-title">Scheduled emails</h2>
-          <p class="panel-subtitle">Create reusable email automations with subject, content, recipient selection, activation control, and repeat intervals like every 1, 5, 10 minutes, daily, every 2 days, weekly, monthly, or one-time delivery.</p>
+          <p class="panel-subtitle">Recurring or one-time emails to the people you choose.</p>
         </div>
         <div class="panel-actions">
           <button type="button" id="open-campaign-modal" class="admin-btn automation-primary">Add automated email</button>
@@ -985,100 +1069,6 @@
     </section>
   </div>
 
-  <details class="glass-panel legacy-notices">
-    <summary><span class="panel-title">Older dashboard notices</span> <span class="panel-subtitle">(<%= announcements.length %>) - the previous notice system, shown on school dashboards</span></summary>
-      <div class="announcement-stack">
-        <div>
-          <div class="panel-header">
-            <div>
-              <h3 class="panel-title">General announcements</h3>
-              <p class="panel-subtitle">Shown without an organization binding.</p>
-            </div>
-          </div>
-          <% if (generalAnnouncements.length === 0) { %>
-            <div class="empty-state">No general announcements yet.</div>
-          <% } else { %>
-            <div class="announcement-stack">
-              <% generalAnnouncements.forEach((announcement) => { %>
-                <article class="announcement-card" data-card-id="general-<%= announcement.id %>">
-                  <button type="button" class="collapsible-card-toggle" data-action="toggle-card" data-card-id="general-<%= announcement.id %>" aria-expanded="false">
-                    <span class="collapsible-card-toggle-main">
-                      <h4><%= announcement.title %></h4>
-                      <span class="collapsible-card-summary"><%= announcement.description.length > 110 ? `${announcement.description.slice(0, 110)}...` : announcement.description %></span>
-                    </span>
-                    <span class="collapsible-card-right">
-                      <% if (announcement.show_for_admins) { %>
-                        <span class="tag-pill" style="background:#eef2ff;color:#3730a3;">Admins</span>
-                      <% } %>
-                      <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
-                      <span class="collapsible-card-indicator">Expand</span>
-                    </span>
-                  </button>
-                  <div class="collapsible-card-body" data-card-body="general-<%= announcement.id %>">
-                    <p class="card-copy"><%= announcement.description %></p>
-                    <div class="campaign-actions">
-                      <form action="/admin/announcements/toggle/<%= announcement.id %>" method="POST">
-                        <button type="submit" class="admin-btn <%= announcement.is_active ? 'automation-warm' : 'automation-primary' %>">
-                          <%= announcement.is_active ? 'Deactivate' : 'Activate' %>
-                        </button>
-                      </form>
-                      <form action="/admin/announcements/delete/<%= announcement.id %>" method="POST">
-                        <button type="submit" class="admin-btn automation-danger" onclick="return confirm('Delete this announcement?')">Delete</button>
-                      </form>
-                    </div>
-                  </div>
-                </article>
-              <% }) %>
-            </div>
-          <% } %>
-        </div>
-
-        <div>
-          <div class="panel-header">
-            <div>
-              <h3 class="panel-title">Organization-specific announcements</h3>
-              <p class="panel-subtitle">Announcements already scoped to a specific organization.</p>
-            </div>
-          </div>
-          <% if (orgAnnouncements.length === 0) { %>
-            <div class="empty-state">No organization-specific announcements yet.</div>
-          <% } else { %>
-            <div class="announcement-stack">
-              <% orgAnnouncements.forEach((announcement) => { %>
-                <article class="announcement-card" data-card-id="org-<%= announcement.id %>">
-                  <button type="button" class="collapsible-card-toggle" data-action="toggle-card" data-card-id="org-<%= announcement.id %>" aria-expanded="false">
-                    <span class="collapsible-card-toggle-main">
-                      <h4><%= announcement.title %></h4>
-                      <span class="collapsible-card-summary"><%= announcement.description.length > 110 ? `${announcement.description.slice(0, 110)}...` : announcement.description %></span>
-                    </span>
-                    <span class="collapsible-card-right">
-                      <% if (announcement.show_for_admins) { %>
-                        <span class="tag-pill" style="background:#eef2ff;color:#3730a3;">Admins</span>
-                      <% } %>
-                      <span class="tag-pill <%= announcement.is_active ? 'active' : 'inactive' %>"><%= announcement.is_active ? 'Active' : 'Inactive' %></span>
-                      <span class="collapsible-card-indicator">Expand</span>
-                    </span>
-                  </button>
-                  <div class="collapsible-card-body" data-card-body="org-<%= announcement.id %>">
-                    <p class="card-copy"><%= announcement.description %></p>
-                    <div class="campaign-actions">
-                      <form action="/admin/announcements/toggle/<%= announcement.id %>" method="POST">
-                        <button type="submit" class="admin-btn <%= announcement.is_active ? 'automation-warm' : 'automation-primary' %>">
-                          <%= announcement.is_active ? 'Deactivate' : 'Activate' %>
-                        </button>
-                      </form>
-                      <form action="/admin/announcements/delete/<%= announcement.id %>" method="POST">
-                        <button type="submit" class="admin-btn automation-danger" onclick="return confirm('Delete this announcement?')">Delete</button>
-                      </form>
-                    </div>
-                  </div>
-                </article>
-              <% }) %>
-            </div>
-          <% } %>
-        </div>
-      </div>
-  </details>
 </div>
 
 <section id="campaign-modal" class="modal-shell" hidden>
@@ -1184,6 +1174,166 @@
       <div class="modal-actions">
         <button type="button" class="admin-btn automation-secondary" data-close-modal>Cancel</button>
         <button type="submit" id="save-campaign-btn" class="admin-btn automation-primary">Save automated email</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<section id="la-modal" class="modal-shell" hidden>
+  <div class="modal-backdrop" data-la-close></div>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="la-modal-title" style="max-width: 1040px;">
+    <div class="modal-header">
+      <div>
+        <h2 id="la-modal-title" class="modal-title">New ad</h2>
+        <p class="modal-subtitle">Upload an image, PDF or video, add a link and drag the button where it should sit. Then choose where and how often it shows.</p>
+      </div>
+      <button type="button" class="close-modal-btn" data-la-close aria-label="Close ad editor">&times;</button>
+    </div>
+
+    <form id="la-form" class="la-editor" novalidate>
+      <div class="la-preview">
+        <div class="la-preview-frame" id="la-preview-frame">
+          <p class="la-preview-empty">Your ad preview appears here.<br />Choose a file to start.</p>
+        </div>
+        <p class="la-hint" id="la-hint" hidden>Drag the button to move it. Arrow keys nudge it (hold Shift for bigger steps).</p>
+      </div>
+
+      <div class="la-fields">
+        <label class="la-drop" id="la-drop">
+          <input type="file" id="la-file" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,video/mp4,video/webm" />
+          <strong id="la-drop-title">Choose or drop a file</strong>
+          <small>JPG, PNG, GIF, WebP, PDF (first page), MP4 or WebM &middot; up to 50 MB</small>
+          <small id="la-file-name"></small>
+        </label>
+
+        <div>
+          <label class="field-label" for="la-title">Name</label>
+          <input class="automation-input" id="la-title" maxlength="200" placeholder="e.g. Back to school 2026" />
+          <div class="field-help">Used as the image description for screen readers.</div>
+        </div>
+
+        <div>
+          <label class="field-label" for="la-link">Link</label>
+          <input class="automation-input" id="la-link" maxlength="2000" placeholder="https://example.com or /legal/request-demo" />
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <strong>Show the link as a button</strong>
+            <span>Off: the whole ad is clickable instead.</span>
+          </div>
+          <label class="toggle-switch" for="la-as-button">
+            <input id="la-as-button" type="checkbox" checked />
+            <span class="toggle-slider"></span>
+            <span class="visually-hidden">Show the link as a button</span>
+          </label>
+        </div>
+
+        <div class="la-button-fields" id="la-button-fields">
+          <div style="display: grid; gap: 14px;">
+            <div>
+              <label class="field-label" for="la-label">Button text</label>
+              <input class="automation-input" id="la-label" maxlength="80" placeholder="Register Now" />
+            </div>
+            <div class="la-row">
+              <div>
+                <span class="field-label">Button color</span>
+                <label class="la-color"><input type="color" id="la-color" value="#e4572e" /> <span id="la-color-value">#e4572e</span></label>
+              </div>
+              <div>
+                <span class="field-label">Text color</span>
+                <label class="la-color"><input type="color" id="la-text-color" value="#ffffff" /> <span id="la-text-color-value">#ffffff</span></label>
+              </div>
+            </div>
+            <div>
+              <span class="field-label">Button size</span>
+              <div class="la-sizes" role="radiogroup" aria-label="Button size">
+                <label><input type="radio" name="la-size" value="sm" /><span>Small</span></label>
+                <label><input type="radio" name="la-size" value="md" checked /><span>Medium</span></label>
+                <label><input type="radio" name="la-size" value="lg" /><span>Large</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <fieldset class="la-section">
+          <legend class="field-label">Where it shows</legend>
+          <label class="la-place-option">
+            <input type="checkbox" id="la-on-login" checked />
+            <span><strong>Sign-in pages</strong><small>Beside the form on the login, parent, student, hub and reset-password pages.</small></span>
+          </label>
+          <label class="la-place-option">
+            <input type="checkbox" id="la-in-app" />
+            <span><strong>Inside the app</strong><small>A small card after people sign in. It waits until pop-ups and feedback requests are closed.</small></span>
+          </label>
+
+          <div class="la-app-fields" id="la-app-fields" hidden>
+            <div>
+              <span class="field-label">Position</span>
+              <div class="la-sizes" role="radiogroup" aria-label="Position in the app">
+                <label><input type="radio" name="la-position" value="bottom-right" checked /><span>Bottom right</span></label>
+                <label><input type="radio" name="la-position" value="bottom-left" /><span>Bottom left</span></label>
+                <label><input type="radio" name="la-position" value="center" /><span>Center</span></label>
+              </div>
+            </div>
+            <div class="la-row">
+              <div>
+                <label class="field-label" for="la-frequency">How often</label>
+                <select class="automation-select" id="la-frequency">
+                  <option value="once_per_session">Once per sign-in</option>
+                  <option value="once">Once</option>
+                  <option value="daily">Once a day</option>
+                  <option value="n_times">A set number of times</option>
+                  <option value="until_dismissed">Until they close it</option>
+                  <option value="every_login">On every page</option>
+                </select>
+              </div>
+              <div id="la-max-views-field" hidden>
+                <label class="field-label" for="la-max-views">Number of times</label>
+                <input class="automation-input" type="number" id="la-max-views" min="1" max="1000" value="3" />
+              </div>
+            </div>
+            <div>
+              <span class="field-label">Who sees it</span>
+              <div class="la-chips">
+                <% [['manager','Managers'],['supervisor','Supervisors'],['teacher','Teachers'],['driver','Drivers'],['parent','Parents'],['student','Students'],['super_admin','Managira team']].forEach(([value, label]) => { %>
+                  <label class="la-chip"><input type="checkbox" class="la-role" value="<%= value %>" /><span><%= label %></span></label>
+                <% }) %>
+              </div>
+              <div class="field-help">Leave all unticked to show it to everyone who signs in.</div>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="la-row">
+          <div>
+            <label class="field-label" for="la-starts">Starts (optional)</label>
+            <input class="automation-input" type="datetime-local" id="la-starts" />
+          </div>
+          <div>
+            <label class="field-label" for="la-ends">Ends (optional)</label>
+            <input class="automation-input" type="datetime-local" id="la-ends" />
+          </div>
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <strong>Live</strong>
+            <span>Turn off to keep the ad saved but hidden everywhere.</span>
+          </div>
+          <label class="toggle-switch" for="la-active">
+            <input id="la-active" type="checkbox" checked />
+            <span class="toggle-slider"></span>
+            <span class="visually-hidden">Live</span>
+          </label>
+        </div>
+
+        <p class="la-error" id="la-error" role="alert"></p>
+
+        <div class="modal-actions">
+          <button type="button" class="admin-btn automation-secondary" data-la-close>Cancel</button>
+          <button type="submit" class="admin-btn automation-primary" id="la-save">Save ad</button>
+        </div>
       </div>
     </form>
   </div>
@@ -1813,5 +1963,372 @@
 
     renderCampaigns();
     resetForm();
+  })();
+</script>
+
+<script type="application/json" id="la-data"><%- JSON.stringify(loginAdList.map((ad) => ({ id: ad.id, title: ad.title, media_type: ad.media_type, file_url: ad.file_url, media_width: ad.media_width, media_height: ad.media_height, link_url: ad.link_url, link_label: ad.link_label, show_as_button: ad.show_as_button, button_x: ad.button_x, button_y: ad.button_y, button_color: ad.button_color, button_text_color: ad.button_text_color, button_size: ad.button_size, is_active: ad.is_active, show_on_login: ad.show_on_login, show_in_app: ad.show_in_app, app_position: ad.app_position, app_frequency: ad.app_frequency, app_max_views: ad.app_max_views, app_roles: ad.app_roles, starts_at: ad.starts_at, ends_at: ad.ends_at }))).replace(/</g, '\\u003c') %></script>
+<script src="<%= assetUrl('/js/loginAds.js') %>"></script>
+<script>
+  (() => {
+    const ads = JSON.parse(document.getElementById('la-data').textContent || '[]');
+    const byId = new Map(ads.map((ad) => [String(ad.id), ad]));
+    const modal = document.getElementById('la-modal');
+    const form = document.getElementById('la-form');
+    const frame = document.getElementById('la-preview-frame');
+    const hint = document.getElementById('la-hint');
+    const fileInput = document.getElementById('la-file');
+    const drop = document.getElementById('la-drop');
+    const errorEl = document.getElementById('la-error');
+    const saveBtn = document.getElementById('la-save');
+    const f = {
+      title: document.getElementById('la-title'),
+      link: document.getElementById('la-link'),
+      asButton: document.getElementById('la-as-button'),
+      label: document.getElementById('la-label'),
+      color: document.getElementById('la-color'),
+      textColor: document.getElementById('la-text-color'),
+      active: document.getElementById('la-active'),
+      buttonFields: document.getElementById('la-button-fields'),
+      onLogin: document.getElementById('la-on-login'),
+      inApp: document.getElementById('la-in-app'),
+      appFields: document.getElementById('la-app-fields'),
+      frequency: document.getElementById('la-frequency'),
+      maxViews: document.getElementById('la-max-views'),
+      maxViewsField: document.getElementById('la-max-views-field'),
+      starts: document.getElementById('la-starts'),
+      ends: document.getElementById('la-ends'),
+    };
+    const roleChecks = Array.from(form.querySelectorAll('.la-role'));
+
+    function syncPlacement() {
+      f.appFields.hidden = !f.inApp.checked;
+      f.maxViewsField.hidden = f.frequency.value !== 'n_times';
+    }
+    // datetime-local wants local "YYYY-MM-DDTHH:mm".
+    function toLocalInput(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return '';
+      const pad = (n) => String(n).padStart(2, '0');
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+    function toIso(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+    }
+    const ACCEPTED = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'video/mp4', 'video/webm'];
+    const MAX_BYTES = 50 * 1024 * 1024;
+
+    // Editor state
+    let editingId = null;
+    let pendingFile = null;
+    let objectUrl = null;
+    let media = null; // { type, url, width, height }
+    let pos = { x: 50, y: 85 };
+    let stage = null;
+    let btn = null;
+    let guide = null;
+
+    // Thumbnails: render PDF first pages.
+    document.querySelectorAll('#loginAdsPanel canvas[data-pdf-src]').forEach((canvas) => {
+      window.LoginAds.renderPdf(canvas, canvas.dataset.pdfSrc).catch(() => {});
+    });
+
+    function size() { return (form.querySelector('input[name="la-size"]:checked') || {}).value || 'md'; }
+    function setSize(value) { const r = form.querySelector('input[name="la-size"][value="' + (value || 'md') + '"]'); if (r) r.checked = true; }
+    function mediaTypeOf(mime) { return mime === 'application/pdf' ? 'pdf' : mime.startsWith('video/') ? 'video' : 'image'; }
+
+    function buildStage() {
+      frame.innerHTML = '';
+      stage = btn = guide = null;
+      hint.hidden = true;
+      if (!media) {
+        frame.innerHTML = '<p class="la-preview-empty">Your ad preview appears here.<br />Choose a file to start.</p>';
+        return;
+      }
+      stage = document.createElement('div');
+      stage.className = 'ad-stage';
+      setAspect();
+      let el;
+      if (media.type === 'video') {
+        el = document.createElement('video');
+        Object.assign(el, { src: media.url, muted: true, loop: true, autoplay: true, playsInline: true });
+        el.addEventListener('loadedmetadata', () => setDims(el.videoWidth, el.videoHeight));
+      } else if (media.type === 'pdf') {
+        el = document.createElement('canvas');
+        window.LoginAds.renderPdf(el, media.url)
+          .then((d) => setDims(d.width, d.height))
+          .catch(() => { errorEl.textContent = 'Could not read that PDF.'; });
+      } else {
+        el = document.createElement('img');
+        el.alt = '';
+        el.addEventListener('load', () => setDims(el.naturalWidth, el.naturalHeight));
+        el.src = media.url;
+      }
+      stage.appendChild(el);
+      guide = document.createElement('div');
+      guide.className = 'la-guide';
+      stage.appendChild(guide);
+      btn = document.createElement('span');
+      btn.tabIndex = 0;
+      btn.setAttribute('role', 'slider');
+      btn.setAttribute('aria-label', 'Button position');
+      stage.appendChild(btn);
+      frame.appendChild(stage);
+      bindDrag();
+      renderButton();
+    }
+
+    function setDims(w, h) {
+      if (!media || !w || !h) return;
+      media.width = w;
+      media.height = h;
+      setAspect();
+    }
+    function setAspect() {
+      if (stage) stage.style.setProperty('--ar', media.width && media.height ? (media.width / media.height).toFixed(4) : '0.75');
+    }
+
+    function renderButton() {
+      f.buttonFields.hidden = !f.asButton.checked;
+      document.getElementById('la-color-value').textContent = f.color.value;
+      document.getElementById('la-text-color-value').textContent = f.textColor.value;
+      if (!btn) return;
+      const show = f.asButton.checked;
+      btn.hidden = !show;
+      hint.hidden = !show;
+      btn.className = 'ad-btn ad-btn--' + size();
+      btn.textContent = f.label.value.trim() || 'Learn more';
+      btn.style.background = f.color.value;
+      btn.style.color = f.textColor.value;
+      btn.style.left = pos.x + '%';
+      btn.style.top = pos.y + '%';
+      btn.setAttribute('aria-valuetext', Math.round(pos.x) + '% across, ' + Math.round(pos.y) + '% down');
+    }
+
+    // Keep the whole button inside the media.
+    function clampPos(x, y) {
+      const s = stage.getBoundingClientRect();
+      const b = btn.getBoundingClientRect();
+      const hx = s.width ? (b.width / 2 / s.width) * 100 : 0;
+      const hy = s.height ? (b.height / 2 / s.height) * 100 : 0;
+      return {
+        x: Math.min(100 - hx, Math.max(hx, x)),
+        y: Math.min(100 - hy, Math.max(hy, y)),
+      };
+    }
+
+    function bindDrag() {
+      let drag = null;
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        const b = btn.getBoundingClientRect();
+        drag = { dx: e.clientX - (b.left + b.width / 2), dy: e.clientY - (b.top + b.height / 2) };
+        btn.setPointerCapture(e.pointerId);
+        btn.classList.add('is-dragging');
+      });
+      btn.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        const s = stage.getBoundingClientRect();
+        let x = ((e.clientX - drag.dx - s.left) / s.width) * 100;
+        const y = ((e.clientY - drag.dy - s.top) / s.height) * 100;
+        const snap = Math.abs(x - 50) < 1.5;
+        if (snap) x = 50;
+        guide.classList.toggle('is-visible', snap);
+        pos = clampPos(x, y);
+        renderButton();
+      });
+      const end = () => {
+        if (!drag) return;
+        drag = null;
+        btn.classList.remove('is-dragging');
+        guide.classList.remove('is-visible');
+        pos = { x: Math.round(pos.x * 100) / 100, y: Math.round(pos.y * 100) / 100 };
+      };
+      btn.addEventListener('pointerup', end);
+      btn.addEventListener('pointercancel', end);
+      btn.addEventListener('keydown', (e) => {
+        const step = e.shiftKey ? 5 : 1;
+        const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+        if (!moves[e.key]) return;
+        e.preventDefault();
+        pos = clampPos(pos.x + moves[e.key][0], pos.y + moves[e.key][1]);
+        renderButton();
+      });
+    }
+
+    function useFile(file) {
+      errorEl.textContent = '';
+      if (!file) return;
+      if (!ACCEPTED.includes(file.type)) { errorEl.textContent = 'Use a JPG, PNG, GIF, WebP, PDF, MP4 or WebM file.'; return; }
+      if (file.size > MAX_BYTES) { errorEl.textContent = 'That file is larger than 50 MB.'; return; }
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrl = URL.createObjectURL(file);
+      pendingFile = file;
+      media = { type: mediaTypeOf(file.type), url: objectUrl, width: null, height: null };
+      document.getElementById('la-file-name').textContent = file.name;
+      if (!f.title.value.trim()) f.title.value = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 200);
+      buildStage();
+    }
+
+    function open(ad) {
+      editingId = ad ? ad.id : null;
+      pendingFile = null;
+      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+      fileInput.value = '';
+      errorEl.textContent = '';
+      document.getElementById('la-file-name').textContent = '';
+      document.getElementById('la-modal-title').textContent = ad ? 'Edit ad' : 'New ad';
+      document.getElementById('la-drop-title').textContent = ad ? 'Replace file (optional)' : 'Choose or drop a file';
+      f.title.value = ad ? (ad.title || '') : '';
+      f.link.value = ad ? (ad.link_url || '') : '';
+      f.asButton.checked = ad ? ad.show_as_button !== false : true;
+      f.label.value = ad ? (ad.link_label || '') : 'Learn more';
+      f.color.value = ad ? ad.button_color : '#e4572e';
+      f.textColor.value = ad ? ad.button_text_color : '#ffffff';
+      f.active.checked = ad ? ad.is_active !== false : true;
+      f.onLogin.checked = ad ? ad.show_on_login !== false : true;
+      f.inApp.checked = ad ? Boolean(ad.show_in_app) : false;
+      const positionRadio = form.querySelector('input[name="la-position"][value="' + ((ad && ad.app_position) || 'bottom-right') + '"]');
+      if (positionRadio) positionRadio.checked = true;
+      f.frequency.value = (ad && ad.app_frequency) || 'once_per_session';
+      f.maxViews.value = (ad && ad.app_max_views) || 3;
+      const roles = (ad && ad.app_roles) || [];
+      roleChecks.forEach((c) => { c.checked = roles.includes(c.value); });
+      f.starts.value = toLocalInput(ad && ad.starts_at);
+      f.ends.value = toLocalInput(ad && ad.ends_at);
+      syncPlacement();
+      setSize(ad ? ad.button_size : 'md');
+      pos = ad ? { x: Number(ad.button_x), y: Number(ad.button_y) } : { x: 50, y: 85 };
+      media = ad ? { type: ad.media_type, url: ad.file_url, width: ad.media_width, height: ad.media_height } : null;
+      modal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      buildStage();
+    }
+
+    function close() {
+      modal.hidden = true;
+      document.body.style.overflow = '';
+      frame.innerHTML = '';
+      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+    }
+
+    function post(url, body) {
+      return fetch(url, { method: 'POST', credentials: 'same-origin', body }).then((r) => r.json().catch(() => ({})).then((data) => {
+        if (!r.ok || data.success === false) throw new Error(data.message || 'Something went wrong.');
+        return data;
+      }));
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
+      if (!editingId && !pendingFile) { errorEl.textContent = 'Choose an image, PDF or video first.'; return; }
+      if (f.asButton.checked && f.link.value.trim() && !f.label.value.trim()) { errorEl.textContent = 'Add the button text.'; f.label.focus(); return; }
+      if (!f.onLogin.checked && !f.inApp.checked) { errorEl.textContent = 'Choose where the ad shows: sign-in pages, inside the app, or both.'; return; }
+      if (f.starts.value && f.ends.value && new Date(f.ends.value) <= new Date(f.starts.value)) { errorEl.textContent = 'The end date must be after the start date.'; f.ends.focus(); return; }
+
+      const data = new FormData();
+      if (pendingFile) data.append('file', pendingFile);
+      data.append('title', f.title.value.trim());
+      data.append('link_url', f.link.value.trim());
+      data.append('link_label', f.label.value.trim());
+      data.append('show_as_button', f.asButton.checked ? 'true' : 'false');
+      data.append('button_x', String(pos.x));
+      data.append('button_y', String(pos.y));
+      data.append('button_color', f.color.value);
+      data.append('button_text_color', f.textColor.value);
+      data.append('button_size', size());
+      data.append('is_active', f.active.checked ? 'true' : 'false');
+      data.append('show_on_login', f.onLogin.checked ? 'true' : 'false');
+      data.append('show_in_app', f.inApp.checked ? 'true' : 'false');
+      data.append('app_position', (form.querySelector('input[name="la-position"]:checked') || {}).value || 'bottom-right');
+      data.append('app_frequency', f.frequency.value);
+      data.append('app_max_views', f.frequency.value === 'n_times' ? String(f.maxViews.value || 3) : '');
+      data.append('app_roles', roleChecks.filter((c) => c.checked).map((c) => c.value).join(','));
+      data.append('starts_at', toIso(f.starts.value));
+      data.append('ends_at', toIso(f.ends.value));
+      if (media && media.width && media.height) {
+        data.append('media_width', String(media.width));
+        data.append('media_height', String(media.height));
+      }
+
+      // XHR for upload progress on larger videos/PDFs.
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', editingId ? '/admin/announcements/ads/' + editingId : '/admin/announcements/ads');
+      xhr.upload.onprogress = (ev) => {
+        if (pendingFile && ev.lengthComputable) saveBtn.textContent = 'Uploading ' + Math.round((ev.loaded / ev.total) * 100) + '%';
+      };
+      xhr.onload = () => {
+        let res = {};
+        try { res = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status >= 200 && xhr.status < 300 && res.success) {
+          history.replaceState(null, '', window.location.pathname + window.location.search + '#loginAdsPanel');
+          window.location.reload();
+          return;
+        }
+        errorEl.textContent = res.message || 'Could not save the ad.';
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save ad';
+      };
+      xhr.onerror = () => { errorEl.textContent = 'Network error. Please try again.'; saveBtn.disabled = false; saveBtn.textContent = 'Save ad'; };
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      xhr.send(data);
+    });
+
+    fileInput.addEventListener('change', () => useFile(fileInput.files[0]));
+    ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));
+    ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('is-over'); }));
+    drop.addEventListener('drop', (e) => useFile(e.dataTransfer.files[0]));
+    [f.label, f.color, f.textColor].forEach((el) => el.addEventListener('input', renderButton));
+    f.asButton.addEventListener('change', renderButton);
+    f.inApp.addEventListener('change', syncPlacement);
+    f.frequency.addEventListener('change', syncPlacement);
+    form.querySelectorAll('input[name="la-size"]').forEach((r) => r.addEventListener('change', () => {
+      renderButton();
+      if (btn && !btn.hidden) { pos = clampPos(pos.x, pos.y); renderButton(); }
+    }));
+    modal.querySelectorAll('[data-la-close]').forEach((el) => el.addEventListener('click', close));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });
+    document.querySelectorAll('[data-la-new]').forEach((b) => b.addEventListener('click', () => open(null)));
+
+    // List actions
+    document.querySelectorAll('#loginAdsPanel [data-la-id]').forEach((card) => {
+      const id = card.getAttribute('data-la-id');
+      card.querySelector('[data-la-edit]').addEventListener('click', () => open(byId.get(id)));
+      card.querySelector('[data-la-toggle]').addEventListener('click', (e) => {
+        const b = e.currentTarget;
+        const body = new FormData();
+        body.append('is_active', b.getAttribute('data-la-toggle'));
+        b.disabled = true;
+        post('/admin/announcements/ads/' + id, body).then(() => window.location.reload())
+          .catch((err) => { b.disabled = false; alert(err.message); });
+      });
+      card.querySelector('[data-la-delete]').addEventListener('click', (e) => {
+        const b = e.currentTarget;
+        if (!confirm('Delete this ad? It will be removed from the login page.')) return;
+        b.disabled = true;
+        post('/admin/announcements/ads/' + id + '/delete').then(() => window.location.reload())
+          .catch((err) => { b.disabled = false; alert(err.message); });
+      });
+      card.querySelectorAll('[data-la-move]').forEach((b) => b.addEventListener('click', () => {
+        const ids = ads.map((ad) => ad.id);
+        const from = ids.indexOf(Number(id));
+        const to = from + Number(b.getAttribute('data-la-move'));
+        if (from < 0 || to < 0 || to >= ids.length) return;
+        [ids[from], ids[to]] = [ids[to], ids[from]];
+        fetch('/admin/announcements/ads/reorder', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
+        }).then((r) => { if (r.ok) window.location.reload(); else alert('Could not save the order.'); });
+      }));
+    });
+
+    if (window.location.hash === '#loginAdsPanel') {
+      const panel = document.getElementById('loginAdsPanel');
+      if (panel) panel.scrollIntoView({ block: 'start' });
+    }
   })();
 </script>

@@ -1,6 +1,7 @@
 // jobs/recurringStripeBilling.js
 // Runs recurring subscription charges using Stripe off-session card billing.
 
+const { countActiveStudents } = require("../utils/activeStudents");
 const db = require('../config/db');
 const { getStripeClient } = require('../utils/stripeConfig');
 const { ensurePaymentProviderSchema } = require('../utils/paymentProviderSchema');
@@ -287,13 +288,9 @@ async function sendUpcomingInvoiceNotification({
   );
 }
 
+// Charged per active student: graduated and archived students are not billed.
 async function getOrganizationStudentCount(organizationId) {
-  const countRes = await db.query(
-    'SELECT COUNT(*) AS cnt FROM students WHERE organization_id = $1',
-    [organizationId]
-  );
-
-  return parseInt(countRes.rows[0]?.cnt, 10) || 0;
+  return countActiveStudents(db, organizationId);
 }
 
 async function getDynamicTermDivider() {

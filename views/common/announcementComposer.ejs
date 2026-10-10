@@ -106,7 +106,9 @@
           <div class="ann-segmented" id="ann_display_type_toggle">
             <button type="button" data-value="modal" class="<%= (!a || a.display_type === 'modal') ? 'active' : '' %>">Pop-up</button>
             <button type="button" data-value="banner" class="<%= (a && a.display_type === 'banner') ? 'active' : '' %>">Banner</button>
+            <button type="button" data-value="dashboard" class="<%= (a && a.display_type === 'dashboard') ? 'active' : '' %>">Dashboard notice</button>
           </div>
+          <div class="hint" id="ann_display_type_hint"></div>
         </div>
         <div class="ann-field">
           <label>Style</label>
@@ -175,7 +177,7 @@
         <div class="ann-target-group">
           <h4>People</h4>
           <div class="ann-chip-grid">
-            <% [['manager','Managers'],['supervisor','Supervisors'],['teacher','Teachers'],['driver','Drivers'],['parent','Parents'],['student','Students']].forEach(([r, label]) => {
+            <% [['manager','Managers'],['supervisor','Supervisors'],['teacher','Teachers'],['driver','Drivers'],['parent','Parents'],['student','Students']].concat(global ? [['super_admin','Managira team']] : []).forEach(([r, label]) => {
                  const on = existingRoleTargets.includes(r) || (r === 'manager' && existingRoleTargets.includes('org_admin')) || (r === 'parent' && existingRoleTargets.includes('guardian')); %>
               <label class="ann-chip"><input type="checkbox" class="ann-role-check" value="<%= r %>" <%= on ? 'checked' : '' %>><span><%= label %></span></label>
             <% }) %>
@@ -241,9 +243,15 @@
 
     // Display-type segmented toggle
     const positionField = document.getElementById('ann_position_field');
+    const DISPLAY_TYPE_HINTS = {
+      modal: 'A pop-up when people open Managira.',
+      banner: 'A strip across the top of every page.',
+      dashboard: 'A notice at the top of the school dashboard' + (isGlobal ? ' (and the admin dashboard for the Managira team).' : '.'),
+    };
     function syncPositionVisibility() {
       const type = document.querySelector('#ann_display_type_toggle button.active').dataset.value;
-      positionField.style.display = type === 'banner' ? 'none' : 'block';
+      positionField.style.display = type === 'modal' ? 'block' : 'none';
+      document.getElementById('ann_display_type_hint').textContent = DISPLAY_TYPE_HINTS[type] || '';
     }
     document.querySelectorAll('#ann_display_type_toggle button').forEach(btn => {
       btn.addEventListener('click', function () {

@@ -67,27 +67,7 @@
   </div>
 
   <div class="line-divider"></div>
-  <% if (adminAnnouncements && adminAnnouncements.length > 0) { %>
-  <div class="admin-flash-container">
-    <% adminAnnouncements.forEach(function(announcement) { %>
-    <div class="admin-flash">
-      <div class="admin-flash-text">
-        <strong class="announcement-title"><%= announcement.title %></strong>
-        <hr />
-        <div class="announcement-description">
-          <%= announcement.description %>
-        </div>
-      </div>
-      <button
-        onclick="this.parentElement.style.display='none'"
-        class="close-btn"
-      >
-        ✖
-      </button>
-    </div>
-    <% }) %>
-  </div>
-  <% } %>
+  <div id="ann-dashboard-notices" class="ann-dashboard-notices ann-dashboard-notices--org" aria-label="Announcements"></div>
 
   <% if (!schoolYear || !currentTerm) { %>
   <div class="welcome-page-wrapper">
@@ -461,13 +441,6 @@
   </script>
 
   <script>
-    function dismissAdminFlash() {
-      const flash = document.getElementById("admin-flash");
-      if (flash) {
-        flash.style.display = "none";
-      }
-    }
-
     function toggleTeachers(index) {
       const teachersList = document.getElementById('teachers-' + index);
       const arrow = document.getElementById('arrow-' + index);

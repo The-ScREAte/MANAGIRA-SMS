@@ -3446,21 +3446,6 @@ const commonController = {
         );
       }
 
-      // Fetch both global and org-specific admin announcements.
-      // Exclude entries flagged show_for_admins = TRUE — those are
-      // intended only for the admin dashboard / internal staff.
-      const adminAnnouncementResult = await db.query(
-        `
-          SELECT * FROM admin_announcements
-          WHERE is_active = true
-            AND COALESCE(show_for_admins, false) = false
-            AND (organization_id IS NULL OR organization_id = $1)
-            AND (expiry_date IS NULL OR expiry_date > NOW())
-          ORDER BY id DESC
-        `,
-        [organizationId]
-      );
-
       // If super admin org switch, skip org user checks
       let userSession = null;
       let currentUserId = null;
@@ -3475,73 +3460,6 @@ const commonController = {
           ? userSession.user_id || userSession.organization_id
           : null;
         isOrgAccount = !!req.session.orgUser;
-      }
-
-      const adminAnnouncements = [];
-      for (const announcement of adminAnnouncementResult.rows) {
-        let viewResult;
-        if (isOrgAccount) {
-          viewResult = await db.query(
-            `SELECT * FROM announcement_views WHERE organization_id = $1 AND announcement_id = $2`,
-            [currentUserId, announcement.id]
-          );
-        } else {
-          viewResult = await db.query(
-            `SELECT * FROM announcement_views WHERE user_id = $1 AND announcement_id = $2`,
-            [currentUserId, announcement.id]
-          );
-        }
-
-        // Shown once per person; admins can still reactivate or edit it.
-        const shouldShow = viewResult.rows.length === 0;
-
-        if (shouldShow) {
-          adminAnnouncements.push(announcement);
-          try {
-            if (isOrgAccount) {
-              if (viewResult.rows.length === 0) {
-                // For super admin org switch, use the admin's userId for announcement_views
-                let insertUserId = currentUserId;
-                if (isSuperAdminSwitch) {
-                  insertUserId = req.session.userId;
-                }
-                if (insertUserId) {
-                  await db.query(
-                    `INSERT INTO announcement_views (organization_id, announcement_id) VALUES ($1, $2)`,
-                    [insertUserId, announcement.id]
-                  );
-                }
-              } else {
-                await db.query(
-                  `UPDATE announcement_views SET last_viewed = CURRENT_TIMESTAMP WHERE view_id = $1`,
-                  [viewResult.rows[0].view_id]
-                );
-              }
-            } else {
-              // Idempotent write to avoid unique-conflict races when SPA preloads
-              // and user navigation hit this endpoint at nearly the same time.
-              const insertUserId = isSuperAdminSwitch
-                ? (req.session.userId || null)
-                : currentUserId;
-              if (insertUserId) {
-                await db.query(
-                  `INSERT INTO announcement_views (user_id, announcement_id, last_viewed)
-                   VALUES ($1, $2, CURRENT_TIMESTAMP)
-                   ON CONFLICT (user_id, announcement_id)
-                   DO UPDATE SET last_viewed = EXCLUDED.last_viewed`,
-                  [insertUserId, announcement.id]
-                );
-              }
-            }
-          } catch (viewWriteError) {
-            console.warn("[orgDashboard] Unable to persist announcement view", {
-              announcementId: announcement.id,
-              userId: currentUserId,
-              orgMode: isOrgAccount,
-              message: viewWriteError?.message || viewWriteError,
-            });
-          }
-        }
       }
 
       let orgHeaderName = null;
@@ -3600,7 +3518,6 @@ const commonController = {
             : [],
         organizationId,
         messages: req.flash(),
-        adminAnnouncements,
         showOrgHeader: req.session.superAdminOrgSwitch || false,
         orgHeaderName,
         orgHeaderLogo,
@@ -3633,7 +3550,6 @@ const commonController = {
         announcements: [],
         organizationId: req.session?.organizationId || null,
         messages: req.flash(),
-        adminAnnouncements: [],
         showOrgHeader: Boolean(req.session?.superAdminOrgSwitch),
         orgHeaderName: null,
         orgHeaderLogo: null,
@@ -3942,85 +3858,6 @@ const commonController = {
       );
       const announcements = announcementsResult.rows;
 
-      // ✅ Fetch BOTH global and org-specific admin announcements.
-      // Skip entries flagged show_for_admins = TRUE so org users
-      // (manager / teacher / supervisor) never see admin-only notices.
-      const adminAnnouncementResult = await db.query(
-        `
-          SELECT * FROM admin_announcements
-          WHERE is_active = true
-            AND COALESCE(show_for_admins, false) = false
-            AND (organization_id IS NULL OR organization_id = $1)
-            AND (expiry_date IS NULL OR expiry_date > NOW())
-          ORDER BY id DESC
-        `,
-        [organizationId]
-      );
-
-      const adminAnnouncements = [];
-      for (const announcement of adminAnnouncementResult.rows) {
-        let viewResult;
-        if (isOrgAccount) {
-          viewResult = await db.query(
-            `SELECT * FROM announcement_views WHERE organization_id = $1 AND announcement_id = $2`,
-            [currentUserId, announcement.id]
-          );
-        } else {
-          viewResult = await db.query(
-            `SELECT * FROM announcement_views WHERE user_id = $1 AND announcement_id = $2`,
-            [currentUserId, announcement.id]
-          );
-        }
-
-        // Shown once per person; admins can still reactivate or edit it.
-        const shouldShow = viewResult.rows.length === 0;
-
-        if (shouldShow) {
-          adminAnnouncements.push(announcement);
-          try {
-            if (isOrgAccount) {
-              if (viewResult.rows.length === 0) {
-                let insertUserId = currentUserId;
-                if (isSuperAdminSwitch) {
-                  insertUserId = req.session.userId;
-                }
-                if (insertUserId) {
-                  await db.query(
-                    `INSERT INTO announcement_views (organization_id, announcement_id) VALUES ($1, $2)`,
-                    [insertUserId, announcement.id]
-                  );
-                }
-              } else {
-                await db.query(
-                  `UPDATE announcement_views SET last_viewed = CURRENT_TIMESTAMP WHERE view_id = $1`,
-                  [viewResult.rows[0].view_id]
-                );
-              }
-            } else {
-              const insertUserId = isSuperAdminSwitch
-                ? (req.session.userId || null)
-                : currentUserId;
-              if (insertUserId) {
-                await db.query(
-                  `INSERT INTO announcement_views (user_id, announcement_id, last_viewed)
-                   VALUES ($1, $2, CURRENT_TIMESTAMP)
-                   ON CONFLICT (user_id, announcement_id)
-                   DO UPDATE SET last_viewed = EXCLUDED.last_viewed`,
-                  [insertUserId, announcement.id]
-                );
-              }
-            }
-          } catch (viewWriteError) {
-            console.warn("[orgDashboardRestricted] Unable to persist announcement view", {
-              announcementId: announcement.id,
-              userId: currentUserId,
-              orgMode: isOrgAccount,
-              message: viewWriteError?.message || viewWriteError,
-            });
-          }
-        }
-      }
-
       let orgHeaderName = null;
       let orgHeaderLogo = null;
       let orgHeaderNickname = null;
@@ -4074,7 +3911,6 @@ const commonController = {
         announcements,
         organizationId,
         messages: req.flash(), // ✅ pass flash messages to the view
-        adminAnnouncements, // ✅ admin announcements to display
         showOrgHeader: req.session.superAdminOrgSwitch || false,
         orgHeaderName,
         orgHeaderLogo,
@@ -4108,7 +3944,6 @@ const commonController = {
         announcements: [],
         organizationId: req.session?.organizationId || null,
         messages: req.flash(),
-        adminAnnouncements: [],
         showOrgHeader: Boolean(req.session?.superAdminOrgSwitch),
         orgHeaderName: null,
         orgHeaderLogo: null,
