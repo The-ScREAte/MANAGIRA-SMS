@@ -749,6 +749,8 @@ app.use(async (req, res, next) => {
   next();
 });
 app.use(setCurrentTerm);
+// Schools in a hub show the hub's logo in their footer.
+app.use(require("./utils/hubBrand").hubBrandMiddleware(db));
 app.use(setAllowedFeatures);
 app.use(setAllowedRoles);
 app.use(setAllowedPermissions);

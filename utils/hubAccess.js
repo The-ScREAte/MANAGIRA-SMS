@@ -44,6 +44,13 @@ const HUB_PERMISSION_GROUPS = [
       { key: 'users.manage', label: 'Manage hub users', description: 'Add users, choose their role and what they can see.' },
     ],
   },
+  {
+    group: 'Billing',
+    items: [
+      { key: 'billing.view', label: 'See billing', description: 'The plan, charges, bills and payments.' },
+      { key: 'billing.manage', label: 'Manage billing', description: 'Approve or decline charges, add paid extras and change the card.' },
+    ],
+  },
 ];
 
 const ALL_HUB_PERMISSIONS = HUB_PERMISSION_GROUPS.flatMap((g) => g.items.map((i) => i.key));
@@ -57,6 +64,7 @@ const HUB_NOTIFICATIONS = [
   { key: 'hub_leave_request', permission: 'requests.manage', label: 'A school asks to leave', description: 'When a school sends a request to leave the hub.' },
   { key: 'hub_school_status', permission: 'schools.view', label: 'School status changes', description: 'When a school is put on hold, resumed, removed or leaves.' },
   { key: 'hub_user_changes', permission: 'users.manage', label: 'Hub user changes', description: 'When someone is added, removed or their role changes.' },
+  { key: 'hub_billing', permission: 'billing.view', label: 'Billing and payments', description: 'Payment links, receipts, failed payments and charges to approve.' },
 ];
 const HUB_NOTIFICATION_KEYS = HUB_NOTIFICATIONS.map((n) => n.key);
 
@@ -102,6 +110,12 @@ function ensureHubAccessSchema(db) {
         )`);
       await db.query(`CREATE INDEX IF NOT EXISTS hub_contacts_hub_idx ON hub_contacts (hub_id)`);
       await db.query(`ALTER TABLE hub_contacts ADD COLUMN IF NOT EXISTS share_with_schools BOOLEAN NOT NULL DEFAULT TRUE`);
+      // A hub user can also be listed as a contact person (kept in step with their profile).
+      await db.query(`ALTER TABLE hub_contacts ADD COLUMN IF NOT EXISTS hub_user_id INTEGER REFERENCES hub_users(hub_user_id) ON DELETE CASCADE`);
+      // Each school can have one hub contact person assigned (optional).
+      await db.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS hub_contact_id INTEGER`);
+      await db.query(`ALTER TABLE hub_organization_invitations ADD COLUMN IF NOT EXISTS hub_contact_id INTEGER`);
+      await require('./licenses').ensureLicenseSchema(db);
       await db.query(`
         CREATE TABLE IF NOT EXISTS hub_user_email_preferences (
           hub_user_id INTEGER NOT NULL REFERENCES hub_users(hub_user_id) ON DELETE CASCADE,
@@ -163,7 +177,7 @@ function notificationsFor(actor) {
 async function getContacts(db, hubId, { sharedOnly = false } = {}) {
   await ensureHubAccessSchema(db);
   const { rows } = await db.query(
-    `SELECT contact_id, full_name, job_title, email, phone, is_primary, share_with_schools
+    `SELECT contact_id, full_name, job_title, email, phone, is_primary, share_with_schools, hub_user_id
        FROM hub_contacts WHERE hub_id = $1 ${sharedOnly ? 'AND share_with_schools = TRUE' : ''}
       ORDER BY is_primary DESC, sort_order ASC, contact_id ASC`,
     [hubId]

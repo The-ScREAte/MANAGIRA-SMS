@@ -565,13 +565,16 @@ const adminController = {
 
       // Internal workers don't see the org list at all.
       let applications = [];
+      await require("../utils/licenses").ensureLicenseSchema(db).catch(() => {});
       if (!isInternalWorker) {
         applications = await cacheManager.getOrFetch(
           'admin',
           'organizations:list',
           async () => {
             const result = await db.query(`
-              SELECT o.organization_id, o.organization_name, o.on_hold, o.hold_by,
+              SELECT o.organization_id, o.organization_name, o.on_hold, o.hold_by, o.max_users,
+                     (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id
+                        AND LOWER(COALESCE(u.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')) AS user_count,
                      first_name, last_name, email, organization_address, organization_country, organization_province,
                      organization_phone, proof_of_existence_1, proof_of_existence_2, subdomain,
                      o.created_at, p.plan_name
@@ -6378,17 +6381,26 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
 // List all hubs
 adminController.hubsListGet = async (req, res) => {
   try {
+    await require("../utils/hubAccess").ensureHubAccessSchema(db);
+    await require("../utils/hubBilling").ensureHubBillingSchema(db);
     const hubsResult = await db.query(`
       SELECT h.*, (h.hub_password IS NOT NULL) AS has_password, p.plan_name, p.total_cost,
+             hb.status AS billing_status, hb.next_charge_at, hb.next_charge_amount, hb.currency AS billing_currency,
+             hb.hold_starts_at, hb.ended_at AS billing_ended_at,
+             (SELECT COUNT(*)::int FROM hub_billing_charges c WHERE c.hub_id = h.hub_id AND c.status = 'pending') AS pending_charges,
+             (SELECT COUNT(*)::int FROM hub_users hu WHERE hu.hub_id = h.hub_id) + 1 AS user_count,
              (SELECT COUNT(*)::int FROM organizations WHERE hub_id = h.hub_id AND deleted = false AND is_hub_member = true) as org_count
       FROM managira_hubs h
       LEFT JOIN plans p ON h.plan_id = p.id
+      LEFT JOIN hub_billing hb ON hb.hub_id = h.hub_id
       WHERE h.deleted = false
       ORDER BY h.created_at DESC
     `);
 
     res.render('admin/hubs', {
       title: 'Manage Hubs',
+      billingStatus: require("../utils/hubBilling").STATUS,
+      money: require("../utils/hubBilling").money,
       hubs: hubsResult.rows.map(({ hub_password, reset_password_token, ...hub }) => hub),
       messages: req.flash(),
       showFooterTopSection: false
@@ -6399,41 +6411,27 @@ adminController.hubsListGet = async (req, res) => {
   }
 };
 
-// Create hub form
-adminController.hubCreateGet = async (req, res) => {
-  try {
-    const plansResult = await db.query('SELECT * FROM plans WHERE is_active = true ORDER BY id');
-    
-    res.render('admin/hubCreate', {
-      title: 'Create New Hub',
-      plans: plansResult.rows,
-      messages: req.flash(),
-      showFooterTopSection: true
-    });
-  } catch (error) {
-        req.flash('error', 'Error loading form.');
-    res.redirect('/admin/hubs');
-  }
-};
 
-// Create hub
+// Create hub (with its billing terms, the people who get access, and the card link)
 adminController.hubCreatePost = async (req, res) => {
+  const hubBilling = require("../utils/hubBilling");
+  const hubBillingController = require("./hubBillingController");
   const {
     hubName,
     hubNickname,
-    hubEmail,
     firstName,
     lastName,
     hubPhone,
     hubAddress,
     planId,
-    maxOrganizations,
     hubFooterText,
-    contractStartDate,
-    contractEndDate,
   } = req.body;
+  const hubEmail = String(req.body.hubEmail || '').trim().toLowerCase();
 
   try {
+    await require("../utils/licenses").ensureLicenseSchema(db);
+    await hubBilling.ensureHubBillingSchema(db);
+    await require("../utils/hubAccess").ensureHubAccessSchema(db);
     // Validate required fields
     if (!hubName || !hubNickname || !hubEmail || !firstName || !lastName) {
       req.flash('error', 'All required fields must be filled.');
@@ -6453,16 +6451,33 @@ adminController.hubCreatePost = async (req, res) => {
 
     // Check if email is already taken
     const emailCheck = await db.query(
-      `SELECT hub_email FROM managira_hubs WHERE hub_email = $1
+      `SELECT hub_email FROM managira_hubs WHERE LOWER(hub_email) = $1
        UNION
-       SELECT email FROM organizations WHERE email = $1
+       SELECT email FROM hub_users WHERE LOWER(email) = $1
        UNION
-       SELECT email FROM users WHERE email = $1`,
+       SELECT email FROM organizations WHERE LOWER(email) = $1
+       UNION
+       SELECT email FROM users WHERE LOWER(email) = $1`,
       [hubEmail]
     );
 
     if (emailCheck.rows.length > 0) {
       req.flash('error', 'Email is already in use.');
+      return res.redirect('/admin/hubs/create');
+    }
+
+    // Billing terms and the people who get access are checked before anything is saved.
+    const terms = hubBillingController.readHubTerms(req.body);
+    const contract = hubBilling.parseContractForm(req.body);
+    const people = hubBillingController.readPeople(req.body);
+    const problems = [...terms.errors, ...contract.errors];
+    const peopleProblem = await hubBillingController.checkPeople(people, hubEmail);
+    if (peopleProblem) problems.push(peopleProblem);
+    if (terms.values.max_users != null && people.length + 1 > terms.values.max_users) {
+      problems.push(`You invited ${people.length + 1} people (owner included) but gave ${terms.values.max_users} user licenses.`);
+    }
+    if (problems.length) {
+      req.flash('error', problems.join(' '));
       return res.redirect('/admin/hubs/create');
     }
 
@@ -6475,20 +6490,22 @@ adminController.hubCreatePost = async (req, res) => {
     const result = await db.query(
       `INSERT INTO managira_hubs 
        (hub_name, hub_nickname, hub_email, first_name, last_name, hub_phone, hub_address, 
-        plan_id, max_organizations, hub_footer_text, contract_start_date, contract_end_date,
+        plan_id, max_organizations, max_users, hub_footer_text, contract_start_date, contract_end_date,
         reset_password_token, reset_password_expires, created_by_admin_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING hub_id`,
-      [hubName, hubNickname, hubEmail, firstName, lastName, hubPhone, hubAddress, 
-       planId || null, maxOrganizations || 5, hubFooterText || '',
-       contractStartDate || null, contractEndDate || null,
+      [hubName, hubNickname, hubEmail, firstName, lastName, hubPhone, hubAddress,
+       planId || null, terms.values.max_organizations, terms.values.max_users, hubFooterText || '',
+       terms.values.contract_start_date, terms.values.contract_end_date,
        hashedToken, tokenExpiration, req.session.userId]
     );
 
     const hubId = result.rows[0].hub_id;
+    const by = [req.session.firstName, req.session.lastName].filter(Boolean).join(' ') || 'Managira';
+    await hubBilling.saveContract(db, hubId, contract.values, { by });
 
     // Send setup email
-    const baseUrl = req.protocol + '://' + req.get('host');
+    const baseUrl = String(res.locals.BASE_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
     const setupUrl = `${baseUrl}/hub/setup-password?token=${token}`;
 
     const emailHtml = renderCleanEmail({
@@ -6503,9 +6520,9 @@ adminController.hubCreatePost = async (req, res) => {
         `Hub Nickname: ${hubNickname}`,
         `Hub Login: ${baseUrl}/hub/login`,
         `Email: ${hubEmail}`,
-        `Max Organizations: ${maxOrganizations || 5}`,
-        `Contract Start: ${contractStartDate || 'Not set'}`,
-        `Contract End: ${contractEndDate || 'Not set'}`,
+        `Schools included: ${terms.values.max_organizations}`,
+        `Contract Start: ${terms.values.contract_start_date || 'Not set'}`,
+        `Contract End: ${terms.values.contract_end_date || 'Not set'}`,
       ],
       note: 'This setup link expires in 7 days. Please complete setup before then.',
       closing: 'This is a no-reply message. Please do not reply to this email.',
@@ -6517,43 +6534,29 @@ adminController.hubCreatePost = async (req, res) => {
       html: emailHtml,
     }, 'Hub Setup Email');
 
-    req.flash('success', 'Hub created successfully! Setup instructions sent to the hub email.');
-    res.redirect('/admin/hubs');
+    // People who get access (set their own password from the invite).
+    if (people.length) await hubBillingController.addPeople(hubId, people, { baseUrl, by });
+
+    // The Stripe card link.
+    const notes = [];
+    if (hubBilling.hasPrice(contract.values) && req.body.sendPaymentLink === 'on') {
+      try {
+        const { sent } = await hubBilling.sendSetupLink(db, hubId, { baseUrl, by });
+        notes.push(`Payment link emailed to ${sent} ${sent === 1 ? 'person' : 'people'}.`);
+      } catch (err) {
+        notes.push(`The payment link was not sent: ${err.message}`);
+      }
+    }
+
+    req.flash('success', [`Hub created. Setup instructions sent to ${hubEmail}.`, people.length ? `${people.length} more ${people.length === 1 ? 'person was' : 'people were'} invited.` : '', ...notes].filter(Boolean).join(' '));
+    res.redirect(`/admin/hubs/${hubId}/billing`);
   } catch (error) {
-        req.flash('error', 'Error creating hub.');
+    console.error('[hubCreatePost]', error.message);
+    req.flash('error', 'Error creating hub.');
     res.redirect('/admin/hubs/create');
   }
 };
 
-// Edit hub form
-adminController.hubEditGet = async (req, res) => {
-  const { hubId } = req.params;
-
-  try {
-    const hubResult = await db.query(
-      'SELECT * FROM managira_hubs WHERE hub_id = $1',
-      [hubId]
-    );
-
-    if (hubResult.rows.length === 0) {
-      req.flash('error', 'Hub not found.');
-      return res.redirect('/admin/hubs');
-    }
-
-    const plansResult = await db.query('SELECT * FROM plans WHERE is_active = true ORDER BY id');
-
-    res.render('admin/hubEdit', {
-      title: 'Edit Hub',
-      hub: hubResult.rows[0],
-      plans: plansResult.rows,
-      messages: req.flash(),
-      showFooterTopSection: true
-    });
-  } catch (error) {
-        req.flash('error', 'Error loading form.');
-    res.redirect('/admin/hubs');
-  }
-};
 
 // Update hub
 adminController.hubEditPost = async (req, res) => {
@@ -6574,6 +6577,7 @@ adminController.hubEditPost = async (req, res) => {
   } = req.body;
 
   try {
+    await require("../utils/licenses").ensureLicenseSchema(db);
     const existingHubResult = await db.query(
       'SELECT plan_id FROM managira_hubs WHERE hub_id = $1',
       [hubId]
@@ -6590,17 +6594,25 @@ adminController.hubEditPost = async (req, res) => {
       return res.redirect(`/admin/hubs/${hubId}/edit`);
     }
 
+    // Schools included, user licenses and contract dates are set on the Billing
+    // page; only change them here when this form sends them.
+    const has = (key) => Object.prototype.hasOwnProperty.call(req.body, key);
     await db.query(
       `UPDATE managira_hubs 
        SET hub_name = $1, hub_nickname = $2, first_name = $3, last_name = $4, 
-           hub_phone = $5, hub_address = $6, plan_id = $7, max_organizations = $8, 
+           hub_phone = $5, hub_address = $6, plan_id = $7,
+           max_organizations = CASE WHEN $14 THEN $8 ELSE max_organizations END,
            hub_footer_text = $9, hub_branding_enabled = $10,
-           contract_start_date = $11, contract_end_date = $12, updated_at = NOW()
+           contract_start_date = CASE WHEN $15 THEN $11::date ELSE contract_start_date END,
+           contract_end_date = CASE WHEN $15 THEN $12::date ELSE contract_end_date END,
+           updated_at = NOW()
       WHERE hub_id = $13`,
       [hubName, hubNickname, firstName, lastName, hubPhone, hubAddress, 
-         planId || null, maxOrganizations || 5, hubFooterText || '',
-         hubBrandingEnabled === 'on', contractStartDate || null, contractEndDate || null, hubId]
+         planId || null, parseInt(maxOrganizations, 10) || 5, hubFooterText || '',
+         hubBrandingEnabled === 'on', contractStartDate || null, contractEndDate || null, hubId,
+         has('maxOrganizations'), has('contractStartDate')]
     );
+    if (has('maxUsers')) await saveHubLicenses(hubId, req.body.maxUsers);
 
     const previousPlanId = existingHubResult.rows[0]?.plan_id || null;
     const nextPlanId = planId || null;
@@ -6630,12 +6642,10 @@ adminController.hubHoldPost = async (req, res) => {
   const { hubId } = req.body;
 
   try {
-    await db.query(
-      'UPDATE managira_hubs SET on_hold = true, updated_at = NOW() WHERE hub_id = $1',
-      [hubId]
-    );
+    // Also pauses the hub's Stripe billing (no bills while on hold).
+    await require("../utils/hubBilling").holdNow(db, hubId, { by: [req.session.firstName, req.session.lastName].filter(Boolean).join(' ') || 'Managira' });
 
-    req.flash('success', 'Hub put on hold successfully.');
+    req.flash('success', 'Hub put on hold. No bills are charged while it is on hold.');
     res.redirect('/admin/hubs');
   } catch (error) {
         req.flash('error', 'Error putting hub on hold.');
@@ -6648,12 +6658,9 @@ adminController.hubResumePost = async (req, res) => {
   const { hubId } = req.body;
 
   try {
-    await db.query(
-      'UPDATE managira_hubs SET on_hold = false, updated_at = NOW() WHERE hub_id = $1',
-      [hubId]
-    );
+    await require("../utils/hubBilling").resumeNow(db, hubId, { by: [req.session.firstName, req.session.lastName].filter(Boolean).join(' ') || 'Managira' });
 
-    req.flash('success', 'Hub resumed successfully.');
+    req.flash('success', 'Hub resumed. Billing continues.');
     res.redirect('/admin/hubs');
   } catch (error) {
         req.flash('error', 'Error resuming hub.');
@@ -6712,6 +6719,8 @@ adminController.hubDeletePost = async (req, res) => {
       );
     }
 
+    // No bills while the hub is deleted (it can still be restored).
+    await require("../utils/hubBilling").syncSubscription(db, hubId).catch(() => {});
     req.flash('success', `Hub moved to deleted review and placed on hold successfully. ${memberOrganizations.rows.length} linked organization(s) were also placed on hold.`);
     res.redirect('/admin/hubs');
   } catch (error) {
@@ -6746,6 +6755,8 @@ adminController.restoreHub = async (req, res) => {
       );
     }
 
+    // Billing carries on.
+    await require("../utils/hubBilling").syncSubscription(db, hubId).catch(() => {});
     req.flash('success', 'Hub restored successfully.');
     res.redirect('/admin/superDashboard');
   } catch (error) {
@@ -6762,6 +6773,8 @@ adminController.permanentlyDeleteHub = async (req, res) => {
   const { hubId } = req.body;
 
   try {
+    // Stop charging the hub's card first.
+    await require("../utils/hubBilling").cancelForDeletedHub(db, hubId);
     txClient = await db.connect();
     await txClient.query('BEGIN');
 
@@ -6846,6 +6859,7 @@ adminController.bulkPermanentlyDeleteHubs = async (req, res) => {
     let deleted = 0;
     const failures = [];
     for (const hubId of intIds) {
+      await require("../utils/hubBilling").cancelForDeletedHub(db, hubId);
       // One dedicated connection per transaction (BEGIN/COMMIT on the pool
       // can run on different connections).
       const txClient = await db.connect();
@@ -6907,6 +6921,7 @@ adminController.hubOrganizationsGet = async (req, res) => {
   const { hubId } = req.params;
 
   try {
+    await require("../utils/hubAccess").ensureHubAccessSchema(db);
     const hubResult = await db.query('SELECT * FROM managira_hubs WHERE hub_id = $1', [hubId]);
     
     if (hubResult.rows.length === 0) {
@@ -6920,7 +6935,10 @@ adminController.hubOrganizationsGet = async (req, res) => {
               (SELECT COUNT(*)::int FROM students st WHERE st.organization_id = o.organization_id AND ${activeStudentSql('st')}) as student_count,
               (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id
                   AND LOWER(COALESCE(u.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')) as teacher_count,
-              (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id) as class_count
+              (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id) as class_count,
+              o.max_users,
+              (SELECT COUNT(*)::int FROM users u2 WHERE u2.organization_id = o.organization_id
+                  AND LOWER(COALESCE(u2.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')) as user_count
        FROM organizations o
        WHERE o.hub_id = $1 AND o.deleted = false AND o.is_hub_member = true
        ORDER BY o.organization_name ASC`,
@@ -6939,6 +6957,42 @@ adminController.hubOrganizationsGet = async (req, res) => {
         req.flash('error', 'Error loading organizations.');
     res.redirect('/admin/hubs');
   }
+};
+
+// User licenses: how many people may sign in to a hub (owner included). Empty = no limit.
+async function saveHubLicenses(hubId, value) {
+  const { ensureLicenseSchema, parseLimit } = require("../utils/licenses");
+  await ensureLicenseSchema(db);
+  await db.query('UPDATE managira_hubs SET max_users = $1 WHERE hub_id = $2', [parseLimit(value), hubId]);
+}
+
+// User licenses for one school: how many staff accounts it may have. Empty = no limit.
+adminController.organizationLicensesPost = async (req, res) => {
+  const { ensureLicenseSchema, parseLimit } = require("../utils/licenses");
+  const back = (() => {
+    try {
+      const ref = new URL(req.get('referer') || '', `${req.protocol}://${req.get('host')}`);
+      return ref.host === req.get('host') && ref.pathname.startsWith('/admin') ? ref.pathname + ref.search : '/admin';
+    } catch (_e) { return '/admin'; }
+  })();
+  try {
+    await ensureLicenseSchema(db);
+    const limit = parseLimit(req.body.maxUsers);
+    const r = await db.query(
+      'UPDATE organizations SET max_users = $1, updated_at = NOW() WHERE organization_id = $2 RETURNING organization_name',
+      [limit, req.params.organizationId]
+    );
+    if (!r.rows.length) {
+      req.flash('error', 'School not found.');
+      return res.redirect(back);
+    }
+    cacheManager.invalidate('admin', 'organizations:list');
+    req.flash('success', `${r.rows[0].organization_name}: ${limit ? `${limit} user licenses` : 'no user limit'}.`);
+  } catch (error) {
+    console.error('[organizationLicensesPost]', error.message);
+    req.flash('error', 'Could not save the licenses.');
+  }
+  res.redirect(back);
 };
 
 // Open a hub as its owner sees it (same idea as /admin/org/:id for schools).

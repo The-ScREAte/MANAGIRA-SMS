@@ -3858,6 +3858,7 @@
             .hubinfo-contact.is-primary { border-color: #b7d5d7; box-shadow: inset 3px 0 0 #01535b; }
             .hubinfo-contact__name { font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
             .hubinfo-contact__title { font-size: .85rem; color: #64748b; margin-top: -4px; }
+            .hubinfo-badge--yours { background: #eff6ff !important; color: #1d4ed8 !important; }
             .hubinfo-badge { font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #ecfdf5; color: #047857; }
             .hubinfo-contact a { color: #334155; text-decoration: none; font-size: .9rem; overflow-wrap: anywhere; display: flex; align-items: center; gap: 8px; }
             .hubinfo-contact a:hover { color: #01535b; text-decoration: underline; }
@@ -3882,8 +3883,8 @@
             <small>Reach out to your hub about billing, membership or support.</small>
             <div class="hubinfo-contacts">
               <% _hp.contacts.forEach(function (c) { %>
-                <div class="hubinfo-contact<%= c.is_primary ? ' is-primary' : '' %>">
-                  <div class="hubinfo-contact__name"><%= c.full_name %><% if (c.is_primary) { %><span class="hubinfo-badge">Main contact</span><% } %></div>
+                <div class="hubinfo-contact<%= c.is_yours || (c.is_primary && !_hp.contacts.some((x) => x.is_yours)) ? ' is-primary' : '' %>">
+                  <div class="hubinfo-contact__name"><%= c.full_name %><% if (c.is_yours) { %><span class="hubinfo-badge hubinfo-badge--yours">Your contact</span><% } else if (c.is_primary) { %><span class="hubinfo-badge">Main contact</span><% } %></div>
                   <% if (c.job_title) { %><div class="hubinfo-contact__title"><%= c.job_title %></div><% } %>
                   <% if (c.email) { %><a href="mailto:<%= c.email %>"><i class="fa-regular fa-envelope" aria-hidden="true"></i><%= c.email %></a><% } %>
                   <% if (c.phone) { %><a href="tel:<%= String(c.phone).replace(/[^\d+]/g, '') %>"><i class="fa-solid fa-phone" aria-hidden="true"></i><%= c.phone %></a><% } %>

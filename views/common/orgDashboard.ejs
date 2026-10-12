@@ -507,7 +507,7 @@
         Get started by setting up a school year and a term/semester. It's simple
         and intuitive!
       </p>
-      <a href="/common/manageRecords" class="start-link">Begin Your Journey Here</a>
+      <a href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" class="start-link">Begin Your Journey Here</a>
     </div>
   </div>
 <% } else { %>
@@ -708,7 +708,7 @@
             <div class="od-next">
               <% if (nextTermSuggestion && canManageTermSwitch) { %>
                 <span class="od-next__text">This term has ended. Make the next term current in Manage Records.</span>
-                <a class="od-btn od-btn--primary" href="/common/manageRecords" title="Open Manage Records and select Current on <%= nextTermSuggestion.term_name %> (<%= nextTermSuggestion.year_label %>).">
+                <a class="od-btn od-btn--primary" href="/common/management?panel=school-year&page=%2Fcommon%2FmanageRecords&label=School%20Years" title="Open Manage Records and select Current on <%= nextTermSuggestion.term_name %> (<%= nextTermSuggestion.year_label %>).">
                   Switch to <%= nextTermSuggestion.term_name %> · <%= nextTermSuggestion.year_label %>
                   <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
                 </a>

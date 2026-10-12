@@ -1056,6 +1056,9 @@
       max-width: 1400px;
       margin: 0 auto 24px;
     }
+    .license-form { display: inline-flex; gap: 6px; align-items: center; margin-left: 8px; }
+    .license-form input { width: 110px; height: 32px; margin: 0 !important; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 8px; font: inherit; }
+    .license-form button { height: 32px; margin: 0 !important; padding: 0 12px !important; width: auto !important; border-radius: 8px; font-size: .82rem; box-shadow: none !important; }
   </style>
 </head>
 <body>
@@ -1214,6 +1217,13 @@
                     <div><strong>Address:</strong> <%= application.organization_address %><% if (application.organization_country || application.organization_province) { %>, <%= [application.organization_province, application.organization_country].filter(Boolean).join(', ') %><% } %></div>
                     <div><strong>Enrolled:</strong> <%= application.created_at ? new Date(application.created_at).toLocaleString() : 'N/A' %></div>
                     <div><strong>Current Plan:</strong> <%= application.plan_name || 'No plan assigned' %></div>
+                    <div>
+                      <strong>User licenses:</strong> <%= application.user_count || 0 %> of <%= application.max_users || 'no limit' %>
+                      <form action="/admin/organizations/<%= application.organization_id %>/licenses" method="POST" class="license-form">
+                        <input type="number" name="maxUsers" min="1" value="<%= application.max_users || '' %>" placeholder="No limit" aria-label="User licenses for <%= application.organization_name %>">
+                        <button type="submit">Save</button>
+                      </form>
+                    </div>
                   </div>
 
                   <div class="proofs-grid">

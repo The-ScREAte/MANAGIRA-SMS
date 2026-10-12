@@ -1,0 +1,208 @@
+<%
+  // Billing terms for a hub (side panels: New hub, Plan and contract).
+  // Pass b (utils/hubBilling), and optionally billingRow, hubRow, usageRow, hasSub, extrasTotal.
+  const _b = (typeof billingRow !== 'undefined' && billingRow) || {};
+  const _h = (typeof hubRow !== 'undefined' && hubRow) || {};
+  const _u = (typeof usageRow !== 'undefined' && usageRow) || {};
+  const _ints = _u.integrations || {};
+  const _v = (k, d = '') => (_b[k] == null ? d : _b[k]);
+  const _num = (n) => (n == null || n === '' ? '' : String(Number(n)));
+  const _meters = b.metersOf(_b);
+  const _fees = b.integrationFeesOf(_b);
+  const _isNew = !(typeof billingRow !== 'undefined' && billingRow);
+  const _now = { student: _u.students, employee: _u.employees, user: _u.users };
+  const _trial = !!_b.trial_end_date;
+  const _disc = _v('discount_type', 'none');
+%>
+<div class="ahb" data-ahb
+     data-students="<%= _u.students || 0 %>" data-employees="<%= _u.employees || 0 %>" data-users="<%= _u.users || 0 %>"
+     data-extras="<%= typeof extrasTotal !== 'undefined' ? Number(extrasTotal) || 0 : 0 %>"
+     <% b.INTEGRATIONS.forEach((i) => { %> data-int-<%= i.key %>="<%= _ints[i.key] || 0 %>"<% }) %>>
+
+  <fieldset class="ahb-set">
+    <legend class="ahb-legend">Billed</legend>
+    <label class="ahb-field ahb-field--narrow">
+      <select name="billingCycle" class="ahb-input" data-ahb-cycle aria-label="How often the hub is billed">
+        <% Object.entries(b.CYCLES).forEach(([key, c]) => { %>
+          <option value="<%= key %>" data-per="<%= c.per %>" <%= _v('billing_cycle', 'month') === key ? 'selected' : '' %>><%= c.label %></option>
+        <% }) %>
+      </select>
+      <% if (typeof hasSub !== 'undefined' && hasSub) { %><span class="ahb-hint">Changing this starts a new billing period today and bills it now.</span><% } %>
+    </label>
+  </fieldset>
+
+  <fieldset class="ahb-set">
+    <legend class="ahb-legend">What is charged</legend>
+    <div class="ahb-rows">
+      <% b.METER_KEYS.forEach((key) => { const def = b.METERS[key]; const m = _meters[key] || {}; const on = _isNew ? key === 'student' : !!m.on; %>
+        <div class="ahb-row<%= on ? '' : ' is-off' %>" data-ahb-row>
+          <label class="ahb-switch">
+            <input type="checkbox" name="meters[<%= key %>][on]" value="1" <%= on ? 'checked' : '' %> data-ahb-toggle data-ahb-meter="<%= key %>" />
+            <span class="ahb-switch__track" aria-hidden="true"></span>
+            <span class="ahb-row__title"><%= def.label %><small><%= def.help %></small></span>
+          </label>
+          <div class="ahb-row__fields" data-ahb-fields>
+            <label class="ahb-mini">
+              <span>Price each</span>
+              <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="meters[<%= key %>][price]" class="ahb-input" value="<%= _num(m.price) %>" placeholder="0.00" data-ahb-price /></span>
+            </label>
+            <label class="ahb-mini">
+              <span>Included</span>
+              <input type="number" min="0" step="1" name="meters[<%= key %>][included]" class="ahb-input" value="<%= _num(m.included) %>" placeholder="0" data-ahb-included />
+            </label>
+            <span class="ahb-row__now"><%= Number(_now[key] || 0).toLocaleString('en-US') %> now</span>
+          </div>
+        </div>
+      <% }) %>
+      <% const baseOn = Number(_b.base_fee) > 0; %>
+      <div class="ahb-row<%= baseOn ? '' : ' is-off' %>" data-ahb-row>
+        <label class="ahb-switch">
+          <input type="checkbox" name="baseFeeOn" value="1" <%= baseOn ? 'checked' : '' %> data-ahb-toggle />
+          <span class="ahb-switch__track" aria-hidden="true"></span>
+          <span class="ahb-row__title">Plan fee<small>A fixed amount on every bill.</small></span>
+        </label>
+        <div class="ahb-row__fields" data-ahb-fields>
+          <label class="ahb-mini">
+            <span>Each bill</span>
+            <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="baseFee" class="ahb-input" value="<%= baseOn ? _num(_b.base_fee) : '' %>" placeholder="0.00" data-ahb-base /></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <p class="ahb-hint">The bill is for at least the included number. Any more are charged at the same price.</p>
+  </fieldset>
+
+  <fieldset class="ahb-set">
+    <legend class="ahb-legend">Integrations</legend>
+    <p class="ahb-hint ahb-hint--top">A fee per school that uses it, each bill. <strong>Auto</strong>: billed for every school that switches it on. <strong>Manual</strong>: you add it as a charge when needed, and the hub approves it.</p>
+    <div class="ahb-rows">
+      <% b.INTEGRATIONS.forEach((i) => { const f = _fees[i.key] || {}; const on = !!f.on; const mode = f.mode === 'manual' ? 'manual' : 'auto'; %>
+        <div class="ahb-row<%= on ? '' : ' is-off' %>" data-ahb-row>
+          <label class="ahb-switch">
+            <input type="checkbox" name="integrations[<%= i.key %>][on]" value="1" <%= on ? 'checked' : '' %> data-ahb-toggle data-ahb-int="<%= i.key %>" />
+            <span class="ahb-switch__track" aria-hidden="true"></span>
+            <span class="ahb-row__title"><%= i.label %><small><%= _ints[i.key] ? (_ints[i.key] === 1 ? '1 school uses it now' : `${_ints[i.key]} schools use it now`) : 'No school uses it yet' %></small></span>
+          </label>
+          <div class="ahb-row__fields" data-ahb-fields>
+            <label class="ahb-mini">
+              <span>Per school</span>
+              <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="integrations[<%= i.key %>][price]" class="ahb-input" value="<%= _num(f.price) %>" placeholder="0.00" /></span>
+            </label>
+            <div class="ahb-seg ahb-seg--sm" role="radiogroup" aria-label="<%= i.label %>: how the fee is applied">
+              <label><input type="radio" name="integrations[<%= i.key %>][mode]" value="auto" <%= mode === 'auto' ? 'checked' : '' %> /> <span>Auto</span></label>
+              <label><input type="radio" name="integrations[<%= i.key %>][mode]" value="manual" <%= mode === 'manual' ? 'checked' : '' %> /> <span>Manual</span></label>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </fieldset>
+
+  <fieldset class="ahb-set">
+    <legend class="ahb-legend">Schools and user licenses</legend>
+    <div class="ahb-grid">
+      <label class="ahb-field">
+        <span class="ahb-label">Schools included</span>
+        <input type="number" min="1" step="1" name="maxOrganizations" class="ahb-input" value="<%= _h.max_organizations || 5 %>" required />
+      </label>
+      <label class="ahb-field">
+        <span class="ahb-label">Each extra school, each bill <em>optional</em></span>
+        <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="extraSchoolPrice" class="ahb-input" value="<%= _num(_b.extra_school_price) %>" placeholder="Not allowed" /></span>
+        <span class="ahb-hint">With a price, the hub can add more schools after approving the cost. Empty: only you can raise the number.</span>
+      </label>
+      <label class="ahb-field">
+        <span class="ahb-label">User licenses (hub sign-ins, owner included)</span>
+        <input type="number" min="1" step="1" name="maxUsers" class="ahb-input" value="<%= _h.max_users || '' %>" placeholder="No limit" />
+      </label>
+      <label class="ahb-field">
+        <span class="ahb-label">Each extra user license, each bill <em>optional</em></span>
+        <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="extraUserPrice" class="ahb-input" value="<%= _num(_b.extra_user_price) %>" placeholder="Not allowed" /></span>
+      </label>
+      <label class="ahb-field ahb-field--full">
+        <span class="ahb-label">Schools and staff on hold</span>
+        <select name="countOnHold" class="ahb-input">
+          <option value="1" <%= _v('count_on_hold', true) ? 'selected' : '' %>>Still billed (they stay in the hub)</option>
+          <option value="0" <%= _v('count_on_hold', true) ? '' : 'selected' %>>Not billed while on hold</option>
+        </select>
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset class="ahb-set">
+    <legend class="ahb-legend">Contract</legend>
+    <div class="ahb-grid">
+      <label class="ahb-field">
+        <span class="ahb-label">Starts</span>
+        <input type="date" name="contractStartDate" class="ahb-input" value="<%= b.isoDay(_h.contract_start_date) %>" />
+        <span class="ahb-hint">If this is in the future, the first charge is on this day.</span>
+      </label>
+      <label class="ahb-field">
+        <span class="ahb-label">Ends</span>
+        <input type="date" name="contractEndDate" class="ahb-input" value="<%= b.isoDay(_h.contract_end_date) %>" />
+      </label>
+      <label class="ahb-field">
+        <span class="ahb-label">At the end date</span>
+        <select name="autoRenew" class="ahb-input">
+          <option value="1" <%= _v('auto_renew', true) ? 'selected' : '' %>>Keep billing (renews automatically)</option>
+          <option value="0" <%= _v('auto_renew', true) ? '' : 'selected' %>>Stop billing</option>
+        </select>
+      </label>
+      <div class="ahb-field">
+        <label class="ahb-check"><input type="checkbox" name="trialEnabled" <%= _trial ? 'checked' : '' %> data-ahb-trial /> <span>Free trial until</span></label>
+        <input type="date" name="trialEndDate" class="ahb-input" value="<%= b.isoDay(_b.trial_end_date) %>" aria-label="Free trial ends on" data-ahb-trial-date <%= _trial ? '' : 'hidden' %> />
+        <span class="ahb-hint">The card is still saved first. Nothing is charged before this day.</span>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset class="ahb-set">
+    <legend class="ahb-legend">Discount <em>optional</em></legend>
+    <div class="ahb-grid">
+      <label class="ahb-field">
+        <span class="ahb-label">Discount</span>
+        <select name="discountType" class="ahb-input" data-ahb-disc>
+          <option value="none" <%= _disc === 'none' ? 'selected' : '' %>>No discount</option>
+          <option value="percent" <%= _disc === 'percent' ? 'selected' : '' %>>Percent off</option>
+          <option value="amount" <%= _disc === 'amount' ? 'selected' : '' %>>Amount off each bill</option>
+        </select>
+      </label>
+      <label class="ahb-field" data-ahb-disc-only <%= _disc === 'none' ? 'hidden' : '' %>>
+        <span class="ahb-label" data-ahb-disc-label><%= _disc === 'amount' ? 'Amount ($)' : 'Percent (%)' %></span>
+        <input type="text" inputmode="decimal" name="discountValue" class="ahb-input" value="<%= Number(_b.discount_value) > 0 ? _num(_b.discount_value) : '' %>" data-ahb-disc-value />
+      </label>
+      <label class="ahb-field" data-ahb-disc-only <%= _disc === 'none' ? 'hidden' : '' %>>
+        <span class="ahb-label">For</span>
+        <select name="discountDuration" class="ahb-input" data-ahb-disc-dur>
+          <% Object.entries(b.DISCOUNT_DURATIONS).forEach(([key, label]) => { %>
+            <option value="<%= key %>" <%= _v('discount_duration', 'forever') === key ? 'selected' : '' %>><%= label %></option>
+          <% }) %>
+        </select>
+      </label>
+      <label class="ahb-field" data-ahb-disc-cycles <%= _disc !== 'none' && _v('discount_duration') === 'repeating' ? '' : 'hidden' %>>
+        <span class="ahb-label">Number of bills</span>
+        <input type="number" min="1" max="120" name="discountCycles" class="ahb-input" value="<%= _b.discount_cycles || '' %>" />
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset class="ahb-set">
+    <legend class="ahb-legend">Billing contact <em>optional</em></legend>
+    <div class="ahb-grid">
+      <label class="ahb-field">
+        <span class="ahb-label">Billing email</span>
+        <input type="email" name="billingEmail" class="ahb-input" value="<%= _v('billing_email') %>" placeholder="accounts@example.com" />
+        <span class="ahb-hint">Also gets the payment link, receipts and failed-payment emails. The owner always does.</span>
+      </label>
+      <label class="ahb-field">
+        <span class="ahb-label">Notes (only Managira sees these)</span>
+        <textarea name="billingNotes" class="ahb-input" rows="2"><%= _v('notes') %></textarea>
+      </label>
+    </div>
+  </fieldset>
+
+  <div class="ahb-estimate" aria-live="polite">
+    <span class="ahb-estimate__label">Each bill, with today’s numbers</span>
+    <strong class="ahb-estimate__value" data-ahb-total>$0.00</strong>
+    <span class="ahb-estimate__note" data-ahb-note></span>
+  </div>
+</div>

@@ -1,10 +1,12 @@
-// Hub pages: dashboard views + reports, school actions, confirmations, the
-// reject dialog, and the people/classes browser on a school's page.
-// Used by every signed-in page in views/hub/.
+// Hub pages: side-panel forms (opened from the right, saved without leaving the
+// page), confirmations, school actions, dashboard reports with a per-school
+// term filter, PDF/CSV/print, Settings tabs, and the people/classes browser on
+// a school's page. Used by every signed-in page in views/hub/.
 (function () {
   const shell = document.querySelector('.hub-shell');
   if (!shell || shell.dataset.ready === '1') return;
   shell.dataset.ready = '1';
+  const alive = () => document.body.contains(shell);
 
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const num = (v) => Number(v || 0).toLocaleString('en-US');
@@ -13,49 +15,444 @@
   const tone = (v) => (v >= 75 ? 'good' : v >= 50 ? 'mid' : 'low');
   const initials = (name) => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
   const fmtDate = (v) => { if (!v) return '—'; const d = new Date(v); return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
+  const initPhones = (root) => { if (window.initPhoneCountryCombos) { try { window.initPhoneCountryCombos(root); } catch (_e) { /* optional */ } } };
+
+  // ---------- toast ----------
+  function toast(message, type) {
+    if (!message) return;
+    let box = document.querySelector('.hub-toasts');
+    if (!box) { box = document.createElement('div'); box.className = 'hub-toasts'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+    const t = document.createElement('div');
+    t.className = 'hub-toast' + (type === 'error' ? ' hub-toast--error' : '');
+    t.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}" aria-hidden="true"></i><span>${esc(message)}</span>`;
+    box.appendChild(t);
+    setTimeout(() => { t.classList.add('is-leaving'); setTimeout(() => t.remove(), 300); }, type === 'error' ? 6000 : 3500);
+  }
+  try {
+    const pending = sessionStorage.getItem('hubToast');
+    if (pending) { sessionStorage.removeItem('hubToast'); const { m, t } = JSON.parse(pending); toast(m, t); }
+  } catch (_e) { /* storage may be blocked */ }
+
+  // ---------- confirm box ----------
+  function confirmBox({ title, text, ok = 'Yes, continue', danger = false, typeWord = '' }) {
+    return new Promise((resolve) => {
+      const d = document.createElement('dialog');
+      d.className = 'hub-dialog hub-confirm';
+      d.innerHTML = `<form method="dialog">
+          <div class="hub-dialog__body">
+            <h2>${esc(title || 'Are you sure?')}</h2>
+            ${text ? `<p>${esc(text)}</p>` : ''}
+            ${typeWord ? `<label class="hub-label" for="hubConfirmWord">Type ${esc(typeWord)} to confirm</label><input id="hubConfirmWord" autocomplete="off" />` : ''}
+          </div>
+          <div class="hub-dialog__actions">
+            <button type="button" class="hub-btn" value="no">Cancel</button>
+            <button type="button" class="hub-btn ${danger ? 'hub-btn--danger-solid' : 'hub-btn--primary'}" value="yes"${typeWord ? ' disabled' : ''}>${esc(ok)}</button>
+          </div>
+        </form>`;
+      document.body.appendChild(d);
+      const yes = d.querySelector('[value="yes"]');
+      const word = d.querySelector('#hubConfirmWord');
+      if (word) word.addEventListener('input', () => { yes.disabled = word.value.trim() !== typeWord; });
+      const done = (v) => { d.close(); d.remove(); resolve(v); };
+      yes.addEventListener('click', () => done(true));
+      d.querySelector('[value="no"]').addEventListener('click', () => done(false));
+      d.addEventListener('cancel', (e) => { e.preventDefault(); done(false); });
+      d.showModal();
+      (word || yes).focus();
+    });
+  }
+
+  // ---------- after a save: refresh the page in place ----------
+  async function refresh() {
+    const main = document.querySelector('.hub-main');
+    if (!main || !main.hasAttribute('data-refreshable')) {
+      window.location.reload();
+      return;
+    }
+    try {
+      const r = await fetch(window.location.pathname + window.location.search, { credentials: 'same-origin' });
+      if (new URL(r.url).pathname !== window.location.pathname) { window.location.href = r.url; return; }
+      const doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+      ['.hub-side', '.hub-main'].forEach((sel) => {
+        const fresh = doc.querySelector(sel);
+        const cur = document.querySelector(sel);
+        if (fresh && cur) cur.innerHTML = fresh.innerHTML;
+      });
+      initPhones(document.querySelector('.hub-main'));
+      document.dispatchEvent(new CustomEvent('hub:refreshed'));
+    } catch (_e) {
+      window.location.reload();
+    }
+  }
+  // Toast now, or after a full reload.
+  function done(message) {
+    const main = document.querySelector('.hub-main');
+    if (main && main.hasAttribute('data-refreshable')) { toast(message); return refresh(); }
+    try { sessionStorage.setItem('hubToast', JSON.stringify({ m: message, t: 'ok' })); } catch (_e) { /* ignore */ }
+    window.location.reload();
+    return null;
+  }
+
+  async function ajaxPost(action, fields) {
+    const r = await fetch(action, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-Hub-Ajax': '1', Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(fields),
+    });
+    return r.json().catch(() => ({ success: r.ok, message: r.ok ? '' : 'Something went wrong. Please try again.' }));
+  }
+
+  // ---------- side panel (drawer) ----------
+  const drawer = document.createElement('div');
+  drawer.className = 'hub-drawer';
+  drawer.hidden = true;
+  drawer.innerHTML = `<div class="hub-drawer__backdrop" data-drawer-close></div>
+    <aside class="hub-drawer__panel" role="dialog" aria-modal="true" aria-labelledby="hubDrawerTitle" tabindex="-1">
+      <header class="hub-drawer__head">
+        <div><h2 class="hub-drawer__title" id="hubDrawerTitle"></h2><p class="hub-drawer__sub"></p></div>
+        <button type="button" class="hub-drawer__x" data-drawer-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </header>
+      <div class="hub-drawer__error" hidden role="alert"></div>
+      <div class="hub-drawer__body"></div>
+    </aside>`;
+  document.body.appendChild(drawer);
+  const drawerPanel = drawer.querySelector('.hub-drawer__panel');
+  const drawerBody = drawer.querySelector('.hub-drawer__body');
+  const drawerError = drawer.querySelector('.hub-drawer__error');
+  let lastFocus = null;
+
+  function setDrawer({ title, sub, html, wide }) {
+    drawer.querySelector('.hub-drawer__title').textContent = title || '';
+    drawer.querySelector('.hub-drawer__sub').textContent = sub || '';
+    drawerPanel.classList.toggle('is-wide', !!wide);
+    drawerError.hidden = true;
+    if (html !== undefined) drawerBody.innerHTML = html;
+  }
+  function showDrawer() {
+    if (!drawer.hidden && drawer.classList.contains('is-open')) return;
+    lastFocus = document.activeElement;
+    drawer.hidden = false;
+    document.documentElement.classList.add('hub-drawer-open');
+    requestAnimationFrame(() => drawer.classList.add('is-open'));
+  }
+  function closeDrawer() {
+    if (drawer.hidden) return;
+    drawer.classList.remove('is-open');
+    document.documentElement.classList.remove('hub-drawer-open');
+    setTimeout(() => { drawer.hidden = true; drawerBody.innerHTML = ''; }, 220);
+    if (lastFocus && document.body.contains(lastFocus)) lastFocus.focus();
+  }
+  function drawerFail(message) {
+    drawerError.innerHTML = `<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> ${esc(message)}`;
+    drawerError.hidden = false;
+    drawerError.scrollIntoView({ block: 'nearest' });
+  }
+  // Open a server-rendered form (GET url?drawer=1) in the side panel.
+  async function openDrawer(url) {
+    setDrawer({ title: 'Loading…', sub: '', html: '<div class="hub-loading">Loading…</div>' });
+    showDrawer();
+    try {
+      const r = await fetch(url + (url.includes('?') ? '&' : '?') + 'drawer=1', { credentials: 'same-origin', headers: { 'X-Hub-Drawer': '1' } });
+      if (!r.ok || r.redirected) throw new Error(r.status === 404 ? 'That item was not found.' : 'You do not have access to this, or it could not load.');
+      const html = await r.text();
+      const holder = document.createElement('div');
+      holder.innerHTML = html;
+      const root = holder.querySelector('[data-drawer-title]') || holder;
+      setDrawer({ title: root.dataset.drawerTitle, sub: root.dataset.drawerSub, wide: root.hasAttribute('data-drawer-wide'), html: '' });
+      drawerBody.appendChild(root);
+      initPhones(drawerBody);
+      drawerBody.querySelectorAll('[data-user-form]').forEach(initUserForm);
+      const first = drawerBody.querySelector('input:not([type=hidden]):not([readonly]):not([disabled]), textarea, select');
+      (first || drawerPanel).focus();
+    } catch (err) {
+      setDrawer({ title: 'Something went wrong', html: '' });
+      drawerFail(err.message);
+    }
+  }
+  drawer.addEventListener('click', (e) => { if (e.target.closest('[data-drawer-close]')) closeDrawer(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !drawer.hidden && !document.querySelector('dialog[open]')) closeDrawer(); });
+
+  // Links that open the side panel, and "Open school". Window capture phase so the
+  // page router never swallows the click first.
+  window.addEventListener('click', async (e) => {
+    if (!alive() || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    const link = e.target.closest('[data-drawer]');
+    if (link) {
+      e.preventDefault();
+      e.stopPropagation();
+      shell.querySelectorAll('.hub-menu[open]').forEach((m) => { m.open = false; });
+      openDrawer(link.getAttribute('href') || link.dataset.drawer);
+      return;
+    }
+    const open = e.target.closest('[data-open-school]');
+    if (open) {
+      e.preventDefault();
+      e.stopPropagation();
+      const name = open.dataset.name || 'this school';
+      if (await confirmBox({ title: `Open ${name}?`, text: `You'll go into ${name}'s own Managira account and see everything, like its owner. Your visit is logged. Use “Back to hub” at the top left to come back.`, ok: 'Open school' })) {
+        window.location.href = open.getAttribute('href');
+      }
+    }
+  }, true);
+
+  // ---------- forms that save without leaving the page ----------
+  async function submitAjax(form, submitter) {
+    if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(form);
+    const data = new FormData(form);
+    if (submitter && submitter.name) data.append(submitter.name, submitter.value);
+    const multipart = String(form.getAttribute('enctype') || '').includes('multipart');
+    const buttons = Array.from(form.querySelectorAll('button[type=submit]'));
+    buttons.forEach((b) => { b.disabled = true; b.setAttribute('aria-busy', 'true'); });
+    const inDrawer = drawer.contains(form);
+    try {
+      const r = await fetch(form.action, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-Hub-Ajax': '1', Accept: 'application/json' },
+        body: multipart ? data : new URLSearchParams(data),
+      });
+      const json = await r.json().catch(() => ({ success: false, message: 'Something went wrong. Please try again.' }));
+      // Out of places: approve the extra charge, then send again.
+      if (!json.success && json.needsApproval && json.approval) {
+        buttons.forEach((b) => { b.disabled = false; b.removeAttribute('aria-busy'); });
+        if (await confirmBox(json.approval)) {
+          let flag = form.querySelector('input[name="approve_extra"]');
+          if (!flag) { flag = document.createElement('input'); flag.type = 'hidden'; flag.name = 'approve_extra'; form.appendChild(flag); }
+          flag.value = '1';
+          await submitAjax(form, submitter);
+        }
+        return;
+      }
+      if (!json.success) {
+        if (inDrawer) drawerFail(json.message || 'Could not save. Please check the form.');
+        else toast(json.message || 'Could not save.', 'error');
+        return;
+      }
+      const dlg = form.closest('dialog');
+      if (dlg) dlg.close();
+      if (inDrawer) closeDrawer();
+      await done(json.message || 'Saved.');
+    } catch (_e) {
+      if (inDrawer) drawerFail('Could not reach Managira. Check your connection and try again.');
+      else toast('Could not reach Managira. Check your connection and try again.', 'error');
+    } finally {
+      buttons.forEach((b) => { b.disabled = false; b.removeAttribute('aria-busy'); });
+    }
+  }
+  document.addEventListener('submit', async (e) => {
+    const form = e.target;
+    if (!alive() || !(form instanceof HTMLFormElement) || !(shell.contains(form) || drawer.contains(form))) return;
+    if (form.dataset.confirm && form.dataset.confirmed !== '1') {
+      e.preventDefault();
+      const ok = await confirmBox({ title: 'Please confirm', text: form.dataset.confirm, danger: /remove|delete|reject/i.test(form.dataset.confirm) });
+      if (!ok) return;
+      if (form.hasAttribute('data-ajax')) { submitAjax(form, e.submitter); return; }
+      form.dataset.confirmed = '1';
+      form.requestSubmit ? form.requestSubmit(e.submitter) : form.submit();
+      return;
+    }
+    if (form.hasAttribute('data-ajax')) {
+      e.preventDefault();
+      shell.querySelectorAll('.hub-menu[open]').forEach((m) => { m.open = false; });
+      submitAjax(form, e.submitter);
+    }
+  });
 
   // ---------- school actions (dashboard table + school page) ----------
-  function post(action, fields) {
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = action;
-    Object.keys(fields).forEach((k) => {
-      const input = document.createElement('input');
-      input.type = 'hidden'; input.name = k; input.value = fields[k];
-      form.appendChild(input);
-    });
-    document.body.appendChild(form);
-    form.submit();
-  }
-  shell.addEventListener('click', (e) => {
+  shell.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-org-action]');
     if (!btn) return;
     const { orgAction: action, orgId: id, orgName: name } = btn.dataset;
     const menu = btn.closest('details');
     if (menu) menu.open = false;
-    if (action === 'hold' && confirm(`Put "${name}" on hold? Its staff can't use Managira until you resume it.`)) post('/hub/organizations/toggle-hold', { organizationId: id });
-    if (action === 'resume' && confirm(`Resume "${name}"? Its staff get full access again.`)) post('/hub/organizations/toggle-hold', { organizationId: id });
-    if (action === 'remove' && confirm(`Remove "${name}" from your hub?\n\nIt becomes an independent school and needs its own subscription. Its data stays intact.`)) post('/hub/organizations/remove', { organizationId: id });
-    if (action === 'delete' && confirm(`Permanently delete "${name}"?\n\nAll of its students, staff and classes are deleted. This can't be undone.`)) {
-      if (prompt('Type DELETE to confirm:') === 'DELETE') post('/hub/organizations/delete', { organizationId: id });
-      else alert('Not deleted.');
+    const ask = {
+      hold: { title: `Put ${name} on hold?`, text: 'Its staff can’t use Managira until you resume it.', ok: 'Put on hold', url: '/hub/organizations/toggle-hold' },
+      resume: { title: `Resume ${name}?`, text: 'Its staff get full access again.', ok: 'Resume', url: '/hub/organizations/toggle-hold' },
+      remove: { title: `Remove ${name} from your hub?`, text: 'It becomes an independent school and needs its own subscription. Its data stays.', ok: 'Remove', danger: true, url: '/hub/organizations/remove' },
+      delete: { title: `Delete ${name} permanently?`, text: 'All of its students, staff and classes are deleted. This can’t be undone.', ok: 'Delete', danger: true, typeWord: 'DELETE', url: '/hub/organizations/delete' },
+    }[action];
+    if (!ask || !(await confirmBox(ask))) return;
+    const json = await ajaxPost(ask.url, { organizationId: id }).catch(() => ({ success: false, message: 'Could not reach Managira.' }));
+    if (!json.success) { toast(json.message || 'That did not work.', 'error'); return; }
+    if ((action === 'remove' || action === 'delete') && /^\/hub\/organizations\/\d+/.test(window.location.pathname)) {
+      try { sessionStorage.setItem('hubToast', JSON.stringify({ m: json.message, t: 'ok' })); } catch (_e) { /* ignore */ }
+      window.location.href = '/hub/dashboard#schools';
+      return;
     }
+    done(json.message || 'Done.');
   });
   document.addEventListener('click', (e) => {
     shell.querySelectorAll('.hub-menu[open]').forEach((m) => { if (!m.contains(e.target)) m.open = false; });
   });
-  shell.querySelectorAll('form[data-confirm]').forEach((form) => {
-    form.addEventListener('submit', (e) => { if (!confirm(form.dataset.confirm)) e.preventDefault(); });
+  // Place an open "more" menu on top of everything, next to its button.
+  document.addEventListener('toggle', (e) => {
+    const menu = e.target;
+    if (!(menu instanceof HTMLDetailsElement) || !menu.classList.contains('hub-menu') || !shell.contains(menu)) return;
+    const list = menu.querySelector('.hub-menu__list');
+    if (!list) return;
+    if (!menu.open) { list.classList.remove('is-floating'); list.style.top = list.style.left = ''; return; }
+    const r = menu.querySelector('summary').getBoundingClientRect();
+    list.classList.add('is-floating');
+    const w = list.offsetWidth;
+    const h = list.offsetHeight;
+    const below = r.bottom + 6 + h <= window.innerHeight;
+    list.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - h - 6)}px`;
+    list.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w))}px`;
+  }, true);
+  window.addEventListener('scroll', () => { shell.querySelectorAll('.hub-menu[open]').forEach((m) => { m.open = false; }); }, { passive: true });
+  // Reject a leave request (dialog with a note).
+  shell.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-reject-id]');
+    const dialog = shell.querySelector('[data-reject-dialog]');
+    if (btn && dialog) {
+      dialog.querySelector('[data-reject-id-input]').value = btn.dataset.rejectId;
+      dialog.querySelector('[data-reject-name-label]').textContent = btn.dataset.rejectName;
+      dialog.querySelector('textarea').value = '';
+      dialog.showModal();
+    }
+    if (e.target.closest('[data-reject-cancel]')) e.target.closest('dialog').close();
   });
-  const dialog = shell.querySelector('[data-reject-dialog]');
-  shell.querySelectorAll('[data-reject-id]').forEach((btn) => btn.addEventListener('click', () => {
-    if (!dialog) return;
-    dialog.querySelector('[data-reject-id-input]').value = btn.dataset.rejectId;
-    dialog.querySelector('[data-reject-name-label]').textContent = btn.dataset.rejectName;
-    dialog.querySelector('textarea').value = '';
-    dialog.showModal();
-  }));
-  if (dialog) dialog.querySelector('[data-reject-cancel]').addEventListener('click', () => dialog.close());
+
+  // ---------- invite a school (side panel) ----------
+  let searchTimer = null;
+  drawer.addEventListener('click', async (e) => {
+    const go = e.target.closest('[data-go]');
+    if (go) {
+      const root = go.closest('[data-invite]');
+      root.querySelectorAll('[data-step]').forEach((s) => { s.hidden = s.dataset.step !== go.dataset.go; });
+      const focus = root.querySelector(go.dataset.go === 'new' ? '#ivName' : go.dataset.go === 'existing' ? '[data-org-search]' : null);
+      if (focus) setTimeout(() => focus.focus(), 30);
+      return;
+    }
+    const inv = e.target.closest('[data-invite-id]');
+    if (inv && !inv.disabled) {
+      if (!(await confirmBox({ title: `Invite ${inv.dataset.inviteName}?`, text: 'They get an email to join your hub.', ok: 'Send invitation' }))) return;
+      inv.disabled = true;
+      let json = await ajaxPost('/hub/organizations/invite-existing', { organizationId: inv.dataset.inviteId }).catch(() => ({ success: false }));
+      if (!json.success && json.needsApproval && json.approval) {
+        if (!(await confirmBox(json.approval))) { inv.disabled = false; return; }
+        json = await ajaxPost('/hub/organizations/invite-existing', { organizationId: inv.dataset.inviteId, approve_extra: '1' }).catch(() => ({ success: false }));
+      }
+      if (!json.success) { inv.disabled = false; drawerFail(json.message || 'The invitation could not be sent.'); return; }
+      closeDrawer();
+      done(json.message || 'Invitation sent.');
+    }
+  });
+  drawer.addEventListener('input', (e) => {
+    const input = e.target.closest('[data-org-search]');
+    if (!input) return;
+    const results = input.closest('[data-step]').querySelector('[data-org-results]');
+    clearTimeout(searchTimer);
+    const q = input.value.trim();
+    if (q.length < 2) { results.innerHTML = '<div class="hub-empty"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>Type at least 2 letters to search.</div>'; return; }
+    results.innerHTML = '<div class="hub-loading">Searching…</div>';
+    searchTimer = setTimeout(async () => {
+      try {
+        const r = await fetch(`/hub/organizations/search?q=${encodeURIComponent(q)}`, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        const orgs = (await r.json()).organizations || [];
+        results.innerHTML = orgs.length
+          ? orgs.map((o) => `<div class="hub-result">
+              <div><div class="hub-result__name">${esc(o.organization_name)}</div><div class="hub-result__meta">${esc(o.email || '')}${o.nickname ? ' · ' + esc(o.nickname) + '.managira.com' : ''}</div>
+              ${o.is_hub_member ? '<span class="hub-tag hub-tag--amber" style="margin-top:6px">Already in a hub</span>' : ''}</div>
+              <button type="button" class="hub-btn hub-btn--primary hub-btn--sm" data-invite-id="${esc(o.organization_id)}" data-invite-name="${esc(o.organization_name)}" ${o.is_hub_member ? 'disabled' : ''}>Invite</button>
+            </div>`).join('')
+          : '<div class="hub-empty"><i class="fa-regular fa-face-meh" aria-hidden="true"></i>No schools found. Try another name, or invite them as a new school.</div>';
+      } catch (_e) {
+        results.innerHTML = '<div class="hub-empty">Search didn’t work. Please try again.</div>';
+      }
+    }, 300);
+  });
+
+  // ---------- hub user form (side panel) ----------
+  function initUserForm(form) {
+    const boxes = () => Array.from(form.querySelectorAll('input[name="permissions"]'));
+    const defaults = (form.dataset.defaults || '').split(',').filter(Boolean);
+    const isSelf = form.dataset.self === '1';
+    let choice = new Set(form.dataset.startedAdmin === '1' ? defaults : boxes().filter((b) => b.checked).map((b) => b.value));
+    const applyRole = () => {
+      if (isSelf) return;
+      const admin = (form.querySelector('input[name="role"]:checked') || {}).value === 'hub_admin';
+      boxes().forEach((b) => { b.disabled = admin; b.checked = admin ? true : choice.has(b.value); });
+      const tools = form.querySelector('[data-perm-tools]');
+      if (tools) tools.hidden = admin;
+      const note = form.querySelector('[data-perm-note]');
+      if (note) note.textContent = admin ? 'Hub admins get everything.' : 'Tick what this person needs.';
+    };
+    form.addEventListener('change', (e) => {
+      if (e.target.name === 'role') { if (e.target.value === 'hub_user' && !choice.size) choice = new Set(defaults); applyRole(); }
+      if (e.target.name === 'permissions' && !e.target.disabled) { if (e.target.checked) choice.add(e.target.value); else choice.delete(e.target.value); }
+      if (e.target.name === 'isContact') {
+        const share = form.querySelector('[data-contact-share]');
+        if (share) share.hidden = !e.target.checked;
+      }
+      if (e.target.name === 'signIn') {
+        const field = form.querySelector('[data-password-field]');
+        field.hidden = e.target.value !== 'password';
+        form.querySelector('#uPassword').required = e.target.value === 'password';
+      }
+    });
+    form.addEventListener('click', (e) => {
+      if (e.target.closest('[data-perm-all]')) boxes().forEach((b) => { b.checked = true; choice.add(b.value); });
+      if (e.target.closest('[data-perm-none]')) { boxes().forEach((b) => { b.checked = false; }); choice.clear(); }
+      if (e.target.closest('[data-generate]')) {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+        const bytes = new Uint32Array(12);
+        crypto.getRandomValues(bytes);
+        const out = Array.from(bytes, (b) => chars[b % chars.length]).join('');
+        form.querySelector('#uPassword').value = `${out.slice(0, 4)}-${out.slice(4, 8)}-${out.slice(8)}${bytes[0] % 10}`;
+      }
+    });
+    applyRole();
+  }
+  // Logo preview before upload.
+  drawer.addEventListener('change', (e) => {
+    const input = e.target.closest('[data-logo-input]');
+    if (!input || !input.files || !input.files[0]) return;
+    const preview = input.closest('form').querySelector('[data-logo-preview]');
+    if (preview) preview.innerHTML = `<img src="${URL.createObjectURL(input.files[0])}" alt="New logo preview" />`;
+  });
+
+  // ---------- settings: tabs and email switches ----------
+  window.addEventListener('click', (e) => {
+    if (!alive() || e.button !== 0 || e.metaKey || e.ctrlKey) return;
+    const tab = e.target.closest('[data-settings-tab]');
+    if (!tab) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const key = tab.dataset.settingsTab;
+    document.querySelectorAll('[data-settings-tab]').forEach((t) => { const on = t === tab; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    document.querySelectorAll('[data-settings-pane]').forEach((p) => { p.hidden = p.dataset.settingsPane !== key; });
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', key);
+    url.searchParams.delete('drawer');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search);
+  }, true);
+  let prefsTimer = null;
+  document.addEventListener('change', (e) => {
+    const form = e.target.closest('[data-prefs-form]');
+    if (!form || !alive()) return;
+    const status = document.querySelector('[data-prefs-status]');
+    if (status) status.textContent = 'Saving…';
+    clearTimeout(prefsTimer);
+    prefsTimer = setTimeout(async () => {
+      const json = await fetch(form.action, { method: 'POST', credentials: 'same-origin', headers: { 'X-Hub-Ajax': '1', Accept: 'application/json' }, body: new URLSearchParams(new FormData(form)) })
+        .then((r) => r.json()).catch(() => ({ success: false }));
+      if (status) status.textContent = json.success ? 'Saved' : 'Could not save';
+      if (!json.success) toast('Email settings could not be saved.', 'error');
+    }, 250);
+  });
+
+  // Open a side panel from the address (?drawer=/hub/...) — used when a form link is opened directly.
+  {
+    const url = new URL(window.location.href);
+    const wanted = url.searchParams.get('drawer');
+    if (wanted && /^\/hub\//.test(wanted)) {
+      url.searchParams.delete('drawer');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+      openDrawer(wanted);
+    }
+  }
 
   // ---------- dashboard ----------
   const dash = shell.querySelector('[data-hub-dashboard]');
@@ -64,12 +461,24 @@
     const REPORT_VIEWS = ['school-comparison', 'attendance', 'performance', 'marks-entry', 'support', 'enrollment'].filter((v) => VIEWS.includes(v));
     const canReports = REPORT_VIEWS.length > 0;
     const canSchools = dash.dataset.canSchools === '1';
+    const canExport = dash.dataset.canExport === '1';
+    const pdfMode = dash.dataset.pdf === '1';
     const dash$ = (sel) => Array.from(dash.querySelectorAll(sel));
     let data = null;
     let loading = null;
-    // Chosen period, kept in the address so a refresh or shared link keeps it.
-    const qs = new URLSearchParams(window.location.search);
-    const period = { org: qs.get('org') || 'all', year: qs.get('year') || 'current', term: qs.get('term') || 'current' };
+    // Each school is read on its own calendar. A term picked for one school with
+    // the filter beside it is kept in the address (?terms=63:150,64:201).
+    const overrides = new Map();
+    String(new URLSearchParams(window.location.search).get('terms') || '').split(',').forEach((pair) => {
+      const [o, t] = pair.split(':');
+      if (o && t) overrides.set(String(o), String(t));
+    });
+    const termsParam = () => Array.from(overrides.entries()).map(([o, t]) => `${o}:${t}`).join(',');
+    function saveOverrides() {
+      const url = new URL(window.location.href);
+      if (overrides.size) url.searchParams.set('terms', termsParam()); else url.searchParams.delete('terms');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
 
     function show(view) {
       if (!VIEWS.includes(view)) view = 'overview';
@@ -124,7 +533,7 @@
         const width = raw === null || raw === undefined ? 0 : Math.max(2, Math.min(100, (value / max) * 100));
         const name = item.organizationName || item.name || item.label || item.gender || '';
         return `<div class="hub-bar">
-          <span class="hub-bar__name" title="${esc(name)}">${esc(name)}</span>
+          <span class="hub-bar__name" title="${esc(name)}">${esc(name)}${item.organizationId && item.termOptions ? termChip(item) : ''}</span>
           <span class="hub-bar__track"><span class="hub-bar__fill${opts.toned && raw != null ? ' hub-bar__fill--' + tone(value) : ''}" style="width:${width}%"></span></span>
           <span class="hub-bar__value">${raw === null || raw === undefined ? '—' : opts.format(value)}</span>
           ${opts.sub ? `<span class="hub-bar__sub">${opts.sub(item)}</span>` : ''}
@@ -132,57 +541,39 @@
       }).join('') + '</div>';
     }
 
-    // ----- period filter -----
+    // ----- per-school term filter -----
     function periodLabel() {
-      const f = (data && data.filter) || {};
-      const find = (list, key) => ((list || []).find((x) => String(x.key) === String(key)) || {}).label || '';
-      if (f.org === 'all') {
-        if (f.year === 'current' && f.term === 'current') return 'Each school’s current term';
-        return [find(f.terms, f.term), find(f.years, f.year)].filter(Boolean).join(' · ');
-      }
-      const school = ((f.schools || []).find((x) => String(x.id) === String(f.org)) || {}).name || '';
-      return [school, find(f.terms, f.term).replace(' (current)', ''), find(f.years, f.year)].filter(Boolean).join(' · ');
+      if (!data) return '';
+      const custom = overrides.size;
+      return custom ? `Each school’s own term · ${custom} school${custom === 1 ? '' : 's'} set by you` : 'Each school’s current term';
     }
-    function renderFilters() {
-      const f = data.filter;
-      const opt = (value, label, selected) => `<option value="${esc(value)}"${String(value) === String(selected) ? ' selected' : ''}>${esc(label)}</option>`;
-      const html = `<form class="hub-filter" data-filter onsubmit="return false">
-          <label class="hub-filter__field"><span>School</span><select name="org">${opt('all', 'All schools', f.org)}${f.schools.map((s) => opt(s.id, s.name, f.org)).join('')}</select></label>
-          <label class="hub-filter__field"><span>School year</span><select name="year"${f.years.length ? '' : ' disabled'}>${f.years.length ? f.years.map((y) => opt(y.key, y.label, f.year)).join('') : '<option>No school years yet</option>'}</select></label>
-          <label class="hub-filter__field"><span>Term</span><select name="term"${f.terms.length ? '' : ' disabled'}>${f.terms.length ? f.terms.map((t) => opt(t.key, t.label, f.term)).join('') : '<option>No terms yet</option>'}</select></label>
-          <span class="hub-filter__note"><i class="fa-regular fa-calendar" aria-hidden="true"></i> ${f.org === 'all' ? 'Each school is read on its own calendar. Pick a school to choose its exact term.' : 'Showing this school’s own school year and term.'}</span>
-        </form>`;
-      dash$('[data-filter-slot]').forEach((slot) => { slot.innerHTML = html; });
+    const termChip = (s) => `<button type="button" class="hub-term${overrides.has(String(s.organizationId)) ? ' is-custom' : ''}" data-school-filter="${esc(s.organizationId)}" title="Choose ${esc(s.organizationName)}’s school year and term"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>${s.termLabel ? esc(s.termLabel) : 'No term yet'}</span></button>`;
+    function renderPeriod() {
+      const custom = overrides.size;
+      const html = `<div class="hub-period">
+          <i class="fa-regular fa-calendar" aria-hidden="true"></i>
+          <span><strong>${custom ? `${custom} school${custom === 1 ? '' : 's'} on a term you chose` : 'Each school’s current term'}</strong>
+          <span class="hub-period__hint">Schools keep their own calendars. Use <i class="fa-solid fa-sliders" aria-hidden="true"></i> beside a school to see another school year or term.</span></span>
+          ${custom ? '<button type="button" class="hub-btn hub-btn--sm" data-terms-reset>Back to current terms</button>' : ''}
+        </div>`;
+      dash$('[data-period-slot]').forEach((slot) => { slot.innerHTML = html; });
       dash$('[data-period-label]').forEach((el) => { el.textContent = '· ' + periodLabel(); });
     }
-    dash.addEventListener('change', (e) => {
-      const sel = e.target.closest('[data-filter] select');
-      if (!sel) return;
-      if (sel.name === 'org') { period.org = sel.value; period.year = sel.value === 'all' ? 'current' : ''; period.term = sel.value === 'all' ? 'current' : ''; }
-      if (sel.name === 'year') { period.year = sel.value; period.term = period.org === 'all' ? 'current' : ''; }
-      if (sel.name === 'term') period.term = sel.value;
-      const next = new URLSearchParams();
-      if (period.org !== 'all' || period.year !== 'current' || period.term !== 'current') {
-        next.set('org', period.org); if (period.year) next.set('year', period.year); if (period.term) next.set('term', period.term);
-      }
-      const q = next.toString();
-      window.history.replaceState(window.history.state, '', window.location.pathname + (q ? '?' + q : '') + window.location.hash);
-      loadReports(true);
-    });
 
     function loadReports(force) {
       if (!canReports) return Promise.resolve(null);
       if (data && !force) return Promise.resolve(data);
       if (loading) return loading;
       if (force) dash$('[data-report]').forEach((el) => { el.innerHTML = '<div class="hub-card hub-loading">Loading report…</div>'; });
-      const q = new URLSearchParams({ org: period.org, year: period.year || '', term: period.term || '' });
+      const q = new URLSearchParams();
+      if (overrides.size) q.set('terms', termsParam());
       loading = fetch('/hub/overview-stats?' + q.toString(), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
         .then((r) => { if (!r.ok) throw new Error('failed'); return r.json(); })
         .then((json) => {
           data = json;
-          Object.assign(period, { org: json.filter.org, year: json.filter.year, term: json.filter.term });
-          renderFilters();
+          renderPeriod();
           renderAll();
+          if (pdfMode) setTimeout(() => { window.__hubReportReady = true; }, 150);
           return json;
         })
         .catch(() => {
@@ -208,7 +599,7 @@
       if (lowMarks.length) items.push(['#marks-entry', 'fa-pen-to-square', ' hub-alert--info', `<strong>${lowMarks.length}</strong> school${lowMarks.length === 1 ? ' has' : 's have'} entered less than half of their marks`]);
       if (data.totals.needsSupport) items.push(['#support', 'fa-hand-holding-heart', '', `<strong>${num(data.totals.needsSupport)}</strong> student${data.totals.needsSupport === 1 ? ' is' : 's are'} averaging below ${data.passMark}%`]);
       const noData = data.schools.filter((s) => !s.hasData);
-      if (noData.length && data.filter.org === 'all' && data.filter.term === 'current') items.push(['#school-comparison', 'fa-circle-info', ' hub-alert--info', `<strong>${noData.length}</strong> school${noData.length === 1 ? ' has' : 's have'} no attendance, enrollment or scores yet`]);
+      if (noData.length && !overrides.size) items.push(['#school-comparison', 'fa-circle-info', ' hub-alert--info', `<strong>${noData.length}</strong> school${noData.length === 1 ? ' has' : 's have'} no attendance, enrollment or scores yet`]);
       box.innerHTML = items.map(([href, icon, cls, text]) => `<a class="hub-alert${cls}" href="${href}"><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${text}</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>`).join('');
       const clear = dash.querySelector('[data-attention-clear]');
       const serverItems = box.parentElement ? box.parentElement.querySelectorAll(':scope > a.hub-alert').length : 0;
@@ -219,7 +610,7 @@
       const t = data.totals || {};
       const rows = data.schools || [];
       const withData = rows.filter((s) => s.hasData);
-      const termOf = (s) => (s.hasData ? esc(s.termLabel) : (s.termLabel ? `${esc(s.termLabel)}<span class="hub-small">No data yet</span>` : '<span class="hub-small">No term in this period</span>'));
+      const termOf = (s) => termChip(s) + (s.hasData ? '' : '<span class="hub-small">No data for this term yet</span>');
       const stamp = data.generatedAt ? 'Updated ' + new Date(data.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
       dash$('[data-report-stamp]').forEach((el) => { el.textContent = stamp; });
 
@@ -360,9 +751,140 @@
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
     });
 
-    dash$('[data-report-refresh]').forEach((btn) => btn.addEventListener('click', () => loadReports(true)));
+    // ----- the filter pop-up for one school -----
+    function sfOptions(school, yearId, termId) {
+      const opts = school.termOptions || { years: [] };
+      const year = opts.years.find((y) => String(y.id) === String(yearId)) || opts.years[0];
+      const terms = year ? year.terms : [];
+      const pick = terms.find((t) => String(t.id) === String(termId)) || terms.find((t) => t.current) || [...terms].reverse().find((t) => t.hasData) || terms[terms.length - 1];
+      return {
+        yearHtml: opts.years.map((y) => `<option value="${esc(y.id)}"${year && y.id === year.id ? ' selected' : ''}>${esc(y.label)}</option>`).join(''),
+        termHtml: terms.map((t) => `<option value="${esc(t.id)}"${pick && t.id === pick.id ? ' selected' : ''}>${esc(t.name)}${t.current ? ' (current)' : ''}${t.hasData ? '' : ' · no data yet'}</option>`).join(''),
+      };
+    }
+    async function sfPreview(root, school, termId) {
+      const box = root.querySelector('[data-sf-preview]');
+      box.innerHTML = '<div class="hub-loading">Loading this term…</div>';
+      try {
+        const r = await fetch(`/hub/overview-stats?org=${encodeURIComponent(school.organizationId)}&term=${encodeURIComponent(termId)}`, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        const json = await r.json();
+        if (root.querySelector('[data-sf-term]').value !== String(termId)) return; // a newer choice is loading
+        const s = json.schools[0] || {};
+        if (!s.hasData) { box.innerHTML = '<div class="hub-empty"><i class="fa-regular fa-calendar-xmark" aria-hidden="true"></i>No attendance, enrollment or scores for this term yet.</div>'; return; }
+        const tile = (label, value, note) => `<div class="hub-mini"><span class="hub-mini__label">${esc(label)}</span><span class="hub-mini__value">${value}</span>${note ? `<span class="hub-mini__note">${esc(note)}</span>` : ''}</div>`;
+        box.innerHTML = `<div class="hub-minis">
+            ${tile('Enrolled', num(s.enrolled), s.enrolledChange == null ? '' : `${s.enrolledChange >= 0 ? '+' : ''}${num(s.enrolledChange)} vs ${s.previousTermLabel}`)}
+            ${tile('Attendance', pctOr(s.attendanceRate), `${num(s.attendancePresent)} of ${num(s.attendanceMarked)} marked present`)}
+            ${tile('Average score', pctOr(s.averageScore), s.academicLabel ? `From ${s.academicLabel}` : `Pass rate ${pctOr(s.passRate)}`)}
+            ${tile('Marks entered', pctOr(s.scoreEntryRate), `${num(s.scoresEntered)} of ${num(s.scoresExpected)}`)}
+            ${tile(`Below ${json.passMark}%`, num(s.needsSupport), 'Students averaging below the pass mark')}
+            ${tile('Low attendance', num(s.lowAttendance), `Students below ${json.lowAttendanceRate}%`)}
+          </div>
+          ${(json.subjects || []).length ? `<p class="hub-drawer-section__title">Subjects</p><div class="hub-table-wrap"><table class="hub-table" data-no-global-sort><thead><tr><th>Subject</th><th class="num">Average</th><th class="num">Pass rate</th></tr></thead><tbody>${json.subjects.map((x) => `<tr><td>${esc(x.name)}</td><td class="num">${pctOr(x.averageScore)}</td><td class="num">${pctOr(x.passRate)}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
+      } catch (_e) {
+        box.innerHTML = '<div class="hub-empty">This term could not load. Try again.</div>';
+      }
+    }
+    function openSchoolFilter(id) {
+      const school = data && data.schools.find((s) => String(s.organizationId) === String(id));
+      if (!school) return;
+      const yearOf = (termId) => ((school.termOptions.years.find((y) => y.terms.some((t) => String(t.id) === String(termId))) || {}).id);
+      const o = sfOptions(school, yearOf(school.termId), school.termId);
+      setDrawer({
+        title: school.organizationName,
+        sub: 'This school’s own school year and term.',
+        html: `<div class="hub-sf" data-sf="${esc(school.organizationId)}">
+            <div class="hub-form__grid">
+              <label class="hub-field"><span class="hub-label">School year</span><select data-sf-year>${o.yearHtml || '<option value="">No school years yet</option>'}</select></label>
+              <label class="hub-field"><span class="hub-label">Term</span><select data-sf-term>${o.termHtml || '<option value="">No terms yet</option>'}</select></label>
+            </div>
+            <div data-sf-preview></div>
+            <div class="hub-drawer__foot">
+              <button type="button" class="hub-btn hub-btn--primary" data-sf-apply><i class="fa-solid fa-check" aria-hidden="true"></i> Use in hub reports</button>
+              ${canSchools ? '<a class="hub-btn" data-sf-open href="#"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Full report</a>' : ''}
+              ${canSchools && canExport ? '<button type="button" class="hub-btn" data-sf-pdf><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF</button>' : ''}
+            </div>
+          </div>`,
+      });
+      showDrawer();
+      const root = drawerBody.querySelector('[data-sf]');
+      const termSel = root.querySelector('[data-sf-term]');
+      const sync = () => {
+        const link = root.querySelector('[data-sf-open]');
+        if (link) link.href = `/hub/organizations/${encodeURIComponent(school.organizationId)}?tab=report&selectedTermId=${encodeURIComponent(termSel.value)}`;
+        if (/^\d+$/.test(termSel.value)) sfPreview(root, school, termSel.value);
+        else root.querySelector('[data-sf-preview]').innerHTML = '<div class="hub-empty">This school has no terms set up yet.</div>';
+      };
+      root.querySelector('[data-sf-year]').addEventListener('change', (e) => {
+        termSel.innerHTML = sfOptions(school, e.target.value, null).termHtml;
+        sync();
+      });
+      termSel.addEventListener('change', sync);
+      root.querySelector('[data-sf-apply]').addEventListener('click', () => {
+        const key = String(school.organizationId);
+        const currentTerm = (school.termOptions.years.flatMap((y) => y.terms).find((t) => t.current) || {}).id;
+        if (!termSel.value || String(termSel.value) === String(currentTerm)) overrides.delete(key); else overrides.set(key, String(termSel.value));
+        saveOverrides();
+        closeDrawer();
+        const chosen = termSel.selectedOptions[0] ? termSel.selectedOptions[0].textContent.replace(' (current)', '').replace(' · no data yet', '') : 'its current term';
+        toast(`${school.organizationName} now shows ${chosen}.`);
+        loadReports(true);
+      });
+      const pdfBtn = root.querySelector('[data-sf-pdf]');
+      if (pdfBtn) pdfBtn.addEventListener('click', () => downloadPdf(pdfBtn, `/hub/organizations/${encodeURIComponent(school.organizationId)}/report/pdf?selectedTermId=${encodeURIComponent(termSel.value)}`));
+      sync();
+    }
+
+    // ----- PDF and print -----
+    async function downloadPdf(btn, url) {
+      if (btn.getAttribute('aria-busy') === 'true') return;
+      const html = btn.innerHTML;
+      btn.setAttribute('aria-busy', 'true');
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Preparing…';
+      try {
+        const r = await fetch(url, { credentials: 'same-origin' });
+        if (!r.ok) { const body = await r.json().catch(() => ({})); throw new Error(body.error || 'The PDF could not be made. Please try again.'); }
+        const name = ((r.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/) || [])[1] || 'Hub_report.pdf';
+        const href = URL.createObjectURL(await r.blob());
+        const a = document.createElement('a');
+        a.href = href;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(href), 10000);
+        toast('PDF downloaded.');
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        btn.removeAttribute('aria-busy');
+        btn.innerHTML = html;
+      }
+    }
+
+    dash.addEventListener('click', (e) => {
+      if (e.target.closest('[data-report-refresh]')) { loadReports(true); return; }
+      if (e.target.closest('[data-report-print]')) { window.print(); return; }
+      if (e.target.closest('[data-terms-reset]')) { overrides.clear(); saveOverrides(); loadReports(true); return; }
+      const chip = e.target.closest('[data-school-filter]');
+      if (chip) { openSchoolFilter(chip.dataset.schoolFilter); return; }
+      const pdf = e.target.closest('[data-report-pdf]');
+      if (pdf) {
+        const q = new URLSearchParams({ view: pdf.dataset.reportPdf });
+        if (overrides.size) q.set('terms', termsParam());
+        downloadPdf(pdf, '/hub/reports/pdf?' + q.toString());
+      }
+    });
+    // After a save refreshes the page content, draw the reports again.
+    document.addEventListener('hub:refreshed', () => {
+      if (!document.body.contains(dash)) return;
+      show(fromHash());
+      if (data) { renderPeriod(); renderAll(); }
+    });
     show(fromHash());
   }
+
+
 
   // ---------- school page: students / staff / classes ----------
   const browser = shell.querySelector('[data-hub-browser]');

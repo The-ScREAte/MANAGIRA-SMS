@@ -1,0 +1,48 @@
+<div data-ahd-title="Edit <%= hub.hub_name %>" data-ahd-sub="Hub details and owner. Billing, contract dates and limits are on the Billing page.">
+  <form action="/admin/hubs/<%= hub.hub_id %>/edit" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">Hub</h3>
+      <div class="ahb-grid ahb-grid--1">
+        <label class="ahb-field"><span class="ahb-label">Hub name</span><input type="text" name="hubName" class="ahb-input" value="<%= hub.hub_name %>" maxlength="150" required /></label>
+        <label class="ahb-field">
+          <span class="ahb-label">Web address</span>
+          <span class="ahb-suffix"><input type="text" name="hubNickname" class="ahb-input" value="<%= hub.hub_nickname %>" pattern="[a-z0-9]+" minlength="3" maxlength="20" required autocapitalize="off" spellcheck="false" /><span>.managira.com</span></span>
+        </label>
+        <label class="ahb-field">
+          <span class="ahb-label">Owner email</span>
+          <input type="email" class="ahb-input" value="<%= hub.hub_email %>" disabled />
+          <span class="ahb-hint">The sign-in email can’t be changed here.</span>
+        </label>
+        <label class="ahb-field">
+          <span class="ahb-label">Feature plan</span>
+          <select name="planId" class="ahb-input">
+            <option value="">No plan</option>
+            <% plans.forEach((plan) => { %><option value="<%= plan.id %>" <%= Number(hub.plan_id) === Number(plan.id) ? 'selected' : '' %>><%= plan.plan_name %></option><% }) %>
+          </select>
+        </label>
+        <label class="ahb-field"><span class="ahb-label">Footer text <em>optional</em></span><input type="text" name="hubFooterText" class="ahb-input" value="<%= hub.hub_footer_text || '' %>" maxlength="300" /></label>
+        <label class="ahb-check"><input type="checkbox" name="hubBrandingEnabled" <%= hub.hub_branding_enabled ? 'checked' : '' %> /> <span>Show hub branding in member schools</span></label>
+      </div>
+    </section>
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">Owner</h3>
+      <div class="ahb-grid">
+        <label class="ahb-field"><span class="ahb-label">First name</span><input type="text" name="firstName" class="ahb-input" value="<%= hub.first_name %>" maxlength="100" required /></label>
+        <label class="ahb-field"><span class="ahb-label">Last name</span><input type="text" name="lastName" class="ahb-input" value="<%= hub.last_name %>" maxlength="100" required /></label>
+        <div class="ahb-field ahb-field--full">
+          <span class="ahb-label">Phone</span>
+          <div class="phone-combo" data-default-iso2="GH">
+            <select class="phone-dial-select" aria-label="Country code"></select>
+            <input type="text" name="hubPhone" class="phone-local-input" value="<%= hub.hub_phone || '' %>" aria-label="Phone" />
+          </div>
+        </div>
+        <label class="ahb-field ahb-field--full"><span class="ahb-label">Address</span><input type="text" name="hubAddress" class="ahb-input" value="<%= hub.hub_address || '' %>" maxlength="300" /></label>
+      </div>
+    </section>
+    <div class="ahd__foot">
+      <a class="ah-btn ahd__foot-left" href="/admin/hubs/<%= hub.hub_id %>/billing"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Billing</a>
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary">Save</button>
+    </div>
+  </form>
+</div>

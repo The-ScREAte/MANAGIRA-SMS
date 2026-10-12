@@ -1,0 +1,20 @@
+<div data-ahd-title="Add a person" data-ahd-sub="They get an email to set a password and sign in to <%= hub.hub_name %>.">
+  <form action="/admin/hubs/<%= hub.hub_id %>/people" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <div class="ahb-grid">
+        <label class="ahb-field"><span class="ahb-label">First name</span><input type="text" name="firstName" class="ahb-input" maxlength="100" required /></label>
+        <label class="ahb-field"><span class="ahb-label">Last name</span><input type="text" name="lastName" class="ahb-input" maxlength="100" /></label>
+        <label class="ahb-field ahb-field--full"><span class="ahb-label">Email</span><input type="email" name="email" class="ahb-input" maxlength="255" required /></label>
+      </div>
+      <div class="ah-choice-list" style="margin-top:14px">
+        <label class="ah-choice"><input type="radio" name="role" value="billing" checked /><span><strong>Billing contact</strong><small>Sees Billing, reports and schools. Can approve charges and change the card. Gets billing emails.</small></span></label>
+        <label class="ah-choice"><input type="radio" name="role" value="hub_admin" /><span><strong>Hub admin</strong><small>Sees and does everything in the hub.</small></span></label>
+      </div>
+      <p class="ahb-hint" style="margin-top:12px"><%= license.max == null ? 'This hub has no user limit.' : `${license.used} of ${license.max} user licenses used.` %></p>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Add and invite</button>
+    </div>
+  </form>
+</div>

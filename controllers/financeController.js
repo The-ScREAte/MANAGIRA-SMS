@@ -7145,6 +7145,11 @@ module.exports = {
       return res.status(400).send(`Webhook Error: ${error.message}`);
     }
 
+    // Hub billing events (hub customers only); everything else carries on below.
+    try {
+      if (await require('../utils/hubBilling').handleStripeEvent(database, event)) return res.json({ received: true });
+    } catch (_hubErr) { /* not a hub event */ }
+
     try {
       const paymentIntentId = event.data?.object?.id;
       if (!paymentIntentId) return res.json({ received: true });

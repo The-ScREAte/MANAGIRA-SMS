@@ -22,7 +22,8 @@
     </div>
     <div class="ah-head__actions">
       <a href="/admin" class="ah-btn"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Admin</a>
-      <a href="/admin/hubs/create" class="ah-btn ah-btn--primary"><i class="fa-solid fa-plus" aria-hidden="true"></i> New hub</a>
+      <a href="/admin/hubs/add-ons" class="ah-btn"><i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i> Add-ons</a>
+      <a href="/admin/hubs/create" class="ah-btn ah-btn--primary" data-ah-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> New hub</a>
     </div>
   </header>
 
@@ -48,8 +49,9 @@
             <tr>
               <th>Hub</th>
               <th>Owner</th>
-              <th>Plan</th>
+              <th>Billing</th>
               <th>Schools</th>
+              <th>Users</th>
               <th>Status</th>
               <th class="ah-num">Actions</th>
             </tr>
@@ -80,13 +82,27 @@
                   <span class="ah-sub"><%= hub.hub_email %></span>
                 </td>
                 <td>
-                  <%= hub.plan_name || 'No plan' %>
-                  <span class="ah-sub"><%= hub.contract_end_date ? 'Ends ' + _date(hub.contract_end_date) : 'No end date' %></span>
+                  <% const bs = (typeof billingStatus !== 'undefined' && billingStatus[hub.billing_status || 'none']) || { label: 'Not set up', tone: 'muted' }; %>
+                  <a class="ah-bill ah-bill--<%= bs.tone %>" href="/admin/hubs/<%= hub.hub_id %>/billing"><%= hub.billing_status ? bs.label : 'Not set up' %></a>
+                  <span class="ah-sub">
+                    <% if (hub.next_charge_at && hub.next_charge_amount != null) { %>Next <%= money(hub.next_charge_amount, hub.billing_currency) %> on <%= _date(hub.next_charge_at) %>
+                    <% } else if (hub.contract_end_date) { %>Contract ends <%= _date(hub.contract_end_date) %>
+                    <% } else { %><%= hub.plan_name || 'No feature plan' %><% } %>
+                  </span>
+                  <% if (hub.pending_charges) { %><span class="ah-sub ah-sub--warn"><%= hub.pending_charges %> charge<%= hub.pending_charges === 1 ? '' : 's' %> waiting for approval</span><% } %>
+                  <% if (hub.hold_starts_at) { %><span class="ah-sub ah-sub--warn">Hold from <%= _date(hub.hold_starts_at) %></span><% } %>
                 </td>
                 <td>
                   <div class="ah-cap">
                     <a class="ah-cap__text" href="/admin/hubs/<%= hub.hub_id %>/organizations"><%= count %> of <%= max || '∞' %></a>
                     <% if (max) { %><div class="ah-cap__bar" aria-hidden="true"><span style="width:<%= pct %>%"></span></div><% } %>
+                  </div>
+                </td>
+                <td>
+                  <% const uMax = Number(hub.max_users) || 0; const uUsed = Number(hub.user_count) || 1; %>
+                  <div class="ah-cap">
+                    <a class="ah-cap__text" href="/admin/hubs/<%= hub.hub_id %>/billing" title="User licenses (change on the Billing page)"><%= uUsed %> of <%= uMax || '∞' %></a>
+                    <% if (uMax) { %><div class="ah-cap__bar" aria-hidden="true"><span style="width:<%= Math.min(100, Math.round(uUsed / uMax * 100)) %>%"></span></div><% } %>
                   </div>
                 </td>
                 <td>
@@ -99,24 +115,26 @@
                       <a class="ah-btn ah-btn--primary ah-btn--sm" href="/admin/hub/<%= hub.hub_id %>" data-ah-open data-name="<%= hub.hub_name %>" data-kind="hub"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open hub</a>
                     <% } %>
                     <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/organizations"><i class="fa-solid fa-school" aria-hidden="true"></i> Schools</a>
-                    <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/edit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
-                    <button type="button" class="ah-btn ah-btn--sm" data-ah-password data-id="<%= hub.hub_id %>" data-name="<%= hub.hub_name %>" data-email="<%= hub.hub_email %>"><i class="fa-solid fa-key" aria-hidden="true"></i> Password</button>
+                    <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/billing"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Billing</a>
+                    <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/edit" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
                     <details class="ah-menu">
                       <summary class="ah-btn ah-btn--sm ah-btn--icon" aria-label="More actions for <%= hub.hub_name %>"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
                       <div class="ah-menu__list">
+                        <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/password" data-ah-drawer><i class="fa-solid fa-key" aria-hidden="true"></i> Password</a>
+                        <div class="ah-menu__sep"></div>
                         <% if (hub.on_hold) { %>
-                          <form action="/admin/hubs/resume" method="POST">
+                          <form action="/admin/hubs/resume" method="POST" data-ah-ajax data-ah-ask="Resume <%= hub.hub_name %>? People can sign in again and billing continues." data-ah-ask-ok="Resume">
                             <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
                             <button type="submit" class="ah-menu__item"><i class="fa-solid fa-play" aria-hidden="true"></i> Resume hub</button>
                           </form>
                         <% } else { %>
-                          <form action="/admin/hubs/hold" method="POST" data-ah-confirm="Put <%= hub.hub_name %> on hold? The owner won't be able to sign in until you resume it.">
+                          <form action="/admin/hubs/hold" method="POST" data-ah-ajax data-ah-ask="Put <%= hub.hub_name %> on hold now? Nobody in the hub can sign in and no bills are charged until you resume it. To pick dates, use Billing › Hold." data-ah-ask-ok="Put on hold">
                             <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
                             <button type="submit" class="ah-menu__item"><i class="fa-solid fa-pause" aria-hidden="true"></i> Put on hold</button>
                           </form>
                         <% } %>
                         <div class="ah-menu__sep"></div>
-                        <form action="/admin/hubs/delete" method="POST" data-ah-confirm="Delete <%= hub.hub_name %>? All of its schools will be put on hold and the owner will be emailed.">
+                        <form action="/admin/hubs/delete" method="POST" data-ah-ajax data-ah-danger data-ah-ask-ok="Delete hub" data-ah-ask="Delete <%= hub.hub_name %>? All of its schools are put on hold, billing pauses and the owner is emailed. You can restore it from the admin dashboard.">
                           <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
                           <button type="submit" class="ah-menu__item ah-menu__item--danger"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete hub</button>
                         </form>
@@ -135,7 +153,7 @@
         <i class="fa-solid fa-network-wired" aria-hidden="true"></i>
         <h3>No hubs yet</h3>
         <p>Create a hub to group schools under one owner.</p>
-        <a href="/admin/hubs/create" class="ah-btn ah-btn--primary"><i class="fa-solid fa-plus" aria-hidden="true"></i> New hub</a>
+        <a href="/admin/hubs/create" class="ah-btn ah-btn--primary" data-ah-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> New hub</a>
       </div>
     <% } %>
   </section>

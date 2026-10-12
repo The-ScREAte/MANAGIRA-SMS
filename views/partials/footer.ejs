@@ -113,25 +113,19 @@
   <!-- BOTTOM BAR -->
   <div class="footer-bottom-section">
     <div class="footer-bottom-row">
-      <%
-        const hasValidHubLogo = session && session.isHubMember &&
-                               session.hubLogo &&
-                               !session.hubLogo.endsWith('/hub-logos') &&
-                               !session.hubLogo.endsWith('/images/hub-logos') &&
-                               session.accountType !== 'Hub';
-      %>
-      <% if (hasValidHubLogo) { %>
+      <% const _hubBrand = (typeof hubBrand !== 'undefined' && hubBrand) || null; %>
+      <% if (_hubBrand) { %>
         <div class="footer-hub-section">
-          <img src="<%= session.hubLogo %>" alt="<%= session.hubName %> Logo" class="footer-hub-logo" />
-          <p class="footer-hub-text">Managed by <%= session.hubName %></p>
+          <% if (_hubBrand.logo) { %><span class="footer-hub-logo-wrap"><img src="<%= _hubBrand.logo %>" alt="<%= _hubBrand.name %>" class="footer-hub-logo" onerror="this.parentNode.remove()" /></span><% } %>
+          <p class="footer-hub-text">Part of <strong><%= _hubBrand.name %></strong></p>
         </div>
       <% } %>
 
       <div class="footer-copy">
         <% if (typeof hubInfo !== 'undefined' && hubInfo && hubInfo.hub_footer_text) { %>
           <%= hubInfo.hub_footer_text %>
-        <% } else if (session && session.isHubMember && session.hubFooterText) { %>
-          <%= session.hubFooterText %>
+        <% } else if (_hubBrand && _hubBrand.footerText) { %>
+          <%= _hubBrand.footerText %>
         <% } else { %>
           &copy; <%= new Date().getFullYear() %> ScREAte / Managira. All rights reserved.
         <% } %>
@@ -392,22 +386,36 @@
 
   .footer-hub-section {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .footer-hub-logo-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: #fff;
+    flex: none;
   }
   .footer-hub-logo {
-    height: 36px;
+    height: 28px;
     width: auto;
-    max-width: 110px;
+    max-width: 96px;
     object-fit: contain;
-    opacity: 0.9;
+    display: block;
   }
   .footer-hub-text {
-    color: rgba(255,255,255,0.55);
-    font-size: 11px;
+    color: rgba(255,255,255,0.75);
+    font-size: 12px;
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+  .footer-hub-text strong { color: #fff; font-weight: 600; }
 
   /* ===== TABLET ===== */
   @media (max-width: 1024px) {

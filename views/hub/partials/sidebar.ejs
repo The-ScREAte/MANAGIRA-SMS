@@ -34,9 +34,15 @@
     <% if (_can('schools.view')) { %><%- _link('schools', '/hub/dashboard#schools', 'fa-school', 'Schools', _nav.schools) %><% } %>
     <% if (_can('invitations.manage')) { %><%- _link('invitations', '/hub/dashboard#invitations', 'fa-envelope-open-text', 'Invitations', _nav.invitations) %><% } %>
     <% if (_can('requests.manage')) { %><%- _link('requests', '/hub/dashboard#requests', 'fa-link-slash', 'Leave requests', _nav.requests, true) %><% } %>
-    <% if (_can('users.manage')) { %><%- _link('users', '/hub/settings?tab=users', 'fa-user-shield', 'Users &amp; roles', _nav.users) %><% } %>
+    <% if (_can('billing.view')) { %><%- _link('billing', '/hub/billing', 'fa-credit-card', 'Billing', _nav.billing, true) %><% } %>
     <%- _link('settings', '/hub/settings', 'fa-gear', 'Settings') %>
   </nav>
+  <% if (typeof hubBillingPrompt !== 'undefined' && hubBillingPrompt && _current !== 'billing') { %>
+    <a class="hub-side__bill" href="/hub/billing">
+      <strong><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Add your card</strong>
+      <span><%= hubBillingPrompt.canAdd ? 'Save the card for your plan so billing can start.' : 'Your plan is waiting for a card. Ask a hub admin.' %></span>
+    </a>
+  <% } %>
   <% if (_can('invitations.manage')) { %>
   <div class="hub-side__cta">
     <a class="hub-btn hub-btn--primary" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a>

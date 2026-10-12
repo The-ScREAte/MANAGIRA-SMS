@@ -1,0 +1,28 @@
+<% const _a = addon || {}; %>
+<div data-ahd-title="<%= addon ? 'Edit add-on' : 'New add-on' %>" data-ahd-sub="<%= addon ? 'Hubs that already have it keep the price they approved.' : 'Hubs can add it from their Billing page after approving the price.' %>">
+  <form action="/admin/hubs/add-ons<%= addon ? `/${addon.addon_id}` : '' %>" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <div class="ahb-grid ahb-grid--1">
+        <label class="ahb-field"><span class="ahb-label">Name</span><input type="text" name="name" class="ahb-input" value="<%= _a.name || '' %>" maxlength="120" placeholder="e.g. WhatsApp messages" required /></label>
+        <label class="ahb-field"><span class="ahb-label">What the hub gets <em>optional</em></span><input type="text" name="description" class="ahb-input" value="<%= _a.description || '' %>" maxlength="500" /></label>
+        <div class="ahb-grid">
+          <label class="ahb-field">
+            <span class="ahb-label">Price</span>
+            <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="unitPrice" class="ahb-input" value="<%= _a.unit_price != null ? Number(_a.unit_price) : '' %>" placeholder="0.00" required /></span>
+          </label>
+          <label class="ahb-field">
+            <span class="ahb-label">How often</span>
+            <select name="frequency" class="ahb-input">
+              <option value="recurring" <%= _a.frequency !== 'once' ? 'selected' : '' %>>Each bill</option>
+              <option value="once" <%= _a.frequency === 'once' ? 'selected' : '' %>>One time</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary"><%= addon ? 'Save' : 'Add' %></button>
+    </div>
+  </form>
+</div>

@@ -7,6 +7,9 @@
   <div class="hub-capacity hub-capacity--drawer">
     <span class="hub-small" style="margin:0"><strong><%= _count %></strong> of <%= _max || '∞' %> places used</span>
     <% if (_max) { %><div class="hub-capacity__bar" aria-hidden="true"><span style="width:<%= _pct %>%"></span></div><% } %>
+    <% if (typeof places !== 'undefined' && places && places.full && places.canBuy) { %>
+      <span class="hub-small" style="margin:6px 0 0">All places are used. One more school adds <strong><%= places.priceLabel %> each <%= places.per %></strong> to your bill; you’ll be asked to approve it.</span>
+    <% } %>
   </div>
 
   <div data-step="choose">
@@ -43,6 +46,14 @@
         <select class="phone-dial-select"></select>
         <input type="tel" id="ivPhone" class="phone-local-input" name="contact_person_phone" />
       </div>
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="ivHubContact">Hub contact for this school <span class="hub-help">(optional)</span></label>
+      <select id="ivHubContact" name="hub_contact_id">
+        <option value="">No one assigned</option>
+        <% (contacts || []).forEach((c) => { %><option value="<%= c.contact_id %>" <%= String('') === String(c.contact_id) ? 'selected' : '' %>><%= c.full_name %><%= c.job_title ? ' · ' + c.job_title : '' %></option><% }) %>
+      </select>
+      <span class="hub-help">The person at your hub this school should talk to. Add people in Settings › Contact people.</span>
     </div>
     <div class="hub-field">
       <label class="hub-label" for="ivMessage">Personal message <span class="hub-help">(optional)</span></label>

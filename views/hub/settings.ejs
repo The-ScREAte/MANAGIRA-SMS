@@ -12,14 +12,14 @@
   const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Never';
   const _labels = {};
   (permissionGroups || []).forEach((g) => g.items.forEach((i) => { _labels[i.key] = i.label; }));
-  const _tabNames = { general: ['General', 'fa-sliders'], contacts: ['Contact people', 'fa-address-book'], users: ['Users & roles', 'fa-user-shield'], emails: ['Emails', 'fa-envelope'] };
+  const _tabNames = { general: ['General', 'fa-sliders'], contacts: ['Contact people', 'fa-address-book'], users: ['Users & roles', 'fa-user-shield'], emails: ['Notifications', 'fa-bell'] };
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/hub.css') %>" />
 
 <div class="hub-shell">
-  <%- include('partials/sidebar', { hubCurrent: activeTab === 'users' ? 'users' : 'settings' }) %>
+  <%- include('partials/sidebar', { hubCurrent: 'settings' }) %>
 
-  <div class="hub-main" data-settings>
+  <div class="hub-main" data-settings data-refreshable>
     <%- include('../partials/flash') %>
 
     <header class="hub-hero">
@@ -78,7 +78,7 @@
             <dt>Phone</dt><dd><%= _hub.hub_phone || '—' %></dd>
             <dt>Address</dt><dd><%= _hub.hub_address || '—' %></dd>
             <dt>Plan</dt><dd><%= _hub.plan_name || 'No plan assigned' %></dd>
-            <dt>Schools</dt><dd><%= _nav.schools || 0 %> of <%= _hub.max_organizations || '—' %> places used</dd>
+            <dt>Schools</dt><dd><%= _nav.schools || 0 %> of <%= _hub.max_organizations || '—' %> places in your plan</dd>
             <dt>Logo</dt><dd><%= _logo ? 'Uploaded' : 'Not uploaded yet' %></dd>
           </dl>
         </div>
@@ -114,6 +114,7 @@
                 </ul>
                 <div class="hub-contact__tags">
                   <% if (c.is_primary) { %><span class="hub-tag hub-tag--green">Main contact</span><% } %>
+                  <% if (c.hub_user_id) { %><span class="hub-tag hub-tag--violet"><i class="fa-solid fa-user" aria-hidden="true"></i> Hub user</span><% } %>
                   <span class="hub-tag <%= c.share_with_schools ? 'hub-tag--blue' : '' %>"><i class="fa-solid <%= c.share_with_schools ? 'fa-eye' : 'fa-eye-slash' %>" aria-hidden="true"></i> <%= c.share_with_schools ? 'Shared with schools' : 'Hub only' %></span>
                 </div>
                 <% if (_can('contacts.manage')) { %>
@@ -139,9 +140,14 @@
         <div class="hub-card__head">
           <div>
             <h2 class="hub-card__title">Users &amp; roles</h2>
-            <p class="hub-card__sub">Hub admins get everything. Hub users only see and do what you tick for them.</p>
+            <p class="hub-card__sub">Hub admins get everything. Hub users only see and do what you tick for them.
+              <% if (typeof license !== 'undefined' && license && license.max) { %><strong><%= Math.min(license.used, license.max) %> of <%= license.max %> user licenses used<%= license.used > license.max ? ` + ${license.used - license.max} extra` : '' %>.</strong><% } %></p>
           </div>
-          <a class="hub-btn hub-btn--primary hub-btn--sm" href="/hub/users/new" data-drawer><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Add a user</a>
+          <% if (typeof license !== 'undefined' && license && license.full && !(typeof seats !== 'undefined' && seats && seats.canBuy)) { %>
+            <span class="hub-tag hub-tag--amber" title="Contact Managira to add more">All licenses used</span>
+          <% } else { %>
+            <a class="hub-btn hub-btn--primary hub-btn--sm" href="/hub/users/new" data-drawer><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Add a user</a>
+          <% } %>
         </div>
         <div class="hub-table-wrap">
           <table class="hub-table" data-no-global-sort>
@@ -204,8 +210,8 @@
       <div class="hub-card">
         <div class="hub-card__head">
           <div>
-            <h2 class="hub-card__title">Email notifications</h2>
-            <p class="hub-card__sub">Just for you. Changes save straight away. Security and membership emails are always sent.</p>
+            <h2 class="hub-card__title">Notifications</h2>
+            <p class="hub-card__sub">Which emails you get. Just for you, and changes save straight away. Security and membership emails are always sent. The bell at the top shows what others in your hub did.</p>
           </div>
           <span class="hub-small" data-prefs-status aria-live="polite"></span>
         </div>

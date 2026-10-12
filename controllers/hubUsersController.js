@@ -32,6 +32,29 @@ async function logActivity(req, type, description) {
   ).catch(() => {});
 }
 
+// A hub user can also be one of the hub's contact people (same name, email and phone).
+async function syncContact(hubId, user, wanted, shared) {
+  const existing = (await db.query('SELECT contact_id FROM hub_contacts WHERE hub_user_id = $1', [user.hub_user_id])).rows[0];
+  if (!wanted) {
+    if (existing) await db.query('DELETE FROM hub_contacts WHERE contact_id = $1', [existing.contact_id]);
+    return;
+  }
+  const values = [`${user.first_name} ${user.last_name}`.trim(), user.job_title || null, user.email, user.phone || null, !!shared];
+  if (existing) {
+    await db.query(
+      `UPDATE hub_contacts SET full_name = $1, job_title = $2, email = $3, phone = $4, share_with_schools = $5, updated_at = NOW() WHERE contact_id = $6`,
+      [...values, existing.contact_id]
+    );
+  } else {
+    const count = (await db.query('SELECT COUNT(*)::int AS n FROM hub_contacts WHERE hub_id = $1', [hubId])).rows[0].n;
+    await db.query(
+      `INSERT INTO hub_contacts (hub_id, full_name, job_title, email, phone, share_with_schools, is_primary, sort_order, hub_user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [hubId, ...values, count === 0, count, user.hub_user_id]
+    );
+  }
+}
+
 async function findUser(req) {
   const id = parseInt(req.params.hubUserId, 10);
   if (!Number.isInteger(id)) return null;
@@ -91,7 +114,12 @@ module.exports = {
         const self = editing ? `/hub/users/${editing.hub_user_id}/edit` : "/hub/users/new";
         return res.redirect(`/hub/settings?tab=users&drawer=${encodeURIComponent(self)}`);
       }
+      const contact = editing
+        ? (await db.query("SELECT share_with_schools FROM hub_contacts WHERE hub_user_id = $1", [editing.hub_user_id])).rows[0]
+        : null;
       res.render("hub/forms/user", {
+        isContact: !!contact,
+        contactShared: contact ? !!contact.share_with_schools : true,
         title: editing ? `Edit ${editing.first_name}` : "Add a hub user",
         editing,
         isSelf: !!(editing && req.session.hubUserId && editing.hub_user_id === req.session.hubUserId),
@@ -155,11 +183,16 @@ module.exports = {
             WHERE hub_user_id = $8`,
           [firstName, lastName, email, phone, jobTitle, role, permissions, editing.hub_user_id]
         );
+        await syncContact(req.session.hubId, { hub_user_id: editing.hub_user_id, first_name: firstName, last_name: lastName, email, phone, job_title: jobTitle }, req.body.isContact === "1", req.body.contactShared === "1");
         await logActivity(req, "USER_UPDATE", `${firstName} ${lastName}'s access was updated`);
         if (roleChanged) tellAdmins(req, `${firstName} ${lastName} is now a ${HUB_ROLES[role].label.toLowerCase()}.`);
         req.flash("success", `${firstName} ${lastName} saved.`);
         return res.redirect("/hub/settings?tab=users");
       }
+
+      // Out of user licenses? The plan may let them approve one more.
+      const extra = await require("./hubBillingController").extraGate(req, res, "user", back);
+      if (extra.blocked) return;
 
       const signIn = req.body.signIn === "password" ? "password" : "invite";
       let password = null;
@@ -176,6 +209,8 @@ module.exports = {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [req.session.hubId, firstName, lastName, email, phone, jobTitle, role, permissions, password, actorName(req)]
       )).rows[0];
+      await extra.commit();
+      await syncContact(req.session.hubId, created, req.body.isContact === "1", req.body.contactShared === "1");
       if (signIn === "invite") await sendInvite(req, res, created);
       await logActivity(req, "USER_ADDED", `${firstName} ${lastName} was added as a ${HUB_ROLES[role].label.toLowerCase()}`);
       tellAdmins(req, `${firstName} ${lastName} (${email}) was added as a ${HUB_ROLES[role].label.toLowerCase()}.`);

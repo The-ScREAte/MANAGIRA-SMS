@@ -340,7 +340,7 @@ const { upload, uploadToS3, deleteFromS3 } = require("../middleware/s3Upload");
 
 const fs = require("fs");
 
-const PDFDocument = require("pdfkit");
+const { renderInvoicePdf } = require("../utils/invoicePdf");
 
 const axios = require("axios");
 const { google } = require("googleapis");
@@ -914,6 +914,7 @@ function buildStripeRegistrationIdempotencyKey({
   paymentContext,
   selectedGateway,
   flowType,
+  customerId,
 }) {
   const planId = Number(registrationDetails?.planId || 0) || 0;
   const email = String(registrationDetails?.email || "").trim().toLowerCase();
@@ -941,7 +942,37 @@ function buildStripeRegistrationIdempotencyKey({
     `cur_${currency}`,
     `promo_${promoCode || "none"}`,
     `trial_${trialStart}`,
+    // A new Stripe customer (new session) must never get back an old intent.
+    `cus_${String(customerId || "none")}`,
   ].join(":");
+}
+
+// A dropped database / network connection (worth just trying again).
+function isConnectionHiccup(error) {
+  const text = `${error?.code || ""} ${error?.message || ""}`.toLowerCase();
+  return /connection terminated|econnreset|etimedout|epipe|server closed the connection|connection reset|timeout exceeded when trying to connect/.test(text);
+}
+
+// The card was already saved (or the payment already taken) earlier in this
+// sign-up, but creating the school didn't finish (e.g. a server error after
+// Stripe). Returns that intent so the sign-up can finish without asking for the
+// card again — and without charging twice.
+async function findFinishedRegistrationIntent(stripe, session, registrationDetails) {
+  const id = session && session.paymentIntentId;
+  const type = (session && session.stripeIntentType) || "payment";
+  if (!id || !session.stripePaymentContext) return null;
+  try {
+    const intent = type === "setup"
+      ? await stripe.setupIntents.retrieve(id, { expand: ["payment_method"] })
+      : await stripe.paymentIntents.retrieve(id, { expand: ["payment_method"] });
+    if (!intent || intent.status !== "succeeded") return null;
+    if (String(intent.metadata?.plan_id || "") !== String(registrationDetails?.planId || "")) return null;
+    const card = intent.payment_method && typeof intent.payment_method === "object" ? intent.payment_method.card : null;
+    const brand = card && card.brand ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1) : "";
+    return { id: intent.id, type, cardLabel: card ? `${brand} •••• ${card.last4}` : "" };
+  } catch (_) {
+    return null;
+  }
 }
 
 let stripeProcessedIntentsSchemaReady = false;
@@ -1821,172 +1852,25 @@ function buildStudentPricingBasisSummary({
   return `Student pricing basis: ${totalStudents} ${totalWord} total, first ${threshold} ${thresholdWord} free, ${billableStudents} ${billableWord} billable.`;
 }
 
-function formatInvoicePdfDate(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function titleCaseStatus(value) {
-  return String(value || "unknown")
-    .replace(/_/g, " ")
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
-}
-
+// School renewal invoice PDF (the shared Managira invoice layout, one line).
 async function generateAppInvoicePdfBuffer(payload) {
-  const {
-    invoice,
-    organization,
-    planName,
-    cycleLabel,
+  const { invoice, organization, planName, cycleLabel, supportEmail, studentPricingSummary } = payload;
+  const amount = Number(invoice.amount_due || 0);
+  return renderInvoicePdf({
+    reference: buildPublicInvoiceReference(invoice),
+    status: invoice.status || "issued",
+    issuedAt: invoice.created_at,
+    dueAt: invoice.scheduled_charge_at,
+    paidAt: invoice.paid_at,
+    failedAt: invoice.failed_at,
+    emailSentAt: invoice.email_sent_at,
+    periodLabel: cycleLabel || "Monthly",
+    accountName: organization.organization_name || "Organization",
+    accountContact: [organization.organization_phone, organization.email].filter(Boolean).join(" · "),
     supportEmail,
-    studentPricingSummary,
-  } = payload;
-
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", margin: 48 });
-    const chunks = [];
-    doc.on("data", (chunk) => chunks.push(chunk));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
-
-    const pageWidth = doc.page.width;
-    const contentWidth = pageWidth - 96;
-
-    const teal = "#00D4AA";
-    const deep = "#1a1f2e";
-    const muted = "#5a6378";
-    const border = "#e6e9f0";
-    const soft = "#f5f7fb";
-
-    const totalDue = Number(invoice.amount_due || 0);
-    const currencyCode = String(invoice.currency || "USD").toUpperCase();
-    const invoiceReference = buildPublicInvoiceReference(invoice);
-    const status = String(invoice.status || "issued").toLowerCase();
-    const statusLabel = titleCaseStatus(status);
-    const invoiceHeaderTitle = "Invoice";
-    const issuedAtText = formatInvoicePdfDate(invoice.created_at);
-    const scheduledAtText = formatInvoicePdfDate(invoice.scheduled_charge_at);
-    const paidAtText = invoice.paid_at ? formatInvoicePdfDate(invoice.paid_at) : null;
-    const failedAtText = invoice.failed_at ? formatInvoicePdfDate(invoice.failed_at) : null;
-    const emailSentText = invoice.email_sent_at ? formatInvoicePdfDate(invoice.email_sent_at) : null;
-    const accountContactLine = [organization.organization_phone, organization.email].filter(Boolean).join(" · ");
-    const issueDate = (() => {
-      const d = invoice.created_at ? new Date(invoice.created_at) : null;
-      if (!d || Number.isNaN(d.getTime())) return "-";
-      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    })();
-    const dueDate = (() => {
-      const d = invoice.scheduled_charge_at ? new Date(invoice.scheduled_charge_at) : null;
-      if (!d || Number.isNaN(d.getTime())) return "-";
-      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    })();
-    const amountDisplay = `${currencyCode} ${totalDue.toFixed(2)}`;
-
-    doc.roundedRect(48, 38, contentWidth, 700, 14).fill("#ffffff").strokeColor(border).lineWidth(1).stroke();
-
-    doc.rect(48, 38, contentWidth, 96).fill("#f5f6fa");
-    doc.moveTo(48, 130).lineTo(48 + contentWidth, 130).strokeColor(teal).lineWidth(2).stroke();
-
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(30).text(invoiceHeaderTitle, 64, 56, { width: 220 });
-    doc.fillColor(muted).font("Helvetica-Bold").fontSize(10).text("Managira (SCREATE LLC)", 320, 64, { width: 220, align: "right" });
-    doc.fillColor(muted).font("Helvetica").fontSize(9).text(`Ref ${invoiceReference}`, 320, 80, { width: 220, align: "right" });
-
-    const statusBg = status === "paid" ? "#d6f7ec" : status === "failed" ? "#ffd8df" : "#e6e9f0";
-    const statusColor = status === "paid" ? "#00845f" : status === "failed" ? "#b1213e" : "#5a6378";
-    doc.roundedRect(452, 138, 88, 18, 9).fill(statusBg);
-    doc.fillColor(statusColor).font("Helvetica-Bold").fontSize(8).text(statusLabel.toUpperCase(), 452, 144, { width: 88, align: "center" });
-
-    let y = 156;
-    const metaRows = [
-      ["Invoice ref", invoiceReference],
-      ["Date of issue", issueDate],
-      ["Date due", dueDate],
-      ["Billing period", cycleLabel || "Monthly"],
-      ["Account", organization.organization_name || "Organization"],
-    ];
-    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8);
-    metaRows.forEach((row, index) => {
-      const rowY = y + (index * 16);
-      doc.text(row[0], 62, rowY, { width: 100 });
-      doc.fillColor(deep).font("Helvetica").text(row[1], 170, rowY, { width: 190 });
-      doc.fillColor(muted).font("Helvetica-Bold");
-    });
-
-    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8).text("From", 320, y, { width: 100 });
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(10).text("Managira (SCREATE LLC)", 320, y + 14, { width: 220 });
-    doc.fillColor(muted).font("Helvetica").fontSize(9).text(`Support: ${supportEmail || "support@managira.com"}`, 320, y + 30, { width: 220 });
-
-    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8).text("Bill to", 320, y + 52, { width: 100 });
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(10).text(organization.organization_name || "Organization", 320, y + 66, { width: 220 });
-    doc.fillColor(muted).font("Helvetica").fontSize(9).text(accountContactLine || "-", 320, y + 82, { width: 220 });
-
-    y += 112;
-    doc.roundedRect(48, y, contentWidth, 28, 6).fill(soft);
-    doc.fillColor(muted).font("Helvetica-Bold").fontSize(8);
-    doc.text("Description", 62, y + 10, { width: 260 });
-    doc.text("Qty", 360, y + 10, { width: 45, align: "right" });
-    doc.text("Unit Price", 410, y + 10, { width: 80, align: "right" });
-    doc.text("Amount", 495, y + 10, { width: 45, align: "right" });
-
-    y += 28;
-    doc.roundedRect(48, y, contentWidth, 58, 6).strokeColor(border).lineWidth(1).stroke();
-    doc.fillColor(deep).font("Helvetica").fontSize(10).text(`${planName || "Platform Subscription"} renewal invoice`, 62, y + 16, { width: 300 });
-    doc.fillColor(muted).font("Helvetica").fontSize(8.5).text(studentPricingSummary || "Auto-generated from your billing settings", 62, y + 32, { width: 300 });
-    doc.fillColor(deep).font("Helvetica").fontSize(10).text("1", 360, y + 22, { width: 45, align: "right" });
-    doc.fillColor(deep).font("Helvetica").fontSize(10).text(amountDisplay, 410, y + 22, { width: 80, align: "right" });
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(11).text(amountDisplay, 495, y + 22, { width: 45, align: "right" });
-
-    y += 76;
-    doc.fillColor(muted).font("Helvetica").fontSize(10);
-    doc.text("Subtotal", 340, y + 2, { width: 120 });
-    doc.fillColor(deep).font("Helvetica").text(amountDisplay, 430, y + 2, { width: 110, align: "right" });
-    doc.fillColor(muted).font("Helvetica").text("Total", 340, y + 18, { width: 120 });
-    doc.fillColor(deep).font("Helvetica").text(amountDisplay, 430, y + 18, { width: 110, align: "right" });
-    doc.moveTo(340, y + 36).lineTo(540, y + 36).strokeColor(border).lineWidth(1).stroke();
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(12).text("Amount due", 340, y + 42, { width: 120 });
-    doc.text(amountDisplay, 430, y + 42, { width: 110, align: "right" });
-
-    y += 72;
-    const timelineLines = [
-      `Issued: ${issuedAtText}`,
-      `Scheduled charge date: ${scheduledAtText}`,
-    ];
-    if (emailSentText) {
-      timelineLines.splice(1, 0, `Invoice email sent: ${emailSentText}`);
-    }
-    if (invoice.paid_at) {
-      timelineLines.push(`Paid at: ${paidAtText}`);
-    }
-    if (invoice.failed_at) {
-      timelineLines.push(`Failed at: ${failedAtText}`);
-    }
-
-    const timelineHeight = Math.max(88, 42 + (timelineLines.length * 16));
-    doc.roundedRect(48, y, contentWidth, timelineHeight, 8).fill(soft);
-    doc.fillColor(deep).font("Helvetica-Bold").fontSize(10).text("Payment Timeline", 62, y + 14);
-    doc.fillColor(muted).font("Helvetica").fontSize(9);
-    timelineLines.forEach((line, index) => {
-      doc.text(line, 62, y + 34 + (index * 16));
-    });
-
-    const footerY = doc.page.height - 58;
-    doc.moveTo(48, footerY - 10).lineTo(48 + contentWidth, footerY - 10).strokeColor(border).lineWidth(1).stroke();
-    doc.fillColor(muted).font("Helvetica").fontSize(8);
-    doc.text(`Need help? Contact ${supportEmail || "support@managira.com"}`, 48, footerY, { width: 320 });
-    doc.text(`Generated ${formatInvoicePdfDate(new Date())}`, 320, footerY, { width: 228, align: "right" });
-
-    doc.end();
+    currency: invoice.currency || "USD",
+    lines: [{ description: `${planName || "Platform Subscription"} renewal invoice`, detail: studentPricingSummary || "Auto-generated from your billing settings", qty: 1, unitAmount: amount, amount }],
+    total: amount,
   });
 }
 
@@ -2725,6 +2609,44 @@ const accountController = {
       delete req.session.registrationProofDraft;
     }
 
+    // "Edit details" from the payment page: reopen the form with what they
+    // entered (the plan, the uploaded proof and any saved card are kept).
+    const editing = req.query.edit === "1" && req.session.registrationDetails && !req.session.formData;
+    if (editing) {
+      const rd = req.session.registrationDetails;
+      if (!req.session.planSelection) {
+        req.session.planSelection = {
+          plan: rd.plan,
+          planId: rd.planId,
+          totalCost: rd.totalCost,
+          monthlyPrice: rd.monthlyPrice,
+          billingPeriodKey: rd.billingPeriodKey,
+          billingPeriodLabel: rd.billingPeriodLabel,
+          billingPeriodMonths: rd.billingPeriodMonths,
+          billingPeriodDiscount: rd.billingPeriodDiscount,
+          trialRequested: rd.trialRequested,
+          selectedTierId: rd.selectedTierId,
+          approxStudentCount: rd.approxStudentCount,
+          currencyProfileSnapshot: rd.currencyProfileSnapshot,
+        };
+      }
+      req.session.formData = {
+        firstName: rd.firstName,
+        lastName: rd.lastName,
+        orgName: rd.orgName,
+        orgNickName: rd.orgNickNameDisplay || rd.orgNickName,
+        orgAddress: rd.orgAddress,
+        orgCountry: rd.orgCountry,
+        orgProvince: rd.orgProvince,
+        orgPhone: rd.orgPhone,
+        email: rd.email,
+        confirmEmail: rd.email,
+      };
+      if (rd.proof1Url) {
+        req.session.registrationProofDraft = { proof1Url: rd.proof1Url, proof2Url: rd.proof2Url || "", updatedAt: Date.now() };
+      }
+    }
+
     // Require a plan selection before showing the registration form
     if (!req.session.planSelection) {
       req.flash("info", "Please choose a plan to begin registration.");
@@ -3430,8 +3352,20 @@ const accountController = {
         ? getStripeConfigurationIssue(stripeSettings)
         : "";
 
+      // The card was already saved (or paid) in this sign-up but the school
+      // wasn't created yet: show that, and let them finish with one click.
+      let savedCard = null;
+      if (req.session.paymentIntentId && req.session.stripePaymentContext && providerSupportsStripe(paymentProvider) && !stripeConfigError) {
+        try {
+          savedCard = await findFinishedRegistrationIntent(await getStripeClient(db), req.session, registrationDetails);
+        } catch (_) {
+          savedCard = null;
+        }
+      }
+
       res.render("account/payment", {
         title: "Complete Payment",
+        savedCard,
 
         registrationDetails,
 
@@ -3640,6 +3574,17 @@ const accountController = {
         console.log("[Stripe][intent] created customer", { customerId });
       }
 
+      const finished = await findFinishedRegistrationIntent(stripe, req.session, registrationDetails);
+      if (finished) {
+        console.log("[Stripe][intent] already confirmed earlier; finishing sign-up", finished);
+        return req.session.save(() => res.json({
+          success: true,
+          alreadyConfirmed: true,
+          paymentIntentId: finished.id,
+          intentType: finished.type,
+        }));
+      }
+
       let stripeIntent = null;
       let stripeIntentType = "payment";
       const paymentIdempotencyKey = buildStripeRegistrationIdempotencyKey({
@@ -3647,6 +3592,7 @@ const accountController = {
         paymentContext,
         selectedGateway,
         flowType: paymentContext.isTrialCheckout ? "setup" : "payment",
+        customerId,
       });
       if (paymentContext.isTrialCheckout) {
         stripeIntentType = "setup";
@@ -3731,6 +3677,9 @@ const accountController = {
           amountDue: paymentContext.amountDue,
           currency: stripeChargeCurrency,
           intentType: stripeIntentType,
+          // Stripe can hand back an intent that already went through (same request
+          // repeated); then there is nothing to confirm, just finish.
+          alreadyConfirmed: stripeIntent.status === "succeeded",
         });
       });
     } catch (error) {
@@ -3751,12 +3700,14 @@ const accountController = {
       const fallbackMessage = isStripeTlsChainIssue
         ? "Stripe TLS certificate validation failed in this environment. If this is local/dev, set STRIPE_ALLOW_INSECURE_TLS=true and restart the server, or install the missing CA certificate chain."
         : "Unable to initialize Stripe payment. Please try again.";
-      const friendlyMessage = getPlainEnglishStripeError(
-        error,
-        isStripeTlsChainIssue
-          ? fallbackMessage
-          : "We could not start your card payment. Please check your card details and try again."
-      );
+      // Only Stripe's own errors are worth showing as they are; anything else
+      // (a database or network hiccup) gets a plain message.
+      const fromStripe = Boolean(error?.raw || String(error?.type || "").startsWith("Stripe"));
+      const friendlyMessage = fromStripe
+        ? getPlainEnglishStripeError(error, "We could not start your card payment. Please check your card details and try again.")
+        : isConnectionHiccup(error)
+          ? "We had a brief connection problem. Please press the button again."
+          : "We could not start your card payment. Please try again in a moment.";
 
       return res.status(statusCode).json({
         success: false,
@@ -4217,13 +4168,52 @@ const accountController = {
       });
     } catch (error) {
       console.error("[paymentConfirmPost] failed:", error);
-      req.flash(
-        "error",
-        getPlainEnglishStripeError(
-          error,
-          "We could not confirm your card payment right now. Please try again."
-        )
-      );
+      const fromStripe = Boolean(error && (error.raw || String(error.type || "").startsWith("Stripe")));
+      let message;
+      if (fromStripe) {
+        message = getPlainEnglishStripeError(error, "We could not confirm your card payment right now. Please try again.");
+      } else {
+        // Stripe is done; creating the school failed. Say so plainly, and that
+        // trying again won't charge them twice (the saved card / payment is reused).
+        const done = stripeIntentType === "setup"
+          ? "Your card is saved and you have not been charged."
+          : "Your payment went through.";
+        const detail = String((error && (error.constraint || error.detail)) || "");
+        if (error && error.code === "23505" && /nickname/i.test(detail)) {
+          message = `${done} But that school nickname (web address) is already taken. Use "Edit details" to change it, then try again. You won't be charged twice.`;
+        } else if (error && error.code === "23505" && /email/i.test(detail)) {
+          message = `${done} But that email is already used by another account. Use "Edit details" to change it, then try again. You won't be charged twice.`;
+        } else if (isConnectionHiccup(error)) {
+          message = `${done} But we had a brief connection problem while creating your school. Please press the button again; you won't be charged twice.`;
+        } else if (error && error.code === "22001") {
+          message = `${done} But one of your details is too long. Use "Edit details" to shorten it, then try again. You won't be charged twice.`;
+        } else {
+          message = `${done} But we couldn't finish creating your school. Please press the button again; you won't be charged twice. If it keeps happening, email info@managira.com.`;
+        }
+        // Tell Managira so someone can follow up.
+        try {
+          const rd = registrationDetails || {};
+          sendEmailInBackground({
+            to: process.env.ADMIN_EMAIL || "info@managira.com",
+            subject: `Sign-up needs attention: ${rd.orgName || "a new school"}`,
+            html: renderCleanEmail({
+              title: "A sign-up didn't finish",
+              paragraphs: [
+                `${stripeIntentType === "setup" ? "The card was saved" : "The payment went through"} in Stripe, but creating the school failed.`,
+                "They were asked to try again. If they don't, please contact them.",
+              ],
+              details: [
+                `School: ${rd.orgName || "-"}`,
+                `Email: ${rd.email || "-"}`,
+                `Phone: ${rd.orgPhone || "-"}`,
+                `Stripe ${stripeIntentType === "setup" ? "setup" : "payment"}: ${paymentIntentId || "-"}`,
+                `Error: ${String((error && error.message) || error).slice(0, 300)}`,
+              ],
+            }),
+          }, "Sign-up failure alert");
+        } catch (_) { /* alerts are best effort */ }
+      }
+      req.flash("error", message);
 
       return res.redirect("/account/payment");
     }
@@ -8602,7 +8592,12 @@ const accountController = {
             [orgRow.hub_id]
           )).rows[0];
           if (hubRow) {
-            const contacts = await hubAccess.getContacts(db, hubRow.hub_id, { sharedOnly: true });
+            const assigned = (await db.query('SELECT hub_contact_id FROM organizations WHERE organization_id = $1', [orgId]).catch(() => ({ rows: [] }))).rows[0];
+            const assignedId = assigned && assigned.hub_contact_id;
+            const contacts = (await hubAccess.getContacts(db, hubRow.hub_id))
+              .filter((c) => c.share_with_schools || c.contact_id === assignedId)
+              .map((c) => ({ ...c, is_yours: c.contact_id === assignedId }))
+              .sort((a, b) => (b.is_yours ? 1 : 0) - (a.is_yours ? 1 : 0));
             hubProfile = {
               name: hubRow.hub_name,
               webAddress: hubRow.hub_nickname ? `${hubRow.hub_nickname}.managira.com` : null,
@@ -13205,6 +13200,10 @@ const accountController = {
           req.ip
         ]
       );
+      // The hub contact the hub picked for this school when inviting it.
+      if (invitation.hub_contact_id) {
+        await client.query('UPDATE organizations SET hub_contact_id = $1 WHERE organization_id = $2', [invitation.hub_contact_id, organizationId]).catch(() => {});
+      }
                   // Send welcome email to organization admin
       const welcomeEmailHtml = renderCleanEmail({
         title: 'Welcome to Managira SMS',
@@ -13507,6 +13506,9 @@ const accountController = {
           req.ip
         ]
       );
+      if (invitation.hub_contact_id) {
+        await client.query('UPDATE organizations SET hub_contact_id = $1 WHERE organization_id = $2', [invitation.hub_contact_id, invitation.existing_org_id]).catch(() => {});
+      }
 
             await client.query('COMMIT');
       client.release();

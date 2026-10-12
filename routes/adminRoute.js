@@ -6,6 +6,35 @@ module.exports = (db) => {
     const multer = require('multer');
     const upload = multer({ dest: 'uploads/' });
 
+    // Side-panel forms on the hub pages post with X-Admin-Ajax: answer with JSON
+    // ({ success, message, redirect }) instead of a flash message and a redirect.
+    router.use((req, res, next) => {
+        if (req.get('X-Admin-Ajax') !== '1') return next();
+        const notes = [];
+        const originalFlash = req.flash;
+        req.flash = function flash(type, msg) {
+            if (msg === undefined) return originalFlash.apply(this, arguments);
+            notes.push({ type, msg: [].concat(msg).join(' ') });
+            return notes.length;
+        };
+        res.redirect = function redirect(a, b) {
+            const url = typeof a === 'number' ? b : a;
+            const error = notes.find((n) => n.type === 'error');
+            const last = error || notes[notes.length - 1] || {};
+            return res.json({ success: !error, message: last.msg || '', redirect: url });
+        };
+        next();
+    });
+
+    // ?drawer=1: render just the form, for the side panel.
+    router.use((req, res, next) => {
+        if (req.method !== 'GET' || req.query.drawer !== '1') return next();
+        res.locals.drawer = true;
+        const render = res.render.bind(res);
+        res.render = (view, options = {}, cb) => render(view, { ...options, layout: false, drawer: true }, cb);
+        next();
+    });
+
     // An admin who opened a hub is put back in admin mode on any /admin page.
     router.use((req, res, next) => {
         adminController.restoreAdminFromHubView(req);
@@ -537,9 +566,12 @@ module.exports = (db) => {
 
     // Hub Management Routes
     router.get('/hubs', ensureAdmin, adminController.hubsListGet);
-    router.get('/hubs/create', ensureAdmin, adminController.hubCreateGet);
+    const hubForms = require('../controllers/hubBillingController');
+    router.get('/hubs/create', ensureAdmin, hubForms.adminHubCreateFormGet);
     router.post('/hubs/create', ensureAdmin, adminController.hubCreatePost);
-    router.get('/hubs/:hubId/edit', ensureAdmin, adminController.hubEditGet);
+    router.get('/hubs/:hubId(\\d+)/edit', ensureAdmin, hubForms.adminHubEditFormGet);
+    router.get('/hubs/:hubId(\\d+)/password', ensureAdmin, hubForms.adminHubPasswordFormGet);
+    router.get('/hubs/:hubId(\\d+)/organizations/:organizationId(\\d+)/licenses', ensureAdmin, hubForms.adminSchoolLicensesFormGet);
     router.post('/hubs/:hubId/edit', ensureAdmin, adminController.hubEditPost);
     router.post('/hubs/hold', ensureAdmin, adminController.hubHoldPost);
     router.post('/hubs/resume', ensureAdmin, adminController.hubResumePost);
@@ -550,7 +582,36 @@ module.exports = (db) => {
     router.post('/hubs/permanently-delete/bulk', ensureAdmin, adminController.bulkPermanentlyDeleteHubs);
     router.post('/permanentDeleteMessage/bulk', ensureAdmin, adminController.bulkPermanentDeleteMessages);
     router.get('/hubs/:hubId/organizations', ensureAdmin, adminController.hubOrganizationsGet);
+    // Hub billing (contract, Stripe payment link, charges, holds) and the add-on catalog.
+    const hubBilling = require('../controllers/hubBillingController');
+    router.get('/hubs/add-ons', ensureAdmin, hubBilling.adminAddonsGet);
+    router.get('/hubs/add-ons/new', ensureAdmin, hubBilling.adminAddonFormGet);
+    router.get('/hubs/add-ons/:addonId(\\d+)/edit', ensureAdmin, hubBilling.adminAddonFormGet);
+    router.post('/hubs/add-ons', ensureAdmin, hubBilling.adminAddonSavePost);
+    router.post('/hubs/add-ons/:addonId(\\d+)', ensureAdmin, hubBilling.adminAddonSavePost);
+    router.post('/hubs/add-ons/:addonId(\\d+)/toggle', ensureAdmin, hubBilling.adminAddonTogglePost);
+    router.get('/hubs/:hubId(\\d+)/billing', ensureAdmin, hubBilling.adminBillingGet);
+    router.post('/hubs/:hubId(\\d+)/billing', ensureAdmin, hubBilling.adminBillingSavePost);
+    router.get('/hubs/:hubId(\\d+)/billing/plan', ensureAdmin, hubBilling.adminPlanFormGet);
+    router.get('/hubs/:hubId(\\d+)/billing/invoices/:invoiceId([A-Za-z0-9_]+)/pdf', ensureAdmin, hubBilling.invoicePdfGet);
+    router.get('/hubs/:hubId(\\d+)/billing/charges/new', ensureAdmin, hubBilling.adminChargeFormGet);
+    router.get('/hubs/:hubId(\\d+)/billing/hold', ensureAdmin, hubBilling.adminHoldFormGet);
+    router.get('/hubs/:hubId(\\d+)/billing/end', ensureAdmin, hubBilling.adminEndFormGet);
+    router.get('/hubs/:hubId(\\d+)/people/new', ensureAdmin, hubBilling.adminPersonFormGet);
+    router.post('/hubs/:hubId(\\d+)/billing/send-link', ensureAdmin, hubBilling.adminSendLinkPost);
+    router.post('/hubs/:hubId(\\d+)/billing/new-link', ensureAdmin, hubBilling.adminNewLinkPost);
+    router.post('/hubs/:hubId(\\d+)/billing/sync', ensureAdmin, hubBilling.adminSyncPost);
+    router.post('/hubs/:hubId(\\d+)/billing/charges', ensureAdmin, hubBilling.adminChargeAddPost);
+    router.post('/hubs/:hubId(\\d+)/billing/charges/:chargeId(\\d+)/remove', ensureAdmin, hubBilling.adminChargeRemovePost);
+    router.post('/hubs/:hubId(\\d+)/billing/hold', ensureAdmin, hubBilling.adminHoldPost);
+    router.post('/hubs/:hubId(\\d+)/billing/resume', ensureAdmin, hubBilling.adminResumePost);
+    router.post('/hubs/:hubId(\\d+)/billing/cancel-hold', ensureAdmin, hubBilling.adminCancelHoldPost);
+    router.post('/hubs/:hubId(\\d+)/billing/end', ensureAdmin, hubBilling.adminEndPost);
+    router.post('/hubs/:hubId(\\d+)/billing/restart', ensureAdmin, hubBilling.adminRestartPost);
+    router.post('/hubs/:hubId(\\d+)/people', ensureAdmin, hubBilling.adminPersonAddPost);
+    router.post('/hubs/:hubId(\\d+)/people/:hubUserId(\\d+)/invite', ensureAdmin, hubBilling.adminPersonInvitePost);
     router.post('/hubs/:hubId/send-reset', ensureAdmin, adminController.hubSendResetPost);
+    router.post('/organizations/:organizationId(\\d+)/licenses', ensureAdmin, adminController.organizationLicensesPost);
     router.post('/hubs/:hubId/set-password', ensureAdmin, adminController.hubSetPasswordPost);
     router.get('/hub/:hubId', ensureAdmin, ensureHubSwitchPasswordVerified, adminController.hubEnterGet);
     // "Back to Admin" from a hub. The router-level restore has already run.

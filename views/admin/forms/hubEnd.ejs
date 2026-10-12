@@ -1,0 +1,14 @@
+<div data-ahd-title="End billing" data-ahd-sub="<%= hub.hub_name %>. Stops charging the card. The hub itself stays open.">
+  <form action="/admin/hubs/<%= hub.hub_id %>/billing/end" method="POST" class="ahd-form" data-ah-ask="End billing for <%= hub.hub_name %>?">
+    <section class="ahd-section">
+      <div class="ah-choice-list">
+        <label class="ah-choice"><input type="radio" name="when" value="period_end" checked /><span><strong>At the end of the paid period</strong><small>They keep what they paid for. No more bills after <%= billingRow && billingRow.current_period_end ? b.fmtDate(billingRow.current_period_end) : 'this period' %>.</small></span></label>
+        <label class="ah-choice"><input type="radio" name="when" value="now" /><span><strong>Now</strong><small>Billing stops today. Refunds, if any, are done in Stripe.</small></span></label>
+      </div>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--danger-solid">End billing</button>
+    </div>
+  </form>
+</div>

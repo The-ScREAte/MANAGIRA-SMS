@@ -1,0 +1,53 @@
+<% const _p = (typeof preset !== 'undefined' && preset) || null; %>
+<div data-ahd-title="Add a charge" data-ahd-sub="<%= hub.hub_name %> gets an email and approves it on their Billing page. Nothing is billed before that.">
+  <form action="/admin/hubs/<%= hub.hub_id %>/billing/charges" method="POST" class="ahd-form" data-ah-charge>
+    <section class="ahd-section">
+      <div class="ahb-grid ahb-grid--1">
+        <% if (_p) { %>
+          <input type="hidden" name="integrationKey" value="<%= _p.integrationKey %>" />
+          <input type="hidden" name="organizationId" value="<%= _p.organizationId %>" />
+        <% } else { %>
+          <label class="ahb-field">
+            <span class="ahb-label">What</span>
+            <select name="addonId" class="ahb-input" data-ah-charge-pick>
+              <option value="">Custom charge…</option>
+              <% addons.forEach((a) => { %>
+                <option value="<%= a.addon_id %>"><%= a.name %>: <%= b.money(a.unit_price) %> <%= a.frequency === 'once' ? 'one time' : `each ${per}` %></option>
+              <% }) %>
+            </select>
+            <% if (!addons.length) { %><span class="ahb-hint">Tip: products you sell often can go in Add-ons.</span><% } %>
+          </label>
+        <% } %>
+        <label class="ahb-field" data-ah-custom>
+          <span class="ahb-label">Name</span>
+          <input type="text" name="name" class="ahb-input" maxlength="120" value="<%= _p ? _p.name : '' %>" placeholder="e.g. Teacher training day" />
+        </label>
+        <div class="ahb-grid" data-ah-custom>
+          <label class="ahb-field">
+            <span class="ahb-label">Price</span>
+            <span class="ahb-money"><span>$</span><input type="text" inputmode="decimal" name="unitPrice" class="ahb-input" value="<%= _p ? _p.price : '' %>" placeholder="0.00" /></span>
+          </label>
+          <label class="ahb-field">
+            <span class="ahb-label">How often</span>
+            <select name="frequency" class="ahb-input">
+              <option value="recurring">Each <%= per %></option>
+              <option value="once">One time (next bill)</option>
+            </select>
+          </label>
+        </div>
+        <label class="ahb-field">
+          <span class="ahb-label">Quantity</span>
+          <input type="number" name="quantity" min="1" max="100000" value="1" class="ahb-input" />
+        </label>
+        <label class="ahb-field" data-ah-custom>
+          <span class="ahb-label">Note for the hub <em>optional</em></span>
+          <input type="text" name="description" class="ahb-input" maxlength="500" value="<%= _p ? _p.description : '' %>" placeholder="What it is for" />
+        </label>
+      </div>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send for approval</button>
+    </div>
+  </form>
+</div>

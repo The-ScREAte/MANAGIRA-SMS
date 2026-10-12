@@ -1,0 +1,29 @@
+<% const _later = billingRow && billingRow.hold_starts_at; %>
+<div data-ahd-title="Put on hold" data-ahd-sub="<%= hub.hub_name %>. While on hold nobody in the hub can sign in and no bills are charged.">
+  <form action="/admin/hubs/<%= hub.hub_id %>/billing/hold" method="POST" class="ahd-form" data-ah-hold>
+    <section class="ahd-section">
+      <div class="ahb-grid ahb-grid--1">
+        <div class="ahb-field">
+          <span class="ahb-label">Starts</span>
+          <div class="ahb-seg" role="radiogroup" aria-label="When">
+            <label><input type="radio" name="when" value="now" <%= _later ? '' : 'checked' %> data-ah-hold-when /> <span>Now</span></label>
+            <label><input type="radio" name="when" value="later" <%= _later ? 'checked' : '' %> data-ah-hold-when /> <span>On a date</span></label>
+          </div>
+        </div>
+        <label class="ahb-field" data-ah-hold-later <%= _later ? '' : 'hidden' %>>
+          <span class="ahb-label">Start day</span>
+          <input type="date" name="startsOn" class="ahb-input" value="<%= _later ? b.isoDay(billingRow.hold_starts_at) : '' %>" />
+        </label>
+        <label class="ahb-field">
+          <span class="ahb-label">Resumes on <em>optional</em></span>
+          <input type="date" name="endsOn" class="ahb-input" value="<%= billingRow && billingRow.hold_ends_at ? b.isoDay(billingRow.hold_ends_at) : '' %>" />
+          <span class="ahb-hint">Leave empty to resume it yourself.</span>
+        </label>
+      </div>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-pause" aria-hidden="true"></i> Put on hold</button>
+    </div>
+  </form>
+</div>

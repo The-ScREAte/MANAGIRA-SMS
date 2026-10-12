@@ -50,13 +50,16 @@ function notifySchoolStatus(req, schoolName, what) {
   }), { excludeEmail: hubActorEmail(req) });
 }
 
-// Helper function to send emails (fire-and-forget)
+// Helper function to send emails (fire-and-forget). Returns true once the
+// email is queued, so callers that check the result don't report a failure.
 function sendEmail({ to, subject, html }) {
+  if (!to) return false;
   sendEmailInBackground({
     to,
     subject,
     html,
   }, "Hub email");
+  return true;
 }
 
 // Log hub activity
@@ -69,6 +72,14 @@ async function logHubActivity(hubId, actionType, description, targetOrgId = null
     );
   } catch (error) {
       }
+}
+
+// The hub contact picked for a school, if it really belongs to this hub.
+async function hubContactIdFrom(hubId, value) {
+  const id = parseInt(value, 10);
+  if (!Number.isInteger(id)) return null;
+  const r = await db.query('SELECT contact_id FROM hub_contacts WHERE contact_id = $1 AND hub_id = $2', [id, hubId]);
+  return r.rows.length ? id : null;
 }
 
 // Tell the rest of the hub that someone invited a school.
@@ -94,7 +105,8 @@ const hubController = {
               (SELECT COUNT(*) FROM students s WHERE s.organization_id = o.organization_id AND ${activeStudentSql("s")}) AS student_count,
               (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.organization_id AND ${STAFF_FILTER_SQL("u")}) AS staff_count,
               (SELECT COUNT(*) FROM classes c WHERE c.organization_id = o.organization_id) AS class_count,
-              ${DISTINCT_SUBJECTS_SQL("o.organization_id")} AS subject_count
+              ${DISTINCT_SUBJECTS_SQL("o.organization_id")} AS subject_count,
+              (SELECT hc.full_name FROM hub_contacts hc WHERE hc.contact_id = o.hub_contact_id AND hc.hub_id = o.hub_id) AS hub_contact_name
        FROM organizations o
        WHERE o.organization_id = $1
          AND o.hub_id = $2
@@ -1148,6 +1160,8 @@ const hubController = {
       }
 
       const tabs = ['general', 'contacts', ...(can('users.manage') ? ['users'] : []), 'emails'];
+      const license = await require('../utils/licenses').hubLicense(db, hubId);
+      const seats = await require('../utils/hubBilling').capacity(db, hubId, 'user').catch(() => null);
       res.render('hub/settings', {
         title: 'Hub Settings',
         hub,
@@ -1160,6 +1174,8 @@ const hubController = {
         totalPermissions: ALL_HUB_PERMISSIONS.length,
         currentHubUserId: req.session.hubUserId || null,
         tabs,
+        license,
+        seats,
         activeTab: tabs.includes(req.query.tab) ? req.query.tab : 'general',
         notificationPrefs,
         savedNotificationPrefs,
@@ -1246,6 +1262,10 @@ const hubController = {
           `UPDATE hub_users SET first_name = $1, last_name = $2, phone = $3, job_title = $4, updated_at = NOW()
            WHERE hub_user_id = $5`,
           [firstName, lastName, String(req.body.phone || '').trim().slice(0, 40) || null, String(req.body.jobTitle || '').trim().slice(0, 120) || null, actor.hubUserId]
+        );
+        await db.query(
+          `UPDATE hub_contacts SET full_name = $1, phone = COALESCE($2, phone), job_title = COALESCE($3, job_title), updated_at = NOW() WHERE hub_user_id = $4`,
+          [`${firstName} ${lastName}`, String(req.body.phone || '').trim().slice(0, 40) || null, String(req.body.jobTitle || '').trim().slice(0, 120) || null, actor.hubUserId]
         );
       }
       req.session.firstName = firstName;
@@ -1408,17 +1428,20 @@ const hubController = {
         [hub.hub_id]
       );
       const currentOrgCount = parseInt(orgCountResult.rows[0].count);
+      const places = await require('../utils/hubBilling').capacity(db, hub.hub_id, 'school');
 
-      if (currentOrgCount >= hub.max_organizations) {
-        req.flash('error', `You have reached your maximum limit of ${hub.max_organizations} organizations. Please upgrade your plan or contact support.`);
+      if (places.full && !places.canBuy) {
+        req.flash('error', `You have used all ${places.limit} school places in your plan. Please contact Managira to add more.`);
         return res.redirect('/hub/dashboard');
       }
 
       if (!res.locals.drawer) return res.redirect(`/hub/dashboard?drawer=${encodeURIComponent('/hub/organizations/invite')}#invitations`);
       res.render('hub/forms/invite', {
         hub,
+        contacts: await getContacts(db, hub.hub_id),
         currentOrgCount,
-        maxOrganizations: hub.max_organizations,
+        maxOrganizations: places.limit,
+        places: { ...places, priceLabel: require('../utils/hubBilling').money(places.price, places.currency) },
       });
     } catch (error) {
             req.flash('error', 'Error loading invitation form.');
@@ -1438,17 +1461,9 @@ const hubController = {
         return res.redirect('/hub/organizations/invite');
       }
 
-      // Check if hub has reached max organizations
-      const orgCountResult = await db.query(
-        'SELECT COUNT(*) FROM organizations WHERE hub_id = $1 AND deleted = false',
-        [hub.hub_id]
-      );
-      const currentOrgCount = parseInt(orgCountResult.rows[0].count);
-
-      if (currentOrgCount >= hub.max_organizations) {
-        req.flash('error', `You have reached your maximum limit of ${hub.max_organizations} organizations.`);
-        return res.redirect('/hub/dashboard');
-      }
+      // Out of school places? The plan may let them approve one more.
+      const extra = await require('./hubBillingController').extraGate(req, res, 'school', '/hub/dashboard');
+      if (extra.blocked) return;
 
       // Check if organization with this email already invited or exists
       const existingCheck = await db.query(
@@ -1480,10 +1495,12 @@ const hubController = {
       // Insert invitation
       await db.query(
         `INSERT INTO hub_organization_invitations 
-         (hub_id, organization_name, contact_person_name, contact_person_email, contact_person_phone, invitation_token, message, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [hub.hub_id, organization_name, contact_person_name, contact_person_email, contact_person_phone, invitationToken, message, expiresAt]
+         (hub_id, organization_name, contact_person_name, contact_person_email, contact_person_phone, invitation_token, message, expires_at, hub_contact_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [hub.hub_id, organization_name, contact_person_name, contact_person_email, contact_person_phone, invitationToken, message, expiresAt,
+         await hubContactIdFrom(hub.hub_id, req.body.hub_contact_id)]
       );
+      await extra.commit();
 
       // Send invitation email
       const invitationUrl = `${process.env.APP_URL || 'http://localhost:4000'}/account/accept-hub-invitation/${invitationToken}`;
@@ -1850,6 +1867,7 @@ const hubController = {
       if (!res.locals.drawer) return res.redirect(`/hub/organizations/${organizationId}?drawer=${encodeURIComponent(`/hub/organizations/edit/${organizationId}`)}`);
       res.render('hub/forms/editSchool', {
         organization: orgResult.rows[0],
+        contacts: await getContacts(db, hub.hub_id),
         hub,
       });
     } catch (error) {
@@ -1891,9 +1909,11 @@ const hubController = {
       // Update organization
       await db.query(
         `UPDATE organizations 
-         SET organization_name = $1, organization_address = $2, organization_country = $3, organization_province = $4, organization_phone = $5
+         SET organization_name = $1, organization_address = $2, organization_country = $3, organization_province = $4, organization_phone = $5,
+             hub_contact_id = $7
          WHERE organization_id = $6`,
-        [organization_name, organization_address, organization_country || null, organization_province || null, organization_phone, organizationId]
+        [organization_name, organization_address, organization_country || null, organization_province || null, organization_phone, organizationId,
+         await hubContactIdFrom(hub.hub_id, req.body.hub_contact_id)]
       );
 
       // Log activity
@@ -2140,17 +2160,9 @@ const hubController = {
         return res.redirect('/hub/organizations/invite');
       }
 
-      // Check hub capacity
-      const orgCountResult = await db.query(
-        `SELECT COUNT(*) as count FROM organizations WHERE hub_id = $1 AND deleted = false`,
-        [hub.hub_id]
-      );
-
-      const currentCount = parseInt(orgCountResult.rows[0].count);
-      if (currentCount >= hub.max_organizations) {
-        req.flash('error', 'You have reached your maximum organization capacity.');
-        return res.redirect('/hub/organizations/invite');
-      }
+      // Out of school places? The plan may let them approve one more.
+      const extra = await require('./hubBillingController').extraGate(req, res, 'school', '/hub/organizations/invite');
+      if (extra.blocked) return;
 
             // Generate invitation token
       const token = crypto.randomBytes(32).toString('hex');
@@ -2165,6 +2177,7 @@ const hubController = {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [hub.hub_id, org.organization_name, org.organization_name, org.email, '', token, expiresAt, organizationId]
       );
+      await extra.commit();
 
             // Log activity
       await logHubActivity(

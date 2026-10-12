@@ -39,6 +39,14 @@
         <input type="tel" id="dsPhone" class="phone-local-input" name="organization_phone" value="<%= _org.organization_phone %>" required />
       </div>
     </div>
+    <div class="hub-field">
+      <label class="hub-label" for="dsContact">Hub contact for this school <span class="hub-help">(optional)</span></label>
+      <select id="dsContact" name="hub_contact_id">
+        <option value="">No one assigned</option>
+        <% (contacts || []).forEach((c) => { %><option value="<%= c.contact_id %>" <%= String(_org.hub_contact_id || '') === String(c.contact_id) ? 'selected' : '' %>><%= c.full_name %><%= c.job_title ? ' · ' + c.job_title : '' %></option><% }) %>
+      </select>
+      <span class="hub-help">The person at your hub this school should talk to. Add people in Settings › Contact people.</span>
+    </div>
     <p class="hub-help">The web address and email can only be changed by Managira support.</p>
     <div class="hub-drawer__foot">
       <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save changes</button>

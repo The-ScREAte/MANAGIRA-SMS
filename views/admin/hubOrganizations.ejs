@@ -28,7 +28,8 @@
     </div>
     <div class="ah-head__actions">
       <a href="/admin/hubs" class="ah-btn"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All hubs</a>
-      <a href="/admin/hubs/<%= hub.hub_id %>/edit" class="ah-btn"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit hub</a>
+      <a href="/admin/hubs/<%= hub.hub_id %>/edit" class="ah-btn" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit hub</a>
+      <a href="/admin/hubs/<%= hub.hub_id %>/billing" class="ah-btn"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Billing</a>
       <% if (!hub.on_hold && !hub.deleted) { %>
         <a href="/admin/hub/<%= hub.hub_id %>" class="ah-btn ah-btn--primary" data-ah-open data-kind="hub" data-name="<%= hub.hub_name %>"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open hub</a>
       <% } %>
@@ -60,6 +61,7 @@
               <th class="ah-num">Students</th>
               <th class="ah-num">Staff</th>
               <th class="ah-num">Classes</th>
+              <th>User licenses</th>
               <th>Joined hub</th>
               <th>Status</th>
               <th class="ah-num">Actions</th>
@@ -86,6 +88,11 @@
                 <td class="ah-num"><%= _num(org.student_count) %></td>
                 <td class="ah-num"><%= _num(org.teacher_count) %></td>
                 <td class="ah-num"><%= _num(org.class_count) %></td>
+                <td>
+                  <a class="ah-license" href="/admin/hubs/<%= hub.hub_id %>/organizations/<%= org.organization_id %>/licenses" data-ah-drawer title="Change user licenses">
+                    <%= org.user_count %> of <%= org.max_users || '∞' %> <i class="fa-solid fa-pen" aria-hidden="true"></i>
+                  </a>
+                </td>
                 <td><%= _date(org.joined_hub_at || org.created_at) %></td>
                 <td><% if (org.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %></td>
                 <td class="ah-actions-cell">

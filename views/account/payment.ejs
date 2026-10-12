@@ -329,6 +329,10 @@
         font-weight: 700;
       }
 
+      .card-entry-head[hidden], #stripe-card-element[hidden] { display: none !important; }
+      .saved-card-note { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; margin-bottom: 12px; border-radius: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: 0.95rem; }
+      .summary-edit a { color: #01535b; font-weight: 600; font-size: 0.9rem; text-decoration: underline; }
+
       .summary-row {
         margin: 0;
         font-size: 1.03rem;
@@ -958,6 +962,7 @@
         <div class="summary-list">
           <p class="summary-row"><strong>Organization:</strong> <%= registrationDetails.orgName || 'N/A' %></p>
           <p class="summary-row"><strong>Email:</strong> <%= registrationDetails.email || 'N/A' %></p>
+          <p class="summary-row summary-edit"><a href="/account/register?edit=1" data-no-spa>Edit details</a></p>
           <p class="summary-row"><strong>Plan:</strong> <%= planNameDisplay %></p>
           <% if (!isTrialCheckout) { %>
             <p class="summary-row" id="subtotal-row"><strong>Subtotal:</strong> <span id="subtotal-currency"><%= stripeChargeCurrency || 'USD' %></span> <span id="subtotal-amount"><%= stripePaymentDetails ? Number(stripePaymentDetails.subtotalAmount || 0).toFixed(2) : (paymentDetails.amount / 100).toFixed(2) %></span></p>
@@ -1033,13 +1038,20 @@
             </div>
           </div>
           <% } %>
-          <div class="card-entry-head">
+          <% const _saved = (typeof savedCard !== 'undefined' && savedCard) || null; %>
+          <% if (_saved) { %>
+          <div class="saved-card-note" role="status">
+            <strong><%= _saved.type === 'setup' ? 'Your card is already saved' : 'Your payment already went through' %><%= _saved.cardLabel ? ` (${_saved.cardLabel})` : '' %>.</strong>
+            <span>Press “Finish setting up” to create your school. You won’t be charged twice.</span>
+          </div>
+          <% } %>
+          <div class="card-entry-head"<%= _saved ? ' hidden' : '' %>>
             <div>
               <p class="card-entry-title">Card details</p>
               <p class="card-entry-subtitle">Your card is encrypted and used for your recurring billing.</p>
             </div>
           </div>
-          <div id="stripe-card-element"></div>
+          <div id="stripe-card-element"<%= _saved ? ' hidden' : '' %>></div>
           <div class="express-shell" id="express-shell">
             <div class="express-shell-header">
               <p class="express-shell-title">Express Checkout</p>
@@ -1115,7 +1127,9 @@
         let stripeCardElement = null;
         let expressCheckoutElement = null;
         let stripeElements = null;
-        let isStripeCardComplete = false;
+        // Card already saved / paid earlier in this sign-up: nothing to enter.
+        const savedCardAlready = <%- JSON.stringify(!!(typeof savedCard !== 'undefined' && savedCard)) %>;
+        let isStripeCardComplete = savedCardAlready;
         let isPayButtonBusy = false;
         const currentGateway = 'stripe';
         if (selectedGatewayInput) {
@@ -1220,6 +1234,10 @@
           if (!payButtonEl) return;
           if (isPayButtonBusy) {
             payButtonEl.textContent = 'Processing...';
+            return;
+          }
+          if (savedCardAlready) {
+            payButtonEl.textContent = 'Finish setting up';
             return;
           }
           if (isTrialCheckout) {
@@ -1646,6 +1664,20 @@
           }
 
           const isSetupIntent = intentData.intentType === 'setup';
+
+          // The card was already saved (or paid) earlier in this sign-up: just finish.
+          if (intentData.alreadyConfirmed) {
+            isSubmittingAfterPayment = true;
+            document.getElementById('paymentIntentId').value = intentData.paymentIntentId;
+            document.getElementById('hiddenPromoCode').value = appliedPromoCode;
+            setPaymentMessage(isSetupIntent ? "Your card is already saved. Setting up your school. Don't leave this page." : "Your payment already went through. Setting up your school. Don't leave this page.", "green");
+            showRedirectOverlay();
+            startRedirectProgressMessages();
+            document.getElementById('payment-form').action = '/account/payment/confirm';
+            document.getElementById('payment-form').submit();
+            return;
+          }
+
           const confirmation = isSetupIntent
             ? await stripe.confirmCardSetup(intentData.clientSecret, {
                 payment_method: {
@@ -1666,11 +1698,18 @@
                 }
               });
 
-          if (confirmation.error) {
+          // Stripe says it already went through: treat it as done.
+          const alreadyDone = confirmation.error
+            && /_unexpected_state$/.test(String(confirmation.error.code || ''))
+            && ((confirmation.error.setup_intent && confirmation.error.setup_intent.status === 'succeeded')
+              || (confirmation.error.payment_intent && confirmation.error.payment_intent.status === 'succeeded'));
+          if (confirmation.error && !alreadyDone) {
             throw confirmation.error;
           }
 
-          const completedIntent = isSetupIntent ? confirmation.setupIntent : confirmation.paymentIntent;
+          const completedIntent = alreadyDone
+            ? (confirmation.error.setup_intent || confirmation.error.payment_intent)
+            : (isSetupIntent ? confirmation.setupIntent : confirmation.paymentIntent);
           if (!completedIntent || completedIntent.status !== 'succeeded') {
             throw new Error(isSetupIntent ? 'Stripe card setup was not completed.' : 'Stripe payment was not completed.');
           }

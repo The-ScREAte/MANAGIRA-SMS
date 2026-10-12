@@ -1,0 +1,9 @@
+<div data-ahd-title="Plan and contract" data-ahd-sub="<%= hub.hub_name %>. Changes apply from the next bill." data-ahd-wide>
+  <form action="/admin/hubs/<%= hub.hub_id %>/billing" method="POST" class="ahd-form">
+    <%- include('../partials/hubBillingFields', { b, billingRow, hubRow: hub, usageRow: usage, hasSub, extrasTotal }) %>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save plan</button>
+    </div>
+  </form>
+</div>

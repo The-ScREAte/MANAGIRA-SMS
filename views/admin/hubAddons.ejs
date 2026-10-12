@@ -1,0 +1,63 @@
+<%
+  const _list = Array.isArray(addons) ? addons : [];
+  const _used = (typeof used !== 'undefined' && used) || {};
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+
+<div class="ah ah--narrow">
+  <%- include('../partials/flash') %>
+
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin">Admin</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
+    <a href="/admin/hubs">Hubs</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
+    <span>Add-ons</span>
+  </nav>
+
+  <header class="ah-head">
+    <div>
+      <h1 class="ah-head__title">Hub add-ons</h1>
+      <p class="ah-head__sub">Paid products and services hubs can add from their Billing page. They approve the price, then it goes on their bill.</p>
+    </div>
+    <div class="ah-head__actions">
+      <a href="/admin/hubs" class="ah-btn"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Hubs</a>
+      <a href="/admin/hubs/add-ons/new" class="ah-btn ah-btn--primary" data-ah-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> New add-on</a>
+    </div>
+  </header>
+
+  <section class="ah-card" aria-label="Add-ons">
+    <% if (_list.length) { %>
+      <div class="ah-scroll">
+        <table class="ah-table">
+          <thead><tr><th>Add-on</th><th class="ah-num">Price</th><th>How often</th><th class="ah-num">Hubs using it</th><th>Status</th><th class="ah-num"></th></tr></thead>
+          <tbody>
+            <% _list.forEach((a) => { %>
+              <tr>
+                <td><strong><%= a.name %></strong><% if (a.description) { %><span class="ah-sub"><%= a.description %></span><% } %></td>
+                <td class="ah-num"><%= b.money(a.unit_price) %></td>
+                <td><%= a.frequency === 'once' ? 'One time' : 'Each bill' %></td>
+                <td class="ah-num"><%= _used[a.addon_id] || 0 %></td>
+                <td><% if (a.is_active) { %><span class="ah-bill ah-bill--green">Available</span><% } else { %><span class="ah-bill ah-bill--muted">Hidden</span><% } %></td>
+                <td class="ah-actions-cell">
+                  <div class="ah-row-actions">
+                    <a class="ah-btn ah-btn--sm" href="/admin/hubs/add-ons/<%= a.addon_id %>/edit" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
+                    <form action="/admin/hubs/add-ons/<%= a.addon_id %>/toggle" method="POST" data-ah-ajax>
+                      <button type="submit" class="ah-btn ah-btn--sm"><%= a.is_active ? 'Hide' : 'Show' %></button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } else { %>
+      <div class="ah-empty">
+        <i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i>
+        <h3>No add-ons yet</h3>
+        <p>Add products or services that cost extra, such as SMS bundles or training.</p>
+        <a href="/admin/hubs/add-ons/new" class="ah-btn ah-btn--primary" data-ah-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> New add-on</a>
+      </div>
+    <% } %>
+  </section>
+  <%- include('partials/hubAdminDialogs') %>
+</div>

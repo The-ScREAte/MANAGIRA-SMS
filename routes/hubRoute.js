@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const hubController = require('../controllers/hubController');
 const hubUsersController = require('../controllers/hubUsersController');
+const hubBillingController = require('../controllers/hubBillingController');
 const { isHubAuthenticated, fetchHubInfo } = require('../middleware/hubAuthMiddleware');
 const { upload } = require('../middleware/s3Upload');
 const { ensureHubAccessSchema, loadHubActor, actorCan } = require('../utils/hubAccess');
@@ -48,6 +49,10 @@ router.post('/login', hubController.hubLoginPost);
 router.get('/logout', hubController.hubLogoutGet);
 router.get('/setup-password', hubController.setupPasswordGet);
 router.post('/setup-password', hubController.setupPasswordPost);
+// The card link emailed to the hub works without signing in.
+router.get('/billing/setup/:token([a-f0-9]{48})', hubBillingController.setupPageGet);
+router.get('/billing/setup/:token([a-f0-9]{48})/go', hubBillingController.setupGoGet);
+router.get('/billing/setup/:token([a-f0-9]{48})/done', hubBillingController.setupDoneGet);
 
 // Protected routes (require hub authentication)
 router.use(isHubAuthenticated);
@@ -91,6 +96,32 @@ router.use(async (req, res, next) => {
   next();
 });
 
+// Billing: charges waiting for approval, and a nudge to add the card. People
+// who manage billing land on Billing once after signing in until a card is saved.
+router.use(async (req, res, next) => {
+  res.locals.hubBillingPrompt = null;
+  if (!actorCan(req.hubActor, 'billing.view')) return next();
+  try {
+    const db = require('../config/db');
+    const hubBilling = require('../utils/hubBilling');
+    const b = await hubBilling.loadBilling(db, req.session.hubId);
+    if (!b) return next();
+    const pending = (await db.query(`SELECT COUNT(*)::int AS n FROM hub_billing_charges WHERE hub_id = $1 AND status = 'pending'`, [req.session.hubId])).rows[0].n;
+    res.locals.hubNav.billing = pending;
+    const mode = (await require('../utils/stripeConfig').getStripeSettings(db).catch(() => ({}))).mode;
+    const needsCard = hubBilling.billingLive(b) && !(b.card_last4 && b.stripe_mode === mode);
+    if (needsCard) {
+      res.locals.hubBillingPrompt = { canAdd: actorCan(req.hubActor, 'billing.manage') };
+      if (req.method === 'GET' && req.path === '/dashboard' && res.locals.hubBillingPrompt.canAdd
+          && !req.session.hubBillingPrompted && !req.session.adminHubView) {
+        req.session.hubBillingPrompted = true;
+        return res.redirect('/hub/billing');
+      }
+    }
+  } catch (_e) { /* billing hints are optional */ }
+  next();
+});
+
 // Only let people through who have the permission.
 const can = (permission) => (req, res, next) => {
   if (actorCan(req.hubActor, permission)) return next();
@@ -118,6 +149,22 @@ router.post('/settings/contacts', can('contacts.manage'), hubController.hubConta
 router.post('/settings/contacts/:contactId(\\d+)', can('contacts.manage'), hubController.hubContactSavePost);
 router.post('/settings/contacts/:contactId(\\d+)/delete', can('contacts.manage'), hubController.hubContactDeletePost);
 router.post('/settings/contacts/:contactId(\\d+)/primary', can('contacts.manage'), hubController.hubContactPrimaryPost);
+
+// Billing. Charges are approved and cards added by the hub itself, never by
+// Managira viewing the hub.
+const hubItself = (req, res, next) => {
+  if (!req.session.adminHubView) return next();
+  const message = 'Only the hub can do this. You are viewing it as Managira.';
+  if (req.get('X-Hub-Ajax') === '1' || req.xhr) return res.status(403).json({ success: false, message });
+  req.flash('error', message);
+  return res.redirect('/hub/billing');
+};
+router.get('/billing', can('billing.view'), hubBillingController.hubBillingGet);
+router.get('/billing/invoices/:invoiceId([A-Za-z0-9_]+)/pdf', can('billing.view'), hubBillingController.invoicePdfGet);
+router.get('/billing/card', can('billing.manage'), hubItself, hubBillingController.hubCardGet);
+router.get('/billing/card/done', can('billing.manage'), hubItself, hubBillingController.hubCardDoneGet);
+router.post('/billing/charges/:chargeId(\\d+)/:decision(approve|decline)', can('billing.manage'), hubItself, hubBillingController.hubChargeDecisionPost);
+router.post('/billing/add-ons/:addonId(\\d+)', can('billing.manage'), hubItself, hubBillingController.hubAddonPost);
 
 // Hub users and roles (shown in Settings › Users & roles)
 router.get('/users', can('users.manage'), (req, res) => res.redirect('/hub/settings?tab=users'));

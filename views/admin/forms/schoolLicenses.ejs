@@ -1,0 +1,15 @@
+<div data-ahd-title="User licenses" data-ahd-sub="<%= org.organization_name %>">
+  <form action="/admin/organizations/<%= org.organization_id %>/licenses" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <p class="ahd-section__sub">How many staff accounts this school can have. It has <strong><%= license.used %></strong> now. Leave empty for no limit.</p>
+      <label class="ahb-field">
+        <span class="ahb-label">User licenses</span>
+        <input type="number" name="maxUsers" min="1" step="1" class="ahb-input" value="<%= org.max_users || '' %>" placeholder="No limit" />
+      </label>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary">Save licenses</button>
+    </div>
+  </form>
+</div>

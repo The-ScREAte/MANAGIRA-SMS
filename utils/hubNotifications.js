@@ -25,7 +25,20 @@ const EVENTS = {
   USER_RESUMED: { perm: 'users.manage', type: 'employee_resumed', title: 'Hub user resumed', link: '/hub/users' },
   USER_UPDATE: { perm: 'users.manage', type: 'class_reassigned', title: 'Hub user access changed', link: '/hub/users' },
   CONTACT_UPDATE: { perm: 'contacts.manage', type: 'class_reassigned', title: 'Contact people updated', link: '/hub/settings#contacts' },
+  SCHOOL_OPENED: { perm: 'schools.view', type: 'class_reassigned', title: 'School opened from the hub', link: '/hub/dashboard#schools' },
   LOGO_UPDATE: { perm: 'settings.manage', type: 'class_reassigned', title: 'Hub logo changed', link: '/hub/settings' },
+  BILLING_CHARGE_REQUESTED: { perm: 'billing.view', type: 'admission_pending', title: 'A charge needs your approval', link: '/hub/billing' },
+  BILLING_CHARGE_APPROVED: { perm: 'billing.view', type: 'admission_approved', title: 'Charge approved', link: '/hub/billing' },
+  BILLING_CHARGE_DECLINED: { perm: 'billing.view', type: 'admission_rejected', title: 'Charge declined', link: '/hub/billing' },
+  BILLING_CHARGE_REMOVED: { perm: 'billing.view', type: 'class_reassigned', title: 'Charge removed', link: '/hub/billing' },
+  BILLING_ADDON_ADDED: { perm: 'billing.view', type: 'task_assigned', title: 'Add-on added to your bill', link: '/hub/billing' },
+  BILLING_EXTRA_ADDED: { perm: 'billing.view', type: 'task_assigned', title: 'Extra place added to your bill', link: '/hub/billing' },
+  BILLING_PAID: { perm: 'billing.view', type: 'admission_approved', title: 'Payment received', link: '/hub/billing' },
+  BILLING_FAILED: { perm: 'billing.view', type: 'admission_rejected', title: 'A payment failed', link: '/hub/billing' },
+  BILLING_CARD_SAVED: { perm: 'billing.view', type: 'class_reassigned', title: 'Billing card saved', link: '/hub/billing' },
+  BILLING_UPDATED: { perm: 'billing.view', type: 'class_reassigned', title: 'Your plan was updated', link: '/hub/billing' },
+  BILLING_HOLD: { perm: 'billing.view', type: 'employee_on_hold', title: 'Hub put on hold', link: '/hub/billing' },
+  BILLING_RESUMED: { perm: 'billing.view', type: 'employee_resumed', title: 'Hub resumed', link: '/hub/billing' },
 };
 
 let ready = null;

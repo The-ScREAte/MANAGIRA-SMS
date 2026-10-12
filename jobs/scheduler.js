@@ -49,6 +49,18 @@ if (shouldRunScheduler) {
       // Silent fail
     }
   });
+  // Hub billing (separate from school subscriptions): scheduled holds, keeping
+  // each hub's Stripe subscription in step with its numbers, invoices, reminders.
+  cron.schedule('7 * * * *', async () => {
+    try {
+      const summary = await require('../utils/hubBilling').runHubBillingSweep(require('../config/db'));
+      if (summary.holds || summary.resumed || summary.reminders || summary.errors) {
+        console.log(`[Hub Billing] holds=${summary.holds} resumed=${summary.resumed} synced=${summary.synced} reminders=${summary.reminders} errors=${summary.errors}`);
+      }
+    } catch (error) {
+      console.error('[Hub Billing] Sweep failed:', error.message);
+    }
+  });
 } else {
   // Scheduler disabled in dev — set ENABLE_BILLING_SCHEDULER=true to enable.
 }

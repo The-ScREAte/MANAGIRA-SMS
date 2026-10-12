@@ -16,6 +16,16 @@
       </div>
     </div>
     <div class="hub-field"><label class="hub-label" for="uTitle">Job title</label><input type="text" id="uTitle" name="jobTitle" value="<%= _u.job_title || '' %>" placeholder="e.g. Schools coordinator" /></div>
+    <label class="hub-switch">
+      <input type="checkbox" name="isContact" value="1" <%= isContact ? 'checked' : '' %> data-contact-toggle />
+      <span class="hub-switch__track" aria-hidden="true"></span>
+      <span><strong>List as a contact person</strong><span>Add them to Contact people with their email and phone.</span></span>
+    </label>
+    <label class="hub-switch" data-contact-share <%= isContact ? '' : 'hidden' %>>
+      <input type="checkbox" name="contactShared" value="1" <%= contactShared ? 'checked' : '' %> />
+      <span class="hub-switch__track" aria-hidden="true"></span>
+      <span><strong>Share with schools</strong><span>Show them on your schools’ Settings page.</span></span>
+    </label>
 
     <p class="hub-drawer-section__title">Role</p>
     <% if (isSelf) { %><div class="hub-alert hub-alert--info"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>You can't change your own role or permissions.</span></div><% } %>

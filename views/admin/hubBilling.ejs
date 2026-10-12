@@ -1,0 +1,322 @@
+<%
+  const _bl = billing || null;
+  const _cur = (_bl && _bl.currency) || 'usd';
+  const _m = (n) => b.money(n, _cur);
+  const _d = (v) => (v ? b.fmtDate(v) : '—');
+  const _per = bill.cycle.per;
+  const _owner = [hub.first_name, hub.last_name].filter(Boolean).join(' ');
+  const _ended = _bl && _bl.ended_at;
+  const _holdLater = _bl && _bl.hold_starts_at;
+  const _meters = b.metersOf(_bl);
+  const _fees = b.integrationFeesOf(_bl);
+  const _chargeStatus = { pending: ['Waiting for approval', 'amber'], approved: ['Approved', 'green'], declined: ['Declined', 'muted'], removed: ['Removed', 'muted'] };
+  const _invStatus = { paid: ['Paid', 'green'], open: ['Not paid', 'rose'], void: ['Voided', 'muted'], uncollectible: ['Not collected', 'rose'] };
+  const _bills = (invoices || []).filter((i) => Number(i.amount_due) > 0 || Number(i.amount_paid) > 0);
+  const _charges = charges.filter((c) => c.status !== 'removed');
+  const _num = (n) => Number(n || 0).toLocaleString('en-US');
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
+
+<div class="ah">
+  <%- include('../partials/flash') %>
+
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin">Admin</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
+    <a href="/admin/hubs">Hubs</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
+    <a href="/admin/hubs/<%= hub.hub_id %>/organizations"><%= hub.hub_name %></a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i>
+    <span>Billing</span>
+  </nav>
+
+  <header class="ah-head">
+    <div>
+      <h1 class="ah-head__title">Billing <span class="ah-bill ah-bill--<%= statusInfo.tone %>"><%= statusInfo.label %></span></h1>
+      <p class="ah-head__sub"><%= hub.hub_name %> · <%= _owner %> · <%= hub.hub_email %></p>
+    </div>
+    <div class="ah-head__actions">
+      <a href="/admin/hubs" class="ah-btn"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> All hubs</a>
+      <a href="/admin/hubs/<%= hub.hub_id %>/organizations" class="ah-btn"><i class="fa-solid fa-school" aria-hidden="true"></i> Schools</a>
+      <a href="/admin/hubs/<%= hub.hub_id %>/edit" class="ah-btn" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit hub</a>
+      <a href="/admin/hubs/<%= hub.hub_id %>/billing/plan" class="ah-btn ah-btn--primary" data-ah-drawer><i class="fa-solid fa-sliders" aria-hidden="true"></i> Edit plan</a>
+      <% if (_bl && _bl.stripe_customer_id) { %>
+        <details class="ah-menu">
+          <summary class="ah-btn ah-btn--icon" aria-label="More"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
+          <div class="ah-menu__list">
+            <form action="/admin/hubs/<%= hub.hub_id %>/billing/sync" method="POST" data-ah-ajax><button type="submit" class="ah-menu__item"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Refresh from Stripe</button></form>
+            <a class="ah-menu__item" href="https://dashboard.stripe.com/<%= _bl.stripe_mode === 'test' ? 'test/' : '' %>customers/<%= _bl.stripe_customer_id %>" target="_blank" rel="noopener" data-no-spa><i class="fa-brands fa-stripe-s" aria-hidden="true"></i> Open in Stripe</a>
+          </div>
+        </details>
+      <% } %>
+    </div>
+  </header>
+
+  <% if (stripeMode === 'test') { %>
+    <div class="ah-alert ah-alert--info"><i class="fa-solid fa-flask" aria-hidden="true"></i><span>Stripe is in <strong>test mode</strong>. Cards and charges here are not real.</span></div>
+  <% } %>
+  <% if (_bl && _bl.last_error) { %>
+    <div class="ah-alert ah-alert--error"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span><strong>Stripe:</strong> <%= _bl.last_error %></span></div>
+  <% } %>
+  <% if (!live && !_ended) { %>
+    <div class="ah-alert ah-alert--warn"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>No price is set, so this hub isn’t billed. <a href="/admin/hubs/<%= hub.hub_id %>/billing/plan" data-ah-drawer>Set up the plan</a></span></div>
+  <% } %>
+  <% if (pending.length) { %>
+    <div class="ah-alert ah-alert--warn"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i><span><%= pending.length %> charge<%= pending.length === 1 ? ' is' : 's are' %> waiting for the hub to approve. <a href="#charges">See charges</a></span></div>
+  <% } %>
+  <% if (manualToAdd.length) { %>
+    <div class="ah-alert ah-alert--warn"><i class="fa-solid fa-plug" aria-hidden="true"></i><span><%= manualToAdd.length %> school integration<%= manualToAdd.length === 1 ? ' has' : 's have' %> a manual fee and no charge yet. <a href="#counted">See schools</a></span></div>
+  <% } %>
+  <% if (_holdLater) { %>
+    <div class="ah-alert ah-alert--warn"><i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i><span>Hold scheduled from <strong><%= _d(_bl.hold_starts_at) %></strong><%= _bl.hold_ends_at ? ` to ${_d(_bl.hold_ends_at)}` : '' %>. Billing pauses that day.</span></div>
+  <% } %>
+
+  <div class="ah-kpis">
+    <div class="ah-kpi ah-kpi--teal"><span class="ah-kpi__icon"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Next charge</div><div class="ah-kpi__value ah-kpi__value--sm"><%= _bl && _bl.next_charge_at && _bl.next_charge_amount != null ? _m(_bl.next_charge_amount) : '—' %></div><div class="ah-kpi__note"><%= _bl && _bl.next_charge_at ? _d(_bl.next_charge_at) : (status === 'awaiting_card' ? (firstCharge ? `First bill ${_d(firstCharge)}, once the card is saved` : 'When the card is saved') : statusInfo.label) %></div></div></div>
+    <div class="ah-kpi ah-kpi--blue"><span class="ah-kpi__icon"><i class="fa-solid fa-calculator" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Each bill now</div><div class="ah-kpi__value ah-kpi__value--sm"><%= _m(bill.total) %></div><div class="ah-kpi__note"><%= bill.cycle.label %><%= discount ? ` · ${discount}` : '' %></div></div></div>
+    <div class="ah-kpi ah-kpi--violet"><span class="ah-kpi__icon"><i class="fa-solid fa-school" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Schools counted</div><div class="ah-kpi__value ah-kpi__value--sm"><%= usage.schools %></div><div class="ah-kpi__note"><%= _num(usage.students) %> students · <%= _num(usage.employees) %> employees · <%= _num(usage.users) %> users</div></div></div>
+    <div class="ah-kpi ah-kpi--<%= hasCard ? 'green' : 'amber' %>"><span class="ah-kpi__icon"><i class="fa-solid fa-credit-card" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Card</div><div class="ah-kpi__value ah-kpi__value--sm"><%= hasCard ? b.methodLabel(_bl) : 'None yet' %></div><div class="ah-kpi__note"><%= hasCard ? (_bl.card_exp_month ? `Expires ${_bl.card_exp_month}/${_bl.card_exp_year}` : 'Saved in Stripe') : (_bl && _bl.setup_link_sent_at ? `Link sent ${_d(_bl.setup_link_sent_at)}` : 'Link not sent yet') %></div></div></div>
+  </div>
+
+  <div class="ah-layout">
+    <div class="ah-layout__main">
+      <section class="ah-card ah-pad" aria-labelledby="planTitle">
+        <div class="ah-card__head">
+          <h2 class="ah-section" id="planTitle">Plan</h2>
+          <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/billing/plan" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit plan</a>
+        </div>
+        <% if (!_bl) { %>
+          <p class="ah-muted">Not set up yet.</p>
+        <% } else { %>
+          <dl class="ah-terms">
+            <dt>Billed</dt><dd><%= bill.cycle.label %></dd>
+            <% b.METER_KEYS.forEach((key) => { const m = _meters[key]; %>
+              <dt><%= b.METERS[key].label %></dt>
+              <dd><% if (m && m.on) { %><%= _m(m.price) %> each, <%= _num(m.included) %> included<% } else { %><span class="ah-off">Off</span><% } %></dd>
+            <% }) %>
+            <dt>Plan fee</dt><dd><%= Number(_bl.base_fee) > 0 ? `${_m(_bl.base_fee)} each bill` : 'Off' %></dd>
+            <dt>Integrations</dt>
+            <dd>
+              <% const _onInts = b.INTEGRATIONS.filter((i) => _fees[i.key] && _fees[i.key].on); %>
+              <% if (_onInts.length) { %>
+                <% _onInts.forEach((i) => { %><span class="ah-pill"><%= i.label %>: <%= _m(_fees[i.key].price) %> per school · <%= _fees[i.key].mode === 'manual' ? 'manual' : 'auto' %></span><% }) %>
+              <% } else { %><span class="ah-off">No fees</span><% } %>
+            </dd>
+            <dt>Schools</dt><dd><%= hub.max_organizations %> included<%= Number(_bl.extra_school_price) > 0 ? `, then ${_m(_bl.extra_school_price)} each` : ', no extras' %></dd>
+            <dt>User licenses</dt><dd><%= hub.max_users ? `${hub.max_users} included` : 'No limit' %><%= hub.max_users && Number(_bl.extra_user_price) > 0 ? `, then ${_m(_bl.extra_user_price)} each` : '' %></dd>
+            <dt>On hold</dt><dd><%= _bl.count_on_hold === false ? 'Schools and staff on hold are not billed' : 'Schools and staff on hold are still billed' %></dd>
+            <dt>Contract</dt><dd><%= b.contractLabel(hub, _bl) %></dd>
+            <% if (_bl.trial_end_date) { %><dt>Free trial</dt><dd>Until <%= _d(b.dayAtNoon(_bl.trial_end_date)) %></dd><% } %>
+            <% if (discount) { %><dt>Discount</dt><dd><%= discount %></dd><% } %>
+            <% if (_bl.billing_email) { %><dt>Billing email</dt><dd><%= _bl.billing_email %></dd><% } %>
+            <% if (_bl.notes) { %><dt>Notes</dt><dd><%= _bl.notes %></dd><% } %>
+          </dl>
+        <% } %>
+      </section>
+
+      <section class="ah-card" id="counted" aria-labelledby="countTitle">
+        <div class="ah-card__bar">
+          <h2 class="ah-card__title" id="countTitle">How it’s counted</h2>
+          <span class="ah-muted"><%= usage.countOnHold ? 'Schools and staff on hold are counted.' : 'Schools and staff on hold are not counted.' %></span>
+        </div>
+        <% if (usage.breakdown.length) { %>
+          <div class="ah-scroll">
+            <table class="ah-table">
+              <thead><tr><th>School</th><th class="ah-num">Students</th><th class="ah-num">Employees</th><th class="ah-num">Users</th><th class="ah-col-ints">Integrations</th></tr></thead>
+              <tbody>
+                <% usage.breakdown.forEach((x) => { %>
+                  <tr class="<%= x.counted ? '' : 'ah-row--muted' %>">
+                    <td><strong><%= x.organization_name %></strong><% if (x.on_hold) { %><span class="ah-sub"><%= x.counted ? 'On hold, still counted' : 'On hold, not counted' %></span><% } %></td>
+                    <td class="ah-num"><%= _num(x.students) %></td>
+                    <td class="ah-num"><%= _num(x.employees) %><% if (x.employees_on_hold) { %><span class="ah-sub"><%= x.employees_on_hold %> on hold</span><% } %></td>
+                    <td class="ah-num"><strong><%= _num(x.billedUsers) %></strong><span class="ah-sub"><%= _num(x.counted ? x.billedEmployees : x.employees) %> staff · <%= _num(x.parent_logins) %> parents · <%= _num(x.student_logins) %> students</span></td>
+                    <td class="ah-col-ints">
+                      <% if (x.integrations.length) { %>
+                        <% x.integrations.forEach((key) => { const f = _fees[key]; const todo = manualToAdd.find((t) => t.key === key && Number(t.organization_id) === Number(x.organization_id)); %>
+                          <span class="ah-pill<%= f && f.on ? ' ah-pill--fee' : '' %><%= todo ? ' ah-pill--todo' : '' %>"><%= b.INTEGRATION_BY_KEY[key].label %><%= f && f.on ? ` · ${_m(f.price)}${f.mode === 'manual' ? ' manual' : ''}` : '' %><% if (todo) { %> <a class="ah-link-sm" href="/admin/hubs/<%= hub.hub_id %>/billing/charges/new?integration=<%= key %>&org=<%= x.organization_id %>" data-ah-drawer>Add charge</a><% } %></span>
+                        <% }) %>
+                      <% } else { %><span class="ah-off">None</span><% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+              <tfoot>
+                <tr><th>Counted (<%= usage.schools %> school<%= usage.schools === 1 ? '' : 's' %>)</th><th class="ah-num"><%= _num(usage.students) %></th><th class="ah-num"><%= _num(usage.employees) %></th><th class="ah-num"><%= _num(usage.users) %></th><th></th></tr>
+              </tfoot>
+            </table>
+          </div>
+          <p class="ah-foot-note">Students: active (not graduated or archived). Employees: staff accounts. Users: everyone who signs in (staff, parent and student logins). Hub sign-ins: <%= usage.hubPeople %><%= usage.seatsIncluded != null ? ` of ${usage.seatsIncluded} licenses` : '' %>.</p>
+        <% } else { %>
+          <div class="ah-empty ah-empty--sm">No schools in this hub yet.</div>
+        <% } %>
+      </section>
+
+      <section class="ah-card" id="charges" aria-labelledby="chargesTitle">
+        <div class="ah-card__bar">
+          <h2 class="ah-card__title" id="chargesTitle">Extra charges</h2>
+          <% if (live) { %><a class="ah-btn ah-btn--sm ah-btn--primary" href="/admin/hubs/<%= hub.hub_id %>/billing/charges/new" data-ah-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Add a charge</a><% } %>
+        </div>
+        <% if (_charges.length) { %>
+          <div class="ah-scroll">
+            <table class="ah-table">
+              <thead><tr><th>Charge</th><th class="ah-num">Price</th><th>How often</th><th>Status</th><th>Who</th><th class="ah-num"></th></tr></thead>
+              <tbody>
+                <% _charges.forEach((c) => { const st = _chargeStatus[c.status] || ['—', 'muted']; %>
+                  <tr>
+                    <td><strong><%= c.name %></strong><% if (c.description) { %><span class="ah-sub"><%= c.description %></span><% } %><% if (unusedCharges.has(c.charge_id)) { %><span class="ah-sub ah-sub--warn">The school no longer uses this</span><% } %></td>
+                    <td class="ah-num"><%= _m(c.unit_price) %><% if (Number(c.quantity) > 1) { %> × <%= c.quantity %><% } %></td>
+                    <td><%= c.frequency === 'once' ? 'One time' : `Each ${_per}` %><% if (c.frequency === 'once' && c.billed_at) { %><span class="ah-sub">On a bill</span><% } %></td>
+                    <td><span class="ah-bill ah-bill--<%= st[1] %>"><%= st[0] %></span></td>
+                    <td><span class="ah-sub" style="margin:0"><%= c.requested_by === 'hub' ? 'Added by the hub' : 'Added by Managira' %><%= c.requested_by_label ? ` (${c.requested_by_label})` : '' %></span><% if (c.decided_at && c.requested_by !== 'hub') { %><span class="ah-sub"><%= c.status === 'approved' ? 'Approved' : 'Declined' %> by <%= c.decided_by_label %>, <%= _d(c.decided_at) %></span><% } %></td>
+                    <td class="ah-actions-cell">
+                      <% if (c.status === 'pending' || c.status === 'approved') { %>
+                        <form action="/admin/hubs/<%= hub.hub_id %>/billing/charges/<%= c.charge_id %>/remove" method="POST" data-ah-ajax data-ah-danger data-ah-ask-ok="Remove" data-ah-ask="Remove <%= c.name %> from <%= hub.hub_name %>’s bill? It stops from the next bill.">
+                          <button type="submit" class="ah-btn ah-btn--sm ah-btn--danger">Remove</button>
+                        </form>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="ah-empty ah-empty--sm">No extra charges. <%= live ? 'Add one when the hub needs something extra; they approve it first.' : '' %></div>
+        <% } %>
+      </section>
+
+      <section class="ah-card" aria-labelledby="billsTitle">
+        <div class="ah-card__bar"><h2 class="ah-card__title" id="billsTitle">Bills</h2></div>
+        <% if (_bills.length) { %>
+          <div class="ah-scroll">
+            <table class="ah-table">
+              <thead><tr><th>Date</th><th>Bill</th><th>Period</th><th class="ah-num">Amount</th><th>Status</th><th class="ah-num"></th></tr></thead>
+              <tbody>
+                <% _bills.forEach((i) => { const st = _invStatus[i.status] || [i.status, 'muted']; %>
+                  <tr>
+                    <td><%= _d(i.issued_at) %></td>
+                    <td><%= i.number || '—' %><% if (i.isTest) { %> <span class="ah-bill ah-bill--muted">Test</span><% } %></td>
+                    <td><span class="ah-sub" style="margin:0"><%= i.period_start ? `${_d(i.period_start)} – ${_d(i.period_end)}` : '—' %></span></td>
+                    <td class="ah-num"><%= b.money(i.status === 'paid' ? i.amount_paid : i.amount_due, i.currency) %></td>
+                    <td><span class="ah-bill ah-bill--<%= st[1] %>"><%= st[0] %></span><% if (i.status === 'open' && i.attempt_count) { %><span class="ah-sub"><%= i.attempt_count %> attempt<%= i.attempt_count === 1 ? '' : 's' %></span><% } %></td>
+                    <td class="ah-actions-cell">
+                      <% if (i.hosted_invoice_url) { %><a class="ah-btn ah-btn--sm" href="<%= i.hosted_invoice_url %>" target="_blank" rel="noopener" data-no-spa>View</a><% } %>
+                      <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/billing/invoices/<%= i.stripe_invoice_id %>/pdf" target="_blank" rel="noopener" data-no-spa><i class="fa-regular fa-file-pdf" aria-hidden="true"></i> Invoice</a>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <div class="ah-empty ah-empty--sm">No bills yet.</div>
+        <% } %>
+      </section>
+    </div>
+
+    <aside class="ah-layout__side">
+      <section class="ah-card ah-pad" aria-labelledby="billTitle">
+        <h2 class="ah-section" id="billTitle">This bill</h2>
+        <% if (bill.lines.length) { %>
+          <ul class="ah-lines">
+            <% bill.lines.forEach((l) => { %>
+              <li><span><%= l.label %><% if (l.quantity > 1) { %> <em>× <%= l.quantity.toLocaleString('en-US') %> at <%= _m(l.unitPrice) %></em><% } %><% if (l.note) { %><small><%= l.note %></small><% } %></span><strong><%= _m(l.amount) %></strong></li>
+            <% }) %>
+            <% if (bill.discount > 0) { %><li class="ah-lines__off"><span>Discount<small><%= discount %></small></span><strong>−<%= _m(bill.discount) %></strong></li><% } %>
+            <li class="ah-lines__total"><span>Total</span><strong><%= _m(bill.total) %></strong></li>
+          </ul>
+          <p class="ahb-hint">With today’s numbers. “Next charge” above is what Stripe will charge.</p>
+        <% } else { %>
+          <p class="ah-muted">Nothing to bill yet.</p>
+        <% } %>
+      </section>
+
+      <section class="ah-card ah-pad" aria-labelledby="payTitle">
+        <h2 class="ah-section" id="payTitle">Payment link</h2>
+        <% if (!live) { %>
+          <p class="ah-muted"><%= _ended ? 'Billing has ended.' : 'Set a price to make the Stripe payment link.' %></p>
+        <% } else { %>
+          <p class="ah-muted">Stripe’s secure page to save the card. The card is charged on the agreed dates and renews automatically.</p>
+          <div class="ah-copy">
+            <input type="text" readonly value="<%= setupUrl %>" aria-label="Payment link" data-ah-copy-src />
+            <button type="button" class="ah-btn ah-btn--sm" data-ah-copy><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
+          </div>
+          <div class="ah-stack">
+            <form action="/admin/hubs/<%= hub.hub_id %>/billing/send-link" method="POST" data-ah-ajax>
+              <button type="submit" class="ah-btn ah-btn--primary ah-btn--block"><i class="fa-solid fa-envelope" aria-hidden="true"></i> <%= hasCard ? 'Email the link (to change card)' : (_bl.setup_link_sent_at ? 'Email the link again' : 'Email the link') %></button>
+            </form>
+            <form action="/admin/hubs/<%= hub.hub_id %>/billing/new-link" method="POST" data-ah-ajax data-ah-ask="Make a new link? The old link stops working." data-ah-ask-ok="Make new link">
+              <button type="submit" class="ah-btn ah-btn--sm ah-btn--block">Make a new link</button>
+            </form>
+          </div>
+          <p class="ahb-hint">Goes to <%= hub.hub_email %><%= _bl.billing_email ? `, ${_bl.billing_email}` : '' %> and billing people.<% if (_bl.setup_link_sent_at) { %> Last sent <%= _d(_bl.setup_link_sent_at) %>.<% } %></p>
+        <% } %>
+      </section>
+
+      <section class="ah-card ah-pad" aria-labelledby="holdTitle">
+        <h2 class="ah-section" id="holdTitle">Hold</h2>
+        <% if (hub.on_hold) { %>
+          <p class="ah-muted">On hold<%= _bl && _bl.hold_ends_at ? ` until ${_d(_bl.hold_ends_at)}` : '' %>. Nobody in the hub can sign in and no bills are charged.</p>
+          <form action="/admin/hubs/<%= hub.hub_id %>/billing/resume" method="POST" data-ah-ajax data-ah-ask="Resume <%= hub.hub_name %> now? People can sign in again and billing continues." data-ah-ask-ok="Resume">
+            <button type="submit" class="ah-btn ah-btn--primary ah-btn--block"><i class="fa-solid fa-play" aria-hidden="true"></i> Resume now</button>
+          </form>
+        <% } else { %>
+          <p class="ah-muted"><%= _holdLater ? `Starts ${_d(_bl.hold_starts_at)}${_bl.hold_ends_at ? `, resumes ${_d(_bl.hold_ends_at)}` : ''}.` : 'Pause the hub now or on a date. No bills while on hold.' %></p>
+          <div class="ah-stack">
+            <a class="ah-btn ah-btn--block" href="/admin/hubs/<%= hub.hub_id %>/billing/hold" data-ah-drawer><i class="fa-solid fa-pause" aria-hidden="true"></i> <%= _holdLater ? 'Change the hold' : 'Put on hold…' %></a>
+            <% if (_holdLater) { %>
+              <form action="/admin/hubs/<%= hub.hub_id %>/billing/cancel-hold" method="POST" data-ah-ajax>
+                <button type="submit" class="ah-btn ah-btn--sm ah-btn--block">Cancel the scheduled hold</button>
+              </form>
+            <% } %>
+          </div>
+        <% } %>
+      </section>
+
+      <section class="ah-card ah-pad" id="people" aria-labelledby="peopleTitle">
+        <div class="ah-card__head">
+          <h2 class="ah-section" id="peopleTitle">People with access</h2>
+          <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/people/new" data-ah-drawer><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Add</a>
+        </div>
+        <ul class="ah-people">
+          <li><span class="ah-avatar ah-avatar--sm"><%= (hub.first_name || 'O').charAt(0) %></span><span><strong><%= _owner %></strong><small><%= hub.hub_email %> · Owner<%= hub.has_password ? '' : ' · password not set' %></small></span></li>
+          <% people.forEach((p) => { const billingOk = p.role === 'hub_admin' || (p.permissions || []).includes('billing.view'); %>
+            <li>
+              <span class="ah-avatar ah-avatar--sm"><%= (p.first_name || '?').charAt(0) %></span>
+              <span><strong><%= p.first_name %> <%= p.last_name %></strong><small><%= p.email %> · <%= p.role === 'hub_admin' ? 'Hub admin' : (billingOk ? 'Billing' : 'Hub user') %><%= p.has_password ? '' : ' · invited' %><%= p.on_hold ? ' · on hold' : '' %></small></span>
+              <% if (!p.has_password) { %>
+                <form action="/admin/hubs/<%= hub.hub_id %>/people/<%= p.hub_user_id %>/invite" method="POST" data-ah-ajax><button type="submit" class="ah-btn ah-btn--sm" title="Email the invitation again">Resend</button></form>
+              <% } %>
+            </li>
+          <% }) %>
+        </ul>
+        <p class="ahb-hint"><%= license.max == null ? 'No user limit.' : `${license.used} of ${license.max} user licenses used.` %></p>
+      </section>
+
+      <section class="ah-card ah-pad" aria-labelledby="endTitle">
+        <h2 class="ah-section" id="endTitle"><%= _ended ? 'Billing ended' : 'End billing' %></h2>
+        <% if (_ended) { %>
+          <p class="ah-muted">Ended <%= _d(_bl.ended_at) %>. The card is not charged.</p>
+          <form action="/admin/hubs/<%= hub.hub_id %>/billing/restart" method="POST" data-ah-ajax data-ah-ask="Start billing <%= hub.hub_name %> again with this plan?" data-ah-ask-ok="Start billing">
+            <button type="submit" class="ah-btn ah-btn--block"><i class="fa-solid fa-play" aria-hidden="true"></i> Start billing again</button>
+          </form>
+        <% } else if (_bl && _bl.stripe_subscription_id) { %>
+          <p class="ah-muted">Stops charging the card. The hub itself stays open.</p>
+          <a class="ah-btn ah-btn--danger ah-btn--block" href="/admin/hubs/<%= hub.hub_id %>/billing/end" data-ah-drawer>End billing…</a>
+        <% } else { %>
+          <p class="ah-muted">Nothing to end yet.</p>
+        <% } %>
+      </section>
+
+      <% if (activity.length) { %>
+        <section class="ah-card ah-pad" aria-labelledby="logTitle">
+          <h2 class="ah-section" id="logTitle">Billing history</h2>
+          <ul class="ah-log">
+            <% activity.forEach((a) => { %>
+              <li><span><%= a.description %></span><small><%= _d(a.created_at) %> · <%= a.performed_by || 'Managira' %></small></li>
+            <% }) %>
+          </ul>
+        </section>
+      <% } %>
+    </aside>
+  </div>
+
+  <%- include('partials/hubAdminDialogs') %>
+</div>

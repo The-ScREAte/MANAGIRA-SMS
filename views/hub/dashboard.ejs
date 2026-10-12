@@ -22,7 +22,7 @@
 <div class="hub-shell<%= _pdf ? ' hub-shell--pdf' : '' %>">
   <% if (!_pdf) { %><%- include('partials/sidebar', { hubCurrent: 'overview' }) %><% } %>
 
-  <div class="hub-main" data-hub-dashboard data-pdf="<%= _pdf ? '1' : '' %>" data-can-export="<%= _can('reports.export') ? '1' : '' %>" data-can-schools="<%= _can('schools.view') ? '1' : '' %>" data-can-open="<%= _can('schools.access') ? '1' : '' %>">
+  <div class="hub-main" data-refreshable data-hub-dashboard data-pdf="<%= _pdf ? '1' : '' %>" data-can-export="<%= _can('reports.export') ? '1' : '' %>" data-can-schools="<%= _can('schools.view') ? '1' : '' %>" data-can-open="<%= _can('schools.access') ? '1' : '' %>">
     <%- include('../partials/flash') %>
 
     <!-- Overview -->
@@ -74,6 +74,7 @@
             <div class="hub-alert hub-alert--ok" data-attention-clear<%= (_requests.length && _can('requests.manage')) || (_invites.length && _can('invitations.manage')) || (_onHold && _can('schools.view')) ? ' hidden' : '' %>><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>All clear. Nothing needs your attention.</span></div>
           </div>
         </div>
+        <% if (_can('schools.view')) { %>
         <div class="hub-card">
           <div class="hub-card__head"><h2 class="hub-card__title">Recent activity</h2></div>
           <% if (!_activity.length) { %>
@@ -86,6 +87,7 @@
             </ul>
           <% } %>
         </div>
+        <% } %>
       </div>
 
       <% if (_can('reports.view')) { %>
@@ -109,7 +111,7 @@
       <section class="hub-view" data-view="<%= key %>" aria-label="<%= title %>">
         <header class="hub-hero">
           <div>
-            <p class="hub-hero__eyebrow">Reports</p>
+            <p class="hub-hero__eyebrow"><%= _pdf ? `${_hub.hub_name || 'Hub'} · ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}` : 'Reports' %></p>
             <h1 class="hub-hero__title"><%= title %></h1>
             <p class="hub-hero__sub"><%= sub %> <span data-report-stamp></span></p>
           </div>
@@ -212,11 +214,11 @@
                 <p class="hub-item__meta"><%= inv.contact_person_name %> · <%= inv.contact_person_email %><br />Sent <%= _date(inv.created_at) %> · Expires <%= _date(inv.expires_at) %></p>
               </div>
               <div class="hub-actions">
-                <form action="/hub/organizations/resend-invite" method="POST">
+                <form action="/hub/organizations/resend-invite" method="POST" data-ajax>
                   <input type="hidden" name="invitationId" value="<%= inv.invitation_id %>" />
                   <button type="submit" class="hub-btn hub-btn--sm"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Resend</button>
                 </form>
-                <form action="/hub/organizations/cancel-invitation" method="POST" data-confirm="Cancel the invitation to <%= inv.organization_name %>?">
+                <form action="/hub/organizations/cancel-invitation" method="POST" data-ajax data-confirm="Cancel the invitation to <%= inv.organization_name %>?">
                   <input type="hidden" name="invitationId" value="<%= inv.invitation_id %>" />
                   <button type="submit" class="hub-btn hub-btn--danger hub-btn--sm">Cancel invitation</button>
                 </form>
@@ -250,7 +252,7 @@
                 <% if (r.reason) { %><p class="hub-item__quote"><%= r.reason %></p><% } %>
               </div>
               <div class="hub-actions">
-                <form action="/hub/detachment-requests/approve" method="POST" data-confirm="Approve the request from <%= r.organization_name %>? They will become independent and need their own subscription. This can't be undone.">
+                <form action="/hub/detachment-requests/approve" method="POST" data-ajax data-confirm="Approve the request from <%= r.organization_name %>? They will become independent and need their own subscription. This can't be undone.">
                   <input type="hidden" name="requestId" value="<%= r.request_id %>" />
                   <button type="submit" class="hub-btn hub-btn--success hub-btn--sm"><i class="fa-solid fa-check" aria-hidden="true"></i> Approve</button>
                 </form>
@@ -265,7 +267,7 @@
   </div>
 
   <dialog class="hub-dialog" data-reject-dialog>
-    <form action="/hub/detachment-requests/reject" method="POST">
+    <form action="/hub/detachment-requests/reject" method="POST" data-ajax>
       <div class="hub-dialog__body">
         <h2>Reject leave request</h2>
         <p>You're rejecting the request from <strong data-reject-name-label></strong>. Your note is sent to the school.</p>

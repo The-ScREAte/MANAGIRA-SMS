@@ -9526,6 +9526,17 @@ const commonController = {
       return res.redirect(createEmployeeRedirectUrl);
     }
 
+    // User licenses set by Managira (or the school's hub plan): no new accounts once they are all used.
+    try {
+      const license = await require("../utils/licenses").orgLicense(db, organizationId);
+      if (license.full) {
+        req.flash("error", `Your school has used all ${license.max} user licenses. Contact Managira to add more.`);
+        return res.redirect(createEmployeeRedirectUrl);
+      }
+    } catch (licenseError) {
+      console.error("[createEmployeePost] license check", licenseError.message);
+    }
+
     const requestorRoleName = String(requestorRole || "").trim();
     const canAssignSensitivePermissions =
       isManagerLikeRole(requestorRole) || requestorRoleName === "Manager";

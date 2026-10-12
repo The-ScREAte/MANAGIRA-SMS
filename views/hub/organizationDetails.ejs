@@ -30,6 +30,7 @@
           <% if (_org.nickname) { %><span><i class="fa-solid fa-globe" aria-hidden="true"></i> <%= _org.nickname %>.<%= _hubNick %>.managira.com</span><% } %>
           <% if (_org.email) { %><span><i class="fa-regular fa-envelope" aria-hidden="true"></i> <%= _org.email %></span><% } %>
           <% if (_contact) { %><span><i class="fa-regular fa-user" aria-hidden="true"></i> <%= _contact %></span><% } %>
+          <% if (_org.hub_contact_name) { %><span><i class="fa-solid fa-headset" aria-hidden="true"></i> Hub contact: <%= _org.hub_contact_name %></span><% } %>
           <% if (_org.joined_hub_at) { %><span><i class="fa-regular fa-calendar" aria-hidden="true"></i> Joined <%= _date(_org.joined_hub_at) %></span><% } %>
         </div>
       </div>
