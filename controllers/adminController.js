@@ -11,6 +11,7 @@ const he = require("he");
 const cacheManager = require("../utils/cacheManager");
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const { pingSearchEngines } = require("../utils/sitemapPing");
+const { activeStudentSql } = require("../utils/activeStudents");
 const {
   getCurrencyProfileForRequest,
   localizeUsdAmount,
@@ -2082,7 +2083,7 @@ const adminController = {
   // dashboard (Admin, Mini Admin, Internal Worker — everyone but super_admin).
   orgSwitchConfirmGet: (req, res) => {
     const redirectUrl = String(req.query.redirect || "/admin");
-    if (!/^\/admin\/org\/\d+(\?.*)?$/.test(redirectUrl)) {
+    if (!/^\/admin\/(org|hub)\/\d+(\?.*)?$/.test(redirectUrl)) {
       req.flash("error", "Invalid request.");
       return res.redirect("/admin");
     }
@@ -2096,7 +2097,7 @@ const adminController = {
 
   orgSwitchConfirmPost: async (req, res) => {
     const { password, redirectUrl } = req.body;
-    const safeRedirectUrl = /^\/admin\/org\/\d+(\?.*)?$/.test(String(redirectUrl || "")) ? redirectUrl : "/admin";
+    const safeRedirectUrl = /^\/admin\/(org|hub)\/\d+(\?.*)?$/.test(String(redirectUrl || "")) ? redirectUrl : "/admin";
     const userId = req.session.userId;
 
     try {
@@ -2106,6 +2107,13 @@ const adminController = {
       if (!match) {
         req.flash("error", "Incorrect password. Please try again.");
         return res.redirect(`/admin/confirm-password?redirect=${encodeURIComponent(safeRedirectUrl)}`);
+      }
+
+      const hubId = parseInt(safeRedirectUrl.match(/\/admin\/hub\/(\d+)/)?.[1], 10);
+      if (Number.isInteger(hubId)) {
+        const verifiedHubs = new Set(req.session.hubSwitchVerifiedIds || []);
+        verifiedHubs.add(hubId);
+        req.session.hubSwitchVerifiedIds = Array.from(verifiedHubs);
       }
 
       const organizationId = parseInt(safeRedirectUrl.match(/\/admin\/org\/(\d+)/)?.[1], 10);
@@ -6371,8 +6379,8 @@ async function sendPasswordSetSuccessEmail(email, firstName, lastName) {
 adminController.hubsListGet = async (req, res) => {
   try {
     const hubsResult = await db.query(`
-      SELECT h.*, p.plan_name, p.total_cost,
-             (SELECT COUNT(*) FROM organizations WHERE hub_id = h.hub_id AND deleted = false AND is_hub_member = true) as org_count
+      SELECT h.*, (h.hub_password IS NOT NULL) AS has_password, p.plan_name, p.total_cost,
+             (SELECT COUNT(*)::int FROM organizations WHERE hub_id = h.hub_id AND deleted = false AND is_hub_member = true) as org_count
       FROM managira_hubs h
       LEFT JOIN plans p ON h.plan_id = p.id
       WHERE h.deleted = false
@@ -6381,9 +6389,9 @@ adminController.hubsListGet = async (req, res) => {
 
     res.render('admin/hubs', {
       title: 'Manage Hubs',
-      hubs: hubsResult.rows,
+      hubs: hubsResult.rows.map(({ hub_password, reset_password_token, ...hub }) => hub),
       messages: req.flash(),
-      showFooterTopSection: true
+      showFooterTopSection: false
     });
   } catch (error) {
         req.flash('error', 'Error loading hubs.');
@@ -6907,25 +6915,200 @@ adminController.hubOrganizationsGet = async (req, res) => {
     }
 
     const orgsResult = await db.query(
-      `SELECT o.*,
-              (SELECT COUNT(*) FROM students WHERE organization_id = o.organization_id) as student_count,
-              (SELECT COUNT(*) FROM users WHERE organization_id = o.organization_id) as teacher_count,
-              (SELECT COUNT(*) FROM classes WHERE organization_id = o.organization_id) as class_count
+      `SELECT o.organization_id, o.organization_name, o.nickname, o.email, o.first_name, o.last_name,
+              o.on_hold, o.joined_hub_at, o.created_at,
+              (SELECT COUNT(*)::int FROM students st WHERE st.organization_id = o.organization_id AND ${activeStudentSql('st')}) as student_count,
+              (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id
+                  AND LOWER(COALESCE(u.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')) as teacher_count,
+              (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id) as class_count
        FROM organizations o
        WHERE o.hub_id = $1 AND o.deleted = false AND o.is_hub_member = true
        ORDER BY o.organization_name ASC`,
       [hubId]
     );
 
+    const { hub_password, reset_password_token, ...hub } = hubResult.rows[0];
     res.render('admin/hubOrganizations', {
       title: 'Hub Organizations',
-      hub: hubResult.rows[0],
+      hub,
       organizations: orgsResult.rows,
       messages: req.flash(),
-      showFooterTopSection: true
+      showFooterTopSection: false
     });
   } catch (error) {
         req.flash('error', 'Error loading organizations.');
+    res.redirect('/admin/hubs');
+  }
+};
+
+// Open a hub as its owner sees it (same idea as /admin/org/:id for schools).
+// The admin's own session values are kept aside and put back by restoreAdminFromHubView.
+adminController.hubEnterGet = async (req, res) => {
+  const hubId = parseInt(req.params.hubId, 10);
+  if (!Number.isInteger(hubId)) {
+    req.flash('error', 'Invalid hub.');
+    return res.redirect('/admin/hubs');
+  }
+
+  try {
+    const { rows } = await db.query(
+      `SELECT hub_id, hub_name, hub_email, first_name, last_name, deleted, on_hold
+         FROM managira_hubs WHERE hub_id = $1`,
+      [hubId]
+    );
+    const hub = rows[0];
+    if (!hub || hub.deleted) {
+      req.flash('error', 'Hub not found.');
+      return res.redirect('/admin/hubs');
+    }
+    if (hub.on_hold) {
+      req.flash('error', `${hub.hub_name} is on hold. Resume it first to open it.`);
+      return res.redirect('/admin/hubs');
+    }
+
+    // Leave any school view first so the two never mix.
+    if (req.session.superAdminOrgSwitch) {
+      if (req.session.originalAdminUserId) {
+        req.session.userId = req.session.originalAdminUserId;
+        req.session.accountType = req.session.originalAccountType;
+      }
+      ['originalAdminUserId', 'originalAccountType', 'organizationId', 'userRole', 'superAdminOrgSwitch',
+        'organizationName', 'logo', 'themeColor', 'fontStyle', 'orgNickName', 'orgNickNameDisplay'
+      ].forEach((key) => { delete req.session[key]; });
+    }
+
+    if (!req.session.adminHubView) {
+      req.session.adminHubSaved = {
+        accountType: req.session.accountType,
+        firstName: req.session.firstName,
+        lastName: req.session.lastName,
+        organizationName: req.session.organizationName,
+        orgNickName: req.session.orgNickName,
+        orgNickNameDisplay: req.session.orgNickNameDisplay,
+        logo: req.session.logo,
+      };
+    }
+    req.session.adminHubView = true;
+    delete req.session.hubUserId;
+    req.session.hubId = hub.hub_id;
+    req.session.accountType = 'Hub';
+    req.session.hubName = hub.hub_name;
+    req.session.hubEmail = hub.hub_email;
+    req.session.firstName = hub.first_name;
+    req.session.lastName = hub.last_name;
+
+    req.session.save((err) => {
+      if (err) {
+        req.flash('error', 'Could not open the hub. Please try again.');
+        return res.redirect('/admin/hubs');
+      }
+      return res.redirect('/hub/dashboard');
+    });
+  } catch (error) {
+    console.error('[hubEnterGet]', error.message);
+    req.flash('error', 'Could not open the hub.');
+    res.redirect('/admin/hubs');
+  }
+};
+
+adminController.restoreAdminFromHubView = (req) => {
+  if (!req.session || !req.session.adminHubView) return false;
+  const saved = req.session.adminHubSaved || {};
+  ['accountType', 'firstName', 'lastName', 'organizationName', 'orgNickName', 'orgNickNameDisplay', 'logo'].forEach((key) => {
+    if (saved[key] === undefined) delete req.session[key];
+    else req.session[key] = saved[key];
+  });
+  ['adminHubView', 'adminHubSaved', 'hubId', 'hubUserId', 'hubName', 'hubEmail'].forEach((key) => { delete req.session[key]; });
+  return true;
+};
+
+const loadHubForPassword = async (req, res) => {
+  const hubId = parseInt(req.params.hubId, 10);
+  const { rows } = Number.isInteger(hubId)
+    ? await db.query('SELECT hub_id, hub_name, hub_email, first_name, deleted FROM managira_hubs WHERE hub_id = $1', [hubId])
+    : { rows: [] };
+  if (!rows[0] || rows[0].deleted) {
+    req.flash('error', 'Hub not found.');
+    res.redirect('/admin/hubs');
+    return null;
+  }
+  return rows[0];
+};
+
+// Email the hub owner a link to choose a new password (uses /account/reset-password).
+adminController.hubSendResetPost = async (req, res) => {
+  try {
+    const hub = await loadHubForPassword(req, res);
+    if (!hub) return;
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    await db.query(
+      `UPDATE managira_hubs SET reset_password_token = $1, reset_password_expires = $2, updated_at = NOW() WHERE hub_id = $3`,
+      [hashedToken, new Date(Date.now() + 24 * 60 * 60 * 1000), hub.hub_id]
+    );
+
+    const baseUrl = String(res.locals.BASE_URL || process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'https://managira.com').replace(/\/$/, '');
+    const resetLink = `${baseUrl}/account/reset-password?token=${token}`;
+    sendEmailInBackground({
+      from: process.env.NOTIFY_EMAIL_USER,
+      to: hub.hub_email,
+      subject: 'Set a new password for your Managira hub',
+      html: renderCleanEmail({
+        title: 'Set a new password',
+        greeting: `Hello ${hub.first_name || ''}`.trim() + ',',
+        paragraphs: [
+          `Managira support has sent you a link to set a new password for ${he.encode(hub.hub_name || 'your hub')}.`,
+          'Click the button below to choose your new password. The link works for 24 hours.',
+          'Once it is set, sign in at the hub login page with your email and the new password.',
+        ],
+        cta: { text: 'Set new password', url: resetLink },
+      }),
+    }, 'Hub Password Reset (admin)');
+
+    await db.query(
+      `INSERT INTO hub_activity_logs (hub_id, action_type, description, performed_by, ip_address) VALUES ($1, $2, $3, $4, $5)`,
+      [hub.hub_id, 'PASSWORD_RESET_SENT', 'Managira support sent a password reset link', 'Managira support', req.ip]
+    ).catch(() => {});
+
+    req.flash('success', `Reset link sent to ${hub.hub_email}. It works for 24 hours.`);
+    res.redirect('/admin/hubs');
+  } catch (error) {
+    console.error('[hubSendResetPost]', error.message);
+    req.flash('error', 'Could not send the reset link. Please try again.');
+    res.redirect('/admin/hubs');
+  }
+};
+
+// Set a new password for the hub owner directly.
+adminController.hubSetPasswordPost = async (req, res) => {
+  try {
+    const hub = await loadHubForPassword(req, res);
+    if (!hub) return;
+
+    const password = String(req.body.newPassword || '');
+    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      req.flash('error', 'Use at least 8 characters with letters and numbers.');
+      return res.redirect('/admin/hubs');
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    await db.query(
+      `UPDATE managira_hubs
+          SET hub_password = $1, reset_password_token = NULL, reset_password_expires = NULL, updated_at = NOW()
+        WHERE hub_id = $2`,
+      [hashed, hub.hub_id]
+    );
+    await db.query(
+      `INSERT INTO hub_activity_logs (hub_id, action_type, description, performed_by, ip_address) VALUES ($1, $2, $3, $4, $5)`,
+      [hub.hub_id, 'PASSWORD_SET_BY_ADMIN', 'Managira support set a new password', 'Managira support', req.ip]
+    ).catch(() => {});
+
+    req.flash('success', `New password saved for ${hub.hub_name}. They can sign in at /hub/login with ${hub.hub_email}.`);
+    res.redirect('/admin/hubs');
+  } catch (error) {
+    console.error('[hubSetPasswordPost]', error.message);
+    req.flash('error', 'Could not save the new password.');
     res.redirect('/admin/hubs');
   }
 };

@@ -1,283 +1,232 @@
-<link rel="stylesheet" href="/css/style.css">
-<style>
-  :root {
-    --primary: #01535b;
-    --primary-hover: #014a51;
-        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
-    --text-primary: #111827;
-    --text-secondary: #6b7280;
-    --border: #e5e7eb;
-    --bg: #f9fafb;
-  }
+<%
+  const _hub = hub || {};
+  const _me = (typeof me !== 'undefined' && me) || {};
+  const _logo = _hub.logo_path && String(_hub.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(_hub.logo_path) ? _hub.logo_path : '';
+  const _prefs = (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs)) ? notificationPrefs : [];
+  const _saved = (typeof savedNotificationPrefs !== 'undefined' && savedNotificationPrefs) || {};
+  const _contacts = (typeof contacts !== 'undefined' && Array.isArray(contacts)) ? contacts : [];
+  const _users = (typeof users !== 'undefined' && Array.isArray(users)) ? users : [];
+  const _can = (p) => (typeof hubCan === 'function' ? hubCan(p) : true);
+  const _nav = (typeof hubNav !== 'undefined' && hubNav) || {};
+  const _initials = (a, b) => `${(a || '').charAt(0)}${(b || '').charAt(0)}`.toUpperCase() || '?';
+  const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Never';
+  const _labels = {};
+  (permissionGroups || []).forEach((g) => g.items.forEach((i) => { _labels[i.key] = i.label; }));
+  const _tabNames = { general: ['General', 'fa-sliders'], contacts: ['Contact people', 'fa-address-book'], users: ['Users & roles', 'fa-user-shield'], emails: ['Emails', 'fa-envelope'] };
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/hub.css') %>" />
 
-  body { background: var(--bg); font-family: "Inter", -apple-system, sans-serif; }
+<div class="hub-shell">
+  <%- include('partials/sidebar', { hubCurrent: activeTab === 'users' ? 'users' : 'settings' }) %>
 
-  .hub-container { max-width: 1200px; margin: 0 auto; padding: 120px 60px 60px 60px; box-sizing: border-box; }
+  <div class="hub-main" data-settings>
+    <%- include('../partials/flash') %>
 
-  @media (max-width: 768px) {
-    .hub-container { padding: 100px 20px 40px 20px; }
-    .settings-card { padding: 18px; }
-    .settings-card h2 { font-size: 1.05rem; }
-    .info-box { font-size: 0.85rem; padding: 12px 14px; }
-    .logo-preview { width: 90px; height: 90px; }
-    .logo-placeholder { width: 90px; height: 90px; font-size: 0.75rem; }
-  }
+    <header class="hub-hero">
+      <div>
+        <p class="hub-hero__eyebrow">Account</p>
+        <h1 class="hub-hero__title">Settings</h1>
+        <p class="hub-hero__sub">You, your hub, the people schools can contact, and who can sign in.</p>
+      </div>
+    </header>
 
-  @media (max-width: 480px) {
-    .hub-container { padding: 80px 14px 32px 14px; }
-    .settings-card { padding: 14px; border-radius: 8px; }
-    .settings-card h2 { font-size: 1rem; margin-bottom: 12px; padding-bottom: 10px; }
-    .form-label { font-size: 0.82rem; }
-    .form-input { padding: 10px 12px; font-size: 16px; border-radius: 6px; }
-    .btn-primary { padding: 10px 18px; font-size: 0.9rem; }
-    .info-box { font-size: 0.82rem; padding: 10px 12px; line-height: 1.7; }
-    .logo-preview { width: 80px; height: 80px; }
-    .logo-placeholder { width: 80px; height: 80px; }
-  }
+    <div class="hub-tabs" role="tablist" data-settings-tabs>
+      <% tabs.forEach((t) => { %>
+        <a class="hub-tab<%= activeTab === t ? ' is-active' : '' %>" role="tab" href="/hub/settings?tab=<%= t %>" data-settings-tab="<%= t %>" aria-selected="<%= activeTab === t ? 'true' : 'false' %>"><i class="fa-solid <%= _tabNames[t][1] %>" aria-hidden="true"></i> <%= _tabNames[t][0] %><% if (t === 'contacts' && _contacts.length) { %> <span class="hub-count"><%= _contacts.length %></span><% } %><% if (t === 'users') { %> <span class="hub-count"><%= _users.length + 1 %></span><% } %></a>
+      <% }) %>
+    </div>
 
-  .hub-header {
-    background: var(--primary);
-    color: white;
-    padding: 28px 32px;
-    border-radius: 12px;
-    margin-bottom: 24px;
-  }
-
-  .hub-header h1 { font-size: 1.5rem; margin-bottom: 4px; font-weight: 700; }
-  .hub-header p { opacity: 0.85; font-size: 0.9rem; }
-
-  .hub-nav { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
-
-  .hub-nav a {
-    padding: 8px 18px;
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    text-decoration: none;
-    color: var(--text-primary);
-    font-weight: 600;
-    font-size: 0.9rem;
-    transition: all 0.15s;
-  }
-
-  .hub-nav a:hover, .hub-nav a.active {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-  }
-
-  .settings-card {
-    background: white;
-    border-radius: 10px;
-    padding: 24px;
-    margin-bottom: 20px;
-    border: 1px solid var(--border);
-  }
-
-  .settings-card h2 {
-    font-size: 1.15rem;
-    margin-bottom: 16px;
-    color: var(--text-primary);
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .form-group { margin-bottom: 16px; }
-
-  .form-label {
-    display: block;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 6px;
-    font-size: 0.85rem;
-  }
-
-  .form-input {
-    width: 100%;
-    padding: 10px 14px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 0.95rem;
-    font-family: inherit;
-  }
-
-  .form-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(1, 83, 91, 0.06);
-  }
-
-  .btn-primary {
-    padding: 12px 24px;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-    font-family: inherit;
-  }
-
-  .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
-
-  .info-box {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    padding: 14px 16px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    line-height: 1.8;
-  }
-
-  .info-box strong { color: var(--primary); }
-
-  .logo-preview {
-    width: 120px;
-    height: 120px;
-    border-radius: 8px;
-    object-fit: contain;
-    border: 2px solid var(--border);
-    padding: 8px;
-    background: white;
-    margin-bottom: 12px;
-  }
-
-  .logo-upload-group {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .logo-placeholder {
-    width: 120px;
-    height: 120px;
-    border-radius: 8px;
-    border: 2px dashed var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg);
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    text-align: center;
-    padding: 12px;
-    margin-bottom: 12px;
-  }
-</style>
-
-<div class="hub-container">
-    <div class="settings-card">
-      <h2>Hub Logo</h2>
-      <form action="/hub/settings/logo" method="POST" enctype="multipart/form-data" class="logo-upload-group">
-        <% 
-          const hasValidLogo = hub.logo_path && 
-                               hub.logo_path.trim() !== '' && 
-                               !hub.logo_path.endsWith('/hub-logos') &&
-                               !hub.logo_path.endsWith('/images/hub-logos');
-        %>
-        <% if (hasValidLogo) { %>
-          <img src="<%= hub.logo_path %>" alt="Hub Logo" class="logo-preview" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-          <div class="logo-placeholder" style="display: none;">
-            Logo failed to load
+    <!-- General -->
+    <section class="hub-pane" data-settings-pane="general" <%= activeTab === 'general' ? '' : 'hidden' %>>
+      <div class="hub-grid">
+        <div class="hub-card">
+          <div class="hub-card__head">
+            <h2 class="hub-card__title">Your profile</h2>
+            <a class="hub-btn hub-btn--sm" href="/hub/settings/profile" data-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
           </div>
+          <div class="hub-who">
+            <span class="hub-who__avatar"><%= _initials(_me.first_name, _me.last_name) %></span>
+            <div style="min-width:0">
+              <div class="hub-who__name"><%= _me.first_name %> <%= _me.last_name %></div>
+              <div class="hub-who__meta"><%= _me.email %></div>
+            </div>
+          </div>
+          <dl class="hub-info hub-info--compact">
+            <dt>Role</dt><dd><span class="hub-tag hub-tag--violet"><%= roleLabel %></span></dd>
+            <% if (!_me.isOwner) { %>
+              <dt>Job title</dt><dd><%= _me.job_title || '—' %></dd>
+              <dt>Phone</dt><dd><%= _me.phone || '—' %></dd>
+            <% } %>
+            <dt>Password</dt><dd class="hub-muted">Use “Forgot password” on the sign-in page to change it.</dd>
+          </dl>
+        </div>
+
+        <div class="hub-card">
+          <div class="hub-card__head">
+            <h2 class="hub-card__title">Hub details</h2>
+            <% if (_can('settings.manage')) { %><a class="hub-btn hub-btn--sm" href="/hub/settings/hub" data-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a><% } %>
+          </div>
+          <div class="hub-who">
+            <span class="hub-who__avatar hub-who__avatar--logo hub-who__avatar--lg"><% if (_logo) { %><img src="<%= _logo %>" alt="" onerror="this.remove()" /><% } else { %><%= (_hub.hub_name || 'H').charAt(0).toUpperCase() %><% } %></span>
+            <div style="min-width:0">
+              <div class="hub-who__name"><%= _hub.hub_name %></div>
+              <div class="hub-who__meta"><%= _hub.hub_nickname %>.managira.com</div>
+            </div>
+          </div>
+          <dl class="hub-info hub-info--compact">
+            <dt>Owner</dt><dd><%= [_hub.first_name, _hub.last_name].filter(Boolean).join(' ') %> · <%= _hub.hub_email %></dd>
+            <dt>Phone</dt><dd><%= _hub.hub_phone || '—' %></dd>
+            <dt>Address</dt><dd><%= _hub.hub_address || '—' %></dd>
+            <dt>Plan</dt><dd><%= _hub.plan_name || 'No plan assigned' %></dd>
+            <dt>Schools</dt><dd><%= _nav.schools || 0 %> of <%= _hub.max_organizations || '—' %> places used</dd>
+            <dt>Logo</dt><dd><%= _logo ? 'Uploaded' : 'Not uploaded yet' %></dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact people -->
+    <section class="hub-pane" data-settings-pane="contacts" <%= activeTab === 'contacts' ? '' : 'hidden' %>>
+      <div class="hub-card">
+        <div class="hub-card__head">
+          <div>
+            <h2 class="hub-card__title">Contact people</h2>
+            <p class="hub-card__sub">People your schools can reach. Turn on “Share with schools” to show someone on the schools’ Settings page.</p>
+          </div>
+          <% if (_can('contacts.manage')) { %><a class="hub-btn hub-btn--primary hub-btn--sm" href="/hub/settings/contacts/new" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Add contact</a><% } %>
+        </div>
+        <% if (!_contacts.length) { %>
+          <div class="hub-empty"><i class="fa-regular fa-address-book" aria-hidden="true"></i><strong>No contact people yet</strong><% if (_can('contacts.manage')) { %>Add the people schools should call or email.<% } %></div>
         <% } else { %>
-          <div class="logo-placeholder">
-            No logo uploaded yet
+          <div class="hub-contacts">
+            <% _contacts.forEach((c) => { %>
+              <div class="hub-contact<%= c.is_primary ? ' is-primary' : '' %>">
+                <div class="hub-who">
+                  <span class="hub-who__avatar"><%= _initials(String(c.full_name).split(' ')[0], String(c.full_name).split(' ').slice(-1)[0]) %></span>
+                  <div style="min-width:0">
+                    <div class="hub-who__name"><%= c.full_name %></div>
+                    <div class="hub-who__meta"><%= c.job_title || 'Contact person' %></div>
+                  </div>
+                </div>
+                <ul class="hub-contact__lines">
+                  <% if (c.email) { %><li><i class="fa-regular fa-envelope" aria-hidden="true"></i><a href="mailto:<%= c.email %>"><%= c.email %></a></li><% } %>
+                  <% if (c.phone) { %><li><i class="fa-solid fa-phone" aria-hidden="true"></i><a href="tel:<%= String(c.phone).replace(/[^\d+]/g, '') %>"><%= c.phone %></a></li><% } %>
+                </ul>
+                <div class="hub-contact__tags">
+                  <% if (c.is_primary) { %><span class="hub-tag hub-tag--green">Main contact</span><% } %>
+                  <span class="hub-tag <%= c.share_with_schools ? 'hub-tag--blue' : '' %>"><i class="fa-solid <%= c.share_with_schools ? 'fa-eye' : 'fa-eye-slash' %>" aria-hidden="true"></i> <%= c.share_with_schools ? 'Shared with schools' : 'Hub only' %></span>
+                </div>
+                <% if (_can('contacts.manage')) { %>
+                  <div class="hub-contact__actions">
+                    <a class="hub-btn hub-btn--sm" href="/hub/settings/contacts/<%= c.contact_id %>/edit" data-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
+                    <% if (!c.is_primary) { %>
+                      <form action="/hub/settings/contacts/<%= c.contact_id %>/primary" method="POST" data-ajax><button type="submit" class="hub-btn hub-btn--ghost hub-btn--sm">Make main</button></form>
+                    <% } %>
+                    <form action="/hub/settings/contacts/<%= c.contact_id %>/delete" method="POST" data-ajax data-confirm="Remove <%= c.full_name %> from your contact people?"><button type="submit" class="hub-btn hub-btn--ghost hub-btn--danger hub-btn--sm" aria-label="Remove <%= c.full_name %>"><i class="fa-solid fa-trash" aria-hidden="true"></i></button></form>
+                  </div>
+                <% } %>
+              </div>
+            <% }) %>
           </div>
         <% } %>
-        <div class="form-group" style="width: 100%;">
-          <label class="form-label">Upload New Logo (PNG, JPG, or SVG recommended)</label>
-          <input type="file" name="logo" class="form-input" accept="image/*" required>
-          <small style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 4px; display: block;">
-            This logo will appear in the header of all organizations under this hub.
-          </small>
-        </div>
-        <button type="submit" class="btn-primary">Update Logo</button>
-      </form>
-    </div>
-
-    <div class="settings-card">
-      <h2>Hub Information</h2>
-      <div class="info-box">
-        <strong>Hub Name:</strong> <%= hub.hub_name %><br>
-        <strong>Email:</strong> <%= hub.hub_email %><br>
-        <strong>Nickname:</strong> <%= hub.hub_nickname %><br>
-        <strong>URL:</strong> https://<%= hub.hub_nickname %>.managira.com<br>
-        <strong>Plan:</strong> <%= hub.plan_name || 'No plan assigned' %><br>
-        <strong>Max Organizations:</strong> <%= hub.max_organizations %>
       </div>
-    </div>
+    </section>
 
-    <div class="settings-card">
-      <h2>Profile Settings</h2>
-      <form action="/hub/settings/profile" method="POST" onsubmit="if (window.combinePhoneCountryCombos) window.combinePhoneCountryCombos(this);">
-        <div class="form-group">
-          <label class="form-label">First Name</label>
-          <input type="text" name="firstName" class="form-input" value="<%= hub.first_name %>" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Last Name</label>
-          <input type="text" name="lastName" class="form-input" value="<%= hub.last_name %>" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Phone</label>
-          <div class="phone-combo" data-default-iso2="GH">
-            <select class="phone-dial-select"></select>
-            <input type="text" class="phone-local-input" name="hubPhone" value="<%= hub.hub_phone || '' %>">
+    <!-- Users & roles -->
+    <% if (tabs.includes('users')) { %>
+    <section class="hub-pane" data-settings-pane="users" <%= activeTab === 'users' ? '' : 'hidden' %>>
+      <div class="hub-card">
+        <div class="hub-card__head">
+          <div>
+            <h2 class="hub-card__title">Users &amp; roles</h2>
+            <p class="hub-card__sub">Hub admins get everything. Hub users only see and do what you tick for them.</p>
           </div>
+          <a class="hub-btn hub-btn--primary hub-btn--sm" href="/hub/users/new" data-drawer><i class="fa-solid fa-user-plus" aria-hidden="true"></i> Add a user</a>
         </div>
-        <div class="form-group">
-          <label class="form-label">Address</label>
-          <input type="text" name="hubAddress" class="form-input" value="<%= hub.hub_address || '' %>">
+        <div class="hub-table-wrap">
+          <table class="hub-table" data-no-global-sort>
+            <thead><tr><th>Person</th><th>Role</th><th>Can see and do</th><th>Status</th><th>Last sign-in</th><th class="num"></th></tr></thead>
+            <tbody>
+              <tr>
+                <td><div class="hub-who"><span class="hub-who__avatar"><%= _initials(_hub.first_name, _hub.last_name) %></span><div><div class="hub-who__name"><%= _hub.first_name %> <%= _hub.last_name %></div><div class="hub-who__meta"><%= _hub.hub_email %></div></div></div></td>
+                <td><span class="hub-tag hub-tag--violet">Hub admin</span> <span class="hub-tag">Owner</span></td>
+                <td><span class="hub-small">Everything</span></td>
+                <td><span class="hub-status">Active</span></td>
+                <td><span class="hub-small">—</span></td>
+                <td class="num"><span class="hub-small">Set by Managira</span></td>
+              </tr>
+              <% _users.forEach((u) => {
+                   const isSelf = currentHubUserId && u.hub_user_id === currentHubUserId;
+                   const perms = (u.permissions || []).filter((k) => _labels[k]); %>
+                <tr class="<%= u.on_hold ? 'is-held' : '' %>">
+                  <td><div class="hub-who"><span class="hub-who__avatar"><%= _initials(u.first_name, u.last_name) %></span><div><div class="hub-who__name"><%= u.first_name %> <%= u.last_name %><%= isSelf ? ' (you)' : '' %></div><div class="hub-who__meta"><%= u.email %><%= u.job_title ? ' · ' + u.job_title : '' %></div></div></div></td>
+                  <td><span class="hub-tag <%= u.role === 'hub_admin' ? 'hub-tag--violet' : 'hub-tag--blue' %>"><%= (roles[u.role] || roles.hub_user).label %></span></td>
+                  <td>
+                    <% if (u.role === 'hub_admin') { %><span class="hub-small">Everything</span>
+                    <% } else { %>
+                      <span class="hub-perm-summary" title="<%= perms.map((k) => _labels[k]).join(', ') %>"><%= perms.length %> of <%= totalPermissions %></span>
+                      <span class="hub-small"><%= perms.slice(0, 3).map((k) => _labels[k]).join(', ') %><%= perms.length > 3 ? '…' : '' %></span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <% if (u.on_hold) { %><span class="hub-status hub-status--hold">On hold</span>
+                    <% } else if (!u.has_password) { %><span class="hub-status hub-status--invited">Invited</span>
+                    <% } else { %><span class="hub-status">Active</span><% } %>
+                  </td>
+                  <td><span class="hub-small"><%= _date(u.last_login_at) %></span></td>
+                  <td class="num">
+                    <div class="hub-row-actions">
+                      <a class="hub-btn hub-btn--sm" href="/hub/users/<%= u.hub_user_id %>/edit" data-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
+                      <% if (!isSelf) { %>
+                      <details class="hub-menu">
+                        <summary class="hub-btn hub-btn--ghost hub-btn--sm" aria-label="More actions for <%= u.first_name %>"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
+                        <div class="hub-menu__list">
+                          <form action="/hub/users/<%= u.hub_user_id %>/invite" method="POST" data-ajax><button type="submit" class="hub-menu__item"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> <%= u.has_password ? 'Email a password reset link' : 'Resend invitation' %></button></form>
+                          <form action="/hub/users/<%= u.hub_user_id %>/hold" method="POST" data-ajax data-confirm="<%= u.on_hold ? `Let ${u.first_name} sign in again?` : `Put ${u.first_name} on hold? They can't sign in until you resume them.` %>"><button type="submit" class="hub-menu__item"><i class="fa-solid <%= u.on_hold ? 'fa-play' : 'fa-pause' %>" aria-hidden="true"></i> <%= u.on_hold ? 'Resume access' : 'Put on hold' %></button></form>
+                          <div class="hub-menu__sep"></div>
+                          <form action="/hub/users/<%= u.hub_user_id %>/delete" method="POST" data-ajax data-confirm="Remove <%= u.first_name %> <%= u.last_name %> from the hub? They lose access straight away."><button type="submit" class="hub-menu__item hub-menu__item--danger"><i class="fa-solid fa-user-xmark" aria-hidden="true"></i> Remove user</button></form>
+                        </div>
+                      </details>
+                      <% } %>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
         </div>
-        <button type="submit" class="btn-primary">Update Profile</button>
-      </form>
-    </div>
-
-    <div class="settings-card">
-      <h2>Change Password</h2>
-      <form action="/hub/settings/password" method="POST">
-        <div class="form-group">
-          <label class="form-label">Current Password</label>
-          <input type="password" name="currentPassword" class="form-input" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">New Password</label>
-          <input type="password" name="newPassword" class="form-input" required minlength="6">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Confirm New Password</label>
-          <input type="password" name="confirmPassword" class="form-input" required minlength="6">
-        </div>
-        <button type="submit" class="btn-primary">Change Password</button>
-      </form>
-    </div>
-
-    <% if (typeof notificationPrefs !== 'undefined' && Array.isArray(notificationPrefs) && notificationPrefs.length) { %>
-    <div class="settings-card">
-      <h2>📬 Email Notifications</h2>
-      <p style="color:#64748b;margin:0 0 16px;">Choose which optional emails this hub account receives. Transactional emails (security, billing, hub-membership decisions) are always sent.</p>
-      <form action="/hub/settings/notifications" method="POST">
-        <% notificationPrefs.forEach(function(p){
-             var saved = (typeof savedNotificationPrefs !== 'undefined') ? savedNotificationPrefs : {};
-             var checked = (saved && Object.prototype.hasOwnProperty.call(saved, p.key)) ? !!saved[p.key] : true;
-        %>
-          <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #e2e8f0;">
-            <input type="checkbox" name="preferences" value="<%= p.key %>" <%= checked ? 'checked' : '' %> style="margin-top:4px;">
-            <span>
-              <strong style="display:block;color:#0f172a;"><%= p.label %></strong>
-              <span style="color:#64748b;font-size:13px;"><%= p.description || '' %></span>
-            </span>
-          </label>
-        <% }); %>
-        <button type="submit" class="btn-primary" style="margin-top:16px;">Save preferences</button>
-      </form>
-    </div>
+      </div>
+    </section>
     <% } %>
 
-<script src="/js/dialCodes.js"></script>
+    <!-- Emails -->
+    <section class="hub-pane" data-settings-pane="emails" <%= activeTab === 'emails' ? '' : 'hidden' %>>
+      <div class="hub-card">
+        <div class="hub-card__head">
+          <div>
+            <h2 class="hub-card__title">Email notifications</h2>
+            <p class="hub-card__sub">Just for you. Changes save straight away. Security and membership emails are always sent.</p>
+          </div>
+          <span class="hub-small" data-prefs-status aria-live="polite"></span>
+        </div>
+        <% if (!_prefs.length) { %>
+          <div class="hub-empty">No optional emails for your role.</div>
+        <% } else { %>
+          <form action="/hub/settings/notifications" method="POST" data-prefs-form class="hub-switches">
+            <% _prefs.forEach(function (p) { const checked = Object.prototype.hasOwnProperty.call(_saved, p.key) ? !!_saved[p.key] : true; %>
+              <label class="hub-switch">
+                <input type="checkbox" name="preferences" value="<%= p.key %>" <%= checked ? 'checked' : '' %> />
+                <span class="hub-switch__track" aria-hidden="true"></span>
+                <span><strong><%= p.label %></strong><span><%= p.description || '' %></span></span>
+              </label>
+            <% }) %>
+            <noscript><button type="submit" class="hub-btn hub-btn--primary">Save</button></noscript>
+          </form>
+        <% } %>
+      </div>
+    </section>
   </div>
+</div>
+
+<script src="/js/dialCodes.js"></script>
+<script src="<%= assetUrl('/js/hub.js') %>"></script>

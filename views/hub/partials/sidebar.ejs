@@ -1,0 +1,49 @@
+<%
+  // Shared side menu for signed-in hub pages. Pass `hubCurrent` (a dashboard
+  // view key like 'overview' / 'schools', or 'invite' / 'settings').
+  const _sh = (typeof hubInfo !== 'undefined' && hubInfo) || (typeof hub !== 'undefined' && hub) || {};
+  const _nav = (typeof hubNav !== 'undefined' && hubNav) || {};
+  const _current = typeof hubCurrent !== 'undefined' ? hubCurrent : '';
+  const _can = (p) => (typeof hubCan === 'function' ? hubCan(p) : true);
+  const _actor = (typeof hubActor !== 'undefined' && hubActor) || null;
+  const _meName = (_actor && _actor.user) ? `${_actor.user.first_name} ${_actor.user.last_name}` : ([session && session.firstName, session && session.lastName].filter(Boolean).join(' ') || 'You');
+  const _meRole = !_actor || _actor.isOwner ? 'Hub admin · Owner' : (_actor.role === 'hub_admin' ? 'Hub admin' : 'Hub user');
+  const _logo = _sh.logo_path && String(_sh.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(_sh.logo_path) ? _sh.logo_path : '';
+  const _link = (key, href, icon, label, count, warn) => `<a class="hub-link${_current === key ? ' is-active' : ''}" href="${href}"${href.startsWith('/hub/dashboard#') ? ` data-view-link="${key}"` : ''}${_current === key ? ' aria-current="page"' : ''}><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${label}</span>${count ? `<span class="hub-count${warn ? ' hub-count--warn' : ''}">${count}</span>` : ''}</a>`;
+%>
+<aside class="hub-side" aria-label="Hub menu">
+  <a class="hub-brand" href="/hub/dashboard#overview">
+    <span class="hub-brand__logo"><% if (_logo) { %><img src="<%= _logo %>" alt="" /><% } else { %><%= (_sh.hub_name || 'H').charAt(0).toUpperCase() %><% } %></span>
+    <span class="hub-brand__text">
+      <span class="hub-brand__name"><%= _sh.hub_name || 'Your hub' %></span>
+      <% if (_sh.hub_nickname) { %><span class="hub-brand__url"><%= _sh.hub_nickname %>.managira.com</span><% } %>
+    </span>
+  </a>
+  <nav class="hub-nav">
+    <%- _link('overview', '/hub/dashboard#overview', 'fa-gauge-high', 'Overview') %>
+    <% if (_can('reports.view')) { %>
+    <div class="hub-nav__label">Reports</div>
+    <%- _link('school-comparison', '/hub/dashboard#school-comparison', 'fa-table-list', 'School comparison') %>
+    <%- _link('attendance', '/hub/dashboard#attendance', 'fa-calendar-check', 'Attendance') %>
+    <%- _link('performance', '/hub/dashboard#performance', 'fa-chart-line', 'Academic performance') %>
+    <%- _link('marks-entry', '/hub/dashboard#marks-entry', 'fa-pen-to-square', 'Marks entry') %>
+    <%- _link('support', '/hub/dashboard#support', 'fa-hand-holding-heart', 'Needs support') %>
+    <%- _link('enrollment', '/hub/dashboard#enrollment', 'fa-users', 'Enrollment &amp; staffing') %>
+    <% } %>
+    <div class="hub-nav__label">Manage</div>
+    <% if (_can('schools.view')) { %><%- _link('schools', '/hub/dashboard#schools', 'fa-school', 'Schools', _nav.schools) %><% } %>
+    <% if (_can('invitations.manage')) { %><%- _link('invitations', '/hub/dashboard#invitations', 'fa-envelope-open-text', 'Invitations', _nav.invitations) %><% } %>
+    <% if (_can('requests.manage')) { %><%- _link('requests', '/hub/dashboard#requests', 'fa-link-slash', 'Leave requests', _nav.requests, true) %><% } %>
+    <% if (_can('users.manage')) { %><%- _link('users', '/hub/settings?tab=users', 'fa-user-shield', 'Users &amp; roles', _nav.users) %><% } %>
+    <%- _link('settings', '/hub/settings', 'fa-gear', 'Settings') %>
+  </nav>
+  <% if (_can('invitations.manage')) { %>
+  <div class="hub-side__cta">
+    <a class="hub-btn hub-btn--primary" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a>
+  </div>
+  <% } %>
+  <a class="hub-me" href="/hub/settings" title="Your profile">
+    <span class="hub-me__avatar"><%= (_meName || '?').charAt(0).toUpperCase() %></span>
+    <span class="hub-me__text"><span class="hub-me__name"><%= _meName %></span><span class="hub-me__role"><%= _meRole %></span></span>
+  </a>
+</aside>

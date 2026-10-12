@@ -2740,12 +2740,16 @@
         margin-bottom: 8px;
       }
 
-      /* !important: the tab-switcher JS sets style="display:block" inline
-         on the active .settings-section, which otherwise beats this rule. */
+      /* Integrations lives under Management › Integrations. On the settings page it
+         only shows when it is the active section: the tab-switcher JS sets an
+         inline display:block on that section (and display:none on the others). */
       #integrations {
-        display: flex !important;
         flex-direction: column;
         gap: 14px;
+      }
+      #integrations[style*="display: block"],
+      #integrations.is-default {
+        display: flex !important;
       }
 
       /* Card shell - a slim single-line row when collapsed (the default),
@@ -3036,6 +3040,12 @@
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/></svg></span>
             <span>Profile</span>
           </button></li>
+          <% if (typeof hubProfile !== 'undefined' && hubProfile) { %>
+          <li><button class="nav-link" data-target="hub">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M12 7.5v4M12 11.5l-5.5 4.5M12 11.5l5.5 4.5"/></svg></span>
+            <span>Your hub</span>
+          </button></li>
+          <% } %>
           <% if (_canBillingSettings) { %>
           <li><button class="nav-link" data-target="billing">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></span>
@@ -3827,6 +3837,59 @@
                 </div>
               </div>
             </form>
+          </div>
+        </section>
+        <% } %>
+
+        <% if (typeof hubProfile !== 'undefined' && hubProfile) { const _hp = hubProfile; %>
+        <section id="hub" class="settings-section">
+          <h1>Your hub</h1>
+          <p class="lead">Your school is part of <%= _hp.name %>. These are the people to contact there.</p>
+          <style>
+            .hubinfo-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+            .hubinfo-logo { flex: 0 0 64px; height: 64px; border-radius: 16px; display: grid; place-items: center; overflow: hidden; background: linear-gradient(135deg, #01535b, #013f45); color: #fff; font-weight: 800; font-size: 1.5rem; }
+            .hubinfo-logo img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+            .hubinfo-name { margin: 0; font-size: 1.2rem; font-weight: 800; color: #0f172a; }
+            .hubinfo-meta { margin: 4px 0 0; color: #64748b; font-size: .9rem; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+            .hubinfo-meta i { margin-right: 4px; }
+            .hubinfo-title { margin: 0 0 4px; font-size: 1rem; font-weight: 700; color: #0f172a; }
+            .hubinfo-contacts { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+            .hubinfo-contact { border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; background: #fff; display: grid; gap: 8px; }
+            .hubinfo-contact.is-primary { border-color: #b7d5d7; box-shadow: inset 3px 0 0 #01535b; }
+            .hubinfo-contact__name { font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+            .hubinfo-contact__title { font-size: .85rem; color: #64748b; margin-top: -4px; }
+            .hubinfo-badge { font-size: .7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #ecfdf5; color: #047857; }
+            .hubinfo-contact a { color: #334155; text-decoration: none; font-size: .9rem; overflow-wrap: anywhere; display: flex; align-items: center; gap: 8px; }
+            .hubinfo-contact a:hover { color: #01535b; text-decoration: underline; }
+            .hubinfo-contact a i { width: 16px; color: #64748b; }
+          </style>
+          <div class="card">
+            <div class="hubinfo-head">
+              <span class="hubinfo-logo"><% if (_hp.logo) { %><img src="<%= _hp.logo %>" alt="<%= _hp.name %> logo" onerror="this.remove()" /><% } else { %><%= String(_hp.name || 'H').charAt(0).toUpperCase() %><% } %></span>
+              <div style="min-width:0">
+                <h2 class="hubinfo-name"><%= _hp.name %></h2>
+                <p class="hubinfo-meta">
+                  <% if (_hp.webAddress) { %><span><i class="fa-solid fa-globe" aria-hidden="true"></i><%= _hp.webAddress %></span><% } %>
+                  <% if (_hp.phone) { %><span><i class="fa-solid fa-phone" aria-hidden="true"></i><a href="tel:<%= String(_hp.phone).replace(/[^\d+]/g, '') %>" style="color:inherit"><%= _hp.phone %></a></span><% } %>
+                  <% if (_hp.address) { %><span><i class="fa-solid fa-location-dot" aria-hidden="true"></i><%= _hp.address %></span><% } %>
+                  <% if (_hp.joinedAt) { %><span><i class="fa-regular fa-calendar" aria-hidden="true"></i>Member since <%= new Date(_hp.joinedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></span><% } %>
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <p class="hubinfo-title">Contact people</p>
+            <small>Reach out to your hub about billing, membership or support.</small>
+            <div class="hubinfo-contacts">
+              <% _hp.contacts.forEach(function (c) { %>
+                <div class="hubinfo-contact<%= c.is_primary ? ' is-primary' : '' %>">
+                  <div class="hubinfo-contact__name"><%= c.full_name %><% if (c.is_primary) { %><span class="hubinfo-badge">Main contact</span><% } %></div>
+                  <% if (c.job_title) { %><div class="hubinfo-contact__title"><%= c.job_title %></div><% } %>
+                  <% if (c.email) { %><a href="mailto:<%= c.email %>"><i class="fa-regular fa-envelope" aria-hidden="true"></i><%= c.email %></a><% } %>
+                  <% if (c.phone) { %><a href="tel:<%= String(c.phone).replace(/[^\d+]/g, '') %>"><i class="fa-solid fa-phone" aria-hidden="true"></i><%= c.phone %></a><% } %>
+                </div>
+              <% }) %>
+            </div>
           </div>
         </section>
         <% } %>

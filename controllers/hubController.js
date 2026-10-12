@@ -5,10 +5,50 @@ const crypto = require("crypto");
 const { uploadToS3, deleteFromS3 } = require("../config/s3");
 const { sendEmailSafely, sendEmailInBackground, renderCleanEmail } = require("../utils/emailHelper");
 const {
-  getHubPreferences,
   getHubPreferenceMap,
   setHubPreferences,
 } = require("../utils/emailPreferences");
+const {
+  HUB_ROLES,
+  HUB_PERMISSION_GROUPS,
+  ALL_HUB_PERMISSIONS,
+  ensureHubAccessSchema,
+  actorCan,
+  notificationsFor,
+  getContacts,
+  notifyHub,
+} = require("../utils/hubAccess");
+const { buildOrganizationStats, loadTermsWithData, PASS_MARK, LOW_ATTENDANCE_RATE } = require("./statsController");
+
+// Staff = everyone on the school's team except Managira's own accounts.
+const STAFF_FILTER_SQL = (alias = "u") =>
+  `LOWER(COALESCE(${alias}.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')`;
+// Subjects are stored once per class; a school's subjects are the distinct names.
+const DISTINCT_SUBJECTS_SQL = (orgExpr) =>
+  `(SELECT COUNT(DISTINCT LOWER(TRIM(sub.subject_name)))::int FROM subjects sub WHERE sub.organization_id = ${orgExpr} AND TRIM(COALESCE(sub.subject_name, '')) <> '')`;
+
+// Who did it, for the activity log and emails.
+const hubActorLabel = (req) => {
+  const a = req.hubActor;
+  if (a && a.user) return `${a.user.first_name || ''} ${a.user.last_name || ''}`.trim() || a.user.email;
+  return [req.session.firstName, req.session.lastName].filter(Boolean).join(' ') || (req.hubInfo && req.hubInfo.hub_name) || 'Hub';
+};
+const hubActorEmail = (req) => (req.hubActor && req.hubActor.user ? req.hubActor.user.email : (req.hubInfo && req.hubInfo.hub_email)) || '';
+
+// Tell the rest of the hub (not the person who did it) about a school change.
+function notifySchoolStatus(req, schoolName, what) {
+  const hubName = (req.hubInfo && req.hubInfo.hub_name) || 'your hub';
+  const who = hubActorLabel(req);
+  notifyHub(db, req.session.hubId, 'hub_school_status', (r) => ({
+    subject: `${schoolName} ${what}`,
+    html: renderCleanEmail({
+      title: `${schoolName} ${what}`,
+      greeting: `Hello ${r.firstName || ''}`.trim() + ',',
+      paragraphs: [`${schoolName} ${what} (${hubName}).`, `Done by ${who}.`],
+      cta: { text: 'Open your hub', url: `${process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'https://managira.com'}/hub/dashboard#schools` },
+    }),
+  }), { excludeEmail: hubActorEmail(req) });
+}
 
 // Helper function to send emails (fire-and-forget)
 function sendEmail({ to, subject, html }) {
@@ -31,15 +71,30 @@ async function logHubActivity(hubId, actionType, description, targetOrgId = null
       }
 }
 
+// Tell the rest of the hub that someone invited a school.
+function notifyInvitationSent(req, schoolName) {
+  const hubName = (req.hubInfo && req.hubInfo.hub_name) || 'your hub';
+  const who = hubActorLabel(req);
+  notifyHub(db, req.session.hubId, 'hub_invitation_sent', (r) => ({
+    subject: `${schoolName} was invited to ${hubName}`,
+    html: renderCleanEmail({
+      title: 'School invited',
+      greeting: `Hello ${r.firstName || ''}`.trim() + ',',
+      paragraphs: [`${who} invited ${schoolName} to join ${hubName}.`, 'You will hear from us again when they accept.'],
+      cta: { text: 'See invitations', url: `${process.env.BASE_URL_PRODUCTION || process.env.BASE_URL || 'https://managira.com'}/hub/dashboard#invitations` },
+    }),
+  }), { excludeEmail: hubActorEmail(req) });
+}
+
 const hubController = {
   getHubOrganization: async (hubId, organizationId) => {
     const orgResult = await db.query(
       `SELECT o.organization_id, o.organization_name, o.email, o.nickname, o.first_name, o.last_name,
               o.organization_phone, o.organization_address, o.joined_hub_at, o.on_hold,
-              (SELECT COUNT(*) FROM students s WHERE s.organization_id = o.organization_id) AS student_count,
-              (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.organization_id) AS staff_count,
+              (SELECT COUNT(*) FROM students s WHERE s.organization_id = o.organization_id AND ${activeStudentSql("s")}) AS student_count,
+              (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.organization_id AND ${STAFF_FILTER_SQL("u")}) AS staff_count,
               (SELECT COUNT(*) FROM classes c WHERE c.organization_id = o.organization_id) AS class_count,
-              (SELECT COUNT(*) FROM subjects sub WHERE sub.organization_id = o.organization_id) AS subject_count
+              ${DISTINCT_SUBJECTS_SQL("o.organization_id")} AS subject_count
        FROM organizations o
        WHERE o.organization_id = $1
          AND o.hub_id = $2
@@ -69,11 +124,51 @@ const hubController = {
 
     try {
       const result = await db.query(
-        'SELECT * FROM managira_hubs WHERE hub_email = $1',
-        [email]
+        'SELECT * FROM managira_hubs WHERE LOWER(hub_email) = LOWER($1) ORDER BY deleted ASC LIMIT 1',
+        [String(email || '').trim()]
       );
 
       const hub = result.rows[0];
+
+      // Not the owner? Try the hub's users.
+      if (!hub) {
+        await ensureHubAccessSchema(db);
+        const userResult = await db.query(
+          `SELECT u.*, h.hub_name, h.deleted AS hub_deleted, h.on_hold AS hub_on_hold
+             FROM hub_users u JOIN managira_hubs h ON h.hub_id = u.hub_id
+            WHERE LOWER(u.email) = LOWER($1) LIMIT 1`,
+          [String(email || '').trim()]
+        );
+        const user = userResult.rows[0];
+        if (user) {
+          if (user.hub_deleted || user.hub_on_hold) {
+            req.flash('error', 'This hub is on hold. Please contact support.');
+            return res.redirect('/hub/login');
+          }
+          if (user.on_hold) {
+            req.flash('error', 'Your hub account is on hold. Ask your hub admin for help.');
+            return res.redirect('/hub/login');
+          }
+          if (!user.password) {
+            req.flash('error', 'Please set your password first. Check your email for the invitation link.');
+            return res.redirect('/hub/login');
+          }
+          if (!(await bcrypt.compare(String(password || ''), user.password))) {
+            req.flash('error', 'Invalid email or password.');
+            return res.redirect('/hub/login');
+          }
+          req.session.hubId = user.hub_id;
+          req.session.hubUserId = user.hub_user_id;
+          req.session.accountType = 'Hub';
+          req.session.hubName = user.hub_name;
+          req.session.hubEmail = user.email;
+          req.session.firstName = user.first_name;
+          req.session.lastName = user.last_name;
+          await db.query('UPDATE hub_users SET last_login_at = NOW() WHERE hub_user_id = $1', [user.hub_user_id]).catch(() => {});
+          await logHubActivity(user.hub_id, 'LOGIN', `${user.first_name} ${user.last_name} signed in`, null, user.email, req.ip);
+          return res.redirect('/hub/dashboard');
+        }
+      }
 
       if (!hub) {
         req.flash('error', 'Invalid email or password.');
@@ -103,6 +198,7 @@ const hubController = {
       }
 
       // Set hub session
+      delete req.session.hubUserId;
       req.session.hubId = hub.hub_id;
       req.session.accountType = 'Hub';
       req.session.hubName = hub.hub_name;
@@ -121,6 +217,9 @@ const hubController = {
 
   // Hub Logout
   hubLogoutGet: async (req, res) => {
+    // An admin viewing the hub goes back to admin instead of being signed out.
+    if (req.session && req.session.adminHubView) return res.redirect('/admin/exit-hub');
+
     const sessionId = req.sessionID || null;
     const hubId = req.session.hubId;
     const hubName = req.session.hubName;
@@ -185,8 +284,8 @@ const hubController = {
 
       // Get total teachers across all organizations
       const teachersResult = await db.query(
-        `SELECT COUNT(*) as count FROM users 
-         WHERE organization_id IN (
+        `SELECT COUNT(*) as count FROM users u
+         WHERE ${STAFF_FILTER_SQL('u')} AND organization_id IN (
            SELECT organization_id FROM organizations 
            WHERE hub_id = $1 AND deleted = false AND is_hub_member = true
          )`,
@@ -210,7 +309,7 @@ const hubController = {
         `SELECT o.organization_id, o.organization_name, o.email as organization_email, 
                 o.first_name, o.last_name, o.created_at, o.nickname, o.joined_hub_at, o.on_hold,
                 (SELECT COUNT(*) FROM students st WHERE st.organization_id = o.organization_id AND ${activeStudentSql("st")}) as student_count,
-                (SELECT COUNT(*) FROM users WHERE organization_id = o.organization_id) as teacher_count,
+                (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.organization_id AND ${STAFF_FILTER_SQL('u')}) as teacher_count,
                 (SELECT COUNT(*) FROM classes WHERE organization_id = o.organization_id) as class_count
          FROM organizations o
          WHERE o.hub_id = $1 AND o.deleted = false AND o.is_hub_member = true
@@ -245,8 +344,13 @@ const hubController = {
         [hubId]
       );
 
+      const pdfMode = req.query.pdf === '1';
       res.render('hub/dashboard', {
         title: 'Hub Dashboard',
+        pdfMode,
+        hideGlobalHeader: pdfMode,
+        hideGlobalFooter: pdfMode,
+        hideGlobalChatbot: pdfMode,
         hub,
         orgCount,
         totalStudents,
@@ -257,7 +361,7 @@ const hubController = {
         detachmentRequests: detachmentRequestsResult.rows,
         recentActivity: activityResult.rows,
         messages: req.flash(),
-        showFooterTopSection: true
+        showFooterTopSection: false
       });
     } catch (error) {
             req.flash('error', 'Error loading dashboard.');
@@ -265,259 +369,201 @@ const hubController = {
     }
   },
 
+  // Reports for the whole hub, for a chosen period. Every school has its own
+  // school years and terms, so the period is worked out per school:
+  //   ?org=all  &year=current|<year label>  &term=current|<position 1,2,3…>
+  //   ?org=<id> &year=<school_year_id>       &term=<term_id>
+  // Each school's figures come from the same builder as its own Organization
+  // Stats page, so the hub and the school always show the same numbers.
   hubOverviewStatsGet: async (req, res) => {
-    let hubId = null;
-    let currentStep = 'initialize';
+    const hubId = req.session.hubId;
     try {
-      hubId = req.session.hubId;
-      console.log('[HubOverview] Request started', { hubId });
-
-      const organizationScopeSql = `
-        SELECT organization_id, on_hold
-        FROM organizations
-        WHERE hub_id = $1 AND deleted = false AND is_hub_member = true
-      `;
-
-      const organizationIdScopeSql = `
-        SELECT organization_id
-        FROM organizations
-        WHERE hub_id = $1 AND deleted = false AND is_hub_member = true
-      `;
-
-      currentStep = 'organizationStatsResult';
-      const organizationStatsResult = await db.query(
-        `SELECT
-           COUNT(*)::int AS organization_count,
-           COUNT(*) FILTER (WHERE on_hold = false)::int AS active_organizations,
-           COUNT(*) FILTER (WHERE on_hold = true)::int AS on_hold_organizations
-         FROM (${organizationScopeSql}) scoped_orgs`,
+      const orgsResult = await db.query(
+        `SELECT o.organization_id, o.organization_name, o.on_hold,
+                (SELECT COUNT(*)::int FROM students st WHERE st.organization_id = o.organization_id AND ${activeStudentSql("st")}) AS students,
+                (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id AND ${STAFF_FILTER_SQL("u")}) AS staff,
+                (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id) AS classes,
+                ${DISTINCT_SUBJECTS_SQL("o.organization_id")} AS subjects
+           FROM organizations o
+          WHERE o.hub_id = $1 AND o.deleted = false AND o.is_hub_member = true
+          ORDER BY o.organization_name ASC`,
         [hubId]
       );
+      const orgs = orgsResult.rows;
+      // Terms that have attendance, enrollment or scores (what the stats builder reads)…
+      const dataTermsByOrg = new Map(await Promise.all(orgs.map(async (o) => [o.organization_id, await loadTermsWithData(o.organization_id)])));
+      // …and every term, so "2nd term" means the same term at every school even before it has data.
+      const allTermsResult = orgs.length ? await db.query(
+        `SELECT t.organization_id, t.term_id, t.term_name, t.start_date, COALESCE(t.current, FALSE) AS current,
+                sy.id AS school_year_id, sy.year_label
+           FROM terms t JOIN school_years sy ON sy.id = t.school_year_id
+          WHERE t.organization_id = ANY($1::int[])
+          ORDER BY t.start_date ASC NULLS LAST, t.term_id ASC`,
+        [orgs.map((o) => o.organization_id)]
+      ) : { rows: [] };
+      const termsByOrg = new Map(orgs.map((o) => [o.organization_id, allTermsResult.rows.filter((t) => t.organization_id === o.organization_id)]));
+      // Within a set of terms: the current one, else the latest with data, else the latest.
+      const bestTermOf = (terms, orgId) => {
+        const dataIds = new Set((dataTermsByOrg.get(orgId) || []).map((t) => t.term_id));
+        return terms.find((t) => t.current) || [...terms].reverse().find((t) => dataIds.has(t.term_id)) || terms[terms.length - 1] || null;
+      };
+      const currentTermOf = (terms, orgId) => {
+        const flagged = terms.find((t) => t.current);
+        if (flagged) return flagged;
+        const data = dataTermsByOrg.get(orgId) || [];
+        const lastWithData = data[data.length - 1];
+        return (lastWithData && terms.find((t) => t.term_id === lastWithData.term_id)) || terms[terms.length - 1] || null;
+      };
 
-      currentStep = 'enrollmentStaffingResult';
-      const enrollmentStaffingResult = await db.query(
-        `SELECT
-           (SELECT COUNT(*)::int FROM students s WHERE s.organization_id IN (${organizationIdScopeSql}) AND ${activeStudentSql("s")}) AS total_students,
-           (SELECT COUNT(*)::int FROM users WHERE organization_id IN (${organizationIdScopeSql})) AS total_staff,
-           (SELECT COUNT(*)::int FROM classes WHERE organization_id IN (${organizationIdScopeSql})) AS total_classes,
-           (SELECT COUNT(*)::int FROM subjects WHERE organization_id IN (${organizationIdScopeSql})) AS total_subjects`,
-        [hubId]
-      );
+      // Each school is read on its own calendar: its current term, unless a term
+      // was picked for it with the filter beside the school (?terms=63:150,64:201).
+      const overrides = new Map();
+      String(req.query.terms || '').split(',').forEach((pair) => {
+        const [orgId, termId] = pair.split(':').map((v) => parseInt(v, 10));
+        if (Number.isInteger(orgId) && Number.isInteger(termId)) overrides.set(orgId, termId);
+      });
+      // ?org=<id>&term=<term_id>: one school only (the pop-up preview).
+      const single = req.query.org && req.query.org !== 'all' ? orgs.find((o) => String(o.organization_id) === String(req.query.org)) : null;
+      if (single && Number.isInteger(parseInt(req.query.term, 10))) overrides.set(single.organization_id, parseInt(req.query.term, 10));
 
-      currentStep = 'attendanceTotalsResult';
-      const attendanceTotalsResult = await db.query(
-        `SELECT
-           COUNT(*)::int AS total_records,
-           COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'present')::int AS present_days,
-           COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'absent')::int AS absent_days
-         FROM attendance_records a
-         JOIN students s ON s.student_id = a.student_id
-         WHERE s.organization_id IN (${organizationIdScopeSql})`,
-        [hubId]
-      );
+      const pickedTermId = new Map(); // organization_id -> term_id (null = no term at all)
+      const termOptions = new Map(); // organization_id -> school years and terms, for the pop-up
+      orgs.forEach((o) => {
+        const terms = termsByOrg.get(o.organization_id) || [];
+        const dataIds = new Set((dataTermsByOrg.get(o.organization_id) || []).map((t) => t.term_id));
+        const chosen = overrides.has(o.organization_id) ? terms.find((t) => t.term_id === overrides.get(o.organization_id)) : null;
+        const term = chosen || currentTermOf(terms, o.organization_id);
+        pickedTermId.set(o.organization_id, term ? term.term_id : null);
+        const years = [];
+        terms.forEach((t) => {
+          let y = years.find((x) => x.id === t.school_year_id);
+          if (!y) { y = { id: t.school_year_id, label: t.year_label, terms: [] }; years.push(y); }
+          y.terms.push({ id: t.term_id, name: t.term_name, current: !!t.current, hasData: dataIds.has(t.term_id) });
+        });
+        termOptions.set(o.organization_id, { years: years.reverse(), custom: !!chosen });
+      });
+      const filter = { org: single ? String(single.organization_id) : 'all', custom: Array.from(termOptions.values()).filter((t) => t.custom).length };
 
-      currentStep = 'assessmentTotalsResult';
-      const assessmentTotalsResult = await db.query(
-        `SELECT
-           COUNT(ar.student_id)::int AS total_results,
-           COALESCE(ROUND(AVG(ar.total_percentage)::numeric, 1), 0) AS average_score,
-           COUNT(*) FILTER (WHERE ar.total_percentage >= 50)::int AS pass_count,
-           COUNT(*) FILTER (WHERE ar.total_percentage < 50)::int AS fail_count
-         FROM assessment_results ar
-         JOIN students s ON s.student_id = ar.student_id
-         WHERE s.organization_id IN (${organizationIdScopeSql})`,
-        [hubId]
-      );
+      const scopedOrgs = single ? [single] : orgs;
+      const built = await Promise.all(scopedOrgs.map(async (o) => {
+        const termId = pickedTermId.get(o.organization_id);
+        const term = termId ? (termsByOrg.get(o.organization_id) || []).find((t) => t.term_id === termId) : null;
+        const dataTerms = dataTermsByOrg.get(o.organization_id) || [];
+        // A term with no attendance, enrollment or scores yet has nothing to report.
+        if (!termId || !dataTerms.some((t) => t.term_id === termId)) return { org: o, term, result: null };
+        return { org: o, term, result: await buildOrganizationStats(o.organization_id, termId, dataTerms) };
+      }));
 
-      currentStep = 'attendanceByOrganizationResult';
-      const attendanceByOrganizationResult = await db.query(
-        `SELECT
-           o.organization_id,
-           o.organization_name,
-           COUNT(a.student_id)::int AS total_records,
-           COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'present')::int AS present_days,
-           COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'absent')::int AS absent_days,
-           COALESCE(
-             ROUND(
-               (
-                 COUNT(*) FILTER (WHERE LOWER(COALESCE(a.status::text, '')) = 'present')::numeric
-                 / NULLIF(COUNT(a.student_id), 0)
-               ) * 100,
-               1
-             ),
-             0
-           ) AS present_rate
-         FROM organizations o
-         LEFT JOIN students s ON s.organization_id = o.organization_id
-         LEFT JOIN attendance_records a ON a.student_id = s.student_id
-         WHERE o.hub_id = $1
-           AND o.deleted = false
-           AND o.is_hub_member = true
-         GROUP BY o.organization_id, o.organization_name
-         ORDER BY present_rate DESC, total_records DESC
-         LIMIT 10`,
-        [hubId]
-      );
-
-      currentStep = 'topPerformingOrganizationsResult';
-      const topPerformingOrganizationsResult = await db.query(
-        `SELECT
-           o.organization_id,
-           o.organization_name,
-           COALESCE(ROUND(AVG(ar.total_percentage)::numeric, 1), 0) AS average_score,
-           COUNT(ar.student_id)::int AS results_count
-         FROM organizations o
-         LEFT JOIN students s ON s.organization_id = o.organization_id
-         LEFT JOIN assessment_results ar ON ar.student_id = s.student_id
-         WHERE o.hub_id = $1
-           AND o.deleted = false
-           AND o.is_hub_member = true
-         GROUP BY o.organization_id, o.organization_name
-         ORDER BY average_score DESC, results_count DESC
-         LIMIT 10`,
-        [hubId]
-      );
-
-      currentStep = 'organizationLoadComparisonResult';
-      const organizationLoadComparisonResult = await db.query(
-        `SELECT
-           o.organization_id,
-           o.organization_name,
-           o.on_hold,
-           (SELECT COUNT(*)::int FROM students s WHERE s.organization_id = o.organization_id AND ${activeStudentSql("s")}) AS student_count,
-           (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id) AS staff_count,
-           (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id) AS class_count,
-           (SELECT COUNT(*)::int FROM subjects sub WHERE sub.organization_id = o.organization_id) AS subject_count
-         FROM organizations o
-         WHERE o.hub_id = $1
-           AND o.deleted = false
-           AND o.is_hub_member = true
-         ORDER BY student_count DESC, o.organization_name ASC`,
-        [hubId]
-      );
-
-      const orgStats = organizationStatsResult.rows[0] || {};
-      const enrollmentStaffing = enrollmentStaffingResult.rows[0] || {};
-      const attendanceTotals = attendanceTotalsResult.rows[0] || {};
-      const assessmentTotals = assessmentTotalsResult.rows[0] || {};
-
-      const totalStudents = parseInt(enrollmentStaffing.total_students || 0, 10);
-      const totalStaff = parseInt(enrollmentStaffing.total_staff || 0, 10);
-      const totalClasses = parseInt(enrollmentStaffing.total_classes || 0, 10);
-
-      const totalAttendanceRecords = parseInt(attendanceTotals.total_records || 0, 10);
-      const presentDays = parseInt(attendanceTotals.present_days || 0, 10);
-      const absentDays = parseInt(attendanceTotals.absent_days || 0, 10);
-
-      const totalAssessmentResults = parseInt(assessmentTotals.total_results || 0, 10);
-      const passCount = parseInt(assessmentTotals.pass_count || 0, 10);
-      const failCount = parseInt(assessmentTotals.fail_count || 0, 10);
-
-      const attendanceRate = totalAttendanceRecords > 0
-        ? Math.round((presentDays / totalAttendanceRecords) * 1000) / 10
-        : 0;
-      const passRate = totalAssessmentResults > 0
-        ? Math.round((passCount / totalAssessmentResults) * 1000) / 10
-        : 0;
-      const studentsPerClass = totalClasses > 0
-        ? Math.round((totalStudents / totalClasses) * 10) / 10
-        : 0;
-      const studentsPerStaff = totalStaff > 0
-        ? Math.round((totalStudents / totalStaff) * 10) / 10
-        : 0;
-
-      currentStep = 'respondJson';
-      console.log('[HubOverview] Request completed', {
-        hubId,
-        attendanceOrgRows: attendanceByOrganizationResult.rowCount,
-        topSchoolRows: topPerformingOrganizationsResult.rowCount,
-        loadRows: organizationLoadComparisonResult.rowCount
+      const schools = built.map(({ org, term, result }) => {
+        const base = {
+          organizationId: org.organization_id,
+          organizationName: org.organization_name,
+          onHold: !!org.on_hold,
+          students: org.students,
+          staff: org.staff,
+          classes: org.classes,
+          subjects: org.subjects,
+          studentsPerClass: org.classes ? Math.round((org.students / org.classes) * 10) / 10 : 0,
+          studentsPerStaff: org.staff ? Math.round((org.students / org.staff) * 10) / 10 : 0,
+          hasData: false,
+          termId: term ? term.term_id : null,
+          termLabel: term ? `${term.term_name} · ${term.year_label}` : null,
+          termOptions: termOptions.get(org.organization_id),
+        };
+        if (!result || !result.stats) return base;
+        const k = result.stats.kpis;
+        const a = result.stats.academic;
+        return {
+          ...base,
+          hasData: true,
+          termId: result.currentTerm.term_id,
+          termLabel: `${result.currentTerm.term_name} · ${result.currentTerm.year_label}`,
+          enrolled: k.enrolled,
+          enrolledChange: k.enrolledChange,
+          previousTermLabel: k.previousTermLabel,
+          attendanceRate: k.attendanceRate,
+          attendancePresent: k.attendancePresent || 0,
+          attendanceMarked: k.attendanceMarked || 0,
+          lowAttendance: k.lowAttendance,
+          scoreEntryRate: k.scoreEntryRate,
+          scoresEntered: k.scoresEntered,
+          scoresExpected: k.scoresExpected,
+          activeClasses: k.activeClasses,
+          teachers: k.teachers,
+          averageScore: a ? a.averageScore : null,
+          passRate: a ? a.passRate : null,
+          results: a ? a.results || 0 : 0,
+          passed: a ? a.passed || 0 : 0,
+          needsSupport: a ? a.needsSupportCount : 0,
+          studentsWithScores: a ? a.studentsWithScores : 0,
+          academicLabel: a && a.isFallback ? a.term.label : null,
+          subjectsPerformance: a ? a.subjects : [],
+          distribution: a ? a.distribution : [],
+          gender: result.stats.gender,
+          enrollmentTrend: single ? result.stats.enrollmentTrend : undefined,
+        };
       });
 
+      const sum = (key) => schools.reduce((acc, s) => acc + (Number(s[key]) || 0), 0);
+      const rate = (part, whole) => (whole ? Math.round((part / whole) * 1000) / 10 : null);
+      const withScores = schools.filter((s) => s.results);
+      const weightedAvg = withScores.length ? Math.round((withScores.reduce((acc, s) => acc + s.averageScore * s.results, 0) / sum('results')) * 10) / 10 : null;
+
+      const subjectMap = new Map();
+      schools.forEach((s) => (s.subjectsPerformance || []).forEach((sub) => {
+        const key = String(sub.subject_name || '').trim().toLowerCase();
+        if (!key) return;
+        const entry = subjectMap.get(key) || { name: String(sub.subject_name).trim(), total: 0, results: 0, passed: 0, schools: 0 };
+        entry.total += (Number(sub.average_score) || 0) * sub.results;
+        entry.results += sub.results;
+        entry.passed += Math.round(((Number(sub.pass_rate) || 0) / 100) * sub.results);
+        entry.schools += 1;
+        subjectMap.set(key, entry);
+      }));
+      const genderMap = new Map();
+      schools.forEach((s) => (s.gender || []).forEach((g) => genderMap.set(g.gender, (genderMap.get(g.gender) || 0) + g.count)));
+      const bands = [];
+      schools.forEach((s) => (s.distribution || []).forEach((d, i) => { bands[i] = { label: d.label, students: ((bands[i] && bands[i].students) || 0) + d.students }; }));
+
+      const students = sum('students');
+      const staff = sum('staff');
+      const classes = sum('classes');
       return res.json({
-        highlights: {
-          attendanceRate,
-          averageAssessmentScore: parseFloat(assessmentTotals.average_score || 0),
-          passRate,
-          studentsPerClass,
-          studentsPerStaff
-        },
-        enrollmentStaffing: {
-          organizationCount: parseInt(orgStats.organization_count || 0, 10),
-          activeOrganizations: parseInt(orgStats.active_organizations || 0, 10),
-          onHoldOrganizations: parseInt(orgStats.on_hold_organizations || 0, 10),
-          totalStudents,
-          totalStaff,
-          totalClasses,
-          totalSubjects: parseInt(enrollmentStaffing.total_subjects || 0, 10)
-        },
-        attendanceByOrganization: attendanceByOrganizationResult.rows.map((row) => ({
-          organizationId: row.organization_id,
-          organizationName: row.organization_name,
-          totalRecords: parseInt(row.total_records || 0, 10),
-          presentDays: parseInt(row.present_days || 0, 10),
-          absentDays: parseInt(row.absent_days || 0, 10),
-          presentRate: parseFloat(row.present_rate || 0)
-        })),
-        topPerformingOrganizations: topPerformingOrganizationsResult.rows.map((row) => ({
-          organizationId: row.organization_id,
-          organizationName: row.organization_name,
-          averageScore: parseFloat(row.average_score || 0),
-          resultsCount: parseInt(row.results_count || 0, 10)
-        })),
-        organizationLoadComparison: organizationLoadComparisonResult.rows.map((row) => {
-          const studentCount = parseInt(row.student_count || 0, 10);
-          const staffCount = parseInt(row.staff_count || 0, 10);
-          const classCount = parseInt(row.class_count || 0, 10);
-          return {
-            organizationId: row.organization_id,
-            organizationName: row.organization_name,
-            onHold: row.on_hold,
-            studentCount,
-            staffCount,
-            classCount,
-            subjectCount: parseInt(row.subject_count || 0, 10),
-            studentsPerClass: classCount > 0 ? Math.round((studentCount / classCount) * 10) / 10 : 0,
-            studentsPerStaff: staffCount > 0 ? Math.round((studentCount / staffCount) * 10) / 10 : 0
-          };
-        }),
-        enrollmentOverTerms: [],
-        genderDistribution: [],
-        employeeRoles: [],
-        subjectPerformance: [],
-        studentsPerClassByClass: [],
-        organizationLegend: organizationLoadComparisonResult.rows.map((row) => ({
-          organizationId: row.organization_id,
-          organizationName: row.organization_name,
-          studentCount: parseInt(row.student_count || 0, 10),
-          staffCount: parseInt(row.staff_count || 0, 10),
-          classCount: parseInt(row.class_count || 0, 10)
-        })),
+        filter,
+        passMark: PASS_MARK,
+        lowAttendanceRate: LOW_ATTENDANCE_RATE,
         totals: {
-          totalAttendanceRecords,
-          presentDays,
-          absentDays,
-          totalAssessmentResults,
-          passCount,
-          failCount
+          schools: schools.length,
+          schoolsWithData: schools.filter((s) => s.hasData).length,
+          onHold: schools.filter((s) => s.onHold).length,
+          students, staff, classes,
+          subjects: sum('subjects'),
+          enrolled: sum('enrolled'),
+          attendancePresent: sum('attendancePresent'),
+          attendanceMarked: sum('attendanceMarked'),
+          attendanceRate: rate(sum('attendancePresent'), sum('attendanceMarked')),
+          lowAttendance: sum('lowAttendance'),
+          results: sum('results'),
+          averageScore: weightedAvg,
+          passRate: rate(sum('passed'), sum('results')),
+          needsSupport: sum('needsSupport'),
+          scoresEntered: sum('scoresEntered'),
+          scoresExpected: sum('scoresExpected'),
+          scoreEntryRate: rate(sum('scoresEntered'), sum('scoresExpected')),
+          studentsPerClass: classes ? Math.round((students / classes) * 10) / 10 : 0,
+          studentsPerStaff: staff ? Math.round((students / staff) * 10) / 10 : 0,
         },
-        generatedAt: new Date().toISOString()
+        schools: schools.map(({ subjectsPerformance, distribution, ...rest }) => rest),
+        subjects: Array.from(subjectMap.values())
+          .map((e) => ({ name: e.name, averageScore: e.results ? Math.round((e.total / e.results) * 10) / 10 : null, passRate: rate(e.passed, e.results), results: e.results, schools: e.schools }))
+          .sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0)),
+        gender: Array.from(genderMap.entries()).map(([gender, count]) => ({ gender, count })).sort((a, b) => b.count - a.count),
+        distribution: bands,
+        generatedAt: new Date().toISOString(),
       });
     } catch (error) {
-      console.error('[HubOverview] Request failed', {
-        hubId,
-        currentStep,
-        message: error.message,
-        code: error.code,
-        detail: error.detail,
-        hint: error.hint,
-        where: error.where,
-        stack: error.stack
-      });
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to load hub overview statistics.'
-      });
+      console.error('[HubOverview] Request failed', { hubId, message: error.message });
+      return res.status(500).json({ success: false, message: 'Failed to load hub reports.' });
     }
   },
 
@@ -525,8 +571,8 @@ const hubController = {
     try {
       const hub = req.hubInfo;
       const { organizationId } = req.params;
-      const allowedTabs = ['students', 'staff', 'classes'];
-      const activeTab = allowedTabs.includes(req.query.tab) ? req.query.tab : 'students';
+      const allowedTabs = ['report', 'students', 'staff', 'classes'];
+      const activeTab = allowedTabs.includes(req.query.tab) ? req.query.tab : 'report';
 
       const organization = await hubController.getHubOrganization(hub.hub_id, organizationId);
 
@@ -535,183 +581,219 @@ const hubController = {
         return res.redirect('/hub/dashboard');
       }
 
-      const schoolYearsResult = await db.query(
-        `SELECT sy.id AS school_year_id, sy.year_label, t.term_id, t.term_name, t.start_date, t.end_date, t.current
-         FROM school_years sy
-         LEFT JOIN terms t ON sy.id = t.school_year_id
-         WHERE sy.organization_id = $1
-         ORDER BY sy.created_at DESC, t.start_date`,
-        [organizationId]
-      );
+      // The school's report is the same one the school sees on Organization Stats.
+      const { buildOrganizationStats, PASS_MARK, LOW_ATTENDANCE_RATE } = require('./statsController');
+      const [report, totalsResult] = await Promise.all([
+        buildOrganizationStats(organization.organization_id, req.query.selectedTermId),
+        db.query(
+          `SELECT
+             (SELECT COUNT(*)::int FROM students s WHERE s.organization_id = $1 AND ${activeStudentSql('s')}) AS students,
+             (SELECT COUNT(*)::int FROM users WHERE organization_id = $1
+                 AND LOWER(COALESCE(account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')) AS staff,
+             (SELECT COUNT(*)::int FROM classes WHERE organization_id = $1) AS classes,
+             ${DISTINCT_SUBJECTS_SQL('$1')} AS subjects`,
+          [organization.organization_id]
+        ),
+      ]);
 
-      const schoolYears = [];
-      schoolYearsResult.rows.forEach((row) => {
-        let year = schoolYears.find((entry) => entry.school_year_id === row.school_year_id);
-        if (!year) {
-          year = { school_year_id: row.school_year_id, year_label: row.year_label, terms: [] };
-          schoolYears.push(year);
-        }
-        if (row.term_id) {
-          year.terms.push({ ...row });
-        }
-      });
-
-      const selectedSchoolYearId = req.query.selectedSchoolYearId;
-      const selectedTermId = req.query.selectedTermId;
-      const selectedSchoolYear = schoolYears.find((year) => String(year.school_year_id) === String(selectedSchoolYearId)) || schoolYears[0] || null;
-
-      let currentTerm = null;
-      if (selectedSchoolYear && selectedSchoolYear.terms.length > 0) {
-        currentTerm = selectedSchoolYear.terms.find((term) => String(term.term_id) === String(selectedTermId))
-          || selectedSchoolYear.terms.find((term) => term.current)
-          || selectedSchoolYear.terms[0];
+      // ?pdf=true: just the report, for the PDF download (see organizationReportPdfGet).
+      if (req.query.pdf === 'true') {
+        return res.render('stats/organizationStats', {
+          title: `${organization.organization_name} report`,
+          isEmbedded: false,
+          isPdf: true,
+          organizationName: organization.organization_name,
+          hideGlobalHeader: true,
+          hideGlobalFooter: true,
+          hideGlobalChatbot: true,
+          schoolYears: report.schoolYears,
+          currentTerm: report.currentTerm,
+          selectedSchoolYear: report.selectedSchoolYear,
+          stats: report.stats,
+          passMark: PASS_MARK,
+          lowAttendanceRate: LOW_ATTENDANCE_RATE,
+          statsHeading: 'School report',
+          statsAllowPdf: false,
+          statsAllowCompare: false,
+          allowedFeatures: [],
+        });
       }
-
-      const organizationDataResult = await db.query(
-        `SELECT
-          (SELECT COUNT(*) FROM students WHERE organization_id = $1) AS total_students,
-          (SELECT COUNT(*) FROM users WHERE organization_id = $1) AS total_employees,
-          (SELECT COUNT(*) FROM classes WHERE organization_id = $1) AS total_classes,
-          (SELECT COUNT(*) FROM subjects WHERE organization_id = $1) AS total_subjects`,
-        [organizationId]
-      );
-      const organizationData = organizationDataResult.rows[0] || {
-        total_students: 0,
-        total_employees: 0,
-        total_classes: 0,
-        total_subjects: 0,
-      };
-
-      let attendanceByClass = [];
-      let assessmentByClass = [];
-      let classStrengthProfile = [];
-
-      if (currentTerm) {
-        attendanceByClass = (await db.query(
-          `SELECT c.class_name,
-                  COUNT(a.student_id) AS total_attendance,
-                  COUNT(CASE WHEN a.status = 'Present' THEN 1 END) AS present_days,
-                  COUNT(CASE WHEN a.status = 'Absent' THEN 1 END) AS absent_days
-           FROM classes c
-           LEFT JOIN students s ON c.class_id = s.class_id
-           LEFT JOIN attendance_records a ON s.student_id = a.student_id AND a.term_id = $2
-           WHERE c.organization_id = $1
-           GROUP BY c.class_name
-           ORDER BY MIN(COALESCE(c.dashboard_sort_order, 2147483647)), c.class_name`,
-          [organizationId, currentTerm.term_id]
-        )).rows;
-
-        assessmentByClass = (await db.query(
-          `SELECT c.class_name,
-                  COUNT(DISTINCT a.assessment_id) AS total_assessments,
-                  AVG(ar.total_percentage) AS average_score,
-                  COUNT(CASE WHEN ar.total_percentage >= 50 THEN 1 END) AS pass_count,
-                  COUNT(CASE WHEN ar.total_percentage < 50 THEN 1 END) AS fail_count
-           FROM classes c
-           LEFT JOIN students s ON c.class_id = s.class_id
-           LEFT JOIN assessment_results ar ON s.student_id = ar.student_id AND ar.term_id = $2
-           LEFT JOIN assessments a ON ar.assessment_id = a.assessment_id
-           WHERE c.organization_id = $1
-           GROUP BY c.class_name
-           ORDER BY average_score DESC
-           LIMIT 5`,
-          [organizationId, currentTerm.term_id]
-        )).rows;
-
-        classStrengthProfile = (await db.query(
-          `SELECT sub.subject_name,
-                  ROUND(AVG(ar.total_percentage), 2) AS avg_score
-           FROM assessment_results ar
-           JOIN students s ON ar.student_id = s.student_id
-           JOIN subjects sub ON ar.subject_id = sub.subject_id
-           WHERE s.organization_id = $1 AND ar.term_id = $2
-           GROUP BY sub.subject_name
-           ORDER BY sub.subject_name`,
-          [organizationId, currentTerm.term_id]
-        )).rows;
-      }
-
-      const organizationGrowth = (await db.query(
-        `SELECT sy.year_label,
-                COUNT(DISTINCT s.student_id) AS total_students,
-                COUNT(DISTINCT u.user_id) AS total_employees,
-                COUNT(DISTINCT c.class_id) AS total_classes
-         FROM school_years sy
-         LEFT JOIN enrollments e ON e.school_year_id = sy.id
-         LEFT JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
-         LEFT JOIN students s ON s.student_id = es.student_id AND s.organization_id = $1
-         LEFT JOIN classes c ON c.organization_id = $1
-         LEFT JOIN users u ON u.organization_id = $1
-         WHERE sy.organization_id = $1
-         GROUP BY sy.year_label
-         ORDER BY sy.year_label`,
-        [organizationId]
-      )).rows;
-
-      const enrollmentOverTerms = (await db.query(
-        `SELECT t.term_name,
-                COUNT(DISTINCT es.student_id) AS enrolled_students
-         FROM terms t
-         LEFT JOIN enrollments e ON t.term_id = e.term_id
-         LEFT JOIN enrolled_students es ON e.enrollment_id = es.enrollment_id
-         WHERE t.organization_id = $1
-         GROUP BY t.term_name, t.start_date
-         ORDER BY t.start_date`,
-        [organizationId]
-      )).rows;
-
-      const genderDistribution = (await db.query(
-        `SELECT gender, COUNT(*) AS count
-         FROM students
-         WHERE organization_id = $1
-         GROUP BY gender`,
-        [organizationId]
-      )).rows;
-
-      const employeeRoles = (await db.query(
-        `SELECT account_type, COUNT(*) AS count
-         FROM users
-         WHERE organization_id = $1
-         GROUP BY account_type`,
-        [organizationId]
-      )).rows;
-
-      const studentCountPerClass = (await db.query(
-        `SELECT c.class_name, COUNT(s.student_id) AS student_count
-         FROM classes c
-         LEFT JOIN students s ON c.class_id = s.class_id
-         WHERE c.organization_id = $1
-         GROUP BY c.class_name
-         ORDER BY student_count DESC`,
-        [organizationId]
-      )).rows;
-
-      const topPerformingClasses = assessmentByClass;
 
       res.render('hub/organizationDetails', {
-        title: `${organization.organization_name} - Hub Organization Details`,
+        title: `${organization.organization_name} | Hub`,
         hub,
         organization,
         activeTab,
-        schoolYears,
-        selectedSchoolYear,
-        currentTerm,
-        organizationData,
-        attendanceByClass,
-        assessmentByClass,
-        topPerformingClasses,
-        classStrengthProfile,
-        studentCountPerClass,
-        organizationGrowth,
-        enrollmentOverTerms,
-        genderDistribution,
-        employeeRoles,
+        totals: totalsResult.rows[0] || { students: 0, staff: 0, classes: 0, subjects: 0 },
+        schoolYears: report.schoolYears,
+        currentTerm: report.currentTerm,
+        selectedSchoolYear: report.selectedSchoolYear,
+        stats: report.stats,
+        passMark: PASS_MARK,
+        lowAttendanceRate: LOW_ATTENDANCE_RATE,
         messages: req.flash(),
-        showFooterTopSection: true,
+        showFooterTopSection: false,
       });
     } catch (error) {
+      console.error('[hub/organizationDetails]', error.message);
       req.flash('error', 'Unable to load organization details.');
       res.redirect('/hub/dashboard');
+    }
+  },
+
+  // GET /hub/organizations/:organizationId/report/export — the school's report as a spreadsheet.
+  // The school's report as a PDF: the same page, drawn in a headless browser.
+  organizationReportPdfGet: async (req, res) => {
+    try {
+      const organization = await hubController.getHubOrganization(req.hubInfo.hub_id, req.params.organizationId);
+      if (!organization) return res.status(404).send('Organization not found.');
+      const { buildOrganizationStats, statsFileName } = require('./statsController');
+      const { currentTerm } = await buildOrganizationStats(organization.organization_id, req.query.selectedTermId);
+      if (!currentTerm) return res.status(404).send('No report to download yet.');
+      const { renderAppPagePdf, sessionCookieFromHeader } = require('../utils/pdfService');
+      const pdf = await renderAppPagePdf({
+        baseUrl: `${req.protocol}://${req.get('host')}`,
+        sessionCookie: sessionCookieFromHeader(req.headers.cookie),
+        path: `/hub/organizations/${organization.organization_id}?selectedTermId=${encodeURIComponent(currentTerm.term_id)}&pdf=true`,
+        readyFlag: '__orgStatsReady',
+      });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${statsFileName(organization.organization_name, currentTerm, 'pdf')}"`);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(pdf);
+    } catch (error) {
+      console.error('[hub/organizationReportPdf]', error.message);
+      return res.status(500).json({ error: error.userMessage || 'The PDF could not be made. Please try again.' });
+    }
+  },
+
+  // A hub report (comparison, attendance, …) as a PDF.
+  hubReportsPdfGet: async (req, res) => {
+    const views = ['school-comparison', 'attendance', 'performance', 'marks-entry', 'support', 'enrollment', 'overview'];
+    const view = views.includes(req.query.view) ? req.query.view : 'school-comparison';
+    try {
+      const { renderAppPagePdf, sessionCookieFromHeader } = require('../utils/pdfService');
+      const q = new URLSearchParams({ pdf: '1' });
+      if (req.query.terms) q.set('terms', String(req.query.terms).slice(0, 2000));
+      const pdf = await renderAppPagePdf({
+        baseUrl: `${req.protocol}://${req.get('host')}`,
+        sessionCookie: sessionCookieFromHeader(req.headers.cookie),
+        path: `/hub/dashboard?${q.toString()}#${view}`,
+        readyFlag: '__hubReportReady',
+        landscape: view === 'school-comparison',
+      });
+      const hubName = String((req.hubInfo && req.hubInfo.hub_name) || 'Hub').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${hubName}_${view}_${new Date().toISOString().slice(0, 10)}.pdf"`);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(pdf);
+    } catch (error) {
+      console.error('[hub/reportsPdf]', error.message);
+      return res.status(500).json({ error: error.userMessage || 'The PDF could not be made. Please try again.' });
+    }
+  },
+
+  // Go into a school's own account, like a Managira admin can. The hub session
+  // is kept aside and comes back with "Back to hub" (exitOrganizationGet).
+  openOrganizationGet: async (req, res) => {
+    try {
+      const hub = req.hubInfo;
+      const { rows } = await db.query(
+        `SELECT o.organization_id, o.organization_name, o.nickname, o.nickname_display, o.logo, o.font_style, o.theme_color,
+                o.first_name, o.last_name, o.email, o.on_hold, mh.hub_nickname
+           FROM organizations o JOIN managira_hubs mh ON mh.hub_id = o.hub_id
+          WHERE o.organization_id = $1 AND o.hub_id = $2 AND o.deleted = false AND o.is_hub_member = true`,
+        [req.params.organizationId, hub.hub_id]
+      );
+      const org = rows[0];
+      if (!org) {
+        req.flash('error', 'That school is not in your hub.');
+        return res.redirect('/hub/dashboard#schools');
+      }
+      if (org.on_hold) {
+        req.flash('error', `${org.organization_name} is on hold. Resume it first to open it.`);
+        return res.redirect(`/hub/organizations/${org.organization_id}`);
+      }
+
+      const keep = ['hubId', 'hubUserId', 'accountType', 'hubName', 'hubEmail', 'firstName', 'lastName', 'userId', 'userRole',
+        'organizationName', 'orgNickName', 'orgNickNameDisplay', 'logo', 'adminHubView', 'adminHubSaved'];
+      const saved = {};
+      keep.forEach((key) => { if (req.session[key] !== undefined) saved[key] = req.session[key]; });
+      const who = hubActorLabel(req);
+      // A Managira admin viewing the hub keeps their own sign-in aside too.
+      ['hubId', 'hubUserId', 'hubName', 'hubEmail', 'adminHubView', 'adminHubSaved', 'userId'].forEach((key) => { delete req.session[key]; });
+
+      req.session.hubOrgSwitch = { saved, organizationId: org.organization_id, organizationName: org.organization_name, by: who };
+      // Same session a school owner gets when they sign in.
+      req.session.user = { user_id: org.organization_id, first_name: org.first_name, last_name: org.last_name, email: org.email, account_type: 'Manager' };
+      req.session.organizationId = org.organization_id;
+      req.session.organizationName = org.organization_name;
+      req.session.firstName = org.first_name;
+      req.session.lastName = org.last_name;
+      req.session.logo = org.logo || null;
+      req.session.fontStyle = org.font_style || null;
+      req.session.themeColor = org.theme_color || 'teal';
+      req.session.accountType = 'Organization';
+      req.session.userRole = 'Manager';
+      req.session.orgNickName = org.nickname || null;
+      req.session.orgNickNameDisplay = (org.nickname_display && String(org.nickname_display).trim()) || org.nickname || null;
+      req.session.onHoldRestricted = false;
+
+      await logHubActivity(hub.hub_id, 'SCHOOL_OPENED', `${who} opened ${org.organization_name}`, org.organization_id, who, req.ip);
+
+      req.session.save((err) => {
+        if (err) {
+          req.flash('error', 'Could not open the school. Please try again.');
+          return res.redirect(`/hub/organizations/${org.organization_id}`);
+        }
+        if (process.env.NODE_ENV === 'production' && org.nickname) {
+          const host = org.hub_nickname ? `${org.nickname}.${org.hub_nickname}.managira.com` : `${org.nickname}.managira.com`;
+          return res.redirect(`https://${host}/common/orgDashboard`);
+        }
+        return res.redirect('/common/orgDashboard');
+      });
+    } catch (error) {
+      console.error('[hub/openOrganization]', error.message);
+      req.flash('error', 'Could not open the school.');
+      res.redirect('/hub/dashboard#schools');
+    }
+  },
+
+  restoreHubFromOrg: (req) => {
+    const sw = req.session && req.session.hubOrgSwitch;
+    if (!sw) return false;
+    ['user', 'organizationId', 'organizationName', 'firstName', 'lastName', 'logo', 'fontStyle', 'themeColor',
+      'accountType', 'userRole', 'orgNickName', 'orgNickNameDisplay', 'onHoldRestricted', 'hubOrgSwitch'
+    ].forEach((key) => { delete req.session[key]; });
+    Object.assign(req.session, sw.saved || {});
+    return sw;
+  },
+
+  exitOrganizationGet: (req, res) => {
+    const sw = hubController.restoreHubFromOrg(req);
+    const back = sw && sw.organizationId ? `/hub/organizations/${sw.organizationId}` : '/hub/dashboard';
+    req.session.save(() => {
+      if (process.env.NODE_ENV === 'production' && process.env.BASE_URL_PRODUCTION) {
+        return res.redirect(`${String(process.env.BASE_URL_PRODUCTION).replace(/\/$/, '')}${back}`);
+      }
+      return res.redirect(back);
+    });
+  },
+
+  organizationReportExportGet: async (req, res) => {
+    try {
+      const organization = await hubController.getHubOrganization(req.hubInfo.hub_id, req.params.organizationId);
+      if (!organization) return res.status(404).send('Organization not found.');
+      const { buildOrganizationStats, statsToCsv, statsFileName } = require('./statsController');
+      const { currentTerm, stats } = await buildOrganizationStats(organization.organization_id, req.query.selectedTermId);
+      if (!stats) return res.status(404).send('No statistics to export yet.');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${statsFileName(organization.organization_name, currentTerm, 'csv')}"`);
+      res.setHeader('Cache-Control', 'no-store');
+      return res.send(`\uFEFF${statsToCsv(currentTerm, stats)}`);
+    } catch (error) {
+      console.error('[hub/organizationReportExport]', error.message);
+      return res.status(500).send('Failed to export the report.');
     }
   },
 
@@ -856,7 +938,7 @@ const hubController = {
       const classesResult = await db.query(
         `SELECT c.class_id, c.class_name,
                 COUNT(DISTINCT s.student_id) AS student_count,
-                COUNT(DISTINCT sub.subject_id) AS subject_count
+                COUNT(DISTINCT LOWER(TRIM(sub.subject_name))) AS subject_count
          FROM classes c
          LEFT JOIN students s ON s.class_id = c.class_id
          LEFT JOIN subjects sub ON sub.class_id = c.class_id
@@ -894,10 +976,10 @@ const hubController = {
       }
 
       const subjectsResult = await db.query(
-        `SELECT subject_id, subject_name
+        `SELECT DISTINCT ON (LOWER(TRIM(subject_name))) subject_id, TRIM(subject_name) AS subject_name
          FROM subjects
-         WHERE class_id = $1 AND organization_id = $2
-         ORDER BY subject_name ASC`,
+         WHERE class_id = $1 AND organization_id = $2 AND TRIM(COALESCE(subject_name, '')) <> ''
+         ORDER BY LOWER(TRIM(subject_name)) ASC, subject_id ASC`,
         [classId, organizationId]
       );
 
@@ -935,11 +1017,16 @@ const hubController = {
       // Hash the token to compare with stored hash
       const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
+      await ensureHubAccessSchema(db);
       const result = await db.query(
-        `SELECT * FROM managira_hubs 
-         WHERE reset_password_token = $1 
+        `SELECT hub_id, hub_name, hub_email, first_name, last_name FROM managira_hubs
+         WHERE reset_password_token = $1
          AND reset_password_expires > NOW()
-         AND deleted = false`,
+         AND deleted = false
+         UNION ALL
+         SELECT h.hub_id, h.hub_name, u.email AS hub_email, u.first_name, u.last_name
+           FROM hub_users u JOIN managira_hubs h ON h.hub_id = u.hub_id
+          WHERE u.reset_password_token = $1 AND u.reset_password_expires > NOW() AND h.deleted = false`,
         [hashedToken]
       );
 
@@ -984,32 +1071,36 @@ const hubController = {
     try {
       const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-      const result = await db.query(
-        `SELECT * FROM managira_hubs 
-         WHERE reset_password_token = $1 
-         AND reset_password_expires > NOW()`,
-        [hashedToken]
+      await ensureHubAccessSchema(db);
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // The link belongs to either the hub owner or one of the hub's users.
+      const ownerResult = await db.query(
+        `UPDATE managira_hubs
+         SET hub_password = $1, reset_password_token = NULL, reset_password_expires = NULL, updated_at = NOW()
+         WHERE reset_password_token = $2 AND reset_password_expires > NOW()
+         RETURNING hub_id`,
+        [hashedPassword, hashedToken]
+      );
+      const userResult = ownerResult.rows.length ? { rows: [] } : await db.query(
+        `UPDATE hub_users
+         SET password = $1, reset_password_token = NULL, reset_password_expires = NULL, updated_at = NOW()
+         WHERE reset_password_token = $2 AND reset_password_expires > NOW()
+         RETURNING hub_id, first_name, last_name, email`,
+        [hashedPassword, hashedToken]
       );
 
-      if (result.rows.length === 0) {
+      if (!ownerResult.rows.length && !userResult.rows.length) {
         req.flash('error', 'Invalid or expired setup link.');
         return res.redirect('/hub/login');
       }
 
-      const hub = result.rows[0];
-
-      // Hash the new password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Update hub password and clear token
-      await db.query(
-        `UPDATE managira_hubs 
-         SET hub_password = $1, reset_password_token = NULL, reset_password_expires = NULL, updated_at = NOW()
-         WHERE hub_id = $2`,
-        [hashedPassword, hub.hub_id]
-      );
-
-      await logHubActivity(hub.hub_id, 'PASSWORD_SETUP', 'Hub password set up successfully');
+      if (ownerResult.rows.length) {
+        await logHubActivity(ownerResult.rows[0].hub_id, 'PASSWORD_SETUP', 'Hub password set up successfully');
+      } else {
+        const u = userResult.rows[0];
+        await logHubActivity(u.hub_id, 'PASSWORD_SETUP', `${u.first_name} ${u.last_name} set up their password`, null, u.email);
+      }
 
       req.flash('success', 'Password set up successfully! You can now login.');
       res.redirect('/hub/login');
@@ -1019,123 +1110,237 @@ const hubController = {
     }
   },
 
-  // Hub Settings
+  // Hub Settings, in tabs: General (you + the hub), Contact people, Users & roles, Emails.
   hubSettingsGet: async (req, res) => {
     try {
       const hubId = req.session.hubId;
+      const actor = req.hubActor;
+      const can = (p) => actorCan(actor, p);
 
       const result = await db.query(
-        `SELECT h.*, p.plan_name, p.total_cost 
+        `SELECT h.*, p.plan_name, p.total_cost
          FROM managira_hubs h
          LEFT JOIN plans p ON h.plan_id = p.id
          WHERE h.hub_id = $1`,
         [hubId]
       );
+      const { hub_password, reset_password_token, ...hub } = result.rows[0] || {};
+      const me = hubController._me(actor, hub);
 
-      const hub = result.rows[0];
+      const notificationPrefs = notificationsFor(actor);
+      let savedNotificationPrefs = {};
+      if (actor.isOwner) {
+        savedNotificationPrefs = await getHubPreferenceMap(db, hubId);
+      } else {
+        const r = await db.query('SELECT preference_key, enabled FROM hub_user_email_preferences WHERE hub_user_id = $1', [actor.hubUserId]);
+        r.rows.forEach((row) => { savedNotificationPrefs[row.preference_key] = !!row.enabled; });
+      }
 
-      const notificationPrefs = getHubPreferences();
-      const savedNotificationPrefs = await getHubPreferenceMap(db, hubId);
+      let users = [];
+      if (can('users.manage')) {
+        users = (await db.query(
+          `SELECT hub_user_id, first_name, last_name, email, phone, job_title, role, permissions, on_hold,
+                  (password IS NOT NULL) AS has_password, last_login_at
+             FROM hub_users WHERE hub_id = $1
+            ORDER BY CASE role WHEN 'hub_admin' THEN 0 ELSE 1 END, first_name, last_name`,
+          [hubId]
+        )).rows;
+      }
 
+      const tabs = ['general', 'contacts', ...(can('users.manage') ? ['users'] : []), 'emails'];
       res.render('hub/settings', {
         title: 'Hub Settings',
         hub,
+        me,
+        roleLabel: me.isOwner ? 'Hub admin · Owner' : (HUB_ROLES[me.role] || HUB_ROLES.hub_user).label,
+        contacts: await getContacts(db, hubId),
+        users,
+        roles: HUB_ROLES,
+        permissionGroups: HUB_PERMISSION_GROUPS,
+        totalPermissions: ALL_HUB_PERMISSIONS.length,
+        currentHubUserId: req.session.hubUserId || null,
+        tabs,
+        activeTab: tabs.includes(req.query.tab) ? req.query.tab : 'general',
         notificationPrefs,
         savedNotificationPrefs,
         messages: req.flash(),
-        showFooterTopSection: true
+        showFooterTopSection: false
       });
     } catch (error) {
-            req.flash('error', 'Error loading settings.');
+      console.error('[hubSettingsGet]', error.message);
+      req.flash('error', 'Error loading settings.');
       res.redirect('/hub/dashboard');
     }
   },
 
-  // Update hub email notification preferences
+  _me: (actor, hub) => (actor.isOwner
+    ? { first_name: hub.first_name, last_name: hub.last_name, email: hub.hub_email, phone: null, job_title: null, role: 'hub_admin', isOwner: true }
+    : { ...actor.user, isOwner: false }),
+
+  // Side-panel forms for Settings.
+  hubProfileFormGet: async (req, res) => {
+    if (!res.locals.drawer) return res.redirect(`/hub/settings?drawer=${encodeURIComponent('/hub/settings/profile')}`);
+    const hub = (await db.query('SELECT first_name, last_name, hub_email FROM managira_hubs WHERE hub_id = $1', [req.session.hubId])).rows[0] || {};
+    res.render('hub/forms/profile', { me: hubController._me(req.hubActor, hub) });
+  },
+
+  hubDetailsFormGet: async (req, res) => {
+    if (!res.locals.drawer) return res.redirect(`/hub/settings?drawer=${encodeURIComponent('/hub/settings/hub')}`);
+    const hub = (await db.query('SELECT * FROM managira_hubs WHERE hub_id = $1', [req.session.hubId])).rows[0] || {};
+    res.render('hub/forms/hubDetails', { hub });
+  },
+
+  hubContactFormGet: async (req, res) => {
+    const self = req.params.contactId ? `/hub/settings/contacts/${req.params.contactId}/edit` : '/hub/settings/contacts/new';
+    if (!res.locals.drawer) return res.redirect(`/hub/settings?tab=contacts&drawer=${encodeURIComponent(self)}`);
+    let contact = null;
+    if (req.params.contactId) {
+      contact = (await db.query('SELECT * FROM hub_contacts WHERE contact_id = $1 AND hub_id = $2', [req.params.contactId, req.session.hubId])).rows[0];
+      if (!contact) return res.status(404).send('<p class="hub-drawer__error">That contact was not found.</p>');
+    }
+    res.render('hub/forms/contact', { contact });
+  },
+
+  // Each person chooses their own optional emails.
   hubSettingsNotificationsPost: async (req, res) => {
     try {
-      const hubId = req.session.hubId;
-      if (!hubId) return res.redirect('/hub/login');
-      const allowed = getHubPreferences().map(p => p.key);
-      const submitted = Array.isArray(req.body.preferences)
-        ? req.body.preferences
-        : (req.body.preferences ? [req.body.preferences] : []);
-      await setHubPreferences(db, hubId, allowed, submitted);
-      req.flash('success', 'Email preferences updated.');
+      const actor = req.hubActor;
+      const allowed = notificationsFor(actor).map((p) => p.key);
+      const submitted = new Set([].concat(req.body.preferences || []).map(String));
+      if (actor.isOwner) {
+        await setHubPreferences(db, req.session.hubId, allowed, Array.from(submitted));
+      } else {
+        for (const key of allowed) {
+          await db.query(
+            `INSERT INTO hub_user_email_preferences (hub_user_id, preference_key, enabled, updated_at)
+             VALUES ($1, $2, $3, NOW())
+             ON CONFLICT (hub_user_id, preference_key) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = NOW()`,
+            [actor.hubUserId, key, submitted.has(key)]
+          );
+        }
+      }
+      req.flash('success', 'Email preferences saved.');
     } catch (err) {
       req.flash('error', 'Could not update email preferences.');
+    }
+    res.redirect('/hub/settings?tab=emails');
+  },
+
+  // Your own name, phone and job title.
+  hubSettingsProfilePost: async (req, res) => {
+    const actor = req.hubActor;
+    const firstName = String(req.body.firstName || '').trim();
+    const lastName = String(req.body.lastName || '').trim();
+    if (!firstName || !lastName) {
+      req.flash('error', 'First and last name are required.');
+      return res.redirect('/hub/settings');
+    }
+    try {
+      if (actor.isOwner) {
+        await db.query(
+          'UPDATE managira_hubs SET first_name = $1, last_name = $2, updated_at = NOW() WHERE hub_id = $3',
+          [firstName, lastName, req.session.hubId]
+        );
+      } else {
+        await db.query(
+          `UPDATE hub_users SET first_name = $1, last_name = $2, phone = $3, job_title = $4, updated_at = NOW()
+           WHERE hub_user_id = $5`,
+          [firstName, lastName, String(req.body.phone || '').trim().slice(0, 40) || null, String(req.body.jobTitle || '').trim().slice(0, 120) || null, actor.hubUserId]
+        );
+      }
+      req.session.firstName = firstName;
+      req.session.lastName = lastName;
+      await logHubActivity(req.session.hubId, 'PROFILE_UPDATE', `${firstName} ${lastName} updated their profile`, null, hubActorEmail(req));
+      req.flash('success', 'Your profile is saved.');
+    } catch (error) {
+      req.flash('error', 'Error updating profile.');
     }
     res.redirect('/hub/settings');
   },
 
-  // Update Hub Profile
-  hubSettingsProfilePost: async (req, res) => {
-    const { firstName, lastName, hubPhone, hubAddress } = req.body;
-    const hubId = req.session.hubId;
-
+  // The hub's own phone and address (hub name, email and plan are set by Managira).
+  hubSettingsHubPost: async (req, res) => {
     try {
       await db.query(
-        `UPDATE managira_hubs 
-         SET first_name = $1, last_name = $2, hub_phone = $3, hub_address = $4, updated_at = NOW()
-         WHERE hub_id = $5`,
-        [firstName, lastName, hubPhone, hubAddress, hubId]
+        'UPDATE managira_hubs SET hub_phone = $1, hub_address = $2, updated_at = NOW() WHERE hub_id = $3',
+        [String(req.body.hubPhone || '').trim().slice(0, 15) || null, String(req.body.hubAddress || '').trim() || null, req.session.hubId]
       );
-
-      await logHubActivity(hubId, 'PROFILE_UPDATE', 'Hub profile updated');
-
-      req.flash('success', 'Profile updated successfully.');
-      res.redirect('/hub/settings');
+      await logHubActivity(req.session.hubId, 'PROFILE_UPDATE', 'Hub details updated', null, hubActorLabel(req));
+      req.flash('success', 'Hub details saved.');
     } catch (error) {
-            req.flash('error', 'Error updating profile.');
-      res.redirect('/hub/settings');
+      req.flash('error', 'Could not save hub details. Check the phone number is no longer than 15 characters.');
     }
+    res.redirect('/hub/settings');
   },
 
-  // Change Hub Password
-  hubSettingsPasswordPost: async (req, res) => {
-    const { currentPassword, newPassword, confirmPassword } = req.body;
+  // Add or edit a contact person.
+  hubContactSavePost: async (req, res) => {
     const hubId = req.session.hubId;
-
-    try {
-      // Verify current password
-      const result = await db.query(
-        'SELECT hub_password FROM managira_hubs WHERE hub_id = $1',
-        [hubId]
-      );
-
-      const hub = result.rows[0];
-      const isMatch = await bcrypt.compare(currentPassword, hub.hub_password);
-
-      if (!isMatch) {
-        req.flash('error', 'Current password is incorrect.');
-        return res.redirect('/hub/settings');
-      }
-
-      if (newPassword !== confirmPassword) {
-        req.flash('error', 'New passwords do not match.');
-        return res.redirect('/hub/settings');
-      }
-
-      if (newPassword.length < 6) {
-        req.flash('error', 'Password must be at least 6 characters.');
-        return res.redirect('/hub/settings');
-      }
-
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      await db.query(
-        'UPDATE managira_hubs SET hub_password = $1, updated_at = NOW() WHERE hub_id = $2',
-        [hashedPassword, hubId]
-      );
-
-      await logHubActivity(hubId, 'PASSWORD_CHANGE', 'Hub password changed');
-
-      req.flash('success', 'Password changed successfully.');
-      res.redirect('/hub/settings');
-    } catch (error) {
-            req.flash('error', 'Error changing password.');
-      res.redirect('/hub/settings');
+    const fullName = String(req.body.fullName || '').trim().slice(0, 150);
+    const email = String(req.body.email || '').trim().slice(0, 255);
+    const phone = String(req.body.phone || '').trim().slice(0, 40);
+    const jobTitle = String(req.body.jobTitle || '').trim().slice(0, 120);
+    const share = ['1', 'on', 'true'].includes(String(req.body.shareWithSchools || ''));
+    if (!fullName || (!email && !phone)) {
+      req.flash('error', 'Add a name and at least an email or a phone number.');
+      return res.redirect('/hub/settings?tab=contacts');
     }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      req.flash('error', 'That email address does not look right.');
+      return res.redirect('/hub/settings?tab=contacts');
+    }
+    try {
+      await ensureHubAccessSchema(db);
+      if (req.params.contactId) {
+        const r = await db.query(
+          `UPDATE hub_contacts SET full_name = $1, job_title = $2, email = $3, phone = $4, share_with_schools = $5, updated_at = NOW()
+           WHERE contact_id = $6 AND hub_id = $7`,
+          [fullName, jobTitle || null, email || null, phone || null, share, req.params.contactId, hubId]
+        );
+        req.flash(r.rowCount ? 'success' : 'error', r.rowCount ? `${fullName} saved.` : 'Contact not found.');
+      } else {
+        const count = (await db.query('SELECT COUNT(*)::int AS n FROM hub_contacts WHERE hub_id = $1', [hubId])).rows[0].n;
+        await db.query(
+          `INSERT INTO hub_contacts (hub_id, full_name, job_title, email, phone, is_primary, sort_order, share_with_schools)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [hubId, fullName, jobTitle || null, email || null, phone || null, count === 0, count, share]
+        );
+        req.flash('success', `${fullName} added as a contact.`);
+      }
+      await logHubActivity(hubId, 'CONTACT_UPDATE', `Contact ${fullName} saved`, null, hubActorLabel(req));
+    } catch (error) {
+      req.flash('error', 'Could not save the contact.');
+    }
+    res.redirect('/hub/settings?tab=contacts');
+  },
+
+  hubContactDeletePost: async (req, res) => {
+    const hubId = req.session.hubId;
+    try {
+      const r = await db.query('DELETE FROM hub_contacts WHERE contact_id = $1 AND hub_id = $2 RETURNING full_name, is_primary', [req.params.contactId, hubId]);
+      if (r.rows[0] && r.rows[0].is_primary) {
+        await db.query(
+          `UPDATE hub_contacts SET is_primary = TRUE WHERE contact_id = (
+             SELECT contact_id FROM hub_contacts WHERE hub_id = $1 ORDER BY sort_order, contact_id LIMIT 1)`,
+          [hubId]
+        );
+      }
+      req.flash('success', r.rows[0] ? `${r.rows[0].full_name} removed.` : 'Contact removed.');
+    } catch (error) {
+      req.flash('error', 'Could not remove the contact.');
+    }
+    res.redirect('/hub/settings?tab=contacts');
+  },
+
+  hubContactPrimaryPost: async (req, res) => {
+    const hubId = req.session.hubId;
+    try {
+      await db.query('UPDATE hub_contacts SET is_primary = (contact_id = $1), updated_at = NOW() WHERE hub_id = $2', [req.params.contactId, hubId]);
+      req.flash('success', 'Main contact updated.');
+    } catch (error) {
+      req.flash('error', 'Could not update the main contact.');
+    }
+    res.redirect('/hub/settings?tab=contacts');
   },
 
   // Update Hub Logo
@@ -1209,11 +1414,11 @@ const hubController = {
         return res.redirect('/hub/dashboard');
       }
 
-      res.render('hub/organizationInvite', {
+      if (!res.locals.drawer) return res.redirect(`/hub/dashboard?drawer=${encodeURIComponent('/hub/organizations/invite')}#invitations`);
+      res.render('hub/forms/invite', {
         hub,
         currentOrgCount,
         maxOrganizations: hub.max_organizations,
-        title: 'Invite Organization'
       });
     } catch (error) {
             req.flash('error', 'Error loading invitation form.');
@@ -1319,9 +1524,10 @@ const hubController = {
         'organization_invited',
         `Invited organization: ${organization_name} (${contact_person_email})`,
         null,
-        hub.hub_name,
+        hubActorLabel(req),
         req.ip
       );
+      notifyInvitationSent(req, organization_name);
 
       res.redirect('/hub/dashboard');
     } catch (error) {
@@ -1432,9 +1638,10 @@ const hubController = {
         'organization_removed',
         `Removed organization: ${organization.organization_name}`,
         organizationId,
-        hub.hub_name,
+        hubActorLabel(req),
         req.ip
       );
+      notifySchoolStatus(req, organization.organization_name, 'was removed from the hub');
 
       // Send notification email to organization
       if (organization.email) {
@@ -1548,12 +1755,19 @@ const hubController = {
         newHoldStatus ? 'organization_held' : 'organization_resumed',
         `${newHoldStatus ? 'Put on hold' : 'Resumed'}: ${organization.organization_name}`,
         organizationId,
-        hub.hub_name,
+        hubActorLabel(req),
         req.ip
       );
+      notifySchoolStatus(req, organization.organization_name, newHoldStatus ? 'was put on hold' : 'was resumed');
 
-            req.flash('success', `${organization.organization_name} has been ${newHoldStatus ? 'put on hold' : 'resumed'}.`);
-      res.redirect('/hub/dashboard');
+      req.flash('success', `${organization.organization_name} has been ${newHoldStatus ? 'put on hold' : 'resumed'}.`);
+      // Go back to the page the action came from (dashboard list or the school's page).
+      let back = '/hub/dashboard#schools';
+      try {
+        const ref = new URL(req.get('referer') || '', `${req.protocol}://${req.get('host')}`);
+        if (ref.host === req.get('host') && ref.pathname.startsWith('/hub/')) back = ref.pathname + ref.search + (ref.pathname === '/hub/dashboard' ? '#schools' : '');
+      } catch (_e) { /* keep default */ }
+      res.redirect(back);
     } catch (error) {
             req.flash('error', 'Error updating organization status.');
       res.redirect('/hub/dashboard');
@@ -1603,9 +1817,10 @@ const hubController = {
         'organization_deleted',
         `Deleted organization: ${organization.organization_name}`,
         organizationId,
-        hub.hub_name,
+        hubActorLabel(req),
         req.ip
       );
+      notifySchoolStatus(req, organization.organization_name, 'was deleted');
 
             req.flash('success', `${organization.organization_name} has been permanently deleted.`);
       res.redirect('/hub/dashboard');
@@ -1632,12 +1847,10 @@ const hubController = {
         return res.redirect('/hub/dashboard');
       }
 
-      res.render('hub/editOrganization', {
-        title: 'Edit Organization',
+      if (!res.locals.drawer) return res.redirect(`/hub/organizations/${organizationId}?drawer=${encodeURIComponent(`/hub/organizations/edit/${organizationId}`)}`);
+      res.render('hub/forms/editSchool', {
         organization: orgResult.rows[0],
         hub,
-        messages: req.flash(),
-        showFooterTopSection: true
       });
     } catch (error) {
             req.flash('error', 'Error loading organization.');
@@ -1693,8 +1906,8 @@ const hubController = {
         req.ip
       );
 
-            req.flash('success', 'Organization updated successfully.');
-      res.redirect('/hub/dashboard');
+      req.flash('success', 'School details saved.');
+      res.redirect(`/hub/organizations/${organizationId}`);
     } catch (error) {
             req.flash('error', 'Error updating organization.');
       res.redirect(`/hub/organizations/edit/${req.params.organizationId}`);
@@ -1745,9 +1958,10 @@ const hubController = {
         'detachment_approved',
         `Approved detachment request from ${request.organization_name}`,
         request.organization_id,
-        hub.hub_name,
+        hubActorLabel(req),
         req.ip
       );
+      notifySchoolStatus(req, request.organization_name, 'left the hub');
 
       // Send notification email to organization
       const emailHtml = renderCleanEmail({
@@ -1958,9 +2172,10 @@ const hubController = {
         'invitation_sent',
         `Invited existing organization: ${org.organization_name}`,
         null,
-        hub.hub_name,
+        hubActorLabel(req),
         req.ip
       );
+      notifyInvitationSent(req, org.organization_name);
 
       // Send email to organization
       const emailHtml = renderCleanEmail({

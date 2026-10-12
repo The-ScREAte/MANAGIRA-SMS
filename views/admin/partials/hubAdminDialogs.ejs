@@ -1,0 +1,151 @@
+<%# Shared dialogs + behaviour for the admin hub pages (hubs.ejs, hubOrganizations.ejs). %>
+<dialog class="ah-dialog" data-ah-open-dialog aria-labelledby="ahOpenTitle">
+  <div class="ah-dialog__body">
+    <h2 class="ah-dialog__title" id="ahOpenTitle">Open <span data-ah-open-name></span>?</h2>
+    <p class="ah-dialog__text" data-ah-open-text></p>
+  </div>
+  <div class="ah-dialog__foot">
+    <button type="button" class="ah-btn" data-ah-close>Cancel</button>
+    <a class="ah-btn ah-btn--primary" href="#" data-ah-open-go data-no-spa><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> <span data-ah-open-label>Open</span></a>
+  </div>
+</dialog>
+
+<dialog class="ah-dialog" data-ah-confirm-dialog aria-labelledby="ahConfirmTitle">
+  <div class="ah-dialog__body">
+    <h2 class="ah-dialog__title" id="ahConfirmTitle">Are you sure?</h2>
+    <p class="ah-dialog__text" data-ah-confirm-text></p>
+  </div>
+  <div class="ah-dialog__foot">
+    <button type="button" class="ah-btn" data-ah-close>Cancel</button>
+    <button type="button" class="ah-btn ah-btn--primary" data-ah-confirm-go>Yes, continue</button>
+  </div>
+</dialog>
+
+<dialog class="ah-dialog" data-ah-password-dialog aria-labelledby="ahPwTitle">
+  <div class="ah-dialog__body">
+    <h2 class="ah-dialog__title" id="ahPwTitle">Reset password</h2>
+    <p class="ah-dialog__text">For <strong data-ah-pw-name></strong>. Pick one.</p>
+
+    <form class="ah-option" method="POST" data-ah-pw-send>
+      <p class="ah-option__title"><i class="fa-regular fa-envelope" aria-hidden="true"></i> Email them a reset link</p>
+      <p class="ah-option__text">We send a secure link to <strong data-ah-pw-email></strong>. They choose their own password. The link works for 24 hours.</p>
+      <button type="submit" class="ah-btn ah-btn--primary ah-btn--sm"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send reset link</button>
+    </form>
+
+    <form class="ah-option" method="POST" data-ah-pw-set>
+      <p class="ah-option__title"><i class="fa-solid fa-key" aria-hidden="true"></i> Set a new password now</p>
+      <p class="ah-option__text">It works straight away at the hub sign-in page. Share it with them privately.</p>
+      <div class="ah-pw">
+        <input type="text" name="newPassword" minlength="8" required autocomplete="off" spellcheck="false" aria-label="New password" placeholder="At least 8 letters and numbers" data-ah-pw-input />
+        <button type="button" class="ah-btn ah-btn--sm" data-ah-pw-generate title="Make a strong password"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Generate</button>
+        <button type="button" class="ah-btn ah-btn--sm ah-btn--icon" data-ah-pw-copy title="Copy" aria-label="Copy password"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+      </div>
+      <span class="ah-hint">Sign-in page: <%= (typeof BASE_URL !== 'undefined' && BASE_URL) ? String(BASE_URL).replace(/\/$/, '') : '' %>/hub/login</span>
+      <div style="margin-top:12px"><button type="submit" class="ah-btn ah-btn--primary ah-btn--sm"><i class="fa-solid fa-check" aria-hidden="true"></i> Save password</button></div>
+    </form>
+  </div>
+  <div class="ah-dialog__foot">
+    <button type="button" class="ah-btn" data-ah-close>Close</button>
+  </div>
+</dialog>
+
+<script>
+  (function () {
+    const root = document.querySelector('.ah');
+    if (!root || root.dataset.ahReady === '1') return;
+    root.dataset.ahReady = '1';
+
+    const openDlg = root.querySelector('[data-ah-open-dialog]');
+    const confirmDlg = root.querySelector('[data-ah-confirm-dialog]');
+    const pwDlg = root.querySelector('[data-ah-password-dialog]');
+    const show = (d) => { if (d && typeof d.showModal === 'function') d.showModal(); };
+    let pendingForm = null;
+
+    // Window capture phase so the page router never swallows these clicks first.
+    window.addEventListener('click', (e) => {
+      if (!document.body.contains(root) || !root.contains(e.target)) return;
+      if (e.target.closest('[data-ah-close]')) { e.target.closest('dialog').close(); return; }
+
+      // Open a hub or school (same confirm as the admin dashboard).
+      const open = e.target.closest('[data-ah-open]');
+      if (open && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        const isHub = open.dataset.kind === 'hub';
+        openDlg.querySelector('[data-ah-open-name]').textContent = open.dataset.name || (isHub ? 'this hub' : 'this school');
+        openDlg.querySelector('[data-ah-open-text]').textContent = isHub
+          ? 'You will see the hub exactly as its owner does. Use “Back to Admin” at the top left to return.'
+          : 'You will see the school’s dashboard as its admin. Use “Back to Admin” at the top left to return.';
+        openDlg.querySelector('[data-ah-open-label]').textContent = isHub ? 'Open hub' : 'Open school';
+        openDlg.querySelector('[data-ah-open-go]').setAttribute('href', open.getAttribute('href'));
+        root.querySelectorAll('.ah-menu[open]').forEach((m) => m.removeAttribute('open'));
+        show(openDlg);
+        return;
+      }
+
+      const pw = e.target.closest('[data-ah-password]');
+      if (pw) {
+        const id = encodeURIComponent(pw.dataset.id);
+        pwDlg.querySelector('[data-ah-pw-name]').textContent = pw.dataset.name || 'this hub';
+        pwDlg.querySelector('[data-ah-pw-email]').textContent = pw.dataset.email || 'their email';
+        pwDlg.querySelector('[data-ah-pw-send]').action = `/admin/hubs/${id}/send-reset`;
+        pwDlg.querySelector('[data-ah-pw-set]').action = `/admin/hubs/${id}/set-password`;
+        pwDlg.querySelector('[data-ah-pw-input]').value = '';
+        show(pwDlg);
+        return;
+      }
+
+      if (e.target.closest('[data-ah-pw-generate]')) {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+        const bytes = new Uint32Array(12);
+        crypto.getRandomValues(bytes);
+        let out = Array.from(bytes, (b) => chars[b % chars.length]).join('');
+        out = out.slice(0, 4) + '-' + out.slice(4, 8) + '-' + out.slice(8) + (bytes[0] % 10);
+        if (!/[A-Za-z]/.test(out)) out = 'Hub' + out;
+        pwDlg.querySelector('[data-ah-pw-input]').value = out;
+        return;
+      }
+
+      const copy = e.target.closest('[data-ah-pw-copy]');
+      if (copy) {
+        const v = pwDlg.querySelector('[data-ah-pw-input]').value;
+        if (v && navigator.clipboard) navigator.clipboard.writeText(v).then(() => { copy.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>'; setTimeout(() => { copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>'; }, 1400); }).catch(() => {});
+        return;
+      }
+
+      if (e.target.closest('[data-ah-confirm-go]')) {
+        const f = pendingForm; pendingForm = null;
+        confirmDlg.close();
+        if (f) { f.dataset.ahConfirmed = '1'; f.requestSubmit ? f.requestSubmit() : f.submit(); }
+      }
+    }, true);
+
+    root.addEventListener('submit', (e) => {
+      const f = e.target.closest('form[data-ah-confirm]');
+      if (!f || f.dataset.ahConfirmed === '1') return;
+      e.preventDefault();
+      pendingForm = f;
+      confirmDlg.querySelector('[data-ah-confirm-text]').textContent = f.dataset.ahConfirm;
+      root.querySelectorAll('.ah-menu[open]').forEach((m) => m.removeAttribute('open'));
+      show(confirmDlg);
+    });
+
+    // Close any open "more" menu when clicking elsewhere.
+    document.addEventListener('click', (e) => {
+      root.querySelectorAll('.ah-menu[open]').forEach((m) => { if (!m.contains(e.target)) m.removeAttribute('open'); });
+    });
+
+    // Search filter.
+    const filter = root.querySelector('[data-ah-filter]');
+    if (filter) {
+      const rows = Array.from(root.querySelectorAll('[data-ah-row]'));
+      const none = root.querySelector('[data-ah-noresults]');
+      filter.addEventListener('input', () => {
+        const q = filter.value.trim().toLowerCase();
+        let shown = 0;
+        rows.forEach((r) => { const hit = !q || r.dataset.ahRow.includes(q); r.hidden = !hit; if (hit) shown += 1; });
+        if (none) none.hidden = shown > 0;
+      });
+    }
+  })();
+</script>

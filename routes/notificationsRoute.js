@@ -64,6 +64,44 @@ function resolveReaderContext(req) {
   return { recipientType: 'staff', recipientId: Number(userId), orgId: Number(orgId) };
 }
 
+// People signed in to a hub get the hub's own feed (see utils/hubNotifications).
+async function hubFeedFor(req) {
+  const { loadHubActor } = require('../utils/hubAccess');
+  const actor = await loadHubActor(db, req.session);
+  return actor ? { actor, hubId: Number(req.session.hubId) } : null;
+}
+router.use(async (req, res, next) => {
+  const session = req.session || {};
+  if (!(session.hubId && session.accountType === 'Hub')) return next();
+  try {
+    const hubNotes = require('../utils/hubNotifications');
+    const ctx = await hubFeedFor(req);
+    if (!ctx) return res.status(401).json({ success: false, error: 'Unauthenticated' });
+    const id = String((req.body && req.body.notifId) || '').trim();
+    if (req.method === 'GET' && req.path === '/count') {
+      const items = await hubNotes.buildFeed(db, ctx.hubId, ctx.actor);
+      return res.json({ success: true, count: items.filter((i) => !i.is_read).length });
+    }
+    if (req.method === 'GET' && req.path === '/feed') {
+      return res.json({ success: true, notifications: await hubNotes.buildFeed(db, ctx.hubId, ctx.actor) });
+    }
+    if (req.method === 'POST' && (req.path === '/mark-read' || req.path === '/dismiss')) {
+      await hubNotes.mark(db, ctx.hubId, ctx.actor, [id], req.path === '/dismiss');
+      return res.json({ success: true });
+    }
+    if (req.method === 'POST' && (req.path === '/mark-all-read' || req.path === '/dismiss-all')) {
+      const items = await hubNotes.buildFeed(db, ctx.hubId, ctx.actor);
+      await hubNotes.mark(db, ctx.hubId, ctx.actor, items.map((i) => i.id), req.path === '/dismiss-all');
+      return res.json({ success: true });
+    }
+    // Popups and other school-only extras: nothing for hubs.
+    return res.json({ success: true, notifications: [], count: 0, show: false });
+  } catch (err) {
+    console.error('[notifications:hub]', err.message);
+    return res.json({ success: true, notifications: [], count: 0 });
+  }
+});
+
 function requireAuth(req, res, next) {
   const ctx = resolveReaderContext(req);
   if (!ctx) return res.status(401).json({ success: false, error: 'Unauthenticated' });

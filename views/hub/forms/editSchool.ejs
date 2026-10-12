@@ -1,0 +1,48 @@
+<%
+  const _org = organization || {};
+  const _hubNick = (hub && hub.hub_nickname) || '';
+%>
+<div data-drawer-title="Edit <%= _org.organization_name %>" data-drawer-sub="The school's name, address and phone number.">
+  <form class="hub-form hub-drawer-form" action="/hub/organizations/edit/<%= _org.organization_id %>" method="POST" data-ajax>
+    <div class="hub-field">
+      <label class="hub-label" for="dsName">School name <span class="req">*</span></label>
+      <input type="text" id="dsName" name="organization_name" value="<%= _org.organization_name %>" required />
+    </div>
+    <div class="hub-form__grid">
+      <div class="hub-field">
+        <label class="hub-label" for="dsWeb">Web address</label>
+        <input type="text" id="dsWeb" value="<%= _org.nickname %>.<%= _hubNick %>.managira.com" readonly />
+      </div>
+      <div class="hub-field">
+        <label class="hub-label" for="dsEmail">Email</label>
+        <input type="email" id="dsEmail" value="<%= _org.email %>" readonly />
+      </div>
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="dsAddress">Address <span class="req">*</span></label>
+      <textarea id="dsAddress" name="organization_address" rows="3" required><%= _org.organization_address %></textarea>
+    </div>
+    <div class="hub-form__grid">
+      <div class="hub-field">
+        <label class="hub-label" for="dsCountry">Country</label>
+        <input type="text" id="dsCountry" name="organization_country" value="<%= _org.organization_country || '' %>" placeholder="e.g. Ghana" />
+      </div>
+      <div class="hub-field">
+        <label class="hub-label" for="dsRegion">Region / state</label>
+        <input type="text" id="dsRegion" name="organization_province" value="<%= _org.organization_province || '' %>" placeholder="e.g. Ashanti" />
+      </div>
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="dsPhone">Phone number <span class="req">*</span></label>
+      <div class="phone-combo" data-default-iso2="GH">
+        <select class="phone-dial-select"></select>
+        <input type="tel" id="dsPhone" class="phone-local-input" name="organization_phone" value="<%= _org.organization_phone %>" required />
+      </div>
+    </div>
+    <p class="hub-help">The web address and email can only be changed by Managira support.</p>
+    <div class="hub-drawer__foot">
+      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save changes</button>
+      <button type="button" class="hub-btn" data-drawer-close>Cancel</button>
+    </div>
+  </form>
+</div>

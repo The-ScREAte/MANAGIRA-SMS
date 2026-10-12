@@ -578,6 +578,29 @@ async function renderOrganizationStatsPdf({ baseUrl, sessionCookie, termId }) {
   });
 }
 
+// Any app page as a PDF, once the page sets window[readyFlag] = true
+// (used by hub reports and the hub's school report).
+async function renderAppPagePdf({ baseUrl, sessionCookie, path, readyFlag, landscape = false }) {
+  return withPage(async (page) => {
+    await openAppPage(page, { baseUrl, sessionCookie, path, mediaType: "screen", javaScript: true });
+    if (readyFlag) {
+      try {
+        await page.waitForFunction((flag) => window[flag] === true, { timeout: NAVIGATION_TIMEOUT_MS }, readyFlag);
+      } catch (_) {
+        throw userFacingError("The report could not be drawn. Check the internet connection and try again.");
+      }
+    }
+    await waitForAssets(page);
+    const pdf = await page.pdf({
+      format: "A4",
+      landscape,
+      printBackground: true,
+      margin: { top: "12mm", right: "10mm", bottom: "12mm", left: "10mm" },
+    });
+    return Buffer.from(pdf);
+  });
+}
+
 function pdfPublicUrl(bucketName, key) {
   const regionName = String(process.env.AWS_REGION || "").trim();
   if (!regionName || regionName === "us-east-1") {
@@ -622,6 +645,7 @@ module.exports = {
   renderTranscriptPdf,
   renderMeritSheetPdf,
   renderOrganizationStatsPdf,
+  renderAppPagePdf,
   storePdf,
   safeFileSegment,
   sessionCookieFromHeader,

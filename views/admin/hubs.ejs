@@ -1,503 +1,144 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <link rel="stylesheet" href="/css/globalScale.css">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manage Hubs - Admin</title>
-  <link rel="stylesheet" href="/css/admin.css">
-  <style>
-  :root {
-    --primary: #01535b;
-    --primary-hover: #014a51;
-        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
-    --text-primary: #111827;
-    --text-secondary: #6b7280;
-    --border: #e5e7eb;
-    --bg: #f9fafb;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-  }
+<%
+  const _hubs = Array.isArray(hubs) ? hubs : [];
+  const _active = _hubs.filter((h) => !h.on_hold).length;
+  const _hold = _hubs.filter((h) => h.on_hold).length;
+  const _schools = _hubs.reduce((sum, h) => sum + (Number(h.org_count) || 0), 0);
+  const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const _logo = (h) => h.logo_path && String(h.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(h.logo_path) ? h.logo_path : '';
+%>
+<link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
 
-  .dashboard-wrapper {
-    padding: 40px 24px;
-    min-height: 100vh;
-    background: var(--bg);
-  }
+<div class="ah">
+  <%- include('../partials/flash') %>
 
-  .dashboard-header {
-    max-width: 1400px;
-    margin: 0 auto 32px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
+  <nav class="ah-crumbs" aria-label="Breadcrumb">
+    <a href="/admin">Admin</a><i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:.6rem"></i><span>Hubs</span>
+  </nav>
 
-  .dashboard-title {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .dashboard-title h1 {
-    font-size: 2rem;
-    color: var(--text-primary);
-    margin: 0;
-    font-weight: 700;
-  }
-
-  .dashboard-title p {
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    margin: 0;
-  }
-
-  .dashboard-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-  }
-
-  .btn-primary {
-    padding: 12px 24px;
-    background: var(--primary);
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.95rem;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .btn-primary:hover {
-    background: var(--primary-hover-fill, var(--primary-hover));
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(1, 83, 91, 0.2);
-  }
-
-  .btn-secondary {
-    padding: 12px 24px;
-    background: white;
-    color: var(--text-primary);
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.95rem;
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-secondary:hover {
-    background: var(--bg);
-    border-color: var(--text-secondary);
-  }
-
-  .stats-grid {
-    max-width: 1400px;
-    margin: 0 auto 32px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 20px;
-  }
-
-  .stat-card {
-    background: white;
-    border-radius: 12px;
-    padding: 24px;
-    border: 1px solid var(--border);
-    transition: all 0.2s;
-  }
-
-  .stat-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    transform: translateY(-2px);
-  }
-
-  .stat-card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  .stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-  }
-
-  .stat-icon.primary { background: rgba(1, 83, 91, 0.1); }
-  .stat-icon.success { background: rgba(16, 185, 129, 0.1); }
-  .stat-icon.warning { background: rgba(245, 158, 11, 0.1); }
-  .stat-icon.danger { background: rgba(239, 68, 68, 0.1); }
-
-  .stat-content h3 {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin: 0 0 4px 0;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .stat-content .stat-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1;
-  }
-
-  .hubs-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    background: white;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    overflow: hidden;
-  }
-
-  .hubs-container-header {
-    padding: 24px 28px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg);
-  }
-
-  .hubs-container-header h2 {
-    font-size: 1.25rem;
-    color: var(--text-primary);
-    margin: 0;
-    font-weight: 700;
-  }
-
-  .table-wrapper {
-    overflow-x: auto;
-  }
-
-  .hubs-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .hubs-table th,
-  .hubs-table td {
-    padding: 16px 20px;
-    text-align: left;
-    font-size: 0.9rem;
-  }
-
-  .hubs-table thead {
-    background: var(--bg);
-    border-bottom: 2px solid var(--border);
-  }
-
-  .hubs-table th {
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .hubs-table tbody tr {
-    border-bottom: 1px solid var(--border);
-    transition: background 0.15s;
-  }
-
-  .hubs-table tbody tr:hover {
-    background: #fafbfc;
-  }
-
-  .hub-info strong {
-    color: var(--text-primary);
-    font-size: 0.95rem;
-    display: block;
-    margin-bottom: 4px;
-  }
-
-  .hub-info small {
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-  }
-
-  .badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .badge-active {
-    background: #ecfdf5;
-    color: #065f46;
-  }
-
-  .badge-hold {
-    background: #fef3c7;
-    color: #92400e;
-  }
-
-  .badge-deleted {
-    background: #fef2f2;
-    color: #991b1b;
-  }
-
-  .badge-info {
-    background: #eff6ff;
-    color: #1e40af;
-  }
-
-  .actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .btn-action {
-    padding: 6px 12px;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-    text-decoration: none;
-    display: inline-block;
-    font-family: inherit;
-  }
-
-  .btn-edit {
-    background: #eff6ff;
-    color: #1e40af;
-  }
-
-  .btn-edit:hover {
-    background: #dbeafe;
-  }
-
-  .btn-hold {
-    background: #fef3c7;
-    color: #92400e;
-  }
-
-  .btn-hold:hover {
-    background: #fde68a;
-  }
-
-  .btn-delete {
-    background: #fef2f2;
-    color: #991b1b;
-  }
-
-  .btn-delete:hover {
-    background: #fecaca;
-  }
-
-  .btn-view {
-    background: #f0fdf4;
-    color: #166534;
-  }
-
-  .btn-view:hover {
-    background: #dcfce7;
-  }
-
-  .no-hubs {
-    text-align: center;
-    padding: 80px 24px;
-  }
-
-  .no-hubs-icon {
-    font-size: 4rem;
-    margin-bottom: 16px;
-    opacity: 0.5;
-  }
-
-  .no-hubs h3 {
-    color: var(--text-primary);
-    font-size: 1.25rem;
-    margin: 0 0 8px 0;
-  }
-
-  .no-hubs p {
-    color: var(--text-secondary);
-    margin: 0 0 24px 0;
-  }
-
-  @media (max-width: 768px) {
-    .dashboard-wrapper {
-      padding: 24px 16px;
-    }
-
-    .dashboard-header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .dashboard-title h1 {
-      font-size: 1.5rem;
-    }
-
-    .stats-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .table-wrapper {
-      overflow-x: scroll;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .hubs-table {
-      min-width: 900px;
-    }
-  }
-</style>
-
-<div class="dashboard-wrapper">
-  <div class="dashboard-header">
-    <div class="dashboard-title">
-      <h1>🏢 Hub Management</h1>
-      <p>Manage and monitor all hubs in the system</p>
+  <header class="ah-head">
+    <div>
+      <h1 class="ah-head__title">Hubs</h1>
+      <p class="ah-head__sub">Groups of schools run together. Open a hub to see it exactly as its owner does.</p>
     </div>
-    <div class="dashboard-actions">
-      <a href="/admin" class="btn-secondary">← Back to Admin</a>
-      <a href="/admin/hubs/create" class="btn-primary">
-        <span>+</span> Create New Hub
-      </a>
+    <div class="ah-head__actions">
+      <a href="/admin" class="ah-btn"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Admin</a>
+      <a href="/admin/hubs/create" class="ah-btn ah-btn--primary"><i class="fa-solid fa-plus" aria-hidden="true"></i> New hub</a>
     </div>
+  </header>
+
+  <div class="ah-kpis">
+    <div class="ah-kpi ah-kpi--teal"><span class="ah-kpi__icon"><i class="fa-solid fa-network-wired" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Hubs</div><div class="ah-kpi__value"><%= _hubs.length %></div></div></div>
+    <div class="ah-kpi ah-kpi--green"><span class="ah-kpi__icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Active</div><div class="ah-kpi__value"><%= _active %></div></div></div>
+    <div class="ah-kpi ah-kpi--amber"><span class="ah-kpi__icon"><i class="fa-solid fa-pause" aria-hidden="true"></i></span><div><div class="ah-kpi__label">On hold</div><div class="ah-kpi__value"><%= _hold %></div></div></div>
+    <div class="ah-kpi ah-kpi--blue"><span class="ah-kpi__icon"><i class="fa-solid fa-school" aria-hidden="true"></i></span><div><div class="ah-kpi__label">Schools in hubs</div><div class="ah-kpi__value"><%= _schools %></div></div></div>
   </div>
 
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-card-header">
-        <div class="stat-icon primary">📊</div>
-        <div class="stat-content">
-          <h3>Total Hubs</h3>
-          <div class="stat-value"><%= hubs.length %></div>
-        </div>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-card-header">
-        <div class="stat-icon success">✅</div>
-        <div class="stat-content">
-          <h3>Active</h3>
-          <div class="stat-value"><%= hubs.filter(h => !h.deleted && !h.on_hold).length %></div>
-        </div>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-card-header">
-        <div class="stat-icon warning">⏸️</div>
-        <div class="stat-content">
-          <h3>On Hold</h3>
-          <div class="stat-value"><%= hubs.filter(h => h.on_hold && !h.deleted).length %></div>
-        </div>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-card-header">
-        <div class="stat-icon danger">🗑️</div>
-        <div class="stat-content">
-          <h3>Deleted</h3>
-          <div class="stat-value"><%= hubs.filter(h => h.deleted).length %></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="hubs-container">
-    <div class="hubs-container-header">
-      <h2>All Hubs</h2>
+  <section class="ah-card" aria-label="All hubs">
+    <div class="ah-card__bar">
+      <h2 class="ah-card__title">All hubs</h2>
+      <% if (_hubs.length > 1) { %>
+        <label class="ah-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Search hubs…" aria-label="Search hubs" data-ah-filter /></label>
+      <% } %>
     </div>
 
-    <% if (hubs.length > 0) { %>
-      <div class="table-wrapper">
-        <table class="hubs-table">
+    <% if (_hubs.length) { %>
+      <div class="ah-scroll">
+        <table class="ah-table">
           <thead>
             <tr>
-              <th>Hub Name</th>
-              <th>Contact</th>
-              <th>Email</th>
+              <th>Hub</th>
+              <th>Owner</th>
               <th>Plan</th>
-              <th>Contract End</th>
-              <th>Organizations</th>
+              <th>Schools</th>
               <th>Status</th>
-              <th>Actions</th>
+              <th class="ah-num">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <% hubs.forEach(hub => { %>
-              <tr>
+            <% _hubs.forEach((hub) => {
+                 const max = Number(hub.max_organizations) || 0;
+                 const count = Number(hub.org_count) || 0;
+                 const pct = max ? Math.min(100, Math.round((count / max) * 100)) : 0;
+                 const owner = [hub.first_name, hub.last_name].filter(Boolean).join(' ');
+                 const logo = _logo(hub); %>
+              <tr data-ah-row="<%= [hub.hub_name, hub.hub_nickname, owner, hub.hub_email].join(' ').toLowerCase() %>">
                 <td>
-                  <div class="hub-info">
-                    <strong><%= hub.hub_name %></strong>
-                    <small><%= hub.hub_nickname %>.managira.com</small>
+                  <div class="ah-name">
+                    <span class="ah-avatar"><% if (logo) { %><img src="<%= logo %>" alt="" onerror="this.remove()" /><% } else { %><%= (hub.hub_name || 'H').charAt(0).toUpperCase() %><% } %></span>
+                    <div style="min-width:0">
+                      <% if (hub.on_hold) { %>
+                        <span class="ah-name__link"><%= hub.hub_name %></span>
+                      <% } else { %>
+                        <a class="ah-name__link" href="/admin/hub/<%= hub.hub_id %>" data-ah-open data-name="<%= hub.hub_name %>" data-kind="hub"><%= hub.hub_name %></a>
+                      <% } %>
+                      <span class="ah-sub"><%= hub.hub_nickname %>.managira.com</span>
+                    </div>
                   </div>
                 </td>
-                <td><%= hub.first_name %> <%= hub.last_name %></td>
-                <td><%= hub.hub_email %></td>
-                <td><%= hub.plan_name || 'No plan' %></td>
-                <td><%= hub.contract_end_date ? new Date(hub.contract_end_date).toLocaleDateString() : 'Not set' %></td>
-                <td><span class="badge badge-info"><%= hub.org_count %> / <%= hub.max_organizations %></span></td>
                 <td>
-                  <% if (hub.deleted) { %>
-                    <span class="badge badge-deleted">Deleted</span>
-                  <% } else if (hub.on_hold) { %>
-                    <span class="badge badge-hold">On Hold</span>
-                  <% } else { %>
-                    <span class="badge badge-active">Active</span>
-                  <% } %>
+                  <%= owner || '—' %>
+                  <span class="ah-sub"><%= hub.hub_email %></span>
                 </td>
                 <td>
-                  <div class="actions">
-                    <a href="/admin/hubs/<%= hub.hub_id %>/edit" class="btn-action btn-edit">Edit</a>
-                    <a href="/admin/hubs/<%= hub.hub_id %>/organizations" class="btn-action btn-view">Orgs</a>
-                    <% if (!hub.on_hold && !hub.deleted) { %>
-                      <form action="/admin/hubs/hold" method="POST" style="display:inline;" onsubmit="return confirm('Put this hub on hold?')">
-                        <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
-                        <button type="submit" class="btn-action btn-hold">Hold</button>
-                      </form>
+                  <%= hub.plan_name || 'No plan' %>
+                  <span class="ah-sub"><%= hub.contract_end_date ? 'Ends ' + _date(hub.contract_end_date) : 'No end date' %></span>
+                </td>
+                <td>
+                  <div class="ah-cap">
+                    <a class="ah-cap__text" href="/admin/hubs/<%= hub.hub_id %>/organizations"><%= count %> of <%= max || '∞' %></a>
+                    <% if (max) { %><div class="ah-cap__bar" aria-hidden="true"><span style="width:<%= pct %>%"></span></div><% } %>
+                  </div>
+                </td>
+                <td>
+                  <% if (hub.on_hold) { %><span class="ah-status ah-status--hold">On hold</span><% } else { %><span class="ah-status">Active</span><% } %>
+                  <% if (!hub.has_password) { %><span class="ah-sub">Password not set</span><% } %>
+                </td>
+                <td class="ah-actions-cell">
+                  <div class="ah-row-actions">
+                    <% if (!hub.on_hold) { %>
+                      <a class="ah-btn ah-btn--primary ah-btn--sm" href="/admin/hub/<%= hub.hub_id %>" data-ah-open data-name="<%= hub.hub_name %>" data-kind="hub"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open hub</a>
                     <% } %>
-                    <% if (hub.on_hold && !hub.deleted) { %>
-                      <form action="/admin/hubs/resume" method="POST" style="display:inline;">
-                        <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
-                        <button type="submit" class="btn-action btn-edit">Resume</button>
-                      </form>
-                    <% } %>
-                    <% if (!hub.deleted) { %>
-                      <form action="/admin/hubs/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this hub?')">
-                        <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
-                        <button type="submit" class="btn-action btn-delete">Delete</button>
-                      </form>
-                    <% } %>
+                    <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/organizations"><i class="fa-solid fa-school" aria-hidden="true"></i> Schools</a>
+                    <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/edit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
+                    <button type="button" class="ah-btn ah-btn--sm" data-ah-password data-id="<%= hub.hub_id %>" data-name="<%= hub.hub_name %>" data-email="<%= hub.hub_email %>"><i class="fa-solid fa-key" aria-hidden="true"></i> Password</button>
+                    <details class="ah-menu">
+                      <summary class="ah-btn ah-btn--sm ah-btn--icon" aria-label="More actions for <%= hub.hub_name %>"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
+                      <div class="ah-menu__list">
+                        <% if (hub.on_hold) { %>
+                          <form action="/admin/hubs/resume" method="POST">
+                            <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                            <button type="submit" class="ah-menu__item"><i class="fa-solid fa-play" aria-hidden="true"></i> Resume hub</button>
+                          </form>
+                        <% } else { %>
+                          <form action="/admin/hubs/hold" method="POST" data-ah-confirm="Put <%= hub.hub_name %> on hold? The owner won't be able to sign in until you resume it.">
+                            <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                            <button type="submit" class="ah-menu__item"><i class="fa-solid fa-pause" aria-hidden="true"></i> Put on hold</button>
+                          </form>
+                        <% } %>
+                        <div class="ah-menu__sep"></div>
+                        <form action="/admin/hubs/delete" method="POST" data-ah-confirm="Delete <%= hub.hub_name %>? All of its schools will be put on hold and the owner will be emailed.">
+                          <input type="hidden" name="hubId" value="<%= hub.hub_id %>">
+                          <button type="submit" class="ah-menu__item ah-menu__item--danger"><i class="fa-solid fa-trash" aria-hidden="true"></i> Delete hub</button>
+                        </form>
+                      </div>
+                    </details>
                   </div>
                 </td>
               </tr>
-            <% }); %>
+            <% }) %>
           </tbody>
         </table>
       </div>
+      <div class="ah-empty" data-ah-noresults hidden><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>No hubs match your search.</div>
     <% } else { %>
-      <div class="no-hubs">
-        <div class="no-hubs-icon">🏢</div>
-        <h3>No Hubs Yet</h3>
-        <p>Get started by creating your first hub</p>
-        <a href="/admin/hubs/create" class="btn-primary">+ Create First Hub</a>
+      <div class="ah-empty">
+        <i class="fa-solid fa-network-wired" aria-hidden="true"></i>
+        <h3>No hubs yet</h3>
+        <p>Create a hub to group schools under one owner.</p>
+        <a href="/admin/hubs/create" class="ah-btn ah-btn--primary"><i class="fa-solid fa-plus" aria-hidden="true"></i> New hub</a>
       </div>
     <% } %>
-  </div>
+  </section>
+
+  <%- include('partials/hubAdminDialogs') %>
 </div>

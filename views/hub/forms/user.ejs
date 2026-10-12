@@ -1,0 +1,80 @@
+<%
+  const _u = editing || {};
+  const _role = _u.role || 'hub_user';
+  const _selected = new Set(selected || []);
+  const _action = editing ? `/hub/users/${_u.hub_user_id}/edit` : '/hub/users/new';
+%>
+<div data-drawer-title="<%= editing ? `Edit ${_u.first_name} ${_u.last_name}` : 'Add a hub user' %>" data-drawer-sub="<%= editing ? 'Their details, role and what they can see.' : 'We email them a link to set their password and sign in.' %>" data-drawer-wide>
+  <form class="hub-form hub-drawer-form" action="<%= _action %>" method="POST" data-ajax data-user-form data-defaults="<%= (defaults || []).join(',') %>" data-started-admin="<%= _role === 'hub_admin' ? '1' : '' %>" data-self="<%= isSelf ? '1' : '' %>">
+    <p class="hub-drawer-section__title">Details</p>
+    <div class="hub-form__grid">
+      <div class="hub-field"><label class="hub-label" for="uFirst">First name <span class="req">*</span></label><input type="text" id="uFirst" name="firstName" value="<%= _u.first_name || '' %>" required /></div>
+      <div class="hub-field"><label class="hub-label" for="uLast">Last name <span class="req">*</span></label><input type="text" id="uLast" name="lastName" value="<%= _u.last_name || '' %>" required /></div>
+      <div class="hub-field"><label class="hub-label" for="uEmail">Email <span class="req">*</span></label><input type="email" id="uEmail" name="email" value="<%= _u.email || '' %>" required /><span class="hub-help">They sign in with this email.</span></div>
+      <div class="hub-field"><label class="hub-label" for="uPhone">Phone</label>
+        <div class="phone-combo" data-default-iso2="GH"><select class="phone-dial-select"></select><input type="tel" id="uPhone" class="phone-local-input" name="phone" value="<%= _u.phone || '' %>" /></div>
+      </div>
+    </div>
+    <div class="hub-field"><label class="hub-label" for="uTitle">Job title</label><input type="text" id="uTitle" name="jobTitle" value="<%= _u.job_title || '' %>" placeholder="e.g. Schools coordinator" /></div>
+
+    <p class="hub-drawer-section__title">Role</p>
+    <% if (isSelf) { %><div class="hub-alert hub-alert--info"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>You can't change your own role or permissions.</span></div><% } %>
+    <div class="hub-choices hub-choices--compact">
+      <% Object.entries(roles).forEach(([key, r]) => { %>
+        <label class="hub-choice hub-choice--radio">
+          <input type="radio" name="role" value="<%= key %>" <%= _role === key ? 'checked' : '' %> <%= isSelf ? 'disabled' : '' %> />
+          <span class="hub-choice__title"><i class="fa-solid <%= key === 'hub_admin' ? 'fa-user-shield' : 'fa-user' %>" aria-hidden="true"></i> <%= r.label %></span>
+          <span class="hub-choice__text"><%= r.description %></span>
+        </label>
+      <% }) %>
+    </div>
+
+    <div class="hub-drawer-section__row">
+      <p class="hub-drawer-section__title">What they can see and do</p>
+      <span data-perm-tools <%= _role === 'hub_admin' || isSelf ? 'hidden' : '' %>>
+        <button type="button" class="hub-btn hub-btn--ghost hub-btn--sm" data-perm-all>Select all</button>
+        <button type="button" class="hub-btn hub-btn--ghost hub-btn--sm" data-perm-none>Clear</button>
+      </span>
+    </div>
+    <p class="hub-help" data-perm-note><%= _role === 'hub_admin' ? 'Hub admins get everything.' : 'Tick what this person needs.' %></p>
+    <div class="hub-perm-groups">
+      <% permissionGroups.forEach((g) => { %>
+        <fieldset class="hub-perm-group">
+          <legend><%= g.group %></legend>
+          <% g.items.forEach((p) => { %>
+            <label class="hub-check">
+              <input type="checkbox" name="permissions" value="<%= p.key %>" <%= _role === 'hub_admin' || _selected.has(p.key) ? 'checked' : '' %> <%= _role === 'hub_admin' || isSelf ? 'disabled' : '' %> />
+              <span><strong><%= p.label %></strong><span><%= p.description %></span></span>
+            </label>
+          <% }) %>
+        </fieldset>
+      <% }) %>
+    </div>
+
+    <% if (!editing) { %>
+      <p class="hub-drawer-section__title">How they sign in</p>
+      <div class="hub-choices hub-choices--compact">
+        <label class="hub-choice hub-choice--radio">
+          <input type="radio" name="signIn" value="invite" checked />
+          <span class="hub-choice__title"><i class="fa-regular fa-envelope" aria-hidden="true"></i> Email an invitation</span>
+          <span class="hub-choice__text">They get a link to set their own password, then sign in. Recommended.</span>
+        </label>
+        <label class="hub-choice hub-choice--radio">
+          <input type="radio" name="signIn" value="password" />
+          <span class="hub-choice__title"><i class="fa-solid fa-key" aria-hidden="true"></i> Set a password now</span>
+          <span class="hub-choice__text">You share it with them yourself.</span>
+        </label>
+      </div>
+      <div class="hub-field" data-password-field hidden>
+        <label class="hub-label" for="uPassword">Password</label>
+        <div class="hub-inline"><input type="text" id="uPassword" name="password" autocomplete="off" spellcheck="false" placeholder="At least 8 letters and numbers" />
+          <button type="button" class="hub-btn hub-btn--sm" data-generate><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Generate</button></div>
+      </div>
+    <% } %>
+
+    <div class="hub-drawer__foot">
+      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> <%= editing ? 'Save changes' : 'Add user' %></button>
+      <button type="button" class="hub-btn" data-drawer-close>Cancel</button>
+    </div>
+  </form>
+</div>

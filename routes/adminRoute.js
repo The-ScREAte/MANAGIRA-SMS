@@ -6,6 +6,12 @@ module.exports = (db) => {
     const multer = require('multer');
     const upload = multer({ dest: 'uploads/' });
 
+    // An admin who opened a hub is put back in admin mode on any /admin page.
+    router.use((req, res, next) => {
+        adminController.restoreAdminFromHubView(req);
+        next();
+    });
+
     // Middleware to ensure authentication and fetch user info (applies to all routes)
     router.use(isAuthenticated);
     router.use(fetchUserInfo);
@@ -54,6 +60,21 @@ module.exports = (db) => {
         return res.redirect(`/admin/confirm-password?redirect=${encodeURIComponent(req.originalUrl)}`);
     };
 
+    // Same step-up check before opening a hub.
+    const ensureHubSwitchPasswordVerified = (req, res, next) => {
+        if (req.session && req.session.accountType === 'super_admin') return next();
+        const hubId = parseInt(req.params.hubId, 10);
+        const verifiedHubIds = (req.session && req.session.hubSwitchVerifiedIds) || [];
+        if (Number.isInteger(hubId) && verifiedHubIds.includes(hubId)) return next();
+        return res.redirect(`/admin/confirm-password?redirect=${encodeURIComponent(req.originalUrl)}`);
+    };
+
+    // Where "Back to Admin" lands after opening a school from an admin list.
+    const safeAdminReturn = (value) => {
+        const v = String(value || '');
+        return /^\/admin(\/hubs(\/\d+\/organizations)?)?$/.test(v) ? v : null;
+    };
+
     router.get('/confirm-password', adminController.orgSwitchConfirmGet);
     router.post('/confirm-password', adminController.orgSwitchConfirmPost);
 
@@ -88,6 +109,10 @@ module.exports = (db) => {
 
             const org = orgCheck.rows[0];
             
+            const returnTo = safeAdminReturn(req.query.return);
+            if (returnTo) req.session.adminReturnTo = returnTo;
+            else delete req.session.adminReturnTo;
+
             // Store the original admin session data before switching
             req.session.originalAdminUserId = req.session.userId;
             req.session.originalAccountType = req.session.accountType;
@@ -163,8 +188,10 @@ module.exports = (db) => {
             delete req.session.orgNickName;
             delete req.session.orgNickNameDisplay;
             
+            const returnTo = safeAdminReturn(req.session.adminReturnTo) || '/admin';
+            delete req.session.adminReturnTo;
             req.flash('success', 'Returned to admin dashboard.');
-            res.redirect('/admin');
+            res.redirect(returnTo);
         } catch (error) {
             // ...removed error log for clean background operation...
             req.flash('error', 'Failed to exit organization view.');
@@ -523,6 +550,14 @@ module.exports = (db) => {
     router.post('/hubs/permanently-delete/bulk', ensureAdmin, adminController.bulkPermanentlyDeleteHubs);
     router.post('/permanentDeleteMessage/bulk', ensureAdmin, adminController.bulkPermanentDeleteMessages);
     router.get('/hubs/:hubId/organizations', ensureAdmin, adminController.hubOrganizationsGet);
+    router.post('/hubs/:hubId/send-reset', ensureAdmin, adminController.hubSendResetPost);
+    router.post('/hubs/:hubId/set-password', ensureAdmin, adminController.hubSetPasswordPost);
+    router.get('/hub/:hubId', ensureAdmin, ensureHubSwitchPasswordVerified, adminController.hubEnterGet);
+    // "Back to Admin" from a hub. The router-level restore has already run.
+    router.get('/exit-hub', (req, res) => {
+        req.flash('success', 'Returned to admin.');
+        res.redirect('/admin/hubs');
+    });
 
     return router;
 };

@@ -108,6 +108,18 @@
                     <span>Back to Admin</span>
                 </a>
             <% } %>
+            <% if (session && session.hubOrgSwitch && !_currentPath.startsWith('/hub/')) { %>
+                <a href="/hub/exit-org" class="back-to-admin-chip" aria-label="Back to hub" data-no-spa>
+                    <span aria-hidden="true">&larr;</span>
+                    <span>Back to hub</span>
+                </a>
+            <% } %>
+            <% if (session && session.adminHubView && _currentPath.startsWith('/hub/')) { %>
+                <a href="/admin/exit-hub" class="back-to-admin-chip" aria-label="Back to Admin" data-no-spa>
+                    <span aria-hidden="true">&larr;</span>
+                    <span>Back to Admin</span>
+                </a>
+            <% } %>
         <% } %>
 
         <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>

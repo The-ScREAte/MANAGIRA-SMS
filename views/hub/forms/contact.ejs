@@ -1,0 +1,34 @@
+<% const _c = contact || {}; const _share = contact ? !!_c.share_with_schools : true; %>
+<div data-drawer-title="<%= contact ? 'Edit ' + _c.full_name : 'Add a contact person' %>" data-drawer-sub="Someone schools can reach about the hub.">
+  <form class="hub-form hub-drawer-form" action="<%= contact ? `/hub/settings/contacts/${_c.contact_id}` : '/hub/settings/contacts' %>" method="POST" data-ajax>
+    <div class="hub-field">
+      <label class="hub-label" for="ctName">Full name <span class="req">*</span></label>
+      <input type="text" id="ctName" name="fullName" value="<%= _c.full_name || '' %>" required placeholder="e.g. Akosua Boateng" />
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="ctTitle">Role or title</label>
+      <input type="text" id="ctTitle" name="jobTitle" value="<%= _c.job_title || '' %>" placeholder="e.g. Head of academics" />
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="ctEmail">Email</label>
+      <input type="email" id="ctEmail" name="email" value="<%= _c.email || '' %>" placeholder="name@example.com" />
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="ctPhone">Phone</label>
+      <div class="phone-combo" data-default-iso2="GH">
+        <select class="phone-dial-select"></select>
+        <input type="tel" id="ctPhone" class="phone-local-input" name="phone" value="<%= _c.phone || '' %>" />
+      </div>
+      <span class="hub-help">Add an email, a phone, or both.</span>
+    </div>
+    <label class="hub-switch">
+      <input type="checkbox" name="shareWithSchools" value="1" <%= _share ? 'checked' : '' %> />
+      <span class="hub-switch__track" aria-hidden="true"></span>
+      <span><strong>Share with schools</strong><span>Show this person on your schools’ Settings page.</span></span>
+    </label>
+    <div class="hub-drawer__foot">
+      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> <%= contact ? 'Save contact' : 'Add contact' %></button>
+      <button type="button" class="hub-btn" data-drawer-close>Cancel</button>
+    </div>
+  </form>
+</div>

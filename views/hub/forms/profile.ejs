@@ -1,0 +1,37 @@
+<% const _me = me || {}; %>
+<div data-drawer-title="Your profile" data-drawer-sub="How your name appears across the hub.">
+  <form class="hub-form hub-drawer-form" action="/hub/settings/profile" method="POST" data-ajax>
+    <div class="hub-form__grid">
+      <div class="hub-field">
+        <label class="hub-label" for="pfFirst">First name <span class="req">*</span></label>
+        <input type="text" id="pfFirst" name="firstName" value="<%= _me.first_name %>" required />
+      </div>
+      <div class="hub-field">
+        <label class="hub-label" for="pfLast">Last name <span class="req">*</span></label>
+        <input type="text" id="pfLast" name="lastName" value="<%= _me.last_name %>" required />
+      </div>
+    </div>
+    <% if (!_me.isOwner) { %>
+      <div class="hub-field">
+        <label class="hub-label" for="pfPhone">Phone</label>
+        <div class="phone-combo" data-default-iso2="GH">
+          <select class="phone-dial-select"></select>
+          <input type="tel" id="pfPhone" class="phone-local-input" name="phone" value="<%= _me.phone || '' %>" />
+        </div>
+      </div>
+      <div class="hub-field">
+        <label class="hub-label" for="pfTitle">Job title</label>
+        <input type="text" id="pfTitle" name="jobTitle" value="<%= _me.job_title || '' %>" placeholder="e.g. Schools coordinator" />
+      </div>
+    <% } %>
+    <div class="hub-field">
+      <label class="hub-label" for="pfEmail">Sign-in email</label>
+      <input type="email" id="pfEmail" value="<%= _me.email %>" readonly />
+      <span class="hub-help"><%= _me.isOwner ? 'To change it, contact Managira support.' : 'A hub admin can change it.' %> To change your password, use “Forgot password” on the sign-in page.</span>
+    </div>
+    <div class="hub-drawer__foot">
+      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save profile</button>
+      <button type="button" class="hub-btn" data-drawer-close>Cancel</button>
+    </div>
+  </form>
+</div>

@@ -503,6 +503,10 @@ async function getMyAnnouncements(req, res) {
   try {
     await ensureAnnouncementSchema(db);
     const identity = resolveViewerIdentity(req);
+    // Hub accounts are signed in but have no school announcements to show.
+    if (!identity && req.session && req.session.hubId && req.session.accountType === "Hub") {
+      return res.json({ banners: [], modals: [], notices: [], ads: [] });
+    }
     if (!identity) return res.status(401).json({ error: "Not signed in." });
 
     const roleTags = resolveViewerRoleTags(req);

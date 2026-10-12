@@ -8087,12 +8087,15 @@ const accountController = {
       }
 
       // Search staff/admin/hub login tables for this email
+      await require("../utils/hubAccess").ensureHubAccessSchema(db);
       const userResult = await db.query(
         `SELECT email, 'users' AS source FROM users WHERE LOWER(email) = LOWER($1)
          UNION
          SELECT email, 'organizations' AS source FROM organizations WHERE LOWER(email) = LOWER($1)
          UNION
-         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE LOWER(hub_email) = LOWER($1) AND deleted = false`,
+         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE LOWER(hub_email) = LOWER($1) AND deleted = false
+         UNION
+         SELECT email, 'hub_users' AS source FROM hub_users WHERE LOWER(email) = LOWER($1) AND on_hold = false`,
         [email]
       );
 
@@ -8120,6 +8123,11 @@ const accountController = {
         } else if (row.source === "managira_hubs") {
           await db.query(
             `UPDATE managira_hubs SET reset_password_token = $1, reset_password_expires = $2 WHERE LOWER(hub_email) = LOWER($3)`,
+            [hashedToken, tokenExpiration, email]
+          );
+        } else if (row.source === "hub_users") {
+          await db.query(
+            `UPDATE hub_users SET reset_password_token = $1, reset_password_expires = $2 WHERE LOWER(email) = LOWER($3)`,
             [hashedToken, tokenExpiration, email]
           );
         }
@@ -8157,15 +8165,16 @@ const accountController = {
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
     try {
+      await require("../utils/hubAccess").ensureHubAccessSchema(db);
       // Search all tables for the token
       const userResult = await db.query(
         `SELECT email, 'users' AS source FROM users WHERE reset_password_token = $1
          UNION
          SELECT email, 'organizations' AS source FROM organizations WHERE reset_password_token = $1
          UNION
-         SELECT login_email AS email, 'guardian_accounts' AS source FROM guardian_accounts WHERE reset_password_token = $1
+         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE reset_password_token = $1
          UNION
-         SELECT hub_email AS email, 'managira_hubs' AS source FROM managira_hubs WHERE reset_password_token = $1`,
+         SELECT email, 'hub_users' AS source FROM hub_users WHERE reset_password_token = $1`,
         [hashedToken]
       );
 
@@ -8237,6 +8246,7 @@ const accountController = {
     try {
       let email = null;
       let updated = false;
+      let isHubAccount = false;
 
       // Try users table
       const userResult = await db.query(
@@ -8264,19 +8274,8 @@ const accountController = {
         }
       }
 
-      // Try guardian_accounts table
-      if (!updated) {
-        const guardianResult = await db.query(
-          `UPDATE guardian_accounts SET password_hash = $1, reset_password_token = NULL, reset_password_expires = NULL, must_reset_password = false
-           WHERE reset_password_token = $2
-           RETURNING login_email AS email`,
-          [hashedPassword, hashedToken]
-        );
-        if (guardianResult.rows.length > 0) {
-          email = guardianResult.rows[0].email;
-          updated = true;
-        }
-      }
+      // Parent/student portal passwords are reset by the school, never by
+      // email link, so guardian_accounts has no reset token to look up here.
 
       // Try managira_hubs table
       if (!updated) {
@@ -8289,6 +8288,23 @@ const accountController = {
         if (hubResult.rows.length > 0) {
           email = hubResult.rows[0].email;
           updated = true;
+          isHubAccount = true;
+        }
+      }
+
+      // Try hub users
+      if (!updated) {
+        await require("../utils/hubAccess").ensureHubAccessSchema(db);
+        const hubUserResult = await db.query(
+          `UPDATE hub_users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL, updated_at = NOW()
+           WHERE reset_password_token = $2
+           RETURNING email`,
+          [hashedPassword, hashedToken]
+        );
+        if (hubUserResult.rows.length > 0) {
+          email = hubUserResult.rows[0].email;
+          updated = true;
+          isHubAccount = true;
         }
       }
 
@@ -8310,7 +8326,7 @@ const accountController = {
         "Password reset successful. A confirmation email has been sent to you."
       );
 
-      res.redirect("/account/login");
+      res.redirect(isHubAccount ? "/hub/login" : "/account/login");
     } catch (error) {
       console.error("[resetPasswordPost] Error:", error.message);
       req.flash("error", "An error occurred. Please try again.");
@@ -8355,7 +8371,7 @@ const accountController = {
 
       const orgResult = orgId
         ? await db.query(
-            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, organization_address, organization_country, organization_province, organization_currency, is_hub_member, hub_id, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, platform_fee_bearer, name_display_format, date_display_format
+            `SELECT organization_name, logo, logo_path, image_url, font_style, nickname, nickname_display, role, email, paystack_customer_code, stripe_customer_id, billing_provider, first_name, last_name, organization_phone, organization_address, organization_country, organization_province, organization_currency, is_hub_member, hub_id, joined_hub_at, stripe_connect_account_id, stripe_connect_account_id_test, stripe_connect_account_id_live, platform_fee_bearer, name_display_format, date_display_format
              FROM organizations 
              WHERE organization_id = $1`,
             [orgId]
@@ -8574,6 +8590,40 @@ const accountController = {
         orgRow.date_display_format || req.session?.dateDisplayFormat || DEFAULT_DATE_DISPLAY_FORMAT
       );
       const isHubMember = Boolean(orgRow.is_hub_member && orgRow.hub_id);
+
+      // The hub this school belongs to: name, logo and the people to contact.
+      let hubProfile = null;
+      if (isHubMember) {
+        try {
+          const hubAccess = require("../utils/hubAccess");
+          const hubRow = (await db.query(
+            `SELECT hub_id, hub_name, hub_nickname, logo_path, hub_phone, hub_address, first_name, last_name, hub_email
+               FROM managira_hubs WHERE hub_id = $1 AND COALESCE(deleted, false) = false`,
+            [orgRow.hub_id]
+          )).rows[0];
+          if (hubRow) {
+            const contacts = await hubAccess.getContacts(db, hubRow.hub_id, { sharedOnly: true });
+            hubProfile = {
+              name: hubRow.hub_name,
+              webAddress: hubRow.hub_nickname ? `${hubRow.hub_nickname}.managira.com` : null,
+              logo: hubRow.logo_path && String(hubRow.logo_path).trim() && !/\/(images\/)?hub-logos$/.test(hubRow.logo_path) ? hubRow.logo_path : null,
+              phone: hubRow.hub_phone || null,
+              address: hubRow.hub_address || null,
+              joinedAt: orgRow.joined_hub_at || null,
+              // With no contact people set up yet, show the hub owner.
+              contacts: contacts.length ? contacts : [{
+                full_name: [hubRow.first_name, hubRow.last_name].filter(Boolean).join(" ") || hubRow.hub_name,
+                job_title: "Hub administrator",
+                email: hubRow.hub_email,
+                phone: hubRow.hub_phone,
+                is_primary: true,
+              }],
+            };
+          }
+        } catch (hubErr) {
+          console.error("[settings] hub profile", hubErr.message);
+        }
+      }
 
       // Fetch student ID settings for the Student ID Settings card
       let studentIdSettings = {};
@@ -9152,6 +9202,7 @@ const accountController = {
         paystackSubaccounts,
         paystackCustomerCode,
         isHubMember,
+        hubProfile,
         stripeConnectAccountId: getStripeConnectAccountId(orgRow, stripeSettings.mode) || null,
         passwordVerified: req.session.passwordVerified || false,
         userId,
@@ -13203,11 +13254,11 @@ const accountController = {
         closing: 'You can now manage this organization from your hub dashboard.',
       });
 
-      sendEmailInBackground({
-        to: invitation.hub_email,
+      // Everyone in the hub who wants to hear about new schools.
+      require("../utils/hubAccess").notifyHub(db, invitation.hub_id, "hub_school_joined", () => ({
         subject: `${invitation.organization_name} Joined Your Hub`,
         html: hubNotificationHtml,
-      }, 'HubJoinNotification');
+      }));
 
                   
       await client.query('COMMIT');
@@ -13314,11 +13365,10 @@ const accountController = {
           },
         });
 
-        await sendEmail({
-          to: hub.hub_email,
+        await require("../utils/hubAccess").notifyHub(db, organization.hub_id, "hub_leave_request", () => ({
           subject: `Detachment Request from ${organization.organization_name}`,
-          html: emailHtml
-        });
+          html: emailHtml,
+        }));
 
               }
 
@@ -13490,8 +13540,7 @@ const accountController = {
       });
 
       // Send emails
-      sendEmailInBackground({
-        to: invitation.hub_email,
+      require("../utils/hubAccess").notifyHub(db, invitation.hub_id, "hub_school_joined", () => ({
         subject: `${organization.organization_name} Joined Your Hub`,
         html: hubEmailHtml,
         attachments: [{
@@ -13499,7 +13548,7 @@ const accountController = {
           path: path.join(__dirname, '../public/images/managira.png'),
           cid: 'managira_logo'
         }]
-      }, 'HubJoinConfirmation');
+      }));
 
       sendEmailInBackground({
         to: organization.email,

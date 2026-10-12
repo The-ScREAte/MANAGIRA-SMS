@@ -1,0 +1,62 @@
+<%
+  const _count = Number(typeof currentOrgCount !== 'undefined' ? currentOrgCount : 0) || 0;
+  const _max = Number(typeof maxOrganizations !== 'undefined' ? maxOrganizations : 0) || 0;
+  const _pct = _max ? Math.min(100, Math.round((_count / _max) * 100)) : 0;
+%>
+<div data-drawer-title="Invite a school" data-drawer-sub="They get an email to accept and join <%= (hub && hub.hub_name) || 'your hub' %>." data-invite>
+  <div class="hub-capacity hub-capacity--drawer">
+    <span class="hub-small" style="margin:0"><strong><%= _count %></strong> of <%= _max || '∞' %> places used</span>
+    <% if (_max) { %><div class="hub-capacity__bar" aria-hidden="true"><span style="width:<%= _pct %>%"></span></div><% } %>
+  </div>
+
+  <div data-step="choose">
+    <div class="hub-choices hub-choices--compact">
+      <button type="button" class="hub-choice" data-go="new">
+        <span class="hub-choice__title"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> A new school</span>
+        <span class="hub-choice__text">Not on Managira yet. They create their account from the invitation.</span>
+      </button>
+      <button type="button" class="hub-choice" data-go="existing">
+        <span class="hub-choice__title"><i class="fa-solid fa-school" aria-hidden="true"></i> Already on Managira</span>
+        <span class="hub-choice__text">Find the school and invite it to join your hub.</span>
+      </button>
+    </div>
+  </div>
+
+  <form class="hub-form hub-drawer-form" action="/hub/organizations/invite" method="POST" data-ajax data-step="new" hidden>
+    <button type="button" class="hub-btn hub-btn--ghost hub-btn--sm" data-go="choose" style="justify-self:start"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back</button>
+    <div class="hub-field">
+      <label class="hub-label" for="ivName">School name <span class="req">*</span></label>
+      <input type="text" id="ivName" name="organization_name" placeholder="e.g. Bright Future Academy" required />
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="ivContact">Contact person <span class="req">*</span></label>
+      <input type="text" id="ivContact" name="contact_person_name" placeholder="First and last name" required />
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="ivEmail">Contact email <span class="req">*</span></label>
+      <input type="email" id="ivEmail" name="contact_person_email" placeholder="head@school.com" required />
+      <span class="hub-help">The invitation is sent here.</span>
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="ivPhone">Phone number</label>
+      <div class="phone-combo" data-default-iso2="GH">
+        <select class="phone-dial-select"></select>
+        <input type="tel" id="ivPhone" class="phone-local-input" name="contact_person_phone" />
+      </div>
+    </div>
+    <div class="hub-field">
+      <label class="hub-label" for="ivMessage">Personal message <span class="hub-help">(optional)</span></label>
+      <textarea id="ivMessage" name="message" rows="3" placeholder="A short note for the invitation email"></textarea>
+    </div>
+    <div class="hub-drawer__foot">
+      <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Send invitation</button>
+      <button type="button" class="hub-btn" data-drawer-close>Cancel</button>
+    </div>
+  </form>
+
+  <div class="hub-form" data-step="existing" hidden>
+    <button type="button" class="hub-btn hub-btn--ghost hub-btn--sm" data-go="choose" style="justify-self:start"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back</button>
+    <label class="hub-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" data-org-search placeholder="Type the school's name or email…" aria-label="Search schools" autocomplete="off" /></label>
+    <div data-org-results><div class="hub-empty"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>Type at least 2 letters to search.</div></div>
+  </div>
+</div>

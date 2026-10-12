@@ -2098,8 +2098,10 @@ async function sendWeeklyHubDigest(database, options = {}) {
   let sent = 0;
 
   for (const hub of hubsResult.rows) {
-    // Honor hub administrator's preference for the weekly hub overview.
-    if (!(await isHubEmailEnabled(database, hub.hub_id, 'weekly_hub_digest'))) continue;
+    // Owner + hub users who can see reports and kept the weekly overview on.
+    const digestRecipients = await require("./hubAccess").getHubRecipients(database, hub.hub_id, 'weekly_hub_digest');
+    if (!digestRecipients.length) continue;
+    const ownerGetsDigest = digestRecipients.some((r) => String(r.email).toLowerCase() === String(hub.hub_email).toLowerCase());
 
     // Get all member orgs for this hub
     const orgsResult = await database.query(
@@ -2250,6 +2252,10 @@ async function sendWeeklyHubDigest(database, options = {}) {
       || orgSummary.communicationUpdates > 0
     );
     if (!hasHubWeeklyActivity) {
+      if (!ownerGetsDigest) {
+        await markDigestRun(database, digestRunOrganizationId, hubDigestType, weekStartKey);
+        continue;
+      }
       const { sent: checkinSent } = await maybeSendQuietCheckIn(database, {
         organizationId: digestRunOrganizationId,
         streakType: hubDigestType,
@@ -2298,9 +2304,12 @@ async function sendWeeklyHubDigest(database, options = {}) {
       hubHighlights.push(`${highestRiskOrg.orgName} had the highest watch count with ${highestRiskOrg.riskCount} flagged student${highestRiskOrg.riskCount === 1 ? "" : "s"}.`);
     }
 
+    let anySent = false;
+    for (const recipient of digestRecipients) {
+    const isOwner = String(recipient.email).toLowerCase() === String(hub.hub_email).toLowerCase();
     const html = renderCleanEmail({
       title: `${hubName} Weekly Hub Digest`,
-      greeting: `Hello ${escapeHtml(fullName)},`,
+      greeting: `Hello ${escapeHtml(isOwner ? fullName : (recipient.firstName || fullName))},`,
       paragraphs: [
         `Here is your weekly overview across all member schools (${weekStartKey} to ${weekEndKey}).`,
         buildDigestHighlights(hubHighlights),
@@ -2321,8 +2330,8 @@ async function sendWeeklyHubDigest(database, options = {}) {
     const ok = await sendLoggedEmail(database, {
       organizationId: digestRunOrganizationId,
       eventType: "weekly_hub_digest",
-      eventKey: `${hub.hub_id}:${weekStartKey}`,
-      recipientEmail: hub.hub_email,
+      eventKey: isOwner ? `${hub.hub_id}:${weekStartKey}` : `${hub.hub_id}:${weekStartKey}:${String(recipient.email).toLowerCase()}`,
+      recipientEmail: recipient.email,
       recipientKind: "hub",
       subject: `${hubName} Hub Update`,
       html,
@@ -2339,8 +2348,10 @@ async function sendWeeklyHubDigest(database, options = {}) {
 
     if (ok) {
       sent += 1;
-      await markDigestRun(database, digestRunOrganizationId, hubDigestType, weekStartKey);
+      anySent = true;
     }
+    }
+    if (anySent) await markDigestRun(database, digestRunOrganizationId, hubDigestType, weekStartKey);
   }
 
   return { sent };

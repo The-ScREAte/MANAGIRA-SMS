@@ -13,10 +13,11 @@ const CLASS_ORDER_SQL = "COALESCE(c.dashboard_sort_order, 2147483647), c.class_n
 // Each student's percentage per subject for a term. assessment_results keeps
 // the subject percentage on every assessment row, so it is taken once per
 // student and subject; averaging raw rows would weight subjects by how many
-// assessments they have.
+// assessments they have. Capped at 100 so marks typed above an assessment's
+// maximum can't produce impossible percentages.
 const STUDENT_SUBJECT_SCORES_CTE = `
   student_subject AS (
-    SELECT ar.student_id, ar.class_id, ar.subject_id, MAX(ar.total_percentage)::float AS pct
+    SELECT ar.student_id, ar.class_id, ar.subject_id, LEAST(MAX(ar.total_percentage)::float, 100) AS pct
     FROM assessment_results ar
     WHERE ar.organization_id = $1 AND ar.term_id = $2 AND ar.total_percentage IS NOT NULL
     GROUP BY ar.student_id, ar.class_id, ar.subject_id
@@ -326,6 +327,8 @@ async function loadAcademicStats(organizationId, term) {
     term: { term_id: term.term_id, label: termLabel(term) },
     averageScore: results ? round1(weightedTotal / results) : null,
     passRate: results ? round1((passed / results) * 100) : null,
+    results,
+    passed,
     studentsWithScores: students.length,
     needsSupportCount: needsSupport.length,
     classes: classRows.map((row) => ({
@@ -352,8 +355,8 @@ async function loadAcademicStats(organizationId, term) {
 // Everything the page shows for one term. When the term has no scores yet
 // (for example a term that just started), the academic figures come from the
 // most recent earlier term with results and are labelled as such.
-async function buildOrganizationStats(organizationId, requestedTermId) {
-  const terms = await loadTermsWithData(organizationId);
+async function buildOrganizationStats(organizationId, requestedTermId, preloadedTerms) {
+  const terms = preloadedTerms || await loadTermsWithData(organizationId);
   const schoolYears = groupTermsBySchoolYear(terms);
   const currentTerm = pickTerm(terms, requestedTermId);
   if (!currentTerm) return { schoolYears, currentTerm: null, selectedSchoolYear: null, stats: null };
@@ -504,6 +507,8 @@ async function buildOrganizationStats(organizationId, requestedTermId) {
       enrolledChange: enrolledBefore === null ? null : enrolledNow - enrolledBefore,
       previousTermLabel: previousTerm ? termLabel(previousTerm) : null,
       attendanceRate: attendance.marked ? round1((attendance.present / attendance.marked) * 100) : null,
+      attendancePresent: attendance.present,
+      attendanceMarked: attendance.marked,
       scoreEntryRate: scoresExpected ? round1((scoresEntered / scoresExpected) * 100) : null,
       scoresEntered,
       scoresExpected,
@@ -599,5 +604,8 @@ module.exports = statsController;
 // match this page exactly.
 module.exports.buildOrganizationStats = buildOrganizationStats;
 module.exports.compareClasses = compareClasses;
+module.exports.loadTermsWithData = loadTermsWithData;
 module.exports.PASS_MARK = PASS_MARK;
 module.exports.LOW_ATTENDANCE_RATE = LOW_ATTENDANCE_RATE;
+module.exports.statsToCsv = statsToCsv;
+module.exports.statsFileName = statsFileName;
