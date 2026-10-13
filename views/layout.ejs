@@ -344,6 +344,7 @@
     document.addEventListener('click', function (e) {
       var b = e.target.closest && e.target.closest('[data-ap-set]');
       if (!b || b.getAttribute('aria-pressed') === 'true') return;
+      b.setAttribute('aria-checked', String(b.getAttribute('data-ap-set') === 'dark'));
       e.preventDefault();
       save(b.getAttribute('data-ap-set'));
     });

@@ -2,9 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { normalizeAppearance, appearanceOwner, saveAppearance, loadAppearance } = require('../utils/organizationAppearance');
 
-test('everyone starts on white until they pick gray or dark', () => {
-  assert.equal(normalizeAppearance(undefined), 'white');
-  assert.equal(normalizeAppearance('warm'), 'white');
+test('everyone starts on light (gray) until they pick dark', () => {
+  assert.equal(normalizeAppearance(undefined), 'gray');
+  assert.equal(normalizeAppearance('warm'), 'gray');
+  assert.equal(normalizeAppearance('white'), 'gray');
   assert.equal(normalizeAppearance('gray'), 'gray');
   assert.equal(normalizeAppearance('dark'), 'dark');
 });
@@ -14,6 +15,8 @@ test('the choice belongs to the signed-in person, not the school', () => {
   assert.deepEqual(appearanceOwner({ organizationId: 63, accountType: 'Organization' }), ['org', 63]);
   assert.deepEqual(appearanceOwner({ guardianId: 7, organizationId: 63 }), ['guardian', 7]);
   assert.deepEqual(appearanceOwner({ studentId: 12, organizationId: 63 }), ['student', 12]);
+  assert.deepEqual(appearanceOwner({ hubId: 2 }), ['hub', 2]);
+  assert.deepEqual(appearanceOwner({ hubId: 2, hubUserId: 5 }), ['hubuser', 5]);
   assert.equal(appearanceOwner({ organizationId: 63 }), null);
   assert.equal(appearanceOwner(null), null);
 });
@@ -32,7 +35,7 @@ test('saving stores one row per person and reading it back returns that mode', a
   };
   assert.equal(await saveAppearance(db, { userId: 5 }, 'dark'), 'dark');
   assert.equal(await loadAppearance(db, { userId: 5 }), 'dark');
-  assert.equal(await loadAppearance(db, { userId: 6 }), 'white');
+  assert.equal(await loadAppearance(db, { userId: 6 }), 'gray');
 });
 
 test('an unknown mode or a signed-out session is never saved', async () => {

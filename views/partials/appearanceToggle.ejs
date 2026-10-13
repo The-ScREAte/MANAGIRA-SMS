@@ -1,9 +1,9 @@
-<%# Light / dark switch in the header menu. Saved for the signed-in person only. %>
-<% const _apMenuNow = (typeof appearance !== 'undefined' && appearance === 'dark') ? 'dark' : 'light'; %>
-<div class="ap-toggle" role="group" aria-label="Appearance">
-  <span class="ap-toggle__label"><i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i> Appearance</span>
-  <span class="ap-toggle__seg">
-    <button type="button" data-ap-set="light" aria-pressed="<%= _apMenuNow === 'light' %>">Light</button>
-    <button type="button" data-ap-set="dark" aria-pressed="<%= _apMenuNow === 'dark' %>">Dark</button>
-  </span>
-</div>
+<%# Dark mode switch in the header menu. Saved for the signed-in person only. %>
+<% const _apDark = (typeof appearance !== 'undefined' && appearance === 'dark'); %>
+<a href="#" class="management-link ap-switch" role="switch" aria-checked="<%= _apDark %>" data-ap-set="<%= _apDark ? 'light' : 'dark' %>" data-no-spa>
+  <svg class="ap-switch__icon" style="width:16px;height:16px;margin-right:6px;vertical-align:middle;" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+  </svg>
+  <span class="ap-switch__label">Dark mode</span>
+  <span class="ap-switch__track" aria-hidden="true" data-ap-skip><span class="ap-switch__knob"></span></span>
+</a>

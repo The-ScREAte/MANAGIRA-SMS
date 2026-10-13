@@ -2795,7 +2795,7 @@
               <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
                 <div style="display:flex;gap:14px;align-items:flex-start;">
                   <% if (sig.signature_image_url) { %>
-                    <div style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
+                    <div class="sig-paper" data-ap-skip style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
                       <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
                     </div>
                   <% } else { %>
@@ -2880,7 +2880,7 @@
                 <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
                   <div style="display:flex;gap:14px;align-items:flex-start;">
                     <% if (sig.signature_image_url) { %>
-                      <div style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
+                      <div class="sig-paper" data-ap-skip style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
                         <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
                       </div>
                     <% } else { %>
