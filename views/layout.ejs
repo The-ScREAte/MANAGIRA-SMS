@@ -7,8 +7,16 @@
     locals.hideGlobalChatbot = true;
   }
 %>
+<%
+  // The signed-in person's own look for school pages: white (default), gray or dark.
+  // Platform admin and hub pages, PDFs and prints always stay white.
+  const _appearancePath = typeof currentPath !== 'undefined' ? String(currentPath || '') : '';
+  const _isOrgThemed = !!(session && session.firstName && session.organizationId)
+    && !_appearancePath.startsWith('/admin') && !_appearancePath.startsWith('/hub/');
+  const _appearance = _isOrgThemed && ['gray', 'dark'].includes(locals.appearance) ? locals.appearance : 'white';
+%>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-appearance="<%= _appearance %>">
 <head>
     <%- include('partials/head', { title: (typeof title !== 'undefined' && title) ? title : 'Managira' }) %>
     <style>
@@ -59,16 +67,10 @@
          admissionsHub, mailroom) - CSS zoom throws off that math. -->
     <link rel="stylesheet" href="/css/globalScale.css">
     <% } %>
-    <link rel="stylesheet" href="/css/orgThemeContrast.css?v=3">
-    <script src="/js/orgAppearance.js?v=3" defer></script>
+    <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
+    <% if (_appearance !== 'white') { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
 </head>
-<%
-  const _appearancePath = typeof currentPath !== 'undefined' ? String(currentPath || '') : '';
-  const _isOrgThemed = !!(session && session.firstName && session.organizationId)
-    && !_appearancePath.startsWith('/admin') && !_appearancePath.startsWith('/hub/');
-  const _orgAppearance = session && ['white', 'warm', 'dark'].includes(session.orgAppearance) ? session.orgAppearance : 'white';
-%>
-<body data-org-appearance="<%= _orgAppearance %>" class="<%= _isOrgThemed ? 'org-appearance' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
+<body class="<%= _isOrgThemed ? 'org-appearance' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
     <div id="app-scale-root">
         <!-- Loading overlay for smooth transitions -->
         <div class="page-loading-overlay">

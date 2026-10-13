@@ -26,9 +26,8 @@
 
     <header class="hub-hero">
       <div>
-        <p class="hub-hero__eyebrow">Account</p>
         <h1 class="hub-hero__title">Billing <% if (_bl) { %><span class="hub-tag <%= _tone %>"><%= statusInfo.label %></span><% } %></h1>
-        <p class="hub-hero__sub">Your plan with Managira, what you are charged and your bills.</p>
+        <p class="hub-hero__sub">Your plan, your card and your bills.</p>
       </div>
       <% if (live && _canManage) { %>
         <div class="hub-actions">
@@ -39,9 +38,9 @@
 
     <% if (!_bl || !live && !(_bl && _bl.ended_at)) { %>
       <div class="hub-card hub-empty">
-        <i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i>
-        <h2>Billing isn’t set up yet</h2>
-        <p>Managira will set up your plan and send you a link to add your card.</p>
+        <i class="fa-regular fa-credit-card" aria-hidden="true"></i>
+        <strong>Billing isn’t set up yet</strong>
+        <span>Managira will set up your plan and send you a link to add your card.</span>
       </div>
     <% } else { %>
 
@@ -56,7 +55,7 @@
           <i class="fa-solid fa-credit-card" aria-hidden="true"></i>
           <div>
             <strong>Add a card to start your plan</strong>
-            <span><%= firstCharge ? `Nothing is charged today. Your first bill, about ${_m(bill.total)}, is on ${_d(firstCharge)}.` : `Your first bill, about ${_m(bill.total)}, is charged when the card is saved.` %> The card is saved securely by Stripe.</span>
+            <span><%= firstCharge ? `Nothing is charged before ${_d(firstCharge)}.` : 'Your first bill is charged when the card is saved.' %> Stripe keeps the card safe.</span>
           </div>
           <% if (_canManage) { %><a class="hub-btn hub-btn--primary" href="/hub/billing/card" data-no-spa>Add your card</a><% } else { %><span class="hub-muted">Ask a hub admin to add it.</span><% } %>
         </div>
@@ -65,8 +64,8 @@
         <div class="hub-bill-alert hub-bill-alert--error">
           <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
           <div>
-            <strong>A payment failed</strong>
-            <span><%= _m(_due[0].amount_due) %> is not paid yet. Pay it now or change the card; we will also try again automatically.</span>
+            <strong>A payment didn’t go through</strong>
+            <span>Pay the bill now or change the card. We will also try again automatically.</span>
           </div>
           <% if (_due[0].hosted_invoice_url) { %><a class="hub-btn hub-btn--primary" href="<%= _due[0].hosted_invoice_url %>" target="_blank" rel="noopener" data-no-spa>Pay now</a><% } %>
         </div>
@@ -75,60 +74,50 @@
         <div class="hub-bill-alert hub-bill-alert--warn"><i class="fa-solid fa-pause" aria-hidden="true"></i><span>Your hub is on hold, so no bills are charged.</span></div>
       <% } %>
 
-      <div class="hub-kpis">
-        <div class="hub-kpi">
-          <div class="hub-kpi__top"><span class="hub-kpi__label">Next charge</span><span class="hub-kpi__icon"><i class="fa-solid fa-calendar-day" aria-hidden="true"></i></span></div>
-          <div class="hub-kpi__value"><%= _bl.next_charge_at && _bl.next_charge_amount != null ? _m(_bl.next_charge_amount) : (live && !hasCard ? _m(bill.total) : '—') %></div>
-          <div class="hub-kpi__note"><%= _bl.next_charge_at ? _d(_bl.next_charge_at) : (live && !hasCard ? (firstCharge ? `About, on ${_d(firstCharge)}` : 'About, when the card is saved') : statusInfo.label) %></div>
-        </div>
-        <div class="hub-kpi">
-          <div class="hub-kpi__top"><span class="hub-kpi__label">Each bill now</span><span class="hub-kpi__icon"><i class="fa-solid fa-calculator" aria-hidden="true"></i></span></div>
-          <div class="hub-kpi__value"><%= _m(bill.total) %></div>
-          <div class="hub-kpi__note"><%= bill.cycle.label %><%= discount ? ` · ${discount}` : '' %></div>
-        </div>
-        <div class="hub-kpi">
-          <div class="hub-kpi__top"><span class="hub-kpi__label">Schools</span><span class="hub-kpi__icon"><i class="fa-solid fa-school" aria-hidden="true"></i></span></div>
-          <div class="hub-kpi__value"><%= usage.schools %></div>
-          <div class="hub-kpi__note"><%= _num(usage.students) %> students · <%= _num(usage.employees) %> employees · <%= _num(usage.users) %> users</div>
-        </div>
-        <div class="hub-kpi">
-          <div class="hub-kpi__top"><span class="hub-kpi__label">Card</span><span class="hub-kpi__icon"><i class="fa-solid fa-credit-card" aria-hidden="true"></i></span></div>
-          <div class="hub-kpi__value"><%= hasCard ? b.methodLabel(_bl) : 'None' %></div>
-          <div class="hub-kpi__note"><%= hasCard ? (_bl.card_exp_month ? `Expires ${_bl.card_exp_month}/${_bl.card_exp_year}` : 'Saved with Stripe') : 'Not added yet' %></div>
-        </div>
-      </div>
-
-      <% if (pending.length) { %>
-        <section class="hub-card hub-bill-approve" aria-labelledby="approveTitle">
-          <div class="hub-card__head"><h2 class="hub-card__title" id="approveTitle">Waiting for your approval</h2></div>
-          <p class="hub-muted">Managira added these. Nothing is charged until you approve.</p>
-          <div class="hub-items">
-            <% pending.forEach((c) => { %>
-              <div class="hub-item">
-                <div style="min-width:0;flex:1">
-                  <div class="hub-item__title"><%= c.name %></div>
-                  <div class="hub-item__meta"><%= _m(c.unit_price) %><%= Number(c.quantity) > 1 ? ` × ${c.quantity}` : '' %> <%= c.frequency === 'once' ? 'one time, on your next bill' : `each ${_per}` %><%= c.description ? ` · ${c.description}` : '' %></div>
-                </div>
-                <% if (_canManage) { %>
-                  <div class="hub-row-actions">
-                    <form action="/hub/billing/charges/<%= c.charge_id %>/decline" method="POST" data-ajax data-confirm="Decline <%= c.name %>? It won’t be added to your bill.">
-                      <button type="submit" class="hub-btn hub-btn--sm">Decline</button>
-                    </form>
-                    <form action="/hub/billing/charges/<%= c.charge_id %>/approve" method="POST" data-ajax data-confirm="Approve <%= c.name %>? <%= _m(Number(c.unit_price) * (Number(c.quantity) || 1)) %> <%= c.frequency === 'once' ? 'is added to your next bill' : `is added to every bill (each ${_per})` %>.">
-                      <button type="submit" class="hub-btn hub-btn--primary hub-btn--sm">Approve</button>
-                    </form>
-                  </div>
-                <% } %>
-              </div>
-            <% }) %>
+      <!-- The one place amounts are shown -->
+      <section class="hub-card hub-bill-sum" aria-labelledby="sumTitle">
+        <div class="hub-bill-sum__top">
+          <div>
+            <h2 class="hub-bill-sum__label" id="sumTitle"><%= _bl.next_charge_at ? 'Next bill' : 'Each bill' %></h2>
+            <div class="hub-bill-sum__amount"><%= _bl.next_charge_at && _bl.next_charge_amount != null ? _m(_bl.next_charge_amount) : _m(bill.total) %></div>
+            <div class="hub-muted hub-small"><%= _bl.next_charge_at ? `On ${_d(_bl.next_charge_at)} · ${bill.cycle.label}` : (live && !hasCard ? (firstCharge ? `First bill on ${_d(firstCharge)} · ${bill.cycle.label}` : bill.cycle.label) : bill.cycle.label) %><%= discount ? ` · ${discount}` : '' %></div>
           </div>
-        </section>
-      <% } %>
+          <div class="hub-bill-sum__card">
+            <i class="fa-regular fa-credit-card" aria-hidden="true"></i>
+            <span><%= hasCard ? b.methodLabel(_bl) : 'No card yet' %><% if (hasCard && _bl.card_exp_month) { %><small>Expires <%= _bl.card_exp_month %>/<%= _bl.card_exp_year %></small><% } %></span>
+          </div>
+        </div>
 
-      <div class="hub-grid hub-bill-grid">
-        <section class="hub-card" aria-labelledby="billTitle">
-          <div class="hub-card__head"><h2 class="hub-card__title" id="billTitle">What each bill is made of</h2></div>
-          <% if (bill.lines.length) { %>
+        <% if (pending.length) { %>
+          <div class="hub-bill-sum__block">
+            <h3 class="hub-bill-sum__sub">Waiting for your approval</h3>
+            <p class="hub-muted hub-small">Managira added these. Nothing is charged until you approve.</p>
+            <div class="hub-items">
+              <% pending.forEach((c) => { %>
+                <div class="hub-item">
+                  <div style="min-width:0;flex:1">
+                    <div class="hub-item__title"><%= c.name %></div>
+                    <div class="hub-item__meta"><%= _m(c.unit_price) %><%= Number(c.quantity) > 1 ? ` × ${c.quantity}` : '' %> <%= c.frequency === 'once' ? 'one time' : `each ${_per}` %><%= c.description ? ` · ${c.description}` : '' %></div>
+                  </div>
+                  <% if (_canManage) { %>
+                    <div class="hub-row-actions">
+                      <form action="/hub/billing/charges/<%= c.charge_id %>/decline" method="POST" data-ajax data-confirm="Decline <%= c.name %>? It won’t be added to your bill.">
+                        <button type="submit" class="hub-btn hub-btn--sm">Decline</button>
+                      </form>
+                      <form action="/hub/billing/charges/<%= c.charge_id %>/approve" method="POST" data-ajax data-confirm="Approve <%= c.name %>? <%= c.frequency === 'once' ? 'It is added to your next bill.' : 'It is added to every bill.' %>">
+                        <button type="submit" class="hub-btn hub-btn--primary hub-btn--sm">Approve</button>
+                      </form>
+                    </div>
+                  <% } %>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+
+        <% if (bill.lines.length) { %>
+          <details class="hub-bill-sum__more">
+            <summary>What the bill is made of <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
             <ul class="hub-bill-lines">
               <% bill.lines.forEach((l) => { %>
                 <li><span><%= l.label %><% if (l.quantity > 1) { %> <em>× <%= l.quantity.toLocaleString('en-US') %> at <%= _m(l.unitPrice) %></em><% } %><% if (l.note) { %><small><%= l.note %></small><% } %></span><strong><%= _m(l.amount) %></strong></li>
@@ -136,107 +125,81 @@
               <% if (bill.discount > 0) { %><li class="hub-bill-lines__off"><span>Discount<small><%= discount %></small></span><strong>−<%= _m(bill.discount) %></strong></li><% } %>
               <li class="hub-bill-lines__total"><span>Total</span><strong><%= _m(bill.total) %></strong></li>
             </ul>
-            <p class="hub-muted hub-small">Worked out from today’s numbers across all your schools. Anything above what your plan includes is charged at the same price.</p>
-          <% } else { %>
-            <p class="hub-muted">Nothing to bill.</p>
-          <% } %>
-        </section>
+            <p class="hub-muted hub-small">Worked out from today’s numbers across your schools.</p>
+          </details>
+        <% } %>
 
-        <section class="hub-card" aria-labelledby="planTitle">
-          <div class="hub-card__head"><h2 class="hub-card__title" id="planTitle">Your plan</h2></div>
-          <dl class="hub-info hub-info--compact">
-            <dt>Billed</dt><dd><%= bill.cycle.label %></dd>
-            <% b.METER_KEYS.filter((k) => _meters[k] && _meters[k].on).forEach((k) => { %><dt><%= b.METERS[k].label %></dt><dd><%= _m(_meters[k].price) %> each, <%= _num(_meters[k].included) %> included</dd><% }) %>
-            <% b.INTEGRATIONS.filter((i) => _fees[i.key] && _fees[i.key].on).forEach((i) => { %><dt><%= i.label %></dt><dd><%= _m(_fees[i.key].price) %> per school that uses it<%= _fees[i.key].mode === 'manual' ? ', added when needed' : '' %></dd><% }) %>
-            <% if (Number(_bl.base_fee) > 0) { %><dt>Plan fee</dt><dd><%= _m(_bl.base_fee) %> each <%= _per %></dd><% } %>
-            <dt>Schools</dt><dd><%= schools.members %> in your hub<%= schools.pending ? ` + ${schools.pending} invited` : '' %> · <%= schools.included %> included<%= schools.canBuy ? ` · more at ${_m(schools.price)} each ${_per}` : '' %></dd>
-            <dt>User licenses</dt><dd><%= seats.limit == null ? `${seats.used} (no limit)` : `${seats.used} of ${seats.limit}` %><%= seats.canBuy ? ` · more at ${_m(seats.price)} each ${_per}` : '' %></dd>
-            <% if (discount) { %><dt>Discount</dt><dd><%= discount %></dd><% } %>
-            <% if (firstCharge) { %><dt>First charge</dt><dd><%= _d(firstCharge) %></dd><% } %>
-            <dt>Contract</dt><dd><%= b.contractLabel(hub, _bl) %></dd>
-          </dl>
-        </section>
-      </div>
-
-      <% if (_recurring.length || _once.length) { %>
-        <section class="hub-card" aria-labelledby="extrasTitle">
-          <div class="hub-card__head"><h2 class="hub-card__title" id="extrasTitle">Extras on your bill</h2></div>
-          <div class="hub-items">
-            <% [..._recurring, ..._once].forEach((c) => { %>
-              <div class="hub-item">
-                <div style="min-width:0;flex:1">
-                  <div class="hub-item__title"><%= c.name %></div>
-                  <div class="hub-item__meta"><%= _m(c.unit_price) %><%= Number(c.quantity) > 1 ? ` × ${c.quantity}` : '' %> <%= c.frequency === 'once' ? (c.billed_at ? 'one time, on your next bill' : 'one time') : `each ${_per}` %> · approved by <%= c.decided_by_label || c.requested_by_label || 'your hub' %><%= c.decided_at ? `, ${_d(c.decided_at)}` : '' %></div>
+        <% if (live && addons.length) { %>
+          <details class="hub-bill-sum__more">
+            <summary>Add to your plan <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="hub-items">
+              <% addons.forEach((a) => { %>
+                <div class="hub-item">
+                  <div style="min-width:0;flex:1">
+                    <div class="hub-item__title"><%= a.name %></div>
+                    <div class="hub-item__meta"><%= _m(a.unit_price) %> <%= a.frequency === 'once' ? 'one time' : `each ${_per}` %><%= a.description ? ` · ${a.description}` : '' %></div>
+                  </div>
+                  <% if (_canManage) { %>
+                    <form action="/hub/billing/add-ons/<%= a.addon_id %>" method="POST" data-ajax data-confirm="Add <%= a.name %> to your plan? <%= a.frequency === 'once' ? 'It is added to your next bill.' : 'It is added to every bill.' %>">
+                      <button type="submit" class="hub-btn hub-btn--sm"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add</button>
+                    </form>
+                  <% } %>
                 </div>
-              </div>
-            <% }) %>
-          </div>
-          <p class="hub-muted hub-small" style="margin-top:10px">To remove an extra, contact Managira.</p>
-        </section>
-      <% } %>
+              <% }) %>
+            </div>
+          </details>
+        <% } %>
+      </section>
 
-      <% if (live && addons.length) { %>
-        <section class="hub-card" aria-labelledby="addonsTitle">
-          <div class="hub-card__head"><h2 class="hub-card__title" id="addonsTitle">Add to your plan</h2></div>
-          <div class="hub-bill-addons">
-            <% addons.forEach((a) => { %>
-              <div class="hub-bill-addon">
-                <div>
-                  <div class="hub-item__title"><%= a.name %></div>
-                  <% if (a.description) { %><div class="hub-item__meta"><%= a.description %></div><% } %>
-                  <div class="hub-bill-addon__price"><%= _m(a.unit_price) %> <span><%= a.frequency === 'once' ? 'one time' : `each ${_per}` %></span></div>
-                </div>
-                <% if (_canManage) { %>
-                  <form action="/hub/billing/add-ons/<%= a.addon_id %>" method="POST" data-ajax data-confirm="Add <%= a.name %>? <%= _m(a.unit_price) %> <%= a.frequency === 'once' ? 'is added to your next bill' : `is added to every bill (each ${_per})` %>. You are approving this charge.">
-                    <button type="submit" class="hub-btn hub-btn--sm"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add</button>
-                  </form>
-                <% } %>
-              </div>
-            <% }) %>
-          </div>
-        </section>
-      <% } %>
-
-      <% if (usage.breakdown.length) { %>
-        <section class="hub-card" aria-labelledby="countTitle">
-          <div class="hub-card__head"><h2 class="hub-card__title" id="countTitle">How it’s counted</h2></div>
-          <div class="hub-table-wrap">
-            <table class="hub-table hub-table--cards">
-              <thead><tr><th>School</th><th style="text-align:right">Students</th><th style="text-align:right">Employees</th><th style="text-align:right">Users</th><th>Integrations</th></tr></thead>
-              <tbody>
-                <% usage.breakdown.forEach((x) => { %>
-                  <tr>
-                    <td><strong><%= x.organization_name %></strong><% if (x.on_hold) { %><span class="hub-small"><%= x.counted ? 'On hold, still counted' : 'On hold, not counted' %></span><% } %></td>
-                    <td style="text-align:right" data-label="Students"><%= _num(x.billedStudents) %></td>
-                    <td style="text-align:right" data-label="Employees"><%= _num(x.billedEmployees) %></td>
-                    <td style="text-align:right" data-label="Users"><%= _num(x.billedUsers) %></td>
-                    <td class="hub-card-wide" data-label="Integrations"><%= x.integrations.length ? x.integrations.map((k) => b.INTEGRATION_BY_KEY[k].label).join(', ') : '—' %></td>
-                  </tr>
-                <% }) %>
-              </tbody>
-            </table>
-          </div>
-          <p class="hub-muted hub-small">Students: active ones. Employees: staff accounts. Users: everyone who signs in (staff, parents and students).</p>
-        </section>
-      <% } %>
+      <section class="hub-card" aria-labelledby="planTitle">
+        <div class="hub-card__head"><h2 class="hub-card__title" id="planTitle">Your plan</h2></div>
+        <dl class="hub-info hub-info--compact">
+          <dt>Billed</dt><dd><%= bill.cycle.label %></dd>
+          <dt>Schools</dt><dd><%= schools.members %> in your hub<%= schools.pending ? ` + ${schools.pending} invited` : '' %> · <%= schools.included %> included</dd>
+          <dt>User licenses</dt><dd><%= seats.limit == null ? `${seats.used} in use` : `${seats.used} of ${seats.limit} in use` %></dd>
+          <dt>Counted now</dt><dd><%= _num(usage.students) %> students · <%= _num(usage.employees) %> employees · <%= _num(usage.users) %> users</dd>
+          <% if (_recurring.length || _once.length) { %><dt>Extras</dt><dd><%= [..._recurring, ..._once].map((c) => c.name).join(', ') %></dd><% } %>
+          <dt>Contract</dt><dd><%= b.contractLabel(hub, _bl) %></dd>
+        </dl>
+        <% if (usage.breakdown.length) { %>
+          <details class="hub-bill-sum__more">
+            <summary>By school <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+            <div class="hub-table-wrap">
+              <table class="hub-table hub-table--cards">
+                <thead><tr><th>School</th><th style="text-align:right">Students</th><th style="text-align:right">Employees</th><th style="text-align:right">Users</th><th>Integrations</th></tr></thead>
+                <tbody>
+                  <% usage.breakdown.forEach((x) => { %>
+                    <tr>
+                      <td><strong><%= x.organization_name %></strong><% if (x.on_hold) { %><span class="hub-small"><%= x.counted ? 'On hold, still counted' : 'On hold, not counted' %></span><% } %></td>
+                      <td style="text-align:right" data-label="Students"><%= _num(x.billedStudents) %></td>
+                      <td style="text-align:right" data-label="Employees"><%= _num(x.billedEmployees) %></td>
+                      <td style="text-align:right" data-label="Users"><%= _num(x.billedUsers) %></td>
+                      <td class="hub-card-wide" data-label="Integrations"><%= x.integrations.length ? x.integrations.map((k) => b.INTEGRATION_BY_KEY[k].label).join(', ') : '—' %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+            <p class="hub-muted hub-small">Students: active ones. Employees: staff accounts. Users: everyone who signs in.</p>
+          </details>
+        <% } %>
+      </section>
 
       <section class="hub-card" aria-labelledby="billsTitle">
         <div class="hub-card__head"><h2 class="hub-card__title" id="billsTitle">Bills</h2></div>
         <% if (_bills.length) { %>
           <div class="hub-table-wrap">
             <table class="hub-table hub-table--cards">
-              <thead><tr><th>Date</th><th>Bill</th><th>Period</th><th style="text-align:right">Amount</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Date</th><th>Bill</th><th>Period</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 <% _bills.forEach((i) => { const st = _invStatus[i.status] || [i.status, 'muted']; %>
                   <tr>
                     <td><%= _d(i.issued_at) %></td>
                     <td data-label="Bill"><%= i.number || '—' %><% if (i.isTest) { %> <span class="hub-tag">Test</span><% } %></td>
                     <td class="hub-muted" data-label="Period"><%= i.period_start ? `${_d(i.period_start)} – ${_d(i.period_end)}` : '—' %></td>
-                    <td style="text-align:right;font-variant-numeric:tabular-nums" data-label="Amount"><%= b.money(i.status === 'paid' ? i.amount_paid : i.amount_due, i.currency) %></td>
                     <td data-label="Status"><span class="hub-tag <%= st[1] === 'green' ? 'hub-tag--green' : st[1] === 'rose' ? 'hub-tag--rose' : '' %>"><%= st[0] %></span></td>
                     <td class="hub-card-actions" style="text-align:right;white-space:nowrap">
-                      <% if (i.status === 'open' && i.hosted_invoice_url) { %><a class="hub-btn hub-btn--primary hub-btn--sm" href="<%= i.hosted_invoice_url %>" target="_blank" rel="noopener" data-no-spa>Pay</a>
-                      <% } else if (i.hosted_invoice_url) { %><a class="hub-btn hub-btn--sm" href="<%= i.hosted_invoice_url %>" target="_blank" rel="noopener" data-no-spa>View</a><% } %>
+                      <% if (i.status === 'open' && i.hosted_invoice_url) { %><a class="hub-btn hub-btn--primary hub-btn--sm" href="<%= i.hosted_invoice_url %>" target="_blank" rel="noopener" data-no-spa>Pay</a><% } %>
                       <a class="hub-btn hub-btn--sm" href="/hub/billing/invoices/<%= i.stripe_invoice_id %>/pdf" target="_blank" rel="noopener" data-no-spa><i class="fa-regular fa-file-pdf" aria-hidden="true"></i> Invoice</a>
                     </td>
                   </tr>
@@ -245,7 +208,7 @@
             </table>
           </div>
         <% } else { %>
-          <p class="hub-muted">No bills yet. Your bills show here as soon as they are made.</p>
+          <p class="hub-muted">No bills yet. They show here as soon as they are made.</p>
         <% } %>
       </section>
     <% } %>

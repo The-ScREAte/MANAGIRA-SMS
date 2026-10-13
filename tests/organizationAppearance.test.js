@@ -1,28 +1,42 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeAppearance, saveAppearance } = require('../utils/organizationAppearance');
-const { contrastInk, luminance } = require('../public/js/orgAppearance');
+const { normalizeAppearance, appearanceOwner, saveAppearance, loadAppearance } = require('../utils/organizationAppearance');
 
-test('all schools default to white until a valid appearance is selected', () => {
+test('everyone starts on white until they pick gray or dark', () => {
   assert.equal(normalizeAppearance(undefined), 'white');
-  assert.equal(normalizeAppearance('brown'), 'white');
+  assert.equal(normalizeAppearance('warm'), 'white');
+  assert.equal(normalizeAppearance('gray'), 'gray');
+  assert.equal(normalizeAppearance('dark'), 'dark');
 });
-test('white, lighter brown and dark are the three persisted choices', async () => {
-  const updates = [];
-  const db = { query: async (sql, values) => { if (values) updates.push(values); } };
-  for (const mode of ['white', 'warm', 'dark']) {
-    assert.equal(await saveAppearance(db, 42, mode), mode);
-  }
-  assert.deepEqual(updates, [['white',42], ['warm',42], ['dark',42]]);
+
+test('the choice belongs to the signed-in person, not the school', () => {
+  assert.deepEqual(appearanceOwner({ userId: 90, organizationId: 63 }), ['user', 90]);
+  assert.deepEqual(appearanceOwner({ organizationId: 63, accountType: 'Organization' }), ['org', 63]);
+  assert.deepEqual(appearanceOwner({ guardianId: 7, organizationId: 63 }), ['guardian', 7]);
+  assert.deepEqual(appearanceOwner({ studentId: 12, organizationId: 63 }), ['student', 12]);
+  assert.equal(appearanceOwner({ organizationId: 63 }), null);
+  assert.equal(appearanceOwner(null), null);
 });
-test('invalid appearance cannot change the organization setting', async () => {
-  await assert.rejects(saveAppearance({query: () => assert.fail('must not save')}, 42, 'invalid'));
+
+test('saving stores one row per person and reading it back returns that mode', async () => {
+  const rows = new Map();
+  const db = {
+    query: async (sql, values) => {
+      if (/INSERT INTO account_appearance/.test(sql)) rows.set(`${values[0]}:${values[1]}`, values[2]);
+      if (/SELECT mode FROM account_appearance/.test(sql)) {
+        const mode = rows.get(`${values[0]}:${values[1]}`);
+        return { rows: mode ? [{ mode }] : [] };
+      }
+      return { rows: [] };
+    },
+  };
+  assert.equal(await saveAppearance(db, { userId: 5 }, 'dark'), 'dark');
+  assert.equal(await loadAppearance(db, { userId: 5 }), 'dark');
+  assert.equal(await loadAppearance(db, { userId: 6 }), 'white');
 });
-test('brand areas always choose ink with at least WCAG AA contrast', () => {
-  for (const color of [[234,88,12], [234,179,8], [1,83,91], [37,99,235], [220,38,38], [255,255,255], [24,24,27]]) {
-    const ink = contrastInk(color);
-    const l = luminance(color);
-    const ratio = ink === 'black' ? (l+.05)/.05 : 1.05/(l+.05);
-    assert.ok(ratio >= 4.5, `${color} has insufficient contrast`);
-  }
+
+test('an unknown mode or a signed-out session is never saved', async () => {
+  const db = { query: () => assert.fail('must not save') };
+  await assert.rejects(saveAppearance(db, { userId: 5 }, 'warm'));
+  await assert.rejects(saveAppearance(db, {}, 'dark'));
 });

@@ -20,14 +20,12 @@
     </span>
   </a>
   <nav class="hub-nav">
-    <%- _link('overview', '/hub/dashboard#overview', 'fa-gauge-high', 'Overview') %>
-    <% if (_can('reports.view')) { %><%- _link('reports', '/hub/dashboard#reports', 'fa-chart-column', 'Reports') %><% } %>
-    <div class="hub-nav__label">Manage</div>
+    <%- _link('overview', '/hub/dashboard#overview', 'fa-house', 'Overview') %>
     <% if (_can('schools.view')) { %><%- _link('schools', '/hub/dashboard#schools', 'fa-school', 'Schools', _nav.schools) %><% } %>
     <% if (_can('invitations.manage')) { %><%- _link('invitations', '/hub/dashboard#invitations', 'fa-envelope-open-text', 'Invitations', _nav.invitations) %><% } %>
     <% if (_can('requests.manage')) { %><%- _link('requests', '/hub/dashboard#requests', 'fa-link-slash', 'Leave requests', _nav.requests, true) %><% } %>
     <% if (_can('billing.view')) { %><%- _link('billing', '/hub/billing', 'fa-credit-card', 'Billing', _nav.billing, true) %><% } %>
-    <%- _link('settings', '/hub/settings', 'fa-gear', 'Settings') %>
+    <% if (_can('reports.view')) { %><div class="hub-nav__sep" aria-hidden="true"></div><%- _link('reports', '/hub/dashboard#reports', 'fa-chart-column', 'Reports') %><% } %>
   </nav>
   <% if (typeof hubBillingPrompt !== 'undefined' && hubBillingPrompt && _current !== 'billing') { %>
     <a class="hub-side__bill" href="/hub/billing">
@@ -35,13 +33,9 @@
       <span><%= hubBillingPrompt.canAdd ? 'Save the card for your plan so billing can start.' : 'Your plan is waiting for a card. Ask a hub admin.' %></span>
     </a>
   <% } %>
-  <% if (_can('invitations.manage')) { %>
-  <div class="hub-side__cta">
-    <a class="hub-btn hub-btn--primary" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a>
-  </div>
-  <% } %>
-  <a class="hub-me" href="/hub/settings" title="Your profile">
+  <a class="hub-me<%= _current === 'settings' ? ' is-active' : '' %>" href="/hub/settings" title="Your profile and hub settings"<%- _current === 'settings' ? ' aria-current="page"' : '' %>>
     <span class="hub-me__avatar"><%= (_meName || '?').charAt(0).toUpperCase() %></span>
     <span class="hub-me__text"><span class="hub-me__name"><%= _meName %></span><span class="hub-me__role"><%= _meRole %></span></span>
+    <i class="fa-solid fa-gear hub-me__gear" aria-hidden="true"></i>
   </a>
 </aside>

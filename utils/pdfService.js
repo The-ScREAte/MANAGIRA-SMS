@@ -111,6 +111,8 @@ async function openAppPage(page, { baseUrl, sessionCookie, path, mediaType, java
   await page.setJavaScriptEnabled(javaScript);
   await page.setViewport({ width: 1024, height: 1400, deviceScaleFactor: 1 });
   await page.emulateMediaType(mediaType);
+  // App pages drawn for a PDF are always in the white appearance.
+  await page.setExtraHTTPHeaders({ 'X-Managira-Render': 'pdf' });
   await page.setCookie({ name: "connect.sid", value: sessionCookie, url: baseUrl });
 
   const response = await page.goto(`${baseUrl}${path}`, {

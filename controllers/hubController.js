@@ -358,13 +358,8 @@ const hubController = {
         [hubId]
       );
 
-      const pdfMode = req.query.pdf === '1';
       res.render('hub/dashboard', {
         title: 'Hub Dashboard',
-        pdfMode,
-        hideGlobalHeader: pdfMode,
-        hideGlobalFooter: pdfMode,
-        hideGlobalChatbot: pdfMode,
         hub,
         orgCount,
         totalStudents,
@@ -677,32 +672,6 @@ const hubController = {
       return res.send(pdf);
     } catch (error) {
       console.error('[hub/organizationReportPdf]', error.message);
-      return res.status(500).json({ error: error.userMessage || 'The PDF could not be made. Please try again.' });
-    }
-  },
-
-  // A hub report (comparison, attendance, …) as a PDF.
-  hubReportsPdfGet: async (req, res) => {
-    const views = ['school-comparison', 'attendance', 'performance', 'marks-entry', 'support', 'enrollment', 'overview'];
-    const view = views.includes(req.query.view) ? req.query.view : 'school-comparison';
-    try {
-      const { renderAppPagePdf, sessionCookieFromHeader } = require('../utils/pdfService');
-      const q = new URLSearchParams({ pdf: '1' });
-      if (req.query.terms) q.set('terms', String(req.query.terms).slice(0, 2000));
-      const pdf = await renderAppPagePdf({
-        baseUrl: `${req.protocol}://${req.get('host')}`,
-        sessionCookie: sessionCookieFromHeader(req.headers.cookie),
-        path: `/hub/dashboard?${q.toString()}#${view}`,
-        readyFlag: '__hubReportReady',
-        landscape: view === 'school-comparison',
-      });
-      const hubName = String((req.hubInfo && req.hubInfo.hub_name) || 'Hub').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${hubName}_${view}_${new Date().toISOString().slice(0, 10)}.pdf"`);
-      res.setHeader('Cache-Control', 'no-store');
-      return res.send(pdf);
-    } catch (error) {
-      console.error('[hub/reportsPdf]', error.message);
       return res.status(500).json({ error: error.userMessage || 'The PDF could not be made. Please try again.' });
     }
   },

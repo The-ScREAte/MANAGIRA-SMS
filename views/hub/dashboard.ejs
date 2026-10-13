@@ -17,50 +17,28 @@
   const _firstName = (session && session.firstName) || _hub.first_name || '';
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/hub.css') %>" />
-<% const _pdf = typeof pdfMode !== 'undefined' && pdfMode; %>
 
-<div class="hub-shell<%= _pdf ? ' hub-shell--pdf' : '' %>">
-  <% if (!_pdf) { %><%- include('partials/sidebar', { hubCurrent: 'overview' }) %><% } %>
+<div class="hub-shell">
+  <%- include('partials/sidebar', { hubCurrent: 'overview' }) %>
 
-  <div class="hub-main" data-refreshable data-hub-dashboard data-pdf="<%= _pdf ? '1' : '' %>" data-can-export="<%= _can('reports.export') ? '1' : '' %>" data-can-schools="<%= _can('schools.view') ? '1' : '' %>" data-can-open="<%= _can('schools.access') ? '1' : '' %>">
+  <div class="hub-main" data-refreshable data-hub-dashboard data-can-reports="<%= _can('reports.view') ? '1' : '' %>">
     <%- include('../partials/flash') %>
 
     <!-- Overview -->
     <section class="hub-view" data-view="overview" aria-label="Overview">
       <header class="hub-hero">
         <div>
-          <p class="hub-hero__eyebrow"><%= _hub.hub_name || 'Your hub' %></p>
           <h1 class="hub-hero__title"><%= _greet %><%= _firstName ? `, ${_firstName}` : '' %></h1>
-          <p class="hub-hero__sub">Everything across your <%= orgCount === 1 ? 'school' : `${orgCount} schools` %> in one place.</p>
+          <p class="hub-hero__sub"><%= _hub.hub_name || 'Your hub' %> · <%= orgCount === 1 ? '1 school' : `${orgCount} schools` %></p>
         </div>
-        <div class="hub-actions">
-          <% if (_can('reports.view')) { %><a class="hub-btn hub-btn--light" href="#reports"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Reports</a><% } %>
-          <% if (_can('invitations.manage')) { %><a class="hub-btn hub-btn--white" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a><% } %>
-        </div>
+        <% if (_can('invitations.manage')) { %><div class="hub-actions"><a class="hub-btn hub-btn--primary" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a></div><% } %>
       </header>
 
-      <div class="hub-kpis">
-        <a class="hub-kpi hub-kpi--teal" <%- _href('schools.view', '#schools') %>>
-          <span class="hub-kpi__top"><span class="hub-kpi__icon"><i class="fa-solid fa-school" aria-hidden="true"></i></span><span class="hub-kpi__label">Schools</span></span>
-          <span class="hub-kpi__value"><%= _num(orgCount) %></span>
-          <% if (_capPct !== null) { %><span class="hub-kpi__bar"><span style="width:<%= _capPct %>%"></span></span><% } %>
-          <span class="hub-kpi__note"><%= _capacity %> places used<%= _onHold ? ` · ${_onHold} on hold` : '' %></span>
-        </a>
-        <a class="hub-kpi hub-kpi--blue" <%- _href('reports.view', '#enrollment') %>>
-          <span class="hub-kpi__top"><span class="hub-kpi__icon"><i class="fa-solid fa-user-graduate" aria-hidden="true"></i></span><span class="hub-kpi__label">Active students</span></span>
-          <span class="hub-kpi__value"><%= _num(totalStudents) %></span>
-          <span class="hub-kpi__note">Graduated &amp; archived not counted</span>
-        </a>
-        <a class="hub-kpi hub-kpi--amber" <%- _href('reports.view', '#enrollment') %>>
-          <span class="hub-kpi__top"><span class="hub-kpi__icon"><i class="fa-solid fa-user-tie" aria-hidden="true"></i></span><span class="hub-kpi__label">Staff</span></span>
-          <span class="hub-kpi__value"><%= _num(totalTeachers) %></span>
-          <span class="hub-kpi__note">Teachers, supervisors, managers &amp; drivers</span>
-        </a>
-        <a class="hub-kpi hub-kpi--violet" <%- _href('reports.view', '#school-comparison') %>>
-          <span class="hub-kpi__top"><span class="hub-kpi__icon"><i class="fa-solid fa-chalkboard" aria-hidden="true"></i></span><span class="hub-kpi__label">Classes</span></span>
-          <span class="hub-kpi__value"><%= _num(totalClasses) %></span>
-          <span class="hub-kpi__note">Across all schools</span>
-        </a>
+      <div class="hub-card hub-stats">
+        <a class="hub-stat" <%- _href('schools.view', '#schools') %>><span class="hub-stat__label">Schools</span><span class="hub-stat__value"><%= _num(orgCount) %></span><span class="hub-stat__note"><%= _max ? `${_max - orgCount > 0 ? _max - orgCount : 0} places left` : (_onHold ? `${_onHold} on hold` : 'In your hub') %></span></a>
+        <div class="hub-stat"><span class="hub-stat__label">Students</span><span class="hub-stat__value"><%= _num(totalStudents) %></span><span class="hub-stat__note">Active</span></div>
+        <div class="hub-stat"><span class="hub-stat__label">Staff</span><span class="hub-stat__value"><%= _num(totalTeachers) %></span><span class="hub-stat__note">All schools</span></div>
+        <div class="hub-stat"><span class="hub-stat__label">Classes</span><span class="hub-stat__value"><%= _num(totalClasses) %></span><span class="hub-stat__note">All schools</span></div>
       </div>
 
       <div class="hub-grid">
@@ -81,7 +59,7 @@
             <div class="hub-empty"><i class="fa-regular fa-clock" aria-hidden="true"></i>No activity yet.</div>
           <% } else { %>
             <ul class="hub-activity">
-              <% _activity.slice(0, 6).forEach((a) => { %>
+              <% _activity.slice(0, 5).forEach((a) => { %>
                 <li><span class="hub-activity__icon"><i class="fa-solid <%= _activityIcon(a.action_type) %>" aria-hidden="true"></i></span><span class="hub-activity__text"><%= a.description || a.action_type %></span><span class="hub-activity__when"><%= _date(a.created_at) %></span></li>
               <% }) %>
             </ul>
@@ -89,87 +67,76 @@
         </div>
         <% } %>
       </div>
-
-      <% if (_can('reports.view')) { %>
-      <div>
-        <div class="hub-card__head" style="margin-bottom:12px;"><h2 class="hub-section-title">Report highlights <small data-period-label></small></h2><span class="hub-small" data-report-stamp></span></div>
-        <div data-period-slot></div>
-        <div class="hub-kpis" data-highlights><div class="hub-loading">Loading reports…</div></div>
-      </div>
-      <% } %>
     </section>
 
-    <!-- Reports: pick a report, its columns and filters, then generate (public/js/hubReports.js) -->
-    <% if (_can('reports.view') && !_pdf) { %>
+    <!-- Reports: saved reports, and a step-by-step builder (public/js/hubReports.js) -->
+    <% if (_can('reports.view')) { %>
     <section class="hub-view" data-view="reports" aria-label="Reports">
-      <header class="hub-hero">
-        <div>
-          <h1 class="hub-hero__title">Reports</h1>
-          <p class="hub-hero__sub">Choose a report, the columns you want and which schools to include.</p>
+      <div class="hub-rp" data-reports data-can-create="<%= _can('reports.create') ? '1' : '' %>" data-can-export="<%= _can('reports.export') ? '1' : '' %>" data-hub-name="<%= _hub.hub_name || 'Hub' %>">
+        <header class="hub-hero">
+          <div>
+            <h1 class="hub-hero__title">Reports</h1>
+            <p class="hub-hero__sub">Reports saved by your hub. <%= _can('reports.create') ? 'Build a new one in three steps.' : '' %></p>
+          </div>
+          <% if (_can('reports.create')) { %><div class="hub-actions"><button type="button" class="hub-btn hub-btn--primary" data-rp-new><i class="fa-solid fa-plus" aria-hidden="true"></i> New report</button></div><% } %>
+        </header>
+
+        <!-- Saved reports -->
+        <div class="hub-card hub-rp__saved" data-rp-list><div class="hub-loading">Loading saved reports…</div></div>
+
+        <!-- Builder -->
+        <% if (_can('reports.create')) { %>
+        <div class="hub-rp__builder" data-rp-builder hidden>
+          <div class="hub-rp__bar">
+            <button type="button" class="hub-btn hub-btn--ghost hub-btn--sm" data-rp-back><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Saved reports</button>
+          </div>
+          <div class="hub-card hub-step is-open" data-step="type">
+            <button type="button" class="hub-step__head" data-step-toggle aria-expanded="true">
+              <span class="hub-step__num">1</span><span class="hub-step__title">Report</span><span class="hub-step__sum" data-step-sum></span><i class="fa-solid fa-chevron-down hub-step__chev" aria-hidden="true"></i>
+            </button>
+            <div class="hub-step__body">
+              <div class="hub-rb__types" data-rb-types role="radiogroup" aria-label="Report"></div>
+              <div class="hub-step__foot"><button type="button" class="hub-btn hub-btn--primary hub-btn--sm" data-step-next>Continue</button></div>
+            </div>
+          </div>
+          <div class="hub-card hub-step" data-step="columns">
+            <button type="button" class="hub-step__head" data-step-toggle aria-expanded="false">
+              <span class="hub-step__num">2</span><span class="hub-step__title">Columns</span><span class="hub-step__sum" data-step-sum></span><i class="fa-solid fa-chevron-down hub-step__chev" aria-hidden="true"></i>
+            </button>
+            <div class="hub-step__body">
+              <div class="hub-rb__checks" data-rb-columns></div>
+              <div class="hub-step__foot"><button type="button" class="hub-btn hub-btn--primary hub-btn--sm" data-step-next>Continue</button></div>
+            </div>
+          </div>
+          <div class="hub-card hub-step" data-step="schools">
+            <button type="button" class="hub-step__head" data-step-toggle aria-expanded="false">
+              <span class="hub-step__num">3</span><span class="hub-step__title">Schools and term</span><span class="hub-step__sum" data-step-sum></span><i class="fa-solid fa-chevron-down hub-step__chev" aria-hidden="true"></i>
+            </button>
+            <div class="hub-step__body">
+              <div data-rb-schools><div class="hub-loading">Loading schools…</div></div>
+              <label class="hub-rb__check hub-rb__skip"><input type="checkbox" data-rb-skip checked /> <span>Leave out schools with no data for the term</span></label>
+            </div>
+          </div>
+          <div class="hub-rb__run">
+            <button type="button" class="hub-btn hub-btn--primary" data-rb-run><i class="fa-solid fa-table" aria-hidden="true"></i> Generate report</button>
+          </div>
         </div>
-      </header>
-      <div class="hub-rb" data-report-builder data-can-export="<%= _can('reports.export') ? '1' : '' %>" data-hub-name="<%= _hub.hub_name || 'Hub' %>">
-        <div class="hub-card hub-rb__step">
-          <h2 class="hub-rb__title"><span>1</span> Report</h2>
-          <div class="hub-rb__types" data-rb-types role="radiogroup" aria-label="Report"></div>
-        </div>
-        <div class="hub-card hub-rb__step">
-          <h2 class="hub-rb__title"><span>2</span> Columns</h2>
-          <div class="hub-rb__checks" data-rb-columns></div>
-        </div>
-        <div class="hub-card hub-rb__step">
-          <h2 class="hub-rb__title"><span>3</span> Schools and term</h2>
-          <div data-rb-schools><div class="hub-loading">Loading schools…</div></div>
-          <label class="hub-rb__check hub-rb__skip"><input type="checkbox" data-rb-skip checked /> <span>Leave out schools with no data for the term</span></label>
-        </div>
-        <div class="hub-rb__run">
-          <button type="button" class="hub-btn hub-btn--primary" data-rb-run><i class="fa-solid fa-table" aria-hidden="true"></i> Generate report</button>
-        </div>
-        <div data-rb-result></div>
+        <% } %>
+
+        <div data-rp-result></div>
       </div>
     </section>
     <% } %>
-
-    <!-- Reports (filled from /hub/overview-stats by public/js/hub.js) -->
-    <% if (_can('reports.view')) { [
-         ['school-comparison', 'School comparison', 'Every school side by side for the chosen school year and term.', 'fa-table-list'],
-         ['attendance', 'Attendance', 'Share of attendance marked present, by school.', 'fa-calendar-check'],
-         ['performance', 'Academic performance', 'Average scores, pass rates and subjects across your schools.', 'fa-chart-line'],
-         ['marks-entry', 'Marks entry', 'How many expected scores teachers have entered, by school.', 'fa-pen-to-square'],
-         ['support', 'Students needing support', 'Students with low attendance or averaging below the pass mark.', 'fa-hand-holding-heart'],
-         ['enrollment', 'Enrollment & staffing', 'Students enrolled this term, staff, classes and subjects.', 'fa-users'],
-       ].forEach(([key, title, sub]) => { %>
-      <section class="hub-view" data-view="<%= key %>" aria-label="<%= title %>">
-        <header class="hub-hero">
-          <div>
-            <p class="hub-hero__eyebrow"><%= _pdf ? `${_hub.hub_name || 'Hub'} · ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}` : 'Reports' %></p>
-            <h1 class="hub-hero__title"><%= title %></h1>
-            <p class="hub-hero__sub"><%= sub %> <span data-report-stamp></span></p>
-          </div>
-          <div class="hub-actions">
-            <% if (_can('reports.export')) { %>
-              <button type="button" class="hub-btn hub-btn--light" data-report-pdf="<%= key %>"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF</button>
-              <button type="button" class="hub-btn hub-btn--light" data-report-csv="<%= key %>"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> CSV</button>
-            <% } %>
-            <button type="button" class="hub-btn hub-btn--light" data-report-print><i class="fa-solid fa-print" aria-hidden="true"></i> Print</button>
-            <button type="button" class="hub-btn hub-btn--light" data-report-refresh aria-label="Refresh"><i class="fa-solid fa-rotate" aria-hidden="true"></i></button>
-          </div>
-        </header>
-        <div data-period-slot></div>
-        <div data-report="<%= key %>" style="display:grid;gap:20px;"><div class="hub-card hub-loading">Loading report…</div></div>
-      </section>
-    <% }) } %>
 
     <!-- Schools -->
     <% if (_can('schools.view')) { %>
     <section class="hub-view" data-view="schools" aria-label="Schools">
       <header class="hub-hero">
         <div>
-          <p class="hub-hero__eyebrow">Manage</p>
           <h1 class="hub-hero__title">Schools</h1>
-          <p class="hub-hero__sub"><%= _capacity %> places used. Open a school to see its report, students, staff and classes.</p>
+          <p class="hub-hero__sub"><%= _capacity %> places used</p>
         </div>
-        <% if (_can('invitations.manage')) { %><div class="hub-actions"><a class="hub-btn hub-btn--white" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a></div><% } %>
+        <% if (_can('invitations.manage')) { %><div class="hub-actions"><a class="hub-btn hub-btn--primary" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a></div><% } %>
       </header>
       <div class="hub-card">
         <% if (!_orgs.length) { %>
@@ -228,11 +195,10 @@
     <section class="hub-view" data-view="invitations" aria-label="Invitations">
       <header class="hub-hero">
         <div>
-          <p class="hub-hero__eyebrow">Manage</p>
           <h1 class="hub-hero__title">Invitations</h1>
           <p class="hub-hero__sub">Schools you've invited that haven't joined yet.</p>
         </div>
-        <div class="hub-actions"><a class="hub-btn hub-btn--white" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a></div>
+        <div class="hub-actions"><a class="hub-btn hub-btn--primary" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a></div>
       </header>
       <% if (!_invites.length) { %>
         <div class="hub-card hub-empty"><i class="fa-solid fa-envelope-open" aria-hidden="true"></i>No pending invitations.</div>
@@ -266,7 +232,6 @@
     <section class="hub-view" data-view="requests" aria-label="Leave requests">
       <header class="hub-hero">
         <div>
-          <p class="hub-hero__eyebrow">Manage</p>
           <h1 class="hub-hero__title">Leave requests</h1>
           <p class="hub-hero__sub">Schools asking to leave your hub. Approving makes them independent with their own subscription.</p>
         </div>
@@ -315,4 +280,4 @@
 </div>
 
 <script src="<%= assetUrl('/js/hub.js') %>"></script>
-<% if (_can('reports.view') && !_pdf) { %><script src="<%= assetUrl('/js/hubReports.js') %>"></script><% } %>
+<% if (_can('reports.view')) { %><script src="<%= assetUrl('/js/hubReports.js') %>"></script><% } %>

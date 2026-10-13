@@ -2954,6 +2954,38 @@
       }
     </style>
     <link rel="stylesheet" href="/css/workspace-shell.css" />
+    <style>
+      /* The settings pages sit straight on the page background: no second
+         shell around the cards. */
+      .settings-layout .settings-main {
+        background: none;
+        border: 0;
+        box-shadow: none;
+        border-radius: 0;
+        overflow: visible;
+        padding: 8px 16px 24px 4px !important;
+      }
+      .settings-main > .settings-section > h1 { font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+      .settings-main > .settings-section > p.lead { margin-bottom: 18px; }
+      .settings-section > .card { border-radius: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
+
+      /* Customize School: three groups, each holding a few related settings. */
+      .settings-group > .card-collapse-head h4,
+      .settings-group > h4 { display: grid; gap: 2px; margin: 0; font-size: 16px; font-weight: 700; }
+      .settings-group__desc { display: block; font-size: 13px; font-weight: 400; color: var(--muted, #64748b); }
+      .settings-group > .card-collapse-head { cursor: pointer; }
+      .settings-group .settings-subcard { padding: 18px 0 2px; margin-top: 14px; border-top: 1px solid var(--border, #e5e7eb); }
+      .settings-group .card-collapse-head + .settings-subcard { margin-top: 12px; }
+      .settings-subcard > h4 { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
+      .settings-subcard > small { display: block; margin-bottom: 12px; }
+      .settings-subcard form .btn-link, .settings-subcard form .btn-primary { width: auto; }
+      .settings-subcard .form-input, .settings-subcard .form-select { max-width: 520px; }
+      @media (max-width: 640px) {
+        .settings-subcard .form-input, .settings-subcard .form-select { max-width: none; width: 100%; }
+        .settings-subcard form .btn-link, .settings-subcard form .btn-primary { width: 100%; }
+        .settings-layout .settings-main { padding: 4px 0 20px !important; }
+      }
+    </style>
   </head>
   <body>
     <%- include('../partials/flash') %>
@@ -3123,621 +3155,616 @@
               : "";
           %>
 
-          <div class="card">
-            <h4>Organization Logo</h4>
-            <small>Upload your organization logo. Recommended size: 200x200px.</small>
-            <form action="/account/personalization/logo" method="POST" enctype="multipart/form-data">
-              <input type="hidden" name="redirectTo" value="/account/settings" />
-              <div class="content-row">
-                <div class="avatar avatar-logo">
-                  <% if (logoUrl) { %>
-                    <img src="<%= logoUrl %>" alt="Org logo" />
-                  <% } else { %>
-                    <%= (org && org.organization_name ? org.organization_name[0] : 'G') %>
-                  <% } %>
-                </div>
-                <input type="file" id="logo" name="logo" accept="image/*" />
-                <button class="btn-primary btn-link" id="logo-submit" type="submit" disabled>Upload Logo</button>
-              </div>
-            </form>
-          </div>
+          <div class="card settings-group">
+            <h4>School profile<span class="settings-group__desc">Logo, name, address and web address</span></h4>
 
-          <div class="card">
-            <h4>Organization Profile</h4>
-            <small>Set school name, location, and default currency for the entire organization.</small>
-            <form action="/account/personalization/name" method="POST">
-              <input type="hidden" name="redirectTo" value="/account/settings" />
-              <div class="content-row" style="display:block;">
-                <input
-                  type="text"
-                  name="orgName"
-                  value="<%= org?.organization_name || '' %>"
-                  required
-                  class="form-input"
-                  style="margin-bottom: 12px;"
-                />
-
-                <input
-                  type="text"
-                  name="orgAddress"
-                  value="<%= org?.organization_address || '' %>"
-                  class="form-input"
-                  placeholder="Organization address"
-                  style="margin-bottom: 12px;"
-                />
-
-                <% const selectedOrgCountryForCustomize = (org && org.organization_country ? String(org.organization_country).toUpperCase() : ''); %>
-                <select
-                  name="orgCountry"
-                  class="form-input"
-                  required
-                  style="margin-bottom: 12px;"
-                >
-                  <option value="">Select country</option>
-                  <% (settingsCountryOptionsWithCurrency || settingsCountryOptions || holidayCountries || []).forEach((country) => { %>
-                    <option value="<%= country.code %>" <%= country.code === selectedOrgCountryForCustomize ? 'selected' : '' %>>
-                      <%= country.name %> (<%= country.code %>)<%= country.currencyCode ? ` — ${country.currencyCode} ${country.currencyName || ''}` : '' %>
-                    </option>
-                  <% }) %>
-                </select>
-
-                <small class="text-muted-sm" style="display:block; margin-bottom: 12px;">
-                  Currency is automatically saved from the selected country.
-                </small>
-
-                <small class="text-muted-sm" style="display:block; margin-bottom: 12px;">
-                  Current saved currency (from DB): <strong><%= activeSettingsCurrencyCode %></strong>.
-                </small>
-
-                <button class="btn-primary btn-link" type="submit">Save Name &amp; Location</button>
-              </div>
-            </form>
-          </div>
-
-          <div class="card">
-            <h4>Select Font Type</h4>
-            <small>Choose the font that best represents your brand.</small>
-            <form action="/account/personalization/font" method="POST">
-              <input type="hidden" name="redirectTo" value="/account/settings" />
-              <div class="content-row">
-                <select
-                  id="font-select"
-                  name="font"
-                  class="form-select"
-                >
-                  <% const fontStyle = org?.font_style || 'Inter'; %>
-                  <option value="Inter" <%= fontStyle === 'Inter' ? 'selected' : '' %>>Inter</option>
-                  <option value="Roboto" <%= fontStyle === 'Roboto' ? 'selected' : '' %>>Roboto</option>
-                  <option value="Open Sans" <%= fontStyle === 'Open Sans' ? 'selected' : '' %>>Open Sans</option>
-                  <option value="Lato" <%= fontStyle === 'Lato' ? 'selected' : '' %>>Lato</option>
-                  <option value="Montserrat" <%= fontStyle === 'Montserrat' ? 'selected' : '' %>>Montserrat</option>
-                  <option value="Poppins" <%= fontStyle === 'Poppins' ? 'selected' : '' %>>Poppins</option>
-                  <option value="Nunito" <%= fontStyle === 'Nunito' ? 'selected' : '' %>>Nunito</option>
-                  <option value="Raleway" <%= fontStyle === 'Raleway' ? 'selected' : '' %>>Raleway</option>
-                  <option value="Work Sans" <%= fontStyle === 'Work Sans' ? 'selected' : '' %>>Work Sans</option>
-                  <option value="Source Sans Pro" <%= fontStyle === 'Source Sans Pro' ? 'selected' : '' %>>Source Sans Pro</option>
-                  <option value="Ubuntu" <%= fontStyle === 'Ubuntu' ? 'selected' : '' %>>Ubuntu</option>
-                  <option value="Noto Sans" <%= fontStyle === 'Noto Sans' ? 'selected' : '' %>>Noto Sans</option>
-                  <option value="PT Serif" <%= fontStyle === 'PT Serif' ? 'selected' : '' %>>PT Serif</option>
-                  <option value="Merriweather" <%= fontStyle === 'Merriweather' ? 'selected' : '' %>>Merriweather</option>
-                  <option value="Playfair Display" <%= fontStyle === 'Playfair Display' ? 'selected' : '' %>>Playfair Display</option>
-                </select>
-                <div class="font-preview" id="font-preview">
-                <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">Welcome to Greenwood Academy</div>
-                <div style="font-size: 16px; margin-bottom: 6px;">Student Dashboard • Grade 10A • Mathematics</div>
-                <div style="font-size: 14px; color: #6b7280; line-height: 1.5;">This is how your school will look like with this font. Student names, grades, announcements, and all content will appear in this style. ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789</div>
-              </div>
-                <button class="btn-link" type="submit">Change Font</button>
-              </div>
-              
-            </form>
-          </div>
-
-          <div class="card mobile-compact-card">
-            <h4>Name And Date Display</h4>
-            <small>Control how names and dates appear across your school portal, including PayGira and student pages.</small>
-            <% const nameDisplayFormat = (org && org.name_display_format) ? org.name_display_format : 'first_last'; %>
-            <% const dateDisplayFormat = (org && org.date_display_format) ? org.date_display_format : 'dd_mm_yyyy'; %>
-            <form action="/account/personalization/display-preferences" method="POST">
-              <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
-              <div class="content-row" style="display:block;">
-                <div style="margin-bottom:14px;">
-                  <label style="display:block; font-weight:600; margin-bottom:6px;">Student/Staff Name Format</label>
-                  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-                    <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
-                      <input type="radio" name="nameDisplayFormat" value="first_last" <%= nameDisplayFormat === 'first_last' ? 'checked' : '' %> />
-                      <span>First Name Last Name (Ada Lovelace)</span>
-                    </label>
-                    <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
-                      <input type="radio" name="nameDisplayFormat" value="last_first" <%= nameDisplayFormat === 'last_first' ? 'checked' : '' %> />
-                      <span>Last Name, First Name (Lovelace, Ada)</span>
-                    </label>
+            <div class="settings-subcard">
+              <h4>Logo</h4>
+              <small>Upload your organization logo. Recommended size: 200x200px.</small>
+              <form action="/account/personalization/logo" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="redirectTo" value="/account/settings" />
+                <div class="content-row">
+                  <div class="avatar avatar-logo">
+                    <% if (logoUrl) { %>
+                      <img src="<%= logoUrl %>" alt="Org logo" />
+                    <% } else { %>
+                      <%= (org && org.organization_name ? org.organization_name[0] : 'G') %>
+                    <% } %>
                   </div>
+                  <input type="file" id="logo" name="logo" accept="image/*" />
+                  <button class="btn-primary btn-link" id="logo-submit" type="submit" disabled>Upload Logo</button>
                 </div>
-
-                <div style="margin-bottom:16px;">
-                  <label for="dateDisplayFormat" style="display:block; font-weight:600; margin-bottom:6px;">Date Format</label>
-                  <select id="dateDisplayFormat" name="dateDisplayFormat" class="form-select" style="max-width:280px;">
-                    <option value="dd_mm_yyyy" <%= dateDisplayFormat === 'dd_mm_yyyy' ? 'selected' : '' %>>DD/MM/YYYY (31/12/2026)</option>
-                    <option value="mm_dd_yyyy" <%= dateDisplayFormat === 'mm_dd_yyyy' ? 'selected' : '' %>>MM/DD/YYYY (12/31/2026)</option>
-                    <option value="yyyy_mm_dd" <%= dateDisplayFormat === 'yyyy_mm_dd' ? 'selected' : '' %>>YYYY/MM/DD (2026/12/31)</option>
-                  </select>
-                </div>
-
-                <button class="btn-primary btn-link" type="submit">Save Display Preferences</button>
-              </div>
-            </form>
-          </div>
-
-          <div class="card mobile-compact-card mobile-unbold-card">
-            <h4>School Theme</h4>
-            <form action="/account/personalization/appearance" method="POST">
-              <h4>Workspace Appearance</h4>
-              <% const appearanceMode = session && ['white', 'warm', 'dark'].includes(session.orgAppearance) ? session.orgAppearance : 'white'; %>
-              <div class="org-appearance-options" role="radiogroup" aria-label="Workspace appearance">
-                <% [{ value: 'white', label: 'White' }, { value: 'warm', label: 'Light Brown' }, { value: 'dark', label: 'Dark' }].forEach(function(choice) { %>
-                  <label class="org-appearance-choice" data-appearance-choice>
-                    <input type="radio" name="appearanceMode" value="<%= choice.value %>" <%= appearanceMode === choice.value ? 'checked' : '' %> required>
-                    <span class="org-appearance-swatch org-appearance-swatch--<%= choice.value %>" aria-hidden="true"></span>
-                    <span><%= choice.label %></span>
-                  </label>
-                <% }); %>
-              </div>
-              <button class="btn-primary btn-link" type="submit">Save Appearance</button>
-            </form>
-            <small>Pick theme for your school.</small>
-            <form action="/account/updatePublicDashboardTheme" method="POST">
-              <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
-              <% const selectedWebsiteTheme = (publicDashboardTheme && String(publicDashboardTheme).trim()) ? String(publicDashboardTheme).trim() : 'classic'; %>
-              <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:12px;">
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="classic" <%= selectedWebsiteTheme === 'classic' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Ocean Teal</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#01535b;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#014a51;"></span>
-                    </span>
-                    <span class="text-muted-sm">Trusted academic teal.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="modern" <%= selectedWebsiteTheme === 'modern' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Royal Blue</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#2563eb;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1d4ed8;"></span>
-                    </span>
-                    <span class="text-muted-sm">Crisp modern blue.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="green" <%= selectedWebsiteTheme === 'green' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Evergreen</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#2e7d32;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1b5e20;"></span>
-                    </span>
-                    <span class="text-muted-sm">Classic forest green.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="minimal" <%= selectedWebsiteTheme === 'minimal' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Amethyst Purple</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#7c3aed;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#6d28d9;"></span>
-                    </span>
-                    <span class="text-muted-sm">Refined premium purple.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="indigo" <%= selectedWebsiteTheme === 'indigo' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Deep Indigo</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#4338ca;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#312e81;"></span>
-                    </span>
-                    <span class="text-muted-sm">Bold confident indigo.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="rose" <%= selectedWebsiteTheme === 'rose' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Crimson Rose</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#8b2635;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#7a212e;"></span>
-                    </span>
-                    <span class="text-muted-sm">Elegant institutional red.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="amber" <%= selectedWebsiteTheme === 'amber' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Amber Gold</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#d97706;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#b45309;"></span>
-                    </span>
-                    <span class="text-muted-sm">Warm premium amber.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="yellow" <%= selectedWebsiteTheme === 'yellow' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Solar Yellow</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#eab308;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#ca8a04;"></span>
-                    </span>
-                    <span class="text-muted-sm">Bright energetic yellow.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="slate" <%= selectedWebsiteTheme === 'slate' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Slate Graphite</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#334155;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1e293b;"></span>
-                    </span>
-                    <span class="text-muted-sm">Professional balanced slate.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="cyan" <%= selectedWebsiteTheme === 'cyan' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Cyan Breeze</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#06b6d4;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#0891b2;"></span>
-                    </span>
-                    <span class="text-muted-sm">Fresh, clean cyan accent.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="orange" <%= selectedWebsiteTheme === 'orange' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Sunset Orange</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#ea580c;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#c2410c;"></span>
-                    </span>
-                    <span class="text-muted-sm">Warm, energetic orange tone.</span>
-                  </span>
-                </label>
-                <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
-                  <input type="radio" name="publicDashboardTheme" value="charcoal" <%= selectedWebsiteTheme === 'charcoal' ? 'checked' : '' %> />
-                  <span style="display:flex; flex-direction:column; gap:4px;">
-                    <strong style="font-size:0.95rem;">Charcoal Night</strong>
-                    <span style="display:flex; gap:6px;">
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1f2937;"></span>
-                      <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#111827;"></span>
-                    </span>
-                    <span class="text-muted-sm">Clean, executive dark neutral.</span>
-                  </span>
-                </label>
-              </div>
-              <div class="form-actions" style="margin-top:12px;">
-                <button class="btn-primary btn-link" type="submit">Save School Theme</button>
-              </div>
-            </form>
-          </div>
-
-          <div class="card">
-            <h4>Organisation Nickname</h4>
-            <small>The display name for your school. Your web address is locked and won't change.</small>
-            <p class="text-muted-sm">
-              Type the nickname the way you'd like it shown
-              (e.g. <em>HJS School</em>). Your web address
-              (<strong><%= (org && org.nickname) ? org.nickname : '' %>.managira.com</strong>)
-              was set at registration and is permanent.
-            </p>
-            <form action="/account/personalization/nickname" method="POST">
-              <input type="hidden" name="redirectTo" value="/account/settings" />
-              <div class="content-row">
-                <input
-                  type="text"
-                  name="orgNickName"
-                  value="<%= (org && org.nickname_display && String(org.nickname_display).trim()) ? org.nickname_display : (org && org.nickname) ? org.nickname : '' %>"
-                  minlength="3"
-                  maxlength="60"
-                  title="Display name (3-60 characters). Your subdomain stays the same."
-                  required
-                  autocomplete="off"
-                  class="form-input"
-                />
-                <button class="btn-link" type="submit">Save Display Name</button>
-              </div>
-            </form>
-            <div class="content-row" style="margin-top: 10px; align-items: center; gap: 8px;">
-              <label class="text-muted-sm" style="min-width: 110px;">Web address</label>
-              <input
-                type="text"
-                value="<%= (org && org.nickname) ? org.nickname : '' %>.managira.com"
-                readonly
-                class="form-input"
-                style="background:#f1f5f9; cursor:not-allowed; color:#475569;"
-              />
+              </form>
             </div>
-          </div>
 
-          <div class="card mobile-compact-card mobile-unbold-card">
-            <h4>School Calender Rule</h4>
-            <small>
-              Configure organization-wide attendance rules, then add date overrides below.
-            </small>
-            <form action="/account/settings/calendar/profile" method="POST">
-              <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
-              <div class="content-row" style="align-items:flex-start;">
-                <div class="field-group">
-                  <label class="form-label" for="calendar-country">Country Public Holidays</label>
-                  <select id="calendar-country" name="countryCode" class="form-select" required>
-                    <% const detectedSettingsCountryCode = (currencyProfile && currencyProfile.countryCode)
-                      ? String(currencyProfile.countryCode).toUpperCase()
-                      : ''; %>
-                    <% const selectedCountryCode = activeSettingsCountryCode || detectedSettingsCountryCode || 'US'; %>
-                    <% (holidayCountries || []).forEach((country) => { %>
-                      <option value="<%= country.code %>" <%= country.code === selectedCountryCode ? 'selected' : '' %>>
-                        <%= country.name %> (<%= country.code %>)
+            <div class="settings-subcard">
+              <h4>School details</h4>
+              <small>Name, address and country. The currency follows the country.</small>
+              <form action="/account/personalization/name" method="POST">
+                <input type="hidden" name="redirectTo" value="/account/settings" />
+                <div class="content-row" style="display:block;">
+                  <input
+                    type="text"
+                    name="orgName"
+                    value="<%= org?.organization_name || '' %>"
+                    required
+                    class="form-input"
+                    style="margin-bottom: 12px;"
+                  />
+
+                  <input
+                    type="text"
+                    name="orgAddress"
+                    value="<%= org?.organization_address || '' %>"
+                    class="form-input"
+                    placeholder="Organization address"
+                    style="margin-bottom: 12px;"
+                  />
+
+                  <% const selectedOrgCountryForCustomize = (org && org.organization_country ? String(org.organization_country).toUpperCase() : ''); %>
+                  <select
+                    name="orgCountry"
+                    class="form-input"
+                    required
+                    style="margin-bottom: 12px;"
+                  >
+                    <option value="">Select country</option>
+                    <% (settingsCountryOptionsWithCurrency || settingsCountryOptions || holidayCountries || []).forEach((country) => { %>
+                      <option value="<%= country.code %>" <%= country.code === selectedOrgCountryForCustomize ? 'selected' : '' %>>
+                        <%= country.name %> (<%= country.code %>)<%= country.currencyCode ? ` — ${country.currencyCode} ${country.currencyName || ''}` : '' %>
                       </option>
                     <% }) %>
                   </select>
-                  <small class="text-muted-sm" style="display:block; margin-top:6px;">
-                    Defaults to your organization country. You can still choose a different holiday country here.
+
+                  <small class="text-muted-sm" style="display:block; margin-bottom: 12px;">
+                    Currency: <strong><%= activeSettingsCurrencyCode %></strong>, set from the country.
                   </small>
-                </div>
 
-                <div class="field-group" style="min-width:260px;">
-                  <label class="form-label">Weekend Days (excluded by default)</label>
-                  <% const selectedWeekendDays = (attendanceCalendarProfile && Array.isArray(attendanceCalendarProfile.weekend_days) && attendanceCalendarProfile.weekend_days.length > 0)
-                    ? attendanceCalendarProfile.weekend_days.map((d) => Number(d))
-                    : [0, 6]; %>
-                  <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;">
-                    <% (weekdayOptions || []).forEach((dayOption) => { %>
-                      <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem;">
-                        <input
-                          type="checkbox"
-                          name="weekendDays"
-                          value="<%= dayOption.value %>"
-                          <%= selectedWeekendDays.includes(Number(dayOption.value)) ? 'checked' : '' %>
-                        />
-                        <span><%= dayOption.label %></span>
-                      </label>
-                    <% }) %>
-                  </div>
+                  <button class="btn-primary btn-link" type="submit">Save details</button>
                 </div>
+              </form>
+            </div>
 
-                <div class="field-group" style="min-width:260px;">
-                  <label class="form-label" for="include-public-holidays">Public Holiday Rule</label>
-                  <label style="display:flex; align-items:center; gap:8px; font-size:0.92rem;">
-                    <input
-                      type="checkbox"
-                      id="include-public-holidays"
-                      name="includePublicHolidays"
-                      value="true"
-                      <%= (attendanceCalendarProfile && attendanceCalendarProfile.include_public_holidays) || !attendanceCalendarProfile ? 'checked' : '' %>
-                    />
-                    <span>Exclude country public holidays from attendance</span>
-                  </label>
-                </div>
-
-                <div class="form-actions">
-                  <button class="btn-primary btn-link" type="submit">Save Calendar Rules</button>
-                </div>
-              </div>
-            </form>
-
-            <hr style="margin: 16px 0; border: none; border-top: 1px solid #e5e7eb;" />
-
-            <small>Add specific days to force attendance counting on/off across the organization.</small>
-            <form action="/account/settings/calendar/day" method="POST">
-              <div class="content-row" style="align-items:flex-end;">
-                <div class="field-group">
-                  <label class="form-label" for="calendarDate">Date</label>
-                  <input
-                    type="date"
-                    id="calendarDate"
-                    name="calendarDate"
-                    class="form-input"
-                    required
-                  />
-                </div>
-                <div class="field-group">
-                  <label class="form-label" for="calendarLabel">Reason / Label</label>
+            <div class="settings-subcard">
+              <h4>Web address</h4>
+              <small>The display name for your school. Your web address is locked and won't change.</small>
+              <p class="text-muted-sm">
+                Type the nickname the way you'd like it shown
+                (e.g. <em>HJS School</em>). Your web address
+                (<strong><%= (org && org.nickname) ? org.nickname : '' %>.managira.com</strong>)
+                was set at registration and is permanent.
+              </p>
+              <form action="/account/personalization/nickname" method="POST">
+                <input type="hidden" name="redirectTo" value="/account/settings" />
+                <div class="content-row">
                   <input
                     type="text"
-                    id="calendarLabel"
-                    name="label"
+                    name="orgNickName"
+                    value="<%= (org && org.nickname_display && String(org.nickname_display).trim()) ? org.nickname_display : (org && org.nickname) ? org.nickname : '' %>"
+                    minlength="3"
+                    maxlength="60"
+                    title="Display name (3-60 characters). Your subdomain stays the same."
+                    required
+                    autocomplete="off"
                     class="form-input"
-                    placeholder="Holiday, exam day, special class..."
                   />
+                  <button class="btn-link" type="submit">Save Display Name</button>
                 </div>
-                <div class="field-group">
-                  <label class="form-label" for="countsForAttendance">Attendance Count Rule</label>
-                  <select id="countsForAttendance" name="countsForAttendance" class="form-select">
-                    <option value="false">Do not count attendance</option>
-                    <option value="true">Count attendance</option>
-                  </select>
-                </div>
-                <div class="form-actions">
-                  <button class="btn-primary btn-link" type="submit">Save Day Rule</button>
-                </div>
+              </form>
+              <div class="content-row" style="margin-top: 10px; align-items: center; gap: 8px;">
+                <label class="text-muted-sm" style="min-width: 110px;">Web address</label>
+                <input
+                  type="text"
+                  value="<%= (org && org.nickname) ? org.nickname : '' %>.managira.com"
+                  readonly
+                  class="form-input"
+                  style="background:#f1f5f9; cursor:not-allowed; color:#475569;"
+                />
               </div>
-            </form>
-
-            <% if (attendanceCalendarDays && attendanceCalendarDays.length > 0) { %>
-              <div style="overflow:auto; margin-top:12px; max-height:340px; border:1px solid #e5e7eb; border-radius:10px;">
-                <table style="width:100%; border-collapse:collapse; min-width:620px;">
-                  <thead>
-                    <tr>
-                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Date</th>
-                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Type</th>
-                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Reason</th>
-                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Counts?</th>
-                      <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <% attendanceCalendarDays.forEach((day) => { %>
-                      <tr>
-                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= new Date(day.calendar_date).toLocaleDateString() %></td>
-                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.source === 'manual' ? 'Manual' : 'Public Holiday' %></td>
-                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.label || '-' %></td>
-                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.counts_for_attendance ? 'Yes' : 'No' %></td>
-                        <td style="padding:8px; border-bottom:1px solid #f1f5f9;">
-                          <% if (day.source === 'manual') { %>
-                            <form action="/account/settings/calendar/day/delete" method="POST" style="display:inline;">
-                              <input type="hidden" name="calendarDayId" value="<%= day.calendar_day_id %>" />
-                              <button class="btn-danger btn-link" type="submit" style="padding:6px 10px;">Delete</button>
-                            </form>
-                          <% } else { %>
-                            <span class="text-muted-sm">Auto</span>
-                          <% } %>
-                        </td>
-                      </tr>
-                    <% }) %>
-                  </tbody>
-                </table>
-              </div>
-            <% } else { %>
-              <p class="text-muted-sm" style="margin-top:12px;">No day overrides yet.</p>
-            <% } %>
+            </div>
           </div>
 
-          <!-- Student ID Settings card -->
-          <div class="card mobile-compact-card mobile-unbold-card">
-            <h4>Student ID Settings</h4>
-            <small>Use your school's own ID format for students.</small>
+          <div class="card settings-group">
+            <h4>Look and feel<span class="settings-group__desc">Brand color, font, and how names and dates show</span></h4>
 
-            <form action="/account/personalization/student-id" method="POST" style="margin-top:16px;">
-              <input type="hidden" name="redirectTo" value="/account/settings" />
-
-              <!-- Enable toggle -->
-              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-                <div>
-                  <p style="margin:0; font-size:0.9rem; font-weight:600; color:#1e293b;">Custom student IDs</p>
-                  <p style="margin:2px 0 0; font-size:0.8rem; color:#64748b;">Assign IDs in your school's own format.</p>
-                </div>
-                <label style="position:relative; display:inline-flex; align-items:center; cursor:pointer; flex-shrink:0;">
-                  <input type="checkbox" id="useCustomStudentId" name="useCustomStudentId"
-                    <%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'checked' : '' %>
-                    onchange="toggleSidPanel(this.checked)"
-                    style="position:absolute; opacity:0; width:0; height:0;" />
-                  <span id="sidToggleTrack" style="display:inline-block; width:44px; height:24px; background:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:12px; transition:background 0.2s; position:relative;">
-                    <span id="sidToggleThumb" style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? '22px' : '2px' %>; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
-                  </span>
-                </label>
-              </div>
-
-              <!-- Options panel -->
-              <div id="sidOptionsPanel" style="margin-top:18px;<%= studentIdSettings && studentIdSettings.use_custom_student_id ? '' : ' display:none;' %>">
-
-                <!-- Prefix -->
-                <div style="margin-bottom:16px;">
-                  <label style="display:block; font-size:0.85rem; font-weight:600; color:#374151; margin-bottom:6px;" for="studentIdPrefix">
-                    ID Prefix <span style="font-weight:400; color:#94a3b8; font-size:0.78rem;">(optional · max 10 chars)</span>
-                  </label>
-                  <div style="display:flex; align-items:center; gap:10px;">
-                    <input type="text" id="studentIdPrefix" name="studentIdPrefix" maxlength="10"
-                      placeholder="e.g. MGT"
-                      value="<%= (studentIdSettings && studentIdSettings.student_id_prefix) || '' %>"
-                      oninput="updateSidPreview()"
-                      class="form-input"
-                      style="width:110px; text-transform:uppercase; letter-spacing:0.05em;" />
-                    <span id="sidPreview" style="font-family:monospace; font-size:0.88rem; font-weight:700; color:#334155; letter-spacing:0.05em;">
-                      <%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %>001
+            <div class="settings-subcard mobile-compact-card mobile-unbold-card">
+              <h4>Brand color</h4>
+              <small>The main color of your school’s pages, buttons and website.</small>
+              <form action="/account/updatePublicDashboardTheme" method="POST">
+                <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
+                <% const selectedWebsiteTheme = (publicDashboardTheme && String(publicDashboardTheme).trim()) ? String(publicDashboardTheme).trim() : 'classic'; %>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:12px;">
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="classic" <%= selectedWebsiteTheme === 'classic' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Ocean Teal</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#01535b;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#014a51;"></span>
+                      </span>
+                      <span class="text-muted-sm">Trusted academic teal.</span>
                     </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="modern" <%= selectedWebsiteTheme === 'modern' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Royal Blue</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#2563eb;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1d4ed8;"></span>
+                      </span>
+                      <span class="text-muted-sm">Crisp modern blue.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="green" <%= selectedWebsiteTheme === 'green' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Evergreen</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#2e7d32;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1b5e20;"></span>
+                      </span>
+                      <span class="text-muted-sm">Classic forest green.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="minimal" <%= selectedWebsiteTheme === 'minimal' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Amethyst Purple</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#7c3aed;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#6d28d9;"></span>
+                      </span>
+                      <span class="text-muted-sm">Refined premium purple.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="indigo" <%= selectedWebsiteTheme === 'indigo' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Deep Indigo</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#4338ca;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#312e81;"></span>
+                      </span>
+                      <span class="text-muted-sm">Bold confident indigo.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="rose" <%= selectedWebsiteTheme === 'rose' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Crimson Rose</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#8b2635;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#7a212e;"></span>
+                      </span>
+                      <span class="text-muted-sm">Elegant institutional red.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="amber" <%= selectedWebsiteTheme === 'amber' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Amber Gold</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#d97706;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#b45309;"></span>
+                      </span>
+                      <span class="text-muted-sm">Warm premium amber.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="yellow" <%= selectedWebsiteTheme === 'yellow' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Solar Yellow</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#eab308;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#ca8a04;"></span>
+                      </span>
+                      <span class="text-muted-sm">Bright energetic yellow.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="slate" <%= selectedWebsiteTheme === 'slate' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Slate Graphite</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#334155;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1e293b;"></span>
+                      </span>
+                      <span class="text-muted-sm">Professional balanced slate.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="cyan" <%= selectedWebsiteTheme === 'cyan' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Cyan Breeze</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#06b6d4;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#0891b2;"></span>
+                      </span>
+                      <span class="text-muted-sm">Fresh, clean cyan accent.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="orange" <%= selectedWebsiteTheme === 'orange' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Sunset Orange</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#ea580c;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#c2410c;"></span>
+                      </span>
+                      <span class="text-muted-sm">Warm, energetic orange tone.</span>
+                    </span>
+                  </label>
+                  <label style="display:flex; gap:10px; align-items:flex-start; border:1px solid #e5e7eb; border-radius:10px; padding:12px; cursor:pointer;">
+                    <input type="radio" name="publicDashboardTheme" value="charcoal" <%= selectedWebsiteTheme === 'charcoal' ? 'checked' : '' %> />
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                      <strong style="font-size:0.95rem;">Charcoal Night</strong>
+                      <span style="display:flex; gap:6px;">
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#1f2937;"></span>
+                        <span style="width:14px; height:14px; border-radius:999px; border:1px solid rgba(0,0,0,0.12); background:#111827;"></span>
+                      </span>
+                      <span class="text-muted-sm">Clean, executive dark neutral.</span>
+                    </span>
+                  </label>
+                </div>
+                <div class="form-actions" style="margin-top:12px;">
+                  <button class="btn-primary btn-link" type="submit">Save School Theme</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="settings-subcard">
+              <h4>Font</h4>
+              <small>Choose the font that best represents your brand.</small>
+              <form action="/account/personalization/font" method="POST">
+                <input type="hidden" name="redirectTo" value="/account/settings" />
+                <div class="content-row">
+                  <select
+                    id="font-select"
+                    name="font"
+                    class="form-select"
+                  >
+                    <% const fontStyle = org?.font_style || 'Inter'; %>
+                    <option value="Inter" <%= fontStyle === 'Inter' ? 'selected' : '' %>>Inter</option>
+                    <option value="Roboto" <%= fontStyle === 'Roboto' ? 'selected' : '' %>>Roboto</option>
+                    <option value="Open Sans" <%= fontStyle === 'Open Sans' ? 'selected' : '' %>>Open Sans</option>
+                    <option value="Lato" <%= fontStyle === 'Lato' ? 'selected' : '' %>>Lato</option>
+                    <option value="Montserrat" <%= fontStyle === 'Montserrat' ? 'selected' : '' %>>Montserrat</option>
+                    <option value="Poppins" <%= fontStyle === 'Poppins' ? 'selected' : '' %>>Poppins</option>
+                    <option value="Nunito" <%= fontStyle === 'Nunito' ? 'selected' : '' %>>Nunito</option>
+                    <option value="Raleway" <%= fontStyle === 'Raleway' ? 'selected' : '' %>>Raleway</option>
+                    <option value="Work Sans" <%= fontStyle === 'Work Sans' ? 'selected' : '' %>>Work Sans</option>
+                    <option value="Source Sans Pro" <%= fontStyle === 'Source Sans Pro' ? 'selected' : '' %>>Source Sans Pro</option>
+                    <option value="Ubuntu" <%= fontStyle === 'Ubuntu' ? 'selected' : '' %>>Ubuntu</option>
+                    <option value="Noto Sans" <%= fontStyle === 'Noto Sans' ? 'selected' : '' %>>Noto Sans</option>
+                    <option value="PT Serif" <%= fontStyle === 'PT Serif' ? 'selected' : '' %>>PT Serif</option>
+                    <option value="Merriweather" <%= fontStyle === 'Merriweather' ? 'selected' : '' %>>Merriweather</option>
+                    <option value="Playfair Display" <%= fontStyle === 'Playfair Display' ? 'selected' : '' %>>Playfair Display</option>
+                  </select>
+                  <div class="font-preview" id="font-preview">
+                  <div style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">Welcome to Greenwood Academy</div>
+                  <div style="font-size: 16px; margin-bottom: 6px;">Student Dashboard • Grade 10A • Mathematics</div>
+                  <div style="font-size: 14px; color: #6b7280; line-height: 1.5;">This is how your school will look like with this font. Student names, grades, announcements, and all content will appear in this style. ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789</div>
+                </div>
+                  <button class="btn-link" type="submit">Change Font</button>
+                </div>
+              
+              </form>
+            </div>
+
+            <div class="settings-subcard mobile-compact-card">
+              <h4>Names and dates</h4>
+              <small>Control how names and dates appear across your school portal, including PayGira and student pages.</small>
+              <% const nameDisplayFormat = (org && org.name_display_format) ? org.name_display_format : 'first_last'; %>
+              <% const dateDisplayFormat = (org && org.date_display_format) ? org.date_display_format : 'dd_mm_yyyy'; %>
+              <form action="/account/personalization/display-preferences" method="POST">
+                <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
+                <div class="content-row" style="display:block;">
+                  <div style="margin-bottom:14px;">
+                    <label style="display:block; font-weight:600; margin-bottom:6px;">Student/Staff Name Format</label>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                      <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                        <input type="radio" name="nameDisplayFormat" value="first_last" <%= nameDisplayFormat === 'first_last' ? 'checked' : '' %> />
+                        <span>First Name Last Name (Ada Lovelace)</span>
+                      </label>
+                      <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                        <input type="radio" name="nameDisplayFormat" value="last_first" <%= nameDisplayFormat === 'last_first' ? 'checked' : '' %> />
+                        <span>Last Name, First Name (Lovelace, Ada)</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style="margin-bottom:16px;">
+                    <label for="dateDisplayFormat" style="display:block; font-weight:600; margin-bottom:6px;">Date Format</label>
+                    <select id="dateDisplayFormat" name="dateDisplayFormat" class="form-select" style="max-width:280px;">
+                      <option value="dd_mm_yyyy" <%= dateDisplayFormat === 'dd_mm_yyyy' ? 'selected' : '' %>>DD/MM/YYYY (31/12/2026)</option>
+                      <option value="mm_dd_yyyy" <%= dateDisplayFormat === 'mm_dd_yyyy' ? 'selected' : '' %>>MM/DD/YYYY (12/31/2026)</option>
+                      <option value="yyyy_mm_dd" <%= dateDisplayFormat === 'yyyy_mm_dd' ? 'selected' : '' %>>YYYY/MM/DD (2026/12/31)</option>
+                    </select>
+                  </div>
+
+                  <button class="btn-primary btn-link" type="submit">Save Display Preferences</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="card settings-group">
+            <h4>School rules<span class="settings-group__desc">Calendar rules and student ID numbers</span></h4>
+
+            <div class="settings-subcard mobile-compact-card mobile-unbold-card">
+              <h4>School calendar</h4>
+              <small>
+                Configure organization-wide attendance rules, then add date overrides below.
+              </small>
+              <form action="/account/settings/calendar/profile" method="POST">
+                <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
+                <div class="content-row" style="align-items:flex-start;">
+                  <div class="field-group">
+                    <label class="form-label" for="calendar-country">Country Public Holidays</label>
+                    <select id="calendar-country" name="countryCode" class="form-select" required>
+                      <% const detectedSettingsCountryCode = (currencyProfile && currencyProfile.countryCode)
+                        ? String(currencyProfile.countryCode).toUpperCase()
+                        : ''; %>
+                      <% const selectedCountryCode = activeSettingsCountryCode || detectedSettingsCountryCode || 'US'; %>
+                      <% (holidayCountries || []).forEach((country) => { %>
+                        <option value="<%= country.code %>" <%= country.code === selectedCountryCode ? 'selected' : '' %>>
+                          <%= country.name %> (<%= country.code %>)
+                        </option>
+                      <% }) %>
+                    </select>
+                    <small class="text-muted-sm" style="display:block; margin-top:6px;">
+                      Defaults to your organization country. You can still choose a different holiday country here.
+                    </small>
+                  </div>
+
+                  <div class="field-group" style="min-width:260px;">
+                    <label class="form-label">Weekend Days (excluded by default)</label>
+                    <% const selectedWeekendDays = (attendanceCalendarProfile && Array.isArray(attendanceCalendarProfile.weekend_days) && attendanceCalendarProfile.weekend_days.length > 0)
+                      ? attendanceCalendarProfile.weekend_days.map((d) => Number(d))
+                      : [0, 6]; %>
+                    <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;">
+                      <% (weekdayOptions || []).forEach((dayOption) => { %>
+                        <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem;">
+                          <input
+                            type="checkbox"
+                            name="weekendDays"
+                            value="<%= dayOption.value %>"
+                            <%= selectedWeekendDays.includes(Number(dayOption.value)) ? 'checked' : '' %>
+                          />
+                          <span><%= dayOption.label %></span>
+                        </label>
+                      <% }) %>
+                    </div>
+                  </div>
+
+                  <div class="field-group" style="min-width:260px;">
+                    <label class="form-label" for="include-public-holidays">Public Holiday Rule</label>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:0.92rem;">
+                      <input
+                        type="checkbox"
+                        id="include-public-holidays"
+                        name="includePublicHolidays"
+                        value="true"
+                        <%= (attendanceCalendarProfile && attendanceCalendarProfile.include_public_holidays) || !attendanceCalendarProfile ? 'checked' : '' %>
+                      />
+                      <span>Exclude country public holidays from attendance</span>
+                    </label>
+                  </div>
+
+                  <div class="form-actions">
+                    <button class="btn-primary btn-link" type="submit">Save Calendar Rules</button>
                   </div>
                 </div>
+              </form>
 
-                <!-- Auto-generate toggle -->
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
+              <hr style="margin: 16px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+              <small>Add specific days to force attendance counting on/off across the organization.</small>
+              <form action="/account/settings/calendar/day" method="POST">
+                <div class="content-row" style="align-items:flex-end;">
+                  <div class="field-group">
+                    <label class="form-label" for="calendarDate">Date</label>
+                    <input
+                      type="date"
+                      id="calendarDate"
+                      name="calendarDate"
+                      class="form-input"
+                      required
+                    />
+                  </div>
+                  <div class="field-group">
+                    <label class="form-label" for="calendarLabel">Reason / Label</label>
+                    <input
+                      type="text"
+                      id="calendarLabel"
+                      name="label"
+                      class="form-input"
+                      placeholder="Holiday, exam day, special class..."
+                    />
+                  </div>
+                  <div class="field-group">
+                    <label class="form-label" for="countsForAttendance">Attendance Count Rule</label>
+                    <select id="countsForAttendance" name="countsForAttendance" class="form-select">
+                      <option value="false">Do not count attendance</option>
+                      <option value="true">Count attendance</option>
+                    </select>
+                  </div>
+                  <div class="form-actions">
+                    <button class="btn-primary btn-link" type="submit">Save Day Rule</button>
+                  </div>
+                </div>
+              </form>
+
+              <% if (attendanceCalendarDays && attendanceCalendarDays.length > 0) { %>
+                <div style="overflow:auto; margin-top:12px; max-height:340px; border:1px solid #e5e7eb; border-radius:10px;">
+                  <table style="width:100%; border-collapse:collapse; min-width:620px;">
+                    <thead>
+                      <tr>
+                        <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Date</th>
+                        <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Type</th>
+                        <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Reason</th>
+                        <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Counts?</th>
+                        <th style="text-align:left; border-bottom:1px solid #e5e7eb; padding:8px;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% attendanceCalendarDays.forEach((day) => { %>
+                        <tr>
+                          <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= new Date(day.calendar_date).toLocaleDateString() %></td>
+                          <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.source === 'manual' ? 'Manual' : 'Public Holiday' %></td>
+                          <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.label || '-' %></td>
+                          <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.counts_for_attendance ? 'Yes' : 'No' %></td>
+                          <td style="padding:8px; border-bottom:1px solid #f1f5f9;">
+                            <% if (day.source === 'manual') { %>
+                              <form action="/account/settings/calendar/day/delete" method="POST" style="display:inline;">
+                                <input type="hidden" name="calendarDayId" value="<%= day.calendar_day_id %>" />
+                                <button class="btn-danger btn-link" type="submit" style="padding:6px 10px;">Delete</button>
+                              </form>
+                            <% } else { %>
+                              <span class="text-muted-sm">Auto</span>
+                            <% } %>
+                          </td>
+                        </tr>
+                      <% }) %>
+                    </tbody>
+                  </table>
+                </div>
+              <% } else { %>
+                <p class="text-muted-sm" style="margin-top:12px;">No day overrides yet.</p>
+              <% } %>
+            </div>
+
+            <!-- Student ID Settings card -->
+
+            <div class="settings-subcard mobile-compact-card mobile-unbold-card">
+              <h4>Student IDs</h4>
+              <small>Use your school's own ID format for students.</small>
+
+              <form action="/account/personalization/student-id" method="POST" style="margin-top:16px;">
+                <input type="hidden" name="redirectTo" value="/account/settings" />
+
+                <!-- Enable toggle -->
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
                   <div>
-                    <p style="margin:0; font-size:0.9rem; font-weight:600; color:#1e293b;">Auto-generate IDs</p>
-                    <p style="margin:2px 0 0; font-size:0.8rem; color:#64748b;">IDs are assigned automatically. Staff can still edit them per student.</p>
+                    <p style="margin:0; font-size:0.9rem; font-weight:600; color:#1e293b;">Custom student IDs</p>
+                    <p style="margin:2px 0 0; font-size:0.8rem; color:#64748b;">Assign IDs in your school's own format.</p>
                   </div>
                   <label style="position:relative; display:inline-flex; align-items:center; cursor:pointer; flex-shrink:0;">
-                    <input type="checkbox" name="studentIdAutoGenerate"
-                      <%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'checked' : '' %>
-                      onchange="var t=this.closest('label').querySelector('span:first-of-type'); var th=t.querySelector('span'); t.style.background=this.checked?'var(--primary, #01535b)':'#cbd5e1'; th.style.left=this.checked?'22px':'2px'; var sr=document.getElementById('sidStartingRow'); if(sr) sr.style.display=this.checked?'':'none';"
+                    <input type="checkbox" id="useCustomStudentId" name="useCustomStudentId"
+                      <%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'checked' : '' %>
+                      onchange="toggleSidPanel(this.checked)"
                       style="position:absolute; opacity:0; width:0; height:0;" />
-                    <span style="display:inline-block; width:44px; height:24px; background:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:12px; transition:background 0.2s; position:relative;">
-                      <span style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '22px' : '2px' %>; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
+                    <span id="sidToggleTrack" style="display:inline-block; width:44px; height:24px; background:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:12px; transition:background 0.2s; position:relative;">
+                      <span id="sidToggleThumb" style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.use_custom_student_id ? '22px' : '2px' %>; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
                     </span>
                   </label>
                 </div>
 
-                <!-- Starting number (visible when auto-generate is on) -->
-                <% 
-                  const configuredStudentIdStartNumber = Number(studentIdSettings && studentIdSettings.student_id_start_number);
-                  const savedStudentIdStartNumber = Number.isInteger(configuredStudentIdStartNumber) && configuredStudentIdStartNumber > 0
-                    ? configuredStudentIdStartNumber
-                    : (nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1));
-                %>
-                <div id="sidStartingRow" style="<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '' : 'display:none;' %>">
-                  <label style="display:block; font-size:0.85rem; font-weight:600; color:#374151; margin-bottom:6px;" for="startingNumber">
-                    Start numbering from
-                    <span style="font-weight:400; color:#94a3b8; font-size:0.78rem;">· counter is at <%= (studentIdSettings && studentIdSettings.student_id_counter) || 0 %>, next available is <%= nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1) %><% if (savedStudentIdStartNumber && savedStudentIdStartNumber !== (nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1))) { %>, saved start is <%= savedStudentIdStartNumber %><% } %></span>
-                  </label>
-                  <div style="display:flex; align-items:center; gap:10px;">
-                    <input type="number" id="startingNumber" name="startingNumber" min="1" max="999999"
-                      value="<%= savedStudentIdStartNumber %>"
-                      oninput="updateSidNextPreview()"
-                      class="form-input"
-                      style="width:100px;" />
-                    <span id="sidNextPreview" style="font-family:monospace; font-size:0.88rem; font-weight:700; color:#334155; letter-spacing:0.05em;">
-                      <%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %><%= String(savedStudentIdStartNumber).padStart(3, '0') %>
-                    </span>
+                <!-- Options panel -->
+                <div id="sidOptionsPanel" style="margin-top:18px;<%= studentIdSettings && studentIdSettings.use_custom_student_id ? '' : ' display:none;' %>">
+
+                  <!-- Prefix -->
+                  <div style="margin-bottom:16px;">
+                    <label style="display:block; font-size:0.85rem; font-weight:600; color:#374151; margin-bottom:6px;" for="studentIdPrefix">
+                      ID Prefix <span style="font-weight:400; color:#94a3b8; font-size:0.78rem;">(optional · max 10 chars)</span>
+                    </label>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <input type="text" id="studentIdPrefix" name="studentIdPrefix" maxlength="10"
+                        placeholder="e.g. MGT"
+                        value="<%= (studentIdSettings && studentIdSettings.student_id_prefix) || '' %>"
+                        oninput="updateSidPreview()"
+                        class="form-input"
+                        style="width:110px; text-transform:uppercase; letter-spacing:0.05em;" />
+                      <span id="sidPreview" style="font-family:monospace; font-size:0.88rem; font-weight:700; color:#334155; letter-spacing:0.05em;">
+                        <%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %>001
+                      </span>
+                    </div>
                   </div>
-                  <p style="margin:6px 0 0; font-size:0.78rem; color:#94a3b8;">The system suggests the first reusable number in your current range. Change this only if you are deliberately starting a different range.</p>
+
+                  <!-- Auto-generate toggle -->
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
+                    <div>
+                      <p style="margin:0; font-size:0.9rem; font-weight:600; color:#1e293b;">Auto-generate IDs</p>
+                      <p style="margin:2px 0 0; font-size:0.8rem; color:#64748b;">IDs are assigned automatically. Staff can still edit them per student.</p>
+                    </div>
+                    <label style="position:relative; display:inline-flex; align-items:center; cursor:pointer; flex-shrink:0;">
+                      <input type="checkbox" name="studentIdAutoGenerate"
+                        <%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'checked' : '' %>
+                        onchange="var t=this.closest('label').querySelector('span:first-of-type'); var th=t.querySelector('span'); t.style.background=this.checked?'var(--primary, #01535b)':'#cbd5e1'; th.style.left=this.checked?'22px':'2px'; var sr=document.getElementById('sidStartingRow'); if(sr) sr.style.display=this.checked?'':'none';"
+                        style="position:absolute; opacity:0; width:0; height:0;" />
+                      <span style="display:inline-block; width:44px; height:24px; background:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? 'var(--primary, #01535b)' : '#cbd5e1' %>; border-radius:12px; transition:background 0.2s; position:relative;">
+                        <span style="position:absolute; top:2px; left:<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '22px' : '2px' %>; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.2); transition:left 0.2s;"></span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <!-- Starting number (visible when auto-generate is on) -->
+                  <% 
+                    const configuredStudentIdStartNumber = Number(studentIdSettings && studentIdSettings.student_id_start_number);
+                    const savedStudentIdStartNumber = Number.isInteger(configuredStudentIdStartNumber) && configuredStudentIdStartNumber > 0
+                      ? configuredStudentIdStartNumber
+                      : (nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1));
+                  %>
+                  <div id="sidStartingRow" style="<%= studentIdSettings && studentIdSettings.student_id_auto_generate ? '' : 'display:none;' %>">
+                    <label style="display:block; font-size:0.85rem; font-weight:600; color:#374151; margin-bottom:6px;" for="startingNumber">
+                      Start numbering from
+                      <span style="font-weight:400; color:#94a3b8; font-size:0.78rem;">· counter is at <%= (studentIdSettings && studentIdSettings.student_id_counter) || 0 %>, next available is <%= nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1) %><% if (savedStudentIdStartNumber && savedStudentIdStartNumber !== (nextAvailableStudentIdNumber || (((studentIdSettings && studentIdSettings.student_id_counter) || 0) + 1))) { %>, saved start is <%= savedStudentIdStartNumber %><% } %></span>
+                    </label>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <input type="number" id="startingNumber" name="startingNumber" min="1" max="999999"
+                        value="<%= savedStudentIdStartNumber %>"
+                        oninput="updateSidNextPreview()"
+                        class="form-input"
+                        style="width:100px;" />
+                      <span id="sidNextPreview" style="font-family:monospace; font-size:0.88rem; font-weight:700; color:#334155; letter-spacing:0.05em;">
+                        <%= ((studentIdSettings && studentIdSettings.student_id_prefix) || '') %><%= String(savedStudentIdStartNumber).padStart(3, '0') %>
+                      </span>
+                    </div>
+                    <p style="margin:6px 0 0; font-size:0.78rem; color:#94a3b8;">The system suggests the first reusable number in your current range. Change this only if you are deliberately starting a different range.</p>
+                  </div>
+
                 </div>
 
-              </div>
+                <div class="form-actions" style="margin-top:18px;">
+                  <button class="btn-primary btn-link" type="submit">Save</button>
+                </div>
+              </form>
 
-              <div class="form-actions" style="margin-top:18px;">
-                <button class="btn-primary btn-link" type="submit">Save</button>
-              </div>
-            </form>
-
-            <script>
-              (function () {
-                function toggleSidPanel(on) {
-                  var p = document.getElementById('sidOptionsPanel');
-                  var track = document.getElementById('sidToggleTrack');
-                  var thumb = document.getElementById('sidToggleThumb');
-                  if (p) p.style.display = on ? '' : 'none';
-                  if (track) track.style.background = on ? 'var(--primary, #01535b)' : '#cbd5e1';
-                  if (thumb) thumb.style.left = on ? '22px' : '2px';
-                }
-                function updateSidPreview() {
-                  var inp = document.getElementById('studentIdPrefix');
-                  var prev = document.getElementById('sidPreview');
-                  if (!inp || !prev) return;
-                  var val = inp.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '');
-                  inp.value = val;
-                  prev.textContent = val + '001';
-                  updateSidNextPreview();
-                }
-                function updateSidNextPreview() {
-                  var prefix = document.getElementById('studentIdPrefix');
-                  var numInp = document.getElementById('startingNumber');
-                  var nextPrev = document.getElementById('sidNextPreview');
-                  if (!nextPrev) return;
-                  var p = prefix ? prefix.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '') : '';
-                  var n = parseInt(numInp ? numInp.value : '1', 10) || 1;
-                  nextPrev.textContent = p + String(n).padStart(3, '0');
-                }
-                window.toggleSidPanel = toggleSidPanel;
-                window.updateSidPreview = updateSidPreview;
-                window.updateSidNextPreview = updateSidNextPreview;
-              })();
-            </script>
+              <script>
+                (function () {
+                  function toggleSidPanel(on) {
+                    var p = document.getElementById('sidOptionsPanel');
+                    var track = document.getElementById('sidToggleTrack');
+                    var thumb = document.getElementById('sidToggleThumb');
+                    if (p) p.style.display = on ? '' : 'none';
+                    if (track) track.style.background = on ? 'var(--primary, #01535b)' : '#cbd5e1';
+                    if (thumb) thumb.style.left = on ? '22px' : '2px';
+                  }
+                  function updateSidPreview() {
+                    var inp = document.getElementById('studentIdPrefix');
+                    var prev = document.getElementById('sidPreview');
+                    if (!inp || !prev) return;
+                    var val = inp.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '');
+                    inp.value = val;
+                    prev.textContent = val + '001';
+                    updateSidNextPreview();
+                  }
+                  function updateSidNextPreview() {
+                    var prefix = document.getElementById('studentIdPrefix');
+                    var numInp = document.getElementById('startingNumber');
+                    var nextPrev = document.getElementById('sidNextPreview');
+                    if (!nextPrev) return;
+                    var p = prefix ? prefix.value.toUpperCase().replace(/[^A-Z0-9\-_]/g, '') : '';
+                    var n = parseInt(numInp ? numInp.value : '1', 10) || 1;
+                    nextPrev.textContent = p + String(n).padStart(3, '0');
+                  }
+                  window.toggleSidPanel = toggleSidPanel;
+                  window.updateSidPreview = updateSidPreview;
+                  window.updateSidNextPreview = updateSidNextPreview;
+                })();
+              </script>
+            </div>
           </div>
 
         </section>
@@ -3747,6 +3774,44 @@
         <section id="profile" class="settings-section <%= _defaultSettingsSectionId === 'profile' ? 'is-default' : '' %>">
           <h1>Profile</h1>
           <p class="lead">View and manage your profile information.</p>
+
+          <% const _myAppearance = ['white', 'gray', 'dark'].includes(session && session.appearance) ? session.appearance : 'white'; %>
+          <div class="card" id="appearance" data-no-collapse data-ap-skip>
+            <h4>Appearance</h4>
+            <small>How Managira looks for you. Only you see this; prints, PDFs and emails always stay white.</small>
+            <div class="ap-picker" role="radiogroup" aria-label="Appearance" data-ap-picker>
+              <% [['white', 'White'], ['gray', 'Gray'], ['dark', 'Dark']].forEach(function (choice) { %>
+                <label class="ap-choice ap-choice--<%= choice[0] %>">
+                  <input type="radio" name="appearanceMode" value="<%= choice[0] %>" <%= _myAppearance === choice[0] ? 'checked' : '' %> />
+                  <span class="ap-choice__preview" aria-hidden="true"><i></i><i></i></span>
+                  <span><%= choice[1] %></span>
+                  <span class="ap-choice__check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                </label>
+              <% }) %>
+            </div>
+            <p class="ap-status" data-ap-status aria-live="polite"></p>
+            <script>
+              (function () {
+                var box = document.querySelector('[data-ap-picker]');
+                if (!box || box.dataset.ready) return;
+                box.dataset.ready = '1';
+                var status = document.querySelector('[data-ap-status]');
+                box.addEventListener('change', function (e) {
+                  var mode = e.target && e.target.value;
+                  if (!mode) return;
+                  status.textContent = 'Saving…';
+                  fetch('/account/appearance', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify({ appearanceMode: mode })
+                  }).then(function (r) { return r.json().then(function (b) { if (!r.ok || !b.success) throw new Error(b.error || 'failed'); }); })
+                    .then(function () { status.textContent = 'Saved. Updating…'; window.location.reload(); })
+                    .catch(function () { status.textContent = 'Could not save. Please try again.'; });
+                });
+              })();
+            </script>
+          </div>
 
           <!-- Profile Image Upload Section -->
           <div class="card profile-card">
@@ -6060,7 +6125,7 @@
         function initSettingsCardCollapsibles() {
           const cards = document.querySelectorAll(".settings-section .card");
           cards.forEach((card) => {
-            if (card.dataset.collapseReady === "1") return;
+            if (card.dataset.collapseReady === "1" || card.hasAttribute("data-no-collapse")) return;
 
             const title = card.querySelector(":scope > h4");
             if (!title) return;

@@ -14,8 +14,9 @@ const HUB_PERMISSION_GROUPS = [
   {
     group: 'Reports',
     items: [
-      { key: 'reports.view', label: 'View reports', description: 'School comparison, attendance, performance, enrollment, marks entry and support reports.' },
-      { key: 'reports.export', label: 'Download reports', description: 'Download reports as CSV files.' },
+      { key: 'reports.view', label: 'View reports', description: 'Open the Reports page and the reports your hub has saved.' },
+      { key: 'reports.create', label: 'Build and save reports', description: 'Make new reports across your schools and save them for everyone with report access.' },
+      { key: 'reports.export', label: 'Download and print reports', description: 'Download reports as CSV files, print them or save them as PDF.' },
     ],
   },
   {

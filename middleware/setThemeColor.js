@@ -1,34 +1,39 @@
 const db = require('../config/db');
-const { ensureAppearanceSchema, normalizeAppearance } = require('../utils/organizationAppearance');
+const { appearanceOwner, loadAppearance, normalizeAppearance } = require('../utils/organizationAppearance');
 
 /**
  * Middleware to set the organization's theme color in the session
  * This is used to dynamically style buttons and UI elements
  */
+// Pages drawn for a PDF or a print never use gray or dark.
+function isPrintRender(req) {
+    const q = req.query || {};
+    if (q.pdf || q.print || q.export) return true;
+    if (req.get('X-Managira-Render') === 'pdf') return true;
+    return /HeadlessChrome/i.test(String(req.get('user-agent') || ''));
+}
+
 const setThemeColor = async (req, res, next) => {
+    res.locals.appearance = 'white';
     // Skip if no organization is logged in
     if (!req.session.organizationId) {
-        delete req.session.appearanceOrganizationId;
-        delete req.session.orgAppearance;
         res.locals.themeColor = 'teal'; // Default theme
         return next();
     }
 
-    // Read by organization, not by user: all members and iframe panels share
-    // the school's choice. Existing schools get white, independently of brand.
-    try {
-        await ensureAppearanceSchema(db);
-        const { rows } = await db.query(
-            'SELECT appearance_mode FROM organizations WHERE organization_id = $1',
-            [req.session.organizationId]
-        );
-        req.session.orgAppearance = normalizeAppearance(rows[0]?.appearance_mode);
-        req.session.appearanceOrganizationId = req.session.organizationId;
-    } catch (err) {
-        console.error('Unable to load school appearance:', err.message);
-        req.session.orgAppearance = 'white';
+    // Each person's own choice (white, gray or dark), read once per session.
+    const owner = appearanceOwner(req.session);
+    const ownerKey = owner ? owner.join(':') : '';
+    if (owner && req.session.appearanceKey !== ownerKey) {
+        try {
+            req.session.appearance = await loadAppearance(db, req.session);
+            req.session.appearanceKey = ownerKey;
+        } catch (err) {
+            console.error('Unable to load appearance:', err.message);
+            req.session.appearance = 'white';
+        }
     }
-    res.locals.orgAppearance = req.session.orgAppearance;
+    if (owner && !isPrintRender(req)) res.locals.appearance = normalizeAppearance(req.session.appearance);
 
     // If theme color is already in session, use it
     if (req.session.themeColor) {

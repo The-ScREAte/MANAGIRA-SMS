@@ -39,16 +39,19 @@ const updateThemePost = async (req, res) => {
   }
 };
 
+// POST /account/appearance — the signed-in person's own look (white, gray or dark).
 const updateAppearancePost = async (req, res) => {
-  const redirectTo = '/account/settings?section=customize';
+  const wantsJson = req.xhr || String(req.get('accept') || '').includes('application/json');
   try {
-    const mode = await saveAppearance(db, req.session.organizationId, req.body.appearanceMode);
-    req.session.orgAppearance = mode;
-    req.flash('success', 'School appearance updated.');
+    const mode = await saveAppearance(db, req.session, String((req.body && req.body.appearanceMode) || ''));
+    req.session.appearance = mode;
+    if (wantsJson) return res.json({ success: true, mode });
+    req.flash('success', 'Appearance updated.');
   } catch (err) {
-    req.flash('error', 'Unable to save school appearance. Please try again.');
+    if (wantsJson) return res.status(400).json({ success: false, error: 'Unable to save your appearance. Please try again.' });
+    req.flash('error', 'Unable to save your appearance. Please try again.');
   }
-  return res.redirect(redirectTo);
+  return res.redirect('/account/settings?section=profile');
 };
 
 module.exports = { updateThemePost, updateAppearancePost };

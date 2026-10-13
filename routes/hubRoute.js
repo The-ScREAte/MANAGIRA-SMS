@@ -133,7 +133,52 @@ const can = (permission) => (req, res, next) => {
 
 router.get('/dashboard', hubController.hubDashboardGet);
 router.get('/overview-stats', can('reports.view'), hubController.hubOverviewStatsGet);
-router.get('/reports/pdf', can('reports.view'), can('reports.export'), hubController.hubReportsPdfGet);
+// Saved reports: everyone who sees reports can open them; building and saving needs reports.create.
+const savedReports = require('../utils/hubSavedReports');
+router.get('/reports/saved', can('reports.view'), async (req, res) => {
+  try {
+    const db = require('../config/db');
+    const rows = await savedReports.list(db, req.session.hubId);
+    res.set('Cache-Control', 'no-store');
+    return res.json({ reports: rows.map((r) => ({ ...r, canDelete: savedReports.canDelete(req.hubActor, r) })) });
+  } catch (err) {
+    console.error('[hub/reports/saved]', err.message);
+    return res.status(500).json({ error: 'Saved reports could not load.' });
+  }
+});
+router.get('/reports/saved/:reportId(\\d+)', can('reports.view'), async (req, res) => {
+  try {
+    const row = await savedReports.get(require('../config/db'), req.session.hubId, req.params.reportId);
+    if (!row) return res.status(404).json({ error: 'This report no longer exists.' });
+    res.set('Cache-Control', 'no-store');
+    return res.json({ report: { ...row, canDelete: savedReports.canDelete(req.hubActor, row) } });
+  } catch (err) {
+    console.error('[hub/reports/saved/:id]', err.message);
+    return res.status(500).json({ error: 'The report could not load.' });
+  }
+});
+router.post('/reports/saved', can('reports.create'), express.json({ limit: '400kb' }), async (req, res) => {
+  try {
+    const id = await savedReports.create(require('../config/db'), req.session.hubId, req.hubActor, req.hubInfo, req.body || {});
+    return res.json({ success: true, reportId: id, message: 'Report saved.' });
+  } catch (err) {
+    if (!err.userMessage) console.error('[hub/reports/save]', err.message);
+    return res.status(400).json({ success: false, error: err.userMessage || 'The report could not be saved.' });
+  }
+});
+router.post('/reports/saved/:reportId(\\d+)/delete', can('reports.view'), async (req, res) => {
+  try {
+    const db = require('../config/db');
+    const row = await savedReports.get(db, req.session.hubId, req.params.reportId);
+    if (!row) return res.json({ success: true });
+    if (!savedReports.canDelete(req.hubActor, row)) return res.status(403).json({ success: false, error: 'Only the person who saved it or a hub admin can delete this report.' });
+    await savedReports.remove(db, req.session.hubId, row.report_id);
+    return res.json({ success: true, message: 'Report deleted.' });
+  } catch (err) {
+    console.error('[hub/reports/delete]', err.message);
+    return res.status(500).json({ success: false, error: 'The report could not be deleted.' });
+  }
+});
 
 // Settings: everyone manages their own profile and emails.
 router.get('/settings', hubController.hubSettingsGet);

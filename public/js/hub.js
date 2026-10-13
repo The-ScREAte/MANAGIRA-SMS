@@ -37,6 +37,7 @@
     box.appendChild(t);
     setTimeout(() => { t.classList.add('is-leaving'); setTimeout(() => t.remove(), 300); }, type === 'error' ? 6000 : 3500);
   }
+  window.HubToast = toast;
   try {
     const pending = sessionStorage.getItem('hubToast');
     if (pending) { sessionStorage.removeItem('hubToast'); const { m, t } = JSON.parse(pending); toast(m, t); }
@@ -70,6 +71,8 @@
       (word || yes).focus();
     });
   }
+  window.HubConfirm = confirmBox;
+
 
   // ---------- after a save: refresh the page in place ----------
   async function refresh() {
@@ -474,46 +477,28 @@
     }
   }
 
-  // ---------- dashboard ----------
+  // ---------- dashboard: one section at a time ----------
   const dash = shell.querySelector('[data-hub-dashboard]');
   if (dash) {
     const VIEWS = Array.from(dash.querySelectorAll('[data-view]')).map((el) => el.dataset.view);
-    const REPORT_VIEWS = ['school-comparison', 'attendance', 'performance', 'marks-entry', 'support', 'enrollment'].filter((v) => VIEWS.includes(v));
-    const canReports = REPORT_VIEWS.length > 0;
-    const canSchools = dash.dataset.canSchools === '1';
-    const canExport = dash.dataset.canExport === '1';
-    const pdfMode = dash.dataset.pdf === '1';
-    const dash$ = (sel) => Array.from(dash.querySelectorAll(sel));
-    let data = null;
-    let loading = null;
-    // Each school is read on its own calendar. A term picked for one school with
-    // the filter beside it is kept in the address (?terms=63:150,64:201).
-    const overrides = new Map();
-    String(new URLSearchParams(window.location.search).get('terms') || '').split(',').forEach((pair) => {
-      const [o, t] = pair.split(':');
-      if (o && t) overrides.set(String(o), String(t));
-    });
-    const termsParam = () => Array.from(overrides.entries()).map(([o, t]) => `${o}:${t}`).join(',');
-    function saveOverrides() {
-      const url = new URL(window.location.href);
-      if (overrides.size) url.searchParams.set('terms', termsParam()); else url.searchParams.delete('terms');
-      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
-    }
+    const canReports = dash.dataset.canReports === '1';
+    let attention = null;
 
     function show(view) {
       if (!VIEWS.includes(view)) view = 'overview';
-      dash$('[data-view]').forEach((el) => el.classList.toggle('is-active', el.dataset.view === view));
+      dash.querySelectorAll('[data-view]').forEach((el) => el.classList.toggle('is-active', el.dataset.view === view));
       shell.querySelectorAll('[data-view-link]').forEach((a) => {
         const on = a.dataset.viewLink === view;
         a.classList.toggle('is-active', on);
         if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
       });
-      if (canReports && (view === 'overview' || REPORT_VIEWS.includes(view))) loadReports(false);
+      if (view === 'overview') loadAttention();
+      document.dispatchEvent(new CustomEvent('hub:view', { detail: { view } }));
     }
     const fromHash = () => (window.location.hash || '#overview').slice(1);
     window.addEventListener('hashchange', () => { if (document.body.contains(dash)) { show(fromHash()); window.scrollTo({ top: 0 }); } });
-    // Links to dashboard sections ("#schools", "/hub/dashboard#attendance"): handle them here
-    // before the SPA router, which would otherwise only scroll and never switch the section.
+    // Links to dashboard sections ("#schools", "/hub/dashboard#reports"): switch the section here
+    // before the SPA router, which would otherwise only scroll.
     window.addEventListener('click', (e) => {
       if (!document.body.contains(dash) || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
       const a = e.target.closest('a[href]');
@@ -527,386 +512,43 @@
       window.scrollTo({ top: 0 });
     }, true);
 
-    const dash0 = (v) => (v === null || v === undefined ? '—' : null);
-    const pctOr = (v) => dash0(v) || pct(v);
-    const kpi = (accent, icon, label, value, note, bar, href) => {
-      const tag = href ? 'a' : 'div';
-      return `<${tag} class="hub-kpi hub-kpi--${accent}"${href ? ` href="${href}"` : ''}>
-        <span class="hub-kpi__top"><span class="hub-kpi__icon"><i class="fa-solid ${icon}" aria-hidden="true"></i></span><span class="hub-kpi__label">${esc(label)}</span></span>
-        <span class="hub-kpi__value">${value}</span>
-        ${bar != null ? `<span class="hub-kpi__bar"><span style="width:${Math.max(0, Math.min(100, Number(bar) || 0))}%"></span></span>` : ''}
-        ${note ? `<span class="hub-kpi__note">${esc(note)}</span>` : ''}
-      </${tag}>`;
-    };
-    const empty = (icon, text) => `<div class="hub-card hub-empty"><i class="fa-solid ${icon}" aria-hidden="true"></i>${esc(text)}</div>`;
-    const card = (title, body, small) => `<div class="hub-card"><div class="hub-card__head"><h2 class="hub-card__title">${esc(title)}${small ? ` <small>${esc(small)}</small>` : ''}</h2></div>${body}</div>`;
-    const schoolLink = (s) => canSchools
-      ? `<a class="hub-school" href="/hub/organizations/${encodeURIComponent(s.organizationId)}?tab=report${s.termId ? '&selectedTermId=' + encodeURIComponent(s.termId) : ''}">${esc(s.organizationName)}</a>`
-      : `<span class="hub-school">${esc(s.organizationName)}</span>`;
-    function bars(items, valueKey, opts) {
-      const list = items.filter((i) => opts.keep ? opts.keep(i) : true);
-      if (!list.length) return `<div class="hub-empty">${esc(opts.emptyText || 'No data for this period yet.')}</div>`;
-      const max = opts.max || Math.max(...list.map((i) => Number(i[valueKey]) || 0), 1);
-      return '<div class="hub-bars">' + list.map((item) => {
-        const raw = item[valueKey];
-        const value = Number(raw) || 0;
-        const width = raw === null || raw === undefined ? 0 : Math.max(2, Math.min(100, (value / max) * 100));
-        const name = item.organizationName || item.name || item.label || item.gender || '';
-        return `<div class="hub-bar">
-          <span class="hub-bar__name" title="${esc(name)}">${esc(name)}${item.organizationId && item.termOptions ? termChip(item) : ''}</span>
-          <span class="hub-bar__track"><span class="hub-bar__fill${opts.toned && raw != null ? ' hub-bar__fill--' + tone(value) : ''}" style="width:${width}%"></span></span>
-          <span class="hub-bar__value">${raw === null || raw === undefined ? '—' : opts.format(value)}</span>
-          ${opts.sub ? `<span class="hub-bar__sub">${opts.sub(item)}</span>` : ''}
-        </div>`;
-      }).join('') + '</div>';
+    // Smart "needs your attention" items (attendance, marks, support) for each school's current term.
+    function loadAttention() {
+      if (!canReports || attention) return;
+      attention = fetch('/hub/overview-stats', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => { if (data) renderAttention(data); })
+        .catch(() => {});
     }
-
-    // ----- per-school term filter -----
-    function periodLabel() {
-      if (!data) return '';
-      const custom = overrides.size;
-      return custom ? `Each school’s own term · ${custom} school${custom === 1 ? '' : 's'} set by you` : 'Each school’s current term';
-    }
-    const termChip = (s) => `<button type="button" class="hub-term${overrides.has(String(s.organizationId)) ? ' is-custom' : ''}" data-school-filter="${esc(s.organizationId)}" title="Choose ${esc(s.organizationName)}’s school year and term"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>${s.termLabel ? esc(s.termLabel) : 'No term yet'}</span></button>`;
-    function renderPeriod() {
-      const custom = overrides.size;
-      const html = `<div class="hub-period">
-          <i class="fa-regular fa-calendar" aria-hidden="true"></i>
-          <span><strong>${custom ? `${custom} school${custom === 1 ? '' : 's'} on a term you chose` : 'Each school’s current term'}</strong>
-          <span class="hub-period__hint">Schools keep their own calendars. Use <i class="fa-solid fa-sliders" aria-hidden="true"></i> beside a school to see another school year or term.</span></span>
-          ${custom ? '<button type="button" class="hub-btn hub-btn--sm" data-terms-reset>Back to current terms</button>' : ''}
-        </div>`;
-      dash$('[data-period-slot]').forEach((slot) => { slot.innerHTML = html; });
-      dash$('[data-period-label]').forEach((el) => { el.textContent = '· ' + periodLabel(); });
-    }
-
-    function loadReports(force) {
-      if (!canReports) return Promise.resolve(null);
-      if (data && !force) return Promise.resolve(data);
-      if (loading) return loading;
-      if (force) dash$('[data-report]').forEach((el) => { el.innerHTML = '<div class="hub-card hub-loading">Loading report…</div>'; });
-      const q = new URLSearchParams();
-      if (overrides.size) q.set('terms', termsParam());
-      loading = fetch('/hub/overview-stats?' + q.toString(), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
-        .then((r) => { if (!r.ok) throw new Error('failed'); return r.json(); })
-        .then((json) => {
-          data = json;
-          renderPeriod();
-          renderAll();
-          if (pdfMode) setTimeout(() => { window.__hubReportReady = true; }, 150);
-          return json;
-        })
-        .catch(() => {
-          dash$('[data-report]').forEach((el) => { el.innerHTML = empty('fa-circle-exclamation', 'Reports could not load. Try Refresh.'); });
-          const hl = dash.querySelector('[data-highlights]');
-          if (hl) hl.innerHTML = '<div class="hub-empty">Report highlights could not load.</div>';
-        })
-        .finally(() => { loading = null; });
-      return loading;
-    }
-
-    // ----- smart "needs your attention" items for the chosen period -----
-    function renderAttention() {
+    function renderAttention(data) {
       const box = dash.querySelector('[data-attention-extra]');
       if (!box) return;
-      const rows = data.schools.filter((s) => s.hasData && !s.onHold);
+      const rows = (data.schools || []).filter((s) => s.hasData && !s.onHold);
+      const plural = (n, one, many) => `<strong>${num(n)}</strong> ${n === 1 ? one : many}`;
       const items = [];
       const lowAtt = rows.filter((s) => s.attendanceRate !== null && s.attendanceRate < data.lowAttendanceRate);
-      if (lowAtt.length) items.push(['#attendance', 'fa-calendar-xmark', '', `<strong>${lowAtt.length}</strong> school${lowAtt.length === 1 ? ' has' : 's have'} attendance below ${data.lowAttendanceRate}%`]);
+      if (lowAtt.length) items.push(['fa-calendar-xmark', '', `${plural(lowAtt.length, 'school has', 'schools have')} attendance below ${data.lowAttendanceRate}%`]);
       const noAtt = rows.filter((s) => !s.attendanceMarked);
-      if (noAtt.length) items.push(['#attendance', 'fa-clipboard-question', ' hub-alert--info', `<strong>${noAtt.length}</strong> school${noAtt.length === 1 ? ' hasn’t' : 's haven’t'} marked attendance this term`]);
+      if (noAtt.length) items.push(['fa-clipboard-question', ' hub-alert--info', `${plural(noAtt.length, 'school hasn’t', 'schools haven’t')} marked attendance this term`]);
       const lowMarks = rows.filter((s) => s.scoreEntryRate !== null && s.scoreEntryRate < 50);
-      if (lowMarks.length) items.push(['#marks-entry', 'fa-pen-to-square', ' hub-alert--info', `<strong>${lowMarks.length}</strong> school${lowMarks.length === 1 ? ' has' : 's have'} entered less than half of their marks`]);
-      if (data.totals.needsSupport) items.push(['#support', 'fa-hand-holding-heart', '', `<strong>${num(data.totals.needsSupport)}</strong> student${data.totals.needsSupport === 1 ? ' is' : 's are'} averaging below ${data.passMark}%`]);
-      const noData = data.schools.filter((s) => !s.hasData);
-      if (noData.length && !overrides.size) items.push(['#school-comparison', 'fa-circle-info', ' hub-alert--info', `<strong>${noData.length}</strong> school${noData.length === 1 ? ' has' : 's have'} no attendance, enrollment or scores yet`]);
-      box.innerHTML = items.map(([href, icon, cls, text]) => `<a class="hub-alert${cls}" href="${href}"><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${text}</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>`).join('');
+      if (lowMarks.length) items.push(['fa-pen-to-square', ' hub-alert--info', `${plural(lowMarks.length, 'school has', 'schools have')} entered less than half of their marks`]);
+      const support = (data.totals && data.totals.needsSupport) || 0;
+      if (support) items.push(['fa-hand-holding-heart', '', `${plural(support, 'student is', 'students are')} averaging below ${data.passMark}%`]);
+      box.innerHTML = items.map(([icon, cls, text]) => `<a class="hub-alert${cls}" href="#reports"><i class="fa-solid ${icon}" aria-hidden="true"></i><span>${text}</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>`).join('');
       const clear = dash.querySelector('[data-attention-clear]');
       const serverItems = box.parentElement ? box.parentElement.querySelectorAll(':scope > a.hub-alert').length : 0;
       if (clear) clear.hidden = items.length > 0 || serverItems > 0;
     }
 
-    function renderAll() {
-      const t = data.totals || {};
-      const rows = data.schools || [];
-      const withData = rows.filter((s) => s.hasData);
-      const termOf = (s) => termChip(s) + (s.hasData ? '' : '<span class="hub-small">No data for this term yet</span>');
-      const stamp = data.generatedAt ? 'Updated ' + new Date(data.generatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
-      dash$('[data-report-stamp]').forEach((el) => { el.textContent = stamp; });
-
-      const hl = dash.querySelector('[data-highlights]');
-      if (hl) {
-        hl.innerHTML =
-          kpi('violet', 'fa-calendar-check', 'Attendance rate', pctOr(t.attendanceRate), `${num(t.attendancePresent)} present of ${num(t.attendanceMarked)} marked`, t.attendanceRate, '#attendance') +
-          kpi('green', 'fa-chart-line', 'Average score', pctOr(t.averageScore), `Pass rate ${pctOr(t.passRate)} · pass mark ${data.passMark}%`, t.averageScore, '#performance') +
-          kpi('sky', 'fa-pen-to-square', 'Marks entered', pctOr(t.scoreEntryRate), `${num(t.scoresEntered)} of ${num(t.scoresExpected)} expected scores`, t.scoreEntryRate, '#marks-entry') +
-          kpi('rose', 'fa-hand-holding-heart', 'Need support', num(t.needsSupport), `Below ${data.passMark}% average · ${num(t.lowAttendance)} with low attendance`, null, '#support');
-      }
-      renderAttention();
-      const set = (key, html) => { const el = dash.querySelector(`[data-report="${key}"]`); if (el) el.innerHTML = html; };
-      if (!rows.length) { REPORT_VIEWS.forEach((k) => set(k, empty('fa-school', 'No schools in your hub yet.'))); return; }
-
-      set('school-comparison', `<div class="hub-card"><div class="hub-table-wrap"><table class="hub-table" data-sortable>
-          <thead><tr>
-            <th data-sort="organizationName">School</th><th>Term</th>
-            <th class="num" data-sort="enrolled">Enrolled</th><th class="num" data-sort="attendanceRate">Attendance</th>
-            <th class="num" data-sort="averageScore">Avg score</th><th class="num" data-sort="passRate">Pass rate</th>
-            <th class="num" data-sort="scoreEntryRate">Marks entered</th><th class="num" data-sort="staff">Staff</th>
-            <th class="num" data-sort="classes">Classes</th><th class="num" data-sort="subjects">Subjects</th><th>Status</th>
-          </tr></thead>
-          <tbody>${rows.map((s) => `<tr class="${s.onHold ? 'is-held' : ''}">
-            <td>${schoolLink(s)}</td><td>${termOf(s)}</td>
-            <td class="num">${s.hasData ? num(s.enrolled) : '—'}</td><td class="num">${pctOr(s.attendanceRate)}</td>
-            <td class="num">${pctOr(s.averageScore)}</td><td class="num">${pctOr(s.passRate)}</td>
-            <td class="num">${pctOr(s.scoreEntryRate)}</td><td class="num">${num(s.staff)}</td>
-            <td class="num">${num(s.classes)}</td><td class="num">${num(s.subjects)}</td>
-            <td><span class="hub-status${s.onHold ? ' hub-status--hold' : ''}">${s.onHold ? 'On hold' : 'Active'}</span></td>
-          </tr>`).join('')}</tbody>
-          ${rows.length > 1 ? `<tfoot><tr><th>All schools</th><th></th><th class="num">${num(t.enrolled)}</th><th class="num">${pctOr(t.attendanceRate)}</th><th class="num">${pctOr(t.averageScore)}</th><th class="num">${pctOr(t.passRate)}</th><th class="num">${pctOr(t.scoreEntryRate)}</th><th class="num">${num(t.staff)}</th><th class="num">${num(t.classes)}</th><th class="num">${num(t.subjects)}</th><th></th></tr></tfoot>` : ''}
-        </table></div><p class="hub-small" style="margin:12px 0 0">Subjects are counted once per school, even when several classes take the same subject. Click a column to sort.</p></div>`);
-
-      set('attendance', `<div class="hub-kpis">
-          ${kpi('violet', 'fa-calendar-check', 'Attendance rate', pctOr(t.attendanceRate), periodLabel(), t.attendanceRate)}
-          ${kpi('green', 'fa-user-check', 'Present', num(t.attendancePresent), 'Attendance marks')}
-          ${kpi('sky', 'fa-list-check', 'Marked', num(t.attendanceMarked), 'All attendance marks')}
-          ${kpi('rose', 'fa-user-clock', `Below ${data.lowAttendanceRate}%`, num(t.lowAttendance), 'Students with low attendance')}
-        </div>
-        ${card('Attendance by school', bars(rows, 'attendanceRate', { max: 100, toned: true, format: pct, keep: (s) => s.hasData, sub: (s) => `${num(s.attendancePresent)} present of ${num(s.attendanceMarked)} · ${num(s.lowAttendance)} below ${data.lowAttendanceRate}% · ${esc(s.termLabel)}` }), 'Green 75%+, amber 50–74%, red under 50%')}`);
-
-      const subjects = data.subjects || [];
-      set('performance', `<div class="hub-kpis">
-          ${kpi('green', 'fa-chart-line', 'Average score', pctOr(t.averageScore), 'Each student’s subject score, capped at 100%', t.averageScore)}
-          ${kpi('teal', 'fa-circle-check', 'Pass rate', pctOr(t.passRate), `Subject results at ${data.passMark}% or above`, t.passRate)}
-          ${kpi('sky', 'fa-file-lines', 'Subject results', num(t.results))}
-          ${kpi('rose', 'fa-arrow-trend-down', `Below ${data.passMark}%`, num(t.needsSupport), 'Students averaging below the pass mark')}
-        </div>
-        ${card('Average score by school', bars(rows, 'averageScore', { max: 100, toned: true, format: pct, keep: (s) => s.results > 0, emptyText: 'No scores for this period yet.', sub: (s) => `Pass rate ${pctOr(s.passRate)} · ${num(s.results)} results${s.academicLabel ? ' · from ' + esc(s.academicLabel) : ''}` }))}
-        <div class="hub-grid">
-          ${card('Subjects across your schools', subjects.length ? `<div class="hub-table-wrap"><table class="hub-table"><thead><tr><th>Subject</th><th class="num">Avg score</th><th class="num">Pass rate</th><th class="num">Results</th><th class="num">Schools</th></tr></thead><tbody>${subjects.map((x) => `<tr><td>${esc(x.name)}</td><td class="num">${pctOr(x.averageScore)}</td><td class="num">${pctOr(x.passRate)}</td><td class="num">${num(x.results)}</td><td class="num">${num(x.schools)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="hub-empty">No subject scores for this period yet.</div>')}
-          ${card('Student averages', bars((data.distribution || []).map((d) => ({ label: d.label, students: d.students })), 'students', { format: num, emptyText: 'No scores for this period yet.' }), 'How many students fall in each band')}
-        </div>`);
-
-      set('marks-entry', `<div class="hub-kpis">
-          ${kpi('sky', 'fa-pen-to-square', 'Marks entered', pctOr(t.scoreEntryRate), periodLabel(), t.scoreEntryRate)}
-          ${kpi('green', 'fa-check', 'Entered', num(t.scoresEntered), 'Scores teachers have entered')}
-          ${kpi('amber', 'fa-hourglass-half', 'Still missing', num(Math.max(0, (t.scoresExpected || 0) - (t.scoresEntered || 0))), 'Expected scores not entered yet')}
-          ${kpi('violet', 'fa-list-ol', 'Expected', num(t.scoresExpected), 'Enrolled students × assessments set')}
-        </div>
-        ${card('Marks entered by school', bars(rows, 'scoreEntryRate', { max: 100, toned: true, format: pct, keep: (s) => s.scoresExpected > 0, emptyText: 'No assessments have been set for this period yet.', sub: (s) => `${num(s.scoresEntered)} of ${num(s.scoresExpected)} scores · ${esc(s.termLabel)}` }))}`);
-
-      set('support', `<div class="hub-kpis">
-          ${kpi('rose', 'fa-arrow-trend-down', `Averaging below ${data.passMark}%`, num(t.needsSupport), 'Across all subjects')}
-          ${kpi('amber', 'fa-user-clock', `Attendance below ${data.lowAttendanceRate}%`, num(t.lowAttendance), periodLabel())}
-          ${kpi('teal', 'fa-user-graduate', 'Students with scores', num(rows.reduce((a, s) => a + (s.studentsWithScores || 0), 0)))}
-        </div>
-        <div class="hub-card"><div class="hub-table-wrap"><table class="hub-table">
-          <thead><tr><th>School</th><th>Term</th><th class="num">Below ${data.passMark}% average</th><th class="num">Below ${data.lowAttendanceRate}% attendance</th><th class="num">Students with scores</th><th></th></tr></thead>
-          <tbody>${rows.map((s) => `<tr><td>${schoolLink(s)}</td><td>${termOf(s)}</td>
-            <td class="num">${s.hasData ? `<span class="hub-pill${s.needsSupport ? ' hub-pill--rose' : ''}">${num(s.needsSupport)}</span>` : '—'}</td>
-            <td class="num">${s.hasData ? `<span class="hub-pill${s.lowAttendance ? ' hub-pill--amber' : ''}">${num(s.lowAttendance)}</span>` : '—'}</td>
-            <td class="num">${s.hasData ? num(s.studentsWithScores) : '—'}</td>
-            <td>${canSchools && s.hasData ? `<a class="hub-btn hub-btn--sm" href="/hub/organizations/${encodeURIComponent(s.organizationId)}?tab=report&selectedTermId=${encodeURIComponent(s.termId)}">See students</a>` : ''}</td></tr>`).join('')}</tbody>
-        </table></div><p class="hub-small" style="margin:12px 0 0">Names are shown on each school’s report.</p></div>`);
-
-      const gender = data.gender || [];
-      const trend = rows.length === 1 && rows[0].enrollmentTrend ? rows[0].enrollmentTrend : null;
-      set('enrollment', `<div class="hub-kpis">
-          ${kpi('blue', 'fa-user-graduate', 'Enrolled this term', num(t.enrolled), periodLabel())}
-          ${kpi('teal', 'fa-users', 'Active students', num(t.students), 'Graduated & archived not counted')}
-          ${kpi('amber', 'fa-user-tie', 'Staff', num(t.staff), `${one(t.studentsPerStaff)} students per staff`)}
-          ${kpi('violet', 'fa-chalkboard', 'Classes', num(t.classes), `${one(t.studentsPerClass)} students per class · ${num(t.subjects)} subjects`)}
-        </div>
-        <div class="hub-grid">
-          ${card('Enrolled by school', bars(rows, 'enrolled', { format: num, keep: (s) => s.hasData, sub: (s) => (s.enrolledChange === null || s.enrolledChange === undefined ? esc(s.termLabel) : `${s.enrolledChange >= 0 ? '+' : ''}${num(s.enrolledChange)} vs ${esc(s.previousTermLabel)}`) }))}
-          ${card('Staff by school', bars(rows, 'staff', { format: num, sub: (s) => `${num(s.teachers || 0)} teachers · ${one(s.studentsPerStaff)} students per staff` }))}
-          ${card('Students by gender', bars(gender, 'count', { format: num, emptyText: 'No enrollment for this period yet.' }), 'Enrolled this term')}
-          ${trend ? card('Enrollment over time', bars(trend.map((x) => ({ label: x.label, enrolled: x.enrolled })), 'enrolled', { format: num })) : card('Classes by school', bars(rows, 'classes', { format: num, sub: (s) => `${num(s.subjects)} subjects · ${one(s.studentsPerClass)} students per class` }))}
-        </div>`);
-    }
-
-    // Click a column heading to sort the comparison table.
-    dash.addEventListener('click', (e) => {
-      const th = e.target.closest('table[data-sortable] th[data-sort]');
-      if (!th || !data) return;
-      const key = th.dataset.sort;
-      const dir = th.dataset.dir === 'desc' ? 'asc' : 'desc';
-      data.schools.sort((a, b) => {
-        const x = a[key]; const y = b[key];
-        if (typeof x === 'string' || typeof y === 'string') return dir === 'asc' ? String(x).localeCompare(String(y)) : String(y).localeCompare(String(x));
-        return dir === 'asc' ? (x ?? -1) - (y ?? -1) : (y ?? -1) - (x ?? -1);
-      });
-      renderAll();
-      const again = dash.querySelector(`table[data-sortable] th[data-sort="${key}"]`);
-      if (again) { again.dataset.dir = dir; again.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending'); }
-    });
-
-    // ----- CSV downloads -----
-    const CSV = {
-      'school-comparison': () => [['School', 'Term', 'Enrolled', 'Attendance %', 'Average score %', 'Pass rate %', 'Marks entered %', 'Staff', 'Classes', 'Subjects', 'Active students', 'Status'],
-        ...data.schools.map((s) => [s.organizationName, s.termLabel || 'No data', s.enrolled, s.attendanceRate, s.averageScore, s.passRate, s.scoreEntryRate, s.staff, s.classes, s.subjects, s.students, s.onHold ? 'On hold' : 'Active'])],
-      attendance: () => [['School', 'Term', 'Attendance %', 'Present', 'Marked', `Students below ${data.lowAttendanceRate}%`],
-        ...data.schools.map((s) => [s.organizationName, s.termLabel || 'No data', s.attendanceRate, s.attendancePresent, s.attendanceMarked, s.lowAttendance])],
-      performance: () => [['School', 'Term', 'Average score %', 'Pass rate %', 'Subject results', `Students below ${data.passMark}%`],
-        ...data.schools.map((s) => [s.organizationName, s.academicLabel || s.termLabel || 'No data', s.averageScore, s.passRate, s.results, s.needsSupport]),
-        [], ['Subject', 'Average score %', 'Pass rate %', 'Results', 'Schools'], ...(data.subjects || []).map((x) => [x.name, x.averageScore, x.passRate, x.results, x.schools])],
-      'marks-entry': () => [['School', 'Term', 'Marks entered %', 'Entered', 'Expected'],
-        ...data.schools.map((s) => [s.organizationName, s.termLabel || 'No data', s.scoreEntryRate, s.scoresEntered, s.scoresExpected])],
-      support: () => [['School', 'Term', `Averaging below ${data.passMark}%`, `Attendance below ${data.lowAttendanceRate}%`, 'Students with scores'],
-        ...data.schools.map((s) => [s.organizationName, s.termLabel || 'No data', s.needsSupport, s.lowAttendance, s.studentsWithScores])],
-      enrollment: () => [['School', 'Term', 'Enrolled', 'Change vs previous term', 'Active students', 'Staff', 'Teachers', 'Classes', 'Subjects'],
-        ...data.schools.map((s) => [s.organizationName, s.termLabel || 'No data', s.enrolled, s.enrolledChange, s.students, s.staff, s.teachers, s.classes, s.subjects])],
-    };
-    const cell = (v) => { const x = v === null || v === undefined ? '' : String(v); const safe = /^[=+\-@]/.test(x) ? `'${x}` : x; return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe; };
-    dash.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-report-csv]');
-      if (!btn || !data) return;
-      const key = btn.dataset.reportCsv;
-      const rows = [[`Report: ${btn.closest('section').querySelector('.hub-hero__title').textContent.trim()}`], [`Period: ${periodLabel()}`], [`Downloaded: ${new Date().toISOString().slice(0, 10)}`], [], ...CSV[key]()];
-      const blob = new Blob(['﻿' + rows.map((r) => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `Hub_${key}_${periodLabel().replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'report'}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
-    });
-
-    // ----- the filter pop-up for one school -----
-    function sfOptions(school, yearId, termId) {
-      const opts = school.termOptions || { years: [] };
-      const year = opts.years.find((y) => String(y.id) === String(yearId)) || opts.years[0];
-      const terms = year ? year.terms : [];
-      const pick = terms.find((t) => String(t.id) === String(termId)) || terms.find((t) => t.current) || [...terms].reverse().find((t) => t.hasData) || terms[terms.length - 1];
-      return {
-        yearHtml: opts.years.map((y) => `<option value="${esc(y.id)}"${year && y.id === year.id ? ' selected' : ''}>${esc(y.label)}</option>`).join(''),
-        termHtml: terms.map((t) => `<option value="${esc(t.id)}"${pick && t.id === pick.id ? ' selected' : ''}>${esc(t.name)}${t.current ? ' (current)' : ''}${t.hasData ? '' : ' · no data yet'}</option>`).join(''),
-      };
-    }
-    async function sfPreview(root, school, termId) {
-      const box = root.querySelector('[data-sf-preview]');
-      box.innerHTML = '<div class="hub-loading">Loading this term…</div>';
-      try {
-        const r = await fetch(`/hub/overview-stats?org=${encodeURIComponent(school.organizationId)}&term=${encodeURIComponent(termId)}`, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
-        const json = await r.json();
-        if (root.querySelector('[data-sf-term]').value !== String(termId)) return; // a newer choice is loading
-        const s = json.schools[0] || {};
-        if (!s.hasData) { box.innerHTML = '<div class="hub-empty"><i class="fa-regular fa-calendar-xmark" aria-hidden="true"></i>No attendance, enrollment or scores for this term yet.</div>'; return; }
-        const tile = (label, value, note) => `<div class="hub-mini"><span class="hub-mini__label">${esc(label)}</span><span class="hub-mini__value">${value}</span>${note ? `<span class="hub-mini__note">${esc(note)}</span>` : ''}</div>`;
-        box.innerHTML = `<div class="hub-minis">
-            ${tile('Enrolled', num(s.enrolled), s.enrolledChange == null ? '' : `${s.enrolledChange >= 0 ? '+' : ''}${num(s.enrolledChange)} vs ${s.previousTermLabel}`)}
-            ${tile('Attendance', pctOr(s.attendanceRate), `${num(s.attendancePresent)} of ${num(s.attendanceMarked)} marked present`)}
-            ${tile('Average score', pctOr(s.averageScore), s.academicLabel ? `From ${s.academicLabel}` : `Pass rate ${pctOr(s.passRate)}`)}
-            ${tile('Marks entered', pctOr(s.scoreEntryRate), `${num(s.scoresEntered)} of ${num(s.scoresExpected)}`)}
-            ${tile(`Below ${json.passMark}%`, num(s.needsSupport), 'Students averaging below the pass mark')}
-            ${tile('Low attendance', num(s.lowAttendance), `Students below ${json.lowAttendanceRate}%`)}
-          </div>
-          ${(json.subjects || []).length ? `<p class="hub-drawer-section__title">Subjects</p><div class="hub-table-wrap"><table class="hub-table" data-no-global-sort><thead><tr><th>Subject</th><th class="num">Average</th><th class="num">Pass rate</th></tr></thead><tbody>${json.subjects.map((x) => `<tr><td>${esc(x.name)}</td><td class="num">${pctOr(x.averageScore)}</td><td class="num">${pctOr(x.passRate)}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
-      } catch (_e) {
-        box.innerHTML = '<div class="hub-empty">This term could not load. Try again.</div>';
-      }
-    }
-    function openSchoolFilter(id) {
-      const school = data && data.schools.find((s) => String(s.organizationId) === String(id));
-      if (!school) return;
-      const yearOf = (termId) => ((school.termOptions.years.find((y) => y.terms.some((t) => String(t.id) === String(termId))) || {}).id);
-      const o = sfOptions(school, yearOf(school.termId), school.termId);
-      setDrawer({
-        title: school.organizationName,
-        sub: 'This school’s own school year and term.',
-        html: `<div class="hub-sf" data-sf="${esc(school.organizationId)}">
-            <div class="hub-form__grid">
-              <label class="hub-field"><span class="hub-label">School year</span><select data-sf-year>${o.yearHtml || '<option value="">No school years yet</option>'}</select></label>
-              <label class="hub-field"><span class="hub-label">Term</span><select data-sf-term>${o.termHtml || '<option value="">No terms yet</option>'}</select></label>
-            </div>
-            <div data-sf-preview></div>
-            <div class="hub-drawer__foot">
-              <button type="button" class="hub-btn hub-btn--primary" data-sf-apply><i class="fa-solid fa-check" aria-hidden="true"></i> Use in hub reports</button>
-              ${canSchools ? '<a class="hub-btn" data-sf-open href="#"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Full report</a>' : ''}
-              ${canSchools && canExport ? '<button type="button" class="hub-btn" data-sf-pdf><i class="fa-solid fa-file-pdf" aria-hidden="true"></i> PDF</button>' : ''}
-            </div>
-          </div>`,
-      });
-      showDrawer();
-      const root = drawerBody.querySelector('[data-sf]');
-      const termSel = root.querySelector('[data-sf-term]');
-      const sync = () => {
-        const link = root.querySelector('[data-sf-open]');
-        if (link) link.href = `/hub/organizations/${encodeURIComponent(school.organizationId)}?tab=report&selectedTermId=${encodeURIComponent(termSel.value)}`;
-        if (/^\d+$/.test(termSel.value)) sfPreview(root, school, termSel.value);
-        else root.querySelector('[data-sf-preview]').innerHTML = '<div class="hub-empty">This school has no terms set up yet.</div>';
-      };
-      root.querySelector('[data-sf-year]').addEventListener('change', (e) => {
-        termSel.innerHTML = sfOptions(school, e.target.value, null).termHtml;
-        sync();
-      });
-      termSel.addEventListener('change', sync);
-      root.querySelector('[data-sf-apply]').addEventListener('click', () => {
-        const key = String(school.organizationId);
-        const currentTerm = (school.termOptions.years.flatMap((y) => y.terms).find((t) => t.current) || {}).id;
-        if (!termSel.value || String(termSel.value) === String(currentTerm)) overrides.delete(key); else overrides.set(key, String(termSel.value));
-        saveOverrides();
-        closeDrawer();
-        const chosen = termSel.selectedOptions[0] ? termSel.selectedOptions[0].textContent.replace(' (current)', '').replace(' · no data yet', '') : 'its current term';
-        toast(`${school.organizationName} now shows ${chosen}.`);
-        loadReports(true);
-      });
-      const pdfBtn = root.querySelector('[data-sf-pdf]');
-      if (pdfBtn) pdfBtn.addEventListener('click', () => downloadPdf(pdfBtn, `/hub/organizations/${encodeURIComponent(school.organizationId)}/report/pdf?selectedTermId=${encodeURIComponent(termSel.value)}`));
-      sync();
-    }
-
-    // ----- PDF and print -----
-    async function downloadPdf(btn, url) {
-      if (btn.getAttribute('aria-busy') === 'true') return;
-      const html = btn.innerHTML;
-      btn.setAttribute('aria-busy', 'true');
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Preparing…';
-      try {
-        const r = await fetch(url, { credentials: 'same-origin' });
-        if (!r.ok) { const body = await r.json().catch(() => ({})); throw new Error(body.error || 'The PDF could not be made. Please try again.'); }
-        const name = ((r.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/) || [])[1] || 'Hub_report.pdf';
-        const href = URL.createObjectURL(await r.blob());
-        const a = document.createElement('a');
-        a.href = href;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(href), 10000);
-        toast('PDF downloaded.');
-      } catch (err) {
-        toast(err.message, 'error');
-      } finally {
-        btn.removeAttribute('aria-busy');
-        btn.innerHTML = html;
-      }
-    }
-
-    dash.addEventListener('click', (e) => {
-      if (e.target.closest('[data-report-refresh]')) { loadReports(true); return; }
-      if (e.target.closest('[data-report-print]')) { window.print(); return; }
-      if (e.target.closest('[data-terms-reset]')) { overrides.clear(); saveOverrides(); loadReports(true); return; }
-      const chip = e.target.closest('[data-school-filter]');
-      if (chip) { openSchoolFilter(chip.dataset.schoolFilter); return; }
-      const pdf = e.target.closest('[data-report-pdf]');
-      if (pdf) {
-        const q = new URLSearchParams({ view: pdf.dataset.reportPdf });
-        if (overrides.size) q.set('terms', termsParam());
-        downloadPdf(pdf, '/hub/reports/pdf?' + q.toString());
-      }
-    });
-    // After a save refreshes the page content, draw the reports again.
     document.addEventListener('hub:refreshed', () => {
       if (!document.body.contains(dash)) return;
+      attention = null;
       show(fromHash());
-      if (data) { renderPeriod(); renderAll(); }
     });
     const wanted = window.__hubWantView;
     window.__hubWantView = null;
     show(wanted || fromHash());
   }
-
-
 
   // ---------- school page: students / staff / classes ----------
   const browser = shell.querySelector('[data-hub-browser]');

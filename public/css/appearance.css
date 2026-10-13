@@ -1,0 +1,92 @@
+/* Each person's look for school pages: white (default), gray or dark.
+   <html data-appearance> is set by views/layout.ejs. White is the normal design
+   and needs nothing here. Gray and dark: this file sets the page planes and a
+   few widgets the theme script can't read (other-site stylesheets), and
+   public/js/appearance.js remaps every page's own colors. Screen only, so
+   prints and PDFs always come out white. */
+
+@media screen {
+  html[data-appearance="gray"] {
+    --ap-page: oklch(0.915 0.004 255);
+    --ap-surface: oklch(0.955 0.003 255);
+    --ap-surface-2: oklch(0.935 0.004 255);
+    --ap-line: oklch(0.85 0.005 255);
+    --ap-text: oklch(0.22 0.012 255);
+    --ap-muted: oklch(0.46 0.012 255);
+  }
+  html[data-appearance="dark"] {
+    --ap-page: oklch(0.185 0.006 255);
+    --ap-surface: oklch(0.255 0.008 255);
+    --ap-surface-2: oklch(0.29 0.008 255);
+    --ap-line: oklch(0.37 0.008 255);
+    --ap-text: oklch(0.93 0.004 255);
+    --ap-muted: oklch(0.75 0.008 255);
+    color-scheme: dark;
+    /* Brand tints are mixed with the dark surface instead of white. */
+    --org-primary-soft: color-mix(in srgb, var(--org-primary-color) 18%, var(--ap-surface));
+    --org-primary-soft-strong: color-mix(in srgb, var(--org-primary-color) 26%, var(--ap-surface));
+    --org-primary-soft-border: color-mix(in srgb, var(--org-primary-color) 45%, var(--ap-surface));
+    --org-primary-hover-fill: color-mix(in srgb, var(--org-primary-color) 80%, white);
+  }
+
+  html:is([data-appearance="gray"], [data-appearance="dark"]),
+  html:is([data-appearance="gray"], [data-appearance="dark"]) body {
+    background: var(--ap-page) !important;
+    color: var(--ap-text);
+  }
+  /* Page planes take the page color; cards sit on top of them. */
+  html:is([data-appearance="gray"], [data-appearance="dark"]) :is(#app-scale-root, main) {
+    background: transparent !important;
+  }
+
+  /* Hold the first paint until the colors are in place (never more than 1.2s). */
+  html:is([data-appearance="gray"], [data-appearance="dark"]):not(.ap-ready) body {
+    opacity: 0;
+    animation: ap-reveal 0s linear 1.2s forwards;
+  }
+  @keyframes ap-reveal { to { opacity: 1; } }
+  /* Set for a moment while the theme script reads colors. */
+  html.ap-still *, html.ap-still *::before, html.ap-still *::after { transition: none !important; }
+
+  html[data-appearance="dark"] .page-loading-overlay { background: color-mix(in srgb, var(--ap-page) 60%, transparent) !important; }
+  html[data-appearance="dark"] .spinner { border-color: var(--ap-line) !important; border-top-color: var(--ap-text) !important; }
+
+  /* Rich text editor (its stylesheet comes from another site). */
+  html[data-appearance="dark"] :is(.ql-toolbar.ql-snow, .ql-container.ql-snow) { border-color: var(--ap-line) !important; }
+  html[data-appearance="dark"] .ql-toolbar.ql-snow { background: var(--ap-surface-2); }
+  html[data-appearance="dark"] .ql-editor { color: var(--ap-text); }
+  html[data-appearance="dark"] .ql-editor.ql-blank::before { color: var(--ap-muted) !important; }
+  html[data-appearance="dark"] .ql-snow .ql-stroke { stroke: var(--ap-text) !important; }
+  html[data-appearance="dark"] .ql-snow .ql-fill { fill: var(--ap-text) !important; }
+  html[data-appearance="dark"] .ql-snow .ql-picker { color: var(--ap-text) !important; }
+  html[data-appearance="dark"] .ql-snow .ql-picker-options { background: var(--ap-surface) !important; border-color: var(--ap-line) !important; }
+  html[data-appearance="dark"] .ql-snow .ql-tooltip { background: var(--ap-surface) !important; color: var(--ap-text) !important; border-color: var(--ap-line) !important; box-shadow: none !important; }
+
+  html[data-appearance="dark"] ::placeholder { color: var(--ap-muted) !important; opacity: 1; }
+  html[data-appearance="dark"] img { color-scheme: normal; }
+}
+
+/* ---------- The picker (Settings → Profile → Appearance) ---------- */
+.ap-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; max-width: 560px; }
+.ap-choice { position: relative; display: grid; gap: 8px; margin: 0; padding: 8px 8px 10px; border: 1px solid var(--ap-line, #e2e8f0); border-radius: 12px; cursor: pointer; font-weight: 600; font-size: .9rem; text-align: center; transition: border-color .15s ease; }
+.ap-choice:hover { border-color: #94a3b8; }
+.ap-choice:has(input:checked) { border-color: var(--org-primary-color, #01535b); box-shadow: inset 0 0 0 1px var(--org-primary-color, #01535b); }
+.ap-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.ap-choice__preview { display: grid; grid-template-columns: 26% 1fr; gap: 5px; height: 64px; padding: 6px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, .12); }
+.ap-choice__preview i { display: block; border-radius: 4px; }
+.ap-choice__preview i:last-child { display: grid; }
+.ap-choice--white .ap-choice__preview { background: #f5f7fa; }
+.ap-choice--white .ap-choice__preview i { background: #fff; box-shadow: 0 0 0 1px #e5e7eb; }
+.ap-choice--gray .ap-choice__preview { background: #e3e5e9; }
+.ap-choice--gray .ap-choice__preview i { background: #f1f2f4; box-shadow: 0 0 0 1px #d4d7dc; }
+.ap-choice--dark .ap-choice__preview { background: #16181c; border-color: #16181c; }
+.ap-choice--dark .ap-choice__preview i { background: #25282e; box-shadow: 0 0 0 1px #33373e; }
+.ap-choice__check { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%; display: none; place-items: center; background: var(--org-primary-color, #01535b); color: #fff; font-size: 10px; }
+.ap-choice:has(input:checked) .ap-choice__check { display: grid; }
+.ap-status:empty { display: none; }
+.ap-status { margin: 10px 0 0; font-size: .84rem; color: var(--ap-muted, #64748b); }
+@media (max-width: 520px) {
+  .ap-picker { gap: 8px; }
+  .ap-choice__preview { height: 48px; }
+  .ap-choice { font-size: .84rem; }
+}
