@@ -797,6 +797,9 @@ app.use((req, res, next) => {
 // Template engine setup
 app.locals.assetUrl = require("./utils/assetUrl").assetUrl;
 app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
+const { cssBundleUrl, serveCssBundle } = require("./utils/cssBundle");
+app.locals.cssBundleUrl = cssBundleUrl;
+app.get("/css/:name.css", serveCssBundle);
 // Phone browsers zoom the page into a form field (sign-in, search, any form)
 // when it is tapped. maximum-scale=1 stops that on every browser; on iPhone and
 // iPad people can still pinch to zoom. Every page reads it as

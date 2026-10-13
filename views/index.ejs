@@ -1,5 +1,5 @@
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap" rel="stylesheet">
+    <%# Inter comes from the shared head; the handwriting font loads without holding up the page. %>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <style>
   /* Make the scrolling-header h1 and logo-section images smaller on small screens */
   .scrolling-header h1 {
@@ -1298,7 +1298,7 @@ a {
         <div class="hero-sheen" aria-hidden="true"></div>
         <div class="hero-top-row">
         <div class="hero-text">
-        <img class="hero-image" src="/images/hero-image.webp" alt="Hero Graphic">
+        <img class="hero-image" src="/images/hero-image.webp" alt="Hero Graphic" fetchpriority="high" decoding="async">
         <h1>Managira</h1>
         <h2>Manage Smarter, Not Harder</h2>
             <!-- <p>Managira is your complete school management solution. Track students, connect teachers and parents, and simplify school operations— all in one place.</p> -->
@@ -1325,30 +1325,30 @@ a {
     
         <div class="logo-container">
             <h1>try to see</h1>
-            <img src="images/schoolslogo/school1.png" alt="School 1">
-            <img src="images/schoolslogo/school2.png" alt="School 2">
-            <img src="images/schoolslogo/school3.png" alt="School 3">
-            <img src="images/schoolslogo/school4.png" alt="School 4">
-            <img src="images/schoolslogo/school5.png" alt="School 5">
-            <img src="images/schoolslogo/school6.png" alt="School 6">
-            <img src="images/schoolslogo/school1.png" alt="School 1">
-            <img src="images/schoolslogo/school2.png" alt="School 2">
-            <img src="images/schoolslogo/school3.png" alt="School 3">
-            <img src="images/schoolslogo/school4.png" alt="School 4">
-            <img src="images/schoolslogo/school5.png" alt="School 5">
-            <img src="images/schoolslogo/school6.png" alt="School 6">
-            <img src="images/schoolslogo/school1.png" alt="School 1">
-            <img src="images/schoolslogo/school2.png" alt="School 2">
-            <img src="images/schoolslogo/school3.png" alt="School 3">
-            <img src="images/schoolslogo/school4.png" alt="School 4">
-            <img src="images/schoolslogo/school5.png" alt="School 5">
-            <img src="images/schoolslogo/school6.png" alt="School 6">
-            <img src="images/schoolslogo/school1.png" alt="School 1">
-            <img src="images/schoolslogo/school2.png" alt="School 2">
-            <img src="images/schoolslogo/school3.png" alt="School 3">
-            <img src="images/schoolslogo/school4.png" alt="School 4">
-            <img src="images/schoolslogo/school5.png" alt="School 5">
-            <img src="images/schoolslogo/school6.png" alt="School 6">
+            <img src="images/schoolslogo/school1.png" alt="School 1" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school2.png" alt="School 2" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school3.png" alt="School 3" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school4.png" alt="School 4" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school5.png" alt="School 5" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school6.png" alt="School 6" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school1.png" alt="School 1" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school2.png" alt="School 2" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school3.png" alt="School 3" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school4.png" alt="School 4" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school5.png" alt="School 5" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school6.png" alt="School 6" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school1.png" alt="School 1" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school2.png" alt="School 2" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school3.png" alt="School 3" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school4.png" alt="School 4" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school5.png" alt="School 5" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school6.png" alt="School 6" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school1.png" alt="School 1" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school2.png" alt="School 2" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school3.png" alt="School 3" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school4.png" alt="School 4" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school5.png" alt="School 5" loading="lazy" decoding="async">
+            <img src="images/schoolslogo/school6.png" alt="School 6" loading="lazy" decoding="async">
         </div>
     </section>  -->
 
@@ -1531,10 +1531,28 @@ a {
             </div>
         </div>
         <div class="video-section">
-            <video autoplay loop muted playsinline preload="none" poster="/images/managira-preview.jpg">
+            <video loop muted playsinline preload="none" poster="/images/managira-preview.jpg" data-play-when-visible>
                 <source src="/images/managiraEdited.mp4" type="video/mp4">
                 Your browser does not support the video tag.
             </video>
+            <script>
+              // The video (10 MB) only loads once it scrolls into view, and never on a
+              // slow connection, with data saver, or with reduced motion: the poster shows instead.
+              (function () {
+                var video = document.querySelector('video[data-play-when-visible]');
+                if (!video || !('IntersectionObserver' in window)) return;
+                var c = navigator.connection || {};
+                var slow = c.saveData || /2g|3g/.test(c.effectiveType || '');
+                var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (slow || still) return;
+                new IntersectionObserver(function (entries) {
+                  entries.forEach(function (entry) {
+                    if (entry.isIntersecting) video.play().catch(function () {});
+                    else video.pause();
+                  });
+                }, { rootMargin: '200px' }).observe(video);
+              })();
+            </script>
             <div class="video-note">
                 <span class="line-left">Manage</span>
                 <span class="line-right">Smarter,</span>
@@ -1601,7 +1619,7 @@ a {
                 </p>
                 <a href="/account/service-plan" class="automation-cta">See Plans & Pricing →</a>
             </div>
-            <img class="automation-image" src="/images/managira-pyramid-svg.svg" alt="Managira Platform Overview">
+            <img class="automation-image" src="/images/managira-pyramid-svg.svg" alt="Managira Platform Overview" loading="lazy" decoding="async">
         </div>
     </section>
 

@@ -117,31 +117,15 @@
   <% } %>
   <!-- PWA manifest — always present regardless of school logo -->
   <link rel="manifest" href="/images/favicon_io/site.webmanifest" />
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-  />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Icons and web fonts come from other sites: loaded without holding up the
+       page, so text shows at once on slow connections (icons appear a moment later). -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" /></noscript>
 
-  <!-- Stylesheets -->
-  <link rel="stylesheet" href="/css/style.css" />
-  <link rel="stylesheet" href="/css/buttons.css" />
-  <link rel="stylesheet" href="/css/index.css" />
-  <link rel="stylesheet" href="/css/orgDashboard.css" />
-  <link rel="stylesheet" href="/css/classDashboard.css" />
-  <link rel="stylesheet" href="/css/attendanceCollection.css" />
-  <link rel="stylesheet" href="/css/addStudent.css" />
-  <link rel="stylesheet" href="/css/assessment.css" />
-  <link rel="stylesheet" href="/css/deleteStudent.css" />
-  <link rel="stylesheet" href="/css/editStudent.css" />
-  <link rel="stylesheet" href="/css/manageClassSubjectAndGradYr.css" />
-  <link rel="stylesheet" href="/css/manageRecords.css" />
-  <link rel="stylesheet" href="/css/registerSchoolYear.css" />
-  <link rel="stylesheet" href="/css/studentDetails.css" />
-  <link rel="stylesheet" href="/css/manageStudents.css" />
-  <% if (!(typeof hideGlobalChatbot !== 'undefined' && hideGlobalChatbot)) { %>
-  <link rel="stylesheet" href="/css/chatbot.css?v=3" />
-  <% } %>
-  <link rel="stylesheet" href="/css/guardian.css" />
+  <!-- The app's shared stylesheets as one file (utils/cssBundle.js) -->
+  <link rel="stylesheet" href="<%= cssBundleUrl(!(typeof hideGlobalChatbot !== 'undefined' && hideGlobalChatbot)) %>" />
 
   <!-- Loading indicator styles (SPA navigation progress + center spinner) -->
   <style>
@@ -183,11 +167,19 @@
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* Phones zoom into a field with text under 16px when it is tapped: on touch
+       screens every field stays at least 16px (with maximum-scale=1 in the viewport). */
+    @media (hover: none) and (pointer: coarse) {
+      input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]),
+      select,
+      textarea { font-size: max(16px, 1em) !important; }
+    }
   </style>
 
-  <!-- Include Quill CSS and JavaScript (rich text editor) -->
-  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet" />
-  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+  <!-- Rich text styles (Quill) for formatted content. Loaded without holding up
+       the page; the editor script itself loads only on the pages that edit. -->
+  <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" /></noscript>
 
   <!-- Preconnect to Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -201,9 +193,9 @@
   const normalizedFont = selectedFont.replace(/\s+/g, '+');
   const shouldLoadGoogleFont = googleFonts.includes(selectedFont);
 %>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <% if (shouldLoadGoogleFont && selectedFont !== 'Inter') { %>
-  <link href="https://fonts.googleapis.com/css2?family=<%= normalizedFont %>:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=<%= normalizedFont %>:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <% } %>
   <%
     // Theme color mapping for organization buttons

@@ -2214,7 +2214,7 @@
             href="<%= headerHomeHref %>"
             title="Return to home page"
           >
-            <img src="/images/managira.png" alt="Managira Logo" class="logo" />
+            <img src="/images/managira-logo-sm.png" alt="Managira Logo" class="logo" />
           </a>
         <% } else if (session.logo) { %>
           <!-- Show Organization logo when logged in -->
@@ -2284,7 +2284,7 @@
                   </div>
                   <% if (menu.heroImage) { %>
                     <div class="public-nav-visual <%= menu.heroImage === '/images/miratext.png' ? 'public-nav-visual--mira' : '' %>">
-                      <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" onerror="this.onerror=null;this.src='/images/image.png';" />
+                      <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
                     </div>
                     <div class="public-nav-capabilities">
                       <span class="public-nav-capabilities-title"><%= menu.capabilitiesTitle || 'Capabilities' %></span>
@@ -2297,7 +2297,7 @@
                       <% menu.sections.forEach((section) => { %>
                         <div class="public-nav-section">
                           <% if (section.image) { %>
-                            <div class="public-nav-section-visual" style="--section-accent:<%= section.imageBorderColor || '#cbd5e1' %>;"><img src="<%= section.image %>" alt="<%= section.imageAlt || section.title %>" /></div>
+                            <div class="public-nav-section-visual" style="--section-accent:<%= section.imageBorderColor || '#cbd5e1' %>;"><img src="<%= section.image %>" alt="<%= section.imageAlt || section.title %>" loading="lazy" decoding="async" /></div>
                           <% } %>
                           <span class="public-nav-section-title"><%= section.title %></span>
                           <% section.links.forEach((link) => { %>
@@ -2725,7 +2725,7 @@
             </div>
             <% if (menu.heroImage) { %>
               <div class="public-mobile-visual <%= menu.heroImage === '/images/miratext.png' ? 'public-mobile-visual--mira' : '' %>">
-                <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" onerror="this.onerror=null;this.src='/images/image.png';" />
+                <img src="<%= menu.heroImage %>" alt="<%= menu.heroImageAlt || menu.title %>" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
               </div>
               <% if (menu.capabilities && menu.capabilities.length) { %>
                 <div class="public-mobile-capabilities">
@@ -2738,7 +2738,7 @@
             <% } else { %>
               <% menu.sections.forEach((section) => { %>
                 <% if (section.image) { %>
-                  <div class="public-mobile-section-visual"><img src="<%= section.image %>" alt="<%= section.imageAlt || section.title %>" /></div>
+                  <div class="public-mobile-section-visual"><img src="<%= section.image %>" alt="<%= section.imageAlt || section.title %>" loading="lazy" decoding="async" /></div>
                 <% } %>
                 <span class="public-mobile-section-title"><%= section.title %></span>
                 <% section.links.forEach((link) => { %>

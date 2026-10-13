@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>">
     <title>Manage Public Content</title>
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
 <style>
   <%
     const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';

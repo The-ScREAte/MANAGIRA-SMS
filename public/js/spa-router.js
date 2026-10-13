@@ -1113,7 +1113,23 @@
         .finally(() => { this._preloadsInFlight.delete(normalized); });
     }
 
+    // Data saver on, or a 2G/3G connection: background warm-up is skipped
+    // (a tap or hover still loads the next page ahead).
+    _slowConnection() {
+      const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      return !!(c && (c.saveData || /2g|3g/.test(c.effectiveType || '')));
+    }
+
     _preloadPriorityPages() {
+      if (this._slowConnection()) return;
+      // Warm-up never competes with the page itself: wait until it has loaded.
+      if (document.readyState !== 'complete') {
+        if (!this._preloadAfterLoad) {
+          this._preloadAfterLoad = true;
+          window.addEventListener('load', () => { this._preloadAfterLoad = false; this._preloadPriorityPages(); }, { once: true });
+        }
+        return;
+      }
       const pages = PRELOAD_PRIORITY[this.userType] || PRELOAD_PRIORITY.public;
       pages.forEach(page => {
         if (page !== this.currentPath) {
