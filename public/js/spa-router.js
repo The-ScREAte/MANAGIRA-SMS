@@ -1386,6 +1386,11 @@
     preloadPage(path) {
       this._preload(path);
     }
+
+    // Used by the header menu links: the same rule as a normal link click.
+    shouldHandleRoute(path) {
+      return !!path && this._shouldHandle(path) && !this._isExcluded(path);
+    }
   }
 
   // ─── Inject Required Styles ───────────────────────────────────────────

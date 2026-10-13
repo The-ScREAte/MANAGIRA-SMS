@@ -8,11 +8,16 @@
 // changes are undone while printing.
 (function () {
   const root = document.documentElement;
-  const MODE = root.getAttribute('data-appearance');
+  let MODE = root.getAttribute('data-appearance');
   if (MODE !== 'white' && MODE !== 'gray' && MODE !== 'dark') return;
-  const DARK = MODE === 'dark';
+  // A page shown inside another one (the hubs' panels) follows that page's light or dark.
+  try {
+    const up = window.parent !== window ? window.parent.document.documentElement.getAttribute('data-appearance') : null;
+    if (MODE !== 'white' && (up === 'gray' || up === 'dark') && up !== MODE) { MODE = up; root.setAttribute('data-appearance', MODE); }
+  } catch (_e) { /* a page from another site */ }
+  let DARK = MODE === 'dark';
   // White is the normal design: only text that is clearly hard to read is darkened.
-  const WHITE = MODE === 'white';
+  let WHITE = MODE === 'white';
 
   // ---------- color math (sRGB <-> OKLCH) ----------
   const ctx = document.createElement('canvas').getContext('2d');
@@ -558,6 +563,34 @@
       printed = [];
     });
   }
+
+  // Light <-> dark in place (the header switch and the settings picker), so the
+  // page doesn't have to load again: undo every change, then run in the new mode.
+  // Pages shown inside this one change with it.
+  window.__apSetMode = function (next) {
+    if (next !== 'gray' && next !== 'dark') return;
+    if (next !== MODE) {
+      quiet(() => {
+        root.classList.add('ap-still');
+        changed.forEach((_, el) => restore(el));
+        copies.forEach((style) => style.remove());
+        copies.clear();
+        resolved.clear();
+        root.style.removeProperty('--org-primary-color');
+        root.style.removeProperty('--org-primary-hover');
+        MODE = next; DARK = MODE === 'dark'; WHITE = false;
+        root.setAttribute('data-appearance', MODE);
+      });
+      liftBrand();
+      pass();
+      quiet(() => settle(document.body));
+      charts();
+      window.dispatchEvent(new CustomEvent('ap:mode', { detail: MODE }));
+    }
+    document.querySelectorAll('iframe').forEach((frame) => {
+      try { if (frame.contentWindow && typeof frame.contentWindow.__apSetMode === 'function') frame.contentWindow.__apSetMode(next); } catch (_e) { /* another site */ }
+    });
+  };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();

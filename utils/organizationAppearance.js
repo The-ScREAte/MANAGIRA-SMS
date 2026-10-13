@@ -22,6 +22,9 @@ function appearanceOwner(session) {
   if (session.guardianId) return ['guardian', Number(session.guardianId)];
   if (session.studentId) return ['student', Number(session.studentId)];
   if (session.organizationId && String(session.accountType || '') === 'Organization') return ['org', Number(session.organizationId)];
+  // School staff sign-ins keep their id on session.user only.
+  const staffId = Number(session.user && session.user.user_id);
+  if (session.organizationId && Number.isInteger(staffId) && staffId > 0) return ['user', staffId];
   return null;
 }
 

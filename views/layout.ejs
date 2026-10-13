@@ -326,32 +326,104 @@
     </script>
 <% if (locals.appearanceOwner) { %>
 <script>
-  // Light / dark: the header switch and the settings picker save it for this person.
+  // Light / dark: the header switch and the settings picker. The page changes at
+  // once (public/js/appearance.js) and the choice is saved for this person in the
+  // background; saves go out one after another so the last tap is the one kept.
   (function () {
     if (window.__apSaveReady) return;
     window.__apSaveReady = true;
-    function save(mode, status) {
-      if (status) status.textContent = 'Saving…';
-      fetch('/appearance', {
+    var root = document.documentElement;
+    var wanted = '<%= locals.appearance === 'dark' ? 'dark' : 'light' %>';
+    // Every switch and picker on the page shows the mode in use.
+    function sync() {
+      var dark = wanted === 'dark';
+      document.querySelectorAll('[data-ap-set]').forEach(function (b) {
+        b.setAttribute('aria-checked', String(dark));
+        b.setAttribute('data-ap-set', dark ? 'light' : 'dark');
+      });
+      document.querySelectorAll('[data-ap-picker] input[name="appearanceMode"]').forEach(function (i) { i.checked = i.value === wanted; });
+    }
+    function status(text) {
+      document.querySelectorAll('[data-ap-status]').forEach(function (s) { s.textContent = text; });
+    }
+    function paint(mode) {
+      if (typeof window.__apSetMode !== 'function' || root.getAttribute('data-appearance') === 'white') return false;
+      window.__apSetMode(mode === 'dark' ? 'dark' : 'gray');
+      return true;
+    }
+    // One save at a time; quick taps in between only keep the newest choice, and
+    // a choice not sent yet goes out as the page closes.
+    var saved = wanted, unsent = null, sending = false, live = true;
+    function post(mode) {
+      return fetch('/appearance', {
         method: 'POST',
         credentials: 'same-origin',
+        keepalive: true,
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ appearanceMode: mode })
-      }).then(function (r) { return r.json().then(function (b) { if (!r.ok || !b.success) throw new Error('failed'); }); })
-        .then(function () { window.location.reload(); })
-        .catch(function () { if (status) status.textContent = 'Could not save. Please try again.'; });
+      });
+    }
+    function sendNext() {
+      if (sending || !unsent) return;
+      var mode = unsent;
+      unsent = null;
+      sending = true;
+      post(mode)
+        .then(function (r) { return r.json().then(function (b) { if (!r.ok || !b.success) throw new Error('failed'); }); })
+        .then(function () {
+          saved = mode;
+          try { sessionStorage.setItem('managira-appearance', mode); } catch (_) {}
+          if (!live && !unsent && wanted === mode) window.location.reload();
+        })
+        .catch(function () {
+          if (unsent || wanted !== mode) return;
+          wanted = saved;
+          paint(saved);
+          sync();
+          status('Could not save. Please try again.');
+        })
+        .then(function () { sending = false; sendNext(); });
+    }
+    window.addEventListener('pagehide', function () {
+      if (unsent) { post(unsent).catch(function () {}); unsent = null; }
+    });
+    window.__apChoose = choose;
+    function choose(mode) {
+      // Inside a hub panel: the page around it changes and saves (and this one with it).
+      try {
+        if (window.parent !== window && typeof window.parent.__apChoose === 'function') { window.parent.__apChoose(mode); return; }
+      } catch (_) {}
+      mode = mode === 'dark' ? 'dark' : 'light';
+      if (mode === wanted) { sync(); return; }
+      wanted = mode;
+      live = paint(mode);
+      sync();
+      status('');
+      unsent = mode === saved && !sending ? null : mode;
+      sendNext();
     }
     document.addEventListener('click', function (e) {
-      var b = e.target.closest && e.target.closest('[data-ap-set]');
-      if (!b || b.getAttribute('aria-pressed') === 'true') return;
-      b.setAttribute('aria-checked', String(b.getAttribute('data-ap-set') === 'dark'));
-      e.preventDefault();
-      save(b.getAttribute('data-ap-set'));
+      if (!e.target.closest) return;
+      var b = e.target.closest('[data-ap-set]');
+      if (b) { e.preventDefault(); choose(b.getAttribute('data-ap-set')); return; }
+      // The picker answers the tap itself (phones), not only the radio's change.
+      var choice = e.target.closest('[data-ap-picker] .ap-choice');
+      var input = choice && choice.querySelector('input[name="appearanceMode"]');
+      if (input) choose(input.value);
     });
     document.addEventListener('change', function (e) {
-      var box = e.target.closest && e.target.closest('[data-ap-picker]');
-      if (!box || !e.target.value) return;
-      save(e.target.value, box.parentElement && box.parentElement.querySelector('[data-ap-status]'));
+      if (e.target.closest && e.target.closest('[data-ap-picker]') && e.target.value) choose(e.target.value);
+    });
+    window.addEventListener('spa:pageLoaded', sync);
+    // Changed from the page around this one (or by this page's own switch).
+    window.addEventListener('ap:mode', function (e) { wanted = e.detail === 'dark' ? 'dark' : 'light'; sync(); });
+    // Back/forward can bring back a page kept from before a change: show the latest choice.
+    window.addEventListener('pageshow', function (e) {
+      if (!e.persisted) return;
+      var last = null;
+      try { last = sessionStorage.getItem('managira-appearance'); } catch (_) {}
+      if ((last === 'dark' || last === 'light') && last !== wanted) { wanted = saved = last; paint(last); }
+      sync();
     });
   })();
 </script>

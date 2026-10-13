@@ -1137,6 +1137,16 @@
     width: 200px;
   }
 
+  /* The header stays put, so a long menu scrolls inside itself: every item
+     (Dark mode, Logout) stays reachable on short phone screens and with large text. */
+  header#top-header .header-nav-menu {
+    max-height: calc(100vh - var(--header-height, 64px) - 12px);
+    max-height: calc(100dvh - var(--header-height, 64px) - 12px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* Keep shared header menu isolated from page-level list defaults */
   header#top-header .nav-menu,
   header#top-header .nav-menu .nav-item {

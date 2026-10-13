@@ -17,6 +17,11 @@ test('the choice belongs to the signed-in person, not the school', () => {
   assert.deepEqual(appearanceOwner({ studentId: 12, organizationId: 63 }), ['student', 12]);
   assert.deepEqual(appearanceOwner({ hubId: 2 }), ['hub', 2]);
   assert.deepEqual(appearanceOwner({ hubId: 2, hubUserId: 5 }), ['hubuser', 5]);
+  // Staff sign-ins that keep the id on session.user only (no session.userId).
+  assert.deepEqual(appearanceOwner({ organizationId: 63, accountType: 'Manager', userRole: 'Manager', user: { user_id: 93 } }), ['user', 93]);
+  assert.deepEqual(appearanceOwner({ organizationId: 63, accountType: 'Organization', user: { user_id: 63 } }), ['org', 63]);
+  assert.deepEqual(appearanceOwner({ organizationId: 63, guardianId: 2, user: { user_id: null } }), ['guardian', 2]);
+  assert.equal(appearanceOwner({ organizationId: 63, user: { user_id: null } }), null);
   assert.equal(appearanceOwner({ organizationId: 63 }), null);
   assert.equal(appearanceOwner(null), null);
 });
