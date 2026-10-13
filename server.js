@@ -797,16 +797,11 @@ app.use((req, res, next) => {
 // Template engine setup
 app.locals.assetUrl = require("./utils/assetUrl").assetUrl;
 app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
-// iPhone/iPad Safari zooms the page into any form field with text under 16px
-// when it is tapped. maximum-scale=1 stops that zoom there (people can still
-// pinch to zoom on iOS). Other browsers don't zoom on focus, so they keep the
-// plain viewport. Pages use it as <%= locals.viewportContent %>.
-const VIEWPORT_DEFAULT = "width=device-width, initial-scale=1.0";
-const VIEWPORT_IOS = "width=device-width, initial-scale=1.0, maximum-scale=1.0";
-app.use((req, res, next) => {
-  res.locals.viewportContent = /iPhone|iPad|iPod/i.test(String(req.get("user-agent") || "")) ? VIEWPORT_IOS : VIEWPORT_DEFAULT;
-  next();
-});
+// Phone browsers zoom the page into a form field (sign-in, search, any form)
+// when it is tapped. maximum-scale=1 stops that on every browser; on iPhone and
+// iPad people can still pinch to zoom. Every page reads it as
+// <%= locals.viewportContent %>.
+app.locals.viewportContent = "width=device-width, initial-scale=1.0, maximum-scale=1.0";
 app.use(expressLayouts);
 app.set("layout", "layout"); // Set default layout file
 app.set("view engine", "ejs");
