@@ -21,7 +21,7 @@
               <span class="ad-stage__loading">Loading…</span>
               <canvas data-pdf-src="<%= ad.file_url %>" aria-label="<%= ad.title || 'Advertisement' %>"></canvas>
             <% } else { %>
-              <img src="<%= ad.file_url %>" alt="<%= ad.title || 'Advertisement' %>"<%= i === 0 ? '' : ' loading="lazy"' %> />
+              <img src="<%= ad.file_url %>" alt="<%= ad.title || 'Advertisement' %>"<% if (ad.media_width && ad.media_height) { %> width="<%= ad.media_width %>" height="<%= ad.media_height %>"<% } %> decoding="async"<%- i === 0 ? ' fetchpriority="high"' : ' loading="lazy"' %> />
             <% } %>
             <% if (asButton) { %>
               <a class="ad-btn ad-btn--<%= size %>" href="<%= ad.link_url %>"<%- linkAttrs %>

@@ -2280,7 +2280,6 @@
       if (f.starts.value && f.ends.value && new Date(f.ends.value) <= new Date(f.starts.value)) { errorEl.textContent = 'The end date must be after the start date.'; f.ends.focus(); return; }
 
       const data = new FormData();
-      if (pendingFile) data.append('file', pendingFile);
       data.append('title', f.title.value.trim());
       data.append('link_url', f.link.value.trim());
       data.append('link_label', f.label.value.trim());
@@ -2325,8 +2324,23 @@
       xhr.onerror = () => { errorEl.textContent = 'Network error. Please try again.'; saveBtn.disabled = false; saveBtn.textContent = 'Save ad'; };
       saveBtn.disabled = true;
       saveBtn.textContent = 'Saving…';
-      xhr.send(data);
+      pdfAsImage(pendingFile).then((file) => {
+        if (file) data.append('file', file, file.name);
+        xhr.send(data);
+      });
     });
+
+    // A PDF ad shows its first page, so that page is sent as a picture: sign-in
+    // pages then show a light image (made smaller on the server) instead of
+    // loading a PDF reader. If drawing fails, the PDF itself is sent.
+    function pdfAsImage(file) {
+      if (!file || file.type !== 'application/pdf' || !window.LoginAds) return Promise.resolve(file);
+      const canvas = document.createElement('canvas');
+      return window.LoginAds.renderPdf(canvas, objectUrl, 1200)
+        .then(() => new Promise((resolve) => canvas.toBlob(resolve, 'image/png')))
+        .then((blob) => (blob ? new File([blob], 'login-ad.png', { type: 'image/png' }) : file))
+        .catch(() => file);
+    }
 
     fileInput.addEventListener('change', () => useFile(fileInput.files[0]));
     ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));

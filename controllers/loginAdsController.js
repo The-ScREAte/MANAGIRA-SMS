@@ -1,4 +1,6 @@
 const path = require("path");
+const fsp = require("fs").promises;
+const sharp = require("sharp");
 const db = require("../config/db");
 const { resolveViewerIdentity } = require("./announcementController");
 const { uploadToS3, deleteFromS3, s3Client, GetObjectCommand } = require("../config/s3");
@@ -27,16 +29,65 @@ const AD_COLUMN_LIST = [
 ];
 const adColumns = (prefix = "") => AD_COLUMN_LIST.map((c) => prefix + c).join(", ");
 const AD_COLUMNS = adColumns();
+const UPLOAD_DIR = path.resolve(__dirname, "../uploads"); // multer's dest; also where uploadToS3 reads from
 
 function withFileUrl(ad) {
   return { ...ad, file_url: adFileUrl(ad) };
 }
 
+// Every ad key is new (timestamped), so browsers may keep the file for good.
+const AD_CACHE_CONTROL = "public, max-age=31536000, immutable";
+// Ads show at most ~600px wide: a 1200px WebP stays sharp on retina screens
+// and is a small fraction of a full-size PNG or photo.
+const AD_MAX_WIDTH = 1200;
+const OPTIMIZABLE_IMAGES = new Set(["image/jpeg", "image/png", "image/webp"]); // GIFs may be animated
+
+async function optimizeAdImage(file) {
+  if (!OPTIMIZABLE_IMAGES.has(file.mimetype)) return null;
+  const input = path.join(UPLOAD_DIR, path.basename(file.filename));
+  const { data, info } = await sharp(input)
+    .rotate()
+    .resize({ width: AD_MAX_WIDTH, withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toBuffer({ resolveWithObject: true });
+  const filename = `${path.basename(file.filename)}-optimized`;
+  await fsp.writeFile(path.join(UPLOAD_DIR, filename), data);
+  return { filename, mimetype: "image/webp", width: info.width, height: info.height };
+}
+
 async function uploadAdFile(file) {
-  const ext = path.extname(file.originalname || "").toLowerCase().replace(/[^a-z0-9.]/g, "") || "";
-  // Clean key name: original names can contain characters that break the S3 URL.
-  const result = await uploadToS3({ ...file, originalname: `login-ad${ext}` });
-  return { url: result.Location, key: result.Key };
+  let optimized = null;
+  try {
+    optimized = await optimizeAdImage(file);
+  } catch (err) {
+    console.error("[loginAds] image optimize failed, uploading original:", err.message);
+  }
+  const source = optimized || file;
+  const ext = optimized ? ".webp" : path.extname(file.originalname || "").toLowerCase().replace(/[^a-z0-9.]/g, "") || "";
+  try {
+    // Clean key name: original names can contain characters that break the S3 URL.
+    const result = await uploadToS3({ filename: source.filename, mimetype: source.mimetype, originalname: `login-ad${ext}`, cacheControl: AD_CACHE_CONTROL });
+    return {
+      url: result.Location,
+      key: result.Key,
+      mimetype: source.mimetype,
+      width: optimized ? optimized.width : null,
+      height: optimized ? optimized.height : null,
+    };
+  } finally {
+    if (optimized) fsp.unlink(path.join(UPLOAD_DIR, optimized.filename)).catch(() => {});
+  }
+}
+
+// Columns from the uploaded (possibly optimized) file.
+function fileFields(uploaded) {
+  return {
+    media_type: MEDIA_TYPES[uploaded.mimetype],
+    media_url: uploaded.url,
+    s3_key: uploaded.key,
+    mime_type: uploaded.mimetype,
+    ...(uploaded.width && uploaded.height ? { media_width: uploaded.width, media_height: uploaded.height } : {}),
+  };
 }
 
 // Builds the column -> value map from a (multipart) body, only for keys present.
@@ -126,10 +177,7 @@ module.exports = {
         show_as_button: true,
         is_active: true,
         ...readAdFields(req.body),
-        media_type: MEDIA_TYPES[req.file.mimetype],
-        media_url: uploaded.url,
-        s3_key: uploaded.key,
-        mime_type: req.file.mimetype,
+        ...fileFields(uploaded),
         created_by: req.session && req.session.userId ? req.session.userId : null,
       };
       const cols = Object.keys(fields);
@@ -161,12 +209,7 @@ module.exports = {
       const fields = readAdFields(req.body);
       if (req.file) {
         const uploaded = await uploadAdFile(req.file);
-        Object.assign(fields, {
-          media_type: MEDIA_TYPES[req.file.mimetype],
-          media_url: uploaded.url,
-          s3_key: uploaded.key,
-          mime_type: req.file.mimetype,
-        });
+        Object.assign(fields, fileFields(uploaded));
       }
       const cols = Object.keys(fields);
       if (!cols.length) return res.status(400).json({ success: false, message: "Nothing to update." });

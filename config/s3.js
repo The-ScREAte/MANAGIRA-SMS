@@ -35,6 +35,8 @@ const uploadToS3 = async (file) => {
     Key: fileName,
     Body: fileContent,
     ContentType: file.mimetype,
+    // Optional, e.g. files whose name never changes can be cached by browsers for good.
+    ...(file.cacheControl ? { CacheControl: file.cacheControl } : {}),
   };
 
   try {

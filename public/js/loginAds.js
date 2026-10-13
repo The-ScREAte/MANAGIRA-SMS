@@ -19,15 +19,16 @@
     return pdfJsPromise;
   }
 
-  // Draws page 1 of a PDF into the canvas. Resolves with the page's natural size.
-  function renderPdf(canvas, url) {
+  // Draws page 1 of a PDF into the canvas (optionally at a set pixel width).
+  // Resolves with the page's natural size.
+  function renderPdf(canvas, url, width) {
     return loadPdfJs()
       .then(function (pdfjs) { return pdfjs.getDocument(url).promise; })
       .then(function (pdf) { return pdf.getPage(1); })
       .then(function (page) {
         var base = page.getViewport({ scale: 1 });
         var dpr = Math.min(window.devicePixelRatio || 1, 2);
-        var targetWidth = Math.min(Math.max(canvas.clientWidth || 800, 800) * dpr, 2400);
+        var targetWidth = width || Math.min(Math.max(canvas.clientWidth || 800, 800) * dpr, 2400);
         var viewport = page.getViewport({ scale: targetWidth / base.width });
         canvas.width = Math.round(viewport.width);
         canvas.height = Math.round(viewport.height);

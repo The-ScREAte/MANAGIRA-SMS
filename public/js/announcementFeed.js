@@ -226,6 +226,7 @@
       media.dataset.pdfSrc = ad.file_url;
     } else {
       media = document.createElement("img");
+      media.decoding = "async";
       media.src = ad.file_url;
       media.alt = ad.title || "";
     }
