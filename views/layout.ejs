@@ -59,13 +59,16 @@
          admissionsHub, mailroom) - CSS zoom throws off that math. -->
     <link rel="stylesheet" href="/css/globalScale.css">
     <% } %>
-    <link rel="stylesheet" href="/css/orgThemeContrast.css">
+    <link rel="stylesheet" href="/css/orgThemeContrast.css?v=3">
+    <script src="/js/orgAppearance.js?v=3" defer></script>
 </head>
 <%
-  const _orgThemeKey = (session && session.firstName && session.themeColor) ? String(session.themeColor).toLowerCase() : '';
-  const _isOrgThemed = !!_orgThemeKey && !['teal','classic'].includes(_orgThemeKey);
+  const _appearancePath = typeof currentPath !== 'undefined' ? String(currentPath || '') : '';
+  const _isOrgThemed = !!(session && session.firstName && session.organizationId)
+    && !_appearancePath.startsWith('/admin') && !_appearancePath.startsWith('/hub/');
+  const _orgAppearance = session && ['white', 'warm', 'dark'].includes(session.orgAppearance) ? session.orgAppearance : 'white';
 %>
-<body class="<%= _isOrgThemed ? 'org-themed' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
+<body data-org-appearance="<%= _orgAppearance %>" class="<%= _isOrgThemed ? 'org-appearance' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
     <div id="app-scale-root">
         <!-- Loading overlay for smooth transitions -->
         <div class="page-loading-overlay">

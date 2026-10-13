@@ -143,6 +143,9 @@ router.post("/personalization/display-preferences", isAuthenticated, requirePerm
 router.post("/personalization/theme", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   themeController.updateThemePost(req, res)
 );
+router.post("/personalization/appearance", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
+  themeController.updateAppearancePost(req, res)
+);
 router.post("/personalization/student-id", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SETTINGS), (req, res) =>
   accountController.updateStudentIdSettingsPost(req, res, db)
 );

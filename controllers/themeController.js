@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { saveAppearance } = require('../utils/organizationAppearance');
 
 /**
  * Update organization theme color
@@ -38,4 +39,16 @@ const updateThemePost = async (req, res) => {
   }
 };
 
-module.exports = { updateThemePost };
+const updateAppearancePost = async (req, res) => {
+  const redirectTo = '/account/settings?section=customize';
+  try {
+    const mode = await saveAppearance(db, req.session.organizationId, req.body.appearanceMode);
+    req.session.orgAppearance = mode;
+    req.flash('success', 'School appearance updated.');
+  } catch (err) {
+    req.flash('error', 'Unable to save school appearance. Please try again.');
+  }
+  return res.redirect(redirectTo);
+};
+
+module.exports = { updateThemePost, updateAppearancePost };

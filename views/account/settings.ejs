@@ -3271,6 +3271,20 @@
 
           <div class="card mobile-compact-card mobile-unbold-card">
             <h4>School Theme</h4>
+            <form action="/account/personalization/appearance" method="POST">
+              <h4>Workspace Appearance</h4>
+              <% const appearanceMode = session && ['white', 'warm', 'dark'].includes(session.orgAppearance) ? session.orgAppearance : 'white'; %>
+              <div class="org-appearance-options" role="radiogroup" aria-label="Workspace appearance">
+                <% [{ value: 'white', label: 'White' }, { value: 'warm', label: 'Light Brown' }, { value: 'dark', label: 'Dark' }].forEach(function(choice) { %>
+                  <label class="org-appearance-choice" data-appearance-choice>
+                    <input type="radio" name="appearanceMode" value="<%= choice.value %>" <%= appearanceMode === choice.value ? 'checked' : '' %> required>
+                    <span class="org-appearance-swatch org-appearance-swatch--<%= choice.value %>" aria-hidden="true"></span>
+                    <span><%= choice.label %></span>
+                  </label>
+                <% }); %>
+              </div>
+              <button class="btn-primary btn-link" type="submit">Save Appearance</button>
+            </form>
             <small>Pick theme for your school.</small>
             <form action="/account/updatePublicDashboardTheme" method="POST">
               <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
