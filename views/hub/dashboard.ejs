@@ -34,7 +34,7 @@
           <p class="hub-hero__sub">Everything across your <%= orgCount === 1 ? 'school' : `${orgCount} schools` %> in one place.</p>
         </div>
         <div class="hub-actions">
-          <% if (_can('reports.view')) { %><a class="hub-btn hub-btn--light" href="#school-comparison"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Reports</a><% } %>
+          <% if (_can('reports.view')) { %><a class="hub-btn hub-btn--light" href="#reports"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Reports</a><% } %>
           <% if (_can('invitations.manage')) { %><a class="hub-btn hub-btn--white" href="/hub/organizations/invite" data-drawer><i class="fa-solid fa-plus" aria-hidden="true"></i> Invite a school</a><% } %>
         </div>
       </header>
@@ -98,6 +98,37 @@
       </div>
       <% } %>
     </section>
+
+    <!-- Reports: pick a report, its columns and filters, then generate (public/js/hubReports.js) -->
+    <% if (_can('reports.view') && !_pdf) { %>
+    <section class="hub-view" data-view="reports" aria-label="Reports">
+      <header class="hub-hero">
+        <div>
+          <h1 class="hub-hero__title">Reports</h1>
+          <p class="hub-hero__sub">Choose a report, the columns you want and which schools to include.</p>
+        </div>
+      </header>
+      <div class="hub-rb" data-report-builder data-can-export="<%= _can('reports.export') ? '1' : '' %>" data-hub-name="<%= _hub.hub_name || 'Hub' %>">
+        <div class="hub-card hub-rb__step">
+          <h2 class="hub-rb__title"><span>1</span> Report</h2>
+          <div class="hub-rb__types" data-rb-types role="radiogroup" aria-label="Report"></div>
+        </div>
+        <div class="hub-card hub-rb__step">
+          <h2 class="hub-rb__title"><span>2</span> Columns</h2>
+          <div class="hub-rb__checks" data-rb-columns></div>
+        </div>
+        <div class="hub-card hub-rb__step">
+          <h2 class="hub-rb__title"><span>3</span> Schools and term</h2>
+          <div data-rb-schools><div class="hub-loading">Loading schools…</div></div>
+          <label class="hub-rb__check hub-rb__skip"><input type="checkbox" data-rb-skip checked /> <span>Leave out schools with no data for the term</span></label>
+        </div>
+        <div class="hub-rb__run">
+          <button type="button" class="hub-btn hub-btn--primary" data-rb-run><i class="fa-solid fa-table" aria-hidden="true"></i> Generate report</button>
+        </div>
+        <div data-rb-result></div>
+      </div>
+    </section>
+    <% } %>
 
     <!-- Reports (filled from /hub/overview-stats by public/js/hub.js) -->
     <% if (_can('reports.view')) { [
@@ -284,3 +315,4 @@
 </div>
 
 <script src="<%= assetUrl('/js/hub.js') %>"></script>
+<% if (_can('reports.view') && !_pdf) { %><script src="<%= assetUrl('/js/hubReports.js') %>"></script><% } %>

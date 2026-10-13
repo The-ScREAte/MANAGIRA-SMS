@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/adminHubs.css') %>" />
 
 <div class="ah">
+  <% if (typeof refreshing !== 'undefined' && refreshing) { %><span hidden data-ah-refreshing></span><% } %>
   <%- include('../partials/flash') %>
 
   <nav class="ah-crumbs" aria-label="Breadcrumb">

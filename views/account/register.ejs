@@ -594,11 +594,11 @@
         <div class="form-row name-fields-row">
           <div class="form-group">
             <label class="form-label" for="firstName">First Name *</label>
-            <input type="text" name="firstName" id="firstName" class="form-input" placeholder="John" required value="<%= formData?.firstName || '' %>">
+            <input type="text" name="firstName" maxlength="100" id="firstName" class="form-input" placeholder="John" required value="<%= formData?.firstName || '' %>">
           </div>
           <div class="form-group">
             <label class="form-label" for="lastName">Last Name *</label>
-            <input type="text" name="lastName" id="lastName" class="form-input" placeholder="Doe" required value="<%= formData?.lastName || '' %>">
+            <input type="text" name="lastName" maxlength="100" id="lastName" class="form-input" placeholder="Doe" required value="<%= formData?.lastName || '' %>">
           </div>
         </div>
 
@@ -613,7 +613,7 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="orgName">Org Name *</label>
-            <input type="text" name="orgName" id="orgName" class="form-input" placeholder="University of Greenwood" required value="<%= formData?.orgName || '' %>">
+            <input type="text" name="orgName" maxlength="200" id="orgName" class="form-input" placeholder="University of Greenwood" required value="<%= formData?.orgName || '' %>">
           </div>
 
           <div class="form-group">
@@ -701,7 +701,7 @@
 
         <div class="form-group">
           <label class="form-label" for="orgAddress">Org Address *</label>
-          <input type="text" name="orgAddress" id="orgAddress" class="form-input" placeholder="123 Main St, Provo, UT" required value="<%= formData?.orgAddress || '' %>">
+          <input type="text" name="orgAddress" maxlength="250" id="orgAddress" class="form-input" placeholder="123 Main St, Provo, UT" required value="<%= formData?.orgAddress || '' %>">
         </div>
 
         <div class="form-row">
@@ -719,7 +719,7 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="orgProvince">Province / Region / State *</label>
-            <input type="text" name="orgProvince" id="orgProvince" class="form-input" placeholder="Utah" required value="<%= formData?.orgProvince || '' %>">
+            <input type="text" name="orgProvince" maxlength="100" id="orgProvince" class="form-input" placeholder="Utah" required value="<%= formData?.orgProvince || '' %>">
           </div>
         </div>
 
@@ -769,11 +769,11 @@
         <div class="form-row">
           <div class="form-group" style="margin-bottom: 10px;">
             <label class="form-label" for="email">Email *</label>
-            <input type="email" name="email" id="email" class="form-input" placeholder="you@example.com" required value="<%= formData?.email || '' %>">
+            <input type="email" name="email" maxlength="254" id="email" class="form-input" placeholder="you@example.com" required value="<%= formData?.email || '' %>">
           </div>
           <div class="form-group" style="margin-bottom: 10px;">
             <label class="form-label" for="confirmEmail">Confirm Email *</label>
-            <input type="email" name="confirmEmail" id="confirmEmail" class="form-input" placeholder="Re-enter email" required value="<%= formData?.confirmEmail || '' %>">
+            <input type="email" name="confirmEmail" maxlength="254" id="confirmEmail" class="form-input" placeholder="Re-enter email" required value="<%= formData?.confirmEmail || '' %>">
           </div>
         </div>
 

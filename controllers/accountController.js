@@ -2097,13 +2097,18 @@ async function completeStripeRegistrationPayment(
     let paymentMethod = null;
 
     if (paymentMethodId) {
-      paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+      // The card is already saved in Stripe; a hiccup reading it back must not
+      // stop the school being created (renewals charge the stored card by id).
+      paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId).catch((err) => {
+        console.warn("[Stripe][complete] could not read the card details", err && err.message);
+        return { card: {} };
+      });
       if (paymentIntent.customer) {
         await stripe.customers.update(paymentIntent.customer, {
           invoice_settings: {
             default_payment_method: paymentMethodId,
           },
-        });
+        }).catch((err) => console.warn("[Stripe][complete] could not set the default card", err && err.message));
       }
 
       await saveStoredCardMethod(client, organizationId, {
@@ -2836,6 +2841,20 @@ const accountController = {
 
       if (!/^[A-Z]{2}$/.test(normalizedOrgCountry) || !COUNTRY_NAME_LOOKUP[normalizedOrgCountry]) {
         return stickyError("Please select a valid country from the list.");
+      }
+
+      // Everything must fit before the card step, so saving the school can't fail after it.
+      const tooLong = [
+        [firstName, 100, "First name"],
+        [lastName, 100, "Last name"],
+        [orgName, 200, "School name"],
+        [orgAddress, 250, "Address"],
+        [orgProvince, 100, "Region / province"],
+        [email, 254, "Email"],
+        [normalizedOrgPhone, 32, "Phone number"],
+      ].find(([value, max]) => String(value || "").trim().length > max);
+      if (tooLong) {
+        return stickyError(`${tooLong[2]} is too long. Please keep it under ${tooLong[1]} characters.`);
       }
 
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim())) {
@@ -13016,10 +13035,10 @@ const accountController = {
 
       // Validate token
       const invitationResult = await db.query(
-        `SELECT hoi.*, mh.hub_name, mh.hub_nickname, mh.hub_email, mh.plan_id, p.plan_name
+        `SELECT hoi.*, mh.hub_name, mh.hub_nickname, mh.hub_email, COALESCE(hoi.hub_assigned_plan_id, mh.plan_id) AS plan_id, p.plan_name
          FROM hub_organization_invitations hoi
          JOIN managira_hubs mh ON hoi.hub_id = mh.hub_id
-         LEFT JOIN plans p ON mh.plan_id = p.id
+         LEFT JOIN plans p ON COALESCE(hoi.hub_assigned_plan_id, mh.plan_id) = p.id
          WHERE hoi.invitation_token = $1 AND hoi.status = 'pending'`,
         [token]
       );
@@ -13200,9 +13219,12 @@ const accountController = {
           req.ip
         ]
       );
-      // The hub contact the hub picked for this school when inviting it.
+      // The hub contact and plan the hub picked for this school when inviting it.
       if (invitation.hub_contact_id) {
         await client.query('UPDATE organizations SET hub_contact_id = $1 WHERE organization_id = $2', [invitation.hub_contact_id, organizationId]).catch(() => {});
+      }
+      if (invitation.hub_assigned_plan_id) {
+        await client.query('UPDATE organizations SET hub_assigned_plan_id = $1 WHERE organization_id = $2', [invitation.hub_assigned_plan_id, organizationId]).catch(() => {});
       }
                   // Send welcome email to organization admin
       const welcomeEmailHtml = renderCleanEmail({
@@ -13508,6 +13530,9 @@ const accountController = {
       );
       if (invitation.hub_contact_id) {
         await client.query('UPDATE organizations SET hub_contact_id = $1 WHERE organization_id = $2', [invitation.hub_contact_id, invitation.existing_org_id]).catch(() => {});
+      }
+      if (invitation.hub_assigned_plan_id) {
+        await client.query('UPDATE organizations SET hub_assigned_plan_id = $1 WHERE organization_id = $2', [invitation.hub_assigned_plan_id, invitation.existing_org_id]).catch(() => {});
       }
 
             await client.query('COMMIT');

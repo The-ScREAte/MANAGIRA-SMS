@@ -55,6 +55,17 @@
       </select>
       <span class="hub-help">The person at your hub this school should talk to. Add people in Settings › Contact people.</span>
     </div>
+    <% const _hp = (typeof hubPlans !== 'undefined' && hubPlans) || { plans: [] }; %>
+    <% if (_hp.plans.length > 1 || (_hp.plans.length === 1 && !_hp.defaultPlan)) { %>
+    <div class="hub-field">
+      <label class="hub-label" for="ivPlan">Plan</label>
+      <select id="ivPlan" name="hub_plan_id">
+        <option value=""><%= _hp.defaultPlan ? `Hub default (${_hp.defaultPlan.plan_name})` : 'Hub default' %></option>
+        <% _hp.plans.forEach((p) => { %><option value="<%= p.id %>"><%= p.plan_name %></option><% }) %>
+      </select>
+      <span class="hub-help">What the school can use once it joins. You can change it later.</span>
+    </div>
+    <% } %>
     <div class="hub-field">
       <label class="hub-label" for="ivMessage">Personal message <span class="hub-help">(optional)</span></label>
       <textarea id="ivMessage" name="message" rows="3" placeholder="A short note for the invitation email"></textarea>

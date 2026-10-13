@@ -1268,7 +1268,8 @@
     </style>
   </head>
   <body class="manage-records-page">
-    <div class="manage-records-shell">
+    <link rel="stylesheet" href="/css/workspace.css" />
+    <div class="manage-records-shell ws-root">
       <%- include('../partials/flash') %>
 
       <script>
@@ -1276,29 +1277,26 @@
         document.body.classList.add('manage-records-page');
       </script>
 
-      <div class="centered-wrapper">
-        <div class="action-bar">
-          <h1>School Year and Term</h1>
-          <button type="button" class="action-btn" title="Create new school year" onclick="openRegisterSchoolYearModal()"> + Create School Year</button>
+      <header class="ws-head">
+        <div class="ws-head__text">
+          <h1 class="ws-head__title">School years &amp; terms</h1>
+          <p class="ws-head__sub">Each school year and its terms. The current ones are marked with a dot.</p>
         </div>
-
-        <div class="note-section" id="noteSection">
-          <button class="close-note" onclick="closeNote()">&times;</button>
-          <p>
-            <strong>Note:</strong> Use this page to manage school years and terms / semesters. You can add, edit, delete, and set the current school year or term / semester.
-          </p>
+        <div class="ws-head__actions">
+          <button type="button" class="ws-btn ws-btn--primary" onclick="openRegisterSchoolYearModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> New school year</button>
         </div>
-      </div>
+      </header>
+      <details class="ws-info">
+        <summary>How this works</summary>
+        <div class="ws-info__body">
+          <p>Open a school year to see its terms. Use <strong>Current</strong> to set the school year and term everyone works in.</p>
+          <p>Use the <strong>⋮</strong> menu to edit or delete a school year. Completed years and terms are read-only until you choose to edit them.</p>
+        </div>
+      </details>
 
       <div class="container">
-        <fieldset class="collapsible-block is-collapsed" id="schoolYearsBlock">
-          <div class="section-head">
-            <h1>School Years</h1>
-            <button type="button" class="section-collapse-toggle" aria-expanded="false">Expand</button>
-          </div>
-
+        <fieldset class="collapsible-block ws-plain" id="schoolYearsBlock">
           <div class="collapsible-content">
-            <legend>Manage Your Academic Years</legend>
 
         <div id="schoolYearContainer">
           <% schoolYears.forEach(function(year) { %>
@@ -1335,7 +1333,7 @@
                   <% if (year.current) { %>
                   <span class="current-year-indicator"></span>
                   <% } %>
-                  School<br>Year:
+                  <span class="ws-sr">School year</span>
                 </label>
                 <input
                   type="text"
@@ -2277,7 +2275,7 @@
             }
           };
 
-          setCollapsed(true);
+          setCollapsed(false);
           if (toggleBtn) {
             toggleBtn.addEventListener("click", function () {
               const collapsed = schoolYearsBlock.classList.contains("is-collapsed");

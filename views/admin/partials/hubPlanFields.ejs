@@ -1,0 +1,25 @@
+<%
+  // Plans for a hub's schools (New hub and Edit hub panels). Pass plans, and hubRow when editing.
+  const _hubP = (typeof hubRow !== 'undefined' && hubRow) || {};
+  const _allowed = new Set((_hubP.allowed_plan_ids || []).map(Number));
+%>
+<input type="hidden" name="allowedPlansSent" value="1" />
+<div class="ahb-grid ahb-grid--1">
+  <label class="ahb-field">
+    <span class="ahb-label">Default plan for its schools</span>
+    <select name="planId" class="ahb-input" data-ah-default-plan>
+      <option value="">No default (schools keep their own plan)</option>
+      <% plans.forEach((p) => { %><option value="<%= p.id %>" <%= Number(_hubP.plan_id) === Number(p.id) ? 'selected' : '' %>><%= p.plan_name %></option><% }) %>
+    </select>
+    <span class="ahb-hint">What every school in the hub can use, unless the hub gives a school a different plan.</span>
+  </label>
+  <div class="ahb-field">
+    <span class="ahb-label">Plans the hub can give its schools</span>
+    <div class="ah-plan-picks">
+      <% plans.forEach((p) => { %>
+        <label class="ah-plan-pick"><input type="checkbox" name="allowedPlanIds" value="<%= p.id %>" <%= _allowed.has(Number(p.id)) || Number(_hubP.plan_id) === Number(p.id) ? 'checked' : '' %> /> <span><%= p.plan_name %></span></label>
+      <% }) %>
+    </div>
+    <span class="ahb-hint">The hub picks one of these for each school (Edit school › Plan). The default plan is always included.</span>
+  </div>
+</div>

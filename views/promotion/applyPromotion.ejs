@@ -822,31 +822,26 @@
 </head>
 <body>
   <main>
-  <div class="promo-hero">
-    <div class="promo-hero-inner">
-      <h1>Promotion Scheduler</h1>
-      <p>Schedule and manage student promotions across classes, school years, and terms.</p>
-      <div class="promo-meta">
-        <span class="promo-chip">📅 School Year: <%= currentSchoolYear?.label %></span>
-        <span class="promo-chip">📘 Term: <%= currentTerm?.term_name %></span>
-      </div>
+  <link rel="stylesheet" href="/css/workspace.css" />
+  <div class="promotion-page ws-root ws-promo">
+  <header class="ws-head">
+    <div class="ws-head__text">
+      <h1 class="ws-head__title">Promotion</h1>
+      <p class="ws-head__sub">Move students to their next class for a new school year or term.<% if (currentSchoolYear || currentTerm) { %> Current: <%= currentSchoolYear?.label || '—' %> · <%= currentTerm?.term_name || '—' %>.<% } %></p>
     </div>
-  </div>
-  <div class="promotion-page">
+    <div class="ws-head__actions">
+      <button type="button" class="ws-btn ws-btn--primary" id="wsPlanBtn" onclick="showForm()">Plan a promotion</button>
+    </div>
+  </header>
   <%- include('../partials/flash') %>
 
-  <!-- Instructions container (shown initially) -->
-  <div id="instructions-container">
-    <h3>Instructions</h3>
-    <p>
-      This page schedules student promotions from one class to another. Before proceeding, ensure all promotion and repetition changes are saved in the report card.
-    </p>
-    <p>
-      <strong>To save changes:</strong> Visit the <a href="/print/reportSettings" target="_blank" style="color: var(--org-primary-color); text-decoration: underline;">Report and Promotion Settings</a> page, select your school year and term, then update the report card or settings as needed.
-    </p>
-    
-    <button type="button" onclick="showForm()">Continue</button>
-  </div>
+  <details class="ws-info" id="instructions-container">
+    <summary>Before you start</summary>
+    <div class="ws-info__body">
+      <p>Promotions move students from one class to another. First save any promotion or repeat decisions on the report card.</p>
+      <p>To do that, open <a href="/print/reportSettings" target="_blank">Report and promotion settings</a>, pick the school year and term, then update the report card or settings.</p>
+    </div>
+  </details>
 
 <!-- Form container (hidden initially) -->
 <div id="form-container" style="display: none;">
@@ -973,10 +968,9 @@
   </form>
 </div>
 
-  <hr>
 
   <% if (schedules && schedules.length > 0) { %>
-    <details class="history-card">
+    <details class="history-card" open>
       <summary>Promotion History (<%= schedules.length %>)</summary>
       <div class="history-card-content">
         <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
@@ -1000,7 +994,8 @@
                 </td>
                 <td><%= schedule.classes.length ? schedule.classes.join(', ') : 'None' %></td>
                 <td>
-                  <%= schedule.status %>
+                  <% const _tone = { completed: 'green', scheduled: 'brand', failed: 'red', applying: 'amber' }[schedule.status] || ''; %>
+                  <span class="ws-pill<%= _tone ? ' ws-pill--' + _tone : '' %>"><%= String(schedule.status || '').charAt(0).toUpperCase() + String(schedule.status || '').slice(1) %></span>
                   <% if (schedule.status === 'failed' && schedule.last_error) { %>
                     <div class="promotion-history-note" style="margin-top:4px;color:#b3261e;">
                       <%= schedule.last_error %>
@@ -1038,7 +1033,7 @@
               <tr class="promotion-schedule-row <%= index >= 5 ? 'extra-schedule' : '' %>" style="<%= index >= 5 ? 'display: none;' : '' %>">
                 <td colspan="5" style="background:#fbfdff;">
                   <details class="promotion-action-details">
-                    <summary>View Actions Performed</summary>
+                    <summary>What this promotion did</summary>
                     <div class="promotion-action-details-body">
                       <% if (schedule.auditTrail && schedule.auditTrail.available) { %>
                         <div class="promotion-action-counts">
@@ -1599,6 +1594,8 @@
       const formContainer = document.getElementById('form-container');
       if (instructions) instructions.style.display = 'none';
       if (formContainer) formContainer.style.display = 'block';
+      const planBtn = document.getElementById('wsPlanBtn');
+      if (planBtn) planBtn.hidden = true;
     };
 
     window.toggleMoreSchedules = function () {

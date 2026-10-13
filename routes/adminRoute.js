@@ -572,6 +572,8 @@ module.exports = (db) => {
     router.get('/hubs/:hubId(\\d+)/edit', ensureAdmin, hubForms.adminHubEditFormGet);
     router.get('/hubs/:hubId(\\d+)/password', ensureAdmin, hubForms.adminHubPasswordFormGet);
     router.get('/hubs/:hubId(\\d+)/organizations/:organizationId(\\d+)/licenses', ensureAdmin, hubForms.adminSchoolLicensesFormGet);
+    router.get('/hubs/:hubId(\\d+)/organizations/:organizationId(\\d+)/plan', ensureAdmin, hubForms.adminSchoolPlanFormGet);
+    router.post('/hubs/:hubId(\\d+)/organizations/:organizationId(\\d+)/plan', ensureAdmin, hubForms.adminSchoolPlanPost);
     router.post('/hubs/:hubId/edit', ensureAdmin, adminController.hubEditPost);
     router.post('/hubs/hold', ensureAdmin, adminController.hubHoldPost);
     router.post('/hubs/resume', ensureAdmin, adminController.hubResumePost);

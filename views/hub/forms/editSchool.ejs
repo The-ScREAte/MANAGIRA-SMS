@@ -2,7 +2,7 @@
   const _org = organization || {};
   const _hubNick = (hub && hub.hub_nickname) || '';
 %>
-<div data-drawer-title="Edit <%= _org.organization_name %>" data-drawer-sub="The school's name, address and phone number.">
+<div data-drawer-title="Edit <%= _org.organization_name %>" data-drawer-sub="The school's details, plan and hub contact.">
   <form class="hub-form hub-drawer-form" action="/hub/organizations/edit/<%= _org.organization_id %>" method="POST" data-ajax>
     <div class="hub-field">
       <label class="hub-label" for="dsName">School name <span class="req">*</span></label>
@@ -47,6 +47,17 @@
       </select>
       <span class="hub-help">The person at your hub this school should talk to. Add people in Settings › Contact people.</span>
     </div>
+    <% const _hp = (typeof hubPlans !== 'undefined' && hubPlans) || { plans: [] }; %>
+    <% if (_hp.plans.length) { %>
+    <div class="hub-field">
+      <label class="hub-label" for="dsPlan">Plan</label>
+      <select id="dsPlan" name="hub_plan_id">
+        <option value=""><%= _hp.defaultPlan ? `Hub default (${_hp.defaultPlan.plan_name})` : 'Hub default' %></option>
+        <% _hp.plans.forEach((p) => { %><option value="<%= p.id %>" <%= String(_org.hub_assigned_plan_id || '') === String(p.id) ? 'selected' : '' %>><%= p.plan_name %></option><% }) %>
+      </select>
+      <span class="hub-help">What this school can use in Managira. Changes apply straight away.</span>
+    </div>
+    <% } %>
     <p class="hub-help">The web address and email can only be changed by Managira support.</p>
     <div class="hub-drawer__foot">
       <button type="submit" class="hub-btn hub-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save changes</button>

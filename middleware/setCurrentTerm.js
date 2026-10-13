@@ -7,6 +7,15 @@ module.exports = async function setCurrentTerm(req, res, next) {
     return next();
   }
 
+  // A term picked in one school must never follow you into another school
+  // (opening a school from the hub or admin keeps the same session).
+  if (req.session.termOrgId !== organizationId) {
+    delete req.session.termId;
+    delete req.session.schoolYearId;
+    delete req.session.currentTermId;
+    req.session.termOrgId = organizationId;
+  }
+
   try {
     const termResult = await db.query(
       `
@@ -24,6 +33,7 @@ module.exports = async function setCurrentTerm(req, res, next) {
       req.session.currentTermId = currentTerm.term_id;
       res.locals.currentTerm = currentTerm;
     } else {
+      delete req.session.currentTermId;
       res.locals.currentTerm = null;
     }
 

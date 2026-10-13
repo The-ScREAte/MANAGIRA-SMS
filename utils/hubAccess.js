@@ -116,6 +116,7 @@ function ensureHubAccessSchema(db) {
       await db.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS hub_contact_id INTEGER`);
       await db.query(`ALTER TABLE hub_organization_invitations ADD COLUMN IF NOT EXISTS hub_contact_id INTEGER`);
       await require('./licenses').ensureLicenseSchema(db);
+      await require('./hubPlans').ensureHubPlanSchema(db);
       await db.query(`
         CREATE TABLE IF NOT EXISTS hub_user_email_preferences (
           hub_user_id INTEGER NOT NULL REFERENCES hub_users(hub_user_id) ON DELETE CASCADE,

@@ -21,6 +21,7 @@
   <%- include('partials/sidebar', { hubCurrent: 'billing' }) %>
 
   <div class="hub-main" data-refreshable>
+    <% if (typeof refreshing !== 'undefined' && refreshing) { %><span hidden data-hub-billing-refreshing></span><% } %>
     <%- include('../partials/flash') %>
 
     <header class="hub-hero">
@@ -170,7 +171,7 @@
               </div>
             <% }) %>
           </div>
-          <p class="hub-muted hub-small">To remove an extra, contact Managira.</p>
+          <p class="hub-muted hub-small" style="margin-top:10px">To remove an extra, contact Managira.</p>
         </section>
       <% } %>
 
@@ -200,16 +201,16 @@
         <section class="hub-card" aria-labelledby="countTitle">
           <div class="hub-card__head"><h2 class="hub-card__title" id="countTitle">How it’s counted</h2></div>
           <div class="hub-table-wrap">
-            <table class="hub-table">
-              <thead><tr><th>School</th><th style="text-align:right">Students</th><th style="text-align:right">Employees</th><th style="text-align:right" class="hub-bill-wide">Users</th><th class="hub-bill-wide">Integrations</th></tr></thead>
+            <table class="hub-table hub-table--cards">
+              <thead><tr><th>School</th><th style="text-align:right">Students</th><th style="text-align:right">Employees</th><th style="text-align:right">Users</th><th>Integrations</th></tr></thead>
               <tbody>
                 <% usage.breakdown.forEach((x) => { %>
                   <tr>
                     <td><strong><%= x.organization_name %></strong><% if (x.on_hold) { %><span class="hub-small"><%= x.counted ? 'On hold, still counted' : 'On hold, not counted' %></span><% } %></td>
-                    <td style="text-align:right"><%= _num(x.billedStudents) %></td>
-                    <td style="text-align:right"><%= _num(x.billedEmployees) %></td>
-                    <td style="text-align:right" class="hub-bill-wide"><%= _num(x.billedUsers) %></td>
-                    <td class="hub-bill-wide"><%= x.integrations.length ? x.integrations.map((k) => b.INTEGRATION_BY_KEY[k].label).join(', ') : '—' %></td>
+                    <td style="text-align:right" data-label="Students"><%= _num(x.billedStudents) %></td>
+                    <td style="text-align:right" data-label="Employees"><%= _num(x.billedEmployees) %></td>
+                    <td style="text-align:right" data-label="Users"><%= _num(x.billedUsers) %></td>
+                    <td class="hub-card-wide" data-label="Integrations"><%= x.integrations.length ? x.integrations.map((k) => b.INTEGRATION_BY_KEY[k].label).join(', ') : '—' %></td>
                   </tr>
                 <% }) %>
               </tbody>
@@ -223,17 +224,17 @@
         <div class="hub-card__head"><h2 class="hub-card__title" id="billsTitle">Bills</h2></div>
         <% if (_bills.length) { %>
           <div class="hub-table-wrap">
-            <table class="hub-table">
-              <thead><tr><th>Date</th><th class="hub-bill-wide">Bill</th><th class="hub-bill-wide">Period</th><th style="text-align:right">Amount</th><th>Status</th><th></th></tr></thead>
+            <table class="hub-table hub-table--cards">
+              <thead><tr><th>Date</th><th>Bill</th><th>Period</th><th style="text-align:right">Amount</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 <% _bills.forEach((i) => { const st = _invStatus[i.status] || [i.status, 'muted']; %>
                   <tr>
                     <td><%= _d(i.issued_at) %></td>
-                    <td class="hub-bill-wide"><%= i.number || '—' %><% if (i.isTest) { %> <span class="hub-tag">Test</span><% } %></td>
-                    <td class="hub-muted hub-bill-wide"><%= i.period_start ? `${_d(i.period_start)} – ${_d(i.period_end)}` : '—' %></td>
-                    <td style="text-align:right;font-variant-numeric:tabular-nums"><%= b.money(i.status === 'paid' ? i.amount_paid : i.amount_due, i.currency) %></td>
-                    <td><span class="hub-tag <%= st[1] === 'green' ? 'hub-tag--green' : st[1] === 'rose' ? 'hub-tag--rose' : '' %>"><%= st[0] %></span></td>
-                    <td style="text-align:right;white-space:nowrap">
+                    <td data-label="Bill"><%= i.number || '—' %><% if (i.isTest) { %> <span class="hub-tag">Test</span><% } %></td>
+                    <td class="hub-muted" data-label="Period"><%= i.period_start ? `${_d(i.period_start)} – ${_d(i.period_end)}` : '—' %></td>
+                    <td style="text-align:right;font-variant-numeric:tabular-nums" data-label="Amount"><%= b.money(i.status === 'paid' ? i.amount_paid : i.amount_due, i.currency) %></td>
+                    <td data-label="Status"><span class="hub-tag <%= st[1] === 'green' ? 'hub-tag--green' : st[1] === 'rose' ? 'hub-tag--rose' : '' %>"><%= st[0] %></span></td>
+                    <td class="hub-card-actions" style="text-align:right;white-space:nowrap">
                       <% if (i.status === 'open' && i.hosted_invoice_url) { %><a class="hub-btn hub-btn--primary hub-btn--sm" href="<%= i.hosted_invoice_url %>" target="_blank" rel="noopener" data-no-spa>Pay</a>
                       <% } else if (i.hosted_invoice_url) { %><a class="hub-btn hub-btn--sm" href="<%= i.hosted_invoice_url %>" target="_blank" rel="noopener" data-no-spa>View</a><% } %>
                       <a class="hub-btn hub-btn--sm" href="/hub/billing/invoices/<%= i.stripe_invoice_id %>/pdf" target="_blank" rel="noopener" data-no-spa><i class="fa-regular fa-file-pdf" aria-hidden="true"></i> Invoice</a>

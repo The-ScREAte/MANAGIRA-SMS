@@ -23,16 +23,18 @@
 
     <header class="hub-hero">
       <div>
-        <p class="hub-hero__eyebrow">School</p>
-        <h1 class="hub-hero__title"><%= _org.organization_name %></h1>
-        <div class="hub-hero__meta">
-          <span><span class="hub-status<%= _org.on_hold ? ' hub-status--hold' : '' %>" style="background:rgba(255,255,255,.92)"><%= _org.on_hold ? 'On hold' : 'Active' %></span></span>
-          <% if (_org.nickname) { %><span><i class="fa-solid fa-globe" aria-hidden="true"></i> <%= _org.nickname %>.<%= _hubNick %>.managira.com</span><% } %>
-          <% if (_org.email) { %><span><i class="fa-regular fa-envelope" aria-hidden="true"></i> <%= _org.email %></span><% } %>
-          <% if (_contact) { %><span><i class="fa-regular fa-user" aria-hidden="true"></i> <%= _contact %></span><% } %>
-          <% if (_org.hub_contact_name) { %><span><i class="fa-solid fa-headset" aria-hidden="true"></i> Hub contact: <%= _org.hub_contact_name %></span><% } %>
-          <% if (_org.joined_hub_at) { %><span><i class="fa-regular fa-calendar" aria-hidden="true"></i> Joined <%= _date(_org.joined_hub_at) %></span><% } %>
-        </div>
+        <h1 class="hub-hero__title"><%= _org.organization_name %> <span class="hub-status<%= _org.on_hold ? ' hub-status--hold' : '' %>" style="vertical-align:middle;font-size:.74rem"><%= _org.on_hold ? 'On hold' : 'Active' %></span></h1>
+        <p class="hub-hero__sub"><%= _org.plan_name ? `${_org.plan_name}${_org.plan_is_default ? ' (hub default)' : ''}` : 'No plan' %><% if (_org.nickname) { %> · <%= _org.nickname %>.<%= _hubNick %>.managira.com<% } %></p>
+        <details class="hub-more">
+          <summary>School details</summary>
+          <dl class="hub-more__list">
+            <% if (_contact) { %><dt>Contact</dt><dd><%= _contact %></dd><% } %>
+            <% if (_org.email) { %><dt>Email</dt><dd><%= _org.email %></dd><% } %>
+            <% if (_org.hub_contact_name) { %><dt>Hub contact</dt><dd><%= _org.hub_contact_name %></dd><% } %>
+            <% if (_org.joined_hub_at) { %><dt>Joined hub</dt><dd><%= _date(_org.joined_hub_at) %></dd><% } %>
+            <dt>Students</dt><dd><%= _num(_t.students) %> active · <%= _num(_t.staff) %> staff · <%= _num(_t.classes) %> classes · <%= _num(_t.subjects) %> subjects</dd>
+          </dl>
+        </details>
       </div>
       <div class="hub-actions">
         <% if (_can('schools.access') && !_org.on_hold) { %><a class="hub-btn hub-btn--white" href="/hub/organizations/<%= _org.organization_id %>/open" data-open-school data-name="<%= _org.organization_name %>" data-no-spa><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open school</a><% } %>
@@ -53,31 +55,8 @@
       </div>
     </header>
 
-    <div class="hub-kpis">
-      <button type="button" class="hub-kpi hub-kpi--blue" <%= _people ? 'data-jump-tab=students' : 'disabled' %>>
-        <span class="hub-kpi__top"><span class="hub-kpi__icon"><i class="fa-solid fa-user-graduate" aria-hidden="true"></i></span><span class="hub-kpi__label">Active students</span></span>
-        <span class="hub-kpi__value"><%= _num(_t.students) %></span>
-        <span class="hub-kpi__note">Graduated &amp; archived not counted</span>
-      </button>
-      <button type="button" class="hub-kpi hub-kpi--amber" <%= _people ? 'data-jump-tab=staff' : 'disabled' %>>
-        <span class="hub-kpi__top"><span class="hub-kpi__icon"><i class="fa-solid fa-user-tie" aria-hidden="true"></i></span><span class="hub-kpi__label">Staff</span></span>
-        <span class="hub-kpi__value"><%= _num(_t.staff) %></span>
-        <span class="hub-kpi__note">Managers, supervisors, teachers, drivers</span>
-      </button>
-      <button type="button" class="hub-kpi hub-kpi--violet" <%= _people ? 'data-jump-tab=classes' : 'disabled' %>>
-        <span class="hub-kpi__top"><span class="hub-kpi__icon"><i class="fa-solid fa-chalkboard" aria-hidden="true"></i></span><span class="hub-kpi__label">Classes</span></span>
-        <span class="hub-kpi__value"><%= _num(_t.classes) %></span>
-        <span class="hub-kpi__note">All classes in the school</span>
-      </button>
-      <button type="button" class="hub-kpi hub-kpi--teal" <%= _people ? 'data-jump-tab=classes' : 'disabled' %>>
-        <span class="hub-kpi__top"><span class="hub-kpi__icon"><i class="fa-solid fa-book" aria-hidden="true"></i></span><span class="hub-kpi__label">Subjects</span></span>
-        <span class="hub-kpi__value"><%= _num(_t.subjects) %></span>
-        <span class="hub-kpi__note">Counted once, even if many classes take it</span>
-      </button>
-    </div>
-
     <div class="hub-tabs" role="tablist" data-hub-tabs data-org-id="<%= _org.organization_id %>" data-initial="<%= _tab %>">
-      <button type="button" class="hub-tab" role="tab" data-tab="report"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> Report</button>
+      <button type="button" class="hub-tab" role="tab" data-tab="report"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i> School stats</button>
       <% if (_people) { %>
       <button type="button" class="hub-tab" role="tab" data-tab="students"><i class="fa-solid fa-user-graduate" aria-hidden="true"></i> Students</button>
       <button type="button" class="hub-tab" role="tab" data-tab="staff"><i class="fa-solid fa-user-tie" aria-hidden="true"></i> Staff</button>
@@ -85,13 +64,13 @@
       <% } %>
     </div>
 
-    <!-- Report: the same figures the school sees on its Organization Stats page -->
+    <!-- School stats: the same figures the school sees on its Organization Stats page -->
     <div class="hub-report" data-pane="report">
       <%- include('../stats/organizationStats', {
         isEmbedded: false,
         isPdf: false,
         organizationName: _org.organization_name,
-        statsHeading: 'School report',
+        statsHeading: 'School stats',
         statsBasePath: `/hub/organizations/${_org.organization_id}`,
         statsExportPath: `/hub/organizations/${_org.organization_id}/report/export`,
         statsExtraParams: { tab: 'report' },

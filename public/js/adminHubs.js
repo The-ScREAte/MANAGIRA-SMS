@@ -303,6 +303,26 @@
     if (!p) return;
     p.querySelectorAll('.ah-menu[open]').forEach((m) => { if (!m.contains(e.target)) m.removeAttribute('open'); });
   });
+  // An open "More" menu sits on top of the screen, so no card or table cuts it off.
+  // It opens below its button, or above when there's no room below.
+  const placeMenu = (menu) => {
+    const list = menu.querySelector('.ah-menu__list');
+    if (!list) return;
+    if (!menu.open) { list.removeAttribute('style'); return; }
+    const btn = menu.querySelector('summary').getBoundingClientRect();
+    list.style.position = 'fixed';
+    list.style.right = `${Math.max(8, document.documentElement.clientWidth - btn.right)}px`;
+    const h = list.offsetHeight;
+    const below = btn.bottom + 6;
+    list.style.top = `${below + h > window.innerHeight - 8 && btn.top - 6 - h >= 8 ? btn.top - 6 - h : below}px`;
+  };
+  document.addEventListener('toggle', (e) => {
+    if (e.target instanceof HTMLDetailsElement && e.target.classList.contains('ah-menu')) placeMenu(e.target);
+  }, true);
+  // Keep an open menu next to its button while the page scrolls or resizes.
+  const placeOpenMenus = () => { const p = page(); p && p.querySelectorAll('.ah-menu[open]').forEach(placeMenu); };
+  window.addEventListener('scroll', placeOpenMenus, { passive: true });
+  window.addEventListener('resize', placeOpenMenus);
 
   // ---------- billing form (switch rows + live estimate) ----------
   const money = (n) => '$' + (Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -384,9 +404,35 @@
   });
 
   // ---------- page bits ----------
+  // On phones table rows show as cards, so each cell carries its column name.
+  function labelTables(root) {
+    root.querySelectorAll('table.ah-table').forEach((table) => {
+      const heads = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.replace(/\s+/g, ' ').trim());
+      table.querySelectorAll('tbody tr, tfoot tr').forEach((tr) => {
+        let col = 0;
+        Array.from(tr.children).forEach((cell) => {
+          if (heads[col] && !cell.hasAttribute('data-label')) cell.setAttribute('data-label', heads[col]);
+          col += cell.colSpan || 1;
+        });
+      });
+    });
+  }
+
+  // Billing shows the saved numbers while Stripe catches up, then refreshes itself.
+  let stripeWaits = 0;
+  function waitForStripe(p) {
+    if (!p.querySelector('[data-ah-refreshing]')) { stripeWaits = 0; return; }
+    if (stripeWaits >= 3) return;
+    stripeWaits += 1;
+    const path = location.pathname;
+    setTimeout(() => { if (page() && location.pathname === path) refreshPage(); }, 4000);
+  }
+
   function initPage() {
     const p = page();
     if (!p) return;
+    labelTables(p);
+    waitForStripe(p);
     const filter = p.querySelector('[data-ah-filter]');
     if (filter && !filter.dataset.ready) {
       filter.dataset.ready = '1';

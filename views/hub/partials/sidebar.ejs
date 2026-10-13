@@ -21,15 +21,7 @@
   </a>
   <nav class="hub-nav">
     <%- _link('overview', '/hub/dashboard#overview', 'fa-gauge-high', 'Overview') %>
-    <% if (_can('reports.view')) { %>
-    <div class="hub-nav__label">Reports</div>
-    <%- _link('school-comparison', '/hub/dashboard#school-comparison', 'fa-table-list', 'School comparison') %>
-    <%- _link('attendance', '/hub/dashboard#attendance', 'fa-calendar-check', 'Attendance') %>
-    <%- _link('performance', '/hub/dashboard#performance', 'fa-chart-line', 'Academic performance') %>
-    <%- _link('marks-entry', '/hub/dashboard#marks-entry', 'fa-pen-to-square', 'Marks entry') %>
-    <%- _link('support', '/hub/dashboard#support', 'fa-hand-holding-heart', 'Needs support') %>
-    <%- _link('enrollment', '/hub/dashboard#enrollment', 'fa-users', 'Enrollment &amp; staffing') %>
-    <% } %>
+    <% if (_can('reports.view')) { %><%- _link('reports', '/hub/dashboard#reports', 'fa-chart-column', 'Reports') %><% } %>
     <div class="hub-nav__label">Manage</div>
     <% if (_can('schools.view')) { %><%- _link('schools', '/hub/dashboard#schools', 'fa-school', 'Schools', _nav.schools) %><% } %>
     <% if (_can('invitations.manage')) { %><%- _link('invitations', '/hub/dashboard#invitations', 'fa-envelope-open-text', 'Invitations', _nav.invitations) %><% } %>

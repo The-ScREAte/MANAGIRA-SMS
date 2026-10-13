@@ -13,16 +13,14 @@
           <input type="email" class="ahb-input" value="<%= hub.hub_email %>" disabled />
           <span class="ahb-hint">The sign-in email can’t be changed here.</span>
         </label>
-        <label class="ahb-field">
-          <span class="ahb-label">Feature plan</span>
-          <select name="planId" class="ahb-input">
-            <option value="">No plan</option>
-            <% plans.forEach((plan) => { %><option value="<%= plan.id %>" <%= Number(hub.plan_id) === Number(plan.id) ? 'selected' : '' %>><%= plan.plan_name %></option><% }) %>
-          </select>
-        </label>
         <label class="ahb-field"><span class="ahb-label">Footer text <em>optional</em></span><input type="text" name="hubFooterText" class="ahb-input" value="<%= hub.hub_footer_text || '' %>" maxlength="300" /></label>
         <label class="ahb-check"><input type="checkbox" name="hubBrandingEnabled" <%= hub.hub_branding_enabled ? 'checked' : '' %> /> <span>Show hub branding in member schools</span></label>
       </div>
+    </section>
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">Plans</h3>
+      <p class="ahd-section__sub">The plan decides what each school can use. Changes apply straight away.</p>
+      <%- include('../partials/hubPlanFields', { plans, hubRow: hub }) %>
     </section>
     <section class="ahd-section">
       <h3 class="ahd-section__title">Owner</h3>

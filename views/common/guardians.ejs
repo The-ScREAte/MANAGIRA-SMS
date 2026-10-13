@@ -1,75 +1,54 @@
-<div class="student-management-system" style="padding: 24px; max-width: none; margin: 0; width: 100%; box-sizing: border-box;">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-    <h1 style="margin: 0; color: #0f2d32; font-size: 28px;">Guardian Management</h1>
-  </div>
-
-  <div class="student-form-card" style="margin-bottom: 24px; padding: 20px;">
-    <input type="text" id="searchGuardian" class="form-input" placeholder="🔍 Search by name, email, or phone..." 
-           style="max-width: 100%; font-size: 15px; padding: 12px 16px;">
-  </div>
+<link rel="stylesheet" href="/css/workspace.css" />
+<script src="/js/workspace.js" defer></script>
+<div class="student-management-system ws-root ws-guardians">
+  <header class="ws-head">
+    <div class="ws-head__text">
+      <h1 class="ws-head__title">Parents &amp; guardians</h1>
+      <p class="ws-head__sub"><%= guardians.length %> guardian<%= guardians.length === 1 ? '' : 's' %> linked to students in this school.</p>
+    </div>
+    <% if (guardians.length) { %>
+    <div class="ws-head__actions">
+      <label class="ws-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="searchGuardian" placeholder="Search name, email or phone" aria-label="Search guardians" autocomplete="off"></label>
+    </div>
+    <% } %>
+  </header>
 
   <% if (!guardians.length) { %>
-    <div class="student-form-card" style="text-align: center; padding: 40px;">
-      <p style="color: #64748b; font-size: 16px;">No guardians found.</p>
-    </div>
+    <div class="ws-card ws-empty"><strong>No guardians yet</strong>Guardians show here once they're added to a student.</div>
   <% } else { %>
-    <div class="student-form-card" style="padding: 0; overflow: hidden;">
-      <div class="table-responsive" style="overflow-x: auto;">
-        <table class="data-table" style="width: 100%; border-collapse: collapse; background: white;">
-          <thead style="background: var(--org-primary-color, #0f5a66); color: white;">
-            <tr>
-              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Photo</th>
-              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Name <button type="button" class="guardian-sort-btn" id="guardianNameSortToggle" data-sort-direction="asc" aria-label="Sort guardians Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
-              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Email</th>
-              <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 14px;">Phone</th>
-              <th style="padding: 16px 12px; text-align: center; font-weight: 600; font-size: 14px;">Students</th>
-              <th style="padding: 16px 12px; text-align: center; font-weight: 600; font-size: 14px;">Portal Access</th>
-              <th style="padding: 16px 12px; text-align: center; font-weight: 600; font-size: 14px;">Actions</th>
+    <div class="ws-table-wrap ws-cards-wrap">
+      <table class="ws-table ws-cards">
+        <thead>
+          <tr>
+            <th>Name <button type="button" class="guardian-sort-btn" id="guardianNameSortToggle" data-sort-direction="asc" aria-label="Sort guardians Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button></th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Students</th>
+            <th>Portal</th>
+            <th class="ws-actions"><span class="ws-sr">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody id="guardianTableBody">
+          <% guardians.forEach((guardian) => { %>
+            <% const guardianDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
+            <tr class="guardian-row" data-name="<%= guardianDisplayName %>" data-email="<%= guardian.email || '' %>" data-phone="<%= guardian.phone || '' %>">
+              <td class="ws-card-title">
+                <span class="ws-person">
+                  <img src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>" alt="" loading="lazy" />
+                  <strong><%= guardianDisplayName %></strong>
+                </span>
+              </td>
+              <td class="ws-card-wide"><%= guardian.email || '—' %></td>
+              <td><%= guardian.phone || '—' %></td>
+              <td><span class="ws-pill"><%= guardian.student_count %></span></td>
+              <td><% if (guardian.has_portal_access) { %><span class="ws-pill ws-pill--green">Active</span><% } else { %><span class="ws-pill">No access</span><% } %></td>
+              <td class="ws-actions ws-card-actions">
+                <button type="button" class="ws-btn ws-btn--sm" onclick="openGuardianDetailsModal('<%= guardian.guardian_id %>', '<%= guardian.source || 'legacy' %>')">View</button>
+              </td>
             </tr>
-          </thead>
-          <tbody id="guardianTableBody">
-            <% guardians.forEach((guardian, index) => { %>
-                <% const guardianDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(guardian) : [guardian.first_name, guardian.last_name].filter(Boolean).join(' ').trim()); %>
-                <tr class="guardian-row" data-name="<%= guardianDisplayName %>" 
-                  data-email="<%= guardian.email || '' %>" 
-                  data-phone="<%= guardian.phone || '' %>"
-                  style="border-bottom: 1px solid #e2e8f0; transition: background-color 0.2s; <%= index % 2 === 0 ? 'background: #f8fafc;' : 'background: white;' %>">
-                <td style="padding: 14px 12px;">
-                  <img src="<%= guardian.image_url && guardian.image_url !== 'profilePlaceholder.png' ? guardian.image_url : '/images/profilePlaceholder.png' %>" 
-                       alt="Guardian" 
-                       style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0;">
-                </td>
-                <td style="padding: 14px 12px;">
-                  <strong style="color: #0f2d32; font-size: 15px;"><%= guardianDisplayName %></strong>
-                </td>
-                <td style="padding: 14px 12px; color: #475569;">
-                  <%= guardian.email || '-' %>
-                </td>
-                <td style="padding: 14px 12px; color: #475569;">
-                  <%= guardian.phone || '-' %>
-                </td>
-                <td style="padding: 14px 12px; text-align: center;">
-                  <span style="background: var(--org-primary-color, #0f5a66); color: white; padding: 6px 14px; border-radius: 16px; font-size: 13px; font-weight: 600;">
-                    <%= guardian.student_count %>
-                  </span>
-                </td>
-                <td style="padding: 14px 12px; text-align: center;">
-                  <% if (guardian.has_portal_access) { %>
-                    <span style="color: #10b981; font-weight: 600; font-size: 14px;">✓ Active</span>
-                  <% } else { %>
-                    <span style="color: #94a3b8; font-size: 14px;">No Access</span>
-                  <% } %>
-                </td>
-                <td style="padding: 14px 12px; text-align: center;">
-                  <button type="button" class="secondary-button" style="padding: 10px 20px; font-size: 14px;" onclick="openGuardianDetailsModal('<%= guardian.guardian_id %>', '<%= guardian.source || 'legacy' %>')">
-                    View Details
-                  </button>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
+          <% }) %>
+        </tbody>
+      </table>
     </div>
   <% } %>
 </div>
@@ -286,7 +265,7 @@
   })();
 
   // Search functionality
-  document.getElementById('searchGuardian').addEventListener('input', function(e) {
+  document.getElementById('searchGuardian') && document.getElementById('searchGuardian').addEventListener('input', function(e) {
     const searchTerm = e.target.value.toLowerCase();
     const rows = document.querySelectorAll('.guardian-row');
     

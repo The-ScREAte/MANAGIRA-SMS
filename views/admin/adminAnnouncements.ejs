@@ -830,7 +830,9 @@
   .la-guide { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; border-left: 2px dashed rgba(255, 255, 255, 0.85); z-index: 1; display: none; pointer-events: none; }
   .la-guide.is-visible { display: block; }
   .la-hint { color: var(--automation-muted); font-size: 0.84rem; text-align: center; margin: 0; }
-  .la-fields { display: grid; gap: 14px; }
+  .la-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+  .la-fields > * { min-width: 0; }
+  .la-drop small, .la-drop strong { overflow-wrap: anywhere; }
   .la-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px; border-radius: 16px; border: 2px dashed rgba(15, 118, 110, 0.35); background: rgba(15, 118, 110, 0.04); text-align: center; cursor: pointer; color: var(--automation-ink); }
   .la-drop.is-over { background: rgba(15, 118, 110, 0.1); }
   .la-drop small { color: var(--automation-muted); }
@@ -845,7 +847,7 @@
   .la-sizes input:checked + span { background: var(--automation-ink, #0f172a); color: #fff; }
   .la-sizes input:focus-visible + span { outline: 2px solid #14b8a6; outline-offset: -2px; }
   .la-button-fields[hidden], .la-app-fields[hidden], #la-max-views-field[hidden] { display: none; }
-  .la-section { margin: 0; padding: 0; border: none; display: grid; gap: 10px; min-width: 0; }
+  .la-section { margin: 0; padding: 0; border: none; border-radius: 0; background: none; box-shadow: none; width: 100%; max-width: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
   .la-section legend { padding: 0; margin-bottom: 8px; }
   .la-place-option { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--automation-border); background: #fff; cursor: pointer; }
   .la-place-option:has(input:checked) { border-color: rgba(15, 118, 110, 0.45); background: rgba(15, 118, 110, 0.05); }
@@ -869,6 +871,54 @@
     .la-thumb { width: 124px; height: 140px; padding: 8px; }
     .la-thumb .ad-stage { --stage-h: 124px; }
     .la-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  }
+
+  /* ---- Phones and small tablets ---- */
+  @media (max-width: 720px) {
+    /* Title above the badges, so it never gets squeezed to one letter per line. */
+    .collapsible-card-toggle { flex-direction: column; align-items: stretch; gap: 10px; }
+    .collapsible-card-right { justify-content: flex-start; }
+    .hero-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .hero-actions .admin-btn { justify-content: center; }
+    .hero-actions .admin-btn:first-child { grid-column: 1 / -1; }
+  }
+  @media (max-width: 640px) {
+    /* Feedback requests as stacked cards. */
+    .fr-table thead { display: none; }
+    .fr-table, .fr-table tbody, .fr-table tr, .fr-table td { display: block; width: 100%; }
+    .fr-table tr { padding: 12px 14px; border: 1px solid var(--automation-border); border-radius: 14px; margin-bottom: 10px; background: #fff; }
+    .fr-table td { border: 0; padding: 4px 0; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+    .fr-table td::before { content: attr(data-label); color: var(--automation-muted); font-size: 0.78rem; font-weight: 600; flex: none; }
+    .fr-table td:first-child { display: block; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(16, 37, 66, 0.06); }
+    .fr-table td:first-child::before { content: none; }
+    /* Ads: picture on top, details below, buttons in a neat row. */
+    .la-card { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .la-thumb { width: 100%; height: 170px; }
+    .la-thumb .ad-stage { --stage-h: 150px; }
+    .la-info .la-meta { overflow-wrap: anywhere; }
+    .la-actions { display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 8px; }
+    .la-actions .admin-btn { width: 100%; padding: 0.6rem 0.5rem; justify-content: center; }
+    .la-place { border-radius: 12px; }
+    /* Ad editor: placement cards and size/position toggles use the full width. */
+    .la-sizes { display: flex; width: 100%; }
+    .la-sizes label { flex: 1 1 0; min-width: 0; }
+    .la-sizes span { padding: 9px 6px; text-align: center; white-space: nowrap; }
+  }
+
+  /* ---- Pop-up forms (ad editor, scheduled email) on phones and tablets ---- */
+  .modal-header { align-items: flex-start; }
+  .modal-header > div { min-width: 0; }
+  @media (max-width: 720px) {
+    /* Close button stays in the top-right corner. */
+    .modal-header { flex-direction: row !important; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+    .modal-title { font-size: 1.2rem; }
+    .modal-subtitle { font-size: 0.86rem; }
+    .modal-shell .close-modal-btn { width: 38px; height: 38px; flex: none; }
+    .modal-panel { padding: 16px 16px 0; }
+    /* Cancel and Save always in reach, side by side at the bottom. */
+    .modal-panel .modal-actions,
+    .la-fields .modal-actions { position: sticky; bottom: 0; z-index: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px -16px 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: #f7fbff; border-top: 1px solid rgba(16, 37, 66, 0.1); }
+    .modal-panel .modal-actions .admin-btn { width: 100%; justify-content: center; text-align: center; }
   }
 </style>
 <link rel="stylesheet" href="<%= assetUrl('/css/loginAds.css') %>" />
@@ -1038,11 +1088,11 @@
           <tbody>
             <% feedbackList.forEach((f) => { %>
               <tr data-href="/admin/feedback-requests/<%= f.id %>" tabindex="0">
-                <td><a href="/admin/feedback-requests/<%= f.id %>"><strong><%= f.title %></strong></a><small><%= f.audience %> &middot; <%= f.frequency %><%= f.anonymous ? ' &middot; Anonymous' : '' %></small></td>
-                <td><%= f.recipients %></td>
-                <td><%= f.responses %><% if (f.totalResponses !== f.responses) { %><small><%= f.totalResponses %> in total</small><% } %></td>
-                <td><%= f.averageRating !== null ? f.averageRating.toFixed(1) + ' ★' : '-' %></td>
-                <td><span class="bc-status <%= f.state %>"><%= f.stateLabel %></span></td>
+                <td data-label="Feedback request"><a href="/admin/feedback-requests/<%= f.id %>"><strong><%= f.title %></strong></a><small><%= f.audience %> &middot; <%= f.frequency %><%= f.anonymous ? ' &middot; Anonymous' : '' %></small></td>
+                <td data-label="Recipients"><%= f.recipients %></td>
+                <td data-label="Responses"><%= f.responses %><% if (f.totalResponses !== f.responses) { %><small><%= f.totalResponses %> in total</small><% } %></td>
+                <td data-label="Average"><%= f.averageRating !== null ? f.averageRating.toFixed(1) + ' ★' : '-' %></td>
+                <td data-label="Status"><span class="bc-status <%= f.state %>"><%= f.stateLabel %></span></td>
               </tr>
             <% }) %>
           </tbody>

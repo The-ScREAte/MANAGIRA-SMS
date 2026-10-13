@@ -13,18 +13,16 @@
           <span class="ahb-hint">3–20 lowercase letters and numbers.</span>
         </label>
         <label class="ahb-field">
-          <span class="ahb-label">Feature plan</span>
-          <select name="planId" class="ahb-input">
-            <option value="">No plan (assign later)</option>
-            <% plans.forEach((plan) => { %><option value="<%= plan.id %>"><%= plan.plan_name %></option><% }) %>
-          </select>
-          <span class="ahb-hint">What the hub’s schools can use. Billing is set below.</span>
-        </label>
-        <label class="ahb-field">
           <span class="ahb-label">Footer text <em>optional</em></span>
           <input type="text" name="hubFooterText" class="ahb-input" placeholder="Shown in member schools’ footers" maxlength="300" />
         </label>
       </div>
+    </section>
+
+    <section class="ahd-section">
+      <h3 class="ahd-section__title">Plans</h3>
+      <p class="ahd-section__sub">The plan decides what each school can use (Basic, Pro, Premium…).</p>
+      <%- include('../partials/hubPlanFields', { plans, hubRow: null }) %>
     </section>
 
     <section class="ahd-section">

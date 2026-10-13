@@ -12,7 +12,7 @@ const PAYGIRA_FEATURE_NAMES = [
 
 const getEffectivePlanId = async (db, organizationId) => {
   const { rows } = await db.query(
-    `SELECT o.plan_id, o.is_hub_member, mh.plan_id AS hub_plan_id
+    `SELECT o.plan_id, o.is_hub_member, COALESCE(o.hub_assigned_plan_id, mh.plan_id) AS hub_plan_id
      FROM organizations o
      LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
      WHERE o.organization_id = $1

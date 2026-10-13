@@ -176,8 +176,9 @@ function panelOnly(req, res, page) {
 const panelMissing = (res, text) => res.status(404).send(`<p class="ahd-missing">${text}</p>`);
 
 async function hubForPanel(hubId) {
+  await require('../utils/hubPlans').ensureHubPlanSchema(db);
   return (await db.query(
-    `SELECT hub_id, hub_name, hub_nickname, hub_email, first_name, last_name, hub_phone, hub_address, plan_id,
+    `SELECT hub_id, hub_name, hub_nickname, hub_email, first_name, last_name, hub_phone, hub_address, plan_id, allowed_plan_ids,
             max_organizations, max_users, contract_start_date, contract_end_date, hub_footer_text, hub_branding_enabled,
             on_hold, deleted, created_at
        FROM managira_hubs WHERE hub_id = $1`,
@@ -226,6 +227,39 @@ const hubBillingController = {
     if (!org) return panelMissing(res, 'This school is not in the hub.');
     const license = await require('../utils/licenses').orgLicense(db, org.organization_id);
     res.render('admin/forms/schoolLicenses', { org, license });
+  },
+
+  // A school's plan inside a hub (Managira can pick any active plan).
+  adminSchoolPlanFormGet: async (req, res) => {
+    const hubId = hubIdParam(req);
+    if (!panelOnly(req, res, `/admin/hubs/${hubId}/organizations`)) return;
+    const hubPlans = require('../utils/hubPlans');
+    await hubPlans.ensureHubPlanSchema(db);
+    const org = (await db.query(
+      'SELECT organization_id, organization_name, hub_assigned_plan_id FROM organizations WHERE organization_id = $1 AND hub_id = $2 AND deleted = false',
+      [req.params.organizationId, hubId]
+    )).rows[0];
+    if (!org) return panelMissing(res, 'This school is not in the hub.');
+    const forHub = await hubPlans.plansForHub(db, hubId);
+    res.render('admin/forms/schoolPlan', { org, hubId, plans: await hubPlans.activePlans(db), hubPlanIds: forHub.plans.map((p) => Number(p.id)), defaultPlan: forHub.defaultPlan });
+  },
+
+  adminSchoolPlanPost: async (req, res) => {
+    const hubId = hubIdParam(req);
+    const back = `/admin/hubs/${hubId}/organizations`;
+    try {
+      const set = await require('../utils/hubPlans').setSchoolPlan(db, hubId, req.params.organizationId, parseInt(req.body.planId, 10) || null, { any: true });
+      if (!set.ok) { req.flash('error', set.message); return res.redirect(back); }
+      await db.query(
+        'INSERT INTO hub_activity_logs (hub_id, action_type, target_organization_id, description, performed_by) VALUES ($1, $2, $3, $4, $5)',
+        [hubId, 'organization_updated', set.school.organization_id, `${set.school.organization_name} is now on ${set.plan ? set.plan.plan_name : 'the hub’s default plan'}`, adminLabel(req)]
+      ).catch(() => {});
+      req.flash('success', `${set.school.organization_name}: ${set.plan ? set.plan.plan_name : 'hub default plan'}.`);
+    } catch (err) {
+      console.error('[adminSchoolPlanPost]', err.message);
+      req.flash('error', 'Could not change the plan.');
+    }
+    res.redirect(back);
   },
 
   adminPlanFormGet: async (req, res) => {
@@ -316,9 +350,11 @@ const hubBillingController = {
         return res.redirect('/admin/hubs');
       }
       const { hub_password, reset_password_token, ...hub } = hubRow;
-      const current = await billing.loadBilling(db, hubId);
-      const stale = current && current.stripe_customer_id && (!current.last_synced_at || Date.now() - new Date(current.last_synced_at).getTime() > 20000);
-      const data = await billing.overview(db, hubId, { fresh: !!stale });
+      // Show the saved numbers now; Stripe catches up in the background and the
+      // page refreshes itself when it's done.
+      const refreshing = billing.isStale(await billing.loadBilling(db, hubId), 20000);
+      if (refreshing) billing.refreshInBackground(db, hubId);
+      const data = await billing.overview(db, hubId);
       const [people, addons, activity] = await Promise.all([
         db.query(
           `SELECT hub_user_id, first_name, last_name, email, role, permissions, on_hold, (password IS NOT NULL) AS has_password, last_login_at
@@ -345,6 +381,7 @@ const hubBillingController = {
         license: await hubLicense(db, hubId),
         b: billing,
         hasSub: !!(data.billing && data.billing.stripe_subscription_id && !data.billing.ended_at),
+        refreshing,
         messages: req.flash(),
         showFooterTopSection: false,
       });
@@ -613,9 +650,9 @@ const hubBillingController = {
   hubBillingGet: async (req, res) => {
     const hubId = req.session.hubId;
     try {
-      const current = await billing.loadBilling(db, hubId);
-      const stale = current && current.stripe_customer_id && (!current.last_synced_at || Date.now() - new Date(current.last_synced_at).getTime() > 60000);
-      const data = await billing.overview(db, hubId, { fresh: !!stale });
+      const refreshing = billing.isStale(await billing.loadBilling(db, hubId), 60000);
+      if (refreshing) billing.refreshInBackground(db, hubId);
+      const data = await billing.overview(db, hubId);
       const addons = data.live ? await billing.listAddons(db, { activeOnly: true }) : [];
       const taken = new Set(data.approved.filter((c) => c.addon_id && c.frequency !== 'once').map((c) => c.addon_id));
       res.render('hub/billing', {
@@ -625,6 +662,7 @@ const hubBillingController = {
         addons: addons.filter((a) => !taken.has(a.addon_id)),
         canManage: actorCan(req.hubActor, 'billing.manage'),
         cardResult: req.query.card || '',
+        refreshing,
         b: billing,
         messages: req.flash(),
       });

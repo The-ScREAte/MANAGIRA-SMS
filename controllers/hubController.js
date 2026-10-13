@@ -106,7 +106,9 @@ const hubController = {
               (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.organization_id AND ${STAFF_FILTER_SQL("u")}) AS staff_count,
               (SELECT COUNT(*) FROM classes c WHERE c.organization_id = o.organization_id) AS class_count,
               ${DISTINCT_SUBJECTS_SQL("o.organization_id")} AS subject_count,
-              (SELECT hc.full_name FROM hub_contacts hc WHERE hc.contact_id = o.hub_contact_id AND hc.hub_id = o.hub_id) AS hub_contact_name
+              (SELECT hc.full_name FROM hub_contacts hc WHERE hc.contact_id = o.hub_contact_id AND hc.hub_id = o.hub_id) AS hub_contact_name,
+              (SELECT p.plan_name FROM plans p WHERE p.id = COALESCE(o.hub_assigned_plan_id, (SELECT mh.plan_id FROM managira_hubs mh WHERE mh.hub_id = o.hub_id), o.plan_id)) AS plan_name,
+              (o.hub_assigned_plan_id IS NULL) AS plan_is_default
        FROM organizations o
        WHERE o.organization_id = $1
          AND o.hub_id = $2
@@ -1438,6 +1440,7 @@ const hubController = {
       if (!res.locals.drawer) return res.redirect(`/hub/dashboard?drawer=${encodeURIComponent('/hub/organizations/invite')}#invitations`);
       res.render('hub/forms/invite', {
         hub,
+        hubPlans: await require('../utils/hubPlans').plansForHub(db, hub.hub_id),
         contacts: await getContacts(db, hub.hub_id),
         currentOrgCount,
         maxOrganizations: places.limit,
@@ -1493,12 +1496,17 @@ const hubController = {
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
       // Insert invitation
+      // The plan the new school gets (optional; one of the hub's plans).
+      const wantedPlan = parseInt(req.body.hub_plan_id, 10) || null;
+      const invitePlan = wantedPlan
+        ? (await require('../utils/hubPlans').plansForHub(db, hub.hub_id)).plans.find((p) => Number(p.id) === wantedPlan) || null
+        : null;
       await db.query(
         `INSERT INTO hub_organization_invitations 
-         (hub_id, organization_name, contact_person_name, contact_person_email, contact_person_phone, invitation_token, message, expires_at, hub_contact_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+         (hub_id, organization_name, contact_person_name, contact_person_email, contact_person_phone, invitation_token, message, expires_at, hub_contact_id, hub_assigned_plan_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [hub.hub_id, organization_name, contact_person_name, contact_person_email, contact_person_phone, invitationToken, message, expiresAt,
-         await hubContactIdFrom(hub.hub_id, req.body.hub_contact_id)]
+         await hubContactIdFrom(hub.hub_id, req.body.hub_contact_id), invitePlan ? invitePlan.id : null]
       );
       await extra.commit();
 
@@ -1516,7 +1524,7 @@ const hubController = {
         details: [
           { label: 'Hub', value: hub.hub_name },
           { label: 'Organization', value: organization_name },
-          { label: 'Plan', value: hub.plan_name || 'Professional' },
+          { label: 'Plan', value: (invitePlan && invitePlan.plan_name) || hub.plan_name || 'Set by your hub' },
           { label: 'Access URL', value: `${organization_name.toLowerCase().replace(/\s+/g, '')}.${hub.hub_nickname}.managira.com` },
         ],
         cta: { url: invitationUrl, text: 'Accept Invitation' },
@@ -1868,6 +1876,7 @@ const hubController = {
       res.render('hub/forms/editSchool', {
         organization: orgResult.rows[0],
         contacts: await getContacts(db, hub.hub_id),
+        hubPlans: await require('../utils/hubPlans').plansForHub(db, hub.hub_id),
         hub,
       });
     } catch (error) {
@@ -1915,6 +1924,19 @@ const hubController = {
         [organization_name, organization_address, organization_country || null, organization_province || null, organization_phone, organizationId,
          await hubContactIdFrom(hub.hub_id, req.body.hub_contact_id)]
       );
+
+      // The plan the hub gives this school ('' = the hub's default plan).
+      if (req.body.hub_plan_id !== undefined) {
+        const wanted = parseInt(req.body.hub_plan_id, 10) || null;
+        if (String(wanted || '') !== String(orgResult.rows[0].hub_assigned_plan_id || '')) {
+          const set = await require('../utils/hubPlans').setSchoolPlan(db, hub.hub_id, organizationId, wanted);
+          if (!set.ok) {
+            req.flash('error', set.message);
+            return res.redirect(`/hub/organizations/edit/${organizationId}`);
+          }
+          await logHubActivity(hub.hub_id, 'organization_updated', `${organization_name} is now on ${set.plan ? set.plan.plan_name : 'the hub’s default plan'}`, organizationId, hubActorLabel(req), req.ip);
+        }
+      }
 
       // Log activity
       await logHubActivity(

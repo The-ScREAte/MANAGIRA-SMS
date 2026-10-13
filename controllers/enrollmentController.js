@@ -305,39 +305,43 @@ const enrollmentController = {
       
           const enrollments = enrollmentsResult.rows;
       
-          // For each enrollment, get ONLY the enrolled classes and their enrolled students
-          for (const enrollment of enrollments) {
-            // Get enrolled classes for this enrollment
-            const classesResult = await db.query(`
-              SELECT c.class_id, c.class_name
-              FROM enrolled_classes ec
-              JOIN classes c ON ec.class_id = c.class_id
-              WHERE ec.enrollment_id = $1
-              ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
-            `, [enrollment.enrollment_id]);
-      
-            const classes = [];
-      
-            for (const cls of classesResult.rows) {
-              // Get only the students enrolled in this class for this enrollment
-              const enrolledStudentsResult = await db.query(`
-                SELECT s.student_id, s.first_name, s.last_name
-                FROM enrolled_students es
-                JOIN students s ON es.student_id = s.student_id
-                WHERE es.enrollment_id = $1 AND es.class_id = $2
-                ORDER BY s.last_name, s.first_name
-              `, [enrollment.enrollment_id, cls.class_id]);
-      
-              classes.push({
+          // The enrolled classes and their enrolled students for every enrollment,
+          // in two queries (not one per class).
+          const enrollmentIds = enrollments.map((e) => e.enrollment_id);
+          const [classesResult, studentsResult] = enrollmentIds.length
+            ? await Promise.all([
+                db.query(`
+                  SELECT ec.enrollment_id, c.class_id, c.class_name
+                  FROM enrolled_classes ec
+                  JOIN classes c ON ec.class_id = c.class_id
+                  WHERE ec.enrollment_id = ANY($1::int[])
+                  ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
+                `, [enrollmentIds]),
+                db.query(`
+                  SELECT es.enrollment_id, es.class_id, s.student_id, s.first_name, s.last_name
+                  FROM enrolled_students es
+                  JOIN students s ON es.student_id = s.student_id
+                  WHERE es.enrollment_id = ANY($1::int[])
+                  ORDER BY s.last_name, s.first_name
+                `, [enrollmentIds]),
+              ])
+            : [{ rows: [] }, { rows: [] }];
+          const studentsByClass = new Map();
+          studentsResult.rows.forEach((row) => {
+            const key = `${row.enrollment_id}:${row.class_id}`;
+            if (!studentsByClass.has(key)) studentsByClass.set(key, []);
+            studentsByClass.get(key).push({ student_id: row.student_id, first_name: row.first_name, last_name: row.last_name });
+          });
+          enrollments.forEach((enrollment) => {
+            enrollment.classes = classesResult.rows
+              .filter((cls) => cls.enrollment_id === enrollment.enrollment_id)
+              .map((cls) => ({
                 class_id: cls.class_id,
                 class_name: cls.class_name,
-                enrolled_students: enrolledStudentsResult.rows // ✅ Only enrolled students!
-              });
-            }
-      
-            enrollment.classes = classes;
-          }
-      
+                enrolled_students: studentsByClass.get(`${enrollment.enrollment_id}:${cls.class_id}`) || [],
+              }));
+          });
+
           const currentSemester = enrollments.find(e => e.is_current_year && e.is_current_term);
           const noEnrollmentForCurrentSemester = !currentSemester;
       

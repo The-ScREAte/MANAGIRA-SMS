@@ -583,22 +583,26 @@
     </style>
 </head>
 <body>
-<div class="page-wrap">
+<link rel="stylesheet" href="/css/workspace.css" />
+<script src="/js/workspace.js" defer></script>
+<div class="page-wrap ws-root">
 
-  <!-- Top Bar -->
-  <div class="top-bar">
-    <h1>Manage Assessments</h1>
-    <div class="top-bar-actions">
-      <button type="button" class="btn btn-outline" title="Create new test" onclick="openCreateTestModal()"> + New Test</button>
+  <header class="ws-head">
+    <div class="ws-head__text">
+      <h1 class="ws-head__title">Assessments</h1>
+      <p class="ws-head__sub">Tests and exams for this term, with their weight and the classes that take them.</p>
     </div>
-  </div>
+    <div class="ws-head__actions">
+      <button type="button" class="ws-btn ws-btn--primary" onclick="openCreateTestModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> New test</button>
+    </div>
+  </header>
 
   <%- include('../partials/flash') %>
 
   <!-- Table Card -->
   <div class="card">
-    <div class="table-scroll">
-      <table>
+    <div class="table-scroll ws-cards-wrap">
+      <table class="ws-cards">
         <thead>
           <tr>
             <th>Test Name</th>
@@ -615,7 +619,7 @@
           <% } %>
           <% (assessments || []).forEach(function(assessment, idx) { %>
             <tr>
-              <td data-label="Test Name">
+              <td data-label="Test Name" class="ws-card-title">
                 <div class="test-name-content">
                   <strong class="table-name"><%= assessment.title %></strong>
                   <div class="table-meta">
@@ -647,7 +651,7 @@
               <td data-label="Category"><%= assessment.category %></td>
 
               <!-- Assigned Classes -->
-              <td data-label="Assigned Classes">
+              <td data-label="Assigned Classes" class="ws-card-wide">
                 <button type="button" class="collapse-btn" onclick="toggleClasses('<%= idx %>')" title="Show assigned classes and subjects">
                   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                   <%= (assessment.assigned_classes || []).length %>
@@ -668,7 +672,7 @@
               </td>
 
               <!-- Actions -->
-              <td data-label="Actions">
+              <td data-label="Actions" class="ws-card-actions">
                 <div class="actions-cell">
                   <button
                     type="button"

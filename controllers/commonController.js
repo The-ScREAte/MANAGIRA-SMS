@@ -10207,44 +10207,39 @@ const commonController = {
 
       const employees = result.rows;
 
-      for (let employee of employees) {
-        const classIds = employee.class_ids || [];
+      // Everyone's subjects in one query; classes come from the list above
+      // (already in dashboard order), so no query per employee.
+      const subjectsResult = employees.length
+        ? await db.query(
+            `
+              SELECT us.user_id, s.subject_id, s.subject_name, s.class_id
+              FROM user_subjects us
+              JOIN subjects s ON us.subject_id = s.subject_id
+              WHERE us.user_id = ANY($1::int[])
+            `,
+            [employees.map((e) => e.user_id)]
+          )
+        : { rows: [] };
+      const orgClasses = classesResult.rows;
+
+      for (const employee of employees) {
+        const classIds = new Set((employee.class_ids || []).filter((id) => id !== null).map(Number));
         employee.permissions = permissionsByUser[employee.user_id] || [];
 
-        // 🔥 Fetch only the classes assigned to this employee
-        const classesQuery = await db.query(
-          `SELECT class_id, class_name
-           FROM classes
-           WHERE class_id = ANY($1)
-             AND organization_id = $2
-           ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
-          [classIds, req.session.organizationId]
-        );
-        const classes = classesQuery.rows;
-
-        // 🔥 Fetch subjects only for the assigned classes
-        const subjectsQuery = await db.query(
-          `
-            SELECT s.subject_id, s.subject_name, s.class_id
-            FROM user_subjects us
-            JOIN subjects s ON us.subject_id = s.subject_id
-            WHERE us.user_id = $1 AND s.class_id = ANY($2)
-          `,
-          [employee.user_id, classIds]
-        );
-
-        // 🔥 Group subjects by class_id
+        // Group subjects by class_id, keeping the dashboard class order.
         const classMap = new Map();
-        classes.forEach((cls) => {
-          classMap.set(cls.class_id, {
+        orgClasses.forEach((cls) => {
+          if (!classIds.has(Number(cls.class_id))) return;
+          classMap.set(Number(cls.class_id), {
             class_id: cls.class_id,
             class_name: cls.class_name,
             subjects: [],
           });
         });
 
-        subjectsQuery.rows.forEach((sub) => {
-          const targetClass = classMap.get(sub.class_id);
+        subjectsResult.rows.forEach((sub) => {
+          if (Number(sub.user_id) !== Number(employee.user_id)) return;
+          const targetClass = classMap.get(Number(sub.class_id));
           if (targetClass) {
             targetClass.subjects.push({
               subject_id: sub.subject_id,
@@ -10253,7 +10248,6 @@ const commonController = {
           }
         });
 
-        // Preserve dashboard arrangement order from the classes query.
         employee.classes = Array.from(classMap.values());
       }
 
@@ -12715,9 +12709,18 @@ NUMBERING:
     const rawTermId = req.query.termId || req.session.termId || req.session.currentTermId;
     const termId = parseInt(rawTermId, 10);
 
-    if (!organizationId || Number.isNaN(organizationId) || !termId || Number.isNaN(termId)) {
-      req.flash("error", "Organization ID and Term ID are required.");
-      return res.status(400).send("Organization ID and Term ID are required.");
+    if (!organizationId || Number.isNaN(organizationId)) {
+      return res.status(400).send("Organization ID is required.");
+    }
+    if (!termId || Number.isNaN(termId)) {
+      return res.status(200).render("common/wsNotice", {
+          title: "Assessments",
+          pageTitle: "Assessments",
+          heading: "No current term yet",
+          message: "Set a current school year and term first. Assessments are kept per term.",
+          actionHref: "/common/manageRecords",
+          actionLabel: "Go to school years",
+        });
     }
 
     if (requestedOrganizationId && !Number.isNaN(requestedOrganizationId) && requestedOrganizationId !== organizationId) {
@@ -12778,8 +12781,14 @@ NUMBERING:
       );
 
       if (!termOwnershipResult.rows.length) {
-        req.flash("error", "Invalid term for this organization.");
-        return res.status(404).send("Term not found.");
+        return res.status(200).render("common/wsNotice", {
+          title: "Assessments",
+          pageTitle: "Assessments",
+          heading: "No current term yet",
+          message: "Set a current school year and term first. Assessments are kept per term.",
+          actionHref: "/common/manageRecords",
+          actionLabel: "Go to school years",
+        });
       }
 
       // Fetch assessments with their associated classes and subjects, grouped by group_id

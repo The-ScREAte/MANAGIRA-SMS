@@ -64,7 +64,7 @@
                  const owner = [hub.first_name, hub.last_name].filter(Boolean).join(' ');
                  const logo = _logo(hub); %>
               <tr data-ah-row="<%= [hub.hub_name, hub.hub_nickname, owner, hub.hub_email].join(' ').toLowerCase() %>">
-                <td>
+                <td class="ah-col-school">
                   <div class="ah-name">
                     <span class="ah-avatar"><% if (logo) { %><img src="<%= logo %>" alt="" onerror="this.remove()" /><% } else { %><%= (hub.hub_name || 'H').charAt(0).toUpperCase() %><% } %></span>
                     <div style="min-width:0">
@@ -77,7 +77,7 @@
                     </div>
                   </div>
                 </td>
-                <td>
+                <td class="ah-col-contact">
                   <%= owner || '—' %>
                   <span class="ah-sub"><%= hub.hub_email %></span>
                 </td>
@@ -114,12 +114,12 @@
                     <% if (!hub.on_hold) { %>
                       <a class="ah-btn ah-btn--primary ah-btn--sm" href="/admin/hub/<%= hub.hub_id %>" data-ah-open data-name="<%= hub.hub_name %>" data-kind="hub"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> Open hub</a>
                     <% } %>
-                    <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/organizations"><i class="fa-solid fa-school" aria-hidden="true"></i> Schools</a>
-                    <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/billing"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Billing</a>
                     <a class="ah-btn ah-btn--sm" href="/admin/hubs/<%= hub.hub_id %>/edit" data-ah-drawer><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
                     <details class="ah-menu">
                       <summary class="ah-btn ah-btn--sm ah-btn--icon" aria-label="More actions for <%= hub.hub_name %>"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></summary>
                       <div class="ah-menu__list">
+                        <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/organizations"><i class="fa-solid fa-school" aria-hidden="true"></i> Schools</a>
+                        <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/billing"><i class="fa-solid fa-credit-card" aria-hidden="true"></i> Billing</a>
                         <a class="ah-menu__item" href="/admin/hubs/<%= hub.hub_id %>/password" data-ah-drawer><i class="fa-solid fa-key" aria-hidden="true"></i> Password</a>
                         <div class="ah-menu__sep"></div>
                         <% if (hub.on_hold) { %>

@@ -478,25 +478,26 @@
     </style>
   </head>
   <body class="manage-enrollment-page">
-    <div class="action-bar">
-      <h1>Enrollment</h1>
-      <button type="button" class="action-btn" title="Add new enrollment" onclick="openAddEnrollmentModal()">Add Enrollment</button>
-    </div>
+    <link rel="stylesheet" href="/css/workspace.css" />
+    <script src="/js/workspace.js" defer></script>
+    <div class="ws-root ws-enroll">
+    <header class="ws-head">
+      <div class="ws-head__text">
+        <h1 class="ws-head__title">Enrollment</h1>
+        <p class="ws-head__sub">The classes and students enrolled in each term.</p>
+      </div>
+      <div class="ws-head__actions">
+        <button type="button" class="ws-btn ws-btn--primary" onclick="openAddEnrollmentModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add enrollment</button>
+      </div>
+    </header>
 
     <% if (noEnrollmentForCurrentSemester) { %>
-    <div class="notice-message">
-      There are no claases and students enrolled in this current semester. If
-      you're in the wrong semester, please click
-      <a href="/common/manageRecords">here</a> to select or create the correct
-      semester and school year. Otherwise, click
-      <a href="/enrollment/enroll">here</a> to enroll the Classes and students
-      for this Semester.
-    </div>
+    <div class="ws-alert"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>No classes or students are enrolled in the current term yet. <a href="/enrollment/enroll">Enroll classes</a> for this term, or <a href="/common/manageRecords">check the school year and term</a> if this isn't the right one.</span></div>
     <% } %> <%- include('../partials/flash') %>
 
   <div class="main-content">
-    <div class="table-wrapper">
-  <table>
+    <div class="table-wrapper ws-cards-wrap">
+  <table class="ws-cards">
       <thead>
         <tr>
           <th>School Year</th>
@@ -518,9 +519,9 @@
             <span class="green-dot"></span>
             <% } %> <%= enrollment.term %>
           </td>
-          <td>
+          <td class="ws-card-wide">
             <button type="button" class="collapsible-btn" onclick="toggleClassListCollapse('class-list-<%= enrollment.enrollment_id %>')">
-              Show/Hide Classes
+              <%= enrollment.classes.length %> class<%= enrollment.classes.length === 1 ? '' : 'es' %>
               <span class="arrow" id="arrow-class-list-<%= enrollment.enrollment_id %>">&#9654;</span>
             </button>
             <div class="collapsible-content" id="class-list-<%= enrollment.enrollment_id %>" style="display:none;">
@@ -540,18 +541,22 @@
               <% }); %>
             </div>
           </td>
-          <td>
+          <td class="ws-card-actions">
             <button
               type="button"
-              class="modify-btn"
+              class="ws-btn ws-btn--sm"
               onclick="openModifyEnrollmentModal(<%= enrollment.enrollment_id %>)"
-            >Modify</button>
+            ><i class="fa-solid fa-pen" aria-hidden="true"></i> Modify</button>
           </td>
         </tr>
         <% }); %>
+        <% if (!enrollments.length) { %>
+        <tr><td colspan="4" class="ws-empty">No enrollments yet. Use <strong style="display:inline">Add enrollment</strong> to enroll classes for a term.</td></tr>
+        <% } %>
       </tbody>
   </table>
     </div>
+  </div>
   </div>
 
   <div class="en-modal-overlay" id="enModalOverlay" aria-hidden="true">

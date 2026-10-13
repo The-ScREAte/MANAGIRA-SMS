@@ -437,7 +437,7 @@ app.use(async (req, res, next) => {
       if (hubSubdomain) {
         // Two-level subdomain: org.hub.managira.com
         orgQuery = `
-          SELECT o.*, mh.hub_name, mh.hub_nickname, mh.hub_email, mh.plan_id as hub_plan_id,
+          SELECT o.*, mh.hub_name, mh.hub_nickname, mh.hub_email, COALESCE(o.hub_assigned_plan_id, mh.plan_id) as hub_plan_id,
                  mh.hub_branding_enabled, mh.hub_footer_text, mh.on_hold as hub_on_hold, mh.logo_path as hub_logo
           FROM organizations o
           JOIN managira_hubs mh ON o.hub_id = mh.hub_id
@@ -451,7 +451,7 @@ app.use(async (req, res, next) => {
                  CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_name ELSE NULL END as hub_name,
                  CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_nickname ELSE NULL END as hub_nickname,
                  CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_email ELSE NULL END as hub_email,
-                 CASE WHEN o.hub_id IS NOT NULL THEN mh.plan_id ELSE NULL END as hub_plan_id,
+                 CASE WHEN o.hub_id IS NOT NULL THEN COALESCE(o.hub_assigned_plan_id, mh.plan_id) ELSE NULL END as hub_plan_id,
                  CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_branding_enabled ELSE false END as hub_branding_enabled,
                  CASE WHEN o.hub_id IS NOT NULL THEN mh.hub_footer_text ELSE NULL END as hub_footer_text,
                  CASE WHEN o.hub_id IS NOT NULL THEN mh.on_hold ELSE false END as hub_on_hold,
@@ -600,6 +600,21 @@ if (process.env.NODE_ENV === "production") {
     })
   );
 }
+
+// Saving anything changes this small cookie. Pages the browser keeps for a
+// minute (workspace panels; their responses Vary on Cookie) are then fetched
+// fresh right after an edit, so a save always shows straight away.
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD" && req.session && (req.session.userId || req.session.organizationId || req.session.hubId)) {
+    res.cookie("mgv", Date.now().toString(36), {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      ...(process.env.NODE_ENV === "production" ? { domain: ".managira.com" } : {}),
+    });
+  }
+  next();
+});
 
 
 // Idle session timeout — log out users after 4 hours of real inactivity.
@@ -1031,7 +1046,7 @@ const fetchSitemapOrganizations = async () => {
             WHERE fr.route_path = '/common/publicDashboard'
               AND pf.plan_id = (
                 CASE
-                  WHEN o.is_hub_member AND mh.plan_id IS NOT NULL THEN mh.plan_id
+                  WHEN o.is_hub_member AND COALESCE(o.hub_assigned_plan_id, mh.plan_id) IS NOT NULL THEN COALESCE(o.hub_assigned_plan_id, mh.plan_id)
                   ELSE o.plan_id
                 END
               )

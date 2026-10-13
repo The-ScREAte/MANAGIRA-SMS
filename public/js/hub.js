@@ -8,6 +8,15 @@
   shell.dataset.ready = '1';
   const alive = () => document.body.contains(shell);
 
+  // A menu link to a dashboard section ("/hub/dashboard#attendance") clicked on
+  // another page: remember the section. The page router loads the dashboard
+  // before it updates the address, so the address alone would say "overview".
+  window.addEventListener('click', (e) => {
+    if (!alive() || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    const a = e.target.closest && e.target.closest('a[href^="/hub/dashboard#"]');
+    if (a && !document.querySelector('[data-hub-dashboard]')) window.__hubWantView = a.getAttribute('href').split('#')[1];
+  }, true);
+
   const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const num = (v) => Number(v || 0).toLocaleString('en-US');
   const one = (v) => Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 1 });
@@ -84,6 +93,17 @@
       window.location.reload();
     }
   }
+  // Billing shows the saved numbers while Stripe catches up, then refreshes itself.
+  let stripeWaits = 0;
+  const waitForStripe = () => {
+    if (!alive() || !shell.querySelector('[data-hub-billing-refreshing]') || stripeWaits >= 3) return;
+    stripeWaits += 1;
+    const path = window.location.pathname;
+    setTimeout(() => { if (alive() && window.location.pathname === path) refresh(); }, 4000);
+  };
+  document.addEventListener('hub:refreshed', waitForStripe);
+  waitForStripe();
+
   // Toast now, or after a full reload.
   function done(message) {
     const main = document.querySelector('.hub-main');
@@ -881,7 +901,9 @@
       show(fromHash());
       if (data) { renderPeriod(); renderAll(); }
     });
-    show(fromHash());
+    const wanted = window.__hubWantView;
+    window.__hubWantView = null;
+    show(wanted || fromHash());
   }
 
 

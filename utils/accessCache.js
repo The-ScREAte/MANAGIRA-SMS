@@ -17,7 +17,7 @@ async function resolvePlanForOrganization(db, organizationId) {
     async () => {
       try {
         const { rows: orgRows } = await db.query(
-          `SELECT o.plan_id, o.is_hub_member, o.hub_id, mh.plan_id AS hub_plan_id
+          `SELECT o.plan_id, o.is_hub_member, o.hub_id, COALESCE(o.hub_assigned_plan_id, mh.plan_id) AS hub_plan_id
            FROM organizations o
            LEFT JOIN managira_hubs mh ON o.hub_id = mh.hub_id
            WHERE o.organization_id = $1`,

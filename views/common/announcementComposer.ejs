@@ -29,7 +29,13 @@
     }
     .ann-field textarea { min-height: 110px; resize: vertical; }
     .ann-row { display: flex; gap: 16px; }
-    .ann-row > .ann-field { flex: 1; }
+    .ann-row > .ann-field { flex: 1; min-width: 0; }
+    /* Phones: fields one under the other, so nothing is squeezed or cut off. */
+    @media (max-width: 560px) {
+      .ann-row { flex-direction: column; gap: 0; }
+      .ann-segmented { display: flex; width: 100%; }
+      .ann-segmented button { flex: 1; white-space: nowrap; }
+    }
     .ann-toggle-row { display: flex; align-items: center; gap: 10px; }
     .ann-segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
     .ann-segmented button {

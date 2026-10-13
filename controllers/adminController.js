@@ -553,6 +553,9 @@ async function deleteUserWithDependencies({ userId, actorUserId }) {
   }
 }
 
+
+// Standard billing cycle keys and their length in months.
+const STANDARD_CYCLE_MONTHS = { monthly: 1, '3_months': 3, '6_months': 6, yearly: 12, '2_years': 24 };
 const adminController = {
   adminDashboard: async (req, res) => {
     try {
@@ -6049,6 +6052,8 @@ const adminController = {
   },
 
   // --- Dynamic billing cycles -----------------------------------------
+  // A cycle's key is what schools' payments store, so a standard key must keep
+  // its length (on 2026-09-22 "monthly" was edited to 3 months by mistake).
 
   createDynamicCycle: async (req, res) => {
     const cycleKey = String(req.body.cycle_key || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
@@ -6056,6 +6061,9 @@ const adminController = {
     const months = parseInt(req.body.months, 10);
     if (!cycleKey || !label || !Number.isInteger(months) || months < 1) {
       return res.status(400).json({ ok: false, error: 'Key, label and a months value (>= 1) are required.' });
+    }
+    if (STANDARD_CYCLE_MONTHS[cycleKey] && STANDARD_CYCLE_MONTHS[cycleKey] !== months) {
+      return res.status(400).json({ ok: false, error: `The "${cycleKey}" cycle must be ${STANDARD_CYCLE_MONTHS[cycleKey]} month(s).` });
     }
     try {
       const discount = Math.min(50, Math.max(0, parseInt(req.body.discount_percentage, 10) || 0));
@@ -6093,6 +6101,20 @@ const adminController = {
         const months = parseInt(req.body.months, 10);
         if (!Number.isInteger(months) || months < 1) {
           return res.status(400).json({ ok: false, error: 'Months must be >= 1.' });
+        }
+        const current = (await db.query('SELECT cycle_key, months FROM dynamic_billing_cycles WHERE id = $1', [cycleId])).rows[0];
+        if (current && Number(current.months) !== months) {
+          if (STANDARD_CYCLE_MONTHS[current.cycle_key] && STANDARD_CYCLE_MONTHS[current.cycle_key] !== months) {
+            return res.status(400).json({ ok: false, error: `This is the "${current.cycle_key}" cycle, so it must stay ${STANDARD_CYCLE_MONTHS[current.cycle_key]} month(s). Edit the cycle that matches the length you want.` });
+          }
+          const inUse = (await db.query(
+            `SELECT COUNT(*)::int AS n FROM payments p JOIN organizations o ON o.organization_id = p.organization_id
+              WHERE p.billing_period_key = $1 AND COALESCE(o.deleted, false) = false`,
+            [current.cycle_key]
+          )).rows[0].n;
+          if (inUse) {
+            return res.status(400).json({ ok: false, error: `${inUse} school(s) pay on this cycle, so its length can't change. Add a new cycle instead.` });
+          }
         }
         fields.push(`months = $${idx++}`);
         values.push(months);
@@ -6502,6 +6524,11 @@ adminController.hubCreatePost = async (req, res) => {
 
     const hubId = result.rows[0].hub_id;
     const by = [req.session.firstName, req.session.lastName].filter(Boolean).join(' ') || 'Managira';
+    // Plans the hub can give its schools.
+    const hubPlans = require("../utils/hubPlans");
+    await hubPlans.ensureHubPlanSchema(db);
+    const activeIds = (await hubPlans.activePlans(db)).map((p) => p.id);
+    await db.query('UPDATE managira_hubs SET allowed_plan_ids = $1 WHERE hub_id = $2', [hubPlans.readAllowedPlans(req.body, activeIds), hubId]);
     await hubBilling.saveContract(db, hubId, contract.values, { by });
 
     // Send setup email
@@ -6614,6 +6641,14 @@ adminController.hubEditPost = async (req, res) => {
     );
     if (has('maxUsers')) await saveHubLicenses(hubId, req.body.maxUsers);
 
+    // Plans the hub can give its schools.
+    if (has('allowedPlansSent')) {
+      const hubPlans = require("../utils/hubPlans");
+      await hubPlans.ensureHubPlanSchema(db);
+      const activeIds = (await hubPlans.activePlans(db)).map((p) => p.id);
+      await db.query('UPDATE managira_hubs SET allowed_plan_ids = $1 WHERE hub_id = $2', [hubPlans.readAllowedPlans(req.body, activeIds), hubId]);
+    }
+
     const previousPlanId = existingHubResult.rows[0]?.plan_id || null;
     const nextPlanId = planId || null;
     if (String(previousPlanId || '') !== String(nextPlanId || '')) {
@@ -6629,7 +6664,7 @@ adminController.hubEditPost = async (req, res) => {
       }
     }
 
-    req.flash('success', 'Hub updated successfully.');
+    req.flash('success', 'Hub saved.');
     res.redirect('/admin/hubs');
   } catch (error) {
         req.flash('error', 'Error updating hub.');
@@ -6922,7 +6957,11 @@ adminController.hubOrganizationsGet = async (req, res) => {
 
   try {
     await require("../utils/hubAccess").ensureHubAccessSchema(db);
-    const hubResult = await db.query('SELECT * FROM managira_hubs WHERE hub_id = $1', [hubId]);
+    await require("../utils/hubPlans").ensureHubPlanSchema(db);
+    const hubResult = await db.query(
+      'SELECT h.*, (SELECT plan_name FROM plans WHERE id = h.plan_id) AS default_plan_name FROM managira_hubs h WHERE h.hub_id = $1',
+      [hubId]
+    );
     
     if (hubResult.rows.length === 0) {
       req.flash('error', 'Hub not found.');
@@ -6937,6 +6976,7 @@ adminController.hubOrganizationsGet = async (req, res) => {
                   AND LOWER(COALESCE(u.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')) as teacher_count,
               (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id) as class_count,
               o.max_users,
+              (SELECT p.plan_name FROM plans p WHERE p.id = o.hub_assigned_plan_id) AS assigned_plan_name,
               (SELECT COUNT(*)::int FROM users u2 WHERE u2.organization_id = o.organization_id
                   AND LOWER(COALESCE(u2.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')) as user_count
        FROM organizations o

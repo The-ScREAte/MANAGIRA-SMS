@@ -524,13 +524,13 @@
         <li>
           <a class="nav-link active" href="/common/manageRecords" data-no-spa data-section="school-year" data-embed-url="/common/manageRecords" data-embed-label="School Years">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-            <span>School Year</span>
+            <span>School years</span>
           </a>
         </li>
         <li>
           <a class="nav-link" href="/common/manageClassSubjectAndGradYr" data-no-spa data-section="graduation" data-embed-url="/common/manageClassSubjectAndGradYr" data-embed-label="Classes, Subjects &amp; Grad Years">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/></svg></span>
-            <span>Class, Subject &amp; Grad Year</span>
+            <span>Classes &amp; subjects</span>
           </a>
         </li>
         <li>
@@ -563,14 +563,14 @@
         <li>
           <a class="nav-link" href="/common/manageEmployees" data-no-spa data-section="employees" data-embed-url="/common/manageEmployees" data-embed-label="Employees">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M2 21c0-3.866 3.134-7 7-7s7 3.134 7 7"/><circle cx="17" cy="7" r="3"/><path d="M22 19c0-2.5-1.8-4.5-5-5"/></svg></span>
-            <span>Employee</span>
+            <span>Employees</span>
           </a>
         </li>
         <% } %>
         <li>
           <a class="nav-link" href="/common/guardians" data-no-spa data-section="guardians" data-embed-url="/common/guardians" data-embed-label="Guardians">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8"/></svg></span>
-            <span>Parents/Guardian</span>
+            <span>Parents &amp; guardians</span>
           </a>
         </li>
         <% if (hasTransportationIntegration) { %>
@@ -592,7 +592,7 @@
         <li>
           <a class="nav-link" href="/common/manageEventsAnnouncements" data-no-spa data-section="announcements-events" data-embed-url="/common/manageEventsAnnouncements" data-embed-label="Announcements &amp; Events">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 11v2a2 2 0 002 2h2l5 4V5L7 9H5a2 2 0 00-2 2z"/><path d="M16 8a5 5 0 010 8"/></svg></span>
-            <span>Announcements &amp; Events</span>
+            <span>Events &amp; announcements</span>
           </a>
         </li>
         <% if (hasPublicWebsiteFeature) { %>
@@ -629,7 +629,7 @@
         <li>
           <a class="nav-link" href="/common/failedEmails" data-no-spa data-section="email-issues" data-embed-url="/common/failedEmails" data-embed-label="Email Issues">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
-            <span>Email Issues<% if (failedEmailCount > 0) { %> <span style="display:inline-block;background:#dc2626;color:#fff;font-size:0.7rem;font-weight:700;border-radius:20px;padding:0 6px;vertical-align:middle;line-height:1.6"><%=failedEmailCount%></span><% } %></span>
+            <span>Email issues<% if (failedEmailCount > 0) { %> <span style="display:inline-block;background:#dc2626;color:#fff;font-size:0.7rem;font-weight:700;border-radius:20px;padding:0 6px;vertical-align:middle;line-height:1.6"><%=failedEmailCount%></span><% } %></span>
           </a>
         </li>
         <% } %>

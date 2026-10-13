@@ -876,18 +876,20 @@
       document.body.classList.add('class-subject-page');
     </script>
 
-    <div class="page-shell">
-    <div class="action-bar">
-      <h1>Classes, Subjects &amp; Grad Years</h1>
-      <button type="button" class="action-btn" title="Add new classes, subjects or graduation groups" onclick="openAddClassSubjectModal()"> + Add New Items</button>
-    </div>
+    <link rel="stylesheet" href="/css/workspace.css" />
+    <div class="page-shell ws-root">
+    <header class="ws-head">
+      <div class="ws-head__text">
+        <h1 class="ws-head__title">Classes, subjects &amp; graduation years</h1>
+        <p class="ws-head__sub">Rename classes, subjects and graduation groups, or add new ones.</p>
+      </div>
+      <div class="ws-head__actions">
+        <button type="button" class="ws-btn ws-btn--primary" onclick="openAddClassSubjectModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add new</button>
+      </div>
+    </header>
 
     <% if (classes.length === 0 && graduationYearGroups.length === 0) { %>
-    <div style="width: 100%; max-width: 1100px; padding: 0 20px; margin: 0 auto 24px;">
-      <div class="note" style="display: block; background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px 20px; border-radius: 0 8px 8px 0; text-align: center;">
-        <p style="margin: 0; color: #92400e;">No classes or graduation groups yet. Use Add New Items.</p>
-      </div>
-    </div>
+    <div class="ws-alert"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>No classes or graduation groups yet. Use <strong>Add new</strong> to create them.</span></div>
     <% } %>
 
     <div class="container">

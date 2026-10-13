@@ -1626,6 +1626,27 @@ async function handleStripeEvent(db, event) {
 
 // ---------------------------------------------------------------- page data
 
+// Bring a hub's billing in step with Stripe without making a page wait for it.
+// One refresh per hub at a time; pages show the saved numbers meanwhile.
+const refreshing = new Map();
+function isStale(billing, maxAgeMs) {
+  return !!(billing && billing.stripe_customer_id
+    && (!billing.last_synced_at || Date.now() - new Date(billing.last_synced_at).getTime() > maxAgeMs));
+}
+function refreshInBackground(db, hubId) {
+  const key = Number(hubId);
+  if (refreshing.has(key)) return refreshing.get(key);
+  const job = (async () => {
+    const billing = await loadBilling(db, key);
+    if (billing && billing.stripe_subscription_id && !billing.ended_at) await syncSubscription(db, key).catch(() => {});
+    await refresh(db, key);
+  })()
+    .catch((err) => console.error('[hubBilling] background refresh', key, err.message))
+    .finally(() => refreshing.delete(key));
+  refreshing.set(key, job);
+  return job;
+}
+
 async function overview(db, hubId, { fresh = false } = {}) {
   await ensureHubBillingSchema(db);
   let billing = await loadBilling(db, hubId);
@@ -1792,6 +1813,8 @@ module.exports = {
   saveCard,
   syncSubscription,
   refresh,
+  isStale,
+  refreshInBackground,
   recordInvoice,
   requestCharge,
   addCharge,

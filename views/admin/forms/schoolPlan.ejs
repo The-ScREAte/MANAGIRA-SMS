@@ -1,0 +1,22 @@
+<div data-ahd-title="Plan" data-ahd-sub="<%= org.organization_name %>. What this school can use in Managira.">
+  <form action="/admin/hubs/<%= hubId %>/organizations/<%= org.organization_id %>/plan" method="POST" class="ahd-form">
+    <section class="ahd-section">
+      <div class="ah-choice-list">
+        <label class="ah-choice">
+          <input type="radio" name="planId" value="" <%= org.hub_assigned_plan_id ? '' : 'checked' %> />
+          <span><strong>Hub default<%= defaultPlan ? ` (${defaultPlan.plan_name})` : '' %></strong><small>Follows the hub’s default plan.</small></span>
+        </label>
+        <% plans.forEach((p) => { %>
+          <label class="ah-choice">
+            <input type="radio" name="planId" value="<%= p.id %>" <%= Number(org.hub_assigned_plan_id) === Number(p.id) ? 'checked' : '' %> />
+            <span><strong><%= p.plan_name %></strong><small><%= hubPlanIds.includes(Number(p.id)) ? 'The hub can give this plan.' : 'Only Managira can set this plan for this hub.' %></small></span>
+          </label>
+        <% }) %>
+      </div>
+    </section>
+    <div class="ahd__foot">
+      <button type="button" class="ah-btn" data-ahd-close>Cancel</button>
+      <button type="submit" class="ah-btn ah-btn--primary">Save plan</button>
+    </div>
+  </form>
+</div>

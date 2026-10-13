@@ -1,0 +1,17 @@
+<%
+  // A simple workspace page for "nothing to show yet" (for example, no current
+  // term). Pass: pageTitle, heading, message, actionHref, actionLabel.
+%>
+<link rel="stylesheet" href="/css/workspace.css" />
+<div class="ws-root">
+  <header class="ws-head">
+    <div class="ws-head__text"><h1 class="ws-head__title"><%= pageTitle %></h1></div>
+  </header>
+  <div class="ws-card ws-empty">
+    <strong><%= heading %></strong>
+    <p style="margin:0 0 16px"><%= message %></p>
+    <% if (typeof actionHref !== 'undefined' && actionHref) { %>
+      <a class="ws-btn ws-btn--primary" href="<%= actionHref %>"><%= actionLabel || 'Continue' %></a>
+    <% } %>
+  </div>
+</div>

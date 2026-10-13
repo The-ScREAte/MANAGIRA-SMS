@@ -397,7 +397,14 @@
   </style>
 </head>
 <body>
-<div class="ea-page">
+<link rel="stylesheet" href="/css/workspace.css" />
+<div class="ea-page ws-root ws-events">
+  <header class="ws-head">
+    <div class="ws-head__text">
+      <h1 class="ws-head__title">Events &amp; announcements</h1>
+      <p class="ws-head__sub">Share dates and news with staff and families for this term.</p>
+    </div>
+  </header>
 
   <!-- ── Flash ── -->
   <div class="flash-wrap">
@@ -418,11 +425,11 @@
     <!-- ── Tab strip ── -->
     <div class="tab-strip" role="tablist">
       <button class="tab-btn active" role="tab" data-tab="events">
-        &#128197; Events
+        Events
         <span class="count-pill"><%= (events || []).length %></span>
       </button>
       <button class="tab-btn" role="tab" data-tab="announcements">
-        &#128226; Announcements
+        Announcements
         <span class="count-pill"><%= (announcements || []).length %></span>
       </button>
     </div>

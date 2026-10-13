@@ -486,15 +486,22 @@
 </head>
 <body class="manage-employees-page">
   <%- include('../partials/flash') %>
-  <div class="employees-page">
+  <link rel="stylesheet" href="/css/workspace.css" />
+  <script src="/js/workspace.js" defer></script>
+  <div class="employees-page ws-root ws-employees">
 
-  <div class="page-header-bar">
-    <h1 class="page-title">👥 <%= title %></h1>
-    <button type="button" class="add-btn" title="Add new employee" onclick="openAddEmployeeModal()">Add Employee</button>
-  </div>
+  <header class="ws-head">
+    <div class="ws-head__text">
+      <h1 class="ws-head__title">Employees</h1>
+      <p class="ws-head__sub">Staff accounts, their roles and what each person can open.</p>
+    </div>
+    <div class="ws-head__actions">
+      <button type="button" class="ws-btn ws-btn--primary" onclick="openAddEmployeeModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add employee</button>
+    </div>
+  </header>
 
-  <div class="employees-table">
-    <table>
+  <div class="employees-table ws-cards-wrap">
+    <table class="ws-cards">
       <thead>
         <tr>
           <th>Status</th>
@@ -517,17 +524,17 @@
                   doesn't clear the original invite token), they're active
                   regardless of stray token bookkeeping. */ %>
             <% if (employee.reset_password_token && !employee.password) { %>
-              <span class="status-badge status-pending">⏳ Pending Setup</span>
+              <span class="ws-pill ws-pill--amber">Invite sent</span>
             <% } else { %>
-              <span class="status-badge status-active">✓ Active</span>
+              <span class="ws-pill ws-pill--green">Active</span>
             <% } %>
           </td>
-          <td data-label="Name"><strong><%= (typeof formatDisplayName === 'function' ? formatDisplayName(employee) : [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim()) %></strong></td>
-          <td data-label="Email"><%= employee.email %></td>
+          <td data-label="Name" class="ws-card-title"><strong><%= (typeof formatDisplayName === 'function' ? formatDisplayName(employee) : [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim()) %></strong></td>
+          <td data-label="Email" class="ws-card-wide"><%= employee.email %></td>
           <td data-label="Role"><%= employee.account_type %></td>
           <td data-label="Permissions">
             <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('permissions', '<%= idx %>')">
-              View <span class="arrow" id="arrow-permissions-<%= idx %>">▸</span>
+              <%= employee.account_type === 'Manager' ? 'All' : (employee.permissions || []).length %> <span class="arrow" id="arrow-permissions-<%= idx %>">▸</span>
             </button>
             <div class="collapsible-content" id="collapse-permissions-<%= idx %>" style="display:none;">
               <% if (employee.account_type === 'Manager') { %>
@@ -545,7 +552,7 @@
           </td>
           <td data-label="Classes">
             <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('classes', '<%= idx %>')">
-              View <span class="arrow" id="arrow-classes-<%= idx %>">▸</span>
+              <%= (employee.classes || []).length %> <span class="arrow" id="arrow-classes-<%= idx %>">▸</span>
             </button>
             <div class="collapsible-content" id="collapse-classes-<%= idx %>" style="display:none;">
               <% if ((employee.classes || []).length > 0) { %>
@@ -561,7 +568,7 @@
           </td>
           <td data-label="Subjects">
             <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('subjects', '<%= idx %>')">
-              View <span class="arrow" id="arrow-subjects-<%= idx %>">▸</span>
+              <%= new Set((employee.classes || []).flatMap((c) => (c.subjects || []).map((x) => x.subject_name))).size %> <span class="arrow" id="arrow-subjects-<%= idx %>">▸</span>
             </button>
             <div class="collapsible-content" id="collapse-subjects-<%= idx %>" style="display:none;">
               <% if ((employee.classes || []).length > 0) { %>
@@ -584,11 +591,11 @@
               <% } %>
             </div>
           </td>
-          <td data-label="Actions">
-            <button type="button" class="modify-link" onclick="openModifyEmployeeModal('<%= employee.user_id %>')">✏️ Modify</button>
+          <td data-label="Actions" class="ws-card-actions ws-actions-cell">
             <% if (employee.on_hold) { %>
-            <span class="hold-badge">ON HOLD</span>
+            <span class="ws-pill ws-pill--amber">On hold</span>
             <% } %>
+            <button type="button" class="ws-btn ws-btn--sm" onclick="openModifyEmployeeModal('<%= employee.user_id %>')"><i class="fa-solid fa-pen" aria-hidden="true"></i> Modify</button>
           </td>
         </tr>
         <% }); %>
