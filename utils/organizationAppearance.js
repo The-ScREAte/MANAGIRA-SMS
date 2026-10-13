@@ -1,16 +1,23 @@
-// Each person picks how the school app looks for them: white (default), gray
-// or dark. Stored per account (staff user, school owner, guardian or student),
-// never per school, and kept in the session after the first read.
-const MODES = ['white', 'gray', 'dark'];
+// Each person picks how Managira looks for them: light (the default, a soft
+// gray) or dark. Stored per account (staff user, school owner, guardian,
+// student, hub owner or hub user), never per school, and kept in the session
+// after the first read. Older saves of "white" read as light.
+const MODES = ['gray', 'dark'];
 let schemaPromise;
 
 function normalizeAppearance(value) {
-  return MODES.includes(value) ? value : 'white';
+  return value === 'dark' ? 'dark' : 'gray';
 }
 
 // Who the choice belongs to: [kind, id] for the signed-in account, or null.
 function appearanceOwner(session) {
   if (!session) return null;
+  // A Managira admin looking at a hub or a school keeps their own choice.
+  if (session.adminHubView && session.userId) return ['user', Number(session.userId)];
+  // Hub people (also while they have a school open from the hub).
+  if (session.hubId && (session.hubOrgSwitch || !session.organizationId)) {
+    return session.hubUserId ? ['hubuser', Number(session.hubUserId)] : ['hub', Number(session.hubId)];
+  }
   if (session.userId) return ['user', Number(session.userId)];
   if (session.guardianId) return ['guardian', Number(session.guardianId)];
   if (session.studentId) return ['student', Number(session.studentId)];
@@ -23,7 +30,7 @@ async function ensureAppearanceSchema(db) {
     schemaPromise = db.query(`CREATE TABLE IF NOT EXISTS account_appearance (
         account_kind VARCHAR(12) NOT NULL,
         account_id INTEGER NOT NULL,
-        mode VARCHAR(10) NOT NULL DEFAULT 'white' CHECK (mode IN ('white', 'gray', 'dark')),
+        mode VARCHAR(10) NOT NULL DEFAULT 'gray' CHECK (mode IN ('white', 'gray', 'dark')),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         PRIMARY KEY (account_kind, account_id)
       )`).catch((error) => {
@@ -36,7 +43,7 @@ async function ensureAppearanceSchema(db) {
 
 async function loadAppearance(db, session) {
   const owner = appearanceOwner(session);
-  if (!owner) return 'white';
+  if (!owner) return 'gray';
   await ensureAppearanceSchema(db);
   const { rows } = await db.query('SELECT mode FROM account_appearance WHERE account_kind = $1 AND account_id = $2', owner);
   return normalizeAppearance(rows[0] && rows[0].mode);

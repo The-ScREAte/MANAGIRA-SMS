@@ -1,0 +1,13 @@
+<%# Light / dark picker for settings pages. Saved for the signed-in person only (POST /appearance). %>
+<% const _apNow = (typeof appearance !== 'undefined' && appearance === 'dark') ? 'dark' : 'light'; %>
+<div class="ap-picker" role="radiogroup" aria-label="Appearance" data-ap-picker data-ap-skip>
+  <% [['light', 'Light'], ['dark', 'Dark']].forEach(function (choice) { %>
+    <label class="ap-choice ap-choice--<%= choice[0] %>">
+      <input type="radio" name="appearanceMode" value="<%= choice[0] %>" <%= _apNow === choice[0] ? 'checked' : '' %> />
+      <span class="ap-choice__preview" aria-hidden="true"><i></i><i></i></span>
+      <span><%= choice[1] %></span>
+      <span class="ap-choice__check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+    </label>
+  <% }) %>
+</div>
+<p class="ap-status" data-ap-status aria-live="polite"></p>

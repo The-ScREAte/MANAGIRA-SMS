@@ -824,3 +824,8 @@ a.hub-stat:hover { background: #fafbfc; }
   .hub-card > .hub-bill-sum__more { margin: 14px -16px -16px; }
   .hub-bill-sum > .hub-bill-sum__more { margin: 0; }
 }
+
+/* Appearance picker on Settings */
+.hub-ap { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--hub-line); }
+.hub-ap__title { font-size: .92rem; font-weight: 700; color: var(--hub-ink); }
+.hub-ap .ap-picker { margin-top: 10px; }

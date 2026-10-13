@@ -966,7 +966,8 @@
         background: #fff;
         box-shadow: -12px 0 32px rgba(15, 23, 42, 0.18);
         transform: translateX(100%);
-        transition: transform 0.25s ease;
+        visibility: hidden;
+        transition: transform 0.25s ease, visibility 0s linear 0.25s;
         z-index: 1201;
         display: flex;
         flex-direction: column;
@@ -975,6 +976,8 @@
 
       .integration-info-panel.show {
         transform: translateX(0);
+        visibility: visible;
+        transition: transform 0.25s ease, visibility 0s;
       }
 
       .integration-info-panel-head {
@@ -2969,6 +2972,40 @@
       .settings-main > .settings-section > p.lead { margin-bottom: 18px; }
       .settings-section > .card { border-radius: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
 
+      /* One save bar under each group of settings. */
+      .settings-own-save { display: none !important; }
+      .settings-webaddress { display: inline-flex; align-items: center; gap: 8px; margin: 12px 0 0; padding: 8px 12px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; font-size: 14px; color: var(--muted, #64748b); }
+      .settings-subcard input[type="file"] { font-size: 14px; color: var(--muted, #64748b); max-width: 100%; }
+      .settings-subcard input[type="file"]::file-selector-button { margin-right: 12px; padding: 7px 14px; border: 1px solid var(--border, #d1d5db); border-radius: 8px; background: #fff; color: #111827; font: inherit; font-weight: 600; cursor: pointer; }
+      .settings-subcard .content-row { gap: 12px; }
+      .settings-save-bar { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border, #e5e7eb); }
+      .settings-save-bar__note { font-size: 13px; color: var(--muted, #64748b); }
+      .settings-save-bar.is-dirty .settings-save-bar__note { color: #b45309; }
+      .settings-save-bar__btn { width: auto !important; min-width: 140px; }
+      @media (max-width: 640px) {
+        .settings-save-bar { flex-direction: column-reverse; align-items: stretch; }
+        .settings-save-bar__btn { width: 100% !important; }
+        .settings-save-bar__note { text-align: center; }
+      }
+
+      /* Your details: one photo, one form. */
+      .me-card__body { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; margin-top: 16px; align-items: start; }
+      .me-card__photo { display: grid; justify-items: center; gap: 10px; margin: 0; }
+      .me-card .me-card__avatar { width: 96px; height: 96px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; font-size: 34px; font-weight: 700; }
+      .me-card .me-card__avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+      .me-card__photo-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+      .me-card__pick { cursor: pointer; font-weight: 600; font-size: 14px; width: auto !important; }
+      .me-card__file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+      .me-card__remove { width: auto !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; color: #b91c1c !important; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: none !important; }
+      .me-card__role { margin: 0; text-align: center; }
+      .me-card__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; margin: 0; }
+      .me-card__fields .field-group { margin: 0; }
+      .me-card__fields .form-input { width: 100%; max-width: none; }
+      @media (max-width: 640px) {
+        .me-card__body { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+        .me-card__fields { grid-template-columns: minmax(0, 1fr); }
+      }
+
       /* Customize School: three groups, each holding a few related settings. */
       .settings-group > .card-collapse-head h4,
       .settings-group > h4 { display: grid; gap: 2px; margin: 0; font-size: 16px; font-weight: 700; }
@@ -3155,7 +3192,7 @@
               : "";
           %>
 
-          <div class="card settings-group">
+          <div class="card settings-group" data-save-group>
             <h4>School profile<span class="settings-group__desc">Logo, name, address and web address</span></h4>
 
             <div class="settings-subcard">
@@ -3226,14 +3263,8 @@
             </div>
 
             <div class="settings-subcard">
-              <h4>Web address</h4>
-              <small>The display name for your school. Your web address is locked and won't change.</small>
-              <p class="text-muted-sm">
-                Type the nickname the way you'd like it shown
-                (e.g. <em>HJS School</em>). Your web address
-                (<strong><%= (org && org.nickname) ? org.nickname : '' %>.managira.com</strong>)
-                was set at registration and is permanent.
-              </p>
+              <h4>Short name and web address</h4>
+              <small>The short name shown for your school (e.g. <em>HJS School</em>). The web address was set when you signed up and can't change.</small>
               <form action="/account/personalization/nickname" method="POST">
                 <input type="hidden" name="redirectTo" value="/account/settings" />
                 <div class="content-row">
@@ -3251,20 +3282,11 @@
                   <button class="btn-link" type="submit">Save Display Name</button>
                 </div>
               </form>
-              <div class="content-row" style="margin-top: 10px; align-items: center; gap: 8px;">
-                <label class="text-muted-sm" style="min-width: 110px;">Web address</label>
-                <input
-                  type="text"
-                  value="<%= (org && org.nickname) ? org.nickname : '' %>.managira.com"
-                  readonly
-                  class="form-input"
-                  style="background:#f1f5f9; cursor:not-allowed; color:#475569;"
-                />
-              </div>
+              <p class="settings-webaddress"><i class="fa-solid fa-globe" aria-hidden="true"></i> <%= (org && org.nickname) ? org.nickname : '' %>.managira.com <i class="fa-solid fa-lock" aria-hidden="true" title="Can't change"></i></p>
             </div>
           </div>
 
-          <div class="card settings-group">
+          <div class="card settings-group" data-save-group>
             <h4>Look and feel<span class="settings-group__desc">Brand color, font, and how names and dates show</span></h4>
 
             <div class="settings-subcard mobile-compact-card mobile-unbold-card">
@@ -3489,7 +3511,7 @@
             </div>
           </div>
 
-          <div class="card settings-group">
+          <div class="card settings-group" data-save-group>
             <h4>School rules<span class="settings-group__desc">Calendar rules and student ID numbers</span></h4>
 
             <div class="settings-subcard mobile-compact-card mobile-unbold-card">
@@ -3561,7 +3583,7 @@
               <hr style="margin: 16px 0; border: none; border-top: 1px solid #e5e7eb;" />
 
               <small>Add specific days to force attendance counting on/off across the organization.</small>
-              <form action="/account/settings/calendar/day" method="POST">
+              <form action="/account/settings/calendar/day" method="POST" data-own-submit>
                 <div class="content-row" style="align-items:flex-end;">
                   <div class="field-group">
                     <label class="form-label" for="calendarDate">Date</label>
@@ -3617,7 +3639,7 @@
                           <td style="padding:8px; border-bottom:1px solid #f1f5f9;"><%= day.counts_for_attendance ? 'Yes' : 'No' %></td>
                           <td style="padding:8px; border-bottom:1px solid #f1f5f9;">
                             <% if (day.source === 'manual') { %>
-                              <form action="/account/settings/calendar/day/delete" method="POST" style="display:inline;">
+                              <form action="/account/settings/calendar/day/delete" method="POST" style="display:inline;" data-own-submit>
                                 <input type="hidden" name="calendarDayId" value="<%= day.calendar_day_id %>" />
                                 <button class="btn-danger btn-link" type="submit" style="padding:6px 10px;">Delete</button>
                               </form>
@@ -3775,147 +3797,47 @@
           <h1>Profile</h1>
           <p class="lead">View and manage your profile information.</p>
 
-          <% const _myAppearance = ['white', 'gray', 'dark'].includes(session && session.appearance) ? session.appearance : 'white'; %>
-          <div class="card" id="appearance" data-no-collapse data-ap-skip>
+          <div class="card" id="appearance" data-no-collapse>
             <h4>Appearance</h4>
-            <small>How Managira looks for you. Only you see this; prints, PDFs and emails always stay white.</small>
-            <div class="ap-picker" role="radiogroup" aria-label="Appearance" data-ap-picker>
-              <% [['white', 'White'], ['gray', 'Gray'], ['dark', 'Dark']].forEach(function (choice) { %>
-                <label class="ap-choice ap-choice--<%= choice[0] %>">
-                  <input type="radio" name="appearanceMode" value="<%= choice[0] %>" <%= _myAppearance === choice[0] ? 'checked' : '' %> />
-                  <span class="ap-choice__preview" aria-hidden="true"><i></i><i></i></span>
-                  <span><%= choice[1] %></span>
-                  <span class="ap-choice__check" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
-                </label>
-              <% }) %>
-            </div>
-            <p class="ap-status" data-ap-status aria-live="polite"></p>
-            <script>
-              (function () {
-                var box = document.querySelector('[data-ap-picker]');
-                if (!box || box.dataset.ready) return;
-                box.dataset.ready = '1';
-                var status = document.querySelector('[data-ap-status]');
-                box.addEventListener('change', function (e) {
-                  var mode = e.target && e.target.value;
-                  if (!mode) return;
-                  status.textContent = 'Saving…';
-                  fetch('/account/appearance', {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                    body: JSON.stringify({ appearanceMode: mode })
-                  }).then(function (r) { return r.json().then(function (b) { if (!r.ok || !b.success) throw new Error(b.error || 'failed'); }); })
-                    .then(function () { status.textContent = 'Saved. Updating…'; window.location.reload(); })
-                    .catch(function () { status.textContent = 'Could not save. Please try again.'; });
-                });
-              })();
-            </script>
+            <small>Light or dark. Only you see this; prints, PDFs and emails always stay white.</small>
+            <%- include('../partials/appearancePicker') %>
           </div>
 
-          <!-- Profile Image Upload Section -->
-          <div class="card profile-card">
-            <h4>Profile Picture</h4>
-            <small>Upload or update your profile image</small>
-            <form action="/account/settings/profile-image" method="POST" enctype="multipart/form-data">
-              <input type="hidden" name="redirectTo" value="/account/settings" />
-              <div class="content-row profile-row">
-                <div class="employee-info">
-                  <div class="avatar">
-                    <% if (user?.image_url && user.image_url !== 'profilePlaceholder.png') { %>
-                      <img src="<%= user.image_url %>" alt="Profile" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
-                    <% } else { %>
-                      <%= (user?.first_name ? user.first_name[0] : 'P') %>
-                    <% } %>
-                  </div>
-                  <div>
-                      <p><%= user?.first_name || '' %><%= user?.last_name ? ` ${user.last_name}` : '' %></p>
-                      <p class="text-muted-sm">Current profile picture</p>
-                  </div>
-                </div>
-                <div class="profile-fields">
-                  <div class="field-group">
-                    <label class="form-label" for="profile-image">Choose New Image</label>
-                    <input
-                      type="file"
-                      id="profile-image"
-                      name="profileImage"
-                      accept="image/*"
-                      class="form-input"
-                    />
-                    <p class="text-muted-sm" style="margin-top: 8px;">Upload a new image to replace your current profile picture</p>
-                  </div>
-                  <div class="form-actions">
-                    <button class="btn-primary btn-link" type="submit">Upload Profile Picture</button>
-                  </div>
-                  <% if (user?.image_url && user.image_url !== 'profilePlaceholder.png') { %>
-                    <div class="form-actions" style="margin-top: 8px;">
-                      <button
-                        class="btn-danger btn-link"
-                        type="submit"
-                        formaction="/account/settings/profile-image/delete"
-                        formmethod="POST"
-                        onclick="return confirm('Delete profile picture? This will remove it from storage and database.');"
-                      >
-                        Delete Profile Picture
-                      </button>
-                    </div>
+          <% const _hasPhoto = !!(user?.image_url && user.image_url !== 'profilePlaceholder.png'); %>
+          <div class="card profile-card me-card" data-no-collapse data-save-group>
+            <h4>Your details</h4>
+            <small>Your photo and name as the school sees them.</small>
+            <div class="me-card__body">
+              <form class="me-card__photo" action="/account/settings/profile-image" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="redirectTo" value="/account/settings?section=profile" />
+                <div class="avatar me-card__avatar" data-me-avatar>
+                  <% if (_hasPhoto) { %>
+                    <img src="<%= user.image_url %>" alt="Your photo" />
+                  <% } else { %>
+                    <%= (user?.first_name ? user.first_name[0] : 'P') %>
                   <% } %>
                 </div>
-              </div>
-            </form>
-          </div>
-
-          <div class="card profile-card">
-            <h4>Employee Information</h4>
-            <form action="/account/settings/profile" method="POST">
-              <input type="hidden" name="redirectTo" value="/account/settings" />
-              <div class="content-row profile-row">
-                <div class="employee-info">
-                  <div class="avatar">
-                    <% if (user?.image_url && user.image_url !== 'profilePlaceholder.png') { %>
-                      <img src="<%= user.image_url %>" alt="Profile" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
-                    <% } else { %>
-                      <%= (user?.first_name ? user.first_name[0] : 'P') %>
-                    <% } %>
-                  </div>
-                  <div>
-                      <p><%= user?.first_name || '' %><%= user?.last_name ? ` ${user.last_name}` : '' %></p>
-                      <p class="text-muted-sm"><%= user?.account_type || '' %></p>
-                  </div>
+                <div class="me-card__photo-actions">
+                  <label class="btn-link me-card__pick" for="profile-image">Change photo</label>
+                  <input type="file" id="profile-image" name="profileImage" accept="image/*" class="me-card__file" />
+                  <% if (_hasPhoto) { %>
+                    <button class="me-card__remove" type="submit" data-own-submit formaction="/account/settings/profile-image/delete" formmethod="POST" onclick="return confirm('Remove your profile photo?');">Remove</button>
+                  <% } %>
                 </div>
-                <div class="profile-fields">
-                  <div class="field-group">
-                    <label class="form-label" for="profile-first-name">First Name</label>
-                    <input
-                      type="text"
-                      id="profile-first-name"
-                      name="firstName"
-                      value="<%= user?.first_name || '' %>"
-                      placeholder="First name"
-                      required
-                      class="form-input"
-                    />
-                  </div>
-                  <div class="field-group">
-                    <label class="form-label" for="profile-last-name">Last Name</label>
-                    <input
-                      type="text"
-                      id="profile-last-name"
-                      name="lastName"
-                      value="<%= user?.last_name || '' %>"
-                      placeholder="Last name"
-                      required
-                      class="form-input"
-                    />
-                  </div>
-
-                  <div class="form-actions">
-                    <button class="btn-primary btn-link" type="submit">Update Name</button>
-                  </div>
+                <p class="text-muted-sm me-card__role"><%= user?.account_type || '' %></p>
+              </form>
+              <form class="me-card__fields" action="/account/settings/profile" method="POST">
+                <input type="hidden" name="redirectTo" value="/account/settings?section=profile" />
+                <div class="field-group">
+                  <label class="form-label" for="profile-first-name">First name</label>
+                  <input type="text" id="profile-first-name" name="firstName" value="<%= user?.first_name || '' %>" placeholder="First name" required class="form-input" />
                 </div>
-              </div>
-            </form>
+                <div class="field-group">
+                  <label class="form-label" for="profile-last-name">Last name</label>
+                  <input type="text" id="profile-last-name" name="lastName" value="<%= user?.last_name || '' %>" placeholder="Last name" required class="form-input" />
+                </div>
+              </form>
+            </div>
           </div>
         </section>
         <% } %>
@@ -6164,6 +6086,77 @@
         }
 
         initSettingsCardCollapsibles();
+
+        // One "Save changes" per group: the group's forms keep working as before,
+        // but only the ones that changed are sent, together, then the page reloads.
+        function initSaveGroups() {
+          document.querySelectorAll("[data-save-group]").forEach((group) => {
+            if (group.dataset.saveReady === "1") return;
+            group.dataset.saveReady = "1";
+            const forms = Array.from(group.querySelectorAll("form")).filter((f) => !f.hasAttribute("data-own-submit"));
+            forms.forEach((f) => f.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((b) => {
+              if (!b.hasAttribute("data-own-submit") && !b.classList.contains("btn-danger")) b.classList.add("settings-own-save");
+            }));
+            const bar = document.createElement("div");
+            bar.className = "settings-save-bar";
+            bar.innerHTML = '<span class="settings-save-bar__note" aria-live="polite"></span><button type="button" class="btn-primary btn-link settings-save-bar__btn">Save changes</button>';
+            group.appendChild(bar);
+            const note = bar.querySelector("span");
+            const btn = bar.querySelector("button");
+            const mark = (e) => {
+              if (e.target.closest("[data-own-submit]")) return;
+              const f = e.target.closest("form");
+              if (f && forms.includes(f)) { f.dataset.dirty = "1"; note.textContent = "Unsaved changes"; bar.classList.add("is-dirty"); }
+            };
+            group.addEventListener("input", mark);
+            group.addEventListener("change", mark);
+            group.addEventListener("click", (e) => { if (e.target.closest("button, label, [role=radio], [data-theme], [data-color], .theme-option, .color-option")) mark(e); });
+            btn.addEventListener("click", async () => {
+              const dirty = forms.filter((f) => f.dataset.dirty === "1");
+              if (!dirty.length) { note.textContent = "Nothing has changed."; return; }
+              for (const f of dirty) if (!f.reportValidity()) return;
+              btn.disabled = true;
+              note.textContent = "Saving…";
+              try {
+                for (const f of dirty) {
+                  const multipart = String(f.enctype || "").includes("multipart");
+                  const files = Array.from(f.querySelectorAll('input[type="file"]'));
+                  if (multipart && files.length && files.every((i) => !i.files.length) && !f.querySelector('input:not([type="file"]):not([type="hidden"]), select, textarea')) continue;
+                  const data = new FormData(f);
+                  const res = await fetch(f.action, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    body: multipart ? data : new URLSearchParams(data),
+                    headers: multipart ? {} : { "Content-Type": "application/x-www-form-urlencoded" },
+                  });
+                  if (!res.ok) throw new Error("save failed");
+                }
+                const section = group.closest(".settings-section");
+                window.location.href = "/account/settings?section=" + encodeURIComponent(section ? section.id : "customize");
+              } catch (_e) {
+                btn.disabled = false;
+                note.textContent = "Some changes could not be saved. Please try again.";
+              }
+            });
+          });
+          // Show the chosen photo straight away.
+          const pick = document.getElementById("profile-image");
+          const face = document.querySelector("[data-me-avatar]");
+          if (pick && face && !pick.dataset.previewReady) {
+            pick.dataset.previewReady = "1";
+            pick.addEventListener("change", () => {
+              const file = pick.files && pick.files[0];
+              if (!file) return;
+              const url = URL.createObjectURL(file);
+              face.innerHTML = "";
+              const img = document.createElement("img");
+              img.src = url;
+              img.alt = "New photo";
+              face.appendChild(img);
+            });
+          }
+        }
+        initSaveGroups();
 
         function setFeedbackStatus(message, type) {
           if (!settingsFeedbackStatus) return;

@@ -8,12 +8,14 @@
   }
 %>
 <%
-  // The signed-in person's own look for school pages: white (default), gray or dark.
-  // Platform admin and hub pages, PDFs and prints always stay white.
+  // The signed-in person's own look: light (a soft gray, the default) or dark.
+  // Platform admin pages, public pages (school website, legal, sign-in),
+  // PDFs and prints always use the plain white design.
   const _appearancePath = typeof currentPath !== 'undefined' ? String(currentPath || '') : '';
-  const _isOrgThemed = !!(session && session.firstName && session.organizationId)
-    && !_appearancePath.startsWith('/admin') && !_appearancePath.startsWith('/hub/');
-  const _appearance = _isOrgThemed && ['gray', 'dark'].includes(locals.appearance) ? locals.appearance : 'white';
+  const _isPublicPath = _appearancePath === '/' || _appearancePath === ''
+    || /^\/(legal|account\/([a-z-]*login|register|forgot|reset|set-?password|verify)|common\/(publicDashboard|publicRegister|setPassword)|hub\/(login|setup-password|billing\/setup))/i.test(_appearancePath);
+  const _isOrgThemed = !!locals.appearanceOwner && !_appearancePath.startsWith('/admin') && !_isPublicPath;
+  const _appearance = _isOrgThemed && !locals.isPrintRender ? (locals.appearance === 'dark' ? 'dark' : 'gray') : 'white';
 %>
 <!DOCTYPE html>
 <html lang="en" data-appearance="<%= _appearance %>">
@@ -322,5 +324,36 @@
             }
         })();
     </script>
+<% if (locals.appearanceOwner) { %>
+<script>
+  // Light / dark: the header switch and the settings picker save it for this person.
+  (function () {
+    if (window.__apSaveReady) return;
+    window.__apSaveReady = true;
+    function save(mode, status) {
+      if (status) status.textContent = 'Saving…';
+      fetch('/appearance', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ appearanceMode: mode })
+      }).then(function (r) { return r.json().then(function (b) { if (!r.ok || !b.success) throw new Error('failed'); }); })
+        .then(function () { window.location.reload(); })
+        .catch(function () { if (status) status.textContent = 'Could not save. Please try again.'; });
+    }
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-ap-set]');
+      if (!b || b.getAttribute('aria-pressed') === 'true') return;
+      e.preventDefault();
+      save(b.getAttribute('data-ap-set'));
+    });
+    document.addEventListener('change', function (e) {
+      var box = e.target.closest && e.target.closest('[data-ap-picker]');
+      if (!box || !e.target.value) return;
+      save(e.target.value, box.parentElement && box.parentElement.querySelector('[data-ap-status]'));
+    });
+  })();
+</script>
+<% } %>
 </body>
 </html>

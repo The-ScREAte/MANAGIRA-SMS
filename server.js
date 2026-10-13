@@ -880,6 +880,10 @@ app.use(express.json({ limit: "10mb" }));
 // blow past 1000 total fields and crash body-parsing with an unhandled 500 before
 // the request ever reaches a route handler.
 app.use(express.urlencoded({ extended: true, limit: "10mb", parameterLimit: 100000 }));
+
+// Light or dark, for whoever is signed in (staff, school owner, parent, student,
+// driver, hub owner or hub user). Kept per person.
+app.post("/appearance", (req, res) => require("./controllers/themeController").updateAppearancePost(req, res));
 app.use(createOrganizationActivityLogMiddleware(db));
 
 // Only admin pages need unresolved help-thread notifications.

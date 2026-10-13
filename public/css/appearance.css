@@ -66,27 +66,37 @@
   html[data-appearance="dark"] img { color-scheme: normal; }
 }
 
-/* ---------- The picker (Settings → Profile → Appearance) ---------- */
-.ap-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; max-width: 560px; }
-.ap-choice { position: relative; display: grid; gap: 8px; margin: 0; padding: 8px 8px 10px; border: 1px solid var(--ap-line, #e2e8f0); border-radius: 12px; cursor: pointer; font-weight: 600; font-size: .9rem; text-align: center; transition: border-color .15s ease; }
+/* ---------- The picker (settings pages) and the header menu switch ---------- */
+.ap-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; max-width: 380px; }
+.ap-choice { position: relative; display: grid; gap: 8px; margin: 0; padding: 8px 8px 10px; border: 1px solid var(--ap-line, #d5d9e0); color: inherit; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: .9rem; text-align: center; transition: border-color .15s ease; }
 .ap-choice:hover { border-color: #94a3b8; }
 .ap-choice:has(input:checked) { border-color: var(--org-primary-color, #01535b); box-shadow: inset 0 0 0 1px var(--org-primary-color, #01535b); }
 .ap-choice input { position: absolute; opacity: 0; pointer-events: none; }
 .ap-choice__preview { display: grid; grid-template-columns: 26% 1fr; gap: 5px; height: 64px; padding: 6px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, .12); }
 .ap-choice__preview i { display: block; border-radius: 4px; }
-.ap-choice__preview i:last-child { display: grid; }
-.ap-choice--white .ap-choice__preview { background: #f5f7fa; }
-.ap-choice--white .ap-choice__preview i { background: #fff; box-shadow: 0 0 0 1px #e5e7eb; }
-.ap-choice--gray .ap-choice__preview { background: #e3e5e9; }
-.ap-choice--gray .ap-choice__preview i { background: #f1f2f4; box-shadow: 0 0 0 1px #d4d7dc; }
-.ap-choice--dark .ap-choice__preview { background: #16181c; border-color: #16181c; }
-.ap-choice--dark .ap-choice__preview i { background: #25282e; box-shadow: 0 0 0 1px #33373e; }
+.ap-choice--light .ap-choice__preview { background: #e3e5e9 !important; }
+.ap-choice--light .ap-choice__preview i { background: #f2f3f5 !important; box-shadow: 0 0 0 1px #d4d7dc; }
+.ap-choice--dark .ap-choice__preview { background: #16181c !important; border-color: #16181c; }
+.ap-choice--dark .ap-choice__preview i { background: #25282e !important; box-shadow: 0 0 0 1px #33373e; }
 .ap-choice__check { position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%; display: none; place-items: center; background: var(--org-primary-color, #01535b); color: #fff; font-size: 10px; }
 .ap-choice:has(input:checked) .ap-choice__check { display: grid; }
 .ap-status:empty { display: none; }
-.ap-status { margin: 10px 0 0; font-size: .84rem; color: var(--ap-muted, #64748b); }
+.ap-status { margin: 10px 0 0; font-size: .84rem; color: #64748b; }
+
+.ap-menu-item { list-style: none; }
+.ap-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; }
+.ap-toggle__label { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; font-weight: 600; }
+.ap-toggle__seg { display: inline-flex; padding: 3px; border: 1px solid #d5d9e0; border-radius: 999px; background: #fff; }
+.ap-toggle__seg button {
+  width: auto !important; min-width: 0; margin: 0 !important; padding: 4px 10px !important; border: 0 !important; border-radius: 999px !important;
+  background: transparent !important; color: #475569 !important; font: inherit; font-size: .8rem !important; font-weight: 600; line-height: 1.4; cursor: pointer; box-shadow: none !important;
+}
+.ap-toggle__seg button[aria-pressed="true"] { background: var(--org-primary-color, #01535b) !important; color: #fff !important; }
 @media (max-width: 520px) {
   .ap-picker { gap: 8px; }
   .ap-choice__preview { height: 48px; }
-  .ap-choice { font-size: .84rem; }
 }
+
+.ap-card { padding: 18px 20px; }
+.ap-card__title { margin: 0; font-size: 1rem; font-weight: 700; }
+.ap-card__sub { margin: 2px 0 0; font-size: .86rem; color: #64748b; }

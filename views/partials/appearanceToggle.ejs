@@ -1,0 +1,9 @@
+<%# Light / dark switch in the header menu. Saved for the signed-in person only. %>
+<% const _apMenuNow = (typeof appearance !== 'undefined' && appearance === 'dark') ? 'dark' : 'light'; %>
+<div class="ap-toggle" role="group" aria-label="Appearance">
+  <span class="ap-toggle__label"><i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i> Appearance</span>
+  <span class="ap-toggle__seg">
+    <button type="button" data-ap-set="light" aria-pressed="<%= _apMenuNow === 'light' %>">Light</button>
+    <button type="button" data-ap-set="dark" aria-pressed="<%= _apMenuNow === 'dark' %>">Dark</button>
+  </span>
+</div>

@@ -43,7 +43,8 @@ const updateThemePost = async (req, res) => {
 const updateAppearancePost = async (req, res) => {
   const wantsJson = req.xhr || String(req.get('accept') || '').includes('application/json');
   try {
-    const mode = await saveAppearance(db, req.session, String((req.body && req.body.appearanceMode) || ''));
+    const raw = String((req.body && req.body.appearanceMode) || '');
+    const mode = await saveAppearance(db, req.session, raw === 'light' ? 'gray' : raw);
     req.session.appearance = mode;
     if (wantsJson) return res.json({ success: true, mode });
     req.flash('success', 'Appearance updated.');
@@ -51,7 +52,7 @@ const updateAppearancePost = async (req, res) => {
     if (wantsJson) return res.status(400).json({ success: false, error: 'Unable to save your appearance. Please try again.' });
     req.flash('error', 'Unable to save your appearance. Please try again.');
   }
-  return res.redirect('/account/settings?section=profile');
+  return res.redirect(req.get('referer') || '/');
 };
 
 module.exports = { updateThemePost, updateAppearancePost };

@@ -9,8 +9,10 @@
 (function () {
   const root = document.documentElement;
   const MODE = root.getAttribute('data-appearance');
-  if (MODE !== 'gray' && MODE !== 'dark') return;
+  if (MODE !== 'white' && MODE !== 'gray' && MODE !== 'dark') return;
   const DARK = MODE === 'dark';
+  // White is the normal design: only text that is clearly hard to read is darkened.
+  const WHITE = MODE === 'white';
 
   // ---------- color math (sRGB <-> OKLCH) ----------
   const ctx = document.createElement('canvas').getContext('2d');
@@ -111,11 +113,74 @@
     return null;
   }
   const COLOR_RE = /#[0-9a-f]{3,8}\b|(?:rgba?|hsla?|oklch|oklab|lab|lch|hwb|color)\([^()]*\)|\b(?:white|black|whitesmoke|gainsboro|ghostwhite|snow|ivory|aliceblue|azure|beige|linen|seashell|honeydew|mintcream|lavender|floralwhite|oldlace|lightgray|lightgrey|silver)\b/gi;
-  // Literal stops are remapped; stops written with var() are left to the browser.
+  // Split "a, b, c" at top-level commas (gradient layers, or stops inside one).
+  function splitTop(v) {
+    const out = [];
+    let depth = 0, cur = '';
+    for (const ch of v) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (ch === ',' && depth === 0) { out.push(cur); cur = ''; } else cur += ch;
+    }
+    if (cur.trim()) out.push(cur);
+    return out;
+  }
+  // Gradient layers: a solid layer has all its stops remapped; a layer that
+  // fades out (a glow or highlight) only has its solid stops remapped, so a
+  // soft white shine on a brand banner stays as it is.
   const mapGradient = (v) => {
     if (!/gradient\(/i.test(v)) return null;
-    const out = v.replace(COLOR_RE, (m) => { const c = mapBg(parse(m)); return c ? css(c) : m; });
+    const layers = splitTop(v).map((layer) => {
+      if (!/gradient\(/i.test(layer)) return layer;
+      const fades = /\btransparent\b/i.test(layer) || (layer.match(COLOR_RE) || []).some((m) => { const c = parse(m); return c && c.a < 0.05; });
+      return layer.replace(COLOR_RE, (m) => {
+        const c = parse(m);
+        if (!c || (fades && c.a < 0.9)) return m;
+        const out = mapBg(c);
+        return out ? css(out) : m;
+      });
+    });
+    const out = layers.join(',');
     return out === v ? null : out;
+  };
+
+  // Values written with var() or color-mix(): work them out against the page's
+  // own variables (only when every variable is set on the page), then remap.
+  let probe = null;
+  const resolved = new Map();
+  function resolve(value, asImage) {
+    const key = (asImage ? 'i:' : 'c:') + value;
+    if (resolved.has(key)) return resolved.get(key);
+    let out = null;
+    const names = value.match(/var\(\s*(--[\w-]+)/g) || [];
+    const rootStyle = getComputedStyle(root);
+    const known = names.every((n) => rootStyle.getPropertyValue(n.replace(/var\(\s*/, '')).trim() !== '');
+    if (known) {
+      if (!probe) { probe = document.createElement('i'); probe.setAttribute('data-ap-skip', ''); probe.style.display = 'none'; root.appendChild(probe); }
+      probe.style.cssText = 'display:none';
+      if (asImage) probe.style.backgroundImage = value; else probe.style.color = value;
+      if (asImage ? probe.style.backgroundImage : probe.style.color) {
+        const cs = getComputedStyle(probe);
+        out = asImage ? cs.backgroundImage : cs.color;
+      }
+    }
+    resolved.set(key, out);
+    return out;
+  }
+  const dynamic = (v) => /var\(|color-mix\(/i.test(v);
+  const mapValue = (value, fn) => {
+    const direct = fn(parse(value));
+    if (direct) return direct;
+    if (!dynamic(value)) return null;
+    const r = resolve(value, false);
+    return r ? fn(parse(r)) : null;
+  };
+  const mapImage = (value) => {
+    const direct = /var\(/i.test(value) ? null : mapGradient(value);
+    if (direct) return direct;
+    if (!dynamic(value)) return null;
+    const r = resolve(value, true);
+    return r ? mapGradient(r) : null;
   };
 
   const BG = ['background-color'];
@@ -151,10 +216,10 @@
       let next = null;
       let relevant = false;
       if (prop.startsWith('--')) { next = mapVar(prop, value); relevant = !!next; }
-      else if (BG.includes(prop)) { relevant = true; next = mapBg(parse(value)); }
-      else if (prop === 'background-image') { relevant = /gradient\(/i.test(value); next = mapGradient(value); }
-      else if (TEXT.includes(prop)) { relevant = true; next = bgKept ? null : mapText(parse(value)); if (next) next = css(next); }
-      else if (LINE.includes(prop)) { relevant = true; next = mapLine(parse(value)); }
+      else if (BG.includes(prop)) { relevant = true; next = mapValue(value, mapBg); }
+      else if (prop === 'background-image') { relevant = /gradient\(/i.test(value); next = relevant ? mapImage(value) : null; }
+      else if (TEXT.includes(prop)) { relevant = true; next = bgKept ? null : mapValue(value, mapText); if (next) next = css(next); }
+      else if (LINE.includes(prop)) { relevant = true; next = mapValue(value, mapLine); }
       if (!relevant) continue;
       if (next && typeof next === 'object') next = css(next);
       out.push(`${prop}: ${next || value}${imp}`);
@@ -163,7 +228,19 @@
     // Shorthands still holding var(): repeat them unchanged so their order is kept.
     SHORT.forEach((p) => {
       const v = style.getPropertyValue(p);
-      if (v && /var\(/i.test(v) && !seen.has(p) && /color|#|rgb|hsl|oklch|white|black|var\(/i.test(v)) out.push(`${p}: ${v}${style.getPropertyPriority(p) ? ' !important' : ''}`);
+      if (!v || !/var\(/i.test(v) || seen.has(p)) return;
+      const imp = style.getPropertyPriority(p) ? ' !important' : '';
+      // "background: <a color or gradients>" written with var(): work it out and remap.
+      if (p === 'background' && !/url\(/i.test(v)) {
+        if (/gradient\(/i.test(v)) {
+          const img = mapImage(v);
+          if (img) { out.push(`background: ${v}${imp}`, `background-image: ${img}${imp}`); return; }
+        } else {
+          const c = mapValue(v, mapBg);
+          if (c) { out.push(`background: ${css(c)}${imp}`); return; }
+        }
+      }
+      out.push(`${p}: ${v}${imp}`);
     });
     return out;
   }
@@ -217,7 +294,7 @@
   }
   function copyAll(scope) {
     (scope || document).querySelectorAll('style:not([data-ap-copy]), link[rel~="stylesheet"]').forEach((node) => {
-      if (node.tagName === 'LINK' && !node.sheet) { node.addEventListener('load', () => { copySheet(node); sweep(); }, { once: true }); return; }
+      if (node.tagName === 'LINK' && !node.sheet) { node.addEventListener('load', () => quiet(() => { copySheet(node); dropOrphans(); settle(document.body); }), { once: true }); return; }
       copySheet(node);
     });
   }
@@ -305,8 +382,10 @@
       if (c && c.a > 0.6) { found = c; break; }
       const img = s.backgroundImage;
       if (img && img !== 'none') {
-        if (/url\(/i.test(img)) { found = 'image'; break; }
-        const first = (img.match(COLOR_RE) || [])[0];
+        const layers = splitTop(img);
+        const base = layers[layers.length - 1] || '';
+        if (/url\(/i.test(base)) { found = 'image'; break; }
+        const first = (base.match(COLOR_RE) || [])[0];
         const fc = first && parse(first);
         if (fc && fc.a > 0.6) { found = fc; break; }
       }
@@ -347,7 +426,7 @@
       // Brand and status fills keep their designed text (white on a brand button);
       // only text that is truly hard to read there is changed.
       const branded = toLch(bg).C > 0.08;
-      const target = branded ? 2.4 : (isIcon ? 3 : 4.5);
+      const target = branded ? 2.4 : (WHITE || isIcon ? 3 : 4.5);
       const now = ratio(color, bg);
       if (now >= target - 0.01) continue;
       let better;
@@ -364,7 +443,7 @@
   let stillFrame = 0;
   function settle(scope) {
     root.classList.add('ap-still');
-    fixSurfaces(scope);
+    if (!WHITE) fixSurfaces(scope);
     checkContrast(scope);
     if (!stillFrame) stillFrame = requestAnimationFrame(() => requestAnimationFrame(() => { stillFrame = 0; quiet(() => root.classList.remove('ap-still')); }));
   }
@@ -384,7 +463,7 @@
   // ---------- charts ----------
   function charts() {
     const C = window.Chart;
-    if (!C || !C.defaults) return;
+    if (WHITE || !C || !C.defaults) return;
     const text = DARK ? '#cbd2dc' : '#374151';
     const grid = DARK ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)';
     C.defaults.color = text;
@@ -410,6 +489,7 @@
     try { fn(); } finally { if (observer) observer.takeRecords(); busy = false; }
   }
   function pass(scopes) {
+    if (WHITE) return;
     quiet(() => {
       dropOrphans();
       copyAll(document);
@@ -448,14 +528,14 @@
       if (!touched.size && !sheetsChanged) return;
       // Fixed before the next paint, so nothing flashes light.
       quiet(() => {
-        if (sheetsChanged) { dropOrphans(); copyAll(document); }
+        if (sheetsChanged && !WHITE) { dropOrphans(); copyAll(document); }
         recolor.forEach((el) => { if (changed.has(el)) restore(el); });
         const roots = Array.from(touched).filter((n) => {
           if (!n.isConnected) return false;
           for (let up = n.parentElement; up; up = up.parentElement) if (touched.has(up)) return false;
           return true;
         });
-        roots.forEach((n) => { fixInlineIn(n); settle(n); });
+        roots.forEach((n) => { if (!WHITE) fixInlineIn(n); settle(n); });
         if (sheetsChanged && !roots.length) settle(document.body);
       });
     });

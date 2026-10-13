@@ -14,14 +14,11 @@ function isPrintRender(req) {
 }
 
 const setThemeColor = async (req, res, next) => {
-    res.locals.appearance = 'white';
-    // Skip if no organization is logged in
-    if (!req.session.organizationId) {
-        res.locals.themeColor = 'teal'; // Default theme
-        return next();
-    }
+    res.locals.appearance = 'gray';
+    res.locals.appearanceOwner = false;
+    res.locals.isPrintRender = isPrintRender(req);
 
-    // Each person's own choice (white, gray or dark), read once per session.
+    // Each person's own choice (light or dark), read once per session.
     const owner = appearanceOwner(req.session);
     const ownerKey = owner ? owner.join(':') : '';
     if (owner && req.session.appearanceKey !== ownerKey) {
@@ -30,10 +27,19 @@ const setThemeColor = async (req, res, next) => {
             req.session.appearanceKey = ownerKey;
         } catch (err) {
             console.error('Unable to load appearance:', err.message);
-            req.session.appearance = 'white';
+            req.session.appearance = 'gray';
         }
     }
-    if (owner && !isPrintRender(req)) res.locals.appearance = normalizeAppearance(req.session.appearance);
+    if (owner) {
+        res.locals.appearanceOwner = true;
+        res.locals.appearance = normalizeAppearance(req.session.appearance);
+    }
+
+    // Skip if no organization is logged in
+    if (!req.session.organizationId) {
+        res.locals.themeColor = 'teal'; // Default theme
+        return next();
+    }
 
     // If theme color is already in session, use it
     if (req.session.themeColor) {
