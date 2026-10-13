@@ -2972,6 +2972,26 @@
       .settings-main > .settings-section > p.lead { margin-bottom: 18px; }
       .settings-section > .card { border-radius: 14px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04); }
 
+      /* Phones: the sidebar becomes one compact "Settings" menu button, the
+         same as the Management and Admissions menus. Its row only takes the
+         button's height, so the page's min-height no longer stretches it
+         into an empty box, and the list drops down right under it. */
+      @media (max-width: 900px) {
+        #settings-layout-root { grid-template-rows: auto 1fr !important; align-items: start !important; gap: 12px !important; padding: 12px 10px 0 !important; }
+        #settings-layout-root .settings-nav { align-self: start; position: relative !important; top: auto; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
+        #settings-layout-root .settings-nav-header { position: static; min-height: 36px; padding: 8px 12px !important; border: 1px solid var(--border, #e5e7eb) !important; border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(15, 23, 42, .04); }
+        #settings-layout-root .settings-nav.open .settings-nav-header { border-color: var(--primary, #01535b) !important; }
+        #settings-layout-root .settings-nav-toggle { gap: 8px; padding: 0; }
+        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon,
+        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::before,
+        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::after { width: 18px; }
+        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::before { top: -6px; }
+        #settings-layout-root .settings-nav-toggle .hub-hamburger-icon::after { top: 6px; }
+        #settings-layout-root .settings-nav h3 { font-size: 13px !important; font-weight: 600 !important; color: var(--primary, #01535b) !important; letter-spacing: 0 !important; }
+        #settings-layout-root .settings-nav-country-flag { min-width: 0; font-size: 18px; }
+        #settings-layout-root .settings-nav .nav-list { margin-top: 6px !important; }
+      }
+
       /* One save bar under each group of settings. */
       .settings-own-save { display: none !important; }
       .settings-webaddress { display: inline-flex; align-items: center; gap: 8px; margin: 12px 0 0; padding: 8px 12px; border: 1px solid var(--border, #e5e7eb); border-radius: 8px; font-size: 14px; color: var(--muted, #64748b); }

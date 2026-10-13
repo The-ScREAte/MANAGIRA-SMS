@@ -512,7 +512,8 @@
         const t = r.target;
         if (r.type === 'attributes') {
           if (t.nodeType !== 1 || t === root) continue;
-          // A class change can switch the element's own colors: start again from its real styles.
+          // A class change can switch the colors of the element and everything inside it
+          // (an active menu link and its label): start again from their real styles.
           if (r.attributeName === 'class') recolor.add(t);
           touched.add(t);
           continue;
@@ -529,7 +530,7 @@
       // Fixed before the next paint, so nothing flashes light.
       quiet(() => {
         if (sheetsChanged && !WHITE) { dropOrphans(); copyAll(document); }
-        recolor.forEach((el) => { if (changed.has(el)) restore(el); });
+        if (recolor.size) changed.forEach((_, el) => { for (let up = el; up; up = up.parentElement) if (recolor.has(up)) { restore(el); break; } });
         const roots = Array.from(touched).filter((n) => {
           if (!n.isConnected) return false;
           for (let up = n.parentElement; up; up = up.parentElement) if (touched.has(up)) return false;
