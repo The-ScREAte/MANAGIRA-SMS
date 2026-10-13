@@ -1,22 +1,6 @@
 <%
   const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
-  const themeColors = {
-    teal:    { primary: '#01535b', hover: '#014a51', light: '#e6f4f5' },
-    blue:    { primary: '#2563eb', hover: '#1d4ed8', light: '#eff6ff' },
-    green:   { primary: '#2d5f4f', hover: '#245043', light: '#f0fdf4' },
-    purple:  { primary: '#7c3aed', hover: '#6d28d9', light: '#f5f3ff' },
-    indigo:  { primary: '#4f46e5', hover: '#4338ca', light: '#eef2ff' },
-    rose:    { primary: '#8b2635', hover: '#7a212e', light: '#fff1f2' },
-    amber:   { primary: '#d97706', hover: '#b45309', light: '#fffbeb' },
-    slate:   { primary: '#334155', hover: '#1e293b', light: '#f1f5f9' },
-    classic: { primary: '#01535b', hover: '#014a51', light: '#e6f4f5' },
-    bold:    { primary: '#0b1020', hover: '#1a1a2e', light: '#fefce8' },
-    modern:  { primary: '#2563eb', hover: '#1d4ed8', light: '#eff6ff' },
-    minimal: { primary: '#7c3aed', hover: '#6d28d9', light: '#f5f3ff' },
-    gold:    { primary: '#d4a017', hover: '#b8860b', light: '#fefce8' },
-    red:     { primary: '#e11d48', hover: '#be123c', light: '#fff1f2' },
-    brown:   { primary: '#7c4a03', hover: '#5c3802', light: '#fdf6ef' }
-  };
+  const themeColors = themePalette;
   const ct = themeColors[themeColor] || themeColors.teal;
   const fontFamily = (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter');
   const hasWebsite = Array.isArray(allowedFeatures) && (

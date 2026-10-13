@@ -1,25 +1,6 @@
 <%
   const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
-  const themeColors = {
-    teal: { primary: '#01535b', hover: '#014a51' },
-    blue: { primary: '#2563eb', hover: '#1d4ed8' },
-    green: { primary: '#2e7d32', hover: '#1b5e20' },
-    purple: { primary: '#7c3aed', hover: '#6d28d9' },
-    indigo: { primary: '#4f46e5', hover: '#4338ca' },
-    rose: { primary: '#8b2635', hover: '#7a212e' },
-    amber: { primary: '#d97706', hover: '#b45309' },
-    slate: { primary: '#334155', hover: '#1e293b' },
-    cyan: { primary: '#0891b2', hover: '#0e7490' },
-    orange: { primary: '#ea580c', hover: '#c2410c' },
-    charcoal: { primary: '#1f2937', hover: '#111827' },
-    classic: { primary: '#01535b', hover: '#014a51' },
-    bold: { primary: '#0b1020', hover: '#ffb703' },
-    modern: { primary: '#2563eb', hover: '#1d4ed8' },
-    minimal: { primary: '#7c3aed', hover: '#6d28d9' },
-    gold: { primary: '#d4a017', hover: '#b8860b' },
-    red: { primary: '#e11d48', hover: '#be123c' },
-    brown: { primary: '#7c4a03', hover: '#5c3802' }
-  };
+  const themeColors = themePalette;
   const currentTheme = themeColors[themeColor] || themeColors.teal;
 
   const currentFilters = (typeof filters !== 'undefined' && filters) ? filters : {};

@@ -796,6 +796,7 @@ app.use((req, res, next) => {
 
 // Template engine setup
 app.locals.assetUrl = require("./utils/assetUrl").assetUrl;
+app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
 app.use(expressLayouts);
 app.set("layout", "layout"); // Set default layout file
 app.set("view engine", "ejs");

@@ -1,11 +1,6 @@
 <%
   const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
-  const themeColors = {
-    teal: '#01535b', blue: '#2563eb', green: '#2e7d32', purple: '#7c3aed', indigo: '#4f46e5',
-    rose: '#8b2635', amber: '#d97706', slate: '#334155', cyan: '#0891b2', orange: '#ea580c',
-    charcoal: '#1f2937', classic: '#01535b', bold: '#0b1020', modern: '#2563eb', minimal: '#7c3aed',
-    gold: '#d4a017', red: '#e11d48', brown: '#7c4a03',
-  };
+  const themeColors = Object.fromEntries(Object.entries(themePalette).map(([k, v]) => [k, v.primary]));
   const primary = themeColors[themeColor] || themeColors.teal;
 %>
 <style>

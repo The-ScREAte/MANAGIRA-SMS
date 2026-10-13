@@ -1,26 +1,6 @@
 <%
   const themeColor = (typeof session !== 'undefined' && session && session.themeColor) ? session.themeColor : 'teal';
-  const themeColors = {
-    teal: { primary: '#01535b', hover: '#014a51' },
-    blue: { primary: '#2563eb', hover: '#1d4ed8' },
-    green: { primary: '#2e7d32', hover: '#1b5e20' },
-    purple: { primary: '#7c3aed', hover: '#6d28d9' },
-    indigo: { primary: '#4f46e5', hover: '#4338ca' },
-    rose: { primary: '#8b2635', hover: '#7a212e' },
-    amber: { primary: '#d97706', hover: '#b45309' },
-    yellow: { primary: '#eab308', hover: '#ca8a04' },
-    slate: { primary: '#334155', hover: '#1e293b' },
-    cyan: { primary: '#0891b2', hover: '#0e7490' },
-    orange: { primary: '#ea580c', hover: '#c2410c' },
-    charcoal: { primary: '#1f2937', hover: '#111827' },
-    classic: { primary: '#01535b', hover: '#014a51' },
-    bold: { primary: '#0b1020', hover: '#ffb703' },
-    modern: { primary: '#2563eb', hover: '#1d4ed8' },
-    minimal: { primary: '#7c3aed', hover: '#6d28d9' },
-    gold: { primary: '#d4a017', hover: '#b8860b' },
-    red: { primary: '#e11d48', hover: '#be123c' },
-    brown: { primary: '#7c4a03', hover: '#5c3802' }
-  };
+  const themeColors = themePalette;
   const currentTheme = themeColors[themeColor] || themeColors.teal;
   const settingsFontStyle = (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter');
   const settingsSerifFonts = ['PT Serif', 'Merriweather', 'Playfair Display'];
@@ -3450,21 +3430,21 @@
                   <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
                   <% const selectedWebsiteTheme = (publicDashboardTheme && String(publicDashboardTheme).trim()) ? String(publicDashboardTheme).trim() : 'classic'; %>
                   <% const brandColorOptions = [
-                    ['classic', 'Ocean Teal', '#01535b', '#014a51'],
-                    ['modern', 'Royal Blue', '#2563eb', '#1d4ed8'],
-                    ['green', 'Evergreen', '#2e7d32', '#1b5e20'],
-                    ['minimal', 'Amethyst', '#7c3aed', '#6d28d9'],
-                    ['indigo', 'Deep Indigo', '#4338ca', '#312e81'],
-                    ['rose', 'Crimson Rose', '#8b2635', '#7a212e'],
-                    ['amber', 'Amber Gold', '#d97706', '#b45309'],
-                    ['yellow', 'Solar Yellow', '#eab308', '#ca8a04'],
-                    ['slate', 'Slate', '#334155', '#1e293b'],
-                    ['cyan', 'Cyan Breeze', '#06b6d4', '#0891b2'],
-                    ['orange', 'Sunset Orange', '#ea580c', '#c2410c'],
-                    ['charcoal', 'Charcoal', '#1f2937', '#111827'],
+                    ['classic', 'Ocean Teal'],
+                    ['modern', 'Royal Blue'],
+                    ['green', 'Evergreen'],
+                    ['minimal', 'Amethyst'],
+                    ['indigo', 'Deep Indigo'],
+                    ['rose', 'Crimson Rose'],
+                    ['amber', 'Amber Gold'],
+                    ['yellow', 'Solar Yellow'],
+                    ['slate', 'Slate'],
+                    ['cyan', 'Cyan Breeze'],
+                    ['orange', 'Sunset Orange'],
+                    ['charcoal', 'Charcoal'],
                   ]; %>
                   <div class="cz-colors" role="radiogroup" aria-label="Brand color">
-                    <% brandColorOptions.forEach(([value, name, main, deep]) => { %>
+                    <% brandColorOptions.forEach(([value, name]) => { const main = themePalette[value].primary, deep = themePalette[value].hover; %>
                       <label class="cz-color">
                         <input type="radio" name="publicDashboardTheme" value="<%= value %>" <%= selectedWebsiteTheme === value ? 'checked' : '' %> />
                         <span class="cz-color__swatch" data-ap-skip style="background: linear-gradient(135deg, <%= main %> 0 55%, <%= deep %> 55% 100%);"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
