@@ -59,8 +59,13 @@
          admissionsHub, mailroom) - CSS zoom throws off that math. -->
     <link rel="stylesheet" href="/css/globalScale.css">
     <% } %>
+    <link rel="stylesheet" href="/css/orgThemeContrast.css">
 </head>
-<body class="<%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
+<%
+  const _orgThemeKey = (session && session.firstName && session.themeColor) ? String(session.themeColor).toLowerCase() : '';
+  const _isOrgThemed = !!_orgThemeKey && !['teal','classic'].includes(_orgThemeKey);
+%>
+<body class="<%= _isOrgThemed ? 'org-themed' : '' %> <%= (typeof compactUi !== 'undefined' && compactUi) ? 'managira-compact' : '' %> <%= (typeof compactTables !== 'undefined' && compactTables) ? 'managira-compact-tables' : '' %> <%= (typeof currentPath !== 'undefined' && String(currentPath || '').startsWith('/admin')) ? 'admin-area' : '' %>">
     <div id="app-scale-root">
         <!-- Loading overlay for smooth transitions -->
         <div class="page-loading-overlay">

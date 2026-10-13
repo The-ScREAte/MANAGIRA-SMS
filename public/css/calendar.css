@@ -1,0 +1,120 @@
+/* School calendar page: sidebar on the left, calendar on the right. */
+.cal-flash:empty { display: none; }
+
+.cal-page {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  width: 100%;
+  padding: 20px 24px 40px;
+  color: var(--ws-text, #1f2937);
+  text-align: left;
+}
+
+.cal-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 16px;
+}
+.cal-side__head h1, .cal-side__head h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--ws-ink, #0f172a);
+}
+.cal-side__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.cal-side__actions .ws-btn { flex: 1 1 auto; justify-content: center; }
+
+.cal-card {
+  background: #fff;
+  border: 1px solid var(--ws-line, #e2e8f0);
+  border-radius: 12px;
+  padding: 14px 14px 10px;
+}
+.cal-card__title {
+  margin: 0 0 10px;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ws-ink, #0f172a);
+}
+
+.cal-layer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: .95rem;
+  font-weight: 500;
+  color: var(--ws-ink, #0f172a);
+}
+.cal-layer:hover { background: var(--ws-soft, #f8fafc); }
+.cal-layer input { position: absolute; opacity: 0; pointer-events: none; }
+.cal-layer__box {
+  width: 16px; height: 16px; flex-shrink: 0;
+  border-radius: 4px;
+  border: 2px solid var(--dot);
+  background: transparent;
+}
+.cal-layer input:checked + .cal-layer__box { background: var(--dot); }
+.cal-layer input:focus-visible + .cal-layer__box { outline: 2px solid var(--ws-brand); outline-offset: 2px; }
+.cal-layer small { margin-left: auto; font-size: .8rem; color: var(--ws-muted, #64748b); }
+
+.cal-up { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cal-up li { padding: 8px 6px; border-bottom: 1px solid var(--ws-line-soft, #eef2f6); font-size: .9rem; }
+.cal-up li:last-child { border-bottom: 0; }
+.cal-empty { margin: 0; font-size: .88rem; color: var(--ws-muted, #64748b); line-height: 1.45; }
+
+.cal-conn-notice:not([hidden]) {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--ws-brand-soft);
+  border: 1px solid var(--ws-line);
+  font-size: .9rem;
+}
+
+.cal-main {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid var(--ws-line, #e2e8f0);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* Calendar grid (FullCalendar) */
+#calendar { --fc-border-color: var(--ws-line, #e2e8f0); --fc-today-bg-color: var(--ws-brand-soft); font-size: .95rem; }
+#calendar .fc-toolbar { flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+#calendar .fc-toolbar-title { font-size: 1.25rem; font-weight: 700; color: var(--ws-ink, #0f172a); }
+#calendar .fc-button {
+  background: #fff; color: var(--ws-ink, #0f172a);
+  border: 1px solid var(--ws-line, #e2e8f0); box-shadow: none;
+  text-transform: capitalize; font-weight: 600; padding: 6px 12px;
+}
+#calendar .fc-button:hover { background: var(--ws-soft, #f8fafc); }
+#calendar .fc-button-primary:not(:disabled).fc-button-active,
+#calendar .fc-button-primary:not(:disabled):active {
+  background: var(--ws-brand); border-color: var(--ws-brand); color: #fff;
+}
+#calendar .fc-col-header-cell-cushion { color: var(--ws-ink, #0f172a); font-weight: 700; text-decoration: none; padding: 8px 4px; }
+#calendar .fc-daygrid-day-number { color: var(--ws-ink, #0f172a); text-decoration: none; font-weight: 600; }
+#calendar .fc-event { border: 0; border-radius: 6px; padding: 1px 4px; background: var(--c, var(--ws-brand)); color: #fff; }
+#calendar .fc-daygrid-dot-event { background: transparent; color: var(--ws-ink, #0f172a); }
+
+@media (max-width: 900px) {
+  .cal-page { grid-template-columns: 1fr; padding: 14px; }
+  .cal-side { position: static; }
+}
+
+/* School theme: warmer, higher-contrast surfaces */
+body.org-themed .cal-card,
+body.org-themed .cal-main { background: var(--oc-surface) !important; border-color: var(--oc-line) !important; }
+body.org-themed #calendar { --fc-border-color: var(--oc-line); --fc-page-bg-color: var(--oc-surface); }
+body.org-themed #calendar .fc-button { background: #fffaf2; border-color: var(--oc-line-strong); color: #000; }
+body.org-themed #calendar .fc-button-primary.fc-button-active { background: var(--org-primary-color); color: #fff; }
