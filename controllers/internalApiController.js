@@ -4,6 +4,7 @@
 // deliberately reuse existing query patterns from the main controllers
 // rather than introduce new business logic - this file is a thin
 // translation layer, not a second copy of the app.
+const { renameLibrarySubject } = require("../utils/academicLibrary");
 const db = require("../config/db");
 const crypto = require("crypto");
 const cookieSignature = require("cookie-signature");
@@ -1388,7 +1389,7 @@ async function createSubject(req, res) {
     const alreadyAssigned = [];
     for (const name of classNames) {
       const classRow = byName.get(normalizeName(name));
-      const existing = await client.query(`SELECT 1 FROM subjects WHERE subject_name = $1 AND class_id = $2 AND organization_id = $3`, [
+      const existing = await client.query(`SELECT 1 FROM subjects WHERE LOWER(TRIM(subject_name)) = LOWER(TRIM($1)) AND class_id = $2 AND organization_id = $3`, [
         subjectName,
         classRow.class_id,
         organizationId,
@@ -1401,7 +1402,9 @@ async function createSubject(req, res) {
         `INSERT INTO subjects (subject_name, class_id, organization_id) VALUES ($1, $2, $3) RETURNING subject_id, subject_name, class_id`,
         [subjectName, classRow.class_id, organizationId]
       );
-      created.push({ ...inserted.rows[0], class_name: classRow.class_name });
+      // The database skips a subject the class already teaches (see utils/academicLibrary.js).
+      if (inserted.rows.length) created.push({ ...inserted.rows[0], class_name: classRow.class_name });
+      else alreadyAssigned.push(classRow.class_name);
     }
 
     await client.query("COMMIT");
@@ -1451,6 +1454,15 @@ async function renameSubject(req, res) {
     );
     if (duplicate.rows.length) return res.status(409).json({ error: `A subject named "${newSubjectName}" already exists.` });
 
+    // Rename the school's library subject (and every class using it) in one go.
+    const library = await db.query(
+      `SELECT id FROM subject_library WHERE organization_id = $1 AND lower(btrim(name)) = $2 LIMIT 1`,
+      [organizationId, normalizeName(subjectName)]
+    );
+    if (library.rows.length) {
+      await renameLibrarySubject(db, organizationId, library.rows[0].id, newSubjectName);
+      return res.json({ oldName: subjectName, newName: newSubjectName.trim(), classesAffected: existing.rows.length });
+    }
     const result = await db.query(
       `UPDATE subjects SET subject_name = $1 WHERE organization_id = $2 AND LOWER(TRIM(subject_name)) = $3`,
       [newSubjectName, organizationId, normalizeName(subjectName)]

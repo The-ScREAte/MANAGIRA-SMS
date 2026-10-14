@@ -42,24 +42,33 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS subjects_library_subject_id_idx ON subjects (library_subject_id);
   CREATE INDEX IF NOT EXISTS terms_term_definition_id_idx ON terms (term_definition_id);
 
+  -- Links a subject row to its school's library entry (adding the entry if it is
+  -- new) and stores it under the library's spelling. A class never gets a second
+  -- copy of a subject it already teaches: that insert is skipped.
   CREATE OR REPLACE FUNCTION link_subject_to_library() RETURNS trigger AS $$
+  DECLARE
+    lib_id INTEGER;
+    lib_name TEXT;
   BEGIN
     IF NEW.organization_id IS NULL OR NULLIF(btrim(NEW.subject_name), '') IS NULL THEN
       RETURN NEW;
     END IF;
-    -- Already linked to this school's entry of the same name: nothing to do.
-    -- A link to another school's entry, or to a different name, is replaced.
-    IF NEW.library_subject_id IS NOT NULL AND EXISTS (
-         SELECT 1 FROM subject_library
-          WHERE id = NEW.library_subject_id AND organization_id = NEW.organization_id
-            AND lower(btrim(name)) = lower(btrim(NEW.subject_name))) THEN
-      RETURN NEW;
-    END IF;
-    INSERT INTO subject_library (organization_id, name)
-      VALUES (NEW.organization_id, btrim(NEW.subject_name))
-      ON CONFLICT (organization_id, (lower(btrim(name)))) DO NOTHING;
-    SELECT id INTO NEW.library_subject_id FROM subject_library
+    SELECT id, name INTO lib_id, lib_name FROM subject_library
      WHERE organization_id = NEW.organization_id AND lower(btrim(name)) = lower(btrim(NEW.subject_name));
+    IF lib_id IS NULL THEN
+      INSERT INTO subject_library (organization_id, name)
+        VALUES (NEW.organization_id, btrim(NEW.subject_name))
+        ON CONFLICT (organization_id, (lower(btrim(name)))) DO NOTHING;
+      SELECT id, name INTO lib_id, lib_name FROM subject_library
+       WHERE organization_id = NEW.organization_id AND lower(btrim(name)) = lower(btrim(NEW.subject_name));
+    END IF;
+    IF TG_OP = 'INSERT' AND NEW.class_id IS NOT NULL AND EXISTS (
+         SELECT 1 FROM subjects
+          WHERE class_id = NEW.class_id AND organization_id = NEW.organization_id AND library_subject_id = lib_id) THEN
+      RETURN NULL;
+    END IF;
+    NEW.library_subject_id := lib_id;
+    NEW.subject_name := lib_name;
     RETURN NEW;
   END $$ LANGUAGE plpgsql;
 
@@ -67,23 +76,45 @@ const SCHEMA_SQL = `
   CREATE TRIGGER subjects_link_library BEFORE INSERT OR UPDATE OF subject_name, organization_id, library_subject_id ON subjects
     FOR EACH ROW EXECUTE FUNCTION link_subject_to_library();
 
+  -- A term's place in the year from its name: 1st/Term 1/Fall = 1, 2nd/Spring = 2,
+  -- 3rd/Summer = 3 ... NULL when the name doesn't say.
+  CREATE OR REPLACE FUNCTION term_order_from_name(term_name TEXT) RETURNS INTEGER AS $$
+    SELECT COALESCE(
+      NULLIF(substring(lower(term_name) from '([0-9]+)'), '')::int,
+      CASE
+        WHEN lower(term_name) ~ 'first' THEN 1
+        WHEN lower(term_name) ~ 'second' THEN 2
+        WHEN lower(term_name) ~ 'third' THEN 3
+        WHEN lower(term_name) ~ 'fourth' THEN 4
+        WHEN lower(term_name) ~ '(fall|autumn)' THEN 1
+        WHEN lower(term_name) ~ '(winter|spring)' THEN 2
+        WHEN lower(term_name) ~ 'summer' THEN 3
+      END)
+  $$ LANGUAGE sql IMMUTABLE;
+
+  -- Links a term row to its school's term definition (adding it if new) and
+  -- stores it under the definition's spelling.
   CREATE OR REPLACE FUNCTION link_term_to_definition() RETURNS trigger AS $$
+  DECLARE
+    def_id INTEGER;
+    def_name TEXT;
   BEGIN
     IF NEW.organization_id IS NULL OR NULLIF(btrim(NEW.term_name), '') IS NULL THEN
       RETURN NEW;
     END IF;
-    IF NEW.term_definition_id IS NOT NULL AND EXISTS (
-         SELECT 1 FROM term_definitions
-          WHERE id = NEW.term_definition_id AND organization_id = NEW.organization_id
-            AND lower(btrim(name)) = lower(btrim(NEW.term_name))) THEN
-      RETURN NEW;
-    END IF;
-    INSERT INTO term_definitions (organization_id, name, sort_order)
-      VALUES (NEW.organization_id, btrim(NEW.term_name),
-              COALESCE((SELECT MAX(sort_order) + 1 FROM term_definitions WHERE organization_id = NEW.organization_id), 1))
-      ON CONFLICT (organization_id, (lower(btrim(name)))) DO NOTHING;
-    SELECT id INTO NEW.term_definition_id FROM term_definitions
+    SELECT id, name INTO def_id, def_name FROM term_definitions
      WHERE organization_id = NEW.organization_id AND lower(btrim(name)) = lower(btrim(NEW.term_name));
+    IF def_id IS NULL THEN
+      INSERT INTO term_definitions (organization_id, name, sort_order)
+        VALUES (NEW.organization_id, btrim(NEW.term_name),
+                COALESCE(term_order_from_name(NEW.term_name),
+                         (SELECT MAX(sort_order) + 1 FROM term_definitions WHERE organization_id = NEW.organization_id), 1))
+        ON CONFLICT (organization_id, (lower(btrim(name)))) DO NOTHING;
+      SELECT id, name INTO def_id, def_name FROM term_definitions
+       WHERE organization_id = NEW.organization_id AND lower(btrim(name)) = lower(btrim(NEW.term_name));
+    END IF;
+    NEW.term_definition_id := def_id;
+    NEW.term_name := def_name;
     RETURN NEW;
   END $$ LANGUAGE plpgsql;
 
@@ -92,9 +123,10 @@ const SCHEMA_SQL = `
     FOR EACH ROW EXECUTE FUNCTION link_term_to_definition();
 `;
 
-// Links rows that have no library entry yet. The library name is the spelling
-// most rows use (ties: not all capitals, then the earliest). Term order follows
-// where each term usually falls within its school year.
+// Links rows that have no library entry yet. The library name is a normal-case
+// spelling when there is one (not ALL CAPS / all lowercase), then the one most
+// rows use. Term order comes from the name (1st, Term 2, Fall...), otherwise
+// from where the term usually falls within its school year.
 const BACKFILL_SQL = `
   INSERT INTO subject_library (organization_id, name)
   SELECT DISTINCT ON (organization_id, lower(btrim(subject_name))) organization_id, btrim(subject_name)
@@ -104,8 +136,9 @@ const BACKFILL_SQL = `
         FROM subjects
        WHERE library_subject_id IS NULL AND organization_id IS NOT NULL AND NULLIF(btrim(subject_name), '') IS NOT NULL
     ) s
-   ORDER BY organization_id, lower(btrim(subject_name)), uses DESC,
-            (btrim(subject_name) = upper(btrim(subject_name))) ASC, subject_id ASC
+   ORDER BY organization_id, lower(btrim(subject_name)),
+            (btrim(subject_name) IN (upper(btrim(subject_name)), lower(btrim(subject_name)))) ASC,
+            uses DESC, subject_id ASC
   ON CONFLICT (organization_id, (lower(btrim(name)))) DO NOTHING;
 
   UPDATE subjects s SET library_subject_id = sl.id
@@ -121,9 +154,11 @@ const BACKFILL_SQL = `
   )
   INSERT INTO term_definitions (organization_id, name, sort_order)
   SELECT DISTINCT ON (organization_id, lower(btrim(term_name))) organization_id, btrim(term_name),
-         ROUND(AVG(pos) OVER (PARTITION BY organization_id, lower(btrim(term_name))))::int
+         COALESCE(term_order_from_name(term_name),
+                  ROUND(AVG(pos) OVER (PARTITION BY organization_id, lower(btrim(term_name))))::int)
     FROM placed
-   ORDER BY organization_id, lower(btrim(term_name)), term_id
+   ORDER BY organization_id, lower(btrim(term_name)),
+            (btrim(term_name) IN (upper(btrim(term_name)), lower(btrim(term_name)))) ASC, term_id
   ON CONFLICT (organization_id, (lower(btrim(name)))) DO NOTHING;
 
   UPDATE terms t SET term_definition_id = td.id

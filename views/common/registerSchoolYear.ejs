@@ -270,6 +270,7 @@
       </div>
 
       <div class="page-content">
+        <script src="<%= assetUrl('/js/libraryPicker.js') %>" defer></script>
         <datalist id="term-library"><% (typeof termNames !== 'undefined' ? termNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
 <form id="registerSchoolYearForm" action="/common/registerSchoolYear" method="POST" onsubmit="return validateRegisterSchoolYearForm(this)">
           <div class="form-group">

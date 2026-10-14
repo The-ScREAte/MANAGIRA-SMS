@@ -1294,12 +1294,14 @@
         </div>
       </details>
 
+      <%# The school's term library, for the term name fields (outside the redrawn list). %>
+      <script src="<%= assetUrl('/js/libraryPicker.js') %>" defer></script>
+      <datalist id="term-library"><% (typeof termNames !== 'undefined' ? termNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
       <div class="container">
         <fieldset class="collapsible-block ws-plain" id="schoolYearsBlock">
           <div class="collapsible-content">
 
         <div id="schoolYearContainer">
-          <datalist id="term-library"><% (typeof termNames !== 'undefined' ? termNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
           <% schoolYears.forEach(function(year) { %>
           <% const schoolYearTodayKey = new Date().toISOString().slice(0, 10); %>
           <% const completedTerms = (year.terms || []).filter(function(t){ return new Date(t.end_date).toISOString().slice(0, 10) < schoolYearTodayKey; }).length; %>
@@ -2618,7 +2620,7 @@
           </div>
           <div class="rsy-form-group">
             <label class="rsy-form-label">Term Name</label>
-            <input type="text" name="terms[${termIndex}][termName]" class="rsy-form-input" placeholder="e.g., 1st Semester, Fall Term" required>
+            <input type="text" name="terms[${termIndex}][termName]" list="term-library" autocomplete="off" class="rsy-form-input" placeholder="e.g., 1st Semester, Fall Term" required>
           </div>
           <div class="rsy-date-row">
             <div class="rsy-form-group" style="margin-bottom:0;">

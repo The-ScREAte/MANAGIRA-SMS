@@ -382,6 +382,7 @@
           <p>Add classes first, then assign subjects.</p>
         </div>
         <legend>Class</legend>
+        <script src="<%= assetUrl('/js/libraryPicker.js') %>" defer></script>
         <datalist id="subject-library"><% (typeof subjectNames !== 'undefined' ? subjectNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
 <form action="/common/addClass" method="post" id="classForm">
           <div id="class-fields">
