@@ -20,6 +20,7 @@ const PERMISSIONS = {
   APPROVE_ADMISSIONS: "approve_admissions",
   PUBLISH_EVENTS_ANNOUNCEMENTS: "publish_events_announcements",
   MANAGE_SCHOOL_YEAR_TERMS: "manage_school_year_terms",
+  ASSESS_OTHER_SCHOOL_YEARS: "assess_other_school_years",
   MANAGE_CLASSES_SUBJECTS: "manage_classes_subjects",
   GENERATE_TRANSCRIPTS: "generate_transcripts",
   MANAGE_BILLING: "manage_billing",
@@ -49,6 +50,7 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.APPROVE_ADMISSIONS, label: "Approve Admissions" },
   { key: PERMISSIONS.PUBLISH_EVENTS_ANNOUNCEMENTS, label: "Publish Events & Announcements" },
   { key: PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS, label: "Manage School Years & Terms" },
+  { key: PERMISSIONS.ASSESS_OTHER_SCHOOL_YEARS, label: "Assess Other School Years (Classroom)" },
   { key: PERMISSIONS.MANAGE_CLASSES_SUBJECTS, label: "Manage Classes & Subjects" },
   { key: PERMISSIONS.GENERATE_TRANSCRIPTS, label: "Generate Transcripts" },
   { key: PERMISSIONS.MANAGE_BILLING, label: "Manage Billing" },
@@ -84,8 +86,12 @@ function permissionOptionsFor({ allowedFeatures, miraActivated } = {}) {
   });
 }
 
+// Permissions only the main manager has until someone is given them by hand.
+const GRANT_ONLY_PERMISSIONS = new Set([PERMISSIONS.ASSESS_OTHER_SCHOOL_YEARS]);
+
 const MANAGER_DEFAULT_OPTIONAL_PERMISSIONS = PERMISSION_OPTIONS
-  .map((option) => option.key);
+  .map((option) => option.key)
+  .filter((key) => !GRANT_ONLY_PERMISSIONS.has(key));
 
 const ROLE_DEFAULT_PERMISSIONS = {
   // Manager gets all available permissions by default.

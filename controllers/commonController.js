@@ -186,6 +186,11 @@ function parseNumberOrNull(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+// Keeps a rider's home details current when a student is added or edited.
+// Only for schools that use transportation, and it never decides who rides:
+// managers tick riders on the Transportation page (that creates the row), so a
+// student is never put on (or back on) the bus just because their profile was
+// saved. The address itself always lives on the student record.
 async function upsertStudentTransportationAssignment(dbClient, {
   organizationId,
   studentId,
@@ -195,45 +200,38 @@ async function upsertStudentTransportationAssignment(dbClient, {
 }) {
   if (!organizationId || !studentId) return;
 
-  await ensureTransportationSchema(dbClient);
+  const transportation = await getTransportationIntegrationStatus(dbClient, organizationId).catch(() => ({ activated: false }));
+  if (!transportation.activated) return;
 
   const normalizedAddress = String(homeAddress || "").trim() || null;
   const latitude = parseNumberOrNull(homeLatitude);
   const longitude = parseNumberOrNull(homeLongitude);
+  if (!normalizedAddress && (latitude === null || longitude === null)) return;
 
   let nearest = null;
   if (latitude !== null && longitude !== null) {
     nearest = await suggestNearestStop(dbClient, organizationId, latitude, longitude);
   }
 
-  const routeId = nearest ? nearest.routeId : null;
-  const stopId = nearest ? nearest.stopId : null;
-  const distanceKm = nearest ? Number(nearest.distanceKm.toFixed(3)) : null;
-
   await dbClient.query(
-    `INSERT INTO transport_student_assignments (
-       organization_id, student_id, route_id, stop_id,
-       home_address, home_latitude, home_longitude, distance_km, active
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
-     ON CONFLICT (organization_id, student_id)
-     DO UPDATE SET
-       route_id = COALESCE(EXCLUDED.route_id, transport_student_assignments.route_id),
-       stop_id = COALESCE(EXCLUDED.stop_id, transport_student_assignments.stop_id),
-       home_address = COALESCE(EXCLUDED.home_address, transport_student_assignments.home_address),
-       home_latitude = COALESCE(EXCLUDED.home_latitude, transport_student_assignments.home_latitude),
-       home_longitude = COALESCE(EXCLUDED.home_longitude, transport_student_assignments.home_longitude),
-       distance_km = COALESCE(EXCLUDED.distance_km, transport_student_assignments.distance_km),
-       active = TRUE,
-       updated_at = NOW()`,
+    `UPDATE transport_student_assignments
+        SET route_id = COALESCE(route_id, $3),
+            stop_id = COALESCE(stop_id, $4),
+            home_address = COALESCE($5, home_address),
+            home_latitude = COALESCE($6, home_latitude),
+            home_longitude = COALESCE($7, home_longitude),
+            distance_km = CASE WHEN stop_id IS NULL THEN COALESCE($8, distance_km) ELSE distance_km END,
+            updated_at = NOW()
+      WHERE organization_id = $1 AND student_id = $2`,
     [
       organizationId,
       studentId,
-      routeId,
-      stopId,
+      nearest ? nearest.routeId : null,
+      nearest ? nearest.stopId : null,
       normalizedAddress,
       latitude,
       longitude,
-      distanceKm,
+      nearest ? Number(nearest.distanceKm.toFixed(3)) : null,
     ]
   );
 }
@@ -246,6 +244,20 @@ let studentEmailSchemaReady = false;
 let studentAddressSchemaReady = false;
 let studentDobUnknownSchemaReady = false;
 let classDashboardLayoutSchemaReady = false;
+
+// "Assess other school year" in the classroom: one person looks at another
+// term for a while without changing the school's current term for anyone else.
+// It lives in their session only and ends by itself after 20 minutes.
+const CLASSROOM_TERM_VIEW_MS = 20 * 60 * 1000;
+function activeClassroomTermView(req) {
+  const view = req.session && req.session.classroomTermView;
+  if (!view) return null;
+  if (Number(view.organizationId) !== Number(req.session.organizationId) || !(Number(view.expiresAt) > Date.now())) {
+    delete req.session.classroomTermView;
+    return null;
+  }
+  return view;
+}
 let studentReportCustomRemarksColumnReady = false;
 const TEACHER_REMARK_OPTIONS_CACHE_TTL_MS = 2 * 60 * 1000;
 const teacherRemarkOptionsCache = new Map();
@@ -1301,6 +1313,98 @@ async function isStudentIdTaken(dbClient, organizationId, customId, numericStude
   return result.rows.length > 0;
 }
 
+// Parents are the same person only when the name agrees too: families often
+// share one phone or email, and two parents must never be merged into one.
+// Names compare without case or extra spaces; a profile with no real name
+// (blank or the "Guardian" placeholder) matches anyone with that contact.
+const GUARDIAN_NAME_SQL = (column) => `LOWER(REGEXP_REPLACE(TRIM(COALESCE(${column}, '')), '\\s+', ' ', 'g'))`;
+function normalizeGuardianName(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+const GUARDIAN_SAME_NAME_SQL = (firstParam, lastParam) => `
+  (${firstParam} = '' OR ${GUARDIAN_NAME_SQL('first_name')} IN (${firstParam}, '', 'guardian'))
+  AND (${lastParam} = '' OR ${GUARDIAN_NAME_SQL('last_name')} IN (${lastParam}, ''))`;
+// Among equal matches, the profile that already has children linked wins.
+const GUARDIAN_PREFER_LINKED_SQL = `ORDER BY EXISTS (SELECT 1 FROM guardian_students gs WHERE gs.guardian_id = guardian_profiles.guardian_id) DESC, guardian_id ASC`;
+
+// Gives a parent a login for this email/phone without taking one away from
+// another parent: a login that belongs to someone else who still has children
+// linked stays theirs (shared family contact). A login sitting on a duplicate
+// profile with no children is moved to this parent. Returns true when a new
+// login was created.
+async function attachGuardianLogin(dbClient, { organizationId, guardianId, email, phone, tempHash }) {
+  const loginEmail = String(email || '').trim().toLowerCase() || null;
+  const loginPhone = String(phone || '').trim() || null;
+  if (!guardianId || (!loginEmail && !loginPhone)) return false;
+
+  const own = await dbClient.query(
+    `SELECT id, login_email, login_phone FROM guardian_accounts WHERE guardian_id = $1 LIMIT 1`,
+    [guardianId]
+  );
+  const existing = loginEmail
+    ? await dbClient.query(
+        `SELECT ga.id, ga.guardian_id,
+                EXISTS (SELECT 1 FROM guardian_students gs WHERE gs.guardian_id = ga.guardian_id) AS has_children
+           FROM guardian_accounts ga
+          WHERE ga.organization_id = $1 AND LOWER(COALESCE(ga.login_email, '')) = $2
+          LIMIT 1`,
+        [organizationId, loginEmail]
+      )
+    : await dbClient.query(
+        `SELECT ga.id, ga.guardian_id,
+                EXISTS (SELECT 1 FROM guardian_students gs WHERE gs.guardian_id = ga.guardian_id) AS has_children
+           FROM guardian_accounts ga
+          WHERE ga.organization_id = $1 AND ga.login_phone = $2
+          LIMIT 1`,
+        [organizationId, loginPhone]
+      );
+  const match = existing.rows[0] || null;
+
+  if (own.rows.length) {
+    // Already has a login; fill in a missing email/phone only when nobody else uses it.
+    if (!match) {
+      await dbClient.query(
+        `UPDATE guardian_accounts
+            SET login_email = COALESCE(login_email, $2),
+                login_phone = COALESCE(login_phone, $3),
+                updated_at = NOW()
+          WHERE id = $1
+            AND NOT EXISTS (SELECT 1 FROM guardian_accounts o WHERE o.organization_id = $4 AND o.id <> $1
+                              AND ((o.login_phone = $3 AND $3 IS NOT NULL) OR (LOWER(o.login_email) = $2 AND $2 IS NOT NULL)))`,
+        [own.rows[0].id, loginEmail, loginPhone, organizationId]
+      );
+    }
+    return false;
+  }
+  if (match) {
+    if (Number(match.guardian_id) === Number(guardianId) || match.has_children) return false;
+    await dbClient.query(
+      `UPDATE guardian_accounts SET guardian_id = $1, updated_at = NOW() WHERE id = $2`,
+      [guardianId, match.id]
+    );
+    return false;
+  }
+  if (loginEmail) {
+    const phoneTaken = loginPhone
+      ? await dbClient.query(`SELECT 1 FROM guardian_accounts WHERE organization_id = $1 AND login_phone = $2 LIMIT 1`, [organizationId, loginPhone])
+      : { rows: [] };
+    await dbClient.query(
+      `INSERT INTO guardian_accounts
+        (organization_id, guardian_id, login_email, login_phone, password_hash, must_reset_password, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())`,
+      [organizationId, guardianId, loginEmail, phoneTaken.rows.length ? null : loginPhone, tempHash]
+    );
+  } else {
+    await dbClient.query(
+      `INSERT INTO guardian_accounts
+        (organization_id, guardian_id, login_phone, password_hash, must_reset_password, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, true, NOW(), NOW())`,
+      [organizationId, guardianId, loginPhone, tempHash]
+    );
+  }
+  return true;
+}
+
 async function ensureGuardianPortalProfileAndAccount(dbClient, options = {}) {
   const organizationId = Number(options.organizationId || 0);
   if (!organizationId) return null;
@@ -1313,10 +1417,16 @@ async function ensureGuardianPortalProfileAndAccount(dbClient, options = {}) {
   const phone = normalizeGuardianPhoneForLookup(options.phone);
   let guardianId = null;
 
+  const nameFirst = normalizeGuardianName(firstName);
+  const nameLast = normalizeGuardianName(lastName);
   if (email) {
     const emailMatch = await dbClient.query(
-      `SELECT guardian_id FROM guardian_profiles WHERE organization_id = $1 AND LOWER(COALESCE(email, '')) = $2 LIMIT 1`,
-      [organizationId, email]
+      `SELECT guardian_id FROM guardian_profiles
+        WHERE organization_id = $1 AND LOWER(COALESCE(email, '')) = $2
+          AND ${GUARDIAN_SAME_NAME_SQL('$3', '$4')}
+        ${GUARDIAN_PREFER_LINKED_SQL}
+        LIMIT 1`,
+      [organizationId, email, nameFirst, nameLast]
     );
     guardianId = emailMatch.rows[0]?.guardian_id || null;
   }
@@ -1327,8 +1437,10 @@ async function ensureGuardianPortalProfileAndAccount(dbClient, options = {}) {
          FROM guardian_profiles
         WHERE organization_id = $1
           AND REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9+]', '', 'g') = $2
+          AND ${GUARDIAN_SAME_NAME_SQL('$3', '$4')}
+        ${GUARDIAN_PREFER_LINKED_SQL}
         LIMIT 1`,
-      [organizationId, phone]
+      [organizationId, phone, nameFirst, nameLast]
     );
     guardianId = phoneMatch.rows[0]?.guardian_id || null;
   }
@@ -1362,53 +1474,7 @@ async function ensureGuardianPortalProfileAndAccount(dbClient, options = {}) {
   }
 
   const tempHash = await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10);
-
-  if (email) {
-    const existingByEmail = await dbClient.query(
-      `SELECT id FROM guardian_accounts WHERE organization_id = $1 AND LOWER(COALESCE(login_email, '')) = $2 LIMIT 1`,
-      [organizationId, email]
-    );
-
-    if (existingByEmail.rows.length) {
-      await dbClient.query(
-        `UPDATE guardian_accounts
-            SET guardian_id = $1,
-                login_phone = COALESCE($2, login_phone),
-                updated_at = NOW()
-          WHERE id = $3`,
-        [guardianId, phone || null, existingByEmail.rows[0].id]
-      );
-    } else {
-      await dbClient.query(
-        `INSERT INTO guardian_accounts
-          (organization_id, guardian_id, login_email, login_phone, password_hash, must_reset_password, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())`,
-        [organizationId, guardianId, email, phone || null, tempHash]
-      );
-    }
-  } else if (phone) {
-    const existingByPhone = await dbClient.query(
-      `SELECT id FROM guardian_accounts WHERE organization_id = $1 AND login_phone = $2 LIMIT 1`,
-      [organizationId, phone]
-    );
-
-    if (existingByPhone.rows.length) {
-      await dbClient.query(
-        `UPDATE guardian_accounts
-            SET guardian_id = $1,
-                updated_at = NOW()
-          WHERE id = $2`,
-        [guardianId, existingByPhone.rows[0].id]
-      );
-    } else {
-      await dbClient.query(
-        `INSERT INTO guardian_accounts
-          (organization_id, guardian_id, login_phone, password_hash, must_reset_password, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, true, NOW(), NOW())`,
-        [organizationId, guardianId, phone, tempHash]
-      );
-    }
-  }
+  await attachGuardianLogin(dbClient, { organizationId, guardianId, email, phone, tempHash });
 
   return guardianId;
 }
@@ -5112,8 +5178,10 @@ const commonController = {
                  FROM guardian_profiles
                  WHERE organization_id = $1
                    AND LOWER(TRIM(COALESCE(email, ''))) = $2
+                   AND ${GUARDIAN_SAME_NAME_SQL('$3', '$4')}
+                 ${GUARDIAN_PREFER_LINKED_SQL}
                  LIMIT 1`,
-                [organizationId, normalizedEmail]
+                [organizationId, normalizedEmail, normalizeGuardianName(g.firstName), normalizeGuardianName(g.lastName)]
               );
               if (existingByEmail.rows.length) {
                 guardianId = existingByEmail.rows[0].guardian_id;
@@ -5127,11 +5195,12 @@ const commonController = {
                 `SELECT guardian_id
                  FROM guardian_profiles
                  WHERE organization_id = $1
-                   AND LOWER(TRIM(COALESCE(first_name, ''))) = $2
-                   AND LOWER(TRIM(COALESCE(last_name, ''))) = $3
+                   AND ${GUARDIAN_NAME_SQL('first_name')} = $2
+                   AND ${GUARDIAN_NAME_SQL('last_name')} = $3
                    AND REGEXP_REPLACE(COALESCE(phone, ''), '\\D', '', 'g') = $4
+                 ${GUARDIAN_PREFER_LINKED_SQL}
                  LIMIT 1`,
-                [organizationId, normalizedFirstName, normalizedLastName, normalizedPhoneDigits]
+                [organizationId, normalizeGuardianName(g.firstName), normalizeGuardianName(g.lastName), normalizedPhoneDigits]
               );
               if (existingByPhoneAndName.rows.length) {
                 guardianId = existingByPhoneAndName.rows[0].guardian_id;
@@ -5237,84 +5306,15 @@ const commonController = {
             }
             const tempHash = sharedGuardianTempHash;
 
-            // Prefer email matching; fallback to phone matching.
-            // Avoid ON CONFLICT with expression targets that may not be backed by DB constraints.
-            if (loginEmail) {
-              currentPhaseForLog = `guardian_${i}_findAccountByEmail`;
-              const existingByEmail = await client.query(
-                `
-                SELECT id
-                FROM guardian_accounts
-                WHERE organization_id = $1
-                  AND LOWER(COALESCE(login_email, '')) = $2
-                LIMIT 1
-                `,
-                [organizationId, loginEmail]
-              );
-
-              if (existingByEmail.rows.length > 0) {
-                currentPhaseForLog = `guardian_${i}_updateAccountByEmail`;
-                await client.query(
-                  `
-                  UPDATE guardian_accounts
-                  SET guardian_id = $1,
-                      login_phone = COALESCE($2, login_phone),
-                      updated_at = NOW()
-                  WHERE id = $3
-                  `,
-                  [guardianId, loginPhone, existingByEmail.rows[0].id]
-                );
-                isNewAccount = false;
-              } else {
-                currentPhaseForLog = `guardian_${i}_insertAccountByEmail`;
-                await client.query(
-                  `
-                  INSERT INTO guardian_accounts
-                    (organization_id, guardian_id, login_email, login_phone, password_hash, must_reset_password)
-                  VALUES ($1,$2,$3,$4,$5,true)
-                  `,
-                  [organizationId, guardianId, loginEmail, loginPhone, tempHash]
-                );
-                isNewAccount = true;
-              }
-            } else {
-              currentPhaseForLog = `guardian_${i}_findAccountByPhone`;
-              const existingByPhone = await client.query(
-                `
-                SELECT id
-                FROM guardian_accounts
-                WHERE organization_id = $1
-                  AND login_phone = $2
-                LIMIT 1
-                `,
-                [organizationId, loginPhone]
-              );
-
-              if (existingByPhone.rows.length > 0) {
-                currentPhaseForLog = `guardian_${i}_updateAccountByPhone`;
-                await client.query(
-                  `
-                  UPDATE guardian_accounts
-                  SET guardian_id = $1,
-                      updated_at = NOW()
-                  WHERE id = $2
-                  `,
-                  [guardianId, existingByPhone.rows[0].id]
-                );
-                isNewAccount = false;
-              } else {
-                currentPhaseForLog = `guardian_${i}_insertAccountByPhone`;
-                await client.query(
-                  `
-                  INSERT INTO guardian_accounts
-                    (organization_id, guardian_id, login_phone, password_hash, must_reset_password)
-                  VALUES ($1,$2,$3,$4,true)
-                  `,
-                  [organizationId, guardianId, loginPhone, tempHash]
-                );
-                isNewAccount = true;
-              }
-            }
+            // Never takes a login away from another parent (shared family contact).
+            currentPhaseForLog = `guardian_${i}_attachLogin`;
+            isNewAccount = await attachGuardianLogin(client, {
+              organizationId,
+              guardianId,
+              email: loginEmail,
+              phone: loginPhone,
+              tempHash,
+            });
           }
 
           // 5) Send email notifications after transaction commits
@@ -8019,13 +8019,14 @@ const commonController = {
       } else {
         // For everyone else (including main teacher), show only subjects that the student is actually enrolled in
         subjectsQuery = `
-          SELECT s.subject_id, s.subject_name
-          FROM student_subjects ss
+          SELECT DISTINCT s.subject_id, s.subject_name
+          FROM student_subjects_in_term($3::int) ss
           INNER JOIN subjects s ON ss.subject_id = s.subject_id
           WHERE ss.student_id = $1 AND ss.organization_id = $2
+            AND ($4::int IS NULL OR s.class_id IS NULL OR s.class_id = $4::int)
           ORDER BY s.subject_name
         `;
-        subjectsParams = [studentId, organizationId];
+        subjectsParams = [studentId, organizationId, Number.parseInt(termId, 10) || null, Number.parseInt(classId, 10) || null];
       }
 
       const subjectsResult = await db.query(subjectsQuery, subjectsParams);
@@ -10743,9 +10744,10 @@ const commonController = {
       if (Number.isInteger(requestedTermId)) {
         const requestedTermResult = await db.query(
           `
-                SELECT term_id, term_name, start_date, end_date
-                FROM terms
-                WHERE term_id = $1 AND organization_id = $2
+                SELECT t.term_id, t.term_name, t.start_date, t.end_date, (t.current AND sy.current) AS is_current
+                FROM terms t
+                JOIN school_years sy ON sy.id = t.school_year_id
+                WHERE t.term_id = $1 AND t.organization_id = $2
                 LIMIT 1
             `,
           [requestedTermId, organizationId]
@@ -10756,7 +10758,7 @@ const commonController = {
       if (!currentTerm) {
         const currentTermResult = await db.query(
           `
-                SELECT t.term_id, t.term_name, t.start_date, t.end_date
+                SELECT t.term_id, t.term_name, t.start_date, t.end_date, TRUE AS is_current
                 FROM terms t
                 JOIN school_years sy ON t.school_year_id = sy.id
                 WHERE sy.organization_id = $1 AND sy.current = TRUE AND t.current = TRUE
@@ -10805,10 +10807,10 @@ const commonController = {
                   AND e.term_id = $2
                   AND e.organization_id = $3
                   AND s.organization_id = $3
-                  AND s.graduated = FALSE
+                  AND (s.graduated = FALSE OR NOT $4::boolean)
                 ORDER BY s.last_name ASC, s.first_name ASC
             `,
-        [classId, currentTerm.term_id, organizationId]
+        [classId, currentTerm.term_id, organizationId, currentTerm.is_current !== false]
       );
 
       const students = studentsResult.rows;
@@ -10817,7 +10819,7 @@ const commonController = {
       if (students.length === 0) {
         req.flash(
           "error",
-          `No students found for this class in the current term. Go to Admissions to add a new student.`
+          `No students found for this class in this term. Go to Admissions to add a new student.`
         );
       }
 
@@ -10854,7 +10856,7 @@ const commonController = {
       if (assessments.length === 0) {
         req.flash(
           "error",
-          "No assessments found for the current term, subject, and class. Go to Management Tools to add assessments."
+          "No assessments found for this term, subject, and class. Go to Management Tools to add assessments."
         );
       }
 
@@ -16193,17 +16195,43 @@ NUMBERING:
         canUseQuestionSetIntegration && setAssessmentQuestionsFeatureEnabled && canSetAssessmentQuestions;
       const canManageAllClassAssessmentExams = ["manager", "supervisor"].includes(normalizedRole);
 
-      // Fetch the current school year and term
-      const schoolYearResult = await db.query(
+      // "Assess other school year" is for the main manager and anyone given the permission.
+      const canAssessOtherYears = await userHasPermission(
+        db,
+        {
+          userId: currentUserId,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.ASSESS_OTHER_SCHOOL_YEARS
+      ).catch(() => false);
+      if (!canAssessOtherYears) delete req.session.classroomTermView;
+
+      // The school year being looked at: the current one, or the one holding the
+      // term picked with "Assess other school year".
+      let termView = canAssessOtherYears ? activeClassroomTermView(req) : null;
+      const loadSchoolYearRows = (view) => db.query(
         `
             SELECT sy.id as school_year_id, sy.year_label, t.term_id, t.term_name, t.start_date, t.end_date, t.current
             FROM school_years sy
             LEFT JOIN terms t ON sy.id = t.school_year_id
-            WHERE sy.organization_id = $1 AND sy.current = TRUE
+            WHERE sy.organization_id = $1
+              AND ${view ? "sy.id = (SELECT school_year_id FROM terms WHERE term_id = $2 AND organization_id = $1)" : "sy.current = TRUE"}
             ORDER BY t.start_date
             `,
-        [organizationId]
+        view ? [organizationId, view.termId] : [organizationId]
       );
+      let schoolYearResult = await loadSchoolYearRows(termView);
+      if (termView && !schoolYearResult.rows.some((row) => Number(row.term_id) === Number(termView.termId))) {
+        delete req.session.classroomTermView;
+        termView = null;
+        schoolYearResult = await loadSchoolYearRows(null);
+      }
+      const viewedTermId = termView
+        ? Number.parseInt(req.query.termId || termView.termId, 10)
+        : requestedTermId;
 
       let schoolYear = null;
       let currentTerm = null;
@@ -16222,8 +16250,8 @@ NUMBERING:
         };
 
         // Prefer selected/session term when present; otherwise fall back to current.
-        currentTerm = Number.isInteger(requestedTermId)
-          ? schoolYearResult.rows.find((row) => Number(row.term_id) === requestedTermId)
+        currentTerm = Number.isInteger(viewedTermId)
+          ? schoolYearResult.rows.find((row) => Number(row.term_id) === viewedTermId)
           : null;
         if (!currentTerm) {
           currentTerm = schoolYearResult.rows.find((row) => row.current) || schoolYearResult.rows[0] || null;
@@ -16236,6 +16264,78 @@ NUMBERING:
         return res.redirect("/common/orgDashboard");
       }
       req.session.currentTermId = currentTerm.term_id;
+
+      // Every school year and term this class was part of, for "Assess other
+      // school year": on the term's class list, or with students or scores in it.
+      const [termOptionRows, classTermRows] = await Promise.all([
+        db.query(
+          `SELECT sy.id AS school_year_id, sy.year_label, sy.current AS year_current,
+                  t.term_id, t.term_name, t.start_date, t.end_date, t.current
+             FROM school_years sy
+             JOIN terms t ON t.school_year_id = sy.id AND t.organization_id = sy.organization_id
+            WHERE sy.organization_id = $1
+            ORDER BY t.start_date, t.term_name`,
+          [organizationId]
+        ).then((r) => r.rows),
+        db.query(
+          `SELECT t.term_id,
+                  (EXISTS (SELECT 1 FROM term_classes tc
+                            WHERE tc.term_id = t.term_id AND tc.class_id = $2)
+                   OR EXISTS (SELECT 1 FROM enrolled_classes ec
+                                JOIN enrollments e ON e.enrollment_id = ec.enrollment_id
+                               WHERE e.organization_id = $1 AND e.term_id = t.term_id AND ec.class_id = $2)) AS listed,
+                  (SELECT COUNT(DISTINCT es.student_id)::int FROM enrolled_students es
+                     JOIN enrollments e ON e.enrollment_id = es.enrollment_id
+                    WHERE e.organization_id = $1 AND e.term_id = t.term_id AND es.class_id = $2) AS students,
+                  (SELECT COUNT(*)::int FROM assessment_results ar
+                    WHERE ar.class_id = $2 AND ar.term_id = t.term_id AND ar.organization_id = $1) AS scores
+             FROM terms t
+            WHERE t.organization_id = $1`,
+          [organizationId, classId]
+        ).then((r) => r.rows).catch(() => []),
+      ]);
+      const classTerms = new Map(classTermRows.map((row) => [Number(row.term_id), row]));
+      const termYearsById = new Map();
+      termOptionRows.forEach((row) => {
+        const termRecord = classTerms.get(Number(row.term_id)) || {};
+        const isRealCurrent = Boolean(row.current && row.year_current);
+        const students = Number(termRecord.students) || 0;
+        const scores = Number(termRecord.scores) || 0;
+        // Only terms this class was part of (the current and the open term always show).
+        if (!(isRealCurrent || Number(row.term_id) === Number(currentTerm.term_id) || termRecord.listed || students || scores)) return;
+        const yearId = Number(row.school_year_id);
+        if (!termYearsById.has(yearId)) {
+          termYearsById.set(yearId, { id: yearId, label: row.year_label, current: Boolean(row.year_current), terms: [] });
+        }
+        termYearsById.get(yearId).terms.push({
+          id: Number(row.term_id),
+          name: row.term_name,
+          start: row.start_date ? new Date(row.start_date).toISOString().slice(0, 10) : '',
+          end: row.end_date ? new Date(row.end_date).toISOString().slice(0, 10) : '',
+          current: isRealCurrent,
+          students,
+          scores,
+        });
+      });
+      // Newest school year first.
+      const classroomTermOptions = Array.from(termYearsById.values()).sort((a, b) => {
+        const aStart = a.terms[0] ? a.terms[0].start : '';
+        const bStart = b.terms[0] ? b.terms[0].start : '';
+        return bStart.localeCompare(aStart);
+      });
+      const realCurrentTerm = termOptionRows.find((row) => row.current && row.year_current) || null;
+      const viewingOtherTerm = Boolean(termView) && (!realCurrentTerm || Number(realCurrentTerm.term_id) !== Number(currentTerm.term_id));
+      const classroomTermView = viewingOtherTerm
+        ? {
+            termId: Number(currentTerm.term_id),
+            remainingMs: Math.max(0, Number(termView.expiresAt) - Date.now()),
+            classInTerm: (() => {
+              const record = classTerms.get(Number(currentTerm.term_id)) || {};
+              return Boolean(record.listed || Number(record.students) || Number(record.scores));
+            })(),
+            currentLabel: realCurrentTerm ? `${realCurrentTerm.term_name}, ${realCurrentTerm.year_label}` : '',
+          }
+        : null;
 
       // Fetch class details
       const classResult = await db.query(
@@ -16283,10 +16383,10 @@ NUMBERING:
               AND e.term_id = $2
               AND e.school_year_id = $3
               AND e.organization_id = $4
-              AND s.graduated = FALSE
+              AND (s.graduated = FALSE OR $5::boolean)
             ORDER BY s.last_name, s.first_name
             `,
-        [classId, currentTerm.term_id, schoolYear.id, organizationId]
+        [classId, currentTerm.term_id, schoolYear.id, organizationId, Boolean(termView)]
       );
 
       const students = studentsResult.rows;
@@ -16534,10 +16634,66 @@ NUMBERING:
         transportationIntegration,
         classTransportationSnapshot,
         classTransportationSchoolDestination,
+        classroomTermOptions: canAssessOtherYears ? classroomTermOptions : [],
+        classroomTermView,
         hideGlobalFooter: true,
       });
     } catch (err) {
             res.status(500).send("Error loading class dashboard");
+    }
+  },
+
+  // Start, change or end "Assess other school year" for this person.
+  setClassroomTermView: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    if (!organizationId) {
+      return res.status(401).json({ success: false, message: "Please sign in again." });
+    }
+    const termId = Number.parseInt(req.body && req.body.termId, 10);
+    const done = (payload) => req.session.save(() => res.json({ success: true, ...payload }));
+    if (!Number.isInteger(termId) || (req.body && req.body.reset)) {
+      delete req.session.classroomTermView;
+      return done({ viewing: false });
+    }
+    const allowed = await userHasPermission(
+      db,
+      {
+        userId: req.session.user?.user_id || req.session.userId || null,
+        userRole: req.session.userRole || req.session.user?.account_type || null,
+        organizationId,
+        accountType: req.session.accountType || req.session.user?.account_type || null,
+        userEmail: req.session.user?.email || null,
+      },
+      PERMISSIONS.ASSESS_OTHER_SCHOOL_YEARS
+    ).catch(() => false);
+    if (!allowed) {
+      delete req.session.classroomTermView;
+      return res.status(403).json({ success: false, message: "You don't have permission to assess other school years." });
+    }
+    try {
+      const { rows } = await db.query(
+        `SELECT t.term_id, t.school_year_id, (t.current AND sy.current) AS is_current
+           FROM terms t
+           JOIN school_years sy ON sy.id = t.school_year_id
+          WHERE t.term_id = $1 AND t.organization_id = $2 AND sy.organization_id = $2`,
+        [termId, organizationId]
+      );
+      if (!rows.length) {
+        return res.status(404).json({ success: false, message: "That term was not found." });
+      }
+      if (rows[0].is_current) {
+        delete req.session.classroomTermView;
+        return done({ viewing: false });
+      }
+      req.session.classroomTermView = {
+        organizationId: Number(organizationId),
+        termId,
+        schoolYearId: Number(rows[0].school_year_id),
+        expiresAt: Date.now() + CLASSROOM_TERM_VIEW_MS,
+      };
+      return done({ viewing: true, remainingMs: CLASSROOM_TERM_VIEW_MS });
+    } catch (err) {
+      return res.status(500).json({ success: false, message: "Could not switch the term. Please try again." });
     }
   },
 

@@ -429,13 +429,13 @@ module.exports = {
       // For guardians: show subjects the student is enrolled in
       const subjectsResult = await db.query(
         `
-          SELECT s.subject_id, s.subject_name
-          FROM student_subjects ss
+          SELECT DISTINCT s.subject_id, s.subject_name
+          FROM student_subjects_in_term($3::int) ss
           INNER JOIN subjects s ON ss.subject_id = s.subject_id
           WHERE ss.student_id = $1 AND ss.organization_id = $2
           ORDER BY s.subject_name
         `,
-        [studentId, organizationId]
+        [studentId, organizationId, Number.parseInt(termId, 10) || null]
       );
 
       const subjectsMap = new Map();
@@ -544,7 +544,7 @@ module.exports = {
       }, {});
 
       subjectsMap.forEach((subject) => {
-        subject.position = positions[subject.subject_id] || "-";
+        subject.position = (subject.subjectIds || [subject.subject_id]).map((id) => positions[id]).find(Boolean) || "-";
       });
 
       const subjects = Array.from(subjectsMap.values());
@@ -704,13 +704,13 @@ module.exports = {
       // Subjects student is enrolled in
       const subjectsResult = await db.query(
         `
-        SELECT s.subject_id, s.subject_name
-        FROM student_subjects ss
+        SELECT DISTINCT s.subject_id, s.subject_name
+        FROM student_subjects_in_term($3::int) ss
         INNER JOIN subjects s ON ss.subject_id = s.subject_id
         WHERE ss.student_id = $1 AND ss.organization_id = $2
         ORDER BY s.subject_name
         `,
-        [studentId, organizationId]
+        [studentId, organizationId, Number.parseInt(termId, 10) || null]
       );
 
       const subjectsMap = new Map();
@@ -782,15 +782,17 @@ module.exports = {
         LEFT JOIN assessment_results ar
           ON a.assessment_id = ar.assessment_id AND ar.student_id = $1
         WHERE a.organization_id = $2 AND a.term_id = $3
-          AND a.subject_id IN (SELECT subject_id FROM student_subjects WHERE student_id=$1 AND organization_id=$2)
+          AND a.subject_id IN (SELECT subject_id FROM student_subjects_in_term($3::int) WHERE student_id=$1 AND organization_id=$2)
         ORDER BY a.assessment_id
         `,
         [studentId, organizationId, termId]
       );
 
       assessmentsResult.rows.forEach((assessment) => {
-        if (!subjectsMap.has(assessment.subject_id)) return;
-        const subject = subjectsMap.get(assessment.subject_id);
+        // Subjects are grouped by name (see above), so find the group by its subject id.
+        const subjectKey = subjectKeyById.get(assessment.subject_id);
+        if (!subjectKey || !subjectsMap.has(subjectKey)) return;
+        const subject = subjectsMap.get(subjectKey);
 
         subject.assessments.push(assessment);
 
@@ -817,7 +819,9 @@ module.exports = {
       }, {});
 
       subjectsMap.forEach((s) => {
-        s.position = positions[s.subject_id] ? `${positions[s.subject_id]}${getOrdinalSuffix(positions[s.subject_id])}` : "-";
+        // Same-name subjects (e.g. Mathematics in last and this year's class): the one with a position this term.
+        const position = (s.subjectIds || [s.subject_id]).map((id) => positions[id]).find(Boolean);
+        s.position = position ? `${position}${getOrdinalSuffix(position)}` : "-";
       });
 
       const subjects = Array.from(subjectsMap.values());
@@ -1393,7 +1397,7 @@ module.exports = {
       // Fetch subjects student is enrolled in
       const subjectsResult = await db.query(
         `SELECT DISTINCT s.subject_id, s.subject_name
-         FROM student_subjects ss
+         FROM student_subjects_in_term($4::int) ss
          INNER JOIN subjects s ON ss.subject_id = s.subject_id AND s.organization_id = ss.organization_id
          WHERE ss.student_id = $1
            AND ss.organization_id = $2
@@ -1407,7 +1411,7 @@ module.exports = {
       // Fetch subject teachers only for subjects the student is enrolled in
       const subjectTeachersResult = await db.query(
         `SELECT DISTINCT s.subject_id, s.subject_name, u.first_name, u.last_name, u.email
-         FROM student_subjects ss
+         FROM student_subjects_in_term($4::int) ss
          INNER JOIN subjects s ON ss.subject_id = s.subject_id AND s.organization_id = ss.organization_id
          LEFT JOIN user_subjects us ON us.subject_id = s.subject_id
          LEFT JOIN users u ON u.user_id = us.user_id
@@ -1488,7 +1492,7 @@ module.exports = {
          INNER JOIN terms t ON t.term_id = a.term_id AND t.organization_id = a.organization_id
          WHERE a.subject_id IN (
              SELECT s2.subject_id
-             FROM student_subjects ss2
+             FROM student_subjects_in_term($2::int) ss2
              INNER JOIN subjects s2 ON ss2.subject_id = s2.subject_id AND s2.organization_id = ss2.organization_id
              WHERE ss2.student_id = $1
                AND ss2.organization_id = $3

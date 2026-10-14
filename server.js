@@ -98,10 +98,16 @@ ensureOrganizationActivityLogSchema(db).catch((error) => {
   console.error("[ActivityLog] Failed to initialize schema:", error.message || error);
 });
 
-// Records that belong to one term stay with that term (positions, report settings).
-require("./utils/termRecords").ensureTermRecordsSchema(db).catch((error) => {
-  console.error("[termRecords] schema setup failed:", error.message);
-});
+// Records that belong to one term stay with that term (positions, report settings),
+// then the database rules that keep each school's records safe.
+require("./utils/termRecords").ensureTermRecordsSchema(db)
+  .catch((error) => {
+    console.error("[termRecords] schema setup failed:", error.message);
+  })
+  .then(() => require("./utils/recordSafety").ensureRecordSafetySchema(db))
+  .catch((error) => {
+    console.error("[recordSafety] schema setup failed:", error.message);
+  });
 // Each school's subject and term libraries (links every subject/term to them).
 require("./utils/academicLibrary").ensureAcademicLibrarySchema(db).catch((error) => {
   console.error("[academicLibrary] schema setup failed:", error.message);

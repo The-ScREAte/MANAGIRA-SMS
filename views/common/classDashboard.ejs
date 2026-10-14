@@ -2726,6 +2726,141 @@ main {
   display: none;
 }
 
+/* "Assess other school year": options menu + Year/Term pickers */
+.workspace-meta-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+.workspace-meta-wrap .workspace-meta-inline { margin-left: 0; }
+.term-view-menu { position: relative; flex: 0 0 auto; }
+.term-view-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+}
+.term-view-dots svg { width: 16px; height: 16px; }
+.term-view-dots:hover,
+.term-view-dots[aria-expanded="true"] { color: var(--text, #0f172a); border-color: var(--primary, #01535b); }
+.term-view-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 230px;
+  padding: 5px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  background: var(--ap-surface, #fff);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+.term-view-pop[hidden] { display: none; }
+.term-view-pop__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text, #0f172a);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.term-view-pop__item:hover { background: color-mix(in srgb, var(--primary, #01535b) 10%, transparent); }
+.term-view-pop__item:disabled { cursor: default; opacity: 0.6; background: transparent; }
+.term-view-pop__note { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 500; color: var(--muted, #64748b); }
+.term-view-pop__check {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 1.5px solid var(--muted, #64748b);
+  border-radius: 4px;
+}
+.term-view-pop__item[aria-checked="true"] .term-view-pop__check {
+  border-color: var(--primary, #01535b);
+  background: var(--primary, #01535b) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+.term-view-select { display: none; }
+.is-term-picking .term-view-static { display: none; }
+.is-term-picking .term-view-select {
+  display: inline-block;
+  max-width: 190px;
+  min-width: 0;
+  margin: 0;
+  padding: 0 14px 0 0;
+  border: 0;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2364748b' stroke-width='1.5'/%3E%3C/svg%3E") right center / 9px no-repeat;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.is-term-picking .workspace-meta-pair:nth-child(-n+2) {
+  border-color: var(--primary, #01535b);
+}
+.term-view-select:disabled { opacity: 0.55; cursor: progress; }
+.term-view-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, #d97706 45%, transparent);
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  color: var(--text, #0f172a);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.term-view-banner[hidden] { display: none; }
+.term-view-banner__text { flex: 1 1 260px; min-width: 0; }
+.term-view-banner .term-view-banner__btn { width: auto; min-width: 0; flex: 0 0 auto; }
+@media (max-width: 640px) {
+  .term-view-banner { flex-wrap: wrap; font-size: 12px; }
+  .term-view-dots { width: 26px; height: 26px; }
+  .workspace-meta-wrap { align-items: flex-start; gap: 6px; }
+  /* While picking, the Year/Term pickers get the whole row under the class name. */
+  .is-term-picking .workspace-header-line { grid-template-columns: minmax(0, 1fr); }
+  .is-term-picking .workspace-meta-wrap { width: 100%; }
+  .is-term-picking .workspace-meta-inline { max-width: none; flex: 1 1 auto; }
+  .is-term-picking .term-view-select { max-width: 100%; }
+}
+.term-view-banner__btn {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--primary, #01535b);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--primary, #01535b);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .workspace-tabbar-shell {
   padding: 0;
   overflow: visible;
@@ -3748,7 +3883,19 @@ main {
       <div class="nav-overlay" id="class-tools-overlay"></div>
 
       <main class="dashboard-main workspace-main">
-        <section class="card workspace-header-card" data-meta-collapsed="true">
+        <%
+          const _termYears = Array.isArray(locals.classroomTermOptions) ? classroomTermOptions : [];
+          const _termView = locals.classroomTermView || null;
+          const _viewYear = _termYears.find((y) => Number(y.id) === Number(schoolYear.id)) || { terms: [] };
+          const _termCount = _termYears.reduce((n, y) => n + y.terms.length, 0);
+          const _termNote = (t) => t.current ? ' (current)' : t.scores ? ' · ' + t.scores + ' scores' : t.students ? ' · ' + t.students + ' students' : ' · no students';
+          const _noStudentsText = !_termView
+            ? 'No students in this class yet.'
+            : _termView.classInTerm
+              ? 'No students were enrolled in this class in ' + currentTerm.term_name + ', ' + schoolYear.year_label + '.'
+              : className + ' was not part of ' + currentTerm.term_name + ', ' + schoolYear.year_label + '.';
+        %>
+        <section class="card workspace-header-card<%= _termView ? ' is-term-picking is-term-viewing' : '' %>" data-meta-collapsed="<%= _termView ? 'false' : 'true' %>">
           <div class="workspace-header-line">
             <div class="workspace-header-copy">
               <span class="eyebrow">Class Workspace</span>
@@ -3762,13 +3909,59 @@ main {
                 </button>
               </span>
             </div>
+            <div class="workspace-meta-wrap">
+            <% if (_termYears.length) { %>
+            <div class="term-view-menu">
+              <button type="button" class="term-view-dots" id="termViewMenuBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="termViewMenu" aria-label="Class workspace options" title="Options">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+              </button>
+              <div class="term-view-pop" id="termViewMenu" role="menu" hidden>
+                <button type="button" class="term-view-pop__item" role="menuitemcheckbox" aria-checked="<%= _termView ? 'true' : 'false' %>" data-term-view-toggle <%= _termCount > 1 || _termView ? '' : 'disabled' %>>
+                  <span class="term-view-pop__check" aria-hidden="true"></span>
+                  <span>Assess other school year<% if (_termCount <= 1 && !_termView) { %><small class="term-view-pop__note">This class has no other terms yet.</small><% } %></span>
+                </button>
+                <% if (_termView) { %>
+                <button type="button" class="term-view-pop__item" role="menuitem" data-term-view-reset>Back to current term</button>
+                <% } %>
+              </div>
+            </div>
+            <% } %>
             <div class="workspace-meta-inline" id="workspace-meta-inline">
-              <span class="workspace-meta-pair"><span class="meta-label">Year</span><span class="meta-value"><%= schoolYear.year_label %></span></span>
-              <span class="workspace-meta-pair"><span class="meta-label">Term</span><span class="meta-value"><%= currentTerm.term_name %></span></span>
+              <span class="workspace-meta-pair"><span class="meta-label">Year</span><span class="meta-value term-view-static"><%= schoolYear.year_label %></span>
+                <% if (_termYears.length) { %>
+                <select class="term-view-select" id="termViewYear" aria-label="School year">
+                  <% _termYears.forEach((y) => { %>
+                  <option value="<%= y.id %>" <%= Number(y.id) === Number(schoolYear.id) ? 'selected' : '' %>><%= y.label %><%= y.current ? ' (current)' : '' %></option>
+                  <% }) %>
+                </select>
+                <% } %>
+              </span>
+              <span class="workspace-meta-pair"><span class="meta-label">Term</span><span class="meta-value term-view-static"><%= currentTerm.term_name %></span>
+                <% if (_termYears.length) { %>
+                <select class="term-view-select" id="termViewTerm" aria-label="Term">
+                  <% _viewYear.terms.forEach((t) => { %>
+                  <option value="<%= t.id %>" <%= Number(t.id) === Number(currentTerm.term_id) ? 'selected' : '' %>><%= t.name %><%= _termNote(t) %></option>
+                  <% }) %>
+                </select>
+                <% } %>
+              </span>
               <span class="workspace-meta-pair"><span class="meta-label">Start</span><span class="meta-value"><%= new Date(currentTerm.start_date).toISOString().split('T')[0] %></span></span>
               <span class="workspace-meta-pair"><span class="meta-label">End</span><span class="meta-value"><%= new Date(currentTerm.end_date).toISOString().split('T')[0] %></span></span>
             </div>
+            </div>
           </div>
+          <% if (_termYears.length) { %>
+          <div class="term-view-banner" id="termViewBanner" role="status" <%= _termView ? '' : 'hidden' %>>
+            <% if (_termView) { %>
+            <span class="term-view-banner__text">
+              Viewing <strong><%= currentTerm.term_name %>, <%= schoolYear.year_label %></strong><% if (_termView.currentLabel) { %> instead of the current term (<%= _termView.currentLabel %>)<% } %>.<% if (!_termView.classInTerm) { %> <%= className %> was not part of this term.<% } %>
+              Only you see this. It switches back in <strong data-term-view-countdown data-remaining-ms="<%= _termView.remainingMs %>">20:00</strong>.
+            </span>
+            <button type="button" class="term-view-banner__btn" data-term-view-reset>Back to current</button>
+            <% } %>
+          </div>
+          <script type="application/json" id="termViewOptions"><%- JSON.stringify(_termYears).replace(/</g, '\\u003c') %></script>
+          <% } %>
         </section>
 
         <section class="card workspace-tabbar-shell">
@@ -3897,7 +4090,7 @@ main {
                           </li>
                         <% }); %>
                       <% } else { %>
-                        <li class="card-subtext">No students in this class yet.</li>
+                        <li class="card-subtext"><%= _noStudentsText %></li>
                       <% } %>
                     </ul>
                   </div>
@@ -4045,7 +4238,7 @@ main {
                     </button>
                   <% }); %>
                 <% } else { %>
-                  <p class="card-subtext">No students in this class yet.</p>
+                  <p class="card-subtext"><%= _noStudentsText %></p>
                 <% } %>
               </div>
             </section>
@@ -5465,6 +5658,154 @@ main {
         card.setAttribute('data-meta-collapsed', collapsed ? 'false' : 'true');
         btn.setAttribute('aria-expanded', collapsed ? 'true' : 'false');
       };
+
+      // "Assess other school year": the ⋮ menu turns Year and Term into pickers.
+      // A picked term is kept for this person only, for 20 minutes; then the
+      // class goes back to the school's current term.
+      (function initClassroomTermView() {
+        var card = document.querySelector('.workspace-header-card');
+        var menuBtn = document.getElementById('termViewMenuBtn');
+        var menu = document.getElementById('termViewMenu');
+        var yearSelect = document.getElementById('termViewYear');
+        var termSelect = document.getElementById('termViewTerm');
+        var optionsEl = document.getElementById('termViewOptions');
+        if (!card || !menuBtn || !menu || !yearSelect || !termSelect || !optionsEl) return;
+        var years = [];
+        try { years = JSON.parse(optionsEl.textContent) || []; } catch (e) { years = []; }
+        var viewing = card.classList.contains('is-term-viewing');
+        var toggle = menu.querySelector('[data-term-view-toggle]');
+        var escapeText = function (value) {
+          return String(value).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+        };
+
+        function setMenu(open) {
+          menu.hidden = !open;
+          menuBtn.setAttribute('aria-expanded', String(open));
+        }
+        function setPicking(on) {
+          card.classList.toggle('is-term-picking', on);
+          if (toggle) toggle.setAttribute('aria-checked', String(on));
+          if (on) {
+            card.setAttribute('data-meta-collapsed', 'false');
+            var metaToggle = card.querySelector('.workspace-meta-toggle');
+            if (metaToggle) metaToggle.setAttribute('aria-expanded', 'true');
+          }
+        }
+        // Reload the class (same open tab) so everything follows the term.
+        function reloadClass() {
+          var url = new URL(window.location.href);
+          url.searchParams.delete('termId');
+          window.location.replace(url.pathname + url.search + url.hash);
+        }
+        function post(body, keepPage) {
+          yearSelect.disabled = true;
+          termSelect.disabled = true;
+          return fetch('/common/classroomTermView', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(body)
+          }).then(function (r) { return r.json(); }).then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.message) || 'Could not switch the term.');
+            if (!keepPage) { reloadClass(); return data; }
+            yearSelect.disabled = false;
+            termSelect.disabled = false;
+            return data;
+          }).catch(function (err) {
+            yearSelect.disabled = false;
+            termSelect.disabled = false;
+            alert(err.message || 'Could not switch the term. Please try again.');
+          });
+        }
+        function fillTerms(yearId) {
+          var year = years.find(function (y) { return String(y.id) === String(yearId); });
+          var terms = year ? year.terms : [];
+          termSelect.innerHTML = terms.map(function (t) {
+            var note = t.current ? ' (current)' : t.scores ? ' · ' + t.scores + ' scores' : t.students ? ' · ' + t.students + ' students' : ' · no students';
+            return '<option value="' + Number(t.id) + '">' + escapeText(t.name + note) + '</option>';
+          }).join('');
+          // The current term, else the first term with scores, else with students, else the first.
+          var pick = terms.find(function (t) { return t.current; }) ||
+            terms.find(function (t) { return t.scores > 0; }) ||
+            terms.find(function (t) { return t.students > 0; }) || terms[0];
+          if (pick) termSelect.value = String(pick.id);
+          return pick;
+        }
+
+        menuBtn.onclick = function (e) { e.stopPropagation(); setMenu(menu.hidden); };
+        if (toggle) {
+          toggle.onclick = function () {
+            setMenu(false);
+            if (viewing) { post({ reset: true }); return; }
+            var on = !card.classList.contains('is-term-picking');
+            setPicking(on);
+            if (on) yearSelect.focus();
+          };
+        }
+        card.querySelectorAll('[data-term-view-reset]').forEach(function (btn) {
+          btn.onclick = function () { setMenu(false); post({ reset: true }); };
+        });
+        yearSelect.onchange = function () {
+          var pick = fillTerms(yearSelect.value);
+          if (pick) post({ termId: pick.id });
+        };
+        termSelect.onchange = function () { post({ termId: Number(termSelect.value) }); };
+
+        if (!window.__termViewDocListeners) {
+          window.__termViewDocListeners = true;
+          var closeMenu = function (focusButton) {
+            var m = document.getElementById('termViewMenu');
+            var b = document.getElementById('termViewMenuBtn');
+            if (!m || m.hidden) return;
+            m.hidden = true;
+            if (b) { b.setAttribute('aria-expanded', 'false'); if (focusButton) b.focus(); }
+          };
+          document.addEventListener('click', function (e) {
+            if (!e.target.closest || !e.target.closest('.term-view-menu')) closeMenu(false);
+          });
+          document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(true); });
+        }
+
+        // Countdown back to the current term; in the last 2 minutes it can be
+        // kept 20 more minutes so nothing being typed is lost.
+        if (window.__termViewTimer) { clearInterval(window.__termViewTimer); window.__termViewTimer = null; }
+        var countdown = card.querySelector('[data-term-view-countdown]');
+        if (!viewing || !countdown) return;
+        var endsAt = Date.now() + Number(countdown.getAttribute('data-remaining-ms') || 0);
+        var banner = document.getElementById('termViewBanner');
+        var keepBtn = null;
+        var tick = function () {
+          if (!countdown.isConnected) { clearInterval(window.__termViewTimer); window.__termViewTimer = null; return; }
+          var left = Math.max(0, endsAt - Date.now());
+          var mins = Math.floor(left / 60000);
+          var secs = Math.floor((left % 60000) / 1000);
+          countdown.textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+          if (left <= 120000 && left > 0 && !keepBtn && banner) {
+            keepBtn = document.createElement('button');
+            keepBtn.type = 'button';
+            keepBtn.className = 'term-view-banner__btn';
+            keepBtn.textContent = 'Keep 20 more minutes';
+            keepBtn.onclick = function () {
+              post({ termId: Number(termSelect.value) }, true).then(function (data) {
+                if (!data || !data.remainingMs) return;
+                endsAt = Date.now() + Number(data.remainingMs);
+                keepBtn.remove();
+                keepBtn = null;
+                tick();
+              });
+            };
+            banner.insertBefore(keepBtn, banner.querySelector('[data-term-view-reset]'));
+          }
+          if (left <= 0) {
+            clearInterval(window.__termViewTimer);
+            window.__termViewTimer = null;
+            countdown.textContent = '0:00';
+            post({ reset: true });
+          }
+        };
+        tick();
+        window.__termViewTimer = setInterval(tick, 1000);
+      })();
 
       var classRouteLiveMarkers = {};
       function startClassRouteLivePolling(routeId, layerGroup, L) {

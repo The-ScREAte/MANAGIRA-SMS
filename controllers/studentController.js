@@ -674,7 +674,7 @@ module.exports = {
                   COALESCE(SUM(a.max_score), 0) AS total_max_score,
                   MAX(ar.total_percentage) AS total_percentage,
                   MAX(ar.grade) AS grade
-             FROM student_subjects ss
+             FROM student_subjects_in_term($3::int) ss
              JOIN subjects subj ON subj.subject_id = ss.subject_id AND subj.organization_id = ss.organization_id
              LEFT JOIN assessments a
                ON a.subject_id = subj.subject_id
@@ -719,7 +719,7 @@ module.exports = {
                       a.max_score,
                       COALESCE(a.scale_base, 100) AS scale_base,
                       ar.score
-                 FROM student_subjects ss
+                 FROM student_subjects_in_term($3::int) ss
                  JOIN subjects subj
                    ON subj.subject_id = ss.subject_id
                   AND subj.organization_id = ss.organization_id

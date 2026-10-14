@@ -443,6 +443,12 @@ module.exports = (db) => {
     isAuthenticated,
     (req, res) => commonController.classDashboard(req, res, db)
   );
+  router.post(
+    "/classroomTermView",
+    isAuthenticated,
+    express.json(),
+    (req, res) => commonController.setClassroomTermView(req, res, db)
+  );
   router.get(
     "/studentTeacherRemarkOptions",
     checkFeatureAccess,

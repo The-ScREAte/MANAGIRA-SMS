@@ -53,6 +53,11 @@ const SOURCES = {
              WHERE organization_id = $2 AND class_id = ANY($1::int[]) AND NOT COALESCE(graduated, FALSE)`,
     },
     {
+      label: ["graduated student from the class", "graduated students from the class"],
+      sql: `SELECT COUNT(*)::int AS n FROM students
+             WHERE organization_id = $2 AND class_id = ANY($1::int[]) AND COALESCE(graduated, FALSE)`,
+    },
+    {
       label: ["student enrollment", "student enrollments"],
       sql: `SELECT COUNT(*)::int AS n FROM enrolled_students es
               JOIN enrollments e ON e.enrollment_id = es.enrollment_id

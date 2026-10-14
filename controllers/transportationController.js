@@ -2283,14 +2283,48 @@ const transportationController = {
             );
 
             let stopId = existingStop.rows[0]?.stop_id || null;
+            // A stop shared with other riders (siblings) is left as it is; this
+            // student moves to another stop only if their address moved.
             if (stopId) {
-              await db.query(
-                `UPDATE transport_stops
-                    SET stop_name = $3, stop_address = $4, latitude = $5, longitude = $6, updated_at = NOW()
-                  WHERE stop_id = $1 AND organization_id = $2`,
-                [stopId, organizationId, `${studentName}'s Stop`, student.address, geocoded.lat, geocoded.lng]
+              const shared = await db.query(
+                `SELECT st.stop_address, st.latitude, st.longitude,
+                        (SELECT COUNT(*)::int FROM transport_student_assignments o
+                          WHERE o.organization_id = $2 AND o.stop_id = st.stop_id AND o.student_id <> $3 AND o.active) AS others
+                   FROM transport_stops st WHERE st.stop_id = $1 AND st.organization_id = $2`,
+                [stopId, organizationId, student.student_id]
               );
-            } else {
+              const current = shared.rows[0];
+              if (!current) {
+                stopId = null;
+              } else if (current.others === 0) {
+                await db.query(
+                  `UPDATE transport_stops
+                      SET stop_name = $3, stop_address = $4, latitude = $5, longitude = $6, updated_at = NOW()
+                    WHERE stop_id = $1 AND organization_id = $2`,
+                  [stopId, organizationId, `${studentName}'s Stop`, student.address, geocoded.lat, geocoded.lng]
+                );
+              } else {
+                const samePlace = current.latitude !== null && current.longitude !== null
+                  && Math.abs(Number(current.latitude) - geocoded.lat) < 0.0003
+                  && Math.abs(Number(current.longitude) - geocoded.lng) < 0.0003;
+                if (!samePlace) stopId = null;
+              }
+            }
+            if (!stopId) {
+              // Same address or the same spot (about 30 m): use that stop, don't add another.
+              const nearby = await db.query(
+                `SELECT stop_id FROM transport_stops
+                  WHERE organization_id = $1
+                    AND (LOWER(TRIM(COALESCE(stop_address, ''))) = LOWER(TRIM($2))
+                         OR (latitude IS NOT NULL AND longitude IS NOT NULL
+                             AND ABS(latitude - $3) < 0.0003 AND ABS(longitude - $4) < 0.0003))
+                  ORDER BY route_id IS NULL, stop_id
+                  LIMIT 1`,
+                [organizationId, student.address, geocoded.lat, geocoded.lng]
+              );
+              stopId = nearby.rows[0]?.stop_id || null;
+            }
+            if (!stopId) {
               const insertedStop = await db.query(
                 `INSERT INTO transport_stops (organization_id, route_id, stop_name, stop_address, latitude, longitude, stop_order)
                  VALUES ($1, NULL, $2, $3, $4, $5, 0)
@@ -2302,7 +2336,9 @@ const transportationController = {
 
             await db.query(
               `UPDATE transport_student_assignments
-                  SET stop_id = $3, home_address = $4, home_latitude = $5, home_longitude = $6, updated_at = NOW()
+                  SET stop_id = $3,
+                      route_id = COALESCE((SELECT route_id FROM transport_stops WHERE stop_id = $3), route_id),
+                      home_address = $4, home_latitude = $5, home_longitude = $6, updated_at = NOW()
                 WHERE organization_id = $1 AND student_id = $2`,
               [organizationId, student.student_id, stopId, student.address, geocoded.lat, geocoded.lng]
             );

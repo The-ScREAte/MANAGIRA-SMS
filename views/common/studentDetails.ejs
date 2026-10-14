@@ -33,7 +33,7 @@
         background: #ffffff;
       }
 
-      <% if (isEmbedded) { %>
+      <% if (locals.isEmbedded) { %>
       /* Embedded inside the class-dashboard workspace iframe: the shell
          around the iframe already provides the card chrome (header, border,
          background), so this page fills it edge-to-edge instead of nesting
@@ -616,10 +616,10 @@
               <% if (_studentDisplayId) { %>
               <span class="student-id-chip">ID: <%= _studentDisplayId %></span>
               <% } %>
-              <% if (studentPortalIntegrationActive && studentPortalSetupComplete) { %>
+              <% if (locals.studentPortalIntegrationActive && locals.studentPortalSetupComplete) { %>
               <span class="student-portal-status"><span class="student-portal-check" aria-hidden="true">✓</span> Portal</span>
               <% } %>
-              <% if (studentPortalIntegrationActive && canSendStudentPortalRequest) { %>
+              <% if (locals.studentPortalIntegrationActive && locals.canSendStudentPortalRequest) { %>
               <button
                 type="button"
                 class="btn btn-primary student-portal-request-btn"
@@ -651,7 +651,7 @@
           </div>
         </div>
       </div>
-      <% if (transportationSnapshot) { %>
+      <% if (locals.transportationSnapshot) { %>
       <h3>Transportation</h3>
       <div class="table-container">
         <table>
@@ -728,7 +728,7 @@
               </td>
               <td>
                 <% if (subject.totalPercentage !== null && subject.totalPercentage !== undefined) { %>
-                  <%= (subject.totalPercentage / 100 * subject.scaleBase).toFixed(2) %> / <%= subject.scaleBase %>
+                  <% const _scaleBase = Number(subject.scaleBase) || 100; %><%= (subject.totalPercentage / 100 * _scaleBase).toFixed(2) %> / <%= _scaleBase %>
                 <% } else { %>-<% } %>
               </td>
               <td>
@@ -785,8 +785,8 @@
           >Modify Student Information</a
         >
 
-        <% if (Array.isArray(allowedFeatures) &&
-        allowedFeatures.includes("Official School Transcript")) { %>
+        <% if (Array.isArray(locals.allowedFeatures) &&
+        locals.allowedFeatures.includes("Official School Transcript")) { %>
         <a
           href="/transcript/transcript/<%= student.student_id %>"
           class="btn btn-primary"
