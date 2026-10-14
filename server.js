@@ -112,6 +112,10 @@ require("./utils/termRecords").ensureTermRecordsSchema(db)
 require("./utils/studentArchive").ensureStudentArchiveSchema(db).catch((error) => {
   console.error("[studentArchive] schema setup failed:", error.message);
 });
+// Each school's assessment names: one id per name, reused across terms and years.
+require("./utils/assessmentLibrary").ensureAssessmentLibrarySchema(db).catch((error) => {
+  console.error("[assessmentLibrary] schema setup failed:", error.message);
+});
 // Each school's subject and term libraries (links every subject/term to them).
 require("./utils/academicLibrary").ensureAcademicLibrarySchema(db).catch((error) => {
   console.error("[academicLibrary] schema setup failed:", error.message);

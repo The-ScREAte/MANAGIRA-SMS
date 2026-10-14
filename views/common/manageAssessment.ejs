@@ -588,15 +588,34 @@
 <body>
 <link rel="stylesheet" href="/css/manage.css" />
 <link rel="stylesheet" href="/css/peoplePanel.css" />
+<style>
+  .ma-term-pick select { margin: 0; padding: 8px 30px 8px 10px; border: 1px solid var(--ws-line, #e2e8f0); border-radius: 8px; background-color: transparent; color: inherit; font: inherit; font-size: 13.5px; max-width: 260px; }
+  @media (max-width: 640px) { .ma-term-pick select { max-width: 100%; } }
+</style>
 <script src="/js/manage.js" defer></script>
 <div class="page-wrap ws-root">
 
   <header class="ws-head">
     <div class="ws-head__text">
       <h1 class="ws-head__title">Assessments</h1>
-      <p class="ws-head__sub">Tests and exams for this term. Select one to see its details.</p>
+      <p class="ws-head__sub">Tests and exams by term. Select one to see its details.</p>
     </div>
     <div class="ws-head__actions">
+      <% const _years = Array.isArray(locals.termYears) ? termYears : []; %>
+      <% if (_years.length) { %>
+      <label class="ma-term-pick">
+        <span class="ws-sr">School year and term</span>
+        <select id="maTermPick" aria-label="School year and term">
+          <% _years.forEach((y) => { %>
+            <optgroup label="<%= y.label %>">
+              <% y.terms.forEach((t) => { %>
+                <option value="<%= t.id %>" <%= Number(t.id) === Number(termId) ? 'selected' : '' %>><%= t.name %><%= t.current ? ' (current)' : '' %> · <%= t.count %></option>
+              <% }) %>
+            </optgroup>
+          <% }) %>
+        </select>
+      </label>
+      <% } %>
       <button type="button" class="ws-btn ws-btn--primary" onclick="openCreateTestModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> New test</button>
     </div>
   </header>
@@ -620,6 +639,7 @@
       windowStart: _day(a.edit_window_start),
       windowEnd: _day(a.edit_window_end),
       scores: a.scores_saved || 0,
+      termsUsed: a.terms_used || 1,
       locked: Boolean(a.is_locked),
       classes: (a.assigned_classes || []).map((c) => ({ name: c.class_name, subjects: (c.subjects || []).filter(Boolean) })),
     }));
@@ -745,6 +765,18 @@
 </div>
 
 <script>
+  /* ---- Term picker: show another term's assessments ---- */
+  (function () {
+    var pick = document.getElementById('maTermPick');
+    if (!pick) return;
+    pick.addEventListener('change', function () {
+      var url = new URL(window.location.href);
+      url.searchParams.set('termId', pick.value);
+      url.searchParams.delete('focus');
+      window.location.href = url.pathname + url.search;
+    });
+  })();
+
   /* ---- Filters and side panel ---- */
   (function () {
     var get = function (id) { return document.getElementById(id); };
@@ -778,7 +810,7 @@
     function render(a) {
       var pill = a.status === 'Open' ? 'ws-pill--green' : a.status === 'Turned off' ? '' : 'ws-pill--amber';
       var html = '<div class="ux-who"><div><div class="ux-who__name">' + esc(a.title) + '</div><span class="ws-pill ' + pill + '">' + esc(a.status) + '</span></div></div>' +
-        '<section class="ux-sec"><h3>Settings</h3>' + kv('Weight', a.weight + '%') + kv('Score out of', Number(a.maxScore)) + kv('Scaled to', a.scale) + kv('Category', a.category) + '</section>' +
+        '<section class="ux-sec"><h3>Settings</h3>' + kv('Weight', a.weight + '%') + kv('Score out of', Number(a.maxScore)) + kv('Scaled to', a.scale) + kv('Category', a.category) + kv('Used in', a.termsUsed + (a.termsUsed === 1 ? ' term' : ' terms')) + '</section>' +
         '<section class="ux-sec"><h3>Score entry</h3>' + kv('Status', a.status) + kv('Opens', a.windowStart) + kv('Closes', a.windowEnd) + kv('Scores saved', a.scores) + '</section>' +
         '<section class="ux-sec"><h3>Classes <span class="ux-count">' + a.classes.length + '</span></h3>' +
           a.classes.map(function (c) { return '<div class="ux-class"><strong>' + esc(c.name) + '</strong><span>' + esc(c.subjects.join(', ') || 'No subjects') + '</span></div>'; }).join('') + '</section>' +

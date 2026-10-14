@@ -12866,7 +12866,7 @@ NUMBERING:
       // Fetch assessments with their associated classes and subjects, grouped by group_id
       const assessmentsQuery = `
                 SELECT a.group_id, a.title, a.weight, a.max_score, a.category, a.term_id,
-            COALESCE(a.scale_base, 100) AS scale_base,
+            COALESCE(a.scale_base, 100) AS scale_base, a.assessment_definition_id,
             c.class_id, c.class_name, s.subject_name,
             BOOL_OR(COALESCE(a.is_locked, FALSE)) OVER (PARTITION BY a.group_id) AS is_locked,
             BOOL_AND(COALESCE(a.is_active, TRUE)) OVER (PARTITION BY a.group_id) AS is_active,
@@ -12887,6 +12887,32 @@ NUMBERING:
         organizationId,
         termId,
       ]);
+
+      // Every term of this school (newest first) with how many assessments it
+      // has, for the term picker; and how many terms each assessment name is used in.
+      const [termOptionRows, definitionTermRows] = await Promise.all([
+        db.query(
+          `SELECT sy.year_label, t.term_id, t.term_name, (t.current AND sy.current) AS is_current,
+                  (SELECT COUNT(DISTINCT a.group_id)::int FROM assessments a
+                    WHERE a.organization_id = $1 AND a.term_id = t.term_id) AS assessments
+             FROM terms t JOIN school_years sy ON sy.id = t.school_year_id
+            WHERE t.organization_id = $1
+            ORDER BY t.start_date DESC NULLS LAST, t.term_id DESC`,
+          [organizationId]
+        ).then((r) => r.rows).catch(() => []),
+        db.query(
+          `SELECT assessment_definition_id, COUNT(DISTINCT term_id)::int AS terms
+             FROM assessments WHERE organization_id = $1 AND assessment_definition_id IS NOT NULL
+            GROUP BY assessment_definition_id`,
+          [organizationId]
+        ).then((r) => new Map(r.rows.map((row) => [row.assessment_definition_id, row.terms]))).catch(() => new Map()),
+      ]);
+      const termYears = [];
+      termOptionRows.forEach((row) => {
+        let year = termYears.find((y) => y.label === row.year_label);
+        if (!year) termYears.push((year = { label: row.year_label, terms: [] }));
+        year.terms.push({ id: row.term_id, name: row.term_name, current: row.is_current, count: row.assessments });
+      });
 
       // Scores saved so far in each assessment group (for the side panel).
       const scoreCounts = await db.query(
@@ -12912,6 +12938,8 @@ NUMBERING:
             max_score: row.max_score,
             scale_base: row.scale_base,
             scores_saved: scoreCounts.get(String(groupId)) || 0,
+            definition_id: row.assessment_definition_id,
+            terms_used: definitionTermRows.get(row.assessment_definition_id) || 1,
             category: row.category,
             term_id: row.term_id,
             is_locked: row.is_locked,
@@ -12954,6 +12982,7 @@ NUMBERING:
         hideGlobalChatbot: isEmbedded,
         organizationId,
         termId,
+        termYears,
         assessments,
         canUseGoogleClassroom: googleIntegration.shouldShowFeatures,
         canUseQuestionSetIntegration,
