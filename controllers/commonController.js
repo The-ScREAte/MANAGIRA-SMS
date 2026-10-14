@@ -15776,8 +15776,20 @@ NUMBERING:
       );
       const subjects = subjectsResult.rows;
 
+      // This school's past assessments, newest settings per name, so a name can
+      // be reused instead of typed again (weight, score out of, scale, category).
+      const assessmentLibrary = await db.query(
+        `SELECT DISTINCT ON (LOWER(TRIM(title))) TRIM(title) AS title, weight, max_score,
+                COALESCE(scale_base, 100) AS scale_base, category
+           FROM assessments
+          WHERE organization_id = $1 AND TRIM(COALESCE(title, '')) <> ''
+          ORDER BY LOWER(TRIM(title)), assessment_id DESC`,
+        [organizationId]
+      ).then((r) => r.rows).catch(() => []);
+
       // Render the createTest view with enrolled classes only
       res.render("common/createTest", {
+        assessmentLibrary,
         title: "Add New Test",
         classes, // Only enrolled classes
         subjects,

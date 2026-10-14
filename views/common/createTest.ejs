@@ -853,7 +853,7 @@
               <div class="test-name-with-menu">
                 <div class="form-group">
                   <label>Test Name:</label>
-                  <input type="text" name="testName[]" required />
+                  <input type="text" name="testName[]" list="assessment-library" autocomplete="off" required />
                 </div>
                 <div class="test-menu-container">
                   <button type="button" class="test-menu-button" onclick="toggleTestMenu(event, this)">
@@ -982,7 +982,7 @@
         <div class="test-name-with-menu">
           <div class="form-group">
             <label>Test Name:</label>
-            <input type="text" name="testName[]" required>
+            <input type="text" name="testName[]" list="assessment-library" autocomplete="off" required>
           </div>
           <div class="test-menu-container">
             <button type="button" class="test-menu-button" onclick="toggleTestMenu(event, this)">
@@ -1230,3 +1230,31 @@
   </script>
 </body>
 </html>
+
+<% const _assessLib = Array.isArray(locals.assessmentLibrary) ? assessmentLibrary : []; %>
+<datalist id="assessment-library"><% _assessLib.forEach((a) => { %><option value="<%= a.title %>"></option><% }) %></datalist>
+<script type="application/json" id="assessmentLibraryData"><%- JSON.stringify(_assessLib).replace(/</g, '\\u003c') %></script>
+<script src="/js/libraryPicker.js" defer></script>
+<script>
+  // Picking an existing assessment name fills in its usual settings (only
+  // fields still empty), so a regular test is reused rather than set up again.
+  (function () {
+    var data = [];
+    try { data = JSON.parse(document.getElementById('assessmentLibraryData').textContent) || []; } catch (e) { data = []; }
+    if (!data.length || window.__assessmentReuseReady) return;
+    window.__assessmentReuseReady = true;
+    function fill(input) {
+      var match = data.find(function (a) { return a.title.toLowerCase() === input.value.trim().toLowerCase(); });
+      if (!match) return;
+      var card = input.closest('.test-form, .test-card, .form-section, form') || document;
+      var set = function (sel, value) { var el = card.querySelector(sel); if (el && !el.value && value != null) el.value = value; };
+      set('input[name="testWeight[]"]', match.weight);
+      set('input[name="maxScore[]"]', match.max_score);
+      var scale = card.querySelector('input[name="scaleBase[]"]');
+      if (scale && (!scale.value || scale.value === '100') && match.scale_base) scale.value = match.scale_base;
+      var cat = card.querySelector('select[name="category[]"]');
+      if (cat && match.category) cat.value = match.category;
+    }
+    document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('input[name="testName[]"]')) fill(e.target); });
+  })();
+</script>

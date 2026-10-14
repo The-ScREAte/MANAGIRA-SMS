@@ -8,7 +8,7 @@
   if (window.__libraryPickerReady) return;
   window.__libraryPickerReady = true;
 
-  var LISTS = { 'subject-library': 'subject', 'term-library': 'term' };
+  var LISTS = { 'subject-library': 'subject', 'term-library': 'term', 'assessment-library': 'assessment' };
   var MAX_ITEMS = 50;
 
   var style = document.createElement('style');
@@ -170,7 +170,7 @@
     if (near) items = [near].concat(items.filter(function (n) { return n !== near; })).slice(0, MAX_ITEMS);
     var html = '';
     if (items.length) {
-      html += '<li class="lib-pick__head" aria-hidden="true">' + (kind === 'term' ? 'Existing terms' : 'Existing subjects') + '</li>';
+      html += '<li class="lib-pick__head" aria-hidden="true">Existing ' + kind + 's</li>';
       items.forEach(function (name, i) {
         var classes = 'lib-pick__item' + (i === active ? ' is-active' : '') + (name.toLowerCase() === low ? ' is-exact' : '') + (name === near ? ' is-suggested' : '');
         var label = name === near ? 'Did you mean <strong>' + escapeHtml(name) + '</strong>?' : highlight(name, typed);
@@ -179,7 +179,7 @@
     }
     // Only when nothing matches: then the typed name really is new.
     if (typed && !exact && !items.length) {
-      html += '<li class="lib-pick__new" aria-hidden="true">"' + escapeHtml(typed) + '" will be added as a new ' + (kind === 'term' ? 'term' : 'subject') + '.</li>';
+      html += '<li class="lib-pick__new" aria-hidden="true">"' + escapeHtml(typed) + '" will be added as a new ' + kind + '.</li>';
     }
     panel.innerHTML = html;
     var show = !!html;
@@ -253,14 +253,14 @@
   // A small choice dialog: resolves 'use', 'new' or 'cancel'.
   function ask(kind, typed, near) {
     return new Promise(function (resolve) {
-      var noun = kind === 'term' ? 'term' : 'subject';
+      var noun = kind || 'name';
       var box = document.createElement('div');
       box.className = 'lib-ask';
       box.setAttribute('role', 'dialog');
       box.setAttribute('aria-modal', 'true');
       box.innerHTML = '<div class="lib-ask__card">' +
         '<p class="lib-ask__title">Did you mean \u201c' + escapeHtml(near) + '\u201d?</p>' +
-        '<p class="lib-ask__text">You typed \u201c' + escapeHtml(typed) + '\u201d. This school already has the ' + noun + ' \u201c' + escapeHtml(near) + '\u201d. Use it, so this year links to the same ' + noun + ', or add \u201c' + escapeHtml(typed) + '\u201d as a new ' + noun + '.</p>' +
+        '<p class="lib-ask__text">You typed \u201c' + escapeHtml(typed) + '\u201d. This school already has the ' + noun + ' \u201c' + escapeHtml(near) + '\u201d. Use it to keep one name, or add \u201c' + escapeHtml(typed) + '\u201d as a new ' + noun + '.</p>' +
         '<div class="lib-ask__actions">' +
         '<button type="button" class="lib-ask__btn" data-answer="new">Add as new ' + noun + '</button>' +
         '<button type="button" class="lib-ask__btn lib-ask__btn--use" data-answer="use">Use \u201c' + escapeHtml(near) + '\u201d</button>' +
@@ -331,7 +331,7 @@
 
   // Fields already on the page lose the browser popup right away.
   function adoptAll(root) {
-    (root || document).querySelectorAll('input[list="subject-library"], input[list="term-library"]').forEach(adopt);
+    (root || document).querySelectorAll('input[list="subject-library"], input[list="term-library"], input[list="assessment-library"]').forEach(adopt);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { adoptAll(); });
   else adoptAll();
