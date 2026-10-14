@@ -98,6 +98,10 @@ ensureOrganizationActivityLogSchema(db).catch((error) => {
   console.error("[ActivityLog] Failed to initialize schema:", error.message || error);
 });
 
+// Each school's subject and term libraries (links every subject/term to them).
+require("./utils/academicLibrary").ensureAcademicLibrarySchema(db).catch((error) => {
+  console.error("[academicLibrary] schema setup failed:", error.message);
+});
 ensureNicknameDisplaySchema(db).catch((error) => {
   console.error("[NicknameDisplay] Failed to initialize schema:", error.message || error);
 });

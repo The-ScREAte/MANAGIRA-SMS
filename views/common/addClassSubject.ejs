@@ -382,7 +382,8 @@
           <p>Add classes first, then assign subjects.</p>
         </div>
         <legend>Class</legend>
-        <form action="/common/addClass" method="post" id="classForm">
+        <datalist id="subject-library"><% (typeof subjectNames !== 'undefined' ? subjectNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
+<form action="/common/addClass" method="post" id="classForm">
           <div id="class-fields">
             <div class="input-with-menu">
               <label>Class<br>Name</label>
@@ -415,7 +416,7 @@
                 <label>Subject<br>Name</label>
                 <input
                   type="text"
-                  name="subjectName[]"
+                  name="subjectName[]" list="subject-library" autocomplete="off"
                   required
                   placeholder="Eg: Mathematics"
                 />
@@ -560,7 +561,7 @@
         newField.innerHTML = `
             <div class="input-with-menu">
                 <label>Subject<br>Name</label>
-                <input type="text" name="subjectName[]" required placeholder="Eg: Mathematics">
+                <input type="text" name="subjectName[]" list="subject-library" autocomplete="off" required placeholder="Eg: Mathematics">
                 <div class="field-menu-container">
                     <button type="button" class="field-menu-button" onclick="toggleFieldMenu(event, this)">
                         ⋮

@@ -270,7 +270,8 @@
       </div>
 
       <div class="page-content">
-        <form id="registerSchoolYearForm" action="/common/registerSchoolYear" method="POST" onsubmit="return validateRegisterSchoolYearForm(this)">
+        <datalist id="term-library"><% (typeof termNames !== 'undefined' ? termNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
+<form id="registerSchoolYearForm" action="/common/registerSchoolYear" method="POST" onsubmit="return validateRegisterSchoolYearForm(this)">
           <div class="form-group">
             <label class="form-label" for="schoolYear">School Year Label</label>
             <input type="text" id="schoolYear" name="schoolYear" class="form-input" placeholder="e.g., 2024-2025" required>
@@ -429,7 +430,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Term Name</label>
-          <input type="text" name="terms[${termIndex}][termName]" class="form-input" placeholder="e.g., 1st Semester, Fall Term" required>
+          <input type="text" name="terms[${termIndex}][termName]" list="term-library" autocomplete="off" class="form-input" placeholder="e.g., 1st Semester, Fall Term" required>
         </div>
         <div class="date-row">
           <div class="form-group">

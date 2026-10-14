@@ -31,6 +31,7 @@ const {
 } = require("../middleware/permissionMiddleware");
 const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
 const { PAYGIRA_FEATURE_NAMES } = require("../utils/paygiraAccess");
+const { libraryPickLists, librarySubjectName } = require("../utils/academicLibrary");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
 const { loadViewerActivity, resolveActor: resolveWorkspaceActor, isOrgMember: isWorkspaceMember } = require("../utils/workspace");
 const {
@@ -17143,6 +17144,7 @@ NUMBERING:
         [req.session.organizationId]
       );
       return res.render("common/registerSchoolYear", {
+        ...(await libraryPickLists(db, req.session.organizationId)),
         title: "Register School Year",
         classes: classesResult.rows,
         messages: req.flash(),
@@ -17164,6 +17166,7 @@ NUMBERING:
         [req.session.organizationId]
       );
       return res.render("common/registerSchoolYear", {
+        ...(await libraryPickLists(db, req.session.organizationId)),
         title: "Register School Year",
         classes: classesResult.rows,
         messages: req.flash(),
@@ -17268,6 +17271,7 @@ NUMBERING:
       );
 
       res.render("common/registerSchoolYear", {
+        ...(await libraryPickLists(db, req.session.organizationId)),
         title: "Register School Year",
         classes: classesResult.rows, // Pass classes to the view
         messages: req.flash(),
@@ -17441,6 +17445,7 @@ NUMBERING:
 
       // Pass messages to the view
       res.render("common/manageRecords", {
+        ...(await libraryPickLists(db, req.session.organizationId)),
         title: "Manage Records",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -18208,6 +18213,7 @@ NUMBERING:
       const availableGradYearGroups = gradYearGroupsResult.rows;
 
       res.render("common/addClassSubject", {
+        ...(await libraryPickLists(db, req.session.organizationId)),
         title: "Add Class and Subject",
         classes,
         subjects,
@@ -18298,7 +18304,8 @@ NUMBERING:
       await client.query("BEGIN");
 
       for (let i = 0; i < subjectName.length; i++) {
-        const name = subjectName[i].trim();
+        // The library spelling, so "mathematics" joins the existing Mathematics.
+        const name = await librarySubjectName(client, organizationId, subjectName[i]);
 
         // Only add the subject if the name is not empty
         if (name !== "") {
@@ -18317,7 +18324,7 @@ NUMBERING:
           for (let classIdValue of classIds) {
             // Check if this subject already exists for the given class to avoid duplicates
             const existingSubject = await client.query(
-              "SELECT * FROM subjects WHERE subject_name = $1 AND class_id = $2 AND organization_id = $3",
+              "SELECT 1 FROM subjects WHERE LOWER(TRIM(subject_name)) = LOWER($1) AND class_id = $2 AND organization_id = $3",
               [name, classIdValue, organizationId]
             );
 
@@ -19712,6 +19719,16 @@ NUMBERING:
           continue;
         }
 
+        // Rename the school's library entry too (unless another subject already
+        // has the new name: then these classes join that subject).
+        await client.query(
+          `UPDATE subject_library SET name = $1, updated_at = NOW()
+            WHERE organization_id = $2 AND lower(btrim(name)) = $3
+              AND NOT EXISTS (SELECT 1 FROM subject_library o
+                               WHERE o.organization_id = $2 AND lower(btrim(o.name)) = lower(btrim($1))
+                                 AND lower(btrim(o.name)) <> $3)`,
+          [newName, organizationId, subjectKey]
+        );
         const updateResult = await client.query(
           `UPDATE subjects
            SET subject_name = $1

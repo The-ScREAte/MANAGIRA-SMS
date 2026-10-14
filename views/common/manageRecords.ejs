@@ -1299,6 +1299,7 @@
           <div class="collapsible-content">
 
         <div id="schoolYearContainer">
+          <datalist id="term-library"><% (typeof termNames !== 'undefined' ? termNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
           <% schoolYears.forEach(function(year) { %>
           <% const schoolYearTodayKey = new Date().toISOString().slice(0, 10); %>
           <% const completedTerms = (year.terms || []).filter(function(t){ return new Date(t.end_date).toISOString().slice(0, 10) < schoolYearTodayKey; }).length; %>
@@ -1416,7 +1417,7 @@
                     <% } %>
                     <input
                       type="text"
-                      name="termNames[]"
+                      name="termNames[]" list="term-library" autocomplete="off"
                       value="<%= term.term_name %>"
                       placeholder="Term / Semester Name"
                       required
@@ -2406,7 +2407,7 @@
           <legend>Term / Semester</legend>
           <input type="hidden" name="termIds[]" value="" />
           <div class="term-section-header">
-            <input type="text" name="termNames[]" placeholder="Term / Semester Name" required />
+            <input type="text" name="termNames[]" list="term-library" autocomplete="off" placeholder="Term / Semester Name" required />
             <label>
               <input type="radio" name="currentTermChoice" value="" class="current-term-radio"> Current
             </label>
