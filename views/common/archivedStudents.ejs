@@ -142,6 +142,10 @@
   .ar-tabs { display: flex; gap: 6px; margin: 4px 0 14px; border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent); }
   .ar-tab { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 -1px; padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: inherit; font: inherit; font-weight: 700; opacity: .7; cursor: pointer; }
   .ar-tab.is-active { opacity: 1; border-bottom-color: var(--org-primary-color, #01535b); color: var(--org-primary-color, #01535b); }
+  /* Plain text tabs in light and dark mode (global button styles don't apply). */
+  .ar-tabs .ar-tab { flex: 0 0 auto; width: auto; min-width: 0; box-shadow: none !important; background: none !important; border: 0 !important; border-bottom: 2px solid transparent !important; border-radius: 0 !important; color: inherit !important; outline: none; }
+  .ar-tabs .ar-tab.is-active { border-bottom-color: var(--org-primary-color, #01535b) !important; color: var(--org-primary-color, #01535b) !important; }
+  .ar-tabs .ar-tab:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); outline-offset: 2px; }
   .ar-section[hidden] { display: none; }
   .ar-reason strong, .ar-reason span { display: block; }
   .ar-reason span, .ar-by { font-size: .82rem; opacity: .7; }
