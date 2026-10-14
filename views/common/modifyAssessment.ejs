@@ -552,119 +552,113 @@
       }
     }
     </style>
+<style>
+  /* Clean form: plain sections, colors follow the page (light and dark). */
+  main.ma-clean { text-align: left; width: min(100%, 860px); margin: 0 auto; padding: 16px 18px 96px; box-sizing: border-box; }
+  .ma-sec { padding: 14px 0 16px; border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent); }
+  .ma-sec:last-of-type { border-bottom: 0; }
+  .ma-sec__title { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; opacity: .7; }
+  .ma-count { padding: 0 7px; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); font-size: 11px; }
+  .ma-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+  .ma-field { display: flex; flex-direction: column; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; }
+  .ma-field--wide { grid-column: 1 / -1; }
+  .ma-field input, .ma-field select { width: 100%; box-sizing: border-box; margin: 0; padding: 9px 10px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent) !important; border-radius: 8px; background: transparent !important; color: inherit !important; font: inherit; font-weight: 400; }
+  .ma-check { display: flex; align-items: center; gap: 9px; margin: 0 0 10px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .ma-check input { margin: 0; flex: 0 0 auto; }
+  .ma-check--small { margin: 0 0 6px; font-size: 13px; font-weight: 400; }
+  .ma-check--all { margin-bottom: 12px; font-weight: 600; }
+  .ma-hint { margin: 8px 0 12px; font-size: 12.5px; opacity: .65; }
+  .ma-toggle { display: inline-flex; align-items: center; gap: 8px; width: auto; margin: 0; padding: 0; border: 0 !important; background: none !important; box-shadow: none !important; color: var(--org-primary-color, #01535b) !important; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .ma-toggle .arrow { font-size: 11px; color: inherit !important; }
+  .ma-classes { margin-top: 12px; }
+  .ma-class-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ma-class { padding: 10px 12px; border: 1px solid color-mix(in srgb, currentColor 14%, transparent); border-radius: 10px; }
+  .ma-class__name { font-weight: 700; margin-bottom: 8px; }
+  .ma-class .subject-container { margin: 0; padding-left: 26px; }
+  .ma-footer-bar { background: var(--ap-surface, #fff); }
+  @media (max-width: 640px) {
+    main.ma-clean { padding: 12px 12px 110px; }
+    .ma-grid, .ma-class-grid { grid-template-columns: 1fr; }
+  }
+</style>
 </head>
 <body>
-<main>
-    <br />
+<main class="ma-clean">
     <%- include('../partials/flash') %>
-
-<hr>
+    <%
+      const _byClass = {};
+      (subjects || []).forEach((sub) => { (_byClass[sub.class_id] = _byClass[sub.class_id] || []).push(sub); });
+      const _chosenClasses = (classes || []).filter((c) => c.selected).length;
+    %>
     <form id="modifyAssessmentForm">
-      <div class="modify-assessment-card">
-        <h3 class="main-heading">Modify Assessment</h3>
         <input type="hidden" name="organizationId" value="<%= organizationId %>">
         <input type="hidden" name="termId" value="<%= termId %>">
         <input type="hidden" name="groupId" value="<%= groupId %>">
-        <div class="assessment-layout-grid">
-          <div class="form-group test-name-field">
-            <label for="testName">Test Name:</label>
-            <input type="text" name="testName" value="<%= assessment.title %>" required>
-          </div>
-          <div class="form-group test-weight-field">
-            <label for="testWeight">Test Weight (%):</label>
-            <input type="number" name="testWeight" step="0.1" value="<%= assessment.weight %>" required>
-          </div>
-          <div class="form-group">
-            <label for="maxScore">Score Out Of:</label>
-            <input type="number" name="maxScore" value="<%= assessment.max_score %>" required>
-          </div>
-          <div class="form-group">
-            <label for="scaleBase">Scale Base (scaled score out of):</label>
-            <input type="number" name="scaleBase" value="<%= assessment.scale_base || 100 %>" min="1" required>
-          </div>
-          <div class="form-group">
-            <label for="category">Category:</label>
-            <select name="category" required>
-              <option value="Class Assessment" <%= assessment.category === 'Class Assessment' ? 'selected' : '' %>>Class Assessment</option>
-              <option value="Exams Assessment" <%= assessment.category === 'Exams Assessment' ? 'selected' : '' %>>Exams Assessment</option>
-              <option value="Other" <%= assessment.category === 'Other' ? 'selected' : '' %>>Other</option>
-            </select>
-          </div>
-          <div class="control-group">
-            <div class="control-group-title">Access Control</div>
-            <div class="check-row">
-              <input type="checkbox" id="isLockedCb" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> />
-              <label for="isLockedCb">Lock this assessment (prevents score entry)</label>
-            </div>
-            <div class="check-row">
-              <input type="checkbox" id="notifyTeachersCb" name="notifyTeachers" />
-              <label for="notifyTeachersCb">Email affected class teachers about this change</label>
-            </div>
-          </div>
 
-          <div class="date-group">
-            <div class="date-group-title">Edit Window (optional)</div>
-            <div class="date-group-note">Leave both fields blank to allow editing anytime.</div>
-            <div class="date-group-grid">
-              <div class="form-group">
-                <label for="editWindowStart">Edit Start Date:</label>
-                <input
-                  type="datetime-local"
-                  id="editWindowStart"
-                  name="editWindowStart"
-                  value="<%= assessment.edit_window_start ? new Date(assessment.edit_window_start).toISOString().slice(0,16) : '' %>"
-                >
-              </div>
-              <div class="form-group">
-                <label for="editWindowEnd">Edit End Date:</label>
-                <input
-                  type="datetime-local"
-                  id="editWindowEnd"
-                  name="editWindowEnd"
-                  value="<%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toISOString().slice(0,16) : '' %>"
-                >
-              </div>
-            </div>
+        <section class="ma-sec">
+          <h3 class="ma-sec__title">Details</h3>
+          <div class="ma-grid">
+            <label class="ma-field ma-field--wide">Name
+              <input type="text" name="testName" value="<%= assessment.title %>" required>
+            </label>
+            <label class="ma-field">Weight (%)
+              <input type="number" name="testWeight" step="0.1" value="<%= assessment.weight %>" required>
+            </label>
+            <label class="ma-field">Score out of
+              <input type="number" name="maxScore" value="<%= Number(assessment.max_score) %>" required>
+            </label>
+            <label class="ma-field">Scaled to
+              <input type="number" name="scaleBase" value="<%= assessment.scale_base || 100 %>" min="1" required>
+            </label>
+            <label class="ma-field">Category
+              <select name="category" required>
+                <option value="Class Assessment" <%= assessment.category === 'Class Assessment' ? 'selected' : '' %>>Class Assessment</option>
+                <option value="Exams Assessment" <%= assessment.category === 'Exams Assessment' ? 'selected' : '' %>>Exams Assessment</option>
+                <option value="Other" <%= assessment.category === 'Other' ? 'selected' : '' %>>Other</option>
+              </select>
+            </label>
           </div>
-        </div>
-        <h4 class="modify-classes-heading">Modify Classes and Subjects</h4>
-        <button type="button" class="collapsible-btn" onclick="toggleClassesCollapse()">
-          Show/Hide Classes & Subjects
-          <span class="arrow" id="arrow-classes">&#9654;</span>
-        </button>
-        <div class="collapsible-content" id="collapse-classes" style="display:none; width:100%;">
-          <div class="select-all-container">
-            <input type="checkbox" id="selectAllClasses" onclick="selectAllClassesAndSubjects()">
-            <label for="selectAllClasses">Select All Classes and Subjects</label>
+        </section>
+
+        <section class="ma-sec">
+          <h3 class="ma-sec__title">Score entry</h3>
+          <label class="ma-check"><input type="checkbox" id="isLockedCb" name="isLocked" <%= assessment.is_locked ? 'checked' : '' %> /> Locked (no score changes)</label>
+          <div class="ma-grid">
+            <label class="ma-field">Opens
+              <input type="datetime-local" id="editWindowStart" name="editWindowStart"
+                value="<%= assessment.edit_window_start ? new Date(assessment.edit_window_start).toISOString().slice(0,16) : '' %>">
+            </label>
+            <label class="ma-field">Closes
+              <input type="datetime-local" id="editWindowEnd" name="editWindowEnd"
+                value="<%= assessment.edit_window_end ? new Date(assessment.edit_window_end).toISOString().slice(0,16) : '' %>">
+            </label>
           </div>
-          <div class="classes-grid">
-            <% classes.forEach(cls => { %>
-              <div class="class-subject-card">
-                <div class="class-checkbox">
-                  <input type="checkbox" id="class_<%= cls.class_id %>" name="classes[]" value="<%= cls.class_id %>" <%= cls.selected ? 'checked' : '' %> onchange="toggleSubjects('<%= cls.class_id %>')">
-                  <label for="class_<%= cls.class_id %>"><%= cls.class_name %></label>
-                </div>
-                <div id="subjects_<%= cls.class_id %>" class="subject-container <%= cls.selected ? 'visible' : '' %>">
-                  <div class="select-all-container">
-                    <input type="checkbox" id="selectAllSubjects_<%= cls.class_id %>" onclick="selectAllSubjects('<%= cls.class_id %>')">
-                    <label for="selectAllSubjects_<%= cls.class_id %>">Select All Subjects</label>
-                  </div>
-                  <div class="subjects-grid">
-                    <% subjects.forEach(subject => { %>
-                      <% if (subject.class_id === cls.class_id) { %>
-                        <div class="subject-checkbox">
-                          <input type="checkbox" id="subject_<%= subject.subject_id %>" name="subjects[]" value="<%= cls.class_id %>-<%= subject.subject_id %>" <%= subject.selected ? 'checked' : '' %>>
-                          <label for="subject_<%= subject.subject_id %>"><%= subject.subject_name %></label>
-                        </div>
-                      <% } %>
+          <p class="ma-hint">Leave the dates blank to allow score entry any time.</p>
+          <label class="ma-check"><input type="checkbox" id="notifyTeachersCb" name="notifyTeachers" /> Email the class teachers about this change</label>
+        </section>
+
+        <section class="ma-sec">
+          <h3 class="ma-sec__title">Classes and subjects <span class="ma-count"><%= _chosenClasses %></span></h3>
+          <button type="button" class="ma-toggle" onclick="toggleClassesCollapse()">
+            <span class="arrow" id="arrow-classes">&#9654;</span> Show or change classes
+          </button>
+          <div class="ma-classes" id="collapse-classes" style="display:none;">
+            <label class="ma-check ma-check--all"><input type="checkbox" id="selectAllClasses" onclick="selectAllClassesAndSubjects()"> Select every class and subject</label>
+            <div class="ma-class-grid">
+              <% (classes || []).forEach(cls => { %>
+                <div class="ma-class">
+                  <label class="ma-check ma-class__name"><input type="checkbox" id="class_<%= cls.class_id %>" name="classes[]" value="<%= cls.class_id %>" <%= cls.selected ? 'checked' : '' %> onchange="toggleSubjects('<%= cls.class_id %>')"> <%= cls.class_name %></label>
+                  <div id="subjects_<%= cls.class_id %>" class="subject-container <%= cls.selected ? 'visible' : '' %>">
+                    <label class="ma-check ma-check--small"><input type="checkbox" id="selectAllSubjects_<%= cls.class_id %>" onclick="selectAllSubjects('<%= cls.class_id %>')"> All subjects</label>
+                    <% (_byClass[cls.class_id] || []).forEach(subject => { %>
+                      <label class="ma-check ma-check--small"><input type="checkbox" id="subject_<%= subject.subject_id %>" name="subjects[]" value="<%= cls.class_id %>-<%= subject.subject_id %>" <%= subject.selected ? 'checked' : '' %>> <%= subject.subject_name %></label>
                     <% }); %>
                   </div>
                 </div>
-              </div>
-            <% }); %>
+              <% }); %>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
     </form>
 </main>
 
@@ -806,6 +800,20 @@
             }
         }
     }
+
+    // "All subjects" / "Select every class" start ticked when everything under them is.
+    (function syncSelectAllBoxes() {
+      var allClasses = true;
+      document.querySelectorAll('input[name="classes[]"]').forEach(function (cls) {
+        var subs = document.querySelectorAll('#subjects_' + cls.value + ' input[name="subjects[]"]');
+        var all = subs.length > 0 && Array.prototype.every.call(subs, function (x) { return x.checked; });
+        var box = document.getElementById('selectAllSubjects_' + cls.value);
+        if (box) box.checked = all;
+        if (!cls.checked || !all) allClasses = false;
+      });
+      var every = document.getElementById('selectAllClasses');
+      if (every) every.checked = allClasses;
+    })();
 
     function toggleClassesCollapse() {
         const collapseDiv = document.getElementById('collapse-classes');
