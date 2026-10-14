@@ -587,13 +587,14 @@
 </head>
 <body>
 <link rel="stylesheet" href="/css/manage.css" />
+<link rel="stylesheet" href="/css/peoplePanel.css" />
 <script src="/js/manage.js" defer></script>
 <div class="page-wrap ws-root">
 
   <header class="ws-head">
     <div class="ws-head__text">
       <h1 class="ws-head__title">Assessments</h1>
-      <p class="ws-head__sub">Tests and exams for this term, with their weight and the classes that take them.</p>
+      <p class="ws-head__sub">Tests and exams for this term. Select one to see its details.</p>
     </div>
     <div class="ws-head__actions">
       <button type="button" class="ws-btn ws-btn--primary" onclick="openCreateTestModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> New test</button>
@@ -602,106 +603,92 @@
 
   <%- include('../partials/flash') %>
 
-  <!-- Table Card -->
-  <div class="card">
-    <div class="table-scroll ws-cards-wrap">
-      <table class="ws-cards">
+  <%
+    const _list = assessments || [];
+    const _status = (a) => (!a.is_active ? 'Turned off' : a.is_locked ? 'Locked' : a.can_edit_scores ? 'Open' : 'Closed');
+    const _day = (v) => (v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
+    const _cats = Array.from(new Set(_list.map((a) => a.category).filter(Boolean))).sort();
+    const _classNames = Array.from(new Set(_list.flatMap((a) => (a.assigned_classes || []).map((c) => c.class_name)).filter(Boolean))).sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+    const _panelData = _list.map((a) => ({
+      id: String(a.group_id),
+      title: a.title,
+      status: _status(a),
+      weight: a.weight,
+      maxScore: a.max_score,
+      scale: a.scale_base,
+      category: a.category,
+      windowStart: _day(a.edit_window_start),
+      windowEnd: _day(a.edit_window_end),
+      scores: a.scores_saved || 0,
+      locked: Boolean(a.is_locked),
+      classes: (a.assigned_classes || []).map((c) => ({ name: c.class_name, subjects: (c.subjects || []).filter(Boolean) })),
+    }));
+  %>
+  <% if (!_list.length) { %>
+    <div class="ws-card ws-empty"><strong>No assessments yet</strong>Choose New test to add one for this term.</div>
+  <% } else { %>
+  <div class="ux-layout">
+    <aside class="ux-filters" id="uxFilters" aria-label="Filter assessments">
+      <div class="ux-filters__head"><strong>Filters</strong><button type="button" class="ux-link" id="uxClear">Clear</button></div>
+      <label class="ux-field"><span>Name</span><input type="search" id="uxName" placeholder="Find by name" autocomplete="off" /></label>
+      <label class="ux-field"><span>Status</span>
+        <select id="uxStatus"><option value="">Any status</option><option>Open</option><option>Closed</option><option>Locked</option><option>Turned off</option></select>
+      </label>
+      <label class="ux-field"><span>Category</span>
+        <select id="uxCategory"><option value="">Any category</option><% _cats.forEach((c) => { %><option><%= c %></option><% }) %></select>
+      </label>
+      <label class="ux-field"><span>Class</span>
+        <select id="uxClass"><option value="">Any class</option><% _classNames.forEach((c) => { %><option><%= c %></option><% }) %></select>
+      </label>
+      <p class="ux-shown" id="uxShown" aria-live="polite"></p>
+    </aside>
+
+    <div class="ws-table-wrap ws-cards-wrap">
+      <table class="ws-table ws-cards">
         <thead>
           <tr>
-            <th>Test Name</th>
-            <th>Weight (%)</th>
-            <th>Max Score</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Weight</th>
+            <th>Out of</th>
             <th>Category</th>
-            <th>Assigned Classes</th>
-            <th>Actions</th>
+            <th>Classes</th>
           </tr>
         </thead>
-        <tbody>
-          <% if (!assessments || assessments.length === 0) { %>
-            <tr class="empty-row"><td colspan="6">No assessments created yet.</td></tr>
-          <% } %>
-          <% (assessments || []).forEach(function(assessment, idx) { %>
-            <tr data-group-id="<%= assessment.group_id %>">
-              <td data-label="Test Name" class="ws-card-title">
-                <div class="test-name-content">
-                  <strong class="table-name"><%= assessment.title %></strong>
-                  <div class="table-meta">
-                    <span class="editability-note" title="Entry status">
-                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                      <% if (assessment.can_edit_scores) { %>
-                        Entry Status: Open
-                      <% } else { %>
-                        Entry Status: Close
-                      <% } %>
-                    </span>
-                    <div class="window-info">
-                      <% if (assessment.edit_window_start || assessment.edit_window_end) { %>
-                        <% if (assessment.edit_window_start) { %>
-                          <span>Open from: <%= new Date(assessment.edit_window_start).toLocaleDateString() %></span>
-                        <% } %>
-                        <% if (assessment.edit_window_end) { %>
-                          <span>Open until: <%= new Date(assessment.edit_window_end).toLocaleDateString() %></span>
-                        <% } %>
-                      <% } else { %>
-                        <span>No edit window</span>
-                      <% } %>
-                    </div>
-                  </div>
-                </div>
-              </td>
-              <td data-label="Weight"><%= assessment.weight %>%</td>
-              <td data-label="Max Score"><%= assessment.max_score %></td>
-              <td data-label="Category"><%= assessment.category %></td>
-
-              <!-- Assigned Classes -->
-              <td data-label="Assigned Classes" class="ws-card-wide">
-                <button type="button" class="collapse-btn" onclick="toggleClasses('<%= idx %>')" title="Show assigned classes and subjects">
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                  <%= (assessment.assigned_classes || []).length %>
-                  <span class="collapse-arrow" id="arrow-<%= idx %>">▶</span>
-                </button>
-                <div class="collapse-body" id="col-<%= idx %>" style="display:none;">
-                  <div class="assigned-class-list">
-                    <% Object.values(assessment.assigned_classes).forEach(function(cls) { %>
-                      <div class="assigned-class-card">
-                        <div class="collapse-class-name"><%= cls.class_name %></div>
-                        <ul class="subject-chip-list">
-                          <% cls.subjects.forEach(function(sub) { %><li><%= sub %></li><% }); %>
-                        </ul>
-                      </div>
-                    <% }); %>
-                  </div>
-                </div>
-              </td>
-
-              <!-- Actions -->
-              <td data-label="Actions" class="ws-card-actions">
-                <div class="actions-cell">
-                  <button
-                    type="button"
-                    class="action-icon-btn lock-action-btn <%= assessment.is_locked ? 'locked action-icon-btn-unlock' : 'open action-icon-btn-lock' %>"
-                    title="<%= assessment.is_locked ? 'Unlock assessment' : 'Lock assessment' %>"
-                    aria-label="<%= assessment.is_locked ? 'Unlock assessment' : 'Lock assessment' %>"
-                    onclick="updateControl('<%= assessment.group_id %>', '<%= organizationId %>', '<%= termId %>', '<%= assessment.is_locked ? 'unlock' : 'lock' %>')">
-                    <% if (assessment.is_locked) { %>
-                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 118 0v3" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-                    <% } else { %>
-                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/><path d="M16 11V8a4 4 0 0 0-7.2-2.4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M8.8 5.6L6.2 4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-                    <% } %>
-                    <span class="sr-only"><%= assessment.is_locked ? 'Locked' : 'Open' %></span>
-                  </button>
-                  <button type="button" class="action-icon-btn action-icon-btn-modify" title="Modify assessment" aria-label="Modify assessment" onclick="openModifyAssessmentModal('<%= assessment.group_id %>')">
-                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    <span class="sr-only">Modify</span>
-                  </button>
-                </div>
-              </td>
+        <tbody id="uxBody">
+          <% _list.forEach(function (a) { const st = _status(a); %>
+            <tr class="ux-row" tabindex="0" data-group-id="<%= a.group_id %>"
+                data-name="<%= String(a.title || '').toLowerCase() %>" data-status="<%= st %>" data-category="<%= a.category %>"
+                data-classes="<%= (a.assigned_classes || []).map((c) => c.class_name).join('|') %>">
+              <td class="ws-card-title"><strong><%= a.title %></strong></td>
+              <td><span class="ws-pill <%= st === 'Open' ? 'ws-pill--green' : st === 'Locked' || st === 'Closed' ? 'ws-pill--amber' : '' %>"><%= st %></span></td>
+              <td><%= a.weight %>%</td>
+              <td><%= Number(a.max_score) %></td>
+              <td><%= a.category %></td>
+              <td><span class="ws-pill"><%= (a.assigned_classes || []).length %></span></td>
             </tr>
           <% }); %>
         </tbody>
       </table>
+      <p class="ux-empty" id="uxEmpty" hidden>No assessments match these filters.</p>
     </div>
   </div>
+  <% } %>
+
+  <div class="ux-panel-backdrop" id="uxBackdrop" hidden></div>
+  <aside class="ux-panel" id="uxPanel" role="dialog" aria-modal="true" aria-labelledby="uxPanelTitle" aria-hidden="true">
+    <div class="ux-panel__bar">
+      <button type="button" class="ux-link ux-back" id="uxBack" hidden><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back</button>
+      <strong id="uxPanelTitle">Assessment</strong>
+      <button type="button" class="ux-close" id="uxClose" aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="ux-panel__body" id="uxPanelBody"></div>
+    <div class="ux-panel__edit" id="uxPanelEdit" hidden>
+      <div class="ux-panel__loading" id="uxEditLoading">Loading…</div>
+      <iframe id="uxEditFrame" title="Edit assessment"></iframe>
+    </div>
+  </aside>
+  <script type="application/json" id="uxAssessments"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
 
 </div>
 
@@ -758,19 +745,104 @@
 </div>
 
 <script>
-  // Opened from a locked assessment's pencil in the classroom: bring that
-  // assessment into view and point at its lock button.
-  (function focusAssessmentFromLink() {
+  /* ---- Filters and side panel ---- */
+  (function () {
+    var get = function (id) { return document.getElementById(id); };
+    var rows = Array.prototype.slice.call(document.querySelectorAll('tr.ux-row'));
+    var items = [];
+    try { items = JSON.parse(get('uxAssessments').textContent) || []; } catch (e) { items = []; }
+    var fields = ['uxName', 'uxStatus', 'uxCategory', 'uxClass'];
+    function apply() {
+      if (!get('uxName')) return;
+      var name = get('uxName').value.trim().toLowerCase(), st = get('uxStatus').value, cat = get('uxCategory').value, cls = get('uxClass').value;
+      var shown = 0;
+      rows.forEach(function (row) {
+        var d = row.dataset;
+        var ok = (!name || d.name.indexOf(name) !== -1) && (!st || d.status === st) && (!cat || d.category === cat)
+          && (!cls || ('|' + d.classes + '|').indexOf('|' + cls + '|') !== -1);
+        row.hidden = !ok;
+        if (ok) shown += 1;
+      });
+      get('uxShown').textContent = 'Showing ' + shown + ' of ' + rows.length;
+      get('uxEmpty').hidden = shown !== 0;
+    }
+    if (get('uxName')) {
+      fields.forEach(function (id) { var el = get(id); el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', apply); });
+      get('uxClear').addEventListener('click', function () { fields.forEach(function (id) { get(id).value = ''; }); apply(); });
+      if (window.matchMedia('(max-width: 900px)').matches) document.querySelector('.ux-layout').classList.add('ux-filters-off');
+      apply();
+    }
+    function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function kv(label, value) { return value !== '' && value != null ? '<div class="ux-kv"><span>' + label + '</span><strong>' + esc(value) + '</strong></div>' : ''; }
+    var current = null;
+    function render(a) {
+      var pill = a.status === 'Open' ? 'ws-pill--green' : a.status === 'Turned off' ? '' : 'ws-pill--amber';
+      var html = '<div class="ux-who"><div><div class="ux-who__name">' + esc(a.title) + '</div><span class="ws-pill ' + pill + '">' + esc(a.status) + '</span></div></div>' +
+        '<section class="ux-sec"><h3>Settings</h3>' + kv('Weight', a.weight + '%') + kv('Score out of', Number(a.maxScore)) + kv('Scaled to', a.scale) + kv('Category', a.category) + '</section>' +
+        '<section class="ux-sec"><h3>Score entry</h3>' + kv('Status', a.status) + kv('Opens', a.windowStart) + kv('Closes', a.windowEnd) + kv('Scores saved', a.scores) + '</section>' +
+        '<section class="ux-sec"><h3>Classes <span class="ux-count">' + a.classes.length + '</span></h3>' +
+          a.classes.map(function (c) { return '<div class="ux-class"><strong>' + esc(c.name) + '</strong><span>' + esc(c.subjects.join(', ') || 'No subjects') + '</span></div>'; }).join('') + '</section>' +
+        '<div class="ux-actions"><button type="button" class="ws-btn" id="uxLock"><i class="fa-solid ' + (a.locked ? 'fa-lock-open' : 'fa-lock') + '" aria-hidden="true"></i> ' + (a.locked ? 'Unlock' : 'Lock') + '</button>' +
+        '<button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>';
+      get('uxPanelBody').innerHTML = html;
+      get('uxEdit').addEventListener('click', function () { showEdit(a); });
+      get('uxLock').addEventListener('click', function () {
+        if (!window.confirm((a.locked ? 'Unlock' : 'Lock') + ' "' + a.title + '" for every class?')) return;
+        updateControl(a.id, ctOrganizationId, ctTermId, a.locked ? 'unlock' : 'lock');
+      });
+    }
+    function setMode(editing) {
+      get('uxPanel').classList.toggle('is-editing', editing);
+      get('uxPanelBody').hidden = editing;
+      get('uxPanelEdit').hidden = !editing;
+      get('uxBack').hidden = !editing;
+      get('uxPanelTitle').textContent = editing ? 'Edit assessment' : 'Assessment';
+    }
+    function showEdit(a) {
+      var frame = get('uxEditFrame'), loading = get('uxEditLoading');
+      setMode(true);
+      frame.style.visibility = 'hidden';
+      loading.style.display = 'flex';
+      frame.onload = function () {
+        var path = null;
+        try { path = frame.contentWindow.location.pathname; } catch (err) { /* ignore */ }
+        if (path === '/common/manageAssessment') { window.location.reload(); return; }
+        loading.style.display = 'none';
+        frame.style.visibility = 'visible';
+      };
+      frame.src = '/common/modifyAssessment?groupId=' + encodeURIComponent(a.id) + '&organizationId=' + ctOrganizationId + '&termId=' + ctTermId + '&embed=workspace';
+    }
+    function open(id) {
+      var a = items.find(function (x) { return x.id === String(id); });
+      if (!a) return;
+      current = a;
+      render(a);
+      setMode(false);
+      get('uxBackdrop').hidden = false;
+      get('uxPanel').classList.add('is-open');
+      get('uxPanel').setAttribute('aria-hidden', 'false');
+      rows.forEach(function (r) { r.classList.toggle('is-selected', r.dataset.groupId === String(id)); });
+    }
+    function close() {
+      get('uxPanel').classList.remove('is-open', 'is-editing');
+      get('uxPanel').setAttribute('aria-hidden', 'true');
+      get('uxBackdrop').hidden = true;
+      get('uxEditFrame').removeAttribute('src');
+      rows.forEach(function (r) { r.classList.remove('is-selected'); });
+    }
+    window.openAssessmentPanel = open;
+    get('uxClose').addEventListener('click', close);
+    get('uxBackdrop').addEventListener('click', close);
+    get('uxBack').addEventListener('click', function () { setMode(false); get('uxEditFrame').removeAttribute('src'); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && get('uxPanel').classList.contains('is-open')) close(); });
+    var body = get('uxBody');
+    if (body) {
+      body.addEventListener('click', function (e) { var row = e.target.closest('tr.ux-row'); if (row) open(row.dataset.groupId); });
+      body.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr.ux-row')) { e.preventDefault(); open(e.target.dataset.groupId); } });
+    }
+    // Opened from a locked assessment's pencil in the classroom: open that one.
     var focus = new URLSearchParams(window.location.search).get('focus');
-    if (!focus) return;
-    var row = Array.prototype.find.call(document.querySelectorAll('tr[data-group-id]'), function (r) { return r.getAttribute('data-group-id') === focus; });
-    if (!row) return;
-    row.classList.add('is-focused-assessment');
-    setTimeout(function () {
-      row.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      var lockBtn = row.querySelector('.lock-action-btn');
-      if (lockBtn) lockBtn.focus({ preventScroll: true });
-    }, 150);
+    if (focus) setTimeout(function () { open(focus); }, 100);
   })();
 
   async function updateControl(groupId, organizationId, termId, action) {

@@ -12865,7 +12865,8 @@ NUMBERING:
 
       // Fetch assessments with their associated classes and subjects, grouped by group_id
       const assessmentsQuery = `
-                SELECT a.group_id, a.title, a.weight, a.max_score, a.category, a.term_id, 
+                SELECT a.group_id, a.title, a.weight, a.max_score, a.category, a.term_id,
+            COALESCE(a.scale_base, 100) AS scale_base,
             c.class_id, c.class_name, s.subject_name,
             BOOL_OR(COALESCE(a.is_locked, FALSE)) OVER (PARTITION BY a.group_id) AS is_locked,
             BOOL_AND(COALESCE(a.is_active, TRUE)) OVER (PARTITION BY a.group_id) AS is_active,
@@ -12887,6 +12888,16 @@ NUMBERING:
         termId,
       ]);
 
+      // Scores saved so far in each assessment group (for the side panel).
+      const scoreCounts = await db.query(
+        `SELECT a.group_id, COUNT(ar.assessment_id)::int AS scores
+           FROM assessments a
+           LEFT JOIN assessment_results ar ON ar.assessment_id = a.assessment_id
+          WHERE a.organization_id = $1 AND a.term_id = $2
+          GROUP BY a.group_id`,
+        [organizationId, termId]
+      ).then((r) => new Map(r.rows.map((row) => [String(row.group_id), row.scores]))).catch(() => new Map());
+
       // Group classes and subjects under each assessment group
       const assessmentsMap = {};
       for (let row of assessmentsResult.rows) {
@@ -12899,6 +12910,8 @@ NUMBERING:
             title: row.title,
             weight: row.weight,
             max_score: row.max_score,
+            scale_base: row.scale_base,
+            scores_saved: scoreCounts.get(String(groupId)) || 0,
             category: row.category,
             term_id: row.term_id,
             is_locked: row.is_locked,
@@ -15838,6 +15851,15 @@ NUMBERING:
       const pendingTeacherNotifications = [];
 
       for (const test of tests) {
+        // One spelling per assessment name in a school ("EXAMS " is "Exams").
+        test.testName = String(test.testName || "").trim().replace(/\s+/g, " ");
+        const existingName = await client.query(
+          `SELECT title FROM assessments
+            WHERE organization_id = $1 AND LOWER(REGEXP_REPLACE(TRIM(title), '\\s+', ' ', 'g')) = LOWER($2)
+            ORDER BY assessment_id DESC LIMIT 1`,
+          [organizationId, test.testName]
+        );
+        if (existingName.rows.length) test.testName = existingName.rows[0].title.trim();
         const selectedClasses = test.classes;
         const selectedSubjects = test.subjects;
         const locked = parseBooleanValue(test.isLocked, false);
