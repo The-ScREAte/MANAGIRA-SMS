@@ -570,6 +570,13 @@
         background: #f1f5f9;
       }
 
+      /* Current on a completed year or term: locked until Edit. */
+      label:has(> input.current-year-radio:disabled),
+      label:has(> input.current-term-radio:disabled) {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
       .term-ended-current-note {
         margin-top: 10px;
         padding: 8px 10px;
@@ -1341,6 +1348,7 @@
                 <input
                   type="text"
                   name="year_label"
+                  <%= schoolYearIsCompleted ? 'readonly' : '' %>
                   value="<%= year.year_label %>"
                   required
                   onclick="event.stopPropagation()"
@@ -1352,6 +1360,7 @@
                     value="<%= year.id %>"
                     class="current-year-radio"
                     <%= year.current ? 'checked' : '' %>
+                    <%= schoolYearIsCompleted ? 'disabled' : '' %>
                     onclick="event.stopPropagation()"
                   > 
                   Current
@@ -1420,12 +1429,13 @@
                     <input
                       type="text"
                       name="termNames[]" list="term-library" autocomplete="off"
+                      <%= termIsCompleted ? 'readonly' : '' %>
                       value="<%= term.term_name %>"
                       placeholder="Term / Semester Name"
                       required
                     />
                     <label>
-                      <input type="radio" name="currentTermChoice" value="<%= term.term_id %>" class="current-term-radio" <%= term.current ? 'checked' : '' %>>
+                      <input type="radio" name="currentTermChoice" value="<%= term.term_id %>" class="current-term-radio" <%= term.current ? 'checked' : '' %> <%= termIsCompleted ? 'disabled' : '' %>>
                       Current
                     </label>
                     
@@ -1458,6 +1468,7 @@
                       <input
                         type="date"
                         name="startDates[]"
+                        <%= termIsCompleted ? 'readonly' : '' %>
                         value="<%= new Date(term.start_date).toISOString().slice(0, 10) %>"
                         required
                       />
@@ -1467,6 +1478,7 @@
                       <input
                         type="date"
                         name="endDates[]"
+                        <%= termIsCompleted ? 'readonly' : '' %>
                         value="<%= new Date(term.end_date).toISOString().slice(0, 10) %>"
                         required
                       />
@@ -2175,6 +2187,12 @@
         }
       }
 
+      // Completed years and terms are locked (Current, name and dates) until Edit.
+      function unlockFields(root) {
+        root.querySelectorAll('input.current-year-radio[disabled], input.current-term-radio[disabled]').forEach((input) => { input.disabled = false; });
+        root.querySelectorAll('input[readonly]').forEach((input) => { input.readOnly = false; });
+      }
+
       function enableSchoolYearEdit(button) {
         const wrapper = button.closest('.school-year-wrapper');
         if (!wrapper) return;
@@ -2183,6 +2201,7 @@
         wrapper.querySelectorAll('.term-completed.is-readonly').forEach((fieldset) => {
           fieldset.classList.remove('is-readonly');
         });
+        unlockFields(wrapper);
 
         const termSection = wrapper.querySelector('.term-section, [id^="termSection"]');
         if (termSection && window.getComputedStyle(termSection).display === 'none') {
@@ -2198,6 +2217,7 @@
         if (!fieldset) return;
 
         fieldset.classList.remove('is-readonly');
+        unlockFields(fieldset);
         alert('Editing has been enabled for this completed term. Please save your changes when done.');
       }
 
