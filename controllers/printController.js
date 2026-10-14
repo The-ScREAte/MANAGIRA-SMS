@@ -1693,7 +1693,7 @@ const printController = (db) => ({
         ),
         db.query(
           `SELECT student_id, subject_id, position
-             FROM student_positions
+             FROM student_term_positions
              WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
                AND (
                  $4::int[] IS NULL
@@ -3217,20 +3217,25 @@ const printController = (db) => ({
         );
 
         if (updateResult.rowCount === 0) {
-          const classScopedUpdateResult = await db.query(
-            `UPDATE status_settings
-             SET term_id = $3, activate_promotion = $4
-             WHERE organization_id = $1 AND class_id = $2`,
+          // Each term keeps its own settings: a new term gets its own row,
+          // starting from the class's latest promotion settings, and the
+          // previous term's row stays as it was.
+          await db.query(
+            `INSERT INTO status_settings
+               (organization_id, class_id, term_id, activate_promotion, cut_off_point, promoted_class, repeated_class, promotion_basis)
+             SELECT $1, $2, $3, $4, prev.cut_off_point, prev.promoted_class, prev.repeated_class,
+                    COALESCE(prev.promotion_basis, 'percentage')
+               FROM (SELECT 1) AS one
+               LEFT JOIN LATERAL (
+                 SELECT cut_off_point, promoted_class, repeated_class, promotion_basis
+                   FROM status_settings
+                  WHERE organization_id = $1 AND class_id = $2
+                  ORDER BY id DESC
+                  LIMIT 1
+               ) AS prev ON TRUE
+             ON CONFLICT (organization_id, class_id, term_id) DO UPDATE SET activate_promotion = EXCLUDED.activate_promotion`,
             [organizationId, parsedClassId, parsedTermId, apBool]
           );
-
-          if (classScopedUpdateResult.rowCount === 0) {
-            await db.query(
-              `INSERT INTO status_settings (organization_id, class_id, term_id, activate_promotion)
-               VALUES ($1, $2, $3, $4)`,
-              [organizationId, parsedClassId, parsedTermId, apBool]
-            );
-          }
         }
       }
       res.json({ success: true });

@@ -532,7 +532,7 @@ module.exports = {
       const positionsResult = await db.query(
         `
           SELECT subject_id, position
-          FROM student_positions
+          FROM student_term_positions
           WHERE student_id = $1 AND organization_id = $2 AND term_id = $3
         `,
         [studentId, organizationId, termId]
@@ -806,7 +806,7 @@ module.exports = {
       const positionsResult = await db.query(
         `
         SELECT subject_id, position
-        FROM student_positions
+        FROM student_term_positions
         WHERE student_id = $1 AND organization_id = $2 AND term_id = $3
         `,
         [studentId, organizationId, termId]
@@ -1525,7 +1525,7 @@ module.exports = {
       // Fetch positions
       const positionsResult = await db.query(
         `SELECT subject_id, position
-         FROM student_positions
+         FROM student_term_positions
          WHERE student_id = $1
            AND organization_id = $2
            AND term_id = $3

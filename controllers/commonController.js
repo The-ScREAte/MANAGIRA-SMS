@@ -31,7 +31,8 @@ const {
 } = require("../middleware/permissionMiddleware");
 const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
 const { PAYGIRA_FEATURE_NAMES } = require("../utils/paygiraAccess");
-const { libraryPickLists, librarySubjectName } = require("../utils/academicLibrary");
+const { libraryPickLists, librarySubjectName, listTermDefinitions, renameTermDefinition } = require("../utils/academicLibrary");
+const { savedRecords, savedRecordsMessage, clearTermSetup } = require("../utils/recordGuards");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
 const { loadViewerActivity, resolveActor: resolveWorkspaceActor, isOrgMember: isWorkspaceMember } = require("../utils/workspace");
 const {
@@ -8112,11 +8113,11 @@ const commonController = {
         }
       });
 
-      // Fetch positions from student_positions table for the specified term
+      // Positions kept for this term (student_term_positions, see utils/termRecords.js)
       const positionsResult = await db.query(
         `
           SELECT subject_id, position
-          FROM student_positions
+          FROM student_term_positions
           WHERE student_id = $1 AND organization_id = $2 AND term_id = $3
           `,
         [studentId, organizationId, termId]
@@ -10865,8 +10866,8 @@ const commonController = {
                        ar.score,
                        sp.position
                 FROM assessment_results ar
-                LEFT JOIN student_positions sp
-                ON ar.student_id = sp.student_id AND ar.subject_id = sp.subject_id
+                LEFT JOIN student_term_positions sp
+                ON ar.student_id = sp.student_id AND ar.subject_id = sp.subject_id AND sp.term_id = ar.term_id
                 WHERE ar.assessment_id IN (
                     SELECT assessment_id
                     FROM assessments
@@ -17446,6 +17447,7 @@ NUMBERING:
       // Pass messages to the view
       res.render("common/manageRecords", {
         ...(await libraryPickLists(db, req.session.organizationId)),
+        termLibrary: await listTermDefinitions(db, req.session.organizationId).catch(() => []),
         title: "Manage Records",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -18471,6 +18473,45 @@ NUMBERING:
     }
   },
 
+  // Renames one of the school's term names in every school year that uses it.
+  renameTermName: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const id = Number.parseInt(String(req.body?.id ?? ""), 10);
+    if (!organizationId || !Number.isInteger(id)) return res.status(400).json({ success: false, message: "Choose a term name." });
+    try {
+      await renameTermDefinition(db, organizationId, id, req.body?.name);
+      return res.json({ success: true, message: "Term name updated in every school year that uses it." });
+    } catch (error) {
+      const known = /Enter a term name|already has that name|not found/.test(error.message || "");
+      return res.status(known ? 400 : 500).json({ success: false, message: known ? error.message : "Could not rename the term." });
+    }
+  },
+
+  // Removes a term name only when no school year uses it.
+  removeTermName: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const id = Number.parseInt(String(req.body?.id ?? ""), 10);
+    if (!organizationId || !Number.isInteger(id)) return res.status(400).json({ success: false, message: "Choose a term name." });
+    try {
+      const { rows } = await db.query(
+        `SELECT d.name, (SELECT COUNT(*)::int FROM terms t WHERE t.term_definition_id = d.id) AS uses
+           FROM term_definitions d WHERE d.id = $1 AND d.organization_id = $2`,
+        [id, organizationId]
+      );
+      if (!rows.length) return res.status(404).json({ success: false, message: "Term name not found." });
+      if (rows[0].uses > 0) {
+        return res.status(409).json({
+          success: false,
+          message: `“${rows[0].name}” is used by ${rows[0].uses} school year${rows[0].uses === 1 ? "" : "s"}, so it stays. Delete or rename the term inside those years first.`,
+        });
+      }
+      await db.query("DELETE FROM term_definitions WHERE id = $1 AND organization_id = $2", [id, organizationId]);
+      return res.json({ success: true, message: `“${rows[0].name}” removed.` });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: "Could not remove the term name." });
+    }
+  },
+
   deleteTerm: async (req, res, db) => {
     const termId = Number.parseInt(String(req.body?.term_id ?? ""), 10);
     const organizationId = req.session.organizationId;
@@ -18513,6 +18554,20 @@ NUMBERING:
         await client.query("ROLLBACK");
         return sendError(409, "Cannot delete the only remaining term for this school year. Delete the school year itself instead, or add another term first.");
       }
+
+      // A term that already holds records (scores, attendance, enrollments,
+      // report cards...) is kept, so past reports stay exactly as they were.
+      const termRecords = await savedRecords(client, "term", [termId], organizationId);
+      if (termRecords.length) {
+        const termInfo = await client.query(
+          `SELECT t.term_name, sy.year_label FROM terms t LEFT JOIN school_years sy ON sy.id = t.school_year_id WHERE t.term_id = $1`,
+          [termId]
+        );
+        const info = termInfo.rows[0] || {};
+        await client.query("ROLLBACK");
+        return sendError(409, savedRecordsMessage(`The term “${info.term_name || "this term"}”${info.year_label ? ` (${info.year_label})` : ""}`, termRecords));
+      }
+      await clearTermSetup(client, organizationId, [termId]);
 
       const blockers = await collectTermDeletionBlockers(client, { organizationId, termIds: [termId] });
       if (blockers.length) {
@@ -19459,10 +19514,27 @@ NUMBERING:
       // silently remove every student and their records - see
       // collectClassDeletionBlockers above. Now any real dependent data
       // blocks the delete instead.
-      const blockers = await collectClassDeletionBlockers(client, { organizationId, classId });
-      if (blockers.length) {
+      // A class (or any of its subjects) that already holds records is kept.
+      // Setup such as teacher assignments, grade bands and report settings
+      // goes with the class.
+      const classSubjectIds = (await client.query(
+        "SELECT subject_id FROM subjects WHERE class_id = $1 AND organization_id = $2",
+        [classId, organizationId]
+      )).rows.map((row) => Number(row.subject_id));
+      const classRecords = [
+        ...(await savedRecords(client, "class", [classId], organizationId)),
+        ...(await savedRecords(client, "subject", classSubjectIds, organizationId)),
+      ];
+      if (classRecords.length) {
+        const classInfo = await client.query("SELECT class_name FROM classes WHERE class_id = $1", [classId]);
+        const recordsByText = new Map();
+        classRecords.forEach((record) => {
+          const label = record.text.replace(/^[\d,]+ /, "");
+          const prev = recordsByText.get(label);
+          if (!prev || prev.count < record.count) recordsByText.set(label, record);
+        });
         await client.query("ROLLBACK");
-        return sendError(409, buildSchoolYearDependencyErrorMessage(blockers, "class"));
+        return sendError(409, savedRecordsMessage(`The class “${(classInfo.rows[0] && classInfo.rows[0].class_name) || "this class"}”`, Array.from(recordsByText.values())));
       }
 
       // Check if the class has associated subjects and delete them first
@@ -19797,14 +19869,28 @@ NUMBERING:
         return res.redirect("/common/manageClassSubjectAndGradYr");
       }
 
+      // A subject that already holds records (scores, assessments, positions,
+      // timetable slots...) is kept, so past report cards stay as they were.
+      const subjectRecords = await savedRecords(client, "subject", subjectIds, organizationId);
+      if (subjectRecords.length) {
+        const named = await client.query(
+          `SELECT s.subject_name, c.class_name FROM subjects s LEFT JOIN classes c ON c.class_id = s.class_id
+            WHERE s.subject_id = ANY($1::int[]) ORDER BY s.subject_id LIMIT 1`,
+          [subjectIds]
+        );
+        const row = named.rows[0] || {};
+        const what = subjectKey
+          ? `The subject “${row.subject_name || subjectKey}”`
+          : `“${row.subject_name || "This subject"}”${row.class_name ? ` in ${row.class_name}` : ""}`;
+        await client.query("ROLLBACK");
+        req.flash("error", savedRecordsMessage(what, subjectRecords));
+        return res.redirect("/common/manageClassSubjectAndGradYr");
+      }
+
+      // Only setup goes with the subject: teacher and student assignments.
       const tablesToClean = [
         "user_subjects",
         "student_subjects",
-        "pending_student_subjects",
-        "assessment_results",
-        "category_scores",
-        "student_positions",
-        "assessments",
       ];
 
       for (const tableName of tablesToClean) {
@@ -19837,7 +19923,7 @@ NUMBERING:
       );
 
       await client.query("COMMIT");
-      req.flash("success", "Subject and all related assignments/data were deleted successfully.");
+      req.flash("success", "Subject deleted. It had no saved records, so nothing else was affected.");
       res.redirect("/common/manageClassSubjectAndGradYr");
     } catch (err) {
       await client.query("ROLLBACK");
@@ -20315,6 +20401,34 @@ NUMBERING:
       const termIds = termResult.rows
         .map((row) => Number(row.term_id))
         .filter((termId) => Number.isInteger(termId));
+
+      // A school year whose terms (or the year itself) hold records is kept.
+      const recordsByText = new Map();
+      [...(await savedRecords(client, "term", termIds, organizationId)), ...(await savedRecords(client, "schoolYear", [yearId], organizationId))]
+        .forEach((record) => {
+          const label = record.text.replace(/^[\d,]+ /, "");
+          const prev = recordsByText.get(label);
+          if (!prev || prev.count < record.count) recordsByText.set(label, record);
+        });
+      const yearRecords = Array.from(recordsByText.values());
+      if (yearRecords.length) {
+        const yearInfo = await client.query(`SELECT year_label FROM school_years WHERE id = $1`, [yearId]);
+        await client.query("ROLLBACK");
+        return sendError(409, savedRecordsMessage(`The school year “${(yearInfo.rows[0] && yearInfo.rows[0].year_label) || "this year"}”`, yearRecords));
+      }
+      await clearTermSetup(client, organizationId, termIds);
+      await client.query(
+        `DELETE FROM enrolled_classes WHERE enrollment_id IN (
+           SELECT e.enrollment_id FROM enrollments e
+            WHERE e.organization_id = $1 AND e.school_year_id = $2
+              AND NOT EXISTS (SELECT 1 FROM enrolled_students es WHERE es.enrollment_id = e.enrollment_id))`,
+        [organizationId, yearId]
+      );
+      await client.query(
+        `DELETE FROM enrollments e WHERE e.organization_id = $1 AND e.school_year_id = $2
+            AND NOT EXISTS (SELECT 1 FROM enrolled_students es WHERE es.enrollment_id = e.enrollment_id)`,
+        [organizationId, yearId]
+      );
 
       const blockers = await collectSchoolYearDeletionBlockers(client, {
         organizationId,

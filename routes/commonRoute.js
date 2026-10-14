@@ -561,6 +561,13 @@ module.exports = (db) => {
   router.post("/deleteTerm", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), (req, res) =>
     commonController.deleteTerm(req, res, db)
   );
+  // The school's term names (term library): rename everywhere, remove when unused.
+  router.post("/termLibrary/rename", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), express.json(), (req, res) =>
+    commonController.renameTermName(req, res, db)
+  );
+  router.post("/termLibrary/remove", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_SCHOOL_YEAR_TERMS), express.json(), (req, res) =>
+    commonController.removeTermName(req, res, db)
+  );
   router.post(
     "/addGraduationYearGroup",
     isAuthenticated,

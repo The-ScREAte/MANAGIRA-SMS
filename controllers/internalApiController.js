@@ -1559,7 +1559,8 @@ async function deleteSubjectApi(req, res) {
 
     await commonController.deleteSubject(fakeReq, fakeRes, db);
 
-    if (flashError) return res.status(500).json({ error: flashError });
+    // Kept because it holds records: a clear refusal, not a server error.
+    if (flashError) return res.status(/can't be deleted/.test(flashError) ? 409 : 500).json({ error: flashError });
     return res.json({ subjectName, className: className || null, scope: scope.scopeLabel });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });

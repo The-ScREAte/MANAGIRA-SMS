@@ -748,7 +748,7 @@ module.exports = {
         effectiveClassId
           ? db.query(
               `SELECT subject_id, position
-                 FROM student_positions
+                 FROM student_term_positions
                 WHERE student_id = $1
                   AND organization_id = $2
                   AND class_id = $3

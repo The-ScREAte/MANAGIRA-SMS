@@ -1301,6 +1301,74 @@
         </div>
       </details>
 
+      <% const _termLib = typeof termLibrary !== 'undefined' && Array.isArray(termLibrary) ? termLibrary : []; %>
+      <% if (_termLib.length) { %>
+      <details class="ws-info term-lib" id="termLibrary">
+        <summary>Term names <span class="term-lib__count"><%= _termLib.length %></span></summary>
+        <div class="ws-info__body">
+          <p>Each term name is set up once and reused by every school year that has it. Renaming it here changes it in all of those years; a name no year uses can be removed.</p>
+          <ul class="term-lib__list">
+            <% _termLib.forEach(function (t) { %>
+            <li class="term-lib__item" data-term-def="<%= t.id %>">
+              <input type="text" class="term-lib__name" value="<%= t.name %>" data-original="<%= t.name %>" maxlength="80" aria-label="Term name" autocomplete="off" />
+              <span class="term-lib__uses"><%= t.year_count %> school year<%= t.year_count === 1 ? '' : 's' %></span>
+              <button type="button" class="term-lib__btn" data-term-action="rename" hidden>Save</button>
+              <% if (!t.year_count) { %><button type="button" class="term-lib__btn term-lib__btn--remove" data-term-action="remove">Remove</button><% } %>
+            </li>
+            <% }) %>
+          </ul>
+          <p class="term-lib__msg" role="status" aria-live="polite"></p>
+        </div>
+      </details>
+      <style>
+        .term-lib__count { display: inline-block; min-width: 20px; padding: 0 7px; margin-left: 6px; border-radius: 999px; font-size: 12px; line-height: 20px; text-align: center; background: color-mix(in srgb, var(--org-primary-color, #01535b) 14%, transparent); }
+        .term-lib__list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+        .term-lib__item { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .term-lib__name { flex: 1 1 200px; min-width: 0; max-width: 320px; padding: 7px 10px; border: 1px solid var(--border, #d7dee8); border-radius: 8px; font: inherit; }
+        .term-lib__uses { font-size: 13px; color: var(--muted, #64748b); min-width: 110px; }
+        .term-lib__btn { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--org-primary-color, #01535b); background: transparent; color: var(--org-primary-color, #01535b); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; margin: 0; }
+        .term-lib__btn--remove { border-color: #dc2626; color: #dc2626; }
+        .term-lib__msg { margin: 10px 0 0; font-size: 13px; }
+        .term-lib__msg:empty { display: none; }
+      </style>
+      <script>
+        (function () {
+          var box = document.getElementById('termLibrary');
+          if (!box || box.dataset.ready) return;
+          box.dataset.ready = '1';
+          var msg = box.querySelector('.term-lib__msg');
+          function say(text, ok) { msg.textContent = text; msg.style.color = ok ? '#15803d' : '#b91c1c'; }
+          box.addEventListener('input', function (e) {
+            if (!e.target.classList.contains('term-lib__name')) return;
+            var save = e.target.closest('li').querySelector('[data-term-action="rename"]');
+            save.hidden = e.target.value.trim() === e.target.dataset.original || !e.target.value.trim();
+          });
+          box.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-term-action]');
+            if (!btn) return;
+            var item = btn.closest('li');
+            var id = item.dataset.termDef;
+            var input = item.querySelector('.term-lib__name');
+            var action = btn.dataset.termAction;
+            if (action === 'remove' && !confirm('Remove the term name “' + input.dataset.original + '”?')) return;
+            btn.disabled = true;
+            fetch('/common/termLibrary/' + action, {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ id: id, name: input.value })
+            }).then(function (r) { return r.json(); }).then(function (data) {
+              btn.disabled = false;
+              say(data.message || (data.success ? 'Saved.' : 'Something went wrong.'), !!data.success);
+              if (!data.success) return;
+              if (action === 'remove') { item.remove(); return; }
+              // The years below show the new name after a reload.
+              setTimeout(function () { window.location.reload(); }, 700);
+            }).catch(function () { btn.disabled = false; say('Could not reach the server. Please try again.', false); });
+          });
+        })();
+      </script>
+      <% } %>
       <%# The school's term library, for the term name fields (outside the redrawn list). %>
       <script src="<%= assetUrl('/js/libraryPicker.js') %>" defer></script>
       <datalist id="term-library"><% (typeof termNames !== 'undefined' ? termNames : []).forEach(function (n) { %><option value="<%= n %>"></option><% }) %></datalist>
