@@ -415,6 +415,7 @@ const {
   userHasPermission,
   PERMISSIONS,
   PERMISSION_OPTIONS,
+  permissionOptionsFor,
   getUserPermissions,
   invalidateUserPermissionCache,
 } = require("../middleware/permissionMiddleware");
@@ -12586,7 +12587,7 @@ const accountController = {
         miraIntegration,
         employees,
         seatCount,
-        permissionOptions: PERMISSION_OPTIONS,
+        permissionOptions: permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated }),
         flash: {
           success: req.flash("success"),
           error: req.flash("error"),
@@ -12689,7 +12690,7 @@ const accountController = {
       // Owner included - no free bypass; Mira access is read straight from
       // their real granted permissions like anyone else.
       const permissions = await getUserPermissions(db, userId, orgId);
-      const modalOptions = PERMISSION_OPTIONS.filter((option) => option.key !== PERMISSIONS.USE_MIRA);
+      const modalOptions = permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated }).filter((option) => option.key !== PERMISSIONS.USE_MIRA);
 
       return res.json({
         userId: employee.user_id,

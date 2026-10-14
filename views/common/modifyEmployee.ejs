@@ -469,6 +469,10 @@
             </label>
           <% }) %>
         </div>
+        <%# Kept as they are: permissions held for features the plan doesn't show now. %>
+        <% (typeof hiddenHeldPermissions !== 'undefined' ? hiddenHeldPermissions : []).forEach(function(key) { %>
+          <input type="hidden" name="permissions" value="<%= key %>">
+        <% }) %>
         <div style="margin-top:8px; color:#64748b; font-size:12px;" id="permissionsNote">Permissions are pre-selected based on role. You can add or remove any. High-risk permissions (Billing, Settings) require a Manager account.</div>
         <div style="margin-top:8px; color:#64748b; font-size:12px; display:none;" id="driverPermissionsNote">Drivers use the Driver dashboard for their routes and riders. They do not get school-management access, so no permissions are set here.</div>
 

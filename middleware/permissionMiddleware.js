@@ -58,6 +58,32 @@ const PERMISSION_OPTIONS = [
   { key: PERMISSIONS.USE_MIRA, label: "Use Mira (AI Assistant)" },
 ];
 
+// Permissions that only make sense when the school's plan includes the feature
+// (names as in the features table / session.allowedFeatures, any one is enough).
+// Mira depends on its integration being switched on instead.
+const PERMISSION_FEATURES = {
+  [PERMISSIONS.MANAGE_ASSESSMENTS]: ["Assessment Tracking"],
+  [PERMISSIONS.SET_ASSESSMENT_QUESTIONS]: ["Set Assessment Questions", "Assessment Questions"],
+  [PERMISSIONS.MARK_ATTENDANCE]: ["Attendance Tracking"],
+  [PERMISSIONS.MANAGE_REPORTS]: ["Terminal Report", "Progressive Student Report"],
+  [PERMISSIONS.GENERATE_TRANSCRIPTS]: ["Official School Transcript"],
+  [PERMISSIONS.MANAGE_PAYGIRA]: ["PayGira", "Pay Gira", "PayGira & Payments", "PayGira and Payments"],
+};
+
+// The permission choices for this school: plan-tied ones only when the plan has
+// them, Mira only when it is switched on. With no feature list known (it is set
+// for every signed-in school), nothing is hidden.
+function permissionOptionsFor({ allowedFeatures, miraActivated } = {}) {
+  const features = Array.isArray(allowedFeatures) ? allowedFeatures : null;
+  const have = new Set((features || []).map((name) => String(name || "").trim().toLowerCase()));
+  return PERMISSION_OPTIONS.filter((option) => {
+    if (option.key === PERMISSIONS.USE_MIRA && miraActivated === false) return false;
+    const needs = PERMISSION_FEATURES[option.key];
+    if (!needs || !features || !features.length) return true;
+    return needs.some((name) => have.has(name.toLowerCase()));
+  });
+}
+
 const MANAGER_DEFAULT_OPTIONAL_PERMISSIONS = PERMISSION_OPTIONS
   .map((option) => option.key);
 
@@ -475,6 +501,7 @@ module.exports = {
   PERMISSIONS,
   MAILROOM_ALL_ACCESS_KEY,
   PERMISSION_OPTIONS,
+  permissionOptionsFor,
   ROLE_DEFAULT_PERMISSIONS,
   ensurePermissionsSchema,
   normalizePermissionsList,

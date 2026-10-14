@@ -317,7 +317,8 @@
 <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
 <style>
   /* Inside the shared page shell: no extra outer margin, header sits tight to the filters. */
-  .logs-page.gp-page { margin: 0; }
+  /* Rows sit at the top: a tall panel must not stretch the header, filters and list apart. */
+  .logs-page.gp-page { margin: 0; align-content: start; align-items: start; }
   .logs-page.gp-page > .gp-head { margin-bottom: 4px; }
   .logs-page .as-pagebar-label { white-space: nowrap; }
 </style>

@@ -27,8 +27,10 @@ const {
   userHasPermission,
   isManagerLikeRole,
   invalidateUserPermissionCache,
+  permissionOptionsFor,
 } = require("../middleware/permissionMiddleware");
 const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
+const { PAYGIRA_FEATURE_NAMES } = require("../utils/paygiraAccess");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
 const { loadViewerActivity, resolveActor: resolveWorkspaceActor, isOrgMember: isWorkspaceMember } = require("../utils/workspace");
 const {
@@ -9455,14 +9457,11 @@ const commonController = {
         [req.session.organizationId]
       );
 
-      const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
-      const permissionOptions = setAssessmentQuestionsFeatureEnabled
-        ? PERMISSION_OPTIONS
-        : PERMISSION_OPTIONS.filter((option) => option.key !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+      // Only permissions for features this school's plan (and integrations) include.
+      const permissionOptions = permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated });
+      const availablePermissionKeys = new Set(permissionOptions.map((option) => option.key));
       const stripUnavailablePermissions = (permissions = []) =>
-        setAssessmentQuestionsFeatureEnabled
-          ? permissions
-          : permissions.filter((permissionKey) => permissionKey !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+        permissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
 
       res.render("common/createEmployee", {
         title: "Create Employee",
@@ -9506,10 +9505,8 @@ const commonController = {
     const requestorId = req.session.user?.user_id || req.session.userId || null;
     const organizationId = req.session.organizationId;
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
-    const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
-    const featureFilteredPermissions = setAssessmentQuestionsFeatureEnabled
-      ? requestedPermissions
-      : requestedPermissions.filter((permissionKey) => permissionKey !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+    const availablePermissionKeys = new Set(permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated }).map((option) => option.key));
+    const featureFilteredPermissions = requestedPermissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
     const highRiskPermissions = new Set([
       PERMISSIONS.MANAGE_EMPLOYEES,
       PERMISSIONS.MANAGE_SETTINGS,
@@ -10401,15 +10398,13 @@ const commonController = {
       const enrolledMailroomClasses = mailroomClassesResult.rows.map((row) => row.class_id);
       const mailroomScope = rawSelectedPermissions.includes(MAILROOM_ALL_ACCESS_KEY) ? "all" : "classes";
 
-      const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
-      const permissionOptions = setAssessmentQuestionsFeatureEnabled
-        ? PERMISSION_OPTIONS
-        : PERMISSION_OPTIONS.filter((option) => option.key !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+      // Only permissions for features this school's plan (and integrations) include.
+      const permissionOptions = permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated });
+      const availablePermissionKeys = new Set(permissionOptions.map((option) => option.key));
       const stripUnavailablePermissions = (permissions = []) =>
-        setAssessmentQuestionsFeatureEnabled
-          ? permissions
-          : permissions.filter((permissionKey) => permissionKey !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+        permissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey));
       const selectedPermissions = stripUnavailablePermissions(rawSelectedPermissions);
+      const hiddenHeldPermissions = rawSelectedPermissions.filter((permissionKey) => !availablePermissionKeys.has(permissionKey));
 
       res.render("common/modifyEmployee", {
         title: "Modify Employee",
@@ -10428,6 +10423,7 @@ const commonController = {
           Driver: stripUnavailablePermissions(mergePermissionsForRole("Driver", [])),
         },
         selectedPermissions,
+        hiddenHeldPermissions,
         messages: req.flash(),
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -10477,10 +10473,11 @@ const commonController = {
       return res.redirect("/common/manageEmployees");
     };
     const requestedPermissions = normalizePermissionsList(req.body.permissions);
-    const setAssessmentQuestionsFeatureEnabled = hasSetAssessmentQuestionsFeature(req);
-    const featureFilteredPermissions = setAssessmentQuestionsFeatureEnabled
-      ? requestedPermissions
-      : requestedPermissions.filter((permissionKey) => permissionKey !== PERMISSIONS.SET_ASSESSMENT_QUESTIONS);
+    // Plan features only; a permission the employee already holds for a feature
+    // the plan no longer shows is kept (sent back from the form as a hidden field).
+    const availablePermissionKeys = new Set(permissionOptionsFor({ allowedFeatures: req.session.allowedFeatures, miraActivated: res.locals.miraActivated }).map((option) => option.key));
+    const heldPermissionKeys = new Set(await getUserPermissions(db, userId, req.session.organizationId).catch(() => []));
+    const featureFilteredPermissions = requestedPermissions.filter((permissionKey) => availablePermissionKeys.has(permissionKey) || heldPermissionKeys.has(permissionKey));
     const highRiskPermissions = new Set([
       PERMISSIONS.MANAGE_EMPLOYEES,
       PERMISSIONS.MANAGE_SETTINGS,
@@ -16460,9 +16457,11 @@ NUMBERING:
       }
 
       const classDashOrgSwitchRestriction = await getOrgSwitchFeatureRestriction(db, req).catch(() => ({ isRestricted: false }));
-      const canOpenPaygiraWorkspace = !classDashOrgSwitchRestriction.isRestricted
+      // PayGira shows only when the school's plan includes it.
+      const canOpenPaygiraWorkspace = hasOrgFeature(req, PAYGIRA_FEATURE_NAMES) && (
+        !classDashOrgSwitchRestriction.isRestricted
         || classDashOrgSwitchRestriction.flags.canViewBilling
-        || classDashOrgSwitchRestriction.flags.canViewPaygira;
+        || classDashOrgSwitchRestriction.flags.canViewPaygira);
 
       const routePanel = String(req.params.panel || '').trim().toLowerCase();
       const routeItemId = req.params.itemId ? String(req.params.itemId).trim() : '';
