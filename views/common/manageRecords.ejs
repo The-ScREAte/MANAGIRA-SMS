@@ -570,6 +570,44 @@
         background: #f1f5f9;
       }
 
+      /* School years grouped: current, upcoming, completed (folded). */
+      .sy-group { margin: 0 0 18px; }
+      .sy-group__title,
+      .term-group__title {
+        margin: 2px 0 10px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: var(--muted, #64748b);
+      }
+      .term-group__title { margin: 12px 0 8px; font-size: 11px; }
+      .sy-group--completed,
+      .term-group--completed { margin: 0 0 18px; }
+      .term-group--completed { margin: 10px 0 4px; }
+      .sy-group--completed > summary,
+      .term-group--completed > summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border: 1px dashed var(--border, #d7dee8);
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        list-style: none;
+        color: var(--muted, #475569);
+      }
+      .term-group--completed > summary { padding: 8px 12px; font-size: 14px; }
+      .sy-group--completed > summary::-webkit-details-marker,
+      .term-group--completed > summary::-webkit-details-marker { display: none; }
+      .sy-group--completed > summary::before,
+      .term-group--completed > summary::before { content: '\25B8'; transition: transform .15s ease; }
+      .sy-group--completed[open] > summary::before,
+      .term-group--completed[open] > summary::before { transform: rotate(90deg); }
+      .sy-group--completed[open] > summary,
+      .term-group--completed[open] > summary { margin-bottom: 12px; }
+
       /* Current on a completed year or term: locked until Edit. */
       label:has(> input.current-year-radio:disabled),
       label:has(> input.current-term-radio:disabled) {
@@ -1888,8 +1926,54 @@
         });
 
         termSection.innerHTML = '';
-        termFields.forEach((field) => termSection.appendChild(field));
+        groupTermFieldsets(termSection, termFields);
         return termFields;
+      }
+
+      // Current term first, then upcoming. In a year that still has current or
+      // upcoming terms, completed ones fold under "Completed terms" until
+      // opened (they stay inside the form, so saving is unchanged).
+      function groupTermFieldsets(termSection, termFields) {
+        const wrapper = termSection.closest('.school-year-wrapper');
+        const isCurrentYear = !!(wrapper && wrapper.classList.contains('current-year-wrapper'));
+        const current = [];
+        const upcoming = [];
+        const completed = [];
+        termFields.forEach((field) => {
+          const radio = field.querySelector('input.current-term-radio');
+          if (isCurrentYear && radio && radio.checked) current.push(field);
+          else if (field.dataset.termCompleted === 'true') completed.push(field);
+          else upcoming.push(field);
+        });
+        const title = (text) => {
+          const el = document.createElement('p');
+          el.className = 'term-group__title';
+          el.textContent = text;
+          return el;
+        };
+        const open = current.length + upcoming.length;
+        if (!open) {
+          completed.forEach((field) => termSection.appendChild(field));
+          return;
+        }
+        const titled = [current, upcoming, completed].filter((list) => list.length).length > 1;
+        if (current.length) {
+          if (titled) termSection.appendChild(title('Current'));
+          current.forEach((field) => termSection.appendChild(field));
+        }
+        if (upcoming.length) {
+          if (titled) termSection.appendChild(title('Upcoming'));
+          upcoming.forEach((field) => termSection.appendChild(field));
+        }
+        if (completed.length) {
+          const box = document.createElement('details');
+          box.className = 'term-group--completed';
+          const summary = document.createElement('summary');
+          summary.textContent = 'Completed terms (' + completed.length + ')';
+          box.appendChild(summary);
+          completed.forEach((field) => box.appendChild(field));
+          termSection.appendChild(box);
+        }
       }
 
       function applySequentialDateRules(termSection) {
@@ -2270,6 +2354,7 @@
           fieldset.classList.remove('is-readonly');
         });
         unlockFields(wrapper);
+        wrapper.querySelectorAll('details.term-group--completed').forEach((box) => { box.open = true; });
 
         const termSection = wrapper.querySelector('.term-section, [id^="termSection"]');
         if (termSection && window.getComputedStyle(termSection).display === 'none') {
@@ -2403,15 +2488,49 @@
           return yearB - yearA; // Descending order (newest first)
         });
 
-        // Re-append sorted elements to the container
-        schoolYearContainer.innerHTML = "";
+        // Current school year on top, then upcoming (soonest first), then
+        // completed ones folded under "Completed school years" until opened.
+        const yearGroups = { current: [], upcoming: [], completed: [] };
         schoolYearWrappers.forEach((wrapper) => {
-          schoolYearContainer.appendChild(wrapper);
+          if (wrapper.classList.contains('current-year-wrapper')) yearGroups.current.push(wrapper);
+          else if (wrapper.dataset.schoolYearCompleted === 'true') yearGroups.completed.push(wrapper);
+          else yearGroups.upcoming.push(wrapper);
+        });
+        yearGroups.upcoming.reverse();
+        schoolYearContainer.innerHTML = "";
+        [['current', 'Current school year'], ['upcoming', 'Upcoming'], ['completed', 'Completed school years']].forEach(([key, label]) => {
+          const list = yearGroups[key];
+          if (!list.length) return;
+          let box;
+          if (key === 'completed') {
+            box = document.createElement('details');
+            box.className = 'sy-group sy-group--completed';
+            const summary = document.createElement('summary');
+            summary.textContent = label + ' (' + list.length + ')';
+            box.appendChild(summary);
+          } else {
+            box = document.createElement('section');
+            box.className = 'sy-group';
+            const heading = document.createElement('p');
+            heading.className = 'sy-group__title';
+            heading.textContent = label;
+            box.appendChild(heading);
+          }
+          list.forEach((wrapper) => box.appendChild(wrapper));
+          schoolYearContainer.appendChild(box);
         });
 
         // Sort terms within each school year and enforce sequential date rules
         schoolYearWrappers.forEach((schoolYearWrapper) => {
           const form = schoolYearWrapper.querySelector('form.school-year-form');
+          if (form && !form.dataset.foldAware) {
+            // A field that needs filling inside a folded section opens it.
+            form.dataset.foldAware = '1';
+            form.addEventListener('invalid', (event) => {
+              let node = event.target.closest('details');
+              while (node) { node.open = true; node = node.parentElement && node.parentElement.closest('details'); }
+            }, true);
+          }
           if (form) {
             const yearRadio = form.querySelector('input.current-year-radio');
             if (yearRadio) {
@@ -2513,7 +2632,8 @@
             </div>
           </div>
         `;
-        termSection.appendChild(termDiv);
+        const completedTerms = termSection.querySelector(':scope > details.term-group--completed');
+        termSection.insertBefore(termDiv, completedTerms);
         attachTermDateListeners(termSection);
         applySequentialDateRules(termSection);
 
