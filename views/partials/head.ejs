@@ -266,6 +266,8 @@
     // Detect user type for SPA router optimization
     window.spaUserType = <%- 
       session && session.firstName ? (
+        // Managira staff viewing a school use the school's fast navigation.
+        session.superAdminOrgSwitch && session.organizationId ? '"organization"' :
         session.accountType === 'Admin'
           || session.accountType === 'Mini Admin'
           || session.accountType === 'Internal Worker'

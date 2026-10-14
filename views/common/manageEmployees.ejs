@@ -487,18 +487,70 @@
 <body class="manage-employees-page">
   <%- include('../partials/flash') %>
   <link rel="stylesheet" href="/css/manage.css" />
+  <link rel="stylesheet" href="/css/peoplePanel.css" />
   <script src="/js/manage.js" defer></script>
   <div class="employees-page ws-root ws-employees">
 
+  <%
+    const _permOptions = Array.isArray(locals.permissionOptions) ? permissionOptions : [];
+    const _roles = Array.from(new Set(employees.map((e) => e.account_type).filter(Boolean))).sort();
+    const _name = (e) => (typeof formatDisplayName === 'function' ? formatDisplayName(e) : [e.first_name, e.last_name].filter(Boolean).join(' ').trim());
+    const _isoDay = (v) => (v ? new Date(v).toISOString().slice(0, 10) : '');
+    const _fmtWhen = (v) => (v ? new Date(v).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'Never');
+    // Only what the side panel shows (never passwords or invite tokens).
+    const _panelData = employees.map((e) => ({
+      id: e.user_id,
+      name: _name(e),
+      first: e.first_name || '',
+      last: e.last_name || '',
+      email: e.email || '',
+      phone: e.phone_number || '',
+      role: e.account_type || '',
+      title: e.org_role_title || '',
+      status: e.status,
+      owner: Boolean(e.is_owner),
+      photo: e.photo_url || '',
+      joined: e.created_at ? new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+      lastLogin: _fmtWhen(e.last_login),
+      permissions: (e.permissions || []).map((k) => (permissionLabelMap && permissionLabelMap[k]) || k),
+      classes: (e.classes || []).map((c) => ({ name: c.class_name, subjects: (c.subjects || []).map((x) => x.subject_name) })),
+    }));
+  %>
   <header class="ws-head">
     <div class="ws-head__text">
-      <h1 class="ws-head__title">Employees</h1>
-      <p class="ws-head__sub">Staff accounts, their roles and what each person can open.</p>
+      <h1 class="ws-head__title">Users / Employees</h1>
+      <p class="ws-head__sub">Everyone who signs in for the school. Select someone to see their account.</p>
     </div>
     <div class="ws-head__actions">
-      <button type="button" class="ws-btn ws-btn--primary" onclick="openAddEmployeeModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add employee</button>
+      <button type="button" class="ws-btn" id="uxFilterToggle" aria-expanded="true" aria-controls="uxFilters"><i class="fa-solid fa-filter" aria-hidden="true"></i> Filters <span class="ux-filter-count" id="uxFilterCount" hidden></span></button>
+      <button type="button" class="ws-btn ws-btn--primary" onclick="openAddEmployeeModal()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add user</button>
     </div>
   </header>
+
+  <div class="ux-layout">
+  <aside class="ux-filters" id="uxFilters" aria-label="Filter users">
+    <div class="ux-filters__head">
+      <strong>Filters</strong>
+      <button type="button" class="ux-link" id="uxClear">Clear</button>
+    </div>
+    <label class="ux-field"><span>Name</span><input type="search" id="uxName" placeholder="Find by name" autocomplete="off" /></label>
+    <label class="ux-field"><span>Email</span><input type="search" id="uxEmail" placeholder="Find by email" autocomplete="off" /></label>
+    <label class="ux-field"><span>Status</span>
+      <select id="uxStatus"><option value="">Any status</option><option>Active</option><option>Invite sent</option><option>On hold</option></select>
+    </label>
+    <label class="ux-field"><span>Role</span>
+      <select id="uxRole"><option value="">Any role</option><% _roles.forEach((r) => { %><option><%= r %></option><% }) %></select>
+    </label>
+    <label class="ux-field"><span>Permission</span>
+      <select id="uxPermission"><option value="">Any permission</option><% _permOptions.forEach((p) => { %><option value="<%= p.label %>"><%= p.label %></option><% }) %></select>
+    </label>
+    <div class="ux-field"><span>Last sign-in</span>
+      <label class="ux-sub">On or after <input type="date" id="uxAfter" /></label>
+      <label class="ux-sub">On or before <input type="date" id="uxBefore" /></label>
+      <label class="ux-check"><input type="checkbox" id="uxNever" /> Never signed in</label>
+    </div>
+    <p class="ux-shown" id="uxShown" aria-live="polite"></p>
+  </aside>
 
   <div class="employees-table ws-cards-wrap">
     <table class="ws-cards">
@@ -508,37 +560,44 @@
           <th>Name</th>
           <th>Email</th>
           <th>Role</th>
+          <th>Last sign-in</th>
           <th>Permissions</th>
           <th>Classes</th>
           <th>Subjects</th>
-          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         <% employees.forEach((employee, idx) => { %>
-        <tr>
+        <tr class="ux-row" tabindex="0" data-user-id="<%= employee.user_id %>"
+            data-name="<%= _name(employee).toLowerCase() %>" data-email="<%= String(employee.email || '').toLowerCase() %>"
+            data-status="<%= employee.status %>" data-role="<%= employee.account_type %>"
+            data-perms="<%= (employee.permissions || []).map((k) => (permissionLabelMap && permissionLabelMap[k]) || k).join('|') %>"
+            data-last-login="<%= _isoDay(employee.last_login) %>">
           <td data-label="Status">
             <% /* A leftover invite token doesn't mean the employee is still
                   pending — if they already have a password set (e.g. via
                   Account Settings' own "change password" flow, which
                   doesn't clear the original invite token), they're active
                   regardless of stray token bookkeeping. */ %>
-            <% if (employee.reset_password_token && !employee.password) { %>
+            <% if (employee.status === 'Invite sent') { %>
               <span class="ws-pill ws-pill--amber">Invite sent</span>
+            <% } else if (employee.status === 'On hold') { %>
+              <span class="ws-pill ws-pill--amber">On hold</span>
             <% } else { %>
               <span class="ws-pill ws-pill--green">Active</span>
             <% } %>
           </td>
           <td data-label="Name" class="ws-card-title"><strong><%= (typeof formatDisplayName === 'function' ? formatDisplayName(employee) : [employee.first_name, employee.last_name].filter(Boolean).join(' ').trim()) %></strong></td>
           <td data-label="Email" class="ws-card-wide"><%= employee.email %></td>
-          <td data-label="Role"><%= employee.account_type %></td>
+          <td data-label="Role"><%= employee.account_type %><% if (employee.is_owner) { %> <span class="ux-owner">Main</span><% } %></td>
+          <td data-label="Last sign-in" class="ux-when"><%= _fmtWhen(employee.last_login) %></td>
           <td data-label="Permissions">
             <button type="button" class="collapsible-btn" onclick="toggleEmployeeCollapse('permissions', '<%= idx %>')">
-              <%= employee.account_type === 'Manager' ? 'All' : (employee.permissions || []).length %> <span class="arrow" id="arrow-permissions-<%= idx %>">▸</span>
+              <%= employee.is_owner ? 'All' : (employee.permissions || []).length %> <span class="arrow" id="arrow-permissions-<%= idx %>">▸</span>
             </button>
             <div class="collapsible-content" id="collapse-permissions-<%= idx %>" style="display:none;">
-              <% if (employee.account_type === 'Manager') { %>
-                <span>All permissions (manager-level access)</span>
+              <% if (employee.is_owner) { %>
+                <span>All permissions (main manager)</span>
               <% } else if ((employee.permissions || []).length > 0) { %>
                 <ul>
                   <% (employee.permissions || []).forEach(permissionKey => { %>
@@ -591,17 +650,28 @@
               <% } %>
             </div>
           </td>
-          <td data-label="Actions" class="ws-card-actions ws-actions-cell">
-            <% if (employee.on_hold) { %>
-            <span class="ws-pill ws-pill--amber">On hold</span>
-            <% } %>
-            <button type="button" class="ws-btn ws-btn--sm" onclick="openModifyEmployeeModal('<%= employee.user_id %>')"><i class="fa-solid fa-pen" aria-hidden="true"></i> Modify</button>
-          </td>
         </tr>
         <% }); %>
       </tbody>
     </table>
+    <p class="ux-empty" id="uxEmpty" hidden>No one matches these filters.</p>
   </div>
+  </div>
+
+  <div class="ux-panel-backdrop" id="uxBackdrop" hidden></div>
+  <aside class="ux-panel" id="uxPanel" role="dialog" aria-modal="true" aria-labelledby="uxPanelTitle" aria-hidden="true">
+    <div class="ux-panel__bar">
+      <button type="button" class="ux-link ux-back" id="uxBack" hidden><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back</button>
+      <strong id="uxPanelTitle">User</strong>
+      <button type="button" class="ux-close" id="uxClose" aria-label="Close"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15 5L5 15M5 5l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="ux-panel__body" id="uxPanelBody"></div>
+    <div class="ux-panel__edit" id="uxPanelEdit" hidden>
+      <div class="ux-panel__loading" id="uxEditLoading"><span class="emp-modal-spinner" aria-hidden="true"></span> Loading…</div>
+      <iframe id="uxEditFrame" title="Edit user"></iframe>
+    </div>
+  </aside>
+  <script type="application/json" id="uxUsers"><%- JSON.stringify(_panelData).replace(/</g, '\\u003c') %></script>
 
   <div class="emp-modal-overlay" id="empModalOverlay" aria-hidden="true">
     <div class="emp-modal">
@@ -726,6 +796,170 @@
       if (event.key !== 'Escape') return;
       const overlay = document.getElementById('empModalOverlay');
       if (overlay && overlay.classList.contains('is-open')) closeAddEmployeeModal();
+    });
+
+    /* ---- Filters ---- */
+    (function () {
+      var rows = Array.prototype.slice.call(document.querySelectorAll('tr.ux-row'));
+      var get = function (id) { return document.getElementById(id); };
+      var fields = ['uxName', 'uxEmail', 'uxStatus', 'uxRole', 'uxPermission', 'uxAfter', 'uxBefore', 'uxNever'];
+      function apply() {
+        var name = get('uxName').value.trim().toLowerCase();
+        var email = get('uxEmail').value.trim().toLowerCase();
+        var status = get('uxStatus').value;
+        var role = get('uxRole').value;
+        var perm = get('uxPermission').value;
+        var after = get('uxAfter').value;
+        var before = get('uxBefore').value;
+        var never = get('uxNever').checked;
+        var shown = 0;
+        rows.forEach(function (row) {
+          var d = row.dataset;
+          var last = d.lastLogin || '';
+          var ok = (!name || d.name.indexOf(name) !== -1)
+            && (!email || d.email.indexOf(email) !== -1)
+            && (!status || d.status === status)
+            && (!role || d.role === role)
+            && (!perm || ('|' + d.perms + '|').indexOf('|' + perm + '|') !== -1)
+            && (!never || !last)
+            && (!after || (last && last >= after))
+            && (!before || (last && last <= before));
+          row.hidden = !ok;
+          if (ok) shown += 1;
+        });
+        var active = fields.filter(function (id) { var el = get(id); return el.type === 'checkbox' ? el.checked : el.value; }).length;
+        get('uxShown').textContent = 'Showing ' + shown + ' of ' + rows.length + ' users';
+        get('uxEmpty').hidden = shown !== 0;
+        var count = get('uxFilterCount');
+        count.hidden = !active;
+        count.textContent = active;
+      }
+      fields.forEach(function (id) { get(id).addEventListener(get(id).tagName === 'SELECT' || get(id).type === 'checkbox' || get(id).type === 'date' ? 'change' : 'input', apply); });
+      get('uxClear').addEventListener('click', function () {
+        fields.forEach(function (id) { var el = get(id); if (el.type === 'checkbox') el.checked = false; else el.value = ''; });
+        apply();
+      });
+      var toggle = get('uxFilterToggle');
+      var layout = document.querySelector('.ux-layout');
+      if (window.matchMedia('(max-width: 900px)').matches) { layout.classList.add('ux-filters-off'); toggle.setAttribute('aria-expanded', 'false'); }
+      toggle.addEventListener('click', function () {
+        var off = layout.classList.toggle('ux-filters-off');
+        toggle.setAttribute('aria-expanded', String(!off));
+      });
+      apply();
+    })();
+
+    /* ---- User side panel: account details, and Edit inside the panel ---- */
+    var uxUsers = [];
+    try { uxUsers = JSON.parse(document.getElementById('uxUsers').textContent) || []; } catch (e) { uxUsers = []; }
+    var uxCurrent = null;
+    function uxEsc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function uxRow(label, value) { return value ? '<div class="ux-kv"><span>' + label + '</span><strong>' + uxEsc(value) + '</strong></div>' : ''; }
+    function renderUserPanel(user) {
+      var initials = ((user.first || '').charAt(0) + (user.last || '').charAt(0)).toUpperCase() || '?';
+      var statusClass = user.status === 'Active' ? 'ws-pill--green' : 'ws-pill--amber';
+      var html = '<div class="ux-who">' +
+        (user.photo ? '<img class="ux-avatar" src="' + uxEsc(user.photo) + '" alt="" data-initials="' + uxEsc(initials) + '" />' : '<span class="ux-avatar">' + uxEsc(initials) + '</span>') +
+        '<div><div class="ux-who__name">' + uxEsc(user.name) + '</div>' +
+        '<span class="ws-pill ' + statusClass + '">' + uxEsc(user.status) + '</span>' +
+        (user.owner ? ' <span class="ux-owner">Main manager</span>' : '') + '</div></div>' +
+        '<section class="ux-sec"><h3>Account</h3>' +
+          uxRow('Email', user.email) + uxRow('Phone', user.phone) + uxRow('Role', user.role) + uxRow('Title', user.title) +
+          uxRow('Last sign-in', user.lastLogin) + uxRow('Added', user.joined) +
+        '</section>' +
+        '<section class="ux-sec"><h3>Access <span class="ux-count">' + (user.owner ? 'All' : user.permissions.length) + '</span></h3>' +
+          (user.owner ? '<p class="ux-muted">Everything, as the main manager.</p>'
+            : user.permissions.length ? '<div class="ux-chips">' + user.permissions.map(function (p) { return '<span class="ux-chip">' + uxEsc(p) + '</span>'; }).join('') + '</div>'
+            : '<p class="ux-muted">No permissions.</p>') +
+        '</section>' +
+        '<section class="ux-sec"><h3>Classes &amp; subjects <span class="ux-count">' + user.classes.length + '</span></h3>' +
+          (user.classes.length ? user.classes.map(function (c) {
+            return '<div class="ux-class"><strong>' + uxEsc(c.name) + '</strong>' + (c.subjects.length ? '<span>' + c.subjects.map(uxEsc).join(', ') + '</span>' : '<span class="ux-muted">No subjects</span>') + '</div>';
+          }).join('') : '<p class="ux-muted">Not assigned to a class.</p>') +
+        '</section>' +
+        '<div class="ux-actions"><button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>';
+      document.getElementById('uxPanelBody').innerHTML = html;
+      var photo = document.querySelector('#uxPanelBody img.ux-avatar');
+      if (photo) photo.addEventListener('error', function () {
+        var span = document.createElement('span');
+        span.className = 'ux-avatar';
+        span.textContent = photo.getAttribute('data-initials');
+        photo.replaceWith(span);
+      });
+      document.getElementById('uxEdit').addEventListener('click', function () { showUserEdit(user.id); });
+    }
+    function setPanelMode(editing) {
+      var panel = document.getElementById('uxPanel');
+      panel.classList.toggle('is-editing', editing);
+      document.getElementById('uxPanelBody').hidden = editing;
+      document.getElementById('uxPanelEdit').hidden = !editing;
+      document.getElementById('uxBack').hidden = !editing;
+      document.getElementById('uxPanelTitle').textContent = editing ? 'Edit user' : 'User';
+    }
+    function showUserEdit(userId) {
+      var frame = document.getElementById('uxEditFrame');
+      var loading = document.getElementById('uxEditLoading');
+      setPanelMode(true);
+      frame.style.visibility = 'hidden';
+      loading.style.display = 'flex';
+      frame.onload = function () {
+        var path = null;
+        try { path = frame.contentWindow.location.pathname; } catch (err) { /* ignore */ }
+        // A successful save sends the edit page back to this list: it's saved.
+        if (path === '/common/manageEmployees') { window.location.reload(); return; }
+        // Anywhere else (e.g. a sign-in or dashboard page) never shows inside the panel.
+        if (path && path !== '/common/modifyEmployee' && path !== 'blank') {
+          frame.removeAttribute('src');
+          setPanelMode(false);
+          document.getElementById('uxPanelBody').insertAdjacentHTML('afterbegin', '<p class="ux-alert">The edit form couldn\'t open. Please try again.</p>');
+          return;
+        }
+        loading.style.display = 'none';
+        frame.style.visibility = 'visible';
+      };
+      frame.src = '/common/modifyEmployee?userId=' + encodeURIComponent(userId) + '&embed=workspace';
+    }
+    function openUserPanel(userId, edit) {
+      var user = uxUsers.find(function (u) { return String(u.id) === String(userId); });
+      if (!user) return;
+      uxCurrent = user;
+      renderUserPanel(user);
+      setPanelMode(false);
+      var panel = document.getElementById('uxPanel');
+      document.getElementById('uxBackdrop').hidden = false;
+      panel.classList.add('is-open');
+      panel.setAttribute('aria-hidden', 'false');
+      document.querySelectorAll('tr.ux-row').forEach(function (r) { r.classList.toggle('is-selected', r.dataset.userId === String(userId)); });
+      if (edit) showUserEdit(userId);
+      else document.getElementById('uxClose').focus();
+    }
+    function closeUserPanel() {
+      var panel = document.getElementById('uxPanel');
+      panel.classList.remove('is-open', 'is-editing');
+      panel.setAttribute('aria-hidden', 'true');
+      document.getElementById('uxBackdrop').hidden = true;
+      document.getElementById('uxEditFrame').removeAttribute('src');
+      var row = uxCurrent && document.querySelector('tr.ux-row[data-user-id="' + uxCurrent.id + '"]');
+      document.querySelectorAll('tr.ux-row.is-selected').forEach(function (r) { r.classList.remove('is-selected'); });
+      if (row) row.focus();
+    }
+    document.getElementById('uxClose').addEventListener('click', closeUserPanel);
+    document.getElementById('uxBackdrop').addEventListener('click', closeUserPanel);
+    document.getElementById('uxBack').addEventListener('click', function () { setPanelMode(false); document.getElementById('uxEditFrame').removeAttribute('src'); });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && document.getElementById('uxPanel').classList.contains('is-open')) closeUserPanel();
+    });
+    // A row opens the panel; its own buttons (lists, Modify) keep working.
+    document.querySelector('.employees-table tbody').addEventListener('click', function (event) {
+      if (event.target.closest('button, a, input, .collapsible-content')) return;
+      var row = event.target.closest('tr.ux-row');
+      if (row) openUserPanel(row.dataset.userId, false);
+    });
+    document.querySelector('.employees-table tbody').addEventListener('keydown', function (event) {
+      if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('tr.ux-row')) {
+        event.preventDefault();
+        openUserPanel(event.target.dataset.userId, false);
+      }
     });
 
     /* ---- Modify Employee drawer (AJAX, no page navigation) ---- */

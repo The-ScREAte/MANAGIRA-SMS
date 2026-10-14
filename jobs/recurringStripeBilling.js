@@ -288,9 +288,11 @@ async function sendUpcomingInvoiceNotification({
   );
 }
 
-// Charged per active student: graduated and archived students are not billed.
+// Charged per billable student: active students, plus anyone archived within
+// the billing hold, so archiving right before a charge doesn't lower it
+// (utils/studentArchive.js).
 async function getOrganizationStudentCount(organizationId) {
-  return countActiveStudents(db, organizationId);
+  return require("../utils/studentArchive").countBillableStudents(db, organizationId);
 }
 
 async function getDynamicTermDivider() {

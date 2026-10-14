@@ -612,6 +612,7 @@
           %>
           <div class="student-heading-row">
             <h2><%= (typeof formatDisplayName === 'function' ? formatDisplayName(student) : (student.first_name + ' ' + student.last_name)) %></h2>
+            <%- include('../partials/studentArchiveBanner') %>
             <div class="student-heading-actions">
               <% if (_studentDisplayId) { %>
               <span class="student-id-chip">ID: <%= _studentDisplayId %></span>
@@ -779,11 +780,13 @@
       req.session.userRole !== 'Supervisor') { %>
       <hr />
       <div class="link-to-next-back">
+        <% if (!locals.archiveStatus) { %>
         <a
           href="/common/editStudent?studentId=<%= student.student_id %>&termId=<%= currentTerm %>&classId=<%= student.class_id %>"
           class="btn btn-primary"
           >Modify Student Information</a
         >
+        <% } %>
 
         <% if (Array.isArray(locals.allowedFeatures) &&
         locals.allowedFeatures.includes("Official School Transcript")) { %>

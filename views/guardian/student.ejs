@@ -268,6 +268,7 @@
   <div class="progress-header">
     <% const guardianStudentDisplayName = (typeof formatDisplayName === 'function' ? formatDisplayName(student) : [student.first_name, student.last_name].filter(Boolean).join(' ').trim()); %>
     <h1><%= guardianStudentDisplayName %> — Progress</h1>
+    <%- include('../partials/studentArchiveBanner') %>
     <div class="student-info-row">
       <% var img = '/images/profilePlaceholder.png'; %>
       <% if (student.image_url && student.image_url !== 'profilePlaceholder.png') { %>
@@ -301,7 +302,7 @@
   </div>
 
   <div class="content-card">
-    <h3>👨‍🏫 Teachers</h3>
+    <h3>Teachers</h3>
     <% if (mainTeacher) { %>
       <p style="margin: 0; color: #475569;"><strong>Main Teacher:</strong> <%= (typeof formatDisplayName === 'function' ? formatDisplayName(mainTeacher) : [mainTeacher.first_name, mainTeacher.last_name].filter(Boolean).join(' ').trim()) %> (<%= mainTeacher.email || 'no email' %>)</p>
     <% } else { %>
@@ -310,7 +311,7 @@
   </div>
 
   <div class="content-card">
-    <h3>📊 Subject Scores</h3>
+    <h3>Subject scores</h3>
 
     <% if (!subjects.length) { %>
       <p style="color: #94a3b8; text-align: center; padding: 20px;">No subjects found for this term.</p>
@@ -346,7 +347,7 @@
   </div>
 
   <div class="content-card">
-    <h3>🗓️ Class Schedule</h3>
+    <h3>Class schedule</h3>
     <% if (classSchedule && classSchedule.groupedByDay.some(day => day.items.length)) { %>
       <p style="margin: 0 0 16px; color: #64748b;"><%= classSchedule.schoolYearLabel %> · <%= classSchedule.termName %></p>
       <div class="schedule-grid">

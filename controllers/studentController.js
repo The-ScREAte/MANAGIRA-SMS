@@ -233,6 +233,24 @@ function toAnswerSet(value) {
   return normalized;
 }
 
+// Choice answers may be saved as letters ("B" or "A,C") while students pick the
+// option itself, so a letter key is turned into its option before comparing.
+function resolveChoiceAnswerKey(question) {
+  const answerKey = String(question.answer_key || "");
+  let options = question.options_json;
+  if (typeof options === "string") {
+    try { options = JSON.parse(options); } catch (error) { options = null; }
+  }
+  if (!Array.isArray(options) || !options.length) return answerKey;
+  const parts = answerKey.split(",").map((part) => part.trim()).filter(Boolean);
+  if (!parts.length || !parts.every((part) => /^[A-Za-z]$/.test(part))) return answerKey;
+  // A real one-letter option ("A" as an answer choice) is left as it is.
+  if (parts.every((part) => options.some((option) => String(option).trim() === part))) return answerKey;
+  const mapped = parts.map((part) => options[part.toUpperCase().charCodeAt(0) - 65]);
+  if (mapped.some((value) => value === undefined)) return answerKey;
+  return mapped.map((value) => String(value)).join(",");
+}
+
 function evaluateResponse(question, rawResponse) {
   const questionType = String(question.question_type || "short_text").toLowerCase();
   const marks = Number(question.marks || 0);
@@ -241,7 +259,9 @@ function evaluateResponse(question, rawResponse) {
     return { isCorrect: null, awardedMarks: 0, normalizedResponse: rawResponse };
   }
 
-  const answerKey = String(question.answer_key || "");
+  const answerKey = ["multiple_choice", "single_choice", "true_false"].includes(questionType)
+    ? resolveChoiceAnswerKey(question)
+    : String(question.answer_key || "");
   const responseText = Array.isArray(rawResponse) ? rawResponse.join(",") : String(rawResponse || "");
 
   if (questionType === "multiple_choice") {
@@ -1717,7 +1737,7 @@ module.exports = {
       }
 
       const questionsResult = await client.query(
-        `SELECT question_id, question_type, answer_key, marks
+        `SELECT question_id, question_type, answer_key, marks, options_json
            FROM assessment_questions
           WHERE question_set_id = $1
           ORDER BY position_index ASC, question_id ASC`,

@@ -422,6 +422,9 @@
       .action-icon-btn-lock:hover { background: var(--icon-btn-hover); }
       .action-icon-btn-unlock { color: var(--primary); background: var(--icon-btn-bg); border-color: var(--icon-btn-border); }
       .action-icon-btn-unlock:hover { background: var(--icon-btn-hover); }
+      tr.is-focused-assessment > td { background: color-mix(in srgb, var(--primary, #01535b) 10%, transparent) !important; }
+      tr.is-focused-assessment > td:first-child { box-shadow: inset 3px 0 0 var(--primary, #01535b); }
+      tr.is-focused-assessment .lock-action-btn { outline: 2px solid var(--primary, #01535b); outline-offset: 2px; }
       .action-icon-btn-modify { color: var(--primary); background: var(--icon-btn-bg); border-color: var(--icon-btn-border); }
       .action-icon-btn-modify:hover { background: var(--icon-btn-hover); }
       .sr-only {
@@ -618,7 +621,7 @@
             <tr class="empty-row"><td colspan="6">No assessments created yet.</td></tr>
           <% } %>
           <% (assessments || []).forEach(function(assessment, idx) { %>
-            <tr>
+            <tr data-group-id="<%= assessment.group_id %>">
               <td data-label="Test Name" class="ws-card-title">
                 <div class="test-name-content">
                   <strong class="table-name"><%= assessment.title %></strong>
@@ -755,6 +758,21 @@
 </div>
 
 <script>
+  // Opened from a locked assessment's pencil in the classroom: bring that
+  // assessment into view and point at its lock button.
+  (function focusAssessmentFromLink() {
+    var focus = new URLSearchParams(window.location.search).get('focus');
+    if (!focus) return;
+    var row = Array.prototype.find.call(document.querySelectorAll('tr[data-group-id]'), function (r) { return r.getAttribute('data-group-id') === focus; });
+    if (!row) return;
+    row.classList.add('is-focused-assessment');
+    setTimeout(function () {
+      row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      var lockBtn = row.querySelector('.lock-action-btn');
+      if (lockBtn) lockBtn.focus({ preventScroll: true });
+    }, 150);
+  })();
+
   async function updateControl(groupId, organizationId, termId, action) {
     try {
       const res = await fetch('/common/updateAssessmentControl', {

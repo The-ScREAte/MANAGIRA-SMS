@@ -2568,15 +2568,16 @@
           }
         });
 
-        // Ensure all term sections are collapsed on first load
+        // The current year opens with its terms showing; other years start closed.
         schoolYearWrappers.forEach((wrapper) => {
           const termSection = wrapper.querySelector('.term-section');
           const arrow = wrapper.querySelector('.arrow');
+          const open = wrapper.classList.contains('current-year-wrapper');
           if (termSection) {
-            termSection.style.display = 'none';
+            termSection.style.display = open ? 'block' : 'none';
           }
           if (arrow) {
-            arrow.innerHTML = '&#9660;';
+            arrow.innerHTML = open ? '&#9650;' : '&#9660;';
           }
         });
       }

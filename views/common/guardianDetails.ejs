@@ -1035,9 +1035,9 @@
         </div>
         <div class="gd-actions">
           <% if (canEdit) { %>
-          <button onclick="toggleEditForm()" class="gd-btn gd-btn-primary">✏️ Edit</button>
+          <button onclick="toggleEditForm()" class="gd-btn gd-btn-primary">Edit</button>
           <% if (hasGuardianPortalFeature) { %>
-          <button onclick="requestPasswordSetup()" class="gd-btn gd-btn-secondary">🔑 Send Password Setup</button>
+          <button onclick="requestPasswordSetup()" class="gd-btn gd-btn-secondary">Send password setup</button>
           <% } %>
           <% } %>
         </div>
@@ -1099,13 +1099,13 @@
   <!-- Linked Students -->
   <div class="gd-card">
     <h3 class="gd-section-title">
-      👨‍👩‍👧‍👦 Linked Students
+      Children
       <button type="button" class="gd-sort-btn" id="guardianLinkedStudentsSortToggle" data-sort-direction="asc" aria-label="Sort linked students Z to A"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path fill="currentColor" d="M10 5H2a.5.5 0 0 1-.46-.31.47.47 0 0 1 .11-.54L5.29.5A1 1 0 0 1 6.7.5l3.65 3.65a.49.49 0 0 1 .11.54A.51.51 0 0 1 10 5z"></path><path fill="currentColor" d="M2 7a.5.5 0 0 0-.46.31.47.47 0 0 0 .11.54L5.3 11.5a1 1 0 0 0 1.41 0l3.65-3.65a.49.49 0 0 0 .11-.54A.53.53 0 0 0 10 7z"></path></svg></button>
       <span class="gd-badge"><%= students.length %></span>
     </h3>
 
     <% if (!students.length) { %>
-      <div class="gd-empty">No students linked to this guardian.</div>
+      <div class="gd-empty">No children linked.</div>
     <% } else { %>
       <div class="gd-students-grid" id="guardianLinkedStudentsGrid">
         <% students.forEach(student => { %>
@@ -1126,9 +1126,9 @@
               <div class="gd-dots-menu-wrapper">
                 <button type="button" class="gd-dots-btn" onclick="toggleDotsMenu(this)" title="More options">⋮</button>
                 <div class="gd-dots-dropdown">
-                  <button onclick="openReportModal('<%= student.student_id %>', '<%= linkedStudentDisplayName.replace(/'/g, "\\'") %>')">📝 File Report</button>
+                  <button onclick="openReportModal('<%= student.student_id %>', '<%= linkedStudentDisplayName.replace(/'/g, "\\'") %>')">File a report</button>
                   <% if (canEdit) { %>
-                  <button class="gd-dropdown-danger" onclick="openGuardianStudentActionModal('<%= student.student_id %>', '<%= linkedStudentDisplayName.replace(/'/g, "\\'") %>')">🗑 Remove Student</button>
+                  <button class="gd-dropdown-danger" onclick="openGuardianStudentActionModal('<%= student.student_id %>', '<%= linkedStudentDisplayName.replace(/'/g, "\\'") %>')">Remove from this parent</button>
                   <% } %>
                 </div>
               </div>
@@ -1139,47 +1139,38 @@
     <% } %>
   </div>
 
-  <!-- Portal Access -->
-  <div class="gd-card gd-portal-card">
-    <h3 class="gd-portal-title">📱 Parent Portal Access</h3>
-    <div class="gd-portal-info">
-      <p><strong>Login Email:</strong> <span><%= guardian.email || 'Not provided' %></span></p>
-      <p><strong>Login Phone:</strong> <span><%= guardian.phone || 'Not provided' %></span></p>
-    </div>
+  <!-- Parent portal -->
+  <div class="gd-card">
+    <h3 class="gd-section-title">Parent portal</h3>
     <% if (hasGuardianPortalFeature) { %>
-    <p class="gd-portal-note">
-      This guardian can use either their <strong>email</strong> or <strong>phone number</strong> to log in to the Parent Portal with their password. 
-      Click "Send Password Setup" above to send instructions.
-    </p>
-    <% if (typeof guardianPasswordStatus !== 'undefined') { %>
-    <div class="gd-password-status" style="margin-top:8px;">
-      <% if (guardianPasswordStatus.hasPassword) { %>
-        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:#d1fae5;color:#065f46;font-size:0.85rem;font-weight:600;">
-          ✅ Password set
-          <% if (guardianPasswordStatus.lastChar) { %>
-            <span style="font-weight:400;color:#047857;">(ends in &ldquo;<%= guardianPasswordStatus.lastChar %>&rdquo;)</span>
-          <% } %>
-        </span>
-      <% } else { %>
-        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;background:#fee2e2;color:#991b1b;font-size:0.85rem;font-weight:600;">
-          ⚠️ No password set yet
-        </span>
+    <dl class="gd-portal-rows">
+      <div><dt>Sign-in email</dt><dd><%= guardian.email || '—' %></dd></div>
+      <div><dt>Sign-in phone</dt><dd><%= guardian.phone || '—' %></dd></div>
+      <% if (typeof guardianPasswordStatus !== 'undefined') { %>
+      <div><dt>Password</dt><dd><% if (guardianPasswordStatus.hasPassword) { %><span class="gd-state gd-state--ok">Set</span><% } else { %><span class="gd-state gd-state--wait">Not set yet</span><% } %></dd></div>
       <% } %>
-    </div>
-    <% } %>
+    </dl>
     <% } else { %>
-    <p class="gd-portal-note">
-      Parent Portal is not enabled for this organization's current plan.
-    </p>
+    <p class="gd-portal-note">The parent portal isn't part of this school's plan.</p>
     <% } %>
   </div>
+  <style>
+    .gd-portal-rows { margin: 0; display: grid; gap: 6px; }
+    .gd-portal-rows > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, currentColor 8%, transparent); font-size: .92rem; }
+    .gd-portal-rows > div:last-child { border-bottom: 0; }
+    .gd-portal-rows dt { opacity: .7; }
+    .gd-portal-rows dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+    .gd-state { padding: 2px 9px; border-radius: 999px; font-size: .8rem; }
+    .gd-state--ok { background: color-mix(in srgb, #16a34a 14%, transparent); color: #15803d; }
+    .gd-state--wait { background: color-mix(in srgb, #f59e0b 16%, transparent); color: #b45309; }
+  </style>
 </div>
 
 <!-- Report Modal -->
 <div class="gd-report-overlay" id="reportOverlay">
   <div class="gd-report-modal">
     <div class="gd-report-modal-header">
-      <h3>📝 File a Report</h3>
+      <h3>File a report</h3>
       <button class="gd-report-close" onclick="closeReportModal()">&times;</button>
     </div>
     <div class="gd-report-modal-body">

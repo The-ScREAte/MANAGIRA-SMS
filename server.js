@@ -108,6 +108,10 @@ require("./utils/termRecords").ensureTermRecordsSchema(db)
   .catch((error) => {
     console.error("[recordSafety] schema setup failed:", error.message);
   });
+// Graduating/archiving students: reasons, history, restore and billing rules.
+require("./utils/studentArchive").ensureStudentArchiveSchema(db).catch((error) => {
+  console.error("[studentArchive] schema setup failed:", error.message);
+});
 // Each school's subject and term libraries (links every subject/term to them).
 require("./utils/academicLibrary").ensureAcademicLibrarySchema(db).catch((error) => {
   console.error("[academicLibrary] schema setup failed:", error.message);

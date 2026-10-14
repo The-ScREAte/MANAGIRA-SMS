@@ -187,6 +187,94 @@ const STUDENT_TERM_SUBJECTS_SQL = `
     FOR EACH ROW EXECUTE FUNCTION keep_student_term_subject_from_score();
 `;
 
+// 4. Enrollment and a student's class agree. A student's own class follows
+//    their enrollment in the school's current term (promotion used to enroll
+//    students in their next class without moving them), and every enrolled
+//    student's class is on that term's class list.
+const ENROLLMENT_CLASS_SQL = `
+  -- The school's current term (term and its school year both current).
+  CREATE OR REPLACE FUNCTION is_current_term(p_term_id INTEGER) RETURNS BOOLEAN
+  LANGUAGE sql STABLE AS $$
+    SELECT EXISTS (SELECT 1 FROM terms t JOIN school_years sy ON sy.id = t.school_year_id
+                    WHERE t.term_id = p_term_id AND t.current AND sy.current)
+  $$;
+
+  -- Enrolling a student: their class is on that term's class list, and in the
+  -- current term the student's own class follows the enrollment.
+  CREATE OR REPLACE FUNCTION enrollment_keeps_class() RETURNS trigger AS $$
+  DECLARE
+    v_term INTEGER;
+  BEGIN
+    IF NEW.class_id IS NULL THEN RETURN NEW; END IF;
+    INSERT INTO enrolled_classes (enrollment_id, class_id) VALUES (NEW.enrollment_id, NEW.class_id)
+    ON CONFLICT (enrollment_id, class_id) DO NOTHING;
+    SELECT term_id INTO v_term FROM enrollments WHERE enrollment_id = NEW.enrollment_id;
+    IF v_term IS NOT NULL AND is_current_term(v_term) THEN
+      UPDATE students SET class_id = NEW.class_id
+       WHERE student_id = NEW.student_id
+         AND class_id IS DISTINCT FROM NEW.class_id
+         AND NOT COALESCE(graduated, FALSE);
+    END IF;
+    RETURN NEW;
+  END $$ LANGUAGE plpgsql;
+
+  DROP TRIGGER IF EXISTS enrolled_students_keep_class ON enrolled_students;
+  CREATE TRIGGER enrolled_students_keep_class AFTER INSERT OR UPDATE OF class_id, enrollment_id ON enrolled_students
+    FOR EACH ROW EXECUTE FUNCTION enrollment_keeps_class();
+
+  -- When a term becomes the current one, every student enrolled in it takes
+  -- the class they are enrolled in for that term (e.g. after a promotion).
+  CREATE OR REPLACE FUNCTION sync_classes_to_term(p_term_id INTEGER) RETURNS INTEGER AS $$
+  DECLARE
+    v_count INTEGER;
+  BEGIN
+    UPDATE students s SET class_id = es.class_id
+      FROM enrolled_students es
+      JOIN enrollments e ON e.enrollment_id = es.enrollment_id
+     WHERE e.term_id = p_term_id
+       AND es.student_id = s.student_id
+       AND s.organization_id = e.organization_id
+       AND es.class_id IS NOT NULL
+       AND s.class_id IS DISTINCT FROM es.class_id
+       AND NOT COALESCE(s.graduated, FALSE);
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+    RETURN v_count;
+  END $$ LANGUAGE plpgsql;
+
+  CREATE OR REPLACE FUNCTION current_term_keeps_classes() RETURNS trigger AS $$
+  DECLARE
+    v_term INTEGER;
+  BEGIN
+    IF TG_TABLE_NAME = 'terms' THEN
+      IF NEW.current AND NOT COALESCE(OLD.current, FALSE) AND is_current_term(NEW.term_id) THEN
+        PERFORM sync_classes_to_term(NEW.term_id);
+      END IF;
+    ELSIF NEW.current AND NOT COALESCE(OLD.current, FALSE) THEN
+      SELECT t.term_id INTO v_term FROM terms t WHERE t.school_year_id = NEW.id AND t.current LIMIT 1;
+      IF v_term IS NOT NULL THEN PERFORM sync_classes_to_term(v_term); END IF;
+    END IF;
+    RETURN NEW;
+  END $$ LANGUAGE plpgsql;
+
+  DROP TRIGGER IF EXISTS terms_current_keeps_classes ON terms;
+  CREATE TRIGGER terms_current_keeps_classes AFTER UPDATE OF current ON terms
+    FOR EACH ROW EXECUTE FUNCTION current_term_keeps_classes();
+  DROP TRIGGER IF EXISTS school_years_current_keeps_classes ON school_years;
+  CREATE TRIGGER school_years_current_keeps_classes AFTER UPDATE OF current ON school_years
+    FOR EACH ROW EXECUTE FUNCTION current_term_keeps_classes();
+`;
+
+const ENROLLMENT_CLASS_BACKFILL_SQL = `
+  INSERT INTO enrolled_classes (enrollment_id, class_id)
+  SELECT DISTINCT es.enrollment_id, es.class_id
+    FROM enrolled_students es
+   WHERE es.class_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM enrolled_classes ec WHERE ec.enrollment_id = es.enrollment_id AND ec.class_id = es.class_id)
+  ON CONFLICT (enrollment_id, class_id) DO NOTHING;
+
+  SELECT sync_classes_to_term(t.term_id) FROM terms t WHERE is_current_term(t.term_id);
+`;
+
 // Every term a student has scores in, and every term they were enrolled in a
 // class whose subjects are on their list.
 const STUDENT_TERM_SUBJECTS_BACKFILL_SQL = `
@@ -316,6 +404,11 @@ async function applyRules(client) {
 
   await client.query(STUDENT_TERM_SUBJECTS_SQL);
   await client.query(STUDENT_TERM_SUBJECTS_BACKFILL_SQL);
+  // Lookups by child (parents list, parent portal access checks).
+  await runSafely(client, "CREATE INDEX IF NOT EXISTS guardian_students_student_idx ON guardian_students (student_id)");
+  await runSafely(client, "CREATE INDEX IF NOT EXISTS guardians_org_student_idx ON guardians (organization_id, student_id)");
+  await client.query(ENROLLMENT_CLASS_SQL);
+  await client.query(ENROLLMENT_CLASS_BACKFILL_SQL);
 }
 
 async function ensureRecordSafetySchema(db) {

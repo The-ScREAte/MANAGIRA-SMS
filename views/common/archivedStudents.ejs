@@ -1,18 +1,21 @@
 <%
-  const _groups = Array.isArray(typeof archivedGroups !== 'undefined' ? archivedGroups : null) ? archivedGroups : [];
+  const _sections = Array.isArray(locals.archiveSections) ? archiveSections : [];
+  const _active = locals.activeSection === 'left' ? 'left' : 'graduated';
   const _embedded = typeof isEmbedded !== 'undefined' && isEmbedded;
   const _embedQs = _embedded ? '?embed=workspace' : '';
-  const _total = typeof totalArchived !== 'undefined' ? totalArchived : _groups.reduce((sum, g) => sum + g.students.length, 0);
+  const _total = typeof totalArchived !== 'undefined' ? totalArchived : 0;
+  const _holdDays = locals.billingHoldDays || 30;
   const _initials = (s) => ((s.first_name || '').charAt(0) + (s.last_name || '').charAt(0)).toUpperCase() || '?';
   const _date = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const _count = (key) => (_sections.find((x) => x.key === key) || { count: 0 }).count;
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
 
 <div class="gp-page">
   <header class="gp-head">
     <div>
-      <h1 class="gp-title">Archived Students</h1>
-      <p class="gp-sub">Graduated and inactive students. Their records are preserved, and they are not counted as active students or billed.</p>
+      <h1 class="gp-title">Graduates &amp; Former Students</h1>
+      <p class="gp-sub">Students who graduated or left. Their records are kept.</p>
     </div>
     <a class="gp-btn gp-btn--ghost" href="/common/closeGraduationYearGroup<%= _embedQs %>">
       <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Graduate / Archive
@@ -21,37 +24,44 @@
 
   <%- include('../partials/flash') %>
 
-  <div class="gp-stats">
-    <div class="gp-stat"><span class="gp-stat__value"><%= _total %></span><span class="gp-stat__label">Archived students</span></div>
-    <div class="gp-stat"><span class="gp-stat__value"><%= _groups.length %></span><span class="gp-stat__label">Graduation groups</span></div>
-  </div>
 
-  <% if (!_groups.length) { %>
+  <% if (!_total) { %>
     <div class="gp-empty">
       <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
-      <h2>No archived students</h2>
-      <p>When you graduate a class from Graduate / Archive, the students appear here.</p>
+      <h2>No graduates or former students yet</h2>
+      <p>When you graduate students or record that they left, from Graduate / Archive, they appear here.</p>
       <a class="gp-btn gp-btn--primary" href="/common/closeGraduationYearGroup<%= _embedQs %>">Go to Graduate / Archive</a>
     </div>
   <% } else { %>
+    <div class="ar-tabs" role="tablist" aria-label="Graduates and former students">
+      <% _sections.forEach((section) => { %>
+        <button type="button" class="ar-tab<%= section.key === _active ? ' is-active' : '' %>" role="tab" aria-selected="<%= section.key === _active %>" data-ar-tab="<%= section.key %>">
+          <%= section.title %> <span class="gp-pill"><%= section.count %></span>
+        </button>
+      <% }) %>
+    </div>
+
     <form action="/common/unarchiveStudents" method="POST" data-gp-form data-gp-noun="student">
       <input type="hidden" name="embed" value="<%= _embedded ? 'workspace' : '' %>" />
 
       <div class="gp-toolbar">
         <label class="gp-search">
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-          <input type="search" placeholder="Search archived students by name or ID" data-gp-search aria-label="Search archived students" />
+          <input type="search" placeholder="Search graduates and former students" data-gp-search aria-label="Search graduates and former students" />
         </label>
-        <span class="gp-toolbar__hint">Tick students to restore them to your active students.</span>
       </div>
 
-      <div class="gp-groups">
-        <% _groups.forEach((group, gi) => { %>
+      <% _sections.forEach((section) => { %>
+      <div class="gp-groups ar-section" data-ar-section="<%= section.key %>"<%= section.key === _active ? '' : ' hidden' %>>
+        <% if (!section.groups.length) { %>
+          <div class="gp-group__empty"><%= section.empty %></div>
+        <% } %>
+        <% section.groups.forEach((group, gi) => { %>
           <details class="gp-group"<%= gi === 0 ? ' open' : '' %>>
             <summary>
               <i class="fa-solid fa-chevron-right gp-group__chev" aria-hidden="true"></i>
               <span class="gp-group__name"><%= group.name %></span>
-              <span class="gp-group__meta"><span class="gp-tag gp-tag--archived"><%= group.students.length %> archived</span></span>
+              <span class="gp-group__meta"><span class="gp-tag gp-tag--archived"><%= group.students.length %></span></span>
             </summary>
             <table class="gp-table">
               <thead>
@@ -59,13 +69,15 @@
                   <th class="gp-col-check"><input type="checkbox" class="gp-pick-all" aria-label="Select all in <%= group.name %>" /></th>
                   <th>Student</th>
                   <th class="gp-col-class">Last class</th>
-                  <th class="gp-col-date">Archived on</th>
+                  <th><%= section.key === 'left' ? 'Reason' : 'Note' %></th>
+                  <th class="gp-col-date">Date</th>
+                  <th>Restore</th>
                 </tr>
               </thead>
               <tbody>
                 <% group.students.forEach((s) => { const name = [s.first_name, s.last_name].filter(Boolean).join(' '); %>
                   <tr data-search="<%= (name + ' ' + (s.custom_student_id || '')).toLowerCase() %>">
-                    <td class="gp-col-check"><input type="checkbox" class="gp-pick" name="students" value="<%= s.student_id %>" aria-label="Select <%= name %>" /></td>
+                    <td class="gp-col-check"><input type="checkbox" class="gp-pick" name="students" value="<%= s.student_id %>" aria-label="Select <%= name %>"<%= s.canRestore ? '' : ' disabled' %> /></td>
                     <td>
                       <span class="gp-person">
                         <span class="gp-avatar" data-initials="<%= _initials(s) %>"><% if (s.image_url) { %><img src="<%= s.image_url %>" alt="" loading="lazy" /><% } else { %><%= _initials(s) %><% } %></span>
@@ -73,7 +85,23 @@
                       </span>
                     </td>
                     <td class="gp-col-class"><%= s.class_name || '—' %></td>
-                    <td class="gp-col-date"><%= _date(s.archived_at) %></td>
+                    <td class="ar-reason">
+                      <% if (section.key === 'left') { %><strong><%= s.reason || 'Not given' %></strong><% } %>
+                      <% if (s.reason_note) { %><span><%= s.reason_note %></span><% } else if (section.key !== 'left') { %><span class="ar-muted">—</span><% } %>
+                    </td>
+                    <td class="gp-col-date"><%= _date(s.archived_at) %><% if (s.archived_by_name) { %><span class="ar-by">by <%= s.archived_by_name %></span><% } %></td>
+                    <td class="ar-restore">
+                      <% if (s.restore_block === 'permanent') { %>
+                        <span class="ar-badge ar-badge--lock"><i class="fa-solid fa-lock" aria-hidden="true"></i> Permanent record</span>
+                      <% } else if (s.canUndo) { %>
+                        <span class="ar-badge">Undo available until <%= new Date(s.undo_until).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %></span>
+                      <% } else if (s.restoreNote) { %>
+                        <span class="ar-badge ar-badge--wait"><%= s.restoreNote %></span><% if (locals.isSupport) { %><span class="ar-by">Support can override</span><% } %>
+                      <% } else { %>
+                        <span class="ar-badge ar-badge--ok">Can be restored</span>
+                      <% } %>
+                      <% if (s.stillBilledUntil) { %><span class="ar-by">Billed until <%= _date(s.stillBilledUntil) %></span><% } %>
+                    </td>
                   </tr>
                 <% }) %>
               </tbody>
@@ -81,7 +109,8 @@
           </details>
         <% }) %>
       </div>
-      <div class="gp-no-results" data-gp-no-results>No archived students match your search.</div>
+      <% }) %>
+      <div class="gp-no-results" data-gp-no-results>No one matches your search.</div>
 
       <div class="gp-actionbar" data-gp-actionbar aria-live="polite">
         <strong data-gp-count>0 students selected</strong>
@@ -94,9 +123,11 @@
           <h2 class="gp-dialog__title" data-gp-dialog-title data-template="Restore {n} student{s}?">Restore students?</h2>
           <p class="gp-dialog__text">They will be active again:</p>
           <ul>
-            <li>They appear in your student lists and can be edited.</li>
-            <li>They count as active students for billing and new fees.</li>
+            <li>They appear in your classes and student lists, and can be edited.</li>
+            <li>They count as active students for billing and fees from today.</li>
+            <li>The restore is recorded in the student's history.</li>
           </ul>
+          <label class="ga-agree"><input type="checkbox" required /> I understand these students will be billed as active students again.</label>
         </div>
         <div class="gp-dialog__actions">
           <button type="button" class="gp-btn gp-btn--ghost" data-gp-cancel>Cancel</button>
@@ -107,4 +138,38 @@
   <% } %>
 </div>
 
+<style>
+  .ar-tabs { display: flex; gap: 6px; margin: 4px 0 14px; border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent); }
+  .ar-tab { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 -1px; padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: none; color: inherit; font: inherit; font-weight: 700; opacity: .7; cursor: pointer; }
+  .ar-tab.is-active { opacity: 1; border-bottom-color: var(--org-primary-color, #01535b); color: var(--org-primary-color, #01535b); }
+  .ar-section[hidden] { display: none; }
+  .ar-reason strong, .ar-reason span { display: block; }
+  .ar-reason span, .ar-by { font-size: .82rem; opacity: .7; }
+  .ar-by { display: block; margin-top: 2px; }
+  .ar-muted { opacity: .5; }
+  .ar-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; font-size: .8rem; font-weight: 600; background: color-mix(in srgb, currentColor 8%, transparent); }
+  .ar-badge--ok { color: #15803d; background: color-mix(in srgb, #16a34a 12%, transparent); }
+  .ar-badge--wait { color: #b45309; background: color-mix(in srgb, #f59e0b 14%, transparent); }
+  .ar-badge--lock { background: color-mix(in srgb, currentColor 10%, transparent); }
+  .ga-agree { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; font-weight: 600; }
+  .ga-agree input { margin: 3px 0 0; flex: 0 0 auto; }
+</style>
+<script>
+  (function () {
+    document.querySelectorAll('[data-ar-tab]').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        var key = tab.getAttribute('data-ar-tab');
+        document.querySelectorAll('[data-ar-tab]').forEach(function (t) {
+          var on = t === tab;
+          t.classList.toggle('is-active', on);
+          t.setAttribute('aria-selected', String(on));
+        });
+        document.querySelectorAll('[data-ar-section]').forEach(function (s) {
+          s.hidden = s.getAttribute('data-ar-section') !== key;
+          if (s.hidden) s.querySelectorAll('.gp-pick:checked').forEach(function (box) { box.checked = false; box.dispatchEvent(new Event('change', { bubbles: true })); });
+        });
+      });
+    });
+  })();
+</script>
 <script src="<%= assetUrl('/js/graduationPages.js') %>"></script>

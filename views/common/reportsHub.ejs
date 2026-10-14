@@ -1121,25 +1121,6 @@
       });
     });
 
-    // Warm the connection (and let the server start working) the moment a
-    // pointer hovers or a link gets keyboard focus, so the click itself
-    // feels instant instead of waiting for the full round trip to start
-    // only after it's clicked. Each URL is only ever prefetched once.
-    const prefetchedUrls = new Set();
-    function prefetchEmbedUrl(url) {
-      if (!url || prefetchedUrls.has(url)) return;
-      prefetchedUrls.add(url);
-      fetch(withEmbedFlag(url), { credentials: 'same-origin' }).catch(function () {
-        // Best-effort only — the real click will just do the full request.
-        prefetchedUrls.delete(url);
-      });
-    }
-    document.querySelectorAll('[data-embed-url]').forEach(link => {
-      const url = link.getAttribute('data-embed-url');
-      if (!url) return;
-      link.addEventListener('mouseenter', function () { prefetchEmbedUrl(url); }, { once: true });
-      link.addEventListener('focus', function () { prefetchEmbedUrl(url); }, { once: true });
-    });
 
     // Mobile navigation toggle
     navToggle.addEventListener('click', function(e) {
@@ -1249,45 +1230,25 @@
       }
     }
 
-    // Background-preload every other panel behind the scenes, staggered so
-    // we don't fire a dozen requests at once. Sublinks inside a group (like
-    // Term Reports' three destinations) all share a single panel, so only
-    // the first one found is queued — the other two would just overwrite
-    // each other's cache in the same shared panel anyway. Each preload
-    // lands in its own hidden section (loadEmbed only flips a section
-    // visible when its own nav link is clicked), so by the time the user
-    // actually clicks over, loadedPanelUrls already has it cached and it
-    // shows instantly instead of waiting on a fresh iframe load.
-    const backgroundQueue = [];
-    const seenSections = new Set(initialSection ? [initialSection] : []);
-    document.querySelectorAll('.nav-link[data-embed-url], .nav-sublink[data-embed-url]').forEach(function (link) {
+    // Panels load on intent: pointing at, focusing or touching a menu item
+    // starts loading it in its own hidden panel, so the click shows it at
+    // once. Nothing else loads in the background, so the page you're using
+    // gets the whole connection (on a slow or data-saver connection, panels
+    // load only when clicked).
+    const warmedSections = new Set(typeof initialSection !== 'undefined' && initialSection ? [initialSection] : []);
+    function warmPanel(link) {
       const sectionId = link.getAttribute('data-section') || link.getAttribute('data-group');
-      if (!sectionId || seenSections.has(sectionId)) return;
-      seenSections.add(sectionId);
-      backgroundQueue.push({
-        sectionId: sectionId,
-        url: link.getAttribute('data-embed-url'),
-        label: link.getAttribute('data-embed-label'),
+      const url = link.getAttribute('data-embed-url');
+      if (!sectionId || !url || warmedSections.has(sectionId)) return;
+      const conn = navigator.connection;
+      if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) return;
+      warmedSections.add(sectionId);
+      loadEmbed(sectionId, url, link.getAttribute('data-embed-label'), false, true);
+    }
+    document.querySelectorAll('.nav-link[data-embed-url], .nav-sublink[data-embed-url]').forEach(function (link) {
+      ['mouseenter', 'focus', 'touchstart'].forEach(function (type) {
+        link.addEventListener(type, function () { warmPanel(link); }, { once: true, passive: true });
       });
     });
-
-    // Two at a time keeps this from ever competing with the panel the user
-    // is actually looking at, while still getting everything warmed up in
-    // roughly half the time a strictly one-by-one queue would take.
-    const BACKGROUND_PRELOAD_CONCURRENCY = 2;
-    function preloadNextInBackground() {
-      const next = backgroundQueue.shift();
-      if (!next) return;
-      loadEmbed(next.sectionId, next.url, next.label, false, true);
-      setTimeout(preloadNextInBackground, 250);
-    }
-
-    if (backgroundQueue.length) {
-      setTimeout(function () {
-        for (let i = 0; i < BACKGROUND_PRELOAD_CONCURRENCY; i++) {
-          preloadNextInBackground();
-        }
-      }, 400);
-    }
   })();
 </script>

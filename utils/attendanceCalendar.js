@@ -48,7 +48,19 @@ function normalizeWeekendDaysInput(rawWeekendDays) {
   return [...new Set(normalized)].sort((a, b) => a - b);
 }
 
-async function ensureAttendanceCalendarSchema(db) {
+// Runs once per process (it used to run on every request).
+let attendanceCalendarSchemaReady = null;
+function ensureAttendanceCalendarSchema(db) {
+  if (!attendanceCalendarSchemaReady) {
+    attendanceCalendarSchemaReady = createAttendanceCalendarSchema(db).catch((err) => {
+      attendanceCalendarSchemaReady = null;
+      throw err;
+    });
+  }
+  return attendanceCalendarSchemaReady;
+}
+
+async function createAttendanceCalendarSchema(db) {
   await db.query(`
     CREATE TABLE IF NOT EXISTS organization_attendance_calendars (
       calendar_id SERIAL PRIMARY KEY,

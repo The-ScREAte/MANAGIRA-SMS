@@ -623,6 +623,7 @@ module.exports = {
       const studentIdSettings = sidSettingsResult.rows[0] || {};
 
       return res.render("common/studentDetails", {
+        archiveStatus: await require("../utils/studentArchive").getStudentArchiveStatus(db, organizationId, student.student_id),
         title: "Student Details",
         student,
         studentIdSettings,
@@ -864,6 +865,7 @@ module.exports = {
         : null;
 
       return res.render("guardian/student", {
+        archiveStatus: await require("../utils/studentArchive").getStudentArchiveStatus(db, organizationId, student.student_id),
         title: "Student Progress",
         student,
         subjects,

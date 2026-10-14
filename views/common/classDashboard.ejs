@@ -3954,8 +3954,8 @@ main {
           <div class="term-view-banner" id="termViewBanner" role="status" <%= _termView ? '' : 'hidden' %>>
             <% if (_termView) { %>
             <span class="term-view-banner__text">
-              Viewing <strong><%= currentTerm.term_name %>, <%= schoolYear.year_label %></strong><% if (_termView.currentLabel) { %> instead of the current term (<%= _termView.currentLabel %>)<% } %>.<% if (!_termView.classInTerm) { %> <%= className %> was not part of this term.<% } %>
-              Only you see this. It switches back in <strong data-term-view-countdown data-remaining-ms="<%= _termView.remainingMs %>">20:00</strong>.
+              Viewing <strong><%= currentTerm.term_name %>, <%= schoolYear.year_label %></strong><% if (!_termView.classInTerm) { %> — <%= className %> wasn't part of this term<% } %>.
+              Only you see this · back to the current term in <strong data-term-view-countdown data-remaining-ms="<%= _termView.remainingMs %>">20:00</strong>
             </span>
             <button type="button" class="term-view-banner__btn" data-term-view-reset>Back to current</button>
             <% } %>
@@ -4115,7 +4115,6 @@ main {
                             <span class="subject-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v17H6.5A2.5 2.5 0 0 0 4 22.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/></svg></span>
                             <span class="subject-text">
                               <strong><%= subject.subject_name %></strong>
-                              <span>Open assessment workspace</span>
                             </span>
                             <span class="subject-arrow" aria-hidden="true">›</span>
                           </button>

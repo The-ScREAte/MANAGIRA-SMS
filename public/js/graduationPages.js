@@ -61,6 +61,8 @@
     }));
     document.querySelectorAll('[data-gp-cancel]').forEach((btn) => btn.addEventListener('click', () => dialog && dialog.close()));
     document.querySelectorAll('[data-gp-confirm]').forEach((btn) => btn.addEventListener('click', () => {
+      // Required choices inside the dialog (reason, agreement) must be made first.
+      if (typeof form.reportValidity === 'function' && !form.reportValidity()) return;
       btn.disabled = true;
       btn.textContent = 'Saving…';
       form.submit();

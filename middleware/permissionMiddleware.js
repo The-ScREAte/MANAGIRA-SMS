@@ -474,11 +474,20 @@ function requirePermission(permissionKey) {
       const userId = req.session.user?.user_id || req.session.userId || null;
       const userEmail = req.session.user?.email || null;
 
-      const allowed = await userHasPermission(
+      const check = () => userHasPermission(
         database,
         { userId, userRole, organizationId, accountType, userEmail },
         permissionKey
       );
+      // A dropped database connection is not "no permission": try once more
+      // before sending anyone away from the page they're on.
+      let allowed;
+      try {
+        allowed = await check();
+      } catch (firstError) {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        allowed = await check();
+      }
 
       if (!allowed) {
         req.flash("error", "You do not have permission to access this page.");

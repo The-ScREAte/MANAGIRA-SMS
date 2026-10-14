@@ -577,7 +577,7 @@ async function loadUsage(db, hubId) {
   );
   let rows;
   try {
-    rows = (await perSchool(activeStudentSql('s'))).rows;
+    rows = (await perSchool(require('./studentArchive').billableStudentSql('s'))).rows;
   } catch (_e) {
     rows = (await perSchool('COALESCE(s.graduated, false) = false')).rows;
   }

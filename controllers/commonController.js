@@ -236,6 +236,15 @@ async function upsertStudentTransportationAssignment(dbClient, {
   );
 }
 
+const {
+  ensureStudentArchiveSchema,
+  describeRestoreBlock,
+  getStudentArchiveStatus,
+  LEAVE_REASONS: STUDENT_LEAVE_REASONS,
+  BILLING_HOLD_DAYS: STUDENT_BILLING_HOLD_DAYS,
+  UNDO_HOURS: STUDENT_UNDO_HOURS,
+} = require("../utils/studentArchive");
+
 let publicRegistrationSchemaReady = false;
 let userMailroomClassesSchemaReady = false;
 let guardianPaymentMethodSchemaReady = false;
@@ -8249,6 +8258,7 @@ const commonController = {
 
       res.render("common/studentDetails", {
         isEmbedded,
+        archiveStatus: await getStudentArchiveStatus(db, req.session.organizationId, student.student_id),
         title: "Student Details",
         student,
         studentIdSettings,
@@ -8337,6 +8347,13 @@ const commonController = {
     try {
       const { studentId, termId: queryTermId, classId: queryClassId } = req.query;
       const organizationId = req.session.organizationId;
+
+      // Archived students (graduated or left) are kept as they were.
+      const archiveStatus = await getStudentArchiveStatus(db, organizationId, Number.parseInt(studentId, 10));
+      if (archiveStatus) {
+        req.flash("error", `This student has ${archiveStatus.kind === "left" ? "left the school" : "graduated"} and can't be edited.${archiveStatus.permanent ? "" : " To change their details, restore them from Graduates & Former Students first."}`);
+        return res.redirect(`/common/studentDetails?studentId=${encodeURIComponent(studentId)}&termId=${encodeURIComponent(queryTermId || req.session.currentTermId || "")}`);
+      }
 
       // Fetch student details
       const studentQuery = `
@@ -8466,6 +8483,10 @@ const commonController = {
       await ensureStudentDobUnknownSchema(db);
       const { studentId } = req.params;
       const sessionOrganizationId = req.session.organizationId;
+      if (await getStudentArchiveStatus(db, sessionOrganizationId, Number.parseInt(studentId, 10))) {
+        req.flash("error", "This student has graduated or left the school and can't be edited. Restore them from Graduates & Former Students first.");
+        return res.redirect("/common/archivedStudents");
+      }
       const {
         firstName,
         lastName,
@@ -10170,7 +10191,9 @@ const commonController = {
       const result = await db.query(
         `
           SELECT u.user_id, u.first_name, u.last_name, u.email, u.account_type,
-                 u.reset_password_token, u.password, array_agg(uc.class_id) as class_ids
+                 u.reset_password_token, u.password, u.on_hold, u.phone_number, u.created_at,
+                 u.org_role_title, COALESCE(NULLIF(u.profile_image_url, ''), NULLIF(u.image_url, '')) AS photo_url,
+                 array_agg(uc.class_id) as class_ids
           FROM users u
           LEFT JOIN user_classes uc ON u.user_id = uc.user_id
           WHERE u.organization_id = $1
@@ -10207,6 +10230,19 @@ const commonController = {
 
       const employees = result.rows;
 
+      // Last sign-in per person, from the activity log (every login is recorded there).
+      const lastLoginResult = employees.length
+        ? await db.query(
+            `SELECT user_id, MAX(created_at) AS last_login
+               FROM organization_activity_logs
+              WHERE organization_id = $1 AND action_type = 'Login' AND user_id = ANY($2::int[])
+              GROUP BY user_id`,
+            [req.session.organizationId, employees.map((e) => e.user_id)]
+          ).catch(() => ({ rows: [] }))
+        : { rows: [] };
+      const lastLoginByUser = new Map(lastLoginResult.rows.map((row) => [Number(row.user_id), row.last_login]));
+      const ownerEmail = String(orgOwnerResult.rows[0]?.email || "").trim().toLowerCase();
+
       // Everyone's subjects in one query; classes come from the list above
       // (already in dashboard order), so no query per employee.
       const subjectsResult = employees.length
@@ -10224,7 +10260,19 @@ const commonController = {
 
       for (const employee of employees) {
         const classIds = new Set((employee.class_ids || []).filter((id) => id !== null).map(Number));
-        employee.permissions = permissionsByUser[employee.user_id] || [];
+        // What the person can really do: the main manager has everything; other
+        // managers what they were given; everyone else also their role's defaults.
+        employee.is_owner = Boolean(ownerEmail) && String(employee.email || "").trim().toLowerCase() === ownerEmail;
+        const grantedPermissions = permissionsByUser[employee.user_id] || [];
+        employee.permissions = employee.is_owner
+          ? PERMISSION_OPTIONS.map((option) => option.key)
+          : employee.account_type === "Manager"
+            ? grantedPermissions.filter((key) => permissionLabelMap[key])
+            : mergePermissionsForRole(employee.account_type, grantedPermissions);
+        employee.status = employee.on_hold
+          ? "On hold"
+          : employee.reset_password_token && !employee.password ? "Invite sent" : "Active";
+        employee.last_login = lastLoginByUser.get(Number(employee.user_id)) || null;
 
         // Group subjects by class_id, keeping the dashboard class order.
         const classMap = new Map();
@@ -10252,7 +10300,8 @@ const commonController = {
       }
 
       res.render("common/manageEmployees", {
-        title: "Manage Employees",
+        title: "Users / Employees",
+        permissionOptions: PERMISSION_OPTIONS,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
@@ -10993,7 +11042,29 @@ const commonController = {
       }
 
       // Render the assessment page
+      // The pencil on a locked assessment opens it on the Assessments page,
+      // for managers and supervisors who can manage assessments (not teachers:
+      // a lock is there to stop score changes).
+      const viewerRole = normalizeRoleKey(req.session.userRole || req.session.accountType);
+      const canUnlockAssessments = viewerRole !== "teacher" && await userHasPermission(
+        db,
+        {
+          userId: req.session.user?.user_id || req.session.userId || null,
+          userRole: req.session.userRole || req.session.user?.account_type || null,
+          organizationId,
+          accountType: req.session.accountType || req.session.user?.account_type || null,
+          userEmail: req.session.user?.email || null,
+        },
+        PERMISSIONS.MANAGE_ASSESSMENTS
+      ).catch(() => false);
+      const unlockAssessmentUrl = (groupId) => {
+        const page = `/common/manageAssessment?organizationId=${organizationId}&termId=${currentTerm.term_id}&focus=${encodeURIComponent(groupId)}`;
+        return `/common/management?panel=assessment-scores&page=${encodeURIComponent(page)}&label=${encodeURIComponent("Assessments")}`;
+      };
+
       res.render("common/assessment", {
+        canUnlockAssessments,
+        unlockAssessmentUrl,
         title: "Assessment",
         classId,
         className,
@@ -14733,10 +14804,23 @@ NUMBERING:
       if (shuffleOptions) {
         questions.forEach((question) => {
           if (Array.isArray(question.options_json) && question.options_json.length > 1) {
+            // A letter answer ("B", "A,C") must follow its options when they move.
+            const keyParts = String(question.answer_key || "").split(",").map((part) => part.trim()).filter(Boolean);
+            const letterKey = keyParts.length > 0
+              && keyParts.every((part) => /^[A-Za-z]$/.test(part) && !question.options_json.some((option) => String(option).trim() === part));
+            const keyOptions = letterKey ? keyParts.map((part) => question.options_json[part.toUpperCase().charCodeAt(0) - 65]) : null;
+            question.remapLetterKey = () => {
+              if (!keyOptions || keyOptions.some((option) => option === undefined)) return;
+              question.answer_key = keyOptions
+                .map((option) => String.fromCharCode(65 + question.options_json.indexOf(option)))
+                .sort()
+                .join(",");
+            };
             for (let i = question.options_json.length - 1; i > 0; i -= 1) {
               const j = Math.floor(Math.random() * (i + 1));
               [question.options_json[i], question.options_json[j]] = [question.options_json[j], question.options_json[i]];
             }
+            question.remapLetterKey();
           }
         });
       }
@@ -20287,6 +20371,7 @@ NUMBERING:
     try {
       const organizationId = req.session.organizationId;
       const isEmbedded = isEmbeddedRequest(req, "closeGraduationYearGroup");
+      await ensureStudentArchiveSchema(db);
       const [groupsResult, studentsResult] = await Promise.all([
         db.query(
           "SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name",
@@ -20294,26 +20379,44 @@ NUMBERING:
         ),
         db.query(
           `SELECT s.student_id, s.first_name, s.last_name, s.custom_student_id, s.image_url,
-                  s.graduation_year_group_id, c.class_name,
-                  (COALESCE(s.graduated, FALSE) OR a.archived_at IS NOT NULL) AS is_archived,
-                  a.archived_at
+                  s.graduation_year_group_id, s.class_id, c.class_name,
+                  (COALESCE(s.graduated, FALSE) OR a.student_id IS NOT NULL) AS is_archived,
+                  COALESCE(a.archive_kind, CASE WHEN s.graduated THEN 'graduated' END) AS archive_kind
              FROM students s
              LEFT JOIN classes c ON c.class_id = s.class_id
              LEFT JOIN LATERAL (
-               SELECT MAX(archived_at) AS archived_at FROM archived_student_info
+               SELECT student_id, archive_kind FROM archived_student_info
                 WHERE student_id = s.student_id AND organization_id = s.organization_id
+                ORDER BY COALESCE(archived_at_ts, archived_at::timestamptz) DESC LIMIT 1
              ) a ON TRUE
-            WHERE s.organization_id = $1 AND s.graduation_year_group_id IS NOT NULL
+            WHERE s.organization_id = $1
             ORDER BY s.first_name, s.last_name`,
           [organizationId]
         ),
       ]);
 
-      const gradYearGroups = groupsResult.rows.map((group) => {
-        const students = studentsResult.rows.filter((student) => student.graduation_year_group_id === group.id);
+      // Graduates and students who left move to Graduates & Former Students;
+      // here each group lists only its active students (and says how many moved).
+      const withCounts = (group, students) => {
         const archivedCount = students.filter((student) => student.is_archived).length;
-        return { ...group, students, archivedCount, activeCount: students.length - archivedCount };
-      });
+        const active = students.filter((student) => !student.is_archived);
+        return { ...group, students: active, archivedCount, activeCount: active.length };
+      };
+      const gradYearGroups = groupsResult.rows.map((group) =>
+        withCounts(group, studentsResult.rows.filter((student) => student.graduation_year_group_id === group.id))
+      );
+      // Students in no graduation group (e.g. someone leaving mid-year), by class.
+      const byClass = new Map();
+      studentsResult.rows
+        .filter((student) => !student.graduation_year_group_id && !student.is_archived)
+        .forEach((student) => {
+          const key = student.class_name || "No class";
+          if (!byClass.has(key)) byClass.set(key, []);
+          byClass.get(key).push(student);
+        });
+      const otherGroups = [...byClass.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+        .map(([name, students]) => withCounts({ id: `class:${name}`, name, isClass: true }, students));
 
       res.render("common/closeGraduationYearGroup", {
         title: "Graduate / Archive",
@@ -20322,6 +20425,9 @@ NUMBERING:
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
         gradYearGroups,
+        otherGroups,
+        leaveReasons: STUDENT_LEAVE_REASONS,
+        billingHoldDays: STUDENT_BILLING_HOLD_DAYS,
         totalArchived: studentsResult.rows.filter((student) => student.is_archived).length,
         messages: req.flash(),
       });
@@ -20331,48 +20437,83 @@ NUMBERING:
     }
   },
 
-  // Graduates and archives the chosen students: their records are kept, and
-  // they stop counting as active students for billing and new fee charges
-  // (utils/activeStudents.js). Already-archived students are skipped.
+  // Archives the chosen students as graduated or as having left the school
+  // (with a reason). Records are kept; they leave the active register. Billing:
+  // they still count for STUDENT_BILLING_HOLD_DAYS (utils/studentArchive.js).
   closeGraduationYearGroupPost: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const redirectTo = `/common/closeGraduationYearGroup${req.body.embed === "workspace" ? "?embed=workspace" : ""}`;
     const studentIds = [...new Set([].concat(req.body.students || []).map((id) => Number.parseInt(id, 10)))]
       .filter((id) => Number.isInteger(id) && id > 0);
+    const kind = req.body.kind === "left" ? "left" : req.body.kind === "graduated" ? "graduated" : null;
+    const chosenReason = String(req.body.reason || "").trim();
+    const otherReason = String(req.body.reason_other || "").trim().slice(0, 200);
+    const note = String(req.body.reason_note || "").trim().slice(0, 500) || null;
+    const reason = kind === "left"
+      ? (chosenReason === "Other" ? otherReason : STUDENT_LEAVE_REASONS.includes(chosenReason) ? chosenReason : "")
+      : null;
 
-    if (req.body.action !== "archive" || !studentIds.length) {
+    if (!studentIds.length) {
       req.flash("error", "Choose at least one student to archive.");
       return res.redirect(redirectTo);
     }
+    if (!kind) {
+      req.flash("error", "Choose whether the students graduated or left the school.");
+      return res.redirect(redirectTo);
+    }
+    if (kind === "left" && !reason) {
+      req.flash("error", "Choose or type the reason the students left.");
+      return res.redirect(redirectTo);
+    }
+    if (req.body.agree !== "1") {
+      req.flash("error", "Please confirm you understand what archiving means before continuing.");
+      return res.redirect(redirectTo);
+    }
 
+    const actorId = req.session.user?.user_id || req.session.userId || null;
+    const actorName = [req.session.firstName || req.session.user?.first_name, req.session.lastName || req.session.user?.last_name]
+      .filter(Boolean).join(" ").trim() || req.session.accountType || "Staff";
     const client = await db.connect();
     try {
+      await ensureStudentArchiveSchema(db);
       await client.query("BEGIN");
+      await client.query("SELECT set_config('managira.actor_id', $1, true), set_config('managira.actor_name', $2, true)", [String(actorId || ""), actorName]);
       const archived = await client.query(
-        `INSERT INTO archived_student_info (student_id, graduation_year_group_id, organization_id)
-         SELECT s.student_id, s.graduation_year_group_id, s.organization_id
+        `INSERT INTO archived_student_info
+           (student_id, graduation_year_group_id, organization_id, archive_kind, reason, reason_note, archived_by_user_id, archived_by_name, rode_bus)
+         SELECT s.student_id, s.graduation_year_group_id, s.organization_id, $3, $4, $5, $6, $7,
+                EXISTS (SELECT 1 FROM transport_student_assignments t
+                         WHERE t.student_id = s.student_id AND t.organization_id = s.organization_id AND t.active)
            FROM students s
           WHERE s.student_id = ANY($1::int[])
             AND s.organization_id = $2
-            AND s.graduation_year_group_id IS NOT NULL
             AND NOT EXISTS (
               SELECT 1 FROM archived_student_info a
                WHERE a.student_id = s.student_id AND a.organization_id = s.organization_id
             )
          RETURNING student_id`,
-        [studentIds, organizationId]
+        [studentIds, organizationId, kind, reason, note, actorId, actorName]
       );
-      await client.query(
-        "UPDATE students SET graduated = TRUE WHERE student_id = ANY($1::int[]) AND organization_id = $2",
-        [studentIds, organizationId]
-      );
+      const archivedIds = archived.rows.map((row) => row.student_id);
+      if (archivedIds.length) {
+        await client.query(
+          "UPDATE students SET graduated = TRUE WHERE student_id = ANY($1::int[]) AND organization_id = $2",
+          [archivedIds, organizationId]
+        );
+        // No longer riding the school bus.
+        await client.query(
+          "UPDATE transport_student_assignments SET active = FALSE, updated_at = NOW() WHERE student_id = ANY($1::int[]) AND organization_id = $2",
+          [archivedIds, organizationId]
+        ).catch(() => {});
+      }
       await client.query("COMMIT");
-      const count = archived.rowCount;
+      const count = archivedIds.length;
+      const what = kind === "graduated" ? "graduated" : "recorded as having left the school";
       req.flash(
         "success",
         count
-          ? `${count} student${count === 1 ? "" : "s"} graduated and archived. They are no longer billed or counted as active students.`
-          : "Those students were already archived."
+          ? `${count} student${count === 1 ? "" : "s"} ${what} . They are now under Graduates & Former Students, where you can undo this within ${STUDENT_UNDO_HOURS} hours.`
+          : "Those students were already graduated or recorded as having left."
       );
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});
@@ -20388,15 +20529,20 @@ NUMBERING:
     try {
       const organizationId = req.session.organizationId;
       const isEmbedded = isEmbeddedRequest(req, "archivedStudents");
+      await ensureStudentArchiveSchema(db);
+      const isSupport = String(req.session.accountType || "").toLowerCase() === "admin";
       const result = await db.query(
         `SELECT s.student_id, s.first_name, s.last_name, s.custom_student_id, s.image_url,
-                c.class_name, a.graduation_year_group_id, a.archived_at,
+                c.class_name, a.graduation_year_group_id, COALESCE(a.archived_at_ts, a.archived_at::timestamptz) AS archived_at,
+                COALESCE(a.archive_kind, 'graduated') AS archive_kind, a.reason, a.reason_note, a.archived_by_name,
+                a.undo_until, a.billable_until,
+                archive_restore_block(s.student_id, s.organization_id) AS restore_block,
                 COALESCE(g.name, 'No graduation group') AS group_name
            FROM (
-             SELECT DISTINCT ON (student_id) student_id, graduation_year_group_id, archived_at
+             SELECT DISTINCT ON (student_id) *
                FROM archived_student_info
               WHERE organization_id = $1
-              ORDER BY student_id, archived_at DESC
+              ORDER BY student_id, COALESCE(archived_at_ts, archived_at::timestamptz) DESC
            ) a
            JOIN students s ON s.student_id = a.student_id AND s.organization_id = $1
            LEFT JOIN classes c ON c.class_id = s.class_id
@@ -20405,21 +20551,41 @@ NUMBERING:
         [organizationId]
       );
 
-      const groups = new Map();
-      result.rows.forEach((student) => {
-        const key = student.graduation_year_group_id || 0;
-        if (!groups.has(key)) groups.set(key, { id: key, name: student.group_name, students: [] });
-        groups.get(key).students.push(student);
+      const now = Date.now();
+      const students = result.rows.map((student) => {
+        const permanent = student.restore_block === "permanent";
+        return {
+          ...student,
+          canUndo: !permanent && student.undo_until && new Date(student.undo_until).getTime() > now,
+          canRestore: permanent ? false : (!student.restore_block || isSupport),
+          restoreNote: describeRestoreBlock(student.restore_block),
+          stillBilledUntil: student.billable_until && new Date(student.billable_until).getTime() > now ? student.billable_until : null,
+        };
+      });
+      const sections = [
+        { key: "graduated", title: "Graduates", empty: "No graduates yet.", groupBy: (s) => s.group_name },
+        { key: "left", title: "Left school", empty: "No one has been recorded as leaving.", groupBy: (s) => s.reason || "Reason not given" },
+      ].map((section) => {
+        const groups = new Map();
+        students.filter((s) => s.archive_kind === section.key).forEach((student) => {
+          const name = section.groupBy(student);
+          if (!groups.has(name)) groups.set(name, { name, students: [] });
+          groups.get(name).students.push(student);
+        });
+        return { ...section, groups: [...groups.values()], count: students.filter((s) => s.archive_kind === section.key).length };
       });
 
       res.render("common/archivedStudents", {
-        title: "Archived Students",
+        title: "Graduates & Former Students",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
-        archivedGroups: [...groups.values()],
-        totalArchived: result.rows.length,
+        archiveSections: sections,
+        activeSection: req.query.section === "left" ? "left" : "graduated",
+        totalArchived: students.length,
+        billingHoldDays: STUDENT_BILLING_HOLD_DAYS,
+        isSupport,
         messages: req.flash(),
       });
     } catch (error) {
@@ -20428,8 +20594,9 @@ NUMBERING:
     }
   },
 
-  // Restores students: removes the archive record and the graduated flag, so
-  // they are active again (and counted for billing).
+  // Restores students to the active register, within the rules: an undo in the
+  // first hours, otherwise only after the billing hold, never for a permanent
+  // graduate record. Managira support (Admin) can override the hold.
   unarchiveStudents: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const redirectTo = `/common/archivedStudents${req.body.embed === "workspace" ? "?embed=workspace" : ""}`;
@@ -20441,24 +20608,56 @@ NUMBERING:
       return res.redirect(redirectTo);
     }
 
+    const isSupport = String(req.session.accountType || "").toLowerCase() === "admin";
+    const actorId = req.session.user?.user_id || req.session.userId || null;
+    const actorName = [req.session.firstName || req.session.user?.first_name, req.session.lastName || req.session.user?.last_name]
+      .filter(Boolean).join(" ").trim() || req.session.accountType || "Staff";
     const client = await db.connect();
     try {
+      await ensureStudentArchiveSchema(db);
       await client.query("BEGIN");
       await client.query(
-        "DELETE FROM archived_student_info WHERE student_id = ANY($1::int[]) AND organization_id = $2",
+        "SELECT set_config('managira.actor_id', $1, true), set_config('managira.actor_name', $2, true), set_config('managira.archive_override', $3, true)",
+        [String(actorId || ""), actorName, isSupport ? "support" : ""]
+      );
+      const blocks = await client.query(
+        `SELECT s.student_id, archive_restore_block(s.student_id, s.organization_id) AS block
+           FROM students s WHERE s.student_id = ANY($1::int[]) AND s.organization_id = $2`,
         [studentIds, organizationId]
       );
-      const restored = await client.query(
-        "UPDATE students SET graduated = FALSE WHERE student_id = ANY($1::int[]) AND organization_id = $2",
-        [studentIds, organizationId]
-      );
+      const allowed = blocks.rows
+        .filter((row) => !row.block || (isSupport && row.block !== "permanent"))
+        .map((row) => row.student_id);
+      const held = blocks.rows.length - allowed.length;
+      if (allowed.length) {
+        // Back on the bus if they rode it before being archived.
+        await client.query(
+          `UPDATE transport_student_assignments t SET active = TRUE, updated_at = NOW()
+             FROM archived_student_info a
+            WHERE a.student_id = t.student_id AND a.organization_id = t.organization_id AND a.rode_bus
+              AND t.student_id = ANY($1::int[]) AND t.organization_id = $2`,
+          [allowed, organizationId]
+        ).catch(() => {});
+        await client.query(
+          "DELETE FROM archived_student_info WHERE student_id = ANY($1::int[]) AND organization_id = $2",
+          [allowed, organizationId]
+        );
+        await client.query(
+          "UPDATE students SET graduated = FALSE WHERE student_id = ANY($1::int[]) AND organization_id = $2",
+          [allowed, organizationId]
+        );
+      }
       await client.query("COMMIT");
-      const count = restored.rowCount;
-      req.flash("success", `${count} student${count === 1 ? "" : "s"} restored. They are active again.`);
+      const parts = [];
+      if (allowed.length) parts.push(`${allowed.length} student${allowed.length === 1 ? "" : "s"} restored. They are active again and count for billing.`);
+      if (held) parts.push(`${held} couldn't be restored yet — see the date next to each student.`);
+      req.flash(allowed.length ? "success" : "error", parts.join(" ") || "Nothing to restore.");
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});
       console.error("[unarchiveStudents]", error.message);
-      req.flash("error", "Could not restore those students. Please try again.");
+      req.flash("error", /STUDENT_ARCHIVE_LOCKED/.test(error.message)
+        ? "Some of those students can't be restored yet. See the date next to each student."
+        : "Could not restore those students. Please try again.");
     } finally {
       client.release();
     }
@@ -20653,258 +20852,125 @@ NUMBERING:
       const organizationId = req.session.organizationId;
       const isEmbedded = isEmbeddedRequest(req, "guardians");
 
+      // Every parent profile, plus older-style parent records that have no
+      // profile yet (same child and name, or same email, counts as the same person).
       const guardiansResult = await db.query(
         `
-        WITH legacy_guardians AS (
-          SELECT
-            MAX(g.guardian_id) AS guardian_id,
-            MIN(TRIM(g.first_name)) AS first_name,
-            MIN(TRIM(COALESCE(g.last_name, ''))) AS last_name,
-            MAX(NULLIF(TRIM(COALESCE(g.email, '')), '')) AS email,
-            MAX(NULLIF(TRIM(COALESCE(g.phone, '')), '')) AS phone,
-            MAX(NULLIF(TRIM(COALESCE(g.address, '')), '')) AS address,
-            MAX(NULLIF(TRIM(COALESCE(g.hometown, '')), '')) AS hometown,
-            MAX(NULLIF(TRIM(COALESCE(g.image_url, '')), '')) AS image_url,
-            COUNT(DISTINCT g.student_id) AS student_count,
-            LOWER(TRIM(g.first_name)) AS first_name_key,
-            LOWER(TRIM(COALESCE(g.last_name, ''))) AS last_name_key,
-            COALESCE(NULLIF(TRIM(COALESCE(g.phone, '')), ''), '__NO_PHONE__') AS phone_key
-          FROM guardians g
-          WHERE g.organization_id = $1
-          GROUP BY
-            LOWER(TRIM(g.first_name)),
-            LOWER(TRIM(COALESCE(g.last_name, ''))),
-            COALESCE(NULLIF(TRIM(COALESCE(g.phone, '')), ''), '__NO_PHONE__')
+        WITH profiles AS (
+          SELECT gp.guardian_id,
+                 TRIM(gp.first_name) AS first_name,
+                 TRIM(COALESCE(gp.last_name, '')) AS last_name,
+                 COALESCE(NULLIF(TRIM(COALESCE(ga.login_email, '')), ''), NULLIF(TRIM(COALESCE(gp.email, '')), '')) AS email,
+                 COALESCE(NULLIF(TRIM(COALESCE(ga.login_phone, '')), ''), NULLIF(TRIM(COALESCE(gp.phone, '')), '')) AS phone,
+                 NULLIF(TRIM(COALESCE(gp.address, '')), '') AS address,
+                 NULLIF(TRIM(COALESCE(gp.hometown, '')), '') AS hometown,
+                 NULLIF(TRIM(COALESCE(gp.image_url, '')), '') AS image_url,
+                 (SELECT COUNT(DISTINCT gs.student_id)::int FROM guardian_students gs WHERE gs.guardian_id = gp.guardian_id) AS student_count,
+                 (ga.guardian_id IS NOT NULL) AS has_portal_access,
+                 'profile'::text AS source,
+                 gp.guardian_id AS profile_id
+            FROM guardian_profiles gp
+            LEFT JOIN guardian_accounts ga ON ga.guardian_id = gp.guardian_id AND ga.organization_id = gp.organization_id
+           WHERE gp.organization_id = $1
         ),
-        legacy_with_access AS (
-          SELECT
-            lg.guardian_id,
-            lg.first_name,
-            lg.last_name,
-            (
-              SELECT gp.guardian_id
-              FROM guardian_profiles gp
-              LEFT JOIN guardian_accounts ga
-                ON ga.guardian_id = gp.guardian_id
-               AND ga.organization_id = gp.organization_id
-              WHERE gp.organization_id = $1
-                AND (
-                  (lg.email IS NOT NULL AND LOWER(TRIM(COALESCE(gp.email, ''))) = LOWER(TRIM(lg.email)))
-                  OR (
-                    LOWER(TRIM(gp.first_name)) = lg.first_name_key
-                    AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = lg.last_name_key
-                    AND COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = lg.phone_key
-                  )
-                )
-              ORDER BY ga.updated_at DESC NULLS LAST, gp.guardian_id DESC
-              LIMIT 1
-            ) AS matched_profile_guardian_id,
-            COALESCE(
-              (
-                SELECT NULLIF(TRIM(COALESCE(ga.login_email, '')), '')
-                FROM guardian_profiles gp
-                LEFT JOIN guardian_accounts ga
-                  ON ga.guardian_id = gp.guardian_id
-                 AND ga.organization_id = gp.organization_id
-                WHERE gp.organization_id = $1
-                  AND (
-                    (lg.email IS NOT NULL AND LOWER(TRIM(COALESCE(gp.email, ''))) = LOWER(TRIM(lg.email)))
-                    OR (
-                      LOWER(TRIM(gp.first_name)) = lg.first_name_key
-                      AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = lg.last_name_key
-                      AND COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = lg.phone_key
-                    )
-                  )
-                ORDER BY ga.updated_at DESC NULLS LAST
-                LIMIT 1
-              ),
-              lg.email
-            ) AS email,
-            COALESCE(
-              (
-                SELECT NULLIF(TRIM(COALESCE(ga.login_phone, '')), '')
-                FROM guardian_profiles gp
-                LEFT JOIN guardian_accounts ga
-                  ON ga.guardian_id = gp.guardian_id
-                 AND ga.organization_id = gp.organization_id
-                WHERE gp.organization_id = $1
-                  AND (
-                    (lg.email IS NOT NULL AND LOWER(TRIM(COALESCE(gp.email, ''))) = LOWER(TRIM(lg.email)))
-                    OR (
-                      LOWER(TRIM(gp.first_name)) = lg.first_name_key
-                      AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = lg.last_name_key
-                      AND COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = lg.phone_key
-                    )
-                  )
-                ORDER BY ga.updated_at DESC NULLS LAST
-                LIMIT 1
-              ),
-              lg.phone
-            ) AS phone,
-            lg.address,
-            lg.hometown,
-            lg.image_url,
-            lg.student_count,
-            EXISTS (
-              SELECT 1
-              FROM guardian_profiles gp
-              LEFT JOIN guardian_accounts ga
-                ON ga.guardian_id = gp.guardian_id
-               AND ga.organization_id = gp.organization_id
-              WHERE gp.organization_id = $1
-                AND (
-                  (lg.email IS NOT NULL AND LOWER(TRIM(COALESCE(gp.email, ''))) = LOWER(TRIM(lg.email)))
-                  OR (
-                    LOWER(TRIM(gp.first_name)) = lg.first_name_key
-                    AND LOWER(TRIM(COALESCE(gp.last_name, ''))) = lg.last_name_key
-                    AND COALESCE(NULLIF(TRIM(COALESCE(gp.phone, '')), ''), '__NO_PHONE__') = lg.phone_key
-                  )
-                )
-            ) AS has_portal_access,
-            'legacy'::text AS source
-          FROM legacy_guardians lg
-        ),
-        legacy_collapsed AS (
-          SELECT
-            MAX(lga.guardian_id) AS guardian_id,
-            MIN(lga.first_name) AS first_name,
-            MIN(lga.last_name) AS last_name,
-            MAX(lga.email) AS email,
-            MAX(lga.phone) AS phone,
-            MAX(lga.address) AS address,
-            MAX(lga.hometown) AS hometown,
-            MAX(lga.image_url) AS image_url,
-            SUM(lga.student_count)::int AS student_count,
-            BOOL_OR(lga.has_portal_access) AS has_portal_access,
-            MAX(lga.matched_profile_guardian_id) AS matched_profile_guardian_id,
-            'legacy'::text AS source
-          FROM legacy_with_access lga
-          GROUP BY
-            CASE
-              WHEN lga.matched_profile_guardian_id IS NOT NULL
-                THEN 'profile:' || lga.matched_profile_guardian_id::text
-              ELSE 'legacy:' || lga.guardian_id::text
-            END
-        ),
-        profile_guardians AS (
-          SELECT
-            gp.guardian_id,
-            TRIM(gp.first_name) AS first_name,
-            TRIM(COALESCE(gp.last_name, '')) AS last_name,
-            COALESCE(MAX(NULLIF(TRIM(COALESCE(ga.login_email, '')), '')), NULLIF(TRIM(COALESCE(gp.email, '')), '')) AS email,
-            COALESCE(MAX(NULLIF(TRIM(COALESCE(ga.login_phone, '')), '')), NULLIF(TRIM(COALESCE(gp.phone, '')), '')) AS phone,
-            NULLIF(TRIM(COALESCE(gp.address, '')), '') AS address,
-            NULLIF(TRIM(COALESCE(gp.hometown, '')), '') AS hometown,
-            NULLIF(TRIM(COALESCE(gp.image_url, '')), '') AS image_url,
-            COUNT(DISTINCT gs.student_id) AS student_count,
-            EXISTS (
-              SELECT 1
-              FROM guardian_accounts ga
-              WHERE ga.guardian_id = gp.guardian_id
-                AND ga.organization_id = gp.organization_id
-            ) AS has_portal_access,
-            'profile'::text AS source
-          FROM guardian_profiles gp
-          LEFT JOIN guardian_accounts ga
-            ON ga.guardian_id = gp.guardian_id
-           AND ga.organization_id = gp.organization_id
-          LEFT JOIN guardian_students gs ON gs.guardian_id = gp.guardian_id
-          WHERE gp.organization_id = $1
-          GROUP BY
-            gp.guardian_id,
-            gp.first_name,
-            gp.last_name,
-            gp.email,
-            gp.phone,
-            gp.address,
-            gp.hometown,
-            gp.image_url,
-            gp.organization_id
+        legacy_only AS (
+          SELECT MAX(g.guardian_id) AS guardian_id,
+                 MIN(TRIM(g.first_name)) AS first_name,
+                 MIN(TRIM(COALESCE(g.last_name, ''))) AS last_name,
+                 MAX(NULLIF(TRIM(COALESCE(g.email, '')), '')) AS email,
+                 MAX(NULLIF(TRIM(COALESCE(g.phone, '')), '')) AS phone,
+                 MAX(NULLIF(TRIM(COALESCE(g.address, '')), '')) AS address,
+                 MAX(NULLIF(TRIM(COALESCE(g.hometown, '')), '')) AS hometown,
+                 MAX(NULLIF(TRIM(COALESCE(g.image_url, '')), '')) AS image_url,
+                 COUNT(DISTINCT g.student_id)::int AS student_count,
+                 FALSE AS has_portal_access,
+                 'legacy'::text AS source,
+                 NULL::int AS profile_id
+            FROM guardians g
+           WHERE g.organization_id = $1
+             AND NOT EXISTS (
+               SELECT 1 FROM guardian_students gs
+                 JOIN guardian_profiles gp ON gp.guardian_id = gs.guardian_id AND gp.organization_id = $1
+                WHERE gs.student_id = g.student_id
+                  AND LOWER(REGEXP_REPLACE(TRIM(gp.first_name), '\\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(g.first_name), '\\s+', ' ', 'g'))
+                  AND LOWER(REGEXP_REPLACE(TRIM(COALESCE(gp.last_name, '')), '\\s+', ' ', 'g')) = LOWER(REGEXP_REPLACE(TRIM(COALESCE(g.last_name, '')), '\\s+', ' ', 'g')))
+             AND NOT EXISTS (
+               SELECT 1 FROM guardian_profiles gp
+                WHERE gp.organization_id = $1 AND NULLIF(TRIM(COALESCE(g.email, '')), '') IS NOT NULL
+                  AND LOWER(TRIM(gp.email)) = LOWER(TRIM(g.email)))
+           GROUP BY LOWER(TRIM(g.first_name)), LOWER(TRIM(COALESCE(g.last_name, ''))), COALESCE(NULLIF(TRIM(COALESCE(g.phone, '')), ''), '__NO_PHONE__')
         )
-        SELECT
-          lga.guardian_id,
-          lga.first_name,
-          lga.last_name,
-          lga.email,
-          lga.phone,
-          lga.address,
-          lga.hometown,
-          lga.image_url,
-          CASE
-            WHEN lga.matched_profile_guardian_id IS NOT NULL THEN (
-              SELECT COUNT(DISTINCT linked.student_id)::int
-              FROM (
-                SELECT g.student_id
-                FROM guardians g
-                WHERE g.organization_id = $1
-                  AND (
-                    g.guardian_id = lga.guardian_id
-                    OR (
-                      LOWER(TRIM(COALESCE(g.first_name, ''))) = LOWER(TRIM(COALESCE(lga.first_name, '')))
-                      AND LOWER(TRIM(COALESCE(g.last_name, ''))) = LOWER(TRIM(COALESCE(lga.last_name, '')))
-                      AND (
-                        COALESCE(NULLIF(TRIM(COALESCE(g.phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE(lga.phone, '')), ''), '__NO_PHONE__')
-                        OR (
-                          lga.email IS NOT NULL
-                          AND LOWER(TRIM(COALESCE(g.email, ''))) = LOWER(TRIM(lga.email))
-                        )
-                      )
-                    )
-                  )
-                UNION
-                SELECT gs.student_id
-                FROM guardian_students gs
-                WHERE gs.guardian_id = lga.matched_profile_guardian_id
-              ) linked
-            )
-            ELSE lga.student_count
-          END AS student_count,
-          lga.has_portal_access,
-          lga.source
-        FROM legacy_collapsed lga
+        SELECT * FROM profiles
         UNION ALL
-        SELECT
-          pg.guardian_id,
-          pg.first_name,
-          pg.last_name,
-          pg.email,
-          pg.phone,
-          pg.address,
-          pg.hometown,
-          pg.image_url,
-          pg.student_count,
-          pg.has_portal_access,
-          pg.source
-        FROM profile_guardians pg
-        WHERE NOT EXISTS (
-          SELECT 1
-          FROM legacy_collapsed lga
-          WHERE (
-            lga.matched_profile_guardian_id = pg.guardian_id
-          )
-          OR (
-            pg.email IS NOT NULL
-            AND lga.email IS NOT NULL
-            AND LOWER(TRIM(pg.email)) = LOWER(TRIM(lga.email))
-          )
-          OR (
-            LOWER(TRIM(pg.first_name)) = LOWER(TRIM(lga.first_name))
-            AND LOWER(TRIM(COALESCE(pg.last_name, ''))) = LOWER(TRIM(COALESCE(lga.last_name, '')))
-            AND COALESCE(NULLIF(TRIM(COALESCE(pg.phone, '')), ''), '__NO_PHONE__') = COALESCE(NULLIF(TRIM(COALESCE(lga.phone, '')), ''), '__NO_PHONE__')
-          )
-        )
+        SELECT * FROM legacy_only
         ORDER BY first_name ASC, last_name ASC, guardian_id DESC
         `,
         [organizationId]
       );
 
-            return res.render("common/guardians", {
-        title: "Guardian Management",
+      // For the side panel and filters: each parent's children, login and last sign-in.
+      const guardians = guardiansResult.rows;
+      const profileIds = [...new Set(guardians.map((g) => Number(g.profile_id)).filter(Boolean))];
+      const legacyIds = guardians.filter((g) => !g.profile_id).map((g) => Number(g.guardian_id));
+      const [childRows, legacyChildRows, accountRows, loginRows] = await Promise.all([
+        profileIds.length ? db.query(
+          `SELECT gs.guardian_id, gs.relationship, s.student_id, s.first_name, s.last_name, c.class_name, COALESCE(s.graduated, FALSE) AS archived
+             FROM guardian_students gs JOIN students s ON s.student_id = gs.student_id AND s.organization_id = $2
+             LEFT JOIN classes c ON c.class_id = s.class_id
+            WHERE gs.guardian_id = ANY($1::int[])
+            ORDER BY s.first_name, s.last_name`, [profileIds, organizationId]).then((r) => r.rows) : [],
+        legacyIds.length ? db.query(
+          `SELECT g.guardian_id, NULL AS relationship, s.student_id, s.first_name, s.last_name, c.class_name, COALESCE(s.graduated, FALSE) AS archived
+             FROM guardians g JOIN students s ON s.student_id = g.student_id AND s.organization_id = $2
+             LEFT JOIN classes c ON c.class_id = s.class_id
+            WHERE g.guardian_id = ANY($1::int[])`, [legacyIds, organizationId]).then((r) => r.rows) : [],
+        profileIds.length ? db.query(
+          `SELECT guardian_id, login_email, login_phone, must_reset_password, created_at
+             FROM guardian_accounts WHERE organization_id = $2 AND guardian_id = ANY($1::int[])`, [profileIds, organizationId]).then((r) => r.rows) : [],
+        profileIds.length ? db.query(
+          `SELECT user_id, MAX(created_at) AS last_login FROM organization_activity_logs
+            WHERE organization_id = $2 AND action_type = 'Login' AND user_role = 'Guardian' AND user_id = ANY($1::int[])
+            GROUP BY user_id`, [profileIds, organizationId]).then((r) => r.rows).catch(() => []) : [],
+      ]);
+      const childrenByProfile = new Map();
+      childRows.forEach((row) => {
+        if (!childrenByProfile.has(row.guardian_id)) childrenByProfile.set(row.guardian_id, []);
+        childrenByProfile.get(row.guardian_id).push(row);
+      });
+      const childrenByLegacy = new Map();
+      legacyChildRows.forEach((row) => {
+        if (!childrenByLegacy.has(row.guardian_id)) childrenByLegacy.set(row.guardian_id, []);
+        childrenByLegacy.get(row.guardian_id).push(row);
+      });
+      const accountByProfile = new Map(accountRows.map((row) => [row.guardian_id, row]));
+      const lastLoginByProfile = new Map(loginRows.map((row) => [Number(row.user_id), row.last_login]));
+      guardians.forEach((guardian) => {
+        const pid = Number(guardian.profile_id) || null;
+        const account = pid ? accountByProfile.get(pid) : null;
+        const children = (pid ? childrenByProfile.get(pid) : childrenByLegacy.get(Number(guardian.guardian_id))) || [];
+        guardian.children = children.map((child) => ({
+          id: child.student_id,
+          name: [child.first_name, child.last_name].filter(Boolean).join(" "),
+          className: child.class_name || "",
+          relationship: child.relationship || "",
+          archived: child.archived,
+        }));
+        guardian.login_email = account?.login_email || null;
+        guardian.login_phone = account?.login_phone || null;
+        guardian.last_login = pid ? lastLoginByProfile.get(pid) || null : null;
+        guardian.portal_status = !account
+          ? "No login"
+          : account.must_reset_password && !guardian.last_login ? "Setup pending" : "Active";
+        guardian.login_added = account?.created_at || null;
+      });
+
+      return res.render("common/guardians", {
+        title: "Parents & guardians",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
-        guardians: guardiansResult.rows,
+        guardians,
         messages: req.flash(),
         req,
       });

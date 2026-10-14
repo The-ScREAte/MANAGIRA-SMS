@@ -1,5 +1,9 @@
 <%
-  const _groups = Array.isArray(typeof gradYearGroups !== 'undefined' ? gradYearGroups : null) ? gradYearGroups : [];
+  const _gradGroups = Array.isArray(typeof gradYearGroups !== 'undefined' ? gradYearGroups : null) ? gradYearGroups : [];
+  const _otherGroups = Array.isArray(locals.otherGroups) ? otherGroups : [];
+  const _groups = _gradGroups.concat(_otherGroups);
+  const _reasons = Array.isArray(locals.leaveReasons) ? leaveReasons : [];
+  const _holdDays = locals.billingHoldDays || 30;
   const _embedded = typeof isEmbedded !== 'undefined' && isEmbedded;
   const _embedQs = _embedded ? '?embed=workspace' : '';
   const _totalArchived = typeof totalArchived !== 'undefined' ? totalArchived : 0;
@@ -12,24 +16,16 @@
   <header class="gp-head">
     <div>
       <h1 class="gp-title">Graduate / Archive</h1>
-      <p class="gp-sub">Graduate a class when they finish. Their records are kept safe, and they are no longer counted as active students or billed.</p>
+      <p class="gp-sub">Select students who graduated or left the school. Their records are kept.</p>
     </div>
     <a class="gp-btn gp-btn--ghost" href="/common/archivedStudents<%= _embedQs %>">
-      <i class="fa-solid fa-box-archive" aria-hidden="true"></i> Archived students <span class="gp-pill"><%= _totalArchived %></span>
+      <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i> Graduates &amp; former students <span class="gp-pill"><%= _totalArchived %></span>
     </a>
   </header>
 
   <%- include('../partials/flash') %>
 
-  <div class="gp-stats">
-    <div class="gp-stat"><span class="gp-stat__value"><%= _groups.length %></span><span class="gp-stat__label">Graduation groups</span></div>
-    <div class="gp-stat"><span class="gp-stat__value"><%= _activeInGroups %></span><span class="gp-stat__label">Active students in groups</span></div>
-    <div class="gp-stat"><span class="gp-stat__value"><%= _totalArchived %></span><span class="gp-stat__label">Graduated &amp; archived</span></div>
-  </div>
 
-  <ul class="gp-facts">
-    <li class="gp-fact"><i class="fa-solid fa-lock" aria-hidden="true"></i><div><strong>Records are preserved</strong><span>Grades, reports and history stay intact and read-only.</span></div></li>
-  </ul>
 
   <% if (!_groups.length) { %>
     <div class="gp-empty">
@@ -48,7 +44,6 @@
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
           <input type="search" placeholder="Search students by name or ID" data-gp-search aria-label="Search students" />
         </label>
-        <span class="gp-toolbar__hint">Tick the students who are graduating, then choose Archive.</span>
       </div>
 
       <div class="gp-groups">
@@ -56,14 +51,14 @@
           <details class="gp-group"<%= gi === 0 && group.activeCount ? ' open' : '' %>>
             <summary>
               <i class="fa-solid fa-chevron-right gp-group__chev" aria-hidden="true"></i>
-              <span class="gp-group__name"><%= group.name %></span>
+              <span class="gp-group__name"><%= group.name %><% if (group.isClass) { %> <span class="gp-group__hint">· no graduation group</span><% } %></span>
               <span class="gp-group__meta">
                 <span class="gp-tag gp-tag--active"><%= group.activeCount %> active</span>
-                <% if (group.archivedCount) { %><span class="gp-tag gp-tag--archived"><%= group.archivedCount %> archived</span><% } %>
+                <% if (group.archivedCount) { %><span class="gp-tag gp-tag--archived"><%= group.archivedCount %> graduated or left</span><% } %>
               </span>
             </summary>
             <% if (!group.students.length) { %>
-              <div class="gp-group__empty">No students are assigned to this group yet.</div>
+              <div class="gp-group__empty"><%= group.archivedCount ? 'Everyone in this group has graduated or left. See Graduates & former students.' : 'No students are assigned to this group yet.' %></div>
             <% } else { %>
               <table class="gp-table">
                 <thead>
@@ -71,7 +66,6 @@
                     <th class="gp-col-check"><input type="checkbox" class="gp-pick-all" aria-label="Select all active students in <%= group.name %>" /></th>
                     <th>Student</th>
                     <th class="gp-col-class">Class</th>
-                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -85,7 +79,6 @@
                         </span>
                       </td>
                       <td class="gp-col-class"><%= s.class_name || '—' %></td>
-                      <td><span class="gp-status<%= s.is_archived ? ' gp-status--archived' : '' %>"><%= s.is_archived ? 'Archived' : 'Active' %></span></td>
                     </tr>
                   <% }) %>
                 </tbody>
@@ -99,26 +92,98 @@
       <div class="gp-actionbar" data-gp-actionbar aria-live="polite">
         <strong data-gp-count>0 students selected</strong>
         <button type="button" class="gp-btn gp-btn--link" data-gp-clear>Clear</button>
-        <button type="button" class="gp-btn gp-btn--primary" data-gp-open><i class="fa-solid fa-box-archive" aria-hidden="true"></i> Graduate &amp; archive</button>
+        <button type="button" class="gp-btn gp-btn--primary" data-gp-open><i class="fa-solid fa-box-archive" aria-hidden="true"></i> Archive</button>
       </div>
 
-      <dialog class="gp-dialog" data-gp-dialog>
+      <dialog class="gp-dialog gp-dialog--archive" data-gp-dialog>
         <div class="gp-dialog__body">
-          <h2 class="gp-dialog__title" data-gp-dialog-title data-template="Graduate and archive {n} student{s}?">Graduate and archive students?</h2>
-          <p class="gp-dialog__text">They will move to Archived students:</p>
-          <ul>
-            <li>Their records are kept and can't be edited.</li>
-            <li>They are no longer billed or counted as active students.</li>
-            <li>You can restore them later from Archived students.</li>
-          </ul>
+          <h2 class="gp-dialog__title" data-gp-dialog-title data-template="Archive {n} student{s}">Archive students</h2>
+
+          <fieldset class="ga-kinds">
+            <legend>Why are they leaving the active register?</legend>
+            <label class="ga-kind"><input type="radio" name="kind" value="graduated" required /> <span><strong>Graduated</strong><small>They finished at the school.</small></span></label>
+            <label class="ga-kind"><input type="radio" name="kind" value="left" required /> <span><strong>Left the school</strong><small>They left before graduating.</small></span></label>
+          </fieldset>
+
+          <div class="ga-reason" data-ga-reason hidden>
+            <label class="ga-field">Reason for leaving
+              <select name="reason" data-ga-reason-select>
+                <option value="">Choose a reason</option>
+                <% _reasons.forEach((r) => { %><option><%= r %></option><% }) %>
+                <option value="Other">Other (type the reason)</option>
+              </select>
+            </label>
+            <label class="ga-field" data-ga-other hidden>Type the reason
+              <input type="text" name="reason_other" maxlength="200" placeholder="e.g. Joined a boarding school abroad" />
+            </label>
+          </div>
+          <label class="ga-field">Note <span class="ga-optional">(optional)</span>
+            <textarea name="reason_note" rows="2" maxlength="500" placeholder="Anything the school should remember"></textarea>
+          </label>
+
+          <div class="ga-terms">
+            <p><strong>Before you continue</strong></p>
+            <ul>
+              <li>They leave classes, attendance, fees and the bus list. Grades and history are kept.</li>
+              <li>You can undo this within 24 hours. After that, a student who left can be restored after <%= _holdDays %> days.</li>
+              <li>Graduates become a permanent record after two terms.</li>
+              <li>Billing still includes them for the next <%= _holdDays %> days.</li>
+            </ul>
+            <label class="ga-agree"><input type="checkbox" name="agree" value="1" required /> I confirm and understand.</label>
+          </div>
         </div>
         <div class="gp-dialog__actions">
           <button type="button" class="gp-btn gp-btn--ghost" data-gp-cancel>Cancel</button>
-          <button type="button" class="gp-btn gp-btn--primary" data-gp-confirm>Graduate &amp; archive</button>
+          <button type="button" class="gp-btn gp-btn--primary" data-gp-confirm>Archive students</button>
         </div>
       </dialog>
+      <script>
+        (function () {
+          var dialog = document.querySelector('.gp-dialog--archive');
+          if (!dialog) return;
+          var reasonBox = dialog.querySelector('[data-ga-reason]');
+          var select = dialog.querySelector('[data-ga-reason-select]');
+          var other = dialog.querySelector('[data-ga-other]');
+          var otherInput = other.querySelector('input');
+          var confirmBtn = dialog.querySelector('[data-gp-confirm]');
+          function sync() {
+            var kind = (dialog.querySelector('input[name="kind"]:checked') || {}).value;
+            var left = kind === 'left';
+            reasonBox.hidden = !left;
+            select.required = left;
+            var isOther = left && select.value === 'Other';
+            other.hidden = !isOther;
+            otherInput.required = isOther;
+            confirmBtn.textContent = kind === 'graduated' ? 'Graduate and archive' : kind === 'left' ? 'Archive as left school' : 'Archive students';
+          }
+          dialog.addEventListener('change', sync);
+          sync();
+        })();
+      </script>
     </form>
   <% } %>
 </div>
 
+<style>
+  .gp-dialog--archive { width: min(560px, calc(100vw - 32px)); }
+  .gp-group__hint { font-weight: 500; opacity: .65; font-size: .85em; }
+  .ga-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 6px 0 14px; padding: 0; border: 0; }
+  .ga-kinds legend { grid-column: 1 / -1; margin-bottom: 8px; padding: 0; background: transparent; font-weight: 700; }
+  .ga-kind { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); border-radius: 10px; cursor: pointer; }
+  .ga-kind:has(input:checked) { border-color: var(--org-primary-color, #01535b); box-shadow: 0 0 0 1px var(--org-primary-color, #01535b) inset; }
+  .ga-kind input { margin: 3px 0 0; }
+  .ga-kind strong, .ga-kind small { display: block; }
+  .ga-kind small { opacity: .7; margin-top: 2px; }
+  .ga-reason[hidden], .ga-field[hidden] { display: none; }
+  .ga-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; font-weight: 600; font-size: .92rem; }
+  .ga-field select, .ga-field input, .ga-field textarea { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid color-mix(in srgb, currentColor 22%, transparent); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-weight: 400; }
+  .ga-optional { font-weight: 400; opacity: .6; }
+  .ga-terms { margin-top: 4px; padding: 12px 14px; border-radius: 10px; background: color-mix(in srgb, #f59e0b 10%, transparent); border: 1px solid color-mix(in srgb, #d97706 35%, transparent); font-size: .9rem; }
+  .ga-terms p { margin: 0 0 6px; }
+  .ga-terms ul { margin: 0 0 10px; padding-left: 18px; }
+  .ga-terms li { margin-bottom: 4px; }
+  .ga-agree { display: flex; gap: 8px; align-items: flex-start; font-weight: 600; }
+  .ga-agree input { margin: 3px 0 0; flex: 0 0 auto; }
+  @media (max-width: 520px) { .ga-kinds { grid-template-columns: 1fr; } }
+</style>
 <script src="<%= assetUrl('/js/graduationPages.js') %>"></script>

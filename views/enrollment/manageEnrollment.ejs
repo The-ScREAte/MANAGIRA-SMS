@@ -237,6 +237,16 @@
         .en-modal-overlay { padding: 0; }
         .en-modal { border-radius: 0; }
       }
+      /* A clear line between terms, in light and dark mode alike. */
+      @media (min-width: 901px) {
+        body .ws-enroll table.ws-cards tbody tr > td { border-bottom: 1px solid color-mix(in srgb, currentColor 18%, transparent) !important; }
+        body .ws-enroll table.ws-cards tbody tr:last-child > td { border-bottom: 0 !important; }
+        body .ws-enroll table.ws-cards thead th { border-bottom: 1px solid color-mix(in srgb, currentColor 28%, transparent) !important; }
+        body .ws-enroll table.ws-cards tbody tr:hover > td { background: color-mix(in srgb, currentColor 4%, transparent); }
+      }
+      @media (max-width: 900px) {
+        body .ws-enroll table.ws-cards tbody tr { border: 1px solid color-mix(in srgb, currentColor 18%, transparent) !important; }
+      }
     </style>
     <style>
       table {

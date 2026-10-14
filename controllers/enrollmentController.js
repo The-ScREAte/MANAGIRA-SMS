@@ -277,7 +277,7 @@ const enrollmentController = {
                 FROM students
                 WHERE class_id = $1 AND organization_id = $2 AND graduated = FALSE
                 ORDER BY last_name, first_name
-            `, [classId]);
+            `, [Number.parseInt(classId, 10) || null, organizationId]);
     
             res.json({ students: studentsResult.rows });
         } catch (error) {
@@ -300,7 +300,7 @@ const enrollmentController = {
             JOIN school_years sy ON e.school_year_id = sy.id
             JOIN terms t ON e.term_id = t.term_id
             WHERE e.organization_id = $1
-            ORDER BY sy.current DESC, sy.year_label, t.term_name
+            ORDER BY (sy.current AND t.current) DESC, t.start_date DESC NULLS LAST, t.term_id DESC
           `, [organizationId]);
       
           const enrollments = enrollmentsResult.rows;

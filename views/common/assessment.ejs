@@ -1010,6 +1010,20 @@ body {
   flex: none;
 }
 
+.assessment-unlock-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 4px;
+  vertical-align: middle;
+  border-radius: 6px;
+  border: 1px solid var(--primary-color, #01535b);
+  color: var(--primary-color, #01535b);
+  background: transparent;
+}
+.assessment-unlock-link:hover { background: color-mix(in srgb, var(--primary-color, #01535b) 12%, transparent); }
 .assessment-status .status-reason {
   font-weight: 600;
   opacity: 0.85;
@@ -1629,6 +1643,12 @@ input[type="number"].score-input-invalid {
                     Closed<% if (_closedReason !== 'Closed') { %><span class="status-reason">· <%= _closedReason %></span><% } %>
                     <% } %>
                   </small>
+                  <% if (!assessment.can_edit_scores && _closedReason === 'Locked' && locals.canUnlockAssessments && assessment.group_id) { %>
+                  <a class="assessment-unlock-link" href="<%= unlockAssessmentUrl(assessment.group_id) %>" target="_top"
+                     title="Open &ldquo;<%= assessment.title %>&rdquo; in Assessments to unlock it" aria-label="Unlock <%= assessment.title %> in Assessments">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  </a>
+                  <% } %>
                   <hr />
                   Score Out Of: <%= assessment.max_score %>
                 </th>

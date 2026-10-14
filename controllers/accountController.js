@@ -81,9 +81,10 @@ function parseDateInput(value) {
   return parsed;
 }
 
-// Plans and invoices are priced per active student (see utils/activeStudents.js).
+// Plans and invoices are priced per billable student: active students, plus
+// any archived within the billing hold (utils/studentArchive.js).
 async function getOrganizationStudentCount(dbClient, organizationId) {
-  return countActiveStudents(dbClient, organizationId);
+  return require("../utils/studentArchive").countBillableStudents(dbClient, organizationId);
 }
 
 async function getActivePlanBillingPeriods(dbClient) {
@@ -1290,9 +1291,19 @@ async function saveStoredCardMethod(dbClient, orgId, card, options = {}) {
   }
 }
 
-async function ensureProfileImageColumns(db) {
-  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT 'profilePlaceholder.png'`);
-  await db.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT 'profilePlaceholder.png'`);
+// Once per process: ALTER TABLE takes a table lock, so it must not run per request.
+let profileImageColumnsReady = null;
+function ensureProfileImageColumns(db) {
+  if (!profileImageColumnsReady) {
+    profileImageColumnsReady = (async () => {
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT 'profilePlaceholder.png'`);
+      await db.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS image_url TEXT DEFAULT 'profilePlaceholder.png'`);
+    })().catch((err) => {
+      profileImageColumnsReady = null;
+      throw err;
+    });
+  }
+  return profileImageColumnsReady;
 }
 
 async function sendBrandedReceiptEmail({
