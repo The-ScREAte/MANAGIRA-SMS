@@ -1232,7 +1232,8 @@
 </html>
 
 <% const _assessLib = Array.isArray(locals.assessmentLibrary) ? assessmentLibrary : []; %>
-<datalist id="assessment-library"><% _assessLib.forEach((a) => { %><option value="<%= a.title %>"></option><% }) %></datalist>
+<%# This term's assessments show straight away; earlier ones appear when typed. %>
+<datalist id="assessment-library"><% _assessLib.forEach((a) => { %><option value="<%= a.title %>"<%= a.this_term ? ' data-recent' : '' %>></option><% }) %></datalist>
 <script type="application/json" id="assessmentLibraryData"><%- JSON.stringify(_assessLib).replace(/</g, '\\u003c') %></script>
 <script src="/js/libraryPicker.js" defer></script>
 <script>

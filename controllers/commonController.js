@@ -15822,12 +15822,13 @@ NUMBERING:
       // be reused instead of typed again (weight, score out of, scale, category).
       const assessmentLibrary = await db.query(
         `SELECT DISTINCT ON (LOWER(TRIM(title))) TRIM(title) AS title, weight, max_score,
-                COALESCE(scale_base, 100) AS scale_base, category
+                COALESCE(scale_base, 100) AS scale_base, category,
+                BOOL_OR(term_id = $2) OVER (PARTITION BY LOWER(TRIM(title))) AS this_term
            FROM assessments
           WHERE organization_id = $1 AND TRIM(COALESCE(title, '')) <> ''
           ORDER BY LOWER(TRIM(title)), assessment_id DESC`,
-        [organizationId]
-      ).then((r) => r.rows).catch(() => []);
+        [organizationId, Number.parseInt(termId, 10) || null]
+      ).then((r) => r.rows.sort((x, y) => Number(y.this_term) - Number(x.this_term))).catch(() => []);
 
       // Render the createTest view with enrolled classes only
       res.render("common/createTest", {

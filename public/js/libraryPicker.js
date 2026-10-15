@@ -24,6 +24,7 @@
     '.lib-pick__item.is-active,.lib-pick__item:hover{background:color-mix(in srgb,var(--org-primary-color,#01535b) 12%,transparent)}',
     '.lib-pick__item.is-exact::after{content:"\\2713";margin-left:auto;color:var(--org-primary-color,#01535b);font-weight:700}',
     '.lib-pick__new{padding:8px 10px;font-size:13px;color:var(--ap-muted,#64748b)}',
+    '.lib-pick__note{margin-left:6px;font-size:11px;color:var(--ap-muted,#64748b)}',
     '.lib-pick__item.is-suggested{color:var(--org-primary-color,#01535b)}',
     '.lib-ask{position:fixed;inset:0;z-index:100001;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.45)}',
     '.lib-ask__card{width:min(440px,100%);box-sizing:border-box;padding:22px;border-radius:14px;background:var(--ap-surface,#fff);color:var(--ap-text,#0f172a);box-shadow:0 20px 50px rgba(15,23,42,.3);font:inherit}',
@@ -49,6 +50,15 @@
     var list = document.getElementById(input.dataset.libraryList);
     if (!list) return [];
     return Array.prototype.map.call(list.options, function (o) { return o.value; }).filter(Boolean);
+  }
+  // Options marked data-recent (e.g. this term's assessments) are what an
+  // empty field shows; the rest appear once something matching is typed.
+  function recentFor(input) {
+    var list = document.getElementById(input.dataset.libraryList);
+    if (!list) return null;
+    var marked = Array.prototype.filter.call(list.options, function (o) { return o.hasAttribute('data-recent'); });
+    if (!list.querySelector('option[data-recent]') && !list.hasAttribute('data-recent-only')) return null;
+    return marked.map(function (o) { return o.value; });
   }
 
   // Takes over a field: no browser popup, our list instead.
@@ -158,22 +168,25 @@
     var typed = field.value.trim();
     var low = typed.toLowerCase();
     var all = optionsFor(field);
+    var recent = recentFor(field);
     var starts = [], contains = [];
-    all.forEach(function (name) {
+    (low ? all : (recent || all)).forEach(function (name) {
       var n = name.toLowerCase();
       if (!low || n.indexOf(low) === 0) starts.push(name);
       else if (n.indexOf(low) > 0) contains.push(name);
     });
+    var recentSet = recent ? new Set(recent.map(function (n) { return n.toLowerCase(); })) : null;
     items = starts.concat(contains).slice(0, MAX_ITEMS);
     var exact = all.some(function (name) { return name.toLowerCase() === low; });
     var near = typed && !exact ? nearMatch(typed, all, kind) : null;
     if (near) items = [near].concat(items.filter(function (n) { return n !== near; })).slice(0, MAX_ITEMS);
     var html = '';
     if (items.length) {
-      html += '<li class="lib-pick__head" aria-hidden="true">Existing ' + kind + 's</li>';
+      html += '<li class="lib-pick__head" aria-hidden="true">' + (recent && !low ? 'This term' : 'Existing ' + kind + 's') + '</li>';
       items.forEach(function (name, i) {
         var classes = 'lib-pick__item' + (i === active ? ' is-active' : '') + (name.toLowerCase() === low ? ' is-exact' : '') + (name === near ? ' is-suggested' : '');
         var label = name === near ? 'Did you mean <strong>' + escapeHtml(name) + '</strong>?' : highlight(name, typed);
+        if (recentSet && !recentSet.has(name.toLowerCase())) label += ' <span class="lib-pick__note">Used before</span>';
         html += '<li class="' + classes + '" role="option" data-index="' + i + '" aria-selected="' + (i === active) + '"><span class="lib-pick__label">' + label + '</span></li>';
       });
     }
