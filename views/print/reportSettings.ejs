@@ -2650,6 +2650,62 @@
     </div>
 
     <div class="grid">
+      <div class="card" id="reportLayoutCard">
+        <h2>Report Card Layout</h2>
+        <div class="notice">Each class prints the standard report card unless you choose one of your own layouts. Build a layout in <a href="/documents" target="_blank" rel="noopener">Docs &amp; Sheets</a> with fields like {{student.name}} and {{subject.grade}}, then turn on <strong>Use as a report card</strong> in its Settings.</div>
+        <% const _rtList = (typeof reportTemplates !== 'undefined' && reportTemplates) || []; const _rtMap = (typeof reportTemplateMap !== 'undefined' && reportTemplateMap) || {}; %>
+        <% if (!_rtList.length) { %>
+          <p class="rl-empty">No layouts yet. Open a Sheet or Doc, click <strong>Fields</strong> to start from a sample report card, then turn on <strong>Use as a report card</strong> in Settings.</p>
+        <% } else { %>
+          <div class="rl-list">
+            <% (enrolledClasses || []).forEach((cls) => { %>
+              <label class="rl-row">
+                <span><%= cls.class_name %></span>
+                <select data-rl-class="<%= cls.class_id %>">
+                  <option value="">Standard report card</option>
+                  <% _rtList.forEach((t) => { %><option value="<%= t.id %>"<%= Number(_rtMap[cls.class_id]) === Number(t.id) ? ' selected' : '' %>><%= t.title %> (<%= t.doc_type === 'spreadsheet' ? 'Sheet' : 'Doc' %>)</option><% }) %>
+                </select>
+              </label>
+            <% }) %>
+          </div>
+          <div class="rl-actions">
+            <button type="button" class="rl-save" id="rlSave">Save layouts</button>
+            <span id="rlNote" class="rl-note"></span>
+          </div>
+        <% } %>
+      </div>
+      <style>
+        .rl-empty { margin: 8px 0 0; color: #64748b; }
+        .rl-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; margin-top: 12px; }
+        .rl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 10px; font-weight: 600; }
+        .rl-row select { max-width: 60%; height: 34px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-weight: 500; font-size: .88rem; }
+        .rl-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+        #reportLayoutCard .rl-save { width: auto; margin: 0; padding: 9px 18px; border: 0; border-radius: 8px; background: var(--primary, #0f5a66); color: #fff; font-weight: 700; cursor: pointer; }
+        .rl-note { color: #64748b; font-size: .88rem; }
+      </style>
+      <script>
+        (function () {
+          var save = document.getElementById('rlSave');
+          if (!save) return;
+          // Only classes changed here are saved, so an old open tab can't undo changes made elsewhere.
+          var changed = {};
+          document.querySelectorAll('[data-rl-class]').forEach(function (sel) {
+            var loaded = sel.value;
+            sel.addEventListener('change', function () { changed[sel.getAttribute('data-rl-class')] = { from: loaded, to: sel.value }; document.getElementById('rlNote').textContent = 'Unsaved changes'; });
+          });
+          save.addEventListener('click', function () {
+            var assignments = changed;
+            if (!Object.keys(assignments).length) { document.getElementById('rlNote').textContent = 'Nothing changed'; return; }
+            save.disabled = true;
+            fetch('/print/saveReportTemplates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ assignments: assignments }) })
+              .then(function (r) { return r.json(); })
+              .then(function (d) { if (d.success) changed = {}; document.getElementById('rlNote').textContent = d.success ? 'Saved' : (d.message || 'Could not save'); })
+              .catch(function () { document.getElementById('rlNote').textContent = 'Could not save. Check your connection.'; })
+              .then(function () { save.disabled = false; });
+          });
+        })();
+      </script>
+
       <div class="card">
         <h2>Global Remarks</h2>
         <div class="notice">These remarks are global and can be reused for any class or term.</div>

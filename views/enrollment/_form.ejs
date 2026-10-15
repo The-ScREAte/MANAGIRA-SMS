@@ -1,0 +1,493 @@
+<%
+  // Shared Add / Edit enrollment form. Locals: mode ('add' | 'edit'), termYears,
+  // selectedTermId, classes [{ class_id, class_name, selected, students: [...] }],
+  // enrollmentId, isEmbedded.
+  const _edit = mode === 'edit';
+  const _years = Array.isArray(termYears) ? termYears : [];
+  const _classes = Array.isArray(classes) ? classes : [];
+  const _embedded = typeof isEmbedded !== 'undefined' && isEmbedded;
+  let _term = null, _year = null;
+  _years.forEach((y) => y.terms.forEach((t) => { if (t.term_id === selectedTermId) { _term = t; _year = y; } }));
+  const _initials = (s) => (((s.first_name || '').charAt(0) + (s.last_name || '').charAt(0)).toUpperCase() || '?');
+%>
+<div class="ef<%= _embedded ? ' ef--embedded' : '' %>" id="ef" data-mode="<%= mode %>" data-enrollment="<%= enrollmentId || '' %>" data-embedded="<%= _embedded ? '1' : '' %>">
+  <% if (!_embedded) { %>
+    <header class="ef-head">
+      <a class="ef-back" href="/enrollment/manageEnrollment"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Enrollment</a>
+      <h1><%= _edit ? 'Edit enrollment' : 'Enroll students' %></h1>
+    </header>
+  <% } %>
+
+  <%- include('../partials/flash') %>
+
+  <section class="ef-step">
+    <div class="ef-step__label"><span class="ef-num">1</span> Term</div>
+    <% if (_edit && _term) { %>
+      <div class="ef-term-fixed">
+        <strong><%= _term.term_name %></strong><span><%= _year.year_label %></span>
+        <% if (_term.current && _year.current) { %><em class="ef-badge">Current</em><% } %>
+      </div>
+      <input type="hidden" id="efTerm" value="<%= _term.term_id %>" data-year="<%= _year.school_year_id %>" />
+    <% } else { %>
+      <div class="ef-select">
+        <select id="efTerm" aria-label="Term">
+          <% _years.forEach((y) => { %>
+            <optgroup label="<%= y.year_label %><%= y.current ? ' · current year' : '' %>">
+              <% y.terms.forEach((t) => { %>
+                <option value="<%= t.term_id %>" data-year="<%= y.school_year_id %>" data-enrollment="<%= t.enrollment_id || '' %>"<%= t.term_id === selectedTermId ? ' selected' : '' %>><%= t.term_name %> · <%= y.year_label %><%= (t.current && y.current) ? ' (current)' : '' %></option>
+              <% }) %>
+            </optgroup>
+          <% }) %>
+        </select>
+        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+      </div>
+      <p class="ef-note" id="efTermNote" hidden>This term already has an enrollment. <a href="#" id="efOpenExisting">Edit it instead</a> to see who is in it.</p>
+    <% } %>
+  </section>
+
+  <section class="ef-step">
+    <div class="ef-step__label"><span class="ef-num">2</span> Classes</div>
+    <div class="ef-ms" id="efMs">
+      <button type="button" class="ef-ms__btn" id="efMsBtn" aria-haspopup="true" aria-expanded="false">
+        <span id="efMsLabel">Choose classes</span>
+        <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+      </button>
+      <div class="ef-ms__menu" id="efMsMenu" hidden>
+        <div class="ef-ms__search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="efMsSearch" placeholder="Search classes" aria-label="Search classes" /></div>
+        <label class="ef-ms__opt ef-ms__opt--all"><input type="checkbox" id="efMsAll" /> <span>All classes</span></label>
+        <div class="ef-ms__list">
+          <% _classes.forEach((c) => { %>
+            <label class="ef-ms__opt" data-name="<%= c.class_name.toLowerCase() %>">
+              <input type="checkbox" value="<%= c.class_id %>" data-ms-class<%= c.selected ? ' checked' : '' %> />
+              <span><%= c.class_name %></span>
+              <small><%= c.students.length %></small>
+            </label>
+          <% }) %>
+          <% if (!_classes.length) { %><p class="ef-ms__empty">No classes yet.</p><% } %>
+        </div>
+        <div class="ef-ms__foot"><button type="button" class="ef-btn ef-btn--primary ef-btn--sm" id="efMsDone">Done</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ef-step ef-step--classes">
+    <div class="ef-step__label"><span class="ef-num">3</span> Students <span class="ef-hint">Untick anyone who shouldn't be enrolled.</span></div>
+    <p class="ef-empty" id="efEmpty">Choose classes above and their students show here.</p>
+    <div class="ef-classes">
+      <% _classes.forEach((c) => { const picked = c.students.filter((st) => st.enrolled).length; %>
+        <article class="ef-class" data-class="<%= c.class_id %>" data-name="<%= c.class_name %>"<%= c.selected ? '' : ' hidden' %>>
+          <header class="ef-class__head">
+            <button type="button" class="ef-class__toggle" data-toggle aria-expanded="false">
+              <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <strong><%= c.class_name %></strong>
+            </button>
+            <span class="ef-class__count" data-count><%= picked %> of <%= c.students.length %></span>
+            <label class="ef-all" title="Select every student in <%= c.class_name %>"><input type="checkbox" data-all /> All</label>
+            <button type="button" class="ef-icon" data-remove aria-label="Remove <%= c.class_name %>"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+          </header>
+          <div class="ef-class__body" hidden>
+            <% if (c.students.length > 12) { %>
+              <input type="search" class="ef-filter" placeholder="Find a student in <%= c.class_name %>" data-filter aria-label="Find a student" />
+            <% } %>
+            <div class="ef-students" data-students>
+              <% c.students.forEach((st) => { const nm = [st.first_name, st.last_name].filter(Boolean).join(' '); %>
+                <label class="ef-st" data-search="<%= (nm + ' ' + (st.custom_id || '')).toLowerCase() %>">
+                  <input type="checkbox" value="<%= st.student_id %>"<%= st.enrolled ? ' checked' : '' %> />
+                  <span class="ef-av"><% if (st.image_url) { %><img src="<%= st.image_url %>" alt="" loading="lazy" onerror="this.remove()" /><% } %><%= _initials(st) %></span>
+                  <span class="ef-st__name"><%= nm %><% if (st.custom_id) { %><small><%= st.custom_id %></small><% } %></span>
+                </label>
+              <% }) %>
+              <% if (!c.students.length) { %><p class="ef-muted" data-none>No students in this class yet. Add them below.</p><% } %>
+            </div>
+            <div class="ef-add">
+              <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+              <input type="search" placeholder="Add a student from another class" data-add aria-label="Add a student to <%= c.class_name %>" />
+              <div class="ef-results" data-results></div>
+            </div>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  </section>
+
+  <div class="ef-conflicts" id="efConflicts" hidden>
+    <strong>Some students are in another class this term</strong>
+    <ul id="efConflictList"></ul>
+    <div class="ef-conflicts__actions">
+      <button type="button" class="ef-btn ef-btn--ghost" id="efConflictCancel">Cancel</button>
+      <button type="button" class="ef-btn ef-btn--primary" id="efConflictMove">Move them</button>
+    </div>
+  </div>
+
+  <footer class="ef-bar">
+    <span class="ef-summary" id="efSummary" aria-live="polite">Nothing selected</span>
+    <% if (_edit) { %>
+      <button type="button" class="ef-btn ef-btn--danger" id="efDelete"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Delete</button>
+    <% } %>
+    <button type="button" class="ef-btn ef-btn--primary" id="efSave"><%= _edit ? 'Save changes' : 'Enroll' %></button>
+  </footer>
+</div>
+
+<style>
+  .ef { --ef-line: var(--ws-line, color-mix(in srgb, currentColor 13%, transparent)); --ef-soft: color-mix(in srgb, currentColor 4%, transparent); --ef-muted: var(--ws-muted, color-mix(in srgb, currentColor 58%, transparent)); --ef-accent: var(--org-primary-color, #0f5a66); --ef-tint: color-mix(in srgb, var(--ef-accent) 10%, transparent); --ef-surface: var(--ws-surface, #fff);
+    max-width: 820px; margin: 0 auto; padding: 8px 18px 0; box-sizing: border-box; }
+  .ef *, .ef *::before, .ef *::after { box-sizing: border-box; }
+  .ef--embedded { padding-top: 16px; }
+  .ef-head { margin-bottom: 18px; }
+  .ef-back { display: inline-flex; align-items: center; gap: 6px; color: var(--ef-muted); font-size: .85rem; font-weight: 600; text-decoration: none; }
+  .ef-back:hover { color: var(--ef-accent); }
+  .ef-head h1 { margin: 6px 0 0; font-size: 1.45rem; text-align: left; }
+  .ef-step { margin-bottom: 20px; }
+  .ef-step__label { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; font-size: .8rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--ef-muted); }
+  .ef-num { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ef-tint); color: var(--ef-accent); font-size: .72rem; letter-spacing: 0; }
+  .ef-hint { font-weight: 500; text-transform: none; letter-spacing: 0; font-size: .8rem; }
+  .ef-select { position: relative; }
+  .ef-select select, .ef-ms__btn { appearance: none; -webkit-appearance: none; width: 100%; margin: 0; padding: 12px 40px 12px 14px; border: 1px solid var(--ef-line); border-radius: 12px; background: var(--ef-surface); color: inherit; font: inherit; font-size: .95rem; font-weight: 600; text-align: left; cursor: pointer; box-shadow: none; }
+  .ef-select i, .ef-ms__btn i { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--ef-muted); font-size: .8rem; transition: transform .15s ease; }
+  .ef-select select:focus, .ef-ms__btn:focus-visible, .ef-filter:focus, .ef-add input:focus, .ef-ms__search input:focus { outline: none; border-color: var(--ef-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ef-accent) 18%, transparent); }
+  .ef-term-fixed { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border: 1px solid var(--ef-line); border-radius: 12px; background: var(--ef-soft); }
+  .ef-term-fixed span { color: var(--ef-muted); }
+  .ef-badge { margin-left: auto; padding: 2px 9px; border-radius: 999px; background: color-mix(in srgb, #16a34a 14%, transparent); color: #15803d; font-size: .75rem; font-style: normal; font-weight: 700; }
+  .ef-note { margin: 8px 0 0; padding: 9px 12px; border-radius: 10px; background: color-mix(in srgb, #f59e0b 13%, transparent); font-size: .86rem; }
+  .ef-note a { color: inherit; font-weight: 700; }
+  /* Class dropdown with checkboxes */
+  .ef-ms { position: relative; }
+  .ef .ef-ms__btn, .ef .ef-ms__btn:hover, .ef .ef-ms__btn:focus, .ef .ef-ms__btn:active { position: relative; display: block; min-height: 46px; background: var(--ef-surface) !important; color: inherit !important; border-color: var(--ef-line) !important; transform: none !important; }
+  .ef .ef-ms__btn[aria-expanded="true"] { border-color: var(--ef-accent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ef-accent) 18%, transparent); }
+  .ef-ms__btn[aria-expanded="true"] i { transform: translateY(-50%) rotate(180deg); }
+  .ef-ms__menu { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 6px); display: flex; flex-direction: column; max-height: min(380px, 60vh); border: 1px solid var(--ef-line); border-radius: 12px; background: var(--ef-surface); box-shadow: 0 18px 40px rgba(15, 23, 42, .16); overflow: hidden; }
+  .ef-ms__menu[hidden] { display: none; }
+  .ef-ms__search { position: relative; padding: 10px; border-bottom: 1px solid var(--ef-line); }
+  .ef-ms__search i { position: absolute; left: 22px; top: 50%; transform: translateY(-50%); color: var(--ef-muted); font-size: .8rem; }
+  .ef-ms__search input { width: 100%; margin: 0; padding: 8px 10px 8px 32px; border: 1px solid var(--ef-line); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: .9rem; }
+  .ef-ms__list { flex: 1; overflow-y: auto; padding: 4px 0; }
+  .ef-ms__opt { display: flex; align-items: center; gap: 10px; margin: 0; padding: 9px 14px; cursor: pointer; font-size: .92rem; }
+  .ef-ms__opt:hover { background: var(--ef-tint); }
+  .ef-ms__opt[hidden] { display: none; }
+  .ef-ms__opt span { flex: 1; min-width: 0; }
+  .ef-ms__opt small { color: var(--ef-muted); font-size: .78rem; }
+  .ef-ms__opt--all { border-bottom: 1px solid var(--ef-line); font-weight: 700; }
+  .ef-ms__empty { margin: 0; padding: 14px; color: var(--ef-muted); text-align: center; }
+  .ef-ms__foot { display: flex; justify-content: flex-end; padding: 8px 10px; border-top: 1px solid var(--ef-line); }
+  .ef input[type=checkbox] { flex: 0 0 auto; width: 17px; height: 17px; margin: 0; accent-color: var(--ef-accent); cursor: pointer; }
+  /* Selected classes */
+  .ef-empty { margin: 0; padding: 26px 16px; border: 1px dashed var(--ef-line); border-radius: 12px; color: var(--ef-muted); text-align: center; font-size: .9rem; }
+  .ef-empty[hidden], .ef-class[hidden], .ef-class__body[hidden], .ef-st[hidden], .ef-conflicts[hidden], .ef-note[hidden] { display: none !important; }
+  .ef-classes { display: flex; flex-direction: column; gap: 10px; }
+  .ef-class { border: 1px solid var(--ef-line); border-radius: 12px; background: var(--ef-surface); overflow: hidden; }
+  .ef-class__head { display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 4px; }
+  .ef .ef-class__toggle { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; width: auto; margin: 0; padding: 8px 10px; border: 0; border-radius: 8px; background: none; box-shadow: none; color: inherit; font: inherit; font-size: .98rem; text-align: left; cursor: pointer; }
+  .ef .ef-class__toggle:hover { background: var(--ef-soft); }
+  .ef-class__toggle i { width: 12px; color: var(--ef-muted); font-size: .75rem; transition: transform .15s ease; }
+  .ef-class__toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+  .ef-class__toggle strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ef-class__count { flex: 0 0 auto; padding: 3px 9px; border-radius: 999px; background: var(--ef-tint); color: var(--ef-accent); font-size: .78rem; font-weight: 700; white-space: nowrap; }
+  .ef-class__count.is-zero { background: color-mix(in srgb, #f59e0b 15%, transparent); color: #b45309; }
+  .ef-all { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: .84rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .ef .ef-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 30px; min-width: 0; height: 30px; margin: 0; padding: 0; border: 0; border-radius: 8px; background: none; box-shadow: none; color: var(--ef-muted); cursor: pointer; }
+  .ef .ef-icon:hover { background: color-mix(in srgb, #dc2626 10%, transparent); color: #dc2626; }
+  .ef-class__body { padding: 4px 14px 14px; border-top: 1px solid var(--ef-line); }
+  .ef-filter, .ef-add input { width: 100%; margin: 10px 0 0; padding: 9px 12px; border: 1px solid var(--ef-line); border-radius: 10px; background: transparent; color: inherit; font: inherit; font-size: .9rem; }
+  .ef-students { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; margin-top: 10px; }
+  .ef-st { display: flex; align-items: center; gap: 9px; margin: 0; padding: 6px 8px; border: 1px solid transparent; border-radius: 10px; cursor: pointer; font-size: .9rem; transition: background .12s ease, border-color .12s ease; }
+  .ef-st:hover { background: var(--ef-soft); }
+  .ef-st:has(input:checked) { background: var(--ef-tint); border-color: color-mix(in srgb, var(--ef-accent) 25%, transparent); }
+  .ef-st.is-added .ef-st__name::after { content: 'added'; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: var(--ef-accent); color: #fff; font-size: .68rem; font-weight: 700; }
+  .ef-av { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; background: color-mix(in srgb, var(--ef-accent) 16%, transparent); color: var(--ef-accent); font-size: .7rem; font-weight: 800; }
+  .ef-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ef-st__name { min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
+  .ef-st__name small { display: block; color: var(--ef-muted); font-size: .74rem; }
+  .ef-muted { grid-column: 1 / -1; margin: 4px 0; color: var(--ef-muted); font-size: .88rem; }
+  .ef-add { position: relative; max-width: 380px; }
+  .ef-add > i { position: absolute; left: 12px; top: 22px; color: var(--ef-muted); font-size: .8rem; }
+  .ef-add input { padding-left: 34px; }
+  .ef-results:empty { display: none; }
+  .ef-results { margin-top: 6px; border: 1px solid var(--ef-line); border-radius: 10px; overflow: hidden; background: var(--ef-surface); }
+  .ef .ef-result { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; margin: 0; padding: 9px 12px; border: 0; border-top: 1px solid var(--ef-line); border-radius: 0; background: none; box-shadow: none; color: inherit; font: inherit; font-size: .88rem; text-align: left; cursor: pointer; }
+  .ef .ef-result:first-child { border-top: 0; }
+  .ef .ef-result:hover { background: var(--ef-tint); }
+  .ef-result span { color: var(--ef-muted); font-size: .78rem; }
+  /* Move conflicts and the save bar */
+  .ef-conflicts { position: sticky; bottom: 72px; z-index: 6; margin: 12px 0 0; padding: 14px; border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent); border-radius: 12px; background: var(--ef-surface); box-shadow: 0 12px 30px rgba(15, 23, 42, .14); font-size: .9rem; }
+  .ef-conflicts ul { margin: 8px 0 12px; padding-left: 18px; }
+  .ef-conflicts__actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .ef-bar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; gap: 10px; margin: 18px -18px 0; padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--ef-line); background: var(--ef-surface); }
+  .ef-summary { flex: 1; min-width: 0; font-size: .9rem; font-weight: 600; }
+  .ef-summary.is-error { color: #dc2626; }
+  .ef-summary.is-ok { color: #15803d; }
+  .ef .ef-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: auto; min-width: 0; margin: 0; padding: 10px 18px; border: 1px solid transparent; border-radius: 10px; box-shadow: none; font: inherit; font-size: .92rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .ef .ef-btn--sm { padding: 7px 14px; font-size: .85rem; }
+  .ef .ef-btn--primary { background: var(--ef-accent); color: #fff; }
+  .ef .ef-btn--primary:disabled { opacity: .5; cursor: default; }
+  .ef .ef-btn--ghost { background: none; border-color: var(--ef-line); color: inherit; }
+  .ef .ef-btn--danger { background: none; border-color: color-mix(in srgb, #dc2626 35%, transparent); color: #dc2626; }
+  .ef .ef-btn--danger:hover { background: color-mix(in srgb, #dc2626 8%, transparent); }
+  .ef-bar--chat { padding-right: 84px; }
+  @media (max-width: 600px) {
+    .ef { padding: 8px 14px 0; }
+    .ef-bar { margin: 18px -14px 0; padding-left: 14px; }
+    .ef-students { grid-template-columns: 1fr; gap: 4px; }
+    .ef-st { padding: 4px 6px; }
+    .ef-av { width: 26px; height: 26px; }
+    .ef-all { font-size: 0; gap: 0; }
+    .ef-class__body { padding: 4px 10px 12px; }
+  }
+</style>
+
+<script>
+(function () {
+  var root = document.getElementById('ef');
+  var MODE = root.getAttribute('data-mode');
+  var ENROLLMENT = root.getAttribute('data-enrollment');
+  var EMBED = root.getAttribute('data-embedded') ? '?embed=workspace' : '';
+  var termEl = document.getElementById('efTerm');
+  var msBtn = document.getElementById('efMsBtn');
+  var msMenu = document.getElementById('efMsMenu');
+  var msAll = document.getElementById('efMsAll');
+  var summary = document.getElementById('efSummary');
+  var saveBtn = document.getElementById('efSave');
+  var cards = Array.prototype.slice.call(root.querySelectorAll('.ef-class'));
+  var msBoxes = Array.prototype.slice.call(root.querySelectorAll('[data-ms-class]'));
+  var cardOf = function (id) { return root.querySelector('.ef-class[data-class="' + id + '"]'); };
+  var boxesOf = function (card) { return card.querySelectorAll('[data-students] input[type=checkbox]'); };
+  var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  if (!EMBED && !document.querySelector('.ws-root')) { var bar = root.querySelector('.ef-bar'); if (bar) bar.classList.add('ef-bar--chat'); }
+
+  function say(text, kind) { summary.textContent = text; summary.className = 'ef-summary' + (kind ? ' is-' + kind : ''); }
+
+  function refresh() {
+    var nClasses = 0, nStudents = 0, names = [];
+    cards.forEach(function (card) {
+      if (card.hidden) return;
+      nClasses++;
+      names.push(card.getAttribute('data-name'));
+      var boxes = boxesOf(card), picked = 0;
+      boxes.forEach(function (b) { if (b.checked) picked++; });
+      nStudents += picked;
+      var count = card.querySelector('[data-count]');
+      count.textContent = picked + ' of ' + boxes.length;
+      count.classList.toggle('is-zero', picked === 0);
+      var all = card.querySelector('[data-all]');
+      all.checked = boxes.length > 0 && picked === boxes.length;
+      all.indeterminate = picked > 0 && picked < boxes.length;
+      all.disabled = !boxes.length;
+    });
+    document.getElementById('efEmpty').hidden = nClasses > 0;
+    document.getElementById('efMsLabel').textContent = !nClasses ? 'Choose classes'
+      : nClasses === cards.length ? 'All classes (' + nClasses + ')'
+      : nClasses <= 3 ? names.join(', ') : names.slice(0, 2).join(', ') + ' + ' + (nClasses - 2) + ' more';
+    var shown = msBoxes.filter(function (b) { return !b.closest('.ef-ms__opt').hidden; });
+    var on = shown.filter(function (b) { return b.checked; }).length;
+    msAll.checked = shown.length > 0 && on === shown.length;
+    msAll.indeterminate = on > 0 && on < shown.length;
+    say(nClasses ? nClasses + ' class' + (nClasses === 1 ? '' : 'es') + ' · ' + nStudents + ' student' + (nStudents === 1 ? '' : 's') : 'Nothing selected');
+    saveBtn.disabled = MODE === 'add' && !nClasses;
+  }
+
+  function openCard(card, open) {
+    card.querySelector('.ef-class__body').hidden = !open;
+    card.querySelector('[data-toggle]').setAttribute('aria-expanded', String(open));
+  }
+
+  // Turning a class on picks all its students (unless some were already picked).
+  function setClass(id, on) {
+    var card = cardOf(id);
+    if (!card) return;
+    var box = root.querySelector('[data-ms-class][value="' + id + '"]');
+    if (box) box.checked = on;
+    if (on && card.hidden) {
+      var boxes = boxesOf(card), any = false;
+      boxes.forEach(function (b) { if (b.checked) any = true; });
+      if (!any) boxes.forEach(function (b) { b.checked = true; });
+    }
+    card.hidden = !on;
+  }
+
+  // Dropdown open / close
+  function openMenu(open) {
+    msMenu.hidden = !open;
+    msBtn.setAttribute('aria-expanded', String(open));
+    if (open) setTimeout(function () { document.getElementById('efMsSearch').focus(); }, 0);
+  }
+  msBtn.addEventListener('click', function () { openMenu(msMenu.hidden); });
+  document.getElementById('efMsDone').addEventListener('click', function () { openMenu(false); msBtn.focus(); });
+  document.addEventListener('click', function (e) { if (!msMenu.hidden && !e.target.closest('#efMs')) openMenu(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !msMenu.hidden) { openMenu(false); msBtn.focus(); } });
+  document.getElementById('efMsSearch').addEventListener('input', function () {
+    var q = this.value.trim().toLowerCase();
+    msBoxes.forEach(function (b) { var opt = b.closest('.ef-ms__opt'); opt.hidden = !!q && opt.getAttribute('data-name').indexOf(q) === -1; });
+    refresh();
+  });
+  msAll.addEventListener('change', function () {
+    var on = msAll.checked;
+    msBoxes.forEach(function (b) { if (!b.closest('.ef-ms__opt').hidden) setClass(b.value, on); });
+    refresh();
+  });
+  msBoxes.forEach(function (b) {
+    b.addEventListener('change', function () {
+      setClass(b.value, b.checked);
+      var visible = cards.filter(function (c) { return !c.hidden; });
+      if (b.checked && visible.length === 1) openCard(cardOf(b.value), true);
+      refresh();
+    });
+  });
+
+  // Class cards
+  root.querySelector('.ef-classes').addEventListener('click', function (e) {
+    var card = e.target.closest('.ef-class');
+    if (!card) return;
+    if (e.target.closest('[data-toggle]')) { openCard(card, card.querySelector('.ef-class__body').hidden); return; }
+    if (e.target.closest('[data-remove]')) { setClass(card.getAttribute('data-class'), false); refresh(); return; }
+    var add = e.target.closest('[data-add-id]');
+    if (add) addStudent(card, add.getAttribute('data-add-id'), add.getAttribute('data-add-name'), add.getAttribute('data-add-img'));
+  });
+  root.querySelector('.ef-classes').addEventListener('change', function (e) {
+    var card = e.target.closest('.ef-class');
+    if (card && e.target.hasAttribute('data-all')) boxesOf(card).forEach(function (b) { b.checked = e.target.checked; });
+    refresh();
+  });
+
+  var timer = null;
+  root.querySelector('.ef-classes').addEventListener('input', function (e) {
+    var card = e.target.closest('.ef-class');
+    if (!card) return;
+    if (e.target.hasAttribute('data-filter')) {
+      var q = e.target.value.trim().toLowerCase();
+      card.querySelectorAll('.ef-st').forEach(function (st) { st.hidden = !!q && st.getAttribute('data-search').indexOf(q) === -1; });
+      return;
+    }
+    if (!e.target.hasAttribute('data-add')) return;
+    var input = e.target, out = card.querySelector('[data-results]'), q2 = input.value.trim();
+    clearTimeout(timer);
+    if (q2.length < 2) { out.innerHTML = ''; return; }
+    timer = setTimeout(function () {
+      fetch('/enrollment/searchUsers?query=' + encodeURIComponent(q2))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (input.value.trim() !== q2) return;
+          var rows = (data.results || []).filter(function (u) { return u.type === 'student'; }).slice(0, 8);
+          out.innerHTML = rows.length ? rows.map(function (s) {
+            var nm = s.display_name || [s.first_name, s.last_name].filter(Boolean).join(' ');
+            return '<button type="button" class="ef-result" data-add-id="' + esc(s.id) + '" data-add-name="' + esc(nm) + '" data-add-img="' + esc(s.image_url || '') + '">' + esc(nm) +
+              (s.class_name ? '<span>now in ' + esc(s.class_name) + '</span>' : '') + '</button>';
+          }).join('') : '<p class="ef-muted" style="padding:9px 12px;margin:0">No students found.</p>';
+        })
+        .catch(function () { out.innerHTML = ''; });
+    }, 200);
+  });
+
+  function addStudent(card, id, name, img) {
+    // One class per student per term: take them off any other list first.
+    root.querySelectorAll('[data-students] input[value="' + id + '"]').forEach(function (b) { var row = b.closest('.ef-st'); if (row) row.remove(); });
+    var parts = String(name).trim().split(/\s+/);
+    var initials = ((parts[0] || '').charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : '')).toUpperCase();
+    var row = document.createElement('label');
+    row.className = 'ef-st is-added';
+    row.setAttribute('data-search', String(name).toLowerCase());
+    row.innerHTML = '<input type="checkbox" value="' + esc(id) + '" checked /> <span class="ef-av">' + (img ? '<img src="' + esc(img) + '" alt="" onerror="this.remove()" />' : '') + esc(initials) + '</span><span class="ef-st__name">' + esc(name) + '</span>';
+    var list = card.querySelector('[data-students]');
+    var none = list.querySelector('[data-none]');
+    if (none) none.remove();
+    list.insertBefore(row, list.firstChild);
+    card.querySelector('[data-add]').value = '';
+    card.querySelector('[data-results]').innerHTML = '';
+    refresh();
+  }
+
+  // Term already enrolled (Add mode): offer to edit that one instead.
+  var note = document.getElementById('efTermNote');
+  function termNote() {
+    if (!note || termEl.tagName !== 'SELECT') return;
+    var opt = termEl.selectedOptions[0];
+    note.hidden = !(opt && opt.getAttribute('data-enrollment'));
+  }
+  if (note) {
+    termEl.addEventListener('change', termNote);
+    document.getElementById('efOpenExisting').addEventListener('click', function (e) {
+      e.preventDefault();
+      var id = termEl.selectedOptions[0].getAttribute('data-enrollment');
+      if (id) location.href = '/enrollment/modifyEnrollment/' + id + EMBED;
+    });
+    termNote();
+  }
+
+  function tellParent(msg) {
+    if (window.parent && window.parent !== window) { try { window.parent.postMessage(msg, location.origin); } catch (err) { /* ignore */ } }
+  }
+
+  function payload() {
+    var opt = termEl.tagName === 'SELECT' ? termEl.selectedOptions[0] : termEl;
+    var body = { termId: termEl.value, schoolYearId: opt ? opt.getAttribute('data-year') : '', selectedClasses: [], selectedStudents: {} };
+    cards.forEach(function (card) {
+      if (card.hidden) return;
+      var id = card.getAttribute('data-class');
+      body.selectedClasses.push(id);
+      body.selectedStudents[id] = [];
+      boxesOf(card).forEach(function (b) { if (b.checked) body.selectedStudents[id].push(b.value); });
+    });
+    return body;
+  }
+
+  function post(body, move) {
+    var url = MODE === 'edit' ? '/enrollment/modifyEnrollment/' + ENROLLMENT : '/enrollment/enroll';
+    return fetch(url + (move ? '?confirmMove=true' : ''), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, json: j }; }); });
+  }
+
+  function busy(on) { saveBtn.disabled = on; saveBtn.textContent = on ? 'Saving…' : (MODE === 'edit' ? 'Save changes' : 'Enroll'); }
+
+  function finish(res) {
+    if (res.ok && !(res.json.conflicts && res.json.conflicts.length)) {
+      say(MODE === 'edit' ? 'Saved.' : 'Enrolled.', 'ok');
+      tellParent({ managiraDrawerSaved: true, managiraDrawerClose: true });
+      if (!EMBED) setTimeout(function () { location.href = '/enrollment/manageEnrollment'; }, 600);
+      return;
+    }
+    busy(false);
+    say((res.json && res.json.message) || 'Could not save. Try again.', 'error');
+  }
+
+  var pending = null;
+  var conflictBox = document.getElementById('efConflicts');
+  document.getElementById('efConflictCancel').addEventListener('click', function () { conflictBox.hidden = true; pending = null; busy(false); refresh(); });
+  document.getElementById('efConflictMove').addEventListener('click', function () {
+    if (!pending) return;
+    conflictBox.hidden = true;
+    post(pending, true).then(finish).catch(function () { busy(false); say('Could not save. Check your connection.', 'error'); });
+  });
+
+  saveBtn.addEventListener('click', function () {
+    var body = payload();
+    if (!body.termId) { say('Pick a term.', 'error'); return; }
+    if (MODE === 'add' && !body.selectedClasses.length) { say('Choose at least one class.', 'error'); return; }
+    busy(true);
+    post(body, false).then(function (res) {
+      var conflicts = (res.json && res.json.conflicts) || [];
+      if (!conflicts.length) return finish(res);
+      pending = body;
+      document.getElementById('efConflictList').innerHTML = conflicts.map(function (c) {
+        return '<li><strong>' + esc(c.studentName) + '</strong>: ' + esc(c.currentClass) + ' → ' + esc(c.newClass) + '</li>';
+      }).join('');
+      conflictBox.hidden = false;
+      say('Move these students?');
+    }).catch(function () { busy(false); say('Could not save. Check your connection.', 'error'); });
+  });
+
+  var del = document.getElementById('efDelete');
+  if (del) del.addEventListener('click', function () {
+    if (!confirm('Delete this enrollment? Its classes and students are taken off this term.')) return;
+    del.disabled = true;
+    fetch('/enrollment/deleteEnrollment/' + ENROLLMENT, { method: 'POST' })
+      .then(function () {
+        tellParent({ managiraDrawerSaved: true, managiraDrawerClose: true });
+        if (!EMBED) location.href = '/enrollment/manageEnrollment';
+      })
+      .catch(function () { del.disabled = false; say('Could not delete. Try again.', 'error'); });
+  });
+
+  // Open the first class when only one is chosen.
+  var visible = cards.filter(function (c) { return !c.hidden; });
+  if (visible.length === 1) openCard(visible[0], true);
+  refresh();
+})();
+</script>

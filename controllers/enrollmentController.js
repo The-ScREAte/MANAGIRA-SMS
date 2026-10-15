@@ -39,6 +39,62 @@ async function ensureClassDashboardLayoutSchema(dbClient) {
   classDashboardLayoutSchemaReady = true;
 }
 
+// Terms grouped by school year (current first), each with the enrollment it
+// already has, for the enrollment form's term picker.
+async function loadTermChoices(db, organizationId) {
+  const { rows } = await db.query(`
+    SELECT sy.id AS school_year_id, sy.year_label, sy.current AS year_current,
+           t.term_id, t.term_name, t.current AS term_current, e.enrollment_id
+    FROM school_years sy
+    JOIN terms t ON t.school_year_id = sy.id AND t.organization_id = sy.organization_id
+    LEFT JOIN enrollments e ON e.term_id = t.term_id AND e.school_year_id = sy.id AND e.organization_id = sy.organization_id
+    WHERE sy.organization_id = $1
+    ORDER BY sy.current DESC, sy.year_label DESC, t.start_date NULLS LAST, t.term_id
+  `, [organizationId]);
+  const years = [];
+  rows.forEach((r) => {
+    let year = years.find((y) => y.school_year_id === r.school_year_id);
+    if (!year) {
+      year = { school_year_id: r.school_year_id, year_label: r.year_label, current: r.year_current, terms: [] };
+      years.push(year);
+    }
+    year.terms.push({ term_id: r.term_id, term_name: r.term_name, current: r.term_current, enrollment_id: r.enrollment_id });
+  });
+  return years;
+}
+
+// Every class with its students, in one query. A student is listed under the
+// class they're enrolled in for `rosterEnrollmentId` (else their class), and
+// marked enrolled when they're in that class in `selectedEnrollmentId`.
+async function loadEnrollmentClasses(db, organizationId, rosterEnrollmentId, selectedEnrollmentId) {
+  const { rows } = await db.query(`
+    WITH roster AS (
+      SELECT s.student_id, COALESCE(es.class_id, s.class_id) AS class_id
+      FROM students s
+      LEFT JOIN enrolled_students es ON es.student_id = s.student_id AND es.enrollment_id = $2
+      WHERE s.organization_id = $1 AND s.graduated = FALSE
+        AND COALESCE(es.class_id, s.class_id) IS NOT NULL
+    )
+    SELECT c.class_id, c.class_name,
+           EXISTS (SELECT 1 FROM enrolled_classes ec WHERE ec.enrollment_id = $3 AND ec.class_id = c.class_id) AS selected,
+           COALESCE(
+             JSON_AGG(JSON_BUILD_OBJECT(
+               'student_id', s.student_id, 'first_name', s.first_name, 'last_name', s.last_name,
+               'custom_id', s.custom_student_id, 'image_url', s.image_url,
+               'enrolled', EXISTS (SELECT 1 FROM enrolled_students x WHERE x.enrollment_id = $3 AND x.student_id = s.student_id AND x.class_id = c.class_id)
+             ) ORDER BY s.last_name, s.first_name) FILTER (WHERE s.student_id IS NOT NULL),
+             '[]'::json
+           ) AS students
+    FROM classes c
+    LEFT JOIN roster r ON r.class_id = c.class_id
+    LEFT JOIN students s ON s.student_id = r.student_id
+    WHERE c.organization_id = $1
+    GROUP BY c.class_id
+    ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name, c.class_id
+  `, [organizationId, rosterEnrollmentId || null, selectedEnrollmentId || null]);
+  return rows;
+}
+
 const enrollmentController = {
     // Enrollment page
     enrollmentGet: async (req, res, db) => {
@@ -46,72 +102,23 @@ const enrollmentController = {
       try {
         const organizationId = req.session.organizationId;
         await ensureClassDashboardLayoutSchema(db);
-    
-        // Fetch all school years
-        const schoolYearResults = await db.query(`
-          SELECT id AS school_year_id, year_label, current
-          FROM school_years
-          WHERE organization_id = $1
-          ORDER BY created_at DESC
-        `, [organizationId]);
-        const schoolYears = schoolYearResults.rows;
-    
-        // Fetch terms for each school year
-        const termResults = await db.query(`
-          SELECT term_id, school_year_id, term_name, start_date, end_date, current
-          FROM terms
-          WHERE organization_id = $1
-          ORDER BY start_date
-        `, [organizationId]);
-        const terms = termResults.rows;
-    
-        // Attach terms to each school year
-        schoolYears.forEach(year => {
-          year.terms = terms.filter(term => term.school_year_id === year.school_year_id);
-        });
-    
-        // Determine current term
-        const currentTerm = terms.find(t => t.current);
+        const termYears = await loadTermChoices(db, organizationId);
+        const allTerms = termYears.flatMap((y) => y.terms.map((t) => ({ ...t, school_year_id: y.school_year_id })));
+        const currentTerm = allTerms.find((t) => t.current) || allTerms[0] || null;
         if (!currentTerm) {
-          req.flash('error', 'No current term found. Please set a current term.');
-          return res.redirect(isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/common/orgDashboard');
+          req.flash('error', 'Add a school year and term first.');
+          return res.redirect(isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/common/manageRecords');
         }
-    
-        // 🔥 Fetch ALL classes in the organization
-        const allClassesResult = await db.query(`
-          SELECT class_id, class_name
-          FROM classes
-          WHERE organization_id = $1
-          ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}
-        `, [organizationId]);
-        const allClasses = allClassesResult.rows;
-    
-        // 🔥 For each class, get enrolled students (for current term + year)
-        const classesWithEnrolledStudents = await Promise.all(allClasses.map(async cls => {
-          const studentsResult = await db.query(`
-            SELECT s.student_id, s.first_name, s.last_name
-            FROM enrolled_students es
-            INNER JOIN students s ON es.student_id = s.student_id
-            INNER JOIN enrollments e ON es.enrollment_id = e.enrollment_id
-            WHERE es.class_id = $1
-              AND e.term_id = $2
-              AND e.school_year_id = $3
-              AND e.organization_id = $4
-              AND s.graduated = FALSE
-            ORDER BY s.last_name, s.first_name
-          `, [cls.class_id, currentTerm.term_id, currentTerm.school_year_id, organizationId]);
-    
-          return {
-            ...cls,
-            enrolledStudents: studentsResult.rows
-          };
-        }));
-    
+        // Class lists start from this term's enrollment (or each student's class).
+        const classes = await loadEnrollmentClasses(db, organizationId, currentTerm.enrollment_id, null);
+
         res.render('enrollment/enrollment', {
-          title: 'Enrollment',
-          schoolYears,
-          classes: classesWithEnrolledStudents, // ✅ shows ALL classes
-          currentTerm,
+          title: 'Enroll students',
+          mode: 'add',
+          termYears,
+          selectedTermId: Number(req.query.termId) || currentTerm.term_id,
+          classes,
+          enrollmentId: null,
           messages: req.flash(),
           isEmbedded,
           hideGlobalHeader: isEmbedded,
@@ -119,13 +126,10 @@ const enrollmentController = {
           hideGlobalChatbot: isEmbedded,
         });
       } catch (error) {
-                req.flash('error', 'Failed to load enrollment data.');
+        req.flash('error', 'Failed to load enrollment data.');
         res.redirect(isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/');
       }
     },
-    
-      
-    
 
     enrollmentPost: async (req, res, db) => {
       // Dedicated connection: BEGIN/COMMIT on the pool can run on different
@@ -321,7 +325,7 @@ const enrollmentController = {
                   SELECT es.enrollment_id, es.class_id, s.student_id, s.first_name, s.last_name
                   FROM enrolled_students es
                   JOIN students s ON es.student_id = s.student_id
-                  WHERE es.enrollment_id = ANY($1::int[])
+                  WHERE es.enrollment_id = ANY($1::int[]) AND s.graduated = FALSE
                   ORDER BY s.last_name, s.first_name
                 `, [enrollmentIds]),
               ])
@@ -367,95 +371,43 @@ const enrollmentController = {
         
     modifyEnrollmentGet: async (req, res, db) => {
         const isEmbedded = isEmbeddedRequest(req, "modifyEnrollment");
+        const back = isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/enrollment/manageEnrollment';
         try {
-            const { enrollmentId } = req.params; // Extract enrollmentId from the route
+            const { enrollmentId } = req.params;
             const organizationId = req.session.organizationId;
-        await ensureClassDashboardLayoutSchema(db);
-    
-            // Fetch the existing enrollment
+            await ensureClassDashboardLayoutSchema(db);
+
             const enrollmentResult = await db.query(`
-                SELECT school_year_id, term_id 
-                FROM enrollments 
+                SELECT enrollment_id, school_year_id, term_id
+                FROM enrollments
                 WHERE enrollment_id = $1 AND organization_id = $2
             `, [enrollmentId, organizationId]);
-    
-            if (enrollmentResult.rows.length === 0) {
+            if (!enrollmentResult.rows.length) {
                 req.flash('error', 'Enrollment not found.');
-                return res.redirect(isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/enrollment/manageEnrollment');
+                return res.redirect(back);
             }
-    
             const enrollment = enrollmentResult.rows[0];
-    
-            // Fetch all school years
-            const schoolYearResults = await db.query(`
-                SELECT id AS school_year_id, year_label, current
-                FROM school_years
-                WHERE organization_id = $1
-                ORDER BY created_at DESC
-            `, [organizationId]);
-    
-            const schoolYears = schoolYearResults.rows.map(year => ({
-                ...year,
-                selected: year.school_year_id === enrollment.school_year_id,
-            }));
-    
-            // Fetch terms for the selected school year
-            const termResults = await db.query(`
-                SELECT term_id, school_year_id, term_name, start_date, end_date
-                FROM terms
-                WHERE school_year_id = $1 AND organization_id = $2
-                ORDER BY start_date
-            `, [enrollment.school_year_id, organizationId]);
-    
-            const currentTerms = termResults.rows.map(term => ({
-                ...term,
-                selected: term.term_id === enrollment.term_id,
-            }));
-    
-            // Fetch all classes and determine which were previously selected
-            const classesResult = await db.query(`
-                SELECT c.class_id, c.class_name, 
-                    EXISTS (
-                        SELECT 1 
-                        FROM enrolled_classes ec 
-                        WHERE ec.class_id = c.class_id AND ec.enrollment_id = $1
-                    ) AS selected
-                FROM classes c
-                WHERE c.organization_id = $2
-                ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
-            `, [enrollmentId, organizationId]);
-    
-            const classes = await Promise.all(classesResult.rows.map(async cls => {
-                const studentResults = await db.query(`
-                    SELECT s.student_id, s.first_name, s.last_name
-                    FROM enrolled_students es
-                    INNER JOIN students s ON es.student_id = s.student_id
-                    WHERE es.class_id = $1 AND es.enrollment_id = $2 AND s.graduated = FALSE
-                    ORDER BY s.last_name, s.first_name
-                `, [cls.class_id, enrollmentId]);
-            
-                return {
-                    ...cls,
-                    students: studentResults.rows,
-                };
-            }));
-                
-            // Pass enrollmentId to the template
+            const [termYears, classes] = await Promise.all([
+                loadTermChoices(db, organizationId),
+                loadEnrollmentClasses(db, organizationId, enrollment.enrollment_id, enrollment.enrollment_id),
+            ]);
+
             res.render('enrollment/modifyEnrollment', {
-                title: 'Modify Enrollment',
+                title: 'Edit enrollment',
+                mode: 'edit',
+                termYears,
+                selectedTermId: enrollment.term_id,
+                classes,
+                enrollmentId: enrollment.enrollment_id,
                 isEmbedded,
                 hideGlobalHeader: isEmbedded,
                 hideGlobalFooter: isEmbedded,
                 hideGlobalChatbot: isEmbedded,
-                enrollmentId, // Include the enrollmentId
-                schoolYears,
-                currentTerms,
-                classes,
                 messages: req.flash(),
             });
         } catch (error) {
-                        req.flash('error', 'Failed to load modify enrollment data.');
-            res.redirect(isEmbedded ? '/enrollment/manageEnrollment?embed=workspace' : '/enrollment/manageEnrollment');
+            req.flash('error', 'Failed to load the enrollment.');
+            res.redirect(back);
         }
     },
     

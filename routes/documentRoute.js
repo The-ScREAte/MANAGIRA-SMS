@@ -3,6 +3,8 @@ const router = express.Router();
 const { documentController } = require("../controllers/documentController");
 const { isAuthenticated, blockGuardians } = require("../middleware/middleware");
 const checkFeatureAccess = require("../middleware/checkFeatureAccess");
+const multer = require("multer");
+const xlsxUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
 module.exports = (db) => {
   // Document list page
@@ -48,6 +50,16 @@ module.exports = (db) => {
   // Get class data (students/subjects) for spreadsheet
   router.get("/classData", checkFeatureAccess, isAuthenticated, (req, res) =>
     documentController.getClassData(req, res, db)
+  );
+
+  // Use a Doc / Sheet as a class's report card template
+  router.post("/reportTemplate/:id", checkFeatureAccess, isAuthenticated, blockGuardians, express.json(), (req, res) =>
+    documentController.saveReportTemplate(req, res, db)
+  );
+
+  // Read an Excel file (.xlsx) into a sheet: values, merges, colors, borders
+  router.post("/importXlsx", checkFeatureAccess, isAuthenticated, blockGuardians, xlsxUpload.single("file"), (req, res) =>
+    documentController.importXlsx(req, res, db)
   );
 
   return router;

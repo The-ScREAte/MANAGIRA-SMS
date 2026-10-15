@@ -6,6 +6,7 @@ const {
 const { s3Client } = require("../config/s3");
 const db = require("../config/db");
 const { isEmbeddedRequest } = require("../utils/embeddedMode");
+const reportTemplate = require("../utils/reportTemplate");
 const bcrypt = require("bcryptjs");
 const {
   renderReportCardsPdf,
@@ -1396,7 +1397,7 @@ async function getCachedOrganizationDetails(organizationId, db) {
 
   const organizationResult = await db.query(
     `
-        SELECT organization_name, organization_address, organization_country, organization_province, organization_phone, email, logo_path 
+        SELECT organization_name, organization_address, organization_country, organization_province, organization_phone, email, logo_path, motto
         FROM organizations 
         WHERE organization_id = $1
     `,
@@ -2352,7 +2353,7 @@ const printController = (db) => ({
 
       // Render the report
       const isEmbedded = isEmbeddedRequest(req, "printStudentReport");
-      res.render("print/printStudentReport", {
+      const reportLocals = {
         title: "Student Final Report",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
@@ -2414,7 +2415,81 @@ const printController = (db) => ({
         reportYear: new Date().getFullYear(),
         canSendByWhatsapp,
         canSendBySms,
-      });
+      };
+
+      // The class's own report card template (built in Docs & Sheets), unless
+      // the standard layout is asked for. ?template=<id> previews any template.
+      const previewTemplateId = Number(req.query.template) || null;
+      const reportTemplateDoc = req.query.layout === 'default'
+        ? null
+        : previewTemplateId
+          ? await reportTemplate.templateById(db, organizationId, previewTemplateId)
+          : await reportTemplate.templateForClass(db, organizationId, parsedClassId);
+      if (reportTemplateDoc) {
+        // Remark fields in the layout are the same editable boxes (with their
+        // remark lists) as the standard card, so Save Changes works the same.
+        const escHtml = (v) => String(v === null || v === undefined ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        const slugKey = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+        const remarkDefs = [
+          { key: "conduct", rowKey: "conductRemarks", value: (st) => st.conductRemarks, options: reportLocals.remarks.conduct, typeKey: "" },
+          { key: "attitude", rowKey: "attitudeRemarks", value: (st) => st.attitudeRemarks, options: reportLocals.remarks.attitude, typeKey: "" },
+          { key: "interest", rowKey: "interestRemarks", value: (st) => st.interestRemarks, options: reportLocals.remarks.interest, typeKey: "" },
+          { key: "teacher", rowKey: "teacherRemarks", value: (st) => st.teacherRemarks, options: reportLocals.remarks.teacher, typeKey: "" },
+          ...(customRemarkTypes || []).map((entry) => {
+            const typeKey = String(entry.type_key || "");
+            return {
+              key: slugKey(typeKey.replace(/^custom:/, "")),
+              label: slugKey(entry.label),
+              rowKey: `customRemark_${typeKey.replace(/[^a-z0-9]+/gi, "_")}`,
+              value: (st) => ((st.customRemarks && typeof st.customRemarks === "object") ? st.customRemarks[typeKey] : "") || "",
+              options: (reportLocals.remarks.custom || {})[typeKey] || [],
+              typeKey,
+            };
+          }),
+        ];
+        const usedRemarks = new Map();
+        const remarkBox = (def, student, hidden) => {
+          const id = `${def.rowKey}-${student.student_id}`;
+          const area = `<textarea id="${id}" name="${id}" data-custom-remark-type="${escHtml(def.typeKey)}" maxlength="150" rows="1"${hidden ? " hidden" : ' onfocus="this.select();"'}>${escHtml(def.value(student))}</textarea>`;
+          if (hidden) return area;
+          const options = (def.options || []).map((r) => `<div class="remark-dropdown-option" onclick="selectRemark('${def.rowKey}', ${Number(student.student_id)}, this.textContent.trim())">${escHtml(r.remark)}</div>`).join("");
+          return `<span class="remark-line rt-remark">${area}<span class="remark-arrow" id="arrow-${id}" onclick="toggleDropdown('${def.rowKey}', ${Number(student.student_id)})">▼</span><div class="remark-dropdown" id="dropdown-${id}">${options}</div></span>`;
+        };
+        const templateCtx = {
+          locals: reportLocals,
+          logo: (req.session && req.session.logo) || logoUrl || null, // same logo as the standard card
+          motto: organization.motto || '',
+          className: classData && classData.class_name,
+          classSize: classStudentCount,
+          date: (v) => (v instanceof Date ? formatDisplayDate(v, orgDateDisplayFormat) : (v || '')),
+          remarkField: (key, student) => {
+            const want = slugKey(key);
+            const def = remarkDefs.find((d) => d.key === want || d.label === want);
+            if (!def) return "";
+            const used = usedRemarks.get(student.student_id) || new Set();
+            usedRemarks.set(student.student_id, used);
+            if (used.has(def.rowKey)) return escHtml(def.value(student));
+            used.add(def.rowKey);
+            return remarkBox(def, student, false);
+          },
+        };
+        const showPromotion = !!(statusSettings.activate_promotion && displaySettings.sections.promotion);
+        const templateCards = {};
+        students.forEach((student) => {
+          const html = reportTemplate.renderTemplate(reportTemplateDoc, templateCtx, student);
+          const used = usedRemarks.get(student.student_id) || new Set();
+          // Remarks this layout doesn't show (and the promotion choice) ride along
+          // unseen, so saving never clears them.
+          const carried = remarkDefs.filter((d) => !used.has(d.rowKey)).map((d) => remarkBox(d, student, true)).join("") +
+            (showPromotion
+              ? `<input type="hidden" id="promotionStatus-${student.student_id}" value="${escHtml(student.promotionStatus || "")}"><span hidden id="promotionClass-${student.student_id}" data-class-id="${escHtml(student.promotionClassId || "")}"></span>`
+              : "");
+          templateCards[student.student_id] = { html, carried };
+        });
+        reportLocals.templateCards = templateCards;
+        reportLocals.templateLayout = { id: reportTemplateDoc.id, title: reportTemplateDoc.title, docType: reportTemplateDoc.doc_type };
+      }
+      res.render("print/printStudentReport", reportLocals);
     } catch (error) {
             res.status(500).send("Failed to generate student report.");
     }
@@ -2939,12 +3014,21 @@ const printController = (db) => ({
         },
       };
 
+      // Report card layouts: the school's templates and which class uses which.
+      await reportTemplate.ensureReportTemplateSchema(db);
+      const [reportTemplatesResult, reportTemplateMapResult] = await Promise.all([
+        db.query(`SELECT id, title, doc_type FROM documents WHERE organization_id = $1 AND report_template = TRUE AND is_deleted = FALSE ORDER BY title`, [organizationId]),
+        db.query(`SELECT class_id, document_id FROM report_template_classes WHERE organization_id = $1`, [organizationId]),
+      ]);
+
       res.render("print/reportSettings", {
         title: "Report Settings",
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
+        reportTemplates: reportTemplatesResult.rows,
+        reportTemplateMap: Object.fromEntries(reportTemplateMapResult.rows.map((r) => [r.class_id, r.document_id])),
         statusSettings: {},
         groupedStatusSettings,
         remarks,
@@ -2975,6 +3059,48 @@ const printController = (db) => ({
     } catch (error) {
       console.error("[reportSettingsPage] error", error);
       res.status(500).send("Failed to load report settings page.");
+    }
+  },
+
+  // Which report card each class prints: a template, or the standard one.
+  saveReportTemplates: async (req, res) => {
+    try {
+      const organizationId = req.session.organizationId;
+      if (!organizationId) return res.status(401).json({ success: false, message: "Please sign in again." });
+      await reportTemplate.ensureReportTemplateSchema(db);
+      const assignments = req.body && typeof req.body.assignments === "object" ? req.body.assignments : {};
+      const classIds = Object.keys(assignments).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+      if (!classIds.length) return res.json({ success: true });
+      const [ownedClasses, ownedTemplates] = await Promise.all([
+        db.query("SELECT class_id FROM classes WHERE organization_id = $1 AND class_id = ANY($2::int[])", [organizationId, classIds]),
+        db.query("SELECT id FROM documents WHERE organization_id = $1 AND report_template = TRUE AND is_deleted = FALSE", [organizationId]),
+      ]);
+      const classOk = new Set(ownedClasses.rows.map((r) => r.class_id));
+      const templateOk = new Set(ownedTemplates.rows.map((r) => r.id));
+      // Each change says what the class used when the page loaded; if that's
+      // no longer true (changed elsewhere since), it's skipped, not overwritten.
+      const current = new Map((await db.query("SELECT class_id, document_id FROM report_template_classes WHERE organization_id = $1", [organizationId])).rows.map((r) => [r.class_id, r.document_id]));
+      const stale = [];
+      for (const classId of classIds) {
+        if (!classOk.has(classId)) continue;
+        const change = assignments[classId];
+        if (!change || typeof change !== "object" || !("from" in change)) { stale.push(classId); continue; }
+        if ((Number(change.from) || null) !== (current.get(classId) || null)) { stale.push(classId); continue; }
+        const docId = Number(change.to) || null;
+        if (docId && templateOk.has(docId)) {
+          await db.query(`
+            INSERT INTO report_template_classes (class_id, organization_id, document_id) VALUES ($1, $2, $3)
+            ON CONFLICT (class_id) DO UPDATE SET document_id = EXCLUDED.document_id, organization_id = EXCLUDED.organization_id, updated_at = NOW()
+          `, [classId, organizationId, docId]);
+        } else {
+          await db.query("DELETE FROM report_template_classes WHERE class_id = $1 AND organization_id = $2", [classId, organizationId]);
+        }
+      }
+      if (stale.length) return res.json({ success: false, stale, message: "Some classes were changed somewhere else. Reload this page and try again." });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[saveReportTemplates] error", error);
+      res.status(500).json({ success: false, message: "Could not save the report card layouts." });
     }
   },
 

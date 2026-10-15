@@ -8,6 +8,7 @@
     && (allowedFeatures.includes('Class Base Merit Sheet') || allowedFeatures.includes('Class Base Merrit sheet'));
 %>
 <link rel="stylesheet" href="<%= assetUrl('/css/reportPages.css') %>" />
+<style>.gp-layout { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, #16a34a 12%, transparent); color: #15803d; font-size: .72rem; font-weight: 700; text-decoration: none; vertical-align: middle; } .gp-layout:hover { text-decoration: underline; }</style>
 
 <div class="gp-page">
   <header class="gp-head">
@@ -31,7 +32,10 @@
       <div class="gp-classes">
         <% _classes.forEach((cls) => { %>
           <div class="gp-class">
-            <span class="gp-class__name"><%= cls.class_name %></span>
+            <span class="gp-class__name"><%= cls.class_name %>
+              <% const _layout = (typeof reportLayouts !== 'undefined' && reportLayouts) ? reportLayouts[cls.class_id] : null; %>
+              <% if (_layout) { %><a class="gp-layout" href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %>&layout=default<%= _embedAmp %>" data-no-spa title="Uses its own report card layout. Click for the standard report card."><i class="fa-solid fa-table" aria-hidden="true"></i> <%= _layout %></a><% } %>
+            </span>
             <span class="gp-class__actions">
               <a class="gp-btn gp-btn--primary" href="/print/printStudentReport?classId=<%= cls.class_id %>&termId=<%= termId %><%= _embedAmp %>" data-no-spa><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Generate report</a>
               <% if (_hasMerit) { %>

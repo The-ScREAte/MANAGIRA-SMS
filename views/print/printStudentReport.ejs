@@ -2688,6 +2688,19 @@
                         }
                     }
 
+
+        /* A class's own report card layout (Docs & Sheets) inside the standard card. */
+        .rt-template .rt-sheet { width: 100%; margin: 0; border-collapse: collapse; table-layout: fixed; font-size: 12.5px; font-family: inherit; }
+        .rt-template .rt-sheet, .rt-template .rt-sheet tr, .rt-template .rt-sheet td { border: 0; background: none; box-shadow: none; }
+        .rt-template .rt-sheet td { height: auto; padding: 4px 6px; vertical-align: middle; text-align: left; white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; line-height: 1.35; color: inherit; font-family: inherit; }
+        .rt-template .rt-sheet img { display: inline-block; max-width: 100%; }
+        .rt-template .rt-doc { padding: 0; height: auto; overflow: visible; font-family: inherit; }
+        .rt-template .remark-line.rt-remark { position: relative; display: flex; align-items: flex-start; gap: 4px; margin: 0; padding: 0; border: 0; min-height: 0; background: none; }
+        .rt-template .rt-remark textarea { flex: 1 1 auto; min-width: 0; width: 100%; height: auto; min-height: 17px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; line-height: inherit; resize: none; overflow: hidden; box-shadow: none; }
+        .rt-template .rt-remark textarea:focus { outline: 1px dashed currentColor; outline-offset: 2px; }
+        .rt-template .rt-remark .remark-arrow { flex: none; font-size: 9px; line-height: 17px; opacity: .35; cursor: pointer; }
+        .rt-template .rt-remark:hover .remark-arrow { opacity: .9; }
+        @media print { .rt-template .rt-remark .remark-arrow { display: none !important; } }
     </style>
 
     <br>
@@ -2743,6 +2756,18 @@
             <div class="student-report-grid">
             <div class="student-report <%= studentIndex === students.length - 1 ? 'last-report' : '' %>" id="report-<%= student.student_id %>" data-student-id="<%= student.student_id %>" data-student-name="<%= reportStudentDisplayName %>">
                 <input type="checkbox" class="student-checkbox" onchange="updateSelectedCount()" data-student-id="<%= student.student_id %>">
+            <% const _tplCard = (typeof templateCards !== 'undefined' && templateCards) ? templateCards[student.student_id] : null; %>
+            <% if (_tplCard) { %>
+            <div class="student-report-background rt-template">
+                <% if (session.logo) { %><img src="<%= session.logo %>" alt="" class="print-watermark-img"><% } %>
+                <%- _tplCard.html %>
+                <div class="rt-carried" hidden><%- _tplCard.carried %></div>
+                <div class="report-card-footer rt-footer">
+                    <div class="report-card-footer-left"><% if (hasSchoolWebsite && schoolWebsiteHost) { %>School Website: <%= schoolWebsiteHost %><% } %></div>
+                    <div class="report-card-footer-right"><%= orgName %> @<%= reportYear %> all rights reserved · Powered by Managira</div>
+                </div>
+            </div>
+            <% } else { %>
             <div class="student-report-background">
                     <% if (session.logo) { %>
                         <img src="<%= session.logo %>" alt="" class="print-watermark-img">
@@ -3145,6 +3170,7 @@
                         </div>
                     </div>
                 </div>
+            <% } %>
             </div>
             </div>
         <% }); %>

@@ -3,6 +3,8 @@ const { sendEmailInBackground } = require("../utils/emailHelper");
 const { isEmailEnabledForRecipient } = require("../utils/emailPreferences");
 const { PERMISSIONS, userHasPermission } = require("../middleware/permissionMiddleware");
 const notifSvc = require("../utils/notificationService");
+const documentData = require("../utils/documentData");
+const reportTemplate = require("../utils/reportTemplate");
 
 let documentsSchemaReadyPromise = null;
 
@@ -696,8 +698,32 @@ const documentController = {
         }
       }
 
+      const termsResult = await db.query(`
+        SELECT t.term_id, t.term_name, sy.year_label, (t.current AND COALESCE(sy.current, TRUE)) AS is_current
+        FROM terms t LEFT JOIN school_years sy ON sy.id = t.school_year_id
+        WHERE t.organization_id = $1
+        ORDER BY COALESCE(sy.current, FALSE) DESC, sy.year_label DESC NULLS LAST, t.start_date NULLS LAST
+      `, [orgId]);
+
+      await reportTemplate.ensureReportTemplateSchema(db);
+      const customRemarkTypes = await db.query(
+        `SELECT type_key, label FROM organization_custom_remark_types WHERE organization_id = $1 AND type_key LIKE 'custom:%' ORDER BY LOWER(label)`,
+        [orgId]
+      ).then((r) => r.rows).catch(() => []);
+      const templateClasses = await db.query(`
+        SELECT rtc.class_id, rtc.document_id, d.title
+        FROM report_template_classes rtc JOIN documents d ON d.id = rtc.document_id
+        WHERE rtc.organization_id = $1 AND d.is_deleted = FALSE
+      `, [orgId]);
+
       res.render("common/documentEditor", {
         title: doc.title,
+        reportFields: reportTemplate.fieldGroupsFor(customRemarkTypes),
+        reportTemplateOn: !!doc.report_template,
+        reportTemplateClasses: templateClasses.rows,
+        canInsertData: canManageRecords,
+        dataSources: documentData.describeSources(),
+        terms: termsResult.rows,
         document: doc,
         permissionLevel,
         permissions: permissions.rows,
@@ -1093,11 +1119,65 @@ const documentController = {
   },
 
   // Get students and subjects for a class (for spreadsheet insertion)
+  // Turn a Doc / Sheet into a report card template and choose its classes.
+  // A class has one template; choosing it here moves it from another one.
+  async saveReportTemplate(req, res, db) {
+    try {
+      const docId = Number(req.params.id);
+      const orgId = req.session.organizationId;
+      const userId = req.session.userId || req.session.user?.user_id || null;
+      const canManageRecords = await userHasPermission(db, { userId, userRole: req.session.userRole, organizationId: orgId }, PERMISSIONS.MANAGE_RECORDS);
+      if (!canManageRecords) return res.status(403).json({ success: false, message: "You do not have permission to change report cards." });
+      await reportTemplate.ensureReportTemplateSchema(db);
+      const doc = await db.query("SELECT id FROM documents WHERE id = $1 AND organization_id = $2 AND is_deleted = FALSE", [docId, orgId]);
+      if (!doc.rows.length) return res.status(404).json({ success: false, message: "File not found." });
+      const enabled = !!req.body.enabled;
+      const wanted = (Array.isArray(req.body.classIds) ? req.body.classIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+      const owned = wanted.length
+        ? (await db.query("SELECT class_id FROM classes WHERE class_id = ANY($1::int[]) AND organization_id = $2", [wanted, orgId])).rows.map((r) => r.class_id)
+        : [];
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("UPDATE documents SET report_template = $1 WHERE id = $2 AND organization_id = $3", [enabled, docId, orgId]);
+        await client.query("DELETE FROM report_template_classes WHERE document_id = $1 AND organization_id = $2", [docId, orgId]);
+        if (enabled && owned.length) {
+          await client.query(`
+            INSERT INTO report_template_classes (class_id, organization_id, document_id)
+            SELECT UNNEST($1::int[]), $2, $3
+            ON CONFLICT (class_id) DO UPDATE SET document_id = EXCLUDED.document_id, organization_id = EXCLUDED.organization_id, updated_at = NOW()
+          `, [owned, orgId, docId]);
+        }
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw err;
+      } finally {
+        client.release();
+      }
+      res.json({ success: true, enabled, classIds: enabled ? owned : [] });
+    } catch (error) {
+      console.error("Error saving report template:", error);
+      res.status(500).json({ success: false, message: "Could not save the report card settings." });
+    }
+  },
+
+  async importXlsx(req, res, db) {
+    try {
+      if (!req.file || !req.file.buffer) return res.status(400).json({ success: false, message: "Choose an Excel file (.xlsx)." });
+      if (!/\.xlsx$/i.test(req.file.originalname || "")) return res.status(400).json({ success: false, message: "Only .xlsx files can be imported. In Excel, use Save As → Excel Workbook." });
+      const sheet = await reportTemplate.importXlsx(req.file.buffer);
+      res.json({ success: true, sheet });
+    } catch (error) {
+      console.error("Error importing xlsx:", error.message);
+      res.status(error.status || 400).json({ success: false, message: error.status ? error.message : "This file could not be read. Save it as an Excel Workbook (.xlsx) and try again." });
+    }
+  },
+
   async getClassData(req, res, db) {
     try {
       const classId = req.query.classId;
       const orgId = req.session.organizationId;
-      const termId = req.session.currentTermId;
       const userId = req.session.userId || req.session.user?.user_id || null;
       const userRole = req.session.userRole;
 
@@ -1109,6 +1189,20 @@ const documentController = {
 
       if (!canManageRecords) {
         return res.status(403).json({ success: false, message: 'You do not have permission to access class file data.' });
+      }
+
+      // "Insert data": students, parents, subjects, staff, attendance or results
+      // for the chosen classes and term.
+      if (req.query.source) {
+        const list = (v) => String(v || '').split(',').map((x) => x.trim()).filter(Boolean);
+        const data = await documentData.buildData(db, {
+          orgId,
+          source: String(req.query.source),
+          classIds: list(req.query.classIds),
+          fields: list(req.query.fields),
+          termId: req.query.termId,
+        });
+        return res.json({ success: true, ...data });
       }
 
       const classExists = await classBelongsToOrg(db, classId, orgId);
@@ -1130,7 +1224,7 @@ const documentController = {
         JOIN enrollments e ON es.enrollment_id = e.enrollment_id
         WHERE es.class_id = $1 AND e.term_id = $2 AND s.organization_id = $3
         ORDER BY s.first_name, s.last_name
-      `, [classId, termId, orgId]);
+      `, [classId, (await documentData.resolveTerm(db, orgId, null))?.term_id || null, orgId]);
 
       // There's no class_subjects junction table - subjects belong directly
       // to a class via subjects.class_id (this previously referenced a

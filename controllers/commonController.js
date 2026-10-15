@@ -20408,9 +20408,23 @@ NUMBERING:
         classes = fallbackClassesResult.rows;
       }
 
+      // Which classes print with their own report card layout.
+      let reportLayouts = {};
+      try {
+        await require("../utils/reportTemplate").ensureReportTemplateSchema(db);
+        const layouts = await db.query(
+          `SELECT rtc.class_id, d.title FROM report_template_classes rtc
+             JOIN documents d ON d.id = rtc.document_id AND d.is_deleted = FALSE AND d.report_template = TRUE
+            WHERE rtc.organization_id = $1`,
+          [organizationId]
+        );
+        reportLayouts = Object.fromEntries(layouts.rows.map((r) => [r.class_id, r.title]));
+      } catch (_) { reportLayouts = {}; }
+
       // Pass title, termId, and classes to the view
       res.render("common/termDetails", {
         title: "Term Details",
+        reportLayouts,
         isEmbedded,
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,

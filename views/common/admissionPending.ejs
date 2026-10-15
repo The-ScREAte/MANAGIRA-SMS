@@ -497,6 +497,25 @@
     <div id="studentDetailsContainer"></div>
   </div>
 
+  <% const _classNames = Array.from(new Set(pendingStudents.map((x) => x.class_name).filter(Boolean))).sort(); %>
+  <header class="pa-head">
+    <div>
+      <h1>Pending admissions <span class="pa-count"><%= pendingStudents.length %></span></h1>
+      <p>Applications waiting for review. Click one to approve or decline it.</p>
+    </div>
+    <% if (pendingStudents.length) { %>
+      <div class="pa-tools">
+        <label class="pa-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" id="paSearch" placeholder="Search by name" aria-label="Search by name" /></label>
+        <% if (_classNames.length > 1) { %>
+          <select id="paClass" aria-label="Class"><option value="">All classes</option><% _classNames.forEach((c) => { %><option value="<%= c.toLowerCase() %>"><%= c %></option><% }) %></select>
+        <% } %>
+      </div>
+    <% } %>
+  </header>
+
+  <% if (!pendingStudents.length) { %>
+    <div class="pa-empty"><i class="fa-regular fa-circle-check" aria-hidden="true"></i><h2>All caught up</h2><p>New applications appear here for review.</p></div>
+  <% } else { %>
   <div class="pending-table-card">
     <table class="pending-table">
       <thead>
@@ -522,16 +541,62 @@
           <td data-label="DOB"><%= (typeof formatDisplayDate === 'function' ? formatDisplayDate(student.date_of_birth) : student.date_of_birth.toISOString().split('T')[0]) %></td>
           <td data-label="Gender"><%= student.gender %></td>
           <td data-label="Class"><%= student.class_name %></td>
-          <td data-label="Year Group"><%= student.graduation_group || "N/A" %></td>
+          <td data-label="Year Group"><%= student.graduation_group || "—" %></td>
           <td data-label="Action">
-            <button class="view-btn" onclick="loadStudentDetails(<%= student.pending_id %>)">👁️ Review</button>
+            <button type="button" class="view-btn" onclick="loadStudentDetails(<%= student.pending_id %>)">Review <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
           </td>
         </tr>
         <% }) %>
       </tbody>
     </table>
+    <p class="pa-none" id="paNone" hidden>No applications match.</p>
   </div>
+  <% } %>
 </div>
+<style>
+  .pa-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; }
+  .pa-head h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.35rem; text-align: left; }
+  .pa-head p { margin: 4px 0 0; color: #64748b; font-size: .9rem; }
+  .pa-count { padding: 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 13%, transparent); color: var(--org-primary-color, #0f5a66); font-size: .8rem; }
+  .pa-tools { display: flex; gap: 8px; }
+  .pa-search { position: relative; margin: 0; }
+  .pa-search i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .8rem; }
+  .pa-search input, .pa-tools select { height: 38px; margin: 0; padding: 0 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; font: inherit; font-size: .9rem; }
+  .pa-search input { width: 240px; padding-left: 32px; }
+  .pa-empty { padding: 56px 20px; border: 1px dashed #e2e8f0; border-radius: 14px; text-align: center; color: #64748b; }
+  .pa-empty i { font-size: 1.8rem; color: #16a34a; }
+  .pa-empty h2 { margin: 10px 0 4px; color: #0f172a; font-size: 1.1rem; }
+  .pa-none { margin: 0; padding: 18px; color: #64748b; text-align: center; }
+  .pending-table tbody tr { cursor: pointer; }
+  .pending-table tbody tr[hidden] { display: none; }
+  .pending-page .view-btn, .pending-page .view-btn:hover { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: var(--org-primary-color, #0f5a66); font-size: .82rem; font-weight: 700; box-shadow: none; transform: none; }
+  .pending-page tr:hover .view-btn { border-color: var(--org-primary-color, #0f5a66); }
+  @media (max-width: 640px) { .pa-tools { width: 100%; } .pa-search { flex: 1; } .pa-search input { width: 100%; } }
+</style>
+<script>
+(function () {
+  var search = document.getElementById('paSearch'), cls = document.getElementById('paClass');
+  function filter() {
+    var q = search ? search.value.trim().toLowerCase() : '', c = cls ? cls.value : '', shown = 0;
+    document.querySelectorAll('#pendingStudentsBody tr').forEach(function (row) {
+      var hit = (!q || row.dataset.studentName.indexOf(q) !== -1) && (!c || row.dataset.className === c);
+      row.hidden = !hit;
+      if (hit) shown++;
+    });
+    var none = document.getElementById('paNone');
+    if (none) none.hidden = shown > 0;
+  }
+  if (search) search.addEventListener('input', filter);
+  if (cls) cls.addEventListener('change', filter);
+  var body = document.getElementById('pendingStudentsBody');
+  if (body) body.addEventListener('click', function (e) {
+    if (e.target.closest('button')) return;
+    var row = e.target.closest('tr');
+    var btn = row && row.querySelector('.view-btn');
+    if (btn) btn.click();
+  });
+})();
+</script>
 
 <script src="/js/dialCodes.js"></script>
 <script>

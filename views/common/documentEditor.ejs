@@ -4,8 +4,16 @@
   const currentTheme = themeColors[themeColor] || themeColors.teal;
   const isDoc = document.doc_type === 'document';
   const isReadOnly = permissionLevel === 'view';
-  const canComment = permissionLevel === 'comment' || permissionLevel === 'edit';
   const canEdit = permissionLevel === 'edit';
+  const canInsert = canEdit && (typeof canInsertData !== 'undefined' && canInsertData);
+  const _sources = (typeof dataSources !== 'undefined' && dataSources) || [];
+  const _terms = (typeof terms !== 'undefined' && terms) || [];
+  const _json = (v) => JSON.stringify(v).replace(/</g, '\\u003c');
+  const _levelLabel = { edit: 'Can edit', comment: 'Can comment', view: 'View only' };
+  const _fields = (typeof reportFields !== 'undefined' && reportFields) || [];
+  const _tplOn = typeof reportTemplateOn !== 'undefined' && reportTemplateOn;
+  const _tplClasses = (typeof reportTemplateClasses !== 'undefined' && reportTemplateClasses) || [];
+  const _currentTerm = _terms.find((t) => t.is_current) || _terms[0] || null;
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -14,1269 +22,2080 @@
   <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
   <title><%= document.title %> - Managira</title>
   <link rel="icon" href="/favicon.ico" />
-  <% if (isDoc) { %>
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" />
-  <% } %>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <% if (isDoc) { %><link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet" /><% } %>
   <style>
     :root {
-      --border: #e5e7eb;
-      --muted: #6b7280;
-      --bg: #f9fafb;
       --primary: <%= currentTheme.primary %>;
       --primary-hover: <%= currentTheme.hover %>;
-        --primary-hover-fill: color-mix(in srgb, var(--primary) 88%, white);
-      --text: #111827;
+      --tint: color-mix(in srgb, var(--primary) 10%, white);
+      --line: #e5e7eb;
+      --line-soft: #f1f5f9;
+      --muted: #64748b;
+      --text: #0f172a;
+      --canvas: #eef1f5;
+      --surface: #fff;
+      --radius: 10px;
     }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body { display: flex; flex-direction: column; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--text); background: var(--canvas); -webkit-font-smoothing: antialiased; }
+    button, input, select { font: inherit; color: inherit; }
+    [hidden] { display: none !important; }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    /* Top bar */
+    .ed-top { flex: none; display: flex; align-items: center; gap: 10px; height: 60px; padding: 0 14px; background: var(--surface); border-bottom: 1px solid var(--line); z-index: 20; }
+    .ed-iconbtn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); text-decoration: none; cursor: pointer; }
+    .ed-iconbtn:hover { border-color: var(--primary); color: var(--primary); }
+    .ed-kind { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 36px; height: 36px; border-radius: 9px; color: #fff; font-size: 17px; }
+    .ed-kind--doc { background: #2563eb; }
+    .ed-kind--sheet { background: #16a34a; }
+    .ed-name { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+    .ed-name input { width: 100%; max-width: 520px; margin: 0; padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; font-size: 16px; font-weight: 700; text-overflow: ellipsis; }
+    .ed-name input:hover { border-color: var(--line); }
+    .ed-name input:focus { outline: none; border-color: var(--primary); background: var(--surface); }
+    .ed-status { display: inline-flex; align-items: center; gap: 5px; padding: 0 7px; color: var(--muted); font-size: 12px; }
+    .ed-status.is-saving i { color: #d97706; }
+    .ed-status.is-error { color: #dc2626; }
+    .ed-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; padding: 0 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); font-size: 13.5px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background .12s, border-color .12s, color .12s; }
+    .btn:hover { border-color: var(--primary); color: var(--primary); }
+    .btn--primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn--primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: #fff; }
+    .btn--primary:disabled { opacity: .5; cursor: default; }
+    .btn--sm { height: 32px; padding: 0 10px; font-size: 12.5px; }
+    .ed-badge { padding: 4px 10px; border-radius: 999px; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .ed-menu { position: relative; }
+    .ed-menu__list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; min-width: 230px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 16px 40px rgba(15, 23, 42, .16); }
+    .ed-menu__list button, .ed-menu__list label { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: none; font-size: 13.5px; text-align: left; cursor: pointer; }
+    .ed-menu__list button:hover, .ed-menu__list label:hover { background: var(--line-soft); }
+    .ed-menu__list i { width: 16px; color: var(--muted); text-align: center; }
+    .ed-menu__sep { height: 1px; margin: 5px 4px; background: var(--line); }
+    .ed-dl-note { display: flex; gap: 8px; margin: 0; padding: 9px 10px; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+    .ed-dl-note i { margin-top: 2px; }
 
-    /* Top Bar */
-    .editor-topbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      background: rgba(255, 255, 255, 0.94);
-      backdrop-filter: blur(8px);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      padding: 0 16px;
-      gap: 12px;
-      z-index: 100;
-      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    /* Main area: only the page / cells scroll */
+    .ed-main { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+    .ed-foot { flex: none; display: flex; align-items: center; gap: 14px; height: 32px; padding: 0 14px; border-top: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12px; }
+    .ed-foot strong { color: var(--text); font-weight: 600; }
+    .ed-foot .ed-foot__right { margin-left: auto; }
+
+    /* Document */
+    .ed-doc { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+    .ed-doc .ql-toolbar.ql-snow { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; padding: 6px 10px; border: 0; border-bottom: 1px solid var(--line); background: var(--surface); font-family: inherit; }
+    .ed-doc .ql-toolbar.ql-snow .ql-formats { margin-right: 6px; padding-right: 6px; border-right: 1px solid var(--line-soft); }
+    .ed-doc .ql-toolbar.ql-snow .ql-formats:last-child { border-right: 0; }
+    .ed-doc .ql-toolbar.ql-snow button:hover .ql-stroke, .ed-doc .ql-toolbar.ql-snow button.ql-active .ql-stroke { stroke: var(--primary); }
+    .ed-doc .ql-toolbar.ql-snow button:hover .ql-fill, .ed-doc .ql-toolbar.ql-snow button.ql-active .ql-fill { fill: var(--primary); }
+    .ed-doc .ql-toolbar.ql-snow button.ql-active, .ed-doc .ql-toolbar.ql-snow .ql-picker-label.ql-active { color: var(--primary); }
+    #doc-editor.ql-container.ql-snow { flex: 1 1 auto; min-height: 0; height: auto; overflow-y: auto; border: 0; background: var(--canvas); font-family: inherit; font-size: 15px; }
+    #doc-editor .ql-editor { box-sizing: border-box; width: min(816px, calc(100% - 32px)); min-height: calc(100% - 48px); height: auto; margin: 24px auto; padding: 64px 72px; overflow: visible; background: var(--surface); border-radius: 4px; box-shadow: 0 1px 3px rgba(15, 23, 42, .08), 0 8px 28px rgba(15, 23, 42, .07); line-height: 1.7; }
+    #doc-editor .ql-editor.ql-blank::before { left: 72px; right: 72px; color: #94a3b8; font-style: normal; }
+    #doc-editor .ql-editor h1, #doc-editor .ql-editor h2, #doc-editor .ql-editor h3 { line-height: 1.3; margin: .6em 0 .3em; }
+
+    /* Spreadsheet */
+    .ed-sheet { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+    .ed-ribbon { flex: none; display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface); overflow-x: auto; scrollbar-width: thin; }
+    .ed-group { display: flex; align-items: center; gap: 2px; padding-right: 6px; margin-right: 4px; border-right: 1px solid var(--line-soft); }
+    .ed-group:last-child { border-right: 0; }
+    .ed-tool { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; height: 32px; min-width: 32px; padding: 0 9px; border: 0; border-radius: 8px; background: none; color: #334155; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+    .ed-tool:hover { background: var(--line-soft); color: var(--primary); }
+    .ed-tool i { font-size: 13px; }
+    .ed-tool__sigma { font-family: Georgia, serif; font-size: 16px; font-weight: 700; line-height: 1; }
+    .ed-fx { flex: none; display: flex; align-items: center; gap: 0; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface); }
+    .ed-fx__ref { width: 74px; height: 32px; margin: 0; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px 0 0 8px; background: var(--line-soft); font-size: 13px; font-weight: 700; text-align: center; }
+    .ed-fx__icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 32px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font-family: Georgia, serif; font-style: italic; font-weight: 700; }
+    .ed-fx__input { flex: 1; min-width: 0; height: 32px; margin: 0; padding: 0 10px; border: 1px solid var(--line); border-radius: 0 8px 8px 0; font-size: 13.5px; }
+    .ed-fx__input:focus, .ed-fx__ref:focus { outline: none; border-color: var(--primary); }
+    .sheet-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; background: var(--surface); }
+    .sheet-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-size: 13px; }
+    .sheet-table th, .sheet-table td { height: 30px; min-width: 110px; padding: 0; border-right: 1px solid #e8ebef; border-bottom: 1px solid #e8ebef; }
+    .sheet-table thead th { position: sticky; top: 0; z-index: 2; background: #f8fafc; color: var(--muted); font-size: 12px; font-weight: 600; text-align: center; user-select: none; }
+    .sheet-table thead th.is-hot, .sheet-table td.row-header-cell.is-hot { background: var(--tint); color: var(--primary); }
+    .sheet-table th.corner { left: 0; z-index: 4; min-width: 46px; width: 46px; }
+    .sheet-table td.row-header-cell { position: sticky; left: 0; z-index: 1; min-width: 46px; width: 46px; background: #f8fafc; color: var(--muted); font-size: 12px; font-weight: 600; text-align: center; user-select: none; }
+    .sheet-table td { position: relative; background: var(--surface); }
+    .sheet-table td.selected-range { background: color-mix(in srgb, var(--primary) 9%, white); }
+    .sheet-table td.active-cell { box-shadow: inset 0 0 0 2px var(--primary); }
+    .sheet-table td.formula-cell .sheet-cell-input { color: #1d4ed8; }
+    .sheet-table td.error-cell { background: #fef2f2; }
+    .sheet-table td.error-cell .sheet-cell-input { color: #dc2626; }
+    .sheet-table td.num .sheet-cell-input { text-align: right; font-variant-numeric: tabular-nums; }
+    .sheet-table tbody tr:first-child td.is-header .sheet-cell-input { font-weight: 700; }
+    .sheet-cell-input { display: block; width: 100%; height: 100%; margin: 0; padding: 4px 8px; border: 0; outline: none; background: transparent; font-size: 13px; }
+    .sheet-cell-input:focus { background: var(--surface); }
+
+    /* Side panels (Share, Insert data) */
+    .ed-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(15, 23, 42, .25); }
+    .ed-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 60; display: flex; flex-direction: column; width: min(440px, 100vw); background: var(--surface); box-shadow: -18px 0 40px rgba(15, 23, 42, .18); transform: translateX(105%); transition: transform .22s ease; }
+    .ed-panel:not(.is-open) { visibility: hidden; box-shadow: none; transition: transform .22s ease, visibility 0s .22s; }
+    .ed-panel.is-open { transform: none; }
+    .ed-panel__bar { flex: none; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    .ed-panel__bar strong { flex: 1; font-size: 16px; }
+    .ed-panel__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; }
+    .ed-panel__foot { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); }
+    .ed-panel__foot .ed-note { flex: 1; min-width: 0; margin: 0; }
+    .ed-sec { margin-bottom: 18px; }
+    .ed-sec > h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; color: var(--muted); font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .ed-note { margin: 6px 0 0; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+    .ed-field { width: 100%; height: 40px; margin: 0; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); font-size: 14px; }
+    .ed-field:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent); }
+    .ed-row { display: flex; align-items: center; gap: 8px; }
+    .ed-row > .ed-field { flex: 1 1 auto; min-width: 0; }
+    .ed-row > select.ed-field--level { flex: 0 0 132px; }
+    .ed-people { margin: 10px 0 0; padding: 0; list-style: none; }
+    .ed-person { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+    .ed-person:last-child { border-bottom: 0; }
+    .ed-av { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--tint); color: var(--primary); font-size: 12px; font-weight: 800; }
+    .ed-person__name { flex: 1 1 auto; min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+    .ed-person__name small { display: block; color: var(--muted); font-size: 12px; font-weight: 500; }
+    .ed-person select { flex: none; height: 32px; padding: 0 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 12.5px; }
+    .ed-x { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+    .ed-x:hover { background: #fee2e2; color: #dc2626; }
+    .ed-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+    .ed-empty { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+
+    /* Insert data */
+    .ed-sources { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .ed-source { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font-size: 12.5px; font-weight: 600; text-align: center; cursor: pointer; transition: border-color .12s, background .12s; }
+    .ed-source input { position: absolute; opacity: 0; pointer-events: none; }
+    .ed-source i { font-size: 18px; color: var(--muted); }
+    .ed-source:hover { border-color: color-mix(in srgb, var(--primary) 45%, white); }
+    .ed-source:has(input:checked) { border-color: var(--primary); background: var(--tint); color: var(--primary); }
+    .ed-source:has(input:checked) i { color: var(--primary); }
+    .ed-source:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent); }
+    .ed-preview { margin-top: 4px; border: 1px solid var(--line); border-radius: 10px; overflow: auto; max-height: 240px; }
+    .ed-preview table { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 12px; }
+    .ed-preview th, .ed-preview td { padding: 6px 9px; border-bottom: 1px solid var(--line-soft); text-align: left; white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+    .ed-preview th { position: sticky; top: 0; background: #f8fafc; color: var(--muted); font-weight: 700; }
+    .ed-preview__msg { padding: 18px; color: var(--muted); font-size: 13px; text-align: center; }
+    .ed-count { padding: 1px 8px; border-radius: 999px; background: var(--tint); color: var(--primary); font-size: 11px; letter-spacing: 0; text-transform: none; }
+    .ed-start { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+    .ed-start input { width: 76px; height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; font-weight: 700; text-align: center; text-transform: uppercase; }
+    .ed-opt { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13.5px; cursor: pointer; }
+    .ed-opt input, .cd input[type=checkbox] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); }
+
+    /* Dropdown with checkboxes */
+    .cd { position: relative; }
+    .cd__btn { position: relative; display: block; width: 100%; height: 40px; padding: 0 36px 0 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); font-size: 14px; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .cd__btn::after { content: '\f078'; position: absolute; right: 13px; top: 50%; transform: translateY(-50%); font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 11px; color: var(--muted); }
+    .cd__btn[aria-expanded="true"] { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent); }
+    .cd__menu { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 70; display: flex; flex-direction: column; max-height: 320px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 16px 40px rgba(15, 23, 42, .16); overflow: hidden; }
+    .cd__search { flex: none; margin: 8px; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; }
+    .cd__search:focus { outline: none; border-color: var(--primary); }
+    .cd__list { flex: 1; overflow-y: auto; padding: 2px 0 6px; }
+    .cd__opt { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 13.5px; cursor: pointer; }
+    .cd__opt:hover { background: var(--line-soft); }
+    .cd__opt span { flex: 1; min-width: 0; }
+    .cd__opt small { color: var(--muted); }
+    .cd__opt--all { border-bottom: 1px solid var(--line); font-weight: 700; }
+
+    /* Sheet formatting, menus, resizing, hidden rows / columns */
+    .ed-tool.is-on { background: var(--tint); color: var(--primary); }
+    .ed-tool__a { display: inline-flex; flex-direction: column; align-items: center; line-height: 1; font-weight: 800; }
+    .ed-tool__a b { display: block; width: 14px; height: 3px; margin-top: 2px; border-radius: 2px; background: currentColor; }
+    .ed-pop { position: fixed; z-index: 80; min-width: 210px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 16px 40px rgba(15, 23, 42, .18); }
+    .ed-pop button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; font-size: 13.5px; text-align: left; cursor: pointer; }
+    .ed-pop button:hover { background: var(--line-soft); }
+    .ed-pop button i { width: 16px; color: var(--muted); text-align: center; }
+    .ed-pop button kbd { margin-left: auto; color: var(--muted); font-family: inherit; font-size: 11.5px; }
+    .ed-pop hr { height: 1px; margin: 5px 4px; border: 0; background: var(--line); }
+    .ed-swatches { display: grid; grid-template-columns: repeat(6, 26px); gap: 6px; padding: 6px; }
+    .ed-swatches button { width: 26px; height: 26px; padding: 0; border: 1px solid rgba(15, 23, 42, .15); border-radius: 6px; }
+    .ed-swatches button:hover { outline: 2px solid var(--primary); outline-offset: 1px; }
+    .ed-swatches button.is-none { background: linear-gradient(135deg, #fff 45%, #dc2626 45%, #dc2626 55%, #fff 55%); }
+    .sheet-table { table-layout: fixed; }
+    .sheet-table th, .sheet-table td { min-width: 0; overflow: hidden; }
+    .sheet-table thead th { position: sticky; }
+    .col-grip { position: absolute; top: 0; right: -3px; z-index: 3; width: 7px; height: 100%; cursor: col-resize; }
+    .col-grip:hover, .col-grip.is-drag { background: var(--primary); opacity: .5; }
+    body.is-resizing, body.is-resizing * { cursor: col-resize !important; user-select: none !important; }
+    .ed-unhide { position: absolute; top: 50%; left: 1px; z-index: 3; display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 18px; padding: 0; border: 0; border-radius: 4px; background: var(--primary); color: #fff; font-size: 9px; transform: translateY(-50%); cursor: pointer; }
+    td.row-header-cell .ed-unhide { top: 1px; left: 50%; width: 18px; height: 12px; transform: translateX(-50%); }
+    .sheet-table.no-grid td:not(.row-header-cell) { border-color: transparent; }
+    .sheet-table.freeze-row tbody tr:first-child td { position: sticky; top: 31px; z-index: 2; box-shadow: 0 2px 0 #cbd5e1; }
+    .sheet-table.freeze-row tbody tr:first-child td.row-header-cell { z-index: 3; }
+    .sheet-table.freeze-col td[data-c="0"] { position: sticky; left: 46px; z-index: 1; box-shadow: 2px 0 0 #cbd5e1; }
+    .sheet-table.freeze-col.freeze-row tbody tr:first-child td[data-c="0"] { z-index: 3; }
+    /* Doc page settings */
+    .ed--doc.page-wide #doc-editor .ql-editor { width: min(1040px, calc(100% - 32px)); }
+    .ed--doc.page-full #doc-editor .ql-editor { width: calc(100% - 32px); }
+    .ed-doc .ql-snow .ql-undo, .ed-doc .ql-snow .ql-redo { color: #444; font-size: 13px; }
+    .ed-doc .ql-snow .ql-undo:hover, .ed-doc .ql-snow .ql-redo:hover { color: var(--primary); }
+    .ed-doc .ql-editor ul[data-checked=true] > li::before, .ed-doc .ql-editor ul[data-checked=false] > li::before { color: var(--primary); }
+    .ed-doc .ql-editor ul[data-checked=true] > li { color: var(--muted); text-decoration: line-through; }
+    .ed-set { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+    .ed-set:last-child { border-bottom: 0; }
+    .ed-set small { display: block; color: var(--muted); font-size: 12px; }
+    .ed-set select { flex: none; width: 150px; height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 13px; }
+    .ed-switch { position: relative; flex: none; width: 40px; height: 22px; }
+    .ed-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+    .ed-switch span { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; transition: background .15s; pointer-events: none; }
+    .ed-switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: transform .15s; }
+    .ed-switch input:checked + span { background: var(--primary); }
+    .ed-switch input:checked + span::after { transform: translateX(18px); }
+    .ed-switch input:focus-visible + span { box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent); }
+    .ed-kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 13.5px; }
+    .ed-kv span { color: var(--muted); }
+    .ed-kv strong { font-weight: 600; text-align: right; }
+    .ed-keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
+    .ed-keys kbd { padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: #f8fafc; font-family: inherit; font-size: 11.5px; white-space: nowrap; }
+    .ed-actions-col { display: flex; flex-direction: column; gap: 8px; }
+    .ed-actions-col .btn { justify-content: flex-start; width: 100%; }
+    .btn--danger { color: #dc2626; border-color: #fecaca; }
+    .btn--danger:hover { background: #fef2f2; color: #b91c1c; border-color: #fca5a5; }
+
+    .ed-size { height: 32px; margin: 0 2px; padding: 0 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 12.5px; }
+    .ed-fgroup { margin-bottom: 14px; }
+    .ed-fgroup h4 { margin: 0 0 6px; font-size: 12px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+    .ed-fld { display: flex; align-items: center; gap: 4px; }
+    .ed-fld[hidden], .ed-fgroup[hidden] { display: none !important; }
+    .ed-fld__main { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex: 1; min-width: 0; padding: 7px 8px; border: 0; border-radius: 8px; background: none; font-size: 13.5px; text-align: left; cursor: pointer; }
+    .ed-fld__main:hover { background: var(--tint); }
+    .ed-fld__main code, .ed-note code { padding: 1px 6px; border-radius: 6px; background: #f1f5f9; color: #0f766e; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sheet-table td.is-field .sheet-cell-input { color: #0f766e; }
+
+    .ed-toast { position: fixed; left: 50%; bottom: 46px; z-index: 90; padding: 10px 16px; border-radius: 10px; background: #0f172a; color: #fff; font-size: 13.5px; box-shadow: 0 10px 30px rgba(15, 23, 42, .3); transform: translate(-50%, 20px); opacity: 0; pointer-events: none; transition: transform .2s, opacity .2s; }
+    .ed-toast.is-on { transform: translate(-50%, 0); opacity: 1; }
+
+    @media (max-width: 760px) {
+      .ed-top { height: 56px; gap: 8px; padding: 0 10px; }
+      .btn .label { display: none; }
+      .btn { width: 38px; padding: 0; }
+      .ed-kind { display: none; }
+      .ed-status .label { display: none; }
+      #doc-editor .ql-editor { width: 100%; min-height: 100%; margin: 0; padding: 22px 18px; border-radius: 0; box-shadow: none; }
+      #doc-editor .ql-editor.ql-blank::before { left: 18px; right: 18px; }
+      .ed-doc .ql-toolbar.ql-snow { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; }
+      .ed-doc .ql-toolbar.ql-snow .ql-formats { flex: none; }
+      .sheet-table th, .sheet-table td { min-width: 92px; }
+      .ed-sources { grid-template-columns: repeat(2, 1fr); }
+      .ed-panel { width: 100vw; }
+      .ed-foot .ed-foot__hide { display: none; }
     }
-
-    .topbar-back {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: #fff;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      flex-shrink: 0;
-      text-decoration: none;
-      color: var(--text);
-      transition: all 0.15s;
-    }
-    .topbar-back:hover { border-color: var(--primary); color: var(--primary); }
-
-    .topbar-icon {
-      font-size: 22px;
-      flex-shrink: 0;
-    }
-
-    .topbar-title {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .topbar-title input {
-      width: 100%;
-      border: none;
-      outline: none;
-      font-size: 16px;
-      font-weight: 600;
-      background: transparent;
-      padding: 4px 8px;
-      border-radius: 6px;
-      transition: background 0.15s;
-    }
-    .topbar-title input:hover { background: #f3f4f6; }
-    .topbar-title input:focus { background: #f0f9ff; }
-
-    .save-status {
-      font-size: 12px;
-      color: var(--muted);
-      white-space: nowrap;
-      flex-shrink: 0;
-      background: #f8fafc;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 4px 10px;
-    }
-
-    .topbar-actions {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      border: none;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-hover-fill, var(--primary-hover)); }
-    .btn-outline { background: #fff; color: var(--text); border: 1px solid var(--border); }
-    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
-
-    .btn-sm { padding: 6px 10px; font-size: 12px; }
-
-    .permission-badge {
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      flex-shrink: 0;
-    }
-    .permission-badge.edit { background: #dcfce7; color: #16a34a; }
-    .permission-badge.view { background: #dbeafe; color: #2563eb; }
-    .permission-badge.comment { background: #fef3c7; color: #d97706; }
-
-    /* Editor Area */
-    .editor-area {
-      margin-top: 60px;
-      height: calc(100vh - 60px);
-      display: flex;
-      background: linear-gradient(180deg, #f8fafc 0%, #f3f4f6 100%);
-    }
-
-    /* Document Editor (Quill) */
-    .doc-editor-wrap {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      max-width: 860px;
-      margin: 24px auto;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-      overflow: hidden;
-    }
-
-    #doc-editor {
-      flex: 1;
-      font-size: 15px;
-      line-height: 1.7;
-    }
-
-    #doc-editor .ql-editor {
-      min-height: 400px;
-      padding: 32px 40px;
-    }
-
-    /* Spreadsheet Editor */
-    .sheet-container {
-      flex: 1;
-      overflow: auto;
-      padding: 16px;
-    }
-
-    .sheet-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      background: rgba(255, 255, 255, 0.95);
-      border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    }
-
-    .sheet-toolbar .toolbar-sep {
-      width: 1px;
-      height: 22px;
-      background: var(--border);
-      margin: 0 2px;
-    }
-
-    .sheet-stats {
-      margin-left: auto;
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 600;
-      background: #f8fafc;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 5px 10px;
-    }
-
-    .sheet-toolbar select,
-    .sheet-toolbar input {
-      padding: 6px 10px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 13px;
-    }
-
-    .sheet-toolbar .qty-input {
-      width: 64px;
-      text-align: center;
-      font-weight: 600;
-      background: #fff;
-    }
-
-    .sheet-toolbar .formula-bar {
-      flex: 1;
-      min-width: 200px;
-    }
-
-    .sheet-toolbar .btn {
-      white-space: nowrap;
-    }
-
-    .sheet-table-wrap {
-      overflow: auto;
-      max-height: calc(100vh - 140px);
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
-    }
-
-    .sheet-table {
-      border-collapse: collapse;
-      width: max-content;
-      min-width: 100%;
-    }
-
-    .sheet-table th,
-    .sheet-table td {
-      border: 1px solid #e5e7eb;
-      min-width: 100px;
-      height: 32px;
-      padding: 0;
-      position: relative;
-    }
-
-    .sheet-table th {
-      background: #f9fafb;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--muted);
-      text-align: center;
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      user-select: none;
-    }
-
-    .sheet-table th.row-header {
-      width: 40px;
-      min-width: 40px;
-      position: sticky;
-      left: 0;
-      z-index: 3;
-      background: #f3f4f6;
-    }
-
-    .sheet-table th.corner {
-      position: sticky;
-      left: 0;
-      z-index: 4;
-    }
-
-    .sheet-table td {
-      background: #fff;
-      font-size: 13px;
-    }
-
-    .sheet-table td.selected-range {
-      background: #eff6ff;
-      box-shadow: inset 0 0 0 1px #93c5fd;
-    }
-
-    .sheet-table td.active-cell {
-      box-shadow: inset 0 0 0 2px var(--primary);
-      background: #e0f2fe;
-    }
-
-    .sheet-table td.row-header-cell {
-      background: #f9fafb;
-      text-align: center;
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 600;
-      position: sticky;
-      left: 0;
-      z-index: 1;
-      pointer-events: none;
-    }
-
-    .sheet-cell-input {
-      width: 100%;
-      height: 100%;
-      border: none;
-      outline: none;
-      padding: 4px 8px;
-      font-size: 13px;
-      font-family: inherit;
-      background: transparent;
-    }
-
-    .sheet-cell-input:focus {
-      background: #eff6ff;
-      box-shadow: inset 0 0 0 2px var(--primary);
-    }
-
-    .sheet-table td.formula-cell { color: #2563eb; }
-    .sheet-table td.error-cell { color: #dc2626; background: #fef2f2; }
-
-    /* Settings Panel */
-    .settings-panel {
-      display: none;
-      position: fixed;
-      top: 60px;
-      right: 0;
-      width: 360px;
-      max-width: 90vw;
-      height: calc(100vh - 60px);
-      background: #fff;
-      border-left: 1px solid var(--border);
-      z-index: 50;
-      overflow-y: auto;
-      box-shadow: -12px 0 24px rgba(15, 23, 42, 0.10);
-    }
-    .settings-panel.open { display: block; }
-
-    .settings-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-    }
-    .settings-header h3 { margin: 0; font-size: 16px; }
-
-    .settings-close {
-      background: none;
-      border: none;
-      font-size: 22px;
-      cursor: pointer;
-      color: var(--muted);
-      padding: 4px;
-    }
-
-    .settings-body { padding: 20px; }
-
-    .settings-section {
-      margin-bottom: 24px;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-    }
-
-    .settings-section h4 {
-      margin: 0 0 10px;
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .perm-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 0;
-      border-bottom: 1px solid #f3f4f6;
-    }
-
-    .perm-row:last-child { border-bottom: none; }
-
-    .perm-row .name {
-      flex: 1;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .perm-row select {
-      padding: 4px 8px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 12px;
-    }
-
-    .perm-row .remove-btn {
-      width: 24px;
-      height: 24px;
-      border: none;
-      background: #fee2e2;
-      color: #dc2626;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .add-perm-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .add-perm-row select {
-      flex: 1;
-      padding: 8px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 13px;
-    }
-
-    .class-assign-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 0;
-      border-bottom: 1px solid #f3f4f6;
-      flex-wrap: wrap;
-    }
-
-    .class-assign-row .name { flex: 1; font-size: 13px; font-weight: 500; min-width: 100px; }
-
-    .class-assign-row label {
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .insert-data-section { margin-top: 16px; }
-    .insert-data-section select {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 13px;
-      margin-bottom: 8px;
-    }
-
-    @media (max-width: 768px) {
-      .topbar-actions .btn span.label { display: none; }
-      .save-status { display: none; }
-      .doc-editor-wrap { margin: 12px 8px; border-radius: 6px; }
-      #doc-editor .ql-editor { padding: 20px 16px; }
-      .settings-panel { width: 100%; max-width: 100%; }
-      .sheet-container { padding: 8px; }
-      .editor-topbar { height: 56px; }
-      .editor-area { margin-top: 56px; height: calc(100vh - 56px); }
-      .sheet-toolbar {
-        padding: 10px;
-        gap: 6px;
-        align-items: flex-start;
-      }
-      .sheet-toolbar .toolbar-sep { display: none; }
-      .sheet-toolbar .formula-bar {
-        min-width: 100%;
-        width: 100%;
-        order: 20;
-      }
-      .sheet-stats {
-        margin-left: 0;
-        width: 100%;
-        order: 21;
-        font-size: 11px;
-        line-height: 1.45;
-        white-space: normal;
-        word-break: break-word;
-      }
-      .sheet-toolbar .qty-input {
-        width: 56px;
-        padding: 6px 4px;
-      }
-      .sheet-table th,
-      .sheet-table td {
-        min-width: 92px;
-      }
-      .sheet-table-wrap {
-        max-height: calc(100vh - 190px);
-      }
-    }
-
-    @media (max-width: 480px) {
-      .editor-topbar { padding: 0 10px; gap: 8px; }
-      .topbar-title input { font-size: 14px; }
-      .btn { padding: 6px 10px; font-size: 12px; }
-      .permission-badge { display: none; }
-      .sheet-toolbar {
-        padding: 8px;
-        gap: 5px;
-      }
-      .sheet-toolbar .btn {
-        padding: 6px 8px;
-        font-size: 11px;
-      }
-      .sheet-toolbar #cellRef {
-        width: 54px !important;
-      }
-      .sheet-toolbar .qty-input {
-        width: 52px;
-      }
-      .sheet-table th,
-      .sheet-table td {
-        min-width: 84px;
-      }
-      .sheet-table-wrap {
-        max-height: calc(100vh - 178px);
-      }
+    @media print {
+      body.is-report-layout > * { display: none !important; }
+      body.is-report-layout::after { content: 'Report card layouts can’t be printed from here. Print report cards from Reports → Terminal Report.'; display: block; padding: 40px; font-size: 16px; }
+      html, body { height: auto; overflow: visible; background: #fff; }
+      .ed-top, .ed-foot, .ql-toolbar, .ed-ribbon, .ed-fx, .ed-panel, .ed-backdrop, .ed-toast { display: none !important; }
+      #doc-editor.ql-container.ql-snow { overflow: visible; background: #fff; }
+      #doc-editor .ql-editor { width: auto; margin: 0; padding: 0; box-shadow: none; }
+      .sheet-wrap { overflow: visible; }
     }
   </style>
 </head>
-<body>
-  <!-- Top Bar -->
-  <div class="editor-topbar">
-    <a href="<%= (typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '/documents' %>" class="topbar-back" title="Back to Docs/Sheets">←</a>
-    <span class="topbar-icon"><%= isDoc ? '📝' : '📊' %></span>
-    <div class="topbar-title">
-      <input type="text" id="titleInput" value="<%= document.title %>" <%= isReadOnly ? 'readonly' : '' %> />
+<body class="ed ed--<%= isDoc ? 'doc' : 'sheet' %><%= _tplOn ? ' is-report-layout' : '' %>">
+  <header class="ed-top">
+    <a href="<%= (typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '/documents' %>" class="ed-iconbtn" title="Back to files" aria-label="Back to files"><i class="fa-solid fa-arrow-left"></i></a>
+    <span class="ed-kind ed-kind--<%= isDoc ? 'doc' : 'sheet' %>" aria-hidden="true"><i class="fa-solid fa-<%= isDoc ? 'file-lines' : 'table' %>"></i></span>
+    <div class="ed-name">
+      <input type="text" id="titleInput" value="<%= document.title %>" aria-label="File name" <%= canEdit ? '' : 'readonly' %> />
+      <span class="ed-status" id="saveStatus"><i class="fa-solid fa-cloud"></i> <span class="label" id="saveText"><%= canEdit ? 'All changes saved' : (_levelLabel[permissionLevel] || 'View only') %></span></span>
     </div>
-    <span class="save-status" id="saveStatus">Saved</span>
-    <span class="permission-badge <%= permissionLevel %>"><%= permissionLevel %></span>
-    <div class="topbar-actions">
-      <% if (canEdit) { %>
-        <button class="btn btn-outline btn-sm" onclick="toggleSettings()" title="Settings">⚙️ <span class="label">Settings</span></button>
+    <div class="ed-actions">
+      <% if (!canEdit) { %><span class="ed-badge"><%= _levelLabel[permissionLevel] || 'View only' %></span><% } %>
+      <% if (canInsert) { %>
+        <button type="button" class="btn" id="openFields" title="Report card fields: {{student.name}}, {{subject.grade}}…"><i class="fa-solid fa-code"></i><span class="label">Fields</span></button>
+        <button type="button" class="btn" id="openInsert" title="Insert school data"><i class="fa-solid fa-table-list"></i><span class="label">Insert data</span></button>
       <% } %>
-    </div>
-  </div>
-
-  <!-- Editor Area -->
-  <div class="editor-area">
-    <% if (isDoc) { %>
-      <!-- Rich Text Document Editor -->
-      <div class="doc-editor-wrap">
-        <div id="doc-editor"></div>
-      </div>
-    <% } else { %>
-      <!-- Spreadsheet Editor -->
-      <div style="flex:1; display:flex; flex-direction:column;">
-        <div class="sheet-toolbar">
-          <label style="font-size:12px; font-weight:600;">Cell:</label>
-          <input type="text" id="cellRef" readonly style="width:60px; text-align:center;" value="A1" />
-          <span style="color:var(--muted);">ƒ</span>
-          <input type="text" id="formulaBar" class="formula-bar" placeholder="Enter value or formula (=SUM(A1:A5))" <%= isReadOnly ? 'readonly' : '' %> />
-          <div class="toolbar-sep"></div>
-          <button class="btn btn-outline btn-sm" type="button" onclick="selectAllCells()">Select All</button>
-          <% if (canEdit) { %>
-            <button class="btn btn-outline btn-sm" type="button" onclick="insertRangeFormula('SUM')">Σ Sum</button>
-            <button class="btn btn-outline btn-sm" type="button" onclick="insertRangeFormula('AVERAGE')">Avg</button>
-            <button class="btn btn-outline btn-sm" type="button" onclick="insertRangeFormula('COUNT')">Count</button>
-          <% } %>
-          <span id="sheetStats" class="sheet-stats">No range selected</span>
-          <% if (canEdit) { %>
-            <div class="toolbar-sep"></div>
-            <button class="btn btn-outline btn-sm" onclick="addRow()">+ Row</button>
-            <button class="btn btn-outline btn-sm" onclick="addCol()">+ Col</button>
-            <input id="addRowsCount" class="qty-input" type="number" min="1" max="200" value="10" />
-            <button class="btn btn-outline btn-sm" type="button" onclick="addRowsBulk()">+ Rows</button>
-            <input id="addColsCount" class="qty-input" type="number" min="1" max="50" value="5" />
-            <button class="btn btn-outline btn-sm" type="button" onclick="addColsBulk()">+ Cols</button>
-          <% } %>
-        </div>
-        <div class="sheet-container">
-          <div class="sheet-table-wrap">
-            <table class="sheet-table" id="sheetTable"></table>
+      <div class="ed-menu">
+        <button type="button" class="btn" id="dlBtn" aria-haspopup="true" aria-expanded="false" title="Import, download or print"><i class="fa-regular fa-folder-open"></i><span class="label">File</span></button>
+        <div class="ed-menu__list" id="dlMenu" hidden>
+          <%# Report card layouts are filled with student data, so they aren't downloadable. %>
+          <div class="ed-dl" data-dl-group<%= _tplOn ? ' hidden' : '' %>>
+            <% if (isDoc) { %>
+              <button type="button" data-dl="word"><i class="fa-solid fa-file-word"></i> Word document (.doc)</button>
+              <button type="button" data-dl="text"><i class="fa-solid fa-file-lines"></i> Plain text (.txt)</button>
+            <% } else { %>
+              <button type="button" data-dl="excel"><i class="fa-solid fa-file-excel"></i> Excel (.xls)</button>
+              <button type="button" data-dl="csv"><i class="fa-solid fa-file-csv"></i> CSV (.csv)</button>
+            <% } %>
+            <button type="button" data-dl="print"><i class="fa-solid fa-print"></i> Print or save as PDF</button>
           </div>
+          <p class="ed-dl-note" data-dl-locked<%= _tplOn ? '' : ' hidden' %>><i class="fa-solid fa-lock"></i> This is a report card layout, so it can’t be downloaded. Print report cards from Terminal Report.</p>
+          <% if (!isDoc && canEdit) { %>
+            <div class="ed-menu__sep"></div>
+            <label><i class="fa-solid fa-file-arrow-up"></i> Upload Excel (.xlsx)<input type="file" id="xlsxImport" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden /></label>
+            <label><i class="fa-solid fa-file-import"></i> Upload a CSV file<input type="file" id="csvImport" accept=".csv,text/csv" hidden /></label>
+          <% } %>
         </div>
       </div>
-    <% } %>
-  </div>
-
-  <!-- Settings Panel -->
-  <% if (canEdit) { %>
-  <div class="settings-panel" id="settingsPanel">
-    <div class="settings-header">
-      <h3>Document Settings</h3>
-      <button class="settings-close" onclick="toggleSettings()">×</button>
-    </div>
-    <div class="settings-body">
-      <!-- User Permissions -->
-      <div class="settings-section">
-        <h4>👤 User Permissions</h4>
-        <div id="permList">
-          <% permissions.forEach(p => { %>
-            <div class="perm-row" data-user-id="<%= p.user_id %>">
-              <span class="name"><%= p.user_name %></span>
-              <select onchange="updatePermList()">
-                <option value="view" <%= p.permission_level === 'view' ? 'selected' : '' %>>View</option>
-                <option value="comment" <%= p.permission_level === 'comment' ? 'selected' : '' %>>Comment</option>
-                <option value="edit" <%= p.permission_level === 'edit' ? 'selected' : '' %>>Edit</option>
-              </select>
-              <button class="remove-btn" onclick="this.closest('.perm-row').remove()">×</button>
-            </div>
-          <% }); %>
-        </div>
-        <div class="add-perm-row">
-          <select id="addUserSelect">
-            <option value="">Add user...</option>
-            <% employees.forEach(emp => { %>
-              <option value="<%= emp.user_id %>"><%= emp.name %> (<%= emp.role %>)</option>
-            <% }); %>
-          </select>
-          <select id="addUserLevel">
-            <option value="view">View</option>
-            <option value="comment">Comment</option>
-            <option value="edit">Edit</option>
-          </select>
-          <button class="btn btn-primary btn-sm" onclick="addUserPerm()">Add</button>
-        </div>
-      </div>
-
-      <!-- Class Assignments -->
-      <div class="settings-section">
-        <h4>🏫 Assign to Classes</h4>
-        <div id="classAssignList">
-          <% classAssignments.forEach(ca => { %>
-            <div class="class-assign-row" data-class-id="<%= ca.class_id %>">
-              <span class="name"><%= ca.class_name %></span>
-              <select>
-                <option value="view" <%= ca.permission_level === 'view' ? 'selected' : '' %>>View</option>
-                <option value="comment" <%= ca.permission_level === 'comment' ? 'selected' : '' %>>Comment</option>
-                <option value="edit" <%= ca.permission_level === 'edit' ? 'selected' : '' %>>Edit</option>
-              </select>
-              <label><input type="checkbox" class="incStudents" <%= ca.include_students ? 'checked' : '' %>> Students</label>
-              <label><input type="checkbox" class="incSubjects" <%= ca.include_subjects ? 'checked' : '' %>> Subjects</label>
-              <button class="remove-btn" onclick="this.closest('.class-assign-row').remove()">×</button>
-            </div>
-          <% }); %>
-        </div>
-        <div class="add-perm-row">
-          <select id="addClassSelect">
-            <option value="">Add class...</option>
-            <% classes.forEach(cls => { %>
-              <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
-            <% }); %>
-          </select>
-          <button class="btn btn-primary btn-sm" onclick="addClassAssign()">Add</button>
-        </div>
-      </div>
-
-      <% if (!isDoc) { %>
-      <!-- Insert Class Data (Spreadsheet only) -->
-      <div class="settings-section insert-data-section">
-        <h4>📋 Insert Class Data</h4>
-        <select id="insertClassSelect">
-          <option value="">Select class...</option>
-          <% classes.forEach(cls => { %>
-            <option value="<%= cls.class_id %>"><%= cls.class_name %></option>
-          <% }); %>
-        </select>
-        <button class="btn btn-outline btn-sm" onclick="insertStudents()" style="width:100%; margin-bottom:6px;">Insert Students</button>
-        <button class="btn btn-outline btn-sm" onclick="insertSubjects()" style="width:100%;">Insert Subjects</button>
-      </div>
+      <% if (canEdit) { %>
+        <button type="button" class="btn" id="openSettings" title="Settings"><i class="fa-solid fa-gear"></i><span class="label">Settings</span></button>
+        <button type="button" class="btn btn--primary" id="openShare" title="Share"><i class="fa-solid fa-user-plus"></i><span class="label">Share</span></button>
       <% } %>
-
-      <button class="btn btn-primary" onclick="savePermissions()" style="width:100%; margin-top:10px;">Save Permissions</button>
     </div>
-  </div>
+  </header>
+
+  <main class="ed-main">
+    <% if (isDoc) { %>
+      <div class="ed-doc"><div id="doc-editor"></div></div>
+      <footer class="ed-foot">
+        <span><strong id="wordCount">0</strong> words</span>
+        <span class="ed-foot__hide"><strong id="charCount">0</strong> characters</span>
+        <span class="ed-foot__right ed-foot__hide">Saves on its own as you type</span>
+      </footer>
+    <% } else { %>
+      <div class="ed-sheet">
+        <% if (canEdit) { %>
+          <div class="ed-ribbon" role="toolbar" aria-label="Sheet tools">
+            <div class="ed-group">
+              <button type="button" class="ed-tool" data-act="undo" title="Undo (Ctrl+Z)" aria-label="Undo"><i class="fa-solid fa-rotate-left"></i></button>
+              <button type="button" class="ed-tool" data-act="redo" title="Redo (Ctrl+Y)" aria-label="Redo"><i class="fa-solid fa-rotate-right"></i></button>
+            </div>
+            <div class="ed-group">
+              <button type="button" class="ed-tool" data-fmt="b" title="Bold (Ctrl+B)" aria-label="Bold"><i class="fa-solid fa-bold"></i></button>
+              <button type="button" class="ed-tool" data-fmt="i" title="Italic (Ctrl+I)" aria-label="Italic"><i class="fa-solid fa-italic"></i></button>
+              <button type="button" class="ed-tool" data-fmt="u" title="Underline (Ctrl+U)" aria-label="Underline"><i class="fa-solid fa-underline"></i></button>
+              <button type="button" class="ed-tool" data-pop="color" title="Text color" aria-label="Text color"><span class="ed-tool__a">A<b id="colorBar" style="background:#0f172a"></b></span></button>
+              <button type="button" class="ed-tool" data-pop="fill" title="Highlight (fill color)" aria-label="Highlight"><i class="fa-solid fa-highlighter"></i></button>
+              <select class="ed-size" id="fontSize" title="Text size" aria-label="Text size">
+                <option value="">13</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24">24</option><option value="28">28</option><option value="32">32</option>
+              </select>
+            </div>
+            <div class="ed-group">
+              <button type="button" class="ed-tool" data-pop="borders" title="Borders" aria-label="Borders"><i class="fa-regular fa-square"></i> <i class="fa-solid fa-caret-down"></i></button>
+              <button type="button" class="ed-tool" data-act="merge" title="Merge or unmerge the selected cells"><i class="fa-solid fa-table-cells-large"></i> Merge</button>
+            </div>
+            <div class="ed-group">
+              <button type="button" class="ed-tool" data-align="left" title="Align left" aria-label="Align left"><i class="fa-solid fa-align-left"></i></button>
+              <button type="button" class="ed-tool" data-align="center" title="Align center" aria-label="Align center"><i class="fa-solid fa-align-center"></i></button>
+              <button type="button" class="ed-tool" data-align="right" title="Align right" aria-label="Align right"><i class="fa-solid fa-align-right"></i></button>
+              <button type="button" class="ed-tool" data-act="clear-format" title="Clear formatting" aria-label="Clear formatting"><i class="fa-solid fa-text-slash"></i></button>
+            </div>
+            <div class="ed-group">
+              <button type="button" class="ed-tool" data-pop="insert" title="Insert rows or columns"><i class="fa-solid fa-plus"></i> Insert <i class="fa-solid fa-caret-down"></i></button>
+              <button type="button" class="ed-tool" data-pop="delete" title="Delete, clear or hide"><i class="fa-regular fa-trash-can"></i> Delete <i class="fa-solid fa-caret-down"></i></button>
+            </div>
+            <div class="ed-group">
+              <button type="button" class="ed-tool" data-fn="SUM" title="Sum of the selected cells"><span class="ed-tool__sigma">Σ</span> Sum</button>
+              <button type="button" class="ed-tool" data-fn="AVERAGE" title="Average of the selection">Avg</button>
+              <button type="button" class="ed-tool" data-fn="COUNT" title="Count numbers in the selection">Count</button>
+              <button type="button" class="ed-tool" data-fn="MIN" title="Smallest value">Min</button>
+              <button type="button" class="ed-tool" data-fn="MAX" title="Largest value">Max</button>
+            </div>
+            <div class="ed-group">
+              <button type="button" class="ed-tool" data-act="sort-asc" title="Sort rows by this column, A to Z (row 1 stays as the header)" aria-label="Sort A to Z"><i class="fa-solid fa-arrow-down-a-z"></i></button>
+              <button type="button" class="ed-tool" data-act="sort-desc" title="Sort rows by this column, Z to A (row 1 stays as the header)" aria-label="Sort Z to A"><i class="fa-solid fa-arrow-down-z-a"></i></button>
+              <button type="button" class="ed-tool" data-act="freeze-row" title="Keep row 1 in view while scrolling"><i class="fa-solid fa-thumbtack"></i> Freeze</button>
+            </div>
+          </div>
+        <% } %>
+        <div class="ed-fx">
+          <input type="text" id="cellRef" class="ed-fx__ref" value="A1" aria-label="Cell" title="Type a cell (like C12) and press Enter to jump there" />
+          <span class="ed-fx__icon">fx</span>
+          <input type="text" id="formulaBar" class="ed-fx__input" placeholder="Value or formula, e.g. =SUM(B2:B20)" aria-label="Cell value or formula" <%= canEdit ? '' : 'readonly' %> />
+        </div>
+        <div class="sheet-wrap" id="sheetWrap"><table class="sheet-table" id="sheetTable"></table></div>
+      </div>
+      <footer class="ed-foot">
+        <span id="sheetSize"></span>
+        <span class="ed-foot__hide">Copy and paste ranges from Excel or Google Sheets</span>
+        <span class="ed-foot__right" id="sheetStats">Select cells to see Sum and Average</span>
+      </footer>
+    <% } %>
+  </main>
+
+  <div class="ed-backdrop" id="edBackdrop" hidden></div>
+
+  <% if (canEdit) { %>
+  <aside class="ed-panel" id="sharePanel" role="dialog" aria-modal="true" aria-label="Share">
+    <div class="ed-panel__bar"><strong>Share</strong><button type="button" class="ed-x" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="ed-panel__body">
+      <section class="ed-sec">
+        <h3>People</h3>
+        <div class="ed-row">
+          <select class="ed-field" id="addUserSelect" aria-label="Add a person">
+            <option value="">Add a person…</option>
+            <% employees.forEach(emp => { %><option value="<%= emp.user_id %>" data-role="<%= emp.role %>"><%= emp.name %></option><% }); %>
+          </select>
+          <select class="ed-field ed-field--level" id="addUserLevel" aria-label="Access">
+            <option value="view">View only</option><option value="comment">Can comment</option><option value="edit">Can edit</option>
+          </select>
+        </div>
+        <ul class="ed-people" id="permList">
+          <% permissions.forEach(p => { %>
+            <li class="ed-person" data-user-id="<%= p.user_id %>">
+              <span class="ed-av"><%= String(p.user_name || '?').split(/\s+/).map((w) => w.charAt(0)).join('').slice(0, 2).toUpperCase() %></span>
+              <span class="ed-person__name"><%= p.user_name %></span>
+              <select aria-label="Access"><option value="view"<%= p.permission_level === 'view' ? ' selected' : '' %>>View only</option><option value="comment"<%= p.permission_level === 'comment' ? ' selected' : '' %>>Can comment</option><option value="edit"<%= p.permission_level === 'edit' ? ' selected' : '' %>>Can edit</option></select>
+              <button type="button" class="ed-x" data-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+            </li>
+          <% }); %>
+        </ul>
+        <p class="ed-empty" id="permEmpty"<%= permissions.length ? ' hidden' : '' %>>Only you and school managers can open this file.</p>
+      </section>
+      <section class="ed-sec">
+        <h3>Classes</h3>
+        <select class="ed-field" id="addClassSelect" aria-label="Add a class">
+          <option value="">Give a class's teachers access…</option>
+          <% classes.forEach(cls => { %><option value="<%= cls.class_id %>"><%= cls.class_name %></option><% }); %>
+        </select>
+        <ul class="ed-people" id="classAssignList">
+          <% classAssignments.forEach(ca => { %>
+            <li class="ed-person" data-class-id="<%= ca.class_id %>">
+              <span class="ed-av"><i class="fa-solid fa-chalkboard-user"></i></span>
+              <span class="ed-person__name"><%= ca.class_name %>
+                <small><label class="ed-chk"><input type="checkbox" class="incStudents"<%= ca.include_students ? ' checked' : '' %>> Students too</label> <label class="ed-chk"><input type="checkbox" class="incSubjects"<%= ca.include_subjects ? ' checked' : '' %>> Subject teachers</label></small>
+              </span>
+              <select aria-label="Access"><option value="view"<%= ca.permission_level === 'view' ? ' selected' : '' %>>View only</option><option value="comment"<%= ca.permission_level === 'comment' ? ' selected' : '' %>>Can comment</option><option value="edit"<%= ca.permission_level === 'edit' ? ' selected' : '' %>>Can edit</option></select>
+              <button type="button" class="ed-x" data-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>
+            </li>
+          <% }); %>
+        </ul>
+      </section>
+    </div>
+    <div class="ed-panel__foot">
+      <p class="ed-note" id="shareNote">Changes apply when you save.</p>
+      <button type="button" class="btn btn--primary" id="saveShare">Save</button>
+    </div>
+  </aside>
   <% } %>
 
-  <% if (isDoc) { %>
-    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+  <% if (canEdit) {
+       const _when = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'; %>
+  <aside class="ed-panel" id="settingsPanel" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="ed-panel__bar"><strong>Settings</strong><button type="button" class="ed-x" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="ed-panel__body">
+      <section class="ed-sec">
+        <h3>File</h3>
+        <input type="text" class="ed-field" id="setTitle" value="<%= document.title %>" aria-label="File name" />
+        <div style="margin-top:8px">
+          <div class="ed-kv"><span>Type</span><strong><%= isDoc ? 'Document' : 'Spreadsheet' %></strong></div>
+          <% if (document.created_by_name) { %><div class="ed-kv"><span>Created by</span><strong><%= document.created_by_name %></strong></div><% } %>
+          <div class="ed-kv"><span>Created</span><strong><%= _when(document.created_at) %></strong></div>
+          <div class="ed-kv"><span>Last saved</span><strong id="setSaved"><%= _when(document.updated_at) %></strong></div>
+        </div>
+      </section>
+      <% if (isDoc) { %>
+        <section class="ed-sec">
+          <h3>Page</h3>
+          <label class="ed-set"><span>Page width<small>How wide the writing area is.</small></span>
+            <select id="setPage"><option value="normal">Normal (letter)</option><option value="wide">Wide</option><option value="full">Full width</option></select></label>
+          <label class="ed-set"><span>Line spacing</span>
+            <select id="setSpacing"><option value="1.15">Tight (1.15)</option><option value="1.5">Normal (1.5)</option><option value="1.7">Relaxed (1.7)</option><option value="2">Double (2)</option></select></label>
+          <label class="ed-set"><span>Text size</span>
+            <select id="setFontSize"><option value="14">Small</option><option value="15">Normal</option><option value="17">Large</option></select></label>
+        </section>
+      <% } else { %>
+        <section class="ed-sec">
+          <h3>Sheet</h3>
+          <div class="ed-set"><span>Freeze first row<small>Row 1 stays in view while you scroll.</small></span><label class="ed-switch"><input type="checkbox" id="setFreezeRow" aria-label="Freeze first row" /><span></span></label></div>
+          <div class="ed-set"><span>Freeze first column<small>Column A stays in view.</small></span><label class="ed-switch"><input type="checkbox" id="setFreezeCol" aria-label="Freeze first column" /><span></span></label></div>
+          <div class="ed-set"><span>Show gridlines</span><label class="ed-switch"><input type="checkbox" id="setGrid" aria-label="Show gridlines" /><span></span></label></div>
+          <label class="ed-set"><span>Column width<small>For columns you haven't resized.</small></span>
+            <select id="setColWidth"><option value="90">Narrow</option><option value="120">Normal</option><option value="170">Wide</option></select></label>
+          <div class="ed-set"><span>Hidden rows and columns<small id="setHiddenNote">None hidden.</small></span><button type="button" class="btn btn--sm" id="setUnhide">Show all</button></div>
+        </section>
+      <% } %>
+      <% if (canInsert) { %>
+        <section class="ed-sec" id="rtSec">
+          <h3>Report card</h3>
+          <div class="ed-set"><span>Use as a report card<small>Chosen classes print report cards with this layout instead of the standard one.</small></span><label class="ed-switch"><input type="checkbox" id="rtOn"<%= _tplOn ? ' checked' : '' %> aria-label="Use as a report card" /><span></span></label></div>
+          <div id="rtMore"<%= _tplOn ? '' : ' hidden' %>>
+            <div class="cd" id="rtClasses" style="margin-top:8px"></div>
+            <p class="ed-note" id="rtMoveNote"></p>
+            <div class="ed-row" style="margin-top:10px">
+              <select class="ed-field" id="rtPreviewClass" aria-label="Class to preview with">
+                <% classes.forEach((c) => { %><option value="<%= c.class_id %>"><%= c.class_name %></option><% }) %>
+              </select>
+              <button type="button" class="btn" id="rtPreview"><i class="fa-regular fa-eye"></i> Preview</button>
+            </div>
+            <p class="ed-note">Preview fills this layout with real report data for that class<%= _currentTerm ? ' (' + _currentTerm.term_name + ')' : '' %>.</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+            <button type="button" class="btn btn--primary btn--sm" id="rtSave">Save report card settings</button>
+            <span class="ed-note" id="rtNote" style="margin:0"></span>
+          </div>
+        </section>
+      <% } %>
+      <section class="ed-sec">
+        <h3>Shortcuts</h3>
+        <dl class="ed-keys">
+          <% if (isDoc) { %>
+            <dt><kbd>Ctrl</kbd> <kbd>B</kbd> / <kbd>I</kbd> / <kbd>U</kbd></dt><dd style="margin:0">Bold, italic, underline</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>Z</kbd></dt><dd style="margin:0">Undo (add <kbd>Shift</kbd> to redo)</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd style="margin:0">Add a link</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>P</kbd></dt><dd style="margin:0">Print or save as PDF</dd>
+          <% } else { %>
+            <dt><kbd>Enter</kbd> / <kbd>Tab</kbd></dt><dd style="margin:0">Save the cell and move down / right</dd>
+            <dt><kbd>Shift</kbd> + arrows</dt><dd style="margin:0">Select a range</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>C</kbd> / <kbd>V</kbd></dt><dd style="margin:0">Copy or paste a range (works with Excel)</dd>
+            <dt><kbd>Delete</kbd></dt><dd style="margin:0">Clear the selected cells</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>B</kbd> / <kbd>I</kbd> / <kbd>U</kbd></dt><dd style="margin:0">Bold, italic, underline</dd>
+            <dt><kbd>Ctrl</kbd> <kbd>Z</kbd> / <kbd>Y</kbd></dt><dd style="margin:0">Undo / redo</dd>
+            <dt>Right-click</dt><dd style="margin:0">Insert, delete, hide rows and columns</dd>
+          <% } %>
+        </dl>
+      </section>
+      <% if (canInsert) { %>
+        <section class="ed-sec">
+          <h3>More</h3>
+          <div class="ed-actions-col">
+            <button type="button" class="btn" id="setCopy"><i class="fa-regular fa-copy"></i> Make a copy</button>
+            <button type="button" class="btn btn--danger" id="setDelete"><i class="fa-regular fa-trash-can"></i> Delete this file</button>
+          </div>
+        </section>
+      <% } %>
+    </div>
+  </aside>
   <% } %>
 
+  <% if (canInsert) { %>
+  <aside class="ed-panel" id="fieldsPanel" role="dialog" aria-modal="true" aria-label="Report card fields">
+    <div class="ed-panel__bar"><strong>Report card fields</strong><button type="button" class="ed-x" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="ed-panel__body">
+      <p class="ed-note" style="margin:0 0 12px">Click a field to put it in <%= isDoc ? 'the page where your cursor is' : 'the selected cell' %>. When a class prints report cards, each field is filled with that student’s data. Fields can sit inside text too, like <code>Name: {{student.name}}</code>.</p>
+      <div class="ed-row" style="margin-bottom:12px">
+        <button type="button" class="btn btn--sm" data-sample="scores"><i class="fa-solid fa-wand-magic-sparkles"></i> Sample: scores</button>
+        <button type="button" class="btn btn--sm" data-sample="ticks"><i class="fa-solid fa-wand-magic-sparkles"></i> Sample: tick boxes</button>
+        <% if (!isDoc) { %><button type="button" class="btn btn--sm" data-sample="nursery"><i class="fa-solid fa-wand-magic-sparkles"></i> Sample: nursery card</button><% } %>
+      </div>
+      <input type="search" class="ed-field" id="fieldSearch" placeholder="Search fields" aria-label="Search fields" style="margin-bottom:10px" />
+      <div id="fieldList">
+        <% _fields.forEach((g) => { %>
+          <section class="ed-fgroup">
+            <h4><%= g.group %></h4>
+            <% if (g.note) { %><p class="ed-note" style="margin:-2px 0 6px"><%= g.note %></p><% } %>
+            <% g.fields.forEach(([key, label]) => { %>
+              <div class="ed-fld" data-search="<%= (key + ' ' + label).toLowerCase() %>">
+                <button type="button" class="ed-fld__main" data-field="<%= key %>" title="Insert"><span><%= label %></span><code>{{<%= key %>}}</code></button>
+                <button type="button" class="ed-x" data-copy-field="<%= key %>" title="Copy" aria-label="Copy {{<%= key %>}}"><i class="fa-regular fa-copy"></i></button>
+              </div>
+            <% }) %>
+          </section>
+        <% }) %>
+      </div>
+    </div>
+    <div class="ed-panel__foot"><p class="ed-note">Tip: copy the whole list into a sheet with <a href="#" id="copyAllFields">Copy all fields</a>.</p></div>
+  </aside>
+
+  <aside class="ed-panel" id="insertPanel" role="dialog" aria-modal="true" aria-label="Insert data">
+    <div class="ed-panel__bar"><strong>Insert school data</strong><button type="button" class="ed-x" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="ed-panel__body">
+      <section class="ed-sec">
+        <h3>What</h3>
+        <div class="ed-sources" id="insSources">
+          <% const _icons = { students: 'user-graduate', guardians: 'people-roof', subjects: 'book', staff: 'id-badge', attendance: 'calendar-check', results: 'chart-column' }; %>
+          <% _sources.forEach((s, i) => { %>
+            <label class="ed-source"><input type="radio" name="insSource" value="<%= s.key %>"<%= i === 0 ? ' checked' : '' %> /><i class="fa-solid fa-<%= _icons[s.key] || 'table' %>"></i><%= s.label %></label>
+          <% }) %>
+        </div>
+      </section>
+      <section class="ed-sec" id="insTermSec">
+        <h3>Term</h3>
+        <select class="ed-field" id="insTerm" aria-label="Term">
+          <% _terms.forEach((t) => { %><option value="<%= t.term_id %>"<%= t.is_current ? ' selected' : '' %>><%= t.term_name %><%= t.year_label ? ' · ' + t.year_label : '' %><%= t.is_current ? ' (current)' : '' %></option><% }) %>
+        </select>
+      </section>
+      <section class="ed-sec" id="insClassSec">
+        <h3>Classes</h3>
+        <div class="cd" id="insClasses"></div>
+      </section>
+      <section class="ed-sec">
+        <h3>Columns</h3>
+        <div class="cd" id="insFields"></div>
+      </section>
+      <section class="ed-sec">
+        <h3>Preview <span class="ed-count" id="insCount">…</span></h3>
+        <div class="ed-preview" id="insPreview"><div class="ed-preview__msg">Loading…</div></div>
+        <% if (!isDoc) { %>
+          <div class="ed-start" style="margin-top:12px">Start at cell <input type="text" id="insStart" value="A1" aria-label="Start at cell" /> <span class="ed-note" id="insStartNote" style="margin:0"></span></div>
+        <% } %>
+        <label class="ed-opt"><input type="checkbox" id="insHeader" checked /> Include a header row</label>
+      </section>
+    </div>
+    <div class="ed-panel__foot">
+      <p class="ed-note" id="insNote"></p>
+      <button type="button" class="btn btn--primary" id="insGo" disabled><i class="fa-solid fa-plus"></i> Insert</button>
+    </div>
+  </aside>
+  <script type="application/json" id="insSourcesData"><%- _json(_sources) %></script>
+  <script type="application/json" id="rtData"><%- _json({ on: _tplOn, mine: _tplClasses.filter((x) => x.document_id === document.id).map((x) => String(x.class_id)), others: _tplClasses.filter((x) => x.document_id !== document.id).map((x) => ({ classId: String(x.class_id), title: x.title })), termId: _currentTerm ? _currentTerm.term_id : null }) %></script>
+  <script type="application/json" id="insClassesData"><%- _json(classes.map((c) => ({ value: String(c.class_id), label: c.class_name }))) %></script>
+  <% } %>
+
+  <div class="ed-toast" id="edToast" role="status" aria-live="polite"></div>
+
+  <div class="ed-pop" id="edPop" role="menu" hidden></div>
+
+  <% if (isDoc) { %><script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script><% } %>
   <script>
     const DOC_ID = '<%= document.id %>';
-    const DOC_TYPE = '<%= document.doc_type %>';
     const CAN_EDIT = <%= canEdit %>;
-    const IS_READ_ONLY = <%= isReadOnly %>;
+    const IS_DOC = <%= isDoc %>;
+    const RETURN_URL = <%- _json((typeof returnUrl !== 'undefined' && returnUrl) ? returnUrl : '/documents') %>;
     let saveTimer = null;
+    let dirty = false;
     let lastSavedContent = '';
     let lastKnownUpdate = '<%= document.updated_at %>';
 
-    // ========== DOCUMENT EDITOR ==========
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+    const mod = (e) => (isMac ? e.metaKey : e.ctrlKey);
+    function toast(text) {
+      const t = $('edToast');
+      t.textContent = text;
+      t.classList.add('is-on');
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => t.classList.remove('is-on'), 2600);
+    }
+    function setStatus(kind, text) {
+      const el = $('saveStatus');
+      el.className = 'ed-status' + (kind ? ' is-' + kind : '');
+      el.querySelector('i').className = 'fa-solid ' + (kind === 'saving' ? 'fa-rotate fa-spin' : kind === 'error' ? 'fa-triangle-exclamation' : 'fa-cloud');
+      $('saveText').textContent = text;
+    }
+    function download(name, mime, content) {
+      const blob = new Blob([content], { type: mime });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }
+    const fileBase = () => ($('titleInput').value.trim() || 'Untitled').replace(/[\\/:*?"<>|]+/g, ' ').trim();
+
+    // Small popup menu (toolbar menus, colors, right-click).
+    const pop = $('edPop');
+    let popOwner = null;
+    function openPop(html, x, y, owner) {
+      pop.innerHTML = html;
+      pop.hidden = false;
+      popOwner = owner || null;
+      const w = pop.offsetWidth, h = pop.offsetHeight;
+      pop.style.left = Math.max(8, Math.min(x, innerWidth - w - 8)) + 'px';
+      pop.style.top = Math.max(8, y + h > innerHeight - 8 ? y - h : y) + 'px';
+    }
+    function closePop() { pop.hidden = true; popOwner = null; }
+    document.addEventListener('mousedown', (e) => { if (!pop.hidden && !pop.contains(e.target) && !(popOwner && popOwner.contains(e.target))) closePop(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pop.hidden) closePop(); });
+    window.addEventListener('resize', closePop);
+    const menuItem = (act, icon, label, key) => '<button type="button" data-do="' + act + '"><i class="' + icon + '"></i>' + esc(label) + (key ? '<kbd>' + key + '</kbd>' : '') + '</button>';
+
+    // ========== DOCUMENT ==========
     <% if (isDoc) { %>
+    let docSettings = { page: 'normal', spacing: '1.7', size: '15' };
     const quill = new Quill('#doc-editor', {
       theme: 'snow',
-      readOnly: IS_READ_ONLY,
-      placeholder: 'Start writing your file...',
+      placeholder: CAN_EDIT ? 'Start writing…' : '',
       modules: {
-        toolbar: CAN_EDIT ? [
-          [{ header: [1, 2, 3, false] }],
-          [{ size: ['small', false, 'large', 'huge'] }],
-          ['bold', 'italic', 'underline', 'strike'],
-          [{ color: [] }, { background: [] }],
-          [{ list: 'ordered' }, { list: 'bullet' }],
-          [{ script: 'sub' }, { script: 'super' }],
-          [{ indent: '-1' }, { indent: '+1' }],
-          [{ align: [] }],
-          ['blockquote', 'code-block'],
-          ['link', 'image'],
-          ['clean']
-        ] : false
-      }
+        history: { delay: 800, maxStack: 200, userOnly: true },
+        toolbar: CAN_EDIT ? {
+          container: [
+            ['undo', 'redo'],
+            [{ header: [1, 2, 3, false] }, { font: [] }, { size: ['small', false, 'large', 'huge'] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ color: [] }, { background: [] }],
+            [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }, { indent: '-1' }, { indent: '+1' }],
+            [{ align: [] }],
+            [{ script: 'sub' }, { script: 'super' }],
+            ['blockquote', 'code-block', 'link', 'image'],
+            ['clean'],
+          ],
+          handlers: { undo() { quill.history.undo(); }, redo() { quill.history.redo(); } },
+        } : false,
+      },
+    });
+    if (!CAN_EDIT) quill.disable();
+    document.querySelectorAll('.ql-undo').forEach((b) => { b.innerHTML = '<i class="fa-solid fa-rotate-left"></i>'; b.title = 'Undo (Ctrl+Z)'; b.setAttribute('aria-label', 'Undo'); });
+    document.querySelectorAll('.ql-redo').forEach((b) => { b.innerHTML = '<i class="fa-solid fa-rotate-right"></i>'; b.title = 'Redo (Ctrl+Shift+Z)'; b.setAttribute('aria-label', 'Redo'); });
+    const tips = { bold: 'Bold', italic: 'Italic', underline: 'Underline', strike: 'Strikethrough', blockquote: 'Quote', 'code-block': 'Code', link: 'Link', image: 'Image', clean: 'Clear formatting' };
+    Object.keys(tips).forEach((k) => document.querySelectorAll('.ql-' + k).forEach((b) => { b.title = tips[k]; }));
+    document.querySelectorAll('.ql-list[value="check"]').forEach((b) => { b.title = 'Checklist'; });
+    document.querySelectorAll('.ql-background').forEach((b) => { b.title = 'Highlight'; });
+
+    // Content is saved as { ops, settings } so page settings travel with the file.
+    function loadDoc(raw) {
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.settings) docSettings = Object.assign(docSettings, parsed.settings);
+        quill.setContents(parsed && parsed.ops ? parsed.ops : parsed, 'silent');
+      } catch (e) { quill.clipboard.dangerouslyPasteHTML(raw, 'silent'); }
+      applyDocSettings();
+    }
+    function applyDocSettings() {
+      document.body.classList.toggle('page-wide', docSettings.page === 'wide');
+      document.body.classList.toggle('page-full', docSettings.page === 'full');
+      quill.root.style.lineHeight = docSettings.spacing;
+      quill.root.style.fontSize = docSettings.size + 'px';
+    }
+    // The HTML is kept too so report cards can be printed from this Doc.
+    const docContent = () => JSON.stringify({ ops: quill.getContents().ops, settings: docSettings, html: quill.root.innerHTML });
+    loadDoc(<%- _json(document.content || '') %>);
+    lastSavedContent = docContent();
+
+    function updateCounts() {
+      const text = quill.getText().trim();
+      $('wordCount').textContent = text ? text.split(/\s+/).length.toLocaleString() : '0';
+      $('charCount').textContent = text.replace(/\s/g, '').length.toLocaleString();
+    }
+    updateCounts();
+    quill.on('text-change', (delta, old, source) => {
+      updateCounts();
+      if (CAN_EDIT && source === 'user') triggerAutoSave();
     });
 
-    // Load initial content
-    try {
-      const initialContent = <%- JSON.stringify(document.content || '') %>;
-      if (initialContent) {
-        const delta = JSON.parse(initialContent);
-        quill.setContents(delta);
-      }
-    } catch(e) {
-      quill.root.innerHTML = <%- JSON.stringify(document.content || '') %>;
-    }
-
-    lastSavedContent = JSON.stringify(quill.getContents());
-
-    if (CAN_EDIT) {
-      quill.on('text-change', () => {
-        clearTimeout(saveTimer);
-        document.getElementById('saveStatus').textContent = 'Unsaved changes...';
-        saveTimer = setTimeout(autoSave, 2000);
-      });
+    function docHtml() {
+      return '<html><head><meta charset="utf-8"><title>' + esc(fileBase()) + '</title><style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;line-height:' + docSettings.spacing + '}</style></head><body>' + quill.root.innerHTML + '</body></html>';
     }
     <% } %>
 
-    // ========== SPREADSHEET EDITOR ==========
+    // ========== SPREADSHEET ==========
     <% if (!isDoc) { %>
     let sheetData = {};
+    let styles = {};          // cell -> { b, i, u, color, bg, align }
+    let colWidths = {};       // column index -> px
+    let hiddenRows = [];
+    let hiddenCols = [];
+    let merges = [];          // [{ r, c, rs, cs }]
+    let sheetSettings = { freezeRow: false, freezeCol: false, grid: true, colWidth: 120 };
     let colCount = 10;
-    let rowCount = 20;
-    let selectedCell = null;
+    let rowCount = 30;
+    let selectedCell = 'A1';
     let selectedRange = null;
+    let anchorCell = 'A1';
     let isSelectingRange = false;
+    const undoStack = [], redoStack = [];
 
-    try {
-      const raw = <%- JSON.stringify(document.content || '{}') %>;
-      const parsed = JSON.parse(raw);
-      sheetData = parsed.cells || {};
-      colCount = parsed.colCount || 10;
-      rowCount = parsed.rowCount || 20;
-    } catch(e) {}
-
-    function colLabel(n) {
-      let s = '';
-      while (n >= 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; }
-      return s;
+    function loadSheet(raw) {
+      try {
+        const parsed = JSON.parse(raw || '{}');
+        sheetData = parsed.cells || {};
+        styles = parsed.styles || {};
+        colWidths = parsed.colWidths || {};
+        hiddenRows = parsed.hiddenRows || [];
+        hiddenCols = parsed.hiddenCols || [];
+        merges = Array.isArray(parsed.merges) ? parsed.merges : [];
+        sheetSettings = Object.assign({ freezeRow: false, freezeCol: false, grid: true, colWidth: 120 }, parsed.settings || {});
+        colCount = Math.max(parsed.colCount || 10, 1);
+        rowCount = Math.max(parsed.rowCount || 20, 1);
+      } catch (e) { /* empty sheet */ }
     }
+    const sheetContent = () => JSON.stringify({ cells: sheetData, colCount, rowCount, styles, colWidths, hiddenRows, hiddenCols, merges, settings: sheetSettings });
+    const mergeAt = (r, c) => merges.find((m) => r >= m.r && r < m.r + m.rs && c >= m.c && c < m.c + m.cs);
+    loadSheet(<%- _json(document.content || '{}') %>);
+    lastSavedContent = sheetContent();
 
-    function colIndex(label) {
-      let value = 0;
-      for (let i = 0; i < label.length; i++) {
-        value = value * 26 + (label.charCodeAt(i) - 64);
-      }
-      return value - 1;
+    // Save the cell being typed in before the grid changes (its id may move).
+    function flushEdit() {
+      const a = document.activeElement;
+      if (a && a.classList && a.classList.contains('sheet-cell-input')) a.blur();
     }
-
-    function parseCellRef(ref) {
-      const match = String(ref || '').toUpperCase().match(/^([A-Z]+)(\d+)$/);
-      if (!match) return null;
-      const c = colIndex(match[1]);
-      const r = parseInt(match[2], 10) - 1;
-      if (r < 0 || c < 0) return null;
-      return { r, c };
+    // Undo / redo: snapshots of the whole sheet before each change.
+    function snapshot() {
+      undoStack.push(sheetContent());
+      if (undoStack.length > 100) undoStack.shift();
+      redoStack.length = 0;
     }
-
-    function cellId(r, c) { return colLabel(c) + (r + 1); }
-
-    function normalizeRange(startRef, endRef) {
-      const start = parseCellRef(startRef);
-      const end = parseCellRef(endRef);
-      if (!start || !end) return null;
-      return {
-        sr: Math.min(start.r, end.r),
-        er: Math.max(start.r, end.r),
-        sc: Math.min(start.c, end.c),
-        ec: Math.max(start.c, end.c),
-      };
-    }
-
-    function getRangeRefs(range) {
-      if (!range) return null;
-      return `${cellId(range.sr, range.sc)}:${cellId(range.er, range.ec)}`;
-    }
-
-    function updateRangeStats() {
-      const statsEl = document.getElementById('sheetStats');
-      if (!statsEl) return;
-      if (!selectedRange) {
-        statsEl.textContent = 'No range selected';
-        return;
-      }
-
-      const values = [];
-      for (let r = selectedRange.sr; r <= selectedRange.er; r++) {
-        for (let c = selectedRange.sc; c <= selectedRange.ec; c++) {
-          const ref = cellId(r, c);
-          const computed = computeCell(sheetData[ref] || '', new Set([ref]), ref);
-          const n = Number(computed);
-          if (!Number.isNaN(n)) values.push(n);
-        }
-      }
-
-      const sum = values.reduce((acc, curr) => acc + curr, 0);
-      const avg = values.length ? (sum / values.length) : 0;
-      statsEl.textContent = `${getRangeRefs(selectedRange)} · Count ${values.length} · Sum ${sum.toFixed(2)} · Avg ${avg.toFixed(2)}`;
-    }
-
-    function setSelectedRange(startRef, endRef) {
-      const normalized = normalizeRange(startRef, endRef);
-      if (!normalized) return;
-      selectedRange = normalized;
-      updateRangeStats();
-    }
-
-    function selectAllCells() {
-      setSelectedRange(cellId(0, 0), cellId(Math.max(rowCount - 1, 0), Math.max(colCount - 1, 0)));
-      applySelectionStyles();
-    }
-
-    window.selectAllCells = selectAllCells;
-
-    function insertRangeFormula(fnName) {
-      if (!selectedCell || !selectedRange || IS_READ_ONLY) return;
-      const formula = `=${fnName}(${getRangeRefs(selectedRange)})`;
-      sheetData[selectedCell] = formula;
-      const formulaBar = document.getElementById('formulaBar');
-      if (formulaBar) formulaBar.value = formula;
-      recalcAll();
-      applySelectionStyles();
+    function restore(from, to) {
+      flushEdit();
+      if (!from.length) { toast('Nothing to ' + (from === undoStack ? 'undo' : 'redo') + '.'); return; }
+      to.push(sheetContent());
+      loadSheet(from.pop());
+      renderSheet();
       triggerAutoSave();
     }
 
-    window.insertRangeFormula = insertRangeFormula;
-
-    function applySelectionStyles() {
-      document.querySelectorAll('.sheet-table td.selected-range, .sheet-table td.active-cell').forEach((td) => {
-        td.classList.remove('selected-range', 'active-cell');
-      });
-
-      if (selectedRange) {
-        for (let r = selectedRange.sr; r <= selectedRange.er; r++) {
-          for (let c = selectedRange.sc; c <= selectedRange.ec; c++) {
-            const td = document.querySelector(`.sheet-table td[data-cell="${cellId(r, c)}"]`);
-            if (td) td.classList.add('selected-range');
-          }
-        }
-      }
-
-      if (selectedCell) {
-        const activeTd = document.querySelector(`.sheet-table td[data-cell="${selectedCell}"]`);
-        if (activeTd) activeTd.classList.add('active-cell');
-      }
+    function colLabel(n) { let s = ''; while (n >= 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } return s; }
+    function colIndex(label) { let v = 0; for (let i = 0; i < label.length; i++) v = v * 26 + (label.charCodeAt(i) - 64); return v - 1; }
+    function parseCellRef(ref) {
+      const m = String(ref || '').toUpperCase().trim().match(/^([A-Z]+)(\d+)$/);
+      if (!m) return null;
+      const c = colIndex(m[1]), r = parseInt(m[2], 10) - 1;
+      return r >= 0 && c >= 0 ? { r, c } : null;
     }
-
-    function renderSheet() {
-      const table = document.getElementById('sheetTable');
-      let html = '<thead><tr><th class="corner row-header"></th>';
-      for (let c = 0; c < colCount; c++) html += '<th>' + colLabel(c) + '</th>';
-      html += '</tr></thead><tbody>';
-
-      for (let r = 0; r < rowCount; r++) {
-        html += '<tr><td class="row-header-cell">' + (r + 1) + '</td>';
-        for (let c = 0; c < colCount; c++) {
-          const id = cellId(r, c);
-          const val = sheetData[id] || '';
-          const display = computeCell(val, new Set([id]), id);
-          const isFormula = typeof val === 'string' && val.startsWith('=');
-          const isError = display === '#ERROR' || display === '#REF';
-          html += '<td data-cell="' + id + '" data-r="' + r + '" data-c="' + c + '" class="' + (isFormula ? 'formula-cell' : '') + (isError ? ' error-cell' : '') + '">';
-          html += '<input class="sheet-cell-input" data-cell="' + id + '" value="' + escapeHtml(String(display)) + '" ' + (IS_READ_ONLY ? 'readonly' : '') + ' />';
-          html += '</td>';
-        }
-        html += '</tr>';
-      }
-      html += '</tbody>';
-      table.innerHTML = html;
-
-      // Bind events
-      table.querySelectorAll('.sheet-cell-input').forEach(input => {
-        input.addEventListener('focus', function() {
-          selectedCell = this.dataset.cell;
-          setSelectedRange(selectedCell, selectedCell);
-          document.getElementById('cellRef').value = this.dataset.cell;
-          document.getElementById('formulaBar').value = sheetData[this.dataset.cell] || '';
-          this.value = sheetData[this.dataset.cell] || '';
-          applySelectionStyles();
-        });
-        input.addEventListener('blur', function() {
-          const id = this.dataset.cell;
-          sheetData[id] = this.value;
-          this.value = computeCell(this.value, new Set([id]), id);
-          recalcAll();
-          applySelectionStyles();
-          triggerAutoSave();
-        });
-        input.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter') { e.preventDefault(); this.blur(); moveTo(this.dataset.cell, 0, 1); }
-          if (e.key === 'Tab') { e.preventDefault(); this.blur(); moveTo(this.dataset.cell, 1, 0); }
-        });
-      });
-
-      table.querySelectorAll('td[data-cell]').forEach((td) => {
-        td.addEventListener('mousedown', (event) => {
-          isSelectingRange = true;
-          const ref = td.dataset.cell;
-          selectedCell = ref;
-          setSelectedRange(ref, ref);
-          applySelectionStyles();
-          if (event.target.tagName !== 'INPUT') {
-            const input = td.querySelector('.sheet-cell-input');
-            if (input) input.focus();
-          }
-          event.preventDefault();
-        });
-
-        td.addEventListener('mouseenter', () => {
-          if (!isSelectingRange || !selectedCell) return;
-          setSelectedRange(selectedCell, td.dataset.cell);
-          applySelectionStyles();
-        });
-      });
-
-      applySelectionStyles();
-      updateRangeStats();
+    function cellId(r, c) { return colLabel(c) + (r + 1); }
+    function normalizeRange(a, b) {
+      const s = parseCellRef(a), e = parseCellRef(b);
+      if (!s || !e) return null;
+      return { sr: Math.min(s.r, e.r), er: Math.max(s.r, e.r), sc: Math.min(s.c, e.c), ec: Math.max(s.c, e.c) };
     }
-
-    document.addEventListener('mouseup', () => {
-      if (isSelectingRange) {
-        isSelectingRange = false;
-        updateRangeStats();
-      }
-    });
-
-    // Formula bar sync
-    const formulaBarEl = document.getElementById('formulaBar');
-    formulaBarEl.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && selectedCell) {
-        sheetData[selectedCell] = this.value;
-        recalcAll();
-        renderSheet();
-        triggerAutoSave();
-      }
-    });
-
-    formulaBarEl.addEventListener('input', function() {
-      if (!selectedCell || IS_READ_ONLY) return;
-      const activeInput = document.querySelector(`.sheet-cell-input[data-cell="${selectedCell}"]`);
-      if (activeInput) activeInput.value = this.value;
-    });
-
-    function moveTo(from, dc, dr) {
-      const parsed = parseCellRef(from);
-      if (!parsed) return;
-      const ci = parsed.c + dc;
-      const ri = parsed.r + dr;
-      if (ci >= 0 && ci < colCount && ri >= 0 && ri < rowCount) {
-        const next = document.querySelector(`[data-cell="${cellId(ri, ci)}"]`);
-        if (next) next.focus();
-      }
+    const rangeRef = (r) => cellId(r.sr, r.sc) + ':' + cellId(r.er, r.ec);
+    const curRange = () => selectedRange || normalizeRange(selectedCell, selectedCell);
+    const isMulti = (r) => r && (r.sr !== r.er || r.sc !== r.ec);
+    const widthOf = (c) => colWidths[c] || Number(sheetSettings.colWidth) || 120;
+    function usedSize() {
+      let rows = 0, cols = 0;
+      Object.keys(sheetData).forEach((k) => {
+        if (sheetData[k] === '' || sheetData[k] == null) return;
+        const p = parseCellRef(k);
+        if (p) { rows = Math.max(rows, p.r + 1); cols = Math.max(cols, p.c + 1); }
+      });
+      return { rows, cols };
     }
+    function eachCell(r, fn) { for (let i = r.sr; i <= r.er; i++) for (let j = r.sc; j <= r.ec; j++) fn(cellId(i, j), i, j); }
 
     function computeCell(val, visited = new Set(), currentRef = null) {
       if (typeof val !== 'string' || !val.startsWith('=')) return val;
       try {
         const formula = val.substring(1).toUpperCase();
-
-        let expr = formula.replace(/(SUM|AVERAGE|COUNT|MIN|MAX)\(([A-Z]+\d+):([A-Z]+\d+)\)/g, (_, fn, start, end) => {
-          const vals = getRangeValues(start, end, visited);
-          const nums = vals.map(Number).filter(n => !Number.isNaN(n));
-          if (fn === 'SUM') return String(nums.reduce((a, b) => a + b, 0));
-          if (fn === 'AVERAGE') return String(nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length) : 0);
+        let expr = formula.replace(/(SUM|AVERAGE|COUNT|MIN|MAX)\(([A-Z]+\d+):([A-Z]+\d+)\)/g, (_, fn, a, b) => {
+          const nums = getRangeValues(a, b, visited).map(Number).filter((n) => !Number.isNaN(n));
+          if (fn === 'SUM') return String(nums.reduce((x, y) => x + y, 0));
+          if (fn === 'AVERAGE') return String(nums.length ? nums.reduce((x, y) => x + y, 0) / nums.length : 0);
           if (fn === 'COUNT') return String(nums.length);
           if (fn === 'MIN') return String(nums.length ? Math.min(...nums) : 0);
           if (fn === 'MAX') return String(nums.length ? Math.max(...nums) : 0);
           return '0';
         });
-
-        expr = expr.replace(/([A-Z]+\d+)/g, (match) => {
-          if (currentRef && match === currentRef) return '0';
-          if (visited.has(match)) return '#REF';
-          const v = sheetData[match];
+        expr = expr.replace(/([A-Z]+\d+)/g, (m) => {
+          if (currentRef && m === currentRef) return '0';
+          if (visited.has(m)) return '#REF';
+          const v = sheetData[m];
           if (!v) return '0';
-          const nextVisited = new Set(visited);
-          nextVisited.add(match);
-          const computed = computeCell(v, nextVisited, match);
+          const next = new Set(visited); next.add(m);
+          const computed = computeCell(v, next, m);
           if (computed === '#REF') return '#REF';
           const n = Number(computed);
           return Number.isNaN(n) ? '0' : String(n);
         });
-
         if (expr.includes('#REF')) return '#REF';
         if (!/^[\d+\-*/().,%\s]+$/.test(expr)) return '#ERROR';
-        return Function('"use strict"; return (' + expr + ')')();
-      } catch(e) { return '#ERROR'; }
+        const out = Function('"use strict"; return (' + expr + ')')();
+        return typeof out === 'number' && !Number.isInteger(out) ? Math.round(out * 1e6) / 1e6 : out;
+      } catch (e) { return '#ERROR'; }
+    }
+    function getRangeValues(a, b, visited = new Set()) {
+      const r = normalizeRange(a, b);
+      if (!r) return [];
+      const out = [];
+      eachCell(r, (id) => { const v = sheetData[id]; if (v !== undefined && v !== '') out.push(computeCell(v, new Set(visited), id)); });
+      return out;
+    }
+    const display = (id) => computeCell(sheetData[id] || '', new Set([id]), id);
+    const isNum = (v) => v !== '' && v !== null && !Number.isNaN(Number(v));
+
+    function cellClass(id) {
+      const raw = sheetData[id] || '';
+      const shown = display(id);
+      const cls = [];
+      if (typeof raw === 'string' && raw.startsWith('=')) cls.push('formula-cell');
+      if (shown === '#ERROR' || shown === '#REF') cls.push('error-cell');
+      if (isNum(shown)) cls.push('num');
+      if (typeof raw === 'string' && raw.includes('{{')) cls.push('is-field');
+      return cls.join(' ');
+    }
+    function tdStyle(id) {
+      const s = styles[id];
+      if (!s) return '';
+      const bd = s.bd || '', line = '1px solid #1f2937';
+      return [s.bg ? 'background:' + s.bg : '', bd.includes('t') ? 'border-top:' + line : '', bd.includes('b') ? 'border-bottom:' + line : '', bd.includes('l') ? 'border-left:' + line : '', bd.includes('r') ? 'border-right:' + line : ''].filter(Boolean).join(';');
+    }
+    function inputStyle(id) {
+      const s = styles[id];
+      if (!s) return '';
+      return [s.b ? 'font-weight:700' : '', s.i ? 'font-style:italic' : '', s.u ? 'text-decoration:underline' : '', s.color ? 'color:' + s.color : '', s.align ? 'text-align:' + s.align : '', s.fs ? 'font-size:' + s.fs + 'px' : ''].filter(Boolean).join(';');
     }
 
-    function getRangeValues(start, end, visited = new Set()) {
-      const range = normalizeRange(start, end);
-      if (!range) return [];
-      const vals = [];
-      for (let r = range.sr; r <= range.er; r++) {
-        for (let c = range.sc; c <= range.ec; c++) {
-          const v = sheetData[cellId(r, c)];
-          if (v !== undefined && v !== '') vals.push(computeCell(v, new Set(visited), cellId(r, c)));
-        }
-      }
-      return vals;
-    }
-
-    function recalcAll() {
-      document.querySelectorAll('.sheet-cell-input').forEach(input => {
-        const id = input.dataset.cell;
-        const val = sheetData[id] || '';
-        if (document.activeElement !== input) {
-          input.value = computeCell(val, new Set([id]), id);
-        }
+    function renderSheet() {
+      const table = $('sheetTable');
+      const hr = new Set(hiddenRows), hc = new Set(hiddenCols);
+      const cols = [];
+      for (let c = 0; c < colCount; c++) if (!hc.has(c)) cols.push(c);
+      let total = 46;
+      let html = '<colgroup><col style="width:46px">';
+      cols.forEach((c) => { total += widthOf(c); html += '<col data-col="' + c + '" style="width:' + widthOf(c) + 'px">'; });
+      html += '</colgroup><thead><tr><th class="corner"></th>';
+      cols.forEach((c) => {
+        const gapBefore = c > 0 && hc.has(c - 1);
+        html += '<th data-col="' + c + '">' + (gapBefore ? '<button type="button" class="ed-unhide" data-unhide-col="' + c + '" title="Show hidden columns" aria-label="Show hidden columns"><i class="fa-solid fa-caret-left"></i></button>' : '') + colLabel(c) + (CAN_EDIT ? '<span class="col-grip" data-grip="' + c + '" title="Drag to resize, double-click to fit"></span>' : '') + '</th>';
       });
-      updateRangeStats();
+      html += '</tr></thead><tbody>';
+      for (let r = 0; r < rowCount; r++) {
+        if (hr.has(r)) continue;
+        const gapBefore = r > 0 && hr.has(r - 1);
+        html += '<tr><td class="row-header-cell" data-row="' + r + '">' + (gapBefore ? '<button type="button" class="ed-unhide" data-unhide-row="' + r + '" title="Show hidden rows" aria-label="Show hidden rows"><i class="fa-solid fa-caret-up"></i></button>' : '') + (r + 1) + '</td>';
+        cols.forEach((c) => {
+          const m = mergeAt(r, c);
+          if (m && (m.r !== r || m.c !== c)) return;
+          const id = cellId(r, c);
+          let span = '';
+          if (m) {
+            let cs = 0, rs = 0;
+            for (let j = m.c; j < m.c + m.cs; j++) if (!hc.has(j)) cs++;
+            for (let i = m.r; i < m.r + m.rs; i++) if (!hr.has(i)) rs++;
+            span = (cs > 1 ? ' colspan="' + cs + '"' : '') + (rs > 1 ? ' rowspan="' + rs + '"' : '');
+          }
+          html += '<td' + span + ' data-cell="' + id + '" data-c="' + c + '" class="' + cellClass(id) + '" style="' + tdStyle(id) + '"><input class="sheet-cell-input" data-cell="' + id + '" value="' + esc(display(id)) + '" style="' + inputStyle(id) + '"' + (CAN_EDIT ? '' : ' readonly') + ' spellcheck="false" autocomplete="off" /></td>';
+        });
+        html += '</tr>';
+      }
+      table.innerHTML = html + '</tbody>';
+      table.style.width = total + 'px';
+      table.classList.toggle('freeze-row', !!sheetSettings.freezeRow);
+      table.classList.toggle('freeze-col', !!sheetSettings.freezeCol);
+      table.classList.toggle('no-grid', sheetSettings.grid === false);
+      const hidden = hiddenRows.length + hiddenCols.length;
+      $('sheetSize').innerHTML = '<strong>' + rowCount + '</strong> rows × <strong>' + colCount + '</strong> columns' + (hidden ? ' · <a href="#" id="showHidden">' + hidden + ' hidden — show</a>' : '');
+      const sh = $('showHidden');
+      if (sh) sh.addEventListener('click', (e) => { e.preventDefault(); unhideAll(); });
+      const fr = document.querySelector('.ed-ribbon [data-act="freeze-row"]');
+      if (fr) fr.classList.toggle('is-on', !!sheetSettings.freezeRow);
+      syncSettingsPanel();
+      applySelectionStyles();
     }
 
-    function addRow() {
-      rowCount++;
+    function refreshCells() {
+      document.querySelectorAll('#sheetTable td[data-cell]').forEach((td) => {
+        const id = td.dataset.cell;
+        const input = td.firstChild;
+        if (document.activeElement !== input) input.value = display(id);
+        td.className = cellClass(id);
+        td.style.cssText = tdStyle(id);
+        input.style.cssText = inputStyle(id);
+      });
+      applySelectionStyles();
+    }
+
+    function applySelectionStyles() {
+      document.querySelectorAll('#sheetTable .selected-range, #sheetTable .active-cell, #sheetTable .is-hot').forEach((el) => el.classList.remove('selected-range', 'active-cell', 'is-hot'));
+      const r = curRange();
+      if (r) {
+        const multi = isMulti(r);
+        for (let i = r.sr; i <= r.er; i++) {
+          const rh = document.querySelector('#sheetTable td[data-row="' + i + '"]');
+          if (rh) rh.classList.add('is-hot');
+          if (multi) for (let j = r.sc; j <= r.ec; j++) {
+            const td = document.querySelector('#sheetTable td[data-cell="' + cellId(i, j) + '"]');
+            if (td) td.classList.add('selected-range');
+          }
+        }
+        for (let j = r.sc; j <= r.ec; j++) { const th = document.querySelector('#sheetTable th[data-col="' + j + '"]'); if (th) th.classList.add('is-hot'); }
+      }
+      const active = document.querySelector('#sheetTable td[data-cell="' + selectedCell + '"]');
+      if (active) active.classList.add('active-cell');
+      updateStats();
+      updateFormatButtons();
+    }
+
+    function updateFormatButtons() {
+      const s = styles[selectedCell] || {};
+      document.querySelectorAll('.ed-ribbon [data-fmt]').forEach((b) => b.classList.toggle('is-on', !!s[b.dataset.fmt]));
+      document.querySelectorAll('.ed-ribbon [data-align]').forEach((b) => b.classList.toggle('is-on', (s.align || '') === b.dataset.align));
+      const fsSel = $('fontSize');
+      if (fsSel) fsSel.value = s.fs ? String(s.fs) : '';
+    }
+
+    function updateStats() {
+      const r = selectedRange;
+      const el = $('sheetStats');
+      if (!isMulti(r)) { el.textContent = 'Select cells to see Sum and Average'; return; }
+      const nums = [];
+      let filled = 0;
+      eachCell(r, (id) => { const v = display(id); if (v !== '') filled++; if (isNum(v)) nums.push(Number(v)); });
+      const sum = nums.reduce((a, b) => a + b, 0);
+      const fmt = (n) => (Math.round(n * 100) / 100).toLocaleString();
+      el.innerHTML = rangeRef(r) + ' · Count <strong>' + filled + '</strong>' + (nums.length ? ' · Sum <strong>' + fmt(sum) + '</strong> · Average <strong>' + fmt(sum / nums.length) + '</strong>' : '');
+    }
+
+    function select(ref, extend) {
+      const p = parseCellRef(ref);
+      if (!p) return;
+      selectedCell = cellId(Math.min(p.r, rowCount - 1), Math.min(p.c, colCount - 1));
+      if (!extend) anchorCell = selectedCell;
+      selectedRange = normalizeRange(anchorCell, selectedCell);
+      const sm = !extend && mergeAt(p.r, p.c);
+      if (sm) selectedRange = { sr: sm.r, er: sm.r + sm.rs - 1, sc: sm.c, ec: sm.c + sm.cs - 1 };
+      $('cellRef').value = selectedCell;
+      $('formulaBar').value = sheetData[selectedCell] || '';
+      applySelectionStyles();
+    }
+    function focusCell(ref, extend) {
+      select(ref, extend);
+      const input = document.querySelector('#sheetTable input[data-cell="' + selectedCell + '"]');
+      if (input) input.focus();
+    }
+    function commit(id, value) {
+      if ((sheetData[id] || '') === value) return false;
+      if (value === '') delete sheetData[id]; else sheetData[id] = value;
+      return true;
+    }
+    // Moving skips hidden rows / columns.
+    function step(pos, delta, max, hidden) {
+      let n = pos;
+      do { n += delta; } while (n >= 0 && n < max && hidden.includes(n));
+      return n < 0 || n >= max ? pos : n;
+    }
+    function moveBy(dr, dc, extend) {
+      const p = parseCellRef(selectedCell);
+      const here = mergeAt(p.r, p.c);
+      let fromR = p.r, fromC = p.c;
+      if (here && dr > 0) fromR = here.r + here.rs - 1;
+      if (here && dc > 0) fromC = here.c + here.cs - 1;
+      let r = dr ? step(fromR, dr, rowCount, hiddenRows) : p.r;
+      let c = dc ? step(fromC, dc, colCount, hiddenCols) : p.c;
+      const land = mergeAt(r, c);
+      if (land) { r = land.r; c = land.c; }
+      if (extend) { selectedCell = cellId(r, c); selectedRange = normalizeRange(anchorCell, selectedCell); $('cellRef').value = selectedCell; applySelectionStyles(); const inp = document.querySelector('#sheetTable input[data-cell="' + selectedCell + '"]'); if (inp) inp.scrollIntoView({ block: 'nearest', inline: 'nearest' }); return; }
+      focusCell(cellId(r, c));
+    }
+
+    const table = $('sheetTable');
+    table.addEventListener('focusin', (e) => {
+      const input = e.target.closest('.sheet-cell-input');
+      if (!input) return;
+      if (input.dataset.cell !== selectedCell) select(input.dataset.cell, false);
+      input.value = sheetData[input.dataset.cell] || '';
+      input.dataset.orig = input.value;
+    });
+    table.addEventListener('focusout', (e) => {
+      const input = e.target.closest('.sheet-cell-input');
+      if (!input || !input.isConnected) return;
+      if (CAN_EDIT && (sheetData[input.dataset.cell] || '') !== input.value) {
+        snapshot();
+        commit(input.dataset.cell, input.value);
+        refreshCells();
+        triggerAutoSave();
+      } else input.value = display(input.dataset.cell);
+    });
+    table.addEventListener('input', (e) => {
+      const input = e.target.closest('.sheet-cell-input');
+      if (input && input.dataset.cell === selectedCell) $('formulaBar').value = input.value;
+    });
+    table.addEventListener('keydown', (e) => {
+      const input = e.target.closest('.sheet-cell-input');
+      if (!input) return;
+      const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
+      const atEnd = input.selectionStart === input.value.length;
+      const editing = input.value !== (input.dataset.orig || '');
+      if (mod(e) && ['b', 'i', 'u'].includes(e.key.toLowerCase()) && CAN_EDIT) { e.preventDefault(); toggleFmt(e.key.toLowerCase()); return; }
+      if (mod(e) && e.key.toLowerCase() === 'z' && !editing && CAN_EDIT) { e.preventDefault(); input.blur(); restore(e.shiftKey ? redoStack : undoStack, e.shiftKey ? undoStack : redoStack); return; }
+      if (mod(e) && e.key.toLowerCase() === 'y' && !editing && CAN_EDIT) { e.preventDefault(); input.blur(); restore(redoStack, undoStack); return; }
+      if (mod(e) && e.key.toLowerCase() === 'a' && !editing) { e.preventDefault(); act('select-all'); return; }
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); moveBy(e.shiftKey ? -1 : 1, 0); }
+      else if (e.key === 'Tab') { e.preventDefault(); input.blur(); moveBy(0, e.shiftKey ? -1 : 1); }
+      else if (e.key === 'Escape') { input.value = input.dataset.orig || ''; input.blur(); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!e.shiftKey) input.blur(); moveBy(e.key === 'ArrowDown' ? 1 : -1, 0, e.shiftKey); }
+      else if ((e.key === 'ArrowRight' && (atEnd || e.shiftKey && !editing)) || (e.key === 'ArrowLeft' && (atStart || e.shiftKey && !editing))) { e.preventDefault(); if (!e.shiftKey) input.blur(); moveBy(0, e.key === 'ArrowRight' ? 1 : -1, e.shiftKey); }
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && isMulti(selectedRange) && CAN_EDIT) { e.preventDefault(); clearRange(); }
+    });
+
+    function selectCol(c, extend) { if (!extend) anchorCell = cellId(0, c); selectedCell = cellId(0, c); selectedRange = normalizeRange(extend ? anchorCell : cellId(0, c), cellId(rowCount - 1, c)); if (extend) selectedRange = { sr: 0, er: rowCount - 1, sc: Math.min(parseCellRef(anchorCell).c, c), ec: Math.max(parseCellRef(anchorCell).c, c) }; $('cellRef').value = selectedCell; applySelectionStyles(); }
+    function selectRow(r, extend) { if (!extend) anchorCell = cellId(r, 0); selectedCell = cellId(r, 0); selectedRange = extend ? { sr: Math.min(parseCellRef(anchorCell).r, r), er: Math.max(parseCellRef(anchorCell).r, r), sc: 0, ec: colCount - 1 } : normalizeRange(cellId(r, 0), cellId(r, colCount - 1)); $('cellRef').value = selectedCell; applySelectionStyles(); }
+
+    table.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('.col-grip') || e.target.closest('.ed-unhide')) return;
+      const td = e.target.closest('td[data-cell]');
+      if (!td) {
+        const th = e.target.closest('th[data-col]'), rh = e.target.closest('td[data-row]');
+        if (th) { e.preventDefault(); selectCol(+th.dataset.col, e.shiftKey); }
+        if (rh) { e.preventDefault(); selectRow(+rh.dataset.row, e.shiftKey); }
+        return;
+      }
+      if (e.shiftKey) { e.preventDefault(); selectedCell = td.dataset.cell; selectedRange = normalizeRange(anchorCell, selectedCell); $('cellRef').value = selectedCell; applySelectionStyles(); return; }
+      isSelectingRange = true;
+      if (e.target.tagName !== 'INPUT') { e.preventDefault(); focusCell(td.dataset.cell); }
+    });
+    table.addEventListener('mouseover', (e) => {
+      if (!isSelectingRange) return;
+      const td = e.target.closest('td[data-cell]');
+      if (td) { selectedRange = normalizeRange(anchorCell, td.dataset.cell); applySelectionStyles(); }
+    });
+    document.addEventListener('mouseup', () => { isSelectingRange = false; });
+    table.addEventListener('click', (e) => {
+      const uc = e.target.closest('[data-unhide-col]'), ur = e.target.closest('[data-unhide-row]');
+      if (uc) { snapshot(); const c = +uc.dataset.unhideCol; let k = c - 1; while (hiddenCols.includes(k)) { hiddenCols = hiddenCols.filter((x) => x !== k); k--; } renderSheet(); triggerAutoSave(); }
+      if (ur) { snapshot(); const r = +ur.dataset.unhideRow; let k = r - 1; while (hiddenRows.includes(k)) { hiddenRows = hiddenRows.filter((x) => x !== k); k--; } renderSheet(); triggerAutoSave(); }
+    });
+
+    // Resize columns by dragging the header edge; double-click fits the content.
+    table.addEventListener('mousedown', (e) => {
+      const grip = e.target.closest('.col-grip');
+      if (!grip || !CAN_EDIT) return;
+      e.preventDefault(); e.stopPropagation();
+      const c = +grip.dataset.grip, startX = e.clientX, startW = widthOf(c);
+      const col = table.querySelector('col[data-col="' + c + '"]');
+      const baseTotal = parseFloat(table.style.width) - startW;
+      let moved = false;
+      snapshot();
+      grip.classList.add('is-drag');
+      document.body.classList.add('is-resizing');
+      const move = (ev) => { moved = true; const w = Math.max(40, Math.min(600, Math.round(startW + ev.clientX - startX))); colWidths[c] = w; col.style.width = w + 'px'; table.style.width = (baseTotal + w) + 'px'; };
+      const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); grip.classList.remove('is-drag'); document.body.classList.remove('is-resizing'); if (moved) triggerAutoSave(); else undoStack.pop(); };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    });
+    table.addEventListener('dblclick', (e) => {
+      const grip = e.target.closest('.col-grip');
+      if (!grip || !CAN_EDIT) return;
+      autoFit([+grip.dataset.grip]);
+    });
+    function autoFit(cols) {
+      const ctx = document.createElement('canvas').getContext('2d');
+      ctx.font = '600 13px Inter, system-ui, sans-serif';
+      flushEdit();
+      snapshot();
+      cols.forEach((c) => {
+        let w = 50;
+        for (let r = 0; r < rowCount; r++) { const v = display(cellId(r, c)); if (v !== '') w = Math.max(w, ctx.measureText(String(v)).width + 22); }
+        colWidths[c] = Math.min(420, Math.ceil(w));
+      });
       renderSheet();
       triggerAutoSave();
     }
 
-    function addCol() {
-      colCount++;
+    // Copy a range as tab-separated text; paste a block from Excel / Sheets.
+    document.addEventListener('copy', (e) => {
+      const r = selectedRange;
+      if (!isMulti(r) || !e.target.closest || !e.target.closest('#sheetTable')) return;
+      const lines = [];
+      for (let i = r.sr; i <= r.er; i++) { const row = []; for (let j = r.sc; j <= r.ec; j++) row.push(String(display(cellId(i, j)))); lines.push(row.join('\t')); }
+      e.clipboardData.setData('text/plain', lines.join('\n'));
+      e.preventDefault();
+      toast('Copied ' + rangeRef(r));
+    });
+    table.addEventListener('paste', (e) => {
+      if (!CAN_EDIT) return;
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (!/[\t\n]/.test(text.replace(/\n$/, ''))) return;
+      e.preventDefault();
+      const rows = text.replace(/\r/g, '').replace(/\n$/, '').split('\n').map((l) => l.split('\t'));
+      const p = parseCellRef(selectedCell);
+      placeBlock(rows, p.r, p.c);
+      toast('Pasted ' + rows.length + ' row' + (rows.length === 1 ? '' : 's'));
+    });
+
+    function placeBlock(rows, r0, c0, headerStyle) {
+      flushEdit();
+      snapshot();
+      const width = rows.reduce((w, r) => Math.max(w, r.length), 0);
+      rowCount = Math.max(rowCount, r0 + rows.length + 5);
+      colCount = Math.max(colCount, c0 + width);
+      rows.forEach((row, i) => row.forEach((v, j) => commit(cellId(r0 + i, c0 + j), v == null ? '' : String(v))));
+      if (headerStyle) for (let j = 0; j < width; j++) styles[cellId(r0, c0 + j)] = Object.assign({}, styles[cellId(r0, c0 + j)], { b: 1, bg: '#eef2f7' });
+      renderSheet();
+      anchorCell = cellId(r0, c0);
+      selectedCell = anchorCell;
+      selectedRange = normalizeRange(anchorCell, cellId(r0 + rows.length - 1, c0 + Math.max(width, 1) - 1));
+      applySelectionStyles();
+      triggerAutoSave();
+    }
+
+    $('formulaBar').addEventListener('input', function () {
+      const input = document.querySelector('#sheetTable input[data-cell="' + selectedCell + '"]');
+      if (input) input.value = this.value;
+    });
+    $('formulaBar').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || !CAN_EDIT) return;
+      e.preventDefault();
+      if ((sheetData[selectedCell] || '') !== this.value) { snapshot(); commit(selectedCell, this.value); refreshCells(); triggerAutoSave(); }
+      focusCell(selectedCell);
+    });
+    $('cellRef').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const p = parseCellRef(this.value);
+      if (!p) { this.value = selectedCell; return; }
+      if (p.r >= rowCount) rowCount = p.r + 1;
+      if (p.c >= colCount) colCount = p.c + 1;
+      hiddenRows = hiddenRows.filter((x) => x !== p.r);
+      hiddenCols = hiddenCols.filter((x) => x !== p.c);
+      renderSheet();
+      focusCell(cellId(p.r, p.c));
+    });
+
+    // ----- Formatting -----
+    function setStyle(fn) {
+      flushEdit();
+      snapshot();
+      const range = curRange();
+      eachCell(range, (id, i, j) => {
+        const next = fn(Object.assign({}, styles[id]), i, j, range);
+        Object.keys(next).forEach((k) => { if (!next[k]) delete next[k]; });
+        if (Object.keys(next).length) styles[id] = next; else delete styles[id];
+      });
+      refreshCells();
+      triggerAutoSave();
+    }
+    function toggleFmt(key) {
+      const on = !(styles[selectedCell] || {})[key];
+      setStyle((s) => Object.assign(s, { [key]: on ? 1 : 0 }));
+    }
+    document.querySelectorAll('.ed-ribbon [data-fmt]').forEach((b) => b.addEventListener('click', () => toggleFmt(b.dataset.fmt)));
+    document.querySelectorAll('.ed-ribbon [data-align]').forEach((b) => b.addEventListener('click', () => {
+      const same = (styles[selectedCell] || {}).align === b.dataset.align;
+      setStyle((s) => Object.assign(s, { align: same ? '' : b.dataset.align }));
+    }));
+    if ($('fontSize')) $('fontSize').addEventListener('change', function () { const v = Number(this.value) || 0; setStyle((st) => Object.assign(st, { fs: v })); });
+    const BORDER_MENU = () => menuItem('bd-all', 'fa-solid fa-border-all', 'All borders') + menuItem('bd-outside', 'fa-regular fa-square', 'Outside border') +
+      menuItem('bd-bottom', 'fa-solid fa-grip-lines', 'Bottom border') + menuItem('bd-top', 'fa-solid fa-grip-lines', 'Top border') + '<hr>' + menuItem('bd-none', 'fa-solid fa-border-none', 'No borders');
+    function applyBorders(kind) {
+      setStyle((st, i, j, r) => {
+        let bd = kind === 'all' ? 'tblr' : kind === 'none' ? '' : st.bd || '';
+        const add = (x) => { if (!bd.includes(x)) bd += x; };
+        if (kind === 'outside') { if (i === r.sr) add('t'); if (i === r.er) add('b'); if (j === r.sc) add('l'); if (j === r.ec) add('r'); }
+        if (kind === 'bottom' && i === r.er) add('b');
+        if (kind === 'top' && i === r.sr) add('t');
+        return Object.assign(st, { bd });
+      });
+    }
+    const FILLS = ['#fef08a', '#fde68a', '#fed7aa', '#fecaca', '#fbcfe8', '#e9d5ff', '#c7d2fe', '#bfdbfe', '#a5f3fc', '#bbf7d0', '#d9f99d', '#e2e8f0'];
+    const INKS = ['#0f172a', '#475569', '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0d9488', '#2563eb', '#7c3aed', '#db2777', '#92400e', '#ffffff'];
+    function swatches(list, kind) {
+      return '<div class="ed-swatches">' + '<button type="button" class="is-none" data-swatch="" data-kind="' + kind + '" title="None" aria-label="None"></button>' +
+        list.map((c) => '<button type="button" data-swatch="' + c + '" data-kind="' + kind + '" style="background:' + c + '" title="' + c + '" aria-label="' + c + '"></button>').join('') + '</div>';
+    }
+
+    // ----- Rows, columns and menus -----
+    // Move cells, styles and hidden marks so rows / columns can be added or removed.
+    function remap(fn) {
+      const nextData = {}, nextStyles = {};
+      Object.keys(sheetData).forEach((k) => { const p = parseCellRef(k); const to = p && fn(p.r, p.c); if (to) nextData[cellId(to.r, to.c)] = sheetData[k]; });
+      Object.keys(styles).forEach((k) => { const p = parseCellRef(k); const to = p && fn(p.r, p.c); if (to) nextStyles[cellId(to.r, to.c)] = styles[k]; });
+      sheetData = nextData;
+      styles = nextStyles;
+    }
+    function shiftList(list, at, by, lo, hi) { return list.filter((x) => !(by < 0 && x >= lo && x <= hi)).map((x) => (x >= at ? x + by : x)); }
+    function shiftWidths(at, by, lo, hi) {
+      const next = {};
+      Object.keys(colWidths).forEach((k) => { const c = +k; if (by < 0 && c >= lo && c <= hi) return; next[c >= at ? c + by : c] = colWidths[k]; });
+      colWidths = next;
+    }
+    function clearRange() {
+      flushEdit();
+      snapshot();
+      eachCell(curRange(), (id) => { delete sheetData[id]; });
+      refreshCells();
+      $('formulaBar').value = '';
+      triggerAutoSave();
+    }
+    // Deleting rows / columns [a, b]: shift merges after them, shrink ones across them.
+    function shrinkMerges(list, pos, span, a, b) {
+      const n = b - a + 1;
+      return list.map((m) => {
+        const start = m[pos], end = m[pos] + m[span] - 1;
+        if (start > b) return Object.assign({}, m, { [pos]: start - n });
+        if (end < a) return m;
+        const lost = Math.min(end, b) - Math.max(start, a) + 1;
+        const left = m[span] - lost;
+        return left > 0 ? Object.assign({}, m, { [pos]: Math.min(start, a), [span]: left }) : null;
+      }).filter((m) => m && (m.rs > 1 || m.cs > 1));
+    }
+    function unhideAll() { snapshot(); hiddenRows = []; hiddenCols = []; renderSheet(); triggerAutoSave(); }
+
+    function act(name) {
+      flushEdit();
+      const r = curRange();
+      const p = parseCellRef(selectedCell);
+      if (name === 'undo') { restore(undoStack, redoStack); return; }
+      if (name === 'redo') { restore(redoStack, undoStack); return; }
+      if (name === 'select-all') { anchorCell = 'A1'; selectedRange = normalizeRange('A1', cellId(rowCount - 1, colCount - 1)); applySelectionStyles(); return; }
+      if (name === 'clear') { clearRange(); return; }
+      if (name === 'unhide') { unhideAll(); return; }
+      if (name === 'fit') { const cs = []; for (let j = r.sc; j <= r.ec; j++) cs.push(j); autoFit(cs); return; }
+      if (name === 'clear-format') { setStyle(() => ({})); return; }
+      if (name === 'merge') {
+        const inside = merges.filter((m) => m.r <= r.er && m.r + m.rs - 1 >= r.sr && m.c <= r.ec && m.c + m.cs - 1 >= r.sc);
+        snapshot();
+        if (inside.length) {
+          merges = merges.filter((m) => !inside.includes(m));
+          toast('Cells unmerged');
+        } else {
+          if (!isMulti(r)) { undoStack.pop(); toast('Select two or more cells to merge.'); return; }
+          let others = 0;
+          eachCell(r, (id, i, j) => { if ((i !== r.sr || j !== r.sc) && sheetData[id]) others++; });
+          if (others && !confirm('Merging keeps only the top-left value. ' + others + ' other cell' + (others === 1 ? '' : 's') + ' will be cleared. Merge?')) { undoStack.pop(); return; }
+          eachCell(r, (id, i, j) => { if (i !== r.sr || j !== r.sc) delete sheetData[id]; });
+          merges.push({ r: r.sr, c: r.sc, rs: r.er - r.sr + 1, cs: r.ec - r.sc + 1 });
+          toast('Cells merged');
+        }
+        selectedCell = cellId(r.sr, r.sc); anchorCell = selectedCell;
+        renderSheet(); select(selectedCell); triggerAutoSave();
+        return;
+      }
+      snapshot();
+      const nRows = r.er - r.sr + 1, nCols = r.ec - r.sc + 1;
+      if (name === 'row-above' || name === 'row-below') {
+        const at = name === 'row-above' ? r.sr : r.er + 1;
+        remap((i, j) => ({ r: i >= at ? i + nRows : i, c: j }));
+        hiddenRows = shiftList(hiddenRows, at, nRows);
+        merges.forEach((m) => { if (m.r >= at) m.r += nRows; else if (at < m.r + m.rs) m.rs += nRows; });
+        rowCount += nRows;
+        if (name === 'row-above') { anchorCell = cellId(r.sr + nRows, r.sc); selectedCell = cellId(p.r + nRows, p.c); }
+        toast(nRows + ' row' + (nRows === 1 ? '' : 's') + ' added');
+      } else if (name === 'col-left' || name === 'col-right') {
+        const at = name === 'col-left' ? r.sc : r.ec + 1;
+        remap((i, j) => ({ r: i, c: j >= at ? j + nCols : j }));
+        hiddenCols = shiftList(hiddenCols, at, nCols);
+        merges.forEach((m) => { if (m.c >= at) m.c += nCols; else if (at < m.c + m.cs) m.cs += nCols; });
+        shiftWidths(at, nCols);
+        colCount += nCols;
+        if (name === 'col-left') { anchorCell = cellId(r.sr, r.sc + nCols); selectedCell = cellId(p.r, p.c + nCols); }
+        toast(nCols + ' column' + (nCols === 1 ? '' : 's') + ' added');
+      } else if (name === 'rows-10') {
+        rowCount += 10;
+      } else if (name === 'cols-5') {
+        colCount += 5;
+      } else if (name === 'del-row') {
+        if (rowCount - nRows < 1) { undoStack.pop(); return; }
+        remap((i, j) => (i >= r.sr && i <= r.er ? null : { r: i > r.er ? i - nRows : i, c: j }));
+        hiddenRows = shiftList(hiddenRows, r.er + 1, -nRows, r.sr, r.er);
+        merges = shrinkMerges(merges, 'r', 'rs', r.sr, r.er);
+        rowCount -= nRows;
+        toast(nRows + ' row' + (nRows === 1 ? '' : 's') + ' deleted');
+      } else if (name === 'del-col') {
+        if (colCount - nCols < 1) { undoStack.pop(); return; }
+        remap((i, j) => (j >= r.sc && j <= r.ec ? null : { r: i, c: j > r.ec ? j - nCols : j }));
+        hiddenCols = shiftList(hiddenCols, r.ec + 1, -nCols, r.sc, r.ec);
+        merges = shrinkMerges(merges, 'c', 'cs', r.sc, r.ec);
+        shiftWidths(r.ec + 1, -nCols, r.sc, r.ec);
+        colCount -= nCols;
+        toast(nCols + ' column' + (nCols === 1 ? '' : 's') + ' deleted');
+      } else if (name === 'hide-row') {
+        for (let i = r.sr; i <= r.er; i++) if (!hiddenRows.includes(i)) hiddenRows.push(i);
+        if (hiddenRows.length >= rowCount) { undoStack.pop(); hiddenRows = hiddenRows.slice(0, rowCount - 1); toast('At least one row must stay visible.'); }
+        toast(nRows + ' row' + (nRows === 1 ? '' : 's') + ' hidden — click the small arrow to show');
+      } else if (name === 'hide-col') {
+        for (let j = r.sc; j <= r.ec; j++) if (!hiddenCols.includes(j)) hiddenCols.push(j);
+        if (hiddenCols.length >= colCount) { undoStack.pop(); hiddenCols = hiddenCols.slice(0, colCount - 1); toast('At least one column must stay visible.'); }
+        toast(nCols + ' column' + (nCols === 1 ? '' : 's') + ' hidden — click the small arrow to show');
+      } else if (name === 'freeze-row') {
+        sheetSettings.freezeRow = !sheetSettings.freezeRow;
+        toast(sheetSettings.freezeRow ? 'Row 1 stays in view' : 'Row 1 unfrozen');
+      } else if (name === 'sort-asc' || name === 'sort-desc') {
+        const used = usedSize();
+        const multiRow = r.er > r.sr;
+        const top = multiRow ? r.sr : 1, bottom = multiRow ? r.er : used.rows - 1;
+        if (bottom <= top) { undoStack.pop(); toast('Nothing to sort yet.'); return; }
+        if (merges.some((m) => m.r + m.rs - 1 >= top && m.r <= bottom)) { undoStack.pop(); toast('Unmerge the cells in these rows before sorting.'); return; }
+        const width = Math.max(used.cols, r.ec + 1);
+        const rows = [];
+        for (let i = top; i <= bottom; i++) { const row = []; for (let j = 0; j < width; j++) row.push([sheetData[cellId(i, j)], styles[cellId(i, j)]]); rows.push(row); }
+        const key = p.c, dir = name === 'sort-asc' ? 1 : -1;
+        rows.sort((a, b) => {
+          const x = a[key][0] == null ? '' : computeCell(a[key][0]), y = b[key][0] == null ? '' : computeCell(b[key][0]);
+          if (x === '' && y !== '') return 1;
+          if (y === '' && x !== '') return -1;
+          if (isNum(x) && isNum(y)) return (Number(x) - Number(y)) * dir;
+          return String(x).localeCompare(String(y), undefined, { numeric: true, sensitivity: 'base' }) * dir;
+        });
+        rows.forEach((row, i) => row.forEach(([v, st], j) => {
+          const id = cellId(top + i, j);
+          if (v === undefined || v === '') delete sheetData[id]; else sheetData[id] = v;
+          if (st) styles[id] = st; else delete styles[id];
+        }));
+        toast('Sorted by column ' + colLabel(key));
+      }
+      const sp = parseCellRef(selectedCell);
+      if (!sp || sp.r >= rowCount || sp.c >= colCount) { selectedCell = 'A1'; anchorCell = 'A1'; }
+      selectedRange = normalizeRange(anchorCell, selectedCell);
       renderSheet();
       triggerAutoSave();
     }
 
-    function addRowsBulk() {
-      const input = document.getElementById('addRowsCount');
-      const amount = Math.max(1, Math.min(200, parseInt(input?.value || '1', 10) || 1));
-      rowCount += amount;
+    const INSERT_MENU = () => menuItem('row-above', 'fa-solid fa-arrow-up', 'Row above') + menuItem('row-below', 'fa-solid fa-arrow-down', 'Row below') +
+      menuItem('col-left', 'fa-solid fa-arrow-left', 'Column left') + menuItem('col-right', 'fa-solid fa-arrow-right', 'Column right') + '<hr>' +
+      menuItem('rows-10', 'fa-solid fa-plus', '10 rows at the bottom') + menuItem('cols-5', 'fa-solid fa-plus', '5 columns at the end');
+    const DELETE_MENU = () => menuItem('del-row', 'fa-regular fa-trash-can', 'Delete row(s)') + menuItem('del-col', 'fa-regular fa-trash-can', 'Delete column(s)') +
+      menuItem('clear', 'fa-solid fa-eraser', 'Clear cells', 'Del') + '<hr>' +
+      menuItem('hide-row', 'fa-regular fa-eye-slash', 'Hide row(s)') + menuItem('hide-col', 'fa-regular fa-eye-slash', 'Hide column(s)') +
+      ((hiddenRows.length || hiddenCols.length) ? menuItem('unhide', 'fa-regular fa-eye', 'Show hidden rows & columns') : '');
+    function contextMenu() {
+      const multi = isMulti(curRange());
+      const r0 = curRange();
+      const merged = merges.some((m) => m.r <= r0.er && m.r + m.rs - 1 >= r0.sr && m.c <= r0.ec && m.c + m.cs - 1 >= r0.sc);
+      return menuItem('copy', 'fa-regular fa-copy', 'Copy', isMac ? '⌘C' : 'Ctrl+C') + menuItem('paste', 'fa-regular fa-paste', 'Paste', isMac ? '⌘V' : 'Ctrl+V') +
+        (merged ? menuItem('merge', 'fa-solid fa-table-cells', 'Unmerge cells') : multi ? menuItem('merge', 'fa-solid fa-table-cells-large', 'Merge cells') : '') + '<hr>' + INSERT_MENU().replace(/<hr>.*$/, '') + '<hr>' +
+        menuItem('del-row', 'fa-regular fa-trash-can', 'Delete row(s)') + menuItem('del-col', 'fa-regular fa-trash-can', 'Delete column(s)') + menuItem('clear', 'fa-solid fa-eraser', multi ? 'Clear cells' : 'Clear cell', 'Del') + '<hr>' +
+        menuItem('hide-row', 'fa-regular fa-eye-slash', 'Hide row(s)') + menuItem('hide-col', 'fa-regular fa-eye-slash', 'Hide column(s)') +
+        ((hiddenRows.length || hiddenCols.length) ? menuItem('unhide', 'fa-regular fa-eye', 'Show hidden rows & columns') : '') + '<hr>' +
+        menuItem('sort-asc', 'fa-solid fa-arrow-down-a-z', 'Sort A → Z') + menuItem('sort-desc', 'fa-solid fa-arrow-down-z-a', 'Sort Z → A') + menuItem('fit', 'fa-solid fa-left-right', 'Fit column width');
+    }
+    pop.addEventListener('click', (e) => {
+      const sw = e.target.closest('[data-swatch]');
+      if (sw) { const kind = sw.dataset.kind, c = sw.dataset.swatch; setStyle((s) => Object.assign(s, { [kind]: c })); if (kind === 'color' && c) $('colorBar').style.background = c; closePop(); return; }
+      const b = e.target.closest('[data-do]');
+      if (!b) return;
+      closePop();
+      if (b.dataset.do.startsWith('bd-')) { applyBorders(b.dataset.do.slice(3)); return; }
+      if (b.dataset.do === 'paste') { pasteFromClipboard(); return; }
+      if (b.dataset.do === 'copy') { const r = curRange(); const lines = []; for (let i = r.sr; i <= r.er; i++) { const row = []; for (let j = r.sc; j <= r.ec; j++) row.push(String(display(cellId(i, j)))); lines.push(row.join('\t')); } navigator.clipboard && navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Copied'), () => toast('Use Ctrl+C to copy')); return; }
+      act(b.dataset.do);
+    });
+    if (CAN_EDIT) {
+      document.querySelectorAll('.ed-ribbon [data-pop]').forEach((b) => b.addEventListener('click', () => {
+        if (!pop.hidden && popOwner === b) { closePop(); return; }
+        const rect = b.getBoundingClientRect();
+        const kind = b.dataset.pop;
+        const html = kind === 'insert' ? INSERT_MENU() : kind === 'delete' ? DELETE_MENU() : kind === 'borders' ? BORDER_MENU() : kind === 'fill' ? swatches(FILLS, 'bg') : swatches(INKS, 'color');
+        openPop(html, rect.left, rect.bottom + 6, b);
+      }));
+      table.addEventListener('contextmenu', (e) => {
+        const td = e.target.closest('td[data-cell]'), th = e.target.closest('th[data-col]'), rh = e.target.closest('td[data-row]');
+        if (!td && !th && !rh) return;
+        e.preventDefault();
+        if (td) { const pp = parseCellRef(td.dataset.cell), r = curRange(); if (!(pp.r >= r.sr && pp.r <= r.er && pp.c >= r.sc && pp.c <= r.ec)) focusCell(td.dataset.cell); }
+        if (th) { const c = +th.dataset.col, r = curRange(); if (!(c >= r.sc && c <= r.ec && r.sr === 0 && r.er === rowCount - 1)) selectCol(c); }
+        if (rh) { const rr = +rh.dataset.row, r = curRange(); if (!(rr >= r.sr && rr <= r.er && r.sc === 0 && r.ec === colCount - 1)) selectRow(rr); }
+        openPop(contextMenu(), e.clientX, e.clientY);
+      });
+    }
+    document.querySelectorAll('.ed-ribbon [data-act]').forEach((b) => b.addEventListener('click', () => act(b.dataset.act)));
+    document.querySelectorAll('.ed-ribbon [data-fn]').forEach((b) => b.addEventListener('click', () => {
+      const r = selectedRange;
+      if (!isMulti(r)) { toast('Select the cells first, then press ' + b.textContent.trim() + '.'); return; }
+      // The result goes just below a column selection, or right of a row selection.
+      const target = r.sc === r.ec ? cellId(r.er + 1, r.sc) : r.sr === r.er ? cellId(r.sr, r.ec + 1) : cellId(r.er + 1, r.sc);
+      const tp = parseCellRef(target);
+      flushEdit();
+      snapshot();
+      if (tp.r >= rowCount) rowCount = tp.r + 1;
+      if (tp.c >= colCount) colCount = tp.c + 1;
+      sheetData[target] = '=' + b.dataset.fn + '(' + rangeRef(r) + ')';
       renderSheet();
+      focusCell(target);
       triggerAutoSave();
+      toast(b.textContent.trim() + ' added in ' + target);
+    }));
+
+    function pasteFromClipboard() {
+      if (!navigator.clipboard || !navigator.clipboard.readText) { toast('Use Ctrl+V to paste.'); return; }
+      navigator.clipboard.readText().then((text) => {
+        if (!text) return;
+        const rows = text.replace(/\r/g, '').replace(/\n$/, '').split('\n').map((l) => l.split('\t'));
+        const p = parseCellRef(selectedCell);
+        placeBlock(rows, p.r, p.c);
+        toast('Pasted');
+      }, () => toast('Allow clipboard access, or use Ctrl+V to paste.'));
     }
 
-    function addColsBulk() {
-      const input = document.getElementById('addColsCount');
-      const amount = Math.max(1, Math.min(50, parseInt(input?.value || '1', 10) || 1));
-      colCount += amount;
-      renderSheet();
-      triggerAutoSave();
+    function replaceSheet(x) {
+      flushEdit();
+      snapshot();
+      sheetData = x.cells || {}; styles = x.styles || {}; colWidths = x.colWidths || {}; merges = x.merges || [];
+      hiddenRows = []; hiddenCols = [];
+      rowCount = x.rowCount || 30; colCount = x.colCount || 10;
+      selectedCell = 'A1'; anchorCell = 'A1'; selectedRange = null;
+      renderSheet(); select('A1'); triggerAutoSave();
     }
 
-    window.addRow = addRow;
-    window.addCol = addCol;
-    window.addRowsBulk = addRowsBulk;
-    window.addColsBulk = addColsBulk;
+    // Upload an Excel workbook: keeps values, merged cells, colors, borders and widths.
+    const xlsxImport = $('xlsxImport');
+    if (xlsxImport) xlsxImport.addEventListener('change', async () => {
+      const file = xlsxImport.files[0];
+      xlsxImport.value = '';
+      $('dlMenu').hidden = true;
+      if (!file) return;
+      const used = usedSize();
+      if (used.rows && !confirm('Replace this sheet with "' + file.name + '"? You can undo this.')) return;
+      toast('Reading ' + file.name + '…');
+      const form = new FormData();
+      form.append('file', file);
+      try {
+        const res = await fetch('/documents/importXlsx', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!data.success) { toast(data.message || 'Could not read this file.'); return; }
+        replaceSheet(data.sheet);
+        toast('Uploaded ' + file.name);
+      } catch (e) { toast('Could not upload this file.'); }
+    });
 
-    function escapeHtml(text) {
-      return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    function sheetRows() {
+      const used = usedSize();
+      const rows = [];
+      for (let i = 0; i < used.rows; i++) { const row = []; for (let j = 0; j < used.cols; j++) row.push(display(cellId(i, j))); rows.push(row); }
+      return rows;
+    }
+    function parseCsv(text) {
+      const rows = []; let row = [], cur = '', q = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (q) { if (ch === '"' && text[i + 1] === '"') { cur += '"'; i++; } else if (ch === '"') q = false; else cur += ch; }
+        else if (ch === '"') q = true;
+        else if (ch === ',') { row.push(cur); cur = ''; }
+        else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+        else cur += ch;
+      }
+      if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+      return rows;
+    }
+    const csvImport = $('csvImport');
+    if (csvImport) csvImport.addEventListener('change', () => {
+      const file = csvImport.files[0];
+      if (!file) return;
+      file.text().then((text) => {
+        const rows = parseCsv(text.replace(/^﻿/, ''));
+        const used = usedSize();
+        const start = used.rows ? used.rows + 1 : 0;
+        if (used.rows && !confirm('Add the CSV below your data, starting at row ' + (start + 1) + '?')) return;
+        placeBlock(rows, start, 0);
+        toast('Imported ' + rows.length + ' rows');
+      });
+      csvImport.value = '';
+      $('dlMenu').hidden = true;
+    });
+
+    function syncSettingsPanel() {
+      if (!$('setFreezeRow')) return;
+      $('setFreezeRow').checked = !!sheetSettings.freezeRow;
+      $('setFreezeCol').checked = !!sheetSettings.freezeCol;
+      $('setGrid').checked = sheetSettings.grid !== false;
+      $('setColWidth').value = String(sheetSettings.colWidth || 120);
+      const n = hiddenRows.length + hiddenCols.length;
+      $('setHiddenNote').textContent = n ? hiddenRows.length + ' row' + (hiddenRows.length === 1 ? '' : 's') + ', ' + hiddenCols.length + ' column' + (hiddenCols.length === 1 ? '' : 's') + ' hidden.' : 'None hidden.';
+      $('setUnhide').disabled = !n;
     }
 
     renderSheet();
+    select('A1');
     <% } %>
 
-    // ========== AUTO SAVE ==========
-    function triggerAutoSave() {
-      clearTimeout(saveTimer);
-      document.getElementById('saveStatus').textContent = 'Unsaved changes...';
-      saveTimer = setTimeout(autoSave, 2000);
-    }
+    // ========== DOWNLOAD / PRINT ==========
+    $('dlBtn').addEventListener('click', (e) => { e.stopPropagation(); const m = $('dlMenu'); m.hidden = !m.hidden; $('dlBtn').setAttribute('aria-expanded', String(!m.hidden)); });
+    document.addEventListener('click', (e) => { if (!e.target.closest('.ed-menu')) { $('dlMenu').hidden = true; $('dlBtn').setAttribute('aria-expanded', 'false'); } });
+    document.querySelectorAll('[data-dl]').forEach((b) => b.addEventListener('click', () => {
+      $('dlMenu').hidden = true;
+      if (document.querySelector('[data-dl-group]').hidden) return;
+      const kind = b.dataset.dl;
+      if (kind === 'print') { window.print(); return; }
+      <% if (isDoc) { %>
+      if (kind === 'word') download(fileBase() + '.doc', 'application/msword', docHtml());
+      if (kind === 'text') download(fileBase() + '.txt', 'text/plain;charset=utf-8', quill.getText());
+      <% } else { %>
+      const rows = sheetRows();
+      if (!rows.length) { toast('The sheet is empty.'); return; }
+      if (kind === 'csv') download(fileBase() + '.csv', 'text/csv;charset=utf-8', '﻿' + rows.map((r) => r.map((v) => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(',')).join('\r\n'));
+      if (kind === 'excel') {
+        const cell = (v, i, j) => { const s = styles[cellId(i, j)] || {}; const css = [s.b ? 'font-weight:bold' : '', s.i ? 'font-style:italic' : '', s.u ? 'text-decoration:underline' : '', s.color ? 'color:' + s.color : '', s.bg ? 'background:' + s.bg : '', s.align ? 'text-align:' + s.align : ''].filter(Boolean).join(';'); return '<td' + (css ? ' style="' + css + '"' : '') + '>' + esc(v) + '</td>'; };
+        download(fileBase() + '.xls', 'application/vnd.ms-excel', '<html><head><meta charset="utf-8"></head><body><table border="1">' + rows.map((r, i) => '<tr>' + r.map((v, j) => cell(v, i, j)).join('') + '</tr>').join('') + '</table></body></html>');
+      }
+      <% } %>
+    }));
 
+    // ========== AUTO SAVE ==========
+    const currentContent = () => (IS_DOC ? docContent() : sheetContent());
+    function triggerAutoSave() {
+      if (!CAN_EDIT) return;
+      dirty = true;
+      clearTimeout(saveTimer);
+      setStatus('saving', 'Saving…');
+      saveTimer = setTimeout(autoSave, 1200);
+    }
     async function autoSave() {
       if (!CAN_EDIT) return;
-
-      let content;
-      <% if (isDoc) { %>
-        content = JSON.stringify(quill.getContents());
-        if (content === lastSavedContent) return;
-      <% } else { %>
-        content = JSON.stringify({ cells: sheetData, colCount, rowCount });
-      <% } %>
-
-      const title = document.getElementById('titleInput').value.trim();
-      document.getElementById('saveStatus').textContent = 'Saving...';
-
+      const content = currentContent();
+      const title = $('titleInput').value.trim();
       try {
-        const res = await fetch('/documents/save/' + DOC_ID, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, title })
-        });
+        const res = await fetch('/documents/save/' + DOC_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, title }) });
         const data = await res.json();
         if (data.success) {
           lastSavedContent = content;
-          document.getElementById('saveStatus').textContent = 'Saved ✓';
-        } else {
-          document.getElementById('saveStatus').textContent = 'Save failed';
-        }
-      } catch(e) {
-        document.getElementById('saveStatus').textContent = 'Save error';
-      }
+          dirty = content !== currentContent();
+          if (!dirty) setStatus('', 'All changes saved');
+          if ($('setSaved')) $('setSaved').textContent = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+        } else setStatus('error', 'Not saved — retrying');
+      } catch (e) { setStatus('error', 'Offline — not saved yet'); }
+      if (dirty) saveTimer = setTimeout(autoSave, 3000);
     }
+    $('titleInput').addEventListener('input', () => { if ($('setTitle')) $('setTitle').value = $('titleInput').value; triggerAutoSave(); });
+    window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-    // Title auto-save
-    document.getElementById('titleInput').addEventListener('input', () => {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(autoSave, 1500);
-    });
-
-    // ========== POLLING FOR UPDATES ==========
+    // Pick up changes others saved, when there's nothing unsaved here.
     setInterval(async () => {
+      if (dirty || document.hidden) return;
       try {
         const res = await fetch('/documents/content/' + DOC_ID);
         const data = await res.json();
-        if (data.success && data.data.updated_at !== lastKnownUpdate) {
-          lastKnownUpdate = data.data.updated_at;
-          // Only update if no local changes pending
-          if (document.getElementById('saveStatus').textContent === 'Saved ✓' || document.getElementById('saveStatus').textContent === 'Saved') {
-            <% if (isDoc) { %>
-              const newContent = JSON.parse(data.data.content);
-              const currentContent = JSON.stringify(quill.getContents());
-              if (data.data.content !== currentContent) {
-                const sel = quill.getSelection();
-                quill.setContents(newContent, 'silent');
-                if (sel) quill.setSelection(sel);
-              }
-            <% } else { %>
-              const parsed = JSON.parse(data.data.content);
-              sheetData = parsed.cells || {};
-              colCount = parsed.colCount || colCount;
-              rowCount = parsed.rowCount || rowCount;
-              renderSheet();
-            <% } %>
-            document.getElementById('titleInput').value = data.data.title;
-          }
-        }
-      } catch(e) {}
+        if (!data.success || data.data.updated_at === lastKnownUpdate) return;
+        lastKnownUpdate = data.data.updated_at;
+        if (data.data.content === lastSavedContent) return;
+        if (IS_DOC) {
+          const sel = quill.getSelection();
+          loadDoc(data.data.content);
+          if (sel) quill.setSelection(sel, 'silent');
+          updateCounts();
+        } else if (!document.activeElement || !document.activeElement.classList.contains('sheet-cell-input')) {
+          loadSheet(data.data.content);
+          renderSheet();
+        } else return;
+        lastSavedContent = data.data.content;
+        if (document.activeElement !== $('titleInput')) $('titleInput').value = data.data.title;
+      } catch (e) { /* try again next time */ }
     }, 8000);
 
-    // ========== SETTINGS PANEL ==========
-    function toggleSettings() {
-      document.getElementById('settingsPanel').classList.toggle('open');
+    // ========== PANELS ==========
+    function openPanel(id) {
+      document.querySelectorAll('.ed-panel.is-open').forEach((p) => p.classList.remove('is-open'));
+      $(id).classList.add('is-open');
+      $('edBackdrop').hidden = false;
     }
+    function closePanels() {
+      document.querySelectorAll('.ed-panel.is-open').forEach((p) => p.classList.remove('is-open'));
+      $('edBackdrop').hidden = true;
+    }
+    $('edBackdrop').addEventListener('click', closePanels);
+    document.querySelectorAll('.ed-panel [data-close]').forEach((b) => b.addEventListener('click', closePanels));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('edBackdrop').hidden && !document.querySelector('.cd__menu:not([hidden])')) closePanels(); });
 
-    function addUserPerm() {
-      const sel = document.getElementById('addUserSelect');
-      const level = document.getElementById('addUserLevel').value;
-      if (!sel.value) return;
-
-      const name = sel.options[sel.selectedIndex].text;
-      const userId = sel.value;
-
-      // Check duplicate
-      if (document.querySelector(`#permList .perm-row[data-user-id="${userId}"]`)) {
-        alert('User already has permissions.');
-        return;
+    // Dropdown with checkboxes: cd(host, { items, all, placeholder, search, onChange })
+    function checkDrop(host, opts) {
+      host.innerHTML = '<button type="button" class="cd__btn" aria-haspopup="true" aria-expanded="false"></button><div class="cd__menu" hidden>' +
+        (opts.search ? '<input type="search" class="cd__search" placeholder="Search" aria-label="Search" />' : '') +
+        '<label class="cd__opt cd__opt--all"><input type="checkbox" data-all /> <span>' + esc(opts.all) + '</span></label><div class="cd__list"></div></div>';
+      const btn = host.querySelector('.cd__btn'), menu = host.querySelector('.cd__menu'), list = host.querySelector('.cd__list'), all = host.querySelector('[data-all]');
+      let items = [];
+      const boxes = () => Array.from(list.querySelectorAll('input'));
+      function label() {
+        const on = boxes().filter((b) => b.checked);
+        btn.textContent = !on.length ? opts.placeholder : on.length === items.length ? opts.all : on.length <= 2 ? on.map((b) => b.dataset.label).join(', ') : on.length + ' selected';
+        all.checked = on.length === items.length && items.length > 0;
+        all.indeterminate = on.length > 0 && on.length < items.length;
       }
-
-      const row = document.createElement('div');
-      row.className = 'perm-row';
-      row.dataset.userId = userId;
-      row.innerHTML = `
-        <span class="name">${name}</span>
-        <select>
-          <option value="view" ${level==='view'?'selected':''}>View</option>
-          <option value="comment" ${level==='comment'?'selected':''}>Comment</option>
-          <option value="edit" ${level==='edit'?'selected':''}>Edit</option>
-        </select>
-        <button class="remove-btn" onclick="this.closest('.perm-row').remove()">×</button>
-      `;
-      document.getElementById('permList').appendChild(row);
-      sel.value = '';
-    }
-
-    function addClassAssign() {
-      const sel = document.getElementById('addClassSelect');
-      if (!sel.value) return;
-
-      const name = sel.options[sel.selectedIndex].text;
-      const classId = sel.value;
-
-      if (document.querySelector(`#classAssignList .class-assign-row[data-class-id="${classId}"]`)) {
-        alert('Class already assigned.');
-        return;
+      function set(next) {
+        items = next;
+        list.innerHTML = items.map((it) => '<label class="cd__opt"><input type="checkbox" value="' + esc(it.value) + '" data-label="' + esc(it.label) + '"' + (it.checked ? ' checked' : '') + ' /> <span>' + esc(it.label) + '</span></label>').join('');
+        label();
       }
-
-      const row = document.createElement('div');
-      row.className = 'class-assign-row';
-      row.dataset.classId = classId;
-      row.innerHTML = `
-        <span class="name">${name}</span>
-        <select>
-          <option value="view">View</option>
-          <option value="comment">Comment</option>
-          <option value="edit">Edit</option>
-        </select>
-        <label><input type="checkbox" class="incStudents"> Students</label>
-        <label><input type="checkbox" class="incSubjects"> Subjects</label>
-        <button class="remove-btn" onclick="this.closest('.class-assign-row').remove()">×</button>
-      `;
-      document.getElementById('classAssignList').appendChild(row);
-      sel.value = '';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = menu.hidden;
+        document.querySelectorAll('.cd__menu').forEach((m) => { m.hidden = true; m.previousElementSibling.setAttribute('aria-expanded', 'false'); });
+        menu.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        const s = host.querySelector('.cd__search');
+        if (open && s) s.focus();
+      });
+      menu.addEventListener('click', (e) => e.stopPropagation());
+      menu.addEventListener('change', (e) => {
+        if (e.target === all) boxes().forEach((b) => { if (!b.closest('.cd__opt').hidden) b.checked = all.checked; });
+        label();
+        opts.onChange();
+      });
+      const s = host.querySelector('.cd__search');
+      if (s) s.addEventListener('input', () => { const q = s.value.trim().toLowerCase(); boxes().forEach((b) => { b.closest('.cd__opt').hidden = !!q && b.dataset.label.toLowerCase().indexOf(q) === -1; }); });
+      document.addEventListener('click', () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.hidden) { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); btn.focus(); } });
+      return { set, values: () => boxes().filter((b) => b.checked).map((b) => b.value) };
     }
 
-    async function savePermissions() {
-      const permissions = [];
-      document.querySelectorAll('#permList .perm-row').forEach(row => {
-        permissions.push({
-          user_id: parseInt(row.dataset.userId),
-          permission_level: row.querySelector('select').value
-        });
-      });
-
-      const classAssignments = [];
-      document.querySelectorAll('#classAssignList .class-assign-row').forEach(row => {
-        classAssignments.push({
-          class_id: parseInt(row.dataset.classId),
-          permission_level: row.querySelector('select').value,
-          include_students: row.querySelector('.incStudents').checked,
-          include_subjects: row.querySelector('.incSubjects').checked
-        });
-      });
-
+    <% if (canEdit) { %>
+    // ----- Share -----
+    $('openShare').addEventListener('click', () => openPanel('sharePanel'));
+    const levelSelect = (level) => '<select aria-label="Access"><option value="view"' + (level === 'view' ? ' selected' : '') + '>View only</option><option value="comment"' + (level === 'comment' ? ' selected' : '') + '>Can comment</option><option value="edit"' + (level === 'edit' ? ' selected' : '') + '>Can edit</option></select>';
+    const removeBtn = '<button type="button" class="ed-x" data-remove aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>';
+    function shareChanged() { $('shareNote').textContent = 'Unsaved changes'; $('permEmpty').hidden = !!document.querySelector('#permList .ed-person'); }
+    $('addUserSelect').addEventListener('change', function () {
+      if (!this.value) return;
+      if (document.querySelector('#permList [data-user-id="' + this.value + '"]')) { toast('Already shared with this person.'); this.value = ''; return; }
+      const opt = this.selectedOptions[0];
+      const name = opt.textContent.trim();
+      const li = document.createElement('li');
+      li.className = 'ed-person';
+      li.dataset.userId = this.value;
+      li.innerHTML = '<span class="ed-av">' + esc(name.split(/\s+/).map((w) => w.charAt(0)).join('').slice(0, 2).toUpperCase()) + '</span><span class="ed-person__name">' + esc(name) + '<small>' + esc(opt.dataset.role || '') + '</small></span>' + levelSelect($('addUserLevel').value) + removeBtn;
+      $('permList').prepend(li);
+      this.value = '';
+      shareChanged();
+    });
+    $('addClassSelect').addEventListener('change', function () {
+      if (!this.value) return;
+      if (document.querySelector('#classAssignList [data-class-id="' + this.value + '"]')) { toast('This class already has access.'); this.value = ''; return; }
+      const li = document.createElement('li');
+      li.className = 'ed-person';
+      li.dataset.classId = this.value;
+      li.innerHTML = '<span class="ed-av"><i class="fa-solid fa-chalkboard-user"></i></span><span class="ed-person__name">' + esc(this.selectedOptions[0].textContent.trim()) + '<small><label class="ed-chk"><input type="checkbox" class="incStudents"> Students too</label> <label class="ed-chk"><input type="checkbox" class="incSubjects"> Subject teachers</label></small></span>' + levelSelect('view') + removeBtn;
+      $('classAssignList').prepend(li);
+      this.value = '';
+      shareChanged();
+    });
+    $('sharePanel').addEventListener('click', (e) => { const x = e.target.closest('[data-remove]'); if (x) { x.closest('.ed-person').remove(); shareChanged(); } });
+    $('sharePanel').addEventListener('change', (e) => { if (e.target.closest('.ed-person')) shareChanged(); });
+    $('saveShare').addEventListener('click', async () => {
+      const permissions = Array.from(document.querySelectorAll('#permList .ed-person')).map((li) => ({ user_id: parseInt(li.dataset.userId, 10), permission_level: li.querySelector('select').value }));
+      const classAssignments = Array.from(document.querySelectorAll('#classAssignList .ed-person')).map((li) => ({
+        class_id: parseInt(li.dataset.classId, 10), permission_level: li.querySelector('select').value,
+        include_students: li.querySelector('.incStudents').checked, include_subjects: li.querySelector('.incSubjects').checked,
+      }));
+      $('saveShare').disabled = true;
       try {
-        const res = await fetch('/documents/permissions/' + DOC_ID, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ permissions, classAssignments })
-        });
+        const res = await fetch('/documents/permissions/' + DOC_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ permissions, classAssignments }) });
         const data = await res.json();
-        if (data.success) alert('Permissions saved!');
-        else alert('Failed to save permissions.');
-      } catch(e) { alert('Error saving permissions.'); }
-    }
+        $('shareNote').textContent = data.success ? 'Saved' : 'Could not save. Try again.';
+        if (data.success) { toast('Sharing saved'); closePanels(); }
+      } catch (e) { $('shareNote').textContent = 'Could not save. Check your connection.'; }
+      $('saveShare').disabled = false;
+    });
+    <% } %>
 
-    // ========== INSERT CLASS DATA ==========
+
+    <% if (canEdit) { %>
+    // ----- Settings -----
+    $('openSettings').addEventListener('click', () => openPanel('settingsPanel'));
+    $('setTitle').addEventListener('input', function () { $('titleInput').value = this.value; triggerAutoSave(); });
+    <% if (isDoc) { %>
+    $('setPage').value = docSettings.page; $('setSpacing').value = docSettings.spacing; $('setFontSize').value = docSettings.size;
+    [['setPage', 'page'], ['setSpacing', 'spacing'], ['setFontSize', 'size']].forEach(([id, key]) => $(id).addEventListener('change', function () {
+      docSettings[key] = this.value; applyDocSettings(); triggerAutoSave();
+    }));
+    <% } else { %>
+    [['setFreezeRow', 'freezeRow'], ['setFreezeCol', 'freezeCol'], ['setGrid', 'grid']].forEach(([id, key]) => $(id).addEventListener('change', function () {
+      sheetSettings[key] = this.checked; renderSheet(); triggerAutoSave();
+    }));
+    $('setColWidth').addEventListener('change', function () { sheetSettings.colWidth = Number(this.value); renderSheet(); triggerAutoSave(); });
+    $('setUnhide').addEventListener('click', unhideAll);
+    syncSettingsPanel();
+    <% } %>
+    <% if (canInsert) { %>
+    $('setCopy').addEventListener('click', async function () {
+      this.disabled = true;
+      try {
+        const created = await fetch('/documents/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Copy of ' + fileBase(), doc_type: IS_DOC ? 'document' : 'spreadsheet' }) }).then((r) => r.json());
+        if (!created.success) throw new Error(created.message || 'failed');
+        await fetch('/documents/save/' + created.documentId, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: currentContent(), title: 'Copy of ' + fileBase() }) });
+        toast('Copy made — opening it');
+        setTimeout(() => { location.href = '/documents/edit/' + created.documentId + '?returnUrl=' + encodeURIComponent(RETURN_URL); }, 600);
+      } catch (e) { toast('Could not make a copy.'); this.disabled = false; }
+    });
+    $('setDelete').addEventListener('click', async function () {
+      if (!confirm('Delete "' + fileBase() + '"? People it was shared with lose access.')) return;
+      this.disabled = true;
+      try {
+        const res = await fetch('/documents/delete/' + DOC_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        if (!res.ok) throw new Error('failed');
+        dirty = false;
+        location.href = RETURN_URL;
+      } catch (e) { toast('Could not delete this file.'); this.disabled = false; }
+    });
+    <% } %>
+    <% } %>
+
+
+    <% if (canInsert) { %>
+    // ----- Report card fields -----
+    const fieldTag = (key) => '{{' + key + '}}';
+    $('openFields').addEventListener('click', () => openPanel('fieldsPanel'));
+    $('fieldSearch').addEventListener('input', function () {
+      const q = this.value.trim().toLowerCase();
+      document.querySelectorAll('#fieldList .ed-fgroup').forEach((g) => {
+        let any = false;
+        g.querySelectorAll('.ed-fld').forEach((f) => { const hit = !q || f.dataset.search.indexOf(q) !== -1; f.hidden = !hit; if (hit) any = true; });
+        g.hidden = !any;
+      });
+    });
+    const copyText = (text, note) => (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast(note || 'Copied'), () => toast('Could not copy'));
+    $('fieldList').addEventListener('click', (e) => {
+      const cp = e.target.closest('[data-copy-field]');
+      if (cp) { copyText(fieldTag(cp.dataset.copyField), 'Copied ' + fieldTag(cp.dataset.copyField)); return; }
+      const f = e.target.closest('[data-field]');
+      if (!f) return;
+      const tag = fieldTag(f.dataset.field);
+      <% if (isDoc) { %>
+      const at = quill.getSelection(true) || { index: quill.getLength() - 1 };
+      quill.insertText(at.index, tag, 'user');
+      quill.setSelection(at.index + tag.length, 0, 'user');
+      <% } else { %>
+      flushEdit();
+      snapshot();
+      const cur = sheetData[selectedCell] || '';
+      sheetData[selectedCell] = cur ? cur + (/\s$/.test(cur) ? '' : ' ') + tag : tag;
+      refreshCells();
+      $('formulaBar').value = sheetData[selectedCell];
+      triggerAutoSave();
+      <% } %>
+      toast('Added ' + tag);
+    });
+    $('copyAllFields').addEventListener('click', (e) => {
+      e.preventDefault();
+      const lines = ['Field\tWhat it shows'];
+      document.querySelectorAll('#fieldList [data-field]').forEach((b) => lines.push(fieldTag(b.dataset.field) + '\t' + b.querySelector('span').textContent));
+      copyText(lines.join('\n'), 'All fields copied — paste them anywhere');
+    });
+
+    // Sample report cards to start from.
     <% if (!isDoc) { %>
-    async function insertStudents() {
-      const classId = document.getElementById('insertClassSelect').value;
-      if (!classId) return alert('Select a class first.');
-
-      const res = await fetch('/documents/classData?classId=' + classId);
-      const data = await res.json();
-      if (!data.success) return alert('Failed to load data.');
-
-      // Insert student names starting from A1
-      data.students.forEach((s, i) => {
-        sheetData[cellId(i, 0)] = s.first_name + ' ' + s.last_name;
+    // Nursery / lower primary card: crest on both sides, "please tick" skills,
+    // a subject tick grid, results, remarks, school bills and signatures.
+    function nurserySheet() {
+      const cells = {}, st = {}, mg = [];
+      const put = (id, v, style) => { if (v !== undefined && v !== null && v !== '') cells[id] = v; if (style) st[id] = Object.assign({}, st[id], style); };
+      const range = (ref, fn) => { const [a, b] = ref.split(':'); const p = parseCellRef(a), q = parseCellRef(b || a); for (let i = p.r; i <= q.r; i++) for (let j = p.c; j <= q.c; j++) fn(cellId(i, j), i, j, p, q); };
+      const merge = (ref) => { const [a, b] = ref.split(':'); const p = parseCellRef(a), q = parseCellRef(b); mg.push({ r: p.r, c: p.c, rs: q.r - p.r + 1, cs: q.c - p.c + 1 }); };
+      const grid = (ref, extra) => range(ref, (id) => put(id, undefined, Object.assign({ bd: 'tblr' }, extra || {})));
+      const outline = (ref) => put(ref.split(':')[0], undefined, { bd: 'tblr' }); // merged box: its first cell draws the frame
+      const line = (ref) => range(ref, (id) => put(id, undefined, { bd: 'b' }));
+      const lab = (id, text) => put(id, text, { b: 1, fs: 12 });
+      const field = (ref, value, extra) => { const a = ref.split(':')[0]; put(a, value, Object.assign({ fs: 13 }, extra || {})); if (ref.includes(':')) merge(ref); line(ref); };
+      // Header
+      put('A1', '{{school.logo:85}}', { align: 'center' }); merge('A1:A3');
+      put('B1', '{{school.name}}', { b: 1, u: 1, fs: 19, align: 'center' }); merge('B1:G1');
+      put('H1', '{{school.logo:85}}', { align: 'center' }); merge('H1:H3');
+      put('B2', 'Motto : {{school.motto}}', { b: 1, fs: 12 }); merge('B2:D2');
+      put('E2', '{{school.address}}', { b: 1, fs: 12, align: 'right' }); merge('E2:G2');
+      put('B3', 'Email : {{school.email}}', { b: 1, fs: 12 }); merge('B3:D3');
+      put('E3', 'Contacts: {{school.phone}}', { b: 1, u: 1, fs: 12, align: 'right' }); merge('E3:G3');
+      // Pupil
+      lab('A5', 'NAME:'); field('B5:E5', '{{student.name}}', { b: 1 });
+      lab('F5', 'CLASS:'); field('G5:H5', '{{student.class}}', { b: 1 });
+      lab('A6', 'TERM:'); field('B6:C6', '{{term.name}}');
+      lab('D6', 'DATE:'); field('E6', '{{report.date}}', { fs: 12 });
+      lab('F6', 'NEXT TERM BEGINS:'); field('G6:H6', '{{term.next_begins}}');
+      // Please tick (filled by hand on the printed card)
+      put('A8', 'PLEASE TICK', { b: 1, align: 'center', bg: '#f1f5f9' }); merge('A8:D8');
+      put('E8', 'YES', { b: 1, align: 'center', bg: '#f1f5f9' }); merge('E8:F8');
+      put('G8', 'NO', { b: 1, align: 'center', bg: '#f1f5f9' }); merge('G8:H8');
+      ['I CAN RECOGNIZE LETTER A-Z', 'I CAN RECOGNIZE NUMBERS', 'I CAN TAKE PART IN CLASS ACTIVITY', 'I DO MY WORK QUIETLY', 'I CAN CONVERSE WITH OTHERS', 'I RESPECT MY SENIORS AND TEACHERS'].forEach((t, i) => {
+        const r = 9 + i;
+        put('A' + r, t, { fs: 12 }); merge('A' + r + ':D' + r); merge('E' + r + ':F' + r); merge('G' + r + ':H' + r);
       });
-      renderSheet();
-      triggerAutoSave();
+      grid('A8:H14');
+      put('A16', 'I CAN READ LETTERS FROM:', { b: 1, fs: 11 }); line('B16:D16'); merge('B16:D16'); put('E16', 'TO', { b: 1, align: 'center' }); line('F16:H16'); merge('F16:H16');
+      put('A17', 'I CAN READ NUMBERS FROM:', { b: 1, fs: 11 }); line('B17:D17'); merge('B17:D17'); put('E17', 'TO', { b: 1, align: 'center' }); line('F17:H17'); merge('F17:H17');
+      // Subjects: one row, repeated for every subject, ticked from the subject's remark
+      put('A19', 'SUBJECT', { b: 1, bg: '#f1f5f9' }); merge('A19:B19');
+      ['EXCELLENT', 'VERY GOOD', 'GOOD', 'PASS', 'WEAK', 'FAIL'].forEach((h, j) => put(cellId(18, 2 + j), h, { b: 1, align: 'center', bg: '#f1f5f9', fs: 10 }));
+      put('A20', '{{subject.name}}', { fs: 12 }); merge('A20:B20');
+      ['Excellent', 'Very Good', 'Good', 'Pass', 'Weak', 'Fail'].forEach((h, j) => put(cellId(19, 2 + j), '{{subject.mark:' + h + '}}', { align: 'center', b: 1, fs: 15 }));
+      grid('A19:H20');
+      // Results
+      lab('A22', 'NUMBERS ON ROLL:'); field('B22', '{{student.class_size}}', { align: 'center' });
+      lab('C22', 'POSITION:'); field('D22', '{{student.position}}', { align: 'center' });
+      lab('E22', 'PROMOTED TO:'); merge('E22:F22'); field('G22:H22', '{{student.promoted_to}}');
+      lab('A23', 'ATTENDANCE:'); field('B23', '{{attendance.present}}', { align: 'center' });
+      lab('C23', 'OUT OF:'); field('D23', '{{attendance.total}}', { align: 'center' });
+      lab('A25', 'CONDUCT:'); field('B25:E25', '{{remarks.conduct}}');
+      lab('A26', 'REMARKS:'); field('B26:E26', '{{remarks.teacher}}');
+      // School bills (amounts are typed in; arrears come from Paygira)
+      put('G24', 'SCHOOL BILLS', { b: 1, align: 'center', bg: '#f1f5f9' }); merge('G24:H24');
+      [['TUITION FEE', 'GHC 450.00'], ['FIRST AID', 'GHC 5.00'], ['P.T.A DUES', 'GHC 5.00'], ['SPORTS DUES', 'GHC 5.00'], ['MAINTENANCE', 'GHC 5.00'], ['ARREARS', '{{fees.outstanding}}'], ['TOTAL', '']].forEach(([l, v], i) => {
+        const r = 25 + i;
+        put('G' + r, l, { fs: 11, b: l === 'TOTAL' ? 1 : 0 });
+        put('H' + r, v, { fs: 11, align: 'right', b: l === 'TOTAL' ? 1 : 0 });
+      });
+      grid('G24:H31');
+      // Signatures
+      merge('A28:B30'); outline('A28:B30');
+      put('A31', "CLASS TEACHER'S SIGNATURE", { b: 1, align: 'center', fs: 11 }); merge('A31:B31'); outline('A31:B31');
+      put('C28', '{{signature.image:55}}', { align: 'center' }); merge('C28:E30'); outline('C28:E30');
+      put('C31', "HEAD TEACHER'S SIGNATURE", { b: 1, align: 'center', fs: 11 }); merge('C31:E31'); outline('C31:E31');
+      put('A33', 'CANTEEN: GHC 10.00', { b: 1, fs: 15 }); merge('A33:C33');
+      lab('A34', 'CLASS TEACHER CONTACT:'); line('B34:D34'); merge('B34:D34');
+      return { cells, styles: st, merges: mg, colWidths: { 0: 190, 1: 80, 2: 82, 3: 82, 4: 82, 5: 82, 6: 105, 7: 95 }, rowCount: 40, colCount: 10, settings: { grid: true } };
     }
 
-    async function insertSubjects() {
-      const classId = document.getElementById('insertClassSelect').value;
-      if (!classId) return alert('Select a class first.');
-
-      const res = await fetch('/documents/classData?classId=' + classId);
-      const data = await res.json();
-      if (!data.success) return alert('Failed to load data.');
-
-      // Insert subject names as column headers starting from B1
-      data.subjects.forEach((s, i) => {
-        sheetData[cellId(0, i + 1)] = s.subject_name;
+    function sampleSheet(kind) {
+      if (kind === 'nursery') return nurserySheet();
+      const cells = {}, st = {}, mg = [];
+      const put = (id, v, style) => { if (v !== undefined && v !== null && v !== '') cells[id] = v; if (style) st[id] = Object.assign({}, st[id], style); };
+      const merge = (ref) => { const [a, b] = ref.split(':'); const p = parseCellRef(a), q = parseCellRef(b); mg.push({ r: p.r, c: p.c, rs: q.r - p.r + 1, cs: q.c - p.c + 1 }); };
+      const box = (ref, extra) => { const [a, b] = ref.split(':'); const p = parseCellRef(a), q = parseCellRef(b); for (let i = p.r; i <= q.r; i++) for (let j = p.c; j <= q.c; j++) put(cellId(i, j), undefined, Object.assign({ bd: 'tblr' }, extra || {})); };
+      const line = (ref) => { const [a, b] = ref.split(':'); const p = parseCellRef(a), q = parseCellRef(b || a); for (let j = p.c; j <= q.c; j++) put(cellId(p.r, j), undefined, { bd: 'b' }); };
+      const label = (id, text) => put(id, text, { b: 1, fs: 11 });
+      const head = { b: 1, bg: '#e2e8f0', align: 'center', fs: 11 };
+      // Header: logo, school details, photo
+      put('A1', '{{school.logo:90}}', { align: 'center' }); merge('A1:A4');
+      put('B1', '{{school.name}}', { b: 1, fs: 22, align: 'center' }); merge('B1:F1');
+      put('B2', 'Motto: {{school.motto}}', { i: 1, align: 'center' }); merge('B2:F2');
+      put('B3', '{{school.address}}  ·  {{school.phone}}  ·  {{school.email}}', { align: 'center', fs: 11 }); merge('B3:F3');
+      put('B4', 'TERMLY REPORT  ·  {{term.name}}  ·  {{term.year}}', { b: 1, align: 'center', bg: '#e2e8f0' }); merge('B4:F4');
+      put('G1', '{{student.photo:90}}', { align: 'center' }); merge('G1:G4');
+      // Student
+      label('A6', 'NAME:'); put('B6', '{{student.name}}'); merge('B6:D6'); line('B6:D6');
+      label('E6', 'CLASS:'); put('F6', '{{student.class}}'); merge('F6:G6'); line('F6:G6');
+      label('A7', 'STUDENT ID:'); put('B7', '{{student.id}}'); merge('B7:D7'); line('B7:D7');
+      label('E7', 'NO. ON ROLL:'); put('F7', '{{student.class_size}}'); merge('F7:G7'); line('F7:G7');
+      label('A8', 'TERM ENDS:'); put('B8', '{{term.ends}}'); merge('B8:D8'); line('B8:D8');
+      label('E8', 'NEXT TERM BEGINS:'); put('F8', '{{term.next_begins}}'); merge('F8:G8'); line('F8:G8');
+      let r = 10;
+      if (kind === 'ticks') {
+        ['SUBJECT', 'EXCELLENT', 'VERY GOOD', 'GOOD', 'PASS', 'WEAK', 'FAIL'].forEach((h, j) => put(cellId(r - 1, j), h, head));
+        ['{{subject.name}}', '{{subject.mark:Excellent}}', '{{subject.mark:Very Good}}', '{{subject.mark:Good}}', '{{subject.mark:Pass}}', '{{subject.mark:Weak}}', '{{subject.mark:Fail}}'].forEach((v, j) => put(cellId(r, j), v, j ? { align: 'center', b: 1, fs: 15 } : null));
+      } else {
+        ['SUBJECT', 'CLASS SCORE', 'EXAM SCORE', 'TOTAL', 'GRADE', 'POSITION', 'REMARKS'].forEach((h, j) => put(cellId(r - 1, j), h, head));
+        ['{{subject.name}}', '{{subject.class_score}}', '{{subject.exam_score}}', '{{subject.total}}', '{{subject.grade}}', '{{subject.position}}', '{{subject.remark}}'].forEach((v, j) => put(cellId(r, j), v, j ? { align: 'center' } : null));
+      }
+      box('A10:G11');
+      // Results and attendance
+      label('A13', 'POSITION:'); put('B13', '{{student.position_of}}'); merge('B13:C13'); line('B13:C13');
+      label('D13', 'AVERAGE:'); put('E13', '{{student.average}}'); line('E13');
+      label('F13', 'ATTENDANCE:'); put('G13', '{{attendance.present}} / {{attendance.total}}'); line('G13');
+      label('A14', 'PROMOTED TO:'); put('B14', '{{student.promoted_to}}'); merge('B14:C14'); line('B14:C14');
+      label('D14', 'AGGREGATE:'); put('E14', '{{student.grade_total}}'); line('E14');
+      // Remarks
+      [['A16', 'CONDUCT:', '{{remarks.conduct}}'], ['A17', 'INTEREST:', '{{remarks.interest}}'], ['A18', 'ATTITUDE:', '{{remarks.attitude}}'], ['A19', "TEACHER'S REMARKS:", '{{remarks.teacher}}']].forEach(([id, l, v]) => {
+        const row = parseCellRef(id).r + 1;
+        label(id, l); put('B' + row, v); merge('B' + row + ':G' + row); line('B' + row + ':G' + row);
       });
-      renderSheet();
-      triggerAutoSave();
+      // Bills and signature
+      put('A21', 'SCHOOL BILLS', head); merge('A21:C21');
+      [['Total billed', '{{fees.total_billed}}'], ['Total paid', '{{fees.total_paid}}'], ['Arrears', '{{fees.outstanding}}']].forEach(([l, v], i) => { put('A' + (22 + i), l); put('B' + (22 + i), v, { align: 'right' }); merge('B' + (22 + i) + ':C' + (22 + i)); });
+      box('A21:C24');
+      put('E21', 'HEAD TEACHER', head); merge('E21:G21');
+      put('E22', '{{signature.image}}', { align: 'center' }); merge('E22:G23');
+      put('E24', '{{signature.name}}  ·  {{signature.title}}', { align: 'center', fs: 11 }); merge('E24:G24');
+      box('E21:G24');
+      return { cells, styles: st, merges: mg, colWidths: { 0: 170, 1: 105, 2: 95, 3: 95, 4: 95, 5: 95, 6: 130 }, rowCount: 30, colCount: 10 };
     }
+    document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', () => {
+      if (usedSize().rows && !confirm('Replace this sheet with the sample report card? You can undo this.')) return;
+      replaceSheet(sampleSheet(b.dataset.sample));
+      closePanels();
+      toast('Sample report card added — change anything you like');
+    }));
+    <% } else { %>
+    document.querySelectorAll('[data-sample]').forEach((b) => b.addEventListener('click', () => {
+      if (quill.getLength() > 1 && !confirm('Replace this page with the sample report card? Undo brings it back.')) return;
+      const ticks = b.dataset.sample === 'ticks';
+      const subjectLine = ticks
+        ? '<li><strong>{{subject.name}}</strong> — Excellent {{subject.mark:Excellent}} · Very good {{subject.mark:Very Good}} · Good {{subject.mark:Good}} · Pass {{subject.mark:Pass}}</li>'
+        : '<li><strong>{{subject.name}}</strong> — total {{subject.total}}, grade {{subject.grade}}, position {{subject.position}} — {{subject.remark}}</li>';
+      quill.setContents([], 'user');
+      quill.clipboard.dangerouslyPasteHTML(0,
+        '<p class="ql-align-center">{{school.logo:90}}</p><h1 class="ql-align-center">{{school.name}}</h1><p class="ql-align-center"><em>{{school.motto}}</em></p>' +
+        '<p class="ql-align-center">{{school.address}} · {{school.phone}}</p><h2 class="ql-align-center">TERMLY REPORT · {{term.name}} · {{term.year}}</h2>' +
+        '<p><strong>Name:</strong> {{student.name}}    <strong>Class:</strong> {{student.class}}    <strong>No. on roll:</strong> {{student.class_size}}</p>' +
+        '<p><strong>Term ends:</strong> {{term.ends}}    <strong>Next term begins:</strong> {{term.next_begins}}</p><h3>Subjects</h3><ol>' + subjectLine + '</ol>' +
+        '<p><strong>Position:</strong> {{student.position_of}}    <strong>Average:</strong> {{student.average}}    <strong>Attendance:</strong> {{attendance.present}} / {{attendance.total}}</p>' +
+        '<p><strong>Promoted to:</strong> {{student.promoted_to}}</p><p><strong>Conduct:</strong> {{remarks.conduct}}</p><p><strong>Interest:</strong> {{remarks.interest}}</p>' +
+        '<p><strong>Teacher’s remarks:</strong> {{remarks.teacher}}</p><p><strong>Bills:</strong> billed {{fees.total_billed}} · paid {{fees.total_paid}} · arrears {{fees.outstanding}}</p>' +
+        '<p>{{signature.image}}</p><p>{{signature.name}} · {{signature.title}}</p>', 'user');
+      closePanels();
+      toast('Sample report card added — change anything you like');
+    }));
+    <% } %>
+
+    // ----- Use as a report card -----
+    const RT = JSON.parse($('rtData').textContent);
+    const otherOf = new Map(RT.others.map((o) => [o.classId, o.title]));
+    const rtClasses = checkDrop($('rtClasses'), { all: 'All classes', placeholder: 'Choose classes', search: true, onChange: () => {
+      const moved = rtClasses.values().filter((id) => otherOf.has(id));
+      $('rtMoveNote').textContent = moved.length ? moved.length + ' of these classes use another layout now (' + Array.from(new Set(moved.map((id) => otherOf.get(id)))).join(', ') + '). Saving moves them to this one.' : '';
+      $('rtNote').textContent = 'Unsaved';
+    } });
+    rtClasses.set(JSON.parse($('insClassesData').textContent).map((c) => ({ value: c.value, label: c.label + (otherOf.has(c.value) ? ' — uses “' + otherOf.get(c.value) + '”' : ''), checked: RT.mine.includes(c.value) })));
+    $('rtOn').addEventListener('change', function () { $('rtMore').hidden = !this.checked; $('rtNote').textContent = 'Unsaved'; });
+    $('rtSave').addEventListener('click', async function () {
+      const on = $('rtOn').checked, classIds = on ? rtClasses.values() : [];
+      if (on && !classIds.length && !confirm('No classes chosen yet. Save it as a template anyway?')) return;
+      this.disabled = true;
+      try {
+        const res = await fetch('/documents/reportTemplate/' + DOC_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: on, classIds }) });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message);
+        classIds.forEach((id) => otherOf.delete(id));
+        document.querySelector('[data-dl-group]').hidden = on;
+        document.body.classList.toggle('is-report-layout', on);
+        document.querySelector('[data-dl-locked]').hidden = !on;
+        $('rtMoveNote').textContent = '';
+        $('rtNote').textContent = on ? (classIds.length ? 'Saved — ' + classIds.length + ' class' + (classIds.length === 1 ? '' : 'es') + ' use this report card' : 'Saved as a template') : 'Saved — classes use the standard report card';
+        toast('Report card settings saved');
+      } catch (e) { $('rtNote').textContent = (e && e.message) || 'Could not save. Try again.'; }
+      this.disabled = false;
+    });
+    $('rtPreview').addEventListener('click', async () => {
+      if (!RT.termId) { toast('Add a term first.'); return; }
+      if (dirty) { clearTimeout(saveTimer); await autoSave(); }
+      window.open('/print/printStudentReport?classId=' + encodeURIComponent($('rtPreviewClass').value) + '&termId=' + RT.termId + '&template=' + DOC_ID, '_blank', 'noopener');
+    });
+    <% } %>
+
+    <% if (canInsert) { %>
+    // ----- Insert school data -----
+    const SOURCES = JSON.parse($('insSourcesData').textContent);
+    const CLASS_ITEMS = JSON.parse($('insClassesData').textContent);
+    let insData = null, insSeq = 0, insTimer = null;
+    const sourceKey = () => (document.querySelector('input[name="insSource"]:checked') || {}).value;
+    const classesDrop = checkDrop($('insClasses'), { all: 'All classes', placeholder: 'Choose classes', search: true, onChange: () => loadPreview() });
+    const fieldsDrop = checkDrop($('insFields'), { all: 'All columns', placeholder: 'Choose columns', search: false, onChange: () => loadPreview() });
+    classesDrop.set(CLASS_ITEMS.map((c) => ({ ...c, checked: true })));
+
+    function setSource() {
+      const src = SOURCES.find((s) => s.key === sourceKey()) || SOURCES[0];
+      fieldsDrop.set(src.fields.map((f) => ({ value: f.key, label: f.label, checked: f.def })));
+      $('insClassSec').hidden = !!src.noClasses;
+      $('insTermSec').hidden = src.key === 'staff';
+      loadPreview();
+    }
+    document.querySelectorAll('input[name="insSource"]').forEach((r) => r.addEventListener('change', setSource));
+    $('insTerm').addEventListener('change', () => loadPreview());
+    $('insHeader').addEventListener('change', renderPreview);
+
+    function loadPreview() {
+      clearTimeout(insTimer);
+      insTimer = setTimeout(async () => {
+        const seq = ++insSeq;
+        const classes = classesDrop.values();
+        const fields = fieldsDrop.values();
+        $('insGo').disabled = true;
+        if (!fields.length) { insData = null; $('insCount').textContent = '0'; $('insPreview').innerHTML = '<div class="ed-preview__msg">Choose at least one column.</div>'; return; }
+        const src = SOURCES.find((s) => s.key === sourceKey());
+        if (!src.noClasses && !classes.length) { insData = null; $('insCount').textContent = '0'; $('insPreview').innerHTML = '<div class="ed-preview__msg">Choose at least one class.</div>'; return; }
+        $('insCount').textContent = '…';
+        const qs = new URLSearchParams({ source: src.key, fields: fields.join(','), termId: $('insTerm').value || '' });
+        if (!src.noClasses && classes.length < CLASS_ITEMS.length) qs.set('classIds', classes.join(','));
+        try {
+          const res = await fetch('/documents/classData?' + qs.toString());
+          const data = await res.json();
+          if (seq !== insSeq) return;
+          if (!data.success) throw new Error(data.message || 'failed');
+          insData = data;
+          renderPreview();
+        } catch (e) {
+          if (seq !== insSeq) return;
+          insData = null;
+          $('insCount').textContent = '!';
+          $('insPreview').innerHTML = '<div class="ed-preview__msg">Couldn’t load this data. Try again.</div>';
+        }
+      }, 150);
+    }
+
+    function renderPreview() {
+      if (!insData) return;
+      const rows = insData.rows || [], cols = insData.columns || [];
+      $('insCount').textContent = rows.length + ' row' + (rows.length === 1 ? '' : 's');
+      $('insPreview').innerHTML = rows.length
+        ? '<table><thead><tr>' + cols.map((c) => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>' + rows.slice(0, 8).map((r) => '<tr>' + r.map((v) => '<td>' + esc(v) + '</td>').join('') + '</tr>').join('') + '</tbody></table>' + (rows.length > 8 ? '<div class="ed-preview__msg" style="padding:8px">+ ' + (rows.length - 8) + ' more</div>' : '')
+        : '<div class="ed-preview__msg">Nothing found for this term and these classes.</div>';
+      $('insNote').textContent = insData.term ? insData.term : '';
+      $('insGo').disabled = !rows.length;
+    }
+
+    $('openInsert').addEventListener('click', () => {
+      <% if (!isDoc) { %>
+      // Default start: the selected cell if it's empty, else the first empty row.
+      const used = usedSize();
+      const empty = !sheetData[selectedCell];
+      const start = empty ? selectedCell : 'A' + (used.rows + (used.rows ? 2 : 1));
+      $('insStart').value = start;
+      $('insStartNote').textContent = empty ? '' : 'below your data';
+      <% } %>
+      openPanel('insertPanel');
+      if (!insData) setSource();
+    });
+
+    $('insGo').addEventListener('click', () => {
+      if (!insData || !insData.rows.length) return;
+      const withHeader = $('insHeader').checked;
+      const block = (withHeader ? [insData.columns] : []).concat(insData.rows.map((r) => r.map((v) => (v === null || v === undefined ? '' : String(v)))));
+      <% if (isDoc) { %>
+      const at = (quill.getSelection(true) || { index: quill.getLength() }).index;
+      let pos = at;
+      const put = (text, fmt) => { quill.insertText(pos, text, Object.assign({ bold: false }, fmt), 'user'); pos += text.length; };
+      if (pos > 0 && quill.getText(pos - 1, 1) !== '\n') put('\n');
+      if (withHeader && insData.columns.length > 1) { put(insData.columns.join('  ·  '), { bold: true }); put('\n'); }
+      insData.rows.forEach((r) => {
+        const vals = r.map((v) => (v === null || v === undefined ? '' : String(v)));
+        put(vals[0] || '—', { bold: vals.length > 1 });
+        if (vals.length > 1) put('  ·  ' + vals.slice(1).filter((v) => v !== '').join('  ·  '));
+        quill.insertText(pos, '\n', { list: insData.columns.length > 1 ? 'bullet' : 'ordered' }, 'user'); pos += 1;
+      });
+      quill.setSelection(pos, 0, 'silent');
+      <% } else { %>
+      const p = parseCellRef($('insStart').value);
+      if (!p) { toast('Type a start cell like A1.'); return; }
+      let filled = 0;
+      block.forEach((row, i) => row.forEach((v, j) => { if (sheetData[cellId(p.r + i, p.c + j)]) filled++; }));
+      if (filled && !confirm(filled + ' cell' + (filled === 1 ? ' has' : 's have') + ' something in them and will be replaced. Continue?')) return;
+      placeBlock(block, p.r, p.c, withHeader);
+      <% } %>
+      closePanels();
+      toast('Inserted ' + insData.rows.length + ' row' + (insData.rows.length === 1 ? '' : 's'));
+      triggerAutoSave();
+    });
     <% } %>
   </script>
 </body>

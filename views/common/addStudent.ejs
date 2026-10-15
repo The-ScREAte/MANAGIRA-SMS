@@ -4829,3 +4829,20 @@ function addStudentForm() {
   </body>
   </html>
 
+<style>
+  /* One student at a time: a roomier, centered form. */
+  .student-forms-grid.single-form { justify-content: center; }
+  .student-forms-grid.single-form .student-form,
+  .student-forms-grid.single-form .student-form-card { width: min(720px, 100%); flex-basis: min(720px, 100%); }
+  /* Quieter subjects toggle (it's optional). */
+  .subjects-collapsible .collapsible-btn,
+  .subjects-collapsible .collapsible-btn:hover {
+    background: transparent !important;
+    color: var(--org-primary-color, #0f5a66) !important;
+    border: 1px dashed color-mix(in srgb, var(--org-primary-color, #0f5a66) 45%, transparent) !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+  .subjects-collapsible .collapsible-btn:hover { background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 6%, transparent) !important; }
+</style>
+<style>.form-section > .form-field-group { margin-right: 0; padding-right: 0; } .form-section > .form-field-group .form-input { width: 100%; box-sizing: border-box; }</style>

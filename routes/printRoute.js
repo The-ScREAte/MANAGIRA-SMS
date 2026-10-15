@@ -23,6 +23,7 @@ module.exports = (db) => {
     router.get('/printStudentReport', checkFeatureAccess, isAuthenticated, printController.printStudentReport); // Fetch student report
     router.get('/reportSettings', checkFeatureAccess, isAuthenticated, printController.reportSettingsPage); // Render report settings page
     router.post('/savePromotionSettings', isAuthenticated, printController.savePromotionSettings); // Save promotion settings
+    router.post('/saveReportTemplates', isAuthenticated, express.json(), printController.saveReportTemplates); // Which report card layout each class uses
     router.post('/saveScoreRemarks', isAuthenticated, printController.saveScoreRemarks); // Save score remarks
     router.post('/saveScoreRemarksAjax', isAuthenticated, printController.saveScoreRemarksAjax); // Save score remarks via AJAX
     router.post('/getScoreRemarkClassCoverageAjax', isAuthenticated, printController.getScoreRemarkClassCoverageAjax); // Fetch class coverage for a score remark range/value
