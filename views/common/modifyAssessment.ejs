@@ -576,6 +576,8 @@
   .ma-class__name { font-weight: 700; margin-bottom: 8px; }
   .ma-class .subject-container { margin: 0; padding-left: 26px; }
   .ma-footer-bar { background: var(--ap-surface, #fff); }
+  /* Room for the fixed Save bar, so the last classes can scroll fully into view. */
+  .ma-spacer { height: calc(140px + env(safe-area-inset-bottom, 0px)); }
   @media (max-width: 640px) {
     main.ma-clean { padding: 12px 12px 110px; }
     .ma-grid, .ma-class-grid { grid-template-columns: 1fr; }
@@ -660,6 +662,7 @@
           </div>
         </section>
     </form>
+    <div class="ma-spacer" aria-hidden="true"></div>
 </main>
 
 <div class="ma-footer-bar">
