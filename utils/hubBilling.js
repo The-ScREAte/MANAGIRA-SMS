@@ -782,6 +782,51 @@ function withLock(hubId, fn) {
   return next;
 }
 
+// ---------------------------------------------------------------- standard integration prices
+
+// One price list for integrations. New hubs start with these prices; a hub's
+// own plan can then keep them or set a different price for that hub only.
+// No price means the integration is free.
+let integrationPricesReady = null;
+function ensureIntegrationPrices(db) {
+  if (!integrationPricesReady) {
+    integrationPricesReady = db.query(`
+      CREATE TABLE IF NOT EXISTS hub_integration_prices (
+        integration_key VARCHAR(40) PRIMARY KEY,
+        price NUMERIC(12,2) NOT NULL,
+        mode VARCHAR(10) NOT NULL DEFAULT 'auto',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`).catch((err) => { integrationPricesReady = null; throw err; });
+  }
+  return integrationPricesReady;
+}
+async function loadIntegrationPrices(db) {
+  await ensureIntegrationPrices(db);
+  const rows = (await db.query('SELECT integration_key, price, mode FROM hub_integration_prices')).rows;
+  return Object.fromEntries(rows.filter((r) => INTEGRATION_BY_KEY[r.integration_key]).map((r) => [r.integration_key, { price: Number(r.price), mode: r.mode === 'manual' ? 'manual' : 'auto' }]));
+}
+// body.integrations[key] = { price, mode }. Blank or 0 makes it free.
+async function saveIntegrationPrices(db, body) {
+  await ensureIntegrationPrices(db);
+  const input = (body && body.integrations) || {};
+  const errors = [];
+  for (const { key, label } of INTEGRATIONS) {
+    const row = input[key] || {};
+    const parsed = parseMoney(row.price, { label: `${label} price`, allowBlank: true });
+    if (parsed.error) { errors.push(parsed.error); continue; }
+    const price = parsed.value == null ? 0 : round2(parsed.value);
+    if (!(price > 0)) await db.query('DELETE FROM hub_integration_prices WHERE integration_key = $1', [key]);
+    else {
+      await db.query(
+        `INSERT INTO hub_integration_prices (integration_key, price, mode) VALUES ($1, $2, $3)
+         ON CONFLICT (integration_key) DO UPDATE SET price = EXCLUDED.price, mode = EXCLUDED.mode, updated_at = NOW()`,
+        [key, price, row.mode === 'manual' ? 'manual' : 'auto']
+      );
+    }
+  }
+  return { errors };
+}
+
 // ---------------------------------------------------------------- card setup (Stripe Checkout)
 
 // The card link is stable (so an emailed link keeps working) until Managira
@@ -1778,6 +1823,8 @@ module.exports = {
   INTEGRATION_BY_KEY,
   metersOf,
   integrationFeesOf,
+  loadIntegrationPrices,
+  saveIntegrationPrices,
   STATUS,
   DISCOUNT_DURATIONS,
   CHARGE_KINDS,

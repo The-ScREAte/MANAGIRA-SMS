@@ -2922,6 +2922,9 @@
         color: #b91c1c;
       }
 
+      .sms-steps { margin: 0 0 6px; padding-left: 20px; color: #475569; font-size: 13px; line-height: 1.6; }
+      .sms-steps a { color: inherit; font-weight: 600; }
+      .sms-check-result[hidden] { display: none !important; }
       /* Nested "setup checklist" / "test message" sub-cards (WhatsApp) read
          as a secondary, slightly recessed panel instead of a second card. */
       #integrations .card #whatsapp-setup-checklist-card,
@@ -4570,19 +4573,19 @@
                   key: 'twilio',
                   label: 'Twilio SMS',
                   logo: '/images/twilio.png',
-                  description: "Send SMS using your school's own Twilio account and phone number. Twilio is not available in African countries.",
+                  description: "Text parents and staff from your school's own Twilio number. Your Twilio account pays for each message.",
                 },
                 {
                   key: 'arkesel',
                   label: 'Arkesel SMS',
                   logo: '/images/arkesel.png',
-                  description: "Send SMS to parents and staff using your school's own Arkesel account (Ghana-focused). Your school's Arkesel wallet is charged per message.",
+                  description: "Text parents and staff in Ghana from your school's own Arkesel account. Your Arkesel wallet pays for each message.",
                 },
                 {
                   key: 'africastalking',
                   label: "Africa's Talking SMS",
                   logo: '/images/africantalking.png',
-                  description: "Send SMS across Africa using your school's own Africa's Talking account. Supports a free sandbox for testing before you go live.",
+                  description: "Text parents and staff across Africa from your school's own Africa's Talking account. Your account pays for each message.",
                 },
               ];
             %>
@@ -4634,8 +4637,11 @@
 
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
                 <% if (psConfigured) { %>
+                <button type="button" class="btn-link sms-check-button" data-provider="<%= def.key %>" style="font-size:12.5px;padding:6px 10px;">
+                  Test connection
+                </button>
                 <button type="button" class="btn-link sms-compose-toggle" data-provider="<%= def.key %>" style="font-size:12.5px;padding:6px 10px;">
-                  Send a Message
+                  Send a test text
                 </button>
                 <% } %>
                 <button type="button" class="btn-link sms-config-toggle" data-provider="<%= def.key %>" style="font-size:12.5px;padding:6px 10px;">
@@ -4643,17 +4649,18 @@
                 </button>
               </div>
 
+              <small class="sms-check-result" data-provider="<%= def.key %>" hidden style="display:block;margin-top:8px;font-weight:600;"></small>
               <div class="sms-panel-row" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;margin-top:10px;">
                 <% if (psConfigured) { %>
                 <div class="sms-compose-panel" data-provider="<%= def.key %>" style="display:none;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;">
                   <div style="display:grid;gap:8px;">
                     <div>
                       <label class="form-label" for="sms-<%= def.key %>-send-recipient" style="margin-bottom:3px;">Recipient<span class="form-required-mark">*</span></label>
-                      <input id="sms-<%= def.key %>-send-recipient" class="form-input sms-test-recipient" data-provider="<%= def.key %>" type="tel" placeholder="+233551234567" />
+                      <input id="sms-<%= def.key %>-send-recipient" class="form-input sms-test-recipient" data-provider="<%= def.key %>" type="tel" placeholder="<%= def.key === 'twilio' ? '+15551234567' : '+233551234567' %>" />
                     </div>
                     <div>
                       <label class="form-label" for="sms-<%= def.key %>-send-message" style="margin-bottom:3px;">Message<span class="form-required-mark">*</span></label>
-                      <textarea id="sms-<%= def.key %>-send-message" class="form-input sms-test-message" data-provider="<%= def.key %>" rows="3" maxlength="480" placeholder="Type your message...">Managira test SMS from Integrations settings.</textarea>
+                      <textarea id="sms-<%= def.key %>-send-message" class="form-input sms-test-message" data-provider="<%= def.key %>" rows="3" maxlength="480" placeholder="Type your message...">Test text from your school on Managira.</textarea>
                     </div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                       <button class="btn-primary btn-link sms-test-button" type="button" data-provider="<%= def.key %>">Send</button>
@@ -4673,6 +4680,28 @@
                   autocomplete="off"
                 >
                   <div style="display:grid;gap:8px;">
+                    <ol class="sms-steps">
+                      <% if (def.key === 'twilio') { %>
+                        <li>Sign in at <a href="https://console.twilio.com" target="_blank" rel="noopener">console.twilio.com</a>.</li>
+                        <li>Copy the <strong>Account SID</strong> and <strong>Auth Token</strong> from the Account Info box.</li>
+                        <li>Buy a number that can send SMS (Phone Numbers › Buy a number).</li>
+                        <li>Paste them below and press <strong>Save and test</strong>.</li>
+                      <% } else if (def.key === 'arkesel') { %>
+                        <li>Sign in at <a href="https://sms.arkesel.com" target="_blank" rel="noopener">sms.arkesel.com</a>.</li>
+                        <li>Go to <strong>API</strong> in the left menu, choose <strong>Generate new key</strong> and copy it.</li>
+                        <li>Paste it below and press <strong>Save and test</strong>.</li>
+                      <% } else { %>
+                        <li>Sign in at <a href="https://account.africastalking.com" target="_blank" rel="noopener">account.africastalking.com</a> and open your live app (not sandbox).</li>
+                        <li>Go to Settings › API Key and generate a key. Your <strong>username</strong> is the app's username.</li>
+                        <li>Paste both below and press <strong>Save and test</strong>.</li>
+                      <% } %>
+                    </ol>
+                    <% if (def.key === 'twilio') { %>
+                    <div>
+                      <label class="form-label" for="sms-twilio-account-sid">Account SID<span class="form-required-mark">*</span></label>
+                      <input id="sms-twilio-account-sid" class="form-input" type="text" placeholder="AC followed by 32 letters and numbers" value="<%= ps.accountSid || '' %>" autocomplete="off" spellcheck="false" />
+                    </div>
+                    <% } %>
                     <% if (def.key === 'africastalking') { %>
                     <div>
                       <label class="form-label" for="sms-africastalking-username">Username<span class="form-required-mark">*</span></label>
@@ -4715,17 +4744,14 @@
                         >Change</button>
                         <% } %>
                       </div>
-                      <small style="display:block;margin-top:4px;color:#94a3b8;">Encrypted at rest, never logged.</small>
+                      <small style="display:block;margin-top:4px;color:#94a3b8;">Stored encrypted. Never shown again in full.</small>
                     </div>
 
                     <% if (def.key === 'twilio') { %>
                     <div>
-                      <label class="form-label" for="sms-twilio-account-sid">Account SID<span class="form-required-mark">*</span></label>
-                      <input id="sms-twilio-account-sid" class="form-input" type="text" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" value="<%= ps.accountSid || '' %>" />
-                    </div>
-                    <div>
-                      <label class="form-label" for="sms-twilio-from-number">Sender Phone Number<span class="form-required-mark">*</span></label>
-                      <input id="sms-twilio-from-number" class="form-input" type="text" placeholder="+15551234567" value="<%= ps.fromNumber || '' %>" />
+                      <label class="form-label" for="sms-twilio-from-number">Twilio phone number<span class="form-required-mark">*</span></label>
+                      <input id="sms-twilio-from-number" class="form-input" type="tel" placeholder="+15551234567" value="<%= ps.fromNumber || '' %>" />
+                      <small style="display:block;margin-top:4px;color:#94a3b8;">The number you bought in Twilio, with the country code.</small>
                     </div>
                     <% } else { %>
                     <div>
@@ -4740,9 +4766,9 @@
                     <% } %>
 
                     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-                      <button class="btn-primary btn-link sms-save-settings-button" type="button" data-provider="<%= def.key %>">Save Settings</button>
+                      <button class="btn-primary btn-link sms-save-settings-button" type="button" data-provider="<%= def.key %>">Save and test</button>
                       <small class="sms-settings-status" data-provider="<%= def.key %>-config" style="color:#64748b;">
-                        <%= psConfigured ? '' : 'Add your credentials above, then Save Settings.' %>
+                        <%= psConfigured ? '' : 'We check the details with ' + (def.key === 'twilio' ? 'Twilio' : def.key === 'arkesel' ? 'Arkesel' : "Africa's Talking") + ' before saving. No message is sent.' %>
                       </small>
                     </div>
                     <small style="color:#94a3b8;"><span class="form-required-mark">*</span> Required</small>
@@ -4771,7 +4797,7 @@
                 <%- integrationCoverageBadge('whatsapp') %>
               </h4>
               <small class="google-integration-description">
-                Activate WhatsApp, then connect your school's WhatsApp Business number using Meta Embedded Signup. This only sets up integration now; messaging will be configured separately.
+                Message parents on WhatsApp from your school's own WhatsApp Business number. Connect it with Meta, then finish the checklist below.
                 <% if (wi.displayPhoneNumber) { %><br>Connected number: <strong><%= wi.displayPhoneNumber %></strong><% } %>
                 <% if (wi.businessName) { %><br>Business: <strong><%= wi.businessName %></strong><% } %>
                 <% if (wi.lastError) { %>
@@ -9018,6 +9044,7 @@
           },
           whatsapp: {
             title: "WhatsApp Business",
+            docsUrl: "/legal/user-documentation/connect-whatsapp-business-to-message-parents",
             whatItDoes: "Connects your school's WhatsApp Business number so you can message parents and staff on the channel they already check most.",
             goodFor: "Schools where parents primarily communicate over WhatsApp and want higher open rates than email or SMS alone.",
             goodForWho: ["Schools in regions where WhatsApp is the default messaging app", "PTA and front-office teams sending reminders", "Schools wanting read receipts on important notices"],
@@ -9039,7 +9066,7 @@
           twilio: {
             title: "Twilio SMS",
             docsUrl: "https://managira.com/legal/user-documentation/sms-integrations#:~:text=Select%20Activate.-,Twilio,-Site%3A%20https",
-            whatItDoes: "Sends SMS using your school's own Twilio account and a purchased Twilio phone number. Twilio is not available in African countries.",
+            whatItDoes: "Sends text messages from your school's own Twilio account and a Twilio phone number. Your Twilio account pays for each message.",
             goodFor: "International schools or diaspora-heavy parent bases where messages need to reach numbers outside Africa reliably.",
             goodForWho: ["International schools with parents abroad", "Schools already using Twilio for other communications", "Admins who need delivery status callbacks for compliance records"],
           },
@@ -9265,13 +9292,42 @@
                 return;
               }
 
-              setSmsStatus(statusKey, "Saved. This provider is now active — new sends from Managira use it.", false);
-              window.location.reload();
+              setSmsStatus(statusKey, result.message || "Saved.", false);
+              setTimeout(() => window.location.reload(), 1600);
             } catch (error) {
               setSmsStatus(statusKey, "Unable to save SMS settings right now.", true);
             } finally {
               button.disabled = false;
               button.textContent = previousLabel || "Save Settings";
+            }
+          });
+        });
+
+        // Test connection: asks the provider if the saved details still work (no message sent).
+        document.querySelectorAll(".sms-check-button").forEach((button) => {
+          button.addEventListener("click", async () => {
+            const provider = button.dataset.provider;
+            const previousLabel = button.textContent;
+            button.disabled = true;
+            button.textContent = "Checking…";
+            const statusEl = document.querySelector(`.sms-check-result[data-provider="${provider}"]`);
+            try {
+              const response = await fetch("/account/sms/check", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+                body: new URLSearchParams({ provider }),
+              });
+              const result = await response.json().catch(() => ({}));
+              if (statusEl) {
+                statusEl.textContent = (result.success ? "✓ " : "✕ ") + (result.message || (result.success ? "Connected." : "Couldn't connect."));
+                statusEl.style.color = result.success ? "#15803d" : "#b91c1c";
+                statusEl.hidden = false;
+              }
+            } catch (error) {
+              if (statusEl) { statusEl.textContent = "✕ Couldn't check right now. Try again."; statusEl.style.color = "#b91c1c"; statusEl.hidden = false; }
+            } finally {
+              button.disabled = false;
+              button.textContent = previousLabel.trim() || "Test connection";
             }
           });
         });

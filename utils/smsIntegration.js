@@ -510,6 +510,94 @@ async function recordDeliveryStatus(dbClient, { organizationId, provider, provid
   );
 }
 
+// Credentials for one provider (saved values, with any new ones typed in).
+async function getProviderCredentials(dbClient, organizationId, provider, overrides = {}) {
+  await ensureSmsIntegrationSchema(dbClient);
+  const row = (await dbClient.query(
+    `SELECT ${SMS_INTEGRATION_COLUMNS} FROM organizations WHERE organization_id = $1 LIMIT 1`,
+    [organizationId]
+  )).rows[0] || {};
+  const pick = (typed, saved) => safeString(typed) || safeString(saved);
+  if (provider === "twilio") {
+    return {
+      provider,
+      accountSid: pick(overrides.accountSid, row.sms_twilio_account_sid),
+      authToken: pick(overrides.authToken, decryptSecret(row.sms_twilio_auth_token_encrypted)),
+      fromNumber: pick(overrides.fromNumber, row.sms_twilio_from_number),
+    };
+  }
+  if (provider === "arkesel") {
+    return { provider, apiKey: pick(overrides.apiKey, decryptSecret(row.sms_arkesel_api_key_encrypted)) };
+  }
+  if (provider === "africastalking") {
+    return {
+      provider,
+      apiKey: pick(overrides.apiKey, decryptSecret(row.sms_africastalking_api_key_encrypted)),
+      username: pick(overrides.username, row.sms_africastalking_username),
+      sandbox: overrides.sandbox !== undefined ? !!overrides.sandbox : parseBoolean(row.sms_africastalking_sandbox, false),
+    };
+  }
+  throw new Error("Unsupported SMS provider.");
+}
+
+// Checks the credentials with the provider without sending a message (no cost).
+// Returns { ok, message }.
+async function verifySmsConnection(creds) {
+  const status = (err) => (err && err.response && err.response.status) || 0;
+  const offline = (name) => ({ ok: false, message: `Couldn't reach ${name}. Check your internet connection and try again.` });
+  if (creds.provider === "twilio") {
+    if (!/^AC[0-9a-fA-F]{32}$/.test(creds.accountSid || "")) return { ok: false, message: "The Account SID should start with AC and be 34 characters long." };
+    if (!creds.authToken) return { ok: false, message: "Add your Twilio Auth Token." };
+    if (!/^\+[1-9]\d{6,14}$/.test(String(creds.fromNumber || "").replace(/[\s()-]/g, ""))) return { ok: false, message: "Enter the Twilio phone number with its country code, e.g. +15551234567." };
+    const auth = { username: creds.accountSid, password: creds.authToken };
+    const base = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(creds.accountSid)}`;
+    let account;
+    try {
+      account = (await axios.get(`${base}.json`, { auth, timeout: 12000 })).data;
+    } catch (err) {
+      if ([401, 403, 404].includes(status(err))) return { ok: false, message: "Twilio didn't accept this Account SID and Auth Token. Copy both again from your Twilio Console home page." };
+      return offline("Twilio");
+    }
+    if (account && account.status && account.status !== "active") return { ok: false, message: `Your Twilio account is ${account.status}. Reactivate it in Twilio, then try again.` };
+    const number = String(creds.fromNumber).replace(/[\s()-]/g, "");
+    try {
+      const owned = (await axios.get(`${base}/IncomingPhoneNumbers.json`, { auth, params: { PhoneNumber: number }, timeout: 12000 })).data;
+      if (!owned || !Array.isArray(owned.incoming_phone_numbers) || !owned.incoming_phone_numbers.length) {
+        return { ok: false, message: `${number} isn't a number in this Twilio account. Use one from Phone Numbers › Active numbers.` };
+      }
+    } catch (err) {
+      return offline("Twilio");
+    }
+    return { ok: true, message: `Connected to Twilio${account && account.friendly_name ? ` (${account.friendly_name})` : ""}. Messages will come from ${number}.` };
+  }
+  if (creds.provider === "arkesel") {
+    if (!creds.apiKey) return { ok: false, message: "Add your Arkesel API key." };
+    try {
+      const data = (await axios.get("https://sms.arkesel.com/api/v2/clients/balance-details", { headers: { "api-key": creds.apiKey }, timeout: 12000 })).data || {};
+      if (String(data.status || "").toLowerCase() !== "success") return { ok: false, message: "Arkesel didn't accept this API key. Copy it again from your Arkesel dashboard." };
+      const bal = data.data && (data.data.sms_balance ?? data.data.main_balance);
+      return { ok: true, message: `Connected to Arkesel${bal !== undefined && bal !== null ? `. SMS balance: ${bal}` : ""}.` };
+    } catch (err) {
+      if ([401, 403].includes(status(err))) return { ok: false, message: "Arkesel didn't accept this API key. Copy it again from your Arkesel dashboard." };
+      return offline("Arkesel");
+    }
+  }
+  if (creds.provider === "africastalking") {
+    if (!creds.username) return { ok: false, message: "Add your Africa's Talking username." };
+    if (!creds.apiKey) return { ok: false, message: "Add your Africa's Talking API key." };
+    const host = creds.sandbox ? "https://api.sandbox.africastalking.com" : "https://api.africastalking.com";
+    try {
+      const data = (await axios.get(`${host}/version1/user`, { params: { username: creds.username }, headers: { apiKey: creds.apiKey, Accept: "application/json" }, timeout: 12000 })).data || {};
+      const bal = data.UserData && data.UserData.balance;
+      return { ok: true, message: `Connected to Africa's Talking${bal ? `. Balance: ${bal}` : ""}.` };
+    } catch (err) {
+      if ([401, 403].includes(status(err))) return { ok: false, message: "Africa's Talking didn't accept this username and API key. Make sure both are from the same app (live, not sandbox)." };
+      return offline("Africa's Talking");
+    }
+  }
+  return { ok: false, message: "Unsupported SMS provider." };
+}
+
 module.exports = {
   AFRICAN_COUNTRY_CODES,
   PROVIDERS,
@@ -523,6 +611,8 @@ module.exports = {
   saveTwilioSettings,
   markSmsProviderTestResult,
   getTenantSmsCredentials,
+  getProviderCredentials,
+  verifySmsConnection,
   sendSms,
   recordDeliveryStatus,
 };

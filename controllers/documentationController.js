@@ -49,20 +49,50 @@ function buildStructuredData(article) {
     };
   }
 
-  return {
-    '@context': 'https://schema.org',
+  // Search engines and AI assistants read this: the article, where it sits,
+  // its FAQ (questions in <h3> under "Frequently asked questions") and its
+  // first set of numbered steps.
+  const url = buildCanonicalDocumentationUrl(article.slug);
+  const html = String(article.contentHtml || '');
+  const strip = (v) => String(v || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+  const graph = [{
     '@type': 'TechArticle',
+    '@id': `${url}#article`,
     headline: article.title,
     name: article.title,
     description: article.seoDescription || article.excerpt || 'Documentation article',
-    url: buildCanonicalDocumentationUrl(article.slug),
-    author: { '@type': 'Organization', name: 'Managira' },
-    publisher: { '@type': 'Organization', name: 'Managira' },
+    url,
+    inLanguage: 'en',
+    author: { '@type': 'Organization', name: 'Managira', url: 'https://managira.com' },
+    publisher: { '@type': 'Organization', name: 'Managira', url: 'https://managira.com' },
     datePublished: article.createdAt,
     dateModified: article.updatedAt,
     articleSection: [article.topic, article.subtopic].filter(Boolean).join(' / '),
     keywords: article.tags,
-  };
+    isPartOf: { '@type': 'WebSite', name: 'Managira Documentation', url: buildCanonicalDocumentationUrl() },
+  }, {
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Documentation', item: buildCanonicalDocumentationUrl() },
+      ...(article.topic ? [{ '@type': 'ListItem', position: 2, name: article.topic }] : []),
+      { '@type': 'ListItem', position: article.topic ? 3 : 2, name: article.title, item: url },
+    ],
+  }];
+  const faqAt = html.search(/<h2[^>]*>\s*Frequently asked questions\s*<\/h2>/i);
+  if (faqAt !== -1) {
+    const faq = [];
+    const re = /<h3[^>]*>([\s\S]*?)<\/h3>\s*<p[^>]*>([\s\S]*?)<\/p>/gi;
+    let m;
+    const part = html.slice(faqAt);
+    while ((m = re.exec(part))) faq.push({ '@type': 'Question', name: strip(m[1]), acceptedAnswer: { '@type': 'Answer', text: strip(m[2]) } });
+    if (faq.length) graph.push({ '@type': 'FAQPage', '@id': `${url}#faq`, mainEntity: faq });
+  }
+  const steps = html.match(/<ol[^>]*>([\s\S]*?)<\/ol>/i);
+  if (steps) {
+    const items = (steps[1].match(/<li[^>]*>[\s\S]*?<\/li>/gi) || []).map((li, i) => ({ '@type': 'HowToStep', position: i + 1, text: strip(li) })).filter((x) => x.text);
+    if (items.length >= 2) graph.push({ '@type': 'HowTo', '@id': `${url}#howto`, name: article.title, step: items });
+  }
+  return { '@context': 'https://schema.org', '@graph': graph };
 }
 
 function escapeJsonForScript(value) {

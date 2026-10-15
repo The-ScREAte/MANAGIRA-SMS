@@ -25,16 +25,16 @@
     <div class="hub-form__grid">
       <div class="hub-field">
         <label class="hub-label" for="dsCountry">Country</label>
-        <input type="text" id="dsCountry" name="organization_country" value="<%= _org.organization_country || '' %>" placeholder="e.g. Ghana" />
+        <input type="text" id="dsCountry" name="organization_country" value="<%= _org.organization_country || '' %>" placeholder="e.g. United States" />
       </div>
       <div class="hub-field">
         <label class="hub-label" for="dsRegion">Region / state</label>
-        <input type="text" id="dsRegion" name="organization_province" value="<%= _org.organization_province || '' %>" placeholder="e.g. Ashanti" />
+        <input type="text" id="dsRegion" name="organization_province" value="<%= _org.organization_province || '' %>" placeholder="e.g. Virginia" />
       </div>
     </div>
     <div class="hub-field">
       <label class="hub-label" for="dsPhone">Phone number <span class="req">*</span></label>
-      <div class="phone-combo" data-default-iso2="GH">
+      <div class="phone-combo" data-default-iso2="US">
         <select class="phone-dial-select"></select>
         <input type="tel" id="dsPhone" class="phone-local-input" name="organization_phone" value="<%= _org.organization_phone %>" required />
       </div>

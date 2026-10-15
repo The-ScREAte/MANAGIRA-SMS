@@ -1247,6 +1247,26 @@
     flex-shrink: 0;
   }
 
+  /* Search results */
+  .search-results-dropdown { min-width: 340px; max-height: min(460px, 70vh); padding: 6px; border-radius: 14px; border-color: var(--hdr-line, #e5e7eb); background: var(--hdr-surface, #fff); box-shadow: 0 18px 40px rgba(15, 23, 42, .18); }
+  .search-results-dropdown .sr-group + .sr-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--hdr-line, #f1f5f9); }
+  .search-results-dropdown .sr-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px 4px; color: #64748b; font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+  .search-results-dropdown .sr-head span { padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); font-size: .68rem; letter-spacing: 0; }
+  .search-results-dropdown .sr-item { display: flex; align-items: center; gap: 10px; width: auto; padding: 7px 10px; border-radius: 9px; color: inherit; text-decoration: none; font-size: .86rem; }
+  .search-results-dropdown .sr-item:hover, .search-results-dropdown .sr-item.is-active { background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 10%, transparent); }
+  .search-results-dropdown .sr-item.is-muted { opacity: .65; }
+  .search-results-dropdown .sr-avatar { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; margin: 0; border-radius: 50%; object-fit: cover; background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 14%, transparent); color: var(--org-primary-color, #0f5a66); font-size: .72rem; font-weight: 800; }
+  .search-results-dropdown .sr-avatar--icon { border-radius: 9px; font-size: .8rem; }
+  .search-results-dropdown .sr-text { display: flex; flex-direction: column; min-width: 0; }
+  .search-results-dropdown .sr-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .search-results-dropdown .sr-title mark { padding: 0; background: none; color: var(--org-primary-color, #0f5a66); font-weight: 800; }
+  .search-results-dropdown .sr-sub { color: #64748b; font-size: .76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .search-results-dropdown .sr-state { display: flex; align-items: center; gap: 8px; padding: 14px 12px; color: #64748b; font-size: .86rem; }
+  .search-results-dropdown .sr-spinner { width: 14px; height: 14px; border: 2px solid color-mix(in srgb, currentColor 25%, transparent); border-top-color: currentColor; border-radius: 50%; animation: srSpin .7s linear infinite; }
+  @keyframes srSpin { to { transform: rotate(360deg); } }
+  html[data-appearance="dark"] .search-results-dropdown, html[data-appearance="gray"] .search-results-dropdown { --hdr-surface: #1f2329; --hdr-line: #2f353d; color: #e5e7eb; }
+  html[data-appearance="dark"] .search-results-dropdown .sr-title mark, html[data-appearance="gray"] .search-results-dropdown .sr-title mark { color: var(--org-primary-color, #f5c542); }
+
   /* 🔹 Hamburger Menu */
   .hamburger-container {
     display: inline-block;
@@ -2338,14 +2358,17 @@
             <input
               type="search"
               id="search-input"
-              name="search_query"
-              placeholder="Search"
-              autocomplete="new-password"
+              placeholder="Search people, classes, subjects"
+              aria-label="Search people, classes and subjects"
+              role="combobox"
+              aria-controls="search-results"
+              aria-expanded="false"
+              autocomplete="off"
               autocorrect="off"
               autocapitalize="off"
               spellcheck="false"
               inputmode="search"
-              aria-autocomplete="none"
+              aria-autocomplete="list"
               data-form-type="other"
               data-lpignore="true"
               data-1p-ignore="true"
@@ -2360,7 +2383,7 @@
               &times;
             </button>
           </div>
-          <div id="search-results" class="search-results-dropdown"></div>
+          <div id="search-results" class="search-results-dropdown" role="listbox" aria-label="Search results"></div>
         </form>
       </div>
       <% } %>
@@ -3378,6 +3401,87 @@
       let _searchDebounceTimer = null;
       let _searchAbortController = null;
 
+      // Results grouped by kind, best matches first, with the typed text highlighted.
+      const SEARCH_GROUPS = [
+        { key: "student", label: "Students", icon: "fa-user-graduate" },
+        { key: "guardian", label: "Parents & guardians", icon: "fa-people-roof" },
+        { key: "employee", label: "Staff", icon: "fa-id-badge" },
+        { key: "teacher", label: "Teachers", icon: "fa-chalkboard-user" },
+        { key: "class", label: "Classes", icon: "fa-chalkboard" },
+        { key: "subject", label: "Subjects", icon: "fa-book" },
+        { key: "organization_profile", label: "School", icon: "fa-school" },
+      ];
+      const markMatch = (text, query) => {
+        const safe = escapeHtml(text || "");
+        const q = String(query || "").trim();
+        if (!q) return safe;
+        const at = String(text || "").toLowerCase().indexOf(q.toLowerCase());
+        if (at === -1) return safe;
+        return escapeHtml(text.slice(0, at)) + "<mark>" + escapeHtml(text.slice(at, at + q.length)) + "</mark>" + escapeHtml(text.slice(at + q.length));
+      };
+      const searchLink = (item) => {
+        switch (item.type) {
+          case "student": return `/common/studentDetails?studentId=${item.id}&classId=${item.class_id || ""}&termId=${CURRENT_TERM_ID}`;
+          case "organization_profile": return "/account/settings";
+          case "employee": return `/common/employeeDetails?userId=${item.id}`;
+          case "guardian": return `/common/guardianDetails?guardianId=${item.id}`;
+          case "class": return `/common/classDashboard?classId=${item.id}`;
+          case "subject": return item.student_scope ? "/student/dashboard" : (item.class_id ? `/common/classDashboard?classId=${item.class_id}` : "/common/manageClassSubjectAndGradYr");
+          case "teacher": return "/student/dashboard";
+          default: return "#";
+        }
+      };
+      const searchSubtitle = (item) => {
+        if (item.type === "student") return [item.class_name, item.graduated ? "Graduated / left" : ""].filter(Boolean).join(" · ") || "Student";
+        if (item.type === "employee") return item.account_type || "Staff";
+        if (item.type === "subject") return item.class_name || "Subject";
+        if (item.type === "organization_profile") return "School profile";
+        if (item.type === "guardian") return "Parent / guardian";
+        if (item.type === "class") return "Class";
+        return "";
+      };
+      function renderSearchResults(items, query) {
+        if (!items.length) {
+          searchResults.innerHTML = `<div class="sr-state">No results for “${escapeHtml(query)}”</div>`;
+          searchResults.style.display = "block";
+          return;
+        }
+        const html = SEARCH_GROUPS.map((group) => {
+          const list = items.filter((item) => item.type === group.key)
+            .sort((a, b) => (a.graduated ? 1 : 0) - (b.graduated ? 1 : 0));
+          if (!list.length) return "";
+          return `<div class="sr-group" role="group" aria-label="${group.label}"><div class="sr-head">${group.label}<span>${list.length}</span></div>` +
+            list.map((item) => {
+              const title = item.display_name || formatHeaderSearchName(item) || item.subject_name || item.class_name || "";
+              const hasPhoto = item.image_url && item.image_url !== "profilePlaceholder.png" && ["student", "guardian", "employee", "organization_profile"].includes(item.type);
+              const initials = String(title).split(/[\s,]+/).filter(Boolean).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase();
+              const avatar = hasPhoto
+                ? `<img class="sr-avatar" src="${escapeHtml(item.image_url)}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;sr-avatar&quot;>${escapeHtml(initials)}</span>'">`
+                : (["class", "subject"].includes(item.type) ? `<span class="sr-avatar sr-avatar--icon"><i class="fa-solid ${group.icon}" aria-hidden="true"></i></span>` : `<span class="sr-avatar">${escapeHtml(initials)}</span>`);
+              return `<a class="sr-item search-result-item${item.graduated ? " is-muted" : ""}" role="option" href="${searchLink(item)}">${avatar}<span class="sr-text"><span class="sr-title">${markMatch(title, query)}</span><span class="sr-sub">${escapeHtml(searchSubtitle(item))}</span></span></a>`;
+            }).join("") + "</div>";
+        }).join("");
+        searchResults.innerHTML = html;
+        searchResults.style.display = "block";
+        searchInput.setAttribute("aria-expanded", "true");
+      }
+      // Arrow keys move through results, Enter opens one.
+      searchInput.addEventListener("keydown", (event) => {
+        const options = Array.from(searchResults.querySelectorAll(".sr-item"));
+        if (!options.length || !["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) return;
+        let index = options.findIndex((o) => o.classList.contains("is-active"));
+        if (event.key === "Enter") {
+          const target = options[index >= 0 ? index : 0];
+          if (target) { event.preventDefault(); window.location.href = target.href; }
+          return;
+        }
+        event.preventDefault();
+        index = event.key === "ArrowDown" ? Math.min(options.length - 1, index + 1) : Math.max(0, index - 1);
+        options.forEach((o, i) => o.classList.toggle("is-active", i === index));
+        options[index].scrollIntoView({ block: "nearest" });
+      });
+
+
       searchInput.addEventListener("input", (event) => {
         const query = event.target.value.trim();
 
@@ -3393,6 +3497,9 @@
           return;
         }
 
+        searchResults.innerHTML = '<div class="sr-state"><span class="sr-spinner" aria-hidden="true"></span>Searching…</div>';
+        searchResults.style.display = "block";
+        searchInput.setAttribute("aria-expanded", "true");
         _searchDebounceTimer = setTimeout(async () => {
           _searchAbortController = new AbortController();
           try {
@@ -3402,74 +3509,7 @@
             );
             const payload = await response.json();
             const items = Array.isArray(payload.results) ? payload.results : [];
-
-            if (items.length > 0) {
-              searchResults.innerHTML = items
-                .map((item) => {
-                  const image =
-                    item.image_url && item.image_url !== "profilePlaceholder.png"
-                      ? item.image_url
-                      : "/images/profilePlaceholder.png";
-
-                  const title = escapeHtml(item.display_name || "") || formatHeaderSearchName(item) || escapeHtml(item.subject_name || item.class_name || "");
-
-                  let subtitle = "";
-                  let href = "#";
-
-                  switch (item.type) {
-                    case "student":
-                      subtitle = `Student${item.class_name ? ` • ${escapeHtml(item.class_name)}` : ""}`;
-                      href = `/common/studentDetails?studentId=${item.id}&classId=${
-                        item.class_id || ""
-                      }&termId=${CURRENT_TERM_ID}`;
-                      break;
-                    case "organization_profile":
-                      subtitle = "Organization Profile";
-                      href = `/account/settings`;
-                      break;
-                    case "employee":
-                      subtitle = item.account_type ? escapeHtml(item.account_type) : "Employee";
-                      href = `/common/employeeDetails?userId=${item.id}`;
-                      break;
-                    case "guardian":
-                      subtitle = "Guardian";
-                      href = `/common/guardianDetails?guardianId=${item.id}`;
-                      break;
-                    case "class":
-                      subtitle = "Class";
-                      href = `/common/classDashboard?classId=${item.id}`;
-                      break;
-                    case "subject":
-                      subtitle = "Subject";
-                      href = item.student_scope ? `/student/dashboard` : `/common/manageClassSubjectAndGradYr#subject-${item.id}`;
-                      break;
-                    case "teacher":
-                      subtitle = "Teacher";
-                      href = "/student/dashboard";
-                      break;
-                    default:
-                      subtitle = "";
-                  }
-
-                  const displayTitle = title || escapeHtml(item.subject_name || item.class_name || "");
-
-                  return `<div class="search-result-item">
-                            <a href="${href}">
-                              <img src="${image}" alt="Result Image">
-                              <div class="search-result-text">
-                                <div class="search-result-title">${displayTitle}</div>
-                                <div class="search-result-subtitle">${subtitle}</div>
-                              </div>
-                            </a>
-                          </div>`;
-                })
-                .join("");
-              searchResults.style.display = "block";
-            } else {
-              searchResults.innerHTML =
-                '<div class="search-result-item">No results found.</div>';
-              searchResults.style.display = "block";
-            }
+            renderSearchResults(items, query);
           } catch (error) {
             if (error.name !== "AbortError") {
               console.error("Error fetching search results:", error);

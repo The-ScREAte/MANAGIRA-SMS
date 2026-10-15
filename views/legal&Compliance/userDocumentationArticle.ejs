@@ -11,8 +11,18 @@
   </style>
   <% if (keywords) { %><meta name="keywords" content="<%= keywords %>"><% } %>
   <link rel="canonical" href="<%= canonicalUrl %>">
+  <meta name="robots" content="<%= (typeof pageNotFound !== 'undefined' && pageNotFound) ? 'noindex, follow' : 'index, follow, max-snippet:-1, max-image-preview:large' %>">
+  <meta property="og:type" content="<%= (typeof selectedArticle !== 'undefined' && selectedArticle) ? 'article' : 'website' %>">
+  <meta property="og:site_name" content="Managira">
+  <meta property="og:title" content="<%= title %>">
+  <meta property="og:description" content="<%= description %>">
+  <meta property="og:url" content="<%= canonicalUrl %>">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="<%= title %>">
+  <meta name="twitter:description" content="<%= description %>">
+  <% if (typeof selectedArticle !== 'undefined' && selectedArticle && selectedArticle.updatedAt) { %><meta property="article:modified_time" content="<%= new Date(selectedArticle.updatedAt).toISOString() %>"><% } %>
   <% if (structuredData) { %>
-  <script type="application/ld+json"><%- structuredData %></script>
+  <script type="application/ld+json"><%- typeof structuredData === 'string' ? structuredData : JSON.stringify(structuredData).replace(/</g, '\\u003c') %></script>
   <% } %>
   <style>
     :root {

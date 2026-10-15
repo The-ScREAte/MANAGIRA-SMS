@@ -199,7 +199,7 @@ const hubBillingController = {
     if (!panelOnly(req, res, '/admin/hubs')) return;
     await billing.ensureHubBillingSchema(db);
     const plans = (await db.query('SELECT id, plan_name FROM plans WHERE is_active = true ORDER BY id')).rows;
-    res.render('admin/forms/hubCreate', { plans, b: billing });
+    res.render('admin/forms/hubCreate', { plans, b: billing, standardPrices: await billing.loadIntegrationPrices(db) });
   },
 
   adminHubEditFormGet: async (req, res) => {
@@ -275,6 +275,7 @@ const hubBillingController = {
       extrasTotal: data.bill.lines.filter((l) => l.recurring && String(l.key).startsWith('charge:')).reduce((sum, l) => sum + l.amount, 0),
       hasSub: !!(data.billing && data.billing.stripe_subscription_id && !data.billing.ended_at),
       b: billing,
+      standardPrices: await billing.loadIntegrationPrices(db),
     });
   },
 
@@ -604,7 +605,12 @@ const hubBillingController = {
       const used = (await db.query(
         `SELECT addon_id, COUNT(DISTINCT hub_id)::int AS hubs FROM hub_billing_charges WHERE addon_id IS NOT NULL AND status = 'approved' GROUP BY addon_id`
       )).rows.reduce((m, r) => ({ ...m, [r.addon_id]: r.hubs }), {});
-      res.render('admin/hubAddons', { title: 'Hub add-ons', addons, used, b: billing, messages: req.flash(), showFooterTopSection: false });
+      const [standardPrices, integrationUse] = await Promise.all([
+        billing.loadIntegrationPrices(db),
+        // How many hubs set their own price for each integration.
+        db.query('SELECT integration_fees FROM hub_billing').then((r) => r.rows.map((x) => x.integration_fees || {})),
+      ]);
+      res.render('admin/hubAddons', { title: 'Hub add-ons', addons, used, b: billing, standardPrices, hubFees: integrationUse, messages: req.flash(), showFooterTopSection: false });
     } catch (err) {
       console.error('[adminAddonsGet]', err.message);
       req.flash('error', 'Could not load add-ons.');
@@ -633,6 +639,18 @@ const hubBillingController = {
       req.flash('error', 'Could not save the add-on.');
     }
     res.redirect('/admin/hubs/add-ons');
+  },
+
+  adminIntegrationPricesPost: async (req, res) => {
+    try {
+      const { errors } = await billing.saveIntegrationPrices(db, req.body);
+      if (errors.length) req.flash('error', errors.join(' '));
+      else req.flash('success', 'Standard integration prices saved. New hubs start with these; existing hubs keep their own prices.');
+    } catch (err) {
+      console.error('[adminIntegrationPricesPost]', err.message);
+      req.flash('error', 'Could not save the integration prices.');
+    }
+    res.redirect('/admin/hubs/add-ons#integration-prices');
   },
 
   adminAddonTogglePost: async (req, res) => {

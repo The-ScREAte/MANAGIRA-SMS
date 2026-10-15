@@ -381,11 +381,18 @@ main { padding: 0 !important; max-width: none !important; }
 }
 </style>
 
+<style>
+  .doc-card-icon i { font-size: 18px; }
+  .doc-card-icon.document i { color: #2563eb; }
+  .doc-card-icon.spreadsheet i { color: #16a34a; }
+  .doc-report-badge { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 6px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, #16a34a 12%, transparent); color: #15803d; font-size: .72rem; font-weight: 700; }
+  .docs-header h1 { margin-left: 0 !important; padding-left: 0 !important; }
+</style>
 <div class="docs-wrapper" data-can-create="<%= canCreate ? 'true' : 'false' %>" data-auto-create="<%= autoCreate ? 'true' : 'false' %>">
   <div class="docs-header">
     <div>
-      <h1>📁 Docs/Sheets</h1>
-      <p class="docs-subtitle">Create and manage documents and sheets for this class.</p>
+      <h1>Docs &amp; Sheets</h1>
+      <p class="docs-subtitle"><%= classId ? 'Documents and sheets for this class.' : 'Documents, spreadsheets and report card layouts.' %></p>
     </div>
     <div class="docs-actions">
       <% if (canCreate) { %>
@@ -408,11 +415,12 @@ main { padding: 0 !important; max-width: none !important; }
       <% documents.forEach(doc => { %>
         <div class="doc-card" onclick="if(event.target.closest('.doc-card-actions'))return; window.open('/documents/edit/<%= doc.id %>?returnUrl='+encodeURIComponent(window.location.href),'_blank','noopener');">
           <div class="doc-card-actions">
-            <button type="button" class="doc-delete-btn" data-doc-id="<%= doc.id %>" data-doc-title="<%= doc.title %>" title="Delete">🗑</button>
+            <button type="button" class="doc-delete-btn" data-doc-id="<%= doc.id %>" data-doc-title="<%= doc.title %>" title="Delete" aria-label="Delete <%= doc.title %>"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
           </div>
           <div class="doc-card-icon <%= doc.doc_type %>">
-            <%= doc.doc_type === 'spreadsheet' ? '📊' : '📝' %>
+            <i class="fa-solid fa-<%= doc.doc_type === 'spreadsheet' ? 'table' : 'file-lines' %>" aria-hidden="true"></i>
           </div>
+          <% if (doc.report_template) { %><span class="doc-report-badge"><i class="fa-solid fa-id-card" aria-hidden="true"></i> Report card</span><% } %>
           <% if (classId && doc.visibility_type) { %>
             <span class="doc-visibility-badge <%= doc.visibility_type %>">
               <% if (doc.visibility_type === 'class') { %>This class<% } %>
@@ -434,17 +442,17 @@ main { padding: 0 !important; max-width: none !important; }
 <!-- Create Modal -->
 <div class="modal-overlay" id="createModal">
   <div class="modal-box">
-    <h2>Create New Doc/Sheet</h2>
+    <h2>New doc or sheet</h2>
     <div class="type-selector">
       <div class="type-option selected" data-type="document" onclick="selectType('document')">
-        <div class="icon">📝</div>
-        <h4>File</h4>
-        <p>Rich text with formatting</p>
+        <div class="icon"><i class="fa-solid fa-file-lines" style="color:#2563eb" aria-hidden="true"></i></div>
+        <h4>Doc</h4>
+        <p>Letters, notes, report cards</p>
       </div>
       <div class="type-option" data-type="spreadsheet" onclick="selectType('spreadsheet')">
-        <div class="icon">📊</div>
+        <div class="icon"><i class="fa-solid fa-table" style="color:#16a34a" aria-hidden="true"></i></div>
         <h4>Sheet</h4>
-        <p>Tables with formulas</p>
+        <p>Tables, lists, report cards</p>
       </div>
     </div>
     <div class="form-group">

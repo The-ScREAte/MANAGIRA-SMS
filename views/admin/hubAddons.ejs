@@ -59,5 +59,36 @@
       </div>
     <% } %>
   </section>
+
+  <% const _std = (typeof standardPrices !== 'undefined' && standardPrices) || {}; const _hubFees = (typeof hubFees !== 'undefined' && hubFees) || []; %>
+  <section class="ah-card" id="integration-prices" aria-labelledby="ipTitle" style="margin-top:16px;padding:18px">
+    <h2 class="ah-card__title" id="ipTitle">Standard integration prices</h2>
+    <p class="ah-head__sub" style="margin:4px 0 14px">Integrations are free unless they have a price here. A new hub starts with these prices, and you can change them for one hub in its plan. <strong>Auto</strong> bills every school that switches it on. <strong>Manual</strong> lets you add the charge when needed, and the hub approves it.</p>
+    <form action="/admin/hubs/integration-prices" method="POST">
+      <div class="ah-scroll">
+        <table class="ah-table ip-table">
+          <thead><tr><th>Integration</th><th>Price per school, each bill</th><th>Billed</th><th class="ah-num">Hubs with their own price</th></tr></thead>
+          <tbody>
+            <% b.INTEGRATIONS.forEach((i) => { const sp = _std[i.key]; const custom = _hubFees.filter((f) => f[i.key] && f[i.key].on && (!sp || Number(f[i.key].price) !== Number(sp.price))).length; %>
+              <tr>
+                <td><strong><%= i.label %></strong></td>
+                <td>
+                  <span class="ahb-money" style="max-width:160px"><span>$</span><input type="text" inputmode="decimal" name="integrations[<%= i.key %>][price]" class="ahb-input" value="<%= sp ? Number(sp.price).toFixed(2) : '' %>" placeholder="Free" aria-label="<%= i.label %> price" /></span>
+                </td>
+                <td>
+                  <div class="ahb-seg ahb-seg--sm" role="radiogroup" aria-label="<%= i.label %>: how it is billed" style="max-width:180px">
+                    <label><input type="radio" name="integrations[<%= i.key %>][mode]" value="auto" <%= !sp || sp.mode !== 'manual' ? 'checked' : '' %> /> <span>Auto</span></label>
+                    <label><input type="radio" name="integrations[<%= i.key %>][mode]" value="manual" <%= sp && sp.mode === 'manual' ? 'checked' : '' %> /> <span>Manual</span></label>
+                  </div>
+                </td>
+                <td class="ah-num"><%= custom %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="submit" class="ah-btn ah-btn--primary"><i class="fa-solid fa-check" aria-hidden="true"></i> Save prices</button></div>
+    </form>
+  </section>
   <%- include('partials/hubAdminDialogs') %>
 </div>

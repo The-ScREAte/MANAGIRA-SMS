@@ -42,7 +42,10 @@
     .hero h1 { margin: 0 0 6px; font-size: 1.6rem; letter-spacing: 0.2px; }
     .hero p { margin: 0; opacity: 0.92; }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 14px; margin-bottom: 16px; }
+    #reportLayoutCard { grid-column: 1 / -1; }
+    .grid > .card { min-width: 0; }
+    .sig-paper ~ div { flex: 1 1 200px !important; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 10px 24px rgba(15,45,50,0.12); padding: 16px 18px; }
     .card h2 { margin: 0 0 10px; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
     .section-title { display: flex; align-items: center; gap: 10px; font-weight: 700; margin: 0 0 12px; }
@@ -2258,7 +2261,8 @@
         width: 98vw;
       }
     }
-  </style>
+      textarea { font-family: inherit; }
+</style>
 </head>
 <body>
   <div class="loading-overlay" id="loadingOverlay">
@@ -2271,11 +2275,13 @@
       /* Match the other Reports pages: flat cards with a thin border. */
       main .card { box-shadow: none; border-color: #e2e8f0; }
       main .btn { box-shadow: none; }
+      /* Breathing room at the screen edges on phones and tablets. */
+      @media (max-width: 900px) { main { padding-left: 14px !important; padding-right: 14px !important; box-sizing: border-box; } }
     </style>
     <header class="gp-head gp-scope">
       <div>
         <h1 class="gp-title">Report Settings</h1>
-        <p class="gp-sub">Report card statuses for each class, standard remarks, and the signatures printed on reports.</p>
+        <p class="gp-sub">Promotion, grades, remarks, signatures and report card layouts.</p>
       </div>
     </header>
     <% const currentClass = (enrolledClasses && enrolledClasses.find(c => String(c.class_id) === String(classId))) || (enrolledClasses && enrolledClasses[0]); %>
@@ -2291,13 +2297,13 @@
     <% } else { %>
 
     <div class="card" style="margin-bottom:14px;">
-      <div class="section-title">Class-specific Status Settings</div>
+      <div class="section-title">Promotion &amp; grading by class</div>
       <div class="class-layout">
         <div class="class-list" id="classList">
           <% enrolledClasses.forEach((cls, idx) => { const hasSetting = groupedStatusSettings.some(s => s.classes && s.classes.includes(cls.class_id)); %>
             <button type="button" class="class-button" data-class-id="<%= cls.class_id %>" <%= idx===0 ? 'aria-current="true"' : '' %>>
               <span><%= cls.class_name %></span>
-              <span style="font-size:12px;color:<%= hasSetting ? 'var(--text)' : '#94a3b8' %>;"><%= hasSetting ? 'Has settings' : 'No settings' %></span>
+              <span style="font-size:12px;color:<%= hasSetting ? 'var(--text)' : '#94a3b8' %>;"><%= hasSetting ? 'Set' : 'Not set' %></span>
             </button>
           <% }); %>
         </div>
@@ -2309,11 +2315,11 @@
               <input type="hidden" name="termId" value="<%= termId %>" />
               <input type="hidden" name="selectedStatusClasses" id="selectedStatusClasses" value="<%= currentClass ? currentClass.class_id : '' %>" />
 
-              <div id="noSettingsMsg" style="display:none;padding:16px;background:#f0f4f8;border-radius:8px;margin-bottom:12px;color:#64748b;font-weight:600;">No settings saved for this class yet. Add settings for this class below.</div>
+              <div id="noSettingsMsg" style="display:none;padding:16px;background:#f0f4f8;border-radius:8px;margin-bottom:12px;color:#64748b;font-weight:600;">Not set up yet. Fill in the rows below and save.</div>
               <div class="form-group status-rows-group">
                 <div class="status-rows-heading">
-                  <div class="status-rows-title">Class Status Rows</div>
-                  <div class="status-rows-help">Edit each row, then save once.</div>
+                  <div class="status-rows-title">Promotion</div>
+                  <div class="status-rows-help">Edit the rows, then save.</div>
                 </div>
                 <div id="statusRowsEditor" class="status-row-editor">
                   <div class="status-row-head">
@@ -2441,7 +2447,7 @@
               <div style="display:none;"><input type="checkbox" id="activatePromotion" name="activatePromotion" /></div>
 
               <div class="status-settings-actions">
-                <button type="submit" id="statusSettingsSaveBtn" class="btn status-btn status-btn-primary">Save Status Settings</button>
+                <button type="submit" id="statusSettingsSaveBtn" class="btn status-btn status-btn-primary">Save promotion</button>
                 <button type="button" class="btn btn-danger status-btn status-btn-danger" id="cancelEditBtn" style="display:none;">Cancel</button>
               </div>
             </form>
@@ -2478,14 +2484,14 @@
           <!-- ── /Advanced Display Settings Accordion ── -->
 
           <div style="margin-top:20px;padding-top:20px;border-top:2px solid var(--border);">
-            <div class="section-title" style="margin:0 0 10px 0;">Grade & Score Settings for <span id="selectedClassName"></span></div>
+            <div class="section-title" style="margin:0 0 10px 0;">Grades for <span id="selectedClassName"></span></div>
 
             <div style="display:grid;grid-template-columns:1fr;gap:12px;">
               <div style="border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;">
                 <div class="rs-score-header-row">
-                  <div style="font-weight:700;color:var(--primary);">Grade & Score Mapping</div>
+                  <div style="font-weight:700;color:var(--primary);">Grade scale</div>
                   <div class="rs-action-links">
-                    <a href="javascript:void(0)" id="openGradeBulkPicker" class="rs-action-link">+ Add Grade & Remark Rules</a>
+                    <a href="javascript:void(0)" id="openGradeBulkPicker" class="rs-action-link">+ Add grades</a>
                   </div>
                 </div>
 
@@ -2652,18 +2658,18 @@
     <div class="grid">
       <div class="card" id="reportLayoutCard">
         <h2>Report Card Layout</h2>
-        <div class="notice">Each class prints the standard report card unless you choose one of your own layouts. Build a layout in <a href="/documents" target="_blank" rel="noopener">Docs &amp; Sheets</a> with fields like {{student.name}} and {{subject.grade}}, then turn on <strong>Use as a report card</strong> in its Settings.</div>
+        <div class="notice">Choose how each class's report card looks. Make your own in <a href="/documents" target="_blank" rel="noopener">Docs &amp; Sheets</a>.</div>
         <% const _rtList = (typeof reportTemplates !== 'undefined' && reportTemplates) || []; const _rtMap = (typeof reportTemplateMap !== 'undefined' && reportTemplateMap) || {}; %>
         <% if (!_rtList.length) { %>
-          <p class="rl-empty">No layouts yet. Open a Sheet or Doc, click <strong>Fields</strong> to start from a sample report card, then turn on <strong>Use as a report card</strong> in Settings.</p>
+          <p class="rl-empty">No layouts yet. In Docs &amp; Sheets, open a Sheet → <strong>Fields</strong> → pick a sample, then turn on <strong>Use as a report card</strong> in Settings.</p>
         <% } else { %>
           <div class="rl-list">
             <% (enrolledClasses || []).forEach((cls) => { %>
               <label class="rl-row">
                 <span><%= cls.class_name %></span>
                 <select data-rl-class="<%= cls.class_id %>">
-                  <option value="">Standard report card</option>
-                  <% _rtList.forEach((t) => { %><option value="<%= t.id %>"<%= Number(_rtMap[cls.class_id]) === Number(t.id) ? ' selected' : '' %>><%= t.title %> (<%= t.doc_type === 'spreadsheet' ? 'Sheet' : 'Doc' %>)</option><% }) %>
+                  <option value="">Standard</option>
+                  <% _rtList.forEach((t) => { %><option value="<%= t.id %>"<%= Number(_rtMap[cls.class_id]) === Number(t.id) ? ' selected' : '' %>><%= t.title %></option><% }) %>
                 </select>
               </label>
             <% }) %>
@@ -2676,11 +2682,12 @@
       </div>
       <style>
         .rl-empty { margin: 8px 0 0; color: #64748b; }
-        .rl-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 16px; margin-top: 12px; }
-        .rl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 10px; font-weight: 600; }
-        .rl-row select { max-width: 60%; height: 34px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-weight: 500; font-size: .88rem; }
+        .rl-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 6px 14px; margin-top: 12px; }
+        .rl-row > span { flex: none; white-space: nowrap; }
+        .rl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 10px; font-weight: 600; font-size: .92rem; }
+        .rl-row select { flex: 1 1 auto; min-width: 0; max-width: 200px; height: 34px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font: inherit; font-weight: 500; font-size: .88rem; }
         .rl-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
-        #reportLayoutCard .rl-save { width: auto; margin: 0; padding: 9px 18px; border: 0; border-radius: 8px; background: var(--primary, #0f5a66); color: #fff; font-weight: 700; cursor: pointer; }
+        #reportLayoutCard .rl-save { width: auto; margin: 0; padding: 10px 20px; border: 0; border-radius: 8px; background: var(--primary, #0f5a66); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
         .rl-note { color: #64748b; font-size: .88rem; }
       </style>
       <script>
@@ -2708,7 +2715,7 @@
 
       <div class="card">
         <h2>Global Remarks</h2>
-        <div class="notice">These remarks are global and can be reused for any class or term.</div>
+        <div class="notice">Ready-made remarks teachers can pick on report cards.</div>
         <div class="gr-toolbar">
           <div class="gr-toolbar-item">
             <div class="rs-action-links">
@@ -2841,14 +2848,14 @@
 
       <div class="card">
         <h2>Signature Management</h2>
-        <div class="notice">Create and manage digital signatures for your reports. Each class can have only one signature.</div>
+        <div class="notice">Signatures printed on report cards. One per class.</div>
         
         <% if (signatureGroups && Object.keys(signatureGroups).length) { %>
-          <div class="section-title" style="margin-top:0;margin-bottom:12px;">Current Signatures</div>
+          <div class="section-title" style="margin-top:0;margin-bottom:12px;">Current</div>
           <div style="display:grid;gap:12px;margin-bottom:20px;">
             <% Object.keys(signatureGroups).forEach(signaturePath => { const sig = signatureGroups[signaturePath]; %>
               <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
-                <div style="display:flex;gap:14px;align-items:flex-start;">
+                <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;">
                   <% if (sig.signature_image_url) { %>
                     <div class="sig-paper" data-ap-skip style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
                       <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
@@ -2873,14 +2880,14 @@
                         </span>
                       <% }); %>
                     </div>
-                    <div style="display:flex;gap:12px;align-items:center;">
+                    <div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;">
                       <a href="javascript:void(0)" 
                          class="add-classes-link" 
                          data-signature-path="<%= signaturePath %>"
-                         style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Add More Classes</a>
+                         style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Classes</a>
                       <a href="javascript:void(0)" 
                          style="color:#e11d48;font-weight:600;text-decoration:none;font-size:0.9rem;"
-                         onclick="deleteEntireSignature('<%= encodeURIComponent(signaturePath) %>', '<%= termId %>')">Delete Signature</a>
+                         onclick="deleteEntireSignature('<%= encodeURIComponent(signaturePath) %>', '<%= termId %>')">Delete</a>
                     </div>
                   </div>
                 </div>
@@ -2892,9 +2899,9 @@
         <% } %>
         
         <div style="border-top:2px solid var(--border);padding-top:16px;margin-top:8px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-            <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">Create New Report Signature</h3>
-            <a href="javascript:void(0)" id="toggleSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Show Form</a>
+          <div style="display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">New report signature</h3>
+            <a href="javascript:void(0)" id="toggleSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;white-space:nowrap;">+ Add</a>
           </div>
           
           <div id="signatureFormContainer" style="display:none;">
@@ -2925,15 +2932,15 @@
         <% if (hasTranscriptFeature) { %>
         <!-- Transcript Signatures Section -->
         <div style="border-top:3px solid var(--primary);padding-top:20px;margin-top:24px;">
-          <h3 style="margin:0 0 8px;font-size:1.1rem;color:var(--primary);">📜 Transcript Signatures</h3>
-          <div class="notice" style="margin-bottom:16px;">Manage signatures for student transcripts. These signatures appear on all transcript documents.</div>
+          <h3 style="margin:0 0 8px;font-size:1.1rem;color:var(--primary);">Transcript signatures</h3>
+          <div class="notice" style="margin-bottom:16px;">Signatures printed on transcripts.</div>
           
           <% if (transcriptSignatureGroups && Object.keys(transcriptSignatureGroups).length) { %>
-            <div class="section-title" style="margin-top:0;margin-bottom:12px;">Current Transcript Signatures</div>
+            <div class="section-title" style="margin-top:0;margin-bottom:12px;">Current</div>
             <div style="display:grid;gap:12px;margin-bottom:20px;">
               <% Object.keys(transcriptSignatureGroups).forEach(signaturePath => { const sig = transcriptSignatureGroups[signaturePath]; %>
                 <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
-                  <div style="display:flex;gap:14px;align-items:flex-start;">
+                  <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;">
                     <% if (sig.signature_image_url) { %>
                       <div class="sig-paper" data-ap-skip style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
                         <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
@@ -2958,14 +2965,14 @@
                           </span>
                         <% }); %>
                       </div>
-                      <div style="display:flex;gap:12px;align-items:center;">
+                      <div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;">
                         <a href="javascript:void(0)" 
                            class="add-transcript-classes-link" 
                            data-signature-path="<%= signaturePath %>"
-                           style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Add More Classes</a>
+                           style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Classes</a>
                         <a href="javascript:void(0)" 
                            style="color:#e11d48;font-weight:600;text-decoration:none;font-size:0.9rem;"
-                           onclick="deleteEntireTranscriptSignature('<%= encodeURIComponent(signaturePath) %>')">Delete Signature</a>
+                           onclick="deleteEntireTranscriptSignature('<%= encodeURIComponent(signaturePath) %>')">Delete</a>
                       </div>
                     </div>
                   </div>
@@ -2977,9 +2984,9 @@
           <% } %>
 
           <div style="border-top:2px solid var(--border);padding-top:16px;margin-top:8px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-              <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">Create New Transcript Signature</h3>
-              <a href="javascript:void(0)" id="toggleTranscriptSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Show Form</a>
+            <div style="display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h3 style="margin:0;font-size:1.05rem;color:var(--primary);">New transcript signature</h3>
+              <a href="javascript:void(0)" id="toggleTranscriptSignatureForm" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;white-space:nowrap;">+ Add</a>
             </div>
             
             <div id="transcriptSignatureFormContainer" style="display:none;">
@@ -6469,11 +6476,11 @@
       const isVisible = signatureFormContainer.style.display !== 'none';
       if(isVisible){
         signatureFormContainer.style.display = 'none';
-        toggleSigFormLink.textContent = '+ Show Form';
+        toggleSigFormLink.textContent = '+ Add';
       } else {
         populateSignatureCheckboxes();
         signatureFormContainer.style.display = 'block';
-        toggleSigFormLink.textContent = '− Hide Form';
+        toggleSigFormLink.textContent = '− Close';
         reportSignaturePad.init();
       }
     });
@@ -6625,11 +6632,11 @@
       const isVisible = transcriptSigFormContainer.style.display !== 'none';
       if(isVisible){
         transcriptSigFormContainer.style.display = 'none';
-        toggleTranscriptSigFormLink.textContent = '+ Show Form';
+        toggleTranscriptSigFormLink.textContent = '+ Add';
       } else {
         populateTranscriptSignatureCheckboxes();
         transcriptSigFormContainer.style.display = 'block';
-        toggleTranscriptSigFormLink.textContent = '\u2212 Hide Form';
+        toggleTranscriptSigFormLink.textContent = '\u2212 Close';
         transcriptSignaturePad.init();
       }
     });
@@ -7975,12 +7982,82 @@
       }
     }
 
+    // The manual bill rows on the Advanced panel, read the same way the save
+    // reads them (used to tell whether anything changed).
+    function collectAdvancedPaygiraManualRows(classId) {
+      const panel = document.getElementById('advancedDsPanel');
+      const fields = [];
+      const rows = [];
+      if (!panel) return { fields, rows };
+      const currentClassNum = parseInt(classId, 10);
+      panel.querySelectorAll('.ds-paygira-manual-field').forEach((row, index) => {
+        const label = row.querySelector('.ds-paygira-manual-label')?.value?.trim() || '';
+        if (!label) return;
+        const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `field_${index + 1}`;
+        const defaultValue = row.querySelector('.ds-paygira-manual-default')?.value?.trim() || '';
+        const applyToClasses = Array.from(row.querySelectorAll('.ds-paygira-apply-class:checked'))
+          .map((cb) => parseInt(cb.value, 10))
+          .filter((id) => Number.isFinite(id) && id > 0);
+        if (Number.isFinite(currentClassNum) && !applyToClasses.includes(currentClassNum)) applyToClasses.unshift(currentClassNum);
+        fields.push({ key, label, defaultValue, applyToClasses });
+      });
+      const fieldKeys = new Set(fields.map((f) => f.key));
+      panel.querySelectorAll('.ds-paygira-manual-total').forEach((row, index) => {
+        const label = row.querySelector('.ds-paygira-total-label')?.value?.trim() || '';
+        if (!label) return;
+        const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `total_${index + 1}`;
+        const showOnReport = !!row.querySelector('.ds-paygira-total-show')?.checked;
+        const keys = Array.from(row.querySelectorAll('.ds-paygira-total-field:checked'))
+          .map((cb) => String(cb.value || '').trim())
+          .filter((value) => value && fieldKeys.has(value));
+        rows.push({ key, label, showOnReport, fieldKeys: keys });
+      });
+      return { fields, rows };
+    }
+    function computePaygiraManualTotalsFromRows(rows) {
+      return Array.isArray(rows) ? rows : [];
+    }
+    // Which score items are ticked on the Advanced panel, e.g. 'classScore_items'.
+    function getItemsState(key) {
+      const cat = String(key || '').replace(/_items$/, '');
+      const items = {};
+      document.querySelectorAll(`#advancedDsPanel .ds-adv-item[data-cat="${cat}"]`).forEach((cb) => { items[cb.dataset.id] = cb.checked; });
+      return items;
+    }
+    // Saved bill settings in the same shape the panel produces, for comparing.
+    function normalizePaygiraBillsState(value) {
+      const v = value && typeof value === 'object' ? value : {};
+      const auto = v.auto && typeof v.auto === 'object' ? v.auto : {};
+      const future = auto.future && typeof auto.future === 'object' ? auto.future : {};
+      const metrics = auto.metrics && typeof auto.metrics === 'object' ? auto.metrics : {};
+      const manual = v.manual && typeof v.manual === 'object' ? v.manual : {};
+      return {
+        enabled: v.enabled === true,
+        mode: v.mode === 'manual' ? 'manual' : 'auto',
+        auto: {
+          scope: auto.scope === 'future' ? 'future' : 'past',
+          dateFrom: String(auto.dateFrom || '').trim(),
+          dateTo: String(auto.dateTo || '').trim(),
+          future: { action: future.action === 'custom' ? 'custom' : 'create', billName: String(future.billName || '').trim() },
+          metrics: {
+            totalPaid: metrics.totalPaid !== false,
+            defaultArrears: metrics.defaultArrears !== false,
+            latePayments: metrics.latePayments !== false,
+            totalBilled: metrics.totalBilled !== false,
+            totalOutstanding: metrics.totalOutstanding !== false,
+            lastPaymentDate: metrics.lastPaymentDate !== false,
+          },
+        },
+        manual: { fields: Array.isArray(manual.fields) ? manual.fields : [], totals: Array.isArray(manual.totals) ? manual.totals : [] },
+      };
+    }
+
     function hasAdvancedDisplaySettingsChanges(classId) {
       const payload = allDisplaySettingsMap[String(classId)] || { columns: {}, sections: {} };
       const cols = payload.columns || {};
       const secs = payload.sections || {};
 
-      const rowData = collectAdvancedPaygiraManualRows();
+      const rowData = collectAdvancedPaygiraManualRows(classId);
       const paygiraManualFields = rowData.fields;
       const paygiraManualTotals = computePaygiraManualTotalsFromRows(rowData.rows);
       const gradePresentation = getGradePresentationPayloadFromControls();

@@ -440,6 +440,7 @@ const documentController = {
           SELECT d.id, d.title, d.doc_type, d.created_at, d.updated_at,
             u.first_name || ' ' || u.last_name AS created_by_name,
             d.created_by,
+            COALESCE((to_jsonb(d)->>'report_template')::boolean, FALSE) AS report_template,
             NULL::text AS visibility_type,
             NULL::text AS other_class_name
           FROM documents d

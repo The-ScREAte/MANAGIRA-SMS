@@ -465,3 +465,6 @@ dialog.ah-dialog { z-index: 100002; }
   .ah table.ah-table td.ah-col-contact { min-width: 190px; }
   .ah table.ah-table td .ah-license + .ah-sub { margin-top: 4px; }
 }
+
+/* Hints in empty fields look like hints, not typed values. */
+.ahb-input::placeholder, .phone-local-input::placeholder { color: #94a3b8; font-weight: 400; opacity: 1; }

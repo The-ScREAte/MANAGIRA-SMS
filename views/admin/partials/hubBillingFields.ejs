@@ -9,6 +9,8 @@
   const _num = (n) => (n == null || n === '' ? '' : String(Number(n)));
   const _meters = b.metersOf(_b);
   const _fees = b.integrationFeesOf(_b);
+  const _std = (typeof standardPrices !== 'undefined' && standardPrices) || {};
+  const _stdLabel = (key) => (_std[key] ? '$' + Number(_std[key].price).toFixed(2) + (_std[key].mode === 'manual' ? ' manual' : '') : 'free');
   const _isNew = !(typeof billingRow !== 'undefined' && billingRow);
   const _now = { student: _u.students, employee: _u.employees, user: _u.users };
   const _trial = !!_b.trial_end_date;
@@ -74,14 +76,18 @@
 
   <fieldset class="ahb-set">
     <legend class="ahb-legend">Integrations</legend>
-    <p class="ahb-hint ahb-hint--top">A fee per school that uses it, each bill. <strong>Auto</strong>: billed for every school that switches it on. <strong>Manual</strong>: you add it as a charge when needed, and the hub approves it.</p>
+    <p class="ahb-hint ahb-hint--top">Free unless switched on. <%= _isNew ? 'Filled in from the standard prices' : 'Standard prices are shown under each one' %> (Hubs › Add-ons). A price here is for this hub only. <strong>Auto</strong> bills every school that uses it; <strong>Manual</strong> is added as a charge the hub approves.</p>
     <div class="ahb-rows">
-      <% b.INTEGRATIONS.forEach((i) => { const f = _fees[i.key] || {}; const on = !!f.on; const mode = f.mode === 'manual' ? 'manual' : 'auto'; %>
+      <% b.INTEGRATIONS.forEach((i) => {
+           const sp = _std[i.key];
+           const f = _isNew ? (sp ? { on: true, price: sp.price, mode: sp.mode } : {}) : (_fees[i.key] || {});
+           const on = !!f.on; const mode = f.mode === 'manual' ? 'manual' : 'auto';
+           const custom = !_isNew && on && (!sp || Number(f.price) !== Number(sp.price)); %>
         <div class="ahb-row<%= on ? '' : ' is-off' %>" data-ahb-row>
           <label class="ahb-switch">
             <input type="checkbox" name="integrations[<%= i.key %>][on]" value="1" <%= on ? 'checked' : '' %> data-ahb-toggle data-ahb-int="<%= i.key %>" />
             <span class="ahb-switch__track" aria-hidden="true"></span>
-            <span class="ahb-row__title"><%= i.label %><small><%= _ints[i.key] ? (_ints[i.key] === 1 ? '1 school uses it now' : `${_ints[i.key]} schools use it now`) : 'No school uses it yet' %></small></span>
+            <span class="ahb-row__title"><%= i.label %><small>Standard: <%= _stdLabel(i.key) %><%= custom ? ' · this hub’s own price' : '' %><% if (!_isNew) { %> · <%= _ints[i.key] ? (_ints[i.key] === 1 ? '1 school uses it' : `${_ints[i.key]} schools use it`) : 'no school uses it yet' %><% } %></small></span>
           </label>
           <div class="ahb-row__fields" data-ahb-fields>
             <label class="ahb-mini">

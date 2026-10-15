@@ -428,7 +428,7 @@
       <section class="ed-sec">
         <h3>Classes</h3>
         <select class="ed-field" id="addClassSelect" aria-label="Add a class">
-          <option value="">Give a class's teachers access…</option>
+          <option value="">Add a class…</option>
           <% classes.forEach(cls => { %><option value="<%= cls.class_id %>"><%= cls.class_name %></option><% }); %>
         </select>
         <ul class="ed-people" id="classAssignList">
@@ -491,20 +491,22 @@
       <% if (canInsert) { %>
         <section class="ed-sec" id="rtSec">
           <h3>Report card</h3>
-          <div class="ed-set"><span>Use as a report card<small>Chosen classes print report cards with this layout instead of the standard one.</small></span><label class="ed-switch"><input type="checkbox" id="rtOn"<%= _tplOn ? ' checked' : '' %> aria-label="Use as a report card" /><span></span></label></div>
+          <div class="ed-set"><span>Use as a report card<small>Chosen classes print with this layout.</small></span><label class="ed-switch"><input type="checkbox" id="rtOn"<%= _tplOn ? ' checked' : '' %> aria-label="Use as a report card" /><span></span></label></div>
           <div id="rtMore"<%= _tplOn ? '' : ' hidden' %>>
-            <div class="cd" id="rtClasses" style="margin-top:8px"></div>
+            <p class="ed-note" style="margin:10px 0 6px;font-weight:700">Classes</p>
+            <div class="cd" id="rtClasses"></div>
             <p class="ed-note" id="rtMoveNote"></p>
-            <div class="ed-row" style="margin-top:10px">
+            <p class="ed-note" style="margin:12px 0 6px;font-weight:700">Preview with real data</p>
+            <div class="ed-row">
               <select class="ed-field" id="rtPreviewClass" aria-label="Class to preview with">
                 <% classes.forEach((c) => { %><option value="<%= c.class_id %>"><%= c.class_name %></option><% }) %>
               </select>
               <button type="button" class="btn" id="rtPreview"><i class="fa-regular fa-eye"></i> Preview</button>
             </div>
-            <p class="ed-note">Preview fills this layout with real report data for that class<%= _currentTerm ? ' (' + _currentTerm.term_name + ')' : '' %>.</p>
+
           </div>
           <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
-            <button type="button" class="btn btn--primary btn--sm" id="rtSave">Save report card settings</button>
+            <button type="button" class="btn btn--primary btn--sm" id="rtSave">Save</button>
             <span class="ed-note" id="rtNote" style="margin:0"></span>
           </div>
         </section>
@@ -545,11 +547,12 @@
   <aside class="ed-panel" id="fieldsPanel" role="dialog" aria-modal="true" aria-label="Report card fields">
     <div class="ed-panel__bar"><strong>Report card fields</strong><button type="button" class="ed-x" data-close aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="ed-panel__body">
-      <p class="ed-note" style="margin:0 0 12px">Click a field to put it in <%= isDoc ? 'the page where your cursor is' : 'the selected cell' %>. When a class prints report cards, each field is filled with that student’s data. Fields can sit inside text too, like <code>Name: {{student.name}}</code>.</p>
-      <div class="ed-row" style="margin-bottom:12px">
-        <button type="button" class="btn btn--sm" data-sample="scores"><i class="fa-solid fa-wand-magic-sparkles"></i> Sample: scores</button>
-        <button type="button" class="btn btn--sm" data-sample="ticks"><i class="fa-solid fa-wand-magic-sparkles"></i> Sample: tick boxes</button>
-        <% if (!isDoc) { %><button type="button" class="btn btn--sm" data-sample="nursery"><i class="fa-solid fa-wand-magic-sparkles"></i> Sample: nursery card</button><% } %>
+      <p class="ed-note" style="margin:0 0 12px">Click a field to add it <%= isDoc ? 'at the cursor' : 'to the selected cell' %>. It fills with each student’s data when printed.</p>
+      <p class="ed-note" style="margin:0 0 6px;font-weight:700">Start from a sample</p>
+      <div class="ed-row" style="margin-bottom:12px;flex-wrap:wrap">
+        <button type="button" class="btn btn--sm" data-sample="scores"><i class="fa-solid fa-wand-magic-sparkles"></i> Scores</button>
+        <button type="button" class="btn btn--sm" data-sample="ticks"><i class="fa-solid fa-wand-magic-sparkles"></i> Tick boxes</button>
+        <% if (!isDoc) { %><button type="button" class="btn btn--sm" data-sample="nursery"><i class="fa-solid fa-wand-magic-sparkles"></i> Nursery card</button><% } %>
       </div>
       <input type="search" class="ed-field" id="fieldSearch" placeholder="Search fields" aria-label="Search fields" style="margin-bottom:10px" />
       <div id="fieldList">
@@ -567,7 +570,7 @@
         <% }) %>
       </div>
     </div>
-    <div class="ed-panel__foot"><p class="ed-note">Tip: copy the whole list into a sheet with <a href="#" id="copyAllFields">Copy all fields</a>.</p></div>
+    <div class="ed-panel__foot"><p class="ed-note"><a href="#" id="copyAllFields">Copy all fields</a> to paste into a sheet.</p></div>
   </aside>
 
   <aside class="ed-panel" id="insertPanel" role="dialog" aria-modal="true" aria-label="Insert data">
@@ -1712,6 +1715,7 @@
         include_students: li.querySelector('.incStudents').checked, include_subjects: li.querySelector('.incSubjects').checked,
       }));
       $('saveShare').disabled = true;
+      $('shareNote').textContent = 'Saving…';
       try {
         const res = await fetch('/documents/permissions/' + DOC_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ permissions, classAssignments }) });
         const data = await res.json();
@@ -1754,6 +1758,7 @@
     $('setDelete').addEventListener('click', async function () {
       if (!confirm('Delete "' + fileBase() + '"? People it was shared with lose access.')) return;
       this.disabled = true;
+      this.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting…';
       try {
         const res = await fetch('/documents/delete/' + DOC_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
         if (!res.ok) throw new Error('failed');
@@ -1972,6 +1977,7 @@
       const on = $('rtOn').checked, classIds = on ? rtClasses.values() : [];
       if (on && !classIds.length && !confirm('No classes chosen yet. Save it as a template anyway?')) return;
       this.disabled = true;
+      $('rtNote').textContent = 'Saving…';
       try {
         const res = await fetch('/documents/reportTemplate/' + DOC_ID, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: on, classIds }) });
         const data = await res.json();

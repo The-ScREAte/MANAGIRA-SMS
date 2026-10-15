@@ -412,6 +412,12 @@ router.post(
   accountController.smsSettingsSavePost
 );
 router.post(
+  "/sms/check",
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  accountController.smsCheckConnectionPost
+);
+router.post(
   "/sms/test-message",
   isAuthenticated,
   requirePermission(PERMISSIONS.MANAGE_SETTINGS),

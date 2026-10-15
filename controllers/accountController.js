@@ -508,6 +508,8 @@ const {
   saveTwilioSettings,
   markSmsProviderTestResult,
   getTenantSmsCredentials,
+  getProviderCredentials,
+  verifySmsConnection,
   sendSms,
   recordDeliveryStatus,
 } = require("../utils/smsIntegration");
@@ -12268,6 +12270,20 @@ const accountController = {
         }
       }
 
+      // Check the credentials with the provider before saving (no message is sent).
+      const typed = {
+        apiKey: req.body.apiKey,
+        authToken: req.body.authToken,
+        accountSid: req.body.accountSid,
+        fromNumber: req.body.fromNumber,
+        username: req.body.username,
+        ...(req.body.sandbox !== undefined ? { sandbox: String(req.body.sandbox).trim() === "1" } : {}),
+      };
+      const check = await verifySmsConnection(await getProviderCredentials(db, orgId, provider, typed));
+      if (!check.ok) {
+        return res.status(400).json({ success: false, message: check.message });
+      }
+
       if (provider === "arkesel") {
         const apiKey = String(req.body.apiKey || "").trim();
         const senderId = String(req.body.senderId || "").trim();
@@ -12296,14 +12312,34 @@ const accountController = {
         return res.status(400).json({ success: false, message: "Unsupported SMS provider." });
       }
 
+      await markSmsProviderTestResult(db, orgId, provider, { success: true });
       const refreshedStatus = await getSmsIntegrationStatus(db, orgId);
       return res.json({
         success: true,
-        message: "SMS settings saved. This provider is now your active sender.",
+        message: `${check.message} Saved — this is now your school's text sender.`,
         integration: refreshedStatus,
       });
     } catch (error) {
       return res.status(400).json({ success: false, message: error?.message || "Unable to save SMS settings." });
+    }
+  },
+
+  // "Test connection": checks the saved credentials with the provider. Sends nothing.
+  smsCheckConnectionPost: async (req, res) => {
+    const orgId = req.session.organizationId;
+    if (!orgId) return res.status(401).json({ success: false, message: "Not authenticated." });
+    const limit = checkRateLimit(`sms-check:${orgId}`, { max: 30, windowMs: 60 * 60 * 1000 });
+    if (!limit.allowed) return res.status(429).json({ success: false, message: "Too many checks. Try again in a little while." });
+    try {
+      const provider = String(req.body.provider || "").trim().toLowerCase();
+      const status = await getSmsIntegrationStatus(db, orgId);
+      if (!status.providers[provider]) return res.status(400).json({ success: false, message: "Unsupported SMS provider." });
+      if (!status.providers[provider].configured) return res.status(400).json({ success: false, message: "Add and save the credentials first." });
+      const check = await verifySmsConnection(await getProviderCredentials(db, orgId, provider));
+      await markSmsProviderTestResult(db, orgId, provider, { success: check.ok, errorMessage: check.ok ? null : check.message });
+      return res.status(check.ok ? 200 : 400).json({ success: check.ok, message: check.message });
+    } catch (error) {
+      return res.status(400).json({ success: false, message: error?.message || "Couldn't check the connection." });
     }
   },
 

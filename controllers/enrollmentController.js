@@ -795,7 +795,7 @@ const enrollmentController = {
                       ? db.query(
                           `
                             SELECT 'student' AS type, s.student_id AS id, s.first_name, s.last_name, s.image_url,
-                               c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
+                               c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name, s.graduated
                             FROM students s
                             LEFT JOIN classes c ON s.class_id = c.class_id AND c.organization_id = $2
                             WHERE s.organization_id = $2
@@ -814,7 +814,7 @@ const enrollmentController = {
                       : db.query(
                           `
                             SELECT 'student' AS type, s.student_id AS id, s.first_name, s.last_name, s.image_url,
-                               c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name
+                               c.class_name, c.class_id, NULL::text AS account_type, NULL::text AS subject_name, s.graduated
                             FROM students s
                             LEFT JOIN classes c ON s.class_id = c.class_id AND c.organization_id = $2
                             WHERE s.organization_id = $2
@@ -943,11 +943,21 @@ const enrollmentController = {
 
               db.query(
                 `
-                  SELECT 'subject' AS type, s.subject_id AS id, s.subject_name AS first_name, '' AS last_name, NULL::text AS image_url,
-                     NULL::text AS class_name, NULL::int AS class_id, NULL::text AS account_type, s.subject_name AS subject_name
-                  FROM subjects s
-                  WHERE s.organization_id = $2
-                  AND s.subject_name ILIKE $1 ESCAPE '\\'
+                  -- One row per subject per class, from the current term when there is one.
+                  SELECT * FROM (
+                    SELECT DISTINCT ON (LOWER(s.subject_name), s.class_id)
+                       'subject' AS type, s.subject_id AS id, s.subject_name AS first_name, '' AS last_name, NULL::text AS image_url,
+                       c.class_name, s.class_id, NULL::text AS account_type, s.subject_name AS subject_name
+                    FROM subjects s
+                    LEFT JOIN classes c ON c.class_id = s.class_id AND c.organization_id = s.organization_id
+                    LEFT JOIN terms t ON t.term_id = s.term_id
+                    WHERE s.organization_id = $2
+                      AND s.subject_name ILIKE $1 ESCAPE '\\'
+                      AND (s.term_id IS NULL OR t.current
+                           OR NOT EXISTS (SELECT 1 FROM terms t2 WHERE t2.organization_id = $2 AND t2.current))
+                    ORDER BY LOWER(s.subject_name), s.class_id, t.current DESC NULLS LAST, s.subject_id DESC
+                  ) x
+                  ORDER BY LOWER(subject_name), class_name NULLS LAST
                   LIMIT 20
                 `,
                 [likeQuery, orgId]

@@ -981,6 +981,66 @@ const CANONICAL_ARTICLE_SYNC = [
       <p>Every message sent through Mailroom appears as its own card below the compose panel, showing the channel, recipient, delivery status, who sent it, and when. An employee with restricted (class-scoped) access only sees the history of messages <em>they personally sent</em> — not messages sent by other staff — since those could involve contacts outside their assigned classes. Accounts with "All contacts" access see the school's full Mailroom history.</p>
     `,
   },
+  {
+    slug: 'connect-whatsapp-business-to-message-parents',
+    title: 'Connect WhatsApp Business to message parents',
+    topic: 'Communication & Website',
+    subtopic: 'Integrations',
+    status: 'active',
+    featured: true,
+    tags: ['whatsapp', 'whatsapp business', 'integrations', 'parent messaging', 'meta', 'message templates', 'report cards'],
+    seoDescription: 'Connect your school’s WhatsApp Business number to Managira in a few minutes, get your display name and message template approved, and send report cards and messages to parents on WhatsApp.',
+    contentHtml: `
+      <h2>What it does</h2>
+      <p>WhatsApp lets your school message parents and guardians from your own WhatsApp Business number. You can send report cards, fee reminders and announcements from Managira, and parents read them in the WhatsApp app they already use.</p>
+
+      <h2>What you need</h2>
+      <ul>
+        <li>A phone number for the school that is <strong>not</strong> already used in the WhatsApp or WhatsApp Business app. A new number or a landline that can receive a call or text works best.</li>
+        <li>A Facebook account for the person setting it up. Meta uses it to create or choose your school’s Meta Business account.</li>
+        <li>The <strong>Manage Settings</strong> permission in Managira.</li>
+      </ul>
+
+      <h2>Set it up</h2>
+      <ol>
+        <li>Go to <strong>Settings › Integrations</strong> and find <strong>WhatsApp Business</strong>.</li>
+        <li>Open the <strong>⋮</strong> menu and choose <strong>Activate</strong>. Confirm with your password.</li>
+        <li>Choose <strong>Connect WhatsApp</strong>. A Meta window opens.</li>
+        <li>Sign in with Facebook, then pick or create your school’s Meta Business account.</li>
+        <li>Add the school’s phone number and enter the code Meta sends to it.</li>
+        <li>Back in Managira, follow the <strong>Setup checklist</strong> on the card. Each step turns green when Meta approves it.</li>
+      </ol>
+
+      <h2>Finish the setup checklist</h2>
+      <ol>
+        <li><strong>Verify phone number</strong>: done when you enter Meta’s code.</li>
+        <li><strong>Get display name approved</strong>: open WhatsApp Manager and make sure your display name matches your school’s name. Meta usually approves it within one to two days. Messages can’t be sent until it is approved.</li>
+        <li><strong>Get a message template approved</strong>: WhatsApp only allows a school to message a parent who hasn’t written first by using an approved template. Create one under <strong>Message Templates</strong> in WhatsApp Manager.</li>
+        <li><strong>Send a test message</strong>: use <strong>Send Test Message</strong> on the card to send one to your own phone and confirm it arrives.</li>
+      </ol>
+
+      <h2>What it costs</h2>
+      <p>Meta charges your school’s Meta Business account for conversations, at Meta’s rates for each country. Managira doesn’t add a markup. If your school belongs to a hub, the hub’s plan may include a fee for WhatsApp; your hub owner can tell you.</p>
+
+      <h2>If something goes wrong</h2>
+      <ul>
+        <li><strong>The Connect button is greyed out</strong>: WhatsApp must be activated first, and only people with Manage Settings can connect it.</li>
+        <li><strong>“Display name not approved”</strong>: Meta rejected or hasn’t reviewed the name yet. Use your school’s official name and try again in WhatsApp Manager.</li>
+        <li><strong>Parents don’t receive messages</strong>: check that the parent’s phone number includes the country code and that your message template is approved.</li>
+        <li><strong>You need a different number</strong>: choose <strong>Disconnect</strong>, then <strong>Connect WhatsApp</strong> again with the new number.</li>
+      </ul>
+
+      <h2>Frequently asked questions</h2>
+      <h3>Can we use the WhatsApp number we already have?</h3>
+      <p>Yes, if you first delete it from the WhatsApp or WhatsApp Business app on the phone. A number can only be used in one place at a time.</p>
+      <h3>Do parents need to install anything?</h3>
+      <p>No. Parents get messages in their normal WhatsApp app. They only need a phone number saved on their guardian profile in Managira.</p>
+      <h3>Who pays for WhatsApp messages?</h3>
+      <p>Your school does, through its own Meta Business account. Managira doesn’t charge for each message.</p>
+      <h3>How long does approval take?</h3>
+      <p>Phone verification is instant. Display names and message templates are usually approved by Meta within one to two days.</p>
+    `,
+  },
 ];
 
 let schemaReady = false;

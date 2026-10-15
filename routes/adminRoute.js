@@ -590,6 +590,7 @@ module.exports = (db) => {
     router.get('/hubs/add-ons/new', ensureAdmin, hubBilling.adminAddonFormGet);
     router.get('/hubs/add-ons/:addonId(\\d+)/edit', ensureAdmin, hubBilling.adminAddonFormGet);
     router.post('/hubs/add-ons', ensureAdmin, hubBilling.adminAddonSavePost);
+    router.post('/hubs/integration-prices', ensureAdmin, hubBilling.adminIntegrationPricesPost);
     router.post('/hubs/add-ons/:addonId(\\d+)', ensureAdmin, hubBilling.adminAddonSavePost);
     router.post('/hubs/add-ons/:addonId(\\d+)/toggle', ensureAdmin, hubBilling.adminAddonTogglePost);
     router.get('/hubs/:hubId(\\d+)/billing', ensureAdmin, hubBilling.adminBillingGet);
