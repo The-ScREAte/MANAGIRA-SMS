@@ -601,3 +601,6 @@ body[data-page="publicDashboard"] .alert-success { max-width: 1240px; margin: 12
 .sw-site--minimal .sw-cards, .sw-site--minimal .sw-steps, .sw-site--minimal .sw-people, .sw-site--minimal .sw-awards, .sw-site--minimal .sw-quotes { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
 .sw-min-main > .sw-section > :not(.sw-head):not(.sw-anchor) { grid-column: 2; }
 @media (max-width: 760px) { .sw-min-main > .sw-section > :not(.sw-head):not(.sw-anchor) { grid-column: 1; } }
+/* Outline buttons over photos read in white. */
+.sw-hero--story .sw-btn--ghost { color: #fff; border-color: rgba(255,255,255,.75); }
+.sw-hero--story .sw-btn--ghost:hover { background: rgba(255,255,255,.12); }
