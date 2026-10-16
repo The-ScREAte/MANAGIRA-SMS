@@ -100,7 +100,14 @@ pool.getQueryMetrics = () => ({
   ...dbMetrics,
 });
 
-pool.on('connect', () => {
+// A connection can drop while it is checked out (a transaction, a job lock).
+// pg then emits 'error' on that client; without a listener Node exits. Keep a
+// listener on every client so the drop surfaces as a failed query instead.
+pool.on('connect', (client) => {
+  client.on('error', (err) => {
+    if (isTransientIdleClientDrop(err)) return;
+    console.error('[DB] PostgreSQL connection error:', err.message || err);
+  });
 });
 
 pool.on('error', (err) => {
