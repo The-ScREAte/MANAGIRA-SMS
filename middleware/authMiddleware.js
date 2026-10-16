@@ -43,6 +43,14 @@ const isAuthenticated = async (req, res, next) => {
 
         await hydrateOrganizationSession(req);
 
+        // A background preload of a page this person can't open: just say no, no message.
+
+        if (req.session && ['Student', 'Driver'].includes(req.session.userRole) && req.get && req.get('X-SPA-Preload') === '1') {
+
+            return res.status(403).end();
+
+        }
+
         if (req.session && req.session.userRole === 'Student') {
             safeFlash(req, 'error', 'You do not have permission to access that page.');
             return res.redirect('/student/dashboard');

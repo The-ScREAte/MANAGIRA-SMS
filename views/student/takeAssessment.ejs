@@ -202,6 +202,22 @@
     padding-top: 10px;
   }
   .ta-submit[disabled] { opacity: .55; cursor: not-allowed; }
+  /* Clean, readable exam (all screen sizes). */
+  .ta-header .ta-page-title { margin: 2px 0 8px; font-size: 1.35rem; text-align: left; }
+  .ta-header .ta-page-eyebrow { margin: 0; }
+  .ta-notes[hidden] { display: none !important; }
+  .ta-notes .ta-meta { margin: 0 0 4px; }
+  .ta-question h3 { font-size: 1rem; line-height: 1.45; font-weight: 600; }
+  .ta-options { display: grid; gap: 8px; margin-top: 10px; }
+  .ta-option { align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; font-size: .95rem; cursor: pointer; transition: border-color .12s, background .12s; }
+  .ta-option:hover { border-color: #94a3b8; }
+  .ta-option:has(input:checked) { border-color: var(--org-primary-color, #0f5a66); background: color-mix(in srgb, var(--org-primary-color, #0f5a66) 8%, #fff); }
+  .ta-option input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--org-primary-color, #0f5a66); }
+  .ta-input, .ta-textarea { font-size: .95rem; }
+  .ta-submit-row { align-items: center; justify-content: space-between; gap: 12px; }
+  .ta-progress { padding: 8px 12px; border-radius: 999px; background: #f1f5f9; color: #334155; font-size: .9rem; }
+  .ta-progress.is-done { background: #dcfce7; color: #166534; }
+  .ta-mark { white-space: nowrap; flex: none; }
 
   .ta-entry-overlay {
     position: fixed;
@@ -316,7 +332,7 @@
     .ta-mark { font-size: .6rem; padding: 3px 7px; }
     .ta-input, .ta-textarea { font-size: .72rem; }
     .ta-textarea { min-height: 86px; }
-    .ta-submit-row { position: static; background: transparent; padding-top: 0; margin-top: 12px; }
+    .ta-submit-row { position: sticky; bottom: 0; background: #fff; padding: 10px 0; margin-top: 12px; }
     .ta-submit { width: 100%; }
     .ta-entry-card {
       width: 100%;
@@ -344,15 +360,15 @@
 
   @media (max-width: 460px) {
     .ta-shell { padding: 10px 8px 16px; }
-    .ta-page-title { font-size: .78rem; }
+    .ta-page-title { font-size: 1.15rem; }
     .ta-card { padding: 8px; border-radius: 10px; }
-    .ta-card h2 { font-size: .7rem; }
+    .ta-card h2 { font-size: 1rem; }
     .ta-question { padding: 7px; }
-    .ta-question h3 { font-size: .64rem; }
-    .ta-option { font-size: .64rem; line-height: 1.3; }
-    .ta-input, .ta-textarea { font-size: .66rem; padding: 8px; }
-    .ta-entry-card ul { font-size: .64rem; margin-left: 12px; }
-    .ta-entry-consent { font-size: .62rem; }
+    .ta-question h3 { font-size: .98rem; }
+    .ta-option { font-size: .95rem; line-height: 1.35; }
+    .ta-input, .ta-textarea { font-size: 1rem; padding: 10px; }
+    .ta-entry-card ul { font-size: .92rem; margin-left: 16px; }
+    .ta-entry-consent { font-size: .92rem; }
     .ta-entry-overlay { padding: 8px; }
     .ta-entry-card { max-height: calc(100dvh - 16px); padding: 8px; }
     .ta-security-bar { top: 6px; }
@@ -382,51 +398,41 @@
     <a class="ta-exit-btn js-exam-exit-link" href="/student/testing-room?termId=<%= assessment.term_id %>">Exit</a>
   </div>
 
+  <% const _timeText = (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) ? Number(assessment.time_limit_minutes) + ' min' : 'No time limit'; %>
   <section class="ta-header">
-    <div class="ta-header-top">
-      <div>
-        <p class="ta-page-eyebrow">Student Testing Room</p>
-        <h1 class="ta-page-title">Assessment Session</h1>
-        <p class="ta-page-subtitle">Read each question carefully and submit only when you are satisfied with your responses.</p>
-      </div>
-    </div>
+    <p class="ta-page-eyebrow"><%= assessment.subject_name %> · <%= assessment.category || 'Assessment' %></p>
+    <h1 class="ta-page-title"><%= assessment.title %></h1>
     <div class="ta-summary-row">
-      <span class="ta-summary-chip"><%= assessment.subject_name %></span>
-      <span class="ta-summary-chip"><%= assessment.category || 'Assessment' %></span>
-      <span class="ta-summary-chip"><%= totalQuestions %> Questions</span>
-      <span class="ta-summary-chip">Max <%= Number(assessment.max_score || 0).toFixed(2) %></span>
+      <span class="ta-summary-chip"><%= totalQuestions %> questions</span>
+      <span class="ta-summary-chip"><%= Number(assessment.max_score || 0) %> marks</span>
+      <span class="ta-summary-chip"><%= _timeText %></span>
+      <span class="ta-summary-chip"><%= assessment.open_book ? 'Open book' : 'Closed book' %></span>
     </div>
   </section>
 
   <%- include('../partials/flash') %>
 
-  <div class="ta-card ta-prestart-hidden" id="ta-assessment-meta">
-    <h2><%= assessment.title %></h2>
-    <p class="ta-meta"><strong><%= assessment.subject_name %></strong> · <%= assessment.category || 'Assessment' %> · Max <%= assessment.max_score %> · <%= assessment.open_book ? 'Open Book' : 'Secure' %> · <% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %><%= Number(assessment.time_limit_minutes) %> min<% } else { %>Unlimited time<% } %> · Attempts <%= Number(maxAttempts || 1) %></p>
-    <% if (assessment.edit_window_end) { %>
-      <p class="ta-meta" style="margin-top:6px;">Available until <%= new Date(assessment.edit_window_end).toLocaleString() %></p>
-    <% } %>
-    <% if (questionSet && questionSet.set_description) { %>
-      <p class="ta-meta" style="margin-top:6px;"><%= questionSet.set_description %></p>
-    <% } %>
+  <div class="ta-card ta-prestart-hidden ta-notes" id="ta-assessment-meta"<%= (assessment.edit_window_end || (questionSet && questionSet.set_description)) ? '' : ' hidden' %>>
+    <% if (questionSet && questionSet.set_description) { %><p class="ta-meta"><%= questionSet.set_description %></p><% } %>
+    <% if (assessment.edit_window_end) { %><p class="ta-meta">Open until <%= new Date(assessment.edit_window_end).toLocaleString() %></p><% } %>
   </div>
 
   <div class="ta-monitor-banner" id="ta-monitor-banner"></div>
   <p class="ta-save-status ta-prestart-hidden" id="ta-save-status"></p>
 
-  <form class="ta-card ta-prestart-hidden" id="ta-assessment-form" method="POST" action="/student/testing-room/<%= assessment.assessment_id %>/submit" onsubmit="return confirm('Submit your assessment now? <% if (Number(maxAttempts || 1) > 1) { %>You may have attempts remaining based on your assessment limit.<% } else { %>You cannot retake it after submission.<% } %>');">
+  <form class="ta-card ta-prestart-hidden" id="ta-assessment-form" method="POST" action="/student/testing-room/<%= assessment.assessment_id %>/submit" onsubmit="return window.taConfirmSubmit ? window.taConfirmSubmit() : true;" data-final="<%= Number(maxAttempts || 1) > 1 ? '' : '1' %>">
     <input type="hidden" name="attemptId" value="<%= attemptId %>" />
 
     <% questions.forEach((question, index) => { %>
       <% const fieldName = `responses[${question.question_id}]`; %>
       <% const savedValue = responsesByQuestionId[String(question.question_id)]; %>
-      <section class="ta-question">
+      <section class="ta-question" data-q>
         <div class="ta-question-head">
           <div class="ta-question-title-wrap">
             <span class="ta-q-index"><%= index + 1 %></span>
-            <h3><%= question.question_text %></h3>
+            <h3><%- question.question_html || '' %></h3>
           </div>
-          <span class="ta-mark"><%= Number(question.marks || 0).toFixed(2) %> marks</span>
+          <span class="ta-mark"><%= Number(question.marks || 0) %> mark<%= Number(question.marks || 0) === 1 ? '' : 's' %></span>
         </div>
 
         <% if (['single_choice', 'true_false'].includes(String(question.question_type || '').toLowerCase())) { %>
@@ -457,7 +463,8 @@
     <% }) %>
 
     <div class="ta-submit-row">
-      <button class="ta-submit" id="ta-submit-btn" type="submit">Submit Assessment</button>
+      <span class="ta-progress" id="ta-progress" aria-live="polite"><strong>0</strong> of <%= totalQuestions %> answered</span>
+      <button class="ta-submit" id="ta-submit-btn" type="submit">Submit</button>
     </div>
   </form>
 
@@ -470,33 +477,20 @@
         · Attempts: <strong><%= Number(submittedAttemptCount || 0) %>/<%= Number(maxAttempts || 1) %> used</strong>
       </p>
       <ul>
-        <% if (assessment.open_book) { %>
-          <li>This is an open-book assessment.</li>
-        <% } else { %>
-          <li>This assessment is monitored in secure mode.</li>
-        <% } %>
-        <li>Sit down, stay focused, and complete the exam yourself.</li>
-        <% if (!assessment.open_book) { %>
-          <li>Do not switch tabs, open other pages, or close this page during the exam.</li>
-          <li>If you leave this tab, it is tracked and flagged.</li>
-        <% } %>
+        <% if (!assessment.open_book) { %><li>Stay on this page until you submit. Leaving it is recorded.</li><% } else { %><li>This is open book.</li><% } %>
         <% if (assessment.time_limit_minutes && Number(assessment.time_limit_minutes) > 0) { %>
-          <li>Time limit: <%= Number(assessment.time_limit_minutes) %> minutes. Submission is automatic when time ends.</li>
-        <% } else { %>
-          <li>This attempt has no time limit, but once submitted it is locked immediately.</li>
+          <li>You have <%= Number(assessment.time_limit_minutes) %> minutes. It submits itself when time runs out.</li>
         <% } %>
-        <% if (assessment.edit_window_end) { %>
-          <li>This assessment window closes at <%= new Date(assessment.edit_window_end).toLocaleString() %>.</li>
-        <% } %>
+        <% if (assessment.edit_window_end) { %><li>Closes <%= new Date(assessment.edit_window_end).toLocaleString() %>.</li><% } %>
         <% if (Number(maxAttempts || 1) > 1) { %>
-          <li>You can submit up to <%= Number(maxAttempts || 1) %> attempts for this assessment. Remaining before this attempt: <%= Number(remainingAttempts || 0) %>.</li>
+          <li>You have <%= Number(remainingAttempts || 0) %> of <%= Number(maxAttempts || 1) %> attempts left.</li>
         <% } else { %>
-          <li>You can submit only once. After submission, this test closes and cannot be reopened unless your teacher unlocks it.</li>
+          <li>You can submit once. Your answers save as you go.</li>
         <% } %>
       </ul>
       <label class="ta-entry-consent" for="ta-consent">
         <input type="checkbox" id="ta-consent" />
-        <span>I understand these rules and I am ready to start this assessment now.</span>
+        <span>I'm ready to start.</span>
       </label>
       <div class="ta-entry-actions">
         <a class="ta-btn js-exam-exit-link" href="/student/testing-room?termId=<%= assessment.term_id %>">Cancel</a>
@@ -506,6 +500,36 @@
   </div>
 </div>
 
+<script>
+  // Answered count, and a clear warning before submitting with blanks.
+  (function () {
+    var form = document.getElementById('ta-assessment-form');
+    var progress = document.getElementById('ta-progress');
+    if (!form || !progress) return;
+    var cards = Array.prototype.slice.call(form.querySelectorAll('[data-q]'));
+    function answered(card) {
+      if (card.querySelector('input[type=radio]:checked, input[type=checkbox]:checked')) return true;
+      var text = card.querySelector('input[type=text], textarea');
+      return !!(text && String(text.value || '').trim());
+    }
+    function update() {
+      var n = cards.filter(answered).length;
+      progress.querySelector('strong').textContent = n;
+      progress.classList.toggle('is-done', n === cards.length);
+      return n;
+    }
+    form.addEventListener('input', update);
+    form.addEventListener('change', update);
+    update();
+    window.taConfirmSubmit = function () {
+      var left = cards.length - update();
+      var once = form.getAttribute('data-final') === '1';
+      var msg = (left ? left + ' question' + (left === 1 ? ' is' : 's are') + ' not answered. ' : 'All questions answered. ') +
+        (once ? 'Submit now? You can\'t change your answers after this.' : 'Submit now?');
+      return window.confirm(msg);
+    };
+  })();
+</script>
 <script>
   (function () {
     var overlay = document.getElementById('ta-entry-overlay');

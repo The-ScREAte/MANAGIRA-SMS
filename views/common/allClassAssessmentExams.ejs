@@ -764,6 +764,14 @@
       color: #4f6773;
     }
 
+    .exam-pill.exam-pill--warn { background: #fef3c7 !important; color: #92400e !important; border-color: #fcd34d !important; }
+    .qm-bank { margin: 6px 0 4px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: 0 10px 24px rgba(15, 23, 42, .1); overflow: hidden; }
+    .qm-bank__head { display: flex; justify-content: space-between; padding: 7px 12px; background: #f8fafc; color: #475569; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .qm-bank__head span { font-weight: 600; letter-spacing: 0; text-transform: none; }
+    .qm-bank__item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; margin: 0; padding: 8px 12px; border: 0; border-top: 1px solid #f1f5f9; background: none; box-shadow: none; color: #0f172a; font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+    .qm-bank__item:hover { background: #f0fdfa; }
+    .qm-bank__text { font-weight: 600; }
+    .qm-bank__meta { color: #64748b; font-size: 12px; }
     .question-text {
       margin: 0;
       font-size: 0.72rem;
@@ -3106,6 +3114,12 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                     <%= setItem.question_count %> Q
                   </span>
+                  <% if (Number(setItem.missing_answers || 0) > 0) { %>
+                    <span class="exam-pill exam-pill--warn" title="Choice and true/false questions need a correct answer to be marked automatically. Open the set to add them.">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                      <%= setItem.missing_answers %> need<%= Number(setItem.missing_answers) === 1 ? 's' : '' %> an answer
+                    </span>
+                  <% } %>
                   <span class="exam-pill">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
                     <%= setItem.total_points %> pts
@@ -3320,7 +3334,7 @@
             </div>
             <div class="qm-field">
               <label>Question Set Title</label>
-              <input id="question-set-title" type="text" placeholder="e.g. Midterm Objectives" />
+              <input id="question-set-title" type="text" placeholder="Leave blank to use the subject and test name" />
             </div>
             <div class="qm-field qm-full">
               <label>Description <span style="font-weight:400;color:#94a3b8;">(optional)</span></label>
@@ -4384,11 +4398,11 @@
 
       function toDisplayQuestionType(type) {
         var normalized = String(type || '').toLowerCase();
-        if (normalized === 'multiple_choice') return 'Multiple Choice';
-        if (normalized === 'single_choice') return 'One Choice';
+        if (normalized === 'multiple_choice') return 'Choose several';
+        if (normalized === 'single_choice') return 'Choose one';
         if (normalized === 'true_false') return 'True / False';
         if (normalized === 'essay') return 'Essay';
-        return 'Short Text';
+        return 'Short answer';
       }
 
       function getSelectedOptionLabel(selectElement) {
@@ -5080,12 +5094,14 @@
 
         Array.from(classMap.values())
           .sort(function (left, right) {
-            return String(left.class_name).localeCompare(String(right.class_name));
+            var lt = termHasTests(selectedQuestionTermId, left.class_id) ? 0 : 1;
+            var rt = termHasTests(selectedQuestionTermId, right.class_id) ? 0 : 1;
+            return lt - rt || String(left.class_name).localeCompare(String(right.class_name));
           })
           .forEach(function (row) {
             var opt = document.createElement('option');
             opt.value = String(row.class_id);
-            opt.textContent = row.class_name;
+            opt.textContent = row.class_name + (termHasTests(selectedQuestionTermId, row.class_id) ? '' : ' — no tests yet');
             questionClassSelect.appendChild(opt);
           });
 
@@ -5095,8 +5111,20 @@
           });
           if (hasSelectedClass) {
             questionClassSelect.value = String(selectedClassId);
+          } else {
+            questionClassSelect.selectedIndex = 0; // first class with tests
           }
         }
+      }
+
+      // Classes and subjects that have at least one test this term come first,
+      // and are picked by default so the editor never opens on an empty choice.
+      function termHasTests(termId, classId, subjectId) {
+        return (assessmentsForTermData || []).some(function (a) {
+          return Number(a.term_id || 0) === Number(termId)
+            && Number(a.class_id || 0) === Number(classId)
+            && (subjectId == null || Number(a.subject_id || 0) === Number(subjectId));
+        });
       }
 
       function renderQuestionModalSubjects() {
@@ -5118,20 +5146,27 @@
           });
         });
 
+        var previousSubjectId = Number(questionSubjectSelect.getAttribute('data-last') || 0);
         Array.from(subjectMap.values())
           .sort(function (left, right) {
-            return String(left.subject_name).localeCompare(String(right.subject_name));
+            var lt = termHasTests(selectedQuestionTermId, selectedQuestionClassId, left.subject_id) ? 0 : 1;
+            var rt = termHasTests(selectedQuestionTermId, selectedQuestionClassId, right.subject_id) ? 0 : 1;
+            return lt - rt || String(left.subject_name).localeCompare(String(right.subject_name));
           })
           .forEach(function (row) {
             var opt = document.createElement('option');
             opt.value = String(row.subject_id);
-            opt.textContent = row.subject_name;
+            opt.textContent = row.subject_name + (termHasTests(selectedQuestionTermId, selectedQuestionClassId, row.subject_id) ? '' : ' — no tests yet');
             questionSubjectSelect.appendChild(opt);
           });
+        if (previousSubjectId && subjectMap.has(previousSubjectId)) questionSubjectSelect.value = String(previousSubjectId);
+        questionSubjectSelect.setAttribute('data-last', questionSubjectSelect.value || '');
       }
 
       async function renderQuestionModalAssessments() {
         if (!questionAssessmentSelect || !questionTermSelect || !questionSchoolYearSelect) return;
+        // Only the latest load fills the list (two quick changes used to add every test twice).
+        var renderSeq = (renderQuestionModalAssessments.seq = (renderQuestionModalAssessments.seq || 0) + 1);
         var previousAssessmentId = Number(questionAssessmentSelect.value || 0);
         questionAssessmentSelect.innerHTML = '';
 
@@ -5172,6 +5207,8 @@
           return;
         }
 
+        if (renderSeq !== renderQuestionModalAssessments.seq) return;
+        questionAssessmentSelect.innerHTML = '';
         var assessments = Array.isArray(payload.assessments) ? payload.assessments : [];
         var filtered = assessments.filter(function (assessment) {
           var assessmentSchoolYearId = Number(assessment.school_year_id || 0);
@@ -5216,7 +5253,7 @@
 
           var opt = document.createElement('option');
           opt.value = String(assessmentId);
-          opt.textContent = String(assessment.title || 'Assessment') + ' - ' + String(assessment.class_name || 'Class') + ' - ' + String(assessment.subject_name || 'Subject');
+          opt.textContent = String(assessment.title || 'Test');
           questionAssessmentSelect.appendChild(opt);
         });
 
@@ -5230,9 +5267,9 @@
         }
 
         if (!questionAssessmentSelect.options.length) {
-          setQuestionStatus('No assessments found for this School Year + Term + Class + Subject.', true);
+          setQuestionStatus('No tests for this class and subject yet. Create one in Assessments first, or pick another subject.', true);
         } else {
-          setQuestionStatus('Select an assessment to continue.', false);
+          setQuestionStatus('Pick the test these questions are for.', false);
         }
       }
 
@@ -5856,6 +5893,64 @@
         swatchWrap.style.borderColor = '#94a3b8';
       }
 
+      // "Used before": while typing a question, show matching questions this school
+      // already wrote for the subject. Picking one fills in the whole question.
+      (function () {
+        if (!questionItems) return;
+        var box = null, timer = null, seq = 0;
+        var TYPE_LABEL = { single_choice: 'Choose one', multiple_choice: 'Choose several', true_false: 'True / False', short_text: 'Short answer', essay: 'Essay' };
+        var plain = function (el) { return String(el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim(); };
+        var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+        function close() { if (box) { box.remove(); box = null; } }
+        questionItems.addEventListener('input', function (event) {
+          var editor = event.target && event.target.closest ? event.target.closest('.question-text-editor') : null;
+          if (!editor) return;
+          var card = editor.closest('.qm-question-card');
+          var text = plain(editor);
+          clearTimeout(timer);
+          var subjectId = questionSubjectSelect ? questionSubjectSelect.value : '';
+          if (text.length < 4 || !subjectId) { close(); return; }
+          timer = setTimeout(function () {
+            var mine = ++seq;
+            fetch('/common/assessment/questions/bank?subjectId=' + encodeURIComponent(subjectId) + '&q=' + encodeURIComponent(text), { headers: { Accept: 'application/json' } })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (mine !== seq) return;
+                var inSet = new Set(Array.from(questionItems.querySelectorAll('.question-text-editor')).map(function (el) { return plain(el).toLowerCase(); }));
+                var list = (data && data.questions || []).filter(function (q) { return !inSet.has(String(q.plainText).toLowerCase()); }).slice(0, 6);
+                close();
+                if (!list.length) return;
+                box = document.createElement('div');
+                box.className = 'qm-bank';
+                box.innerHTML = '<div class="qm-bank__head">Used before <span>Click to use</span></div>' + list.map(function (q, i) {
+                  return '<button type="button" class="qm-bank__item" data-i="' + i + '"><span class="qm-bank__text">' + esc(q.plainText) + '</span><span class="qm-bank__meta">' +
+                    esc(TYPE_LABEL[q.questionType] || 'Question') + (q.className ? ' · ' + esc(q.className) : '') + ' · ' + esc(q.marks) + ' mark' + (Number(q.marks) === 1 ? '' : 's') +
+                    (q.answerKey ? ' · answer set' : '') + '</span></button>';
+                }).join('');
+                var anchorEl = editor.closest('.qm-question-text-editor-wrap') || editor;
+                anchorEl.insertAdjacentElement('afterend', box);
+                box.addEventListener('mousedown', function (e) { e.preventDefault(); });
+                box.addEventListener('click', function (e) {
+                  var btn = e.target.closest('.qm-bank__item');
+                  if (!btn) return;
+                  var q = list[Number(btn.getAttribute('data-i'))];
+                  var fresh = buildQuestionItem({
+                    questionType: q.questionType, questionText: q.questionText, options: q.options,
+                    optionLayout: q.optionLayout, answerKey: q.answerKey, marks: q.marks,
+                  });
+                  card.replaceWith(fresh);
+                  close();
+                  if (typeof renumberQuestionCards === 'function') renumberQuestionCards();
+                  if (typeof updateQuestionCount === 'function') updateQuestionCount();
+                });
+              })
+              .catch(function () { close(); });
+          }, 300);
+        });
+        questionItems.addEventListener('focusout', function () { setTimeout(close, 200); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+      })();
+
       function buildQuestionItem(question) {
         var wrapper = document.createElement('div');
         wrapper.className = 'qm-question-card';
@@ -5866,10 +5961,10 @@
           '    <div class="qm-field qm-header-type-field">',
           '      <label>Type</label>',
           '      <select class="question-type">',
-          '      <option value="multiple_choice">Multiple Choice</option>',
-          '      <option value="single_choice">One Choice</option>',
+          '      <option value="single_choice">Choose one</option>',
+          '      <option value="multiple_choice">Choose several</option>',
           '      <option value="true_false">True / False</option>',
-          '      <option value="short_text">Short Text</option>',
+          '      <option value="short_text">Short answer</option>',
           '      <option value="essay">Essay</option>',
           '      </select>',
           '    </div>',
@@ -6270,7 +6365,7 @@
 
         if (!selectedAssessmentRule) {
           setQuestionEditorEnabled(false);
-          setQuestionStatus('No assessments found for the selected school year and term.', true);
+          setQuestionStatus('No tests for this class and subject yet. Create one in Assessments first, or pick another subject.', true);
           updateQuestionCount();
           return;
         }
@@ -7575,7 +7670,7 @@
             maxAttempts: questionMaxAttemptsInput
               ? String(Math.max(Number.parseInt(String(questionMaxAttemptsInput.value || '').trim(), 10) || 1, 1))
               : '1',
-            setTitle: String(questionSetTitleInput ? questionSetTitleInput.value : '').trim() || 'Question Set',
+            setTitle: String(questionSetTitleInput ? questionSetTitleInput.value : '').trim(),
             setDescription: String(questionSetDescriptionInput ? questionSetDescriptionInput.value : '').trim(),
             questions: questions,
           };

@@ -1,7 +1,24 @@
 // jobs/scheduler.js
 // Schedules the recurring Stripe billing job to run every minute
 
-const cron = require('node-cron');
+const nodeCron = require('node-cron');
+const { withAdvisoryLock } = require('../utils/dbLock');
+
+// Every job holds a Postgres lock while it runs, so it never runs twice at the
+// same time — not on two servers, and not overlapping itself when a run is slow.
+let scheduledJobCount = 0;
+const cron = {
+  schedule(expression, task) {
+    const lockKey = `scheduler-job:${++scheduledJobCount}:${expression}`;
+    return nodeCron.schedule(expression, async () => {
+      try {
+        await withAdvisoryLock(lockKey, task);
+      } catch (error) {
+        console.error(`[Scheduler] ${lockKey} could not run:`, error.message);
+      }
+    });
+  },
+};
 const runRecurringBilling = require('./recurringStripeBilling');
 const {
   ensureNotificationSchema,
@@ -197,6 +214,26 @@ if (shouldRunScheduler) {
       }
     } catch (error) {
       console.error('[Google Classroom] Grade pull failed:', error.message);
+    }
+  });
+}
+
+// Midnight: apply scheduled account holds, then remind managers of on-hold accounts.
+const shouldRunScheduledHolds = process.env.NODE_ENV === 'production' || process.env.ENABLE_SCHEDULED_HOLDS_CRON === 'true';
+if (shouldRunScheduledHolds) {
+  cron.schedule('0 0 * * *', async () => {
+    try {
+      await require('../utils/applyScheduledHolds')();
+    } catch (error) {
+      console.error('[Scheduled Holds] Failed:', error.message);
+    }
+    try {
+      const summary = await require('../utils/onHoldManagerReminders').runOnHoldManagerReminderSweep();
+      if (summary.emailsSent > 0) {
+        console.log(`[On-Hold Manager Reminder] Sweep complete. orgs=${summary.orgsProcessed}, emails=${summary.emailsSent}`);
+      }
+    } catch (error) {
+      console.error('[On-Hold Manager Reminder] Sweep failed:', error.message);
     }
   });
 }

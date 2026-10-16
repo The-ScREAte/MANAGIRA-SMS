@@ -1,6 +1,7 @@
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { Upload } = require('@aws-sdk/lib-storage');
 const multer = require('multer');
+const { safeUploadOptions } = require('../utils/uploadSafety');
 const path = require('path');
 
 // Initialize the S3 client
@@ -14,7 +15,7 @@ const s3 = new S3Client({
 
 // Multer configuration for handling file uploads
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ storage, ...safeUploadOptions({ maxMb: 15, maxFiles: 20 }) });
 
 const uploadToS3 = async (file, customKey = null) => {
   const key = customKey || `images/logos/${Date.now()}_${file.originalname}`;

@@ -9942,6 +9942,8 @@ const commonController = {
 
         // Delete the used token
         await db.query(`DELETE FROM password_reset_tokens WHERE token = $1`, [token]);
+        // Sign the parent out on every device.
+        await require("../utils/sessionRevoke").revokeSessions(db, { guardianId });
 
         req.flash("success", "Password set successfully! You can now log in to the Parent Portal.");
         return res.redirect("/account/guardian-login");
@@ -9966,6 +9968,8 @@ const commonController = {
         }
 
         await db.query(`DELETE FROM password_reset_tokens WHERE token = $1`, [token]);
+        // Sign the student out on every device.
+        await require("../utils/sessionRevoke").revokeSessions(db, { studentId });
 
         req.flash("success", "Password set successfully! You can now log in to the Student Portal.");
         return res.redirect("/account/student-login");
@@ -9977,7 +9981,7 @@ const commonController = {
         `UPDATE users
          SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
          WHERE reset_password_token = $2 AND reset_password_expires > NOW()
-         RETURNING first_name, last_name, email, organization_id`,
+         RETURNING first_name, last_name, email, organization_id, user_id`,
         [hashedPassword, hashedToken]
       );
 
@@ -9985,6 +9989,7 @@ const commonController = {
         req.flash("error", "Invalid or expired token.");
         return res.redirect("/account/login");
       }
+      await require("../utils/sessionRevoke").revokeSessions(db, { userId: result.rows[0].user_id });
 
       const { first_name, last_name, email, organization_id } = result.rows[0];
 
@@ -11636,6 +11641,54 @@ const commonController = {
     }
   },
 
+  // "Used before": the school's earlier questions for the same subject (by name,
+  // so it works across classes and terms) that match what the teacher types.
+  getQuestionBank: async (req, res, db) => {
+    const organizationId = Number(req.session.organizationId || 0);
+    const subjectId = Number(req.query.subjectId || 0);
+    const q = String(req.query.q || "").replace(/\s+/g, " ").trim().slice(0, 120);
+    if (!organizationId || !subjectId || q.length < 3) return res.json({ success: true, questions: [] });
+    try {
+      const like = `%${q.replace(/[\\%_]/g, (c) => "\\" + c)}%`;
+      const { rows } = await db.query(
+        `SELECT * FROM (
+           SELECT DISTINCT ON (LOWER(REGEXP_REPLACE(aq.question_text, '<[^>]+>', '', 'g')))
+             aq.question_type, aq.question_text, aq.options_json, aq.answer_key, aq.marks, aq.options_layout,
+             REGEXP_REPLACE(aq.question_text, '<[^>]+>', '', 'g') AS plain_text,
+             c.class_name, aq.updated_at
+           FROM assessment_questions aq
+           JOIN assessment_question_sets qs ON qs.question_set_id = aq.question_set_id AND qs.organization_id = aq.organization_id
+           JOIN subjects sub ON sub.subject_id = qs.subject_id
+           LEFT JOIN classes c ON c.class_id = qs.class_id
+           WHERE aq.organization_id = $1
+             AND LOWER(TRIM(sub.subject_name)) = (SELECT LOWER(TRIM(subject_name)) FROM subjects WHERE subject_id = $2 AND organization_id = $1)
+             AND REGEXP_REPLACE(aq.question_text, '<[^>]+>', '', 'g') ILIKE $3
+           ORDER BY LOWER(REGEXP_REPLACE(aq.question_text, '<[^>]+>', '', 'g')),
+                    (COALESCE(TRIM(aq.answer_key), '') <> '') DESC, aq.updated_at DESC
+         ) x
+         ORDER BY updated_at DESC
+         LIMIT 8`,
+        [organizationId, subjectId, like]
+      );
+      return res.json({
+        success: true,
+        questions: rows.map((r) => ({
+          questionType: r.question_type,
+          questionText: r.question_text,
+          plainText: String(r.plain_text || "").replace(/&nbsp;/g, " ").trim(),
+          options: Array.isArray(r.options_json) ? r.options_json : [],
+          answerKey: r.answer_key || "",
+          marks: Number(r.marks || 1),
+          optionLayout: r.options_layout || "stacked",
+          className: r.class_name || "",
+        })),
+      });
+    } catch (error) {
+      console.error("[getQuestionBank]", error.message);
+      return res.status(500).json({ success: false, questions: [] });
+    }
+  },
+
   getAssessmentQuestionSets: async (req, res, db) => {
     const organizationId = req.session.organizationId;
     const questionSetId = req.query.questionSetId ? Number(req.query.questionSetId) : null;
@@ -11839,7 +11892,7 @@ const commonController = {
     const requestedTermId = Number(req.body.termId || req.session.currentTermId);
     const assessmentId = Number(req.body.assessmentId);
     const questionSetId = req.body.questionSetId ? Number(req.body.questionSetId) : null;
-    const setTitle = String(req.body.setTitle || "").trim();
+    let setTitle = String(req.body.setTitle || "").replace(/\s+/g, " ").trim();
     const setDescription = String(req.body.setDescription || "").trim();
     const questionCardLayoutRaw = String(req.body.questionCardLayout || "").trim().toLowerCase();
     const questionCardLayout = questionCardLayoutRaw === 'side_by_side' ? 'side_by_side' : 'stacked';
@@ -11860,11 +11913,28 @@ const commonController = {
     if (!organizationId || !Number.isInteger(assessmentId)) {
       return res.status(400).json({ success: false, error: "assessmentId is required." });
     }
-    if (!setTitle) {
-      return res.status(400).json({ success: false, error: "Set title is required." });
-    }
     if (!questions.length) {
       return res.status(400).json({ success: false, error: "Add at least one question." });
+    }
+    // Every question must be answerable and marked automatically where it can be.
+    {
+      const seen = new Map();
+      for (let i = 0; i < questions.length; i += 1) {
+        const q = questions[i];
+        const n = i + 1;
+        const isChoice = q.questionType === "single_choice" || q.questionType === "multiple_choice";
+        if (isChoice && q.options.length < 2) {
+          return res.status(400).json({ success: false, error: `Question ${n} needs at least two choices.` });
+        }
+        if ((isChoice || q.questionType === "true_false") && !q.answerKey) {
+          return res.status(400).json({ success: false, error: `Question ${n} needs a correct answer. Pick it under Answer key.` });
+        }
+        const key = String(q.questionText).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().toLowerCase();
+        if (key && seen.has(key)) {
+          return res.status(400).json({ success: false, error: `Question ${n} is the same as question ${seen.get(key)}. Change or remove one.` });
+        }
+        seen.set(key, n);
+      }
     }
 
     const client = await db.connect();
@@ -11893,6 +11963,14 @@ const commonController = {
       }
 
       const assessmentRow = assessmentResult.rows[0];
+      // No title (or the old generic one): name it after the subject and test.
+      if (!setTitle || /^question set$/i.test(setTitle)) {
+        const named = (await client.query(
+          `SELECT s.subject_name, a.title FROM assessments a LEFT JOIN subjects s ON s.subject_id = a.subject_id WHERE a.assessment_id = $1`,
+          [assessmentId]
+        )).rows[0] || {};
+        setTitle = [named.subject_name, named.title].filter(Boolean).join(" · ") || "Questions";
+      }
       const isEditingExistingSet = Number.isInteger(questionSetId) && questionSetId > 0;
       if (!assessmentRow.show_question_set_on_dashboard && !isEditingExistingSet) {
         await client.query("ROLLBACK");
@@ -13225,7 +13303,7 @@ NUMBERING:
           AND s.class_id = a.class_id
           AND s.organization_id = a.organization_id
          WHERE a.organization_id = $1
-           AND a.term_id IS NOT NULL
+           AND a.term_id = $2
            AND a.class_id IS NOT NULL
            AND a.subject_id IS NOT NULL
            AND EXISTS (
@@ -13238,7 +13316,7 @@ NUMBERING:
                AND ec.class_id = a.class_id
            )
          ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC, s.subject_name ASC, a.title ASC, a.assessment_id ASC`,
-        [organizationId]
+        [organizationId, termId] // only the selected term is shown
       );
 
       const scopedAssessmentRows = assessmentsForOrgResult.rows.filter((row) => isClassInScope(row.class_id));
@@ -13281,30 +13359,19 @@ NUMBERING:
 
       const assessmentAttemptInsights = new Map();
       if (assessmentIdsForTerm.length) {
-        const enrolledStudentsByAssessmentResult = await db.query(
-          `SELECT DISTINCT
-             a.assessment_id,
-             st.student_id,
-             st.first_name,
-             st.last_name
-           FROM assessments a
-           JOIN enrollments e
-             ON e.organization_id = a.organization_id
-            AND e.term_id = a.term_id
-           JOIN enrolled_students es
-             ON es.enrollment_id = e.enrollment_id
-            AND es.class_id = a.class_id
-           JOIN students st
-             ON st.student_id = es.student_id
-            AND st.organization_id = a.organization_id
-           WHERE a.organization_id = $1
-             AND a.term_id = $2
-             AND a.assessment_id = ANY($3::int[])
-           ORDER BY a.assessment_id ASC, st.last_name ASC, st.first_name ASC, st.student_id ASC`,
-          [organizationId, termId, assessmentIdsForTerm]
+        // Each class's students are loaded once, then shared by its assessments.
+        const termClassIds = Array.from(new Set(assessmentsForTerm.map((a) => Number(a.class_id))));
+        const enrolledByClassPromise = db.query(
+          `SELECT DISTINCT es.class_id, st.student_id, st.first_name, st.last_name
+           FROM enrollments e
+           JOIN enrolled_students es ON es.enrollment_id = e.enrollment_id
+           JOIN students st ON st.student_id = es.student_id AND st.organization_id = e.organization_id
+           WHERE e.organization_id = $1 AND e.term_id = $2 AND es.class_id = ANY($3::int[])
+           ORDER BY es.class_id, st.last_name ASC, st.first_name ASC, st.student_id ASC`,
+          [organizationId, termId, termClassIds]
         );
 
-        const submittedAttemptsByAssessmentResult = await db.query(
+        const submittedAttemptsByAssessmentPromise = db.query(
           `SELECT DISTINCT ON (saa.assessment_id, saa.student_id)
              saa.assessment_id,
              saa.student_id,
@@ -13330,6 +13397,16 @@ NUMBERING:
                     saa.attempt_id DESC`,
           [organizationId, assessmentIdsForTerm]
         );
+        const [enrolledByClassResult, submittedAttemptsByAssessmentResult] = await Promise.all([enrolledByClassPromise, submittedAttemptsByAssessmentPromise]);
+        const studentsByClass = new Map();
+        enrolledByClassResult.rows.forEach((row) => {
+          const key = Number(row.class_id);
+          if (!studentsByClass.has(key)) studentsByClass.set(key, []);
+          studentsByClass.get(key).push(row);
+        });
+        const enrolledStudentsByAssessmentResult = {
+          rows: assessmentsForTerm.flatMap((a) => (studentsByClass.get(Number(a.class_id)) || []).map((st) => ({ ...st, assessment_id: a.assessment_id }))),
+        };
 
         enrolledStudentsByAssessmentResult.rows.forEach((row) => {
           const assessmentId = Number(row.assessment_id);
@@ -13455,6 +13532,7 @@ NUMBERING:
          LEFT JOIN assessment_questions q ON q.question_set_id = qs.question_set_id
          WHERE qs.organization_id = $1
            AND qs.term_id = $2
+           AND COALESCE(qs.is_active, TRUE)
          GROUP BY
            qs.question_set_id,
            qs.class_id,
@@ -13475,8 +13553,9 @@ NUMBERING:
            a.time_limit_minutes,
            a.max_attempts,
            ru.first_name,
-           ru.last_name
-         ORDER BY qs.updated_at DESC, qs.question_set_id DESC`,
+           ru.last_name,
+           qs.retake_student_id
+         ORDER BY (qs.retake_student_id IS NOT NULL), qs.updated_at DESC, qs.question_set_id DESC`, // the main set, not a retake copy
         [organizationId, termId]
       );
 
@@ -13503,7 +13582,8 @@ NUMBERING:
                question_type,
                question_text,
                marks,
-               position_index
+               position_index,
+               (question_type IN ('single_choice', 'multiple_choice', 'true_false') AND COALESCE(TRIM(answer_key), '') = '') AS missing_answer
              FROM assessment_questions
              WHERE question_set_id = ANY($1::int[])
              ORDER BY question_set_id ASC, position_index ASC, question_id ASC`,
@@ -13523,6 +13603,7 @@ NUMBERING:
           questionText: row.question_text,
           marks: Number(row.marks || 0),
           positionIndex: Number(row.position_index || 0),
+          missingAnswer: !!row.missing_answer,
         });
       });
 
@@ -13574,6 +13655,7 @@ NUMBERING:
         set_description: row.set_description || "",
         total_points: Number(row.total_points || 0),
         question_count: Number(row.question_count || 0),
+        missing_answers: (questionsBySetId.get(Number(row.question_set_id)) || []).filter((q) => q.missingAnswer).length,
         review_status: String(row.review_status || "pending").toLowerCase(),
         review_note: row.review_note || "",
         reviewed_at: row.reviewed_at,
@@ -14792,7 +14874,21 @@ NUMBERING:
         targetGroupId = Number(existingAssessmentResult.rows[0].group_id);
       }
 
-      const clonedSetTitle = `${sourceSet.set_title || "Question Set"} (Reuse)`;
+      // One question set per test: don't make a second one.
+      const alreadyHasSet = await client.query(
+        `SELECT question_set_id FROM assessment_question_sets
+          WHERE assessment_id = $1 AND organization_id = $2 AND retake_student_id IS NULL AND is_active LIMIT 1`,
+        [targetAssessmentId, organizationId]
+      );
+      if (alreadyHasSet.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ success: false, error: "That test already has questions. Open it to edit them, or choose a different test." });
+      }
+      const targetNames = (await client.query(
+        `SELECT s.subject_name, a.title FROM assessments a LEFT JOIN subjects s ON s.subject_id = a.subject_id WHERE a.assessment_id = $1`,
+        [targetAssessmentId]
+      )).rows[0] || {};
+      const clonedSetTitle = [targetNames.subject_name, targetNames.title].filter(Boolean).join(" · ") || sourceSet.set_title || "Questions";
       const insertQuestionSetResult = await client.query(
         `INSERT INTO assessment_question_sets (
            organization_id,

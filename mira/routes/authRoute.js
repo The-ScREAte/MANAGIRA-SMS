@@ -154,6 +154,8 @@ router.post("/login", express.urlencoded({ extended: true }), async (req, res) =
       path: "/",
       httpOnly: true,
       sameSite: "lax",
+      // Same rule as the main app's session cookie: HTTPS only in production.
+      secure: process.env.NODE_ENV === "production" && process.env.SESSION_COOKIE_SECURE !== "false",
       domain: cookieDomainMatch ? cookieDomainMatch[1] : undefined,
       maxAge: 24 * 60 * 60 * 1000,
     });

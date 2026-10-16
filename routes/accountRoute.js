@@ -5,6 +5,7 @@ const accountController = require("../controllers/accountController");
 const guardianMessagingController = require("../controllers/guardianMessagingController");
 const themeController = require("../controllers/themeController");
 const accountValidation = require("../validation/accountValidation");
+const { authRateLimit } = require("../utils/authRateLimit");
 const { isAuthenticated } = require("../middleware/authMiddleware");
 const { upload } = require("../middleware/s3Upload");
 const db = require("../config/db");
@@ -74,6 +75,7 @@ router.get("/login-ads/:id(\\d+)/file", loginAdsController.serveFile);
 router.post("/login-ads/:id(\\d+)/click", loginAdsController.recordSignInClick);
 router.post(
   "/login",
+  authRateLimit("login", { field: "email" }),
   accountValidation.validateLogin,
   accountValidation.validateLoginResult,
   (req, res) => accountController.loginPost(req, res, db)
@@ -85,6 +87,7 @@ router.get("/guardian-login", (req, res) =>
 );
 router.post(
   "/guardian-login",
+  authRateLimit("guardian-login", { field: "identifier" }),
   accountValidation.validateGuardianLogin,
   accountValidation.validateGuardianLoginResult,
   (req, res) => accountController.guardianLoginPost(req, res, db)
@@ -94,6 +97,7 @@ router.get("/student-login", (req, res) =>
 );
 router.post(
   "/student-login",
+  authRateLimit("student-login", { field: "email" }),
   accountValidation.validateStudentLogin,
   accountValidation.validateStudentLoginResult,
   (req, res) => accountController.studentLoginPost(req, res, db)
@@ -229,13 +233,13 @@ router.post(
 router.get("/forget-password", (req, res) =>
   accountController.forgetPasswordGet(req, res, db)
 );
-router.post("/forget-password", (req, res) =>
+router.post("/forget-password", authRateLimit("forget-password", { field: "email", perAccount: 5, perIp: 50 }), (req, res) =>
   accountController.forgetPasswordPost(req, res, db)
 );
 router.get("/reset-password", (req, res) =>
   accountController.resetPasswordGet(req, res, db)
 );
-router.post("/reset-password", (req, res) =>
+router.post("/reset-password", authRateLimit("reset-password", { field: "token", perIp: 50 }), (req, res) =>
   accountController.resetPasswordPost(req, res, db)
 );
 

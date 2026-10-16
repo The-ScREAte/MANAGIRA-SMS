@@ -2,3 +2,4 @@
 # config/db.js
 node_modules
 .qodo
+s3-policy-backup-*.json

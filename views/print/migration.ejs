@@ -430,7 +430,7 @@
             return;
           }
 
-          let fileExtension = fileUrl.split(".").pop().toLowerCase();
+          let fileExtension = fileUrl.split("?")[0].split(".").pop().toLowerCase();
           $("#filePreviewContainer").show();
           $("#searchFileContent").val("");
 

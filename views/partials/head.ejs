@@ -275,6 +275,8 @@
           ? '"admin"' :
         session.accountType === 'Hub' ? '"hub"' :
         session.userRole === 'Guardian' ? '"guardian"' :
+        session.userRole === 'Student' ? '"student"' :
+        session.userRole === 'Driver' ? '"driver"' :
         '"organization"'
       ) : '"public"'
     %>;

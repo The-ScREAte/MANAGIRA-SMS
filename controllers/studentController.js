@@ -1,4 +1,5 @@
 const { getClassScheduleForTerm } = require("../utils/classScheduleService");
+const sanitizeHtml = require("sanitize-html");
 const { ensureStudentPortalSchema } = require("../utils/studentPortal");
 const {
   ensureAttendanceCalendarSchema,
@@ -492,7 +493,7 @@ async function getOpenAssessments(db, organizationId, studentId, classId, termId
            ON q.question_set_id = qs.question_set_id
          WHERE qs.organization_id = a.organization_id
            AND qs.assessment_id = a.assessment_id
-           AND LOWER(COALESCE(qs.review_status, 'pending')) = 'approved'
+           AND LOWER(COALESCE(qs.review_status, 'pending')) = 'approved' AND COALESCE(qs.is_active, TRUE)
              AND (qs.retake_student_id IS NULL OR qs.retake_student_id = $4)
          GROUP BY qs.question_set_id, qs.updated_at, qs.retake_student_id
            ORDER BY
@@ -1184,7 +1185,7 @@ module.exports = {
                 AND (retake_student_id IS NULL OR retake_student_id = $4)
               )
             )
-            AND LOWER(COALESCE(review_status, 'pending')) = 'approved'
+            AND LOWER(COALESCE(review_status, 'pending')) = 'approved' AND COALESCE(is_active, TRUE)
           ORDER BY
             CASE WHEN retake_student_id = $4 THEN 0 ELSE 1 END,
             updated_at DESC,
@@ -1207,7 +1208,7 @@ module.exports = {
             WHERE organization_id = $1
               AND assessment_id = $2
               AND (retake_student_id IS NULL OR retake_student_id = $3)
-              AND LOWER(COALESCE(review_status, 'pending')) = 'approved'
+              AND LOWER(COALESCE(review_status, 'pending')) = 'approved' AND COALESCE(is_active, TRUE)
             ORDER BY
               CASE WHEN retake_student_id = $3 THEN 0 ELSE 1 END,
               updated_at DESC,
@@ -1331,7 +1332,14 @@ module.exports = {
         submittedAttemptCount,
         remainingAttempts: Math.max(maxAttempts - submittedAttemptCount, 0),
         questionSet,
-        questions: questionsResult.rows,
+        // Keep simple formatting (bold, italics, line breaks) the teacher typed; strip everything else.
+        questions: questionsResult.rows.map((q) => ({
+          ...q,
+          question_html: sanitizeHtml(String(q.question_text || ""), {
+            allowedTags: ["b", "strong", "i", "em", "u", "br", "sub", "sup", "p"],
+            allowedAttributes: {},
+          }),
+        })),
         attemptId,
         attemptStartedAt: attemptResult.rows[0]?.started_at || null,
         responsesByQuestionId,

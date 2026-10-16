@@ -13,12 +13,26 @@ const globalErrorHandler = (err, req, res, next) => {
         return next(err);
     }
 
+    // Upload too large or a blocked file type: say so plainly.
+    const uploadMessage = require('../utils/uploadSafety').uploadErrorMessage(err);
+    if (uploadMessage) {
+        if (req.xhr || /json/i.test(req.get('accept') || '')) return res.status(400).json({ success: false, message: uploadMessage });
+        if (req.session && typeof req.flash === 'function') {
+            req.flash('error', uploadMessage);
+            return res.redirect('back');
+        }
+        return res.status(400).type('txt').send(uploadMessage);
+    }
+
     const rawMessage = err && err.message ? err.message : 'Internal Server Error';
     const isNetworkError = err && (err.code === 'ENOTFOUND' || /getaddrinfo ENOTFOUND/i.test(rawMessage));
     const status = isNetworkError ? 503 : (err.status || 500);
+    // In production, server errors show a plain message; details stay in the logs
+    // (raw messages can reveal table names or SQL).
+    const hideDetails = process.env.NODE_ENV === 'production' && status >= 500;
     const message = isNetworkError
         ? 'We’re having trouble connecting to the server. Please check your internet connection and try again.'
-        : rawMessage;
+        : (hideDetails ? 'Something went wrong. Please try again.' : rawMessage);
 
     // Log only non-404 errors to avoid repeated terminal clutter
     if (status !== 404) {

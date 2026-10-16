@@ -4,7 +4,7 @@ module.exports = (db) => {
     const adminController = require('../controllers/adminController');
     const { isAuthenticated, fetchUserInfo, ensureAdmin, ensureAdminOrInternal } = require('../middleware/authMiddleware');
     const multer = require('multer');
-    const upload = multer({ dest: 'uploads/' });
+    const upload = multer({ dest: 'uploads/', ...require('../utils/uploadSafety').safeUploadOptions({ maxMb: 25 }) });
 
     // Side-panel forms on the hub pages post with X-Admin-Ajax: answer with JSON
     // ({ success, message, redirect }) instead of a flash message and a redirect.

@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { tryAdvisoryLock } = require("./dbLock");
 const { sendEmailSafely } = require("./emailHelper");
 const {
   ensureAdminEmailCampaignSchema,
@@ -28,12 +29,8 @@ async function ensureAdminEmailSchemaReady() {
 async function runAdminEmailCampaignSweep() {
   await ensureAdminEmailSchemaReady();
 
-  const lockResult = await db.query(
-    `SELECT pg_try_advisory_lock($1) AS locked`,
-    [ADMIN_EMAIL_SWEEP_LOCK_KEY]
-  );
-  const locked = lockResult.rows[0]?.locked === true;
-  if (!locked) {
+  const releaseLock = await tryAdvisoryLock(ADMIN_EMAIL_SWEEP_LOCK_KEY);
+  if (!releaseLock) {
     if (ADMIN_EMAIL_LOG_VERBOSE) {
       console.log(`[Admin Email Scheduler] ${new Date().toISOString()} sweep skipped (lock held by another process).`);
     }
@@ -77,10 +74,7 @@ async function runAdminEmailCampaignSweep() {
     failed,
   };
   } finally {
-    await db.query(
-      `SELECT pg_advisory_unlock($1)`,
-      [ADMIN_EMAIL_SWEEP_LOCK_KEY]
-    );
+    await releaseLock();
   }
 }
 

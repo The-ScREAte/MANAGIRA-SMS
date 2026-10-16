@@ -7,6 +7,7 @@ const storage = multer.memoryStorage(); // Store files in memory to send to S3
 // Configuring multer to accept multiple fields with file inputs
 const contentUpload = multer({
     storage,
+    ...require('../utils/uploadSafety').safeUploadOptions({ maxMb: 50, maxFiles: 11 }),
 }).fields([
     { name: 'files', maxCount: 10 }, // Allow up to 10 slideshow images/videos
     { name: 'logo', maxCount: 1 },    // Allow 1 logo file
@@ -34,6 +35,14 @@ function expectsJsonResponse(req) {
 async function isAuthenticated(req, res, next) {
     try {
         await hydrateOrganizationSession(req);
+
+        // A background preload of a page this person can't open: just say no, no message.
+
+        if (req.session && ['Student', 'Driver'].includes(req.session.userRole) && req.get && req.get('X-SPA-Preload') === '1') {
+
+            return res.status(403).end();
+
+        }
 
         if (req.session && req.session.userRole === 'Student') {
             if (expectsJsonResponse(req)) {

@@ -1358,6 +1358,13 @@ async function uploadToS3(key, file) {
   }
 }
 
+// Signed, expiring link to a school's private migration file.
+async function signedMigrationUrl(key, expiresIn = 3600) {
+  const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+  const { GetObjectCommand } = require("@aws-sdk/client-s3");
+  return getSignedUrl(s3Client, new GetObjectCommand({ Bucket: process.env.S3_BUCKET_NAME, Key: key }), { expiresIn });
+}
+
 async function getFromS3(key) {
   try {
     // Return the full URL to the image in S3 (public access assumed)
@@ -6697,10 +6704,10 @@ const printController = (db) => ({
 
       const { Contents } = await s3Client.send(listCommand);
 
-      const uploadedFiles = (Contents || []).map((file) => ({
+      const uploadedFiles = await Promise.all((Contents || []).map(async (file) => ({
         file_name: file.Key.split("/").pop(),
-        s3_url: `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${file.Key}`,
-      }));
+        s3_url: await signedMigrationUrl(file.Key),
+      })));
 
       res.render("print/migration", {
         title: "Data Migration",
@@ -6781,7 +6788,7 @@ const printController = (db) => ({
 
       for (let file of Contents || []) {
         if (file.Key.toLowerCase().includes(query.toLowerCase())) {
-          fileUrl = `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${file.Key}`;
+          fileUrl = await signedMigrationUrl(file.Key);
           results.push({ file: file.Key, url: fileUrl });
         }
       }
@@ -6813,11 +6820,10 @@ const printController = (db) => ({
           .json({ error: "File does not belong to your organization." });
       }
 
-      const fileUrl = await getFromS3(key);
-      if (!fileUrl) {
-        return res.status(404).json({ error: "File not found in S3." });
-      }
-
+      // Short-lived signed link (5 minutes), so the file opens only for this
+      // signed-in school even when the migrations folder is private on S3.
+      const fileUrl = await signedMigrationUrl(key, 300);
+      res.set("Cache-Control", "no-store");
       res.json({ fileUrl });
     } catch (error) {
             res.status(500).json({ error: "Failed to preview file." });

@@ -372,6 +372,9 @@ module.exports = (db) => {
   router.post("/saveAllScores", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), upload.none(), (req, res) =>
     commonController.saveAllScores(req, res, db)
   );
+  router.get("/assessment/questions/bank", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, (req, res) =>
+    commonController.getQuestionBank(req, res, db)
+  );
   router.get("/assessment/questions", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS), requirePermission(PERMISSIONS.SET_ASSESSMENT_QUESTIONS), requireSetAssessmentQuestionsFeature, (req, res) =>
     commonController.getAssessmentQuestionSets(req, res, db)
   );

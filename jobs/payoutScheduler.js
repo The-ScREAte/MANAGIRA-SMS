@@ -6,6 +6,7 @@
 // double-charge the same payout.
 
 const db = require("../config/db");
+const { tryAdvisoryLock } = require("../utils/dbLock");
 const { ensurePayoutSchema } = require("../utils/payoutSchema");
 const { executePayoutCharge } = require("../utils/payoutRunner");
 
@@ -26,8 +27,8 @@ async function ensureSchemaReady() {
 async function runPayoutSweep() {
   await ensureSchemaReady();
 
-  const lockResult = await db.query(`SELECT pg_try_advisory_lock($1) AS locked`, [PAYOUT_SWEEP_LOCK_KEY]);
-  if (lockResult.rows[0]?.locked !== true) {
+  const releaseLock = await tryAdvisoryLock(PAYOUT_SWEEP_LOCK_KEY);
+  if (!releaseLock) {
     return { processed: 0, succeeded: 0, failed: 0, skipped: true };
   }
 
@@ -76,7 +77,7 @@ async function runPayoutSweep() {
 
     return { processed, succeeded, failed, skipped: false };
   } finally {
-    await db.query(`SELECT pg_advisory_unlock($1)`, [PAYOUT_SWEEP_LOCK_KEY]);
+    await releaseLock();
   }
 }
 

@@ -137,7 +137,7 @@ function createHarness(options = {}) {
       }
 
       if (sql.includes('SELECT pg_try_advisory_lock')) {
-        return { rows: [{ locked: true }] };
+        return { rows: [{ locked: true, ok: true }] };
       }
 
       if (sql.includes('SELECT pg_advisory_unlock')) {
@@ -176,6 +176,10 @@ function createHarness(options = {}) {
       }
 
       throw new Error(`Unhandled query: ${sql}`);
+    },
+    // Advisory locks take their own client; route it through the same fake.
+    async connect() {
+      return { query: (sql, params) => db.query(sql, params), release() {} };
     },
   };
 

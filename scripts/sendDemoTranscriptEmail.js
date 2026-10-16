@@ -19,7 +19,7 @@ const RECIPIENT = process.argv[2] || 'bondahdean@gmail.com';
 const SCHOOL_NAME = 'Managira Int School';
 const SCHOOL_WEBSITE = 'https://managiraintschool.example.com';
 const SCHOOL_HOST = 'managiraintschool.example.com';
-const PORTAL_URL = process.env.APP_BASE_URL || 'https://app.managira.com';
+const PORTAL_URL = process.env.APP_BASE_URL || 'https://managira.com';
 const TODAY = new Date();
 const ISSUED_LABEL = TODAY.toLocaleDateString('en-US', {
   year: 'numeric',

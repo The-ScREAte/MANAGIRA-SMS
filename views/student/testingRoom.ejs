@@ -287,7 +287,7 @@
 
   @media (max-width: 900px) {
     .str-summary-grid {
-      grid-template-columns: 1fr;
+      gap: 8px;
     }
   }
 
@@ -403,15 +403,15 @@
 
     <div class="str-summary-grid">
       <article class="str-summary-card">
-        <p class="k">Open Assessments</p>
-        <p class="v"><%= safeOpenAssessments.length %></p>
-      </article>
-      <article class="str-summary-card">
-        <p class="k">Ready To Start</p>
+        <p class="k">To take</p>
         <p class="v"><%= readyOpenCount %></p>
       </article>
       <article class="str-summary-card">
-        <p class="k">Completed This Term</p>
+        <p class="k">Locked</p>
+        <p class="v"><%= lockedOpenCount %></p>
+      </article>
+      <article class="str-summary-card">
+        <p class="k">Done</p>
         <p class="v"><%= safeCompletedAssessments.length %></p>
       </article>
     </div>
@@ -419,12 +419,11 @@
 
   <section class="str-section">
     <div class="str-section-head">
-      <h2 class="str-section-title">Open Assessments</h2>
-      <span class="str-section-caption"><%= lockedOpenCount %> locked</span>
+      <h2 class="str-section-title">Open</h2>
     </div>
 
     <% if (!safeOpenAssessments.length) { %>
-      <p class="str-empty">No assessments are currently open for you in this term.</p>
+      <p class="str-empty">Nothing to take right now.</p>
     <% } else { %>
       <div class="str-list">
         <% safeOpenAssessments.forEach((item) => { %>
@@ -435,26 +434,23 @@
                 <strong><%= item.subject_name %></strong>
                 · <%= item.category || 'Assessment' %>
                 · <%= item.question_count || 0 %> questions
-                · Max <%= Number(item.max_score || 0).toFixed(2) %>
+                · <%= Number(item.max_score || 0) %> marks
               </p>
               <div class="str-meta-row">
-                <span class="str-chip <%= item.open_book ? 'str-chip-openbook' : '' %>">Assessment Mode: <%= item.open_book ? 'Open Book' : 'Secure' %></span>
+                <span class="str-chip <%= item.open_book ? 'str-chip-openbook' : '' %>"><%= item.open_book ? 'Open book' : 'Closed book' %></span>
                 <% if (item.time_limit_minutes && Number(item.time_limit_minutes) > 0) { %>
-                  <span class="str-chip">Duration <%= Number(item.time_limit_minutes) %> min</span>
+                  <span class="str-chip"><%= Number(item.time_limit_minutes) %> min</span>
                 <% } else { %>
-                  <span class="str-chip">Duration Unlimited</span>
+                  <span class="str-chip">No time limit</span>
                 <% } %>
                 <% const maxAttempts = Math.max(Number(item.max_attempts || 1), 1); %>
                 <% const submittedAttempts = Math.max(Number(item.submitted_attempts || 0), 0); %>
-                <span class="str-chip">Attempts <%= submittedAttempts %>/<%= maxAttempts %></span>
+                <% if (maxAttempts > 1) { %><span class="str-chip"><%= submittedAttempts %>/<%= maxAttempts %> attempts used</span><% } %>
                 <% if (item.edit_window_end) { %>
                   <% const deadlineDate = new Date(item.edit_window_end); %>
                   <% if (!Number.isNaN(deadlineDate.getTime())) { %>
-                    <span class="str-chip">Deadline <%= deadlineDate.toLocaleString() %></span>
+                    <span class="str-chip">Due <%= deadlineDate.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %></span>
                   <% } %>
-                <% } %>
-                <% if (item.is_locked) { %>
-                  <span class="str-chip str-chip-locked">Locked</span>
                 <% } %>
               </div>
             </div>
@@ -470,7 +466,7 @@
                 Locked
               </span>
             <% } else { %>
-              <a class="str-cta" href="/student/testing-room/<%= item.assessment_id %>?questionSetId=<%= Number(item.question_set_id || 0) %>">Take Now</a>
+              <a class="str-cta" href="/student/testing-room/<%= item.assessment_id %>?questionSetId=<%= Number(item.question_set_id || 0) %>">Start</a>
             <% } %>
           </div>
         <% }) %>
@@ -480,8 +476,7 @@
 
   <section class="str-section">
     <div class="str-section-head">
-      <h2 class="str-section-title">Completed Assessments</h2>
-      <span class="str-section-caption"><%= safeCompletedAssessments.length %> submitted</span>
+      <h2 class="str-section-title">Completed</h2>
     </div>
 
     <% if (!safeCompletedAssessments.length) { %>
@@ -495,18 +490,15 @@
               <p class="str-item-meta">
                 <strong><%= item.subject_name %></strong>
                 · <%= item.category || 'Assessment' %>
-                · Score <%= Number(item.score || 0).toFixed(2) %> / <%= Number(item.attempt_max_score || item.max_score || 0).toFixed(2) %>
+                · Score <%= Number(Number(item.score || 0).toFixed(2)) %> / <%= Number(item.attempt_max_score || item.max_score || 0) %>
               </p>
               <div class="str-meta-row">
-                <span class="str-chip">Assessment Mode: <%= item.open_book ? 'Open Book' : 'Secure' %></span>
+                <span class="str-chip"><%= item.open_book ? 'Open book' : 'Closed book' %></span>
                 <% if (item.time_limit_minutes && Number(item.time_limit_minutes) > 0) { %>
-                  <span class="str-chip">Duration <%= Number(item.time_limit_minutes) %> min</span>
+                  <span class="str-chip"><%= Number(item.time_limit_minutes) %> min</span>
                 <% } else { %>
-                  <span class="str-chip">Duration Unlimited</span>
+                  <span class="str-chip">No time limit</span>
                 <% } %>
-                <% const completedMaxAttempts = Math.max(Number(item.max_attempts || 1), 1); %>
-                <span class="str-chip">Max Attempts <%= completedMaxAttempts %></span>
-                <span class="str-chip str-chip-success">Submitted</span>
               </div>
             </div>
 

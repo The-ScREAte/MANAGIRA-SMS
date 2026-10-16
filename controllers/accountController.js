@@ -3804,7 +3804,10 @@ const accountController = {
         .update(rawBody)
         .digest("hex");
 
-      if (hash !== req.headers["x-paystack-signature"]) {
+      // Constant-time compare so the signature can't be guessed byte by byte.
+      const given = Buffer.from(String(req.headers["x-paystack-signature"] || ""), "utf8");
+      const expected = Buffer.from(hash, "utf8");
+      if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) {
                 return res.status(400).send("Webhook signature verification failed");
       }
 
@@ -5483,8 +5486,6 @@ const accountController = {
 
         const match = await bcrypt.compare(password, user.password);
 
-        req.session.userId = user.user_id;
-
         if (match) {
           const orgResult = await db.query(
             `SELECT o.*, 
@@ -5547,6 +5548,8 @@ const accountController = {
               }
 
               try {
+              // Signed-in staff member (set only after the password matched).
+              req.session.userId = user.user_id;
 
               req.session.user = {
                 user_id: user.user_id,
@@ -6894,6 +6897,12 @@ const accountController = {
           [hashedPassword, userId, orgId]
         );
       }
+
+      // Sign this account out on every other device.
+      await require("../utils/sessionRevoke").revokeSessions(db, {
+        ...(isOrgAccount ? { organizationOwnerId: orgId } : { userId }),
+        exceptSid: req.sessionID,
+      });
 
       req.flash("success", "Password updated successfully.");
       return res.redirect(redirectTo || "/account/settings");
@@ -8275,12 +8284,13 @@ const accountController = {
       const userResult = await db.query(
         `UPDATE users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
          WHERE reset_password_token = $2
-         RETURNING email`,
+         RETURNING email, user_id`,
         [hashedPassword, hashedToken]
       );
       if (userResult.rows.length > 0) {
         email = userResult.rows[0].email;
         updated = true;
+        await require("../utils/sessionRevoke").revokeSessions(db, { userId: userResult.rows[0].user_id });
       }
 
       // Try organizations table
@@ -8288,12 +8298,13 @@ const accountController = {
         const orgResult = await db.query(
           `UPDATE organizations SET password = $1, reset_password_token = NULL, reset_password_expires = NULL
            WHERE reset_password_token = $2
-           RETURNING email`,
+           RETURNING email, organization_id`,
           [hashedPassword, hashedToken]
         );
         if (orgResult.rows.length > 0) {
           email = orgResult.rows[0].email;
           updated = true;
+          await require("../utils/sessionRevoke").revokeSessions(db, { organizationOwnerId: orgResult.rows[0].organization_id });
         }
       }
 
@@ -8305,11 +8316,12 @@ const accountController = {
         const hubResult = await db.query(
           `UPDATE managira_hubs SET hub_password = $1, reset_password_token = NULL, reset_password_expires = NULL
            WHERE reset_password_token = $2
-           RETURNING hub_email AS email`,
+           RETURNING hub_email AS email, hub_id`,
           [hashedPassword, hashedToken]
         );
         if (hubResult.rows.length > 0) {
           email = hubResult.rows[0].email;
+          await require("../utils/sessionRevoke").revokeSessions(db, { hubOwnerId: hubResult.rows[0].hub_id });
           updated = true;
           isHubAccount = true;
         }
@@ -8321,11 +8333,12 @@ const accountController = {
         const hubUserResult = await db.query(
           `UPDATE hub_users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL, updated_at = NOW()
            WHERE reset_password_token = $2
-           RETURNING email`,
+           RETURNING email, hub_user_id`,
           [hashedPassword, hashedToken]
         );
         if (hubUserResult.rows.length > 0) {
           email = hubUserResult.rows[0].email;
+          await require("../utils/sessionRevoke").revokeSessions(db, { hubUserId: hubUserResult.rows[0].hub_user_id });
           updated = true;
           isHubAccount = true;
         }

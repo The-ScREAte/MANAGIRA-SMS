@@ -32,6 +32,9 @@
 
   // ─── Route Definitions by User Type ───────────────────────────────────
   const ROUTES_BY_TYPE = {
+    // Students and drivers only move between their own pages (never staff pages).
+    student: ['/student/dashboard', '/student/testing-room', '/legal/help', '/legal/faq'],
+    driver: ['/driver/dashboard', '/driver/settings', '/legal/help', '/legal/faq'],
     public: [
       '/',
       '/account/login',
@@ -172,6 +175,8 @@
     public: ['/account/login', '/account/register', '/account/service-plan'],
     organization: ['/common/orgDashboard', '/common/management', '/account/settings', '/account/settings/finance', '/account/settings/my-paygira'],
     guardian: ['/guardian/dashboard', '/guardian/paygira'],
+    student: ['/student/dashboard', '/student/testing-room'],
+    driver: ['/driver/dashboard'],
     hub: ['/hub/dashboard', '/hub/settings'],
     admin: ['/admin/superDashboard', '/admin/superSettings']
   };
@@ -1100,7 +1105,8 @@
       fetch(path, {
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'text/html'
+          'Accept': 'text/html',
+          'X-SPA-Preload': '1' // background warm-up: never leaves messages behind
         },
         priority: 'low'
       })

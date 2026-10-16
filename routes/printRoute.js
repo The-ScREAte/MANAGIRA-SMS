@@ -9,7 +9,8 @@ const checkFeatureAccess = require('../middleware/checkFeatureAccess');
 
 // Use memory storage for file uploads (files stored in memory, not disk)
 const storage = multer.memoryStorage(); 
-const upload = multer({ storage: storage });
+const { safeUploadOptions } = require('../utils/uploadSafety');
+const upload = multer({ storage: storage, ...safeUploadOptions({ maxMb: 25, maxFiles: 1 }) });
 
 module.exports = (db) => {
     const printController = require('../controllers/printController')(db);

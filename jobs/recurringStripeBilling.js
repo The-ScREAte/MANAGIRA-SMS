@@ -3,6 +3,7 @@
 
 const { countActiveStudents } = require("../utils/activeStudents");
 const db = require('../config/db');
+const { tryAdvisoryLock } = require('../utils/dbLock');
 const { getStripeClient } = require('../utils/stripeConfig');
 const { ensurePaymentProviderSchema } = require('../utils/paymentProviderSchema');
 const { getOrgChargeCards } = require('../utils/orgChargeCards');
@@ -486,8 +487,8 @@ async function chargeOrganizationNow(organizationId) {
   } catch (_) {}
 
   const lockKey = `recurring_subscription_charge:${org.organization_id}`;
-  const lockResult = await db.query('SELECT pg_try_advisory_lock(hashtext($1)) AS locked', [lockKey]);
-  if (!lockResult.rows[0]?.locked) {
+  const releaseLock = await tryAdvisoryLock(lockKey);
+  if (!releaseLock) {
     return { success: false, message: 'A payment attempt is already in progress for this organization. Please wait a moment and try again.' };
   }
 
@@ -728,7 +729,7 @@ async function chargeOrganizationNow(organizationId) {
 
     return { success: false, message: failureMessage };
   } finally {
-    await db.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);
+    await releaseLock();
   }
 }
 
@@ -912,11 +913,8 @@ async function runRecurringBilling() {
 
   for (const org of orgsDue.rows) {
     const lockKey = `recurring_subscription_charge:${org.organization_id}`;
-    const lockResult = await db.query(
-      'SELECT pg_try_advisory_lock(hashtext($1)) AS locked',
-      [lockKey]
-    );
-    if (!lockResult.rows[0]?.locked) {
+    const releaseLock = await tryAdvisoryLock(lockKey);
+    if (!releaseLock) {
       continue;
     }
 
@@ -1299,7 +1297,7 @@ async function runRecurringBilling() {
         });
       }
     } finally {
-      await db.query('SELECT pg_advisory_unlock(hashtext($1))', [lockKey]);
+      await releaseLock();
     }
   }
   

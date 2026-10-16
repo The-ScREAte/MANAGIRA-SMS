@@ -31,11 +31,9 @@ const db = require("./config/db");
 require("./config/passport")(passport);
 require("./config/passportHub")(passport); // Hub authentication
 require("./utils/promotionJob");
-require("./jobs/scheduler"); // Start the billing scheduler
+// Scheduled jobs run here unless RUN_SCHEDULED_JOBS=false (then worker.js runs them).
+if (process.env.RUN_SCHEDULED_JOBS !== "false") require("./jobs/scheduler");
 require("./jobs/keepAlive"); // Start the keep-alive scheduler
-const cron = require("node-cron");
-const applyScheduledHolds = require("./utils/applyScheduledHolds");
-const { runOnHoldManagerReminderSweep } = require("./utils/onHoldManagerReminders");
 
 const setCurrentTerm = require("./middleware/setCurrentTerm"); // Middleware to set the current term
 const {
@@ -47,6 +45,18 @@ const { fetchNotifCount } = require("./middleware/fetchNotifCount");
 
 const upload = multer();
 const app = express();
+app.disable("x-powered-by");
+// Security headers + block form posts from other websites (see docs/SECURITY.md).
+const { securityHeaders, crossSiteRequestGuard } = require("./middleware/securityMiddleware");
+app.use(securityHeaders);
+app.use(crossSiteRequestGuard);
+
+// Session signing key. Never fall back to a known value: without SESSION_SECRET,
+// use a random key (everyone is signed out on restart, but cookies can't be forged).
+const SESSION_SECRET = process.env.SESSION_SECRET || (() => {
+  console.warn("[Security] SESSION_SECRET is not set. Using a random key; set it in the environment.");
+  return require("crypto").randomBytes(48).toString("hex");
+})();
 const BASE_PORT = Number(process.env.PORT) || 4000;
 
 const expressLayouts = require("express-ejs-layouts");
@@ -593,12 +603,16 @@ if (process.env.NODE_ENV === "production") {
   app.use(
     session({
       store: new pgSession(sessionStoreConfig),
-      secret: process.env.SESSION_SECRET || "YourSecret",
+      secret: SESSION_SECRET,
       resave: false,
       rolling: false,
       saveUninitialized: false,
+      // Render terminates HTTPS; trust its X-Forwarded-Proto so secure cookies are set.
+      proxy: true,
       cookie: {
-        secure: false,
+        // Session cookie only travels over HTTPS (SESSION_COOKIE_SECURE=false to turn off).
+        secure: process.env.SESSION_COOKIE_SECURE !== "false",
+        httpOnly: true,
         domain: ".managira.com",
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24-hour hard ceiling (idle timeout enforces 4h inactivity limit)
@@ -610,7 +624,7 @@ if (process.env.NODE_ENV === "production") {
   app.use(
     session({
       store: new pgSession(sessionStoreConfig),
-      secret: process.env.SESSION_SECRET || "YourSecret",
+      secret: SESSION_SECRET,
       resave: false,
       rolling: false,
       saveUninitialized: false,
@@ -623,6 +637,9 @@ if (process.env.NODE_ENV === "production") {
   );
 }
 
+// Fair-use request limit (after sessions so signed-in users count per session).
+app.use(require("./middleware/securityMiddleware").requestRateLimit);
+
 // Saving anything changes this small cookie. Pages the browser keeps for a
 // minute (workspace panels; their responses Vary on Cookie) are then fetched
 // fresh right after an edit, so a save always shows straight away.
@@ -632,7 +649,7 @@ app.use((req, res, next) => {
       httpOnly: true,
       sameSite: "lax",
       path: "/",
-      ...(process.env.NODE_ENV === "production" ? { domain: ".managira.com" } : {}),
+      ...(process.env.NODE_ENV === "production" ? { domain: ".managira.com", secure: process.env.SESSION_COOKIE_SECURE !== "false" } : {}),
     });
   }
   next();
@@ -683,7 +700,7 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   if (
     req.session &&
-    req.session.userId &&
+    (req.session.userId || req.session.organizationId || req.session.studentId || req.session.guardianId || req.session.hubId) &&
     req.method === "GET" &&
     (req.headers.accept || "").includes("text/html")
   ) {
@@ -1244,23 +1261,7 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something went wrong!');
 });
 
-const shouldRunScheduledHolds = process.env.NODE_ENV === "production" || process.env.ENABLE_SCHEDULED_HOLDS_CRON === "true";
-if (shouldRunScheduledHolds) {
-  cron.schedule("0 0 * * *", async () => {
-    await applyScheduledHolds();
-
-    try {
-      const summary = await runOnHoldManagerReminderSweep();
-      if (summary.emailsSent > 0) {
-        console.log(`[On-Hold Manager Reminder] Sweep complete. orgs=${summary.orgsProcessed}, emails=${summary.emailsSent}`);
-      }
-    } catch (error) {
-      console.error("[On-Hold Manager Reminder] Sweep failed:", error.message);
-    }
-  });
-} else {
-  // Scheduled holds cron disabled in dev — set ENABLE_SCHEDULED_HOLDS_CRON=true to enable.
-}
+// Scheduled holds + on-hold reminders now run with the other jobs (jobs/scheduler.js).
 
 const { ensurePermissionsSchema } = require('./middleware/permissionMiddleware');
 
