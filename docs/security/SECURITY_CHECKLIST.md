@@ -17,8 +17,8 @@ Every security item and its status.
 
 ## Priorities
 
-1. **Deploy and verify in production**: re-run the sign-in, header and cookie checks against the live site after each release.
-2. **Make private files private**: apply the `migrations/` policy, then move signatures, photos and documents to signed links.
+1. **Verify every release in production**: re-run `npm run security:check -- https://managira.com` after each deploy.
+2. **Make the remaining private files private**: move signatures, photos and documents to signed links.
 3. **Prove school data separation** across every read, edit, delete, export and download, then add database row-level security as a second layer.
 4. **Protect privileged accounts** with two-step sign-in (MFA) for platform administrators and school owners.
 5. **Test the attack surface** (APIs, uploads, file storage, Mira, payments) and commission an independent penetration test.
@@ -33,15 +33,15 @@ Every security item and its status.
 | 3 | Sessions and cookies | 4 | 2 | 1 |
 | 4 | Roles and permissions | 1 | 5 | 1 |
 | 5 | Web protections and API limits | 9 | 5 | 6 |
-| 6 | Files and uploads | 5 | 1 | 6 |
+| 6 | Files and uploads | 6 | 1 | 5 |
 | 7 | Payments | 4 | 2 | 3 |
 | 8 | Database, secrets and keys | 0 | 6 | 5 |
 | 9 | Background jobs and Mira | 3 | 1 | 6 |
 | 10 | Monitoring and incident response | 2 | 2 | 5 |
-| 11 | Dependencies and delivery | 1 | 3 | 3 |
+| 11 | Dependencies and delivery | 2 | 3 | 3 |
 | 12 | Backups and recovery | 0 | 0 | 5 |
 | 13 | Database row-level security | 0 | 1 | 3 |
-| 14 | Hosting and uptime | 0 | 2 | 5 |
+| 14 | Hosting and uptime | 1 | 2 | 5 |
 | 15 | Independent review | 0 | 0 | 2 |
 
 ---
@@ -131,7 +131,7 @@ Every security item and its status.
 - ☑️ Report-card layouts can't be downloaded
 - ✅ School migration files served through signed, expiring links
 - ✅ Storage bucket contents can't be listed anonymously
-- 🔵 Make the `migrations/` folder private after deploy (`node scripts/s3PrivateFolders.js --apply`)
+- ✅ `migrations/` folder private on S3; files open only through signed links
 - 🔵 Move signatures, staff and student photos, and documents to private storage served through signed links (logos and website media stay public)
 - 🔵 File-content verification (not only the name and type), safe server-side file names, image-dimension limits
 - 🔵 Per-school storage quotas
@@ -192,6 +192,7 @@ Every security item and its status.
 ## 11. Dependencies and delivery
 
 - ✅ Dependency audit with no critical issues
+- ✅ Patched HTML sanitizer loads on every supported Node version (bundled copy checked by a test)
 - ☑️ GitHub Actions on every push and pull request: unit tests, dependency audit (fails on critical), security module checks
 - ☑️ Weekly Dependabot checks for the app and Mira
 - ☑️ Every runtime package declared
@@ -216,7 +217,8 @@ Every security item and its status.
 
 ## 14. Hosting and uptime
 
-- 🔵 Production verification after each deploy: sign-in, headers, cookies and HTTPS checked against the live site
+- ✅ Production verified after deploy: sign-in, headers, cookies, HTTPS and private files checked against managira.com
+- 🔵 Run production on Node 24 LTS (set `NODE_VERSION=24` in Render; the app runs on 20.11 and 24)
 - ☑️ Sessions shared through the database, ready for several servers
 - ☑️ Graceful shutdown during deploys
 - 🔵 Paid Render plan for the web service

@@ -38,7 +38,8 @@ These controls form Managira's security foundation. A passing test confirms the 
 | No-store private pages | Every signed-in account type receives non-cacheable pages | Tested |
 | Automated checks | GitHub Actions security workflow and weekly Dependabot checks | Implemented |
 | Security test suite | `security:check` and `security:cross-school` commands | Tested |
-| Signed links for school files | Migration files open through signed links that expire (5–60 minutes) | Tested |
+| Signed links for school files | Migration files open through signed links that expire (5–60 minutes); the folder is private on S3 | Tested |
+| Patched sanitizer on every Node version | The latest `sanitize-html` loads on Node 20.11 and Node 24 | Tested |
 | Private-folder policy tool | `scripts/s3PrivateFolders.js` makes chosen S3 folders private, with preview and restore | Implemented |
 
 ---
@@ -119,7 +120,7 @@ These controls form Managira's security foundation. A passing test confirms the 
 | Blocked file types | HTML, JavaScript, PHP, executables, scripts and installers are refused. | Tested |
 | Clear messages | Users see "That file is too large." or "That file type isn't allowed." | Tested |
 | Protected report layouts | Report-card layouts can be viewed and printed, not downloaded. | Verified |
-| Signed file links | School migration files are opened through signed links that expire after 5–60 minutes and are issued only to the owning school. | Tested |
+| Private school files | The `migrations/` folder is private on S3. Files open only through signed links that expire after 5–60 minutes and are issued only to the owning school. Public images (logos, website media) stay public. | Tested |
 | Bucket listing blocked | The storage bucket's contents can't be listed without credentials. | Tested |
 
 ## 7. Payments
@@ -170,6 +171,7 @@ These controls form Managira's security foundation. A passing test confirms the 
 | Automated checks on every change | GitHub Actions runs the unit tests, the dependency audit (fails on critical issues) and syntax checks of the security modules on every push and pull request. | Implemented |
 | Weekly update checks | Dependabot checks the app and Mira for package updates every week. | Implemented |
 | Complete runtime packages | Every package the app needs at runtime is declared. | Verified |
+| Patched sanitizer everywhere | The latest `sanitize-html` is used on every supported Node version; a bundled copy serves older Node, and a test keeps it in step with the installed version. | Tested |
 
 ---
 

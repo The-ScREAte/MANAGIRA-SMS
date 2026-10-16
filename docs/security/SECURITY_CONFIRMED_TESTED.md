@@ -20,7 +20,19 @@ All temporary sign-ins, sessions and test accounts were removed after testing.
 
 **Scope:** each test confirms the behavior it checks. Together they give evidence for the controls listed, not a guarantee against every attack. Areas not yet covered are listed at the end.
 
-## Results
+## Production — managira.com
+
+Run against the live site on 16 October 2026, after deploy.
+
+| Check | Result |
+|---|---|
+| Web protections (`npm run security:check -- https://managira.com`) | ✅ 19 / 19, including HSTS and the HTTPS-only (`Secure`) session cookie |
+| Staff email with a wrong password, then open the dashboard | ✅ Returned to sign-in |
+| School migration file opened without sign-in | ✅ Refused (403) |
+| Same file through a signed link | ✅ Served (206) |
+| Public school logo | ✅ Still public (200) |
+
+## Results (local test environment)
 
 | Area | Tests | Result |
 |---|---|---|
@@ -39,7 +51,8 @@ All temporary sign-ins, sessions and test accounts were removed after testing.
 | Background worker | 1 | ✅ Passed |
 | Student exam page | 1 | ✅ Passed |
 | File storage access | 3 | ✅ All passed |
-| Unit tests | 55 | ✅ All passed |
+| Unit tests | 61 | ✅ All passed |
+| Patched HTML sanitizer on Node 20.11 and Node 24 | 6 | ✅ All passed |
 | Dependency audit | 1 | ✅ No critical issues |
 
 ---
@@ -206,9 +219,11 @@ A student opens a test on desktop with the new headers and limits in place, with
 | Migration page renders with signed links | ✅ Opens (200) |
 | Anonymous listing of the bucket | ✅ Refused (403) |
 
-## 14. Unit tests — 55 / 55
+## 14. Unit tests — 61 / 61
 
-`npm test` passes, including the billing tests. ✅
+`npm test` passes, including the billing and sanitizer tests. ✅
+
+The sanitizer tests also pass on Node 20.11. On that version, every app module loads and the app starts in production mode with all security headers. ✅
 
 ## 15. Dependency audit
 
