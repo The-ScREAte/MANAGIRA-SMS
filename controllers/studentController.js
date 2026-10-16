@@ -1,5 +1,5 @@
 const { getClassScheduleForTerm } = require("../utils/classScheduleService");
-const sanitizeHtml = require("sanitize-html");
+const sanitizeHtml = require("../utils/sanitizeHtml");
 const { ensureStudentPortalSchema } = require("../utils/studentPortal");
 const {
   ensureAttendanceCalendarSchema,

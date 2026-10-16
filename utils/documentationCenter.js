@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const he = require('he');
-const sanitizeHtml = require('sanitize-html');
+const sanitizeHtml = require('./sanitizeHtml');
 const db = require('../config/db');
 
 const DEFAULT_TOPICS = [
