@@ -5605,6 +5605,168 @@ body[data-page="publicDashboard"] #modalCaption{
 }
 
 </style>
+<style>
+/* =========================================================
+   PAGE PROPORTIONS (all themes and layouts)
+   Content sits in one centered column with even side space;
+   the header lines up with it. Cards wrap into balanced grids
+   on wider screens and stay swipeable on phones.
+   ========================================================= */
+body[data-page="publicDashboard"]{
+  --pd-max: 1120px;
+  --pd-gutter: clamp(16px, 4vw, 48px);
+  --pd-gap: clamp(14px, 1.6vw, 22px);
+}
+body[data-page="publicDashboard"] .public-dashboard-container{
+  width: 100%;
+  max-width: calc(var(--pd-max) + (2 * var(--pd-gutter)));
+  padding-inline: var(--pd-gutter);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+body[data-page="publicDashboard"] header#top-header{
+  padding-left: max(var(--pd-gutter), calc((100vw - var(--pd-max)) / 2));
+  padding-right: max(var(--pd-gutter), calc((100vw - var(--pd-max)) / 2));
+}
+body[data-page="publicDashboard"] .content-section{
+  margin-top: clamp(36px, 5vw, 64px);
+}
+body[data-page="publicDashboard"] .content-section > h2{
+  margin-bottom: clamp(16px, 2vw, 24px);
+}
+
+/* Gallery: even grid, two-line captions (themes set these with !important) */
+body[data-page="publicDashboard"] .wf4-gallery-compact{
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)) !important;
+  gap: var(--pd-gap) !important;
+  max-width: none !important;
+  max-height: none;
+  overflow: visible;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+body[data-page="publicDashboard"] .wf4-gallery-compact .gallery-card{
+  width: auto;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+body[data-page="publicDashboard"] .wf4-gallery-compact .gallery-card:hover{ transform: translateY(-3px); }
+body[data-page="publicDashboard"] .wf4-gallery-compact .gallery-card-image-section{
+  aspect-ratio: 4 / 3;
+  height: auto !important;
+}
+body[data-page="publicDashboard"] .wf4-gallery-compact .gallery-card-image-section img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Vertical spacing sits in a same-color border, so lines past the second
+   stay hidden (overflow clips at the padding edge). */
+body[data-page="publicDashboard"] .wf4-gallery-compact .gallery-card .caption{
+  margin: 0;
+  padding: 0 12px !important;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  font-size: 0.92rem !important;
+  line-height: 1.4 !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: calc(2 * 1.4em + 20px);
+  max-height: none !important;
+  box-sizing: border-box;
+}
+
+/* Events: date cards in a grid (no tall empty timeline) */
+body[data-page="publicDashboard"] .wf4-timeline-container{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: var(--pd-gap);
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+}
+body[data-page="publicDashboard"] .wf4-timeline-container::before,
+body[data-page="publicDashboard"] .wf4-timeline-marker{ display: none; }
+body[data-page="publicDashboard"] .wf4-timeline-block,
+body[data-page="publicDashboard"] .wf4-timeline-left,
+body[data-page="publicDashboard"] .wf4-timeline-right{
+  display: flex;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+body[data-page="publicDashboard"] .wf4-timeline-card{
+  height: auto;
+  min-height: 0;
+  padding: 18px 20px;
+}
+body[data-page="publicDashboard"] .wf4-timeline-card p{
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Announcements and stories: wrapping grids */
+body[data-page="publicDashboard"] .wf4-announcements-grid,
+body[data-page="publicDashboard"] .wf4-stories-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: var(--pd-gap);
+  overflow: visible;
+  padding: 0;
+  margin: 0;
+  max-width: none;
+  scroll-snap-type: none;
+}
+body[data-page="publicDashboard"] .wf4-announcement-card{
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  flex: none;
+  margin: 0;
+}
+body[data-page="publicDashboard"] .wf4-stories-grid .draggable-item{
+  flex: none;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  height: auto;
+}
+
+/* Phones: one column for events; swipe strips for announcements and stories */
+@media (max-width: 700px){
+  body[data-page="publicDashboard"] .wf4-gallery-compact{
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  body[data-page="publicDashboard"] .wf4-gallery-compact .gallery-card .caption{
+    font-size: 0.8rem !important;
+    padding: 0 10px !important;
+    border-top-width: 8px;
+    border-bottom-width: 8px;
+    height: calc(2 * 1.4em + 16px);
+  }
+  body[data-page="publicDashboard"] .wf4-announcements-grid,
+  body[data-page="publicDashboard"] .wf4-stories-grid{
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 10px;
+  }
+  body[data-page="publicDashboard"] .wf4-announcement-card,
+  body[data-page="publicDashboard"] .wf4-stories-grid .draggable-item{
+    flex: 0 0 85%;
+    scroll-snap-align: start;
+  }
+}
+</style>
 
   </head>
   <body data-page="publicDashboard" data-pd-theme="<%= publicDashboardTheme || 'classic' %>" data-pd-layout="<%= publicDashboardLayout || 'wireframe1' %>">
