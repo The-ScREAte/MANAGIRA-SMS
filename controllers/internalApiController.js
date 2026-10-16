@@ -4584,7 +4584,7 @@ async function deleteSchoolAnnouncementApi(req, res) {
 // anyway.
 // ============================================================
 
-const WEBSITE_LAYOUTS = new Set(["wireframe1", "wireframe2", "wireframe3", "wireframe4"]);
+const WEBSITE_LAYOUTS = new Set(require("../utils/websiteView").LAYOUT_VALUES);
 const WEBSITE_THEMES = new Set(["classic", "modern", "green", "minimal", "indigo", "rose", "amber", "yellow", "slate", "cyan", "orange", "charcoal"]);
 const WEBSITE_IMAGE_CONTENT_TYPES = new Set(["slideshow", "siteImage"]);
 const WEBSITE_IMAGE_ALLOCATIONS = new Set(["hero", "slideshow", "siteImage"]);

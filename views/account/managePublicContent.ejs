@@ -543,6 +543,77 @@
     width: 100%;
   }
 
+  /* Website layouts: five designs with drawn thumbnails */
+  .mpc-layouts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .mpc-layout { display: grid; gap: 8px; align-content: start; }
+  .mpc-layout__row { display: flex; align-items: center; gap: 8px; }
+  .mpc-layout__row .layout-title { margin: 0; }
+  .mpc-layout__current { margin-left: auto; padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; background: var(--org-primary-color, var(--primary)); color: #fff; }
+  .mpc-layout__preview { justify-self: start; font-size: 0.82rem; font-weight: 700; color: var(--org-primary-color, var(--primary)); text-decoration: none; }
+  .mpc-layout__preview:hover { text-decoration: underline; }
+  .mpc-layout__thumb { position: relative; display: block; height: 108px; border-radius: 10px; overflow: hidden; background: #ffffff; border: 1px solid #e5e7eb; }
+  .mpc-layout__thumb i { position: absolute; display: block; border-radius: 3px; background: #e5e7eb; }
+  .mpc-layout__thumb i:nth-child(1) { background: var(--org-primary-color, #0f5a66); }
+  /* Classic: full banner, centered title, three columns */
+  .mpc-layout__thumb--classic i:nth-child(1) { left: 0; right: 0; top: 0; height: 46px; border-radius: 0; opacity: .85; }
+  .mpc-layout__thumb--classic i:nth-child(2) { left: 30%; right: 30%; top: 18px; height: 8px; background: #fff; }
+  .mpc-layout__thumb--classic i:nth-child(3) { left: 40%; right: 40%; top: 56px; height: 5px; }
+  .mpc-layout__thumb--classic i:nth-child(4) { left: 8%; width: 26%; top: 70px; height: 28px; }
+  .mpc-layout__thumb--classic i:nth-child(5) { left: 37%; width: 26%; top: 70px; height: 28px; }
+  .mpc-layout__thumb--classic i:nth-child(6) { left: 66%; width: 26%; top: 70px; height: 28px; }
+  /* Modern: split welcome, photo on the right, cards below */
+  .mpc-layout__thumb--horizon { background: #f4f6f8; }
+  .mpc-layout__thumb--horizon i:nth-child(1) { right: 8%; width: 44%; top: 10px; height: 46px; border-radius: 8px; }
+  .mpc-layout__thumb--horizon i:nth-child(2) { left: 8%; width: 34%; top: 16px; height: 9px; background: #1f2937; }
+  .mpc-layout__thumb--horizon i:nth-child(3) { left: 8%; width: 24%; top: 32px; height: 5px; }
+  .mpc-layout__thumb--horizon i:nth-child(4) { left: 8%; width: 16%; top: 44px; height: 8px; border-radius: 999px; background: var(--org-primary-color, #0f5a66); opacity: .7; }
+  .mpc-layout__thumb--horizon i:nth-child(5) { left: 8%; right: 8%; top: 66px; height: 34px; background: #fff; border-radius: 6px; }
+  .mpc-layout__thumb--horizon i:nth-child(6) { left: 12%; width: 30%; top: 74px; height: 5px; }
+  /* Magazine: masthead, lead photo, side column */
+  .mpc-layout__thumb--editorial i:nth-child(1) { left: 8%; right: 8%; top: 8px; height: 2px; border-radius: 0; background: #111827; }
+  .mpc-layout__thumb--editorial i:nth-child(2) { left: 22%; right: 22%; top: 16px; height: 11px; background: #111827; }
+  .mpc-layout__thumb--editorial i:nth-child(3) { left: 8%; right: 8%; top: 33px; height: 2px; border-radius: 0; background: #111827; }
+  .mpc-layout__thumb--editorial i:nth-child(4) { left: 8%; width: 56%; top: 42px; height: 34px; background: var(--org-primary-color, #0f5a66); opacity: .55; }
+  .mpc-layout__thumb--editorial i:nth-child(5) { right: 8%; width: 26%; top: 42px; height: 58px; background: #f3f4f6; border: 1px solid #e5e7eb; }
+  .mpc-layout__thumb--editorial i:nth-child(6) { left: 8%; width: 56%; top: 82px; height: 18px; }
+  /* Story: full photo opening, big title bottom-left, numbered chapter */
+  .mpc-layout__thumb--story i:nth-child(1) { left: 0; right: 0; top: 0; height: 70px; border-radius: 0; background: #1f2937; }
+  .mpc-layout__thumb--story i:nth-child(2) { left: 8%; width: 46%; top: 44px; height: 12px; background: #fff; }
+  .mpc-layout__thumb--story i:nth-child(3) { left: 8%; width: 12%; top: 78px; height: 18px; background: var(--org-primary-color, #0f5a66); }
+  .mpc-layout__thumb--story i:nth-child(4) { left: 24%; width: 44%; top: 80px; height: 7px; background: #1f2937; }
+  .mpc-layout__thumb--story i:nth-child(5) { left: 24%; width: 60%; top: 92px; height: 4px; }
+  .mpc-layout__thumb--story i:nth-child(6) { right: 8%; width: 10%; top: 60px; height: 3px; background: #fff; }
+  /* Campus: side menu with content beside it */
+  .mpc-layout__thumb--campus i:nth-child(1) { left: 0; top: 0; bottom: 0; width: 28%; border-radius: 0; background: #14181f; }
+  .mpc-layout__thumb--campus i:nth-child(2) { left: 6%; width: 14%; top: 12px; height: 12px; background: #fff; }
+  .mpc-layout__thumb--campus i:nth-child(3) { left: 6%; width: 16%; top: 34px; height: 4px; background: rgba(255,255,255,.4); box-shadow: 0 9px 0 rgba(255,255,255,.4), 0 18px 0 rgba(255,255,255,.4), 0 27px 0 rgba(255,255,255,.4); }
+  .mpc-layout__thumb--campus i:nth-child(4) { left: 34%; width: 40%; top: 12px; height: 9px; background: #1f2937; }
+  .mpc-layout__thumb--campus i:nth-child(5) { left: 34%; right: 6%; top: 28px; height: 38px; background: var(--org-primary-color, #0f5a66); opacity: .55; }
+  .mpc-layout__thumb--campus i:nth-child(6) { left: 34%; right: 6%; top: 74px; height: 24px; }
+
+  /* Spotlight: brand panel left, photo right, rows */
+  .mpc-layout__thumb--spotlight i:nth-child(1) { left: 0; top: 0; width: 42%; height: 58px; border-radius: 0; }
+  .mpc-layout__thumb--spotlight i:nth-child(2) { left: 42%; right: 0; top: 0; height: 58px; border-radius: 0; background: #374151; }
+  .mpc-layout__thumb--spotlight i:nth-child(3) { left: 7%; width: 26%; top: 22px; height: 8px; background: #fff; }
+  .mpc-layout__thumb--spotlight i:nth-child(4) { left: 8%; width: 36%; top: 68px; height: 32px; border-radius: 5px; }
+  .mpc-layout__thumb--spotlight i:nth-child(5) { left: 50%; width: 40%; top: 72px; height: 6px; background: #1f2937; }
+  .mpc-layout__thumb--spotlight i:nth-child(6) { left: 50%; width: 32%; top: 84px; height: 4px; }
+  /* Minimal: big title, photo strip, left headings */
+  .mpc-layout__thumb--minimal i:nth-child(1) { left: 8%; width: 50%; top: 12px; height: 10px; background: #1f2937; }
+  .mpc-layout__thumb--minimal i:nth-child(2) { left: 8%; right: 8%; top: 30px; height: 28px; background: var(--org-primary-color, #0f5a66); opacity: .45; }
+  .mpc-layout__thumb--minimal i:nth-child(3) { left: 8%; width: 18%; top: 68px; height: 5px; background: #1f2937; }
+  .mpc-layout__thumb--minimal i:nth-child(4) { left: 34%; right: 8%; top: 68px; height: 4px; box-shadow: 0 8px 0 #e5e7eb, 0 16px 0 #e5e7eb; }
+  .mpc-layout__thumb--minimal i:nth-child(5) { left: 8%; right: 8%; top: 64px; height: 1px; background: #d1d5db; }
+  .mpc-layout__thumb--minimal i:nth-child(6) { display: none; }
+  /* Mosaic: tiles */
+  .mpc-layout__thumb--mosaic { background: #f3f4f6; }
+  .mpc-layout__thumb--mosaic i:nth-child(1) { left: 66%; right: 6%; top: 8px; height: 54px; border-radius: 6px; }
+  .mpc-layout__thumb--mosaic i:nth-child(2) { left: 6%; width: 57%; top: 8px; height: 54px; border-radius: 6px; background: #374151; }
+  .mpc-layout__thumb--mosaic i:nth-child(3) { left: 6%; width: 42%; top: 68px; height: 32px; border-radius: 6px; background: #fff; }
+  .mpc-layout__thumb--mosaic i:nth-child(4) { left: 52%; width: 42%; top: 68px; height: 32px; border-radius: 6px; background: #fff; }
+  .mpc-layout__thumb--mosaic i:nth-child(5) { left: 10%; width: 20%; top: 76px; height: 5px; }
+  .mpc-layout__thumb--mosaic i:nth-child(6) { left: 56%; width: 20%; top: 76px; height: 5px; }
+
   /* Website mode */
   .mpc-mode-note { margin: 0 0 12px; color: var(--text-secondary); font-size: 0.85rem; }
   .mpc-mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -2015,80 +2086,22 @@
       <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
     </div>
 
+    <% const _layouts = (typeof websiteLayouts !== 'undefined' && websiteLayouts) || []; const _currentLayout = publicDashboardLayout || 'wireframe1'; %>
+    <p class="mpc-mode-note">Pick a design for your website. Every design shows the same content. Use Preview to see your site in it before saving.</p>
     <form action="/account/updatePublicDashboardLayout" method="POST">
-      <div class="layout-options-grid">
-        <label class="layout-option <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'selected' : '' %>">
-          <div class="layout-option-row">
-            <input type="radio" name="publicDashboardLayout" value="wireframe1" <%= (publicDashboardLayout || 'wireframe1') === 'wireframe1' ? 'checked' : '' %> style="margin-top: 4px;" />
-            <div class="layout-option-meta">
-              <div class="layout-title">Traditional</div>
-              <div class="layout-subtitle">
-                Classic vertical section flow.
-              </div>
-              <div class="layout-preview wf1" aria-hidden="true">
-                <span class="layout-block hero"></span>
-                <span class="layout-block gallery accent"></span>
-                <span class="layout-block articles"></span>
-                <span class="layout-block events"></span>
-                <span class="layout-block about soft"></span>
-              </div>
-            </div>
-          </div>
-        </label>
-        <label class="layout-option <%= publicDashboardLayout === 'wireframe4' ? 'selected' : '' %>">
-          <div class="layout-option-row">
-            <input type="radio" name="publicDashboardLayout" value="wireframe4" <%= publicDashboardLayout === 'wireframe4' ? 'checked' : '' %> style="margin-top: 4px;" />
-            <div class="layout-option-meta">
-              <div class="layout-title">Narrative Flow</div>
-              <div class="layout-subtitle">
-                Step-by-step story flow.
-              </div>
-              <div class="layout-preview wf4" aria-hidden="true">
-                <span class="layout-block hero"></span>
-                <span class="layout-block gallery accent"></span>
-                <span class="layout-block events"></span>
-                <span class="layout-block announcements accent"></span>
-                <span class="layout-block about soft"></span>
-              </div>
-            </div>
-          </div>
-        </label>
-        <label class="layout-option <%= publicDashboardLayout === 'wireframe2' ? 'selected' : '' %>">
-          <div class="layout-option-row">
-            <input type="radio" name="publicDashboardLayout" value="wireframe2" <%= publicDashboardLayout === 'wireframe2' ? 'checked' : '' %> style="margin-top: 4px;" />
-            <div class="layout-option-meta">
-              <div class="layout-title">Split Dashboard</div>
-              <div class="layout-subtitle">
-                Gallery and events side-by-side.
-              </div>
-              <div class="layout-preview wf2" aria-hidden="true">
-                <span class="layout-block hero"></span>
-                <span class="layout-block gallery accent"></span>
-                <span class="layout-block events accent"></span>
-                <span class="layout-block articles"></span>
-                <span class="layout-block about soft"></span>
-              </div>
-            </div>
-          </div>
-        </label>
-        <label class="layout-option <%= publicDashboardLayout === 'wireframe3' ? 'selected' : '' %>">
-          <div class="layout-option-row">
-            <input type="radio" name="publicDashboardLayout" value="wireframe3" <%= publicDashboardLayout === 'wireframe3' ? 'checked' : '' %> style="margin-top: 4px;" />
-            <div class="layout-option-meta">
-              <div class="layout-title">Content-First</div>
-              <div class="layout-subtitle">
-                Articles and announcements in split focus.
-              </div>
-              <div class="layout-preview wf3" aria-hidden="true">
-                <span class="layout-block hero"></span>
-                <span class="layout-block gallery accent"></span>
-                <span class="layout-block articles"></span>
-                <span class="layout-block announcements accent"></span>
-                <span class="layout-block about soft"></span>
-              </div>
-            </div>
-          </div>
-        </label>
+      <div class="mpc-layouts">
+        <% _layouts.forEach((l) => { %>
+          <label class="layout-option mpc-layout <%= _currentLayout === l.value ? 'selected' : '' %>">
+            <span class="mpc-layout__thumb mpc-layout__thumb--<%= l.key %>" data-ap-skip aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="mpc-layout__row">
+              <input type="radio" name="publicDashboardLayout" value="<%= l.value %>" <%= _currentLayout === l.value ? 'checked' : '' %> />
+              <span class="layout-title"><%= l.name %></span>
+              <% if (_currentLayout === l.value) { %><span class="mpc-layout__current">Current</span><% } %>
+            </span>
+            <span class="layout-subtitle"><%= l.description %></span>
+            <a class="mpc-layout__preview" href="/common/publicDashboard?organizationId=<%= orgDetails.organization_id %>&previewLayout=<%= l.value %>" target="_blank" rel="noopener">Preview <span aria-hidden="true">↗</span></a>
+          </label>
+        <% }) %>
       </div>
       <div style="display:flex; justify-content:center; margin-top: 16px;">
         <button type="submit" class="theme-save-btn">Save Layout</button>

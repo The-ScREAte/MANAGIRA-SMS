@@ -34,20 +34,23 @@ async function ensureWebsiteSchema(db) {
   schemaReady = true;
 }
 
-const SECTION_KEYS = ["quickFacts", "programs", "leadership", "testimonials", "faq", "about", "contact", "page"];
+const SECTION_KEYS = ["quickFacts", "programs", "leadership", "testimonials", "faq", "about", "contact", "page", "welcome", "admissions", "achievements", "social", "hero"];
 
 // Everything on the website below the slideshow, in its default order. The
 // school can reorder these, rename the built-in ones and hide them (the
 // extra sections have their own on/off switch).
 const PAGE_BLOCKS = [
   { key: "quickFacts", label: "Quick Facts" },
+  { key: "welcome", label: "Welcome message" },
   { key: "about", label: "About the school", builtin: true, defaultTitle: "About Our School" },
   { key: "programs", label: "Programs & Facilities" },
+  { key: "admissions", label: "Admissions" },
   { key: "gallery", label: "Photo gallery", builtin: true, defaultTitle: "Campus Gallery" },
   { key: "events", label: "Events", builtin: true, defaultTitle: "Upcoming Events" },
   { key: "announcements", label: "Announcements", builtin: true, defaultTitle: "Announcements" },
   { key: "articles", label: "News & articles", builtin: true, defaultTitle: "School News" },
   { key: "leadership", label: "Leadership" },
+  { key: "achievements", label: "Achievements" },
   { key: "testimonials", label: "Testimonials" },
   { key: "faq", label: "FAQ" },
   { key: "contact", label: "Contact form" },
@@ -55,7 +58,32 @@ const PAGE_BLOCKS = [
 const PAGE_KEYS = PAGE_BLOCKS.map((b) => b.key);
 const BUILTIN_KEYS = PAGE_BLOCKS.filter((b) => b.builtin).map((b) => b.key);
 
-const LIMITS = { quickFacts: 6, programs: 9, leadership: 8, testimonials: 8, faq: 12 };
+const LIMITS = { quickFacts: 6, programs: 9, leadership: 8, testimonials: 8, faq: 12, welcome: 1, admissions: 6, achievements: 9 };
+
+// Social links shown in the website footer.
+const SOCIAL_NETWORKS = [
+  { key: "facebook", label: "Facebook", host: /(^|\.)(facebook|fb)\.com$/i },
+  { key: "instagram", label: "Instagram", host: /(^|\.)instagram\.com$/i },
+  { key: "x", label: "X (Twitter)", host: /(^|\.)(x|twitter)\.com$/i },
+  { key: "youtube", label: "YouTube", host: /(^|\.)(youtube\.com|youtu\.be)$/i },
+  { key: "linkedin", label: "LinkedIn", host: /(^|\.)linkedin\.com$/i },
+  { key: "tiktok", label: "TikTok", host: /(^|\.)tiktok\.com$/i },
+  { key: "whatsapp", label: "WhatsApp", host: /(^|\.)(whatsapp\.com|wa\.me)$/i },
+];
+// A full https link on that network's own site, or nothing.
+function socialUrl(value, host) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+    if (!host.test(url.hostname)) return "";
+    url.protocol = "https:";
+    return url.toString().slice(0, 300);
+  } catch (_) {
+    return "";
+  }
+}
 
 const text = (value, max) => String(value == null ? "" : value).replace(/\s+/g, " ").trim().slice(0, max);
 const longText = (value, max) => String(value == null ? "" : value).replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, max);
@@ -116,6 +144,40 @@ function normalizeSection(key, input = {}) {
         address: longText(input.address, 300),
         officeHours: text(input.officeHours, 120),
         showMap: input.showMap === true || input.showMap === "true",
+      };
+    case "welcome":
+      return {
+        enabled,
+        title: text(input.title, 80) || "A Word of Welcome",
+        items: list(input.items, LIMITS.welcome, (i) => ({ name: text(i?.name, 80), role: text(i?.role, 80), message: longText(i?.message, 1500), imageUrl: imageUrl(i?.imageUrl) }), (i) => i.message && i.name),
+      };
+    case "admissions":
+      return {
+        enabled,
+        title: text(input.title, 80) || "Admissions",
+        intro: longText(input.intro, 500),
+        items: list(input.items, LIMITS.admissions, (i) => ({ title: text(i?.title, 80), description: longText(i?.description, 400) }), (i) => i.title),
+      };
+    case "achievements":
+      return {
+        enabled,
+        title: text(input.title, 80) || "Achievements & Awards",
+        items: list(input.items, LIMITS.achievements, (i) => ({ title: text(i?.title, 100), year: text(i?.year, 12), description: longText(i?.description, 300) }), (i) => i.title),
+      };
+    case "social": {
+      const links = {};
+      SOCIAL_NETWORKS.forEach((n) => {
+        const url = socialUrl(input[n.key], n.host);
+        if (url) links[n.key] = url;
+      });
+      return { enabled, ...links };
+    }
+    case "hero":
+      // The school banner (name and motto at the top). Shown unless switched off.
+      return {
+        enabled: !(input.enabled === false || input.enabled === "false"),
+        kicker: text(input.kicker, 60),
+        tagline: text(input.tagline, 160),
       };
     case "page": {
       const order = [...new Set((Array.isArray(input.order) ? input.order : []).map(String).filter((k) => PAGE_KEYS.includes(k)))];
@@ -181,6 +243,11 @@ function visibleSections(settings) {
     about: s.about.imageUrl ? s.about : null,
     // The form needs the school's own email to deliver messages to.
     contact: s.contact.enabled && s.contact.notifyEmail ? s.contact : null,
+    welcome: on(s.welcome) ? s.welcome : null,
+    admissions: s.admissions && s.admissions.enabled && (s.admissions.items.length || s.admissions.intro) ? s.admissions : null,
+    achievements: on(s.achievements) ? s.achievements : null,
+    social: s.social && s.social.enabled ? SOCIAL_NETWORKS.filter((n) => s.social[n.key]).map((n) => ({ key: n.key, label: n.label, url: s.social[n.key] })) : [],
+    hero: s.hero,
   };
 }
 
@@ -223,7 +290,7 @@ async function countUnreadMessages(db, organizationId) {
   return row ? row.n : 0;
 }
 
-const LAYOUT_NAMES = { wireframe1: "Traditional", wireframe2: "Split Dashboard", wireframe3: "Content-First", wireframe4: "Narrative Flow" };
+const LAYOUT_NAMES = { wireframe1: "Classic", wireframe2: "Modern", wireframe3: "Magazine", wireframe4: "Story", wireframe5: "Campus", wireframe6: "Spotlight", wireframe7: "Minimal", wireframe8: "Mosaic" };
 
 // The setup checklist at the top of Manage Website: what's done, what's
 // left, and where to fix it (target = panel id on the page).
@@ -275,4 +342,5 @@ module.exports = {
   getWebsiteSettings,
   saveWebsiteSection,
   visibleSections,
+  SOCIAL_NETWORKS,
 };

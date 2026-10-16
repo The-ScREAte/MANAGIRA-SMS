@@ -71,14 +71,19 @@
       <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
     </div>
   </div>
-  <p class="mwx-hint" style="margin:0 0 14px;color:#6b7280;font-size:0.9rem;">Each section appears on your website only when it's switched on and has content. Images can be added to programs, leadership and the About section.</p>
+  <p class="mwx-hint" style="margin:0 0 14px;color:#6b7280;font-size:0.9rem;">Each section appears on your website only when it's switched on and has content. Images can be added to the welcome message, programs, leadership and the About section.</p>
   <div class="mwx-grid">
+    <div class="mwx-card" data-mwx-section="hero"></div>
     <div class="mwx-card" data-mwx-section="quickFacts"></div>
+    <div class="mwx-card" data-mwx-section="welcome"></div>
     <div class="mwx-card" data-mwx-section="programs"></div>
+    <div class="mwx-card" data-mwx-section="admissions"></div>
     <div class="mwx-card" data-mwx-section="about"></div>
     <div class="mwx-card" data-mwx-section="leadership"></div>
+    <div class="mwx-card" data-mwx-section="achievements"></div>
     <div class="mwx-card" data-mwx-section="testimonials"></div>
     <div class="mwx-card" data-mwx-section="faq"></div>
+    <div class="mwx-card" data-mwx-section="social"></div>
   </div>
 </div>
 
@@ -139,12 +144,37 @@
         noun: 'testimonial', heading: 'What Families Say',
         fields: [{ key: 'quote', label: 'What they said', type: 'textarea', ph: 'My children love...' }, { key: 'name', label: 'Name', ph: 'Kofi Asare' }, { key: 'relation', label: 'Relation (optional)', ph: 'Parent, JSS 2' }],
       },
+      welcome: {
+        title: 'Welcome Message', hint: 'A personal welcome from your head of school, shown with their photo and name.',
+        noun: 'message', heading: 'A Word of Welcome',
+        fields: [{ key: 'name', label: 'Name', ph: 'Dr. Sarah Mitchell' }, { key: 'role', label: 'Role', ph: 'Head of School' }, { key: 'message', label: 'Message', type: 'textarea', ph: 'Welcome to our school...' }, { key: 'imageUrl', label: 'Photo', type: 'image' }],
+      },
+      admissions: {
+        title: 'Admissions', hint: 'Explain how to join your school, step by step. An Apply button appears while online registration is open.',
+        noun: 'step', heading: 'Admissions', intro: true,
+        fields: [{ key: 'title', label: 'Step', ph: 'Apply online' }, { key: 'description', label: 'Details (optional)', type: 'textarea', ph: 'Fill in the short application form...' }],
+      },
+      achievements: {
+        title: 'Achievements & Awards', hint: 'Competitions won, awards and milestones your school is proud of.',
+        noun: 'achievement', heading: 'Achievements & Awards',
+        fields: [{ key: 'title', label: 'Achievement', ph: 'State Science Fair - 1st Place' }, { key: 'year', label: 'Year (optional)', ph: '2026' }, { key: 'description', label: 'Details (optional)', type: 'textarea', ph: 'Grade 8 team, renewable energy project' }],
+      },
       faq: {
         title: 'FAQ', hint: 'Answer the questions parents ask most - admissions, fees, uniforms, transport.',
         noun: 'question', heading: 'Frequently Asked Questions',
         fields: [{ key: 'question', label: 'Question', ph: 'When do admissions open?' }, { key: 'answer', label: 'Answer', type: 'textarea', ph: 'Admissions open in...' }],
       },
     };
+
+    var SOCIAL = [
+      { key: 'facebook', label: 'Facebook', ph: 'facebook.com/yourschool' },
+      { key: 'instagram', label: 'Instagram', ph: 'instagram.com/yourschool' },
+      { key: 'x', label: 'X (Twitter)', ph: 'x.com/yourschool' },
+      { key: 'youtube', label: 'YouTube', ph: 'youtube.com/@yourschool' },
+      { key: 'linkedin', label: 'LinkedIn', ph: 'linkedin.com/school/yourschool' },
+      { key: 'tiktok', label: 'TikTok', ph: 'tiktok.com/@yourschool' },
+      { key: 'whatsapp', label: 'WhatsApp', ph: 'wa.me/15551234567' },
+    ];
 
     var toastTimer = null;
     function toast(message, isError) {
@@ -162,7 +192,13 @@
 
     function statusHtml(key, data) {
       var live;
-      if (key === 'about') live = Boolean(data.imageUrl);
+      if (key === 'hero') return data.enabled === false ? '<span class="mwx-status hidden">Hidden</span>' : '<span class="mwx-status live">● Shown at the top</span>';
+      if (key === 'social') {
+        var links = SOCIAL.filter(function (n) { return data[n.key]; }).length;
+        return data.enabled && links ? '<span class="mwx-status live">● ' + links + ' link' + (links === 1 ? '' : 's') + ' in footer</span>' : '<span class="mwx-status hidden">Hidden · ' + (data.enabled ? 'No links yet' : 'Switched off') + '</span>';
+      }
+      if (key === 'admissions') live = Boolean(data.enabled && ((data.items && data.items.length) || data.intro));
+      else if (key === 'about') live = Boolean(data.imageUrl);
       else if (key === 'contact') live = Boolean(data.enabled && data.notifyEmail);
       else live = Boolean(data.enabled && data.items && data.items.length);
       var reason = '';
@@ -294,6 +330,35 @@
       card.querySelector('[data-mwx-save]').addEventListener('click', function () { saveSection(card, 'about'); });
     }
 
+    // ---- School banner (name and motto at the top) ----
+    function renderHero(card) {
+      var data = settings.hero || { enabled: true };
+      card.innerHTML =
+        '<div class="mwx-card-head"><h3>School Banner</h3><span data-mwx-status>' + statusHtml('hero', data) + '</span></div>' +
+        '<p class="mwx-hint">Your school name and motto shown large at the top of the website, with your photos. The name and logo come from <a href="/account/settings" target="_top">School Settings</a>; the brand color from <a href="/account/settings?section=customize" target="_top">Customize</a>.</p>' +
+        '<label class="mwx-switch"><input type="checkbox" data-mwx-enabled ' + (data.enabled === false ? '' : 'checked') + '> Show the school banner</label>' +
+        '<div class="mwx-row-2" style="margin-top:10px;">' +
+        fieldHtml({ key: 'kicker', label: 'Small line above the name (optional)', ph: 'Official School Website' }, data.kicker) +
+        fieldHtml({ key: 'tagline', label: 'Tagline (optional)', ph: 'Your motto is used if left empty' }, data.tagline) +
+        '</div>' +
+        '<div class="mwx-actions"><span></span><button type="button" class="mwx-btn mwx-btn-primary" data-mwx-save>Save</button></div>';
+      card.querySelector('[data-mwx-save]').addEventListener('click', function () { saveSection(card, 'hero'); });
+    }
+
+    // ---- Social links (website footer) ----
+    function renderSocial(card) {
+      var data = settings.social || {};
+      card.innerHTML =
+        '<div class="mwx-card-head"><h3>Social Media</h3><span data-mwx-status>' + statusHtml('social', data) + '</span></div>' +
+        '<p class="mwx-hint">Links to your school\'s pages, shown in the website footer. Only links to each network\'s own site are kept.</p>' +
+        '<label class="mwx-switch"><input type="checkbox" data-mwx-enabled ' + (data.enabled ? 'checked' : '') + '> Show social links</label>' +
+        '<div class="mwx-row-2" style="margin-top:10px;">' +
+        SOCIAL.map(function (n) { return fieldHtml({ key: n.key, label: n.label, ph: n.ph }, data[n.key]); }).join('') +
+        '</div>' +
+        '<div class="mwx-actions"><span></span><button type="button" class="mwx-btn mwx-btn-primary" data-mwx-save>Save</button></div>';
+      card.querySelector('[data-mwx-save]').addEventListener('click', function () { saveSection(card, 'social'); });
+    }
+
     // ---- Contact settings ----
     function renderContact(card) {
       var data = settings.contact || {};
@@ -391,7 +456,9 @@
     }
 
     function render(card, key) {
-      if (key === 'about') renderAbout(card);
+      if (key === 'hero') renderHero(card);
+      else if (key === 'social') renderSocial(card);
+      else if (key === 'about') renderAbout(card);
       else if (key === 'contact') renderContact(card);
       else renderListSection(card, key);
     }

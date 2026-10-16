@@ -3,11 +3,12 @@
   const mpoSettings = (typeof websiteSettings !== 'undefined' && websiteSettings) || {};
   const mpoPage = mpoSettings.page || { order: [], hidden: [], titles: {} };
   const mpoContent = (typeof pageContent !== 'undefined' && pageContent) || {};
-  const mpoEditTarget = { quickFacts: 'mwxSections', programs: 'mwxSections', leadership: 'mwxSections', testimonials: 'mwxSections', faq: 'mwxSections', contact: 'mwxContact', about: 'mpcAbout', gallery: 'mpcGallery', articles: 'mpcArticles', events: '', announcements: '' };
+  const mpoEditTarget = { quickFacts: 'mwxSections', welcome: 'mwxSections', programs: 'mwxSections', admissions: 'mwxSections', leadership: 'mwxSections', achievements: 'mwxSections', testimonials: 'mwxSections', faq: 'mwxSections', contact: 'mwxContact', about: 'mpcAbout', gallery: 'mpcGallery', articles: 'mpcArticles', events: '', announcements: '' };
   const mpoExtraLive = (key) => {
     const section = mpoSettings[key] || {};
     if (key === 'contact') return section.enabled && section.notifyEmail ? 'live' : (section.enabled ? 'Needs the school email' : 'Switched off');
     if (!section.enabled) return 'Switched off';
+    if (key === 'admissions' && section.intro) return 'live';
     return Array.isArray(section.items) && section.items.length ? 'live' : 'Nothing added yet';
   };
   // Saved order first, then anything new in its default position.
@@ -79,7 +80,7 @@
           <% if (b.builtin) { %>
             <label class="mpo-switch"><input type="checkbox" data-mpo-show <%= (mpoPage.hidden || []).includes(b.key) ? '' : 'checked' %>> Show</label>
           <% } %>
-          <% if (mpoEditTarget[b.key]) { %><button type="button" class="mpo-edit" data-mpo-edit="<%= mpoEditTarget[b.key] %>">Edit</button><% } %>
+          <% if (mpoEditTarget[b.key]) { %><button type="button" class="mpo-edit" data-mpo-edit="<%= mpoEditTarget[b.key] %>">Edit</button><% } else if (b.key === 'events' || b.key === 'announcements') { %><a class="mpo-edit" href="/common/management?panel=announcements-events&page=%2Fcommon%2FmanageEventsAnnouncements&label=Announcements%20%26%20Events" target="_top">Manage</a><% } %>
           <button type="button" class="mpo-move" data-mpo-up aria-label="Move <%= b.label %> up">▲</button>
           <button type="button" class="mpo-move" data-mpo-down aria-label="Move <%= b.label %> down">▼</button>
         </div>
@@ -87,7 +88,7 @@
     <% }) %>
   </ol>
   <div class="mpo-foot">
-    <span class="mpo-note" id="mpoNote">Events and announcements are managed in Events &amp; Announcements.</span>
+    <span class="mpo-note" id="mpoNote">Events and announcements marked public appear on the website; use Manage to add or change them.</span>
     <div class="mpo-foot-actions">
       <button type="button" class="mwx-btn mwx-btn-ghost" id="mpoReset">Default order</button>
       <button type="button" class="mwx-btn mwx-btn-primary" id="mpoSave">Save order</button>

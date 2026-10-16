@@ -4515,7 +4515,27 @@ const commonController = {
 
       const publicSiteAppearance = await require("../utils/publicSiteAppearance").getPublicSiteAppearance(db, organizationId);
 
+      // One content model for every website layout (views/partials/website).
+      const site = require("../utils/websiteView").buildSiteModel({
+        orgDetails,
+        aboutDetails,
+        slideshowImages,
+        galleryImages: normalImages,
+        texts,
+        events,
+        announcements,
+        extras: websiteExtras,
+        page: websitePage,
+        // Staff of this school can preview another layout before saving it.
+        layout: (req.query.previewLayout
+          && require("../utils/websiteView").LAYOUT_VALUES.includes(String(req.query.previewLayout))
+          && req.session && String(req.session.organizationId) === String(organizationId))
+          ? String(req.query.previewLayout)
+          : publicDashboardLayout,
+      });
+
       res.render("common/publicDashboard", {
+        site,
         publicSiteAppearance,
         websiteExtras,
         websitePage,
@@ -5879,6 +5899,7 @@ const commonController = {
       registrationState.preview = !registrationState.open && isOwnStaff;
       if (!registrationState.open && !registrationState.preview) {
         return res.render("common/publicRegisterStudent", {
+          publicSiteAppearance: await require("../utils/publicSiteAppearance").getPublicSiteAppearance(db, organizationId),
           title: "Online Registration",
           organizationId,
           orgDetails,
@@ -6053,6 +6074,7 @@ const commonController = {
       const platformFeeBearer = await getOrgPlatformFeeBearer(organizationId, db).catch(() => 'parent');
 
       res.render("common/publicRegisterStudent", {
+        publicSiteAppearance: await require("../utils/publicSiteAppearance").getPublicSiteAppearance(db, organizationId),
         title: "Public Student Registration",
         registrationState,
         classes: classResult.rows,

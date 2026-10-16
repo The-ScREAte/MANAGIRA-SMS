@@ -1,0 +1,11 @@
+<%#
+  Section heading. Each layout styles .sw-head differently; Story numbers
+  its chapters. Titles come from the website settings.
+  locals: site, key, title, intro, number
+%>
+
+<header class="sw-head">
+  <% if (site.layout === 'story' && number) { %><span class="sw-head__num" aria-hidden="true"><%= String(number).padStart(2, '0') %></span><% } %>
+  <h2 class="sw-head__title"<% if (locals.titleId) { %> id="<%= titleId %>"<% } %>><%= title %></h2>
+  <% if (intro) { %><p class="sw-head__intro"><%= intro %></p><% } %>
+</header>

@@ -1,0 +1,232 @@
+<%#
+  One website section. The markup is shared by every layout; layouts change
+  how it looks (school-website.css) and, for a few sections, its shape.
+  locals: site, key, number (chapter number in Story)
+%>
+<%
+  const L = site.layout;
+  const x = site.extras || {};
+  // "about-us" carries old page styles, so it is kept as a plain anchor only.
+  const id = key === 'about' ? 'sw-about' : (site.anchors[key] || ('sw-' + key));
+  const t = site.titles[key] || '';
+  const tel = (p) => String(p).replace(/[^+\d]/g, '');
+  const ini = (name) => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
+  const allEvents = site.events.upcoming.concat(site.events.recent);
+  const contactBlock = site.blocks.includes('contact');
+%>
+<section class="sw-section sw-block--<%= key %>" id="<%= id %>" aria-labelledby="<%= id %>-title" data-sw-block="<%= key %>">
+<% if (key === 'about') { %><span class="sw-anchor" id="about-us"></span><% } %>
+<% if (key === 'quickFacts') { %>
+  <h2 class="sw-visually-hidden" id="<%= id %>-title"><%= t %></h2>
+  <div class="sw-facts">
+    <% x.quickFacts.items.forEach((f) => { %>
+      <div class="sw-fact"><strong class="sw-fact__value"><%= f.value %></strong><span class="sw-fact__label"><%= f.label %></span></div>
+    <% }) %>
+  </div>
+
+<% } else if (key === 'welcome') { const w = x.welcome.items[0]; %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
+  <div class="sw-welcome<%= w.imageUrl ? '' : ' sw-welcome--text' %>">
+    <% if (w.imageUrl) { %><img class="sw-welcome__photo" src="<%= w.imageUrl %>" alt="<%= w.name %>" loading="lazy"><% } %>
+    <div class="sw-welcome__body">
+      <blockquote class="sw-welcome__message"><%= w.message %></blockquote>
+      <p class="sw-welcome__sign"><strong><%= w.name %></strong><% if (w.role) { %><span><%= w.role %></span><% } %></p>
+    </div>
+  </div>
+
+<% } else if (key === 'about') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
+  <div class="sw-about<%= site.school.aboutImage ? ' sw-about--image' : '' %>">
+    <div class="sw-about__text">
+      <% if (site.school.motto) { %><p class="sw-about__motto">“<%= site.school.motto %>”</p><% } %>
+      <% if (site.school.about) { %><p class="sw-about__body"><%= site.school.about %></p><% } %>
+      <dl class="sw-about__facts">
+        <% if (site.school.address) { %><div><dt>Address</dt><dd><%= site.school.address %></dd></div><% } %>
+        <% if (site.school.phones.length) { %><div><dt>Phone</dt><dd><% site.school.phones.forEach((p, i) => { %><a href="tel:<%= tel(p) %>"><%= p %></a><%= i < site.school.phones.length - 1 ? ' · ' : '' %><% }) %></dd></div><% } %>
+        <% if (site.school.emails.length) { %><div><dt>Email</dt><dd><% site.school.emails.forEach((e, i) => { %><a href="mailto:<%= e %>"><%= e %></a><%= i < site.school.emails.length - 1 ? ' · ' : '' %><% }) %></dd></div><% } %>
+      </dl>
+    </div>
+    <% if (site.school.aboutImage) { %>
+      <figure class="sw-about__figure">
+        <img src="<%= site.school.aboutImage.imageUrl %>" alt="<%= site.school.aboutImage.imageCaption || site.school.name %>" loading="lazy">
+        <% if (site.school.aboutImage.imageCaption) { %><figcaption><%= site.school.aboutImage.imageCaption %></figcaption><% } %>
+      </figure>
+    <% } %>
+  </div>
+
+<% } else if (key === 'programs') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: x.programs.intro, number }) %>
+  <div class="sw-cards sw-programs__grid">
+    <% x.programs.items.forEach((p) => { %>
+      <article class="sw-card sw-program">
+        <% if (p.imageUrl) { %><img class="sw-card__media" src="<%= p.imageUrl %>" alt="<%= p.title %>" loading="lazy"><% } else { %><span class="sw-card__media sw-card__media--blank" aria-hidden="true"></span><% } %>
+        <div class="sw-card__body">
+          <h3><%= p.title %></h3>
+          <% if (p.description) { %><p><%= p.description %></p><% } %>
+        </div>
+      </article>
+    <% }) %>
+  </div>
+
+<% } else if (key === 'admissions') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: x.admissions.intro, number }) %>
+  <% if (x.admissions.items.length) { %>
+    <ol class="sw-steps">
+      <% x.admissions.items.forEach((s, i) => { %>
+        <li class="sw-step"><span class="sw-step__num"><%= i + 1 %></span><div><h3><%= s.title %></h3><% if (s.description) { %><p><%= s.description %></p><% } %></div></li>
+      <% }) %>
+    </ol>
+  <% } %>
+  <div class="sw-actions">
+    <% if (site.registration.open) { %>
+      <a class="sw-btn sw-btn--primary" href="<%= site.registration.url %>">Apply online<% if (site.registration.endLabel) { %> · closes <%= site.registration.endLabel %><% } %></a>
+    <% } %>
+    <% if (contactBlock) { %><a class="sw-btn sw-btn--ghost" href="#contact">Ask a question</a><% } %>
+  </div>
+
+<% } else if (key === 'gallery') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
+  <div class="sw-gallery sw-gallery--<%= L %>">
+    <% site.gallery.forEach((img, i) => { %>
+      <figure class="sw-gallery__item">
+        <button type="button" class="sw-gallery__open" data-sw-lightbox="<%= i %>" aria-label="View photo<%= img.caption ? ': ' + img.caption : '' %>">
+          <img src="<%= img.url %>" alt="<%= img.caption || ('Photo ' + (i + 1)) %>" loading="lazy">
+        </button>
+        <% if (img.caption) { %><figcaption><%= img.caption %></figcaption><% } %>
+      </figure>
+    <% }) %>
+  </div>
+
+<% } else if (key === 'events') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: site.events.upcoming.length ? t : (site.titles.events === 'Upcoming Events' ? 'Recent Events' : t), intro: '', number }) %>
+  <% if (L === 'story') { %>
+    <ol class="sw-timeline">
+      <% allEvents.forEach((e) => { %>
+        <li class="sw-timeline__item<%= e.isPast ? ' is-past' : '' %>">
+          <time class="sw-timeline__date" datetime="<%= e.date.toISOString().slice(0, 10) %>"><%= e.label %></time>
+          <h3><%= e.name %></h3>
+          <% if (e.details) { %><p><%= e.details %></p><% } %>
+        </li>
+      <% }) %>
+    </ol>
+  <% } else { %>
+    <ul class="sw-events sw-events--<%= L %>">
+      <% allEvents.forEach((e) => { %>
+        <li class="sw-event<%= e.isPast ? ' is-past' : '' %>">
+          <time class="sw-event__date" datetime="<%= e.date.toISOString().slice(0, 10) %>"><span class="sw-event__month"><%= e.month %></span><span class="sw-event__day"><%= e.day %></span></time>
+          <div class="sw-event__body">
+            <h3><%= e.name %></h3>
+            <p class="sw-event__when"><%= e.label %><% if (e.isPast) { %> · <em>Past</em><% } %></p>
+            <% if (e.details) { %><p class="sw-event__details"><%= e.details %></p><% } %>
+          </div>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+
+<% } else if (key === 'announcements') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
+  <ul class="sw-notices sw-notices--<%= L %>">
+    <% site.announcements.forEach((a) => { %><li class="sw-notice"><%= a %></li><% }) %>
+  </ul>
+
+<% } else if (key === 'articles') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
+  <div class="sw-articles sw-articles--<%= L %>">
+    <% site.articles.forEach((a, i) => { %>
+      <article class="sw-article<%= i === 0 ? ' sw-article--lead' : '' %>">
+        <p class="sw-article__meta"><%= a.readMinutes %> min read</p>
+        <% if (a.title) { %><h3 class="sw-article__title"><%= a.title %></h3><% } %>
+        <% if (L === 'editorial' && i === 0) { %>
+          <div class="sw-article__full sw-rich"><%- a.html %></div>
+        <% } else { %>
+          <p class="sw-article__excerpt"><%= a.excerpt %></p>
+          <details class="sw-article__more">
+            <summary>Read more</summary>
+            <div class="sw-rich"><%- a.html %></div>
+          </details>
+        <% } %>
+      </article>
+    <% }) %>
+  </div>
+
+<% } else if (key === 'leadership') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
+  <div class="sw-people">
+    <% x.leadership.items.forEach((p) => { %>
+      <article class="sw-person">
+        <% if (p.imageUrl) { %><img class="sw-person__photo" src="<%= p.imageUrl %>" alt="<%= p.name %>" loading="lazy"><% } else { %><span class="sw-person__photo sw-person__photo--initials" aria-hidden="true"><%= ini(p.name) %></span><% } %>
+        <h3><%= p.name %></h3>
+        <% if (p.role) { %><p class="sw-person__role"><%= p.role %></p><% } %>
+        <% if (p.message) { %><p class="sw-person__message"><%= p.message %></p><% } %>
+      </article>
+    <% }) %>
+  </div>
+
+<% } else if (key === 'achievements') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
+  <ul class="sw-awards">
+    <% x.achievements.items.forEach((a) => { %>
+      <li class="sw-award">
+        <% if (a.year) { %><span class="sw-award__year"><%= a.year %></span><% } %>
+        <div><h3><%= a.title %></h3><% if (a.description) { %><p><%= a.description %></p><% } %></div>
+      </li>
+    <% }) %>
+  </ul>
+
+<% } else if (key === 'testimonials') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
+  <div class="sw-quotes">
+    <% x.testimonials.items.forEach((q) => { %>
+      <figure class="sw-quote">
+        <blockquote><%= q.quote %></blockquote>
+        <figcaption><strong><%= q.name %></strong><% if (q.relation) { %><span><%= q.relation %></span><% } %></figcaption>
+      </figure>
+    <% }) %>
+  </div>
+
+<% } else if (key === 'faq') { %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: '', number }) %>
+  <div class="sw-faq">
+    <% x.faq.items.forEach((f, i) => { %>
+      <details class="sw-faq__item"<%= i === 0 ? ' open' : '' %>>
+        <summary><%= f.question %></summary>
+        <div class="sw-faq__answer"><%= f.answer %></div>
+      </details>
+    <% }) %>
+  </div>
+
+<% } else if (key === 'contact') { const c = x.contact; %>
+  <%- include('./head', { site, key, titleId: id + '-title', title: t, intro: c.intro, number }) %>
+  <div class="sw-contact">
+    <form class="sw-contact__form" id="swContactForm" method="POST" action="/common/publicContact" novalidate>
+      <input type="hidden" name="organizationId" value="<%= site.school.id %>">
+      <div class="sw-hp" aria-hidden="true"><label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      <div class="sw-form-row">
+        <label>Your name<input type="text" name="name" required maxlength="120" autocomplete="name"></label>
+        <label>Email<input type="email" name="email" maxlength="200" autocomplete="email"></label>
+      </div>
+      <div class="sw-form-row">
+        <label>Phone <span class="sw-optional">(optional)</span><input type="tel" name="phone" maxlength="40" autocomplete="tel"></label>
+        <label>Subject <span class="sw-optional">(optional)</span><input type="text" name="subject" maxlength="200"></label>
+      </div>
+      <label>Message<textarea name="message" required maxlength="4000" rows="5"></textarea></label>
+      <div class="sw-form-foot">
+        <button type="submit" class="sw-btn sw-btn--primary sw-contact__submit">Send message</button>
+        <p class="sw-form-status" id="swContactStatus" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+    <aside class="sw-contact__info" aria-label="Contact details">
+      <dl>
+        <% if (site.school.address) { %><div><dt>Address</dt><dd><%= site.school.address %></dd></div><% } %>
+        <% if (site.school.phones.length) { %><div><dt>Phone</dt><dd><% site.school.phones.forEach((p, i) => { %><a href="tel:<%= tel(p) %>"><%= p %></a><%= i < site.school.phones.length - 1 ? ' · ' : '' %><% }) %></dd></div><% } %>
+        <% if (site.school.emails.length) { %><div><dt>Email</dt><dd><% site.school.emails.forEach((e, i) => { %><a href="mailto:<%= e %>"><%= e %></a><%= i < site.school.emails.length - 1 ? ' · ' : '' %><% }) %></dd></div><% } %>
+        <% if (c.officeHours) { %><div><dt>Office hours</dt><dd><%= c.officeHours %></dd></div><% } %>
+      </dl>
+      <% if (c.showMap && site.school.address) { %>
+        <iframe class="sw-map" title="Map to <%= site.school.name %>" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://maps.google.com/maps?q=<%= encodeURIComponent(site.school.address) %>&output=embed"></iframe>
+      <% } %>
+    </aside>
+  </div>
+<% } %>
+</section>

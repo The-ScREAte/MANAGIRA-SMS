@@ -200,7 +200,9 @@
     '/common/editTest',          // Rich editor
     '/account/managePublicContent', // Quill editor + image uploads
     '/account/personalization',  // Theme switching with full reload
-    '/common/reports'            // Dynamic filters + tables; safer to full-load
+    '/common/reports',           // Dynamic filters + tables; safer to full-load
+    '/common/publicDashboard',   // School website: its own page, styles, light/dark and scripts
+    '/common/publicRegister'     // Online registration: its own page and styles
   ];
 
   // Routes that should still SPA-navigate (fast, no full reload) but whose

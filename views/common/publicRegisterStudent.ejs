@@ -5,9 +5,18 @@
 <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
 <title>Public Student Registration</title>
 <%
-  const _prThemeColor = (orgDetails && orgDetails.theme_color)
-    || (typeof themeColor !== 'undefined' ? themeColor : '')
-    || '#2563eb';
+  // The school's brand color from the app palette (theme_color is a name such
+  // as "yellow", which as raw CSS would be pure #ffff00), plus a text color
+  // that reads well on it.
+  const _prPalette = (typeof themePalette !== 'undefined' && themePalette) || {};
+  const _prKey = (orgDetails && orgDetails.theme_color) || (typeof themeColor !== 'undefined' ? themeColor : '') || 'teal';
+  const _prTheme = _prPalette[_prKey] || (/^#[0-9a-f]{6}$/i.test(_prKey) ? { primary: _prKey, hover: _prKey } : (_prPalette.teal || { primary: '#0f5a66', hover: '#0b4650' }));
+  const _prThemeColor = _prTheme.primary;
+  const _prHex = String(_prThemeColor).replace('#', '');
+  const _prLum = (_prHex.length === 6 ? [0, 2, 4].map((i) => parseInt(_prHex.slice(i, i + 2), 16) / 255) : [0.06, 0.35, 0.4])
+    .map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)))
+    .reduce((sum, c, i) => sum + c * [0.2126, 0.7152, 0.0722][i], 0);
+  const _prOnColor = _prLum > 0.45 ? '#111827' : '#ffffff';
   const _prFontFamily = (orgDetails && orgDetails.font_style)
     || (session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter');
 %>
@@ -15,7 +24,12 @@
   :root {
     --font-family: "<%= String(_prFontFamily).trim() %>", sans-serif;
     --pr-blue: <%= _prThemeColor %>;
-    --pr-blue-dark: <%= _prThemeColor %>;
+    --pr-blue-dark: <%= _prTheme.hover || _prThemeColor %>;
+    --pr-on: <%= _prOnColor %>;
+    /* Brand color as text on white: light brand colors are darkened to stay readable. */
+    --pr-ink: <%= _prLum > 0.45 ? 'color-mix(in srgb, ' + _prThemeColor + ' 55%, #111827)' : _prThemeColor %>;
+    --pr-soft: color-mix(in srgb, var(--pr-blue) 14%, transparent);
+    --pr-shadow: color-mix(in srgb, var(--pr-blue) 28%, transparent);
     --pr-green: #10b981;
     --pr-green-dark: #059669;
     --pr-radius: 12px;
@@ -78,7 +92,7 @@
   .form-group select:focus {
     outline: none;
     border-color: var(--pr-blue);
-    box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    box-shadow: 0 0 0 3px var(--pr-soft);
   }
   .form-group input[type="file"] {
     padding: 9px 14px;
@@ -88,14 +102,14 @@
   }
   .btn-primary {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-    background: var(--pr-blue); color: #fff;
+    background: var(--pr-blue); color: var(--pr-on);
     padding: 13px 28px; border: none; border-radius: 8px;
     cursor: pointer; font-size: .95rem; font-weight: 600;
     font-family: var(--font-family);
     transition: background .2s, transform .1s, box-shadow .2s;
-    box-shadow: 0 2px 8px rgba(37,99,235,.2);
+    box-shadow: 0 2px 8px var(--pr-shadow);
   }
-  .btn-primary:hover { background: var(--pr-blue-dark); box-shadow: 0 4px 14px rgba(37,99,235,.3); }
+  .btn-primary:hover { background: var(--pr-blue-dark); box-shadow: 0 4px 14px var(--pr-shadow); }
   .btn-primary:active { transform: scale(.98); }
   .btn-secondary {
     display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -147,7 +161,7 @@
   
   .loader-circle {
     border: 6px solid #f3f3f3;
-    border-top: 6px solid #2563eb;
+    border-top: 6px solid var(--pr-blue);
     border-radius: 50%;
     width: 50px; height: 50px;
     animation: spin 0.8s linear infinite;
@@ -155,7 +169,7 @@
   .loader-text {
     margin-top: 15px;
     font-size: 1.1rem;
-    color: #2563eb;
+    color: var(--pr-blue-dark);
     font-weight: bold;
   }
   @keyframes spin { 
@@ -187,7 +201,7 @@
   .guardian-check-buttons button:active { transform: scale(.97); }
   .btn-yes { background: var(--pr-green); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,.2); }
   .btn-yes:hover { background: var(--pr-green-dark); }
-  .btn-no  { background: var(--pr-blue);  color: #fff; box-shadow: 0 2px 8px rgba(37,99,235,.2); }
+  .btn-no  { background: var(--pr-blue);  color: var(--pr-on); box-shadow: 0 2px 8px var(--pr-shadow); }
   .btn-no:hover  { background: var(--pr-blue-dark); }
 
   /* Guardian Search */
@@ -320,10 +334,10 @@
     display: flex; align-items: center; justify-content: center;
     font-size: .72rem; font-weight: 700; position: relative; z-index: 1; transition: all .3s;
   }
-  .progress-step.done .ps-circle { background: var(--pr-blue); border-color: var(--pr-blue); color: #fff; }
-  .progress-step.active .ps-circle { background: #fff; border-color: var(--pr-blue); color: var(--pr-blue); box-shadow: 0 0 0 4px rgba(37,99,235,.12); }
+  .progress-step.done .ps-circle { background: var(--pr-blue); border-color: var(--pr-blue); color: var(--pr-on); }
+  .progress-step.active .ps-circle { background: #fff; border-color: var(--pr-blue); color: var(--pr-ink); box-shadow: 0 0 0 4px var(--pr-soft); }
   .ps-label { font-size: .68rem; color: #94a3b8; margin-top: 5px; font-weight: 500; text-align: center; }
-  .progress-step.done .ps-label, .progress-step.active .ps-label { color: var(--pr-blue); font-weight: 600; }
+  .progress-step.done .ps-label, .progress-step.active .ps-label { color: var(--pr-ink); font-weight: 600; }
 
   /* ── Accordion cards ─────────────────────────────────────────── */
   .acc-card {
@@ -377,7 +391,7 @@
     min-width: 22px;
     height: 22px;
     background: var(--pr-blue);
-    color: #fff;
+    color: var(--pr-on);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -401,15 +415,15 @@
   }
   .fee-note { color: #6b7280; font-size: .8rem; }
   .reg-closed { text-align: center; padding: 48px 28px; }
-  .reg-closed-icon { width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; background: #f1f5f9; color: var(--pr-blue); display: flex; align-items: center; justify-content: center; }
+  .reg-closed-icon { width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; background: #f1f5f9; color: var(--pr-ink); display: flex; align-items: center; justify-content: center; }
   .reg-closed h1 { margin: 0 0 8px; font-size: 1.45rem; color: #0f172a; }
   .reg-closed p { margin: 0 auto 6px; max-width: 460px; color: #475569; line-height: 1.55; }
-  .reg-closed a { display: inline-block; margin-top: 22px; padding: 11px 24px; border-radius: 8px; background: var(--pr-blue); color: #fff; font-weight: 600; text-decoration: none; }
+  .reg-closed a { display: inline-block; margin-top: 22px; padding: 11px 24px; border-radius: 8px; background: var(--pr-blue); color: var(--pr-on); font-weight: 600; text-decoration: none; }
   .reg-preview-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; font-size: .88rem; }
   .fee-badge {
     display: inline-block;
     background: var(--pr-blue);
-    color: #fff;
+    color: var(--pr-on);
     padding: 3px 12px;
     border-radius: 20px;
     font-weight: 700;
@@ -454,14 +468,14 @@
     padding: 14px 18px; margin-bottom: 22px;
   }
   .payment-summary-row span   { font-size: .95rem; color: #475569; }
-  .payment-summary-row strong { font-size: 1.15rem; font-weight: 700; color: var(--pr-blue); }
+  .payment-summary-row strong { font-size: 1.15rem; font-weight: 700; color: var(--pr-ink); }
   #payNowBtn {
     width: 100%; padding: 14px;
     font-size: 1rem; font-weight: 600; font-family: var(--font-family);
-    background: var(--pr-blue); color: #fff;
+    background: var(--pr-blue); color: var(--pr-on);
     border: none; border-radius: 8px; cursor: pointer;
     transition: background .2s, transform .1s;
-    box-shadow: 0 2px 8px rgba(37,99,235,.2);
+    box-shadow: 0 2px 8px var(--pr-shadow);
   }
   #payNowBtn:hover   { background: var(--pr-blue-dark); }
   #payNowBtn:active  { transform: scale(.98); }
@@ -900,7 +914,7 @@
     <p style="color:#374151;margin:0 0 6px;font-size:1rem;">Thank you — your application has been received successfully.</p>
     <p style="color:#6b7280;font-size:.9rem;margin:0 0 28px;">No payment is required for this school. The admissions team will review and be in touch.</p>
     <button type="button" onclick="window.location.reload()"
-       style="display:inline-block;background:#2563eb;color:#fff;padding:12px 28px;border-radius:8px;font-weight:600;border:none;cursor:pointer;font-size:.95rem;font-family:inherit;">
+       style="display:inline-block;background:var(--pr-blue);color:var(--pr-on);padding:12px 28px;border-radius:8px;font-weight:600;border:none;cursor:pointer;font-size:.95rem;font-family:inherit;">
       Submit Another Application
     </button>
   </div>
@@ -1152,7 +1166,7 @@
 
         stripeElements = stripeInstance.elements({
           clientSecret: data.clientSecret,
-          appearance: { theme: 'stripe', variables: { colorPrimary: '#2563eb', borderRadius: '8px' } },
+          appearance: { theme: 'stripe', variables: { colorPrimary: <%- JSON.stringify(_prThemeColor) %>, borderRadius: '8px' } },
         });
 
         const returnUrl = window.location.origin + '/common/paymentCallback?organizationId=' + ORG_ID;

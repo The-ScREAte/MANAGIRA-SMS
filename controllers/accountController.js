@@ -7710,6 +7710,7 @@ const accountController = {
         announcements: announcements.rows,
 
         publicSiteAppearance,
+        websiteLayouts: require("../utils/websiteView").LAYOUTS,
         publicDashboardTheme,
         publicDashboardLayout,
         aboutDetails,
@@ -7730,7 +7731,7 @@ const accountController = {
   updatePublicDashboardLayoutPost: async (req, res) => {
     const organizationId = req.session.organizationId;
     const layout = (req.body?.publicDashboardLayout || "").trim();
-    const allowedLayouts = new Set(["wireframe1", "wireframe2", "wireframe3", "wireframe4"]);
+    const allowedLayouts = new Set(require("../utils/websiteView").LAYOUT_VALUES);
 
     if (!organizationId) {
       req.flash("error", "Missing organization.");

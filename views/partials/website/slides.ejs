@@ -1,0 +1,21 @@
+<%#
+  Photo slider. Each photo is shown whole (never cropped) over a soft,
+  blurred copy of itself. variant "cover" is a full-width stage; "card" sits
+  in a rounded frame inside the layout.  locals: site, variant
+%>
+<div class="sw-slider sw-slider--<%= variant %>" data-sw-slider aria-roledescription="carousel" aria-label="School photos">
+  <% site.slides.forEach((s, i) => { %>
+    <figure class="sw-slide<%= i === 0 ? ' is-active' : '' %>" aria-roledescription="slide" aria-label="<%= i + 1 %> of <%= site.slides.length %>">
+      <img class="sw-slide__backdrop" src="<%= s.url %>" alt="" aria-hidden="true"<%= i === 0 ? '' : ' loading="lazy"' %>>
+      <img class="sw-slide__img" src="<%= s.url %>" alt="<%= s.caption || site.school.name %>"<%= i === 0 ? ' fetchpriority="high"' : ' loading="lazy"' %>>
+      <% if (s.caption) { %><figcaption class="sw-slide__caption"><%= s.caption %></figcaption><% } %>
+    </figure>
+  <% }) %>
+  <% if (site.slides.length > 1) { %>
+    <button type="button" class="sw-slider__arrow sw-slider__arrow--prev" data-sw-prev aria-label="Previous photo">‹</button>
+    <button type="button" class="sw-slider__arrow sw-slider__arrow--next" data-sw-next aria-label="Next photo">›</button>
+    <div class="sw-slider__dots">
+      <% site.slides.forEach((s, i) => { %><button type="button" class="sw-slider__dot<%= i === 0 ? ' is-active' : '' %>" aria-label="Show photo <%= i + 1 %>"></button><% }) %>
+    </div>
+  <% } %>
+</div>
