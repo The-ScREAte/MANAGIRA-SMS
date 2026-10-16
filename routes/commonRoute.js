@@ -83,12 +83,33 @@ module.exports = (db) => {
   );
   // Public website contact form (no sign-in).
   router.post("/publicContact", websiteController.publicContact);
-  router.get("/publicDashboard", checkFeatureAccess, (req, res) => {
+  router.get("/publicDashboard", checkFeatureAccess, async (req, res) => {
     const isProduction = process.env.NODE_ENV === "production";
 
     if (isProduction) {
       const school = req.schoolDetails;
-      if (!school) return res.status(404).send("School not found");
+      if (!school) {
+        // Links of the form /common/publicDashboard?organizationId=63 (on the
+        // main domain) go to that school's own website address.
+        const orgId = Number(req.query.organizationId);
+        if (Number.isInteger(orgId) && orgId > 0) {
+          try {
+            // checkFeatureAccess has already allowed this school's website.
+            const { rows } = await db.query("SELECT nickname FROM organizations WHERE organization_id = $1", [orgId]);
+            const subdomain = String((rows[0] && rows[0].nickname) || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+            if (subdomain) {
+              const siteUrl = `https://${subdomain}.managira.com`;
+              const params = new URLSearchParams(req.query);
+              params.delete("organizationId");
+              const rest = params.toString();
+              return res.redirect(302, rest ? `${siteUrl}/common/publicDashboard?${rest}` : `${siteUrl}/`);
+            }
+          } catch (error) {
+            console.error("[PublicDashboard] website lookup failed:", error.message);
+          }
+        }
+        return res.status(404).send("School website not found");
+      }
 
       req.organizationId = school.organization_id;
     } else {
