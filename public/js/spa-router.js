@@ -997,7 +997,10 @@
       // Handle sticky nav visibility for public dashboard
       const stickyNav = document.querySelector('.sticky-nav');
       if (stickyNav) {
-        stickyNav.style.display = path.includes('/publicDashboard') ? '' : 'none';
+        // The school website is also served at a school's own address ("/"),
+        // so check the page itself, not only the path.
+        const onSchoolWebsite = path.includes('/publicDashboard') || (document.body && document.body.dataset.page === 'publicDashboard');
+        stickyNav.style.display = onSchoolWebsite ? '' : 'none';
       }
     }
 

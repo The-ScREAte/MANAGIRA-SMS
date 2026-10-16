@@ -5618,14 +5618,16 @@ body[data-page="publicDashboard"] #modalCaption{
 <style>
 /* =========================================================
    PAGE PROPORTIONS (all themes and layouts)
-   Content sits in one centered column with even side space;
-   the header lines up with it. Cards wrap into balanced grids
-   on wider screens and stay swipeable on phones.
+   Full width with the same side margins as the app's dashboard;
+   the header keeps its normal edge-to-edge layout. Cards wrap
+   into balanced grids (3 across on desktops) and stay
+   swipeable on phones.
    ========================================================= */
 body[data-page="publicDashboard"]{
-  --pd-max: 1120px;
-  --pd-gutter: clamp(16px, 4vw, 48px);
-  --pd-gap: clamp(14px, 1.6vw, 22px);
+  --pd-max: 1680px;
+  --pd-gutter: clamp(16px, 2vw, 32px);
+  --pd-gap: clamp(14px, 1.4vw, 22px);
+  --pd-card-min: clamp(280px, 30%, 420px);
 }
 body[data-page="publicDashboard"] .public-dashboard-container{
   width: 100%;
@@ -5634,12 +5636,15 @@ body[data-page="publicDashboard"] .public-dashboard-container{
   margin-inline: auto;
   box-sizing: border-box;
 }
-body[data-page="publicDashboard"] header#top-header{
-  padding-left: max(var(--pd-gutter), calc((100vw - var(--pd-max)) / 2));
-  padding-right: max(var(--pd-gutter), calc((100vw - var(--pd-max)) / 2));
-}
-body[data-page="publicDashboard"] .content-section{
-  margin-top: clamp(36px, 5vw, 64px);
+body[data-page="publicDashboard"] .public-dashboard-container .content-section,
+body[data-page="publicDashboard"] .public-dashboard-container .pdx{
+  max-width: none !important;
+  width: auto !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-top: clamp(32px, 4vw, 56px);
 }
 body[data-page="publicDashboard"] .content-section > h2{
   margin-bottom: clamp(16px, 2vw, 24px);
@@ -5648,7 +5653,7 @@ body[data-page="publicDashboard"] .content-section > h2{
 /* Gallery: even grid, two-line captions (themes set these with !important) */
 body[data-page="publicDashboard"] .wf4-gallery-compact{
   display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)) !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--pd-card-min)), 1fr)) !important;
   gap: var(--pd-gap) !important;
   max-width: none !important;
   max-height: none;
@@ -5695,7 +5700,7 @@ body[data-page="publicDashboard"] .wf4-gallery-compact .gallery-card .caption{
 /* Events: date cards in a grid (no tall empty timeline) */
 body[data-page="publicDashboard"] .wf4-timeline-container{
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--pd-card-min)), 1fr));
   gap: var(--pd-gap);
   max-height: none;
   overflow: visible;
@@ -5727,7 +5732,7 @@ body[data-page="publicDashboard"] .wf4-timeline-card p{
 body[data-page="publicDashboard"] .wf4-announcements-grid,
 body[data-page="publicDashboard"] .wf4-stories-grid{
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--pd-card-min)), 1fr));
   gap: var(--pd-gap);
   overflow: visible;
   padding: 0;
