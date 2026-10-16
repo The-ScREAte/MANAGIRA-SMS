@@ -7674,6 +7674,7 @@ const accountController = {
         unreadMessages: unreadWebsiteMessages,
       });
 
+      const publicSiteAppearance = await require("../utils/publicSiteAppearance").getPublicSiteAppearance(db, organizationId);
       res.render("account/managePublicContent", {
         registrationStatus,
         websiteOverview,
@@ -7708,6 +7709,7 @@ const accountController = {
 
         announcements: announcements.rows,
 
+        publicSiteAppearance,
         publicDashboardTheme,
         publicDashboardLayout,
         aboutDetails,
@@ -7786,6 +7788,24 @@ const accountController = {
             req.flash("error", "Failed to update website layout.");
       return res.redirect("/account/managePublicContent");
     }
+  },
+
+  // School website mode (light or dark) for visitors who aren't signed in.
+  updatePublicSiteAppearancePost: async (req, res, db) => {
+    const organizationId = req.session.organizationId;
+    const mode = String(req.body?.publicSiteAppearance || "").trim();
+    const back = "/account/managePublicContent";
+    if (!organizationId) {
+      req.flash("error", "Missing organization.");
+      return res.redirect(back);
+    }
+    try {
+      await require("../utils/publicSiteAppearance").setPublicSiteAppearance(db, organizationId, mode);
+      req.flash("success", mode === "dark" ? "Website mode set to Dark." : "Website mode set to Light.");
+    } catch (error) {
+      req.flash("error", error.message === "Choose Light or Dark." ? error.message : "Couldn't save the website mode.");
+    }
+    return res.redirect(back);
   },
 
   updatePublicDashboardThemePost: async (req, res) => {

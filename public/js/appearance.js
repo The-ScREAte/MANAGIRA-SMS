@@ -332,6 +332,7 @@
   function fixInline(el) {
     const st = el.style;
     if (!st || !st.length) return;
+    if (el.closest('[data-ap-skip]')) return; // e.g. light/dark previews that must show their real colors
     const bgKept = (() => { const c = parse(st.backgroundColor); return c && c.a > 0.5 && !mapBg(c) && toLch(c).L > 0.7; })();
     for (const prop of BG) { const c = mapBg(parse(st.getPropertyValue(prop))); if (c) setStyle(el, prop, css(c), st.getPropertyPriority(prop)); }
     const g = st.getPropertyValue('background-image');

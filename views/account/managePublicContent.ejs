@@ -543,6 +543,17 @@
     width: 100%;
   }
 
+  /* Website mode */
+  .mpc-mode-note { margin: 0 0 12px; color: var(--text-secondary); font-size: 0.85rem; }
+  .mpc-mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 520px) { .mpc-mode-grid { grid-template-columns: 1fr; } }
+  .mpc-mode-preview { margin-top: 10px; padding: 8px; border-radius: 10px; display: grid; gap: 5px; border: 1px solid rgba(15, 23, 42, 0.08); }
+  .mpc-mode-preview span { display: block; height: 8px; border-radius: 4px; }
+  .mpc-mode-preview span:first-child { width: 60%; background: var(--org-primary-color, var(--primary)); }
+  /* Preview colors are inline with data-ap-skip, so each shows its real look
+     whatever mode the person editing is using. */
+  .mpc-mode-preview span:last-child { width: 80%; }
+
   /* Layout Selector Styles */
   .layout-option {
     border: 2px solid var(--border);
@@ -1863,6 +1874,7 @@
      first as the page's overview. */
   .manage-public-container > .mwo { order: 1; }
   .manage-public-container > #mpcLayout { order: 2; }
+  .manage-public-container > #mpcMode { order: 2; }
   .manage-public-container > #mpcGallery { order: 3; }
   .manage-public-container > #mpcArticles { order: 4; }
   .manage-public-container > #mpcRegistration { order: 5; }
@@ -2080,6 +2092,43 @@
       </div>
       <div style="display:flex; justify-content:center; margin-top: 16px;">
         <button type="submit" class="theme-save-btn">Save Layout</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Website Mode Panel -->
+  <% const _siteMode = (typeof publicSiteAppearance !== 'undefined' && publicSiteAppearance === 'dark') ? 'dark' : 'light'; %>
+  <div class="theme-panel" id="mpcMode">
+    <div class="theme-panel-header">
+      <h2><i class="fa-solid fa-circle-half-stroke mpc-h-icon" aria-hidden="true"></i> Website Mode</h2>
+      <button type="button" class="section-collapse-toggle" aria-expanded="true">Collapse</button>
+    </div>
+    <p class="mpc-mode-note">What visitors see. Signed-in people see their own light or dark choice.</p>
+    <form action="/account/updatePublicSiteAppearance" method="POST">
+      <div class="mpc-mode-grid">
+        <label class="layout-option <%= _siteMode === 'light' ? 'selected' : '' %>">
+          <div class="layout-option-row">
+            <input type="radio" name="publicSiteAppearance" value="light" <%= _siteMode === 'light' ? 'checked' : '' %> style="margin-top: 4px;" />
+            <div class="layout-option-meta">
+              <div class="layout-title">Light</div>
+              <div class="layout-subtitle">Bright pages in your school colors.</div>
+              <div class="mpc-mode-preview" data-ap-skip aria-hidden="true" style="background:#ffffff;border-color:#e5e7eb"><span></span><span style="background:#e5e7eb"></span><span style="background:#e5e7eb"></span></div>
+            </div>
+          </div>
+        </label>
+        <label class="layout-option <%= _siteMode === 'dark' ? 'selected' : '' %>">
+          <div class="layout-option-row">
+            <input type="radio" name="publicSiteAppearance" value="dark" <%= _siteMode === 'dark' ? 'checked' : '' %> style="margin-top: 4px;" />
+            <div class="layout-option-meta">
+              <div class="layout-title">Dark</div>
+              <div class="layout-subtitle">Dark pages with your school colors.</div>
+              <div class="mpc-mode-preview" data-ap-skip aria-hidden="true" style="background:#1f2329;border-color:#2f353d"><span></span><span style="background:#3a4049"></span><span style="background:#3a4049"></span></div>
+            </div>
+          </div>
+        </label>
+      </div>
+      <div style="display:flex; justify-content:center; margin-top: 16px;">
+        <button type="submit" class="theme-save-btn">Save Mode</button>
       </div>
     </form>
   </div>

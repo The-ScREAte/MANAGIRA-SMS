@@ -4513,7 +4513,10 @@ const commonController = {
         console.error("[PublicDashboard] website sections unavailable:", websiteError.message);
       }
 
+      const publicSiteAppearance = await require("../utils/publicSiteAppearance").getPublicSiteAppearance(db, organizationId);
+
       res.render("common/publicDashboard", {
+        publicSiteAppearance,
         websiteExtras,
         websitePage,
         layout: false,

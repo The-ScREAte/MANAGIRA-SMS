@@ -220,6 +220,15 @@ router.post(
   (req, res) => accountController.updatePublicDashboardThemePost(req, res, db)
 );
 
+// School Website mode (light or dark for visitors)
+router.post(
+  "/updatePublicSiteAppearance",
+  checkFeatureAccess,
+  isAuthenticated,
+  requirePermission(PERMISSIONS.MANAGE_SETTINGS),
+  (req, res) => accountController.updatePublicSiteAppearancePost(req, res, db)
+);
+
 // School Website Layout
 router.post(
   "/updatePublicDashboardLayout",

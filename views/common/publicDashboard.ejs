@@ -1,4 +1,14 @@
-<html lang="en">
+<%
+  // Light or dark: a signed-in viewer sees their own choice; everyone else
+  // sees the mode the school set for its website (Website mode, default light).
+  // Same rule as utils/publicSiteAppearance.js. Prints stay white.
+  const pdAppearance = locals.isPrintRender
+    ? 'white'
+    : (locals.appearanceOwner
+        ? (locals.appearance === 'dark' ? 'dark' : 'white')
+        : (locals.publicSiteAppearance === 'dark' ? 'dark' : 'white'));
+%>
+<html lang="en" data-appearance="<%= pdAppearance %>">
   <%
     /* Font: read directly from orgDetails (same as org name/aboutus/theme) — no session needed */
     const selectedPublicFont = (orgDetails && orgDetails.font_style ? String(orgDetails.font_style).trim() : 'Inter') || 'Inter';
@@ -5740,6 +5750,24 @@ body[data-page="publicDashboard"] .wf4-stories-grid .draggable-item{
   height: auto;
 }
 
+/* Dark mode: readable headings and clearly outlined form fields */
+html[data-appearance="dark"] body[data-page="publicDashboard"] :is(.content-section > h2, .pdx-head h2, .pdx h2){
+  color: var(--ap-text) !important;
+}
+html[data-appearance="dark"] body[data-page="publicDashboard"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea, select){
+  background: var(--ap-page) !important;
+  border: 1px solid var(--ap-line) !important;
+  color: var(--ap-text) !important;
+}
+html[data-appearance="dark"] body[data-page="publicDashboard"] :is(input, textarea, select)::placeholder{
+  color: var(--ap-muted) !important;
+}
+html[data-appearance="dark"] body[data-page="publicDashboard"] :is(input, textarea, select):focus{
+  border-color: var(--org-primary-color, #d4a017) !important;
+  outline: 2px solid color-mix(in srgb, var(--org-primary-color, #d4a017) 35%, transparent);
+  outline-offset: 1px;
+}
+
 /* Phones: one column for events; swipe strips for announcements and stories */
 @media (max-width: 700px){
   body[data-page="publicDashboard"] .wf4-gallery-compact{
@@ -5768,6 +5796,8 @@ body[data-page="publicDashboard"] .wf4-stories-grid .draggable-item{
 }
 </style>
 
+    <link rel="stylesheet" href="<%= assetUrl('/css/appearance.css') %>">
+    <% if (pdAppearance !== 'white') { %><script src="<%= assetUrl('/js/appearance.js') %>" defer></script><% } %>
   </head>
   <body data-page="publicDashboard" data-pd-theme="<%= publicDashboardTheme || 'classic' %>" data-pd-layout="<%= publicDashboardLayout || 'wireframe1' %>">
     <%- include('../partials/header') %>
