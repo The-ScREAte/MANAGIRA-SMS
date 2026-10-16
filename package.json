@@ -82,5 +82,8 @@
     "node-gyp": "^11.1.0",
     "nodemon": "^3.1.0",
     "png-to-ico": "^3.0.1"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
