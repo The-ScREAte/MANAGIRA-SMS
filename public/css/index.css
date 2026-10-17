@@ -1,0 +1,16 @@
+/* Public Mira examples: scoped tokens preserve the rest of the site. */
+.mira-page {
+  --mira-demo-background: #000;
+  --mira-demo-surface: #171b20;
+  --mira-demo-prompt: #22272d;
+  --mira-demo-border: #353b43;
+  --mira-demo-text: #f3f4f6;
+  --mira-demo-muted: #afb7c2;
+  --mira-demo-accent: #7de3da;
+  --mira-demo-good-bg: #163b35;
+  --mira-demo-good-text: #9be0c8;
+  --mira-demo-attention-bg: #403622;
+  --mira-demo-attention-text: #eed299;
+  --mira-demo-neutral-bg: #2d333b;
+  --mira-demo-neutral-text: #c3cbd6;
+}

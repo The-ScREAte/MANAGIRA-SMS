@@ -11,7 +11,8 @@
     "build:vendor": "node scripts/buildVendor.js",
     "security:cross-school": "node scripts/crossSchoolCheck.js",
     "predev": "node scripts/dev-preflight.js",
-    "dev": "concurrently -n MAIN,MIRA -c blue,green \"npm:dev:main\" \"npm:dev:mira\"",
+    "dev": "node scripts/dev.js",
+    "dev:app": "concurrently -n MAIN,MIRA -c blue,green \"npm:dev:main\" \"npm:dev:mira\"",
     "dev:main": "nodemon",
     "dev:mira": "npm --prefix mira run dev",
     "dev:status": "node -e \"const net=require('net');const ports=[Number(process.env.PORT||4000),Number(process.env.MIRA_PORT||4100)];ports.forEach(port=>{const socket=net.createConnection({host:'127.0.0.1',port},()=>{console.log('[Status] Server is running on port '+port);socket.end();});socket.on('error',()=>{console.log('[Status] Server is NOT running on port '+port);});});\"",
@@ -77,6 +78,7 @@
     "qs": "^6.14.2"
   },
   "devDependencies": {
+    "@types/ejs": "^3.1.5",
     "concurrently": "^10.0.5",
     "connect-livereload": "^0.6.1",
     "livereload": "^0.10.3",
