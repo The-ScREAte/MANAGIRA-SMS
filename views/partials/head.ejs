@@ -296,7 +296,7 @@
   <script src="/js/chatbot.js?v=3" defer></script>
   <% } %>
 
-  <!-- PWA: register service worker (static-asset cache only; never intercepts auth or API) -->
+  <!-- PWA: register service worker (static assets, and workspace panels you come back to; never intercepts auth or API) -->
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
