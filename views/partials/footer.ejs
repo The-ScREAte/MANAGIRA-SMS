@@ -49,10 +49,9 @@
 
           <!-- PLATFORM -->
           <div class="footer-col-section">
-            <button type="button" class="footer-col-heading" aria-expanded="false">
+            <h3 class="footer-col-heading">
               Platform
-              <svg class="footer-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
+            </h3>
             <ul class="footer-col-list">
               <li><a href="/">Overview</a></li>
               <li><a href="/account/service-plan">Service Plans</a></li>
@@ -62,10 +61,9 @@
 
           <!-- COMPANY -->
           <div class="footer-col-section">
-            <button type="button" class="footer-col-heading" aria-expanded="false">
+            <h3 class="footer-col-heading">
               Company
-              <svg class="footer-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
+            </h3>
             <ul class="footer-col-list">
               <li><a href="/legal/about-us">About Managira</a></li>
               <li><a href="https://www.screate.org/about" target="_blank" rel="noopener">About ScREAte</a></li>
@@ -76,10 +74,9 @@
 
           <!-- RESOURCES -->
           <div class="footer-col-section">
-            <button type="button" class="footer-col-heading" aria-expanded="false">
+            <h3 class="footer-col-heading">
               Resources
-              <svg class="footer-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
+            </h3>
             <ul class="footer-col-list">
               <li><a href="/legal/mira-ai-assistant">Mira</a></li>
               <li><a href="https://managira.com/legal/user-documentation/mira-ai-capabilities">Mira Capabilities</a></li>
@@ -94,10 +91,9 @@
 
           <!-- LEGAL -->
           <div class="footer-col-section">
-            <button type="button" class="footer-col-heading" aria-expanded="false">
+            <h3 class="footer-col-heading">
               Legal
-              <svg class="footer-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
+            </h3>
             <ul class="footer-col-list">
               <li><a href="/legal/privacy-policy">Privacy Policy</a></li>
               <li><a href="/legal/terms-of-service">Terms of Service</a></li>
@@ -321,12 +317,6 @@
     cursor: default;
     font-family: inherit;
   }
-  .footer-chev {
-    display: none;
-    transition: transform 0.2s ease;
-    color: #fff;
-  }
-
   .footer-col-list {
     list-style: none;
     margin: 0;
@@ -439,40 +429,38 @@
       margin-bottom: 24px;
     }
     .footer-cta-text { align-items: center; text-align: center; }
-    .footer-cta-title { font-size: 22px; text-align: center; }
-    .footer-cta-pill { width: 100%; min-width: 0; padding: 14px 20px; justify-content: center; }
+    .footer-cta-title { font-size: 22px; text-align: center; letter-spacing: 0; }
+    .footer-cta-pill { width: auto; min-width: 0; padding: 12px 20px; justify-content: center; }
 
     .footer-divider { margin: 0 0 24px; }
 
     .footer-cols {
-      grid-template-columns: 1fr;
-      gap: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 28px 20px;
     }
 
-    /* Accordion on mobile */
-    .footer-col-section {
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-    }
-    .footer-col-section:first-child { border-top: 1px solid rgba(255,255,255,0.1); }
+    .footer-col-section { min-width: 0; }
 
-    .footer-col-heading {
-      padding: 16px 2px;
-      cursor: pointer;
-    }
-    .footer-chev { display: inline-block; }
-    .footer-col-section.open .footer-chev { transform: rotate(180deg); }
-
-    .footer-col-list {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.3s ease, padding 0.3s ease;
-      padding: 0 2px;
-    }
-    .footer-col-section.open .footer-col-list {
-      max-height: 500px;
-      padding: 2px 2px 18px 2px;
+    .managira-footer .footer-col-heading {
+      padding: 0 0 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      letter-spacing: 0;
     }
 
+    .managira-footer .footer-col-list {
+      gap: 2px;
+    }
+    .managira-footer .footer-col-list a {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 5px 0;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .footer-brand-logo { max-width: 100%; }
     .footer-brand-col { align-items: center; text-align: center; }
     .footer-brand-sub { max-width: none; }
     .footer-social { justify-content: center; }
@@ -483,43 +471,11 @@
       text-align: center;
     }
     .footer-copy { text-align: center; }
+    .footer-bottom-links a { display: inline-flex; align-items: center; min-height: 44px; }
 
     body[data-page="publicDashboard"] .footer-bottom-section { display: none; }
   }
 </style>
-
-<script>
-  (function () {
-    function initFooterAccordion() {
-      var headings = document.querySelectorAll('.managira-footer .footer-col-heading');
-      headings.forEach(function (btn) {
-        if (btn.dataset.bound === '1') return;
-        btn.dataset.bound = '1';
-        btn.addEventListener('click', function () {
-          if (!window.matchMedia('(max-width: 768px)').matches) return;
-          var section = btn.closest('.footer-col-section');
-          if (!section) return;
-          var open = section.classList.toggle('open');
-          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        });
-      });
-      window.addEventListener('resize', function () {
-        if (!window.matchMedia('(max-width: 768px)').matches) {
-          document.querySelectorAll('.managira-footer .footer-col-section.open').forEach(function (s) {
-            s.classList.remove('open');
-            var b = s.querySelector('.footer-col-heading');
-            if (b) b.setAttribute('aria-expanded', 'false');
-          });
-        }
-      });
-    }
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initFooterAccordion);
-    } else {
-      initFooterAccordion();
-    }
-  })();
-</script>
 
 <!-- Logout confirmation modal — intercepts every logout link site-wide -->
 <div class="logout-modal-overlay" id="logoutModalOverlay" role="presentation">
