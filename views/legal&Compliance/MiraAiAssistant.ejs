@@ -333,108 +333,10 @@
     .mira-section { padding: 52px 18px; }
   }
 
-  /* Interactive product-demo cards, shown after Core Capabilities. */
-  .mira-demo-section { background: #000; max-width: 1360px; margin: 0 auto; padding: 24px 24px; }
-  .mira-demo-card {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 40px;
-    align-items: center;
-    background: linear-gradient(135deg, #0e1520 0%, #16202c 100%);
-    border: 1px solid rgba(46, 255, 251, .1);
-    border-radius: 24px;
-    padding: 34px;
-  }
-  .mira-demo-card.reverse { grid-template-columns: 1fr 320px; }
-  .mira-demo-card.reverse .mira-demo-text { order: 2; }
-  .mira-demo-card.reverse .mira-demo-panel-wrap { order: 1; }
-  .mira-demo-text h2 { margin: 0 0 10px; font-size: 1.7rem; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
-  .mira-demo-text p { margin: 0; font-size: 0.95rem; color: #9aa5b3; line-height: 1.55; }
-
-  .mira-demo-panel-wrap { position: relative; padding-top: 34px; }
-  .mira-demo-panel {
-    position: relative;
-    background: linear-gradient(160deg, #16202c 0%, #0e1520 75%);
-    border: 1px solid rgba(46, 255, 251, .12);
-    border-radius: 18px;
-    padding: 30px 22px 22px;
-    box-shadow: 0 24px 60px -20px rgba(0, 0, 0, .6);
-  }
-  .mira-demo-chatbar {
-    position: absolute;
-    top: -20px; left: 22px; right: 22px;
-    background: #16202c;
-    border: 1px solid rgba(46, 255, 251, .22);
-    border-radius: 14px;
-    padding: 14px 16px 14px 20px;
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    box-shadow: 0 16px 34px -10px rgba(0, 0, 0, .55);
-    font-size: 0.94rem; color: #e2e8f0; font-weight: 500;
-    z-index: 2;
-    transition: box-shadow .2s ease, transform .2s ease;
-  }
-  .mira-demo-panel:hover .mira-demo-chatbar { box-shadow: 0 20px 40px -8px rgba(0, 0, 0, .7); transform: translateY(-2px); }
-  .mira-demo-send-btn {
-    flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
-    background: #2efffb; color: #0e1520; display: flex; align-items: center; justify-content: center;
-    transition: transform .25s ease, background .25s ease;
-  }
-  .mira-demo-panel:hover .mira-demo-send-btn { transform: scale(1.12); }
-  .mira-demo-rows {
-    margin-top: 18px;
-    display: grid; gap: 12px;
-    max-height: 220px;
-    overflow-y: auto;
-    padding-right: 4px;
-    padding-bottom: 6px;
-    -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
-    scrollbar-width: thin;
-    scrollbar-color: rgba(46,255,251,.3) transparent;
-  }
-  .mira-demo-rows::-webkit-scrollbar { width: 5px; }
-  .mira-demo-rows::-webkit-scrollbar-thumb { background: rgba(46,255,251,.3); border-radius: 999px; }
-  .mira-demo-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0; }
-  .mira-demo-row-name { font-size: 0.9rem; font-weight: 600; color: #e2e8f0; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(46,255,251,.3); }
-  .mira-demo-row-meta { font-size: 0.82rem; color: #7c8798; flex-shrink: 0; margin-right: auto; margin-left: 18px; }
-  .mira-demo-pill { flex-shrink: 0; font-size: 0.74rem; font-weight: 700; padding: 3px 11px; border-radius: 999px; }
-  .mira-demo-pill.is-good { background: rgba(46,255,251,.14); color: #2efffb; }
-  .mira-demo-pill.is-attention { background: rgba(96,165,250,.18); color: #93c5fd; }
-  .mira-demo-pill.is-neutral { background: rgba(148,163,184,.14); color: #94a3b8; }
-  .mira-demo-suggestion {
-    position: relative; z-index: 2; margin-top: 18px;
-    display: flex; align-items: center; gap: 12px;
-  }
-  .mira-demo-suggestion-icon {
-    flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
-    background: linear-gradient(135deg, var(--primary), #2efffb);
-    display: flex; align-items: center; justify-content: center; color: #fff;
-  }
-  .mira-demo-suggestion-icon svg { width: 16px; height: 16px; }
-  .mira-demo-suggestion p { margin: 0; font-size: 0.92rem; font-weight: 600; color: #e2e8f0; }
-
-  .mira-demo-image-frame {
-    margin-top: 18px;
-    height: 340px;
-    overflow-y: auto;
-    border-radius: 12px;
-    border: 1px solid rgba(46, 255, 251, .12);
-    -webkit-mask-image: linear-gradient(to bottom, #000 88%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 88%, transparent 100%);
-    scrollbar-width: thin;
-    scrollbar-color: rgba(46,255,251,.3) transparent;
-  }
-  .mira-demo-image-frame::-webkit-scrollbar { width: 5px; }
-  .mira-demo-image-frame::-webkit-scrollbar-thumb { background: rgba(46,255,251,.3); border-radius: 999px; }
-  .mira-demo-image-frame img { display: block; width: 100%; height: auto; }
-
-  @media (max-width: 900px) {
-    .mira-demo-section { padding-top: 0; }
-    .mira-demo-card, .mira-demo-card.reverse { grid-template-columns: 1fr; padding: 28px; gap: 28px; }
-    .mira-demo-card .mira-demo-text, .mira-demo-card.reverse .mira-demo-text { order: 1; }
-    .mira-demo-card .mira-demo-panel-wrap, .mira-demo-card.reverse .mira-demo-panel-wrap { order: 2; }
-  }
 </style>
+
+<link rel="stylesheet" href="/css/index.css" />
+<link rel="stylesheet" href="/css/mira-public.css" />
 
 <main class="mira-page">
   <div class="mira-hero-section">
@@ -458,7 +360,7 @@
 
   <section class="mira-showcase-section">
     <div class="mira-showcase-desktop">
-      <img src="/images/mira%20uigigscreen.png" alt="Mira chat interface" onerror="this.onerror=null;this.src='/images/image.png';" />
+      <img src="/images/mira%20uigigscreen.png" alt="Mira chat interface" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/images/image.png';" />
     </div>
   </section>
 
@@ -517,109 +419,88 @@
     <a class="mira-capabilities-doc-link" href="https://managira.com/legal/user-documentation/mira-ai-capabilities">Read the full capabilities documentation &rarr;</a>
   </section>
 
-  <section class="mira-demo-section">
+  <section class="mira-demo-section" aria-label="Mira example">
     <div class="mira-demo-card">
       <div class="mira-demo-text">
         <h2>Stats for your school</h2>
-        <p>Ask Mira for attendance, fees, or enrollment across every class, and get the numbers back in a sentence - no report to build first.</p>
+        <p>Attendance, fees, and enrollment. A clear answer, without building a report.</p>
       </div>
       <div class="mira-demo-panel-wrap">
         <div class="mira-demo-panel">
+          <span class="mira-demo-label">Example conversation</span>
           <div class="mira-demo-chatbar">
-            <span>Give me this term's attendance and fee summary</span>
-            <span class="mira-demo-send-btn">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-            </span>
+            <span>Summarize attendance and fees this term</span>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9H13a8.5 8.5 0 0 1 8 8v.5z"/></svg>
           </div>
           <div class="mira-demo-rows">
             <div class="mira-demo-row"><span class="mira-demo-row-name">Eng 103</span><span class="mira-demo-row-meta">Attendance 96%</span><span class="mira-demo-pill is-good">Good</span></div>
             <div class="mira-demo-row"><span class="mira-demo-row-name">Sc 200</span><span class="mira-demo-row-meta">Attendance 91%</span><span class="mira-demo-pill is-good">Good</span></div>
             <div class="mira-demo-row"><span class="mira-demo-row-name">Math 101</span><span class="mira-demo-row-meta">Fees 82% paid</span><span class="mira-demo-pill is-attention">Attention</span></div>
             <div class="mira-demo-row"><span class="mira-demo-row-name">Hist 201</span><span class="mira-demo-row-meta">Fees 95% paid</span><span class="mira-demo-pill is-good">Good</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Boarding House</span><span class="mira-demo-row-meta">Occupancy 88%</span><span class="mira-demo-pill is-neutral">Steady</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Bio 210</span><span class="mira-demo-row-meta">Fees 100% paid</span><span class="mira-demo-pill is-good">Good</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Art 105</span><span class="mira-demo-row-meta">Attendance 98%</span><span class="mira-demo-pill is-good">Good</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Chem 220</span><span class="mira-demo-row-meta">Fees 74% paid</span><span class="mira-demo-pill is-attention">Attention</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Geo 110</span><span class="mira-demo-row-meta">Attendance 93%</span><span class="mira-demo-pill is-good">Good</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">PE 100</span><span class="mira-demo-row-meta">Attendance 99%</span><span class="mira-demo-pill is-good">Good</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Music 130</span><span class="mira-demo-row-meta">Fees 90% paid</span><span class="mira-demo-pill is-good">Good</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Cafeteria</span><span class="mira-demo-row-meta">Usage 81%</span><span class="mira-demo-pill is-neutral">Steady</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Econ 300</span><span class="mira-demo-row-meta">Fees 68% paid</span><span class="mira-demo-pill is-attention">Attention</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Library</span><span class="mira-demo-row-meta">Usage 76%</span><span class="mira-demo-pill is-neutral">Steady</span></div>
           </div>
           <div class="mira-demo-suggestion">
             <span class="mira-demo-suggestion-icon">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
             </span>
-            <p>Want me to draft a summary for the board meeting?</p>
+            <p>Draft a board meeting summary?</p>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="mira-demo-section">
+  <section class="mira-demo-section" aria-label="Mira example">
     <div class="mira-demo-card reverse">
       <div class="mira-demo-text">
         <h2>Easy enrollment, easy reporting</h2>
-        <p>From a new application to a report card in a parent's inbox, Mira handles the busywork in between - and tells you who still needs a nudge.</p>
+        <p>Manage applications, send report cards, and see who needs a follow-up.</p>
       </div>
       <div class="mira-demo-panel-wrap">
         <div class="mira-demo-panel">
+          <span class="mira-demo-label">Example conversation</span>
           <div class="mira-demo-chatbar">
-            <span>Send this term's report cards to all Eng 103 parents</span>
-            <span class="mira-demo-send-btn">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-            </span>
+            <span>Send Eng 103 report cards to parents</span>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9H13a8.5 8.5 0 0 1 8 8v.5z"/></svg>
           </div>
           <div class="mira-demo-rows">
             <div class="mira-demo-row"><span class="mira-demo-row-name">Emily Johnson</span><span class="mira-demo-row-meta">Eng 103</span><span class="mira-demo-pill is-good">Sent</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Michael Smith</span><span class="mira-demo-row-meta">Eng 103</span><span class="mira-demo-pill is-good">Sent</span></div>
             <div class="mira-demo-row"><span class="mira-demo-row-name">Olivia Brown</span><span class="mira-demo-row-meta">Eng 103</span><span class="mira-demo-pill is-attention">Pending</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">New Applicant - Ethan Davis</span><span class="mira-demo-row-meta">Admissions</span><span class="mira-demo-pill is-neutral">Review</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">New Applicant - Sophia Wilson</span><span class="mira-demo-row-meta">Admissions</span><span class="mira-demo-pill is-good">Approved</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">James Anderson</span><span class="mira-demo-row-meta">Eng 103</span><span class="mira-demo-pill is-good">Sent</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Ava Martinez</span><span class="mira-demo-row-meta">Eng 103</span><span class="mira-demo-pill is-good">Sent</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Liam Garcia</span><span class="mira-demo-row-meta">Eng 103</span><span class="mira-demo-pill is-good">Sent</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Isabella Rodriguez</span><span class="mira-demo-row-meta">Eng 103</span><span class="mira-demo-pill is-attention">Pending</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">New Applicant - Noah Miller</span><span class="mira-demo-row-meta">Admissions</span><span class="mira-demo-pill is-good">Approved</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">New Applicant - Mia Thompson</span><span class="mira-demo-row-meta">Admissions</span><span class="mira-demo-pill is-neutral">Review</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Benjamin White</span><span class="mira-demo-row-meta">Eng 103</span><span class="mira-demo-pill is-good">Sent</span></div>
-            <div class="mira-demo-row"><span class="mira-demo-row-name">Charlotte Harris</span><span class="mira-demo-row-meta">Eng 103</span><span class="mira-demo-pill is-good">Sent</span></div>
+            <div class="mira-demo-row"><span class="mira-demo-row-name">Ethan Davis</span><span class="mira-demo-row-meta">Admissions</span><span class="mira-demo-pill is-neutral">Review</span></div>
+            <div class="mira-demo-row"><span class="mira-demo-row-name">Sophia Wilson</span><span class="mira-demo-row-meta">Admissions</span><span class="mira-demo-pill is-good">Approved</span></div>
           </div>
           <div class="mira-demo-suggestion">
             <span class="mira-demo-suggestion-icon">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
             </span>
-            <p>Want me to notify parents who haven't opened their report yet?</p>
+            <p>Follow up with parents who haven’t opened their report?</p>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="mira-demo-section">
+  <section class="mira-demo-section" aria-label="Mira example">
     <div class="mira-demo-card">
       <div class="mira-demo-text">
         <h2>See how your school is doing</h2>
-        <p>A full statistics dashboard for your organization - broken down by class, school year, term, or semester - so you always know where things stand.</p>
+        <p>See your school at a glance. Compare classes, terms, and school years.</p>
       </div>
       <div class="mira-demo-panel-wrap">
         <div class="mira-demo-panel">
+          <span class="mira-demo-label">Example conversation</span>
           <div class="mira-demo-chatbar">
-            <span>Show me this term's organization statistics</span>
-            <span class="mira-demo-send-btn">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-            </span>
+            <span>Show my school's statistics this term</span>
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9H13a8.5 8.5 0 0 1 8 8v.5z"/></svg>
           </div>
           <div class="mira-demo-image-frame">
-            <img src="/images/app-demo/dashboard-overview.svg" alt="Organization statistics dashboard" loading="lazy" />
+            <img src="/images/app-demo/dashboard-overview.svg" alt="Example school dashboard with enrollment, attendance, and financial summaries" loading="lazy" />
           </div>
+          <a class="mira-demo-image-link" href="/images/app-demo/dashboard-overview.svg" target="_blank" rel="noopener">View full dashboard <span aria-hidden="true">↗</span></a>
           <div class="mira-demo-suggestion">
             <span class="mira-demo-suggestion-icon">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
             </span>
-            <p>Want me to compare this term with last term?</p>
+            <p>Compare with last term?</p>
           </div>
         </div>
       </div>
