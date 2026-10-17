@@ -310,7 +310,7 @@ async function listClasses(req, res) {
       `SELECT c.class_id, c.class_name, COUNT(s.student_id)::int AS student_count
        FROM classes c
        LEFT JOIN students s ON s.class_id = c.class_id AND s.organization_id = c.organization_id
-       WHERE c.organization_id = $1
+       WHERE c.organization_id = $1 AND c.obsolete_at IS NULL
          AND ($2 = '' OR c.class_name ILIKE '%' || $2 || '%')
        GROUP BY c.class_id
        ORDER BY c.dashboard_sort_order NULLS LAST, c.class_name
@@ -1325,8 +1325,8 @@ async function listSubjects(req, res) {
     if (!Number.isInteger(organizationId)) return res.status(400).json({ error: "organizationId is required." });
 
     const [classesResult, subjectsResult] = await Promise.all([
-      db.query(`SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY class_name`, [organizationId]),
-      db.query(`SELECT subject_id, subject_name, class_id FROM subjects WHERE organization_id = $1 ORDER BY subject_name`, [organizationId]),
+      db.query(`SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY class_name`, [organizationId]),
+      db.query(`SELECT subject_id, subject_name, class_id FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY subject_name`, [organizationId]),
     ]);
     const classes = classesResult.rows;
     const classMap = new Map(classes.map((c) => [Number(c.class_id), c]));
@@ -8482,10 +8482,10 @@ async function listRemarksApi(req, res) {
     const organizationId = await assertHasPermissionQuery(req, PERMISSIONS.MANAGE_REPORTS, "You don't have permission to view the remarks bank.");
     const remarkType = req.query.remarkType ? String(req.query.remarkType).trim().toLowerCase() : null;
     const rows = (await db.query(
-      `SELECT id, remark, remark_type FROM remarks WHERE organization_id = $1 ${remarkType ? "AND remark_type = $2" : ""} ORDER BY remark_type, id`,
+      `SELECT id, remark, remark_type, obsolete_at FROM remarks WHERE organization_id = $1 ${remarkType ? "AND remark_type = $2" : ""} ORDER BY remark_type, id`,
       remarkType ? [organizationId, remarkType] : [organizationId]
     )).rows;
-    return res.json({ remarks: rows.map((r) => ({ remarkId: r.id, remark: r.remark, remarkType: r.remark_type })) });
+    return res.json({ remarks: rows.map((r) => ({ remarkId: r.id, remark: r.remark, remarkType: r.remark_type, obsolete: Boolean(r.obsolete_at) })) });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
     console.error("[internalApi/listRemarksApi]", error);

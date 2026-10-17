@@ -6974,7 +6974,7 @@ adminController.hubOrganizationsGet = async (req, res) => {
               (SELECT COUNT(*)::int FROM students st WHERE st.organization_id = o.organization_id AND ${activeStudentSql('st')}) as student_count,
               (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id
                   AND LOWER(COALESCE(u.account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')) as teacher_count,
-              (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id) as class_count,
+              (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id AND c.obsolete_at IS NULL) as class_count,
               o.max_users,
               (SELECT p.plan_name FROM plans p WHERE p.id = o.hub_assigned_plan_id) AS assigned_plan_name,
               (SELECT COUNT(*)::int FROM users u2 WHERE u2.organization_id = o.organization_id

@@ -1617,15 +1617,17 @@ input[type="number"].score-input-invalid {
                   </button>
                 </th>
                 <% assessments.forEach(function(assessment) { %>
-                <th>
-                  <%= assessment.title %> (<%= assessment.weight %>%)<br />
-                  <%= assessment.category %><br />
+                <% const _isObsolete = assessment.access_reason === 'Obsolete'; %>
+                <th<% if (_isObsolete) { %> class="is-obsolete" title="Obsolete: kept on report cards, closed to new scores"<% } %>>
+                  <span<%- _isObsolete ? ' style="text-decoration:line-through;opacity:.65"' : '' %>><%= assessment.title %> (<%= assessment.weight %>%)<br />
+                  <%= assessment.category %></span><br />
                   <%
                     // Plain-English status: "Open" or "Closed" with the reason.
                     const _fmtDay = (value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     let _closedReason = 'Closed';
                     if (!assessment.can_edit_scores) {
-                      if (assessment.access_reason === 'Locked') _closedReason = 'Locked';
+                      if (assessment.access_reason === 'Obsolete') _closedReason = 'Obsolete';
+                      else if (assessment.access_reason === 'Locked') _closedReason = 'Locked';
                       else if (assessment.access_reason === 'Inactive') _closedReason = 'Turned off';
                       else if (assessment.edit_window_start && new Date(assessment.edit_window_start) > new Date()) _closedReason = `Opens ${_fmtDay(assessment.edit_window_start)}`;
                       else if (assessment.edit_window_end && new Date(assessment.edit_window_end) < new Date()) _closedReason = `Ended ${_fmtDay(assessment.edit_window_end)}`;

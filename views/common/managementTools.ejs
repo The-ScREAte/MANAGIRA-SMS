@@ -477,6 +477,12 @@
       grid-template-rows: auto 1fr !important;
     }
   }
+
+  /* Features not turned on yet: shown so schools know they exist. */
+  .nav-link.nav-link--off { opacity: .6; }
+  .nav-link.nav-link--off:hover { opacity: 1; }
+  .nav-link--off .nav-link-icon img { filter: grayscale(1); }
+  .nav-turn-on { display: inline-block; margin-left: 4px; padding: 0 6px; border: 1px solid currentColor; border-radius: 999px; font-size: 10.5px; font-weight: 700; line-height: 1.5; vertical-align: middle; }
 </style>
 <link rel="stylesheet" href="/css/workspace-shell.css" />
 
@@ -524,7 +530,7 @@
         <li>
           <a class="nav-link" href="<%= assessmentQuestionsUrl %>" data-no-spa data-section="assessment-questions" data-embed-url="<%= assessmentQuestionsUrl %>" data-embed-label="<%= assessmentQuestionsLabel %>">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 19.5V5a2 2 0 012-2h13v17H6.5A2.5 2.5 0 004 22.5"/><path d="M4 19.5A2.5 2.5 0 016.5 17H19"/><path d="M9 8h6M9 12h6"/></svg></span>
-            <span>Assessment Questions</span>
+            <span>Assessment questions</span>
           </a>
         </li>
         <% } %>
@@ -562,6 +568,16 @@
           </a>
         </li>
         <% } %>
+        <% if (!hasTransportationIntegration || !hasMiraIntegration) { %>
+        <% [!hasTransportationIntegration && { name: 'Transportation', icon: '/images/transportation-logo.png' }, !hasMiraIntegration && { name: 'Mira (AI Assistant)', icon: '/images/miralogo.png' }].filter(Boolean).forEach(function (off) { %>
+        <li>
+          <a class="nav-link nav-link--off" href="/account/settings?section=integrations" data-no-spa data-section="integrations" data-embed-url="/account/settings?section=integrations" data-embed-label="Integrations" title="<%= off.name %> isn't turned on. Turn it on in Integrations.">
+            <span class="nav-link-icon"><img src="<%= off.icon %>" alt="" /></span>
+            <span><%= off.name %> <span class="nav-turn-on">Turn on</span></span>
+          </a>
+        </li>
+        <% }) %>
+        <% } %>
         <% if (hasMiraIntegration) { %>
         <li>
           <a class="nav-link" href="/account/mira" data-no-spa data-section="mira" data-embed-url="/account/mira" data-embed-label="Mira">
@@ -580,7 +596,7 @@
         <li>
           <a class="nav-link" href="/account/managePublicContent" data-no-spa data-section="public-website" data-embed-url="/account/managePublicContent" data-embed-label="School Website">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg></span>
-            <span>School Website</span>
+            <span>School website</span>
           </a>
         </li>
         <% } %>
@@ -588,7 +604,7 @@
         <li>
           <a class="nav-link" href="/documents" data-no-spa data-section="documents" data-embed-url="/documents" data-embed-label="Docs/Sheets">
             <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg></span>
-            <span>Docs/Sheets</span>
+            <span>Docs &amp; sheets</span>
           </a>
         </li>
         <% } %>
@@ -1073,7 +1089,17 @@
         }
 
         try {
-          if (escapeIframeForFullPageDashboard(stripEmbedFlag(iframe.contentWindow.location.href))) return;
+          const landedOn = stripEmbedFlag(iframe.contentWindow.location.href) || '';
+          // A page preloading in the background that sends you to the
+          // dashboard (no access, for example) is dropped quietly instead of
+          // taking over the window.
+          if (background && group !== activeGroup && /^\/common\/(orgDashboard|publicDashboard)(?:[/?]|$)/.test(landedOn)) {
+            iframe.remove();
+            overlay.remove();
+            delete loadedPanelUrls[group];
+            return;
+          }
+          if (escapeIframeForFullPageDashboard(landedOn)) return;
         } catch (err) {
           // Cross-origin — nothing more we can do.
         }
@@ -1258,9 +1284,8 @@
 
     // Panels load on intent: pointing at, focusing or touching a menu item
     // starts loading it in its own hidden panel, so the click shows it at
-    // once. Nothing else loads in the background, so the page you're using
-    // gets the whole connection (on a slow or data-saver connection, panels
-    // load only when clicked).
+    // once (on a slow or data-saver connection, panels load only when
+    // clicked).
     const warmedSections = new Set(typeof initialSection !== 'undefined' && initialSection ? [initialSection] : []);
     function warmPanel(link) {
       const sectionId = link.getAttribute('data-section') || link.getAttribute('data-group');
@@ -1276,5 +1301,49 @@
         link.addEventListener(type, function () { warmPanel(link); }, { once: true, passive: true });
       });
     });
+
+    // Once the page you opened has loaded, the other pages in this menu load
+    // one at a time in the background while the browser is idle, and stay
+    // loaded, so every later click shows its page at once. Skipped on slow or
+    // data-saver connections, paused while the tab is hidden, and limited on
+    // low-memory phones.
+    (function preloadOtherPanelsWhenIdle() {
+      const conn = navigator.connection;
+      if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) return;
+      const lowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory < 4;
+      let budget = lowMemory ? 3 : Infinity;
+      const links = Array.from(document.querySelectorAll('.nav-link[data-embed-url], .nav-sublink[data-embed-url]'));
+      const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 400));
+      const loaded = (sectionId) => new Promise((resolve) => {
+        const started = Date.now();
+        (function check() {
+          if (loadedPanelUrls[sectionId] || Date.now() - started > 12000) return resolve();
+          setTimeout(check, 200);
+        })();
+      });
+      const whenVisible = () => new Promise((resolve) => {
+        if (!document.hidden) return resolve();
+        document.addEventListener('visibilitychange', function onVis() {
+          if (document.hidden) return;
+          document.removeEventListener('visibilitychange', onVis);
+          resolve();
+        });
+      });
+      async function run() {
+        if (activeGroup) await loaded(activeGroup);
+        for (const link of links) {
+          if (budget <= 0) return;
+          const sectionId = link.getAttribute('data-section') || link.getAttribute('data-group');
+          if (!sectionId || warmedSections.has(sectionId)) continue;
+          await whenVisible();
+          await new Promise((resolve) => idle(resolve));
+          if (warmedSections.has(sectionId)) continue;
+          warmPanel(link);
+          budget -= 1;
+          await loaded(sectionId);
+        }
+      }
+      setTimeout(run, 600);
+    })();
   })();
 </script>

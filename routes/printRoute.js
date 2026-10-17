@@ -57,6 +57,34 @@ module.exports = (db) => {
     router.post('/addClassesToTranscriptSignature', isAuthenticated, printController.addClassesToTranscriptSignature);
 
     router.get('/deleteRemark/:id', isAuthenticated, printController.deleteRemark);
+
+    // Make obsolete / restore: remarks and remark types stay on the report
+    // cards that use them; obsolete signatures stay on their classes.
+    const { requirePermission, PERMISSIONS } = require('../middleware/permissionMiddleware');
+    const obsolete = require('../utils/obsolete');
+    router.post('/obsolete', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), express.json(), express.urlencoded({ extended: false }),
+        obsolete.obsoleteHandler(db, { kinds: ['remark', 'remarkType'], fallbackRedirect: '/print/reportSettings' }));
+    router.post('/obsoleteSignature', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_REPORTS), express.json(), async (req, res) => {
+        const { signaturePath, kind, action } = req.body || {};
+        const organizationId = req.session.organizationId;
+        if (!organizationId) return res.status(401).json({ success: false, message: 'Please sign in again.' });
+        if (!['report', 'transcript'].includes(kind) || !['obsolete', 'restore'].includes(action)) {
+            return res.status(400).json({ success: false, message: "That action isn't available." });
+        }
+        try {
+            const owned = await db.query(
+                `SELECT 1 FROM report_settings WHERE organization_id = $1 AND signature_image_path = $2 AND ${kind === 'transcript' ? 'term_id = -1' : 'term_id <> -1'} LIMIT 1`,
+                [organizationId, String(signaturePath || '')]
+            );
+            if (!owned.rows.length) return res.status(404).json({ success: false, message: 'Signature not found.' });
+            const userId = req.session.userId || (req.session.user && req.session.user.user_id) || null;
+            const result = await obsolete.setSignatureObsolete(db, organizationId, kind, signaturePath, action === 'obsolete', userId);
+            return res.status(result.status).json({ success: result.ok, message: result.message });
+        } catch (error) {
+            console.error('[obsoleteSignature]', error.message);
+            return res.status(500).json({ success: false, message: "That couldn't be saved. Please try again." });
+        }
+    });
     router.get('/deleteScoreRemark/:id', isAuthenticated, printController.deleteScoreRemark);
     router.post('/saveReportChanges', isAuthenticated, printController.saveReportChanges);
     router.post('/savePaygiraReportOverrides', isAuthenticated, express.json(), printController.savePaygiraReportOverrides);

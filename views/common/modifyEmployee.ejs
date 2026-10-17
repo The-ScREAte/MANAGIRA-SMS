@@ -551,8 +551,8 @@
     <form class="employee-action-form" action="/common/toggleHoldEmployee/<%= user.user_id %>" method="post">
       <button type="submit" class="btn btn-warning"><%= user.on_hold ? 'Resume Employee' : 'Hold Employee' %></button>
     </form>
-    <form class="employee-action-form" action="/common/deleteEmployee/<%= user.user_id %>" method="post" onsubmit="return confirm('Are you sure you want to delete this employee?');">
-      <button type="submit" class="btn btn-danger btn-icon-only employee-delete-action" aria-label="Delete employee" title="Delete employee">
+    <form class="employee-action-form" action="/common/deleteEmployee/<%= user.user_id %>" method="post" onsubmit="return confirm('Remove this user from the school?\n\nThey won\'t be able to sign in and leave the staff lists. Everything they did (attendance, scores, payments, documents) is kept.\n\nTo bring them back: Users > Status: Removed > select them > Enable.');">
+      <button type="submit" class="btn btn-danger btn-icon-only employee-delete-action" aria-label="Remove user" title="Remove user (records are kept)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="3 6 5 6 21 6"></polyline>
           <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>

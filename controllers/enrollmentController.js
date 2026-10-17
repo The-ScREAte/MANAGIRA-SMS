@@ -89,6 +89,8 @@ async function loadEnrollmentClasses(db, organizationId, rosterEnrollmentId, sel
     LEFT JOIN roster r ON r.class_id = c.class_id
     LEFT JOIN students s ON s.student_id = r.student_id
     WHERE c.organization_id = $1
+      AND (c.obsolete_at IS NULL
+           OR EXISTS (SELECT 1 FROM enrolled_classes ec WHERE ec.enrollment_id = $3 AND ec.class_id = c.class_id))
     GROUP BY c.class_id
     ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name, c.class_id
   `, [organizationId, rosterEnrollmentId || null, selectedEnrollmentId || null]);

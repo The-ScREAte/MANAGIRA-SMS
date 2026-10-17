@@ -352,7 +352,7 @@ async function getClassScheduleSubjects(db, options) {
     `
       SELECT subject_id, subject_name
       FROM subjects
-      WHERE class_id = $1 AND organization_id = $2
+      WHERE class_id = $1 AND organization_id = $2 AND obsolete_at IS NULL
       ORDER BY subject_name ASC
     `,
     [classId, organizationId]

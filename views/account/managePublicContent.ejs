@@ -3027,5 +3027,27 @@
     </script>
 
 
+<script>
+  // Opened from Admissions → Online Admission → settings: show just that section, open.
+  (function () {
+    if (new URLSearchParams(location.search).get('focus') !== 'registration') return;
+    function focusRegistration() {
+      var reg = document.getElementById('mpcRegistration');
+      if (!reg || !reg.parentElement) return;
+      Array.prototype.forEach.call(reg.parentElement.children, function (el) {
+        if (el !== reg && el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE') el.style.display = 'none';
+      });
+      var title = document.querySelector('.mpc-page-header h1');
+      if (title) title.innerHTML = '<i class="fa-solid fa-graduation-cap mpc-h-icon" aria-hidden="true"></i> Online admission settings';
+      var sub = document.querySelector('.mpc-page-header p');
+      if (sub) sub.textContent = 'Open or close online applications, set the dates and the application fee.';
+      var toggle = reg.querySelector('.section-collapse-toggle');
+      if (toggle && toggle.getAttribute('aria-expanded') === 'false') toggle.click();
+    }
+    // After the page's own panel setup, which restores collapsed panels.
+    if (document.readyState === 'complete') focusRegistration();
+    else window.addEventListener('load', focusRegistration);
+  })();
+</script>
 </body>
 </html>

@@ -1,5 +1,5 @@
-// Saved records that keep a school year, term, class or subject from being
-// deleted. Past report cards, transcripts, attendance and reports have to stay
+// Saved records that keep a school year, term, class, subject or student from
+// being deleted. Past report cards, transcripts, attendance and reports have to stay
 // exactly as they were, so anything that already holds records stays.
 // Setup that only describes the item (grade bands, report settings, teacher
 // assignments, the class list for a term) does not block: it goes with it.
@@ -77,6 +77,18 @@ const SOURCES = {
     { table: "finance_collection_signoffs", column: "class_id", label: ["fee collection sign-off", "fee collection sign-offs"] },
     { table: "report_paygira_manual_overrides", column: "class_id", label: ["report fee override", "report fee overrides"] },
     { table: "pending_students", column: "class_id", label: ["pending admission", "pending admissions"] },
+  ],
+  // A student's own records (not setup such as subjects, enrollment or guardians).
+  student: [
+    { table: "assessment_results", column: "student_id", label: ["score", "scores"] },
+    { table: "attendance_records", column: "student_id", label: ["attendance record", "attendance records"] },
+    { table: "student_reports", column: "student_id", label: ["report card entry", "report card entries"] },
+    { table: "posted_report_cards", column: "student_id", label: ["posted report card", "posted report cards"] },
+    { table: "category_scores", column: "student_id", label: ["score total", "score totals"] },
+    { table: "student_term_positions", column: "student_id", label: ["subject position", "subject positions"] },
+    { table: "class_positions", column: "student_id", label: ["class position", "class positions"] },
+    { table: "student_assessment_attempts", column: "student_id", label: ["online test attempt", "online test attempts"] },
+    { table: "finance_payments", column: "student_id", label: ["fee payment", "fee payments"] },
   ],
   subject: [
     { table: "assessment_results", column: "subject_id", label: ["score", "scores"] },

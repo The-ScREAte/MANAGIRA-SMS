@@ -473,7 +473,7 @@ async function getTeacherRemarkOptionsCached(dbClient, organizationId, classId, 
   const teacherOptionsResult = await dbClient.query(
     `SELECT id, remark, remark_type
      FROM remarks
-     WHERE organization_id = $1 AND remark_type = ANY($2::text[])
+     WHERE organization_id = $1 AND remark_type = ANY($2::text[]) AND obsolete_at IS NULL
      ORDER BY LOWER(remark) ASC`,
     [organizationId, selectedRemarkTypes]
   );
@@ -1101,7 +1101,7 @@ async function getClassSubjectsForCarryover(dbClient, organizationId, classId) {
   const result = await dbClient.query(
     `SELECT subject_id, subject_name
        FROM subjects
-      WHERE class_id = $1 AND organization_id = $2
+      WHERE class_id = $1 AND organization_id = $2 AND obsolete_at IS NULL
       ORDER BY subject_name ASC`,
     [classId, organizationId]
   );
@@ -3204,6 +3204,10 @@ function parseDateTimeValue(value) {
 }
 
 function computeAssessmentEditability(control, now = new Date()) {
+  // Obsolete: kept with its scores on report cards, closed to new scores.
+  if (control?.obsolete_at || control?.is_obsolete) {
+    return { canEdit: false, reason: "Obsolete" };
+  }
   const locked = Boolean(control?.is_locked);
   const active = control?.is_active === undefined || control?.is_active === null
     ? true
@@ -4645,7 +4649,7 @@ const commonController = {
       const classQuery = `
             SELECT c.class_id, c.class_name
             FROM classes c
-            WHERE c.organization_id = $1
+            WHERE c.organization_id = $1 AND c.obsolete_at IS NULL
         ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC;
         `;
       const classResult = await db.query(classQuery, [organizationId]);
@@ -4654,7 +4658,7 @@ const commonController = {
       const graduationYearGroupQuery = `
             SELECT id, name
             FROM graduation_year_groups
-            WHERE organization_id = $1
+            WHERE organization_id = $1 AND obsolete_at IS NULL
             ORDER BY name ASC;
         `;
       const graduationYearGroupResult = await db.query(
@@ -4666,7 +4670,7 @@ const commonController = {
       const subjectQuery = `
             SELECT s.subject_id, s.subject_name
             FROM subjects s
-            WHERE s.organization_id = $1
+            WHERE s.organization_id = $1 AND s.obsolete_at IS NULL
             ORDER BY s.subject_name ASC;
         `;
       const subjectResult = await db.query(subjectQuery, [organizationId]);
@@ -5763,7 +5767,7 @@ const commonController = {
           if (uniqueClasses.length > 0) {
             const classCheckQuery = `
               SELECT class_name FROM classes 
-              WHERE organization_id = $1 AND LOWER(TRIM(class_name)) = ANY($2::text[])
+              WHERE organization_id = $1 AND obsolete_at IS NULL AND LOWER(TRIM(class_name)) = ANY($2::text[])
             `;
             const classResult = await db.query(classCheckQuery, [organizationId, uniqueClasses.map((c) => c.toLowerCase())]);
             const existingClasses = classResult.rows.map(r => (r.class_name || '').toLowerCase().trim());
@@ -5775,7 +5779,7 @@ const commonController = {
           if (uniqueSubjects.length > 0) {
             const subjectCheckQuery = `
               SELECT subject_name FROM subjects 
-              WHERE organization_id = $1 AND LOWER(TRIM(subject_name)) = ANY($2::text[])
+              WHERE organization_id = $1 AND obsolete_at IS NULL AND LOWER(TRIM(subject_name)) = ANY($2::text[])
             `;
             const subjectResult = await db.query(subjectCheckQuery, [organizationId, uniqueSubjects.map((s) => s.toLowerCase())]);
             const existingSubjects = subjectResult.rows.map(r => (r.subject_name || '').toLowerCase().trim());
@@ -5913,17 +5917,17 @@ const commonController = {
       }
 
       const classResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId]
       );
 
       const graduationYearGroupResult = await db.query(
-        `SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name ASC`,
+        `SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY name ASC`,
         [organizationId]
       );
 
       const subjectResult = await db.query(
-        `SELECT subject_id, subject_name FROM subjects WHERE organization_id = $1 ORDER BY subject_name ASC`,
+        `SELECT subject_id, subject_name FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY subject_name ASC`,
         [organizationId]
       );
 
@@ -7283,7 +7287,7 @@ const commonController = {
         `
         SELECT subject_id, subject_name
         FROM subjects
-        WHERE organization_id = $1 AND class_id = $2
+        WHERE organization_id = $1 AND obsolete_at IS NULL AND class_id = $2
         ORDER BY subject_name ASC
       `,
         [organizationId, student.class_id]
@@ -7303,7 +7307,7 @@ const commonController = {
         `
         SELECT class_id, class_name
         FROM classes
-        WHERE organization_id = $1
+        WHERE organization_id = $1 AND obsolete_at IS NULL
         ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}
       `,
         [organizationId]
@@ -7314,7 +7318,7 @@ const commonController = {
         `
         SELECT id, name
         FROM graduation_year_groups
-        WHERE organization_id = $1
+        WHERE organization_id = $1 AND obsolete_at IS NULL
         ORDER BY name ASC
       `,
         [organizationId]
@@ -7918,7 +7922,7 @@ const commonController = {
         `
         SELECT subject_id, subject_name
         FROM subjects
-        WHERE class_id = $1 AND organization_id = $2
+        WHERE class_id = $1 AND organization_id = $2 AND obsolete_at IS NULL
         ORDER BY subject_name ASC
         `,
         [classId, organizationId]
@@ -8440,7 +8444,7 @@ const commonController = {
 
       // Fetch classes
       const classResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId]
       );
 
@@ -9012,6 +9016,21 @@ const commonController = {
         const imageUrl = studentResult.rows[0].image_url;
         const classId = studentResult.rows[0].class_id;
 
+        // A student with records (scores, attendance, report cards, payments)
+        // is never deleted: that would erase them from every report and
+        // transcript. Archiving takes them off the register and keeps it all.
+        const studentRecords = await savedRecords(client, "student", [Number(studentId)], sessionOrganizationId);
+        if (studentRecords.length) {
+          await client.query("ROLLBACK");
+          const top = studentRecords.slice().sort((x, y) => y.count - x.count).slice(0, 4).map((r) => r.text);
+          req.flash(
+            "error",
+            `This student can't be deleted because they already have records: ${top.join(", ")}. ` +
+              "To take them off the register and keep everything, use Graduate & archive students and mark them as left (you can restore them later)."
+          );
+          return res.redirect(`/common/editStudent?studentId=${studentId}`);
+        }
+
         // Delete the student's image from S3, if applicable
         if (imageUrl && imageUrl !== "profilePlaceholder.png") {
           const imageKey = path.basename(imageUrl);
@@ -9502,7 +9521,7 @@ const commonController = {
       await ensureClassDashboardLayoutSchema(db);
 
       const classesResult = await db.query(
-        `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+        `SELECT * FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
 
@@ -9641,7 +9660,10 @@ const commonController = {
       );
 
       if (emailCheckResult.rows.length > 0) {
-        req.flash("error", "This email is already in use by another user or organization.");
+        const removedMatch = await require("../utils/removedUsers").findRemovedByEmail(client, organizationId, email).catch(() => null);
+        req.flash("error", removedMatch
+          ? `${[removedMatch.first_name, removedMatch.last_name].filter(Boolean).join(" ") || "This person"} was removed from your school earlier. To bring them back, choose Status: Removed on the Users page, select them and click Enable.`
+          : "This email is already in use by another user or organization.");
         await client.query("ROLLBACK");
         return res.redirect(createEmployeeRedirectUrl);
       }
@@ -10329,6 +10351,56 @@ const commonController = {
         employee.classes = Array.from(classMap.values());
       }
 
+      // Removed accounts: kept with their records, shown under Status: Removed
+      // with what they had (put back when enabled).
+      const removedUsers = await require("../utils/removedUsers")
+        .listRemovedUsers(db, req.session.organizationId)
+        .catch((error) => {
+          console.error("[manageEmployees] removed users", error.message);
+          return [];
+        });
+      if (removedUsers.length) {
+        const snapshotSubjectIds = removedUsers.flatMap((u) => (u.removed_snapshot && u.removed_snapshot.subjects) || []);
+        const snapshotSubjects = snapshotSubjectIds.length
+          ? (await db.query(
+              "SELECT subject_id, subject_name, class_id FROM subjects WHERE organization_id = $1 AND subject_id = ANY($2::int[])",
+              [req.session.organizationId, snapshotSubjectIds]
+            )).rows
+          : [];
+        (await db.query(
+          `SELECT user_id, MAX(created_at) AS last_login FROM organization_activity_logs
+            WHERE organization_id = $1 AND action_type = 'Login' AND user_id = ANY($2::int[])
+            GROUP BY user_id`,
+          [req.session.organizationId, removedUsers.map((u) => u.user_id)]
+        ).catch(() => ({ rows: [] }))).rows.forEach((row) => lastLoginByUser.set(Number(row.user_id), row.last_login));
+        removedUsers.forEach((u) => {
+          const snap = u.removed_snapshot || {};
+          const classIds = new Set((snap.classes || []).map((c) => Number(c.class_id)));
+          const subjectIds = new Set((snap.subjects || []).map(Number));
+          const grantedPermissions = snap.permissions || [];
+          employees.push({
+            ...u,
+            status: "Removed",
+            is_removed: true,
+            is_owner: false,
+            last_login: lastLoginByUser.get(Number(u.user_id)) || null,
+            removed_on: u.removed_at,
+            permissions: u.account_type === "Manager"
+              ? grantedPermissions.filter((key) => permissionLabelMap[key])
+              : mergePermissionsForRole(u.account_type, grantedPermissions),
+            classes: orgClasses
+              .filter((cls) => classIds.has(Number(cls.class_id)))
+              .map((cls) => ({
+                class_id: cls.class_id,
+                class_name: cls.class_name,
+                subjects: snapshotSubjects
+                  .filter((s) => subjectIds.has(Number(s.subject_id)) && Number(s.class_id) === Number(cls.class_id))
+                  .map((s) => ({ subject_id: s.subject_id, subject_name: s.subject_name })),
+              })),
+          });
+        });
+      }
+
       res.render("common/manageEmployees", {
         title: "Users / Employees",
         permissionOptions: PERMISSION_OPTIONS,
@@ -10417,7 +10489,7 @@ const commonController = {
         `
                 SELECT c.class_id, c.class_name
                 FROM classes c
-                WHERE c.organization_id = $1
+                WHERE c.organization_id = $1 AND c.obsolete_at IS NULL
                 ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC`,
         [req.session.organizationId]
       );
@@ -10426,7 +10498,7 @@ const commonController = {
         `
           SELECT subject_id, subject_name, class_id
           FROM subjects
-          WHERE organization_id = $1
+          WHERE organization_id = $1 AND obsolete_at IS NULL
           ORDER BY class_id ASC, subject_name ASC
         `,
         [req.session.organizationId]
@@ -10909,7 +10981,7 @@ const commonController = {
                        COALESCE(scale_base, 100) AS scale_base,
                       COALESCE(open_book, FALSE) AS open_book,
                       time_limit_minutes,
-                       COALESCE(is_locked, FALSE) AS is_locked,
+                       obsolete_at, COALESCE(is_locked, FALSE) AS is_locked,
                        COALESCE(is_active, TRUE) AS is_active,
                     COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard,
                        edit_window_start,
@@ -11267,7 +11339,7 @@ const commonController = {
       const assessmentControlResult = await db.query(
         `
           SELECT assessment_id, title, weight, max_score, category,
-                 COALESCE(is_locked, FALSE) AS is_locked,
+                 obsolete_at, COALESCE(is_locked, FALSE) AS is_locked,
                  COALESCE(is_active, TRUE) AS is_active,
                  edit_window_start,
                  edit_window_end
@@ -11744,7 +11816,7 @@ const commonController = {
              COALESCE(open_book, FALSE) AS open_book,
              time_limit_minutes,
              GREATEST(COALESCE(max_attempts, 1), 1) AS max_attempts,
-             COALESCE(is_locked, FALSE) AS is_locked,
+             obsolete_at, COALESCE(is_locked, FALSE) AS is_locked,
              COALESCE(is_active, TRUE) AS is_active,
              COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard,
              edit_window_start,
@@ -12838,7 +12910,7 @@ NUMBERING:
       await ensureAssessmentControlSchema(db);
       const result = await db.query(
         `SELECT *,
-                COALESCE(is_locked, FALSE) AS is_locked,
+                obsolete_at, COALESCE(is_locked, FALSE) AS is_locked,
                 COALESCE(is_active, TRUE) AS is_active,
                 edit_window_start,
                 edit_window_end
@@ -12972,6 +13044,7 @@ NUMBERING:
             COALESCE(a.scale_base, 100) AS scale_base, a.assessment_definition_id,
             c.class_id, c.class_name, s.subject_name,
             BOOL_OR(COALESCE(a.is_locked, FALSE)) OVER (PARTITION BY a.group_id) AS is_locked,
+            BOOL_OR(a.obsolete_at IS NOT NULL) OVER (PARTITION BY a.group_id) AS is_obsolete,
             BOOL_AND(COALESCE(a.is_active, TRUE)) OVER (PARTITION BY a.group_id) AS is_active,
           BOOL_OR(COALESCE(a.show_question_set_on_dashboard, FALSE)) OVER (PARTITION BY a.group_id) AS show_question_set_on_dashboard,
             MIN(a.edit_window_start) OVER (PARTITION BY a.group_id) AS edit_window_start,
@@ -13047,6 +13120,7 @@ NUMBERING:
             term_id: row.term_id,
             is_locked: row.is_locked,
             is_active: row.is_active,
+            is_obsolete: Boolean(row.is_obsolete),
             show_question_set_on_dashboard: Boolean(row.show_question_set_on_dashboard),
             edit_window_start: row.edit_window_start,
             edit_window_end: row.edit_window_end,
@@ -13307,7 +13381,7 @@ NUMBERING:
            COALESCE(a.open_book, FALSE) AS open_book,
            a.time_limit_minutes,
            GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
-           COALESCE(a.is_locked, FALSE) AS is_locked,
+           a.obsolete_at, COALESCE(a.is_locked, FALSE) AS is_locked,
            COALESCE(a.is_active, TRUE) AS is_active,
            a.edit_window_start,
            a.edit_window_end,
@@ -14126,7 +14200,7 @@ NUMBERING:
                 saa.status, saa.started_at, saa.submitted_at, saa.score, saa.max_score,
                 st.first_name, st.last_name,
                 a.title AS assessment_title, a.class_id, a.subject_id, a.term_id,
-                a.max_score AS assessment_max_score, a.is_locked, a.is_active,
+                a.max_score AS assessment_max_score, a.is_locked, a.is_active, a.obsolete_at,
                 a.edit_window_start, a.edit_window_end,
                 c.class_name, s.subject_name
          FROM student_assessment_attempts saa
@@ -14224,7 +14298,7 @@ NUMBERING:
       const attemptResult = await db.query(
         `SELECT saa.attempt_id, saa.student_id, saa.assessment_id, saa.posted_at,
                 a.class_id, a.subject_id, a.term_id, a.category,
-                a.is_locked, a.is_active, a.edit_window_start, a.edit_window_end
+                a.is_locked, a.is_active, a.obsolete_at, a.edit_window_start, a.edit_window_end
          FROM student_assessment_attempts saa
          JOIN assessments a ON a.assessment_id = saa.assessment_id AND a.organization_id = saa.organization_id
          WHERE saa.organization_id = $1 AND saa.attempt_id = $2
@@ -14647,7 +14721,7 @@ NUMBERING:
            COALESCE(a.open_book, FALSE) AS open_book,
            a.time_limit_minutes,
            GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
-           COALESCE(a.is_locked, FALSE) AS is_locked,
+           a.obsolete_at, COALESCE(a.is_locked, FALSE) AS is_locked,
            COALESCE(a.is_active, TRUE) AS is_active,
            a.edit_window_start,
            a.edit_window_end,
@@ -14753,7 +14827,7 @@ NUMBERING:
            a.max_score,
            a.category,
            COALESCE(a.scale_base, 100) AS scale_base,
-           COALESCE(a.is_locked, FALSE) AS is_locked,
+           a.obsolete_at, COALESCE(a.is_locked, FALSE) AS is_locked,
            COALESCE(a.is_active, TRUE) AS is_active,
            a.edit_window_start,
            a.edit_window_end
@@ -15068,7 +15142,7 @@ NUMBERING:
       const assessmentQuery = `
                 SELECT title, weight, max_score, category,
                        COALESCE(scale_base, 100) AS scale_base,
-                       COALESCE(is_locked, FALSE) AS is_locked,
+                       obsolete_at, COALESCE(is_locked, FALSE) AS is_locked,
                        COALESCE(is_active, TRUE) AS is_active,
             COALESCE(show_question_set_on_dashboard, FALSE) AS show_question_set_on_dashboard,
                        edit_window_start,
@@ -15846,7 +15920,8 @@ NUMBERING:
       if (scoreCount > 0) {
         await client.query("ROLLBACK");
         return res.status(409).json({
-          error: `Cannot delete this test because ${scoreCount} student score${scoreCount === 1 ? "" : "s"} have already been entered for it. Remove those results first, then try again.`,
+          error: `This test can't be deleted because ${scoreCount} student score${scoreCount === 1 ? " has" : "s have"} already been entered for it. Make it obsolete instead: the scores and report cards keep it, and it is no longer offered for new scores.`,
+          canObsolete: true,
         });
       }
 
@@ -15934,7 +16009,7 @@ NUMBERING:
 
       // Fetch subjects associated with the organization
       const subjectsResult = await db.query(
-        `SELECT * FROM subjects WHERE organization_id = $1 ORDER BY subject_name`,
+        `SELECT * FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY subject_name`,
         [organizationId]
       );
       const subjects = subjectsResult.rows;
@@ -16175,255 +16250,108 @@ NUMBERING:
     }
   },
 
+  // "Remove" a staff account. The person and every record they made stay (see
+  // utils/removedUsers.js); they can't sign in and leave the staff lists until
+  // the school enables them again from Users > Status: Removed.
   deleteEmployee: async (req, res, db) => {
     // Dedicated connection: BEGIN/COMMIT on the pool can run on different
     // connections and strand writes in an open transaction.
     let txClient = null;
     const { userId } = req.params;
-
-    if (!userId) {
-      return res.status(400).send("User ID is required.");
-    }
-
     const organizationId = req.session.organizationId;
     const requesterUserId = req.session.userId || (req.session.user ? req.session.user.user_id : null);
-    let replacementUser = null;
+    const back = "/common/manageEmployees";
+
+    if (!/^\d+$/.test(String(userId || ""))) {
+      req.flash("error", "Choose a user to remove.");
+      return res.redirect(back);
+    }
 
     try {
+      const removed = require("../utils/removedUsers");
+      await removed.ensureRemovedUsersSchema(db);
       txClient = await db.connect();
       await txClient.query("BEGIN");
 
-      // Confirm employee exists in this organization
       const employeeResult = await txClient.query(
-        "SELECT user_id, first_name, last_name, account_type FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1",
+        "SELECT user_id, first_name, last_name, email, account_type FROM users WHERE user_id = $1 AND organization_id = $2 LIMIT 1 FOR UPDATE",
         [userId, organizationId]
       );
-
-      if (employeeResult.rows.length === 0) {
-        if (txClient) await txClient.query("ROLLBACK").catch(() => {});
-        req.flash("error", "Employee not found in this organization.");
-        return res.redirect("/common/manageEmployees");
+      if (!employeeResult.rows.length) {
+        await txClient.query("ROLLBACK");
+        req.flash("error", "That user isn't on this school's staff list.");
+        return res.redirect(back);
       }
-
       const employee = employeeResult.rows[0];
-      const allPermissionKeys = PERMISSION_OPTIONS.map((permission) => permission.key);
-      const toPermissionSet = (keys) => new Set((keys || []).map((key) => String(key || "").trim()).filter(Boolean));
-      const areSetsEqual = (a, b) => {
-        if (a.size !== b.size) return false;
-        for (const value of a) {
-          if (!b.has(value)) return false;
-        }
-        return true;
-      };
+      const name = [employee.first_name, employee.last_name].filter(Boolean).join(" ").trim() || "This user";
 
-      if (employee.account_type === "Manager") {
-        const primaryManagerUserId = await getPrimaryManagerUserId(txClient, organizationId);
-        const isPrimaryManager =
-          primaryManagerUserId !== null && String(primaryManagerUserId) === String(userId);
-
-        if (isPrimaryManager) {
-          const fullPermissionSet = toPermissionSet(allPermissionKeys);
-
-          const replacementCandidatesResult = await txClient.query(
-            `
-              SELECT
-                u.user_id,
-                u.account_type,
-                ARRAY(
-                  SELECT up.permission_key
-                  FROM user_permissions up
-                  WHERE up.user_id = u.user_id
-                    AND up.organization_id = u.organization_id
-                  ORDER BY up.permission_key
-                ) AS permissions
-              FROM users u
-              WHERE u.organization_id = $1
-                AND u.user_id <> $2
-                AND LOWER(u.account_type) IN ('manager', 'supervisor')
-              ORDER BY
-                CASE WHEN LOWER(u.account_type) = 'manager' THEN 0 ELSE 1 END,
-                u.created_at ASC NULLS LAST,
-                u.user_id ASC
-            `,
-            [organizationId, userId]
-          );
-
-          for (const candidate of replacementCandidatesResult.rows) {
-            const candidateRole = String(candidate.account_type || "").toLowerCase();
-            const candidatePermissions = toPermissionSet(candidate.permissions || []);
-            const candidateEffectivePermissions =
-              candidateRole === "manager" && candidatePermissions.size === 0
-                ? fullPermissionSet
-                : candidatePermissions;
-
-            if (areSetsEqual(candidateEffectivePermissions, fullPermissionSet)) {
-              replacementUser = candidate;
-              break;
-            }
-          }
-
-          if (!replacementUser) {
-            if (txClient) await txClient.query("ROLLBACK").catch(() => {});
-            req.flash(
-              "error",
-              "Primary manager cannot be deleted until another Manager or Supervisor with all permissions exists."
-            );
-            return res.redirect("/common/manageEmployees");
-          }
-
-          const replacementRole = String(replacementUser.account_type || "").toLowerCase();
-          if (replacementRole === "supervisor") {
-            await txClient.query(
-              `
-                UPDATE users
-                SET account_type = 'Manager', updated_at = NOW()
-                WHERE user_id = $1 AND organization_id = $2
-              `,
-              [replacementUser.user_id, organizationId]
-            );
-
-            await txClient.query(
-              "DELETE FROM user_permissions WHERE user_id = $1 AND organization_id = $2",
-              [replacementUser.user_id, organizationId]
-            );
-
-            await txClient.query(
-              `
-                INSERT INTO user_permissions (user_id, organization_id, permission_key, granted_by)
-                SELECT $1, $2, unnest($3::text[]), $4
-              `,
-              [
-                replacementUser.user_id,
-                organizationId,
-                allPermissionKeys,
-                requesterUserId ? Number(requesterUserId) : null,
-              ]
-            );
-          }
-        }
+      if (requesterUserId && String(requesterUserId) === String(userId)) {
+        await txClient.query("ROLLBACK");
+        req.flash("error", "You can't remove your own account.");
+        return res.redirect(back);
       }
 
-      // Determine fallback owner for documents created by this employee
-      // IMPORTANT: requesterUserId may be organization_id for org-account logins,
-      // so only select fallback from actual users table in this organization.
-      const fallbackResult = await txClient.query(
-        `SELECT user_id
-         FROM users
-         WHERE organization_id = $1
-           AND user_id <> $2
-         ORDER BY CASE
-                    WHEN $3::int IS NOT NULL AND user_id = $3::int THEN 0
-                    WHEN account_type IN ('Manager', 'Admin', 'Mini Admin', 'Supervisor') THEN 1
-                    ELSE 2
-                  END,
-                  created_at ASC
-         LIMIT 1`,
-        [organizationId, userId, requesterUserId ? Number(requesterUserId) : null]
-      );
-      const fallbackOwnerId = fallbackResult.rows[0]?.user_id || null;
-
-      // Reassign ownership of documents if documents table exists
-      try {
-        const docsTableExists = await txClient.query(`SELECT to_regclass('public.documents') AS tbl`);
-        if (docsTableExists.rows[0]?.tbl) {
-          const docsOwnedResult = await txClient.query(
-            "SELECT COUNT(*)::int AS count FROM documents WHERE organization_id = $1 AND created_by = $2",
-            [organizationId, userId]
-          );
-          const docsOwnedCount = docsOwnedResult.rows[0]?.count || 0;
-
-          if (docsOwnedCount > 0 && !fallbackOwnerId) {
-            throw new Error("This employee owns documents and cannot be deleted because there is no fallback owner to transfer them to.");
-          }
-
-          if (docsOwnedCount > 0 && fallbackOwnerId) {
-            await txClient.query(
-              "UPDATE documents SET created_by = $1, updated_at = NOW() WHERE organization_id = $2 AND created_by = $3",
-              [fallbackOwnerId, organizationId, userId]
-            );
-          }
-        }
-      } catch (documentError) {
-        throw documentError;
+      // The main manager is the school's own account (its sign-in email).
+      const primaryManagerUserId = await getPrimaryManagerUserId(txClient, organizationId);
+      if (primaryManagerUserId !== null && String(primaryManagerUserId) === String(userId)) {
+        await txClient.query("ROLLBACK");
+        req.flash("error", `${name} is the school's main manager and can't be removed. Change the school's main email in Account Settings first.`);
+        return res.redirect(back);
       }
 
-      await txClient.query("DELETE FROM user_classes WHERE user_id = $1", [userId]);
-      await txClient.query("DELETE FROM user_subjects WHERE user_id = $1", [userId]);
-      await txClient.query("DELETE FROM user_permissions WHERE user_id = $1", [userId]);
-
-      const deleteResult = await txClient.query(
-        "DELETE FROM users WHERE user_id = $1 AND organization_id = $2",
-        [userId, organizationId]
-      );
-
-      if (deleteResult.rowCount === 0) {
-        throw new Error("Employee deletion failed. The employee could not be removed.");
-      }
-
+      await removed.removeUser(txClient, { organizationId, userId: Number(userId), removedBy: requesterUserId });
       await txClient.query("COMMIT");
-      if (replacementUser?.user_id) {
-        invalidateUserPermissionCache(organizationId, replacementUser.user_id);
-      }
-      invalidateUserPermissionCache(organizationId, userId);
 
-      req.flash("success", "Employee deleted successfully.");
-      res.redirect("/common/manageEmployees");
+      invalidateUserPermissionCache(organizationId, userId);
+      removed.signOutRemovedUser(db, userId).catch(() => {});
+
+      req.flash("success", `${name} was removed. Their records are kept. To bring them back, choose Status: Removed, select them and click Enable.`);
+      return res.redirect(back);
     } catch (error) {
       if (txClient) await txClient.query("ROLLBACK").catch(() => {});
+      console.error("[deleteEmployee] remove failed:", error.message);
+      req.flash("error", "The user couldn't be removed. Please try again.");
+      return res.redirect(back);
+    } finally {
+      if (txClient) txClient.release();
+    }
+  },
 
-      if (error?.code === "23503") {
-        let detailedMessage = "Failed to delete employee: this user is linked to protected records.";
+  // Brings a removed account back with the same sign-in, classes, subjects and
+  // permissions.
+  enableRemovedEmployee: async (req, res, db) => {
+    let txClient = null;
+    const { userId } = req.params;
+    const organizationId = req.session.organizationId;
+    const back = "/common/manageEmployees";
+    const json = require("../utils/obsolete").wantsJson(req);
+    const reply = (status, message) => {
+      if (json) return res.status(status).json({ success: status < 400, message });
+      req.flash(status < 400 ? "success" : "error", message);
+      return res.redirect(back);
+    };
+    if (!/^\d+$/.test(String(userId || ""))) return reply(400, "Choose a user to enable.");
 
-        try {
-          if (error?.constraint) {
-            const fkInfoResult = await db.query(
-              `SELECT ns.nspname AS schema_name,
-                      cls.relname AS table_name,
-                      att.attname AS column_name
-               FROM pg_constraint con
-               JOIN pg_class cls ON cls.oid = con.conrelid
-               JOIN pg_namespace ns ON ns.oid = cls.relnamespace
-               JOIN unnest(con.conkey) WITH ORDINALITY AS ck(attnum, ord) ON true
-               JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = ck.attnum
-               WHERE con.conname = $1
-               LIMIT 1`,
-              [error.constraint]
-            );
-
-            const fkInfo = fkInfoResult.rows[0];
-
-            if (fkInfo) {
-              const qSchema = String(fkInfo.schema_name).replace(/"/g, '""');
-              const qTable = String(fkInfo.table_name).replace(/"/g, '""');
-              const qColumn = String(fkInfo.column_name).replace(/"/g, '""');
-
-              const countResult = await db.query(
-                `SELECT COUNT(*)::int AS count
-                 FROM "${qSchema}"."${qTable}"
-                 WHERE "${qColumn}" = $1`,
-                [userId]
-              );
-
-              const linkedCount = countResult.rows[0]?.count || 0;
-              detailedMessage = `Failed to delete employee: linked to ${linkedCount} record(s) in ${fkInfo.table_name} (${fkInfo.column_name}). Reassign or remove those records and try again.`;
-            }
-          } else if (error?.detail) {
-            const tableMatch = String(error.detail).match(/table\s+"([^"]+)"/i);
-            if (tableMatch) {
-              detailedMessage = `Failed to delete employee: linked records still exist in ${tableMatch[1]}. Reassign or remove them and try again.`;
-            }
-          }
-        } catch (fkLookupError) {
-          // Keep fallback message if FK introspection fails
+    try {
+      const removed = require("../utils/removedUsers");
+      txClient = await db.connect();
+      await txClient.query("BEGIN");
+      const result = await removed.restoreUser(txClient, { organizationId, userId: Number(userId) });
+      if (!result.ok) {
+        await txClient.query("ROLLBACK");
+        if (result.reason === "license_full") {
+          return reply(409, `Your school has used all ${result.license.max} user licenses. Remove someone else or contact Managira to add more, then enable this user.`);
         }
-
-        req.flash("error", detailedMessage);
-      } else if (error?.message) {
-        req.flash("error", `Failed to delete employee: ${error.message}`);
-      } else {
-        req.flash("error", "Failed to delete employee.");
+        return reply(404, "That removed user wasn't found for this school.");
       }
-      res.redirect("/common/manageEmployees");
+      await txClient.query("COMMIT");
+      invalidateUserPermissionCache(organizationId, userId);
+      const name = [result.user.first_name, result.user.last_name].filter(Boolean).join(" ").trim() || "The user";
+      return reply(200, `${name} is enabled again and can sign in with the same email and password.`);
+    } catch (error) {
+      if (txClient) await txClient.query("ROLLBACK").catch(() => {});
+      console.error("[enableRemovedEmployee]", error.message);
+      return reply(500, "The user couldn't be enabled. Please try again.");
     } finally {
       if (txClient) txClient.release();
     }
@@ -16740,19 +16668,24 @@ NUMBERING:
                 FROM user_subjects us
                 INNER JOIN subjects s ON us.subject_id = s.subject_id
                 WHERE us.user_id = $1 AND s.class_id = $2 AND s.organization_id = $3
+                  AND (s.obsolete_at IS NULL
+                       OR EXISTS (SELECT 1 FROM assessments a WHERE a.subject_id = s.subject_id AND a.term_id = $4))
                 ORDER BY s.subject_name
                 `,
-          [currentUserId, classId, organizationId]
+          [currentUserId, classId, organizationId, currentTerm.term_id]
         );
       } else {
+        // Obsolete subjects show only in terms that already have their assessments.
         subjectsResult = await db.query(
           `
-                SELECT subject_id, subject_name
-                FROM subjects
-                WHERE class_id = $1 AND organization_id = $2
-                ORDER BY subject_name
+                SELECT s.subject_id, s.subject_name
+                FROM subjects s
+                WHERE s.class_id = $1 AND s.organization_id = $2
+                  AND (s.obsolete_at IS NULL
+                       OR EXISTS (SELECT 1 FROM assessments a WHERE a.subject_id = s.subject_id AND a.term_id = $3))
+                ORDER BY s.subject_name
                 `,
-          [classId, organizationId]
+          [classId, organizationId, currentTerm.term_id]
         );
       }
       // Fetch the main teacher assigned to the class
@@ -17565,7 +17498,7 @@ NUMBERING:
       const classesResult = await db.query(
         `SELECT class_id, class_name
            FROM classes
-          WHERE organization_id = $1
+          WHERE organization_id = $1 AND obsolete_at IS NULL
           ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
@@ -17692,7 +17625,7 @@ NUMBERING:
     try {
       // Fetch all classes for the organization
       const classesResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
 
@@ -17716,7 +17649,7 @@ NUMBERING:
   getClasses: async (req, res, db) => {
     try {
       const classesResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [req.session.organizationId]
       );
       res.json(classesResult.rows);
@@ -17804,7 +17737,7 @@ NUMBERING:
         [organizationId]
       );
       const classesResult = await db.query(
-        `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+        `SELECT * FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId]
       );
       const eventsResult = await db.query(
@@ -18592,13 +18525,13 @@ NUMBERING:
       await ensureClassDashboardLayoutSchema(db);
 
       const classResult = await db.query(
-        `SELECT * FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+        `SELECT * FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId]
       );
       const classes = classResult.rows;
 
       const subjectResult = await db.query(
-        "SELECT * FROM subjects WHERE organization_id = $1",
+        "SELECT * FROM subjects WHERE organization_id = $1 AND obsolete_at IS NULL",
         [organizationId]
       );
       const subjects = subjectResult.rows;
@@ -18609,7 +18542,7 @@ NUMBERING:
             MIN(TRIM(subject_name)) AS subject_name,
             ARRAY_REMOVE(ARRAY_AGG(DISTINCT class_id), NULL) AS assigned_class_ids
          FROM subjects
-         WHERE organization_id = $1
+         WHERE organization_id = $1 AND obsolete_at IS NULL
            AND subject_name IS NOT NULL
            AND TRIM(subject_name) <> ''
          GROUP BY LOWER(TRIM(subject_name))
@@ -18634,7 +18567,7 @@ NUMBERING:
       });
 
       const gradYearGroupsResult = await db.query(
-        "SELECT * FROM graduation_year_groups WHERE organization_id = $1",
+        "SELECT * FROM graduation_year_groups WHERE organization_id = $1 AND obsolete_at IS NULL",
         [organizationId]
       );
       const availableGradYearGroups = gradYearGroupsResult.rows;
@@ -19112,6 +19045,7 @@ NUMBERING:
     try {
       const isEmbedded = isEmbeddedRequest(req, "manageClassSubjectAndGradYr");
       await ensureClassDashboardLayoutSchema(db);
+      await require("../utils/obsolete").ensureObsoleteSchema(db);
 
       const graduationYearsResult = await db.query(
         "SELECT * FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name",
@@ -19126,8 +19060,26 @@ NUMBERING:
         [req.session.organizationId]
       );
 
-      const classes = classesResult.rows;
-      const subjects = subjectsResult.rows;
+      // Obsolete items are listed on their own (with Restore), not offered for new work.
+      const classes = classesResult.rows.filter((cls) => !cls.obsolete_at);
+      const obsoleteClasses = classesResult.rows.filter((cls) => cls.obsolete_at);
+      const subjects = subjectsResult.rows.filter((subject) => !subject.obsolete_at);
+      const allClassMap = new Map(classesResult.rows.map((cls) => [Number(cls.class_id), cls]));
+      const obsoleteSubjectMap = new Map();
+      subjectsResult.rows.filter((subject) => subject.obsolete_at).forEach((subject) => {
+        const name = String(subject.subject_name || "").trim();
+        if (!name) return;
+        const key = name.toLowerCase();
+        if (!obsoleteSubjectMap.has(key)) {
+          obsoleteSubjectMap.set(key, { subject_key: key, subject_name: name, obsolete_at: subject.obsolete_at, class_names: [] });
+        }
+        const group = obsoleteSubjectMap.get(key);
+        const cls = allClassMap.get(Number(subject.class_id));
+        if (cls && !group.class_names.includes(cls.class_name)) group.class_names.push(cls.class_name);
+        if (subject.obsolete_at > group.obsolete_at) group.obsolete_at = subject.obsolete_at;
+      });
+      const obsoleteSubjectGroups = Array.from(obsoleteSubjectMap.values())
+        .sort((a, b) => a.subject_name.localeCompare(b.subject_name, undefined, { sensitivity: "base", numeric: true }));
       const classMap = new Map(classes.map((cls) => [Number(cls.class_id), cls]));
       const subjectGroupMap = new Map();
 
@@ -19206,10 +19158,13 @@ NUMBERING:
         hideGlobalHeader: isEmbedded,
         hideGlobalFooter: isEmbedded,
         hideGlobalChatbot: isEmbedded,
-        graduationYearGroups: graduationYearsResult.rows,
+        graduationYearGroups: graduationYearsResult.rows.filter((group) => !group.obsolete_at),
+        obsoleteGraduationYearGroups: graduationYearsResult.rows.filter((group) => group.obsolete_at),
         classes,
+        obsoleteClasses,
         subjects,
         subjectGroups,
+        obsoleteSubjectGroups,
         messages: {
           success: req.flash("success"),
           error: req.flash("error"),
@@ -19873,7 +19828,7 @@ NUMBERING:
       );
       const classCount = Number(dependentClasses.rows[0]?.count || 0);
       if (classCount > 0) {
-        return sendError(409, `Cannot delete this graduation year group because ${classCount} class${classCount === 1 ? "" : "es"} still reference it. Reassign or remove them first, then try again.`);
+        return sendError(409, `This graduation year group can't be deleted because ${classCount} class${classCount === 1 ? " uses" : "es use"} it. You can make it obsolete instead: those classes keep it and it is no longer offered for new classes.`);
       }
 
       const result = await db.query("DELETE FROM graduation_year_groups WHERE id = $1 AND organization_id = $2", [id, organizationId]);
@@ -19959,7 +19914,7 @@ NUMBERING:
           if (!prev || prev.count < record.count) recordsByText.set(label, record);
         });
         await client.query("ROLLBACK");
-        return sendError(409, savedRecordsMessage(`The class “${(classInfo.rows[0] && classInfo.rows[0].class_name) || "this class"}”`, Array.from(recordsByText.values())));
+        return sendError(409, require("../utils/obsolete").inUseMessage(`The class “${(classInfo.rows[0] && classInfo.rows[0].class_name) || "this class"}”`, Array.from(recordsByText.values())));
       }
 
       // Check if the class has associated subjects and delete them first
@@ -20158,7 +20113,7 @@ NUMBERING:
 
     try {
       const subjectsResult = await db.query(
-        "SELECT subject_id, subject_name FROM subjects WHERE class_id = $1 AND organization_id = $2 ORDER BY subject_name",
+        "SELECT subject_id, subject_name FROM subjects WHERE class_id = $1 AND organization_id = $2 AND obsolete_at IS NULL ORDER BY subject_name",
         [classId, req.session.organizationId]
       );
       res.json(subjectsResult.rows);
@@ -20308,7 +20263,7 @@ NUMBERING:
           ? `The subject “${row.subject_name || subjectKey}”`
           : `“${row.subject_name || "This subject"}”${row.class_name ? ` in ${row.class_name}` : ""}`;
         await client.query("ROLLBACK");
-        req.flash("error", savedRecordsMessage(what, subjectRecords));
+        req.flash("error", require("../utils/obsolete").inUseMessage(what, subjectRecords));
         return res.redirect("/common/manageClassSubjectAndGradYr");
       }
 
@@ -23200,7 +23155,7 @@ NUMBERING:
           [organizationId]
         ),
         db.query(
-          `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+          `SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
           [organizationId]
         ),
         db.query(
@@ -24061,7 +24016,7 @@ NUMBERING:
       try {
         const [defaultClassResult, defaultTermResult] = await Promise.all([
           db.query(
-            "SELECT class_id FROM classes WHERE organization_id = $1 ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC LIMIT 1",
+            "SELECT class_id FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC LIMIT 1",
             [organizationId]
           ),
           db.query(

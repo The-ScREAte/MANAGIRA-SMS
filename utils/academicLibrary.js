@@ -320,7 +320,17 @@ async function libraryPickLists(db, organizationId) {
   try {
     await ensureAcademicLibrarySchema(db);
     const [subjects, terms] = await Promise.all([
-      db.query("SELECT name FROM subject_library WHERE organization_id = $1 AND is_active ORDER BY lower(name)", [organizationId]),
+      // A name whose subjects are all obsolete isn't suggested for new work.
+      db.query(
+        `SELECT l.name FROM subject_library l
+          WHERE l.organization_id = $1 AND l.is_active
+            AND NOT (
+              EXISTS (SELECT 1 FROM subjects s WHERE s.organization_id = $1 AND lower(btrim(s.subject_name)) = lower(btrim(l.name)) AND s.obsolete_at IS NOT NULL)
+              AND NOT EXISTS (SELECT 1 FROM subjects s WHERE s.organization_id = $1 AND lower(btrim(s.subject_name)) = lower(btrim(l.name)) AND s.obsolete_at IS NULL)
+            )
+          ORDER BY lower(l.name)`,
+        [organizationId]
+      ),
       db.query("SELECT name FROM term_definitions WHERE organization_id = $1 AND is_active ORDER BY sort_order, lower(name)", [organizationId]),
     ]);
     return { subjectNames: subjects.rows.map((r) => r.name), termNames: terms.rows.map((r) => r.name) };

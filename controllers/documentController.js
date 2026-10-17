@@ -473,7 +473,7 @@ const documentController = {
       const classes = await db.query(`
         SELECT c.class_id, c.class_name 
         FROM classes c 
-        WHERE c.organization_id = $1 
+        WHERE c.organization_id = $1 AND c.obsolete_at IS NULL 
         ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
       `, [orgId]);
 
@@ -674,7 +674,7 @@ const documentController = {
       // Get classes and employees for assignment
       const classes = await db.query(`
         SELECT c.class_id, c.class_name FROM classes c 
-        WHERE c.organization_id = $1
+        WHERE c.organization_id = $1 AND c.obsolete_at IS NULL
         ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC
       `, [orgId]);
 

@@ -17,9 +17,6 @@
       <h1 class="gp-title">Graduates &amp; Former Students</h1>
       <p class="gp-sub">Students who graduated or left. Their records are kept.</p>
     </div>
-    <a class="gp-btn gp-btn--ghost" href="/common/closeGraduationYearGroup<%= _embedQs %>">
-      <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Graduate / Archive
-    </a>
   </header>
 
   <%- include('../partials/flash') %>
@@ -29,8 +26,7 @@
     <div class="gp-empty">
       <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
       <h2>No graduates or former students yet</h2>
-      <p>When you graduate students or record that they left, from Graduate / Archive, they appear here.</p>
-      <a class="gp-btn gp-btn--primary" href="/common/closeGraduationYearGroup<%= _embedQs %>">Go to Graduate / Archive</a>
+      <p>When you graduate students or record that they left (Admissions → Graduate &amp; Former Students → Graduate / Archive), they appear here.</p>
     </div>
   <% } else { %>
     <div class="ar-tabs" role="tablist" aria-label="Graduates and former students">

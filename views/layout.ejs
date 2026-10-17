@@ -144,6 +144,17 @@
 
         <% if (!(typeof hideGlobalHeader !== 'undefined' && hideGlobalHeader)) { %>
             <%- include('partials/announcementFeed') %>
+            <%
+              // Setup steps bar: school account, managers, Managira admins and hub
+              // users only (not on the public website or registration pages).
+              const _showSetupSteps = typeof canSeeSetupSteps === 'function' && canSeeSetupSteps(session)
+                && typeof locals.publicSiteAppearance !== 'string' && !locals.isPrintRender;
+            %>
+            <% if (_showSetupSteps) { %>
+                <link rel="stylesheet" href="<%= assetUrl('/css/setupSteps.css') %>">
+                <div class="ss-root" id="ssRoot" hidden></div>
+                <script src="<%= assetUrl('/js/setupSteps.js') %>" defer></script>
+            <% } %>
             <% if (session && session.organizationId && !session.superAdminOrgSwitch && !(typeof noFeedbackPrompt !== 'undefined' && noFeedbackPrompt)) { %>
                 <link rel="stylesheet" href="<%= assetUrl('/css/feedbackPrompt.css') %>">
                 <script src="<%= assetUrl('/js/feedbackPrompt.js') %>" data-autoprompt="1" defer></script>

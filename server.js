@@ -78,7 +78,7 @@ const setAllowedPermissions = require("./middleware/setAllowedPermissions");
 const setThemeColor = require("./middleware/setThemeColor");
 const setMiraStatus = require("./middleware/setMiraStatus");
 const compression = require("compression");
-const { setCacheHeaders, preloadCache } = require("./middleware/cacheMiddleware");
+const { preloadCache } = require("./middleware/cacheMiddleware");
 const { createRequestLatencyMonitor } = require("./middleware/requestLatencyMonitor");
 const financeController = require("./controllers/financeController");
 const { commonController } = require("./controllers/commonController");
@@ -121,6 +121,17 @@ require("./utils/termRecords").ensureTermRecordsSchema(db)
 // Graduating/archiving students: reasons, history, restore and billing rules.
 require("./utils/studentArchive").ensureStudentArchiveSchema(db).catch((error) => {
   console.error("[studentArchive] schema setup failed:", error.message);
+});
+// Obsolete (retired but kept) classes, subjects, remarks, signatures...; and
+// removed staff accounts, kept with their records so they can be enabled again.
+require("./utils/obsolete").ensureObsoleteSchema(db).catch((error) => {
+  console.error("[obsolete] schema setup failed:", error.message);
+});
+require("./utils/removedUsers").ensureRemovedUsersSchema(db).catch((error) => {
+  console.error("[removedUsers] schema setup failed:", error.message);
+});
+require("./utils/setupChecklist").ensureSetupSchema(db).catch((error) => {
+  console.error("[setupChecklist] schema setup failed:", error.message);
 });
 // Each school's assessment names: one id per name, reused across terms and years.
 require("./utils/assessmentLibrary").ensureAssessmentLibrarySchema(db).catch((error) => {
@@ -813,22 +824,19 @@ app.use(setMiraStatus);
 app.use(preloadCache);
 
 // Hamburger-menu hub panels (Management/Admissions/Reports workspaces) load
-// each section in an iframe tagged with ?embed=workspace. Previously every
-// click re-fetched the panel from scratch, even when nothing about it had
-// changed since the user's last visit — including full page reloads of the
-// hub itself, which wipe the in-memory "already loaded" tracking the hub's
-// own JS keeps. stale-while-revalidate fixes both: the browser serves the
-// last cached copy of a panel instantly, then quietly re-fetches it in the
-// background and swaps in the fresh copy for next time — no visible reload,
-// no stale-forever content either. "private" keeps this out of any shared/
-// CDN cache since the response is session-specific (permissions, org data).
-const embedPanelCacheHeaders = setCacheHeaders({ maxAge: 60, isPrivate: true, staleWhileRevalidate: 300 });
+// each section in an iframe tagged with ?embed=workspace. The hub keeps every
+// panel it has loaded and preloads the others in the background (see the hub
+// views), so switching is instant. Here the browser may keep a private copy
+// but must check it every time ("no-cache"): a panel never shows data that is
+// out of date (right after a save, for example), and when nothing changed the
+// server answers 304 with no body (the ETag matches), so it isn't downloaded
+// again. Only for signed-in GET requests; everything else keeps no-store.
 app.use((req, res, next) => {
-  if (req.query && req.query.embed === "workspace") {
-    // setCacheHeaders already no-stores non-GET requests and unauthenticated
-    // ones, so an expired-session redirect-to-login response never ends up
-    // cached under this key.
-    return embedPanelCacheHeaders(req, res, next);
+  if (req.method === "GET" && req.query && req.query.embed === "workspace" && req.session &&
+      (req.session.userId || req.session.organizationId || req.session.hubId)) {
+    res.setHeader("Cache-Control", "private, no-cache");
+    res.removeHeader("Pragma");
+    res.setHeader("Vary", "Cookie, Accept-Encoding");
   }
   next();
 });
@@ -836,6 +844,7 @@ app.use((req, res, next) => {
 // Template engine setup
 app.locals.assetUrl = require("./utils/assetUrl").assetUrl;
 app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
+app.locals.canSeeSetupSteps = require("./utils/setupChecklist").canSeeSetupSteps;
 const { cssBundleUrl, serveCssBundle } = require("./utils/cssBundle");
 app.locals.cssBundleUrl = cssBundleUrl;
 app.get("/css/:name.css", serveCssBundle);

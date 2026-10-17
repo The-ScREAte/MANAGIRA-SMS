@@ -508,6 +508,9 @@
       role: e.account_type || '',
       title: e.org_role_title || '',
       status: e.status,
+      removed: Boolean(e.is_removed),
+      removedOn: e.removed_on ? new Date(e.removed_on).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+      removedBy: e.removed_by_name || '',
       owner: Boolean(e.is_owner),
       photo: e.photo_url || '',
       joined: e.created_at ? new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
@@ -536,7 +539,7 @@
     <label class="ux-field"><span>Name</span><input type="search" id="uxName" placeholder="Find by name" autocomplete="off" /></label>
     <label class="ux-field"><span>Email</span><input type="search" id="uxEmail" placeholder="Find by email" autocomplete="off" /></label>
     <label class="ux-field"><span>Status</span>
-      <select id="uxStatus"><option value="">Any status</option><option>Active</option><option>Invite sent</option><option>On hold</option></select>
+      <select id="uxStatus"><option value="">Current users</option><option>Active</option><option>Invite sent</option><option>On hold</option><option value="Removed">Removed (disabled)</option></select>
     </label>
     <label class="ux-field"><span>Role</span>
       <select id="uxRole"><option value="">Any role</option><% _roles.forEach((r) => { %><option><%= r %></option><% }) %></select>
@@ -568,7 +571,7 @@
       </thead>
       <tbody>
         <% employees.forEach((employee, idx) => { %>
-        <tr class="ux-row" tabindex="0" data-user-id="<%= employee.user_id %>"
+        <tr class="ux-row<%= employee.is_removed ? ' is-removed' : '' %>" tabindex="0" data-user-id="<%= employee.user_id %>"
             data-name="<%= _name(employee).toLowerCase() %>" data-email="<%= String(employee.email || '').toLowerCase() %>"
             data-status="<%= employee.status %>" data-role="<%= employee.account_type %>"
             data-perms="<%= (employee.permissions || []).map((k) => (permissionLabelMap && permissionLabelMap[k]) || k).join('|') %>"
@@ -583,6 +586,8 @@
               <span class="ws-pill ws-pill--amber">Invite sent</span>
             <% } else if (employee.status === 'On hold') { %>
               <span class="ws-pill ws-pill--amber">On hold</span>
+            <% } else if (employee.status === 'Removed') { %>
+              <span class="ws-pill ws-pill--red">Removed</span>
             <% } else { %>
               <span class="ws-pill ws-pill--green">Active</span>
             <% } %>
@@ -818,7 +823,7 @@
           var last = d.lastLogin || '';
           var ok = (!name || d.name.indexOf(name) !== -1)
             && (!email || d.email.indexOf(email) !== -1)
-            && (!status || d.status === status)
+            && (status ? d.status === status : d.status !== 'Removed')
             && (!role || d.role === role)
             && (!perm || ('|' + d.perms + '|').indexOf('|' + perm + '|') !== -1)
             && (!never || !last)
@@ -828,8 +833,10 @@
           if (ok) shown += 1;
         });
         var active = fields.filter(function (id) { var el = get(id); return el.type === 'checkbox' ? el.checked : el.value; }).length;
-        get('uxShown').textContent = 'Showing ' + shown + ' of ' + rows.length + ' users';
+        var pool = rows.filter(function (r) { return status === 'Removed' ? r.dataset.status === 'Removed' : r.dataset.status !== 'Removed'; }).length;
+        get('uxShown').textContent = 'Showing ' + shown + ' of ' + pool + (status === 'Removed' ? ' removed users' : ' users');
         get('uxEmpty').hidden = shown !== 0;
+        get('uxEmpty').textContent = status === 'Removed' && !pool ? 'No removed users. People you remove are kept here so you can enable them again.' : 'No one matches these filters.';
         var count = get('uxFilterCount');
         count.hidden = !active;
         count.textContent = active;
@@ -857,12 +864,13 @@
     function uxRow(label, value) { return value ? '<div class="ux-kv"><span>' + label + '</span><strong>' + uxEsc(value) + '</strong></div>' : ''; }
     function renderUserPanel(user) {
       var initials = ((user.first || '').charAt(0) + (user.last || '').charAt(0)).toUpperCase() || '?';
-      var statusClass = user.status === 'Active' ? 'ws-pill--green' : 'ws-pill--amber';
+      var statusClass = user.status === 'Active' ? 'ws-pill--green' : user.removed ? 'ws-pill--red' : 'ws-pill--amber';
       var html = '<div class="ux-who">' +
         (user.photo ? '<img class="ux-avatar" src="' + uxEsc(user.photo) + '" alt="" data-initials="' + uxEsc(initials) + '" />' : '<span class="ux-avatar">' + uxEsc(initials) + '</span>') +
         '<div><div class="ux-who__name">' + uxEsc(user.name) + '</div>' +
         '<span class="ws-pill ' + statusClass + '">' + uxEsc(user.status) + '</span>' +
         (user.owner ? ' <span class="ux-owner">Main manager</span>' : '') + '</div></div>' +
+        (user.removed ? '<div class="ux-removed"><strong>Removed' + (user.removedOn ? ' on ' + uxEsc(user.removedOn) : '') + (user.removedBy ? ' by ' + uxEsc(user.removedBy) : '') + '.</strong> They can\'t sign in. Their records are kept. Enable them to bring them back with the same email, password, classes and permissions.</div>' : '') +
         '<section class="ux-sec"><h3>Account</h3>' +
           uxRow('Email', user.email) + uxRow('Phone', user.phone) + uxRow('Role', user.role) + uxRow('Title', user.title) +
           uxRow('Last sign-in', user.lastLogin) + uxRow('Added', user.joined) +
@@ -877,7 +885,9 @@
             return '<div class="ux-class"><strong>' + uxEsc(c.name) + '</strong>' + (c.subjects.length ? '<span>' + c.subjects.map(uxEsc).join(', ') + '</span>' : '<span class="ux-muted">No subjects</span>') + '</div>';
           }).join('') : '<p class="ux-muted">Not assigned to a class.</p>') +
         '</section>' +
-        '<div class="ux-actions"><button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>';
+        (user.removed
+          ? '<form class="ux-actions" method="post" action="/common/enableEmployee/' + encodeURIComponent(user.id) + '" data-no-spa><button type="submit" class="ws-btn ws-btn--primary" id="uxEnable"><i class="fa-solid fa-user-check" aria-hidden="true"></i> Enable</button></form>'
+          : '<div class="ux-actions"><button type="button" class="ws-btn ws-btn--primary" id="uxEdit"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>');
       document.getElementById('uxPanelBody').innerHTML = html;
       var photo = document.querySelector('#uxPanelBody img.ux-avatar');
       if (photo) photo.addEventListener('error', function () {
@@ -886,7 +896,10 @@
         span.textContent = photo.getAttribute('data-initials');
         photo.replaceWith(span);
       });
-      document.getElementById('uxEdit').addEventListener('click', function () { showUserEdit(user.id); });
+      var editBtn = document.getElementById('uxEdit');
+      if (editBtn) editBtn.addEventListener('click', function () { showUserEdit(user.id); });
+      var enableBtn = document.getElementById('uxEnable');
+      if (enableBtn) enableBtn.form.addEventListener('submit', function () { enableBtn.disabled = true; enableBtn.textContent = 'Enabling…'; });
     }
     function setPanelMode(editing) {
       var panel = document.getElementById('uxPanel');

@@ -5470,7 +5470,7 @@ const accountController = {
 
            AND account_type NOT IN ('Admin', 'Mini Admin', 'Internal Worker') 
 
-           AND organization_id IS NOT NULL`,
+           AND (organization_id IS NOT NULL OR removed_from_organization_id IS NOT NULL)`,
 
         [email]
       );
@@ -5485,6 +5485,12 @@ const accountController = {
         }
 
         const match = await bcrypt.compare(password, user.password);
+
+        // Removed by the school: the account is kept (and can be enabled again).
+        if (match && user.removed_at) {
+          req.flash("error", "Your school removed this account. Ask your school to enable it again; you'll sign in with the same email and password.");
+          return res.redirect("/account/login");
+        }
 
         if (match) {
           const orgResult = await db.query(
@@ -8709,6 +8715,10 @@ const accountController = {
 
       let paystackCustomerCode = orgRow.paystack_customer_code || '';
       const stripeCustomerId = orgRow.stripe_customer_id || null;
+      // Opened inside a workspace panel for one section (Integrations, for
+      // example) only that section shows, so the saved cards and invoices
+      // (calls to Stripe/Paystack, the slowest part of this page) aren't needed.
+      const needsLiveBilling = !(isEmbedded && activeSettingsSection && activeSettingsSection !== 'billing');
       const activeSystemProvider = await getActivePaymentProvider();
       const paymentProvider = orgRow.billing_provider || activeSystemProvider || 'paystack';
       let paymentMethods = [];
@@ -8736,7 +8746,7 @@ const accountController = {
                   }
       }
 
-      if (orgId && !isHubMember && stripeCustomerId) {
+      if (needsLiveBilling && orgId && !isHubMember && stripeCustomerId) {
         try {
           const stripe = await getStripeClient(db);
           const paymentMethodResult = await stripe.paymentMethods.list({
@@ -8786,6 +8796,7 @@ const accountController = {
       }
 
       if (
+        needsLiveBilling &&
         paymentProvider !== 'stripe' &&
         !paymentMethods.length &&
         orgId &&

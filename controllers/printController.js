@@ -32,6 +32,7 @@ const {
   sendWhatsappDocumentMessage,
 } = require("../utils/whatsappIntegration");
 const { getSmsIntegrationStatus, getTenantSmsCredentials, sendSms } = require("../utils/smsIntegration");
+const { ensureObsoleteSchema, usesOf, inUseMessage, obsoleteSignaturePaths, wantsJson } = require("../utils/obsolete");
 // Lightweight async wrapper to avoid dependency errors
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const organizationCache = {};
@@ -617,8 +618,9 @@ function buildCustomRemarkTypeDisplayLabel(entry) {
 
 async function getOrganizationCustomRemarkTypes(dbClient, organizationId) {
   await ensureOrganizationCustomRemarkTypesTable(dbClient);
+  await ensureObsoleteSchema(dbClient);
   const result = await dbClient.query(
-    `SELECT type_key, label
+    `SELECT type_key, label, obsolete_at
      FROM organization_custom_remark_types
      WHERE organization_id = $1
      ORDER BY LOWER(label) ASC, id ASC`,
@@ -629,6 +631,7 @@ async function getOrganizationCustomRemarkTypes(dbClient, organizationId) {
     .map((row) => ({
       type_key: String(row.type_key || "").trim().toLowerCase(),
       label: buildCustomRemarkTypeDisplayLabel(row),
+      obsolete: Boolean(row.obsolete_at),
     }))
     .filter((row) => row.type_key.startsWith("custom:") && row.label);
 }
@@ -1394,6 +1397,49 @@ async function deleteFromS3(key) {
   }
 }
 
+// A whole signature can't be deleted once report cards (or transcripts) print
+// it: students in its classes already have scores that term (transcripts:
+// the classes have students). It can be made obsolete instead.
+async function signatureDeleteBlocker(organizationId, termId, signaturePath) {
+  const params = [organizationId, termId, signaturePath];
+  const { rows } = Number(termId) === -1
+    ? await db.query(
+        `SELECT COUNT(DISTINCT s.student_id)::int AS n
+           FROM report_settings rs
+           JOIN students s ON s.class_id = rs.class_id AND s.organization_id = rs.organization_id
+          WHERE rs.organization_id = $1 AND rs.term_id = $2 AND rs.signature_image_path = $3`,
+        params
+      )
+    : await db.query(
+        `SELECT COUNT(DISTINCT ar.student_id)::int AS n
+           FROM report_settings rs
+           JOIN assessment_results ar ON ar.class_id = rs.class_id AND ar.term_id = rs.term_id AND ar.organization_id = rs.organization_id
+          WHERE rs.organization_id = $1 AND rs.term_id = $2 AND rs.signature_image_path = $3`,
+        params
+      );
+  const n = Number(rows[0] && rows[0].n) || 0;
+  if (!n) return null;
+  const what = Number(termId) === -1 ? "transcripts" : "report cards";
+  return `This signature can't be deleted because it is on ${n.toLocaleString("en-US")} student${n === 1 ? "'s" : "s'"} ${what}. ` +
+    `Make it obsolete instead: it stays on those ${what} and can't be added to more classes.`;
+}
+
+// A signature image is shared: other terms (and transcripts) may still print
+// it. The file is only removed once nothing anywhere points at it.
+async function deleteSignatureFileIfUnused(organizationId, key) {
+  const k = String(key || "");
+  if (!k) return false;
+  const used = await db.query(
+    `SELECT 1 FROM report_settings
+      WHERE organization_id = $1 AND (signature_image_path = $2 OR signature_image_path LIKE '%/' || $2)
+      LIMIT 1`,
+    [organizationId, k]
+  );
+  if (used.rows.length) return false;
+  await deleteFromS3(k);
+  return true;
+}
+
 // Helper function to fetch and cache organization details
 async function getCachedOrganizationDetails(organizationId, db) {
   const cacheKey = `org_${organizationId}`;
@@ -1659,7 +1705,7 @@ const printController = (db) => ({
           [parsedClassId, organizationId]
         ),
         db.query(
-          "SELECT id, remark, remark_type FROM remarks WHERE organization_id = $1",
+          "SELECT id, remark, remark_type FROM remarks WHERE organization_id = $1 AND obsolete_at IS NULL",
           [organizationId]
         ),
         db.query(
@@ -2516,8 +2562,13 @@ const printController = (db) => ({
     await ensureOrganizationCustomRemarkTypesTable(db);
 
     try {
+      // Obsolete classes only show when they already have report settings.
       const organizationClassesResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
+        `SELECT class_id, class_name FROM classes c
+          WHERE organization_id = $1
+            AND (obsolete_at IS NULL
+                 OR EXISTS (SELECT 1 FROM report_settings rs WHERE rs.organization_id = c.organization_id AND rs.class_id = c.class_id))
+          ORDER BY ${CLASS_DASHBOARD_ORDER_SQL}`,
         [organizationId],
       );
       const organizationClasses = organizationClassesResult.rows;
@@ -2653,7 +2704,7 @@ const printController = (db) => ({
         organizationClassroomRemarkTypes,
       ] = await Promise.all([
         db.query(
-          `SELECT id, remark, remark_type FROM remarks 
+          `SELECT id, remark, remark_type, obsolete_at FROM remarks 
            WHERE organization_id = $1`,
           [organizationId]
         ),
@@ -2922,6 +2973,14 @@ const printController = (db) => ({
         });
       }
       
+      // Obsolete signatures stay on their classes; marked so they can't be added to more.
+      const [obsoleteReportSigs, obsoleteTranscriptSigs] = await Promise.all([
+        obsoleteSignaturePaths(db, organizationId, "report"),
+        obsoleteSignaturePaths(db, organizationId, "transcript"),
+      ]).catch(() => [new Set(), new Set()]);
+      Object.keys(signatureGroups).forEach((p) => { signatureGroups[p].obsolete = obsoleteReportSigs.has(p); });
+      Object.keys(transcriptSignatureGroups).forEach((p) => { transcriptSignatureGroups[p].obsolete = obsoleteTranscriptSigs.has(p); });
+
       // ✅ Fetch grouped status settings for this term only
   
       // ✅ Map with correct typing
@@ -3936,10 +3995,13 @@ const printController = (db) => ({
         [organizationId, typeKey]
       );
 
-      if (usageCheck.rows.length) {
+      // Saved remarks of this type, or report cards that carry it.
+      const typeUses = await usesOf(db, "remarkType", organizationId, [typeKey]);
+      if (usageCheck.rows.length || typeUses.length) {
         return res.status(409).json({
           success: false,
-          message: "This custom type is already used by saved remarks. Delete those remarks first.",
+          canObsolete: true,
+          message: inUseMessage("This remark type", typeUses.length ? typeUses : [{ count: 1, text: "saved remarks" }]),
         });
       }
 
@@ -4057,6 +4119,12 @@ const printController = (db) => ({
     try {
       if (!organizationId) {
         req.flash("error", "Unauthorized.");
+        return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
+      }
+      // A remark already on report cards is kept (it can be made obsolete).
+      const uses = await usesOf(db, "remark", organizationId, [Number(id)].filter(Number.isInteger));
+      if (uses.length) {
+        req.flash("error", inUseMessage("This remark", uses));
         return res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
       }
       // Tenant boundary: remark id must belong to caller's org.
@@ -5443,7 +5511,7 @@ const printController = (db) => ({
       let requestedClassIds = [];
       if (applyAllClasses) {
         const allClassesResult = await db.query(
-          "SELECT class_id FROM classes WHERE organization_id = $1",
+          "SELECT class_id FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL",
           [organizationId]
         );
         requestedClassIds = allClassesResult.rows.map((row) => row.class_id);
@@ -5515,7 +5583,7 @@ const printController = (db) => ({
             if (existingSignaturePath.startsWith(s3Prefix)) {
               oldSignatureKey = existingSignaturePath.substring(s3Prefix.length);
             }
-            await deleteFromS3(oldSignatureKey);
+            await deleteSignatureFileIfUnused(organizationId, oldSignatureKey);
             console.log(`[uploadSignatureImage] Deleted orphaned signature: ${oldSignatureKey}`);
           }
         }
@@ -5565,28 +5633,19 @@ const printController = (db) => ({
       );
       const signatureImagePath = result.rows[0]?.signature_image_path;
 
-      if (signatureImagePath) {
-        const otherUsesResult = await db.query(
-          "SELECT COUNT(*)::int AS count FROM report_settings WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3 AND class_id <> $4",
-          [organizationId, parsedTermId, signatureImagePath, parsedClassId]
-        );
-        const otherUsesCount = Number(otherUsesResult.rows[0]?.count || 0);
-
-        if (otherUsesCount === 0) {
-          // Remove the S3 URL prefix to get the key if needed
-          const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
-          let oldSignatureKey = signatureImagePath;
-          if (signatureImagePath.startsWith(s3Prefix)) {
-            oldSignatureKey = signatureImagePath.substring(s3Prefix.length);
-          }
-          await deleteFromS3(oldSignatureKey);
-        }
-      }
-
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND class_id = $2 AND term_id = $3",
         [organizationId, parsedClassId, parsedTermId]
       );
+
+      // The file goes only when no class in any term still prints it.
+      if (signatureImagePath) {
+        const s3Prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/`;
+        const oldSignatureKey = signatureImagePath.startsWith(s3Prefix)
+          ? signatureImagePath.substring(s3Prefix.length)
+          : signatureImagePath;
+        await deleteSignatureFileIfUnused(organizationId, oldSignatureKey);
+      }
 
       req.flash("success", "Signature image deleted successfully.");
       res.redirect(`/print/reportSettings?classId=${classId}&termId=${termId}`);
@@ -5653,7 +5712,7 @@ const printController = (db) => ({
           if (signaturePath.startsWith(s3Prefix)) {
             signatureKey = signaturePath.substring(s3Prefix.length);
           }
-          await deleteFromS3(signatureKey);
+          await deleteSignatureFileIfUnused(organizationId, signatureKey);
           console.log(`[deleteSignatureForClass] Deleted orphaned signature from S3: ${signatureKey}`);
         }
       }
@@ -5700,6 +5759,13 @@ const printController = (db) => ({
         return res.redirect(`/print/reportSettings?termId=${parsedTermId}`);
       }
 
+      const blocker = await signatureDeleteBlocker(organizationId, parsedTermId, signaturePath);
+      if (blocker) {
+        if (wantsJson(req)) return res.status(409).json({ success: false, message: blocker, canObsolete: true });
+        req.flash("error", blocker);
+        return res.redirect(`/print/reportSettings?termId=${parsedTermId}`);
+      }
+
       // Remove signature from all classes in this organization and term
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3",
@@ -5712,7 +5778,7 @@ const printController = (db) => ({
       if (signaturePath.startsWith(s3Prefix)) {
         signatureKey = signaturePath.substring(s3Prefix.length);
       }
-      await deleteFromS3(signatureKey);
+      await deleteSignatureFileIfUnused(organizationId, signatureKey);
 
       console.log(`[deleteEntireSignature] Deleted signature: ${signatureKey}`);
       req.flash("success", "Signature deleted successfully from all classes.");
@@ -5758,6 +5824,9 @@ const printController = (db) => ({
       const ownedCount = Number(ownershipResult.rows[0]?.count || 0);
       if (ownedCount === 0) {
         return res.json({ success: false, message: "Signature not found in this organization." });
+      }
+      if ((await obsoleteSignaturePaths(db, organizationId, "report")).has(String(signaturePath))) {
+        return res.json({ success: false, message: "This signature is obsolete. Restore it first to add it to more classes." });
       }
 
       const requestedClassIds = parsePositiveIntArray(selectedClasses);
@@ -5873,7 +5942,7 @@ const printController = (db) => ({
             if (existingSignaturePath.startsWith(s3Prefix)) {
               oldSignatureKey = existingSignaturePath.substring(s3Prefix.length);
             }
-            await deleteFromS3(oldSignatureKey);
+            await deleteSignatureFileIfUnused(organizationId, oldSignatureKey);
             console.log(`[uploadTranscriptSignature] Deleted orphaned signature: ${oldSignatureKey}`);
           }
         }
@@ -5931,7 +6000,7 @@ const printController = (db) => ({
           if (signaturePath.startsWith(s3Prefix)) {
             signatureKey = signaturePath.substring(s3Prefix.length);
           }
-          await deleteFromS3(signatureKey);
+          await deleteSignatureFileIfUnused(organizationId, signatureKey);
           console.log(`[deleteTranscriptSignatureForClass] Deleted orphaned signature: ${signatureKey}`);
         }
       }
@@ -5964,6 +6033,13 @@ const printController = (db) => ({
         return res.redirect(`/print/reportSettings`);
       }
 
+      const blocker = await signatureDeleteBlocker(organizationId, transcriptTermId, signaturePath);
+      if (blocker) {
+        if (wantsJson(req)) return res.status(409).json({ success: false, message: blocker, canObsolete: true });
+        req.flash("error", blocker);
+        return res.redirect(`/print/reportSettings`);
+      }
+
       await db.query(
         "UPDATE report_settings SET signature_image_path = NULL WHERE organization_id = $1 AND term_id = $2 AND signature_image_path = $3",
         [organizationId, transcriptTermId, signaturePath]
@@ -5974,7 +6050,7 @@ const printController = (db) => ({
       if (signaturePath.startsWith(s3Prefix)) {
         signatureKey = signaturePath.substring(s3Prefix.length);
       }
-      await deleteFromS3(signatureKey);
+      await deleteSignatureFileIfUnused(organizationId, signatureKey);
 
       console.log(`[deleteEntireTranscriptSignature] Deleted signature: ${signatureKey}`);
       req.flash("success", "Transcript signature deleted successfully.");
@@ -6010,6 +6086,9 @@ const printController = (db) => ({
       const ownedCount = Number(ownershipResult.rows[0]?.count || 0);
       if (ownedCount === 0) {
         return res.json({ success: false, message: "Signature not found in this organization." });
+      }
+      if ((await obsoleteSignaturePaths(db, organizationId, "transcript")).has(String(signaturePath))) {
+        return res.json({ success: false, message: "This signature is obsolete. Restore it first to add it to more classes." });
       }
 
       const requestedClassIds = parsePositiveIntArray(selectedClasses);

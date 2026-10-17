@@ -693,6 +693,15 @@
         color: #e53935;
       }
 
+      /* Obsolete (kept) items: crossed out where they were created */
+      .class-subject-page .obs-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; box-sizing: border-box; margin: 0 0 8px; padding: 8px 12px; border: 1px dashed var(--border); border-radius: 6px; background: transparent; }
+      .class-subject-page .obs-row__text { display: flex; flex-direction: column; min-width: 0; }
+      .class-subject-page .obs-row__name { color: #64748b; text-decoration: line-through; text-decoration-thickness: 2px; overflow-wrap: anywhere; font-weight: 600; }
+      .class-subject-page .obs-row__meta { font-size: 11.5px; color: #94a3b8; }
+      .class-subject-page .obs-row button.obs-row__restore { flex: 0 0 auto; width: auto; min-width: 0; height: auto; margin: 0; padding: 5px 11px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--org-primary-color, #01535b); font-size: 12.5px; font-weight: 700; box-shadow: none; cursor: pointer; }
+      .class-subject-page .obs-row button.obs-row__restore:hover { background: color-mix(in srgb, var(--org-primary-color, #01535b) 8%, transparent); }
+      .class-subject-page .obs-list-inline { margin-top: 12px; }
+
       .menu-item.delete:hover {
         background-color: #ffebee;
       }
@@ -888,12 +897,25 @@
       </div>
     </header>
 
-    <% if (classes.length === 0 && graduationYearGroups.length === 0) { %>
+    <%
+      // Obsolete items stay in their own list, crossed out, with Restore.
+      const _obsClasses = locals.obsoleteClasses || [];
+      const _obsSubjects = locals.obsoleteSubjectGroups || [];
+      const _obsGroups = locals.obsoleteGraduationYearGroups || [];
+      const _obsDate = (v) => (v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
+      const _obsRow = (kind, target, name, when, detail) => `
+        <div class="obs-row" title="Obsolete: kept on every record that already uses it, not offered for new work">
+          <div class="obs-row__text"><s class="obs-row__name">${escapeHtml(name)}</s><span class="obs-row__meta">Obsolete${detail ? ' · ' + escapeHtml(detail) : ''}${when ? ' · since ' + _obsDate(when) : ''}</span></div>
+          <button type="button" class="obs-row__restore" data-kind="${kind}" data-target='${escapeHtml(JSON.stringify(target))}' data-name="${escapeHtml(name)}">Restore</button>
+        </div>`;
+      const escapeHtml = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    %>
+    <% if (classes.length === 0 && graduationYearGroups.length === 0 && !_obsClasses.length && !_obsGroups.length) { %>
     <div class="ws-alert"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>No classes or graduation groups yet. Use <strong>Add new</strong> to create them.</span></div>
     <% } %>
 
     <div class="container">
-      <% if (classes.length > 0) { %>
+      <% if (classes.length > 0 || _obsClasses.length) { %>
       <fieldset>
         <legend>Classes</legend>
         <div class="collapsible-wrapper">
@@ -921,6 +943,9 @@
                       ⋮
                     </button>
                     <div class="menu-dropdown">
+                      <button type="button" class="menu-item" onclick="obsoleteItem('class', { id: '<%= cls.class_id %>' }, this)" data-name="<%= cls.class_name %>">
+                        Make obsolete
+                      </button>
                       <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteClass?classId=<%= cls.class_id %>')">
                         Delete
                       </button>
@@ -957,6 +982,9 @@
                     ⋮
                   </button>
                   <div class="menu-dropdown">
+                    <button type="button" class="menu-item" onclick="obsoleteItem('class', { id: '<%= cls.class_id %>' }, this)" data-name="<%= cls.class_name %>">
+                      Make obsolete
+                    </button>
                     <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteClass?classId=<%= cls.class_id %>')">
                       Delete
                     </button>
@@ -965,6 +993,7 @@
               </div>
             </div>
             <% }); %>
+            <% _obsClasses.forEach((cls) => { %><%- _obsRow('class', { id: String(cls.class_id) }, cls.class_name, cls.obsolete_at) %><% }); %>
             <div class="icon-btn-row">
               <button type="submit" class="icon-btn update-btn" title="Update All Classes">
                 Update All Classes
@@ -1009,7 +1038,7 @@
           </div>
         </div>
       </fieldset>
-      <% } %> <% if (classes.length > 0) { %>
+      <% } %> <% if (classes.length > 0 || _obsSubjects.length) { %>
       <fieldset>
         <legend>Subjects</legend>
         <% if (!subjectGroups || subjectGroups.length === 0) { %>
@@ -1043,6 +1072,9 @@
                       ⋮
                     </button>
                     <div class="menu-dropdown">
+                      <button type="button" class="menu-item" onclick="obsoleteItem('subject', { subjectKey: this.dataset.key }, this)" data-key="<%= group.subject_key %>" data-name="<%= group.subject_name %>">
+                        Make obsolete
+                      </button>
                       <button
                         type="button"
                         class="menu-item delete"
@@ -1106,8 +1138,13 @@
             </button>
           </div>
         <% } %>
+        <% if (_obsSubjects.length) { %>
+          <div class="obs-list-inline">
+            <% _obsSubjects.forEach((g) => { %><%- _obsRow('subject', { subjectKey: g.subject_key }, g.subject_name, g.obsolete_at, g.class_names.join(', ')) %><% }); %>
+          </div>
+        <% } %>
       </fieldset>
-      <% } %> <% if (graduationYearGroups.length > 0) { %>
+      <% } %> <% if (graduationYearGroups.length > 0 || _obsGroups.length) { %>
       <fieldset class="graduation-fieldset">
         <legend>Graduation Year Groups</legend>
         <form
@@ -1125,6 +1162,9 @@
                   ⋮
                 </button>
                 <div class="menu-dropdown">
+                  <button type="button" class="menu-item" onclick="obsoleteItem('gradGroup', { id: '<%= group.id %>' }, this)" data-name="<%= group.name %>">
+                    Make obsolete
+                  </button>
                   <button type="button" class="menu-item delete" onclick="confirmDelete('/common/deleteGraduationYearGroup?id=<%= group.id %>')">
                     Delete
                   </button>
@@ -1133,6 +1173,7 @@
             </div>
           </div>
           <% }); %>
+          <% _obsGroups.forEach((g) => { %><%- _obsRow('gradGroup', { id: String(g.id) }, g.name, g.obsolete_at) %><% }); %>
           <div class="icon-btn-row">
             <button type="submit" class="icon-btn update-btn" title="Update All Graduation Year Groups">
               Update All Groups
@@ -1142,6 +1183,13 @@
       </fieldset>
       <% } %>
     </div>
+
+    <form id="obsoleteForm" method="post" action="/common/obsolete/records" data-no-spa hidden>
+      <input type="hidden" name="kind" />
+      <input type="hidden" name="id" />
+      <input type="hidden" name="subjectKey" />
+      <input type="hidden" name="action" value="obsolete" />
+    </form>
 
     <div class="acs-modal-overlay" id="acsModalOverlay" aria-hidden="true">
       <div class="acs-modal">
@@ -1172,12 +1220,40 @@
     <script>
       function confirmDelete(url) {
         const confirmation = confirm(
-          "Warning: Deleting this will also delete related information like subjects, assessments, and student data. Are you sure you want to proceed?"
+          "Delete this permanently?\n\nIf it already has records (students, scores, report cards, attendance) it can't be deleted. Make it obsolete instead: it stays on those records and is no longer offered for new work."
         );
         if (confirmation) {
           window.location.href = url;
         }
       }
+
+      // Retire without losing anything that already uses it.
+      function obsoleteItem(kind, target, button) {
+        const name = (button && button.dataset.name) || 'this item';
+        const what = { class: 'class', subject: 'subject (in every class)', gradGroup: 'graduation year group' }[kind] || 'item';
+        const extra = kind === 'class' ? '\n\nA class must have no current students to be made obsolete.' : '';
+        if (!confirm('Make the ' + what + ' "' + name + '" obsolete?\n\nIt stays on every record that already uses it (report cards, transcripts, scores) and is no longer offered for new work. You can restore it any time.' + extra)) return;
+        submitObsoleteForm(kind, target, 'obsolete');
+      }
+
+      function submitObsoleteForm(kind, target, action) {
+        const form = document.getElementById('obsoleteForm');
+        form.elements.kind.value = kind;
+        form.elements.id.value = target.id || '';
+        form.elements.subjectKey.value = target.subjectKey || '';
+        form.elements.action.value = action;
+        form.submit();
+      }
+
+      document.addEventListener('click', function (event) {
+        const btn = event.target.closest('.obs-row__restore');
+        if (!btn) return;
+        let target = {};
+        try { target = JSON.parse(btn.dataset.target || '{}'); } catch (e) { target = {}; }
+        if (!confirm('Restore "' + (btn.dataset.name || 'this item') + '"? It will be offered for new work again.')) return;
+        btn.disabled = true;
+        submitObsoleteForm(btn.dataset.kind, target, 'restore');
+      });
 
       function escapeHtml(str) {
         return String(str)

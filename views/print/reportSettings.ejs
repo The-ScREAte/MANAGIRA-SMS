@@ -2203,6 +2203,30 @@
       min-width: 0;
     }
 
+    /* Obsolete (kept) remarks, remark types and signatures */
+    .obs-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 0.72rem; font-weight: 700; vertical-align: middle; white-space: nowrap; }
+    .remark-row.is-obsolete .remark-text, .gr-type-row.is-obsolete .gr-type-row-label { color: var(--muted); }
+    .remark-row.is-obsolete .remark-text__body, .gr-type-row.is-obsolete .gr-type-row-label, .obs-struck { text-decoration: line-through; text-decoration-thickness: 2px; }
+    .sig-obsolete .sig-paper { opacity: .45; }
+    .remark-row.is-obsolete { border-style: dashed; }
+    .gr-type-obsolete-btn {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--primary);
+      border-radius: 8px;
+      padding: 4px 8px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
+      margin-left: auto;
+    }
+    .gr-type-obsolete-btn + .gr-type-delete-btn { margin-left: 6px; }
+    .gr-type-row { display: flex; flex-wrap: wrap; }
+    .gr-type-row .gr-type-row-label { flex: 1 1 140px; }
+    .gr-type-row .obs-tag { margin-left: 0; }
+
     .gr-type-delete-btn {
       border: 1px solid rgba(220, 38, 38, 0.25);
       background: #fff;
@@ -2766,7 +2790,7 @@
                   <option value="conduct">Conduct Remark</option>
                   <option value="interest">Interest Remark</option>
                   <option value="attitude">Attitude Remark</option>
-                  <% (customRemarkTypes || []).forEach(function(customType){ %>
+                  <% (customRemarkTypes || []).filter(function(customType){ return !customType.obsolete; }).forEach(function(customType){ %>
                     <option value="<%= customType.type_key %>"><%= customType.label %></option>
                   <% }); %>
                 </select>
@@ -2797,13 +2821,14 @@
               %>
               <% allRemarkTypeRows.forEach(function(typeRow){ const type = typeRow.type_key; const label = typeRow.label; if(remarks.some(r=>r.remark_type===type)){ %>
                 <h3 style="margin:10px 0 6px;color:var(--primary);"><%= label %></h3>
-                <% remarks.filter(r=>r.remark_type===type).forEach(function(remark){ %>
-                  <div class="remark-row">
-                    <span class="remark-text"><%= remark.remark %></span>
+                <% remarks.filter(r=>r.remark_type===type).sort(function(a, b){ return (a.obsolete_at ? 1 : 0) - (b.obsolete_at ? 1 : 0); }).forEach(function(remark){ %>
+                  <div class="remark-row<%= remark.obsolete_at ? ' is-obsolete' : '' %>">
+                    <span class="remark-text"><span class="remark-text__body"><%= remark.remark %></span><% if (remark.obsolete_at) { %> <span class="obs-tag" title="Kept on report cards that use it; not offered to teachers">Obsolete</span><% } %></span>
                     <div class="kebab-menu" data-remark-id="<%= remark.id %>">
                       <button type="button" class="kebab" aria-label="More actions" aria-expanded="false">⋮</button>
                       <ul>
-                        <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>" data-no-spa data-confirm-message="Delete this remark? This action cannot be undone.">Delete</a></li>
+                        <li><a href="#" data-obsolete-kind="remark" data-obsolete-id="<%= remark.id %>" data-obsolete-action="<%= remark.obsolete_at ? 'restore' : 'obsolete' %>"><%= remark.obsolete_at ? 'Restore' : 'Make obsolete' %></a></li>
+                        <li><a href="/print/deleteRemark/<%= remark.id %>?classId=<%= classId %>&termId=<%= termId %>" data-no-spa data-confirm-message="Delete this remark permanently?&#10;&#10;A remark already on report cards can't be deleted; make it obsolete instead.">Delete</a></li>
                       </ul>
                     </div>
                   </div>
@@ -2833,8 +2858,9 @@
                 <div class="gr-type-empty">No custom types yet.</div>
               <% } else { %>
                 <% (customRemarkTypes || []).forEach(function(customType){ %>
-                  <div class="gr-type-row" data-type-key="<%= customType.type_key %>">
-                    <span class="gr-type-row-label"><%= customType.label %></span>
+                  <div class="gr-type-row<%= customType.obsolete ? ' is-obsolete' : '' %>" data-type-key="<%= customType.type_key %>">
+                    <span class="gr-type-row-label"><%= customType.label %></span><% if (customType.obsolete) { %><span class="obs-tag">Obsolete</span><% } %>
+                    <button type="button" class="gr-type-obsolete-btn" data-type-key="<%= customType.type_key %>" data-action="<%= customType.obsolete ? 'restore' : 'obsolete' %>"><%= customType.obsolete ? 'Restore' : 'Make obsolete' %></button>
                     <button type="button" class="gr-type-delete-btn" data-type-key="<%= customType.type_key %>">Delete</button>
                   </div>
                 <% }); %>
@@ -2855,7 +2881,7 @@
           <div style="display:grid;gap:12px;margin-bottom:20px;">
             <% Object.keys(signatureGroups).forEach(signaturePath => { const sig = signatureGroups[signaturePath]; %>
               <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
-                <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;">
+                <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;"<%- sig.obsolete ? ' class="sig-obsolete"' : '' %>>
                   <% if (sig.signature_image_url) { %>
                     <div class="sig-paper" data-ap-skip style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
                       <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
@@ -2866,8 +2892,8 @@
                   
                   <div style="flex:1;min-width:0;">
                     <div style="margin-bottom:8px;">
-                      <div style="font-weight:700;color:#0f172a;"><%= sig.signature_title || 'Authorized Signature' %></div>
-                      <div style="font-size:0.95rem;color:var(--muted);"><%= sig.signature_name || 'Authorized Signer' %></div>
+                      <div style="font-weight:700;color:#0f172a;"<%- sig.obsolete ? ' class="obs-struck"' : '' %>><%= sig.signature_title || 'Authorized Signature' %></div>
+                      <div style="font-size:0.95rem;color:var(--muted);"<%- sig.obsolete ? ' class="obs-struck"' : '' %>><%= sig.signature_name || 'Authorized Signer' %></div>
                     </div>
                     <div style="font-weight:600;color:var(--primary);margin-bottom:8px;font-size:0.95rem;">Applied to <%= sig.classes.length %> class<%= sig.classes.length !== 1 ? 'es' : '' %>:</div>
                     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
@@ -2881,10 +2907,16 @@
                       <% }); %>
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;">
+                      <% if (sig.obsolete) { %>
+                      <span class="obs-tag" title="Stays on these classes; can't be added to more">Obsolete</span>
+                      <% } else { %>
                       <a href="javascript:void(0)" 
                          class="add-classes-link" 
                          data-signature-path="<%= signaturePath %>"
                          style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Classes</a>
+                      <% } %>
+                      <a href="#" data-signature-obsolete data-kind="report" data-signature-path="<%= signaturePath %>" data-action="<%= sig.obsolete ? 'restore' : 'obsolete' %>"
+                         style="color:var(--muted);font-weight:600;text-decoration:none;font-size:0.9rem;"><%= sig.obsolete ? 'Restore' : 'Make obsolete' %></a>
                       <a href="javascript:void(0)" 
                          style="color:#e11d48;font-weight:600;text-decoration:none;font-size:0.9rem;"
                          onclick="deleteEntireSignature('<%= encodeURIComponent(signaturePath) %>', '<%= termId %>')">Delete</a>
@@ -2940,7 +2972,7 @@
             <div style="display:grid;gap:12px;margin-bottom:20px;">
               <% Object.keys(transcriptSignatureGroups).forEach(signaturePath => { const sig = transcriptSignatureGroups[signaturePath]; %>
                 <div style="border:1px solid var(--border);border-radius:10px;padding:14px;background:#fff;">
-                  <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;">
+                  <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;"<%- sig.obsolete ? ' class="sig-obsolete"' : '' %>>
                     <% if (sig.signature_image_url) { %>
                       <div class="sig-paper" data-ap-skip style="flex-shrink:0;border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa;">
                         <img src="<%= sig.signature_image_url %>" alt="Signature" style="max-width:150px;max-height:80px;display:block;" />
@@ -2951,8 +2983,8 @@
                     
                     <div style="flex:1;min-width:0;">
                       <div style="margin-bottom:8px;">
-                        <div style="font-weight:700;color:#0f172a;"><%= sig.signature_title || 'Authorized Transcript Signature' %></div>
-                        <div style="font-size:0.95rem;color:var(--muted);"><%= sig.signature_name || 'Authorized Signer' %></div>
+                        <div style="font-weight:700;color:#0f172a;"<%- sig.obsolete ? ' class="obs-struck"' : '' %>><%= sig.signature_title || 'Authorized Transcript Signature' %></div>
+                        <div style="font-size:0.95rem;color:var(--muted);"<%- sig.obsolete ? ' class="obs-struck"' : '' %>><%= sig.signature_name || 'Authorized Signer' %></div>
                       </div>
                       <div style="font-weight:600;color:var(--primary);margin-bottom:8px;font-size:0.95rem;">Applied to <%= sig.classes.length %> class<%= sig.classes.length !== 1 ? 'es' : '' %>:</div>
                       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
@@ -2966,10 +2998,16 @@
                         <% }); %>
                       </div>
                       <div style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;">
+                        <% if (sig.obsolete) { %>
+                        <span class="obs-tag" title="Stays on these classes; can't be added to more">Obsolete</span>
+                        <% } else { %>
                         <a href="javascript:void(0)" 
                            class="add-transcript-classes-link" 
                            data-signature-path="<%= signaturePath %>"
                            style="color:var(--primary);font-weight:600;text-decoration:none;font-size:0.9rem;">+ Classes</a>
+                        <% } %>
+                        <a href="#" data-signature-obsolete data-kind="transcript" data-signature-path="<%= signaturePath %>" data-action="<%= sig.obsolete ? 'restore' : 'obsolete' %>"
+                           style="color:var(--muted);font-weight:600;text-decoration:none;font-size:0.9rem;"><%= sig.obsolete ? 'Restore' : 'Make obsolete' %></a>
                         <a href="javascript:void(0)" 
                            style="color:#e11d48;font-weight:600;text-decoration:none;font-size:0.9rem;"
                            onclick="deleteEntireTranscriptSignature('<%= encodeURIComponent(signaturePath) %>')">Delete</a>
@@ -3024,6 +3062,56 @@
 
   <% if (!setupRequired) { %>
   <script>
+    // Obsolete / restore (kept on every report card that already uses it).
+    async function setObsoleteState(url, payload) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) { alert(result.message || 'That could not be saved.'); return false; }
+        window.location.reload();
+        return true;
+      } catch (error) {
+        alert('That could not be saved. Please try again.');
+        return false;
+      }
+    }
+    document.addEventListener('click', (event) => {
+      const remarkLink = event.target.closest('a[data-obsolete-kind="remark"]');
+      if (remarkLink) {
+        event.preventDefault();
+        const restore = remarkLink.dataset.obsoleteAction === 'restore';
+        if (!confirm(restore
+          ? 'Restore this remark? Teachers can choose it again.'
+          : 'Make this remark obsolete?\n\nIt stays on every report card that already uses it. Teachers no longer see it in their remark lists. You can restore it any time.')) return;
+        setObsoleteState('/print/obsolete', { kind: 'remark', id: remarkLink.dataset.obsoleteId, action: remarkLink.dataset.obsoleteAction });
+        return;
+      }
+      const typeBtn = event.target.closest('.gr-type-obsolete-btn');
+      if (typeBtn) {
+        const restore = typeBtn.dataset.action === 'restore';
+        if (!confirm(restore
+          ? 'Restore this remark type? It can be used for new remarks again.'
+          : 'Make this remark type obsolete?\n\nRemarks already saved with it stay on report cards. It is no longer offered when adding new remarks. You can restore it any time.')) return;
+        typeBtn.disabled = true;
+        setObsoleteState('/print/obsolete', { kind: 'remarkType', id: typeBtn.dataset.typeKey, action: typeBtn.dataset.action }).then((ok) => { if (!ok) typeBtn.disabled = false; });
+        return;
+      }
+      const sigLink = event.target.closest('a[data-signature-obsolete]');
+      if (sigLink) {
+        event.preventDefault();
+        const restore = sigLink.dataset.action === 'restore';
+        if (!confirm(restore
+          ? 'Restore this signature? It can be added to more classes again.'
+          : 'Make this signature obsolete?\n\nIt stays on the classes and report cards that already use it, and can\'t be added to more classes. You can restore it any time.')) return;
+        setObsoleteState('/print/obsoleteSignature', { kind: sigLink.dataset.kind, signaturePath: sigLink.dataset.signaturePath, action: sigLink.dataset.action });
+      }
+    });
+
     const initialCustomRemarkTypes = <%- JSON.stringify(customRemarkTypes || []) %>;
     const customRemarkTypesState = Array.isArray(initialCustomRemarkTypes)
       ? initialCustomRemarkTypes.slice()
@@ -3043,7 +3131,7 @@
         { value: 'interest', label: 'Interest Remark' },
         { value: 'attitude', label: 'Attitude Remark' },
       ];
-      const customOptions = customRemarkTypesState.map((item) => ({
+      const customOptions = customRemarkTypesState.filter((item) => !item.obsolete).map((item) => ({
         value: String(item.type_key || '').trim(),
         label: String(item.label || '').trim() || 'Custom Remark',
       })).filter((item) => item.value && item.label);
@@ -3073,8 +3161,9 @@
       listEl.innerHTML = [
         '<div class="gr-type-list-title">Saved Custom Types</div>',
         ...customRemarkTypesState.map((item) => `
-          <div class="gr-type-row" data-type-key="${item.type_key}">
-            <span class="gr-type-row-label">${escHtml(item.label || item.type_key)}</span>
+          <div class="gr-type-row${item.obsolete ? ' is-obsolete' : ''}" data-type-key="${escHtml(item.type_key)}">
+            <span class="gr-type-row-label">${escHtml(item.label || item.type_key)}</span>${item.obsolete ? '<span class="obs-tag">Obsolete</span>' : ''}
+            <button type="button" class="gr-type-obsolete-btn" data-type-key="${escHtml(item.type_key)}" data-action="${item.obsolete ? 'restore' : 'obsolete'}">${item.obsolete ? 'Restore' : 'Make obsolete'}</button>
             <button type="button" class="gr-type-delete-btn" data-type-key="${escHtml(item.type_key)}">Delete</button>
           </div>
         `)
@@ -3240,6 +3329,7 @@
           customRemarkTypesState.push({
             type_key: String(item.type_key || '').trim(),
             label: String(item.label || '').trim(),
+            obsolete: Boolean(item.obsolete),
           });
         });
 
@@ -3355,6 +3445,15 @@
           body: JSON.stringify({ typeKey }),
         });
         const result = await response.json();
+        if (response.status === 409 && result && result.canObsolete) {
+          deleteBtn.disabled = false;
+          deleteBtn.textContent = originalBtnText;
+          if (msgEl) { msgEl.style.color = '#b45309'; msgEl.textContent = result.message; }
+          if (window.confirm(result.message + '\n\nMake it obsolete now?')) {
+            await setObsoleteState('/print/obsolete', { kind: 'remarkType', id: typeKey, action: 'obsolete' });
+          }
+          return;
+        }
         if (!response.ok || !result || !result.success) {
           throw new Error((result && result.message) || 'Failed to delete custom remark type.');
         }
@@ -3364,6 +3463,7 @@
           customRemarkTypesState.push({
             type_key: String(item.type_key || '').trim(),
             label: String(item.label || '').trim(),
+            obsolete: Boolean(item.obsolete),
           });
         });
 
@@ -6838,14 +6938,27 @@
       }
     }
 
+    // A signature already on report cards can't be deleted; offer obsolete.
+    async function offerSignatureObsolete(res, kind, signaturePath) {
+      if (res.status !== 409) return false;
+      const result = await res.json().catch(() => ({}));
+      hideLoading();
+      if (result.canObsolete && confirm((result.message || 'This signature is in use.') + '\n\nMake it obsolete now?')) {
+        await setObsoleteState('/print/obsoleteSignature', { kind, signaturePath: decodeURIComponent(signaturePath), action: 'obsolete' });
+      }
+      return true;
+    }
+
     async function deleteEntireSignature(signaturePath, termId) {
-      if (!confirm('Delete this signature completely? It will be removed from all classes.')) return;
+      if (!confirm('Delete this signature completely? It will be removed from all classes.\n\nA signature already on report cards can\'t be deleted; you can make it obsolete instead.')) return;
       showLoading();
       try {
         const res = await fetch(`/print/deleteEntireSignature?signaturePath=${signaturePath}&termId=${termId}`, {
           method: 'GET',
+          headers: { Accept: 'application/json' },
           credentials: 'same-origin'
         });
+        if (await offerSignatureObsolete(res, 'report', signaturePath)) return;
         if (!res.ok) throw new Error('Delete failed');
         window.location.reload();
       } catch (err) {
@@ -6874,13 +6987,15 @@
 
     <% if (hasTranscriptFeature) { %>
     async function deleteEntireTranscriptSignature(signaturePath) {
-      if (!confirm('Delete this transcript signature completely? It will be removed from all classes.')) return;
+      if (!confirm('Delete this transcript signature completely? It will be removed from all classes.\n\nA signature already on transcripts can\'t be deleted; you can make it obsolete instead.')) return;
       showLoading();
       try {
         const res = await fetch(`/print/deleteEntireTranscriptSignature?signaturePath=${signaturePath}`, {
           method: 'GET',
+          headers: { Accept: 'application/json' },
           credentials: 'same-origin'
         });
+        if (await offerSignatureObsolete(res, 'transcript', signaturePath)) return;
         if (!res.ok) throw new Error('Delete failed');
         window.location.reload();
       } catch (err) {

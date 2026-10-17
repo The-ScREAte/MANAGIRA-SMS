@@ -2251,7 +2251,7 @@ async function loadClassesAndStudents(orgId, options = {}) {
 
   const classes = includeClasses
     ? await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC`,
         [orgId]
       )
     : { rows: [] };

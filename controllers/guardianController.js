@@ -2362,12 +2362,12 @@ module.exports = {
 
       // Get classes and graduation year groups
       const classesQuery = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC`,
         [organizationId]
       );
 
       const graduationGroupsQuery = await db.query(
-        `SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 ORDER BY name ASC`,
+        `SELECT id, name FROM graduation_year_groups WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY name ASC`,
         [organizationId]
       );
 

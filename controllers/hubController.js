@@ -104,7 +104,7 @@ const hubController = {
               o.organization_phone, o.organization_address, o.joined_hub_at, o.on_hold,
               (SELECT COUNT(*) FROM students s WHERE s.organization_id = o.organization_id AND ${activeStudentSql("s")}) AS student_count,
               (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.organization_id AND ${STAFF_FILTER_SQL("u")}) AS staff_count,
-              (SELECT COUNT(*) FROM classes c WHERE c.organization_id = o.organization_id) AS class_count,
+              (SELECT COUNT(*) FROM classes c WHERE c.organization_id = o.organization_id AND c.obsolete_at IS NULL) AS class_count,
               ${DISTINCT_SUBJECTS_SQL("o.organization_id")} AS subject_count,
               (SELECT hc.full_name FROM hub_contacts hc WHERE hc.contact_id = o.hub_contact_id AND hc.hub_id = o.hub_id) AS hub_contact_name,
               (SELECT p.plan_name FROM plans p WHERE p.id = COALESCE(o.hub_assigned_plan_id, (SELECT mh.plan_id FROM managira_hubs mh WHERE mh.hub_id = o.hub_id), o.plan_id)) AS plan_name,
@@ -310,7 +310,7 @@ const hubController = {
       // Get total classes
       const classesResult = await db.query(
         `SELECT COUNT(*) as count FROM classes 
-         WHERE organization_id IN (
+         WHERE obsolete_at IS NULL AND organization_id IN (
            SELECT organization_id FROM organizations 
            WHERE hub_id = $1 AND deleted = false AND is_hub_member = true
          )`,
@@ -324,7 +324,7 @@ const hubController = {
                 o.first_name, o.last_name, o.created_at, o.nickname, o.joined_hub_at, o.on_hold,
                 (SELECT COUNT(*) FROM students st WHERE st.organization_id = o.organization_id AND ${activeStudentSql("st")}) as student_count,
                 (SELECT COUNT(*) FROM users u WHERE u.organization_id = o.organization_id AND ${STAFF_FILTER_SQL('u')}) as teacher_count,
-                (SELECT COUNT(*) FROM classes WHERE organization_id = o.organization_id) as class_count
+                (SELECT COUNT(*) FROM classes WHERE organization_id = o.organization_id AND obsolete_at IS NULL) as class_count
          FROM organizations o
          WHERE o.hub_id = $1 AND o.deleted = false AND o.is_hub_member = true
          ORDER BY o.organization_name ASC`,
@@ -391,7 +391,7 @@ const hubController = {
         `SELECT o.organization_id, o.organization_name, o.on_hold,
                 (SELECT COUNT(*)::int FROM students st WHERE st.organization_id = o.organization_id AND ${activeStudentSql("st")}) AS students,
                 (SELECT COUNT(*)::int FROM users u WHERE u.organization_id = o.organization_id AND ${STAFF_FILTER_SQL("u")}) AS staff,
-                (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id) AS classes,
+                (SELECT COUNT(*)::int FROM classes c WHERE c.organization_id = o.organization_id AND c.obsolete_at IS NULL) AS classes,
                 ${DISTINCT_SUBJECTS_SQL("o.organization_id")} AS subjects
            FROM organizations o
           WHERE o.hub_id = $1 AND o.deleted = false AND o.is_hub_member = true
@@ -599,7 +599,7 @@ const hubController = {
              (SELECT COUNT(*)::int FROM students s WHERE s.organization_id = $1 AND ${activeStudentSql('s')}) AS students,
              (SELECT COUNT(*)::int FROM users WHERE organization_id = $1
                  AND LOWER(COALESCE(account_type::text, '')) NOT IN ('admin', 'internal worker', 'mini admin')) AS staff,
-             (SELECT COUNT(*)::int FROM classes WHERE organization_id = $1) AS classes,
+             (SELECT COUNT(*)::int FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL) AS classes,
              ${DISTINCT_SUBJECTS_SQL('$1')} AS subjects`,
           [organization.organization_id]
         ),
@@ -924,8 +924,8 @@ const hubController = {
                 COUNT(DISTINCT LOWER(TRIM(sub.subject_name))) AS subject_count
          FROM classes c
          LEFT JOIN students s ON s.class_id = c.class_id
-         LEFT JOIN subjects sub ON sub.class_id = c.class_id
-         WHERE c.organization_id = $1
+         LEFT JOIN subjects sub ON sub.class_id = c.class_id AND sub.obsolete_at IS NULL
+         WHERE c.organization_id = $1 AND c.obsolete_at IS NULL
          GROUP BY c.class_id, c.class_name
          ORDER BY COALESCE(c.dashboard_sort_order, 2147483647), c.class_name ASC, c.class_id ASC`,
         [organizationId]

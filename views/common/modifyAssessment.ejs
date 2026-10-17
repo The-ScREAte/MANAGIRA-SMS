@@ -779,7 +779,7 @@
 
     async function deleteAssessment() {
         const groupId = '<%= groupId %>';
-        if (confirm('Are you sure you want to delete this assessment?')) {
+        if (confirm('Delete this assessment permanently?\n\nIf scores were already entered it can\'t be deleted; you can make it obsolete instead.')) {
             try {
                 const response = await fetch('/common/deleteAssessment', {
                     method: 'POST',
@@ -789,12 +789,23 @@
 
                 const result = await response.json();
 
+                const organizationId = '<%= organizationId %>';
+                const termId = '<%= termId %>';
+                const backToList = () => { window.location.href = `/common/manageAssessment?organizationId=${organizationId}&termId=${termId}`; };
                 if (response.ok) {
                     alert(result.message);
-                    const organizationId = '<%= organizationId %>';
-                    const termId = '<%= termId %>';
-                    window.location.href = `/common/manageAssessment?organizationId=${organizationId}&termId=${termId}`;
-                } else {
+                    backToList();
+                } else if (result.canObsolete && confirm(result.error + '\n\nMake it obsolete now?')) {
+                    // Kept with its scores; closed to new scores.
+                    const ob = await fetch('/common/obsolete/assessment', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        body: JSON.stringify({ kind: 'assessment', groupId, action: 'obsolete' }),
+                    });
+                    const obResult = await ob.json().catch(() => ({}));
+                    alert(obResult.message || (ob.ok ? 'Done.' : 'That could not be saved.'));
+                    if (ob.ok) backToList();
+                } else if (!result.canObsolete) {
                     alert(result.error);
                 }
             } catch (error) {

@@ -621,18 +621,12 @@
               </a>
             </li>
             <li>
-              <a class="nav-sublink" href="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-no-spa data-group="term-management" data-embed-url="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-embed-label="Report Settings">
+              <a class="nav-sublink" href="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-no-spa data-group="term-management" data-section="report-settings" data-embed-url="<%= typeof defaultReportSettingsUrl !== 'undefined' ? defaultReportSettingsUrl : '/print/reportSettings' %>" data-embed-label="Report Settings">
                 <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
                 <span>Report Settings</span>
               </a>
             </li>
           </ul>
-        </li>
-        <li>
-          <a class="nav-link" href="/common/closeGraduationYearGroup" data-no-spa data-section="graduate-archive" data-embed-url="/common/closeGraduationYearGroup" data-embed-label="Graduate / Archive">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/><path d="M22 10v6"/></svg></span>
-            <span>Graduate / Archive</span>
-          </a>
         </li>
         <li>
           <a class="nav-link" href="/print/migration" data-no-spa data-section="data-migration" data-embed-url="/print/migration" data-embed-label="Manage Data Migration">
@@ -671,11 +665,13 @@
         </div>
       </section>
 
-      <section class="hub-section" id="graduate-archive">
+
+
+      <section class="hub-section" id="report-settings">
         <div class="embed-panel-body">
           <div class="embed-placeholder">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/></svg>
-            <p>Loading Graduate / Archive…</p>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/></svg>
+            <p>Loading Report Settings…</p>
           </div>
         </div>
       </section>
@@ -761,7 +757,13 @@
     // expandable Term Reports group) opens/closes its submenu to match.
     function activateSectionOnly(sectionId) {
       activeGroup = sectionId;
-      const navLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
+      const navLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`)
+        || (function () {
+          // A dropdown item's own panel: its dropdown header stands in.
+          const sub = document.querySelector(`.nav-sublink[data-section="${sectionId}"]`);
+          const menu = sub && sub.closest('.nav-submenu');
+          return menu ? menu.parentElement.querySelector('.nav-group-toggle') : null;
+        })();
 
       navLinks.forEach(l => l.classList.remove('active'));
       if (navLink) navLink.classList.add('active');
@@ -1014,7 +1016,17 @@
         }
 
         try {
-          if (escapeIframeForFullPageDashboard(stripEmbedFlag(iframe.contentWindow.location.href))) return;
+          const landedOn = stripEmbedFlag(iframe.contentWindow.location.href) || '';
+          // A page preloading in the background that sends you to the
+          // dashboard (no access, for example) is dropped quietly instead of
+          // taking over the window.
+          if (background && group !== activeGroup && /^\/common\/(orgDashboard|publicDashboard)(?:[/?]|$)/.test(landedOn)) {
+            iframe.remove();
+            overlay.remove();
+            delete loadedPanelUrls[group];
+            return;
+          }
+          if (escapeIframeForFullPageDashboard(landedOn)) return;
         } catch (err) {
           // Cross-origin — nothing more we can do.
         }
@@ -1112,7 +1124,9 @@
       link.addEventListener('click', function(e) {
         e.preventDefault();
         const url = this.getAttribute('data-embed-url') || this.getAttribute('href');
-        const group = this.getAttribute('data-group');
+        // Each item has its own panel (so it can stay loaded); older items
+        // share their dropdown's panel.
+        const group = this.getAttribute('data-section') || this.getAttribute('data-group');
         const label = this.getAttribute('data-embed-label') || this.textContent.trim();
         if (!url || !group) return;
 
@@ -1232,9 +1246,8 @@
 
     // Panels load on intent: pointing at, focusing or touching a menu item
     // starts loading it in its own hidden panel, so the click shows it at
-    // once. Nothing else loads in the background, so the page you're using
-    // gets the whole connection (on a slow or data-saver connection, panels
-    // load only when clicked).
+    // once (on a slow or data-saver connection, panels load only when
+    // clicked).
     const warmedSections = new Set(typeof initialSection !== 'undefined' && initialSection ? [initialSection] : []);
     function warmPanel(link) {
       const sectionId = link.getAttribute('data-section') || link.getAttribute('data-group');
@@ -1250,5 +1263,49 @@
         link.addEventListener(type, function () { warmPanel(link); }, { once: true, passive: true });
       });
     });
+
+    // Once the page you opened has loaded, the other pages in this menu load
+    // one at a time in the background while the browser is idle, and stay
+    // loaded, so every later click shows its page at once. Skipped on slow or
+    // data-saver connections, paused while the tab is hidden, and limited on
+    // low-memory phones.
+    (function preloadOtherPanelsWhenIdle() {
+      const conn = navigator.connection;
+      if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) return;
+      const lowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory < 4;
+      let budget = lowMemory ? 3 : Infinity;
+      const links = Array.from(document.querySelectorAll('.nav-link[data-embed-url], .nav-sublink[data-embed-url]'));
+      const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 400));
+      const loaded = (sectionId) => new Promise((resolve) => {
+        const started = Date.now();
+        (function check() {
+          if (loadedPanelUrls[sectionId] || Date.now() - started > 12000) return resolve();
+          setTimeout(check, 200);
+        })();
+      });
+      const whenVisible = () => new Promise((resolve) => {
+        if (!document.hidden) return resolve();
+        document.addEventListener('visibilitychange', function onVis() {
+          if (document.hidden) return;
+          document.removeEventListener('visibilitychange', onVis);
+          resolve();
+        });
+      });
+      async function run() {
+        if (activeGroup) await loaded(activeGroup);
+        for (const link of links) {
+          if (budget <= 0) return;
+          const sectionId = link.getAttribute('data-section') || link.getAttribute('data-group');
+          if (!sectionId || warmedSections.has(sectionId)) continue;
+          await whenVisible();
+          await new Promise((resolve) => idle(resolve));
+          if (warmedSections.has(sectionId)) continue;
+          warmPanel(link);
+          budget -= 1;
+          await loaded(sectionId);
+        }
+      }
+      setTimeout(run, 600);
+    })();
   })();
 </script>

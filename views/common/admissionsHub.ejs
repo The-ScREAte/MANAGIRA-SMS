@@ -4,6 +4,31 @@
   const themeColors = themePalette;
   const currentTheme = themeColors[themeColor] || themeColors.teal;
   const hasPendingAdmissions = Array.isArray(allowedFeatures) && (allowedFeatures.includes('School Website') || allowedFeatures.includes('SchoolWebsite'));
+  const _perms = Array.isArray(locals.userPermissions) ? locals.userPermissions : [];
+  const _canStudents = _perms.includes('manage_students');
+  // Dropdown groups: everything about online admission, and about students
+  // who graduated or left, each in one place.
+  const _groups = [
+    hasPendingAdmissions && {
+      id: 'pending', label: 'Online Admission',
+      icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+      links: [
+        { panel: 'pending', url: '/common/admissionPending', label: 'Applications', icon: '<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h4"/>' },
+        _perms.includes('manage_settings') && { panel: 'online-admission-settings', url: '/account/managePublicContent?focus=registration', label: 'Online admission settings', icon: '<path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M4 12h2M18 12h2M12 4v2M12 18v2"/>' },
+      ].filter(Boolean),
+    },
+    (_canStudents || _perms.includes('manage_school_year_terms')) && {
+      id: 'graduate-former', label: 'Graduate & Former Students',
+      icon: '<path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/>',
+      links: [
+        _perms.includes('manage_school_year_terms') && { panel: 'graduate-former', url: '/common/closeGraduationYearGroup', label: 'Graduate / Archive', icon: '<path d="M22 10L12 4 2 10l10 6 10-6z"/><path d="M6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/>' },
+        _canStudents && { panel: 'former-students', url: '/common/archivedStudents', label: 'Former students', icon: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9M10 13h4"/>' },
+      ].filter(Boolean),
+    },
+  ].filter((g) => g && g.links.length);
+  const _extraLinks = [
+    _canStudents && { id: 'import-data', url: '/print/migration', label: 'Import Students', hint: 'Bring students and records in from a spreadsheet', icon: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>' },
+  ].filter(Boolean);
 %>
 
 <style>
@@ -470,6 +495,104 @@
       grid-template-rows: auto 1fr !important;
     }
   }
+  /* Expandable groups (Online Admission, Graduate & Former Students), same as Reports */
+  .nav-group-toggle {
+    justify-content: space-between;
+  }
+
+  /* The caret must not take a share of the row (a shared rule gives every
+     label span flex: 1), or it squeezes the label until it's clipped. */
+  .hub-nav .nav-link.nav-group-toggle > span.nav-caret {
+    flex: 0 0 auto;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .nav-caret {
+    display: inline-flex;
+    flex-shrink: 0;
+    margin-left: auto;
+    opacity: 0.65;
+    transition: transform 0.18s ease;
+  }
+
+  .nav-caret svg {
+    width: 12px;
+    height: 12px;
+    display: block;
+  }
+
+  .nav-group-toggle[aria-expanded="true"] .nav-caret {
+    transform: rotate(180deg);
+  }
+
+  /* Sub-menu — forced to a single vertical column and styled just like the
+     top-level items (icon + label), only indented slightly to show nesting. */
+  .nav-submenu {
+    list-style: none !important;
+    margin: 2px 0 4px !important;
+    padding: 0 !important;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease;
+    display: block !important;
+    grid-template-columns: none !important;
+    column-count: 1 !important;
+    width: 100% !important;
+  }
+
+  .nav-submenu.open {
+    max-height: 600px;
+  }
+
+  .nav-submenu li {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .nav-sublink {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    width: 100% !important;
+    box-sizing: border-box;
+    padding: 9px 14px 9px 34px !important;
+    margin: 1px 0;
+    border-radius: 10px;
+    color: #111827;
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.3;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .nav-sublink:hover {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+  }
+
+  .nav-sublink.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+
+  .nav-sublink.active:hover {
+    background: var(--primary-hover-fill, var(--primary-hover));
+  }
+
+  .nav-sublink .nav-link-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .hub-nav.is-collapsed .nav-submenu {
+    display: none !important;
+  }
 </style>
 <link rel="stylesheet" href="/css/workspace-shell.css" />
 
@@ -507,14 +630,33 @@
             <span>Create Student</span>
           </a>
         </li>
-        <% if (hasPendingAdmissions) { %>
+        <% _groups.forEach(function (g) { %>
         <li>
-          <a class="nav-link" href="/common/admissionPending" data-no-spa data-section="pending" data-embed-url="/common/admissionPending" data-embed-label="Pending Admissions">
-            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-            <span>Pending Admissions</span>
+          <button type="button" class="nav-link nav-group-toggle" data-section="<%= g.links[0].panel %>" aria-expanded="false">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><%- g.icon %></svg></span>
+            <span><%= g.label %></span>
+            <span class="nav-caret" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg></span>
+          </button>
+          <ul class="nav-submenu">
+            <% g.links.forEach(function (l) { %>
+            <li>
+              <a class="nav-sublink" href="<%= l.url %>" data-no-spa data-group="<%= g.id %>" data-section="<%= l.panel %>" data-embed-url="<%= l.url %>" data-embed-label="<%= l.label %>">
+                <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><%- l.icon %></svg></span>
+                <span><%= l.label %></span>
+              </a>
+            </li>
+            <% }) %>
+          </ul>
+        </li>
+        <% }) %>
+        <% _extraLinks.forEach(function (x) { %>
+        <li>
+          <a class="nav-link" href="<%= x.url %>" data-no-spa data-section="<%= x.id %>" data-embed-url="<%= x.url %>" data-embed-label="<%= x.label %>" title="<%= x.hint %>">
+            <span class="nav-link-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><%- x.icon %></svg></span>
+            <span><%= x.label %></span>
           </a>
         </li>
-        <% } %>
+        <% }) %>
       </ul>
     </nav>
 
@@ -538,16 +680,27 @@
         </div>
       </section>
 
-      <% if (hasPendingAdmissions) { %>
-      <section class="hub-section" id="pending">
+      <% _groups.forEach(function (g) { g.links.forEach(function (l) { %>
+      <section class="hub-section" id="<%= l.panel %>">
         <div class="embed-panel-body">
           <div class="embed-placeholder">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-            <p>Loading Pending Admissions…</p>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><%- l.icon %></svg>
+            <p>Loading <%= l.label %>…</p>
           </div>
         </div>
       </section>
-      <% } %>
+      <% }) }) %>
+
+      <% _extraLinks.forEach(function (x) { %>
+      <section class="hub-section" id="<%= x.id %>">
+        <div class="embed-panel-body">
+          <div class="embed-placeholder">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><%- x.icon %></svg>
+            <p>Loading <%= x.label %>…</p>
+          </div>
+        </div>
+      </section>
+      <% }) %>
     </main>
   </div>
 </div>
@@ -610,7 +763,13 @@
 
     function activateSectionOnly(sectionId) {
       activeGroup = sectionId;
-      const navLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`);
+      const navLink = document.querySelector(`.nav-link[data-section="${sectionId}"]`)
+        || (function () {
+          // A dropdown item's own panel: its dropdown header stands in.
+          const sub = document.querySelector(`.nav-sublink[data-section="${sectionId}"]`);
+          const menu = sub && sub.closest('.nav-submenu');
+          return menu ? menu.parentElement.querySelector('.nav-group-toggle') : null;
+        })();
 
       navLinks.forEach(l => l.classList.remove('active'));
       if (navLink) navLink.classList.add('active');
@@ -619,14 +778,29 @@
       const targetSection = document.getElementById(sectionId);
       if (targetSection) targetSection.classList.add('active');
 
+      document.querySelectorAll('.nav-group-toggle').forEach(toggle => {
+        const isThisGroup = toggle === navLink;
+        const submenu = toggle.parentElement.querySelector('.nav-submenu');
+        if (isThisGroup && submenu) {
+          submenu.classList.add('open');
+          toggle.setAttribute('aria-expanded', 'true');
+        }
+      });
+
       if (window.innerWidth <= 900) {
         setNavOpen(false);
       }
     }
 
     function setEmbedLinkActive(url) {
-      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-      document.querySelectorAll(`[data-embed-url="${CSS.escape(url)}"]`).forEach(l => l.classList.add('active'));
+      document.querySelectorAll('.nav-link, .nav-sublink').forEach(l => l.classList.remove('active'));
+      const matches = document.querySelectorAll(`[data-embed-url="${CSS.escape(url)}"]`);
+      matches.forEach(l => l.classList.add('active'));
+      // A page opened inside a group panel keeps its group highlighted.
+      if (!matches.length && activeGroup) {
+        const groupLink = document.querySelector(`.nav-link[data-section="${activeGroup}"]`);
+        if (groupLink) groupLink.classList.add('active');
+      }
     }
 
     // Each destination is its own full standalone page with its own <head>
@@ -848,7 +1022,17 @@
         }
 
         try {
-          if (escapeIframeForFullPageDashboard(stripEmbedFlag(iframe.contentWindow.location.href))) return;
+          const landedOn = stripEmbedFlag(iframe.contentWindow.location.href) || '';
+          // A page preloading in the background that sends you to the
+          // dashboard (no access, for example) is dropped quietly instead of
+          // taking over the window.
+          if (background && group !== activeGroup && /^\/common\/(orgDashboard|publicDashboard)(?:[/?]|$)/.test(landedOn)) {
+            iframe.remove();
+            overlay.remove();
+            delete loadedPanelUrls[group];
+            return;
+          }
+          if (escapeIframeForFullPageDashboard(landedOn)) return;
         } catch (err) {
           // Cross-origin — nothing more we can do.
         }
@@ -912,11 +1096,20 @@
       }
     }
 
-    // All three destinations are plain links — clicking activates their
-    // panel and loads the page straight into it.
+    // Plain links load their page straight into their panel. A group
+    // (Online Admission, Graduate & Former Students) only opens or closes its
+    // list; its sub-links load into the group's panel.
     navLinks.forEach(link => {
       link.addEventListener('click', function(e) {
         e.preventDefault();
+        if (this.classList.contains('nav-group-toggle')) {
+          const submenu = this.parentElement.querySelector('.nav-submenu');
+          if (!submenu) return;
+          const nowOpen = !submenu.classList.contains('open');
+          submenu.classList.toggle('open', nowOpen);
+          this.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
+          return;
+        }
         const sectionId = this.getAttribute('data-section');
         const embedUrl = this.getAttribute('data-embed-url');
         const embedLabel = this.getAttribute('data-embed-label');
@@ -924,6 +1117,20 @@
         if (embedUrl) {
           loadEmbed(sectionId, embedUrl, embedLabel);
         }
+      });
+    });
+
+    document.querySelectorAll('.nav-sublink').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const url = this.getAttribute('data-embed-url') || this.getAttribute('href');
+        // Each item has its own panel (so it can stay loaded); older items
+        // share their dropdown's panel.
+        const group = this.getAttribute('data-section') || this.getAttribute('data-group');
+        const label = this.getAttribute('data-embed-label') || this.textContent.trim();
+        if (!url || !group) return;
+        activateSectionOnly(group);
+        loadEmbed(group, url, label);
       });
     });
 
@@ -1032,9 +1239,8 @@
 
     // Panels load on intent: pointing at, focusing or touching a menu item
     // starts loading it in its own hidden panel, so the click shows it at
-    // once. Nothing else loads in the background, so the page you're using
-    // gets the whole connection (on a slow or data-saver connection, panels
-    // load only when clicked).
+    // once (on a slow or data-saver connection, panels load only when
+    // clicked).
     const warmedSections = new Set(typeof initialSection !== 'undefined' && initialSection ? [initialSection] : []);
     function warmPanel(link) {
       const sectionId = link.getAttribute('data-section') || link.getAttribute('data-group');
@@ -1050,5 +1256,49 @@
         link.addEventListener(type, function () { warmPanel(link); }, { once: true, passive: true });
       });
     });
+
+    // Once the page you opened has loaded, the other pages in this menu load
+    // one at a time in the background while the browser is idle, and stay
+    // loaded, so every later click shows its page at once. Skipped on slow or
+    // data-saver connections, paused while the tab is hidden, and limited on
+    // low-memory phones.
+    (function preloadOtherPanelsWhenIdle() {
+      const conn = navigator.connection;
+      if (conn && (conn.saveData || /(^|-)2g$/.test(conn.effectiveType || ''))) return;
+      const lowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory < 4;
+      let budget = lowMemory ? 3 : Infinity;
+      const links = Array.from(document.querySelectorAll('.nav-link[data-embed-url], .nav-sublink[data-embed-url]'));
+      const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 400));
+      const loaded = (sectionId) => new Promise((resolve) => {
+        const started = Date.now();
+        (function check() {
+          if (loadedPanelUrls[sectionId] || Date.now() - started > 12000) return resolve();
+          setTimeout(check, 200);
+        })();
+      });
+      const whenVisible = () => new Promise((resolve) => {
+        if (!document.hidden) return resolve();
+        document.addEventListener('visibilitychange', function onVis() {
+          if (document.hidden) return;
+          document.removeEventListener('visibilitychange', onVis);
+          resolve();
+        });
+      });
+      async function run() {
+        if (activeGroup) await loaded(activeGroup);
+        for (const link of links) {
+          if (budget <= 0) return;
+          const sectionId = link.getAttribute('data-section') || link.getAttribute('data-group');
+          if (!sectionId || warmedSections.has(sectionId)) continue;
+          await whenVisible();
+          await new Promise((resolve) => idle(resolve));
+          if (warmedSections.has(sectionId)) continue;
+          warmPanel(link);
+          budget -= 1;
+          await loaded(sectionId);
+        }
+      }
+      setTimeout(run, 600);
+    })();
   })();
 </script>

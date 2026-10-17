@@ -472,7 +472,7 @@ async function buildOrganizationStats(organizationId, requestedTermId, preloaded
        ) low`,
       [...params, LOW_ATTENDANCE_RATE]
     ),
-    db.query(`SELECT COUNT(*)::int AS total FROM classes WHERE organization_id = $1`, [organizationId]),
+    db.query(`SELECT COUNT(*)::int AS total FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL`, [organizationId]),
   ]);
 
   const enrolledByTerm = new Map(enrollmentByTermResult.rows.map((row) => [row.term_id, row.enrolled]));

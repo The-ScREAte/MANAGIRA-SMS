@@ -701,7 +701,7 @@
         }
 
         function submitDeleteStudent() {
-          if (!confirmDelete('Are you sure you want to delete this student? This action cannot be undone.')) {
+          if (!confirmDelete('Delete this student permanently?\n\nOnly a student added by mistake (with no scores, attendance, report cards or payments) can be deleted. To take a student off the register and keep their records, use Graduate & archive students and mark them as left.')) {
             return;
           }
           const form = document.getElementById('deleteStudentForm');
@@ -935,6 +935,7 @@
     </script>
 </head>
 <body>
+<%- include('../partials/flash') %>
 <div class="es-container">
   <%
     var _prefix = '';

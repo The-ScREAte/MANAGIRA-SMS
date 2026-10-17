@@ -350,6 +350,9 @@ module.exports = (db) => {
   router.post("/deleteEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_EMPLOYEES), (req, res) =>
     commonController.deleteEmployee(req, res, db)
   );
+  router.post("/enableEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_EMPLOYEES), (req, res) =>
+    commonController.enableRemovedEmployee(req, res, db)
+  );
   router.post("/toggleHoldEmployee/:userId", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_EMPLOYEES), (req, res) =>
     commonController.toggleHoldEmployee(req, res, db)
   );
@@ -617,6 +620,49 @@ module.exports = (db) => {
   );
   router.get("/deleteClass", isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.deleteClass(req, res, db)
+  );
+  // Setup steps: what the school still has to set up (bottom bar).
+  const setupChecklist = require("../utils/setupChecklist");
+  const setupStepsAccess = (req, res, next) =>
+    setupChecklist.canSeeSetupSteps(req.session) ? next() : res.status(403).json({ error: "Setup steps are for the school's managers." });
+  router.get("/setupSteps", isAuthenticated, setupStepsAccess, async (req, res) => {
+    try {
+      res.set("Cache-Control", "no-store");
+      return res.json(await setupChecklist.getSetupChecklist(db, req.session.organizationId, res.locals.allowedFeatures));
+    } catch (error) {
+      console.error("[setupSteps]", error.message);
+      return res.status(500).json({ error: "Setup steps couldn't be loaded." });
+    }
+  });
+  router.post("/setupSteps/skip", isAuthenticated, setupStepsAccess, express.json(), async (req, res) => {
+    try {
+      const userId = req.session.userId || (req.session.user && req.session.user.user_id) || null;
+      const result = await setupChecklist.setStepSkipped(db, req.session.organizationId, String((req.body || {}).key || ""), Boolean((req.body || {}).skip), userId);
+      if (!result.ok) return res.status(result.status).json({ error: result.message });
+      return res.json(await setupChecklist.getSetupChecklist(db, req.session.organizationId, res.locals.allowedFeatures));
+    } catch (error) {
+      console.error("[setupSteps/skip]", error.message);
+      return res.status(500).json({ error: "That couldn't be saved." });
+    }
+  });
+
+  // Make obsolete / restore (kept on every record that already uses it).
+  const { obsoleteHandler } = require("../utils/obsolete");
+  router.post(
+    "/obsolete/records",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS),
+    express.json(),
+    express.urlencoded({ extended: false }),
+    obsoleteHandler(db, { kinds: ["class", "subject", "gradGroup"], fallbackRedirect: "/common/manageClassSubjectAndGradYr" })
+  );
+  router.post(
+    "/obsolete/assessment",
+    isAuthenticated,
+    requirePermission(PERMISSIONS.MANAGE_ASSESSMENTS),
+    express.json(),
+    express.urlencoded({ extended: false }),
+    obsoleteHandler(db, { kinds: ["assessment"], fallbackRedirect: "/common/manageAssessment" })
   );
   router.post("/editClass", checkFeatureAccess, isAuthenticated, requirePermission(PERMISSIONS.MANAGE_CLASSES_SUBJECTS), (req, res) =>
     commonController.editClass(req, res, db)

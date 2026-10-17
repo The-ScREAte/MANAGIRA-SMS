@@ -575,7 +575,7 @@ async function fetchPromotionPreviewRows(organizationId, termId, classIds = []) 
     const subjectResult = await db.query(
       `SELECT class_id, subject_id, subject_name
        FROM subjects
-       WHERE organization_id = $1
+       WHERE organization_id = $1 AND obsolete_at IS NULL
          AND class_id = ANY($2::int[])
        ORDER BY subject_name ASC, subject_id ASC`,
       [organizationId, Array.from(allOptionClassIds)]
@@ -969,7 +969,7 @@ module.exports = {
       }));
 
       const classesResult = await db.query(
-        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC`,
+        `SELECT class_id, class_name FROM classes WHERE organization_id = $1 AND obsolete_at IS NULL ORDER BY COALESCE(dashboard_sort_order, 2147483647), class_name ASC, class_id ASC`,
         [organizationId]
       );
 

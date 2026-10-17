@@ -51,7 +51,17 @@ tr.ux-row:focus-visible { outline: 2px solid var(--org-primary-color, #01535b); 
 .ux-class span { color: var(--ws-muted, #64748b); font-size: 12.5px; }
 .ux-muted { margin: 0; color: var(--ws-muted, #64748b); font-size: 13px; }
 .ux-actions { display: flex; justify-content: flex-end; padding-top: 14px; border-top: 1px solid var(--ws-line, #e2e8f0); }
+form.ux-actions { margin: 0; }
+/* Removed (kept) accounts */
+tr.ux-row.is-removed > td { color: var(--ws-muted, #64748b); }
+.ux-removed { margin: 0 0 16px; padding: 10px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, #ef4444 28%, transparent); background: color-mix(in srgb, #ef4444 8%, transparent); font-size: 13px; line-height: 1.45; }
+.ux-removed strong { display: block; margin-bottom: 2px; }
 @media (max-width: 900px) {
   .ux-layout { grid-template-columns: minmax(0, 1fr); }
   .ux-filters { position: static; }
 }
+
+/* Obsolete items stay listed where they are managed, crossed out */
+.ux-struck { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--ws-muted, #64748b); }
+.ux-struck strong { color: inherit; }
+tr.ux-row.is-removed td[data-label="Name"] strong { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--ws-muted, #64748b); }
