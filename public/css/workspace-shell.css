@@ -535,9 +535,20 @@ main { padding: 0 !important; max-width: none !important; }
   display: none !important;
 }
 
+/* Expanded lists use intrinsic, start-aligned tracks; the icon rail needs
+   one full-width track so links share the header control's center line. */
+.hub-nav.is-collapsed .nav-list,
+.management-nav.is-collapsed .nav-list,
+.settings-nav.is-collapsed .nav-list {
+  grid-template-columns: minmax(0, 1fr) !important;
+  justify-content: stretch !important;
+}
+
 .hub-nav.is-collapsed .nav-link,
 .management-nav.is-collapsed .nav-link,
 .settings-nav.is-collapsed .nav-link {
+  box-sizing: border-box;
+  min-width: 0;
   justify-content: center !important;
   padding: 10px !important;
   gap: 0 !important;
@@ -556,6 +567,7 @@ main { padding: 0 !important; max-width: none !important; }
 .hub-nav.is-collapsed .nav-link > span:not(.nav-link-icon),
 .management-nav.is-collapsed .nav-link > span:not(.nav-link-icon),
 .settings-nav.is-collapsed .nav-link > span:not(.nav-link-icon) {
+  display: none !important;
   opacity: 0 !important;
   max-width: 0 !important;
 }
