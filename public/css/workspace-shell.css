@@ -519,6 +519,14 @@ main { padding: 0 !important; max-width: none !important; }
   padding-right: 8px !important;
 }
 
+/* Keep the rail's only header control centered, even when page styles
+   give the heading or toggle a flex spacer or margin. */
+.hub-nav.is-collapsed .hub-nav-collapse-toggle,
+.management-nav.is-collapsed .management-nav-collapse-toggle,
+.settings-nav.is-collapsed .settings-nav-collapse-toggle {
+  margin-inline: auto !important;
+}
+
 .hub-nav.is-collapsed .hub-nav-header h3,
 .management-nav.is-collapsed .management-nav-header h3,
 .settings-nav.is-collapsed .settings-nav-header h3,
