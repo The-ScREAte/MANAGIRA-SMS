@@ -7,6 +7,17 @@ export default defineConfig({
     name: "mira-public-preview",
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
+        if (req.url?.split("?")[0] === "/static/index.html") {
+          try {
+            const source = await readFile("public/static/index.html", "utf8");
+            const footer = await ejs.renderFile("views/partials/footer.ejs", { session: {}, showFooterTopSection: true });
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.end(source.replace(/<footer class="managira-footer">[\s\S]*?<\/footer>\s*<style>[\s\S]*?<\/style>/, footer));
+          } catch (error) {
+            next(error);
+          }
+          return;
+        }
         if (req.url?.split("?")[0] !== "/legal/mira-ai-assistant") return next();
         try {
           const source = await readFile("views/legal&Compliance/MiraAiAssistant.ejs", "utf8");
