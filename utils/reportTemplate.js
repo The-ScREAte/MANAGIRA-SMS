@@ -47,6 +47,11 @@ const FIELD_GROUPS = [
     ['subject.grade', 'Grade'], ['subject.position', 'Position in subject'], ['subject.remark', 'Remark (e.g. Excellent)'],
     ['subject.mark:Excellent', '✓ when the remark or grade is Excellent'],
   ] },
+  { group: 'Choice results', note: 'Assessments recorded as a choice (Yes / No, Pass / Fail …). Use the assessment’s name after the colon.', fields: [
+    ['subject.choice:Practical', 'In the subject row: the choice for “Practical”'],
+    ['subject[Mathematics].choice:Practical', 'Mathematics: the choice for “Practical”'],
+    ['choices.all', 'Every choice result (e.g. Science – Practical: Yes · …)'],
+  ] },
   { group: 'One subject', note: 'Use the subject’s name in brackets, e.g. a fixed row for Mathematics.', fields: [
     ['subject[Mathematics].total', 'Mathematics total'], ['subject[Mathematics].grade', 'Mathematics grade'], ['subject[Mathematics].mark:Very Good', '✓ when Mathematics is Very Good'],
   ] },
@@ -76,6 +81,12 @@ const ordinal = (n) => { const v = n % 100; return n + (['th', 'st', 'nd', 'rd']
 
 function subjectValue(subject, key, no) {
   if (!subject) return '';
+  if (key.startsWith('choice:')) {
+    const want = key.slice(7).trim().toLowerCase();
+    const choices = subject.choices || {};
+    const k = Object.keys(choices).find((title) => title.trim().toLowerCase() === want);
+    return k ? clean(choices[k]) : '';
+  }
   if (key.startsWith('mark:')) {
     const want = key.slice(5).trim().toLowerCase();
     const have = [subject.remarks, subject.grade, subject.gradeRaw].map((x) => clean(x).trim().toLowerCase());
@@ -171,6 +182,8 @@ function resolveField(token, ctx, student, subject, subjectNo) {
       const list = (r.scoreRemarks || []).slice().sort((a, b) => Number(b.toPercentage || b.to_percentage || 0) - Number(a.toPercentage || a.to_percentage || 0));
       return list.map((x) => (x.gradeLabel || '-') + ' (' + (x.fromPercentage ?? x.from_percentage) + ' to ' + (x.toPercentage ?? x.to_percentage) + ') = ' + (x.remark || '-')).join('  ·  ');
     }
+    case 'choices.all':
+      return (student.choiceResults || []).map((x) => x.subject + ' – ' + x.title + ': ' + x.choice).join('  ·  ');
     case 'signature.name': return r.signatureName;
     case 'signature.title': return r.signatureTitle;
     default:

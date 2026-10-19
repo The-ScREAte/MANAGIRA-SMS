@@ -130,6 +130,10 @@ require("./utils/obsolete").ensureObsoleteSchema(db).catch((error) => {
 require("./utils/removedUsers").ensureRemovedUsersSchema(db).catch((error) => {
   console.error("[removedUsers] schema setup failed:", error.message);
 });
+// How each assessment's results are recorded: a score, or the school's own choices (Yes / No ...).
+require("./utils/assessmentEntry").ensureAssessmentEntrySchema(db).catch((error) => {
+  console.error("[assessmentEntry] schema setup failed:", error.message);
+});
 require("./utils/setupChecklist").ensureSetupSchema(db).catch((error) => {
   console.error("[setupChecklist] schema setup failed:", error.message);
 });
@@ -844,6 +848,8 @@ app.use((req, res, next) => {
 // Template engine setup
 app.locals.assetUrl = require("./utils/assetUrl").assetUrl;
 app.locals.themePalette = require("./utils/themePalette").THEME_PALETTE;
+app.locals.brandColorChoices = require("./utils/themePalette").BRAND_COLOR_OPTIONS;
+app.locals.footerPaletteFor = require("./utils/themePalette").footerPaletteFor;
 app.locals.canSeeSetupSteps = require("./utils/setupChecklist").canSeeSetupSteps;
 const { cssBundleUrl, serveCssBundle } = require("./utils/cssBundle");
 app.locals.cssBundleUrl = cssBundleUrl;

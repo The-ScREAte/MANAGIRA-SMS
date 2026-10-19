@@ -7,7 +7,7 @@ module.exports = {
   parameters: {
     type: "object",
     properties: {
-      theme: { type: "string", enum: ["classic", "modern", "green", "minimal", "indigo", "rose", "amber", "yellow", "slate", "cyan", "orange", "charcoal"] },
+      theme: { type: "string", enum: require("../../utils/themePalette").BRAND_COLOR_VALUES },
     },
     required: ["theme"],
   },

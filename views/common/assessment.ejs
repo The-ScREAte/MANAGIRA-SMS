@@ -1310,6 +1310,23 @@ input[type="number"]:focus {
   outline: none;
 }
 
+/* Choice assessments (Yes / No ...): same size as a score box. */
+select.choice-input {
+  width: 100%;
+  max-width: 120px;
+  margin: 0;
+  padding: 8px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  text-align: center;
+}
+select.choice-input:focus { border-color: var(--primary); outline: none; }
+select.choice-input:disabled { opacity: .65; }
+.choice-kind { display: inline-block; margin-top: 2px; font-size: 11px; font-weight: 600; opacity: .75; }
+
 input[type="number"].score-input-invalid {
   border-color: #dc2626 !important;
   background-color: #fef2f2 !important;
@@ -1619,8 +1636,9 @@ input[type="number"].score-input-invalid {
                 <% assessments.forEach(function(assessment) { %>
                 <% const _isObsolete = assessment.access_reason === 'Obsolete'; %>
                 <th<% if (_isObsolete) { %> class="is-obsolete" title="Obsolete: kept on report cards, closed to new scores"<% } %>>
-                  <span<%- _isObsolete ? ' style="text-decoration:line-through;opacity:.65"' : '' %>><%= assessment.title %> (<%= assessment.weight %>%)<br />
+                  <span<%- _isObsolete ? ' style="text-decoration:line-through;opacity:.65"' : '' %>><%= assessment.title %><% if (!assessment.is_choice || assessment.choice_counts) { %> (<%= assessment.weight %>%)<% } %><br />
                   <%= assessment.category %></span><br />
+                  <% if (assessment.is_choice) { %><small class="choice-kind" title="<%= assessment.choice_counts ? 'Each choice has points that count in the total' : 'Recorded as a choice; doesn’t change the total' %>"><%= assessment.choice_labels.join(' / ') %><%= assessment.choice_counts ? '' : ' · not in total' %></small><br /><% } %>
                   <%
                     // Plain-English status: "Open" or "Closed" with the reason.
                     const _fmtDay = (value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -1681,6 +1699,16 @@ input[type="number"].score-input-invalid {
                 <td><%= assessmentStudentName %></td>
                 <% assessments.forEach(function(assessment) { %>
                 <td>
+                  <% if (assessment.is_choice) { %>
+                  <% const _picked = student.choices ? student.choices[assessment.assessment_id] : ''; %>
+                  <select class="choice-input" name="scores[<%= student.student_id %>][<%= assessment.assessment_id %>]"
+                          aria-label="<%= assessment.title %>" <%= assessment.can_edit_scores ? '' : 'disabled' %>>
+                    <option value="">–</option>
+                    <% assessment.choice_labels.forEach(function (label) { %>
+                    <option value="<%= label %>" <%= _picked && String(_picked).toLowerCase() === String(label).toLowerCase() ? 'selected' : '' %>><%= label %></option>
+                    <% }) %>
+                  </select>
+                  <% } else { %>
                   <input
                     type="number"
                     name="scores[<%= student.student_id %>][<%= assessment.assessment_id %>]"
@@ -1690,6 +1718,7 @@ input[type="number"].score-input-invalid {
                     value="<%= student.scores ? student.scores[assessment.assessment_id] : '' %>"
                     <%= assessment.can_edit_scores ? '' : 'disabled' %>
                   />
+                  <% } %>
                 </td>
                 <% }); %>
 
@@ -3149,6 +3178,13 @@ input[type="number"].score-input-invalid {
       let hasUnsavedScores = false;
       const scoresFormForTracking = document.getElementById("save-scores-form");
       if (scoresFormForTracking) {
+        scoresFormForTracking.addEventListener("change", function (event) {
+          if (event.target && event.target.tagName === "SELECT" && event.target.name && event.target.name.indexOf("scores[") === 0) {
+            hasUnsavedScores = true;
+            saveButton.classList.add("has-unsaved");
+            saveButton.setAttribute("title", "You have unsaved scores");
+          }
+        });
         scoresFormForTracking.addEventListener("input", function (event) {
           if (event.target && event.target.name && event.target.name.indexOf("scores[") === 0) {
             hasUnsavedScores = true;
@@ -3172,7 +3208,7 @@ input[type="number"].score-input-invalid {
           const formElement = document.getElementById("save-scores-form");
           const spinner = document.getElementById("loading-spinner");
           const scoreInputs = formElement
-            ? Array.prototype.slice.call(formElement.querySelectorAll('input[name^="scores["]'))
+            ? Array.prototype.slice.call(formElement.querySelectorAll('input[name^="scores["], select[name^="scores["]'))
             : [];
 
           // Clear any previous invalid markers before validating this save attempt.
@@ -3195,6 +3231,13 @@ input[type="number"].score-input-invalid {
             const studentId = matches[1];
             const assessmentId = matches[2];
             const value = String(inputElement.value || "").trim();
+
+            // A choice (Yes / No ...): sent as picked; the server knows its points.
+            if (inputElement.tagName === "SELECT") {
+              if (!scoresData[studentId]) scoresData[studentId] = {};
+              scoresData[studentId][assessmentId] = value;
+              return;
+            }
             const maxScore = parseFloat(inputElement.getAttribute("max"));
             const score = parseFloat(value);
 

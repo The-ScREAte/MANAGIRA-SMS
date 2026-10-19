@@ -206,7 +206,8 @@ body[data-page="publicDashboard"] .sw-site { margin-top: 32px; }
 .sw-map { width: 100%; min-height: 220px; border: 0; border-radius: 12px; }
 
 /* ---------- Footer & lightbox ---------- */
-.sw-footer { margin-top: clamp(28px, 4vw, 48px); padding: 44px 0 26px; background: #0f141b; color: #c9cfd8; }
+/* The school's own color, deepened so light text always reads on it. */
+.sw-footer { margin-top: clamp(28px, 4vw, 48px); padding: 44px 0 26px; background: color-mix(in srgb, var(--sw-accent) 42%, #0b0f14); color: rgba(255, 255, 255, .78); }
 .sw-footer a { color: #fff; }
 .sw-footer__grid { display: grid; grid-template-columns: 1.2fr 1fr auto; gap: 28px; align-items: start; }
 .sw-footer__name { font-size: 1.2rem; font-weight: 800; color: #fff; }
@@ -215,7 +216,7 @@ body[data-page="publicDashboard"] .sw-site { margin-top: 32px; }
 .sw-social { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .sw-social a { display: inline-block; padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.28); text-decoration: none; font-size: .86rem; font-weight: 600; }
 .sw-social a:hover { background: rgba(255,255,255,.1); }
-.sw-site .sw-footer__legal { margin-top: 30px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.12); font-size: .84rem; color: #8b94a3; }
+.sw-site .sw-footer__legal { margin-top: 30px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.14); font-size: .84rem; color: rgba(255,255,255,.62); }
 
 .sw-lightbox { position: fixed; inset: 0; z-index: 10050; display: grid; place-items: center; padding: 24px; background: rgba(5, 8, 12, .92); }
 .sw-lightbox[hidden] { display: none; }

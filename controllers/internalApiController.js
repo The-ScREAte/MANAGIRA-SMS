@@ -4585,7 +4585,7 @@ async function deleteSchoolAnnouncementApi(req, res) {
 // ============================================================
 
 const WEBSITE_LAYOUTS = new Set(require("../utils/websiteView").LAYOUT_VALUES);
-const WEBSITE_THEMES = new Set(["classic", "modern", "green", "minimal", "indigo", "rose", "amber", "yellow", "slate", "cyan", "orange", "charcoal"]);
+const WEBSITE_THEMES = new Set(require("../utils/themePalette").BRAND_COLOR_VALUES);
 const WEBSITE_IMAGE_CONTENT_TYPES = new Set(["slideshow", "siteImage"]);
 const WEBSITE_IMAGE_ALLOCATIONS = new Set(["hero", "slideshow", "siteImage"]);
 const WEBSITE_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
@@ -5434,6 +5434,7 @@ async function listAssessments(req, res) {
 
     const result = await db.query(
       `SELECT a.group_id, a.title, a.weight, a.max_score, a.category, a.term_id,
+              COALESCE(a.entry_mode, 'score') AS entry_mode, a.choice_options,
               c.class_id, c.class_name, s.subject_name,
               BOOL_OR(COALESCE(a.is_locked, FALSE)) OVER (PARTITION BY a.group_id) AS is_locked,
               BOOL_AND(COALESCE(a.is_active, TRUE)) OVER (PARTITION BY a.group_id) AS is_active,
@@ -5457,6 +5458,8 @@ async function listAssessments(req, res) {
           max_score: row.max_score,
           category: row.category,
           term_id: row.term_id,
+          entry_mode: row.entry_mode,
+          choices: row.entry_mode === "choice" ? row.choice_options : null,
           is_locked: row.is_locked,
           is_active: row.is_active,
           edit_window_start: row.edit_window_start,
@@ -5521,8 +5524,12 @@ async function createTest(req, res) {
     const classNames = Array.isArray(req.body?.classNames) ? req.body.classNames.map((n) => String(n || "").trim()).filter(Boolean) : [];
     const subjectName = String(req.body?.subjectName || "").trim();
 
-    if (!testName || testWeight == null || maxScore == null || !category || !classNames.length || !subjectName) {
-      return res.status(400).json({ error: "testName, testWeight, maxScore, category, classNames, and subjectName are required." });
+    // Results as a score (default) or as the school's own choices (Yes / No ...).
+    const entryMode = String(req.body?.entryMode || "score").trim().toLowerCase() === "choice" ? "choice" : "score";
+    const choiceOptions = entryMode === "choice" ? req.body?.choiceOptions : null;
+    const needsNumbers = entryMode === "score";
+    if (!testName || (needsNumbers && (testWeight == null || maxScore == null)) || !category || !classNames.length || !subjectName) {
+      return res.status(400).json({ error: "testName, testWeight, maxScore, category, classNames, and subjectName are required (testWeight and maxScore can be left out for a choice assessment)." });
     }
     const ALLOWED_CATEGORIES = new Set(["Class Assessment", "Exams Assessment", "Other"]);
     if (!ALLOWED_CATEGORIES.has(category)) {
@@ -5550,9 +5557,11 @@ async function createTest(req, res) {
         tests: [
           {
             testName,
-            testWeight,
-            maxScore,
+            testWeight: testWeight == null ? 0 : testWeight,
+            maxScore: maxScore == null ? 0 : maxScore,
             category,
+            entryMode,
+            choiceOptions,
             scaleBase: req.body?.scaleBase,
             classes: classes.map((c) => String(c.class_id)),
             subjects: classes.map((c) => `${c.class_id}-${subjectByClass.get(c.class_id)}`),

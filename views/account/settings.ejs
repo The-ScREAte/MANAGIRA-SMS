@@ -3432,22 +3432,9 @@
                 <form action="/account/updatePublicDashboardTheme" method="POST">
                   <input type="hidden" name="redirectTo" value="/account/settings?section=customize" />
                   <% const selectedWebsiteTheme = (publicDashboardTheme && String(publicDashboardTheme).trim()) ? String(publicDashboardTheme).trim() : 'classic'; %>
-                  <% const brandColorOptions = [
-                    ['classic', 'Ocean Teal'],
-                    ['modern', 'Royal Blue'],
-                    ['green', 'Evergreen'],
-                    ['minimal', 'Amethyst'],
-                    ['indigo', 'Deep Indigo'],
-                    ['rose', 'Crimson Rose'],
-                    ['amber', 'Amber Gold'],
-                    ['yellow', 'Solar Yellow'],
-                    ['slate', 'Slate'],
-                    ['cyan', 'Cyan Breeze'],
-                    ['orange', 'Sunset Orange'],
-                    ['charcoal', 'Charcoal'],
-                  ]; %>
+                  <% const brandColorOptions = (typeof brandColorChoices !== 'undefined' && brandColorChoices) || []; %>
                   <div class="cz-colors" role="radiogroup" aria-label="Brand color">
-                    <% brandColorOptions.forEach(([value, name]) => { const main = themePalette[value].primary, deep = themePalette[value].hover; %>
+                    <% brandColorOptions.forEach(({ value, key, name }) => { const main = themePalette[key].primary, deep = themePalette[key].hover; %>
                       <label class="cz-color">
                         <input type="radio" name="publicDashboardTheme" value="<%= value %>" <%= selectedWebsiteTheme === value ? 'checked' : '' %> />
                         <span class="cz-color__swatch" data-ap-skip style="background: linear-gradient(135deg, <%= main %> 0 55%, <%= deep %> 55% 100%);"><i class="fa-solid fa-check" aria-hidden="true"></i></span>

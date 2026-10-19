@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <link rel="stylesheet" href="/css/globalScale.css">
+  <link rel="stylesheet" href="<%= assetUrl('/css/assessmentEntryMode.css') %>">
   <meta charset="UTF-8" />
   <meta name="viewport" content="<%= locals.viewportContent || 'width=device-width, initial-scale=1.0, maximum-scale=1.0' %>" />
   <title>Add New Test</title>
@@ -1153,16 +1154,25 @@
       }
 
       // Validate each test has required fields filled
+      const testCards = Array.from(document.querySelectorAll('#test-forms .test-form'));
       for (let i = 0; i < testNames.length; i++) {
         if (!testNames[i] || !testNames[i].trim()) {
           alert(`Test ${i + 1}: Please enter a test name.`);
           return;
         }
-        if (!testWeights[i] || testWeights[i] <= 0) {
+        // Results recorded as a score, or as the school's own choices.
+        const entry = testCards[i] && testCards[i].__aem;
+        const entryError = entry ? entry.validate() : '';
+        if (entryError) {
+          alert(`Test ${i + 1}: ${entryError}`);
+          return;
+        }
+        const countsInTotal = entry ? entry.countsInTotal() : true;
+        if (countsInTotal && (!testWeights[i] || testWeights[i] <= 0)) {
           alert(`Test ${i + 1}: Please enter a valid test weight.`);
           return;
         }
-        if (!maxScores[i] || maxScores[i] <= 0) {
+        if (countsInTotal && (!maxScores[i] || maxScores[i] <= 0)) {
           alert(`Test ${i + 1}: Please enter a valid maximum score.`);
           return;
         }
@@ -1185,6 +1195,7 @@
           editWindowEnd: formData.get(`editWindowEnd-${i + 1}`) || null,
           showQuestionSetOnDashboard: formData.get(`showQuestionSetOnDashboard-${i + 1}`) ? "true" : "false",
           notifyTeachers: formData.get(`notifyTeachers-${i + 1}`) ? "true" : "false",
+          ...(testCards[i] && testCards[i].__aem ? testCards[i].__aem.read() : { entryMode: 'score' }),
           classes,
           subjects
         });
@@ -1236,6 +1247,22 @@
 <datalist id="assessment-library"><% _assessLib.forEach((a) => { %><option value="<%= a.title %>"<%= a.this_term ? ' data-recent' : '' %>></option><% }) %></datalist>
 <script type="application/json" id="assessmentLibraryData"><%- JSON.stringify(_assessLib).replace(/</g, '\\u003c') %></script>
 <script src="/js/libraryPicker.js" defer></script>
+<script src="<%= assetUrl('/js/assessmentEntryMode.js') %>"></script>
+<script>
+  // Every test card gets "How are results recorded?" (score or choices),
+  // including cards added with "Add another test".
+  (function () {
+    function attachAll() {
+      document.querySelectorAll('#test-forms .test-form').forEach(function (card) {
+        if (card.__aem) return;
+        window.AssessmentEntryMode.attach(card, { insertAfter: card.querySelector('.test-name-with-menu') });
+      });
+    }
+    attachAll();
+    var list = document.getElementById('test-forms');
+    if (list) new MutationObserver(attachAll).observe(list, { childList: true });
+  })();
+</script>
 <script>
   // Picking an existing assessment name fills in its usual settings (only
   // fields still empty), so a regular test is reused rather than set up again.

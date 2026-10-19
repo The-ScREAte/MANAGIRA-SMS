@@ -1453,7 +1453,7 @@
                 <% uniqueAssessments.forEach(uniqueAssessment => { 
                   const assessment = subject.assessments.find(a => a.title === uniqueAssessment.title);
                 %>
-                  <td><%= assessment && assessment.score !== null ? assessment.score : '-' %></td>
+                  <td><%= assessment && assessment.choice_label ? assessment.choice_label : (assessment && assessment.score !== null ? assessment.score : '-') %></td>
                 <% }) %>
               </tr>
             <% }) %>

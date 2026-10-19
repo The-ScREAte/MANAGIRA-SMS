@@ -33,6 +33,7 @@ const { getOrgSwitchFeatureRestriction } = require("../utils/orgSwitchAccess");
 const { PAYGIRA_FEATURE_NAMES } = require("../utils/paygiraAccess");
 const { libraryPickLists, librarySubjectName, listTermDefinitions, renameTermDefinition } = require("../utils/academicLibrary");
 const { savedRecords, savedRecordsMessage, clearTermSetup } = require("../utils/recordGuards");
+const assessmentEntry = require("../utils/assessmentEntry");
 const { loadOrgDashboardInsights } = require("../utils/orgDashboardInsights");
 const { loadViewerActivity, resolveActor: resolveWorkspaceActor, isOrgMember: isWorkspaceMember } = require("../utils/workspace");
 const {
@@ -5904,6 +5905,7 @@ const commonController = {
       if (!registrationState.open && !registrationState.preview) {
         return res.render("common/publicRegisterStudent", {
           publicSiteAppearance: await require("../utils/publicSiteAppearance").getPublicSiteAppearance(db, organizationId),
+          footerThemeColor: await require("../utils/orgTheme").getOrgThemeColor(db, organizationId).catch(() => "teal"),
           title: "Online Registration",
           organizationId,
           orgDetails,
@@ -6079,6 +6081,7 @@ const commonController = {
 
       res.render("common/publicRegisterStudent", {
         publicSiteAppearance: await require("../utils/publicSiteAppearance").getPublicSiteAppearance(db, organizationId),
+        footerThemeColor: await require("../utils/orgTheme").getOrgThemeColor(db, organizationId).catch(() => "teal"),
         title: "Public Student Registration",
         registrationState,
         classes: classResult.rows,
@@ -8087,7 +8090,7 @@ const commonController = {
       // **Fetch assessments and scores for the student for the specified term**
       const assessmentsResult = await db.query(
         `
-          SELECT DISTINCT ON (a.assessment_id) a.assessment_id, a.title, a.weight, ar.score, a.subject_id, a.max_score, a.category,
+          SELECT DISTINCT ON (a.assessment_id) a.assessment_id, a.title, a.weight, ar.score, ar.choice_label, a.subject_id, a.max_score, a.category,
                  ar.total_subject_score,
                  ar.total_percentage,
                  COALESCE(
@@ -10852,6 +10855,7 @@ const commonController = {
 
     try {
       await ensureAssessmentControlSchema(db);
+      await assessmentEntry.ensureAssessmentEntrySchema(db);
       await ensureScoreRemarkGradeSchema(db);
       await ensureGoogleIntegrationSchema(db);
       ensureScoreSheetIndexes(db);
@@ -10978,6 +10982,7 @@ const commonController = {
       const assessmentsResult = await db.query(
         `
                 SELECT assessment_id, group_id, title, weight, max_score, category,
+                       COALESCE(entry_mode, 'score') AS entry_mode, choice_options,
                        COALESCE(scale_base, 100) AS scale_base,
                       COALESCE(open_book, FALSE) AS open_book,
                       time_limit_minutes,
@@ -10999,6 +11004,10 @@ const commonController = {
           ...assessmentRow,
           can_edit_scores: editability.canEdit,
           access_reason: editability.reason,
+          // Choice assessments (Yes / No ...): a dropdown instead of a number.
+          is_choice: assessmentEntry.isChoice(assessmentRow),
+          choice_labels: assessmentEntry.optionsOf(assessmentRow).map((o) => o.label),
+          choice_counts: assessmentEntry.choiceCountsInTotal(assessmentRow),
         };
       });
 
@@ -11017,6 +11026,7 @@ const commonController = {
                 SELECT ar.assessment_id,
                        ar.student_id,
                        ar.score,
+                       ar.choice_label,
                        sp.position
                 FROM assessment_results ar
                 LEFT JOIN student_term_positions sp
@@ -11056,9 +11066,11 @@ const commonController = {
             grade: '-',
             position: result.position,
             max_total_score: 0,
+            choices: {},
           };
         }
         studentScores[result.student_id].assessments[result.assessment_id] = result.score;
+        if (result.choice_label) studentScores[result.student_id].choices[result.assessment_id] = result.choice_label;
         if (result.score !== null && result.score !== undefined && result.score !== '') {
           const numericScore = Number(result.score);
           const numericMax = maxScoreByAssessmentId.get(Number(result.assessment_id)) || 0;
@@ -11083,6 +11095,9 @@ const commonController = {
       students.forEach((student) => {
         student.scores = studentScores[student.student_id]
           ? studentScores[student.student_id].assessments
+          : {};
+        student.choices = studentScores[student.student_id]
+          ? studentScores[student.student_id].choices
           : {};
         student.total_subject_score = studentScores[student.student_id]
           ? studentScores[student.student_id].total_subject_score
@@ -11293,6 +11308,7 @@ const commonController = {
       req.session.currentTermId = currentTermId;
 
       await ensureAssessmentControlSchema(db);
+      await assessmentEntry.ensureAssessmentEntrySchema(db);
       await ensureScoreSheetIndexes(db);
 
       const submittedAssessmentIds = Array.from(
@@ -11339,6 +11355,7 @@ const commonController = {
       const assessmentControlResult = await db.query(
         `
           SELECT assessment_id, title, weight, max_score, category,
+                 COALESCE(entry_mode, 'score') AS entry_mode, choice_options,
                  obsolete_at, COALESCE(is_locked, FALSE) AS is_locked,
                  COALESCE(is_active, TRUE) AS is_active,
                  edit_window_start,
@@ -11383,9 +11400,12 @@ const commonController = {
 
       // Validate every submitted cell up front; nothing is written unless the
       // whole sheet is valid.
-      const submittedCells = new Map(); // studentId -> Map(assessmentId -> number | null)
+      // studentId -> Map(assessmentId -> { score, choice } | null). A choice
+      // (Yes / No ...) keeps its label, and its points (if any) as the score.
+      const submittedCells = new Map();
       let skippedStudentCount = 0;
       const outOfRangeTitles = new Set();
+      const unknownChoiceTitles = new Set();
 
       for (const studentKey of Object.keys(scores || {})) {
         const parsedStudentId = Number(studentKey);
@@ -11409,6 +11429,16 @@ const commonController = {
             continue;
           }
 
+          if (assessmentEntry.isChoice(assessmentControl)) {
+            const picked = assessmentEntry.resolveChoice(assessmentControl, rawScore);
+            if (!picked) {
+              unknownChoiceTitles.add(`${assessmentControl.title} (${assessmentEntry.choiceSummary(assessmentControl)})`);
+              continue;
+            }
+            submittedCells.get(parsedStudentId).set(parsedAssessmentId, { score: picked.points, choice: picked.label });
+            continue;
+          }
+
           // Server-side range check (the browser check can be bypassed).
           // Same allowance as the input: 0 to max score + 10.
           // Scores are stored as NUMERIC(5,2), so round to 2 decimals and
@@ -11419,8 +11449,14 @@ const commonController = {
             outOfRangeTitles.add(`${assessmentControl.title} (0-${allowedMax})`);
             continue;
           }
-          submittedCells.get(parsedStudentId).set(parsedAssessmentId, numericScore);
+          submittedCells.get(parsedStudentId).set(parsedAssessmentId, { score: numericScore, choice: null });
         }
+      }
+
+      if (unknownChoiceTitles.size > 0) {
+        return res.status(400).json({
+          error: `Pick one of the listed choices for: ${Array.from(unknownChoiceTitles).join(", ")}. Nothing was saved.`,
+        });
       }
 
       if (outOfRangeTitles.size > 0) {
@@ -11457,7 +11493,7 @@ const commonController = {
         const existingResult = submittedStudentIds.length
           ? await client.query(
               `
-                SELECT ar.student_id, ar.assessment_id, ar.score,
+                SELECT ar.student_id, ar.assessment_id, ar.score, ar.choice_label,
                        ar.category AS stored_category,
                        a.max_score, a.category
                 FROM assessment_results ar
@@ -11477,6 +11513,7 @@ const commonController = {
           if (!sheetByStudent.has(studentId)) sheetByStudent.set(studentId, new Map());
           sheetByStudent.get(studentId).set(Number(row.assessment_id), {
             score: row.score === null ? null : Number(row.score),
+            choice: row.choice_label || null,
             maxScore: Number(row.max_score || 0),
             category: row.category,
             storedCategory: row.stored_category,
@@ -11487,6 +11524,7 @@ const commonController = {
         const upsertAssessmentIds = [];
         const upsertScores = [];
         const upsertCategories = [];
+        const upsertChoices = [];
         const clearStudentIds = [];
         const clearAssessmentIds = [];
         const changedStudentIds = new Set();
@@ -11495,11 +11533,13 @@ const commonController = {
           if (!sheetByStudent.has(studentId)) sheetByStudent.set(studentId, new Map());
           const sheet = sheetByStudent.get(studentId);
 
-          for (const [assessmentId, newScore] of cells) {
+          for (const [assessmentId, newCell] of cells) {
             const existing = sheet.get(assessmentId);
             const control = assessmentControlMap.get(assessmentId);
+            const newScore = newCell === null ? null : newCell.score;
+            const newChoice = newCell === null ? null : newCell.choice;
 
-            if (newScore === null) {
+            if (newCell === null) {
               if (existing) {
                 // Score was cleared — delete the existing row so it doesn't reappear
                 clearStudentIds.push(studentId);
@@ -11514,6 +11554,7 @@ const commonController = {
             if (
               existing &&
               existing.score === newScore &&
+              (existing.choice || null) === (newChoice || null) &&
               existing.storedCategory === control.category
             ) {
               continue;
@@ -11523,8 +11564,10 @@ const commonController = {
             upsertAssessmentIds.push(assessmentId);
             upsertScores.push(newScore);
             upsertCategories.push(control.category);
+            upsertChoices.push(newChoice);
             sheet.set(assessmentId, {
               score: newScore,
+              choice: newChoice,
               maxScore: Number(control.max_score || 0),
               category: control.category,
             });
@@ -11587,15 +11630,16 @@ const commonController = {
               `
                 INSERT INTO assessment_results (
                   student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category,
-                  total_subject_score, total_percentage, grade
+                  total_subject_score, total_percentage, grade, choice_label
                 )
                 SELECT u.student_id, u.assessment_id, u.score, $8, $9, $10, $11, u.category,
-                       u.total_score, u.total_percentage, u.grade
-                FROM unnest($1::int[], $2::int[], $3::numeric[], $4::text[], $5::numeric[], $6::numeric[], $7::text[])
-                     AS u(student_id, assessment_id, score, category, total_score, total_percentage, grade)
+                       u.total_score, u.total_percentage, u.grade, u.choice_label
+                FROM unnest($1::int[], $2::int[], $3::numeric[], $4::text[], $5::numeric[], $6::numeric[], $7::text[], $12::text[])
+                     AS u(student_id, assessment_id, score, category, total_score, total_percentage, grade, choice_label)
                 ON CONFLICT (student_id, assessment_id)
                 DO UPDATE SET
                     score = EXCLUDED.score,
+                    choice_label = EXCLUDED.choice_label,
                     term_id = EXCLUDED.term_id,
                     subject_id = EXCLUDED.subject_id,
                     organization_id = EXCLUDED.organization_id,
@@ -11617,6 +11661,7 @@ const commonController = {
                 currentTermId,
                 organizationId,
                 classId,
+                upsertChoices,
               ]
             );
           }
@@ -13041,6 +13086,7 @@ NUMBERING:
       // Fetch assessments with their associated classes and subjects, grouped by group_id
       const assessmentsQuery = `
                 SELECT a.group_id, a.title, a.weight, a.max_score, a.category, a.term_id,
+            COALESCE(a.entry_mode, 'score') AS entry_mode, a.choice_options,
             COALESCE(a.scale_base, 100) AS scale_base, a.assessment_definition_id,
             c.class_id, c.class_name, s.subject_name,
             BOOL_OR(COALESCE(a.is_locked, FALSE)) OVER (PARTITION BY a.group_id) AS is_locked,
@@ -13121,6 +13167,9 @@ NUMBERING:
             is_locked: row.is_locked,
             is_active: row.is_active,
             is_obsolete: Boolean(row.is_obsolete),
+            is_choice: assessmentEntry.isChoice(row),
+            choice_summary: assessmentEntry.choiceSummary(row),
+            choice_counts: assessmentEntry.choiceCountsInTotal(row),
             show_question_set_on_dashboard: Boolean(row.show_question_set_on_dashboard),
             edit_window_start: row.edit_window_start,
             edit_window_end: row.edit_window_end,
@@ -13973,9 +14022,11 @@ NUMBERING:
 
     try {
       await ensureStudentPortalSchema(db);
+      await assessmentEntry.ensureAssessmentEntrySchema(db);
 
       const scopeResult = await db.query(
-        `SELECT qs.assessment_id, qs.term_id, qs.class_id, qs.subject_id, a.category, a.title
+        `SELECT qs.assessment_id, qs.term_id, qs.class_id, qs.subject_id, a.category, a.title,
+                COALESCE(a.entry_mode, 'score') AS entry_mode, a.choice_options, a.max_score
          FROM assessment_question_sets qs
          LEFT JOIN assessments a ON a.assessment_id = qs.assessment_id AND a.organization_id = qs.organization_id
          WHERE qs.organization_id = $1 AND qs.question_set_id = $2
@@ -14005,21 +14056,40 @@ NUMBERING:
       );
 
       let postedCount = 0;
+      let teacherPicksCount = 0;
+      const choiceAssessment = assessmentEntry.isChoice(scope);
       for (const attempt of pendingResult.rows) {
+        // A choice assessment (Yes / No ...): the mark, scaled to the
+        // assessment's points, earns the choice with the most points at or
+        // below it. Without points the teacher picks it on the score sheet.
+        let postedScore = attempt.score;
+        let postedChoice = null;
+        if (choiceAssessment) {
+          const attemptMax = Number(attempt.max_score) || 0;
+          const scaled = attemptMax > 0 ? (Number(attempt.score) / attemptMax) * Number(scope.max_score || 0) : Number(attempt.score);
+          const picked = assessmentEntry.choiceForScore(scope, scaled);
+          if (!picked) {
+            teacherPicksCount += 1;
+            continue;
+          }
+          postedScore = picked.points;
+          postedChoice = picked.label;
+        }
         await db.query(
-          `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category, choice_label)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            ON CONFLICT (student_id, assessment_id)
-           DO UPDATE SET score = EXCLUDED.score`,
+           DO UPDATE SET score = EXCLUDED.score, choice_label = EXCLUDED.choice_label`,
           [
             attempt.student_id,
             assessmentId,
-            attempt.score,
+            postedScore,
             scope.subject_id,
             scope.term_id,
             organizationId,
             scope.class_id,
             scope.category,
+            postedChoice,
           ]
         );
 
@@ -14052,9 +14122,15 @@ NUMBERING:
       return res.json({
         success: true,
         postedCount,
-        message: postedCount
-          ? `Posted ${postedCount} score(s) for "${scope.title || "this assessment"}".`
-          : "No new completed attempts to post.",
+        teacherPicksCount,
+        message: [
+          postedCount
+            ? `Posted ${postedCount} ${choiceAssessment ? "result" : "score"}(s) for "${scope.title || "this assessment"}".`
+            : (teacherPicksCount ? "" : "No new completed attempts to post."),
+          teacherPicksCount
+            ? `${teacherPicksCount} result(s) need you to pick the choice (${assessmentEntry.choiceSummary(scope)}) on the score sheet, since its choices have no points.`
+            : "",
+        ].filter(Boolean).join(" "),
       });
     } catch (error) {
       console.error("[postAssessmentQuestionSetScores] Error:", error?.message || error);
@@ -14296,8 +14372,9 @@ NUMBERING:
       await ensureStudentPortalSchema(db);
 
       const attemptResult = await db.query(
-        `SELECT saa.attempt_id, saa.student_id, saa.assessment_id, saa.posted_at,
+        `SELECT saa.attempt_id, saa.student_id, saa.assessment_id, saa.posted_at, saa.max_score AS attempt_max_score,
                 a.class_id, a.subject_id, a.term_id, a.category,
+                COALESCE(a.entry_mode, 'score') AS entry_mode, a.choice_options, a.max_score,
                 a.is_locked, a.is_active, a.obsolete_at, a.edit_window_start, a.edit_window_end
          FROM student_assessment_attempts saa
          JOIN assessments a ON a.assessment_id = saa.assessment_id AND a.organization_id = saa.organization_id
@@ -14369,22 +14446,34 @@ NUMBERING:
         );
 
         const wasAlreadyPosted = Boolean(attempt.posted_at);
+        // A choice assessment (Yes / No ...): the new mark earns a choice
+        // (only when the choices have points; otherwise the teacher picks it).
+        let postedScore = newScore;
+        let postedChoice = null;
+        let canRepost = wasAlreadyPosted;
+        if (assessmentEntry.isChoice(attempt)) {
+          const attemptMax = Number(attempt.attempt_max_score) || 0;
+          const scaled = attemptMax > 0 ? (newScore / attemptMax) * Number(attempt.max_score || 0) : newScore;
+          const picked = assessmentEntry.choiceForScore(attempt, scaled);
+          if (picked) { postedScore = picked.points; postedChoice = picked.label; } else { canRepost = false; }
+        }
 
-        if (wasAlreadyPosted) {
+        if (canRepost) {
           await client.query(
-            `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `INSERT INTO assessment_results (student_id, assessment_id, score, subject_id, term_id, organization_id, class_id, category, choice_label)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              ON CONFLICT (student_id, assessment_id)
-             DO UPDATE SET score = EXCLUDED.score`,
+             DO UPDATE SET score = EXCLUDED.score, choice_label = EXCLUDED.choice_label`,
             [
               attempt.student_id,
               attempt.assessment_id,
-              newScore,
+              postedScore,
               attempt.subject_id,
               attempt.term_id,
               organizationId,
               attempt.class_id,
               attempt.category,
+              postedChoice,
             ]
           );
 
@@ -15133,6 +15222,7 @@ NUMBERING:
     try {
       await ensureAssessmentControlSchema(db);
       await ensureClassDashboardLayoutSchema(db);
+      await assessmentEntry.ensureAssessmentEntrySchema(db);
           await ensureGoogleIntegrationSchema(db);
           const googleIntegration = await getGoogleIntegrationStatus(db, organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(db, organizationId);
@@ -15141,6 +15231,10 @@ NUMBERING:
       // Fetch assessment details for the group
       const assessmentQuery = `
                 SELECT title, weight, max_score, category,
+                       COALESCE(entry_mode, 'score') AS entry_mode, choice_options,
+                       EXISTS (SELECT 1 FROM assessment_results ar
+                                 JOIN assessments ga ON ga.assessment_id = ar.assessment_id
+                                WHERE ga.group_id = $1 AND ga.organization_id = $2) AS has_results,
                        COALESCE(scale_base, 100) AS scale_base,
                        obsolete_at, COALESCE(is_locked, FALSE) AS is_locked,
                        COALESCE(is_active, TRUE) AS is_active,
@@ -15229,8 +15323,6 @@ NUMBERING:
       termId,
       groupId,
       testName,
-      testWeight,
-      maxScore,
       category,
       scaleBase,
       classes = [],
@@ -15242,6 +15334,19 @@ NUMBERING:
       showQuestionSetOnDashboard,
       notifyTeachers,
     } = req.body;
+    let { testWeight: weightValue, maxScore: maxScoreValue } = req.body;
+    // Not given (an older form, or Mira): the assessment keeps how it records results.
+    const entryModeGiven = req.body.entryMode !== undefined && req.body.entryMode !== null && req.body.entryMode !== "";
+    let requestedEntryMode = assessmentEntry.normalizeMode(req.body.entryMode);
+    let requestedChoices = null;
+    if (requestedEntryMode === "choice") {
+      const checked = assessmentEntry.normalizeChoiceOptions(req.body.choiceOptions);
+      if (!checked.ok) return res.status(400).json({ error: checked.error });
+      requestedChoices = checked.options;
+      // Choices with points count like a score; without points, nothing to add up.
+      maxScoreValue = checked.countsInTotal ? checked.maxScore : 0;
+      if (!checked.countsInTotal) weightValue = 0;
+    }
 
     // Tenant boundary: the organization is always the caller's session org.
     // Any organizationId supplied in the request body is ignored.
@@ -15253,8 +15358,9 @@ NUMBERING:
       !termId ||
       !groupId ||
       !testName ||
-      !testWeight ||
-      !maxScore ||
+      weightValue === undefined || weightValue === null || weightValue === "" ||
+      maxScoreValue === undefined || maxScoreValue === null || maxScoreValue === "" ||
+      (entryModeGiven && requestedEntryMode === "score" && (!(Number(weightValue) > 0) || !(Number(maxScoreValue) > 0))) ||
       !category
     ) {
             return res
@@ -15314,8 +15420,51 @@ NUMBERING:
 
     try {
       await ensureAssessmentControlSchema(client);
+      await assessmentEntry.ensureAssessmentEntrySchema(client);
       await ensureGoogleIntegrationSchema(client);
       await ensureScoreRemarkGradeSchema(client);
+
+      // Once results are saved, a score assessment stays a score one and a
+      // choice one stays a choice one, and choices already given keep their names.
+      const groupState = (await client.query(
+        `SELECT COALESCE(MAX(a.entry_mode), 'score') AS entry_mode,
+                (ARRAY_AGG(a.choice_options) FILTER (WHERE a.choice_options IS NOT NULL))[1] AS choice_options,
+                EXISTS (SELECT 1 FROM assessment_results ar JOIN assessments ga ON ga.assessment_id = ar.assessment_id
+                         WHERE ga.group_id = $1 AND ga.organization_id = $2) AS has_results,
+                ARRAY(SELECT DISTINCT ar.choice_label FROM assessment_results ar JOIN assessments ga ON ga.assessment_id = ar.assessment_id
+                       WHERE ga.group_id = $1 AND ga.organization_id = $2 AND ar.choice_label IS NOT NULL) AS used_choices
+           FROM assessments a WHERE a.group_id = $1 AND a.organization_id = $2`,
+        [groupId, organizationId]
+      )).rows[0] || { entry_mode: "score", has_results: false, used_choices: [] };
+      if (!entryModeGiven) {
+        requestedEntryMode = assessmentEntry.normalizeMode(groupState.entry_mode);
+        if (requestedEntryMode === "choice") {
+          const kept = assessmentEntry.normalizeChoiceOptions(groupState.choice_options);
+          if (kept.ok) {
+            requestedChoices = kept.options;
+            maxScoreValue = kept.countsInTotal ? kept.maxScore : 0;
+            if (!kept.countsInTotal) weightValue = 0;
+          } else {
+            requestedEntryMode = "score";
+          }
+        }
+      }
+      if (groupState.has_results && assessmentEntry.normalizeMode(groupState.entry_mode) !== requestedEntryMode) {
+        return res.status(409).json({
+          error: requestedEntryMode === "choice"
+            ? "Scores are already saved for this assessment, so it can't change to choices. Create a new assessment for choices."
+            : "Choices are already saved for this assessment, so it can't change to scores. Create a new assessment for scores.",
+        });
+      }
+      if (requestedChoices && (groupState.used_choices || []).length) {
+        const kept = new Set(requestedChoices.map((o) => o.label.toLowerCase()));
+        const missing = groupState.used_choices.filter((label) => !kept.has(String(label).toLowerCase()));
+        if (missing.length) {
+          return res.status(409).json({
+            error: `These choices are already given to students, so keep them: ${missing.map((m) => `"${m}"`).join(", ")}. You can add choices or change points.`,
+          });
+        }
+      }
       const googleIntegration = await getGoogleIntegrationStatus(client, organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(client, organizationId);
       const canUseQuestionSetIntegration =
@@ -15348,7 +15497,7 @@ NUMBERING:
 
       const parsedScaleBase = parseInt(scaleBase) > 0 ? parseInt(scaleBase) : 100;
       const normalizedRequestedCategory = String(category || "").trim();
-      const normalizedRequestedMaxScore = Number(maxScore);
+      const normalizedRequestedMaxScore = Number(maxScoreValue);
 
       const updateAssessmentMetadata = async (assessmentId, assignment) => {
         await client.query(
@@ -15365,13 +15514,15 @@ NUMBERING:
                 edit_window_start = $9,
                 edit_window_end = $10,
                 scale_base = $11,
-                show_question_set_on_dashboard = $12
+                show_question_set_on_dashboard = $12,
+                entry_mode = $14,
+                choice_options = $15::jsonb
             WHERE assessment_id = $13
           `,
           [
             testName,
-            testWeight,
-            maxScore,
+            weightValue,
+            maxScoreValue,
             category,
             assignment.subjectId,
             assignment.classId,
@@ -15382,6 +15533,8 @@ NUMBERING:
             parsedScaleBase,
             showQuestionSetFlag,
             assessmentId,
+            requestedEntryMode,
+            requestedChoices ? JSON.stringify(requestedChoices) : null,
           ]
         );
       };
@@ -15524,6 +15677,21 @@ NUMBERING:
 
       let scoreRelevantMetadataChanged = false;
 
+      // Saved choices take their (new) points; the totals below are then redone.
+      if (requestedChoices && groupState.has_results) {
+        const remapped = await client.query(
+          `UPDATE assessment_results ar
+              SET score = o.points, choice_label = o.label
+             FROM assessments a, jsonb_to_recordset($2::jsonb) AS o(label text, points numeric)
+            WHERE ar.assessment_id = a.assessment_id
+              AND a.group_id = $1 AND a.organization_id = $3
+              AND LOWER(ar.choice_label) = LOWER(o.label)
+              AND (ar.score IS DISTINCT FROM o.points OR ar.choice_label IS DISTINCT FROM o.label)`,
+          [groupId, JSON.stringify(requestedChoices), organizationId]
+        );
+        if (remapped.rowCount) scoreRelevantMetadataChanged = true;
+      }
+
       for (const assignment of desiredAssignments) {
         const existingAssessment = existingByPair.get(assignment.key);
         if (existingAssessment) {
@@ -15562,17 +15730,18 @@ NUMBERING:
         const insertQuery = `
                   INSERT INTO assessments (
                 group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
-                is_locked, is_active, edit_window_start, edit_window_end, scale_base, show_question_set_on_dashboard
+                is_locked, is_active, edit_window_start, edit_window_end, scale_base, show_question_set_on_dashboard,
+                entry_mode, choice_options
                   ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb
                   )
                   ON CONFLICT ON CONSTRAINT unique_test_per_term_class_subject DO NOTHING
               `;
         await client.query(insertQuery, [
         groupId,
           testName,
-          testWeight,
-          maxScore,
+          weightValue,
+          maxScoreValue,
           category,
           assignment.subjectId,
           organizationId,
@@ -15584,6 +15753,8 @@ NUMBERING:
           parsedWindowEnd,
           parsedScaleBase,
           showQuestionSetFlag,
+          requestedEntryMode,
+          requestedChoices ? JSON.stringify(requestedChoices) : null,
         ]);
       }
 
@@ -15607,13 +15778,15 @@ NUMBERING:
                   edit_window_start = $7,
                   edit_window_end = $8,
                   scale_base = $9,
-                  show_question_set_on_dashboard = $10
+                  show_question_set_on_dashboard = $10,
+                  entry_mode = $12,
+                  choice_options = $13::jsonb
               WHERE assessment_id = $11
             `,
             [
               testName,
-              testWeight,
-              maxScore,
+              weightValue,
+              maxScoreValue,
               category,
               locked,
               active,
@@ -15622,6 +15795,8 @@ NUMBERING:
               parsedScaleBase,
               showQuestionSetFlag,
               staleAssessment.assessment_id,
+              requestedEntryMode,
+              requestedChoices ? JSON.stringify(requestedChoices) : null,
             ]
           );
         }
@@ -16065,11 +16240,34 @@ NUMBERING:
 
     try {
       await ensureAssessmentControlSchema(client);
+      await assessmentEntry.ensureAssessmentEntrySchema(client);
       await ensureGoogleIntegrationSchema(client);
       const googleIntegration = await getGoogleIntegrationStatus(client, organizationId);
       const studentPortalIntegration = await getStudentPortalIntegrationStatus(client, organizationId);
       const canUseQuestionSetIntegration =
         Boolean(googleIntegration.activated) || Boolean(studentPortalIntegration.activated);
+
+      // How each test's results are recorded: a score, or the school's own
+      // choices. Choices with points count like a score ("Score out of" is the
+      // highest choice); choices without points weigh 0% with nothing to score
+      // out of, so they never change a total.
+      for (const test of tests || []) {
+        test.entryMode = assessmentEntry.normalizeMode(test.entryMode);
+        const typedChoices = test.choiceOptions;
+        test.choiceOptions = null;
+        if (test.entryMode !== "choice") continue;
+        const checked = assessmentEntry.normalizeChoiceOptions(typedChoices);
+        if (!checked.ok) {
+          return res.status(400).json({ error: `"${String(test.testName || "This test").trim()}": ${checked.error}` });
+        }
+        test.choiceOptions = checked.options;
+        if (checked.countsInTotal) {
+          test.maxScore = checked.maxScore;
+        } else {
+          test.maxScore = 0;
+          test.testWeight = 0;
+        }
+      }
       await client.query("BEGIN"); // Start a transaction
 
       // Track the classes for which tests were added
@@ -16129,9 +16327,10 @@ NUMBERING:
             const insertAssessmentQuery = `
                         INSERT INTO assessments (
                     group_id, title, weight, max_score, category, subject_id, organization_id, term_id, class_id,
-                is_locked, is_active, edit_window_start, edit_window_end, scale_base, show_question_set_on_dashboard
+                is_locked, is_active, edit_window_start, edit_window_end, scale_base, show_question_set_on_dashboard,
+                entry_mode, choice_options
                         ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb
                         )
                         ON CONFLICT (class_id, subject_id, title, term_id) DO NOTHING
                     `;
@@ -16151,6 +16350,8 @@ NUMBERING:
               parsedWindowEnd,
               parsedScaleBase,
               showQuestionSetFlag,
+              test.entryMode,
+              test.choiceOptions ? JSON.stringify(test.choiceOptions) : null,
             ]);
           }
         }

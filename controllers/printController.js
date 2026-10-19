@@ -1735,7 +1735,7 @@ const printController = (db) => ({
           [parsedClassId, parsedTermId, organizationId, classWideFilterIds]
         ),
         db.query(
-          `SELECT ar.student_id, ar.assessment_id, COALESCE(ar.score, 0) AS score
+          `SELECT ar.student_id, ar.assessment_id, COALESCE(ar.score, 0) AS score, ar.choice_label
              FROM assessment_results ar
              WHERE ar.class_id = $1 AND ar.term_id = $2 AND ar.organization_id = $3
                AND (
@@ -1757,7 +1757,8 @@ const printController = (db) => ({
           [parsedClassId, parsedTermId, organizationId, classWideFilterIds]
         ),
         db.query(
-          `SELECT assessment_id, subject_id, title, category, max_score, COALESCE(scale_base, 100) AS scale_base
+          `SELECT assessment_id, subject_id, title, category, max_score, COALESCE(scale_base, 100) AS scale_base,
+                  COALESCE(entry_mode, 'score') AS entry_mode, choice_options
              FROM assessments
              WHERE class_id = $1 AND term_id = $2 AND organization_id = $3
              ORDER BY category, assessment_id`,
@@ -1768,8 +1769,10 @@ const printController = (db) => ({
 
       // --- Build individual score lookup: studentId_assessmentId → score ---
       const indivScoresMap = {};
+      const indivChoicesMap = {}; // studentId_assessmentId -> "Yes" (choice assessments)
       indivScoresResult.rows.forEach((row) => {
         indivScoresMap[`${row.student_id}_${row.assessment_id}`] = parseFloat(row.score) || 0;
+        if (row.choice_label) indivChoicesMap[`${row.student_id}_${row.assessment_id}`] = row.choice_label;
       });
 
       // --- Build subject position lookup ---
@@ -1854,6 +1857,8 @@ const printController = (db) => ({
             },
           },
           promotion:       secVis.promotion       !== false,
+          // Results recorded as a choice (Yes / No ...), listed under the subjects.
+          choiceResults:   secVis.choiceResults   !== false,
         },
       };
 
@@ -2107,6 +2112,24 @@ const printController = (db) => ({
               : "-",
           };
         });
+
+        // Choice assessments (Yes / No, Pass / Fail ...) for this student.
+        const subjectNames = new Map(allSubjects.map((sub) => [Number(sub.subject_id), sub.subject_name]));
+        student.choiceResults = allAssessments
+          .filter((a) => String(a.entry_mode || "score") === "choice")
+          .map((a) => ({
+            subject: subjectNames.get(Number(a.subject_id)) || "",
+            title: a.title,
+            choice: indivChoicesMap[`${student.student_id}_${a.assessment_id}`] || "",
+          }))
+          .filter((r) => r.choice && r.subject);
+        // The same choices on each subject, for report card layouts ({{subject.choice:Practical}}).
+        const choicesBySubject = new Map();
+        student.choiceResults.forEach((r) => {
+          if (!choicesBySubject.has(r.subject)) choicesBySubject.set(r.subject, {});
+          choicesBySubject.get(r.subject)[r.title] = r.choice;
+        });
+        student.subjects.forEach((sub) => { sub.choices = choicesBySubject.get(sub.subject_name) || {}; });
         
 
         student.totalScoreSum = totalScoreSum;
@@ -2891,6 +2914,7 @@ const printController = (db) => ({
               },
             },
             promotion:       sec.promotion       !== false,
+            choiceResults:   sec.choiceResults   !== false,
           },
         };
       });
@@ -3077,6 +3101,7 @@ const printController = (db) => ({
             },
           },
           promotion:       secVis2.promotion       !== false,
+          choiceResults:   secVis2.choiceResults   !== false,
         },
       };
 

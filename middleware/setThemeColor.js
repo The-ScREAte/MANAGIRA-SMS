@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { getOrgThemeColor } = require('../utils/orgTheme');
 const { appearanceOwner, loadAppearance, normalizeAppearance } = require('../utils/organizationAppearance');
 
 /**
@@ -41,29 +42,14 @@ const setThemeColor = async (req, res, next) => {
         return next();
     }
 
-    // If theme color is already in session, use it
-    if (req.session.themeColor) {
-        res.locals.themeColor = req.session.themeColor;
-        return next();
-    }
-
+    // The school's current color for everyone signed in to it (cached for a
+    // few seconds, and cleared the moment the school saves a new one).
     try {
-        // Fetch theme color from database
-        const { rows } = await db.query(
-            `SELECT theme_color FROM organizations WHERE organization_id = $1`,
-            [req.session.organizationId]
-        );
-
-        if (rows.length > 0 && rows[0].theme_color) {
-            req.session.themeColor = rows[0].theme_color;
-            res.locals.themeColor = rows[0].theme_color;
-        } else {
-            req.session.themeColor = 'teal';
-            res.locals.themeColor = 'teal';
-        }
+        const color = await getOrgThemeColor(db, req.session.organizationId);
+        if (req.session.themeColor !== color) req.session.themeColor = color;
+        res.locals.themeColor = color;
     } catch (err) {
-        console.error('❌ Error fetching theme color:', err);
-        res.locals.themeColor = 'teal';
+        res.locals.themeColor = req.session.themeColor || 'teal';
     }
 
     next();

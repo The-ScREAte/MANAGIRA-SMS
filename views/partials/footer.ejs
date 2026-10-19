@@ -141,34 +141,20 @@
     --font-family: "<%= (typeof session !== 'undefined' && session && session.fontStyle ? String(session.fontStyle).trim() : 'Inter') %>", sans-serif;
     --dynamic-bottom-inset: 0px;
     <%
-      /* ── Org-theme footer colours ─────────────────────────────────────
-         When a user is logged in, derive footer colours from their org's
-         theme. Fall back to the original teal palette for logged-out visitors.
+      /* ── School-colour footer ─────────────────────────────────────────
+         Signed in: the school's current brand colour (themeColor, read fresh
+         on every request). On a school's own public pages (registration,
+         for example) the page passes that school's colour as
+         footerThemeColor. Everyone else: Managira teal.
       ─────────────────────────────────────────────────────────────────── */
-      const _isLoggedIn = !!(typeof session !== 'undefined' && session && (session.themeColor || session.organizationId || session.firstName));
-      const _tc = (_isLoggedIn && session && session.themeColor) ? String(session.themeColor) : 'teal';
-      const _footerPalette = {
-        teal:    { mid: '#01535b', deep: '#033f46', bottom: '#022830', gold: '#e8b84a' },
-        blue:    { mid: '#1d4ed8', deep: '#1e3a8a', bottom: '#172554', gold: '#93c5fd' },
-        green:   { mid: '#1b5e20', deep: '#14532d', bottom: '#0b3d1a', gold: '#86efac' },
-        purple:  { mid: '#6d28d9', deep: '#4c1d95', bottom: '#2e1065', gold: '#c4b5fd' },
-        indigo:  { mid: '#4338ca', deep: '#312e81', bottom: '#1e1b4b', gold: '#a5b4fc' },
-        rose:    { mid: '#7a212e', deep: '#5c1822', bottom: '#3f1017', gold: '#fca5a5' },
-        amber:   { mid: '#b45309', deep: '#92400e', bottom: '#6b2f08', gold: '#fde68a' },
-        yellow:  { mid: '#ca8a04', deep: '#a16207', bottom: '#7a4c04', gold: '#fef08a' },
-        slate:   { mid: '#334155', deep: '#1e293b', bottom: '#0f172a', gold: '#94a3b8' },
-        cyan:    { mid: '#0891b2', deep: '#0e7490', bottom: '#164e63', gold: '#67e8f9' },
-        orange:  { mid: '#ea580c', deep: '#c2410c', bottom: '#9a3412', gold: '#fdba74' },
-        charcoal:{ mid: '#1f2937', deep: '#111827', bottom: '#030712', gold: '#9ca3af' },
-        classic: { mid: '#01535b', deep: '#033f46', bottom: '#022830', gold: '#e8b84a' },
-        bold:    { mid: '#0b1020', deep: '#050a14', bottom: '#020408', gold: '#ffb703' },
-        modern:  { mid: '#1d4ed8', deep: '#1e3a8a', bottom: '#172554', gold: '#93c5fd' },
-        minimal: { mid: '#6d28d9', deep: '#4c1d95', bottom: '#2e1065', gold: '#c4b5fd' },
-        gold:    { mid: '#b8860b', deep: '#8b6309', bottom: '#5c4006', gold: '#fef08a' },
-        red:     { mid: '#be123c', deep: '#9f1239', bottom: '#7c0d2e', gold: '#fca5a5' },
-        brown:   { mid: '#7c4a03', deep: '#5c3802', bottom: '#3d2601', gold: '#d4a574' },
-      };
-      const _fp = _footerPalette[_tc] || _footerPalette.teal;
+      const _signedIn = !!(typeof session !== 'undefined' && session && session.organizationId);
+      const _tc = (typeof footerThemeColor !== 'undefined' && footerThemeColor)
+        || (_signedIn && typeof themeColor !== 'undefined' && themeColor)
+        || (_signedIn && session.themeColor)
+        || 'teal';
+      const _fp = typeof footerPaletteFor === 'function'
+        ? footerPaletteFor(String(_tc))
+        : { mid: '#01535b', deep: '#033f46', bottom: '#022830', gold: '#e8b84a' };
     %>
     --footer-teal-deep: <%= _fp.deep %>;
     --footer-teal: <%= _fp.mid %>;
@@ -454,8 +440,8 @@
     .managira-footer .footer-col-list a {
       display: flex;
       align-items: center;
-      min-height: 44px;
-      padding: 5px 0;
+      min-height: 38px;
+      padding: 4px 0;
       font-size: 13px;
       overflow-wrap: anywhere;
     }

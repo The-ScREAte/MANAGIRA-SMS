@@ -434,7 +434,7 @@
                 <strong><%= item.subject_name %></strong>
                 · <%= item.category || 'Assessment' %>
                 · <%= item.question_count || 0 %> questions
-                · <%= Number(item.max_score || 0) %> marks
+                <% if (Number(item.max_score || 0) > 0) { %>· <%= Number(item.max_score || 0) %> marks<% } %>
               </p>
               <div class="str-meta-row">
                 <span class="str-chip <%= item.open_book ? 'str-chip-openbook' : '' %>"><%= item.open_book ? 'Open book' : 'Closed book' %></span>
@@ -491,6 +491,7 @@
                 <strong><%= item.subject_name %></strong>
                 · <%= item.category || 'Assessment' %>
                 · Score <%= Number(Number(item.score || 0).toFixed(2)) %> / <%= Number(item.attempt_max_score || item.max_score || 0) %>
+                <% if (item.choice_result) { %>· Result <strong><%= item.choice_result %></strong><% } else if (item.entry_mode === 'choice') { %>· Result coming from your teacher<% } %>
               </p>
               <div class="str-meta-row">
                 <span class="str-chip"><%= item.open_book ? 'Open book' : 'Closed book' %></span>

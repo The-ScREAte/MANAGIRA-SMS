@@ -1,4 +1,5 @@
 const { google } = require("googleapis");
+const assessmentEntry = require("./assessmentEntry");
 const db = require("../config/db");
 const {
   ensureGoogleIntegrationSchema,
@@ -948,6 +949,7 @@ async function pullGradesFromGoogleClassroom(options = {}) {
                 a.class_id,
                 a.category,
                 a.google_coursework_id,
+                COALESCE(a.entry_mode, 'score') AS entry_mode, a.choice_options,
                 gcm.google_course_id
            FROM assessments a
            JOIN google_classroom_course_mappings gcm
@@ -975,6 +977,16 @@ async function pullGradesFromGoogleClassroom(options = {}) {
         for (const submission of response?.data?.studentSubmissions || []) {
           const assignedGrade = Number(submission.assignedGrade);
           if (!Number.isFinite(assignedGrade)) continue;
+          // A choice assessment (Yes / No ...): the grade earns the choice with
+          // the most points at or below it; without points the teacher picks.
+          let savedScore = assignedGrade;
+          let savedChoice = null;
+          if (assessmentEntry.isChoice(assessment)) {
+            const picked = assessmentEntry.choiceForScore(assessment, assignedGrade);
+            if (!picked) continue;
+            savedScore = picked.points;
+            savedChoice = picked.label;
+          }
 
           const studentId = await resolveStudentFromSubmission(
             dbClient,
@@ -986,10 +998,11 @@ async function pullGradesFromGoogleClassroom(options = {}) {
 
           await dbClient.query(
             `INSERT INTO assessment_results
-              (assessment_id, student_id, score, subject_id, term_id, organization_id, class_id, category)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+              (assessment_id, student_id, score, subject_id, term_id, organization_id, class_id, category, choice_label)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              ON CONFLICT (student_id, assessment_id)
              DO UPDATE SET score = EXCLUDED.score,
+                           choice_label = EXCLUDED.choice_label,
                            subject_id = EXCLUDED.subject_id,
                            term_id = EXCLUDED.term_id,
                            organization_id = EXCLUDED.organization_id,
@@ -998,12 +1011,13 @@ async function pullGradesFromGoogleClassroom(options = {}) {
             [
               assessment.assessment_id,
               studentId,
-              assignedGrade,
+              savedScore,
               assessment.subject_id,
               assessment.term_id,
               organizationId,
               assessment.class_id,
               assessment.category || null,
+              savedChoice,
             ]
           );
           gradesUpserted += 1;

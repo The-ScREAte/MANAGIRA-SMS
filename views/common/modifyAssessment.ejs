@@ -592,6 +592,7 @@
       (subjects || []).forEach((sub) => { (_byClass[sub.class_id] = _byClass[sub.class_id] || []).push(sub); });
       const _chosenClasses = (classes || []).filter((c) => c.selected).length;
     %>
+    <link rel="stylesheet" href="<%= assetUrl('/css/assessmentEntryMode.css') %>">
     <form id="modifyAssessmentForm">
         <input type="hidden" name="organizationId" value="<%= organizationId %>">
         <input type="hidden" name="termId" value="<%= termId %>">
@@ -620,6 +621,9 @@
               </select>
             </label>
           </div>
+          <div id="maEntryModeHost"
+               data-initial='<%= JSON.stringify({ entryMode: assessment.entry_mode || "score", choiceOptions: assessment.choice_options || null }) %>'
+               data-locked="<%= assessment.has_results ? '1' : '' %>"></div>
         </section>
 
         <section class="ma-sec">
@@ -740,10 +744,16 @@
 
     document.getElementById('modifyAssessmentForm').addEventListener('submit', async function (event) {
         event.preventDefault();
+        // Results recorded as a score, or as the school's own choices.
+        const entryHost = document.getElementById('maEntryModeHost');
+        const entry = entryHost && entryHost.__aem;
+        const entryError = entry ? entry.validate() : '';
+        if (entryError) { alert(entryError); return; }
       setModifyAssessmentSavingState(true);
 
         const formData = new FormData(this);
         const data = Object.fromEntries(formData.entries());
+        Object.assign(data, entry ? entry.read() : { entryMode: 'score' });
 
         data.classes = formData.getAll('classes[]');
         data.subjects = formData.getAll('subjects[]');
@@ -842,6 +852,22 @@
           }
         }
       }
+</script>
+<script src="<%= assetUrl('/js/assessmentEntryMode.js') %>"></script>
+<script>
+  (function () {
+    var host = document.getElementById('maEntryModeHost');
+    if (!host || !window.AssessmentEntryMode) return;
+    var initial = {};
+    try { initial = JSON.parse(host.getAttribute('data-initial') || '{}'); } catch (e) { initial = {}; }
+    var form = document.getElementById('modifyAssessmentForm');
+    window.AssessmentEntryMode.attach(host, {
+      initial: initial,
+      locked: host.getAttribute('data-locked') === '1',
+      weightInput: form.querySelector('input[name="testWeight"]'),
+      maxInput: form.querySelector('input[name="maxScore"]'),
+    });
+  })();
 </script>
 </body>
 </html>

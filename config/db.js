@@ -74,10 +74,67 @@ const dbMetrics = {
 
 const originalQuery = pool.query.bind(pool);
 
+// The database can restart or drop connections for a few seconds (maintenance,
+// a failover, a network blip). Instead of failing the page, wait briefly and
+// try again:
+//   - the database refused the connection (starting up, not accepting yet,
+//     connect timeout): the query never ran, so any query is retried;
+//   - the connection dropped mid-query: only read-only queries are retried,
+//     so a write is never applied twice.
+const RETRY_DELAYS_MS = [250, 1000, 2500];
+
+function sqlTextOf(args) {
+  const input = args[0];
+  if (typeof input === 'string') return input;
+  return input && typeof input.text === 'string' ? input.text : '';
+}
+
+function isReadOnlySql(sql) {
+  const text = String(sql || '').replace(/--[^\n]*/g, ' ').trim().toLowerCase();
+  if (!/^(select|with|show)\b/.test(text)) return false;
+  return !/\b(insert|update|delete|merge|create|alter|drop|truncate|nextval|setval|pg_advisory|for\s+update|for\s+share)\b/.test(text);
+}
+
+function isConnectRefusal(error) {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    code === '57P03' || // cannot_connect_now: starting up / not yet accepting connections
+    code === 'ECONNREFUSED' ||
+    code === 'ENOTFOUND' ||
+    code === 'EAI_AGAIN' ||
+    message.includes('not yet accepting connections') ||
+    message.includes('the database system is starting up') ||
+    message.includes('the database system is shutting down') ||
+    message.includes('timeout exceeded when trying to connect') ||
+    message.includes('connection terminated due to connection timeout')
+  );
+}
+
+function shouldRetryQuery(error, args) {
+  if (isConnectRefusal(error)) return true;
+  return isTransientIdleClientDrop(error) && isReadOnlySql(sqlTextOf(args));
+}
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function queryWithRetry(args) {
+  // Callback-style calls are passed straight through (no retry).
+  if (typeof args[args.length - 1] === 'function') return originalQuery(...args);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await originalQuery(...args);
+    } catch (error) {
+      if (attempt >= RETRY_DELAYS_MS.length || !shouldRetryQuery(error, args)) throw error;
+      await wait(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+}
+
 pool.query = async (...args) => {
   const startedAt = process.hrtime.bigint();
   try {
-    return await originalQuery(...args);
+    return await queryWithRetry(args);
   } finally {
     const elapsedMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
     dbMetrics.totalQueries += 1;
@@ -95,6 +152,24 @@ pool.query = async (...args) => {
     }
   }
 };
+
+// Borrowing a connection for a transaction: when the database refuses it
+// (restarting), nothing has run yet, so wait briefly and try again.
+const originalConnect = pool.connect.bind(pool);
+pool.connect = async (...args) => {
+  if (typeof args[0] === 'function') return originalConnect(...args);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await originalConnect();
+    } catch (error) {
+      if (attempt >= RETRY_DELAYS_MS.length || !isConnectRefusal(error)) throw error;
+      await wait(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+};
+
+pool.isReadOnlySql = isReadOnlySql;
+pool.shouldRetryQuery = shouldRetryQuery;
 
 pool.getQueryMetrics = () => ({
   ...dbMetrics,

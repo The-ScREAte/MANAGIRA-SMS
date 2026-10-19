@@ -573,6 +573,8 @@ async function getCompletedAssessments(db, organizationId, studentId, classId, t
            GREATEST(COALESCE(a.max_attempts, 1), 1) AS max_attempts,
            s.subject_name,
             ls.score, ls.max_score AS attempt_max_score, ls.submitted_at,
+            COALESCE(a.entry_mode, 'score') AS entry_mode,
+            MAX(ar.choice_label) AS choice_result,
             COUNT(q.question_id)::int AS question_count
        FROM latest_submitted ls
        JOIN assessments a
@@ -586,11 +588,13 @@ async function getCompletedAssessments(db, organizationId, studentId, classId, t
         AND salo.student_id = ls.student_id
         AND salo.assessment_id = ls.assessment_id
        LEFT JOIN assessment_questions q ON q.question_set_id = ls.question_set_id
+       -- A choice assessment (Yes / No ...) shows its posted choice.
+       LEFT JOIN assessment_results ar ON ar.assessment_id = a.assessment_id AND ar.student_id = ls.student_id
       WHERE a.class_id = $3
         AND a.term_id = $4
         AND COALESCE(salo.is_locked, TRUE) = TRUE
       GROUP BY a.assessment_id, a.title, a.max_score, a.category, a.open_book, a.time_limit_minutes, a.max_attempts, s.subject_name,
-               ls.score, ls.max_score, ls.submitted_at
+               ls.score, ls.max_score, ls.submitted_at, a.entry_mode
       ORDER BY ls.submitted_at DESC NULLS LAST, a.title ASC`,
     [organizationId, studentId, classId, termId]
   );
@@ -739,7 +743,8 @@ module.exports = {
                       a.category,
                       a.max_score,
                       COALESCE(a.scale_base, 100) AS scale_base,
-                      ar.score
+                      ar.score,
+                      ar.choice_label
                  FROM student_subjects_in_term($3::int) ss
                  JOIN subjects subj
                    ON subj.subject_id = ss.subject_id
@@ -942,6 +947,8 @@ module.exports = {
             summary.has_entered_score = true;
             summary.assessment_scores[headerKey] = numericScore;
           }
+          // Recorded as a choice (Yes / No ...): show the choice.
+          if (row.choice_label) summary.assessment_scores[headerKey] = row.choice_label;
           if (Number.isFinite(numericMaxScore)) {
             summary.total_max_score += numericMaxScore;
           }
@@ -949,7 +956,8 @@ module.exports = {
           if (!headerKey || !gradeAssessmentHeaderMap.has(headerKey)) {
             return;
           }
-          summary.assessment_scores[headerKey] = null;
+          // A choice without points has no score, only the choice.
+          summary.assessment_scores[headerKey] = row.choice_label || null;
         }
       });
 

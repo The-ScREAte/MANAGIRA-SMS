@@ -465,7 +465,7 @@ module.exports = {
       // Fetch assessments and scores for the student for the specified term
       const assessmentsResult = await db.query(
         `
-          SELECT DISTINCT ON (a.assessment_id) a.assessment_id, a.title, a.weight, ar.score, a.subject_id, a.max_score, a.category,
+          SELECT DISTINCT ON (a.assessment_id) a.assessment_id, a.title, a.weight, ar.score, ar.choice_label, a.subject_id, a.max_score, a.category,
                  ar.total_subject_score,
                  ar.total_percentage,
                  COALESCE(
@@ -744,6 +744,7 @@ module.exports = {
         SELECT DISTINCT ON (a.assessment_id)
           a.assessment_id, a.title, a.weight, a.max_score, a.category, a.subject_id,
           ar.score,
+          ar.choice_label,
           ar.total_subject_score,
           ar.total_percentage,
           COALESCE(
@@ -1453,7 +1454,7 @@ module.exports = {
       // Fetch assessments and scores for current term
       const assessmentsResult = await db.query(
         `SELECT DISTINCT ON (a.assessment_id) 
-           a.assessment_id, a.title, a.weight, ar.score, a.subject_id, a.max_score, a.category,
+           a.assessment_id, a.title, a.weight, ar.score, ar.choice_label, a.subject_id, a.max_score, a.category,
            ar.total_subject_score,
            ar.total_percentage,
            COALESCE(

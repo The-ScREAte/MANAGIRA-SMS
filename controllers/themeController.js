@@ -11,7 +11,7 @@ const updateThemePost = async (req, res) => {
     const orgId = req.session.organizationId;
 
     // Valid theme colors
-    const validThemes = ['teal', 'blue', 'green', 'purple', 'indigo', 'rose', 'amber', 'yellow', 'slate', 'cyan', 'orange', 'charcoal'];
+    const validThemes = require('../utils/themePalette').BRAND_COLOR_OPTIONS.map((o) => o.key);
 
     if (!themeColor || !validThemes.includes(themeColor)) {
       req.flash("error", "Invalid theme color selected.");
@@ -27,6 +27,7 @@ const updateThemePost = async (req, res) => {
       "UPDATE organizations SET theme_color = $1 WHERE organization_id = $2",
       [themeColor, orgId]
     );
+    require('../utils/orgTheme').forgetOrgThemeColor(orgId);
 
     // Update session with new theme color
     req.session.themeColor = themeColor;

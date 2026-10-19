@@ -7824,21 +7824,9 @@ const accountController = {
       : "/account/managePublicContent";
     const withThemeApplied = `${safeRedirect}${safeRedirect.includes("?") ? "&" : "?"}themeApplied=1`;
     
-    // Map public theme values to organization button theme values
-    const themeMapping = {
-      'classic': 'teal',
-      'modern': 'blue',
-      'green': 'green',
-      'minimal': 'purple',
-      'indigo': 'indigo',
-      'rose': 'rose',
-      'amber': 'amber',
-      'yellow': 'yellow',
-      'slate': 'slate',
-      'cyan': 'cyan',
-      'orange': 'orange',
-      'charcoal': 'charcoal'
-    };
+    // Website theme value -> the school's color key (one list, utils/themePalette).
+    const { BRAND_COLOR_OPTIONS } = require("../utils/themePalette");
+    const themeMapping = Object.fromEntries(BRAND_COLOR_OPTIONS.map((o) => [o.value, o.key]));
     
     const allowedThemes = new Set(Object.keys(themeMapping));
 
@@ -7908,8 +7896,9 @@ const accountController = {
         [orgThemeColor, organizationId]
       );
 
-      // Update session with new theme color
+      // Update session with new theme color, and show it to everyone in the school now.
       req.session.themeColor = orgThemeColor;
+      require("../utils/orgTheme").forgetOrgThemeColor(organizationId);
 
       req.flash("success", "Website style updated successfully.");
       return res.redirect(withThemeApplied);

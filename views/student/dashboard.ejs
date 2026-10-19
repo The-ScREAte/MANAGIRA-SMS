@@ -1095,7 +1095,7 @@
                     <% (gradeAssessmentHeaders || []).forEach((assessment) => { %>
                       <% const scoreValue = item.assessment_scores ? item.assessment_scores[assessment.assessment_key] : null; %>
                       <td>
-                        <%= scoreValue !== null && scoreValue !== undefined ? Number(scoreValue).toFixed(2) : '-' %>
+                        <%= scoreValue === null || scoreValue === undefined ? '-' : (typeof scoreValue === 'string' && !Number.isFinite(Number(scoreValue)) ? scoreValue : Number(scoreValue).toFixed(2)) %>
                       </td>
                     <% }) %>
                   </tr>

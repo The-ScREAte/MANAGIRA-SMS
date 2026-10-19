@@ -642,6 +642,7 @@
       termsUsed: a.terms_used || 1,
       locked: Boolean(a.is_locked),
       obsolete: Boolean(a.is_obsolete),
+      results: a.is_choice ? ('Choice: ' + a.choice_summary + (a.choice_counts ? ' (with points)' : ' (not in totals)')) : 'Score',
       classes: (a.assigned_classes || []).map((c) => ({ name: c.class_name, subjects: (c.subjects || []).filter(Boolean) })),
     }));
   %>
@@ -683,8 +684,8 @@
                 data-classes="<%= (a.assigned_classes || []).map((c) => c.class_name).join('|') %>">
               <td class="ws-card-title"><% if (a.is_obsolete) { %><s class="ux-struck" title="Obsolete: kept on report cards, closed to new scores"><strong><%= a.title %></strong></s><% } else { %><strong><%= a.title %></strong><% } %></td>
               <td><span class="ws-pill <%= st === 'Open' ? 'ws-pill--green' : st === 'Locked' || st === 'Closed' ? 'ws-pill--amber' : '' %>"><%= st %></span></td>
-              <td><%= a.weight %>%</td>
-              <td><%= Number(a.max_score) %></td>
+              <td><%= a.is_choice && !a.choice_counts ? '—' : a.weight + '%' %></td>
+              <td><% if (a.is_choice) { %><span class="ws-pill" title="Results are recorded as a choice"><%= a.choice_summary %></span><% } else { %><%= Number(a.max_score) %><% } %></td>
               <td><%= a.category %></td>
               <td><span class="ws-pill"><%= (a.assigned_classes || []).length %></span></td>
             </tr>
@@ -811,7 +812,7 @@
     function render(a) {
       var pill = a.status === 'Open' ? 'ws-pill--green' : a.status === 'Turned off' ? '' : 'ws-pill--amber';
       var html = '<div class="ux-who"><div><div class="ux-who__name">' + (a.obsolete ? '<s class="ux-struck">' + esc(a.title) + '</s>' : esc(a.title)) + '</div><span class="ws-pill ' + pill + '">' + esc(a.status) + '</span></div></div>' +
-        '<section class="ux-sec"><h3>Settings</h3>' + kv('Weight', a.weight + '%') + kv('Score out of', Number(a.maxScore)) + kv('Scaled to', a.scale) + kv('Category', a.category) + kv('Used in', a.termsUsed + (a.termsUsed === 1 ? ' term' : ' terms')) + '</section>' +
+        '<section class="ux-sec"><h3>Settings</h3>' + kv('Results', a.results) + (a.results.indexOf('not in totals') === -1 ? kv('Weight', a.weight + '%') + kv('Score out of', Number(a.maxScore)) : '') + kv('Scaled to', a.scale) + kv('Category', a.category) + kv('Used in', a.termsUsed + (a.termsUsed === 1 ? ' term' : ' terms')) + '</section>' +
         '<section class="ux-sec"><h3>Score entry</h3>' + kv('Status', a.status) + kv('Opens', a.windowStart) + kv('Closes', a.windowEnd) + kv('Scores saved', a.scores) + '</section>' +
         '<section class="ux-sec"><h3>Classes <span class="ux-count">' + a.classes.length + '</span></h3>' +
           a.classes.map(function (c) { return '<div class="ux-class"><strong>' + esc(c.name) + '</strong><span>' + esc(c.subjects.join(', ') || 'No subjects') + '</span></div>'; }).join('') + '</section>' +

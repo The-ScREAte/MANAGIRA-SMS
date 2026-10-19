@@ -717,7 +717,7 @@
               assessment = subject.assessments.find(a => a.title ===
               assessmentTitle.title); %>
               <td>
-                <%= assessment ? (typeof assessment.score === 'number' ?
+                <%= assessment && assessment.choice_label ? assessment.choice_label : assessment ? (typeof assessment.score === 'number' ?
                 assessment.score.toFixed(2) : (assessment.score !== null &&
                 assessment.score !== undefined ? assessment.score : '-')) : ''
                 %>

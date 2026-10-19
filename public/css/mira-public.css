@@ -103,8 +103,30 @@
 .mira-page .mira-demo-suggestion-icon { flex: 0 0 18px; margin-top: 2px; color: var(--mira-demo-accent); }
 .mira-page .mira-demo-suggestion-icon svg { display: block; width: 18px; height: 18px; }
 .mira-page .mira-demo-suggestion p { margin: 0; color: var(--mira-demo-muted); font-size: .8125rem; line-height: 1.5; }
-.mira-page .mira-demo-image-frame { display: block; margin-top: 16px; }
-.mira-page .mira-demo-image-frame img { display: block; width: 100%; height: auto; border-radius: 4px; }
+/* The dashboard preview: the top of it, fading out, so the panel stays the
+   same size as the other two examples (the link opens the whole thing). */
+.mira-page .mira-demo-image-frame {
+  position: relative;
+  display: block;
+  margin-top: 16px;
+  max-height: 340px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--mira-demo-border);
+}
+.mira-page .mira-demo-image-frame::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 96px;
+  background: linear-gradient(to bottom, transparent, var(--mira-demo-surface, #15181d));
+  pointer-events: none;
+}
+.mira-page .mira-demo-image-frame img { display: block; width: 100%; height: auto; }
+@media (max-width: 600px) {
+  .mira-page .mira-demo-image-frame { max-height: 230px; }
+  .mira-page .mira-demo-image-frame::after { height: 72px; }
+}
 .mira-page .mira-demo-image-link {
   display: inline-flex;
   align-items: center;

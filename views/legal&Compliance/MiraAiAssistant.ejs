@@ -245,8 +245,11 @@
   .mira-feature-card { border-color: rgba(255,255,255,.08); background: #22252a; }
   .mira-feature-card p, .mira-trust-list li { color: #b0b3b8; }
   .mira-feature-card .mira-feature-icon, .mira-trust-icon { background: rgba(46,255,251,.08); color: #2efffb; }
-  .cta-card { max-width: none; padding: 72px 24px; margin-top: 0; margin-bottom: 0; background: #22252a; }
-  .cta-card h3 { font-size: 1.5rem; }
+  /* Closing call to action: part of the page (not a separate grey band), with
+     a thin line above it, so it doesn't stack on the footer's own one. */
+  .cta-card { max-width: none; padding: 64px 24px 72px; margin-top: 0; margin-bottom: 0; background: #000; border-top: 1px solid rgba(255,255,255,.08) !important; }
+  .cta-card h3 { font-size: 1.5rem; letter-spacing: -.01em; }
+  .cta-card p { max-width: 520px; margin-left: auto; margin-right: auto; color: #9aa0a8; }
 
   .mira-showcase-section {
     position: relative;
@@ -326,6 +329,12 @@
   }
 
   @media (max-width: 600px) {
+    .mira-capabilities-section { padding-top: 56px !important; padding-bottom: 48px !important; }
+    .mira-capabilities-subtitle { margin-bottom: 28px !important; font-size: .98rem !important; }
+    .mira-capability { padding: 20px 2px !important; }
+    .mira-capability-icon { margin-bottom: 12px !important; }
+    .cta-card { padding: 48px 20px 56px !important; margin: 0 !important; border-radius: 0 !important; }
+    .cta-card h3 { font-size: 1.3rem; }
     .mira-hero-section { min-height: 230px; padding: 44px 18px 8px; justify-content: flex-end; }
     .mira-hero-logo { width: 94vw; }
     .mira-hero-copy h1 { font-size: 1rem; }

@@ -2852,6 +2852,22 @@
                         </table>
                     </div>
 
+                    <% if (displaySettings.sections.choiceResults !== false && Array.isArray(student.choiceResults) && student.choiceResults.length) { %>
+                    <%# Results recorded as a choice (Yes / No, Pass / Fail ...), set in Report Settings. %>
+                    <div class="subjects choice-results">
+                        <table>
+                            <thead>
+                                <tr><th>Subject</th><th>Assessment</th><th>Result</th></tr>
+                            </thead>
+                            <tbody>
+                                <% student.choiceResults.forEach(function (r) { %>
+                                    <tr><td><%= r.subject %></td><td><%= r.title %></td><td><strong><%= r.choice %></strong></td></tr>
+                                <% }); %>
+                            </tbody>
+                        </table>
+                    </div>
+                    <% } %>
+
                     <% const showGradeTotalRow = displaySettings.sections.gradePresentation && displaySettings.sections.gradePresentation.showNumberTotalOnReport; %>
                     <% const showPromotionRow = activatePromotion && displaySettings.sections.promotion; %>
 
