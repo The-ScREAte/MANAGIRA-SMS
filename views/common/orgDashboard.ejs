@@ -403,6 +403,31 @@
     .od-kpi__value { font-size: 1.2rem; }
   }
 
+  /* Smart fill: school year + numbers share the right column; flat, calm cards */
+  .od-pair { align-items: stretch; }
+  .od-stack { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .od-stack > .od-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; flex: 1; align-content: start; }
+  .od-kpi { background: #fff !important; box-shadow: none !important; border: 1px solid var(--od-line, #e2e8f0) !important; border-left: 3px solid var(--k) !important; border-radius: 12px; padding: 14px 16px; transform: none !important; }
+  a.od-kpi:hover { border-color: color-mix(in srgb, var(--k) 45%, #e2e8f0) !important; border-left-color: var(--k) !important; }
+  .od-kpi__icon { flex-basis: 34px; height: 34px; border-radius: 10px; box-shadow: none; background: color-mix(in srgb, var(--k) 10%, #fff); }
+  .od-kpi__label { font-size: 0.78rem; }
+  .od-kpi__value { font-size: 1.3rem; color: #0f172a; }
+  .od-kpi__note { color: #475569 !important; }
+  .od-kpi__bar { background: #eef2f6; }
+  .od-pair > .od-card { align-self: stretch; }
+  /* Events & announcements */
+  .od-event > details > summary, .od-event > .od-event__row { padding: 12px 6px; border-radius: 10px; }
+  .od-event > details > summary:hover, .od-event__row--link:hover { background: #f8fafc; }
+  .od-event__name { color: #0f172a; }
+  .od-event__meta { color: #475569; }
+  .od-date { border-radius: 10px; min-width: 44px; }
+  .od-event__details { margin-left: 62px !important; }
+  @media (max-width: 480px) {
+    .od-stack > .od-kpis { gap: 10px; }
+    .od-kpi { padding: 12px; }
+    .od-event__details { margin-left: 6px !important; }
+  }
+
   .welcome-page-wrapper { display: flex; justify-content: center; align-items: center; min-height: 60vh; padding: 20px; }
   .org-welcome-card { max-width: 800px; width: 100%; margin: 0 auto; text-align: center; }
 </style>
@@ -669,6 +694,7 @@
           <% } %>
         </section>
 
+        <div class="od-stack">
         <section class="od-card" data-od-section="year" data-od-label="Current school year" aria-label="Current school year">
           <div class="od-card__head">
             <h2 class="od-card__title"><i class="fa-regular fa-calendar" aria-hidden="true"></i> School Year <span class="od-chip"><%= schoolYear.year_label %></span></h2>
@@ -718,24 +744,25 @@
             </div>
           <% } %>
         </section>
-      </div>
 
-      <% if (_kpis.length) { %>
-      <!-- Numbers -->
-      <div class="od-kpis">
-        <% _kpis.forEach(function(k) { const tag = k.href ? 'a' : 'div'; %>
-          <<%= tag %> class="od-kpi od-kpi--<%= k.key %>" data-od-section="kpi-<%= k.key %>" data-od-label="<%= k.label %>"<% if (k.href) { %> href="<%= k.href %>"<% } %>>
-            <span class="od-kpi__icon"><i class="fa-solid <%= k.icon %>" aria-hidden="true"></i></span>
-            <span class="od-kpi__body">
-              <span class="od-kpi__label"><%= k.label %></span>
-              <span class="od-kpi__value"><%= k.value %></span>
-              <% if (k.progress !== null && k.progress !== undefined) { %><span class="od-kpi__bar"><span style="width: <%= Math.min(100, k.progress) %>%"></span></span><% } %>
-              <span class="od-kpi__note"><%= k.note %></span>
-            </span>
-          </<%= tag %>>
-        <% }) %>
+        <% if (_kpis.length) { %>
+        <!-- Numbers: sit under the school year to fill the column -->
+        <div class="od-kpis">
+          <% _kpis.forEach(function(k) { const tag = k.href ? 'a' : 'div'; %>
+            <<%= tag %> class="od-kpi od-kpi--<%= k.key %>" data-od-section="kpi-<%= k.key %>" data-od-label="<%= k.label %>"<% if (k.href) { %> href="<%= k.href %>"<% } %>>
+              <span class="od-kpi__icon"><i class="fa-solid <%= k.icon %>" aria-hidden="true"></i></span>
+              <span class="od-kpi__body">
+                <span class="od-kpi__label"><%= k.label %></span>
+                <span class="od-kpi__value"><%= k.value %></span>
+                <% if (k.progress !== null && k.progress !== undefined) { %><span class="od-kpi__bar"><span style="width: <%= Math.min(100, k.progress) %>%"></span></span><% } %>
+                <span class="od-kpi__note"><%= k.note %></span>
+              </span>
+            </<%= tag %>>
+          <% }) %>
+        </div>
+        <% } %>
+        </div>
       </div>
-      <% } %>
 
       <!-- Events + announcements -->
       <div class="od-pair">
